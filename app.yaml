@@ -1,0 +1,46 @@
+# https://cloud.google.com/appengine/docs/standard/python/config/appref
+
+# application: bridgy-activitypub
+runtime: python27
+threadsafe: yes
+api_version: 1
+default_expiration: 1h
+
+builtins:
+- remote_api: on
+
+libraries:
+- name: ssl
+  version: latest
+- name: webob
+  version: latest
+
+handlers:
+
+# static
+- url: /(static/bootstrap.*\.css)
+  static_files: local/lib/python2.7/site-packages/oauth_dropins/\1
+  upload: local/lib/python2.7/site-packages/oauth_dropins/static/bootstrap.*\.css
+
+- url: /static
+  static_dir: static
+
+- url: /oauth_dropins/static
+  static_dir: local/lib/python2.7/site-packages/oauth_dropins/static
+
+- url: /
+  static_files: static/index.html
+  upload: static/index.html
+
+# dynamic
+- url: /[^/]+
+  script: app.application
+  secure: always
+
+skip_files:
+- ^(.*/)?.*\.py[co]
+- ^(.*/)?.*/RCS/.*
+- ^(.*/)?\.git.*
+- ^(.*/)?.*\.bak$
+- ^(.*/)?(\.?coverage|debian|docs?|examples?|l|pydocs?|python3|ref|samples?|TAGS|tests?)/.*
+- ^local/lib/python2.7/site-packages/setuptools/script\ \(dev\)\.tmpl$

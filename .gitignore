@@ -1,0 +1,7 @@
+.coverage
+datastore.dat*
+/docs/_build/
+/l
+/local
+private_notes
+TAGS
