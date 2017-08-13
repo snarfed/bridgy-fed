@@ -10,6 +10,8 @@ builtins:
 - remote_api: on
 
 libraries:
+- name: lxml
+  version: latest
 - name: ssl
   version: latest
 - name: webob
@@ -33,8 +35,8 @@ handlers:
   upload: static/index.html
 
 # dynamic
-- url: /[^/]+
-  script: app.application
+- url: /[^/]+/?
+  script: activitypub.app
   secure: always
 
 skip_files:
