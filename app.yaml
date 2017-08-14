@@ -1,6 +1,6 @@
 # https://cloud.google.com/appengine/docs/standard/python/config/appref
 
-# application: bridgy-activitypub
+# application: bridgy-federated
 runtime: python27
 threadsafe: yes
 api_version: 1

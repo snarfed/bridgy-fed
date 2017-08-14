@@ -17,7 +17,7 @@ from webmentiontools import send
 
 # https://www.w3.org/TR/activitypub/#retrieving-objects
 CONTENT_TYPE = 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"'
-USER_AGENT = 'bridgy-activitypub (https://activitypub.brid.gy/)'
+USER_AGENT = 'bridgy-federated (https://fed.brid.gy/)'
 DOMAIN_RE = r'([^/]+\.[^/]+)'
 
 class ActorHandler(webapp2.RequestHandler):
