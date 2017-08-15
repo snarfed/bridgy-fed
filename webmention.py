@@ -10,6 +10,7 @@ from granary import microformats2
 import mf2py
 import mf2util
 from oauth_dropins.webutil import util
+import requests
 import webapp2
 
 import activitypub
