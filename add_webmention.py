@@ -9,7 +9,7 @@ import webapp2
 
 import common
 
-LINK_HEADER = '<%s/webmention>; rel="webmention"'
+LINK_HEADER = '<%s>; rel="webmention"'
 
 
 class AddWebmentionHandler(webapp2.RequestHandler):
@@ -31,9 +31,11 @@ class AddWebmentionHandler(webapp2.RequestHandler):
         self.response.status_int = resp.status_code
         self.response.write(resp.content)
 
+        endpoint = LINK_HEADER % (str(self.request.get('endpoint')) or
+                                  self.request.host_url + '/webmention')
         self.response.headers.clear()
         self.response.headers.update(resp.headers)
-        self.response.headers.add('Link', LINK_HEADER % self.request.host_url)
+        self.response.headers.add('Link', endpoint)
 
 
 app = webapp2.WSGIApplication([

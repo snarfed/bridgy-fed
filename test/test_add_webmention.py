@@ -14,6 +14,7 @@ class AddWebmentionTest(unittest.TestCase):
 
     def setUp(self):
         self.resp = requests.Response()
+        self.resp.status_code = 200
         self.resp._content = 'asdf ☕ qwert'
         self.resp.headers = {
             'Link': 'first',
@@ -30,3 +31,10 @@ class AddWebmentionTest(unittest.TestCase):
         self.assertEqual(['bar'], got.headers.getall('Foo'))
         self.assertEqual(['first', '<http://localhost/webmention>; rel="webmention"'],
                          got.headers.getall('Link'))
+
+    def test_endpoint_param(self, mock_get):
+        mock_get.return_value = self.resp
+
+        got = app.get_response('/wm/http://url?endpoint=https://end/point')
+        self.assertEqual(200, got.status_int)
+        self.assertEqual('<https://end/point>; rel="webmention"', got.headers['Link'])
