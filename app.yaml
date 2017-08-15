@@ -35,9 +35,14 @@ handlers:
   upload: static/index.html
 
 # dynamic
-- url: /[^/]+/?
+- url: /[^/]+/?(inbox)?
   script: activitypub.app
-  secure: always
+  # TODO
+  # secure: always
+
+- url: /webmention
+  script: webmention.app
+  # secure: always
 
 skip_files:
 - ^(.*/)?.*\.py[co]

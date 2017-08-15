@@ -12,6 +12,7 @@ import requests
 
 import activitypub
 from activitypub import app
+import common
 
 
 @mock.patch('requests.post')
@@ -34,7 +35,7 @@ class ActivityPubTest(unittest.TestCase):
 
         got = app.get_response('/foo.com')
         self.assertEquals(200, got.status_int)
-        self.assertEquals(activitypub.CONTENT_TYPE, got.headers['Content-Type'])
+        self.assertEquals(activitypub.CONTENT_TYPE_AS2, got.headers['Content-Type'])
         self.assertEquals({
             'objectType' : 'person',
             'displayName': u'Mrs. ☕ Foo',
@@ -73,5 +74,5 @@ class ActivityPubTest(unittest.TestCase):
                 'target': 'http://orig/post',
             },
             allow_redirects=False,
-            headers={'User-Agent': activitypub.USER_AGENT},
+            headers=common.HEADERS,
             verify=False)

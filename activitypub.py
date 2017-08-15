@@ -1,4 +1,3 @@
-# coding=utf-8
 """Handles requests for ActivityPub endpoints: actors, inbox, etc.
 """
 import json
@@ -14,21 +13,25 @@ import requests
 import webapp2
 from webmentiontools import send
 
+import common
+
 
 # https://www.w3.org/TR/activitypub/#retrieving-objects
-CONTENT_TYPE = 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"'
-USER_AGENT = 'bridgy-federated (https://fed.brid.gy/)'
+CONTENT_TYPE_AS2 = 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"'
+CONTENT_TYPE_AS = 'application/activity+json'
+CONNEG_HEADER = {
+    'Accept': '%s; q=0.9, %s; q=0.8' % (CONTENT_TYPE_AS2, CONTENT_TYPE_AS),
+}
+
 DOMAIN_RE = r'([^/]+\.[^/]+)'
+
 
 class ActorHandler(webapp2.RequestHandler):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
 
     def get(self, domain):
         url = 'https://%s/' % domain
-        resp = requests.get(url=url, headers={
-            'User-Agent': USER_AGENT,
-        })
-        resp.raise_for_status()
+        resp = common.requests_get(url)
         mf2 = mf2py.parse(resp.text, url=resp.url)
         logging.info('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
 
@@ -42,7 +45,7 @@ class ActorHandler(webapp2.RequestHandler):
         logging.info('Returning: %s', json.dumps(obj, indent=2))
 
         self.response.headers.update({
-            'Content-Type': CONTENT_TYPE,
+            'Content-Type': CONTENT_TYPE_AS2,
             'Access-Control-Allow-Origin': '*',
         })
         self.response.write(json.dumps(obj, indent=2))
@@ -73,7 +76,7 @@ class InboxHandler(webapp2.RequestHandler):
         for target in targets:
             logging.info('Sending webmention from %s to %s', source, target)
             wm = send.WebmentionSend(source, target)
-            if wm.send(headers={'User-Agent': USER_AGENT}):
+            if wm.send(headers=common.HEADERS):
                 logging.info('Success: %s', wm.response)
             else:
                 logging.warning('Failed: %s', wm.error)
