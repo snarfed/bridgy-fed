@@ -1,4 +1,5 @@
 .coverage
+/.well-known/acme-challenge/
 datastore.dat*
 /docs/_build/
 /l

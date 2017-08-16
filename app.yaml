@@ -30,6 +30,9 @@ handlers:
 - url: /oauth_dropins/static
   static_dir: local/lib/python2.7/site-packages/oauth_dropins/static
 
+- url: /.well-known
+  static_dir: .well-known
+
 - url: /
   static_files: static/index.html
   upload: static/index.html
