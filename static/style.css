@@ -1,0 +1,92 @@
+#intro {
+  margin-top: 2em;
+}
+
+@media (max-width: 600px) {
+  #logo {
+    float: left;
+  }
+  #header {
+    float: none;
+    width: 100%;
+  }
+}
+
+.big {
+  font-size: 1.5em;
+}
+
+.small {
+  font-size: .8em;
+}
+
+#header {
+  text-align: left;
+}
+
+#header br {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  #header br {
+    display: inline;
+  }
+}
+
+#title {
+  font-weight: normal;
+}
+
+.row {
+  text-align: center;
+}
+
+#top {
+  margin-bottom: 1em;
+}
+
+label {
+  /* override Bootstrap style */
+  font-weight: 300;
+}
+
+#sites li {
+  display: inline;
+}
+
+#sites li::before {
+  content: "\2022 \00A0";
+}
+
+#sites li:first-child::before {
+  content: none;
+}
+
+#footer {
+  margin-top: 2em;
+  margin-bottom: 1em;
+  text-align: right;
+}
+
+.shadow {
+  -moz-box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+  -webkit-box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+  /* CSS3 */
+  box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+  /* For IE 8 */
+  -ms-filter: progid:DXImageTransform.Microsoft.Shadow(Strength=2,Direction=135,Color='#666666');
+  /* For IE 5.5 - 7 */
+  filter: progid:DXImageTransform.Microsoft.Shadow(Strength=2,Direction=135,Color='#666666');
+}
+
+.shadow:hover {
+  -moz-box-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+  -webkit-box-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+  /* CSS3 */
+  box-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+  /* For IE 8 */
+  -ms-filter: progid:DXImageTransform.Microsoft.Shadow(Strength=2,Direction=135,Color='#222222');
+  /* For IE 5.5 - 7 */
+  filter: progid:DXImageTransform.Microsoft.Shadow(Strength=2,Direction=135,Color='#222222');
+}
