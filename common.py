@@ -8,7 +8,7 @@ from webob import exc
 
 
 HEADERS = {
-    'User-Agent': 'bridgy-federated (https://fed.brid.gy/)',
+    'User-Agent': 'Bridgy Fed (https://fed.brid.gy/)',
 }
 
 

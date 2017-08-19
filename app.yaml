@@ -12,6 +12,8 @@ builtins:
 libraries:
 - name: lxml
   version: latest
+- name: pycrypto
+  version: latest
 - name: ssl
   version: latest
 - name: webob
