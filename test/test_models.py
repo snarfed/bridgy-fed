@@ -28,3 +28,10 @@ class ModelsTest(unittest.TestCase):
 
         same = models.MagicKey.get_or_create('x@y.z')
         self.assertEquals(same, key)
+
+    def test_href(self):
+        key = models.MagicKey.get_or_create('x@y.z')
+        href = key.href()
+        self.assertTrue(href.startswith('data:application/magic-public-key,RSA.'), href)
+        self.assertIn(key.mod, href)
+        self.assertIn(key.public_exponent, href)
