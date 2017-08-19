@@ -27,7 +27,7 @@ class ActorHandler(webapp2.RequestHandler):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
 
     def get(self, domain):
-        url = 'https://%s/' % domain
+        url = 'http://%s/' % domain
         resp = common.requests_get(url)
         mf2 = mf2py.parse(resp.text, url=resp.url)
         logging.info('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))

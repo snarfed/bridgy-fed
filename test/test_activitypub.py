@@ -34,6 +34,7 @@ class ActivityPubTest(unittest.TestCase):
         mock_get.return_value = resp
 
         got = app.get_response('/foo.com')
+        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS)
         self.assertEquals(200, got.status_int)
         self.assertEquals(activitypub.CONTENT_TYPE_AS2, got.headers['Content-Type'])
         self.assertEquals({
@@ -49,7 +50,6 @@ class ActivityPubTest(unittest.TestCase):
         resp.status_code = 200
         resp._text = html
         resp._content = html.encode('utf-8')
-        resp.url = 'https://foo.com/'
         mock_get.return_value = resp
 
         resp = requests.Response()
@@ -65,6 +65,8 @@ class ActivityPubTest(unittest.TestCase):
             'inReplyTo': 'http://orig/post',
             'cc': ['https://www.w3.org/ns/activitystreams#Public'],
         }))
+        mock_get.assert_called_once_with(
+            'http://orig/post', headers=common.HEADERS, verify=False)
         self.assertEquals(200, got.status_int)
 
         mock_post.assert_called_once_with(
