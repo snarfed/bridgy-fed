@@ -21,13 +21,14 @@ import models
 
 class UserHandler(handlers.XrdOrJrdHandler):
     """Serves /@[DOMAIN], fetches its mf2, converts to WebFinger, and serves."""
+    JRD_TEMPLATE = False
 
     def template_prefix(self):
         return 'templates/webfinger_user'
 
     def template_vars(self, domain):
         # TODO: unify with activitypub
-        url = 'https://%s/' % domain
+        url = 'http://%s/' % domain
         resp = common.requests_get(url)
         mf2 = mf2py.parse(resp.text, url=resp.url)
         logging.info('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
@@ -35,13 +36,28 @@ class UserHandler(handlers.XrdOrJrdHandler):
         hcard = mf2util.representative_hcard(mf2, resp.url)
         logging.info('Representative h-card: %s', json.dumps(hcard, indent=2))
 
-        key = models.MagicKey.get_or_create('@%s' % domain)
-        props = hcard['properties']
-        return {
-            'urls': props['url'],
-            'avatars': props['photo'],
-            'magic_public_key': key.href(),
-        }
+        uri = '@%s' % domain
+        key = models.MagicKey.get_or_create(uri)
+        props = hcard.get('properties', {})
+        urls = sorted(set(props.get('url', []) + [resp.url]))
+
+        # appengine_config.HOST
+        return util.trim_nulls({
+            'subject': 'acct:' + uri,
+            'aliases': urls,
+            'magic_keys': [{'value': key.href()}],
+            'links': [{
+                'rel': 'http://webfinger.net/rel/profile-page',
+                'type': 'text/html',
+                'href': url,
+            } for url in urls] + [{
+                'rel': 'http://webfinger.net/rel/avatar',
+                'href': url,
+            } for url in props.get('photos', [])] + [{
+                'rel': 'magic-public-key',
+                'href': key.href(),
+            }]
+        })
 
 
 app = webapp2.WSGIApplication([

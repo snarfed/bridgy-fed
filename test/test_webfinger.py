@@ -3,6 +3,7 @@
 
 TODO: test error handling
 """
+from __future__ import unicode_literals
 import json
 import unittest
 
@@ -12,6 +13,8 @@ from google.appengine.ext import testbed
 import mock
 import requests
 
+import common
+import models
 from webfinger import app
 
 
@@ -69,35 +72,39 @@ class WebFingerTest(unittest.TestCase):
         resp.url = 'https://foo.com/'
         mock_get.return_value = resp
 
-        got = app.get_response('/@foo.com?format=json')
+        got = app.get_response('/@foo.com', headers={'Accept': 'application/json'})
+        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS)
         self.assertEquals(200, got.status_int)
         self.assertEquals('application/json; charset=utf-8',
                           got.headers['Content-Type'])
-        print got.body
+
+        key = models.MagicKey.get_by_id('@foo.com')
+
         self.assertEquals({
             'subject': 'acct:@foo.com',
             'aliases': [
-                'https://foo.com/about-me',
                 'https://foo.com/',
+                'https://foo.com/about-me',
             ],
-            'magic_keys': [{
-                'rel': 'magic-public-key',
-                'href': 'data:application/magic-public-key,RSA. ...',
-            }],
+            'magic_keys': [{'value': key.href()}],
             'links': [{
+                'rel': 'http://webfinger.net/rel/profile-page',
+                'type': 'text/html',
+                'href': 'https://foo.com/'
+            }, {
                 'rel': 'http://webfinger.net/rel/profile-page',
                 'type': 'text/html',
                 'href': 'https://foo.com/about-me'
             }, {
-                'rel': 'http://webfinger.net/rel/avatar',
-                'href': 'https://foo.com/me.jpg'
-            }, {
-                'rel': 'salmon',
-                'href': 'http://localhost/salmon/23507'
-            }, {
                 'rel': 'magic-public-key',
-                'href': 'data:application/magic-public-key,RSA. ...'
+                'href': key.href(),
             # TODO
+            # }, {
+            #     'rel': 'http://webfinger.net/rel/avatar',
+            #     'href': 'https://foo.com/me.jpg'
+            # }, {
+            #     'rel': 'salmon',
+            #     'href': 'http://localhost/salmon/23507'
             # }, {
             #     'rel': 'http://schemas.google.com/g/2010#updates-from',
             #     'type': 'application/atom+xml',
