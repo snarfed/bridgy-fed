@@ -119,6 +119,12 @@ class WebFingerTest(unittest.TestCase):
             }]
         }, json.loads(got.body))
 
+        # check that magic key is persistent
+        again = json.loads(app.get_response(
+            '/@foo.com', headers={'Accept': 'application/json'}).body)
+        self.assertEquals(key.href(), again['magic_keys'][0]['value'])
+        self.assertEquals(key.href(), again['links'][2]['href'])
+
     @mock.patch('requests.get')
     def test_user_handler_no_hcard(self, mock_get):
         html = """
