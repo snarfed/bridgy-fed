@@ -22,8 +22,6 @@ CONNEG_HEADER = {
     'Accept': '%s; q=0.9, %s; q=0.8' % (CONTENT_TYPE_AS2, CONTENT_TYPE_AS),
 }
 
-DOMAIN_RE = r'([^/]+\.[^/]+)'
-
 
 class ActorHandler(webapp2.RequestHandler):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
@@ -87,6 +85,6 @@ class InboxHandler(webapp2.RequestHandler):
 
 
 app = webapp2.WSGIApplication([
-    (r'/%s/?' % DOMAIN_RE, ActorHandler),
-    (r'/%s/inbox' % DOMAIN_RE, InboxHandler),
+    (r'/%s/?' % common.DOMAIN_RE, ActorHandler),
+    (r'/%s/inbox' % common.DOMAIN_RE, InboxHandler),
 ], debug=appengine_config.DEBUG)
