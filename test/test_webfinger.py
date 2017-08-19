@@ -83,18 +83,18 @@ class WebFingerTest(unittest.TestCase):
         self.assertEquals({
             'subject': 'acct:@foo.com',
             'aliases': [
-                'https://foo.com/',
                 'https://foo.com/about-me',
+                'https://foo.com/',
             ],
             'magic_keys': [{'value': key.href()}],
             'links': [{
                 'rel': 'http://webfinger.net/rel/profile-page',
                 'type': 'text/html',
-                'href': 'https://foo.com/'
+                'href': 'https://foo.com/about-me'
             }, {
                 'rel': 'http://webfinger.net/rel/profile-page',
                 'type': 'text/html',
-                'href': 'https://foo.com/about-me'
+                'href': 'https://foo.com/'
             }, {
                 'rel': 'magic-public-key',
                 'href': key.href(),

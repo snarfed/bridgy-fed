@@ -43,7 +43,7 @@ representative h-card</a> on %s""" % resp.url)
         uri = '@%s' % domain
         key = models.MagicKey.get_or_create(uri)
         props = hcard.get('properties', {})
-        urls = sorted(set(props.get('url', []) + [resp.url]))
+        urls = util.dedupe_urls(props.get('url', []) + [resp.url])
 
         # appengine_config.HOST
         return util.trim_nulls({
