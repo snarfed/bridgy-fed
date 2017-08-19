@@ -1,6 +1,7 @@
 # coding=utf-8
 """Unit tests for add_webmention.py.
 """
+from __future__ import unicode_literals
 import unittest
 
 import mock
@@ -15,7 +16,7 @@ class AddWebmentionTest(unittest.TestCase):
     def setUp(self):
         self.resp = requests.Response()
         self.resp.status_code = 200
-        self.resp._content = 'asdf ☕ qwert'
+        self.resp._content = u'asdf ☕ qwert'.encode('utf-8')
         self.resp.headers = {
             'Link': 'first',
             'Foo': 'bar',

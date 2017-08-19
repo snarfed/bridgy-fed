@@ -1,5 +1,6 @@
 # coding=utf-8
 """Unit tests for models.py."""
+from __future__ import unicode_literals
 import unittest
 
 from google.appengine.datastore import datastore_stub_util
