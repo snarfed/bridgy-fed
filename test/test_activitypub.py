@@ -45,6 +45,28 @@ class ActivityPubTest(unittest.TestCase):
             'inbox': 'http://localhost/foo.com/inbox',
         }, json.loads(got.body))
 
+    def test_actor_handler_no_hcard(self, mock_get, _):
+        html = """
+<body>
+<div class="h-entry">
+  <p class="e-content">foo bar</p>
+</div>
+</body>
+"""
+        resp = requests.Response()
+        resp.status_code = 200
+        resp._text = html
+        resp._content = html.encode('utf-8')
+        resp.encoding = 'utf-8'
+        mock_get.return_value = resp
+
+        got = app.get_response('/foo.com')
+        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS)
+        self.assertEquals(400, got.status_int)
+        self.assertIn('representative h-card', got.body)
+        # TODO
+        # self.assertEquals('text/html', got.headers['Content-Type'])
+
     def test_inbox_reply(self, mock_get, mock_post):
         html = '<html><head><link rel="webmention" href="/webmention"></html>'
         resp = requests.Response()

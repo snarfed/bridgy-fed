@@ -35,6 +35,10 @@ class UserHandler(handlers.XrdOrJrdHandler):
 
         hcard = mf2util.representative_hcard(mf2, resp.url)
         logging.info('Representative h-card: %s', json.dumps(hcard, indent=2))
+        if not hcard:
+            self.abort(400, """\
+Couldn't find a <a href="http://microformats.org/wiki/representative-hcard-parsing">\
+representative h-card</a> on %s""" % resp.url)
 
         uri = '@%s' % domain
         key = models.MagicKey.get_or_create(uri)

@@ -118,3 +118,26 @@ class WebFingerTest(unittest.TestCase):
             #     'template': 'https://mastodon.technology/authorize_follow?acct={uri}'
             }]
         }, json.loads(got.body))
+
+    @mock.patch('requests.get')
+    def test_user_handler_no_hcard(self, mock_get):
+        html = """
+<body>
+<div class="h-entry">
+  <p class="e-content">foo bar</p>
+</div>
+</body>
+"""
+        resp = requests.Response()
+        resp.status_code = 200
+        resp._text = html
+        resp._content = html.encode('utf-8')
+        resp.encoding = 'utf-8'
+        mock_get.return_value = resp
+
+        got = app.get_response('/@foo.com')
+        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS)
+        self.assertEquals(400, got.status_int)
+        self.assertIn('representative h-card', got.body)
+        # TODO
+        # self.assertEquals('text/html', got.headers['Content-Type'])
