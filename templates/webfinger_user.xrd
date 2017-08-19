@@ -1,0 +1,37 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<XRD xmlns='http://docs.oasis-open.org/ns/xri/xrd-1.0'>
+
+    <Subject>{{ uri }}</Subject>
+    <Alias>{{ urls[0] }}</Alias>
+
+    {% for url in urls %}
+    <Link rel='http://webfinger.net/rel/profile-page' type='text/html'
+          href='{{ url }}' />
+    {% endfor %}
+
+    {% if magic_public_key %}
+    <Property xmlns:mk="http://salmon-protocol.org/ns/magic-key"
+              type="http://salmon-protocol.org/ns/magic-key">
+      {{ magic_public_key }}
+    </Property>
+    <Link rel='magic-public-key'
+          href='{{ magic_public_key }}' />
+    {% endif %}
+
+    {% for avatar in avatars %}
+    <Link rel='http://webfinger.net/rel/avatar'
+          href='{{ avatar }}' />
+    {% endfor %}
+
+    {% if poco_url %}
+    <Link rel='http://portablecontacts.net/spec/1.0'
+          href='{{ poco_url }}' />
+    {% endif %}
+
+    {% if activitystreams_url %}
+    <Link rel='http://ns.opensocial.org/2008/opensocial/activitystreams'
+          href='{{ activitystreams_url }}' />
+    <Link rel='http://activitystrea.ms/spec/1.0'
+          href='{{ activitystreams_url }}' />
+    {% endif %}
+</XRD>

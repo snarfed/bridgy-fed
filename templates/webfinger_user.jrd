@@ -1,0 +1,47 @@
+{
+"subject": "{{ uri }}",
+"aliases": ["{{ urls|join('\", \"') }}"],
+
+{% if magic_public_key %}
+"magic_keys": [{"value": "{{ magic_public_key }}"}],
+{% endif %}
+
+"links": [
+  {% for url in urls %}{
+    "rel": "http://webfinger.net/rel/profile-page",
+    "type": "text/html",
+    "href": "{{ url }}"
+  },{% endfor %}
+
+  {% if magic_public_key %}
+  {
+    "rel": "magic-public-key",
+    "href": "{{ magic_public_key }}"
+  },
+  {% endif %}
+
+  {% for avatar in avatars %}{
+    "rel": "http://webfinger.net/rel/avatar",
+    "href": "{{ avatar }}"
+  }{% endfor %}
+
+  {% if poco_url %}
+  {
+    "rel": "http://portablecontacts.net/spec/1.0",
+    "href": "{{ poco_url }}"
+  },
+  {% endif %}
+
+  {% if activitystreams_url %}
+  {
+    "rel": "http://ns.opensocial.org/2008/opensocial/activitystreams",
+    "href": "{{ activitystreams_url }}"
+  },
+
+  {
+    "rel": "http://activitystrea.ms/spec/1.0",
+    "href": "{{ activitystreams_url }}"
+  }
+  {% endif %}
+]
+}

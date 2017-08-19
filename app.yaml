@@ -10,6 +10,8 @@ builtins:
 - remote_api: on
 
 libraries:
+- name: jinja2
+  version: latest
 - name: lxml
   version: latest
 - name: pycrypto
@@ -57,8 +59,12 @@ handlers:
   script: webmention.app
   secure: always
 
-- url: /[^/]+/?(inbox)?
+- url: /[^@/]+/?(inbox)?
   script: activitypub.app
+  secure: always
+
+- url: /(acct:)?@[^/]+/?
+  script: webfinger.app
   secure: always
 
 skip_files:

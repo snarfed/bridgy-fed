@@ -5,17 +5,30 @@ TODO: test error handling
 """
 import json
 import unittest
-import urllib
+
+from google.appengine.datastore import datastore_stub_util
+from google.appengine.ext import testbed
 
 import mock
 import requests
 
-import webfinger
 from webfinger import app
-import common
 
 
 class WebFingerTest(unittest.TestCase):
+
+    maxDiff = None
+
+    # TODO: unify with test_models
+    def setUp(self):
+        self.testbed = testbed.Testbed()
+        self.testbed.activate()
+        hrd_policy = datastore_stub_util.PseudoRandomHRConsistencyPolicy(probability=.5)
+        self.testbed.init_datastore_v3_stub(consistency_policy=hrd_policy)
+        self.testbed.init_memcache_stub()
+
+    def tearDown(self):
+        self.testbed.deactivate()
 
     def test_host_meta_handler_xrd(self):
         got = app.get_response('/.well-known/host-meta')
@@ -37,3 +50,64 @@ class WebFingerTest(unittest.TestCase):
         self.assertEquals('application/json; charset=utf-8',
                           got.headers['Content-Type'])
         self.assertTrue(got.body.startswith('{'), got.body)
+
+    @mock.patch('requests.get')
+    def test_user_handler(self, mock_get):
+        html = u"""
+<body>
+<a class="h-card" rel="me" href="/about-me">
+  <img class="u-photo" src="/me.jpg" />
+  Mrs. ☕ Foo
+</a>
+</body>
+"""
+        resp = requests.Response()
+        resp.status_code = 200
+        resp._text = html
+        resp._content = html.encode('utf-8')
+        resp.encoding = 'utf-8'
+        resp.url = 'https://foo.com/'
+        mock_get.return_value = resp
+
+        got = app.get_response('/@foo.com?format=json')
+        self.assertEquals(200, got.status_int)
+        self.assertEquals('application/json; charset=utf-8',
+                          got.headers['Content-Type'])
+        print got.body
+        self.assertEquals({
+            'subject': 'acct:@foo.com',
+            'aliases': [
+                'https://foo.com/about-me',
+                'https://foo.com/',
+            ],
+            'magic_keys': [{
+                'rel': 'magic-public-key',
+                'href': 'data:application/magic-public-key,RSA. ...',
+            }],
+            'links': [{
+                'rel': 'http://webfinger.net/rel/profile-page',
+                'type': 'text/html',
+                'href': 'https://foo.com/about-me'
+            }, {
+                'rel': 'http://webfinger.net/rel/avatar',
+                'href': 'https://foo.com/me.jpg'
+            }, {
+                'rel': 'salmon',
+                'href': 'http://localhost/salmon/23507'
+            }, {
+                'rel': 'magic-public-key',
+                'href': 'data:application/magic-public-key,RSA. ...'
+            # TODO
+            # }, {
+            #     'rel': 'http://schemas.google.com/g/2010#updates-from',
+            #     'type': 'application/atom+xml',
+            #     'href': 'https://mastodon.technology/users/snarfed.atom'
+            # }, {
+            #     'rel': 'self',
+            #     'type': 'application/activity+json',
+            #     'href': 'https://mastodon.technology/users/snarfed'
+            # }, {
+            #     'rel': 'http://ostatus.org/schema/1.0/subscribe',
+            #     'template': 'https://mastodon.technology/authorize_follow?acct={uri}'
+            }]
+        }, json.loads(got.body))
