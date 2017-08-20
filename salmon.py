@@ -1,4 +1,7 @@
 """Handles requests for Salmon endpoints: actors, inbox, etc.
+
+https://github.com/salmon-protocol/salmon-protocol/blob/master/draft-panzer-salmon-00.html
+https://github.com/salmon-protocol/salmon-protocol/blob/master/draft-panzer-magicsig-01.html
 """
 import json
 import logging
