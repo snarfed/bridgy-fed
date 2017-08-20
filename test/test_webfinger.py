@@ -22,7 +22,7 @@ class WebFingerTest(unittest.TestCase):
 
     maxDiff = None
 
-    # TODO: unify with test_models
+    # TODO: unify with test_models, test_salmon
     def setUp(self):
         self.testbed = testbed.Testbed()
         self.testbed.activate()
