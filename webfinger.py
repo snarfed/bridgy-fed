@@ -45,7 +45,6 @@ representative h-card</a> on %s""" % resp.url)
         props = hcard.get('properties', {})
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])
 
-        # appengine_config.HOST
         return util.trim_nulls({
             'subject': 'acct:' + uri,
             'aliases': urls,
@@ -57,9 +56,12 @@ representative h-card</a> on %s""" % resp.url)
             } for url in urls] + [{
                 'rel': 'http://webfinger.net/rel/avatar',
                 'href': url,
-            } for url in props.get('photos', [])] + [{
+            } for url in props.get('photo', [])] + [{
                 'rel': 'magic-public-key',
                 'href': key.href(),
+            }, {
+                'rel': 'salmon',
+                'href': '%s/@foo.com/salmon' % self.request.host_url
             }]
         })
 

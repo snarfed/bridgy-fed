@@ -96,15 +96,15 @@ class WebFingerTest(unittest.TestCase):
                 'type': 'text/html',
                 'href': 'https://foo.com/'
             }, {
+                'rel': 'http://webfinger.net/rel/avatar',
+                'href': 'https://foo.com/me.jpg'
+            }, {
                 'rel': 'magic-public-key',
                 'href': key.href(),
+            }, {
+                'rel': 'salmon',
+                'href': 'http://localhost/@foo.com/salmon'
             # TODO
-            # }, {
-            #     'rel': 'http://webfinger.net/rel/avatar',
-            #     'href': 'https://foo.com/me.jpg'
-            # }, {
-            #     'rel': 'salmon',
-            #     'href': 'http://localhost/salmon/23507'
             # }, {
             #     'rel': 'http://schemas.google.com/g/2010#updates-from',
             #     'type': 'application/atom+xml',
@@ -123,7 +123,9 @@ class WebFingerTest(unittest.TestCase):
         again = json.loads(app.get_response(
             '/@foo.com', headers={'Accept': 'application/json'}).body)
         self.assertEquals(key.href(), again['magic_keys'][0]['value'])
-        self.assertEquals(key.href(), again['links'][2]['href'])
+
+        links = {l['rel']: l['href'] for l in again['links']}
+        self.assertEquals(key.href(), links['magic-public-key'])
 
     @mock.patch('requests.get')
     def test_user_handler_no_hcard(self, mock_get):
