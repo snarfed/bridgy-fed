@@ -2,14 +2,19 @@
 """
 import json
 import logging
+from xml.etree import ElementTree
 
 import appengine_config
 
-from oauth_dropins.webutil import util
+from django_salmon import magicsigs, utils
 import webapp2
 from webmentiontools import send
 
 import common
+
+# from django_salmon.feeds
+ATOM_NS = 'http://www.w3.org/2005/Atom'
+ATOM_THREADING_NS = 'http://purl.org/syndication/thread/1.0'
 
 
 class SlapHandler(webapp2.RequestHandler):
@@ -18,22 +23,45 @@ class SlapHandler(webapp2.RequestHandler):
     # TODO: unify with activitypub
     def post(self, domain):
         logging.info('Got: %s', self.request.body)
-        try:
-            pass # TODO
-        except (TypeError, ValueError):
-            msg = "Couldn't parse body as XML magic envelope"
-            logging.error(msg, exc_info=True)
-            self.abort(400, msg)
 
-        obj = obj.get('object') or obj
-        source = obj.get('url')
+        parsed = utils.parse_magic_envelope(self.request.body)
+        data = utils.decode(parsed['data'])
+        logging.info('Decoded: %s', data)
+
+        # verify signature
+        author = utils.parse_author_uri_from_atom(data)
+        if ':' not in author:
+            author = 'acct:%s' % author
+        elif not author.startswith('acct:'):
+            self.error('Author URI %s has unsupported scheme; expected acct:' % author)
+
+        logging.info('Fetching Salmon key for %s' % author)
+        if not magicsigs.verify(author, data, parsed['sig']):
+            self.error('Could not verify magic signature.')
+        logging.info('Verified magic signature.')
+
+        # verify that the timestamp is recent (required by spec)
+        updated = utils.parse_updated_from_atom(data)
+        if not utils.verify_timestamp(updated):
+            self.error('Timestamp is more than 1h old.')
+
+        # find webmention source and target
+        source = None
+        targets = []
+        for elem in ElementTree.fromstring(data):
+            if elem.tag == utils.normalize('link', ATOM_NS):
+                source = elem.attrib.get('href').strip()
+            elif elem.tag == utils.normalize('in-reply-to', ATOM_THREADING_NS):
+                target = elem.attrib.get('ref') or elem.text
+                if target and target not in targets:
+                    targets.append(target.strip())
+
         if not source:
-            self.abort(400, "Couldn't find original post URL")
-
-        targets = util.get_list(obj, 'inReplyTo') + util.get_list(obj, 'like')
+            self.error("Couldn't find post URL (link element)")
         if not targets:
-            self.abort(400, "Couldn't find target URL (inReplyTo or object)")
+            self.error("Couldn't find target URL (thr:in-reply-to or TODO)")
 
+        # send webmentions!
         errors = []
         for target in targets:
             logging.info('Sending webmention from %s to %s', source, target)
@@ -47,6 +75,10 @@ class SlapHandler(webapp2.RequestHandler):
         if errors:
             self.abort(errors[0].get('http_status') or 400,
                 'Errors:\n' + '\n'.join(json.dumps(e, indent=2) for e in errors))
+
+    def error(self, msg):
+        logging.info(msg)
+        self.abort(400, msg)
 
 
 app = webapp2.WSGIApplication([

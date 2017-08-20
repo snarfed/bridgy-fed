@@ -4,7 +4,6 @@
 TODO: test error handling
 """
 from __future__ import unicode_literals
-import json
 import unittest
 import urllib
 
@@ -12,14 +11,12 @@ from google.appengine.datastore import datastore_stub_util
 from google.appengine.ext import testbed
 
 from django_salmon import magicsigs
-# from django_salmon import utils
 import mock
 from oauth_dropins.webutil import testutil
 import requests
 
 import common
 import models
-import salmon
 from salmon import app
 
 
@@ -38,11 +35,10 @@ class SalmonTest(unittest.TestCase):
     def tearDown(self):
         self.testbed.deactivate()
 
-    @unittest.skip('in progress')
     def test_slap(self, mock_urlopen, mock_get, mock_post):
         # salmon magic key discovery. first host-meta, then webfinger
         key = models.MagicKey.get_or_create('alice')
-        mock_urlopen.side_effects = [
+        mock_urlopen.side_effect = [
             testutil.UrlopenResult(200, """\
 <?xml version='1.0' encoding='UTF-8'?>
 <XRD xmlns='http://docs.oasis-open.org/ns/xri/xrd-1.0'>
@@ -53,7 +49,7 @@ class SalmonTest(unittest.TestCase):
 <XRD xmlns='http://docs.oasis-open.org/ns/xri/xrd-1.0'>
     <Subject>alice@fedsoc.net</Subject>
     <Link rel='magic-public-key' href='%s' />
-</XRD>""" % key.public_exponent),
+</XRD>""" % key.href()),
         ]
 
         # webmention discovery
@@ -74,7 +70,7 @@ class SalmonTest(unittest.TestCase):
 <?xml version='1.0' encoding='UTF-8'?>
 <entry xmlns='http://www.w3.org/2005/Atom'>
   <id>https://my/reply</id>
-  <link href="https://my/reply: />
+  <link href="https://my/reply" />
   <author>
     <name>Alice</name>
     <uri>alice@fedsoc.net</uri>
@@ -86,15 +82,6 @@ class SalmonTest(unittest.TestCase):
   <title>My Reply</title>
   <updated>2017-08-25T00:00:00</updated>
 </entry>"""
-#         slap = """\
-# <?xml version='1.0' encoding='UTF-8'?>
-# <me:env xmlns:me="http://salmon-protocol.org/ns/magic-env">
-# <me:data type='application/atom+xml'>%s</me:data>
-# <me:encoding>base64url</me:encoding>
-# <me:alg>RSA-SHA256</me:alg>
-# <me:sig>%s</me:sig>
-# </me:env>
-# """ % (base64.b64encode(atom_reply), ...)
         slap = magicsigs.magic_envelope(atom_reply, 'application/atom+xml', key)
         got = app.get_response('/@foo.com/salmon', method='POST', body=slap)
         self.assertEquals(200, got.status_int)
@@ -111,7 +98,7 @@ class SalmonTest(unittest.TestCase):
         mock_post.assert_called_once_with(
             'http://orig/webmention',
             data={
-                'source': 'http://this/reply',
+                'source': 'https://my/reply',
                 'target': 'http://orig/post',
             },
             allow_redirects=False,
