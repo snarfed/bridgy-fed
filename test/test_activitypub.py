@@ -4,11 +4,13 @@
 TODO: test error handling
 """
 from __future__ import unicode_literals
+import copy
 import json
 import unittest
 import urllib
 
 import mock
+from oauth_dropins.webutil import util
 import requests
 
 import activitypub
@@ -35,7 +37,8 @@ class ActivityPubTest(unittest.TestCase):
         mock_get.return_value = resp
 
         got = app.get_response('/foo.com')
-        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS)
+        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
+                                         timeout=util.HTTP_TIMEOUT)
         self.assertEquals(200, got.status_int)
         self.assertEquals(activitypub.CONTENT_TYPE_AS2, got.headers['Content-Type'])
         self.assertEquals({
@@ -61,7 +64,8 @@ class ActivityPubTest(unittest.TestCase):
         mock_get.return_value = resp
 
         got = app.get_response('/foo.com')
-        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS)
+        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
+                                         timeout=util.HTTP_TIMEOUT)
         self.assertEquals(400, got.status_int)
         self.assertIn('representative h-card', got.body)
         # TODO
@@ -92,6 +96,8 @@ class ActivityPubTest(unittest.TestCase):
             'http://orig/post', headers=common.HEADERS, verify=False)
         self.assertEquals(200, got.status_int)
 
+        expected_headers = copy.deepcopy(common.HEADERS)
+        expected_headers['Accept'] = '*/*'
         mock_post.assert_called_once_with(
             'http://orig/webmention',
             data={
@@ -99,5 +105,5 @@ class ActivityPubTest(unittest.TestCase):
                 'target': 'http://orig/post',
             },
             allow_redirects=False,
-            headers=common.HEADERS,
+            headers=expected_headers,
             verify=False)

@@ -36,17 +36,17 @@ class SlapHandler(webapp2.RequestHandler):
         if ':' not in author:
             author = 'acct:%s' % author
         elif not author.startswith('acct:'):
-            self.error('Author URI %s has unsupported scheme; expected acct:' % author)
+            common.error(self, 'Author URI %s has unsupported scheme; expected acct:' % author)
 
         logging.info('Fetching Salmon key for %s' % author)
         if not magicsigs.verify(author, data, parsed['sig']):
-            self.error('Could not verify magic signature.')
+            common.error(self, 'Could not verify magic signature.')
         logging.info('Verified magic signature.')
 
         # verify that the timestamp is recent (required by spec)
         updated = utils.parse_updated_from_atom(data)
         if not utils.verify_timestamp(updated):
-            self.error('Timestamp is more than 1h old.')
+            common.error(self, 'Timestamp is more than 1h old.')
 
         # find webmention source and target
         source = None
@@ -60,7 +60,7 @@ class SlapHandler(webapp2.RequestHandler):
                     targets.append(target.strip())
 
         if not source:
-            self.error("Couldn't find post URL (link element)")
+            common.error(self, "Couldn't find post URL (link element)")
         if not targets:
             self.error("Couldn't find target URL (thr:in-reply-to or TODO)")
 
@@ -78,10 +78,6 @@ class SlapHandler(webapp2.RequestHandler):
         if errors:
             self.abort(errors[0].get('http_status') or 400,
                 'Errors:\n' + '\n'.join(json.dumps(e, indent=2) for e in errors))
-
-    def error(self, msg):
-        logging.info(msg)
-        self.abort(400, msg)
 
 
 app = webapp2.WSGIApplication([

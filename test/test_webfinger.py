@@ -11,6 +11,7 @@ from google.appengine.datastore import datastore_stub_util
 from google.appengine.ext import testbed
 
 import mock
+from oauth_dropins.webutil import util
 import requests
 
 import common
@@ -73,7 +74,8 @@ class WebFingerTest(unittest.TestCase):
         mock_get.return_value = resp
 
         got = app.get_response('/@foo.com', headers={'Accept': 'application/json'})
-        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS)
+        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
+                                         timeout=util.HTTP_TIMEOUT)
         self.assertEquals(200, got.status_int)
         self.assertEquals('application/json; charset=utf-8',
                           got.headers['Content-Type'])
@@ -144,7 +146,8 @@ class WebFingerTest(unittest.TestCase):
         mock_get.return_value = resp
 
         got = app.get_response('/@foo.com')
-        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS)
+        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
+                                         timeout=util.HTTP_TIMEOUT)
         self.assertEquals(400, got.status_int)
         self.assertIn('representative h-card', got.body)
         # TODO

@@ -1,8 +1,8 @@
 """Misc common utilities.
 """
-import json
 import logging
 
+from oauth_dropins.webutil import util
 import requests
 from webob import exc
 
@@ -10,28 +10,36 @@ DOMAIN_RE = r'([^/]+\.[^/]+)'
 HEADERS = {
     'User-Agent': 'Bridgy Fed (https://fed.brid.gy/)',
 }
+ATOM_CONTENT_TYPE = 'application/atom+xml'
+MAGIC_ENVELOPE_CONTENT_TYPE = 'application/magic-envelope+xml'
 
 
 def requests_get(url, **kwargs):
-    return _requests_fn(requests.get, url, **kwargs)
+    return _requests_fn(util.requests_get, url, **kwargs)
 
 
 def requests_post(url, **kwargs):
-    return _requests_fn(requests.post, url, **kwargs)
+    return _requests_fn(util.requests_post, url, **kwargs)
 
 
-def _requests_fn(fn, url, json=False, **kwargs):
+def _requests_fn(fn, url, parse_json=False, **kwargs):
     """Wraps requests.* and adds raise_for_status() and User-Agent."""
     kwargs.setdefault('headers', {}).update(HEADERS)
+
     resp = fn(url, **kwargs)
     resp.raise_for_status()
 
-    if json:
+    if parse_json:
         try:
             return resp.json()
         except ValueError:
             msg = "Couldn't parse response as JSON"
             logging.error(msg, exc_info=True)
-            raise exc.HTTPBadRequest(400, msg)
+            raise exc.HTTPBadRequest(msg)
 
     return resp
+
+
+def error(handler, msg, status=400):
+    logging.info(msg)
+    handler.abort(status, msg)

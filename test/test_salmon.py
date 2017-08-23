@@ -4,6 +4,7 @@
 TODO: test error handling
 """
 from __future__ import unicode_literals
+import copy
 import unittest
 import urllib
 
@@ -93,6 +94,8 @@ class SalmonTest(unittest.TestCase):
         ))
 
         # check webmention discovery and post
+        expected_headers = copy.deepcopy(common.HEADERS)
+        expected_headers['Accept'] = '*/*'
         mock_get.assert_called_once_with(
             'http://orig/post', headers=common.HEADERS, verify=False)
         mock_post.assert_called_once_with(
@@ -102,5 +105,5 @@ class SalmonTest(unittest.TestCase):
                 'target': 'http://orig/post',
             },
             allow_redirects=False,
-            headers=common.HEADERS,
+            headers=expected_headers,
             verify=False)
