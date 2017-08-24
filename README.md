@@ -73,3 +73,37 @@ To deploy to App Engine, run:
 ```sh
 gcloud -q app deploy --project bridgy-federated *.yaml
 ```
+
+
+Compatibility
+---
+Here are in progress notes on how I'm testing interoperability with various federated social networks.
+
+### ActivityPub
+
+* [distbin](http://distbin.com/)
+  * No explicit accounts, can post anything as anyone
+* [pump.io](http://pump.io/)
+  * [snarfed@datamost.com](https://datamost.com/snarfed)
+  * Tried posting a bunch of ways, couldn't get any to work :/
+
+### Salmon
+
+* [Friendica](http://friendi.ca/)
+  * [snarfed@libranet.de](https://libranet.de/profile/snarfed)
+  * Example post: [HTML](https://libranet.de/display/snarfed/3453879) ([alternate link](https://libranet.de/display/0b6b25a814599c43b430890795887058)), [Atom](https://libranet.de/display/snarfed/3453879.atom)
+  * Atom has Salmon link rel, `author.dfrn:handle` is user URI (dfrn is http://purl.org/macgirvin/dfrn/1.0))
+* [GNU Social](https://gnu.io/social/) (née StatusNet)
+  * [snarfed@quitter.se](https://quitter.se/snarfed)
+  * Example post: [HTML](https://quitter.se/notice/17459493), [Atom](https://quitter.se/api/statuses/show/17459493.atom)
+  * Atom has _no_ Salmon link rels! `author.name` is username (snarfed)
+* [Hubzilla](https://project.hubzilla.org/)
+  * [snarfed@lastauth.com](https://lastauth.com/channel/snarfed)
+  * Example post: [HTML](https://lastauth.com/channel/snarfed/?mid=7cfa12e54cf97aaed3b0bb185651ae37a1e24027fbf3e845fab261e108392707@lastauth.com)
+  * Only has Atom `link rel="alternate"` for [full feed](https://lastauth.com/feed/snarfed?f=&top=1), not individual post :/
+  * Atom feed has Salmon link rels inside top level `feed`, not in individual `entry`s
+  * Atom entries have  `author.name` as username (snarfed)
+* [Mastodon](https://joinmastodon.org/)
+  * [snarfed@mastodon.technology](https://mastodon.technology/@snarfed)
+  * Example post: [HTML](https://mastodon.technology/@snarfed/2604611), [Atom](https://mastodon.technology/users/snarfed/updates/73978.atom)
+  * Atom has Salmon link rel, `author.email` is snarfed@mastodon.technology
