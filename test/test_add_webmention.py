@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 import unittest
 
 import mock
+from oauth_dropins.webutil.testutil import requests_response
 import requests
 
 from add_webmention import app
@@ -14,13 +15,10 @@ from add_webmention import app
 class AddWebmentionTest(unittest.TestCase):
 
     def setUp(self):
-        self.resp = requests.Response()
-        self.resp.status_code = 200
-        self.resp._content = u'asdf ☕ qwert'.encode('utf-8')
-        self.resp.headers = {
+        self.resp = requests_response(u'asdf ☕ qwert', headers={
             'Link': 'first',
             'Foo': 'bar',
-        }
+        })
 
     def test_get(self, mock_get):
         self.resp.status_code = 202

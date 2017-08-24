@@ -8,6 +8,7 @@ import json
 
 import mock
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.testutil import requests_response
 import requests
 
 import common
@@ -41,21 +42,14 @@ class WebFingerTest(testutil.TestCase):
 
     @mock.patch('requests.get')
     def test_user_handler(self, mock_get):
-        html = u"""
+        mock_get.return_value = requests_response(u"""
 <body>
 <a class="h-card" rel="me" href="/about-me">
   <img class="u-photo" src="/me.jpg" />
   Mrs. ☕ Foo
 </a>
 </body>
-"""
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._text = html
-        resp._content = html.encode('utf-8')
-        resp.encoding = 'utf-8'
-        resp.url = 'https://foo.com/'
-        mock_get.return_value = resp
+""", url = 'https://foo.com/')
 
         got = app.get_response('/@foo.com', headers={'Accept': 'application/json'})
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
@@ -115,20 +109,13 @@ class WebFingerTest(testutil.TestCase):
 
     @mock.patch('requests.get')
     def test_user_handler_no_hcard(self, mock_get):
-        html = """
+        mock_get.return_value = requests_response("""
 <body>
 <div class="h-entry">
   <p class="e-content">foo bar</p>
 </div>
 </body>
-"""
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._text = html
-        resp._content = html.encode('utf-8')
-        resp.encoding = 'utf-8'
-        mock_get.return_value = resp
-
+""")
         got = app.get_response('/@foo.com')
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
                                          timeout=util.HTTP_TIMEOUT)

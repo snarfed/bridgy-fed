@@ -9,7 +9,7 @@ import urllib
 
 from django_salmon import magicsigs
 import mock
-from oauth_dropins.webutil.testutil import UrlopenResult
+from oauth_dropins.webutil.testutil import requests_response, UrlopenResult
 import requests
 
 import common
@@ -41,17 +41,10 @@ class SalmonTest(testutil.TestCase):
         ]
 
         # webmention discovery
-        html = '<html><head><link rel="webmention" href="/webmention"></html>'
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._text = html
-        resp._content = html.encode('utf-8')
-        mock_get.return_value = resp
-
+        mock_get.return_value = requests_response(
+            '<html><head><link rel="webmention" href="/webmention"></html>')
         # webmention post
-        resp = requests.Response()
-        resp.status_code = 200
-        mock_post.return_value = resp
+        mock_post.return_value = requests_response()
 
         # send slap!
         atom_reply = """\

@@ -11,6 +11,7 @@ import urllib
 
 import mock
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.testutil import requests_response
 import requests
 
 import activitypub
@@ -23,18 +24,11 @@ import common
 class ActivityPubTest(unittest.TestCase):
 
     def test_actor_handler(self, mock_get, _):
-        html = u"""
+        mock_get.return_value = requests_response("""
 <body>
 <a class="h-card" rel="me" href="/about-me">Mrs. ☕ Foo</a>
 </body>
-"""
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._text = html
-        resp._content = html.encode('utf-8')
-        resp.encoding = 'utf-8'
-        resp.url = 'https://foo.com/'
-        mock_get.return_value = resp
+""", url='https://foo.com/')
 
         got = app.get_response('/foo.com')
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
@@ -49,19 +43,13 @@ class ActivityPubTest(unittest.TestCase):
         }, json.loads(got.body))
 
     def test_actor_handler_no_hcard(self, mock_get, _):
-        html = """
+        mock_get.return_value = requests_response("""
 <body>
 <div class="h-entry">
   <p class="e-content">foo bar</p>
 </div>
 </body>
-"""
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._text = html
-        resp._content = html.encode('utf-8')
-        resp.encoding = 'utf-8'
-        mock_get.return_value = resp
+""")
 
         got = app.get_response('/foo.com')
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
@@ -72,16 +60,9 @@ class ActivityPubTest(unittest.TestCase):
         # self.assertEquals('text/html', got.headers['Content-Type'])
 
     def test_inbox_reply(self, mock_get, mock_post):
-        html = '<html><head><link rel="webmention" href="/webmention"></html>'
-        resp = requests.Response()
-        resp.status_code = 200
-        resp._text = html
-        resp._content = html.encode('utf-8')
-        mock_get.return_value = resp
-
-        resp = requests.Response()
-        resp.status_code = 200
-        mock_post.return_value = resp
+        mock_get.return_value = requests_response(
+            '<html><head><link rel="webmention" href="/webmention"></html>')
+        mock_post.return_value = requests_response()
 
         got = app.get_response('/foo.com/inbox', method='POST',
                                body=json.dumps({

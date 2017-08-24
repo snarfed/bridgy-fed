@@ -14,6 +14,7 @@ import feedparser
 import mock
 from mock import call
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.testutil import requests_response
 import requests
 
 import activitypub
@@ -30,7 +31,7 @@ class WebmentionTest(testutil.TestCase):
 
     def setUp(self):
         super(WebmentionTest, self).setUp()
-        self.reply_html = u"""\
+        self.reply = requests_response("""\
 <html>
 <body>
 <div class="h-entry">
@@ -41,50 +42,21 @@ class WebmentionTest(testutil.TestCase):
 </div>
 </body>
 </html>
-"""
-        self.reply = requests.Response()
-        self.reply.status_code = 200
-        self.reply._text = self.reply_html
-        self.reply._content = self.reply_html.encode('utf-8')
-        self.reply.encoding = 'utf-8'
-
-        self.reply_atom = u"""\
-<?xml version="1.0" encoding="UTF-8"?>
-<entry xmlns="http://www.w3.org/2005/Atom"
-       xmlns:thr="http://purl.org/syndication/thread/1.0">
-  <id>http://a/reply</id>
-  <thr:in-reply-to ref="tag:fed.brid.gy,2017-08-22:orig-post">
-    tag:fed.brid.gy,2017-08-22:orig-post
-  </thr:in-reply-to>
-  <content>foo ☕ bar</content>
-  <title></title>
-</entry>
-"""
+""")
 
     def test_webmention_activitypub(self, mock_get, mock_post):
-        article_as = {
+        article = requests_response({
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Article',
             'content': u'Lots of ☕ words...',
             'actor': 'http://orig/author',
-        }
-        article = requests.Response()
-        article.status_code = 200
-        article._text = json.dumps(article_as)
-        article._content = article._text.encode('utf-8')
-        article.encoding = 'utf-8'
-
-        actor_as = {
+        })
+        actor = requests_response({
             'objectType' : 'person',
             'displayName': u'Mrs. ☕ Foo',
             'url': 'https://foo.com/about-me',
             'inbox': 'https://foo.com/inbox',
-        }
-        actor = requests.Response()
-        actor.status_code = 200
-        actor._text = json.dumps(actor_as)
-        actor._content = actor._text.encode('utf-8')
-        actor.encoding = 'utf-8'
+        })
 
         mock_get.side_effect = [self.reply, article, actor]
 
@@ -117,28 +89,21 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(expected_headers, kwargs['headers'])
 
     def test_webmention_salmon(self, mock_get, mock_post):
-        target = requests.Response()
-        target.status_code = 200
-        target.headers['Content-Type'] = 'text/html'
-        target._content = """\
+        target = requests_response("""\
 <html>
 <meta>
 <link href='http://orig/atom' rel='alternate' type='application/atom+xml'>
 </meta>
 </html>
-""".encode('utf-8')
-
-        atom = requests.Response()
-        atom.status_code = 200
-        atom._content = """\
+""")
+        atom = requests_response("""\
 <?xml version="1.0"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
   <id>tag:fed.brid.gy,2017-08-22:orig-post</id>
   <link rel="salmon" href="http://orig/salmon"/>
   <content type="html">baz ☕ baj</content>
 </entry>
-""".encode('utf-8')
-
+""")
         mock_get.side_effect = [self.reply, target, atom]
 
         got = app.get_response(
