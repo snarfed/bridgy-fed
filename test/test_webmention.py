@@ -6,13 +6,11 @@ TODO: test error handling
 from __future__ import unicode_literals
 import copy
 import json
-import unittest
 import urllib
 import urllib2
 
+from django_salmon import magicsigs, utils
 import feedparser
-from google.appengine.datastore import datastore_stub_util
-from google.appengine.ext import testbed
 import mock
 from mock import call
 from oauth_dropins.webutil import util
@@ -20,25 +18,18 @@ import requests
 
 import activitypub
 import common
-from django_salmon import magicsigs, utils
 import models
+import testutil
 import webmention
 from webmention import app
 
 
 @mock.patch('requests.post')
 @mock.patch('requests.get')
-class WebmentionTest(unittest.TestCase):
-
-    maxDiff = None
+class WebmentionTest(testutil.TestCase):
 
     def setUp(self):
-        self.testbed = testbed.Testbed()
-        self.testbed.activate()
-        hrd_policy = datastore_stub_util.PseudoRandomHRConsistencyPolicy(probability=.5)
-        self.testbed.init_datastore_v3_stub(consistency_policy=hrd_policy)
-        self.testbed.init_memcache_stub()
-
+        super(WebmentionTest, self).setUp()
         self.reply_html = u"""\
 <html>
 <body>
@@ -69,9 +60,6 @@ class WebmentionTest(unittest.TestCase):
   <title></title>
 </entry>
 """
-
-    def tearDown(self):
-        self.testbed.deactivate()
 
     def test_webmention_activitypub(self, mock_get, mock_post):
         article_as = {

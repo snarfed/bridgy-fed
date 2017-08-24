@@ -5,47 +5,34 @@ TODO: test error handling
 """
 from __future__ import unicode_literals
 import copy
-import unittest
 import urllib
-
-from google.appengine.datastore import datastore_stub_util
-from google.appengine.ext import testbed
 
 from django_salmon import magicsigs
 import mock
-from oauth_dropins.webutil import testutil
+from oauth_dropins.webutil.testutil import UrlopenResult
 import requests
 
 import common
 import models
 from salmon import app
+import testutil
 
 
 @mock.patch('requests.post')
 @mock.patch('requests.get')
 @mock.patch('urllib2.urlopen')
-class SalmonTest(unittest.TestCase):
-
-    def setUp(self):
-        self.testbed = testbed.Testbed()
-        self.testbed.activate()
-        hrd_policy = datastore_stub_util.PseudoRandomHRConsistencyPolicy(probability=.5)
-        self.testbed.init_datastore_v3_stub(consistency_policy=hrd_policy)
-        self.testbed.init_memcache_stub()
-
-    def tearDown(self):
-        self.testbed.deactivate()
+class SalmonTest(testutil.TestCase):
 
     def test_slap(self, mock_urlopen, mock_get, mock_post):
         # salmon magic key discovery. first host-meta, then webfinger
         key = models.MagicKey.get_or_create('alice')
         mock_urlopen.side_effect = [
-            testutil.UrlopenResult(200, """\
+            UrlopenResult(200, """\
 <?xml version='1.0' encoding='UTF-8'?>
 <XRD xmlns='http://docs.oasis-open.org/ns/xri/xrd-1.0'>
   <Link rel='lrdd' type='application/xrd+xml' template='http://webfinger/{uri}' />
 </XRD>"""),
-            testutil.UrlopenResult(200, """\
+            UrlopenResult(200, """\
 <?xml version='1.0' encoding='UTF-8'?>
 <XRD xmlns='http://docs.oasis-open.org/ns/xri/xrd-1.0'>
     <Subject>alice@fedsoc.net</Subject>
