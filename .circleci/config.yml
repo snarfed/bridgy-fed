@@ -1,0 +1,54 @@
+# CircleCI automatically reads this file from our repo and uses it for
+# configuration. Docs:
+# https://circleci.com/docs/2.0/configuration-reference/
+# https://circleci.com/docs/2.0/sample-config/
+version: 2
+
+jobs:
+  build:
+    docker:
+      # https://circleci.com/docs/2.0/google-container-engine/#selecting-a-base-image
+      - image: google/cloud-sdk
+      - image: python:2.7.12
+
+    environment:
+      - PYTHONPATH: /usr/lib/google-cloud-sdk/platform/google_appengine
+
+    steps:
+      - checkout
+
+      - restore_cache:
+          key: venv-{{ .Branch }}-{{ checksum "requirements.freeze.txt" }}
+
+      - run:
+          name: Build and test
+          command: |
+            apt-get install -y python-virtualenv google-cloud-sdk-app-engine-python-extras
+            virtualenv --python=python2 local
+            . local/bin/activate
+            pip install -r requirements.freeze.txt
+
+            # granary and oauth-dropins master at head. (see pip install -e 's below.)
+            cd /tmp; git clone https://github.com/snarfed/oauth-dropins.git
+            cd /tmp/oauth-dropins; git submodule sync; git submodule update --init
+            cd /tmp/oauth-dropins/oauth_dropins/webutil; git checkout master; git pull
+            pip install -e /tmp/oauth-dropins/
+            pip install -e git+https://github.com/snarfed/granary.git#egg=granary
+
+            ln -s $VIRTUAL_ENV local  # we use app engine's vendor module to point here
+            pip install coverage coveralls  # for https://coveralls.io/
+
+            . local/bin/activate
+            python2 -m coverage run --source=. -m unittest discover -v
+            python2 -m coverage html -d /tmp/coverage_html
+
+            # send coverage data to coveralls
+            if [ "$COVERALLS_REPO_TOKEN" != "" ]; then coveralls; fi
+
+      - save_cache:
+          key: venv-{{ .Branch }}-{{ checksum "requirements.freeze.txt" }}
+          paths:
+            - local
+
+      - store_artifacts:
+          path: /tmp/coverage_html
