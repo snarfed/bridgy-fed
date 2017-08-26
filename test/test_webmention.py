@@ -83,8 +83,11 @@ class WebmentionTest(testutil.TestCase):
             'url': 'http://a/reply',
             'displayName': u'foo ☕ bar',
             'content': u' <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> ',
-            'inReplyTo': [{'url': 'http://orig/post'}],
-            'cc': [activitypub.PUBLIC_AUDIENCE],
+            'inReplyTo': 'http://orig/post',
+            'cc': [
+                activitypub.PUBLIC_AUDIENCE,
+                'http://orig/post'
+            ],
         }, kwargs['json'])
 
         expected_headers = copy.copy(common.HEADERS)

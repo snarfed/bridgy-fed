@@ -58,6 +58,18 @@ class WebmentionHandler(webapp2.RequestHandler):
         target_obj = resp.json()
         logging.info(json.dumps(target_obj, indent=2))
 
+        # post-process AS1 to look enough like AS2 to work
+        in_reply_tos = util.get_list(source_obj, 'inReplyTo')
+        if in_reply_tos:
+            source_obj['inReplyTo'] = in_reply_tos[0]['url']
+            if len(in_reply_tos) > 1:
+                logging.warning("AS2 doesn't support multiple inReplyTo URLs! "
+                                'Only using the first: %s' % source_obj['inReplyTo'])
+        source_obj.setdefault('cc', []).extend([
+            activitypub.PUBLIC_AUDIENCE,
+            source_obj['inReplyTo'],
+        ])
+
         # find actor's inbox
         inbox_url = target_obj.get('inbox')
 
@@ -78,9 +90,7 @@ class WebmentionHandler(webapp2.RequestHandler):
             # self.abort(400, 'Target actor has no inbox')
             return self.send_salmon(source_obj, target_url=target)
 
-        # deliver source object to target actor's inbox and public
-        source_obj.setdefault('cc', []).append(activitypub.PUBLIC_AUDIENCE)
-
+        # deliver source object to target actor's inbox
         resp = common.requests_post(
             urlparse.urljoin(target, inbox_url), json=source_obj,
             headers={'Content-Type': activitypub.CONTENT_TYPE_AS})
