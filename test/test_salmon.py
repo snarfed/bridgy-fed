@@ -5,6 +5,7 @@ TODO: test error handling
 """
 from __future__ import unicode_literals
 import copy
+import datetime
 import urllib
 
 from django_salmon import magicsigs
@@ -61,8 +62,8 @@ class SalmonTest(testutil.TestCase):
   </thr:in-reply-to>
   <content>I hereby reply.</content>
   <title>My Reply</title>
-  <updated>2017-08-25T00:00:00</updated>
-</entry>"""
+  <updated>%s</updated>
+</entry>""" % datetime.datetime.now().isoformat(b'T')
         slap = magicsigs.magic_envelope(atom_reply, 'application/atom+xml', key)
         got = app.get_response('/@foo.com/salmon', method='POST', body=slap)
         self.assertEquals(200, got.status_int)
