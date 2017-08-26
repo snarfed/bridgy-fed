@@ -42,14 +42,16 @@ class WebmentionTest(testutil.TestCase):
 </div>
 </body>
 </html>
-""")
+""", content_type='text/html; charset=utf-8')
 
     def test_webmention_activitypub(self, mock_get, mock_post):
         article = requests_response({
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Article',
             'content': u'Lots of ☕ words...',
-            'actor': 'http://orig/author',
+            'actor': {
+                'url': 'http://orig/author',
+            },
         })
         actor = requests_response({
             'objectType' : 'person',
@@ -82,6 +84,7 @@ class WebmentionTest(testutil.TestCase):
             'displayName': u'foo ☕ bar',
             'content': u' <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> ',
             'inReplyTo': [{'url': 'http://orig/post'}],
+            'cc': [activitypub.PUBLIC_AUDIENCE],
         }, kwargs['json'])
 
         expected_headers = copy.copy(common.HEADERS)
@@ -95,7 +98,7 @@ class WebmentionTest(testutil.TestCase):
 <link href='http://orig/atom' rel='alternate' type='application/atom+xml'>
 </meta>
 </html>
-""")
+""", content_type='text/html; charset=utf-8')
         atom = requests_response("""\
 <?xml version="1.0"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
@@ -128,16 +131,16 @@ class WebmentionTest(testutil.TestCase):
         envelope = utils.parse_magic_envelope(kwargs['data'])
         assert envelope['sig']
 
-        feed = utils.decode(envelope['data'])
-        parsed = feedparser.parse(feed)
+        data = utils.decode(envelope['data'])
+        parsed = feedparser.parse(data)
         entry = parsed.entries[0]
 
-        self.assertEquals('http://a/reply', entry.id)
+        self.assertEquals('http://a/reply', entry['id'])
         self.assertIn({
             'rel': 'alternate',
             'href': 'http://a/reply',
             'type': 'text/html',
-        }, entry.links)
+        }, entry['links'])
         self.assertEquals({
             'type': 'text/html',
             'href': 'http://orig/post',

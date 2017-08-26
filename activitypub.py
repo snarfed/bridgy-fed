@@ -21,7 +21,7 @@ CONTENT_TYPE_AS = 'application/activity+json'
 CONNEG_HEADER = {
     'Accept': '%s; q=0.9, %s; q=0.8' % (CONTENT_TYPE_AS2, CONTENT_TYPE_AS),
 }
-
+PUBLIC_AUDIENCE = 'https://www.w3.org/ns/activitystreams#Public'
 
 class ActorHandler(webapp2.RequestHandler):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""

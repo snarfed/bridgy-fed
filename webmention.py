@@ -1,4 +1,7 @@
 """Handles inbound webmentions.
+
+TODO: mastodon doesn't advertise salmon endpoint in their individual post atom?!
+https://mastodon.technology/users/snarfed/updates/73978.atom
 """
 import json
 import logging
@@ -48,26 +51,40 @@ class WebmentionHandler(webapp2.RequestHandler):
                 return self.send_salmon(source_obj, target_url=target)
             raise
 
-        if resp.headers.get('Content-Type') == 'text/html':
+        if resp.headers.get('Content-Type').startswith('text/html'):
             return self.send_salmon(source_obj, target_resp=resp)
 
+        logging.info('Got %s', resp.headers.get('Content-Type'))
         target_obj = resp.json()
+        logging.info(json.dumps(target_obj, indent=2))
 
-        # fetch actor as AS object
-        actor_url = target_obj.get('actor') or target_obj.get('attributedTo')
-        if not actor_url:
-            self.abort(400, 'Target object has no actor or attributedTo')
+        # find actor's inbox
+        inbox_url = target_obj.get('inbox')
 
-        actor = common.requests_get(actor_url, parse_json=True,
-                                    headers=activitypub.CONNEG_HEADER)
-
-        # deliver source object to target actor's inbox
-        inbox_url = actor.get('inbox')
         if not inbox_url:
-            self.abort(400, 'Target actor has no inbox')
+          # fetch actor as AS object
+          actor = target_obj.get('actor') or target_obj.get('attributedTo') or {}
+          actor_url = actor.get('url')
+          if not actor_url:
+              self.abort(400, 'Target object has no actor or attributedTo URL')
 
-        common.requests_post(inbox_url, json=source_obj,
-                             headers={'Content-Type': activitypub.CONTENT_TYPE_AS})
+          actor = common.requests_get(actor_url, parse_json=True,
+                                      headers=activitypub.CONNEG_HEADER)
+          inbox_url = actor.get('inbox')
+
+        if not inbox_url:
+            # TODO: probably need a way to save errors like this so that we can
+            # return them if ostatus fails too.
+            # self.abort(400, 'Target actor has no inbox')
+            return self.send_salmon(source_obj, target_url=target)
+
+        # deliver source object to target actor's inbox and public
+        source_obj.setdefault('cc', []).append(activitypub.PUBLIC_AUDIENCE)
+
+        resp = common.requests_post(
+            urlparse.urljoin(target, inbox_url), json=source_obj,
+            headers={'Content-Type': activitypub.CONTENT_TYPE_AS})
+        logging.info('Got: %s\n%s', resp.headers, resp.text)
 
     def send_salmon(self, source_obj, target_url=None, target_resp=None):
         # fetch target HTML page, extract Atom rel-alternate link
@@ -81,6 +98,7 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         parsed = BeautifulSoup(target_resp.content, from_encoding=target_resp.encoding)
         atom_url = parsed.find('link', rel='alternate', type=common.ATOM_CONTENT_TYPE)
+        assert atom_url  # TODO
         assert atom_url['href']  # TODO
 
         # fetch Atom target post, extract id and salmon endpoint
@@ -92,26 +110,20 @@ class WebmentionHandler(webapp2.RequestHandler):
         logging.info('Discovering Salmon endpoint in %s', atom_url['href'])
         endpoint = django_salmon.discover_salmon_endpoint(feed)
         if not endpoint:
-            author = source_obj.get('author') or {}
-            common.error(self,
-                         'No salmon endpoint found for %s' %
-                          (author.get('id') or author.get('url')),
-                         status=400)
+            common.error(self, 'No salmon endpoint found!', status=400)
         logging.info('Discovered Salmon endpoint %s', endpoint)
 
         # construct reply Atom object
         source_url = self.request.get('source')
-        feed = atom.activities_to_atom(
-            [{'object': source_obj}], {}, host_url=source_url,
-            xml_base=source_url)
-        logging.info('Converted %s to Atom:\n%s', source_url, feed)
+        entry = atom.activity_to_atom({'object': source_obj}, xml_base=source_url)
+        logging.info('Converted %s to Atom:\n%s', source_url, entry)
 
         # sign reply and wrap in magic envelope
         # TODO: use author h-card's u-url?
         domain = urlparse.urlparse(source_url).netloc.split(':')[0]
         key = models.MagicKey.get_or_create(domain)
         magic_envelope = magicsigs.magic_envelope(
-            feed, common.ATOM_CONTENT_TYPE, key)
+            entry, common.ATOM_CONTENT_TYPE, key)
 
         logging.info('Sending Salmon slap to %s', endpoint)
         common.requests_post(
