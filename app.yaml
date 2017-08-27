@@ -37,8 +37,8 @@ handlers:
   static_dir: local/lib/python2.7/site-packages/oauth_dropins/static
   secure: always
 
-- url: /.well-known
-  static_dir: .well-known
+- url: /.well-known/acme-challenge
+  static_dir: .well-known/acme-challenge
   secure: always
 
 - url: /
@@ -71,6 +71,10 @@ handlers:
   secure: always
 
 - url: /(acct:)?@[^/]+/?
+  script: webfinger.app
+  secure: always
+
+- url: /.well-known/webfinger
   script: webfinger.app
   secure: always
 

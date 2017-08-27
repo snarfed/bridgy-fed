@@ -1,11 +1,18 @@
 """Handles requests for WebFinger endpoints.
 
 https://webfinger.net/
+https://tools.ietf.org/html/rfc7033
 
 Largely based on webfinger-unofficial/user.py.
+
+TODO: test:
+* /.well-known/webfinger
+* acct: URI handling
+* user URL that redirects
 """
 import json
 import logging
+import urlparse
 
 import appengine_config
 
@@ -20,15 +27,16 @@ import models
 
 
 class UserHandler(handlers.XrdOrJrdHandler):
-    """Serves /@[DOMAIN], fetches its mf2, converts to WebFinger, and serves."""
+    """Fetches a site's home page, converts its mf2 to WebFinger, and serves."""
     JRD_TEMPLATE = False
 
     def template_prefix(self):
         return 'templates/webfinger_user'
 
     def template_vars(self, domain):
-        # TODO: unify with activitypub
         url = 'http://%s/' % domain
+
+        # TODO: unify with activitypub
         resp = common.requests_get(url)
         mf2 = mf2py.parse(resp.text, url=resp.url)
         logging.info('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
@@ -36,7 +44,7 @@ class UserHandler(handlers.XrdOrJrdHandler):
         hcard = mf2util.representative_hcard(mf2, resp.url)
         logging.info('Representative h-card: %s', json.dumps(hcard, indent=2))
         if not hcard:
-            self.abort(400, """\
+            common.error(self, """\
 Couldn't find a <a href="http://microformats.org/wiki/representative-hcard-parsing">\
 representative h-card</a> on %s""" % resp.url)
 
@@ -61,11 +69,31 @@ representative h-card</a> on %s""" % resp.url)
                 'href': key.href(),
             }, {
                 'rel': 'salmon',
-                'href': '%s/@foo.com/salmon' % self.request.host_url
+                'href': '%s/@%s/salmon' % (self.request.host_url, domain),
             }]
         })
 
 
+class WebfingerHandler(UserHandler):
+
+    def is_jrd(self):
+        return True
+
+    def template_vars(self):
+        resource = util.get_required_param(self, 'resource')
+        try:
+            username, domain = util.parse_acct_uri(resource)
+            url = 'http://%s/' % domain
+        except ValueError:
+            url = resource
+            domain = urlparse.urlparse(url).netloc
+        if not domain:
+            common.error(self, 'No domain found in resource %s' % url)
+
+        return super(WebfingerHandler, self).template_vars(domain)
+
+
 app = webapp2.WSGIApplication([
     (r'/(?:acct)?@%s/?' % common.DOMAIN_RE, UserHandler),
+    ('/.well-known/webfinger', WebfingerHandler),
 ] + handlers.HOST_META_ROUTES, debug=appengine_config.DEBUG)
