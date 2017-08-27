@@ -70,6 +70,10 @@ handlers:
   script: activitypub.app
   secure: always
 
+- url: /[^/]+/salmon/?
+  script: salmon.app
+  secure: always
+
 - url: /(acct:)?@[^/]+/?
   script: webfinger.app
   secure: always

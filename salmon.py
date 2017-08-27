@@ -81,5 +81,5 @@ class SlapHandler(webapp2.RequestHandler):
 
 
 app = webapp2.WSGIApplication([
-    (r'/(?:acct)?@%s/salmon' % common.DOMAIN_RE, SlapHandler),
+    (r'/(?:acct:)?@%s/salmon' % common.DOMAIN_RE, SlapHandler),
 ], debug=appengine_config.DEBUG)
