@@ -31,6 +31,14 @@ class WebmentionTest(testutil.TestCase):
 
     def setUp(self):
         super(WebmentionTest, self).setUp()
+        self.orig = requests_response("""\
+<html>
+<meta>
+<link href='http://orig/atom' rel='alternate' type='application/atom+xml'>
+</meta>
+</html>
+""", content_type='text/html; charset=utf-8')
+
         self.reply = requests_response("""\
 <html>
 <body>
@@ -44,7 +52,7 @@ class WebmentionTest(testutil.TestCase):
 </html>
 """, content_type='text/html; charset=utf-8')
 
-    def test_webmention_activitypub(self, mock_get, mock_post):
+    def test_activitypub(self, mock_get, mock_post):
         article = requests_response({
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Article',
@@ -94,14 +102,7 @@ class WebmentionTest(testutil.TestCase):
         expected_headers['Content-Type'] = activitypub.CONTENT_TYPE_AS
         self.assertEqual(expected_headers, kwargs['headers'])
 
-    def test_webmention_salmon(self, mock_get, mock_post):
-        target = requests_response("""\
-<html>
-<meta>
-<link href='http://orig/atom' rel='alternate' type='application/atom+xml'>
-</meta>
-</html>
-""", content_type='text/html; charset=utf-8')
+    def test_salmon(self, mock_get, mock_post):
         atom = requests_response("""\
 <?xml version="1.0"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
@@ -110,7 +111,7 @@ class WebmentionTest(testutil.TestCase):
   <content type="html">baz ☕ baj</content>
 </entry>
 """)
-        mock_get.side_effect = [self.reply, target, atom]
+        mock_get.side_effect = [self.reply, self.orig, atom]
 
         got = app.get_response(
             '/webmention', method='POST', body=urllib.urlencode({
@@ -152,3 +153,34 @@ class WebmentionTest(testutil.TestCase):
         self.assertEquals(
             u'<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>',
             entry.content[0]['value'])
+
+    def test_salmon_get_salmon_from_webfinger(self, mock_get, mock_post):
+        atom = requests_response("""\
+<?xml version="1.0"?>
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <author>
+    <name>ryan</name>
+    <email>ryan@orig</email>
+  </author>
+  <id>tag:fed.brid.gy,2017-08-22:orig-post</id>
+</entry>
+""")
+        webfinger = requests_response({
+            'subject': 'acct:ryan@orig',
+            'links': [{
+                'rel': 'salmon',
+                'href': 'http://orig/@ryan/salmon',
+            }],
+        })
+        mock_get.side_effect = [self.reply, self.orig, atom, webfinger]
+
+        got = app.get_response('/webmention', method='POST', body=urllib.urlencode({
+            'source': 'http://a/reply',
+            'target': 'http://orig/post',
+        }))
+        self.assertEquals(200, got.status_int)
+
+        mock_get.assert_any_call(
+            'http://orig/.well-known/webfinger?resource=ryan@orig',
+            headers=common.HEADERS, timeout=util.HTTP_TIMEOUT)
+        self.assertEqual(('http://orig/@ryan/salmon',), mock_post.call_args[0])

@@ -33,13 +33,14 @@ class UserHandler(handlers.XrdOrJrdHandler):
     def template_prefix(self):
         return 'templates/webfinger_user'
 
-    def template_vars(self, domain):
+    def template_vars(self, acct):
+        username, domain = util.parse_acct_uri(acct)
         url = 'http://%s/' % domain
 
         # TODO: unify with activitypub
         resp = common.requests_get(url)
         mf2 = mf2py.parse(resp.text, url=resp.url)
-        logging.info('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
+        # logging.debug('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
 
         hcard = mf2util.representative_hcard(mf2, resp.url)
         logging.info('Representative h-card: %s', json.dumps(hcard, indent=2))
@@ -48,23 +49,30 @@ class UserHandler(handlers.XrdOrJrdHandler):
 Couldn't find a <a href="http://microformats.org/wiki/representative-hcard-parsing">\
 representative h-card</a> on %s""" % resp.url)
 
-        uri = '@%s' % domain
+        uri = '%s@%s' % (username, domain)
         key = models.MagicKey.get_or_create(uri)
         props = hcard.get('properties', {})
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])
 
-        return util.trim_nulls({
+        data = util.trim_nulls({
             'subject': 'acct:' + uri,
             'aliases': urls,
             'magic_keys': [{'value': key.href()}],
-            'links': [{
+            'links': sum(([{
                 'rel': 'http://webfinger.net/rel/profile-page',
                 'type': 'text/html',
                 'href': url,
-            } for url in urls] + [{
+            }, {
+                'rel': 'canonical_uri',
+                'type': 'text/html',
+                'href': url,
+            }] for url in urls), []) + [{
                 'rel': 'http://webfinger.net/rel/avatar',
                 'href': url,
             } for url in props.get('photo', [])] + [{
+                'rel': 'http://schemas.google.com/g/2010#updates-from',
+                'href': 'https://granary-demo.appspot.com/url?input=html&output=atom&url=https://snarfed.org/&hub=https://snarfed.org/',
+            }, {
                 'rel': 'magic-public-key',
                 'href': key.href(),
             }, {
@@ -72,6 +80,8 @@ representative h-card</a> on %s""" % resp.url)
                 'href': '%s/@%s/salmon' % (self.request.host_url, domain),
             }]
         })
+        logging.info('Returning WebFinger data: %s', json.dumps(data, indent=2))
+        return data
 
 
 class WebfingerHandler(UserHandler):
@@ -81,16 +91,16 @@ class WebfingerHandler(UserHandler):
 
     def template_vars(self):
         resource = util.get_required_param(self, 'resource')
-        try:
-            username, domain = util.parse_acct_uri(resource)
-            url = 'http://%s/' % domain
-        except ValueError:
-            url = resource
-            domain = urlparse.urlparse(url).netloc
-        if not domain:
-            common.error(self, 'No domain found in resource %s' % url)
+        # try:
+        #     username, domain = util.parse_acct_uri(resource)
+        #     url = 'http://%s/' % domain
+        # except ValueError:
+        #     url = resource
+        #     domain = urlparse.urlparse(url).netloc
+        # if not domain:
+        #     common.error(self, 'No domain found in resource %s' % url)
 
-        return super(WebfingerHandler, self).template_vars(domain)
+        return super(WebfingerHandler, self).template_vars(resource)
 
 
 app = webapp2.WSGIApplication([

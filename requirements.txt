@@ -2,7 +2,7 @@
 -e git+https://github.com/snarfed/webmention-tools.git#egg=webmentiontools
 bs4
 feedparser
-granary
+granary>=1.8
 mf2py>=1.0.4
 mf2util>=0.5.0
 mock

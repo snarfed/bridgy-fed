@@ -106,4 +106,4 @@ Here are in progress notes on how I'm testing interoperability with various fede
 * [Mastodon](https://joinmastodon.org/)
   * [snarfed@mastodon.technology](https://mastodon.technology/@snarfed)
   * Example post: [HTML](https://mastodon.technology/@snarfed/2604611), [Atom](https://mastodon.technology/users/snarfed/updates/73978.atom)
-  * Atom has Salmon link rel, `author.email` is snarfed@mastodon.technology
+  * Profile HTML/Atom have Salmon link rel. Individual post HTML/Atom don't. `author.email` is snarfed@mastodon.technology

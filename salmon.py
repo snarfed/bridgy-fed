@@ -39,14 +39,15 @@ class SlapHandler(webapp2.RequestHandler):
             common.error(self, 'Author URI %s has unsupported scheme; expected acct:' % author)
 
         logging.info('Fetching Salmon key for %s' % author)
-        if not magicsigs.verify(author, data, parsed['sig']):
+        if not magicsigs.verify(data, parsed['sig'], author_uri=author):
             common.error(self, 'Could not verify magic signature.')
         logging.info('Verified magic signature.')
 
-        # verify that the timestamp is recent (required by spec)
-        updated = utils.parse_updated_from_atom(data)
-        if not utils.verify_timestamp(updated):
-            common.error(self, 'Timestamp is more than 1h old.')
+        # Mastodon doesn't do this! so screw it.
+        # # verify that the timestamp is recent (required by spec)
+        # updated = utils.parse_updated_from_atom(data)
+        # if not utils.verify_timestamp(updated):
+        #     common.error(self, 'Timestamp is more than 1h old.')
 
         # find webmention source and target
         source = None

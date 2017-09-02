@@ -78,7 +78,7 @@ handlers:
   script: webfinger.app
   secure: always
 
-- url: /.well-known/webfinger
+- url: /.well-known/.*
   script: webfinger.app
   secure: always
 
