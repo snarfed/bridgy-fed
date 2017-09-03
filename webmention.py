@@ -47,13 +47,10 @@ class WebmentionHandler(webapp2.RequestHandler):
         source_obj = microformats2.json_to_object(entry)
         logging.info('Converted to AS: %s', json.dumps(source_obj, indent=2))
 
-        return self.send_salmon(source_obj, target_url=target)
-
         # fetch target page as AS object
         try:
             resp = common.requests_get(target, headers=activitypub.CONNEG_HEADER,
                                        log=True)
-            target_obj = resp.json()
         except requests.HTTPError as e:
             if e.response.status_code // 100 == 4:
                 return self.send_salmon(source_obj, target_url=target)
@@ -62,26 +59,15 @@ class WebmentionHandler(webapp2.RequestHandler):
         if resp.headers.get('Content-Type').startswith('text/html'):
             return self.send_salmon(source_obj, target_resp=resp)
 
-        # post-process AS1 to look enough like AS2 to work
-        in_reply_tos = util.get_list(source_obj, 'inReplyTo')
-        if in_reply_tos:
-            source_obj['inReplyTo'] = in_reply_tos[0]['url']
-            if len(in_reply_tos) > 1:
-                logging.warning("AS2 doesn't support multiple inReplyTo URLs! "
-                                'Only using the first: %s' % source_obj['inReplyTo'])
-        source_obj.setdefault('cc', []).extend([
-            activitypub.PUBLIC_AUDIENCE,
-            source_obj['inReplyTo'],
-        ])
-
         # find actor's inbox
+        target_obj = resp.json()
         inbox_url = target_obj.get('inbox')
 
         if not inbox_url:
           # fetch actor as AS object
           actor_url = target_obj.get('actor') or target_obj.get('attributedTo')
           if isinstance(actor_url, dict):
-              actor_url = actor.get('url')
+              actor_url = actor_url.get('url')
           if not actor_url:
               self.abort(400, 'Target object has no actor or attributedTo URL')
 
@@ -94,6 +80,18 @@ class WebmentionHandler(webapp2.RequestHandler):
             # return them if ostatus fails too.
             # self.abort(400, 'Target actor has no inbox')
             return self.send_salmon(source_obj, target_url=target)
+
+        # post-process AS1 to look enough like AS2 to work
+        in_reply_tos = util.get_list(source_obj, 'inReplyTo')
+        if in_reply_tos:
+            source_obj['inReplyTo'] = in_reply_tos[0]['url']
+            if len(in_reply_tos) > 1:
+                logging.warning("AS2 doesn't support multiple inReplyTo URLs! "
+                                'Only using the first: %s' % source_obj['inReplyTo'])
+        source_obj.setdefault('cc', []).extend([
+            activitypub.PUBLIC_AUDIENCE,
+            source_obj['inReplyTo'],
+        ])
 
         # deliver source object to target actor's inbox
         resp = common.requests_post(
@@ -128,8 +126,9 @@ class WebmentionHandler(webapp2.RequestHandler):
         # original post's author to make it show up as a reply:
         #   app/services/process_interaction_service.rb
         # ...so add them as a tag, which atom renders as a rel-mention link.
-        if entry.authors:
-            url = entry.authors[0].href
+        authors = entry.get('authors', None)
+        if authors:
+            url = entry.authors[0].get('href')
             if url:
                 source_obj.setdefault('tags', []).append({'url': url})
 
@@ -161,8 +160,10 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         # sign reply and wrap in magic envelope
         # TODO: use author h-card's u-url?
+        # TODO: person emoji username
+        # BETTER: TODO: extract u-nickname or first name
         domain = urlparse.urlparse(source_url).netloc.split(':')[0]
-        key = models.MagicKey.get_or_create(domain)
+        key = models.MagicKey.get_or_create('@' + domain)
         magic_envelope = magicsigs.magic_envelope(
             entry, common.ATOM_CONTENT_TYPE, key)
 

@@ -6,11 +6,14 @@ TODO: test error handling
 from __future__ import unicode_literals
 import copy
 import json
+import logging
 import urllib
 import urllib2
 
 from django_salmon import magicsigs, utils
 import feedparser
+from granary import atom, microformats2
+import mf2py
 import mock
 from mock import call
 from oauth_dropins.webutil import util
@@ -19,7 +22,7 @@ import requests
 
 import activitypub
 import common
-import models
+from models import MagicKey
 import testutil
 import webmention
 from webmention import app
@@ -37,9 +40,9 @@ class WebmentionTest(testutil.TestCase):
 <link href='http://orig/atom' rel='alternate' type='application/atom+xml'>
 </meta>
 </html>
-""", content_type='text/html; charset=utf-8')
+""", url='http://orig/post', content_type='text/html; charset=utf-8')
 
-        self.reply = requests_response("""\
+        self.reply_html = """\
 <html>
 <body>
 <div class="h-entry">
@@ -50,7 +53,11 @@ class WebmentionTest(testutil.TestCase):
 </div>
 </body>
 </html>
-""", content_type='text/html; charset=utf-8')
+"""
+        self.reply = requests_response(
+            self.reply_html, content_type='text/html; charset=utf-8')
+        mf2 = mf2py.parse(self.reply_html, url='http://a/reply')
+        self.reply_obj = microformats2.json_to_object(mf2['items'][0])
 
     def test_activitypub(self, mock_get, mock_post):
         article = requests_response({
@@ -103,7 +110,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(expected_headers, kwargs['headers'])
 
     def test_salmon(self, mock_get, mock_post):
-        atom = requests_response("""\
+        orig_atom = requests_response("""\
 <?xml version="1.0"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
   <id>tag:fed.brid.gy,2017-08-22:orig-post</id>
@@ -111,7 +118,7 @@ class WebmentionTest(testutil.TestCase):
   <content type="html">baz ☕ baj</content>
 </entry>
 """)
-        mock_get.side_effect = [self.reply, self.orig, atom]
+        mock_get.side_effect = [self.reply, self.orig, orig_atom]
 
         got = app.get_response(
             '/webmention', method='POST', body=urllib.urlencode({
@@ -132,10 +139,14 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(common.MAGIC_ENVELOPE_CONTENT_TYPE,
                          kwargs['headers']['Content-Type'])
 
-        envelope = utils.parse_magic_envelope(kwargs['data'])
-        assert envelope['sig']
+        env = utils.parse_magic_envelope(kwargs['data'])
+        self.reply_obj['inReplyTo'][0]['id'] = 'tag:fed.brid.gy,2017-08-22:orig-post'
+        reply_atom = atom.activity_to_atom(
+            {'object': self.reply_obj}, xml_base='http://a/reply')
+        key = MagicKey.get_by_id('@a')
+        assert magicsigs.verify(None, reply_atom, env['sig'], key=key)
 
-        data = utils.decode(envelope['data'])
+        data = utils.decode(env['data'])
         parsed = feedparser.parse(data)
         entry = parsed.entries[0]
 
@@ -155,7 +166,7 @@ class WebmentionTest(testutil.TestCase):
             entry.content[0]['value'])
 
     def test_salmon_get_salmon_from_webfinger(self, mock_get, mock_post):
-        atom = requests_response("""\
+        orig_atom = requests_response("""\
 <?xml version="1.0"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
   <author>
@@ -172,7 +183,7 @@ class WebmentionTest(testutil.TestCase):
                 'href': 'http://orig/@ryan/salmon',
             }],
         })
-        mock_get.side_effect = [self.reply, self.orig, atom, webfinger]
+        mock_get.side_effect = [self.reply, self.orig, orig_atom, webfinger]
 
         got = app.get_response('/webmention', method='POST', body=urllib.urlencode({
             'source': 'http://a/reply',
