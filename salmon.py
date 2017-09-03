@@ -21,10 +21,10 @@ ATOM_THREADING_NS = 'http://purl.org/syndication/thread/1.0'
 
 
 class SlapHandler(webapp2.RequestHandler):
-    """Accepts POSTs to /[DOMAIN]/salmon and converts to outbound webmentions."""
+    """Accepts POSTs to /[ACCT]/salmon and converts to outbound webmentions."""
 
     # TODO: unify with activitypub
-    def post(self, domain):
+    def post(self, username, domain):
         logging.info('Got: %s', self.request.body)
 
         parsed = utils.parse_magic_envelope(self.request.body)
@@ -39,12 +39,14 @@ class SlapHandler(webapp2.RequestHandler):
             common.error(self, 'Author URI %s has unsupported scheme; expected acct:' % author)
 
         logging.info('Fetching Salmon key for %s' % author)
-        if not magicsigs.verify(data, parsed['sig'], author_uri=author):
+        if not magicsigs.verify(author, data, parsed['sig']):
             common.error(self, 'Could not verify magic signature.')
         logging.info('Verified magic signature.')
 
-        # Mastodon doesn't do this! so screw it.
-        # # verify that the timestamp is recent (required by spec)
+        # Verify that the timestamp is recent. Required by spec.
+        # I get that this helps prevent spam, but in practice it's a bit silly,
+        # and other major implementations don't (e.g. Mastodon), so forget it.
+        #
         # updated = utils.parse_updated_from_atom(data)
         # if not utils.verify_timestamp(updated):
         #     common.error(self, 'Timestamp is more than 1h old.')
@@ -82,5 +84,5 @@ class SlapHandler(webapp2.RequestHandler):
 
 
 app = webapp2.WSGIApplication([
-    (r'/(?:acct:)?@%s/salmon' % common.DOMAIN_RE, SlapHandler),
+    (r'/%s/salmon' % common.ACCT_RE, SlapHandler),
 ], debug=appengine_config.DEBUG)

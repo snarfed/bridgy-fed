@@ -33,8 +33,7 @@ class UserHandler(handlers.XrdOrJrdHandler):
     def template_prefix(self):
         return 'templates/webfinger_user'
 
-    def template_vars(self, acct):
-        username, domain = util.parse_acct_uri(acct)
+    def template_vars(self, username, domain):
         url = 'http://%s/' % domain
 
         # TODO: unify with activitypub
@@ -49,14 +48,14 @@ class UserHandler(handlers.XrdOrJrdHandler):
 Couldn't find a <a href="http://microformats.org/wiki/representative-hcard-parsing">\
 representative h-card</a> on %s""" % resp.url)
 
-        uri = '%s@%s' % (username, domain)
-        key = models.MagicKey.get_or_create(uri)
+        acct = '%s@%s' % (username, domain)
+        key = models.MagicKey.get_or_create(acct)
         props = hcard.get('properties', {})
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])
         canonical_url = urls[0]
 
         data = util.trim_nulls({
-            'subject': 'acct:' + uri,
+            'subject': 'acct:' + acct,
             'aliases': urls,
             'magic_keys': [{'value': key.href()}],
             'links': sum(([{
@@ -81,7 +80,7 @@ representative h-card</a> on %s""" % resp.url)
                 'href': key.href(),
             }, {
                 'rel': 'salmon',
-                'href': '%s/@%s/salmon' % (self.request.host_url, domain),
+                'href': '%s/%s/salmon' % (self.request.host_url, acct),
             }]
         })
         logging.info('Returning WebFinger data: %s', json.dumps(data, indent=2))
@@ -99,6 +98,6 @@ class WebfingerHandler(UserHandler):
 
 
 app = webapp2.WSGIApplication([
-    (r'/(?:acct)?(@%s)/?' % common.DOMAIN_RE, UserHandler),
+    (r'/%s/?' % common.ACCT_RE, UserHandler),
     ('/.well-known/webfinger', WebfingerHandler),
 ] + handlers.HOST_META_ROUTES, debug=appengine_config.DEBUG)

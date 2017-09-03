@@ -64,8 +64,8 @@ class SalmonTest(testutil.TestCase):
   <title>My Reply</title>
   <updated>%s</updated>
 </entry>""" % datetime.datetime.now().isoformat(b'T')
-        slap = magicsigs.magic_envelope(atom_reply, 'application/atom+xml', key)
-        got = app.get_response('/@foo.com/salmon', method='POST', body=slap)
+        slap = magicsigs.magic_envelope(atom_reply, common.ATOM_CONTENT_TYPE, key)
+        got = app.get_response('/me@foo.com/salmon', method='POST', body=slap)
         self.assertEquals(200, got.status_int)
 
         # check salmon magic key discovery

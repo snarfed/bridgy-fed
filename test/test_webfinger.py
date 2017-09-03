@@ -51,17 +51,17 @@ class WebFingerTest(testutil.TestCase):
 </body>
 """, url = 'https://foo.com/')
 
-        got = app.get_response('/@foo.com', headers={'Accept': 'application/json'})
-        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
-                                         timeout=util.HTTP_TIMEOUT)
+        got = app.get_response(u'/me@foo.com', headers={'Accept': 'application/json'})
         self.assertEquals(200, got.status_int)
         self.assertEquals('application/json; charset=utf-8',
                           got.headers['Content-Type'])
+        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
+                                         timeout=util.HTTP_TIMEOUT)
 
-        key = models.MagicKey.get_by_id('@foo.com')
+        key = models.MagicKey.get_by_id('me@foo.com')
 
         self.assertEquals({
-            'subject': 'acct:@foo.com',
+            'subject': 'acct:me@foo.com',
             'aliases': [
                 'https://foo.com/about-me',
                 'https://foo.com/',
@@ -91,7 +91,7 @@ class WebFingerTest(testutil.TestCase):
                 'href': key.href(),
             }, {
                 'rel': 'salmon',
-                'href': 'http://localhost/@foo.com/salmon'
+                'href': 'http://localhost/me@foo.com/salmon'
             # TODO
             # }, {
             #     'rel': 'self',
@@ -105,7 +105,7 @@ class WebFingerTest(testutil.TestCase):
 
         # check that magic key is persistent
         again = json.loads(app.get_response(
-            '/@foo.com', headers={'Accept': 'application/json'}).body)
+            '/me@foo.com', headers={'Accept': 'application/json'}).body)
         self.assertEquals(key.href(), again['magic_keys'][0]['value'])
 
         links = {l['rel']: l['href'] for l in again['links']}
@@ -120,7 +120,7 @@ class WebFingerTest(testutil.TestCase):
 </div>
 </body>
 """)
-        got = app.get_response('/@foo.com')
+        got = app.get_response('/me@foo.com')
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
                                          timeout=util.HTTP_TIMEOUT)
         self.assertEquals(400, got.status_int)

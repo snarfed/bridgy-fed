@@ -74,7 +74,7 @@ handlers:
   script: salmon.app
   secure: always
 
-- url: /(acct:)?@[^/]+/?
+- url: /(acct:)?([^@]+)@@[^/]+/?
   script: webfinger.app
   secure: always
 
