@@ -19,6 +19,60 @@ from webfinger import app
 
 class WebFingerTest(testutil.TestCase):
 
+    def setUp(self):
+        super(WebFingerTest, self).setUp()
+        self.html = """
+<body>
+<a class="h-card" rel="me" href="/about-me">
+  <img class="u-photo" src="/me.jpg" />
+  Mrs. ☕ Foo
+</a>
+</body>
+"""
+        self.key = models.MagicKey.get_or_create('me@foo.com')
+        self.expected_webfinger = {
+            'subject': 'acct:me@foo.com',
+            'aliases': [
+                'https://foo.com/about-me',
+                'https://foo.com/',
+            ],
+            'magic_keys': [{'value': self.key.href()}],
+            'links': [{
+                'rel': 'http://webfinger.net/rel/profile-page',
+                'type': 'text/html',
+                'href': 'https://foo.com/about-me'
+            }, {
+                'rel': 'http://webfinger.net/rel/profile-page',
+                'type': 'text/html',
+                'href': 'https://foo.com/'
+            }, {
+                'rel': 'http://webfinger.net/rel/avatar',
+                'href': 'https://foo.com/me.jpg'
+            }, {
+                'rel': 'canonical_uri',
+                'type': 'text/html',
+                'href': 'https://foo.com/about-me'
+            }, {
+                'rel': 'http://schemas.google.com/g/2010#updates-from',
+                'type': 'application/atom+xml',
+                'href': 'https://granary-demo.appspot.com/url?input=html&output=atom&url=https://foo.com/&hub=https://foo.com/'
+            }, {
+                'rel': 'magic-public-key',
+                'href': self.key.href(),
+            }, {
+                'rel': 'salmon',
+                'href': 'http://localhost/me@foo.com/salmon'
+            # TODO
+            # }, {
+            #     'rel': 'self',
+            #     'type': 'application/activity+json',
+            #     'href': 'https://mastodon.technology/users/snarfed'
+            # }, {
+            #     'rel': 'http://ostatus.org/schema/1.0/subscribe',
+            #     'template': 'https://mastodon.technology/authorize_follow?acct={uri}'
+            }]
+        }
+
     def test_host_meta_handler_xrd(self):
         got = app.get_response('/.well-known/host-meta')
         self.assertEquals(200, got.status_int)
@@ -42,74 +96,24 @@ class WebFingerTest(testutil.TestCase):
 
     @mock.patch('requests.get')
     def test_user_handler(self, mock_get):
-        mock_get.return_value = requests_response(u"""
-<body>
-<a class="h-card" rel="me" href="/about-me">
-  <img class="u-photo" src="/me.jpg" />
-  Mrs. ☕ Foo
-</a>
-</body>
-""", url = 'https://foo.com/')
+        mock_get.return_value = requests_response(self.html, url = 'https://foo.com/')
 
-        got = app.get_response(u'/me@foo.com', headers={'Accept': 'application/json'})
+        got = app.get_response('/me@foo.com', headers={'Accept': 'application/json'})
         self.assertEquals(200, got.status_int)
         self.assertEquals('application/json; charset=utf-8',
                           got.headers['Content-Type'])
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
                                          timeout=util.HTTP_TIMEOUT)
 
-        key = models.MagicKey.get_by_id('me@foo.com')
-
-        self.assertEquals({
-            'subject': 'acct:me@foo.com',
-            'aliases': [
-                'https://foo.com/about-me',
-                'https://foo.com/',
-            ],
-            'magic_keys': [{'value': key.href()}],
-            'links': [{
-                'rel': 'http://webfinger.net/rel/profile-page',
-                'type': 'text/html',
-                'href': 'https://foo.com/about-me'
-            }, {
-                'rel': 'http://webfinger.net/rel/profile-page',
-                'type': 'text/html',
-                'href': 'https://foo.com/'
-            }, {
-                'rel': 'http://webfinger.net/rel/avatar',
-                'href': 'https://foo.com/me.jpg'
-            }, {
-                'rel': 'canonical_uri',
-                'type': 'text/html',
-                'href': 'https://foo.com/about-me'
-            }, {
-                'rel': 'http://schemas.google.com/g/2010#updates-from',
-                'type': 'application/atom+xml',
-                'href': 'https://granary-demo.appspot.com/url?input=html&output=atom&url=https://foo.com/&hub=https://foo.com/'
-            }, {
-                'rel': 'magic-public-key',
-                'href': key.href(),
-            }, {
-                'rel': 'salmon',
-                'href': 'http://localhost/me@foo.com/salmon'
-            # TODO
-            # }, {
-            #     'rel': 'self',
-            #     'type': 'application/activity+json',
-            #     'href': 'https://mastodon.technology/users/snarfed'
-            # }, {
-            #     'rel': 'http://ostatus.org/schema/1.0/subscribe',
-            #     'template': 'https://mastodon.technology/authorize_follow?acct={uri}'
-            }]
-        }, json.loads(got.body))
+        self.assertEquals(self.expected_webfinger, json.loads(got.body))
 
         # check that magic key is persistent
         again = json.loads(app.get_response(
             '/me@foo.com', headers={'Accept': 'application/json'}).body)
-        self.assertEquals(key.href(), again['magic_keys'][0]['value'])
+        self.assertEquals(self.key.href(), again['magic_keys'][0]['value'])
 
         links = {l['rel']: l['href'] for l in again['links']}
-        self.assertEquals(key.href(), links['magic-public-key'])
+        self.assertEquals(self.key.href(), links['magic-public-key'])
 
     @mock.patch('requests.get')
     def test_user_handler_no_hcard(self, mock_get):
@@ -127,3 +131,13 @@ class WebFingerTest(testutil.TestCase):
         self.assertIn('representative h-card', got.body)
         # TODO
         # self.assertEquals('text/html', got.headers['Content-Type'])
+
+    @mock.patch('requests.get')
+    def test_webfinger_handler(self, mock_get):
+        mock_get.return_value = requests_response(self.html, url = 'https://foo.com/')
+        got = app.get_response('/.well-known/webfinger?resource=me@foo.com',
+                               headers={'Accept': 'application/json'})
+        self.assertEquals(200, got.status_int)
+        self.assertEquals('application/json; charset=utf-8',
+                          got.headers['Content-Type'])
+        self.assertEquals(self.expected_webfinger, json.loads(got.body))

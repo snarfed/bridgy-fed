@@ -93,8 +93,16 @@ class WebfingerHandler(UserHandler):
         return True
 
     def template_vars(self):
-        resource = util.get_required_param(self, 'resource')
-        return super(WebfingerHandler, self).template_vars(resource)
+        acct = util.get_required_param(self, 'resource')
+        try:
+            username, domain = util.parse_acct_uri(acct)
+            url = 'http://%s/' % domain
+        except ValueError:
+            common.error(self, 'Invalid acct: URI %s' % acct)
+        if not username:
+            common.error(self, 'No username found in acct: URI %s' % acct)
+
+        return super(WebfingerHandler, self).template_vars(username, domain)
 
 
 app = webapp2.WSGIApplication([
