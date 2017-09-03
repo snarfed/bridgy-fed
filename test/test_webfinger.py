@@ -79,16 +79,20 @@ class WebFingerTest(testutil.TestCase):
                 'rel': 'http://webfinger.net/rel/avatar',
                 'href': 'https://foo.com/me.jpg'
             }, {
+                'rel': 'canonical_uri',
+                'type': 'text/html',
+                'href': 'https://foo.com/about-me'
+            }, {
+                'rel': 'http://schemas.google.com/g/2010#updates-from',
+                'type': 'application/atom+xml',
+                'href': 'https://granary-demo.appspot.com/url?input=html&output=atom&url=https://foo.com/&hub=https://foo.com/'
+            }, {
                 'rel': 'magic-public-key',
                 'href': key.href(),
             }, {
                 'rel': 'salmon',
                 'href': 'http://localhost/@foo.com/salmon'
             # TODO
-            # }, {
-            #     'rel': 'http://schemas.google.com/g/2010#updates-from',
-            #     'type': 'application/atom+xml',
-            #     'href': 'https://mastodon.technology/users/snarfed.atom'
             # }, {
             #     'rel': 'self',
             #     'type': 'application/activity+json',

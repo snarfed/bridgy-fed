@@ -89,6 +89,6 @@ class InboxHandler(webapp2.RequestHandler):
 
 
 app = webapp2.WSGIApplication([
-    (r'/%s/?' % common.DOMAIN_RE, ActorHandler),
-    (r'/%s/inbox' % common.DOMAIN_RE, InboxHandler),
+    (r'/(%s)/?' % common.DOMAIN_RE, ActorHandler),
+    (r'/(%s)/inbox' % common.DOMAIN_RE, InboxHandler),
 ], debug=appengine_config.DEBUG)

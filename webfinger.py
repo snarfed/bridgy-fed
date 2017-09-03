@@ -53,6 +53,7 @@ representative h-card</a> on %s""" % resp.url)
         key = models.MagicKey.get_or_create(uri)
         props = hcard.get('properties', {})
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])
+        canonical_url = urls[0]
 
         data = util.trim_nulls({
             'subject': 'acct:' + uri,
@@ -62,16 +63,19 @@ representative h-card</a> on %s""" % resp.url)
                 'rel': 'http://webfinger.net/rel/profile-page',
                 'type': 'text/html',
                 'href': url,
-            }, {
-                'rel': 'canonical_uri',
-                'type': 'text/html',
-                'href': url,
             }] for url in urls), []) + [{
                 'rel': 'http://webfinger.net/rel/avatar',
                 'href': url,
             } for url in props.get('photo', [])] + [{
+                'rel': 'canonical_uri',
+                'type': 'text/html',
+                'href': canonical_url,
+            }, {
                 'rel': 'http://schemas.google.com/g/2010#updates-from',
-                'href': 'https://granary-demo.appspot.com/url?input=html&output=atom&url=https://snarfed.org/&hub=https://snarfed.org/',
+                'type': common.ATOM_CONTENT_TYPE,
+                # TODO: feed discovery, fall back to granary
+                # TODO: hub
+                'href': 'https://granary-demo.appspot.com/url?input=html&output=atom&url=%s&hub=%s' % (resp.url, resp.url),
             }, {
                 'rel': 'magic-public-key',
                 'href': key.href(),
@@ -91,19 +95,10 @@ class WebfingerHandler(UserHandler):
 
     def template_vars(self):
         resource = util.get_required_param(self, 'resource')
-        # try:
-        #     username, domain = util.parse_acct_uri(resource)
-        #     url = 'http://%s/' % domain
-        # except ValueError:
-        #     url = resource
-        #     domain = urlparse.urlparse(url).netloc
-        # if not domain:
-        #     common.error(self, 'No domain found in resource %s' % url)
-
         return super(WebfingerHandler, self).template_vars(resource)
 
 
 app = webapp2.WSGIApplication([
-    (r'/(?:acct)?@%s/?' % common.DOMAIN_RE, UserHandler),
+    (r'/(?:acct)?(@%s)/?' % common.DOMAIN_RE, UserHandler),
     ('/.well-known/webfinger', WebfingerHandler),
 ] + handlers.HOST_META_ROUTES, debug=appengine_config.DEBUG)

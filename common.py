@@ -6,7 +6,7 @@ from oauth_dropins.webutil import util
 import requests
 from webob import exc
 
-DOMAIN_RE = r'([^/]+\.[^/]+)'
+DOMAIN_RE = r'[^/]+\.[^/]+'
 HEADERS = {
     'User-Agent': 'Bridgy Fed (https://fed.brid.gy/)',
 }
