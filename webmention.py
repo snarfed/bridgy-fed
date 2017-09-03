@@ -138,7 +138,8 @@ class WebmentionHandler(webapp2.RequestHandler):
         if not endpoint:
             # try webfinger
             parsed = urlparse.urlparse(target_url)
-            acct = entry.author_detail.email or '@'.join(
+            # TODO: test missing email
+            acct = entry.author_detail.get('email') or '@'.join(
                 (entry.author_detail.name, parsed.netloc))
             try:
                 resp = common.requests_get(
