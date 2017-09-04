@@ -2,9 +2,21 @@
   margin-top: 2em;
 }
 
+#protocol-logos {
+  float: right;
+  margin-top: -.5em;
+}
+
+#protocol-logos > :first-child img {
+  margin-left: -.2em;
+}
+
 @media (max-width: 600px) {
   #logo {
     float: left;
+  }
+  #protocol-logos {
+    float: right;
   }
   #header {
     float: none;
