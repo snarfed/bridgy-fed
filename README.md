@@ -86,6 +86,12 @@ Here are in progress notes on how I'm testing interoperability with various fede
 * [pump.io](http://pump.io/)
   * [snarfed@datamost.com](https://datamost.com/snarfed)
   * Tried posting a bunch of ways, couldn't get any to work :/
+* [Kroeg](https://github.com/puckipedia/Kroeg)
+  * Not open to other users yet. Seems to be running at [puckipedia.com/social](https://puckipedia.com/social).
+* [Mastodon](https://joinmastodon.org/) ([issue](https://github.com/tootsuite/mastodon/issues/1557)) is getting close! [1.6 might fully support it?](https://github.com/tootsuite/mastodon/releases/tag/v1.6.0rc1)
+  * [snarfed@mastodon.technology](https://mastodon.technology/@snarfed), [example post](https://mastodon.technology/@snarfed/2604611)
+* [Hubzilla](https://project.hubzilla.org/) [is getting close](https://hub.somaton.com/channel/mario/&f=&mid=6db16e0e253c3c376cb921e7b31f94c24522933d7e54c6cf9febaa05359ab2fe@hub.somaton.com)!
+  * [snarfed@lastauth.com](https://lastauth.com/channel/snarfed), [example post](https://lastauth.com/channel/snarfed/?mid=7cfa12e54cf97aaed3b0bb185651ae37a1e24027fbf3e845fab261e108392707@lastauth.com)
 
 ### Salmon
 
