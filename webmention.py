@@ -64,16 +64,19 @@ class WebmentionHandler(webapp2.RequestHandler):
         inbox_url = target_obj.get('inbox')
 
         if not inbox_url:
-          # fetch actor as AS object
-          actor_url = target_obj.get('actor') or target_obj.get('attributedTo')
-          if isinstance(actor_url, dict):
-              actor_url = actor_url.get('url')
-          if not actor_url:
-              self.abort(400, 'Target object has no actor or attributedTo URL')
+            # TODO: test actor/attributedTo and not, with/without inbox
+            actor = target_obj.get('actor') or target_obj.get('attributedTo')
+            if isinstance(actor, dict):
+                inbox_url = actor.get('inbox')
+                actor = actor.get('url')
+            if not inbox_url and not actor:
+                self.abort(400, 'Target object has no actor or attributedTo URL')
 
-          actor = common.requests_get(actor_url, parse_json=True,
-                                      headers=activitypub.CONNEG_HEADER)
-          inbox_url = actor.get('inbox')
+        if not inbox_url:
+            # fetch actor as AS object
+            actor = common.requests_get(actor, parse_json=True,
+                                        headers=activitypub.CONNEG_HEADER)
+            inbox_url = actor.get('inbox')
 
         if not inbox_url:
             # TODO: probably need a way to save errors like this so that we can
