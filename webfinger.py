@@ -98,7 +98,9 @@ class WebfingerHandler(UserHandler):
             username, domain = util.parse_acct_uri(acct)
             url = 'http://%s/' % domain
         except ValueError:
-            common.error(self, 'Invalid acct: URI %s' % acct)
+            # common.error(self, 'Invalid acct: URI %s' % acct)
+            username = 'ryan'
+            domain = 'snarfed.org'
         if not username:
             common.error(self, 'No username found in acct: URI %s' % acct)
 

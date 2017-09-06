@@ -1,7 +1,11 @@
 """Handles inbound webmentions.
 
-TODO: mastodon doesn't advertise salmon endpoint in their individual post atom?!
-https://mastodon.technology/users/snarfed/updates/73978.atom
+TODO:
+* mastodon doesn't advertise salmon endpoint in their individual post atom?!
+  https://mastodon.technology/users/snarfed/updates/73978.atom
+* user-visible error messages for no activitypub/salmon
+  e.g. Hubzilla instances have to opt into federation.
+  https://project.hubzilla.org/help/admin/administrator_guide#Federation_Addons
 
 TODO tests:
 * actor/attributedTo could be string URL
@@ -167,7 +171,9 @@ class WebmentionHandler(webapp2.RequestHandler):
         # TODO: person emoji username
         # BETTER: TODO: extract u-nickname or first name
         domain = urlparse.urlparse(source_url).netloc.split(':')[0]
-        key = models.MagicKey.get_or_create('@' + domain)
+        key_owner = 'ryan@' + domain
+        key = models.MagicKey.get_or_create(key_owner)
+        logging.info('Using key for %s: %s', key_owner, key)
         magic_envelope = magicsigs.magic_envelope(
             entry, common.ATOM_CONTENT_TYPE, key)
 
