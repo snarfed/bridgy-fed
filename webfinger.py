@@ -33,8 +33,9 @@ class UserHandler(handlers.XrdOrJrdHandler):
     def template_prefix(self):
         return 'templates/webfinger_user'
 
-    def template_vars(self, username, domain):
-        url = 'http://%s/' % domain
+    def template_vars(self, username, domain, url=None):
+        if not url:
+            url = 'http://%s/' % domain
 
         # TODO: unify with activitypub
         resp = common.requests_get(url)
@@ -100,11 +101,14 @@ class WebfingerHandler(UserHandler):
         except ValueError:
             # common.error(self, 'Invalid acct: URI %s' % acct)
             username = 'ryan'
-            domain = 'snarfed.org'
+            domain = 'localhost'
+            url = 'http://localhost/'
+            # domain = 'snarfed.org'
+            # url = 'https://snarfed.org/'
         if not username:
             common.error(self, 'No username found in acct: URI %s' % acct)
 
-        return super(WebfingerHandler, self).template_vars(username, domain)
+        return super(WebfingerHandler, self).template_vars(username, domain, url=url)
 
 
 app = webapp2.WSGIApplication([
