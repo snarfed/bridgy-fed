@@ -2,7 +2,7 @@
   {
     "rel": "lrdd",
     "type": "application/json",
-    "template": "https://{{ host }}/{uri}&format=json"
+    "template": "{{ host_uri }}/.well-known/webfinger?resource={uri}"
    }
   ]
 }
