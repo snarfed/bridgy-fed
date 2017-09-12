@@ -10,7 +10,7 @@ from oauth_dropins.webutil.models import StringIdModel
 class MagicKey(StringIdModel):
     """Stores a user's public/private key pair used for Magic Signatures.
 
-    The key name is USERNAME@DOMAIN.
+    The key name is the domain.
 
     The modulus and exponent properties are all encoded as base64url (ie URL-safe
     base64) strings as described in RFC 4648 and section 5.1 of the Magic

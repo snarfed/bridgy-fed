@@ -63,14 +63,14 @@ class WebmentionTest(testutil.TestCase):
         article = requests_response({
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Article',
-            'content': u'Lots of ☕ words...',
+            'content': 'Lots of ☕ words...',
             'actor': {
                 'url': 'http://orig/author',
             },
         })
         actor = requests_response({
             'objectType' : 'person',
-            'displayName': u'Mrs. ☕ Foo',
+            'displayName': 'Mrs. ☕ Foo',
             'url': 'https://foo.com/about-me',
             'inbox': 'https://foo.com/inbox',
         })
@@ -96,8 +96,8 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual({
             'objectType': 'comment',
             'url': 'http://a/reply',
-            'displayName': u'foo ☕ bar',
-            'content': u' <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> ',
+            'displayName': 'foo ☕ bar',
+            'content': ' <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> ',
             'inReplyTo': 'http://orig/post',
             'cc': [
                 activitypub.PUBLIC_AUDIENCE,
@@ -162,7 +162,7 @@ class WebmentionTest(testutil.TestCase):
             'ref': 'tag:fed.brid.gy,2017-08-22:orig-post'
         }, entry['thr_in-reply-to'])
         self.assertEquals(
-            u'<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>',
+            '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>',
             entry.content[0]['value'])
 
     def test_salmon_get_salmon_from_webfinger(self, mock_get, mock_post):

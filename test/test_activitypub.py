@@ -37,7 +37,7 @@ class ActivityPubTest(unittest.TestCase):
         self.assertEquals(activitypub.CONTENT_TYPE_AS2, got.headers['Content-Type'])
         self.assertEquals({
             'objectType' : 'person',
-            'displayName': u'Mrs. ☕ Foo',
+            'displayName': 'Mrs. ☕ Foo',
             'url': 'https://foo.com/about-me',
             'inbox': 'http://localhost/foo.com/inbox',
         }, json.loads(got.body))
@@ -68,7 +68,7 @@ class ActivityPubTest(unittest.TestCase):
                                body=json.dumps({
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Note',
-            'content': u'A ☕ reply',
+            'content': 'A ☕ reply',
             'url': 'http://this/reply',
             'inReplyTo': 'http://orig/post',
             'cc': ['https://www.w3.org/ns/activitystreams#Public'],

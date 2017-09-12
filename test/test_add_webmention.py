@@ -15,7 +15,7 @@ from add_webmention import app
 class AddWebmentionTest(unittest.TestCase):
 
     def setUp(self):
-        self.resp = requests_response(u'asdf ☕ qwert', headers={
+        self.resp = requests_response('asdf ☕ qwert', headers={
             'Link': 'first',
             'Foo': 'bar',
         })
