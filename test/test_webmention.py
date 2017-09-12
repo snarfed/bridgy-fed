@@ -143,7 +143,7 @@ class WebmentionTest(testutil.TestCase):
         self.reply_obj['inReplyTo'][0]['id'] = 'tag:fed.brid.gy,2017-08-22:orig-post'
         reply_atom = atom.activity_to_atom(
             {'object': self.reply_obj}, xml_base='http://a/reply')
-        key = MagicKey.get_by_id('@a')
+        key = MagicKey.get_by_id('a')
         assert magicsigs.verify(None, reply_atom, env['sig'], key=key)
 
         data = utils.decode(env['data'])

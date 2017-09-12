@@ -70,11 +70,11 @@ handlers:
   script: activitypub.app
   secure: always
 
-- url: /[^/]+/salmon/?
+- url: /[^@/]+/salmon/?
   script: salmon.app
   secure: always
 
-- url: /(acct:)?([^@]+)@@[^/]+/?
+- url: /(acct:)?[^/]+/?
   script: webfinger.app
   secure: always
 

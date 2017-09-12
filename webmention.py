@@ -168,12 +168,9 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         # sign reply and wrap in magic envelope
         # TODO: use author h-card's u-url?
-        # TODO: person emoji username
-        # BETTER: TODO: extract u-nickname or first name
         domain = urlparse.urlparse(source_url).netloc.split(':')[0]
-        key_owner = 'ryan@' + domain
-        key = models.MagicKey.get_or_create(key_owner)
-        logging.info('Using key for %s: %s', key_owner, key)
+        key = models.MagicKey.get_or_create(domain)
+        logging.info('Using key for %s: %s', domain, key)
         magic_envelope = magicsigs.magic_envelope(
             entry, common.ATOM_CONTENT_TYPE, key)
 
