@@ -1,5 +1,7 @@
+# coding=utf-8
 """Misc common utilities.
 """
+from __future__ import unicode_literals
 import logging
 
 from oauth_dropins.webutil import util
@@ -14,6 +16,9 @@ HEADERS = {
 ATOM_CONTENT_TYPE = 'application/atom+xml'
 MAGIC_ENVELOPE_CONTENT_TYPE = 'application/magic-envelope+xml'
 XML_UTF8 = "<?xml version='1.0' encoding='UTF-8'?>\n"
+USERNAME = 'me'
+# USERNAME_EMOJI = '🌎'  # globe
+
 
 def requests_get(url, **kwargs):
     return _requests_fn(util.requests_get, url, **kwargs)

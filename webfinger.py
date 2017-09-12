@@ -33,7 +33,7 @@ class UserHandler(handlers.XrdOrJrdHandler):
     def template_prefix(self):
         return 'templates/webfinger_user'
 
-    def template_vars(self, username, domain, url=None):
+    def template_vars(self, domain, url=None):
         if not url:
             url = 'http://%s/' % domain
 
@@ -49,8 +49,8 @@ class UserHandler(handlers.XrdOrJrdHandler):
 Couldn't find a <a href="http://microformats.org/wiki/representative-hcard-parsing">\
 representative h-card</a> on %s""" % resp.url)
 
-        acct = '%s@%s' % (username, domain)
-        key = models.MagicKey.get_or_create(acct)
+        acct = '%s@%s' % (common.USERNAME, domain)
+        key = models.MagicKey.get_or_create(domain)
         props = hcard.get('properties', {})
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])
         canonical_url = urls[0]
@@ -81,7 +81,7 @@ representative h-card</a> on %s""" % resp.url)
                 'href': key.href(),
             }, {
                 'rel': 'salmon',
-                'href': '%s/%s/salmon' % (self.request.host_url, acct),
+                'href': '%s/%s/salmon' % (self.request.host_url, domain),
             }]
         })
         logging.info('Returning WebFinger data: %s', json.dumps(data, indent=2))
@@ -94,24 +94,20 @@ class WebfingerHandler(UserHandler):
         return True
 
     def template_vars(self):
-        acct = util.get_required_param(self, 'resource')
+        resource = util.get_required_param(self, 'resource')
         try:
-            username, domain = util.parse_acct_uri(acct)
-            url = 'http://%s/' % domain
+            _, domain = util.parse_acct_uri(resource)
         except ValueError:
-            # common.error(self, 'Invalid acct: URI %s' % acct)
-            username = 'ryan'
-            domain = 'localhost'
-            url = 'http://localhost/'
-            # domain = 'snarfed.org'
-            # url = 'https://snarfed.org/'
-        if not username:
-            common.error(self, 'No username found in acct: URI %s' % acct)
+            domain = urlparse.urlparse(resource).netloc or resource
 
-        return super(WebfingerHandler, self).template_vars(username, domain, url=url)
+        url = None
+        if resource.startswith('http://') or resource.startswith('https://'):
+            url = resource
+
+        return super(WebfingerHandler, self).template_vars(domain, url=url)
 
 
 app = webapp2.WSGIApplication([
-    (r'/%s/?' % common.ACCT_RE, UserHandler),
+    (r'/%s/?' % common.DOMAIN_RE, UserHandler),
     ('/.well-known/webfinger', WebfingerHandler),
 ] + handlers.HOST_META_ROUTES, debug=appengine_config.DEBUG)

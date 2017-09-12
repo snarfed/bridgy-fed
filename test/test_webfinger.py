@@ -5,6 +5,7 @@ TODO: test error handling
 """
 from __future__ import unicode_literals
 import json
+import urllib
 
 import mock
 from oauth_dropins.webutil import util
@@ -15,6 +16,8 @@ import common
 import models
 import testutil
 from webfinger import app
+
+USER = '%s@foo.com' % common.USERNAME
 
 
 class WebFingerTest(testutil.TestCase):
@@ -29,9 +32,9 @@ class WebFingerTest(testutil.TestCase):
 </a>
 </body>
 """
-        self.key = models.MagicKey.get_or_create('me@foo.com')
+        self.key = models.MagicKey.get_or_create('foo.com')
         self.expected_webfinger = {
-            'subject': 'acct:me@foo.com',
+            'subject': 'acct:' + USER,
             'aliases': [
                 'https://foo.com/about-me',
                 'https://foo.com/',
@@ -61,7 +64,7 @@ class WebFingerTest(testutil.TestCase):
                 'href': self.key.href(),
             }, {
                 'rel': 'salmon',
-                'href': 'http://localhost/me@foo.com/salmon'
+                'href': 'http://localhost/foo.com/salmon'
             # TODO
             # }, {
             #     'rel': 'self',
@@ -98,7 +101,7 @@ class WebFingerTest(testutil.TestCase):
     def test_user_handler(self, mock_get):
         mock_get.return_value = requests_response(self.html, url = 'https://foo.com/')
 
-        got = app.get_response('/me@foo.com', headers={'Accept': 'application/json'})
+        got = app.get_response('/foo.com', headers={'Accept': 'application/json'})
         self.assertEquals(200, got.status_int)
         self.assertEquals('application/json; charset=utf-8',
                           got.headers['Content-Type'])
@@ -109,7 +112,7 @@ class WebFingerTest(testutil.TestCase):
 
         # check that magic key is persistent
         again = json.loads(app.get_response(
-            '/me@foo.com', headers={'Accept': 'application/json'}).body)
+            '/foo.com', headers={'Accept': 'application/json'}).body)
         self.assertEquals(self.key.href(), again['magic_keys'][0]['value'])
 
         links = {l['rel']: l['href'] for l in again['links']}
@@ -124,7 +127,7 @@ class WebFingerTest(testutil.TestCase):
 </div>
 </body>
 """)
-        got = app.get_response('/me@foo.com')
+        got = app.get_response('/foo.com')
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
                                          timeout=util.HTTP_TIMEOUT)
         self.assertEquals(400, got.status_int)
@@ -134,10 +137,14 @@ class WebFingerTest(testutil.TestCase):
 
     @mock.patch('requests.get')
     def test_webfinger_handler(self, mock_get):
-        mock_get.return_value = requests_response(self.html, url = 'https://foo.com/')
-        got = app.get_response('/.well-known/webfinger?resource=me@foo.com',
-                               headers={'Accept': 'application/json'})
-        self.assertEquals(200, got.status_int)
-        self.assertEquals('application/json; charset=utf-8',
-                          got.headers['Content-Type'])
-        self.assertEquals(self.expected_webfinger, json.loads(got.body))
+        mock_get.return_value = requests_response(self.html, url='https://foo.com/')
+
+        for resource in ('me@foo.com', 'acct:me@foo.com', 'xyz@foo.com',
+                         'foo.com', 'http://foo.com/', 'https://foo.com/'):
+            url = '/.well-known/webfinger?%s' % urllib.urlencode(
+                {'resource': resource})
+            got = app.get_response(url, headers={'Accept': 'application/json'})
+            self.assertEquals(200, got.status_int, got.body)
+            self.assertEquals('application/json; charset=utf-8',
+                              got.headers['Content-Type'])
+            self.assertEquals(self.expected_webfinger, json.loads(got.body))
