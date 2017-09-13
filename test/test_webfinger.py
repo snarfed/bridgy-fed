@@ -132,8 +132,6 @@ class WebFingerTest(testutil.TestCase):
                                          timeout=util.HTTP_TIMEOUT)
         self.assertEquals(400, got.status_int)
         self.assertIn('representative h-card', got.body)
-        # TODO
-        # self.assertEquals('text/html', got.headers['Content-Type'])
 
     @mock.patch('requests.get')
     def test_webfinger_handler(self, mock_get):

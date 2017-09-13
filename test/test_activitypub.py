@@ -56,8 +56,6 @@ class ActivityPubTest(unittest.TestCase):
                                          timeout=util.HTTP_TIMEOUT)
         self.assertEquals(400, got.status_int)
         self.assertIn('representative h-card', got.body)
-        # TODO
-        # self.assertEquals('text/html', got.headers['Content-Type'])
 
     def test_inbox_reply(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
