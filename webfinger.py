@@ -12,10 +12,12 @@ TODO: test:
 """
 import json
 import logging
+import urllib
 import urlparse
 
 import appengine_config
 
+from bs4 import BeautifulSoup
 from granary import microformats2
 import mf2py
 import mf2util
@@ -39,7 +41,8 @@ class UserHandler(handlers.XrdOrJrdHandler):
 
         # TODO: unify with activitypub
         resp = common.requests_get(url)
-        mf2 = mf2py.parse(resp.text, url=resp.url)
+        parsed = BeautifulSoup(resp.content, from_encoding=resp.encoding)
+        mf2 = mf2py.parse(parsed, url=resp.url)
         # logging.debug('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
 
         hcard = mf2util.representative_hcard(mf2, resp.url)
@@ -54,6 +57,17 @@ representative h-card</a> on %s""" % resp.url)
         props = hcard.get('properties', {})
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])
         canonical_url = urls[0]
+
+        atom = parsed.find('link', rel='alternate', type=common.ATOM_CONTENT_TYPE)
+        if atom and atom['href']:
+            atom = urlparse.urljoin(resp.url, atom['href'])
+        else:
+            atom = 'https://granary-demo.appspot.com/url?' + urllib.urlencode({
+                'input': 'html',
+                'output': 'atom',
+                'url': resp.url,
+                'hub': resp.url,
+            })
 
         data = util.trim_nulls({
             'subject': 'acct:' + acct,
@@ -73,9 +87,8 @@ representative h-card</a> on %s""" % resp.url)
             }, {
                 'rel': 'http://schemas.google.com/g/2010#updates-from',
                 'type': common.ATOM_CONTENT_TYPE,
-                # TODO: feed discovery, fall back to granary
                 # TODO: hub
-                'href': 'https://granary-demo.appspot.com/url?input=html&output=atom&url=%s&hub=%s' % (resp.url, resp.url),
+                'href': atom,
             }, {
                 'rel': 'magic-public-key',
                 'href': key.href(),

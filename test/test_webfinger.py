@@ -58,7 +58,7 @@ class WebFingerTest(testutil.TestCase):
             }, {
                 'rel': 'http://schemas.google.com/g/2010#updates-from',
                 'type': 'application/atom+xml',
-                'href': 'https://granary-demo.appspot.com/url?input=html&output=atom&url=https://foo.com/&hub=https://foo.com/'
+                'href': 'https://granary-demo.appspot.com/url?url=https%3A%2F%2Ffoo.com%2F&input=html&hub=https%3A%2F%2Ffoo.com%2F&output=atom',
             }, {
                 'rel': 'magic-public-key',
                 'href': self.key.href(),
@@ -117,6 +117,23 @@ class WebFingerTest(testutil.TestCase):
 
         links = {l['rel']: l['href'] for l in again['links']}
         self.assertEquals(self.key.href(), links['magic-public-key'])
+
+    @mock.patch('requests.get')
+    def test_user_handler_with_atom_feed(self, mock_get):
+        html = """\
+<html>
+<head>
+<link rel="feed" href="/dont-use">
+<link rel="alternate" type="application/rss+xml" href="/dont-use-either">
+<link rel="alternate" type="application/atom+xml" href="/use-this">
+</head>
+""" + self.html
+        mock_get.return_value = requests_response(html, url = 'https://foo.com/')
+
+        got = app.get_response('/foo.com', headers={'Accept': 'application/json'})
+        self.assertEquals(200, got.status_int)
+        self.expected_webfinger['links'][4]['href'] = 'https://foo.com/use-this'
+        self.assertEquals(self.expected_webfinger, json.loads(got.body))
 
     @mock.patch('requests.get')
     def test_user_handler_no_hcard(self, mock_get):
