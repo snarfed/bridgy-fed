@@ -3,6 +3,7 @@
 """
 from __future__ import unicode_literals
 import logging
+import re
 
 from oauth_dropins.webutil import util
 import requests
@@ -18,6 +19,7 @@ MAGIC_ENVELOPE_CONTENT_TYPE = 'application/magic-envelope+xml'
 XML_UTF8 = "<?xml version='1.0' encoding='UTF-8'?>\n"
 USERNAME = 'me'
 # USERNAME_EMOJI = '🌎'  # globe
+LINK_HEADER_RE = re.compile(r""" *< *([^ >]+) *> *; *rel=['"]([^'"]+)['"] *""")
 
 
 def requests_get(url, **kwargs):

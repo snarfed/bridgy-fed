@@ -60,6 +60,9 @@ class WebFingerTest(testutil.TestCase):
                 'type': 'application/atom+xml',
                 'href': 'https://granary-demo.appspot.com/url?url=https%3A%2F%2Ffoo.com%2F&input=html&hub=https%3A%2F%2Ffoo.com%2F&output=atom',
             }, {
+                'rel': 'hub',
+                'href': 'https://bridgy-fed.superfeedr.com/'
+            }, {
                 'rel': 'magic-public-key',
                 'href': self.key.href(),
             }, {
@@ -132,8 +135,27 @@ class WebFingerTest(testutil.TestCase):
 
         got = app.get_response('/foo.com', headers={'Accept': 'application/json'})
         self.assertEquals(200, got.status_int)
-        self.expected_webfinger['links'][4]['href'] = 'https://foo.com/use-this'
-        self.assertEquals(self.expected_webfinger, json.loads(got.body))
+        self.assertEquals({
+            'rel': 'http://schemas.google.com/g/2010#updates-from',
+            'type': 'application/atom+xml',
+            'href': 'https://foo.com/use-this',
+        }, json.loads(got.body)['links'][4])
+
+    @mock.patch('requests.get')
+    def test_user_handler_with_push_header(self, mock_get):
+        mock_get.return_value = requests_response(
+            self.html, url = 'https://foo.com/', headers={
+                'Link': 'badly formatted, '
+                        "<xyz>; rel='foo',"
+                        '<http://a.custom.hub/>; rel="hub"',
+            })
+
+        got = app.get_response('/foo.com', headers={'Accept': 'application/json'})
+        self.assertEquals(200, got.status_int)
+        self.assertEquals({
+            'rel': 'hub',
+            'href': 'http://a.custom.hub/',
+        }, json.loads(got.body)['links'][5])
 
     @mock.patch('requests.get')
     def test_user_handler_no_hcard(self, mock_get):

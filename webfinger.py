@@ -58,6 +58,7 @@ representative h-card</a> on %s""" % resp.url)
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])
         canonical_url = urls[0]
 
+        # discover atom feed, if any
         atom = parsed.find('link', rel='alternate', type=common.ATOM_CONTENT_TYPE)
         if atom and atom['href']:
             atom = urlparse.urljoin(resp.url, atom['href'])
@@ -69,6 +70,16 @@ representative h-card</a> on %s""" % resp.url)
                 'hub': resp.url,
             })
 
+        # discover PuSH, if any
+        for link in resp.headers.get('Link', '').split(','):
+            match = common.LINK_HEADER_RE.match(link)
+            if match and match.group(2) == 'hub':
+                hub = match.group(1)
+            else:
+                hub = 'https://bridgy-fed.superfeedr.com/'
+
+
+        # generate webfinger content
         data = util.trim_nulls({
             'subject': 'acct:' + acct,
             'aliases': urls,
@@ -87,8 +98,10 @@ representative h-card</a> on %s""" % resp.url)
             }, {
                 'rel': 'http://schemas.google.com/g/2010#updates-from',
                 'type': common.ATOM_CONTENT_TYPE,
-                # TODO: hub
                 'href': atom,
+            }, {
+                'rel': 'hub',
+                'href': hub,
             }, {
                 'rel': 'magic-public-key',
                 'href': key.href(),
