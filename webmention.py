@@ -1,12 +1,5 @@
 """Handles inbound webmentions.
 
-TODO:
-* mastodon doesn't advertise salmon endpoint in their individual post atom?!
-  https://mastodon.technology/users/snarfed/updates/73978.atom
-* user-visible error messages for no activitypub/salmon
-  e.g. Hubzilla instances have to opt into federation.
-  https://project.hubzilla.org/help/admin/administrator_guide#Federation_Addons
-
 TODO tests:
 * actor/attributedTo could be string URL
 * salmon rel via webfinger via author.name + domain
@@ -117,8 +110,9 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         parsed = BeautifulSoup(target_resp.content, from_encoding=target_resp.encoding)
         atom_url = parsed.find('link', rel='alternate', type=common.ATOM_CONTENT_TYPE)
-        assert atom_url  # TODO
-        assert atom_url['href']  # TODO
+        if not atom_url or not atom_url['href']:
+            common.error(self, 'Target post %s has no Atom link' % target_resp.url,
+                         status=400)
 
         # fetch Atom target post, extract id and salmon endpoint
         feed = common.requests_get(atom_url['href']).text
@@ -167,7 +161,6 @@ class WebmentionHandler(webapp2.RequestHandler):
         logging.info('Converted %s to Atom:\n%s', source_url, entry)
 
         # sign reply and wrap in magic envelope
-        # TODO: use author h-card's u-url?
         domain = urlparse.urlparse(source_url).netloc.split(':')[0]
         key = models.MagicKey.get_or_create(domain)
         logging.info('Using key for %s: %s', domain, key)

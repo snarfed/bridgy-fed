@@ -195,3 +195,17 @@ class WebmentionTest(testutil.TestCase):
             'http://orig/.well-known/webfinger?resource=ryan@orig',
             headers=common.HEADERS, timeout=util.HTTP_TIMEOUT)
         self.assertEqual(('http://orig/@ryan/salmon',), mock_post.call_args[0])
+
+    def test_salmon_no_target_atom(self, mock_get, mock_post):
+        orig_no_atom = requests_response("""\
+<html>
+<body>foo</body>
+</html>""", 'http://orig/url')
+        mock_get.side_effect = [self.reply, orig_no_atom]
+
+        got = app.get_response('/webmention', method='POST', body=urllib.urlencode({
+            'source': 'http://a/reply',
+            'target': 'http://orig/post',
+        }))
+        self.assertEquals(400, got.status_int)
+        self.assertIn('Target post http://orig/url has no Atom link', got.body)
