@@ -58,6 +58,11 @@
   margin-bottom: 1em;
 }
 
+code {
+  color: black;
+  background-color: white !important;
+}
+
 label {
   /* override Bootstrap style */
   font-weight: 300;

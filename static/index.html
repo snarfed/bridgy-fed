@@ -18,6 +18,11 @@
 
 <main class="tp-main lead container">
 
+<br />
+<p class="big row" style="color: red; font-weight: bold">
+ALPHA! STILL UNDER DEVELOPMENT.
+</p>
+
 <div id="intro" class="row">
 <div id="logos" class="col-xs-4">
  <a href="/"><img class="img-responsive" src="/static/bridgy_logo.jpg" /></a>
@@ -43,6 +48,7 @@ with<br />
 <p class="clearfix"></p>
 
 <br />
+
 <p class="big row">
 Bridgy Fed connects the <a href="https://indieweb.org/">IndieWeb</a> with federated social networks using <a href="https://activitypub.rocks/">ActivityPub</a> and <a href="https://en.wikipedia.org/wiki/OStatus">OStatus</a>:
 </p>
@@ -59,9 +65,35 @@ Bridgy Fed connects the <a href="https://indieweb.org/">IndieWeb</a> with federa
 <li>...and more!</li>
 </ul>
 
-<p class="big row">
-Docs: TODO
-</p>
+<h2 class="big row">
+IndieWeb user instructions:
+</h2>
+
+<ol>
+<li>Redirect all <code>/.well-known/*</code> URLs from your site to <code>https://fed.brid.gy/.well-known/*</code> with HTTP 301 or 302.</li>
+  <ul>
+  <li>If you're on WordPress, you can use a plugin like <a href="https://wordpress.org/plugins/safe-redirect-manager/">Safe Redirect Manager</a>.</li>
+  <li>If you're on Apache, add this to your <code>.htaccess</code>:<br />
+    <pre>RewriteEngine on
+    RewriteBase /
+    RewriteRule ^.well-known/.* https://fed.brid.gy/$0  [redirect=302,last]</pre>
+  </li>
+  <li>If you're on nginx, add this to <code>nginx.conf</code> in your site's <code>server</code> section:<br />
+    <pre>rewrite ^/.well-known/ https://fed.brid.gy/$request_uri redirect;</pre>
+  </li>
+  </ul>
+
+<li>If your site doesn't already have an <a href="https://en.wikipedia.org/wiki/Atom_(standard)">Atom</a> feed, add one.</li>
+  <ul>
+  <li>If you're on WordPress, install the <a href="https://wordpress.org/plugins/atom-default-feed/">Atom Default Feed plugin</a>.
+   <!-- or just <a href="https://codex.wordpress.org/WordPress_Feeds#Finding_Your_Feed_URL">add this</a> to your HTML header:<br /> -->
+  </li>
+  <li>Otherwise, you can use <a href="https://granary-demo.appspot.com/">granary</a>. Just add this to your site's HTML <code>&lt;head&gt;</code> and fill in <code>YOUR DOMAIN</code> with your site's domain:<br />
+    <pre>&lt;link rel="alternate" type="application/atom+xml" href="https://granary-demo.appspot.com/url?url=http://[YOUR DOMAIN]/&input=html&output=atom&hub=https://bridgy-fed.superfeedr.com/" /&gt;</pre>
+  </li>
+  </ul>
+</li>
+</ol>
 
 <div id="footer">
   <a href="https://github.com/snarfed/bridgy-fed/issues">Bugs</a>
