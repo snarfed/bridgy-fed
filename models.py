@@ -2,6 +2,7 @@
 
 Based on webfinger-unofficial/user.py.
 """
+from Crypto.PublicKey import RSA
 from django_salmon import magicsigs
 from google.appengine.ext import ndb
 from oauth_dropins.webutil.models import StringIdModel
@@ -43,3 +44,14 @@ class MagicKey(StringIdModel):
     def href(self):
         return 'data:application/magic-public-key,RSA.%s.%s' % (
             self.mod, self.public_exponent)
+
+    def public_pem(self):
+        rsa = RSA.construct((magicsigs.base64_to_long(str(self.mod)),
+                             magicsigs.base64_to_long(str(self.public_exponent))))
+        return rsa.exportKey(format='PEM')
+
+    def private_pem(self):
+        rsa = RSA.construct((magicsigs.base64_to_long(str(self.mod)),
+                             magicsigs.base64_to_long(str(self.public_exponent)),
+                             magicsigs.base64_to_long(str(self.private_exponent))))
+        return rsa.exportKey(format='PEM')
