@@ -13,6 +13,7 @@ import urllib2
 from django_salmon import magicsigs, utils
 import feedparser
 from granary import atom, microformats2
+from httpsig.sign import HeaderSigner
 import mf2py
 import mock
 from mock import call
@@ -105,9 +106,12 @@ class WebmentionTest(testutil.TestCase):
             ],
         }, kwargs['json'])
 
-        expected_headers = copy.copy(common.HEADERS)
-        expected_headers['Content-Type'] = activitypub.CONTENT_TYPE_AS
-        self.assertEqual(expected_headers, kwargs['headers'])
+        headers = kwargs['headers']
+        self.assertEqual(activitypub.CONTENT_TYPE_AS, headers['Content-Type'])
+
+        expected_key = MagicKey.get_by_id('a')
+        rsa_key = kwargs['auth'].header_signer._rsa._key
+        self.assertEqual(expected_key.private_pem(), rsa_key.exportKey())
 
     def test_salmon(self, mock_get, mock_post):
         orig_atom = requests_response("""\

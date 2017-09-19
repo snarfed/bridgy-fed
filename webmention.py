@@ -4,6 +4,7 @@ TODO tests:
 * actor/attributedTo could be string URL
 * salmon rel via webfinger via author.name + domain
 """
+import datetime
 import json
 import logging
 import urlparse
@@ -15,6 +16,7 @@ import django_salmon
 from django_salmon import magicsigs, utils
 import feedparser
 from granary import atom, microformats2
+from httpsig.requests_auth import HTTPSignatureAuth
 import mf2py
 import mf2util
 from oauth_dropins.webutil import util
@@ -93,10 +95,27 @@ class WebmentionHandler(webapp2.RequestHandler):
             source_obj['inReplyTo'],
         ])
 
-        # deliver source object to target actor's inbox
+        # prepare HTTP Signature (required by Mastodon)
+        # https://w3c.github.io/activitypub/#authorization-lds
+        # https://tools.ietf.org/html/draft-cavage-http-signatures-07
+        # https://github.com/tootsuite/mastodon/issues/4906#issuecomment-328844846
+        source_domain = urlparse.urlparse(source).netloc
+        key = models.MagicKey.get_or_create(source_domain)
+
+        acct = 'acct:me@%s' % source_domain
+        auth = HTTPSignatureAuth(secret=key.private_pem(), key_id=acct,
+                                 algorithm='rsa-sha256')
+
+        # deliver source object to target actor's inbox.
+        headers = {
+            'Content-Type': activitypub.CONTENT_TYPE_AS,
+            # required for HTTP Signature
+            # https://tools.ietf.org/html/draft-cavage-http-signatures-07#section-2.1.3
+            'Date': datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT'),
+        }
         resp = common.requests_post(
-            urlparse.urljoin(target, inbox_url), json=source_obj,
-            headers={'Content-Type': activitypub.CONTENT_TYPE_AS}, log=True)
+            urlparse.urljoin(target, inbox_url), json=source_obj, auth=auth,
+            headers=headers, log=True)
 
     def send_salmon(self, source_obj, target_url=None, target_resp=None):
         # fetch target HTML page, extract Atom rel-alternate link
