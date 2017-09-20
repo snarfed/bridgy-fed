@@ -95,15 +95,20 @@ class WebmentionTest(testutil.TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
         self.assertEqual({
-            'objectType': 'comment',
-            'url': 'http://a/reply',
-            'displayName': 'foo ☕ bar',
-            'content': ' <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> ',
-            'inReplyTo': 'http://orig/post',
-            'cc': [
-                activitypub.PUBLIC_AUDIENCE,
-                'http://orig/post'
-            ],
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'object': {
+                'type': 'Note',
+                'objectType': 'comment',
+                'url': 'http://a/reply',
+                'displayName': 'foo ☕ bar',
+                'content': ' <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> ',
+                'inReplyTo': 'http://orig/post',
+                'cc': [
+                    activitypub.PUBLIC_AUDIENCE,
+                    'http://orig/post'
+                ],
+            },
         }, kwargs['json'])
 
         headers = kwargs['headers']

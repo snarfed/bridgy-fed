@@ -94,6 +94,14 @@ class WebmentionHandler(webapp2.RequestHandler):
             activitypub.PUBLIC_AUDIENCE,
             source_obj['inReplyTo'],
         ])
+        source_obj.update({
+            'type': 'Note'
+        })
+        source_activity = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'object': source_obj,
+        }
 
         # prepare HTTP Signature (required by Mastodon)
         # https://w3c.github.io/activitypub/#authorization-lds
@@ -114,7 +122,7 @@ class WebmentionHandler(webapp2.RequestHandler):
             'Date': datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT'),
         }
         resp = common.requests_post(
-            urlparse.urljoin(target, inbox_url), json=source_obj, auth=auth,
+            urlparse.urljoin(target, inbox_url), json=source_activity, auth=auth,
             headers=headers, log=True)
 
     def send_salmon(self, source_obj, target_url=None, target_resp=None):
