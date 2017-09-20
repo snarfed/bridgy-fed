@@ -88,4 +88,5 @@ skip_files:
 - ^(.*/)?\.git.*
 - ^(.*/)?.*\.bak$
 - ^(.*/)?(\.?coverage|debian|docs?|examples?|l|pydocs?|python3|ref|samples?|TAGS|tests?)/.*
+- ^local/lib/python2.7/site-packages/Crypto/.*
 - ^local/lib/python2.7/site-packages/setuptools/script\ \(dev\)\.tmpl$
