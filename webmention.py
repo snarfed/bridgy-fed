@@ -95,10 +95,13 @@ class WebmentionHandler(webapp2.RequestHandler):
             source_obj['inReplyTo'],
         ])
         source_obj.update({
-            'type': 'Note'
+            '@type': 'Note',
+            'type': 'Note',
         })
+        del source_obj['objectType']
         source_activity = {
             '@context': 'https://www.w3.org/ns/activitystreams',
+            '@type': 'Create',
             'type': 'Create',
             'object': source_obj,
         }

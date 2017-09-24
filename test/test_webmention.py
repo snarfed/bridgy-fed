@@ -96,10 +96,11 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(('https://foo.com/inbox',), args)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
+            '@type': 'Create',
             'type': 'Create',
             'object': {
+                '@type': 'Note',
                 'type': 'Note',
-                'objectType': 'comment',
                 'url': 'http://a/reply',
                 'displayName': 'foo ☕ bar',
                 'content': ' <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> ',
