@@ -15,7 +15,7 @@ from bs4 import BeautifulSoup
 import django_salmon
 from django_salmon import magicsigs, utils
 import feedparser
-from granary import atom, microformats2
+from granary import as2, atom, microformats2
 from httpsig.requests_auth import HTTPSignatureAuth
 import mf2py
 import mf2util
@@ -83,27 +83,28 @@ class WebmentionHandler(webapp2.RequestHandler):
             # self.abort(400, 'Target actor has no inbox')
             return self.send_salmon(source_obj, target_url=target)
 
-        # post-process AS1 to look enough like AS2 to work
-        in_reply_tos = util.get_list(source_obj, 'inReplyTo')
-        if in_reply_tos:
-            source_obj['inReplyTo'] = in_reply_tos[0]['url']
+        # convert to AS2
+        source_as2 = as2.from_as1(source_obj, context=None)
+
+        source_as2['type'] = source_as2['@type']  # required for Mastodon
+
+        in_reply_tos = source_as2.get('inReplyTo')
+        if isinstance(in_reply_tos, list):
             if len(in_reply_tos) > 1:
                 logging.warning("AS2 doesn't support multiple inReplyTo URLs! "
-                                'Only using the first: %s' % source_obj['inReplyTo'])
-        source_obj.setdefault('cc', []).extend([
+                                'Only using the first: %s' % in_reply_tos[0])
+            source_as2['inReplyTo'] = in_reply_tos[0]
+
+        source_as2.setdefault('cc', []).extend([
             activitypub.PUBLIC_AUDIENCE,
-            source_obj['inReplyTo'],
+            source_as2['inReplyTo'],
         ])
-        source_obj.update({
-            '@type': 'Note',
-            'type': 'Note',
-        })
-        del source_obj['objectType']
+
         source_activity = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             '@type': 'Create',
             'type': 'Create',
-            'object': source_obj,
+            'object': source_as2,
         }
 
         # prepare HTTP Signature (required by Mastodon)
