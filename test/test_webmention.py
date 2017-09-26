@@ -99,6 +99,7 @@ class WebmentionTest(testutil.TestCase):
             '@type': 'Create',
             'type': 'Create',
             'object': {
+                '@context': 'https://www.w3.org/ns/activitystreams',
                 '@type': 'Note',
                 'type': 'Note',
                 'url': 'http://a/reply',

@@ -31,8 +31,8 @@ import models
 def prepare_as2(activity):
     """Prepare an AS2 object to be sent via ActivityPub."""
     activity.update({
-        'type': activity['@type'],  # for Mastodon
-        'id': activity['@id'],      # "
+        'type': activity.get('@type'),  # for Mastodon
+        'id': activity.get('@id'),      # "
         'cc': (activity.get('cc', []) +
                [activitypub.PUBLIC_AUDIENCE] +
                util.get_list(activity, 'inReplyTo')),
@@ -50,15 +50,15 @@ def prepare_as2(activity):
                             'Only using the first: %s' % in_reply_tos[0])
         activity['inReplyTo'] = in_reply_tos[0]
 
-    if activity.get('@type') in as2.TYPE_TO_VERB:
-        return activity
-    else:
-        return {
+    if activity.get('@type') not in as2.TYPE_TO_VERB:
+        activity = {
             '@context': as2.CONTEXT,
             '@type': 'Create',
             'type': 'Create',
             'object': activity,
         }
+
+    return util.trim_nulls(activity)
 
 
 class WebmentionHandler(webapp2.RequestHandler):
