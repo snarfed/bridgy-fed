@@ -28,6 +28,39 @@ import common
 import models
 
 
+def prepare_as2(activity):
+    """Prepare an AS2 object to be sent via ActivityPub."""
+    activity.update({
+        'type': activity['@type'],  # for Mastodon
+        'id': activity['@id'],      # "
+        'cc': (activity.get('cc', []) +
+               [activitypub.PUBLIC_AUDIENCE] +
+               util.get_list(activity, 'inReplyTo')),
+    })
+    obj = activity.get('object')
+    if obj:
+        if not obj.get('@id'):  # for Mastodon
+            obj['@id'] = obj.get('url')
+        obj['id'] = obj['@id']
+
+    in_reply_tos = activity.get('inReplyTo')
+    if isinstance(in_reply_tos, list):
+        if len(in_reply_tos) > 1:
+            logging.warning("AS2 doesn't support multiple inReplyTo URLs! "
+                            'Only using the first: %s' % in_reply_tos[0])
+        activity['inReplyTo'] = in_reply_tos[0]
+
+    if activity.get('@type') in as2.TYPE_TO_VERB:
+        return activity
+    else:
+        return {
+            '@context': as2.CONTEXT,
+            '@type': 'Create',
+            'type': 'Create',
+            'object': activity,
+        }
+
+
 class WebmentionHandler(webapp2.RequestHandler):
     """Handles inbound webmention, converts to ActivityPub or Salmon."""
 
@@ -84,28 +117,7 @@ class WebmentionHandler(webapp2.RequestHandler):
             return self.send_salmon(source_obj, target_url=target)
 
         # convert to AS2
-        source_as2 = as2.from_as1(source_obj, context=None)
-
-        source_as2['type'] = source_as2['@type']  # required for Mastodon
-
-        in_reply_tos = source_as2.get('inReplyTo')
-        if isinstance(in_reply_tos, list):
-            if len(in_reply_tos) > 1:
-                logging.warning("AS2 doesn't support multiple inReplyTo URLs! "
-                                'Only using the first: %s' % in_reply_tos[0])
-            source_as2['inReplyTo'] = in_reply_tos[0]
-
-        source_as2.setdefault('cc', []).extend([
-            activitypub.PUBLIC_AUDIENCE,
-            source_as2['inReplyTo'],
-        ])
-
-        source_activity = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            '@type': 'Create',
-            'type': 'Create',
-            'object': source_as2,
-        }
+        source_activity = prepare_as2(as2.from_as1(source_obj))
 
         # prepare HTTP Signature (required by Mastodon)
         # https://w3c.github.io/activitypub/#authorization-lds
