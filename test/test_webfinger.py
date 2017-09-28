@@ -56,6 +56,14 @@ class WebFingerTest(testutil.TestCase):
                 'type': 'text/html',
                 'href': 'https://foo.com/about-me'
             }, {
+                'rel': 'self',
+                'type': 'application/activity+json',
+                'href': 'http://localhost/foo.com'
+            }, {
+                'rel': 'inbox',
+                'type': 'application/activity+json',
+                'href': 'http://localhost/foo.com/inbox'
+            }, {
                 'rel': 'http://schemas.google.com/g/2010#updates-from',
                 'type': 'application/atom+xml',
                 'href': 'https://granary-demo.appspot.com/url?url=https%3A%2F%2Ffoo.com%2F&input=html&hub=https%3A%2F%2Ffoo.com%2F&output=atom',
@@ -68,11 +76,6 @@ class WebFingerTest(testutil.TestCase):
             }, {
                 'rel': 'salmon',
                 'href': 'http://localhost/foo.com/salmon'
-            # TODO
-            # }, {
-            #     'rel': 'self',
-            #     'type': 'application/activity+json',
-            #     'href': 'https://mastodon.technology/users/snarfed'
             # }, {
             #     'rel': 'http://ostatus.org/schema/1.0/subscribe',
             #     'template': 'https://mastodon.technology/authorize_follow?acct={uri}'
@@ -135,11 +138,11 @@ class WebFingerTest(testutil.TestCase):
 
         got = app.get_response('/foo.com', headers={'Accept': 'application/json'})
         self.assertEquals(200, got.status_int)
-        self.assertEquals({
+        self.assertIn({
             'rel': 'http://schemas.google.com/g/2010#updates-from',
             'type': 'application/atom+xml',
             'href': 'https://foo.com/use-this',
-        }, json.loads(got.body)['links'][4])
+        }, json.loads(got.body)['links'])
 
     @mock.patch('requests.get')
     def test_user_handler_with_push_header(self, mock_get):
@@ -152,10 +155,10 @@ class WebFingerTest(testutil.TestCase):
 
         got = app.get_response('/foo.com', headers={'Accept': 'application/json'})
         self.assertEquals(200, got.status_int)
-        self.assertEquals({
+        self.assertIn({
             'rel': 'hub',
             'href': 'http://a.custom.hub/',
-        }, json.loads(got.body)['links'][5])
+        }, json.loads(got.body)['links'])
 
     @mock.patch('requests.get')
     def test_user_handler_no_hcard(self, mock_get):

@@ -5,7 +5,7 @@ import logging
 
 import appengine_config
 
-from granary import microformats2
+from granary import as2, microformats2
 import mf2py
 import mf2util
 from oauth_dropins.webutil import util
@@ -21,7 +21,6 @@ CONTENT_TYPE_AS = 'application/activity+json'
 CONNEG_HEADER = {
     'Accept': '%s; q=0.9, %s; q=0.8' % (CONTENT_TYPE_AS2, CONTENT_TYPE_AS),
 }
-PUBLIC_AUDIENCE = 'https://www.w3.org/ns/activitystreams#Public'
 
 class ActorHandler(webapp2.RequestHandler):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
@@ -39,7 +38,7 @@ class ActorHandler(webapp2.RequestHandler):
 Couldn't find a <a href="http://microformats.org/wiki/representative-hcard-parsing">\
 representative h-card</a> on %s""" % resp.url)
 
-        obj = microformats2.json_to_object(hcard)
+        obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(hcard)))
         obj.update({
             'inbox': '%s/%s/inbox' % (self.request.host_url, domain),
         })

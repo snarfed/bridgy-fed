@@ -107,7 +107,7 @@ class WebmentionTest(testutil.TestCase):
                 'content': ' <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> ',
                 'inReplyTo': 'http://orig/post',
                 'cc': [
-                    activitypub.PUBLIC_AUDIENCE,
+                    common.AS2_PUBLIC_AUDIENCE,
                     'http://orig/post'
                 ],
             },

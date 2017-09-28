@@ -95,7 +95,21 @@ representative h-card</a> on %s""" % resp.url)
                 'rel': 'canonical_uri',
                 'type': 'text/html',
                 'href': canonical_url,
+            },
+
+            # ActivityPub
+            {
+                'rel': 'self',
+                'type': 'application/activity+json',
+                'href': '%s/%s' % (self.request.host_url, domain),
             }, {
+                'rel': 'inbox',
+                'type': 'application/activity+json',
+                'href': '%s/%s/inbox' % (self.request.host_url, domain),
+            },
+
+            # OStatus
+            {
                 'rel': 'http://schemas.google.com/g/2010#updates-from',
                 'type': common.ATOM_CONTENT_TYPE,
                 'href': atom,

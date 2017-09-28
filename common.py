@@ -5,6 +5,7 @@ from __future__ import unicode_literals
 import logging
 import re
 
+from granary import as2
 from oauth_dropins.webutil import util
 import requests
 from webob import exc
@@ -20,6 +21,7 @@ XML_UTF8 = "<?xml version='1.0' encoding='UTF-8'?>\n"
 USERNAME = 'me'
 # USERNAME_EMOJI = '🌎'  # globe
 LINK_HEADER_RE = re.compile(r""" *< *([^ >]+) *> *; *rel=['"]([^'"]+)['"] *""")
+AS2_PUBLIC_AUDIENCE = 'https://www.w3.org/ns/activitystreams#Public'
 
 
 def requests_get(url, **kwargs):
@@ -54,3 +56,39 @@ def _requests_fn(fn, url, parse_json=False, log=False, **kwargs):
 def error(handler, msg, status=400):
     logging.info(msg)
     handler.abort(status, msg)
+
+
+def postprocess_as2(activity):
+    """Prepare an AS2 object to be served or sent via ActivityPub."""
+    # for Mastodon
+    activity.update({
+        'type': activity.get('@type'),
+        'id': activity.get('@id'),
+    })
+    obj = activity.get('object')
+    if obj:
+        if not obj.get('@id'):  # for Mastodon
+            obj['@id'] = obj.get('url')
+        obj['id'] = obj['@id']
+
+    in_reply_tos = activity.get('inReplyTo')
+    if isinstance(in_reply_tos, list):
+        if len(in_reply_tos) > 1:
+            logging.warning("AS2 doesn't support multiple inReplyTo URLs! "
+                            'Only using the first: %s' % in_reply_tos[0])
+        activity['inReplyTo'] = in_reply_tos[0]
+
+    type = activity.get('@type')
+    if type in as2.TYPE_TO_VERB or type in ('Article', 'Note'):
+        activity.setdefault('cc', []).extend(
+            [AS2_PUBLIC_AUDIENCE] + util.get_list(activity, 'inReplyTo'))
+
+    if activity.get('@type') in ('Article', 'Note'):
+        activity = {
+            '@context': as2.CONTEXT,
+            '@type': 'Create',
+            'type': 'Create',
+            'object': activity,
+        }
+
+    return util.trim_nulls(activity)

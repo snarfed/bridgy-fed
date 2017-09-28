@@ -36,7 +36,9 @@ class ActivityPubTest(unittest.TestCase):
         self.assertEquals(200, got.status_int)
         self.assertEquals(activitypub.CONTENT_TYPE_AS2, got.headers['Content-Type'])
         self.assertEquals({
-            'objectType' : 'person',
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@type' : 'Person',
+            'type' : 'Person',
             'displayName': 'Mrs. ☕ Foo',
             'url': 'https://foo.com/about-me',
             'inbox': 'http://localhost/foo.com/inbox',
