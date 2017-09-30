@@ -40,7 +40,7 @@ representative h-card</a> on %s""" % resp.url)
 
         obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(hcard)))
         obj.update({
-            'inbox': '%s/%s/inbox' % (self.request.host_url, domain),
+            'inbox': '%s/%s/inbox' % (appengine_config.HOST_URL, domain),
         })
         logging.info('Returning: %s', json.dumps(obj, indent=2))
 

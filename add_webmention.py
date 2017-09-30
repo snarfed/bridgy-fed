@@ -32,7 +32,7 @@ class AddWebmentionHandler(webapp2.RequestHandler):
         self.response.write(resp.content)
 
         endpoint = LINK_HEADER % (str(self.request.get('endpoint')) or
-                                  self.request.host_url + '/webmention')
+                                  appengine_config.HOST_URL + '/webmention')
         self.response.headers.clear()
         self.response.headers.update(resp.headers)
         self.response.headers.add('Link', endpoint)

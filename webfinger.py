@@ -101,11 +101,14 @@ representative h-card</a> on %s""" % resp.url)
             {
                 'rel': 'self',
                 'type': 'application/activity+json',
-                'href': '%s/%s' % (self.request.host_url, domain),
+                # use HOST_URL instead of e.g. request.host_url because it
+                # sometimes lost port, e.g. http://localhost:8080 would become
+                # just http://localhost. no clue how or why.
+                'href': '%s/%s' % (appengine_config.HOST_URL, domain),
             }, {
                 'rel': 'inbox',
                 'type': 'application/activity+json',
-                'href': '%s/%s/inbox' % (self.request.host_url, domain),
+                'href': '%s/%s/inbox' % (appengine_config.HOST_URL, domain),
             },
 
             # OStatus
@@ -121,7 +124,7 @@ representative h-card</a> on %s""" % resp.url)
                 'href': key.href(),
             }, {
                 'rel': 'salmon',
-                'href': '%s/%s/salmon' % (self.request.host_url, domain),
+                'href': '%s/%s/salmon' % (appengine_config.HOST_URL, domain),
             }]
         })
         logging.info('Returning WebFinger data: %s', json.dumps(data, indent=2))
