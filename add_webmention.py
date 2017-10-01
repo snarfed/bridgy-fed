@@ -1,6 +1,7 @@
 """HTTP proxy that injects our webmention endpoint.
 """
 import logging
+import urllib
 
 import appengine_config
 
@@ -16,6 +17,7 @@ class AddWebmentionHandler(webapp2.RequestHandler):
     """Proxies HTTP requests and adds Link header to our webmention endpoint."""
 
     def get(self, url):
+        url = urllib.unquote(url)
         if not url.startswith('http://') and not url.startswith('https://'):
             self.abort(400, 'URL must start with http:// or https://')
 
