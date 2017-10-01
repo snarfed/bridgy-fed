@@ -58,8 +58,13 @@ def error(handler, msg, status=400):
     handler.abort(status, msg)
 
 
-def postprocess_as2(activity):
-    """Prepare an AS2 object to be served or sent via ActivityPub."""
+def postprocess_as2(activity, key=None):
+    """Prepare an AS2 object to be served or sent via ActivityPub.
+
+    Args:
+      activity: dict, AS2 object or activity
+      key: MagicKey, optional. populated into publicKey field if provided.
+    """
     # for Mastodon
     activity.update({
         'type': activity.get('@type'),
@@ -70,6 +75,14 @@ def postprocess_as2(activity):
         if not obj.get('@id'):  # for Mastodon
             obj['@id'] = obj.get('url')
         obj['id'] = obj['@id']
+
+    if not activity.get('publicKey'):
+        # underspecified, inferred from this issue and Mastodon's implementation:
+        # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
+        # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
+        activity['publicKey'] = {
+            'publicKeyPem': key.public_pem(),
+        }
 
     in_reply_tos = activity.get('inReplyTo')
     if isinstance(in_reply_tos, list):

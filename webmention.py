@@ -84,15 +84,14 @@ class WebmentionHandler(webapp2.RequestHandler):
             return self.send_salmon(source_obj, target_url=target)
 
         # convert to AS2
-        source_activity = common.postprocess_as2(as2.from_as1(source_obj))
+        source_domain = urlparse.urlparse(source).netloc
+        key = models.MagicKey.get_or_create(source_domain)
+        source_activity = common.postprocess_as2(as2.from_as1(source_obj), key=key)
 
         # prepare HTTP Signature (required by Mastodon)
         # https://w3c.github.io/activitypub/#authorization-lds
         # https://tools.ietf.org/html/draft-cavage-http-signatures-07
         # https://github.com/tootsuite/mastodon/issues/4906#issuecomment-328844846
-        source_domain = urlparse.urlparse(source).netloc
-        key = models.MagicKey.get_or_create(source_domain)
-
         acct = 'acct:me@%s' % source_domain
         auth = HTTPSignatureAuth(secret=key.private_pem(), key_id=acct,
                                  algorithm='rsa-sha256')

@@ -27,15 +27,15 @@ class MagicKey(StringIdModel):
 
     @staticmethod
     @ndb.transactional
-    def get_or_create(uri):
+    def get_or_create(domain):
         """Loads and returns a MagicKey. Creates it if necessary."""
-        key = MagicKey.get_by_id(uri)
+        key = MagicKey.get_by_id(domain)
 
         if not key:
             # this uses urandom(), and does nontrivial math, so it can take a
             # while depending on the amount of randomness available.
             pubexp, mod, privexp = magicsigs.generate()
-            key = MagicKey(id=uri, mod=mod, public_exponent=pubexp,
+            key = MagicKey(id=domain, mod=mod, public_exponent=pubexp,
                            private_exponent=privexp)
             key.put()
 

@@ -13,6 +13,7 @@ import webapp2
 from webmentiontools import send
 
 import common
+import models
 
 
 # https://www.w3.org/TR/activitypub/#retrieving-objects
@@ -38,7 +39,9 @@ class ActorHandler(webapp2.RequestHandler):
 Couldn't find a <a href="http://microformats.org/wiki/representative-hcard-parsing">\
 representative h-card</a> on %s""" % resp.url)
 
-        obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(hcard)))
+        key = models.MagicKey.get_or_create(domain)
+        obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(hcard)),
+                                     key=key)
         obj.update({
             'inbox': '%s/%s/inbox' % (appengine_config.HOST_URL, domain),
         })
@@ -62,6 +65,8 @@ class InboxHandler(webapp2.RequestHandler):
             msg = "Couldn't parse body as JSON"
             logging.error(msg, exc_info=True)
             self.abort(400, msg)
+
+        # TODO: verify signature if there is one
 
         obj = obj.get('object') or obj
         source = obj.get('url')
