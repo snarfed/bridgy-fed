@@ -76,7 +76,8 @@ def postprocess_as2(activity, key=None):
             obj['@id'] = obj.get('url')
         obj['id'] = obj['@id']
 
-    if not activity.get('publicKey'):
+    type = activity.get('@type')
+    if type == 'Person' and not activity.get('publicKey'):
         # underspecified, inferred from this issue and Mastodon's implementation:
         # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
         # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
@@ -91,7 +92,6 @@ def postprocess_as2(activity, key=None):
                             'Only using the first: %s' % in_reply_tos[0])
         activity['inReplyTo'] = in_reply_tos[0]
 
-    type = activity.get('@type')
     if type in as2.TYPE_TO_VERB or type in ('Article', 'Note'):
         activity.setdefault('cc', []).extend(
             [AS2_PUBLIC_AUDIENCE] + util.get_list(activity, 'inReplyTo'))

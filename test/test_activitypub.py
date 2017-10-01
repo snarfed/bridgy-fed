@@ -6,7 +6,6 @@ TODO: test error handling
 from __future__ import unicode_literals
 import copy
 import json
-import unittest
 import urllib
 
 import mock
@@ -17,11 +16,13 @@ import requests
 import activitypub
 from activitypub import app
 import common
+import models
+import testutil
 
 
 @mock.patch('requests.post')
 @mock.patch('requests.get')
-class ActivityPubTest(unittest.TestCase):
+class ActivityPubTest(testutil.TestCase):
 
     def test_actor_handler(self, mock_get, _):
         mock_get.return_value = requests_response("""
@@ -42,6 +43,9 @@ class ActivityPubTest(unittest.TestCase):
             'displayName': 'Mrs. ☕ Foo',
             'url': 'https://foo.com/about-me',
             'inbox': 'http://localhost/foo.com/inbox',
+            'publicKey': {
+                'publicKeyPem': models.MagicKey.get_by_id('foo.com').public_pem(),
+            },
         }, json.loads(got.body))
 
     def test_actor_handler_no_hcard(self, mock_get, _):

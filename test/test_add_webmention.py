@@ -2,19 +2,20 @@
 """Unit tests for add_webmention.py.
 """
 from __future__ import unicode_literals
-import unittest
 
 import mock
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
 from add_webmention import app
+import testutil
 
 
 @mock.patch('requests.get')
-class AddWebmentionTest(unittest.TestCase):
+class AddWebmentionTest(testutil.TestCase):
 
     def setUp(self):
+        super(AddWebmentionTest, self).setUp()
         self.resp = requests_response('asdf ☕ qwert', headers={
             'Link': 'first',
             'Foo': 'bar',
