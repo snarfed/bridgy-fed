@@ -70,11 +70,6 @@ def postprocess_as2(activity, key=None):
         'type': activity.get('@type'),
         'id': activity.get('@id'),
     })
-    obj = activity.get('object')
-    if obj:
-        if not obj.get('@id'):  # for Mastodon
-            obj['@id'] = obj.get('url')
-        obj['id'] = obj['@id']
 
     type = activity.get('@type')
     if type == 'Person' and not activity.get('publicKey'):
@@ -84,6 +79,8 @@ def postprocess_as2(activity, key=None):
         activity['publicKey'] = {
             'publicKeyPem': key.public_pem(),
         }
+    if type == 'Person':
+        activity.setdefault('preferredUsername', 'me')
 
     in_reply_tos = activity.get('inReplyTo')
     if isinstance(in_reply_tos, list):
@@ -103,5 +100,12 @@ def postprocess_as2(activity, key=None):
             'type': 'Create',
             'object': activity,
         }
+
+    # make sure the object has an id
+    obj = activity.get('object')
+    if obj:
+        if not obj.get('@id'):
+            obj['@id'] = obj.get('url')
+        obj['id'] = obj['@id']
 
     return util.trim_nulls(activity)
