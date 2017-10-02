@@ -46,7 +46,14 @@ class WebmentionHandler(webapp2.RequestHandler):
         source_obj = microformats2.json_to_object(entry)
         logging.info('Converted to AS: %s', json.dumps(source_obj, indent=2))
 
-        # fetch target page as AS object
+        # fetch target page as AS object. (target is first in-reply-to, not
+        # query param.)
+        target = util.get_first(source_obj, 'inReplyTo')
+        if isinstance(target, dict):
+            target = target.get('url')
+        if not target:
+            self.abort(400, 'No u-in-reply-to found in %s' % source)
+
         try:
             resp = common.requests_get(target, headers=activitypub.CONNEG_HEADER,
                                        log=True)

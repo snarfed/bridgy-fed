@@ -50,6 +50,7 @@ class WebmentionTest(testutil.TestCase):
 <a class="u-url" href="http://a/reply"></a>
 <p class="e-content">
 <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>
+<a href="https://fed.brid.gy/"></a>
 </p>
 </div>
 </body>
@@ -81,7 +82,7 @@ class WebmentionTest(testutil.TestCase):
         got = app.get_response(
             '/webmention', method='POST', body=urllib.urlencode({
                 'source': 'http://a/reply',
-                'target': 'http://orig/post',
+                'target': 'https://fed.brid.gy/',
             }))
         self.assertEquals(200, got.status_int)
 
@@ -102,9 +103,11 @@ class WebmentionTest(testutil.TestCase):
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 '@type': 'Note',
                 'type': 'Note',
+                '@id': 'http://a/reply',
+                'id': 'http://a/reply',
                 'url': 'http://a/reply',
                 'displayName': 'foo ☕ bar',
-                'content': ' <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> ',
+                'content': ' <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> <a href="https://fed.brid.gy/"></a> ',
                 'inReplyTo': 'http://orig/post',
                 'cc': [
                     common.AS2_PUBLIC_AUDIENCE,
@@ -173,7 +176,7 @@ class WebmentionTest(testutil.TestCase):
             'ref': 'tag:fed.brid.gy,2017-08-22:orig-post'
         }, entry['thr_in-reply-to'])
         self.assertEquals(
-            '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>',
+            '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> <a href="https://fed.brid.gy/"></a>',
             entry.content[0]['value'])
 
     def test_salmon_get_salmon_from_webfinger(self, mock_get, mock_post):
