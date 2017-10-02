@@ -65,13 +65,7 @@ def postprocess_as2(activity, key=None):
       activity: dict, AS2 object or activity
       key: MagicKey, optional. populated into publicKey field if provided.
     """
-    # for Mastodon
-    activity.update({
-        'type': activity.get('@type'),
-        'id': activity.get('@id'),
-    })
-
-    type = activity.get('@type')
+    type = activity.get('type')
     if type == 'Person' and not activity.get('publicKey'):
         # underspecified, inferred from this issue and Mastodon's implementation:
         # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
@@ -93,19 +87,16 @@ def postprocess_as2(activity, key=None):
         activity.setdefault('cc', []).extend(
             [AS2_PUBLIC_AUDIENCE] + util.get_list(activity, 'inReplyTo'))
 
-    if activity.get('@type') in ('Article', 'Note'):
+    if type in ('Article', 'Note'):
         activity = {
             '@context': as2.CONTEXT,
-            '@type': 'Create',
             'type': 'Create',
             'object': activity,
         }
 
     # make sure the object has an id
     obj = activity.get('object')
-    if obj:
-        if not obj.get('@id'):
-            obj['@id'] = obj.get('url')
-        obj['id'] = obj['@id']
+    if obj and not obj.get('id'):
+        obj['id'] = obj.get('url')
 
     return util.trim_nulls(activity)

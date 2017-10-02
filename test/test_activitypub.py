@@ -38,9 +38,9 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEquals(activitypub.CONTENT_TYPE_AS2, got.headers['Content-Type'])
         self.assertEquals({
             '@context': 'https://www.w3.org/ns/activitystreams',
-            '@type' : 'Person',
             'type' : 'Person',
             'displayName': 'Mrs. ☕ Foo',
+            'preferredUsername': 'me',
             'url': 'https://foo.com/about-me',
             'inbox': 'http://localhost/foo.com/inbox',
             'publicKey': {

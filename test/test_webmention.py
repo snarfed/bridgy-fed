@@ -97,13 +97,10 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(('https://foo.com/inbox',), args)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
-            '@type': 'Create',
             'type': 'Create',
             'object': {
                 '@context': 'https://www.w3.org/ns/activitystreams',
-                '@type': 'Note',
                 'type': 'Note',
-                '@id': 'http://a/reply',
                 'id': 'http://a/reply',
                 'url': 'http://a/reply',
                 'displayName': 'foo ☕ bar',
