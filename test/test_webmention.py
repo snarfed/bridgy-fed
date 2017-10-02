@@ -48,10 +48,11 @@ class WebmentionTest(testutil.TestCase):
 <body>
 <div class="h-entry">
 <a class="u-url" href="http://a/reply"></a>
-<p class="e-content">
+<p class="e-content p-name">
 <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>
 <a href="https://fed.brid.gy/"></a>
 </p>
+<a class="p-author h-card" href="http://orig">Ms. ☕ Baz</a>
 </div>
 </body>
 </html>
@@ -108,8 +109,14 @@ class WebmentionTest(testutil.TestCase):
                 'inReplyTo': 'http://orig/post',
                 'cc': [
                     common.AS2_PUBLIC_AUDIENCE,
-                    'http://orig/post'
+                    'http://orig/post',
                 ],
+                'attributedTo': [{
+                    'type': 'Person',
+                    'url': 'http://orig',
+                    'preferredUsername': 'me',
+                    'displayName': 'Ms. ☕ Baz',
+                }],
             },
         }, kwargs['json'])
 

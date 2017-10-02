@@ -74,7 +74,10 @@ def postprocess_as2(activity, key=None):
             'publicKeyPem': key.public_pem(),
         }
     if type == 'Person':
-        activity.setdefault('preferredUsername', 'me')
+        activity.setdefault('preferredUsername', USERNAME)
+    attr = activity.get('attributedTo')
+    if attr:
+        attr[0].setdefault('preferredUsername', USERNAME)
 
     in_reply_tos = activity.get('inReplyTo')
     if isinstance(in_reply_tos, list):
