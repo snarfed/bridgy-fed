@@ -36,23 +36,29 @@ class UserHandler(handlers.XrdOrJrdHandler):
         return 'templates/webfinger_user'
 
     def template_vars(self, domain, url=None):
-        if not url:
-            url = 'http://%s/' % domain
+        assert domain
 
-        # TODO: unify with activitypub
-        resp = common.requests_get(url)
-        parsed = BeautifulSoup(resp.content, from_encoding=resp.encoding)
-        mf2 = mf2py.parse(parsed, url=resp.url)
-        # logging.debug('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
+        # find representative h-card. try url, then url's home page, then domain
+        urls = ['http://%s/' % domain]
+        if url:
+            urls = [url, urlparse.urljoin(url, '/')] + urls
 
-        hcard = mf2util.representative_hcard(mf2, resp.url)
-        logging.info('Representative h-card: %s', json.dumps(hcard, indent=2))
-        if not hcard:
+        for candidate in urls:
+            resp = common.requests_get(candidate)
+            parsed = BeautifulSoup(resp.content, from_encoding=resp.encoding)
+            mf2 = mf2py.parse(parsed, url=resp.url)
+            # logging.debug('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
+            hcard = mf2util.representative_hcard(mf2, resp.url)
+            if hcard:
+                logging.info('Representative h-card: %s', json.dumps(hcard, indent=2))
+                break
+        else:
             common.error(self, """\
 Couldn't find a <a href="http://microformats.org/wiki/representative-hcard-parsing">\
 representative h-card</a> on %s""" % resp.url)
 
         acct = '%s@%s' % (common.USERNAME, domain)
+        logging.info('Generating WebFinger data for %s', acct)
         key = models.MagicKey.get_or_create(domain)
         props = hcard.get('properties', {})
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])

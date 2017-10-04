@@ -178,7 +178,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         logging.info('Converted %s to Atom:\n%s', source_url, entry)
 
         # sign reply and wrap in magic envelope
-        domain = urlparse.urlparse(source_url).netloc.split(':')[0]
+        domain = urlparse.urlparse(source_url).netloc
         key = models.MagicKey.get_or_create(domain)
         logging.info('Using key for %s: %s', domain, key)
         magic_envelope = magicsigs.magic_envelope(
