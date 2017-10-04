@@ -156,13 +156,14 @@ class WebmentionHandler(webapp2.RequestHandler):
             # try webfinger
             parsed = urlparse.urlparse(target_url)
             # TODO: test missing email
-            acct = entry.author_detail.get('email') or '@'.join(
+            email = entry.author_detail.get('email') or '@'.join(
                 (entry.author_detail.name, parsed.netloc))
             try:
+                # TODO: always https?
                 resp = common.requests_get(
-                    '%s://%s/.well-known/webfinger?resource=%s' %
-                    (parsed.scheme, parsed.netloc, acct),
-                    log=True)
+                    '%s://%s/.well-known/webfinger?resource=acct:%s' %
+                    (parsed.scheme, parsed.netloc, email),
+                    log=True, verify=False)
                 endpoint = django_salmon.get_salmon_replies_link(resp.json())
             except requests.HTTPError as e:
                 pass
