@@ -68,7 +68,7 @@ class InboxHandler(webapp2.RequestHandler):
 
         verb = as2.TYPE_TO_VERB.get(obj.get('type'))
         if verb and verb not in ('Create', 'Update'):
-            common.error(self, '%s activities are not supported yet.' % type)
+            common.error(self, '%s activities are not supported yet.' % verb)
 
         # TODO: verify signature if there is one
 
