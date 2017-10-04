@@ -66,6 +66,10 @@ class InboxHandler(webapp2.RequestHandler):
             logging.error(msg, exc_info=True)
             self.abort(400, msg)
 
+        verb = as2.TYPE_TO_VERB.get(obj.get('type'))
+        if verb and verb not in ('Create', 'Update'):
+            common.error(self, '%s activities are not supported yet.' % type)
+
         # TODO: verify signature if there is one
 
         obj = obj.get('object') or obj
@@ -88,8 +92,8 @@ class InboxHandler(webapp2.RequestHandler):
                 errors.append(wm.error)
 
         if errors:
-            self.abort(errors[0].get('http_status') or 400,
-                'Errors:\n' + '\n'.join(json.dumps(e, indent=2) for e in errors))
+            msg = 'Errors:\n' + '\n'.join(json.dumps(e, indent=2) for e in errors)
+            common.error(self, msg, errors[0].get('http_status') or 400)
 
 
 app = webapp2.WSGIApplication([

@@ -92,3 +92,12 @@ class ActivityPubTest(testutil.TestCase):
             allow_redirects=False,
             headers=expected_headers,
             verify=False)
+
+    def test_inbox_like_not_supported(self, mock_get, mock_post):
+        got = app.get_response('/foo.com/inbox', method='POST',
+                               body=json.dumps({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Like',
+            'object': 'http://orig/post',
+        }))
+        self.assertEquals(400, got.status_int)
