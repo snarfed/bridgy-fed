@@ -61,6 +61,11 @@
 code {
   color: black;
   background-color: white !important;
+  font-size: .8em;
+}
+
+a code {
+  color: inherit;
 }
 
 label {
@@ -78,6 +83,39 @@ label {
 
 #sites li:first-child::before {
   content: none;
+}
+
+button {
+  border: 0;
+  background-color: #337AB7;  /* same color as links */
+  color: white;
+  padding-top: .2em;
+  padding-bottom: .2em;
+  padding-left: .5em;
+  padding-right: .5em;
+  border-radius: 2px;
+}
+
+.btn-default {
+  border-color: #337AB7;
+  color: #337AB7;
+}
+
+.btn-default:hover {
+  background-color: #BDE;
+  border-color: #337AB7;
+  color: #337AB7;
+}
+
+#get-started {
+  border-color: green;
+  color: white;
+  background-color: #6A6;
+  font-size: 1.5em;
+}
+
+#get-started:hover {
+  background-color: #8C8;
 }
 
 #footer {
@@ -106,4 +144,26 @@ label {
   -ms-filter: progid:DXImageTransform.Microsoft.Shadow(Strength=2,Direction=135,Color='#222222');
   /* For IE 5.5 - 7 */
   filter: progid:DXImageTransform.Microsoft.Shadow(Strength=2,Direction=135,Color='#222222');
+}
+
+#docs > ul {
+  list-style: none;
+}
+
+.question {
+  margin-top: 2em;
+  margin-bottom: .5em;
+  font-weight: bold;
+}
+
+.answer ul {
+  margin-bottom: .5em;
+}
+
+pre .keyword, code.keyword {
+  color: green;
+}
+
+pre .value, code.value {
+  color: chocolate;
 }
