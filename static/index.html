@@ -232,6 +232,13 @@ I'm <a class="h-card" href="https://snarfed.org/">Ryan Barrett</a>. I'm just a g
 </div>
 </main>
 
+<!-- Automatically show docs if there's a fragment (ie fragmention) -->
+<script type="text/javascript">
+if (document.location.hash) {
+  document.getElementById('get-started').style.display = 'none';
+  document.getElementById('docs').style.display = 'block';
+}
+</script>
 <script src="/static/fragmention.js"></script>
 
 </body>
