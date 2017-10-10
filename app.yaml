@@ -74,6 +74,10 @@ handlers:
   script: salmon.app
   secure: always
 
+- url: /render
+  script: render.app
+  secure: always
+
 - url: /(acct:)?[^/]+/?
   script: webfinger.app
   secure: always

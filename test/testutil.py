@@ -5,8 +5,10 @@ import unittest
 from google.appengine.datastore import datastore_stub_util
 from google.appengine.ext import testbed
 
+from oauth_dropins.webutil import testutil
 
-class TestCase(unittest.TestCase):
+
+class TestCase(unittest.TestCase, testutil.Asserts):
 
     maxDiff = None
 
