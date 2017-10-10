@@ -103,6 +103,9 @@ class WebmentionHandler(webapp2.RequestHandler):
         key = MagicKey.get_or_create(source_domain)
         source_activity = common.postprocess_as2(as2.from_as1(source_obj), key=key)
 
+        if self.response.status == 'complete':
+            source_activity['type'] = 'Update'
+
         # prepare HTTP Signature (required by Mastodon)
         # https://w3c.github.io/activitypub/#authorization-lds
         # https://tools.ietf.org/html/draft-cavage-http-signatures-07

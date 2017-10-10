@@ -62,7 +62,6 @@ class WebmentionTest(testutil.TestCase):
         mf2 = mf2py.parse(self.reply_html, url='http://a/reply')
         self.reply_obj = microformats2.json_to_object(mf2['items'][0])
 
-    def test_activitypub(self, mock_get, mock_post):
         article = requests_response({
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Article',
@@ -77,24 +76,9 @@ class WebmentionTest(testutil.TestCase):
             'url': 'https://foo.com/about-me',
             'inbox': 'https://foo.com/inbox',
         })
-        mock_get.side_effect = [self.reply, article, actor]
-        mock_post.return_value = requests_response('abc xyz')
+        self.activitypub_gets = [self.reply, article, actor]
 
-        got = app.get_response(
-            '/webmention', method='POST', body=urllib.urlencode({
-                'source': 'http://a/reply',
-                'target': 'https://fed.brid.gy/',
-            }))
-        self.assertEquals(200, got.status_int)
-
-        mock_get.assert_has_calls((
-            call('http://a/reply', headers=common.HEADERS, timeout=util.HTTP_TIMEOUT),
-            call('http://orig/post', headers=activitypub.CONNEG_HEADER,
-                 timeout=util.HTTP_TIMEOUT),
-            call('http://orig/author', headers=activitypub.CONNEG_HEADER,
-                 timeout=util.HTTP_TIMEOUT),))
-
-        expected_as2 = {
+        self.as2_create = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
             'object': {
@@ -117,9 +101,30 @@ class WebmentionTest(testutil.TestCase):
                 }],
             },
         }
+        self.as2_update = copy.deepcopy(self.as2_create)
+        self.as2_update['type'] = 'Update'
+
+    def test_activitypub_create(self, mock_get, mock_post):
+        mock_get.side_effect = self.activitypub_gets
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = app.get_response(
+            '/webmention', method='POST', body=urllib.urlencode({
+                'source': 'http://a/reply',
+                'target': 'https://fed.brid.gy/',
+            }))
+        self.assertEquals(200, got.status_int)
+
+        mock_get.assert_has_calls((
+            call('http://a/reply', headers=common.HEADERS, timeout=util.HTTP_TIMEOUT),
+            call('http://orig/post', headers=activitypub.CONNEG_HEADER,
+                 timeout=util.HTTP_TIMEOUT),
+            call('http://orig/author', headers=activitypub.CONNEG_HEADER,
+                 timeout=util.HTTP_TIMEOUT),))
+
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(expected_as2, kwargs['json'])
+        self.assertEqual(self.as2_create, kwargs['json'])
 
         headers = kwargs['headers']
         self.assertEqual(activitypub.CONTENT_TYPE_AS, headers['Content-Type'])
@@ -135,9 +140,26 @@ class WebmentionTest(testutil.TestCase):
 
         # TODO: if i do this, maybe switch to separate HttpRequest model and
         # foreign key
-        # self.assertEqual([expected_as2], resp.request_statuses)
-        # self.assertEqual([expected_as2], resp.requests)
+        # self.assertEqual([self.as2_create], resp.request_statuses)
+        # self.assertEqual([self.as2_create], resp.requests)
         # self.assertEqual(['abc xyz'], resp.responses)
+
+    def test_activitypub_update(self, mock_get, mock_post):
+        Response(id='http://a/reply http://orig/post', status='complete').put()
+
+        mock_get.side_effect = self.activitypub_gets
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = app.get_response(
+            '/webmention', method='POST', body=urllib.urlencode({
+                'source': 'http://a/reply',
+                'target': 'https://fed.brid.gy/',
+            }))
+        self.assertEquals(200, got.status_int)
+
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://foo.com/inbox',), args)
+        self.assertEqual(self.as2_update, kwargs['json'])
 
     def test_salmon(self, mock_get, mock_post):
         orig_atom = requests_response("""\
