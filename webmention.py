@@ -25,11 +25,15 @@ import webapp2
 
 import activitypub
 import common
-import models
+from models import MagicKey, Response
 
 
 class WebmentionHandler(webapp2.RequestHandler):
-    """Handles inbound webmention, converts to ActivityPub or Salmon."""
+    """Handles inbound webmention, converts to ActivityPub or Salmon.
+
+    Instance attributes:
+      response: Response
+    """
 
     def post(self):
         logging.info('Params: %s', self.request.params.items())
@@ -40,6 +44,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         resp = common.requests_get(source)
         mf2 = mf2py.parse(resp.text, url=resp.url)
         # logging.debug('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
+        source_url = resp.url or source
 
         entry = mf2util.find_first_entry(mf2, ['h-entry'])
         logging.info('First entry: %s', json.dumps(entry, indent=2))
@@ -52,16 +57,19 @@ class WebmentionHandler(webapp2.RequestHandler):
         if isinstance(target, dict):
             target = target.get('url')
         if not target:
-            self.abort(400, 'No u-in-reply-to found in %s' % source)
+            self.abort(400, 'No u-in-reply-to found in %s' % source_url)
 
         try:
             resp = common.requests_get(target, headers=activitypub.CONNEG_HEADER,
                                        log=True)
+            target_url = resp.url or target
         except requests.HTTPError as e:
             if e.response.status_code // 100 == 4:
-                return self.send_salmon(source_obj, target_url=target)
+                return self.send_salmon(source_obj, target_url=target_url)
             raise
 
+        self.response = Response.get_or_insert('%s %s' % (source_url, target_url),
+                                               direction='out')
         if resp.headers.get('Content-Type').startswith('text/html'):
             return self.send_salmon(source_obj, target_resp=resp)
 
@@ -88,11 +96,11 @@ class WebmentionHandler(webapp2.RequestHandler):
             # TODO: probably need a way to save errors like this so that we can
             # return them if ostatus fails too.
             # self.abort(400, 'Target actor has no inbox')
-            return self.send_salmon(source_obj, target_url=target)
+            return self.send_salmon(source_obj, target_url=target_url)
 
         # convert to AS2
-        source_domain = urlparse.urlparse(source).netloc
-        key = models.MagicKey.get_or_create(source_domain)
+        source_domain = urlparse.urlparse(source_url).netloc
+        key = MagicKey.get_or_create(source_domain)
         source_activity = common.postprocess_as2(as2.from_as1(source_obj), key=key)
 
         # prepare HTTP Signature (required by Mastodon)
@@ -110,9 +118,13 @@ class WebmentionHandler(webapp2.RequestHandler):
             # https://tools.ietf.org/html/draft-cavage-http-signatures-07#section-2.1.3
             'Date': datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT'),
         }
-        resp = common.requests_post(
-            urlparse.urljoin(target, inbox_url), json=source_activity, auth=auth,
+        common.requests_post(
+            urlparse.urljoin(target_url, inbox_url), json=source_activity, auth=auth,
             headers=headers, log=True)
+
+        self.response.status = 'complete'
+        self.response.protocol = 'activitypub'
+        self.response.put()
 
     def send_salmon(self, source_obj, target_url=None, target_resp=None):
         # fetch target HTML page, extract Atom rel-alternate link
@@ -179,7 +191,7 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         # sign reply and wrap in magic envelope
         domain = urlparse.urlparse(source_url).netloc
-        key = models.MagicKey.get_or_create(domain)
+        key = MagicKey.get_or_create(domain)
         logging.info('Using key for %s: %s', domain, key)
         magic_envelope = magicsigs.magic_envelope(
             entry, common.ATOM_CONTENT_TYPE, key)
@@ -188,6 +200,10 @@ class WebmentionHandler(webapp2.RequestHandler):
         common.requests_post(
             endpoint, data=common.XML_UTF8 + magic_envelope, log=True,
             headers={'Content-Type': common.MAGIC_ENVELOPE_CONTENT_TYPE})
+
+        self.response.status = 'complete'
+        self.response.protocol = 'ostatus'
+        self.response.put()
 
 
 app = webapp2.WSGIApplication([

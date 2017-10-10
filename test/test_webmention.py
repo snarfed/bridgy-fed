@@ -23,7 +23,7 @@ import requests
 
 import activitypub
 import common
-from models import MagicKey
+from models import MagicKey, Response
 import testutil
 import webmention
 from webmention import app
@@ -77,8 +77,8 @@ class WebmentionTest(testutil.TestCase):
             'url': 'https://foo.com/about-me',
             'inbox': 'https://foo.com/inbox',
         })
-
         mock_get.side_effect = [self.reply, article, actor]
+        mock_post.return_value = requests_response('abc xyz')
 
         got = app.get_response(
             '/webmention', method='POST', body=urllib.urlencode({
@@ -94,9 +94,7 @@ class WebmentionTest(testutil.TestCase):
             call('http://orig/author', headers=activitypub.CONNEG_HEADER,
                  timeout=util.HTTP_TIMEOUT),))
 
-        args, kwargs = mock_post.call_args
-        self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual({
+        expected_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
             'object': {
@@ -118,7 +116,10 @@ class WebmentionTest(testutil.TestCase):
                     'displayName': 'Ms. ☕ Baz',
                 }],
             },
-        }, kwargs['json'])
+        }
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://foo.com/inbox',), args)
+        self.assertEqual(expected_as2, kwargs['json'])
 
         headers = kwargs['headers']
         self.assertEqual(activitypub.CONTENT_TYPE_AS, headers['Content-Type'])
@@ -126,6 +127,17 @@ class WebmentionTest(testutil.TestCase):
         expected_key = MagicKey.get_by_id('a')
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(expected_key.private_pem(), rsa_key.exportKey())
+
+        resp = Response.get_by_id('http://a/reply http://orig/post')
+        self.assertEqual('out', resp.direction)
+        self.assertEqual('activitypub', resp.protocol)
+        self.assertEqual('complete', resp.status)
+
+        # TODO: if i do this, maybe switch to separate HttpRequest model and
+        # foreign key
+        # self.assertEqual([expected_as2], resp.request_statuses)
+        # self.assertEqual([expected_as2], resp.requests)
+        # self.assertEqual(['abc xyz'], resp.responses)
 
     def test_salmon(self, mock_get, mock_post):
         orig_atom = requests_response("""\
@@ -183,6 +195,11 @@ class WebmentionTest(testutil.TestCase):
             '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> <a href="https://fed.brid.gy/"></a>',
             entry.content[0]['value'])
 
+        resp = Response.get_by_id('http://a/reply http://orig/post')
+        self.assertEqual('out', resp.direction)
+        self.assertEqual('ostatus', resp.protocol)
+        self.assertEqual('complete', resp.status)
+
     def test_salmon_get_salmon_from_webfinger(self, mock_get, mock_post):
         orig_atom = requests_response("""\
 <?xml version="1.0"?>
@@ -227,3 +244,6 @@ class WebmentionTest(testutil.TestCase):
         }))
         self.assertEquals(400, got.status_int)
         self.assertIn('Target post http://orig/url has no Atom link', got.body)
+
+        self.assertIsNone(Response.get_by_id('http://a/reply http://orig/post'))
+

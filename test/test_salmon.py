@@ -14,7 +14,7 @@ from oauth_dropins.webutil.testutil import requests_response, UrlopenResult
 import requests
 
 import common
-import models
+from models import MagicKey, Response
 from salmon import app
 import testutil
 
@@ -26,7 +26,7 @@ class SalmonTest(testutil.TestCase):
 
     def test_slap(self, mock_urlopen, mock_get, mock_post):
         # salmon magic key discovery. first host-meta, then webfinger
-        key = models.MagicKey.get_or_create('alice')
+        key = MagicKey.get_or_create('alice')
         mock_urlopen.side_effect = [
             UrlopenResult(200, """\
 <?xml version='1.0' encoding='UTF-8'?>
@@ -88,3 +88,8 @@ class SalmonTest(testutil.TestCase):
             allow_redirects=False,
             headers=expected_headers,
             verify=False)
+
+        resp = Response.get_by_id('https://my/reply http://orig/post')
+        self.assertEqual('in', resp.direction)
+        self.assertEqual('ostatus', resp.protocol)
+        self.assertEqual('complete', resp.status)

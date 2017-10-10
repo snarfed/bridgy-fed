@@ -14,6 +14,7 @@ import webapp2
 from webmentiontools import send
 
 import common
+from models import Response
 
 # from django_salmon.feeds
 ATOM_NS = 'http://www.w3.org/2005/Atom'
@@ -70,13 +71,18 @@ class SlapHandler(webapp2.RequestHandler):
         # send webmentions!
         errors = []
         for target in targets:
+            response = Response.get_or_insert(
+                '%s %s' % (source, target), direction='in', protocol='ostatus')
             logging.info('Sending webmention from %s to %s', source, target)
             wm = send.WebmentionSend(source, target)
             if wm.send(headers=common.HEADERS):
                 logging.info('Success: %s', wm.response)
+                response.status = 'complete'
             else:
                 logging.warning('Failed: %s', wm.error)
                 errors.append(wm.error)
+                response.status = 'error'
+            response.put()
 
         if errors:
             self.abort(errors[0].get('http_status') or 400,

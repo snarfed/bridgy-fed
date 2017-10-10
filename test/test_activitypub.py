@@ -16,7 +16,7 @@ import requests
 import activitypub
 from activitypub import app
 import common
-import models
+from models import MagicKey, Response
 import testutil
 
 
@@ -44,7 +44,7 @@ class ActivityPubTest(testutil.TestCase):
             'url': 'https://foo.com/about-me',
             'inbox': 'http://localhost/foo.com/inbox',
             'publicKey': {
-                'publicKeyPem': models.MagicKey.get_by_id('foo.com').public_pem(),
+                'publicKeyPem': MagicKey.get_by_id('foo.com').public_pem(),
             },
         }, json.loads(got.body))
 
@@ -93,6 +93,11 @@ class ActivityPubTest(testutil.TestCase):
             headers=expected_headers,
             verify=False)
 
+        resp = Response.get_by_id('http://this/reply http://orig/post')
+        self.assertEqual('in', resp.direction)
+        self.assertEqual('activitypub', resp.protocol)
+        self.assertEqual('complete', resp.status)
+
     def test_inbox_like_not_supported(self, mock_get, mock_post):
         got = app.get_response('/foo.com/inbox', method='POST',
                                body=json.dumps({
@@ -101,3 +106,5 @@ class ActivityPubTest(testutil.TestCase):
             'object': 'http://orig/post',
         }))
         self.assertEquals(400, got.status_int)
+
+        self.assertIsNone(Response.get_by_id('http://a/reply http://orig/post'))

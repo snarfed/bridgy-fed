@@ -55,3 +55,20 @@ class MagicKey(StringIdModel):
                              magicsigs.base64_to_long(str(self.public_exponent)),
                              magicsigs.base64_to_long(str(self.private_exponent))))
         return rsa.exportKey(format='PEM')
+
+
+class Response(StringIdModel):
+    """A reply, like, repost, or other interaction that we've relayed.
+
+    Key name is 'SOURCE_URL TARGET_URL', e.g. 'http://a/reply http://orig/post'.
+    """
+    STATUSES = ('new', 'complete', 'error')
+    PROTOCOLS = ('activitypub', 'ostatus')
+    DIRECTIONS = ('out', 'in')
+
+    status = ndb.StringProperty(choices=STATUSES, default='new')
+    protocol = ndb.StringProperty(choices=PROTOCOLS)
+    direction = ndb.StringProperty(choices=DIRECTIONS)
+
+    created = ndb.DateTimeProperty(auto_now_add=True)
+    updated = ndb.DateTimeProperty(auto_now=True)

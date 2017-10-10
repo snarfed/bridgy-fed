@@ -13,7 +13,7 @@ import webapp2
 from webmentiontools import send
 
 import common
-import models
+from models import MagicKey, Response
 
 
 # https://www.w3.org/TR/activitypub/#retrieving-objects
@@ -39,7 +39,7 @@ class ActorHandler(webapp2.RequestHandler):
 Couldn't find a <a href="http://microformats.org/wiki/representative-hcard-parsing">\
 representative h-card</a> on %s""" % resp.url)
 
-        key = models.MagicKey.get_or_create(domain)
+        key = MagicKey.get_or_create(domain)
         obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(hcard)),
                                      key=key)
         obj.update({
@@ -83,13 +83,18 @@ class InboxHandler(webapp2.RequestHandler):
 
         errors = []
         for target in targets:
+            response = Response.get_or_insert(
+                '%s %s' % (source, target), direction='in', protocol='activitypub')
             logging.info('Sending webmention from %s to %s', source, target)
             wm = send.WebmentionSend(source, target)
             if wm.send(headers=common.HEADERS):
                 logging.info('Success: %s', wm.response)
+                response.status = 'complete'
             else:
                 logging.warning('Failed: %s', wm.error)
                 errors.append(wm.error)
+                response.status = 'error'
+            response.put()
 
         if errors:
             msg = 'Errors:\n' + '\n'.join(json.dumps(e, indent=2) for e in errors)
