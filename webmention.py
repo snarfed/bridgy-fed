@@ -68,8 +68,9 @@ class WebmentionHandler(webapp2.RequestHandler):
                 return self.send_salmon(source_obj, target_url=target_url)
             raise
 
-        self.response = Response.get_or_insert('%s %s' % (source_url, target_url),
-                                               direction='out')
+        self.response = Response.get_or_insert(
+            '%s %s' % (source_url, target_url), direction='out',
+            source_mf2=json.dumps(mf2))
         if resp.headers.get('Content-Type').startswith('text/html'):
             return self.send_salmon(source_obj, target_resp=resp)
 

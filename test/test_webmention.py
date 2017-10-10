@@ -59,8 +59,8 @@ class WebmentionTest(testutil.TestCase):
 """
         self.reply = requests_response(
             self.reply_html, content_type='text/html; charset=utf-8')
-        mf2 = mf2py.parse(self.reply_html, url='http://a/reply')
-        self.reply_obj = microformats2.json_to_object(mf2['items'][0])
+        self.reply_mf2 = mf2py.parse(self.reply_html, url='http://a/reply')
+        self.reply_obj = microformats2.json_to_object(self.reply_mf2['items'][0])
 
         article = requests_response({
             '@context': ['https://www.w3.org/ns/activitystreams'],
@@ -137,6 +137,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('out', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
+        self.assertEqual(self.reply_mf2, json.loads(resp.source_mf2))
 
         # TODO: if i do this, maybe switch to separate HttpRequest model and
         # foreign key
@@ -221,6 +222,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('out', resp.direction)
         self.assertEqual('ostatus', resp.protocol)
         self.assertEqual('complete', resp.status)
+        self.assertEqual(self.reply_mf2, json.loads(resp.source_mf2))
 
     def test_salmon_get_salmon_from_webfinger(self, mock_get, mock_post):
         orig_atom = requests_response("""\

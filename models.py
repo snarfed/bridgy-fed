@@ -70,5 +70,10 @@ class Response(StringIdModel):
     protocol = ndb.StringProperty(choices=PROTOCOLS)
     direction = ndb.StringProperty(choices=DIRECTIONS)
 
+    # usually only one of these at most will be populated.
+    source_mf2 = ndb.TextProperty()  # JSON
+    source_as2 = ndb.TextProperty()  # JSON
+    source_atom = ndb.TextProperty()
+
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)

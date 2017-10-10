@@ -84,7 +84,8 @@ class InboxHandler(webapp2.RequestHandler):
         errors = []
         for target in targets:
             response = Response.get_or_insert(
-                '%s %s' % (source, target), direction='in', protocol='activitypub')
+                '%s %s' % (source, target), direction='in', protocol='activitypub',
+                source_as2=json.dumps(obj))
             logging.info('Sending webmention from %s to %s', source, target)
             wm = send.WebmentionSend(source, target)
             if wm.send(headers=common.HEADERS):

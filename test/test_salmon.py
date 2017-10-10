@@ -93,3 +93,4 @@ class SalmonTest(testutil.TestCase):
         self.assertEqual('in', resp.direction)
         self.assertEqual('ostatus', resp.protocol)
         self.assertEqual('complete', resp.status)
+        self.assertEqual(atom_reply, resp.source_atom)
