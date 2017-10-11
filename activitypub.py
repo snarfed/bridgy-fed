@@ -22,6 +22,15 @@ CONTENT_TYPE_AS = 'application/activity+json'
 CONNEG_HEADER = {
     'Accept': '%s; q=0.9, %s; q=0.8' % (CONTENT_TYPE_AS2, CONTENT_TYPE_AS),
 }
+SUPPORTED_TYPES = (
+    'Announce',
+    'Article',
+    'Audio',
+    'Image',
+    'Like',
+    'Note',
+    'Video',
+)
 
 class ActorHandler(webapp2.RequestHandler):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
@@ -60,24 +69,35 @@ class InboxHandler(webapp2.RequestHandler):
     def post(self, domain):
         logging.info('Got: %s', self.request.body)
         try:
-            obj = json.loads(self.request.body)
-        except (TypeError, ValueError):
+            activity = json.loads(self.request.body)
+            assert activity
+        except (TypeError, ValueError, AssertionError):
             msg = "Couldn't parse body as JSON"
             logging.error(msg, exc_info=True)
             self.abort(400, msg)
 
-        verb = as2.TYPE_TO_VERB.get(obj.get('type'))
-        if verb and verb not in ('Create', 'Update'):
-            common.error(self, '%s activities are not supported yet.' % verb)
+        type = activity.get('type')
+        if type not in SUPPORTED_TYPES:
+            common.error(self, '%s activities are not supported yet.' % type)
 
         # TODO: verify signature if there is one
 
-        obj = obj.get('object') or obj
-        source = obj.get('url')
-        if not source:
-            self.abort(400, "Couldn't find original post URL")
+        source = activity.get('url') or activity.get('id')
+        obj = activity.get('object')
+        obj_url = util.get_url(obj)
 
-        targets = util.get_list(obj, 'inReplyTo') + util.get_list(obj, 'like')
+        targets = set(util.get_list(activity, 'inReplyTo'))
+        if isinstance(obj, dict):
+            if not source:
+                source = obj_url or obj.get('id')
+            targets |= util.get_list(obj, 'inReplyTo')
+
+        if not source:
+            self.abort(400, "Couldn't find source URL or id")
+
+        if obj_url:
+            targets.add(obj_url)
+
         if not targets:
             self.abort(400, "Couldn't find target URL (inReplyTo or object)")
 
@@ -85,9 +105,12 @@ class InboxHandler(webapp2.RequestHandler):
         for target in targets:
             response = Response.get_or_insert(
                 '%s %s' % (source, target), direction='in', protocol='activitypub',
-                source_as2=json.dumps(obj))
-            logging.info('Sending webmention from %s to %s', source, target)
-            wm = send.WebmentionSend(source, target)
+                source_as2=json.dumps(activity))
+
+            wm_source = (response.proxy_url() if type in ('Like', 'Announce')
+                         else source)
+            logging.info('Sending webmention from %s to %s', wm_source, target)
+            wm = send.WebmentionSend(wm_source, target)
             if wm.send(headers=common.HEADERS):
                 logging.info('Success: %s', wm.response)
                 response.status = 'complete'

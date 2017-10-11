@@ -2,10 +2,14 @@
 
 Based on webfinger-unofficial/user.py.
 """
+import urllib
+
 from Crypto.PublicKey import RSA
 from django_salmon import magicsigs
 from google.appengine.ext import ndb
 from oauth_dropins.webutil.models import StringIdModel
+
+import appengine_config
 
 
 class MagicKey(StringIdModel):
@@ -77,3 +81,12 @@ class Response(StringIdModel):
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
+
+    def proxy_url(self):
+        """Returns the Bridgy Fed proxy URL to render this response as HTML."""
+        if self.source_mf2 or self.source_as2:
+            source, target = self.key.id().split(' ')
+            return '%s/render?%s' % (appengine_config.HOST_URL, urllib.urlencode({
+                'source': source,
+                'target': target,
+            }))

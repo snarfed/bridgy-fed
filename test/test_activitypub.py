@@ -78,9 +78,9 @@ class ActivityPubTest(testutil.TestCase):
         }
         got = app.get_response('/foo.com/inbox', method='POST',
                                body=json.dumps(as2_note))
+        self.assertEquals(200, got.status_int, got.body)
         mock_get.assert_called_once_with(
             'http://orig/post', headers=common.HEADERS, verify=False)
-        self.assertEquals(200, got.status_int)
 
         expected_headers = copy.deepcopy(common.HEADERS)
         expected_headers['Accept'] = '*/*'
@@ -100,13 +100,38 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('complete', resp.status)
         self.assertEqual(as2_note, json.loads(resp.source_as2))
 
-    def test_inbox_like_not_supported(self, mock_get, mock_post):
-        got = app.get_response('/foo.com/inbox', method='POST',
-                               body=json.dumps({
+    def test_inbox_like_proxy_url(self, mock_get, mock_post):
+        mock_get.return_value = requests_response(
+            '<html><head><link rel="webmention" href="/webmention"></html>')
+        mock_post.return_value = requests_response()
+
+        # based on example Mastodon like:
+        # https://github.com/snarfed/bridgy-fed/issues/4#issuecomment-334212362
+        # (reposts are very similar)
+        as2_like = {
             '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'http://this/like',
             'type': 'Like',
             'object': 'http://orig/post',
-        }))
-        self.assertEquals(400, got.status_int)
+            'actor': 'http://this/author',
+        }
 
-        self.assertIsNone(Response.get_by_id('http://a/reply http://orig/post'))
+        got = app.get_response('/foo.com/inbox', method='POST',
+                               body=json.dumps(as2_like))
+        self.assertEquals(200, got.status_int)
+        mock_get.assert_called_once_with(
+            'http://orig/post', headers=common.HEADERS, verify=False)
+
+        args, kwargs = mock_post.call_args
+        self.assertEquals(('http://orig/webmention',), args)
+        self.assertEquals({
+            # TODO
+            'source': 'http://localhost/render?source=http%3A%2F%2Fthis%2Flike&target=http%3A%2F%2Forig%2Fpost',
+            'target': 'http://orig/post',
+        }, kwargs['data'])
+
+        resp = Response.get_by_id('http://this/like http://orig/post')
+        self.assertEqual('in', resp.direction)
+        self.assertEqual('activitypub', resp.protocol)
+        self.assertEqual('complete', resp.status)
+        self.assertEqual(as2_like, json.loads(resp.source_as2))

@@ -2,22 +2,22 @@
 """Unit tests for models.py."""
 from __future__ import unicode_literals
 
-import models
+from models import MagicKey, Response
 import testutil
 
 
-class ModelsTest(testutil.TestCase):
+class MagicKeyTest(testutil.TestCase):
 
     def setUp(self):
-        super(ModelsTest, self).setUp()
-        self.key = models.MagicKey.get_or_create('y.z')
+        super(MagicKeyTest, self).setUp()
+        self.key = MagicKey.get_or_create('y.z')
 
     def test_magic_key_get_or_create(self):
         assert self.key.mod
         assert self.key.public_exponent
         assert self.key.private_exponent
 
-        same = models.MagicKey.get_or_create('y.z')
+        same = MagicKey.get_or_create('y.z')
         self.assertEquals(same, self.key)
 
     def test_href(self):
@@ -35,3 +35,17 @@ class ModelsTest(testutil.TestCase):
         pem = self.key.private_pem()
         self.assertTrue(pem.startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
         self.assertTrue(pem.endswith('-----END RSA PRIVATE KEY-----'), pem)
+
+
+class ResponseTest(testutil.TestCase):
+
+    def test_proxy_url(self):
+        resp = Response(id='abc xyz')
+        self.assertIsNone(resp.proxy_url())
+
+        resp.source_atom = 'atom'
+        self.assertIsNone(resp.proxy_url())
+
+        resp.source_as2 = 'as2'
+        self.assertEquals('http://localhost/render?source=abc&target=xyz',
+                          resp.proxy_url())
