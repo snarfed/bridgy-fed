@@ -66,7 +66,7 @@ and the rest of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse<
 <li id="work" class="question">How does it work?</li>
 <li class="answer">
 <p>
-Bridgy Fed lets you interact with federated social networks like <a href="https://joinmastodon.org/">Mastodon</a> from your <a href="https://indieweb.org/">IndieWeb</a> site. It translates replies, likes, and reposts from <a href="http://www.webmention.org/">webmentions</a> to federated social networking protocols like <a href="https://activitypub.rocks/">ActivityPub</a> and <a href="https://en.wikipedia.org/wiki/OStatus">OStatus</a>, and vice versa.
+Bridgy Fed lets you interact with federated social networks like <a href="https://joinmastodon.org/">Mastodon</a> and <a href="https://project.hubzilla.org/">Hubzilla</a> from your <a href="https://indieweb.org/">IndieWeb</a> site. It translates replies, likes, and reposts from <a href="http://www.webmention.org/">webmentions</a> to federated social networking protocols like <a href="https://activitypub.rocks/">ActivityPub</a> and <a href="https://en.wikipedia.org/wiki/OStatus">OStatus</a>, and vice versa.
 </p>
 
 <li id="setup" class="question">How do I set it up?</li>
@@ -103,16 +103,16 @@ Finally, configure your web site to redirect these URL paths to the same paths o
 </code>
 </li>
 
-<li><em><a href="http://withknown.com/">Known</a></em>: TODO
+<li><em><a href="http://withknown.com/">Known</a></em>: follow the <a href="#apache">Apache</a> or <a href="#nginx">nginx</a> instructions below.
 </li>
 
-<li><em><a href="http://httpd.apache.org/">Apache</a></em>: add this to your <code>.htaccess</code> file:<br />
+<li id="apache"><em><a href="http://httpd.apache.org/">Apache</a></em>: add this to your <code>.htaccess</code> file:<br />
   <pre>RewriteEngine on
   RewriteBase /
   RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redirect=302,last]</pre>
 </li>
 
-<li><em><a href="">nginx</a></em>: add this to your <code>nginx.conf</code> file, in the <code>server</code> section:<br />
+<li id="nginx"><em><a href="">nginx</a></em>: add this to your <code>nginx.conf</code> file, in the <code>server</code> section:<br />
   <pre>rewrite ^/.well-known/(host-meta|webfinger).* https://fed.brid.gy/$request_uri redirect;</pre>
 </li>
 
@@ -143,7 +143,7 @@ https://en.support.wordpress.com/site-redirect/
 <li id="use" class="question">How do I use it?</li>
 <li class="answer">
 <p>
-To <a href="https://indieweb.org/like">like</a>, <a href="https://indieweb.org/repost">repost</a>, or <a href="https://indieweb.org/reply">reply</a> to a post on a federated social network, just include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in your post. Your web server should then <a href="setup">send it a webmention</a>, which it will translate to a Salmon slap or ActivityPub activity and forward to the destination. For example:
+To <a href="https://indieweb.org/like">like</a>, <a href="https://indieweb.org/repost">repost</a>, or <a href="https://indieweb.org/reply">reply</a> to a post on a federated social network, create an indie like, repost or reply as usual, and include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post. Your web server should then <a href="setup">send it a webmention</a>, which it will translate to a Salmon slap or ActivityPub activity and forward to the destination. For example:
 </p>
 
 <pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
@@ -154,7 +154,10 @@ To <a href="https://indieweb.org/like">like</a>, <a href="https://indieweb.org/r
 </pre>
 
 <p>
-To receive likes, reposts, and replies from federated social networks, just make sure your site accepts webmentions! Bridgy translates incoming Salmon slaps and ActivityPub activities to webmentions and sends them to your site. For replies, the source will usually be the permalink on the social network itself. For likes and reposts, the source will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>!
+To receive likes, reposts, and replies from federated social networks, just make sure your site accepts webmentions! Bridgy translates incoming Salmon slaps and ActivityPub activities to webmentions and sends them to your site.</p>
+
+<p>
+For replies, the source will usually be the permalink on the social network itself. For likes and reposts, the source will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>!
 </p>
 </li>
 
@@ -181,9 +184,9 @@ We're aware of the sites below, but not currently working on them. Feel free to 
 </p>
 <ul>
 <li><em><a href="https://mediagoblin.org/">MediaGoblin</a></em></li>
+<li><em><a href="https://gitgud.io/lambadalambda/pleroma">pleroma</a></em></li>
 <li><em><a href="https://postactiv.com/">postActiv</a></em></li>
 <li><em><a href="http://pump.io/">pump.io</a></em></li>
-<li><em><a href="https://gitgud.io/lambadalambda/pleroma">pleroma</a></em></li>
 </ul>
 </li>
 
@@ -204,7 +207,7 @@ I'm <a class="h-card" href="https://snarfed.org/">Ryan Barrett</a>. I'm just a g
 
 <li id="privacy" class="question">What do you do with my data?</li>
 <li class="answer">
-<p>Nothing! Bridgy Fed isn't a business, and never will be, so I don't have the same motivations to abuse your data that other services might. More concretely, Bridgy Fed won't ever send you email, it stores as little of your <a href="http://en.wikipedia.org/wiki/Personally_identifiable_information">PII</a> (personally identifiable information) as possible, and it <em>never</em> has access to any of your passwords.
+<p>Nothing! Bridgy Fed isn't a business, and never will be, so we don't have the same motivations to abuse your data that other services might. More concretely, Bridgy Fed won't ever send you email, it stores as little of your <a href="http://en.wikipedia.org/wiki/Personally_identifiable_information">PII</a> (personally identifiable information) as possible, and it <em>never</em> has access to any of your passwords.
 </p>
 </li>
 
