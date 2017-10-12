@@ -110,7 +110,7 @@ class ActivityPubTest(testutil.TestCase):
         # (reposts are very similar)
         as2_like = {
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': 'http://this/like',
+            'id': 'http://this/like#ok',
             'type': 'Like',
             'object': 'http://orig/post',
             'actor': 'http://this/author',
@@ -126,11 +126,11 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEquals(('http://orig/webmention',), args)
         self.assertEquals({
             # TODO
-            'source': 'http://localhost/render?source=http%3A%2F%2Fthis%2Flike&target=http%3A%2F%2Forig%2Fpost',
+            'source': 'http://localhost/render?source=http%3A%2F%2Fthis%2Flike__ok&target=http%3A%2F%2Forig%2Fpost',
             'target': 'http://orig/post',
         }, kwargs['data'])
 
-        resp = Response.get_by_id('http://this/like http://orig/post')
+        resp = Response.get_by_id('http://this/like__ok http://orig/post')
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)

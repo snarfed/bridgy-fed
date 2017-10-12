@@ -62,7 +62,7 @@ class WebmentionTest(testutil.TestCase):
         self.reply_mf2 = mf2py.parse(self.reply_html, url='http://a/reply')
         self.reply_obj = microformats2.json_to_object(self.reply_mf2['items'][0])
 
-        article = requests_response({
+        self.article = requests_response({
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Article',
             'content': 'Lots of ☕ words...',
@@ -70,13 +70,13 @@ class WebmentionTest(testutil.TestCase):
                 'url': 'http://orig/author',
             },
         })
-        actor = requests_response({
+        self.actor = requests_response({
             'objectType' : 'person',
             'displayName': 'Mrs. ☕ Foo',
             'url': 'https://foo.com/about-me',
             'inbox': 'https://foo.com/inbox',
         })
-        self.activitypub_gets = [self.reply, article, actor]
+        self.activitypub_gets = [self.reply, self.article, self.actor]
 
         self.as2_create = {
             '@context': 'https://www.w3.org/ns/activitystreams',

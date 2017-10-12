@@ -86,7 +86,7 @@ class InboxHandler(webapp2.RequestHandler):
         obj = activity.get('object')
         obj_url = util.get_url(obj)
 
-        targets = set(util.get_list(activity, 'inReplyTo'))
+        targets = set(util.get_list(activity, 'inReplyTo') + [obj_url])
         if isinstance(obj, dict):
             if not source:
                 source = obj_url or obj.get('id')
@@ -95,16 +95,17 @@ class InboxHandler(webapp2.RequestHandler):
         if not source:
             self.abort(400, "Couldn't find source URL or id")
 
-        if obj_url:
-            targets.add(obj_url)
-
+        targets = util.dedupe_urls(targets)
         if not targets:
             self.abort(400, "Couldn't find target URL (inReplyTo or object)")
 
         errors = []
         for target in targets:
-            response = Response.get_or_insert(
-                '%s %s' % (source, target), direction='in', protocol='activitypub',
+            if not target:
+                continue
+
+            response = Response.get_or_create(
+                source=source, target=target, direction='in', protocol='activitypub',
                 source_as2=json.dumps(activity))
 
             wm_source = (response.proxy_url() if type in ('Like', 'Announce')
