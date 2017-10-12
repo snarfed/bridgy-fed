@@ -39,4 +39,3 @@ class RenderHandler(ModernHandler):
 app = webapp2.WSGIApplication([
     ('/render', RenderHandler),
 ], debug=appengine_config.DEBUG)
-

@@ -58,6 +58,10 @@ handlers:
   secure: always
 
 # dynamic
+- url: /render
+  script: render.app
+  secure: always
+
 - url: /wm/.+
   script: add_webmention.app
   secure: always
@@ -72,10 +76,6 @@ handlers:
 
 - url: /[^@/]+/salmon/?
   script: salmon.app
-  secure: always
-
-- url: /render
-  script: render.app
   secure: always
 
 - url: /(acct:)?[^/]+/?
