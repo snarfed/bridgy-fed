@@ -82,6 +82,10 @@ class Response(StringIdModel):
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
+    @classmethod
+    def get_or_create(cls, source=None, target=None, **kwargs):
+        return cls.get_or_insert(cls._id(source, target), **kwargs)
+
     def proxy_url(self):
         """Returns the Bridgy Fed proxy URL to render this response as HTML."""
         if self.source_mf2 or self.source_as2:
@@ -90,3 +94,17 @@ class Response(StringIdModel):
                 'source': source,
                 'target': target,
             }))
+
+    @classmethod
+    def _id(cls, source, target):
+        assert source
+        assert target
+        return '%s %s' % (cls._encode(source), cls._encode(target))
+
+    @classmethod
+    def _encode(cls, val):
+        return val.replace('#', '__')
+
+    @classmethod
+    def _decode(cls, val):
+        return val.replace('__', '#')

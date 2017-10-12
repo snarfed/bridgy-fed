@@ -39,8 +39,15 @@ class MagicKeyTest(testutil.TestCase):
 
 class ResponseTest(testutil.TestCase):
 
+    def test_get_or_create(self):
+        resp = Response.get_or_create('abc', 'xyz')
+        self.assertEquals('abc xyz', resp.key.id())
+
+        resp = Response.get_or_create('abc#1', 'xyz#Z')
+        self.assertEquals('abc__1 xyz__Z', resp.key.id())
+
     def test_proxy_url(self):
-        resp = Response(id='abc xyz')
+        resp = Response.get_or_create('abc', 'xyz')
         self.assertIsNone(resp.proxy_url())
 
         resp.source_atom = 'atom'
