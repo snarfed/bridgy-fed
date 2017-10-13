@@ -86,7 +86,7 @@ class WebmentionTest(testutil.TestCase):
                 'type': 'Note',
                 'id': 'http://a/reply',
                 'url': 'http://a/reply',
-                'displayName': 'foo ☕ bar',
+                'name': 'foo ☕ bar',
                 'content': ' <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> <a href="https://fed.brid.gy/"></a> ',
                 'inReplyTo': 'http://orig/post',
                 'cc': [
@@ -97,7 +97,7 @@ class WebmentionTest(testutil.TestCase):
                     'type': 'Person',
                     'url': 'http://orig',
                     'preferredUsername': 'me',
-                    'displayName': 'Ms. ☕ Baz',
+                    'name': 'Ms. ☕ Baz',
                 }],
             },
         }

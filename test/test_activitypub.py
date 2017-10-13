@@ -39,7 +39,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEquals({
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type' : 'Person',
-            'displayName': 'Mrs. ☕ Foo',
+            'name': 'Mrs. ☕ Foo',
             'preferredUsername': 'me',
             'url': 'https://foo.com/about-me',
             'inbox': 'http://localhost/foo.com/inbox',
