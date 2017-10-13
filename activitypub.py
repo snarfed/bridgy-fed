@@ -68,6 +68,8 @@ class InboxHandler(webapp2.RequestHandler):
 
     def post(self, domain):
         logging.info('Got: %s', self.request.body)
+
+        # parse and validate AS2 activity
         try:
             activity = json.loads(self.request.body)
             assert activity
@@ -82,6 +84,7 @@ class InboxHandler(webapp2.RequestHandler):
 
         # TODO: verify signature if there is one
 
+        # extract source and targets
         source = activity.get('url') or activity.get('id')
         obj = activity.get('object')
         obj_url = util.get_url(obj)
@@ -90,7 +93,7 @@ class InboxHandler(webapp2.RequestHandler):
         if isinstance(obj, dict):
             if not source:
                 source = obj_url or obj.get('id')
-            targets |= util.get_list(obj, 'inReplyTo')
+            targets |= set(util.get_list(obj, 'inReplyTo'))
 
         if not source:
             self.abort(400, "Couldn't find source URL or id")
@@ -99,14 +102,22 @@ class InboxHandler(webapp2.RequestHandler):
         if not targets:
             self.abort(400, "Couldn't find target URL (inReplyTo or object)")
 
+        # fetch actor if necessary so we have name, profile photo, etc
+        if type in ('Like', 'Announce'):
+            actor = activity.get('actor')
+            if actor:
+                activity['actor'] = common.requests_get(
+                    actor, parse_json=True, headers=CONNEG_HEADER)
+
+        # send webmentions to each target
         errors = []
         for target in targets:
             if not target:
                 continue
 
-            response = Response.get_or_create(
-                source=source, target=target, direction='in', protocol='activitypub',
-                source_as2=json.dumps(activity))
+            response = Response(source=source, target=target, protocol='activitypub',
+                                direction='in', source_as2=json.dumps(activity))
+            response.put()
 
             wm_source = (response.proxy_url() if type in ('Like', 'Announce')
                          else source)

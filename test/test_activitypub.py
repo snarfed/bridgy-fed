@@ -8,7 +8,7 @@ import copy
 import json
 import urllib
 
-import mock
+from mock import call, patch
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 import requests
@@ -20,8 +20,8 @@ from models import MagicKey, Response
 import testutil
 
 
-@mock.patch('requests.post')
-@mock.patch('requests.get')
+@patch('requests.post')
+@patch('requests.get')
 class ActivityPubTest(testutil.TestCase):
 
     def test_actor_handler(self, mock_get, _):
@@ -101,8 +101,21 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(as2_note, json.loads(resp.source_as2))
 
     def test_inbox_like_proxy_url(self, mock_get, mock_post):
-        mock_get.return_value = requests_response(
-            '<html><head><link rel="webmention" href="/webmention"></html>')
+        actor = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'http://orig/actor',
+            'type': 'Person',
+            'name': 'Ms. Actor',
+            'preferredUsername': 'msactor',
+            'image': {'type': 'Image', 'url': 'http://orig/pic.jpg'},
+        }
+        mock_get.side_effect = [
+            # source actor
+            requests_response(actor),
+            # target post webmention discovery
+            requests_response(
+                '<html><head><link rel="webmention" href="/webmention"></html>'),
+        ]
         mock_post.return_value = requests_response()
 
         # based on example Mastodon like:
@@ -113,14 +126,20 @@ class ActivityPubTest(testutil.TestCase):
             'id': 'http://this/like#ok',
             'type': 'Like',
             'object': 'http://orig/post',
-            'actor': 'http://this/author',
+            'actor': 'http://orig/actor',
         }
 
         got = app.get_response('/foo.com/inbox', method='POST',
                                body=json.dumps(as2_like))
         self.assertEquals(200, got.status_int)
-        mock_get.assert_called_once_with(
-            'http://orig/post', headers=common.HEADERS, verify=False)
+
+        as2_headers = copy.deepcopy(common.HEADERS)
+        as2_headers.update(activitypub.CONNEG_HEADER)
+        print mock_get.call_args_list
+        mock_get.assert_has_calls((
+            call('http://orig/actor', headers=as2_headers, timeout=15),
+            call('http://orig/post', headers=common.HEADERS, verify=False),
+        ))
 
         args, kwargs = mock_post.call_args
         self.assertEquals(('http://orig/webmention',), args)
@@ -134,4 +153,5 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
+        as2_like['actor'] = actor
         self.assertEqual(as2_like, json.loads(resp.source_as2))
