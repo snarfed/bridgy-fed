@@ -112,7 +112,7 @@ Finally, configure your web site to redirect these URL paths to the same paths o
   RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redirect=302,last]</pre>
 </li>
 
-<li id="nginx"><em><a href="">nginx</a></em>: add this to your <code>nginx.conf</code> file, in the <code>server</code> section:<br />
+<li id="nginx"><em><a href="https://nginx.org/">nginx</a></em>: add this to your <code>nginx.conf</code> file, in the <code>server</code> section:<br />
   <pre>rewrite ^/.well-known/(host-meta|webfinger).* https://fed.brid.gy/$request_uri redirect;</pre>
 </li>
 
@@ -143,7 +143,7 @@ https://en.support.wordpress.com/site-redirect/
 <li id="use" class="question">How do I use it?</li>
 <li class="answer">
 <p>
-To <a href="https://indieweb.org/like">like</a>, <a href="https://indieweb.org/repost">repost</a>, or <a href="https://indieweb.org/reply">reply</a> to a post on a federated social network, create an indie like, repost or reply as usual, and include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post. Your web server should then <a href="setup">send it a webmention</a>, which it will translate to a Salmon slap or ActivityPub activity and forward to the destination. For example:
+To like, repost or reply to a post on a federated social network, create an <a href="https://indieweb.org/like">indie like</a>, <a href="https://indieweb.org/repost">repost</a>, or <a href="https://indieweb.org/reply">reply</a> as usual, and include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post. Your web server should then <a href="#setup">send Bridgy Fed a webmention</a>, which it will translate to a Salmon slap or ActivityPub activity and forward to the destination. For example:
 </p>
 
 <pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
@@ -170,19 +170,14 @@ These sites are currently supported:
 <li><em><a href="https://joinmastodon.org/">Mastodon</a></em>: replies, likes, and reposts aka boosts are supported, both directions, via ActivityPub.</li>
 <li><em><a href="https://project.hubzilla.org/">Hubzilla</a></em>: replies, likes, and reposts aka shares are supported, both directions, via OStatus.</li>
 </ul>
+
 <p>
-We're currently investigating these sites, and may support them in the future:
+We're aware of the sites below, and we've made progress on some, but they're not yet supported. Feel free to <a href="https://github.com/snarfed/bridgy-fed/issues">file a feature request</a> if you're interested in any of them!
 </p>
 <ul>
 <li><em><a href="https://diasporafoundation.org/">Diaspora</a></em>, via OStatus.</li>
 <li><em><a href="http://friendi.ca/">Friendica</a></em>, via OStatus.</li>
 <li><em><a href="https://gnu.io/social/">GNU Social</a></em> (née StatusNet), via OStatus.</li>
-</ul>
-
-<p>
-We're aware of the sites below, but not currently working on them. Feel free to <a href="https://github.com/snarfed/bridgy-fed/issues">file a feature request</a> if you're interested in any of them!
-</p>
-<ul>
 <li><em><a href="https://mediagoblin.org/">MediaGoblin</a></em></li>
 <li><em><a href="https://gitgud.io/lambadalambda/pleroma">pleroma</a></em></li>
 <li><em><a href="https://postactiv.com/">postActiv</a></em></li>
