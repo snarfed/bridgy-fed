@@ -71,9 +71,8 @@ class SlapHandler(webapp2.RequestHandler):
         # send webmentions!
         errors = []
         for target in targets:
-            response = Response.get_or_create(
-                source=source, target=target, direction='in', protocol='ostatus',
-                source_atom=data)
+            response = Response(source=source, target=target, direction='in',
+                                protocol='ostatus', source_atom=data)
             logging.info('Sending webmention from %s to %s', source, target)
             wm = send.WebmentionSend(source, target)
             if wm.send(headers=common.HEADERS):

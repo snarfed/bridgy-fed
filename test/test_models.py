@@ -39,6 +39,13 @@ class MagicKeyTest(testutil.TestCase):
 
 class ResponseTest(testutil.TestCase):
 
+    def test_constructor(self):
+        resp = Response('abc', 'xyz')
+        self.assertEquals('abc xyz', resp.key.id())
+
+        resp = Response('abc#1', 'xyz#Z')
+        self.assertEquals('abc__1 xyz__Z', resp.key.id())
+
     def test_get_or_create(self):
         resp = Response.get_or_create('abc', 'xyz')
         self.assertEquals('abc xyz', resp.key.id())

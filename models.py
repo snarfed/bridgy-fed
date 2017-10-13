@@ -82,6 +82,12 @@ class Response(StringIdModel):
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
+    def __init__(self, source=None, target=None, **kwargs):
+        if source and target:
+            assert 'id' not in kwargs
+            kwargs['id'] = self._id(source, target)
+        super(Response, self).__init__(**kwargs)
+
     @classmethod
     def get_or_create(cls, source=None, target=None, **kwargs):
         return cls.get_or_insert(cls._id(source, target), **kwargs)
