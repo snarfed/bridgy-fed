@@ -4,7 +4,7 @@ import json
 
 import appengine_config
 
-from granary import as2, microformats2
+from granary import as2, atom, microformats2
 from oauth_dropins.webutil.handlers import ModernHandler
 from oauth_dropins.webutil import util
 import webapp2
@@ -29,7 +29,7 @@ class RenderHandler(ModernHandler):
         elif resp.source_as2:
             as1 = as2.to_as1(json.loads(resp.source_as2))
         elif resp.source_atom:
-            self.abort(501, 'Rendering HTML from Atom is not yet implemented.')
+            as1 = atom.atom_to_activity(resp.source_atom)
         else:
             self.abort(404, 'Stored response for %s has no data' % id)
 
