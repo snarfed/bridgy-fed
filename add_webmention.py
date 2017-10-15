@@ -19,16 +19,14 @@ class AddWebmentionHandler(webapp2.RequestHandler):
     def get(self, url):
         url = urllib.unquote(url)
         if not url.startswith('http://') and not url.startswith('https://'):
-            self.abort(400, 'URL must start with http:// or https://')
+            common.error(self, 'URL must start with http:// or https://')
 
         try:
             resp = common.requests_get(url)
         except requests.exceptions.Timeout as e:
-            logging.info('Returning 504 due to', exc_info=True)
-            self.abort(504, unicode(e))
+            common.error(self, unicode(e), status=504)
         except requests.exceptions.RequestException as e:
-            logging.info('Returning 502 due to', exc_info=True)
-            self.abort(502, unicode(e))
+            common.error(self, unicode(e), status=502)
 
         self.response.status_int = resp.status_code
         self.response.write(resp.content)

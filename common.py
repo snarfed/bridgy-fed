@@ -54,7 +54,7 @@ def _requests_fn(fn, url, parse_json=False, log=False, **kwargs):
 
 
 def error(handler, msg, status=400):
-    logging.info(msg)
+    logging.info('Returning %s: %s' % (status, msg), exc_info=True)
     handler.abort(status, msg)
 
 

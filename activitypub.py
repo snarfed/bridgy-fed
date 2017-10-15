@@ -44,7 +44,7 @@ class ActorHandler(webapp2.RequestHandler):
         hcard = mf2util.representative_hcard(mf2, resp.url)
         logging.info('Representative h-card: %s', json.dumps(hcard, indent=2))
         if not hcard:
-            self.abort(400, """\
+            common.error(self, """\
 Couldn't find a <a href="http://microformats.org/wiki/representative-hcard-parsing">\
 representative h-card</a> on %s""" % resp.url)
 
@@ -76,7 +76,7 @@ class InboxHandler(webapp2.RequestHandler):
         except (TypeError, ValueError, AssertionError):
             msg = "Couldn't parse body as JSON"
             logging.error(msg, exc_info=True)
-            self.abort(400, msg)
+            common.error(self, msg)
 
         type = activity.get('type')
         if type not in SUPPORTED_TYPES:

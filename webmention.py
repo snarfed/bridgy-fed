@@ -57,7 +57,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         if isinstance(target, dict):
             target = target.get('url')
         if not target:
-            self.abort(400, 'No u-in-reply-to found in %s' % source_url)
+            common.error(self, 'No u-in-reply-to found in %s' % source_url)
 
         try:
             resp = common.requests_get(target, headers=activitypub.CONNEG_HEADER,
@@ -85,7 +85,7 @@ class WebmentionHandler(webapp2.RequestHandler):
                 inbox_url = actor.get('inbox')
                 actor = actor.get('url')
             if not inbox_url and not actor:
-                self.abort(400, 'Target object has no actor or attributedTo URL')
+                common.error(self, 'Target object has no actor or attributedTo URL')
 
         if not inbox_url:
             # fetch actor as AS object
@@ -96,7 +96,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         if not inbox_url:
             # TODO: probably need a way to save errors like this so that we can
             # return them if ostatus fails too.
-            # self.abort(400, 'Target actor has no inbox')
+            # common.error(self, 'Target actor has no inbox')
             return self.send_salmon(source_obj, target_url=target_url)
 
         # convert to AS2

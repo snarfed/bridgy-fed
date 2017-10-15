@@ -107,9 +107,8 @@ class SlapHandler(webapp2.RequestHandler):
             response.put()
 
         if errors:
-            self.abort(errors[0].get('http_status') or 400,
-                'Errors:\n' + '\n'.join(json.dumps(e, indent=2) for e in errors))
-
+            msg = 'Errors:\n' + '\n'.join(json.dumps(e, indent=2) for e in errors)
+            common.error(self, msg, status=errors[0].get('http_status'))
 
 app = webapp2.WSGIApplication([
     (r'/%s/salmon' % common.ACCT_RE, SlapHandler),
