@@ -96,11 +96,11 @@ class InboxHandler(webapp2.RequestHandler):
             targets |= set(util.get_list(obj, 'inReplyTo'))
 
         if not source:
-            self.abort(400, "Couldn't find source URL or id")
+            common.error("Couldn't find source URL or id")
 
         targets = util.dedupe_urls(targets)
         if not targets:
-            self.abort(400, "Couldn't find target URL (inReplyTo or object)")
+            common.error("Couldn't find target URL (inReplyTo or object)")
 
         # fetch actor if necessary so we have name, profile photo, etc
         if type in ('Like', 'Announce'):
@@ -118,10 +118,10 @@ class InboxHandler(webapp2.RequestHandler):
             response = Response(source=source, target=target, protocol='activitypub',
                                 direction='in', source_as2=json.dumps(activity))
             response.put()
-
             wm_source = (response.proxy_url() if type in ('Like', 'Announce')
                          else source)
             logging.info('Sending webmention from %s to %s', wm_source, target)
+
             wm = send.WebmentionSend(wm_source, target)
             if wm.send(headers=common.HEADERS):
                 logging.info('Success: %s', wm.response)

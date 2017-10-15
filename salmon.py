@@ -10,6 +10,8 @@ from xml.etree import ElementTree
 import appengine_config
 
 from django_salmon import magicsigs, utils
+from granary import atom
+from oauth_dropins.webutil import util
 import webapp2
 from webmentiontools import send
 
@@ -19,6 +21,14 @@ from models import Response
 # from django_salmon.feeds
 ATOM_NS = 'http://www.w3.org/2005/Atom'
 ATOM_THREADING_NS = 'http://purl.org/syndication/thread/1.0'
+SUPPORTED_VERBS = (
+    'checkin',
+    'create',
+    'like',
+    'share',
+    'tag',
+    'update',
+)
 
 
 class SlapHandler(webapp2.RequestHandler):
@@ -44,6 +54,30 @@ class SlapHandler(webapp2.RequestHandler):
             common.error(self, 'Could not verify magic signature.')
         logging.info('Verified magic signature.')
 
+        activity = atom.atom_to_activity(data)
+        verb = activity.get('verb')
+        if verb and verb not in SUPPORTED_VERBS:
+            common.error(self, '%s activities are not supported yet.' % type)
+
+        # extract source and targets
+        source = activity.get('url') or activity.get('id')
+        obj = activity.get('object')
+        obj_url = util.get_url(obj)
+
+        targets = util.get_list(activity, 'inReplyTo')
+        if isinstance(obj, dict):
+            if not source:
+                source = obj_url or obj.get('id')
+            targets.extend(util.get_list(obj, 'inReplyTo'))
+        if verb in ('like', 'share'):
+             targets.append(obj_url)
+
+        targets = util.dedupe_urls(util.get_url(t) for t in targets)
+        if not source:
+            common.error(self, "Couldn't find post URL (link element)")
+        if not targets:
+            common.error(self, "Couldn't find target URL (thr:in-reply-to or TODO)")
+
         # Verify that the timestamp is recent. Required by spec.
         # I get that this helps prevent spam, but in practice it's a bit silly,
         # and other major implementations don't (e.g. Mastodon), so forget it.
@@ -52,29 +86,17 @@ class SlapHandler(webapp2.RequestHandler):
         # if not utils.verify_timestamp(updated):
         #     common.error(self, 'Timestamp is more than 1h old.')
 
-        # find webmention source and target
-        source = None
-        targets = []
-        for elem in ElementTree.fromstring(data):
-            if elem.tag == utils.normalize('link', ATOM_NS):
-                source = elem.attrib.get('href').strip()
-            elif elem.tag == utils.normalize('in-reply-to', ATOM_THREADING_NS):
-                target = elem.attrib.get('ref') or elem.text
-                if target and target not in targets:
-                    targets.append(target.strip())
-
-        if not source:
-            common.error(self, "Couldn't find post URL (link element)")
-        if not targets:
-            self.error("Couldn't find target URL (thr:in-reply-to or TODO)")
-
         # send webmentions!
         errors = []
         for target in targets:
             response = Response(source=source, target=target, direction='in',
                                 protocol='ostatus', source_atom=data)
+            response.put()
+            wm_source = (response.proxy_url() if verb in ('like', 'share')
+                         else source)
             logging.info('Sending webmention from %s to %s', source, target)
-            wm = send.WebmentionSend(source, target)
+
+            wm = send.WebmentionSend(wm_source, target)
             if wm.send(headers=common.HEADERS):
                 logging.info('Success: %s', wm.response)
                 response.status = 'complete'

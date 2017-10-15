@@ -94,7 +94,7 @@ class Response(StringIdModel):
 
     def proxy_url(self):
         """Returns the Bridgy Fed proxy URL to render this response as HTML."""
-        if self.source_mf2 or self.source_as2:
+        if self.source_mf2 or self.source_as2 or self.source_atom:
             source, target = self.key.id().split(' ')
             return '%s/render?%s' % (appengine_config.HOST_URL, urllib.urlencode({
                 'source': source,

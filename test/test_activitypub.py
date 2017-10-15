@@ -135,7 +135,6 @@ class ActivityPubTest(testutil.TestCase):
 
         as2_headers = copy.deepcopy(common.HEADERS)
         as2_headers.update(activitypub.CONNEG_HEADER)
-        print mock_get.call_args_list
         mock_get.assert_has_calls((
             call('http://orig/actor', headers=as2_headers, timeout=15),
             call('http://orig/post', headers=common.HEADERS, verify=False),
