@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup
 import django_salmon
 from django_salmon import magicsigs, utils
 import feedparser
+from google.appengine.api import mail
 from granary import as2, atom, microformats2
 from httpsig.requests_auth import HTTPSignatureAuth
 import mf2py
@@ -39,6 +40,15 @@ class WebmentionHandler(webapp2.RequestHandler):
         logging.info('Params: %s', self.request.params.items())
         source = util.get_required_param(self, 'source')
         target = util.get_required_param(self, 'target')
+
+        try:
+            msg = 'Bridgy Fed: new webmention from %s !'
+            mail.send_mail(
+                sender='admin@bridgy-federated.appspotmail.com',
+                to='bridgy-fed@ryanb.org',
+                subject=msg, body=msg)
+        except BaseException:
+            logging.warning('Error sending email', exc_info=True)
 
         # fetch source page, convert to ActivityStreams
         resp = common.requests_get(source)
