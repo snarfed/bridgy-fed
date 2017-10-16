@@ -39,14 +39,7 @@ and the rest of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse<
 
 <br />
 
-<p class="row">
-<button id="get-started" class="btn btn-default"
-        onclick="document.getElementById('get-started').style.display = 'none';
-                 document.getElementById('docs').style.display = 'block';">
-  Get started</button>
-</p>
-
-<div id="docs" style="display: none">
+<div id="docs">
 <ul>
 <li><a href="#work">How does it work?</a></li>
 <li><a href="#setup">How do I set it up?</a></li>
@@ -227,14 +220,6 @@ I'm <a class="h-card" href="https://snarfed.org/">Ryan Barrett</a>. I'm just a g
 </div>
 </main>
 
-<!-- Automatically show docs if there's a fragment (ie fragmention) -->
-<script type="text/javascript">
-if (document.location.hash) {
-  document.getElementById('get-started').style.display = 'none';
-  document.getElementById('docs').style.display = 'block';
-}
-</script>
 <script src="/static/fragmention.js"></script>
-
 </body>
 </html>
