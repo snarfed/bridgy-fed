@@ -2,13 +2,17 @@
 """Misc common utilities.
 """
 from __future__ import unicode_literals
+import json
 import logging
 import re
 
 from granary import as2
 from oauth_dropins.webutil import util
 import requests
+from webmentiontools import send
 from webob import exc
+
+from models import Response
 
 DOMAIN_RE = r'([^/]+\.[^/]+)'
 ACCT_RE = r'(?:acct:)?([^@]+)@' + DOMAIN_RE
@@ -22,6 +26,15 @@ USERNAME = 'me'
 # USERNAME_EMOJI = '🌎'  # globe
 LINK_HEADER_RE = re.compile(r""" *< *([^ >]+) *> *; *rel=['"]([^'"]+)['"] *""")
 AS2_PUBLIC_AUDIENCE = 'https://www.w3.org/ns/activitystreams#Public'
+
+SUPPORTED_VERBS = (
+    'checkin',
+    'create',
+    'like',
+    'share',
+    'tag',
+    'update',
+)
 
 
 def requests_get(url, **kwargs):
@@ -53,9 +66,68 @@ def _requests_fn(fn, url, parse_json=False, log=False, **kwargs):
     return resp
 
 
-def error(handler, msg, status=400):
+def error(handler, msg, status=None):
+    if not status:
+        status = 400
     logging.info('Returning %s: %s' % (status, msg), exc_info=True)
     handler.abort(status, msg)
+
+
+def send_webmentions(handler, activity, **response_props):
+    """Sends webmentions for an incoming Salmon slap or ActivityPub inbox delivery.
+    Args:
+      handler: RequestHandler
+      activity: dict, AS1 activity
+      response_props: passed through to the newly created Responses
+    """
+    verb = activity.get('verb')
+    if verb and verb not in SUPPORTED_VERBS:
+        error(handler, '%s activities are not supported yet.' % type)
+
+    # extract source and targets
+    source = activity.get('url') or activity.get('id')
+    obj = activity.get('object')
+    obj_url = util.get_url(obj)
+
+    targets = util.get_list(activity, 'inReplyTo')
+    if isinstance(obj, dict):
+        if not source:
+            source = obj_url or obj.get('id')
+        targets.extend(util.get_list(obj, 'inReplyTo'))
+    if verb in ('like', 'share'):
+         targets.append(obj_url)
+
+    targets = util.dedupe_urls(util.get_url(t) for t in targets)
+    if not source:
+        error(handler, "Couldn't find original post URL")
+    if not targets:
+        error(handler, "Couldn't find target URLs (inReplyTo or object)")
+
+    # send webmentions and store Responses
+    errors = []
+    for target in targets:
+        if not target:
+            continue
+
+        response = Response(source=source, target=target, direction='in',
+                            **response_props)
+        response.put()
+        wm_source = response.proxy_url() if verb in ('like', 'share') else source
+        logging.info('Sending webmention from %s to %s', wm_source, target)
+
+        wm = send.WebmentionSend(wm_source, target)
+        if wm.send(headers=HEADERS):
+            logging.info('Success: %s', wm.response)
+            response.status = 'complete'
+        else:
+            logging.warning('Failed: %s', wm.error)
+            errors.append(wm.error)
+            response.status = 'error'
+        response.put()
+
+    if errors:
+        msg = 'Errors:\n' + '\n'.join(json.dumps(e, indent=2) for e in errors)
+        error(handler, msg, status=errors[0].get('http_status'))
 
 
 def postprocess_as2(activity, key=None):

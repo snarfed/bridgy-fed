@@ -10,10 +10,9 @@ import mf2py
 import mf2util
 from oauth_dropins.webutil import util
 import webapp2
-from webmentiontools import send
 
 import common
-from models import MagicKey, Response
+from models import MagicKey
 
 
 # https://www.w3.org/TR/activitypub/#retrieving-objects
@@ -22,15 +21,7 @@ CONTENT_TYPE_AS = 'application/activity+json'
 CONNEG_HEADER = {
     'Accept': '%s; q=0.9, %s; q=0.8' % (CONTENT_TYPE_AS2, CONTENT_TYPE_AS),
 }
-SUPPORTED_TYPES = (
-    'Announce',
-    'Article',
-    'Audio',
-    'Image',
-    'Like',
-    'Note',
-    'Video',
-)
+
 
 class ActorHandler(webapp2.RequestHandler):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
@@ -78,63 +69,19 @@ class InboxHandler(webapp2.RequestHandler):
             logging.error(msg, exc_info=True)
             common.error(self, msg)
 
-        type = activity.get('type')
-        if type not in SUPPORTED_TYPES:
-            common.error(self, '%s activities are not supported yet.' % type)
-
         # TODO: verify signature if there is one
 
-        # extract source and targets
-        source = activity.get('url') or activity.get('id')
-        obj = activity.get('object')
-        obj_url = util.get_url(obj)
-
-        targets = set(util.get_list(activity, 'inReplyTo') + [obj_url])
-        if isinstance(obj, dict):
-            if not source:
-                source = obj_url or obj.get('id')
-            targets |= set(util.get_list(obj, 'inReplyTo'))
-
-        if not source:
-            common.error("Couldn't find source URL or id")
-
-        targets = util.dedupe_urls(targets)
-        if not targets:
-            common.error("Couldn't find target URL (inReplyTo or object)")
-
         # fetch actor if necessary so we have name, profile photo, etc
-        if type in ('Like', 'Announce'):
+        if activity.get('type') in ('Like', 'Announce'):
             actor = activity.get('actor')
             if actor:
                 activity['actor'] = common.requests_get(
                     actor, parse_json=True, headers=CONNEG_HEADER)
 
         # send webmentions to each target
-        errors = []
-        for target in targets:
-            if not target:
-                continue
-
-            response = Response(source=source, target=target, protocol='activitypub',
-                                direction='in', source_as2=json.dumps(activity))
-            response.put()
-            wm_source = (response.proxy_url() if type in ('Like', 'Announce')
-                         else source)
-            logging.info('Sending webmention from %s to %s', wm_source, target)
-
-            wm = send.WebmentionSend(wm_source, target)
-            if wm.send(headers=common.HEADERS):
-                logging.info('Success: %s', wm.response)
-                response.status = 'complete'
-            else:
-                logging.warning('Failed: %s', wm.error)
-                errors.append(wm.error)
-                response.status = 'error'
-            response.put()
-
-        if errors:
-            msg = 'Errors:\n' + '\n'.join(json.dumps(e, indent=2) for e in errors)
-            common.error(self, msg, errors[0].get('http_status') or 400)
+        as1 = as2.to_as1(activity)
+        common.send_webmentions(self, as1, protocol='activitypub',
+                                source_as2=json.dumps(activity))
 
 
 app = webapp2.WSGIApplication([
