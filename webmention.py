@@ -42,7 +42,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         target = util.get_required_param(self, 'target')
 
         try:
-            msg = 'Bridgy Fed: new webmention from %s !' % source
+            msg = 'Bridgy Fed: new webmention from %s' % source
             mail.send_mail(
                 sender='admin@bridgy-federated.appspotmail.com',
                 to='bridgy-fed@ryanb.org',
@@ -61,13 +61,13 @@ class WebmentionHandler(webapp2.RequestHandler):
         source_obj = microformats2.json_to_object(entry)
         logging.info('Converted to AS: %s', json.dumps(source_obj, indent=2))
 
-        # fetch target page as AS object. (target is first in-reply-to, not
-        # query param.)
-        target = util.get_first(source_obj, 'inReplyTo')
-        if isinstance(target, dict):
-            target = target.get('url')
+        # fetch target page as AS object. target is first in-reply-to, like-of,
+        # or repost-of, *not* target query param.)
+        target = util.get_url(util.get_first(source_obj, 'inReplyTo') or
+                              util.get_first(source_obj, 'object'))
         if not target:
-            common.error(self, 'No u-in-reply-to found in %s' % source_url)
+            common.error(self, 'No u-in-reply-to, u-like-of, or u-repost-of '
+                         'found in %s' % source_url)
 
         try:
             resp = common.requests_get(target, headers=activitypub.CONNEG_HEADER,

@@ -171,7 +171,7 @@ def postprocess_as2(activity, key=None):
 
     # make sure the object has an id
     obj = activity.get('object')
-    if obj and not obj.get('id'):
+    if obj and isinstance(obj, dict) and not obj.get('id'):
         obj['id'] = obj.get('url')
 
     return util.trim_nulls(activity)

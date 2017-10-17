@@ -104,7 +104,7 @@ class WebmentionTest(testutil.TestCase):
         self.as2_update = copy.deepcopy(self.as2_create)
         self.as2_update['type'] = 'Update'
 
-    def test_activitypub_create(self, mock_get, mock_post):
+    def test_activitypub_create_reply(self, mock_get, mock_post):
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz')
 
@@ -145,7 +145,7 @@ class WebmentionTest(testutil.TestCase):
         # self.assertEqual([self.as2_create], resp.requests)
         # self.assertEqual(['abc xyz'], resp.responses)
 
-    def test_activitypub_update(self, mock_get, mock_post):
+    def test_activitypub_update_reply(self, mock_get, mock_post):
         Response(id='http://a/reply http://orig/post', status='complete').put()
 
         mock_get.side_effect = self.activitypub_gets
@@ -161,6 +161,65 @@ class WebmentionTest(testutil.TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
         self.assertEqual(self.as2_update, kwargs['json'])
+
+    def test_activitypub_create_repost(self, mock_get, mock_post):
+        repost_html = """\
+<html>
+<body class="h-entry">
+<a class="u-url" href="http://a/repost"></a>
+<a class="u-repost-of p-name" href="http://orig/post">reposted!</a>
+<a class="p-author h-card" href="http://orig">Ms. ☕ Baz</a>
+</body>
+</html>
+"""
+        self.repost = requests_response(
+            repost_html, content_type='text/html; charset=utf-8')
+        mock_get.side_effect = [self.repost, self.article, self.actor]
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = app.get_response(
+            '/webmention', method='POST', body=urllib.urlencode({
+                'source': 'http://a/repost',
+                'target': 'https://fed.brid.gy/',
+            }))
+        self.assertEquals(200, got.status_int)
+
+        mock_get.assert_has_calls((
+            call('http://a/repost', headers=common.HEADERS, timeout=util.HTTP_TIMEOUT),
+            call('http://orig/post', headers=activitypub.CONNEG_HEADER,
+                 timeout=util.HTTP_TIMEOUT),
+            call('http://orig/author', headers=activitypub.CONNEG_HEADER,
+                 timeout=util.HTTP_TIMEOUT),))
+
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://foo.com/inbox',), args)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Announce',
+            'url': 'http://a/repost',
+            'name': 'reposted!',
+            'object': 'http://orig/post',
+            'cc': [common.AS2_PUBLIC_AUDIENCE],
+            'actor': {
+                'type': 'Person',
+                'url': 'http://orig',
+                'name': 'Ms. ☕ Baz',
+            },
+        }, kwargs['json'])
+
+        headers = kwargs['headers']
+        self.assertEqual(activitypub.CONTENT_TYPE_AS, headers['Content-Type'])
+
+        expected_key = MagicKey.get_by_id('a')
+        rsa_key = kwargs['auth'].header_signer._rsa._key
+        self.assertEqual(expected_key.private_pem(), rsa_key.exportKey())
+
+        resp = Response.get_by_id('http://a/repost http://orig/post')
+        self.assertEqual('out', resp.direction)
+        self.assertEqual('activitypub', resp.protocol)
+        self.assertEqual('complete', resp.status)
+        self.assertEqual(mf2py.parse(repost_html, url='http://a/reply'),
+                         json.loads(resp.source_mf2))
 
     def test_salmon(self, mock_get, mock_post):
         orig_atom = requests_response("""\

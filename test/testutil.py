@@ -19,6 +19,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         hrd_policy = datastore_stub_util.PseudoRandomHRConsistencyPolicy(probability=.5)
         self.testbed.init_datastore_v3_stub(consistency_policy=hrd_policy)
         self.testbed.init_memcache_stub()
+        self.testbed.init_mail_stub()
 
     def tearDown(self):
         self.testbed.deactivate()
