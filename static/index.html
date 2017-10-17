@@ -64,6 +64,10 @@ and the rest of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse<
 Bridgy Fed lets you interact with federated social networks like <a href="https://joinmastodon.org/">Mastodon</a> and <a href="https://project.hubzilla.org/">Hubzilla</a> from your <a href="https://indieweb.org/">IndieWeb</a> site. It translates replies, likes, and reposts from <a href="http://www.webmention.org/">webmentions</a> to federated social networking protocols like <a href="https://activitypub.rocks/">ActivityPub</a> and <a href="https://en.wikipedia.org/wiki/OStatus">OStatus</a>, and vice versa.
 </p>
 
+<p>
+This isn't <a href="https://indieweb.org/syndication">syndication</a> or <a href="https://indieweb.org/POSSE">POSSE</a>! You don't need an account on Mastodon, Hubzilla, or anywhere else. Bridgy Fed lets your site act like a first class member of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>. People on federated social networks (aka fedsocnets) will see your posts directly from your own site, and vice versa.
+</p>
+
 <li id="setup" class="question">How do I set it up?</li>
 <li class="answer">
 <p>
@@ -71,11 +75,16 @@ First, your site needs to support <a href="http://www.webmention.org/">webmentio
 </p>
 
 <p>
-Next, if your site doesn't already have an <a href="https://en.wikipedia.org/wiki/Atom_(standard)">Atom</a> feed, add one. If you're on WordPress, install the <a href="https://wordpress.org/plugins/atom-default-feed/">Atom Default Feed plugin</a>.
+Next, add an <a href="https://en.wikipedia.org/wiki/Atom_(standard)">Atom</a> feed if your site doesn't already have one. If you're on <a href="https://wordpress.org/">WordPress</a>, install the <a href="https://wordpress.org/plugins/atom-default-feed/">Atom Default Feed plugin</a>.
  <!-- or just <a href="https://codex.wordpress.org/WordPress_Feeds#Finding_Your_Feed_URL">add this</a> to your HTML header:<br /> -->
 Otherwise, you can use <a href="https://granary-demo.appspot.com/">granary</a>. Just add this to your site's HTML <code>&lt;head&gt;</code> and fill in <code>DOMAIN</code> with your site's domain:
 </p>
-<pre>&lt;link rel="alternate" type="application/atom+xml" href="https://granary-demo.appspot.com/url?url=http://[DOMAIN]/&input=html&output=atom&hub=https://bridgy-fed.superfeedr.com/" /&gt;</pre>
+<pre>&lt;link rel="alternate" type="application/atom+xml"
+      href="https://granary-demo.appspot.com/url?url=http://[DOMAIN]/&input=html&output=atom&hub=https://bridgy-fed.superfeedr.com/" /&gt;</pre>
+
+<p>
+If you want people on fedsocnets to see your posts, your site will also need to support <a href="https://indieweb.org/WebSub">WebSub</a> (née PubSubHubbub). <a href="https://github.com/tootsuite/mastodon/issues/1441#issuecomment-302969948">Example details for Mastodon.</a> If you're on a CMS, it may already have a plugin! <a href="https://wordpress.org/">WordPress</a> has <a href="https://indieweb.org/WebSub#WordPress_Plugins_for_PuSH">a couple</a>, and <a href="http://withknown.com/">Known</a> has it <a href="https://indieweb.org/WebSub#1000s_of_Known_Sites">built in</a>. Or you can use <a href="https://superfeedr.com/publisher">Superfeedr</a> or <a href="https://switchboard.p3k.io/">Switchboard</a>.
+</p>
 
 <p>
 Finally, configure your web site to redirect these URL paths to the same paths on <code>https://fed.brid.gy/</code>, including query parameters:
@@ -137,8 +146,17 @@ https://en.support.wordpress.com/site-redirect/
 
 <li id="use" class="question">How do I use it?</li>
 <li class="answer">
+
 <p>
-To like, repost or reply to a post on a federated social network, create an <a href="https://indieweb.org/like">indie like</a>, <a href="https://indieweb.org/repost">repost</a>, or <a href="https://indieweb.org/reply">reply</a> as usual, and include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post. Your web server should then <a href="#setup">send Bridgy Fed a webmention</a>, which it will translate to a Salmon slap or ActivityPub activity and forward to the destination. For example:
+Federated social network identities take the form <code>@username@example.com</code>, like an email address with a leading <code>@</code>. Your site's identity via Bridgy Fed will be <code>@me@yourdomain.com</code>. Once you've <a href="#setup">set up Atom and WebSub on your site</a>, people can follow you at that address.
+</p>
+
+<p>
+Most fedsocnets also publish Atom themselves, so you can add people's profile pages like <a href="https://mastodon.technology/@snarfed">mastodon.technology/@snarfed<a> to your <a href="https://indieweb.org/reader">reader</a> and see their posts there too.
+</p>
+
+<p>
+To like, repost or reply to a post on a fedsocnet, create an <a href="https://indieweb.org/like">indie like</a>, <a href="https://indieweb.org/repost">repost</a>, or <a href="https://indieweb.org/reply">reply</a> as usual, and include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post. Your web server should then <a href="#setup">send Bridgy Fed a webmention</a>, which it will translate to a Salmon slap or ActivityPub activity and forward to the destination. For example:
 </p>
 
 <pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
@@ -149,7 +167,7 @@ To like, repost or reply to a post on a federated social network, create an <a h
 </pre>
 
 <p>
-To receive likes, reposts, and replies from federated social networks, just make sure your site accepts webmentions! Bridgy translates incoming Salmon slaps and ActivityPub activities to webmentions and sends them to your site.</p>
+To receive likes, reposts, and replies from fedsocnets, just make sure your site accepts webmentions! Bridgy translates incoming Salmon slaps and ActivityPub activities to webmentions and sends them to your site.</p>
 
 <p>
 For replies, the source will usually be the permalink on the social network itself. For likes and reposts, the source will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>!
