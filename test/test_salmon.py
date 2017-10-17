@@ -130,3 +130,8 @@ class SalmonTest(testutil.TestCase):
         self.assertEqual('ostatus', resp.protocol)
         self.assertEqual('complete', resp.status)
         self.assertEqual(atom_like, resp.source_atom)
+
+    def test_bad_xml(self, mock_urlopen, mock_get, mock_post):
+        got = app.get_response('/foo.com/salmon', method='POST',
+                               body='not xml'.encode('utf-8'))
+        self.assertEquals(400, got.status_int)

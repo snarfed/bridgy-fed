@@ -4,6 +4,7 @@ https://github.com/salmon-protocol/salmon-protocol/blob/master/draft-panzer-salm
 https://github.com/salmon-protocol/salmon-protocol/blob/master/draft-panzer-magicsig-01.html
 """
 import logging
+from xml.etree.ElementTree import ParseError
 
 import appengine_config
 
@@ -26,7 +27,10 @@ class SlapHandler(webapp2.RequestHandler):
     def post(self, username, domain):
         logging.info('Got: %s', self.request.body)
 
-        parsed = utils.parse_magic_envelope(self.request.body)
+        try:
+            parsed = utils.parse_magic_envelope(self.request.body)
+        except ParseError as e:
+            common.error(self, 'Could not parse POST body as XML: %s' % e)
         data = utils.decode(parsed['data'])
         logging.info('Decoded: %s', data)
 
@@ -57,4 +61,5 @@ class SlapHandler(webapp2.RequestHandler):
 
 app = webapp2.WSGIApplication([
     (r'/%s/salmon' % common.ACCT_RE, SlapHandler),
+    (r'/()%s/salmon' % common.DOMAIN_RE, SlapHandler),
 ], debug=appengine_config.DEBUG)
