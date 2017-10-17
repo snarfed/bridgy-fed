@@ -47,9 +47,9 @@ and the rest of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse<
 <div id="docs">
 <ul>
 <li><a href="#work">How does it work?</a></li>
+<li><a href="#sites">Which sites are supported?</a></li>
 <li><a href="#setup">How do I set it up?</a></li>
 <li><a href="#use">How do I use it?</a></li>
-<li><a href="#sites">Which sites are supported?</a></li>
 <li><a href="#cost">How much does it cost?</a></li>
 <li><a href="#who">Who are you? Why did you make this?</a></li>
 <li><a href="#privacy">What do you do with my data?</a></li>
@@ -67,6 +67,29 @@ Bridgy Fed lets you interact with federated social networks like <a href="https:
 <p>
 This isn't <a href="https://indieweb.org/syndication">syndication</a> or <a href="https://indieweb.org/POSSE">POSSE</a>! You don't need an account on Mastodon, Hubzilla, or anywhere else. Bridgy Fed lets your site act like a first class member of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>. People on federated social networks (aka fedsocnets) will see your posts directly from your own site, and vice versa.
 </p>
+
+<li id="sites" class="question">Which sites are supported?</li>
+<li class="answer">
+<p>
+These sites are currently supported:
+</p>
+<ul>
+<li><em><a href="https://joinmastodon.org/">Mastodon</a></em>: replies, likes, and reposts aka boosts are supported, both directions, via ActivityPub.</li>
+<li><em><a href="https://project.hubzilla.org/">Hubzilla</a></em>: replies, likes, and reposts aka shares are supported, both directions, via OStatus.</li>
+</ul>
+
+<p>
+We're aware of the sites below, and we've made progress on some, but they're not yet supported. Click through and vote for their feature requests if you're interested in any of them!
+</p>
+<ul>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/7">Diaspora</a></em>, via OStatus.</li>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/9">Friendica</a></em>, via OStatus.</li>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/8">GNU Social</a></em> (née StatusNet), via OStatus.</li>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/11">MediaGoblin</a></em>, via ActivityPub?</li>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/12">Pleroma</a></em>, via OStatus.</li>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/10">postActiv</a></em>, via ActivityPub or OStatus.</li>
+</ul>
+</li>
 
 <li id="setup" class="question">How do I set it up?</li>
 <li class="answer">
@@ -172,30 +195,6 @@ To receive likes, reposts, and replies from fedsocnets, just make sure your site
 <p>
 For replies, the source will usually be the permalink on the social network itself. For likes and reposts, the source will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>!
 </p>
-</li>
-
-<li id="sites" class="question">Which sites are supported?</li>
-<li class="answer">
-<p>
-These sites are currently supported:
-</p>
-<ul>
-<li><em><a href="https://joinmastodon.org/">Mastodon</a></em>: replies, likes, and reposts aka boosts are supported, both directions, via ActivityPub.</li>
-<li><em><a href="https://project.hubzilla.org/">Hubzilla</a></em>: replies, likes, and reposts aka shares are supported, both directions, via OStatus.</li>
-</ul>
-
-<p>
-We're aware of the sites below, and we've made progress on some, but they're not yet supported. Feel free to <a href="https://github.com/snarfed/bridgy-fed/issues">file a feature request</a> if you're interested in any of them!
-</p>
-<ul>
-<li><em><a href="https://diasporafoundation.org/">Diaspora</a></em>, via OStatus.</li>
-<li><em><a href="http://friendi.ca/">Friendica</a></em>, via OStatus.</li>
-<li><em><a href="https://gnu.io/social/">GNU Social</a></em> (née StatusNet), via OStatus.</li>
-<li><em><a href="https://mediagoblin.org/">MediaGoblin</a></em></li>
-<li><em><a href="https://gitgud.io/lambadalambda/pleroma">pleroma</a></em></li>
-<li><em><a href="https://postactiv.com/">postActiv</a></em></li>
-<li><em><a href="http://pump.io/">pump.io</a></em></li>
-</ul>
 </li>
 
 <li id="cost" class="question">How much does it cost?</li>
