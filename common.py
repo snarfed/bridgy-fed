@@ -53,15 +53,17 @@ def _requests_fn(fn, url, parse_json=False, log=False, **kwargs):
     if log:
         logging.info('Got %s\n  headers:%s\n%s', resp.status_code, resp.headers,
                      resp.text)
-    resp.raise_for_status()
+
+    if resp.status_code // 100 in (4, 5):
+        common.error('Received %s from %s:\n%s' % (resp.status_code, url, resp.text),
+                     status=502)
 
     if parse_json:
         try:
             return resp.json()
-        except ValueError:
-            msg = "Couldn't parse response as JSON"
-            logging.error(msg, exc_info=True)
-            raise exc.HTTPBadRequest(msg)
+        except ValueError as e:
+            common.error("Couldn't parse response from %s as JSON: %s\n%s" %
+                         (url, e, resp.text), exc_info=True, status=502)
 
     return resp
 
