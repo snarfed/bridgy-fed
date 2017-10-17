@@ -1,27 +1,21 @@
 #intro {
   margin-top: 2em;
+  z-index: -1;
 }
 
-#protocol-logos {
-  float: right;
-  margin-top: -.5em;
+#logos {
+  z-index: 1;
 }
 
-#protocol-logos > :first-child img {
-  margin-left: -.2em;
+#fedsocnet-logos {
+  padding-left: 0;
+  margin-right: 15px;
+  max-width: 80px;
+  z-index: 1;
 }
 
-@media (max-width: 600px) {
-  #logo {
-    float: left;
-  }
-  #protocol-logos {
-    float: right;
-  }
-  #header {
-    float: none;
-    width: 100%;
-  }
+#fedsocnet-logos img {
+  min-width: 30px;
 }
 
 .big {
@@ -33,17 +27,13 @@
 }
 
 #header {
+  float: none;
+  width: 100%;
+  z-index: 0;
+}
+
+#header p {
   text-align: left;
-}
-
-#header br {
-  display: none;
-}
-
-@media (min-width: 768px) {
-  #header br {
-    display: inline;
-  }
 }
 
 #title {
