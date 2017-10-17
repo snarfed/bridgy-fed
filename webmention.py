@@ -42,7 +42,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         target = util.get_required_param(self, 'target')
 
         try:
-            msg = 'Bridgy Fed: new webmention from %s !'
+            msg = 'Bridgy Fed: new webmention from %s !' % source
             mail.send_mail(
                 sender='admin@bridgy-federated.appspotmail.com',
                 to='bridgy-fed@ryanb.org',
