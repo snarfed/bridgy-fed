@@ -39,7 +39,7 @@ class SlapHandler(webapp2.RequestHandler):
         try:
             parsed = utils.parse_magic_envelope(self.request.body)
         except ParseError as e:
-            common.error(self, 'Could not parse POST body as XML: %s' % e)
+            common.error(self, 'Could not parse POST body as XML', exc_info=True)
         data = utils.decode(parsed['data'])
         logging.info('Decoded: %s', data)
 
@@ -47,7 +47,7 @@ class SlapHandler(webapp2.RequestHandler):
         try:
             activity = atom.atom_to_activity(data)
         except ParseError as e:
-            common.error(self, 'Could not parse envelope data as XML: %s' % e)
+            common.error(self, 'Could not parse envelope data as XML', exc_info=True)
 
         verb = activity.get('verb')
         if verb and verb not in SUPPORTED_VERBS:

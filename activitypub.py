@@ -72,8 +72,8 @@ class InboxHandler(webapp2.RequestHandler):
         try:
             activity = json.loads(self.request.body)
             assert activity
-        except (TypeError, ValueError, AssertionError) as e:
-            common.error(self, "Couldn't parse body as JSON: %s" % e)
+        except (TypeError, ValueError, AssertionError):
+            common.error(self, "Couldn't parse body as JSON", exc_info=True)
 
         type = activity.get('type')
         if type not in SUPPORTED_TYPES:

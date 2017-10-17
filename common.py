@@ -62,16 +62,15 @@ def _requests_fn(fn, url, parse_json=False, log=False, **kwargs):
         try:
             return resp.json()
         except ValueError as e:
-            common.error("Couldn't parse response from %s as JSON: %s\n%s" %
-                         (url, e, resp.text), exc_info=True, status=502)
+            common.error("Couldn't parse response as JSON", exc_info=True, status=502)
 
     return resp
 
 
-def error(handler, msg, status=None):
+def error(handler, msg, status=None, exc_info=False):
     if not status:
         status = 400
-    logging.info('Returning %s: %s' % (status, msg), exc_info=True)
+    logging.info('Returning %s: %s' % (status, msg), exc_info=exc_info)
     handler.abort(status, msg)
 
 

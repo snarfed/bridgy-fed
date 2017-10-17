@@ -24,9 +24,9 @@ class AddWebmentionHandler(webapp2.RequestHandler):
         try:
             resp = common.requests_get(url)
         except requests.exceptions.Timeout as e:
-            common.error(self, unicode(e), status=504)
+            common.error(self, unicode(e), status=504, exc_info=True)
         except requests.exceptions.RequestException as e:
-            common.error(self, unicode(e), status=502)
+            common.error(self, unicode(e), status=502, exc_info=True)
 
         self.response.status_int = resp.status_code
         self.response.write(resp.content)
