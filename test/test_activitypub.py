@@ -154,3 +154,13 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('complete', resp.status)
         as2_like['actor'] = actor
         self.assertEqual(as2_like, json.loads(resp.source_as2))
+
+    def test_inbox_unsupported_type(self, mock_get, mock_post):
+        got = app.get_response('/foo.com/inbox', method='POST', body=json.dumps({
+            '@context': ['https://www.w3.org/ns/activitystreams'],
+            'id': 'https://xoxo.zone/users/aaronpk#follows/40',
+            'type': 'Follow',
+            'actor': 'https://xoxo.zone/users/aaronpk',
+            'object': 'http://snarfed.org/',
+        }))
+        self.assertEquals(501, got.status_int)

@@ -24,9 +24,12 @@ import testutil
 @mock.patch('urllib2.urlopen')
 class SalmonTest(testutil.TestCase):
 
+    def setUp(self):
+        super(SalmonTest, self).setUp()
+        self.key = MagicKey.get_or_create('alice')
+
     def send_slap(self, mock_urlopen, mock_get, mock_post, atom_slap):
         # salmon magic key discovery. first host-meta, then webfinger
-        self.key = MagicKey.get_or_create('alice')
         mock_urlopen.side_effect = [
             UrlopenResult(200, """\
 <?xml version='1.0' encoding='UTF-8'?>
@@ -131,7 +134,24 @@ class SalmonTest(testutil.TestCase):
         self.assertEqual('complete', resp.status)
         self.assertEqual(atom_like, resp.source_atom)
 
-    def test_bad_xml(self, mock_urlopen, mock_get, mock_post):
+    def test_bad_envelope(self, mock_urlopen, mock_get, mock_post):
         got = app.get_response('/foo.com/salmon', method='POST',
                                body='not xml'.encode('utf-8'))
         self.assertEquals(400, got.status_int)
+
+    def test_bad_inner_xml(self, mock_urlopen, mock_get, mock_post):
+        slap = magicsigs.magic_envelope('not xml', common.ATOM_CONTENT_TYPE, self.key)
+        got = app.get_response('/foo.com/salmon', method='POST', body=slap)
+        self.assertEquals(400, got.status_int)
+
+    def test_rsvp_not_supported(self, mock_urlopen, mock_get, mock_post):
+        slap = magicsigs.magic_envelope("""\
+<?xml version='1.0' encoding='UTF-8'?>
+<entry xmlns='http://www.w3.org/2005/Atom'
+       xmlns:activity='http://activitystrea.ms/spec/1.0/'>
+  <uri>https://my/rsvp</uri>
+  <activity:verb>http://activitystrea.ms/schema/1.0/rsvp</activity:verb>
+  <activity:object>http://orig/event</activity:object>
+</entry>""", common.ATOM_CONTENT_TYPE, self.key)
+        got = app.get_response('/foo.com/salmon', method='POST', body=slap)
+        self.assertEquals(501, got.status_int)

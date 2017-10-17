@@ -21,7 +21,15 @@ CONTENT_TYPE_AS = 'application/activity+json'
 CONNEG_HEADER = {
     'Accept': '%s; q=0.9, %s; q=0.8' % (CONTENT_TYPE_AS2, CONTENT_TYPE_AS),
 }
-
+SUPPORTED_TYPES = (
+    'Announce',
+    'Article',
+    'Audio',
+    'Image',
+    'Like',
+    'Note',
+    'Video',
+)
 
 class ActorHandler(webapp2.RequestHandler):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
@@ -64,10 +72,13 @@ class InboxHandler(webapp2.RequestHandler):
         try:
             activity = json.loads(self.request.body)
             assert activity
-        except (TypeError, ValueError, AssertionError):
-            msg = "Couldn't parse body as JSON"
-            logging.error(msg, exc_info=True)
-            common.error(self, msg)
+        except (TypeError, ValueError, AssertionError) as e:
+            common.error(self, "Couldn't parse body as JSON: %s" % e)
+
+        type = activity.get('type')
+        if type not in SUPPORTED_TYPES:
+            common.error(self, 'Sorry, %s activities are not supported yet.' % type,
+                         status=501)
 
         # TODO: verify signature if there is one
 

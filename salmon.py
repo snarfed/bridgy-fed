@@ -19,6 +19,15 @@ import common
 ATOM_NS = 'http://www.w3.org/2005/Atom'
 ATOM_THREADING_NS = 'http://purl.org/syndication/thread/1.0'
 
+SUPPORTED_VERBS = (
+    'checkin',
+    'create',
+    'like',
+    'share',
+    'tag',
+    'update',
+)
+
 
 class SlapHandler(webapp2.RequestHandler):
     """Accepts POSTs to /[ACCT]/salmon and converts to outbound webmentions."""
@@ -34,8 +43,19 @@ class SlapHandler(webapp2.RequestHandler):
         data = utils.decode(parsed['data'])
         logging.info('Decoded: %s', data)
 
-        # verify signature
-        author = utils.parse_author_uri_from_atom(data)
+        # check that we support this activity type
+        try:
+            activity = atom.atom_to_activity(data)
+        except ParseError as e:
+            common.error(self, 'Could not parse envelope data as XML: %s' % e)
+
+        verb = activity.get('verb')
+        if verb and verb not in SUPPORTED_VERBS:
+            common.error(self, 'Sorry, %s activities are not supported yet.' % type,
+                         status=501)
+
+        # verify author and signature
+        author = util.get_url(activity.get('actor'))
         if ':' not in author:
             author = 'acct:%s' % author
         elif not author.startswith('acct:'):
