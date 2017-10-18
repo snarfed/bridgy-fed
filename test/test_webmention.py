@@ -35,6 +35,8 @@ class WebmentionTest(testutil.TestCase):
 
     def setUp(self):
         super(WebmentionTest, self).setUp()
+        self.key = MagicKey.get_or_create('a')
+
         self.orig = requests_response("""\
 <html>
 <meta>
@@ -42,6 +44,16 @@ class WebmentionTest(testutil.TestCase):
 </meta>
 </html>
 """, url='http://orig/post', content_type='text/html; charset=utf-8')
+
+        self.orig_atom = requests_response("""\
+<?xml version="1.0"?>
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <id>tag:fed.brid.gy,2017-08-22:orig-post</id>
+  <link rel="salmon" href="http://orig/salmon"/>
+  <content type="html">baz ☕ baj</content>
+</entry>
+""")
+
 
         self.reply_html = """\
 <html>
@@ -61,6 +73,33 @@ class WebmentionTest(testutil.TestCase):
             self.reply_html, content_type='text/html; charset=utf-8')
         self.reply_mf2 = mf2py.parse(self.reply_html, url='http://a/reply')
         self.reply_obj = microformats2.json_to_object(self.reply_mf2['items'][0])
+
+        self.repost_html = """\
+<html>
+<body class="h-entry">
+<a class="u-url" href="http://a/repost"></a>
+<a class="u-repost-of p-name" href="http://orig/post">reposted!</a>
+<a class="p-author h-card" href="http://orig">Ms. ☕ Baz</a>
+</body>
+</html>
+"""
+        self.repost = requests_response(
+            self.repost_html, content_type='text/html; charset=utf-8')
+        self.repost_mf2 = mf2py.parse(self.repost_html, url='http://a/repost')
+
+        self.like_html = """\
+<html>
+<body class="h-entry">
+<a class="u-url" href="http://a/like"></a>
+<a class="u-like-of" href="http://orig/post"></a>
+<!--<a class="u-like-of p-name" href="http://orig/post">liked!</a>-->
+<a class="p-author h-card" href="http://orig">Ms. ☕ Baz</a>
+</body>
+</html>
+"""
+        self.like = requests_response(
+            self.like_html, content_type='text/html; charset=utf-8')
+        self.like_mf2 = mf2py.parse(self.like_html, url='http://a/like')
 
         self.article = requests_response({
             '@context': ['https://www.w3.org/ns/activitystreams'],
@@ -104,6 +143,18 @@ class WebmentionTest(testutil.TestCase):
         self.as2_update = copy.deepcopy(self.as2_create)
         self.as2_update['type'] = 'Update'
 
+    def verify_salmon(self, mock_post):
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('http://orig/salmon',), args)
+        self.assertEqual(common.MAGIC_ENVELOPE_CONTENT_TYPE,
+                         kwargs['headers']['Content-Type'])
+
+        env = utils.parse_magic_envelope(kwargs['data'])
+        data = utils.decode(env['data'])
+        assert magicsigs.verify(None, data, env['sig'], key=self.key)
+
+        return data
+
     def test_activitypub_create_reply(self, mock_get, mock_post):
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz')
@@ -129,9 +180,8 @@ class WebmentionTest(testutil.TestCase):
         headers = kwargs['headers']
         self.assertEqual(activitypub.CONTENT_TYPE_AS, headers['Content-Type'])
 
-        expected_key = MagicKey.get_by_id('a')
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(expected_key.private_pem(), rsa_key.exportKey())
+        self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
         resp = Response.get_by_id('http://a/reply http://orig/post')
         self.assertEqual('out', resp.direction)
@@ -163,17 +213,6 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.as2_update, kwargs['json'])
 
     def test_activitypub_create_repost(self, mock_get, mock_post):
-        repost_html = """\
-<html>
-<body class="h-entry">
-<a class="u-url" href="http://a/repost"></a>
-<a class="u-repost-of p-name" href="http://orig/post">reposted!</a>
-<a class="p-author h-card" href="http://orig">Ms. ☕ Baz</a>
-</body>
-</html>
-"""
-        self.repost = requests_response(
-            repost_html, content_type='text/html; charset=utf-8')
         mock_get.side_effect = [self.repost, self.article, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
@@ -210,27 +249,17 @@ class WebmentionTest(testutil.TestCase):
         headers = kwargs['headers']
         self.assertEqual(activitypub.CONTENT_TYPE_AS, headers['Content-Type'])
 
-        expected_key = MagicKey.get_by_id('a')
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(expected_key.private_pem(), rsa_key.exportKey())
+        self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
         resp = Response.get_by_id('http://a/repost http://orig/post')
         self.assertEqual('out', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
-        self.assertEqual(mf2py.parse(repost_html, url='http://a/reply'),
-                         json.loads(resp.source_mf2))
+        self.assertEqual(self.repost_mf2, json.loads(resp.source_mf2))
 
-    def test_salmon(self, mock_get, mock_post):
-        orig_atom = requests_response("""\
-<?xml version="1.0"?>
-<entry xmlns="http://www.w3.org/2005/Atom">
-  <id>tag:fed.brid.gy,2017-08-22:orig-post</id>
-  <link rel="salmon" href="http://orig/salmon"/>
-  <content type="html">baz ☕ baj</content>
-</entry>
-""")
-        mock_get.side_effect = [self.reply, self.orig, orig_atom]
+    def test_salmon_reply(self, mock_get, mock_post):
+        mock_get.side_effect = [self.reply, self.orig, self.orig_atom]
 
         got = app.get_response(
             '/webmention', method='POST', body=urllib.urlencode({
@@ -246,19 +275,7 @@ class WebmentionTest(testutil.TestCase):
             call('http://orig/atom', headers=common.HEADERS, timeout=util.HTTP_TIMEOUT),
         ))
 
-        args, kwargs = mock_post.call_args
-        self.assertEqual(('http://orig/salmon',), args)
-        self.assertEqual(common.MAGIC_ENVELOPE_CONTENT_TYPE,
-                         kwargs['headers']['Content-Type'])
-
-        env = utils.parse_magic_envelope(kwargs['data'])
-        self.reply_obj['inReplyTo'][0]['id'] = 'tag:fed.brid.gy,2017-08-22:orig-post'
-        reply_atom = atom.activity_to_atom(
-            {'object': self.reply_obj}, xml_base='http://a/reply')
-        key = MagicKey.get_by_id('a')
-        assert magicsigs.verify(None, reply_atom, env['sig'], key=key)
-
-        data = utils.decode(env['data'])
+        data = self.verify_salmon(mock_post)
         parsed = feedparser.parse(data)
         entry = parsed.entries[0]
 
@@ -282,6 +299,41 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('ostatus', resp.protocol)
         self.assertEqual('complete', resp.status)
         self.assertEqual(self.reply_mf2, json.loads(resp.source_mf2))
+
+    def test_salmon_like(self, mock_get, mock_post):
+        mock_get.side_effect = [self.like, self.orig, self.orig_atom]
+
+        got = app.get_response(
+            '/webmention', method='POST', body=urllib.urlencode({
+                'source': 'http://a/like',
+                'target': 'http://orig/post',
+            }))
+        self.assertEquals(200, got.status_int)
+
+        mock_get.assert_has_calls((
+            call('http://a/like', headers=common.HEADERS, timeout=util.HTTP_TIMEOUT),
+            call('http://orig/post', headers=activitypub.CONNEG_HEADER,
+                 timeout=util.HTTP_TIMEOUT),
+            call('http://orig/atom', headers=common.HEADERS, timeout=util.HTTP_TIMEOUT),
+        ))
+
+        data = self.verify_salmon(mock_post)
+        parsed = feedparser.parse(data)
+        entry = parsed.entries[0]
+
+        self.assertEquals('http://a/like', entry['id'])
+        self.assertIn({
+            'rel': 'alternate',
+            'href': 'http://a/like',
+            'type': 'text/html',
+        }, entry['links'])
+        self.assertEquals('http://orig/post', entry['activity_object'])
+
+        resp = Response.get_by_id('http://a/like http://orig/post')
+        self.assertEqual('out', resp.direction)
+        self.assertEqual('ostatus', resp.protocol)
+        self.assertEqual('complete', resp.status)
+        self.assertEqual(self.like_mf2, json.loads(resp.source_mf2))
 
     def test_salmon_get_salmon_from_webfinger(self, mock_get, mock_post):
         orig_atom = requests_response("""\

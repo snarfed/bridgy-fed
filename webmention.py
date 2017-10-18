@@ -16,7 +16,7 @@ import django_salmon
 from django_salmon import magicsigs, utils
 import feedparser
 from google.appengine.api import mail
-from granary import as2, atom, microformats2
+from granary import as2, atom, microformats2, source
 from httpsig.requests_auth import HTTPSignatureAuth
 import mf2py
 import mf2util
@@ -156,14 +156,19 @@ class WebmentionHandler(webapp2.RequestHandler):
             common.error(self, 'Target post %s has no Atom link' % target_resp.url,
                          status=400)
 
-        # fetch Atom target post, extract id and salmon endpoint
+        # fetch Atom target post, extract and inject id into source object
         feed = common.requests_get(atom_url['href']).text
         parsed = feedparser.parse(feed)
         logging.info('Parsed: %s', json.dumps(parsed, indent=2,
                                               default=lambda key: '-'))
         entry = parsed.entries[0]
         target_id = entry.id
-        source_obj['inReplyTo'][0]['id'] = target_id
+        in_reply_to = source_obj.get('inReplyTo')
+        source_obj_obj = source_obj.get('object')
+        if in_reply_to:
+            in_reply_to[0]['id'] = target_id
+        elif isinstance(source_obj_obj, dict):
+            source_obj_obj['id'] = target_id
 
         # Mastodon (and maybe others?) require a rel-mentioned link to the
         # original post's author to make it show up as a reply:
@@ -175,6 +180,7 @@ class WebmentionHandler(webapp2.RequestHandler):
             if url:
                 source_obj.setdefault('tags', []).append({'url': url})
 
+        # extract and discover salmon endpoint
         logging.info('Discovering Salmon endpoint in %s', atom_url['href'])
         endpoint = django_salmon.discover_salmon_endpoint(feed)
 
@@ -200,7 +206,9 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         # construct reply Atom object
         source_url = self.request.get('source')
-        entry = atom.activity_to_atom({'object': source_obj}, xml_base=source_url)
+        activity = (source_obj if source_obj.get('verb') in source.VERBS_WITH_OBJECT
+                    else {'object': source_obj})
+        entry = atom.activity_to_atom(activity, xml_base=source_url)
         logging.info('Converted %s to Atom:\n%s', source_url, entry)
 
         # sign reply and wrap in magic envelope
