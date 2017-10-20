@@ -35,7 +35,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
                                          timeout=util.HTTP_TIMEOUT)
         self.assertEquals(200, got.status_int)
-        self.assertEquals(activitypub.CONTENT_TYPE_AS2, got.headers['Content-Type'])
+        self.assertEquals(common.CONTENT_TYPE_AS2, got.headers['Content-Type'])
         self.assertEquals({
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type' : 'Person',
@@ -111,7 +111,7 @@ class ActivityPubTest(testutil.TestCase):
         }
         mock_get.side_effect = [
             # source actor
-            requests_response(actor),
+            requests_response(actor, headers={'Content-Type': common.CONTENT_TYPE_AS2}),
             # target post webmention discovery
             requests_response(
                 '<html><head><link rel="webmention" href="/webmention"></html>'),
@@ -134,7 +134,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEquals(200, got.status_int)
 
         as2_headers = copy.deepcopy(common.HEADERS)
-        as2_headers.update(activitypub.CONNEG_HEADER)
+        as2_headers.update(common.CONNEG_HEADERS_AS2_HTML)
         mock_get.assert_has_calls((
             call('http://orig/actor', headers=as2_headers, timeout=15),
             call('http://orig/post', headers=common.HEADERS, verify=False),

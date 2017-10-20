@@ -14,13 +14,6 @@ import webapp2
 import common
 from models import MagicKey
 
-
-# https://www.w3.org/TR/activitypub/#retrieving-objects
-CONTENT_TYPE_AS2 = 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"'
-CONTENT_TYPE_AS = 'application/activity+json'
-CONNEG_HEADER = {
-    'Accept': '%s; q=0.9, %s; q=0.8' % (CONTENT_TYPE_AS2, CONTENT_TYPE_AS),
-}
 SUPPORTED_TYPES = (
     'Announce',
     'Article',
@@ -30,6 +23,7 @@ SUPPORTED_TYPES = (
     'Note',
     'Video',
 )
+
 
 class ActorHandler(webapp2.RequestHandler):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
@@ -56,7 +50,7 @@ representative h-card</a> on %s""" % resp.url)
         logging.info('Returning: %s', json.dumps(obj, indent=2))
 
         self.response.headers.update({
-            'Content-Type': CONTENT_TYPE_AS2,
+            'Content-Type': common.CONTENT_TYPE_AS2,
             'Access-Control-Allow-Origin': '*',
         })
         self.response.write(json.dumps(obj, indent=2))
@@ -86,8 +80,7 @@ class InboxHandler(webapp2.RequestHandler):
         if activity.get('type') in ('Like', 'Announce'):
             actor = activity.get('actor')
             if actor:
-                activity['actor'] = common.requests_get(
-                    actor, parse_json=True, headers=CONNEG_HEADER)
+                activity['actor'] = common.get_as2(actor)
 
         # send webmentions to each target
         as1 = as2.to_as1(activity)

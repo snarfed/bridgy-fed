@@ -95,7 +95,7 @@ def get_as2(url):
         url: string
 
     Returns:
-        requests.Response
+        dict, AS2 object parsed from JSON
 
     Raises:
         requests.HTTPError, webob.exc.HTTPException
@@ -107,7 +107,7 @@ def get_as2(url):
 
     resp = requests_get(url, headers=CONNEG_HEADERS_AS2_HTML)
     if resp.headers.get('Content-Type') in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
-        return resp
+        return resp.json()
 
     parsed = BeautifulSoup(resp.content, from_encoding=resp.encoding)
     as2 = parsed.find('link', rel=('alternate', 'self'), type=(
@@ -118,7 +118,7 @@ def get_as2(url):
     resp = requests_get(urlparse.urljoin(resp.url, as2['href']),
                         headers=CONNEG_HEADERS_AS2)
     if resp.headers.get('Content-Type') in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
-        return resp
+        return resp.json()
 
     _error()
 

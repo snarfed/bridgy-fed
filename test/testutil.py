@@ -1,11 +1,14 @@
 """Common test utility code.
 """
+import copy
 import unittest
 
 from google.appengine.datastore import datastore_stub_util
 from google.appengine.ext import testbed
+from mock import call
+from oauth_dropins.webutil import testutil, util
 
-from oauth_dropins.webutil import testutil
+import common
 
 
 class TestCase(unittest.TestCase, testutil.Asserts):
@@ -24,3 +27,11 @@ class TestCase(unittest.TestCase, testutil.Asserts):
     def tearDown(self):
         self.testbed.deactivate()
         super(TestCase, self).tearDown()
+
+    def req(self, url, **kwargs):
+        """Returns a mock requests call."""
+        headers = copy.deepcopy(common.HEADERS)
+        headers.update(kwargs.get('headers', {}))
+        kwargs['headers'] = headers
+        kwargs.setdefault('timeout', util.HTTP_TIMEOUT)
+        return call(url, **kwargs)
