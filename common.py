@@ -2,10 +2,13 @@
 """Misc common utilities.
 """
 from __future__ import unicode_literals
+import copy
 import json
 import logging
 import re
+import urlparse
 
+from bs4 import BeautifulSoup
 from granary import as2
 from oauth_dropins.webutil import util
 import requests
@@ -26,6 +29,17 @@ USERNAME = 'me'
 # USERNAME_EMOJI = '🌎'  # globe
 LINK_HEADER_RE = re.compile(r""" *< *([^ >]+) *> *; *rel=['"]([^'"]+)['"] *""")
 AS2_PUBLIC_AUDIENCE = 'https://www.w3.org/ns/activitystreams#Public'
+
+# https://www.w3.org/TR/activitypub/#retrieving-objects
+CONTENT_TYPE_AS2_LD = 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"'
+CONTENT_TYPE_AS2 = 'application/activity+json'
+CONTENT_TYPE_AS1 = 'application/stream+json'
+CONTENT_TYPE_HTML = 'text/html'
+CONNEG_HEADERS_AS2 = {
+    'Accept': '%s; q=0.9, %s; q=0.8' % (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD),
+}
+CONNEG_HEADERS_AS2_HTML = copy.copy(CONNEG_HEADERS_AS2)
+CONNEG_HEADERS_AS2_HTML['Accept'] += ', %s; q=0.7' % CONTENT_TYPE_HTML
 
 SUPPORTED_VERBS = (
     'checkin',
@@ -70,6 +84,45 @@ def _requests_fn(fn, url, parse_json=False, log=False, **kwargs):
     return resp
 
 
+def get_as2(url):
+    """Tries to fetch the given URL as ActivityStreams 2.
+
+    Uses HTTP content negotiation via the Content-Type header. If the url is
+    HTML and it has a rel-alternate link with an AS2 content type, fetches and
+    returns that URL.
+
+    Args:
+        url: string
+
+    Returns:
+        requests.Response
+
+    Raises:
+        requests.HTTPError, webob.exc.HTTPException
+    """
+    def _error():
+        msg = "Couldn't fetch %s as ActivityStreams 2" % url
+        logging.error(msg)
+        raise exc.HTTPBadGateway(msg)
+
+    resp = requests_get(url, headers=CONNEG_HEADERS_AS2_HTML)
+    if resp.headers.get('Content-Type') in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
+        return resp
+
+    parsed = BeautifulSoup(resp.content, from_encoding=resp.encoding)
+    as2 = parsed.find('link', rel=('alternate', 'self'), type=(
+        CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD))
+    if not (as2 and as2['href']):
+        _error()
+
+    resp = requests_get(urlparse.urljoin(resp.url, as2['href']),
+                        headers=CONNEG_HEADERS_AS2)
+    if resp.headers.get('Content-Type') in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
+        return resp
+
+    _error()
+
+
 def error(handler, msg, status=None, exc_info=False):
     if not status:
         status = 400
@@ -78,6 +131,7 @@ def error(handler, msg, status=None, exc_info=False):
 
 
 def send_webmentions(handler, activity, **response_props):
+
     """Sends webmentions for an incoming Salmon slap or ActivityPub inbox delivery.
     Args:
       handler: RequestHandler
