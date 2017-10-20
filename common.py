@@ -22,8 +22,6 @@ ACCT_RE = r'(?:acct:)?([^@]+)@' + DOMAIN_RE
 HEADERS = {
     'User-Agent': 'Bridgy Fed (https://fed.brid.gy/)',
 }
-ATOM_CONTENT_TYPE = 'application/atom+xml'
-MAGIC_ENVELOPE_CONTENT_TYPE = 'application/magic-envelope+xml'
 XML_UTF8 = "<?xml version='1.0' encoding='UTF-8'?>\n"
 USERNAME = 'me'
 # USERNAME_EMOJI = '🌎'  # globe
@@ -35,11 +33,15 @@ CONTENT_TYPE_AS2_LD = 'application/ld+json; profile="https://www.w3.org/ns/activ
 CONTENT_TYPE_AS2 = 'application/activity+json'
 CONTENT_TYPE_AS1 = 'application/stream+json'
 CONTENT_TYPE_HTML = 'text/html'
+CONTENT_TYPE_ATOM = 'application/atom+xml'
+CONTENT_TYPE_MAGIC_ENVELOPE = 'application/magic-envelope+xml'
+
 CONNEG_HEADERS_AS2 = {
     'Accept': '%s; q=0.9, %s; q=0.8' % (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD),
 }
-CONNEG_HEADERS_AS2_HTML = copy.copy(CONNEG_HEADERS_AS2)
-CONNEG_HEADERS_AS2_HTML['Accept'] += ', %s; q=0.7' % CONTENT_TYPE_HTML
+CONNEG_HEADERS_AS2_HTML = {
+    'Accept': CONNEG_HEADERS_AS2['Accept'] + ', %s; q=0.7' % CONTENT_TYPE_HTML,
+}
 
 SUPPORTED_VERBS = (
     'checkin',
@@ -59,19 +61,20 @@ def requests_post(url, **kwargs):
     return _requests_fn(util.requests_post, url, **kwargs)
 
 
-def _requests_fn(fn, url, parse_json=False, log=False, **kwargs):
+def _requests_fn(fn, url, parse_json=False, **kwargs):
     """Wraps requests.* and adds raise_for_status() and User-Agent."""
     kwargs.setdefault('headers', {}).update(HEADERS)
 
     resp = fn(url, **kwargs)
-    if log:
-        logging.info('Got %s\n  headers:%s\n%s', resp.status_code, resp.headers,
-                     resp.text)
+
+    logging.info('Got %s headers:%s', resp.status_code, resp.headers)
+    type = resp.headers.get('Content-Type')
+    if type and type.startswith('text/') and type != 'text/json':
+        logging.info(resp.text)
 
     if resp.status_code // 100 in (4, 5):
-        msg = 'Received %s from %s:\n%s' % (resp.status_code, url, resp.text)
-        logging.error(msg)
-        raise exc.HTTPBadGateway(msg)
+        raise exc.HTTPBadGateway('Received %s from %s:\n%s' %
+                                 (resp.status_code, url, resp.text))
 
     if parse_json:
         try:
@@ -95,32 +98,37 @@ def get_as2(url):
         url: string
 
     Returns:
-        dict, AS2 object parsed from JSON
+        requests.Response
 
     Raises:
         requests.HTTPError, webob.exc.HTTPException
+
+        If we raise webob HTTPException, it will have an additional response
+        attribute with the last requests.Response we received.
     """
-    def _error():
+    def _error(resp):
         msg = "Couldn't fetch %s as ActivityStreams 2" % url
         logging.error(msg)
-        raise exc.HTTPBadGateway(msg)
+        err = exc.HTTPBadGateway(msg)
+        err.response = resp
+        raise err
 
     resp = requests_get(url, headers=CONNEG_HEADERS_AS2_HTML)
     if resp.headers.get('Content-Type') in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
-        return resp.json()
+        return resp
 
     parsed = BeautifulSoup(resp.content, from_encoding=resp.encoding)
     as2 = parsed.find('link', rel=('alternate', 'self'), type=(
         CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD))
     if not (as2 and as2['href']):
-        _error()
+        _error(resp)
 
     resp = requests_get(urlparse.urljoin(resp.url, as2['href']),
                         headers=CONNEG_HEADERS_AS2)
     if resp.headers.get('Content-Type') in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
-        return resp.json()
+        return resp
 
-    _error()
+    _error(resp)
 
 
 def error(handler, msg, status=None, exc_info=False):

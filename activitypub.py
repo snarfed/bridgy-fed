@@ -80,7 +80,7 @@ class InboxHandler(webapp2.RequestHandler):
         if activity.get('type') in ('Like', 'Announce'):
             actor = activity.get('actor')
             if actor:
-                activity['actor'] = common.get_as2(actor)
+                activity['actor'] = common.get_as2(actor).json()
 
         # send webmentions to each target
         as1 = as2.to_as1(activity)

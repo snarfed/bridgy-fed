@@ -35,7 +35,7 @@ class CommonTest(testutil.TestCase):
     @mock.patch('requests.get', return_value=AS2)
     def test_get_as2_direct(self, mock_get):
         resp = common.get_as2('http://orig')
-        self.assertEqual(AS2_OBJ, resp)
+        self.assertEqual(AS2, resp)
         mock_get.assert_has_calls((
             self.req('http://orig', headers=common.CONNEG_HEADERS_AS2_HTML),
         ))
@@ -43,7 +43,7 @@ class CommonTest(testutil.TestCase):
     @mock.patch('requests.get', side_effect=[HTML_WITH_AS2, AS2])
     def test_get_as2_via_html(self, mock_get):
         resp = common.get_as2('http://orig')
-        self.assertEqual(AS2_OBJ, resp)
+        self.assertEqual(AS2, resp)
         mock_get.assert_has_calls((
             self.req('http://orig', headers=common.CONNEG_HEADERS_AS2_HTML),
             self.req('http://as2', headers=common.CONNEG_HEADERS_AS2),

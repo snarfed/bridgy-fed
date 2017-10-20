@@ -65,7 +65,7 @@ representative h-card</a> on %s""" % resp.url)
         canonical_url = urls[0]
 
         # discover atom feed, if any
-        atom = parsed.find('link', rel='alternate', type=common.ATOM_CONTENT_TYPE)
+        atom = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
         if atom and atom['href']:
             atom = urlparse.urljoin(resp.url, atom['href'])
         else:
@@ -120,7 +120,7 @@ representative h-card</a> on %s""" % resp.url)
             # OStatus
             {
                 'rel': 'http://schemas.google.com/g/2010#updates-from',
-                'type': common.ATOM_CONTENT_TYPE,
+                'type': common.CONTENT_TYPE_ATOM,
                 'href': atom,
             }, {
                 'rel': 'hub',

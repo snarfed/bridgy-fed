@@ -50,7 +50,7 @@ class SalmonTest(testutil.TestCase):
         # webmention post
         mock_post.return_value = requests_response()
 
-        slap = magicsigs.magic_envelope(atom_slap, common.ATOM_CONTENT_TYPE, self.key)
+        slap = magicsigs.magic_envelope(atom_slap, common.CONTENT_TYPE_ATOM, self.key)
         got = app.get_response('/me@foo.com/salmon', method='POST', body=slap)
         self.assertEquals(200, got.status_int)
 
@@ -140,7 +140,7 @@ class SalmonTest(testutil.TestCase):
         self.assertEquals(400, got.status_int)
 
     def test_bad_inner_xml(self, mock_urlopen, mock_get, mock_post):
-        slap = magicsigs.magic_envelope('not xml', common.ATOM_CONTENT_TYPE, self.key)
+        slap = magicsigs.magic_envelope('not xml', common.CONTENT_TYPE_ATOM, self.key)
         got = app.get_response('/foo.com/salmon', method='POST', body=slap)
         self.assertEquals(400, got.status_int)
 
@@ -152,6 +152,6 @@ class SalmonTest(testutil.TestCase):
   <uri>https://my/rsvp</uri>
   <activity:verb>http://activitystrea.ms/schema/1.0/rsvp</activity:verb>
   <activity:object>http://orig/event</activity:object>
-</entry>""", common.ATOM_CONTENT_TYPE, self.key)
+</entry>""", common.CONTENT_TYPE_ATOM, self.key)
         got = app.get_response('/foo.com/salmon', method='POST', body=slap)
         self.assertEquals(501, got.status_int)
