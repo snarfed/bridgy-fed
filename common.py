@@ -28,13 +28,17 @@ USERNAME = 'me'
 LINK_HEADER_RE = re.compile(r""" *< *([^ >]+) *> *; *rel=['"]([^'"]+)['"] *""")
 AS2_PUBLIC_AUDIENCE = 'https://www.w3.org/ns/activitystreams#Public'
 
+# Content-Type values. All non-unicode strings because App Engine's wsgi.py
+# requires header values to be str, not unicode.
+#
+# ActivityPub Content-Type details:
 # https://www.w3.org/TR/activitypub/#retrieving-objects
-CONTENT_TYPE_AS2_LD = 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"'
-CONTENT_TYPE_AS2 = 'application/activity+json'
-CONTENT_TYPE_AS1 = 'application/stream+json'
-CONTENT_TYPE_HTML = 'text/html'
-CONTENT_TYPE_ATOM = 'application/atom+xml'
-CONTENT_TYPE_MAGIC_ENVELOPE = 'application/magic-envelope+xml'
+CONTENT_TYPE_AS2_LD = b'application/ld+json; profile="https://www.w3.org/ns/activitystreams"'
+CONTENT_TYPE_AS2 = b'application/activity+json'
+CONTENT_TYPE_AS1 = b'application/stream+json'
+CONTENT_TYPE_HTML = b'text/html'
+CONTENT_TYPE_ATOM = b'application/atom+xml'
+CONTENT_TYPE_MAGIC_ENVELOPE = b'application/magic-envelope+xml'
 
 CONNEG_HEADERS_AS2 = {
     'Accept': '%s; q=0.9, %s; q=0.8' % (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD),
@@ -69,7 +73,8 @@ def _requests_fn(fn, url, parse_json=False, **kwargs):
 
     logging.info('Got %s headers:%s', resp.status_code, resp.headers)
     type = content_type(resp)
-    if type and type.startswith('text/') and type != 'text/json':
+    if (type and type != 'text/html' and
+        (type.startswith('text/') or type.endswith('+json'))):
         logging.info(resp.text)
 
     if resp.status_code // 100 in (4, 5):

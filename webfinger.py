@@ -10,6 +10,7 @@ TODO: test:
 * acct: URI handling
 * user URL that redirects
 """
+from __future__ import unicode_literals
 import json
 import logging
 import urllib
