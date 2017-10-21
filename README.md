@@ -1,23 +1,11 @@
 ![](https://raw.github.com/snarfed/bridgy-fed/master/static/bridgy_logo_thumb.jpg) [Bridgy Fed](https://fed.brid.gy/) [![Circle CI](https://circleci.com/gh/snarfed/bridgy-fed.svg?style=svg)](https://circleci.com/gh/snarfed/bridgy-fed) [![Coverage Status](https://coveralls.io/repos/github/snarfed/bridgy-fed/badge.svg?branch=master)](https://coveralls.io/github/snarfed/bridgy-fed?branch=master)
 ===
 
-Got an [IndieWeb](https://indieweb.org/) site? Want to interact with people on [Mastodon](https://joinmastodon.org/), [GNU Social](https://gnu.io/social/), and more? Bridgy Fed is for you.
+Got an [IndieWeb](https://indieweb.org/) site? Want to interact with federated social networks like [Mastodon](https://joinmastodon.org/), [Hubzilla](https://project.hubzilla.org/), and more? Bridgy Fed is for you.
 
 https://fed.brid.gy/
 
-Bridgy Fed connects the [IndieWeb](https://indieweb.org/) with federated social networks using [ActivityPub](https://activitypub.rocks/) and [OStatus](https://en.wikipedia.org/wiki/OStatus):
-
-  * [Diaspora](https://diasporafoundation.org/)
-  * [Friendica](http://friendi.ca/)
-  * [GNU Social](https://gnu.io/social/) (née StatusNet)
-  * [Hubzilla](https://project.hubzilla.org/)
-  * [MediaGoblin](https://mediagoblin.org/)
-  * [Mastodon](https://joinmastodon.org/)
-  * [postActiv](https://postactiv.com/)
-  * [pump.io](http://pump.io/)
-  * ...and more!
-
-Original design docs:
+Bridgy Fed connects the [IndieWeb](https://indieweb.org/) with federated social networks using [ActivityPub](https://activitypub.rocks/) and [OStatus](https://en.wikipedia.org/wiki/OStatus). Original design docs:
 
 * https://snarfed.org/indieweb-activitypub-bridge
 * https://snarfed.org/indieweb-ostatus-bridge
@@ -81,6 +69,10 @@ Here are in progress notes on how I'm testing interoperability with various fede
 
 ### ActivityPub
 
+* [Mastodon](https://joinmastodon.org/) ([issue](https://github.com/tootsuite/mastodon/issues/1557)) works! [They shipped support in 1.6.](https://github.com/tootsuite/mastodon/releases/tag/v1.6.0rc1)
+  * [snarfed@mastodon.technology](https://mastodon.technology/@snarfed), [example post](https://mastodon.technology/@snarfed/2604611)
+* [Hubzilla](https://project.hubzilla.org/) [is getting close](https://hub.somaton.com/channel/mario/&f=&mid=6db16e0e253c3c376cb921e7b31f94c24522933d7e54c6cf9febaa05359ab2fe@hub.somaton.com)!
+  * Old since lastauth.com is down now: ~~[snarfed@lastauth.com](https://lastauth.com/channel/snarfed), [example post](https://lastauth.com/channel/snarfed/?mid=7cfa12e54cf97aaed3b0bb185651ae37a1e24027fbf3e845fab261e108392707@lastauth.com)~~
 * [distbin](http://distbin.com/)
   * No explicit accounts, can post anything as anyone
 * [pump.io](http://pump.io/)
@@ -88,10 +80,6 @@ Here are in progress notes on how I'm testing interoperability with various fede
   * Tried posting a bunch of ways, couldn't get any to work :/
 * [Kroeg](https://github.com/puckipedia/Kroeg)
   * Not open to other users yet. Seems to be running at [puckipedia.com/social](https://puckipedia.com/social).
-* [Mastodon](https://joinmastodon.org/) ([issue](https://github.com/tootsuite/mastodon/issues/1557)) is getting close! [1.6 might fully support it?](https://github.com/tootsuite/mastodon/releases/tag/v1.6.0rc1)
-  * [snarfed@mastodon.technology](https://mastodon.technology/@snarfed), [example post](https://mastodon.technology/@snarfed/2604611)
-* [Hubzilla](https://project.hubzilla.org/) [is getting close](https://hub.somaton.com/channel/mario/&f=&mid=6db16e0e253c3c376cb921e7b31f94c24522933d7e54c6cf9febaa05359ab2fe@hub.somaton.com)!
-  * [snarfed@lastauth.com](https://lastauth.com/channel/snarfed), [example post](https://lastauth.com/channel/snarfed/?mid=7cfa12e54cf97aaed3b0bb185651ae37a1e24027fbf3e845fab261e108392707@lastauth.com)
 
 ### Salmon
 
