@@ -74,7 +74,7 @@ class WebmentionTest(testutil.TestCase):
             'actor': {
                 'url': 'http://orig/author',
             },
-        }, url='http://orig/as2', content_type=CONTENT_TYPE_AS2)
+        }, url='http://orig/as2', content_type=CONTENT_TYPE_AS2 + '; charset=utf-8')
 
         self.reply_html = """\
 <html>

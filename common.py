@@ -68,7 +68,7 @@ def _requests_fn(fn, url, parse_json=False, **kwargs):
     resp = fn(url, **kwargs)
 
     logging.info('Got %s headers:%s', resp.status_code, resp.headers)
-    type = resp.headers.get('Content-Type')
+    type = content_type(resp)
     if type and type.startswith('text/') and type != 'text/json':
         logging.info(resp.text)
 
@@ -114,7 +114,7 @@ def get_as2(url):
         raise err
 
     resp = requests_get(url, headers=CONNEG_HEADERS_AS2_HTML)
-    if resp.headers.get('Content-Type') in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
+    if content_type(resp) in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
         return resp
 
     parsed = BeautifulSoup(resp.content, from_encoding=resp.encoding)
@@ -125,10 +125,17 @@ def get_as2(url):
 
     resp = requests_get(urlparse.urljoin(resp.url, as2['href']),
                         headers=CONNEG_HEADERS_AS2)
-    if resp.headers.get('Content-Type') in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
+    if content_type(resp) in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
         return resp
 
     _error(resp)
+
+
+def content_type(resp):
+    """Returns a requests.Response's Content-Type, without charset suffix."""
+    type = resp.headers.get('Content-Type')
+    if type:
+        return type.split(';')[0]
 
 
 def error(handler, msg, status=None, exc_info=False):

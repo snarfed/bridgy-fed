@@ -74,7 +74,7 @@ class WebmentionHandler(webapp2.RequestHandler):
             target_resp = common.get_as2(target)
         except (requests.HTTPError, exc.HTTPBadGateway) as e:
             if (e.response.status_code // 100 == 2 and
-                e.response.headers.get('Content-Type').startswith('text/html')):
+                common.content_type(e.response).startswith('text/html')):
                 return self.send_salmon(source_obj, source_mf2, target_resp=e.response)
             raise
 
