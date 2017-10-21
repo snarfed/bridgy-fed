@@ -130,9 +130,14 @@ class WebmentionHandler(webapp2.RequestHandler):
             # https://tools.ietf.org/html/draft-cavage-http-signatures-07#section-2.1.3
             'Date': datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT'),
         }
-        common.requests_post(
-            urlparse.urljoin(target_url, inbox_url), json=source_activity, auth=auth,
-            headers=headers)
+        inbox_url = urlparse.urljoin(target_url, inbox_url)
+        resp = common.requests_post(inbox_url, json=source_activity, auth=auth,
+                                    headers=headers)
+        self.response.status_int = resp.status_code
+        if resp.status_code == 202:
+            self.response.write('202 response! If this is Mastodon 1.x, their '
+                                'signature verification probably failed. :(\n')
+        self.response.write(resp.text)
 
         stored_response.status = 'complete'
         stored_response.protocol = 'activitypub'

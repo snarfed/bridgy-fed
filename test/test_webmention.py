@@ -170,14 +170,14 @@ class WebmentionTest(testutil.TestCase):
 
     def test_activitypub_create_reply(self, mock_get, mock_post):
         mock_get.side_effect = self.activitypub_gets
-        mock_post.return_value = requests_response('abc xyz')
+        mock_post.return_value = requests_response('abc xyz', status=203)
 
         got = app.get_response(
             '/webmention', method='POST', body=urllib.urlencode({
                 'source': 'http://a/reply',
                 'target': 'https://fed.brid.gy/',
             }))
-        self.assertEquals(200, got.status_int)
+        self.assertEquals(203, got.status_int)
 
         mock_get.assert_has_calls((
             self.req('http://a/reply'),
