@@ -84,9 +84,9 @@ def _requests_fn(fn, url, parse_json=False, **kwargs):
     if parse_json:
         try:
             return resp.json()
-        except ValueError as e:
+        except ValueError:
             msg = "Couldn't parse response as JSON"
-            logging.exception(msg)
+            logging.info(msg, exc_info=True)
             raise exc.HTTPBadGateway(msg)
 
     return resp
