@@ -51,7 +51,7 @@ class SlapHandler(webapp2.RequestHandler):
 
         verb = activity.get('verb')
         if verb and verb not in SUPPORTED_VERBS:
-            common.error(self, 'Sorry, %s activities are not supported yet.' % type,
+            common.error(self, 'Sorry, %s activities are not supported yet.' % verb,
                          status=501)
 
         # verify author and signature

@@ -160,7 +160,7 @@ def send_webmentions(handler, activity, **response_props):
     """
     verb = activity.get('verb')
     if verb and verb not in SUPPORTED_VERBS:
-        error(handler, '%s activities are not supported yet.' % type)
+        error(handler, '%s activities are not supported yet.' % verb)
 
     # extract source and targets
     source = activity.get('url') or activity.get('id')
