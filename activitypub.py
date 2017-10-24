@@ -32,7 +32,7 @@ class ActorHandler(webapp2.RequestHandler):
         url = 'http://%s/' % domain
         resp = common.requests_get(url)
         mf2 = mf2py.parse(resp.text, url=resp.url)
-        logging.info('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
+        # logging.info('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
 
         hcard = mf2util.representative_hcard(mf2, resp.url)
         logging.info('Representative h-card: %s', json.dumps(hcard, indent=2))

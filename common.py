@@ -81,8 +81,9 @@ def _requests_fn(fn, url, parse_json=False, **kwargs):
         logging.info(resp.text)
 
     if resp.status_code // 100 in (4, 5):
-        raise exc.HTTPBadGateway('Received %s from %s:\n%s' %
-                                 (resp.status_code, url, resp.text))
+        msg = 'Received %s from %s:\n%s' % (resp.status_code, url, resp.text)
+        logging.info(msg)
+        raise exc.HTTPBadGateway(msg)
 
     if parse_json:
         try:
