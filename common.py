@@ -77,7 +77,7 @@ def _requests_fn(fn, url, parse_json=False, **kwargs):
     logging.info('Got %s headers:%s', resp.status_code, resp.headers)
     type = content_type(resp)
     if (type and type != 'text/html' and
-        (type.startswith('text/') or type.endswith('+json'))):
+        (type.startswith('text/') or type.endswith('+json') or type.endswith('/json'))):
         logging.info(resp.text)
 
     if resp.status_code // 100 in (4, 5):
