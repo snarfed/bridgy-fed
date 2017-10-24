@@ -117,8 +117,10 @@ class WebmentionTest(testutil.TestCase):
             'cc': [AS2_PUBLIC_AUDIENCE, 'tag:orig,2017:as2'],
             'actor': {
                 'type': 'Person',
+                'id': 'http://localhost/orig',
                 'url': 'http://orig',
                 'name': 'Ms. ☕ Baz',
+                'preferredUsername': 'me',
             },
         }
 
@@ -161,6 +163,7 @@ class WebmentionTest(testutil.TestCase):
                 ],
                 'attributedTo': [{
                     'type': 'Person',
+                    'id': 'http://localhost/orig',
                     'url': 'http://orig',
                     'preferredUsername': 'me',
                     'name': 'Ms. ☕ Baz',

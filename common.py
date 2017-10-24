@@ -10,11 +10,12 @@ import urlparse
 
 from bs4 import BeautifulSoup
 from granary import as2
-from oauth_dropins.webutil import util
+from oauth_dropins.webutil import handlers, util
 import requests
 from webmentiontools import send
 from webob import exc
 
+import appengine_config
 from models import Response
 
 DOMAIN_RE = r'([^/]+\.[^/]+)'
@@ -55,6 +56,8 @@ SUPPORTED_VERBS = (
     'tag',
     'update',
 )
+
+canonicalize_domain = handlers.redirect('bridgy-federated.appspot.com', 'fed.brid.gy')
 
 
 def requests_get(url, **kwargs):
@@ -218,18 +221,22 @@ def postprocess_as2(activity, target=None, key=None):
       key: MagicKey, optional. populated into publicKey field if provided.
     """
     type = activity.get('type')
-    if type == 'Person' and not activity.get('publicKey'):
-        # underspecified, inferred from this issue and Mastodon's implementation:
-        # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
-        # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
-        activity['publicKey'] = {
-            'publicKeyPem': key.public_pem(),
-        }
+
+    # actor objects
     if type == 'Person':
-        activity.setdefault('preferredUsername', USERNAME)
-    attr = activity.get('attributedTo')
-    if attr:
-        attr[0].setdefault('preferredUsername', USERNAME)
+        postprocess_as2_actor(activity)
+        if not activity.get('publicKey'):
+            # underspecified, inferred from this issue and Mastodon's implementation:
+            # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
+            # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
+            activity['publicKey'] = {
+                'publicKeyPem': key.public_pem(),
+            }
+        return activity
+
+    for actor in (util.get_list(activity, 'attributedTo') +
+                  util.get_list(activity, 'actor')):
+        postprocess_as2_actor(actor)
 
     # inReplyTo: singly valued, prefer id over url
     target_id = target.get('id') if target else None
@@ -269,3 +276,17 @@ def postprocess_as2(activity, target=None, key=None):
         }
 
     return util.trim_nulls(activity)
+
+
+def postprocess_as2_actor(actor):
+    """Prepare an AS2 actor object to be served or sent via ActivityPub.
+
+    Args:
+      actor: dict, AS2 actor object
+    """
+    actor.setdefault('preferredUsername', USERNAME)
+
+    url = actor.get('url')
+    if url:
+        actor['id'] = '%s/%s' % (appengine_config.HOST_URL,
+                                 urlparse.urlparse(url).netloc)

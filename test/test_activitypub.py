@@ -27,7 +27,7 @@ class ActivityPubTest(testutil.TestCase):
     def test_actor_handler(self, mock_get, _):
         mock_get.return_value = requests_response("""
 <body>
-<a class="h-card" rel="me" href="/about-me">Mrs. ☕ Foo</a>
+<a class="h-card u-url" rel="me" href="/about-me">Mrs. ☕ Foo</a>
 </body>
 """, url='https://foo.com/')
 
@@ -41,7 +41,7 @@ class ActivityPubTest(testutil.TestCase):
             'type' : 'Person',
             'name': 'Mrs. ☕ Foo',
             'preferredUsername': 'me',
-            'id': 'https://foo.com/about-me',
+            'id': 'http://localhost/foo.com',
             'url': 'https://foo.com/about-me',
             'inbox': 'http://localhost/foo.com/inbox',
             'publicKey': {

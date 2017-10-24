@@ -13,6 +13,11 @@ except ValueError as e:
 
 from granary.appengine_config import *
 
+
+if os.environ.get('SERVER_SOFTWARE', '').startswith('Google App Engine/'):
+  HOST = 'fed.brid.gy'
+  HOST_URL = '%s://%s' % (SCHEME, HOST)
+
 # Make requests and urllib3 play nice with App Engine.
 # https://github.com/snarfed/bridgy/issues/396
 # http://stackoverflow.com/questions/34574740
