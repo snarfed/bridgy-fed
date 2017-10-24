@@ -41,6 +41,7 @@ class ActivityPubTest(testutil.TestCase):
             'type' : 'Person',
             'name': 'Mrs. ☕ Foo',
             'preferredUsername': 'me',
+            'id': 'https://foo.com/about-me',
             'url': 'https://foo.com/about-me',
             'inbox': 'http://localhost/foo.com/inbox',
             'publicKey': {

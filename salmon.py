@@ -22,6 +22,7 @@ ATOM_THREADING_NS = 'http://purl.org/syndication/thread/1.0'
 SUPPORTED_VERBS = (
     'checkin',
     'create',
+    'favorite',
     'like',
     'share',
     'tag',

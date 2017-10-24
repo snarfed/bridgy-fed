@@ -70,6 +70,7 @@ class WebmentionTest(testutil.TestCase):
         self.orig_as2 = requests_response({
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Article',
+            'id': 'tag:orig,2017:as2',
             'content': 'Lots of ☕ words...',
             'actor': {
                 'url': 'http://orig/author',
@@ -93,7 +94,6 @@ class WebmentionTest(testutil.TestCase):
         self.reply = requests_response(
             self.reply_html, content_type=CONTENT_TYPE_HTML)
         self.reply_mf2 = mf2py.parse(self.reply_html, url='http://a/reply')
-        self.reply_obj = microformats2.json_to_object(self.reply_mf2['items'][0])
 
         self.repost_html = """\
 <html>
@@ -107,6 +107,20 @@ class WebmentionTest(testutil.TestCase):
         self.repost = requests_response(
             self.repost_html, content_type=CONTENT_TYPE_HTML)
         self.repost_mf2 = mf2py.parse(self.repost_html, url='http://a/repost')
+        self.repost_as2 = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Announce',
+            'id': 'http://a/repost',
+            'url': 'http://a/repost',
+            'name': 'reposted!',
+            'object': 'tag:orig,2017:as2',
+            'cc': [AS2_PUBLIC_AUDIENCE, 'tag:orig,2017:as2'],
+            'actor': {
+                'type': 'Person',
+                'url': 'http://orig',
+                'name': 'Ms. ☕ Baz',
+            },
+        }
 
         self.like_html = """\
 <html>
@@ -140,10 +154,10 @@ class WebmentionTest(testutil.TestCase):
                 'url': 'http://a/reply',
                 'name': 'foo ☕ bar',
                 'content': ' <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> <a href="https://fed.brid.gy/"></a> ',
-                'inReplyTo': 'http://orig/post',
+                'inReplyTo': 'tag:orig,2017:as2',
                 'cc': [
                     AS2_PUBLIC_AUDIENCE,
-                    'http://orig/post',
+                    'tag:orig,2017:as2',
                 ],
                 'attributedTo': [{
                     'type': 'Person',
@@ -243,19 +257,7 @@ class WebmentionTest(testutil.TestCase):
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual({
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'type': 'Announce',
-            'url': 'http://a/repost',
-            'name': 'reposted!',
-            'object': 'http://orig/post',
-            'cc': [AS2_PUBLIC_AUDIENCE],
-            'actor': {
-                'type': 'Person',
-                'url': 'http://orig',
-                'name': 'Ms. ☕ Baz',
-            },
-        }, kwargs['json'])
+        self.assertEqual(self.repost_as2, kwargs['json'])
 
         headers = kwargs['headers']
         self.assertEqual(CONTENT_TYPE_AS2, headers['Content-Type'])

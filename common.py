@@ -208,11 +208,13 @@ def send_webmentions(handler, activity, **response_props):
         error(handler, msg, status=errors[0].get('http_status'))
 
 
-def postprocess_as2(activity, key=None):
+def postprocess_as2(activity, target=None, key=None):
     """Prepare an AS2 object to be served or sent via ActivityPub.
 
     Args:
       activity: dict, AS2 object or activity
+      target: dict, AS2 object, optional. The target of activity's inReplyTo or
+        Like/Announce/etc object, if any.
       key: MagicKey, optional. populated into publicKey field if provided.
     """
     type = activity.get('type')
@@ -229,27 +231,41 @@ def postprocess_as2(activity, key=None):
     if attr:
         attr[0].setdefault('preferredUsername', USERNAME)
 
-    in_reply_tos = activity.get('inReplyTo')
-    if isinstance(in_reply_tos, list):
-        if len(in_reply_tos) > 1:
-            logging.warning("AS2 doesn't support multiple inReplyTo URLs! "
-                            'Only using the first: %s' % in_reply_tos[0])
-        activity['inReplyTo'] = in_reply_tos[0]
+    # inReplyTo: singly valued, prefer id over url
+    target_id = target.get('id') if target else None
+    in_reply_to = activity.get('inReplyTo')
+    if in_reply_to:
+        if target_id:
+            activity['inReplyTo'] = target_id
+        elif isinstance(in_reply_to, list):
+            if len(in_reply_to) > 1:
+                logging.warning(
+                    "AS2 doesn't support multiple inReplyTo URLs! "
+                    'Only using the first: %s' % in_reply_tos[0])
+            activity['inReplyTo'] = in_reply_to[0]
 
+    # activity objects (for Like, Announce, etc): prefer id over url
+    obj = activity.get('object', {})
+    if obj:
+        if isinstance(obj, dict) and not obj.get('id'):
+            obj['id'] = target_id or obj.get('url')
+        elif obj != target_id:
+            activity['object'] = target_id
+
+    # default id to url
+    if not activity.get('id'):
+        activity['id'] = activity.get('url')
+
+    # cc target and its author
     if type in as2.TYPE_TO_VERB or type in ('Article', 'Note'):
-        activity.setdefault('cc', []).extend(
-            [AS2_PUBLIC_AUDIENCE] + util.get_list(activity, 'inReplyTo'))
+        activity.setdefault('cc', []).extend([AS2_PUBLIC_AUDIENCE, target_id])
 
+    # wrap articles and notes in a Create activity
     if type in ('Article', 'Note'):
         activity = {
             '@context': as2.CONTEXT,
             'type': 'Create',
             'object': activity,
         }
-
-    # make sure the object has an id
-    obj = activity.get('object')
-    if obj and isinstance(obj, dict) and not obj.get('id'):
-        obj['id'] = obj.get('url')
 
     return util.trim_nulls(activity)

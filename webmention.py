@@ -110,7 +110,8 @@ class WebmentionHandler(webapp2.RequestHandler):
         # convert to AS2
         source_domain = urlparse.urlparse(source_url).netloc
         key = MagicKey.get_or_create(source_domain)
-        source_activity = common.postprocess_as2(as2.from_as1(source_obj), key=key)
+        source_activity = common.postprocess_as2(
+            as2.from_as1(source_obj), target=target_obj, key=key)
 
         if stored_response.status == 'complete':
             source_activity['type'] = 'Update'
