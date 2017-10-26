@@ -34,15 +34,13 @@ class WebmentionHandler(webapp2.RequestHandler):
     """Handles inbound webmention, converts to ActivityPub or Salmon.
 
     Instance attributes:
-      response: Response
+      resp: Response
     """
 
     def post(self):
-        logging.info('Params: %s', self.request.params.items())
-        source = util.get_required_param(self, 'source')
-        target = util.get_required_param(self, 'target')
-        logging.info('source target: %s %s', source, target)
+        logging.info('(Params: %s )', self.request.params.items())
 
+        source = util.get_required_param(self, 'source')
         try:
             msg = 'Bridgy Fed: new webmention from %s' % source
             mail.send_mail(
@@ -51,6 +49,22 @@ class WebmentionHandler(webapp2.RequestHandler):
                 subject=msg, body=msg)
         except BaseException:
             logging.warning('Error sending email', exc_info=True)
+
+        self.resp = None
+        try:
+            self.try_activitypub()
+            if self.resp:
+                self.resp.status = 'complete'
+        except:
+            if self.resp:
+                self.resp.status = 'error'
+            raise
+        finally:
+            if self.resp:
+                self.resp.put()
+
+    def try_activitypub(self):
+        source = util.get_required_param(self, 'source')
 
         # fetch source page, convert to ActivityStreams
         source_resp = common.requests_get(source)
@@ -71,18 +85,22 @@ class WebmentionHandler(webapp2.RequestHandler):
             common.error(self, 'No u-in-reply-to, u-like-of, or u-repost-of '
                          'found in %s' % source_url)
 
+        logging.info('source target: %s %s', source, target)
         try:
             target_resp = common.get_as2(target)
         except (requests.HTTPError, exc.HTTPBadGateway) as e:
             if (e.response.status_code // 100 == 2 and
                 common.content_type(e.response).startswith('text/html')):
-                return self.send_salmon(source_obj, source_mf2, target_resp=e.response)
+                self.resp = Response.get_or_create(
+                    source=source_url, target=e.response.url or target,
+                    direction='out', source_mf2=json.dumps(source_mf2))
+                return self.send_salmon(source_obj, target_resp=e.response)
             raise
 
         target_url = target_resp.url or target
-        stored_response = Response.get_or_create(
+        self.resp = Response.get_or_create(
             source=source_url, target=target_url, direction='out',
-            source_mf2=json.dumps(source_mf2))
+            protocol='activitypub', source_mf2=json.dumps(source_mf2))
 
         # find actor's inbox
         target_obj = target_resp.json()
@@ -106,7 +124,7 @@ class WebmentionHandler(webapp2.RequestHandler):
             # TODO: probably need a way to save errors like this so that we can
             # return them if ostatus fails too.
             # common.error(self, 'Target actor has no inbox')
-            return self.send_salmon(source_obj, source_mf2, target_resp=target_resp)
+            return self.send_salmon(source_obj, target_resp=target_resp)
 
         # convert to AS2
         source_domain = urlparse.urlparse(source_url).netloc
@@ -114,7 +132,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         source_activity = common.postprocess_as2(
             as2.from_as1(source_obj), target=target_obj, key=key)
 
-        if stored_response.status == 'complete':
+        if self.resp.status == 'complete':
             source_activity['type'] = 'Update'
 
         # prepare HTTP Signature (required by Mastodon)
@@ -141,23 +159,17 @@ class WebmentionHandler(webapp2.RequestHandler):
                                 'signature verification probably failed. :(\n')
         self.response.write(resp.text)
 
-        stored_response.status = 'complete'
-        stored_response.protocol = 'activitypub'
-        stored_response.put()
+    def send_salmon(self, source_obj, target_resp=None):
+        self.resp.protocol = 'ostatus'
 
-    def send_salmon(self, source_obj, source_mf2, target_url=None, target_resp=None):
         # fetch target HTML page, extract Atom rel-alternate link
-        if target_url:
-            assert not target_resp
-            target_resp = common.requests_get(target_url)
-        else:
-            assert target_resp
-            target_url = target_resp.url
+        if not target_resp:
+            target_resp = common.requests_get(self.resp.target())
 
         parsed = BeautifulSoup(target_resp.content, from_encoding=target_resp.encoding)
         atom_url = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
         if not atom_url or not atom_url.get('href'):
-            common.error(self, 'Target post %s has no Atom link' % target_url,
+            common.error(self, 'Target post %s has no Atom link' % self.resp.target(),
                          status=400)
 
         # fetch Atom target post, extract and inject id into source object
@@ -190,7 +202,7 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         if not endpoint:
             # try webfinger
-            parsed = urlparse.urlparse(target_url)
+            parsed = urlparse.urlparse(self.resp.target())
             # TODO: test missing email
             email = entry.author_detail.get('email') or '@'.join(
                 (entry.author_detail.name, parsed.netloc))
@@ -208,7 +220,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         logging.info('Discovered Salmon endpoint %s', endpoint)
 
         # construct reply Atom object
-        source_url = self.request.get('source')
+        source_url = self.resp.source()
         activity = (source_obj if source_obj.get('verb') in source.VERBS_WITH_OBJECT
                     else {'object': source_obj})
         entry = atom.activity_to_atom(activity, xml_base=source_url)
@@ -225,10 +237,6 @@ class WebmentionHandler(webapp2.RequestHandler):
         common.requests_post(
             endpoint, data=common.XML_UTF8 + magic_envelope,
             headers={'Content-Type': common.CONTENT_TYPE_MAGIC_ENVELOPE})
-
-        Response(source=source_url, target=target_url, direction='out',
-                 protocol = 'ostatus', status = 'complete',
-                 source_mf2=json.dumps(source_mf2)).put()
 
 
 app = webapp2.WSGIApplication([

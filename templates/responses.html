@@ -18,12 +18,11 @@
 <tr><th>Source</th> <th>Target</th> <th>Protocol</th> <th>Status</th> <th>Time (click for log)</th></tr>
 {% for r in responses %}
 <tr>
-  <td>{{ r.source|safe }}</td>
-  <td>{{ r.target|safe }}</td>
+  <td>{{ r.source_link|safe }}</td>
+  <td>{{ r.target_link|safe }}</td>
   <td>{{ r.protocol }}</td>
   <td>{{ r.status }}</td>
   <td>
-  {# TODO: support inbound too #}
   {% if r.log_url_path %}<a href="{{ r.log_url_path }}">{% endif %}
     {{ r.updated.replace(microsecond=0) }}
   {% if r.log_url_path %}</a>{% endif %}

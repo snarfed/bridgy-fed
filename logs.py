@@ -29,8 +29,9 @@ class ResponsesHandler(TemplateHandler):
         responses = Response.query().order(-Response.updated).fetch(20)
 
         for r in responses:
-            r.source, r.target = [util.pretty_link(url)
-                                  for url in r.key.id().split(' ')]
+            r.source_link = util.pretty_link(r.source())
+            r.target_link = util.pretty_link(r.target())
+            # TODO: support inbound too
             if r.direction == 'out' and r.updated >= VERSION_1_DEPLOYED:
                 r.log_url_path = '/log?' + urllib.urlencode({
                     'key': r.key.id(),

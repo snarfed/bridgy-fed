@@ -92,6 +92,12 @@ class Response(StringIdModel):
     def get_or_create(cls, source=None, target=None, **kwargs):
         return cls.get_or_insert(cls._id(source, target), **kwargs)
 
+    def source(self):
+        return self.key.id().split()[0]
+
+    def target(self):
+        return self.key.id().split()[1]
+
     def proxy_url(self):
         """Returns the Bridgy Fed proxy URL to render this response as HTML."""
         if self.source_mf2 or self.source_as2 or self.source_atom:
