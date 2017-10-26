@@ -1,6 +1,7 @@
 """Render recent responses and logs."""
 import calendar
 import datetime
+import urllib
 
 import appengine_config
 
@@ -30,8 +31,11 @@ class ResponsesHandler(TemplateHandler):
         for r in responses:
             r.source, r.target = [util.pretty_link(url)
                                   for url in r.key.id().split(' ')]
-            if r.updated >= VERSION_1_DEPLOYED:
-                r.start_time = calendar.timegm(r.updated.timetuple())
+            if r.direction == 'out' and r.updated >= VERSION_1_DEPLOYED:
+                r.log_url_path = '/log?' + urllib.urlencode({
+                    'key': r.key.id(),
+                    'start_time': calendar.timegm(r.updated.timetuple()),
+                })
 
         return {
             'responses': responses,

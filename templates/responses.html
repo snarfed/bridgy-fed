@@ -24,11 +24,9 @@
   <td>{{ r.status }}</td>
   <td>
   {# TODO: support inbound too #}
-  {% if r.direction == 'out' and r.start_time %}
-    <a href="/log?{{ {'key': r.key.id(), 'start_time': r.start_time}|urlencode }}">
-  {% endif %}
+  {% if r.log_url_path %}<a href="{{ r.log_url_path }}">{% endif %}
     {{ r.updated.replace(microsecond=0) }}
-  {% if r.direction == 'out' %}</a>{% endif %}
+  {% if r.log_url_path %}</a>{% endif %}
   </td>
 </tr>
 {% endfor %}
