@@ -15,14 +15,21 @@
 <h3>Recent requests we've attempted to federate.</h3>
 
 <table>
-<tr><th>Source</th> <th>Target</th> <th>Protocol</th> <th>Status</th> <th>Log</th></tr>
+<tr><th>Source</th> <th>Target</th> <th>Protocol</th> <th>Status</th> <th>Time (click for log)</th></tr>
 {% for r in responses %}
 <tr>
   <td>{{ r.source|safe }}</td>
   <td>{{ r.target|safe }}</td>
   <td>{{ r.protocol }}</td>
   <td>{{ r.status }}</td>
-  <td><a href="">{{ r.updated.replace(microsecond=0) }}</a></td>
+  <td>
+  {# TODO: support inbound too #}
+  {% if r.direction == 'out' and r.start_time %}
+    <a href="/log?{{ {'key': r.key.id(), 'start_time': r.start_time}|urlencode }}">
+  {% endif %}
+    {{ r.updated.replace(microsecond=0) }}
+  {% if r.direction == 'out' %}</a>{% endif %}
+  </td>
 </tr>
 {% endfor %}
 </table>

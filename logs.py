@@ -1,19 +1,21 @@
-"""Handlers and utilities for exposing app logs to users.
-"""
-import cgi
+"""Render recent responses and logs."""
+import calendar
 import datetime
-import logging
-import re
-import urllib
 
 import appengine_config
-from google.appengine.api import logservice
-from google.appengine.ext import ndb
-from oauth_dropins.webutil.handlers import TemplateHandler
+
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.handlers import TemplateHandler
+from oauth_dropins.webutil import logs
 import webapp2
 
 from models import Response
+
+VERSION_1_DEPLOYED = datetime.datetime(2017, 10, 26, 16, 0)
+
+
+class LogHandler(logs.LogHandler):
+  VERSION_IDS = ['1']
 
 
 class ResponsesHandler(TemplateHandler):
@@ -28,6 +30,8 @@ class ResponsesHandler(TemplateHandler):
         for r in responses:
             r.source, r.target = [util.pretty_link(url)
                                   for url in r.key.id().split(' ')]
+            if r.updated >= VERSION_1_DEPLOYED:
+                r.start_time = calendar.timegm(r.updated.timetuple())
 
         return {
             'responses': responses,
@@ -35,5 +39,6 @@ class ResponsesHandler(TemplateHandler):
 
 
 app = webapp2.WSGIApplication([
+    ('/log', LogHandler),
     ('/responses', ResponsesHandler),
 ], debug=appengine_config.DEBUG)

@@ -41,6 +41,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         logging.info('Params: %s', self.request.params.items())
         source = util.get_required_param(self, 'source')
         target = util.get_required_param(self, 'target')
+        logging.info('source target: %s %s', source, target)
 
         try:
             msg = 'Bridgy Fed: new webmention from %s' % source

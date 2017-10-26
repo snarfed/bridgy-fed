@@ -1,6 +1,7 @@
 # https://cloud.google.com/appengine/docs/standard/python/config/appref
 
 # application: bridgy-federated
+# version: 1
 runtime: python27
 threadsafe: yes
 api_version: 1
@@ -62,7 +63,7 @@ handlers:
   script: render.app
   secure: always
 
-- url: /responses
+- url: /(log|responses)
   script: logs.app
   secure: always
 
