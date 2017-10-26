@@ -50,6 +50,7 @@ and the rest of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse<
 <li><a href="#sites">Which sites are supported?</a></li>
 <li><a href="#setup">How do I set it up?</a></li>
 <li><a href="#use">How do I use it?</a></li>
+<li><a href="#troubleshooting">I tried it, and it didn't work!</a></li>
 <li><a href="#cost">How much does it cost?</a></li>
 <li><a href="#who">Who are you? Why did you make this?</a></li>
 <li><a href="#privacy">What do you do with my data?</a></li>
@@ -202,6 +203,13 @@ To receive likes, reposts, and replies from fedsocnets, just make sure your site
 <p>
 For replies, the source will usually be the permalink on the social network itself. For likes and reposts, the source will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>!
 </p>
+</li>
+
+<li id="troubleshooting" class="question">I tried it, and it didn't work!</li>
+<li class="answer">
+<p>If you sent a webmention, check the HTTP response code and body. It will usually describe the error.</p>
+<p>If you got an HTTP 204 from an attempt to federate a response to Mastodon, that means Mastodon accepted the response. If it doesn't show up, that's a known inconsistency right now. We're actively working with them to debug these cases.</p>
+<p>You can also <a href="/responses">see recent Bridgy Fed requests here</a>, including raw logs. Warning: not for the faint of heart!</p>
 </li>
 
 <li id="cost" class="question">How much does it cost?</li>

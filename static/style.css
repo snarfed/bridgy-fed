@@ -157,3 +157,10 @@ pre .keyword, code.keyword {
 pre .value, code.value {
   color: chocolate;
 }
+
+td, th {
+  padding-left: .4em;
+  padding-right: .4em;
+  padding-top: .2em;
+  padding-bottom: .2em;
+}

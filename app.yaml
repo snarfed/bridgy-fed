@@ -62,6 +62,10 @@ handlers:
   script: render.app
   secure: always
 
+- url: /responses
+  script: logs.app
+  secure: always
+
 - url: /wm/.+
   script: add_webmention.app
   secure: always

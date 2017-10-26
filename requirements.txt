@@ -4,6 +4,7 @@ bs4
 feedparser
 granary>=1.8
 httpsig
+jinja2
 mf2py>=1.0.4
 mf2util>=0.5.0
 mock
