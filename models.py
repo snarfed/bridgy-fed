@@ -2,6 +2,7 @@
 
 Based on webfinger-unofficial/user.py.
 """
+import logging
 import urllib
 
 from Crypto.PublicKey import RSA
@@ -90,6 +91,7 @@ class Response(StringIdModel):
 
     @classmethod
     def get_or_create(cls, source=None, target=None, **kwargs):
+        logging.info('source target: %s %s', source, target)
         return cls.get_or_insert(cls._id(source, target), **kwargs)
 
     def source(self):

@@ -85,7 +85,6 @@ class WebmentionHandler(webapp2.RequestHandler):
             common.error(self, 'No u-in-reply-to, u-like-of, or u-repost-of '
                          'found in %s' % source_url)
 
-        logging.info('source target: %s %s', source, target)
         try:
             target_resp = common.get_as2(target)
         except (requests.HTTPError, exc.HTTPBadGateway) as e:
