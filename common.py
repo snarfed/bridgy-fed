@@ -24,7 +24,7 @@ HEADERS = {
     'User-Agent': 'Bridgy Fed (https://fed.brid.gy/)',
 }
 XML_UTF8 = "<?xml version='1.0' encoding='UTF-8'?>\n"
-USERNAME = 'me'
+# USERNAME = 'me'
 # USERNAME_EMOJI = '🌎'  # globe
 LINK_HEADER_RE = re.compile(r""" *< *([^ >]+) *> *; *rel=['"]([^'"]+)['"] *""")
 AS2_PUBLIC_AUDIENCE = 'https://www.w3.org/ns/activitystreams#Public'
@@ -285,9 +285,8 @@ def postprocess_as2_actor(actor):
     Args:
       actor: dict, AS2 actor object
     """
-    actor.setdefault('preferredUsername', USERNAME)
-
     url = actor.get('url')
     if url:
-        actor['id'] = '%s/%s' % (appengine_config.HOST_URL,
-                                 urlparse.urlparse(url).netloc)
+        domain = urlparse.urlparse(url).netloc
+        actor.setdefault('preferredUsername', domain)
+        actor['id'] = '%s/%s' % (appengine_config.HOST_URL, domain)

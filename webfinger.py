@@ -58,7 +58,7 @@ class UserHandler(handlers.XrdOrJrdHandler):
 Couldn't find a <a href="http://microformats.org/wiki/representative-hcard-parsing">\
 representative h-card</a> on %s""" % resp.url)
 
-        acct = '%s@%s' % (common.USERNAME, domain)
+        acct = '%s@%s' % (domain, domain)
         logging.info('Generating WebFinger data for %s', acct)
         key = models.MagicKey.get_or_create(domain)
         props = hcard.get('properties', {})

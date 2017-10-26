@@ -139,7 +139,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         # https://w3c.github.io/activitypub/#authorization-lds
         # https://tools.ietf.org/html/draft-cavage-http-signatures-07
         # https://github.com/tootsuite/mastodon/issues/4906#issuecomment-328844846
-        acct = 'acct:me@%s' % source_domain
+        acct = 'acct:%s@%s' % (source_domain, source_domain)
         auth = HTTPSignatureAuth(secret=key.private_pem(), key_id=acct,
                                  algorithm='rsa-sha256')
 

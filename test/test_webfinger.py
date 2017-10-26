@@ -17,7 +17,7 @@ import models
 import testutil
 from webfinger import app
 
-USER = '%s@foo.com' % common.USERNAME
+USER = 'foo.com@foo.com'
 
 
 class WebFingerTest(testutil.TestCase):
@@ -179,7 +179,7 @@ class WebFingerTest(testutil.TestCase):
     def test_webfinger_handler(self, mock_get):
         mock_get.return_value = requests_response(self.html, url='https://foo.com/')
 
-        for resource in ('me@foo.com', 'acct:me@foo.com', 'xyz@foo.com',
+        for resource in ('foo.com@foo.com', 'acct:foo.com@foo.com', 'xyz@foo.com',
                          'foo.com', 'http://foo.com/', 'https://foo.com/'):
             url = '/.well-known/webfinger?%s' % urllib.urlencode(
                 {'resource': resource})

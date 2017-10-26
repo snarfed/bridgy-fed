@@ -120,7 +120,7 @@ class WebmentionTest(testutil.TestCase):
                 'id': 'http://localhost/orig',
                 'url': 'http://orig',
                 'name': 'Ms. ☕ Baz',
-                'preferredUsername': 'me',
+                'preferredUsername': 'orig',
             },
         }
 
@@ -165,7 +165,7 @@ class WebmentionTest(testutil.TestCase):
                     'type': 'Person',
                     'id': 'http://localhost/orig',
                     'url': 'http://orig',
-                    'preferredUsername': 'me',
+                    'preferredUsername': 'orig',
                     'name': 'Ms. ☕ Baz',
                 }],
             },

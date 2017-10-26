@@ -40,7 +40,7 @@ class ActivityPubTest(testutil.TestCase):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type' : 'Person',
             'name': 'Mrs. ☕ Foo',
-            'preferredUsername': 'me',
+            'preferredUsername': 'foo.com',
             'id': 'http://localhost/foo.com',
             'url': 'https://foo.com/about-me',
             'inbox': 'http://localhost/foo.com/inbox',

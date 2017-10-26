@@ -51,7 +51,7 @@ class SalmonTest(testutil.TestCase):
         mock_post.return_value = requests_response()
 
         slap = magicsigs.magic_envelope(atom_slap, common.CONTENT_TYPE_ATOM, self.key)
-        got = app.get_response('/me@foo.com/salmon', method='POST', body=slap)
+        got = app.get_response('/foo.com@foo.com/salmon', method='POST', body=slap)
         self.assertEquals(200, got.status_int)
 
         # check salmon magic key discovery
