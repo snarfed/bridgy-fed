@@ -72,9 +72,9 @@ class WebmentionTest(testutil.TestCase):
             'type': 'Article',
             'id': 'tag:orig,2017:as2',
             'content': 'Lots of ☕ words...',
-            'actor': {
-                'url': 'http://orig/author',
-            },
+            'actor': {'url': 'http://orig/author'},
+            'to': ['http://orig/recipient'],
+            'cc': ['http://orig/bystander', AS2_PUBLIC_AUDIENCE],
         }, url='http://orig/as2', content_type=CONTENT_TYPE_AS2 + '; charset=utf-8')
 
         self.reply_html = """\
@@ -114,7 +114,12 @@ class WebmentionTest(testutil.TestCase):
             'url': 'http://a/repost',
             'name': 'reposted!',
             'object': 'tag:orig,2017:as2',
-            'cc': [AS2_PUBLIC_AUDIENCE, 'tag:orig,2017:as2'],
+            'cc': [
+                AS2_PUBLIC_AUDIENCE,
+                'http://orig/author',
+                'http://orig/recipient',
+                'http://orig/bystander',
+            ],
             'actor': {
                 'type': 'Person',
                 'id': 'http://localhost/orig',
@@ -159,7 +164,9 @@ class WebmentionTest(testutil.TestCase):
                 'inReplyTo': 'tag:orig,2017:as2',
                 'cc': [
                     AS2_PUBLIC_AUDIENCE,
-                    'tag:orig,2017:as2',
+                    'http://orig/author',
+                    'http://orig/recipient',
+                    'http://orig/bystander',
                 ],
                 'attributedTo': [{
                     'type': 'Person',

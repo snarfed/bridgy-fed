@@ -3,6 +3,7 @@
 """
 from __future__ import unicode_literals
 import copy
+import itertools
 import json
 import logging
 import re
@@ -264,9 +265,15 @@ def postprocess_as2(activity, target=None, key=None):
     if not activity.get('id'):
         activity['id'] = activity.get('url')
 
-    # cc target and its author
+    # cc public and target's author(s) and recipients
+    # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting
+    # https://w3c.github.io/activitypub/#delivery
     if type in as2.TYPE_TO_VERB or type in ('Article', 'Note'):
-        activity.setdefault('cc', []).extend([AS2_PUBLIC_AUDIENCE, target_id])
+        recips = [AS2_PUBLIC_AUDIENCE]
+        if target:
+            recips += itertools.chain(*(util.get_list(target, field) for field in
+                                        ('actor', 'attributedTo', 'to', 'cc')))
+        activity['cc'] = util.dedupe_urls(util.get_url(recip) for recip in recips)
 
     # wrap articles and notes in a Create activity
     if type in ('Article', 'Note'):
