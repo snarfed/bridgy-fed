@@ -1,4 +1,4 @@
-![](https://raw.github.com/snarfed/bridgy-fed/master/static/bridgy_logo_thumb.jpg) [Bridgy Fed](https://fed.brid.gy/) [![Circle CI](https://circleci.com/gh/snarfed/bridgy-fed.svg?style=svg)](https://circleci.com/gh/snarfed/bridgy-fed) [![Coverage Status](https://coveralls.io/repos/github/snarfed/bridgy-fed/badge.svg?branch=master)](https://coveralls.io/github/snarfed/bridgy-fed?branch=master)
+![](https://raw.github.com/snarfed/bridgy/master/static/bridgy_logo_thumb.jpg) [Bridgy Fed](https://fed.brid.gy/) [![Circle CI](https://circleci.com/gh/snarfed/bridgy-fed.svg?style=svg)](https://circleci.com/gh/snarfed/bridgy-fed) [![Coverage Status](https://coveralls.io/repos/github/snarfed/bridgy-fed/badge.svg?branch=master)](https://coveralls.io/github/snarfed/bridgy-fed?branch=master)
 ===
 
 Got an [IndieWeb](https://indieweb.org/) site? Want to interact with federated social networks like [Mastodon](https://joinmastodon.org/), [Hubzilla](https://project.hubzilla.org/), and more? Bridgy Fed is for you.

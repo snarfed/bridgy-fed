@@ -66,7 +66,7 @@ class WebFingerTest(testutil.TestCase):
             }, {
                 'rel': 'http://schemas.google.com/g/2010#updates-from',
                 'type': 'application/atom+xml',
-                'href': 'https://granary-demo.appspot.com/url?url=https%3A%2F%2Ffoo.com%2F&input=html&hub=https%3A%2F%2Ffoo.com%2F&output=atom',
+                'href': 'https://granary.io/url?url=https%3A%2F%2Ffoo.com%2F&input=html&hub=https%3A%2F%2Ffoo.com%2F&output=atom',
             }, {
                 'rel': 'hub',
                 'href': 'https://bridgy-fed.superfeedr.com/'

@@ -70,7 +70,7 @@ representative h-card</a> on %s""" % resp.url)
         if atom and atom['href']:
             atom = urlparse.urljoin(resp.url, atom['href'])
         else:
-            atom = 'https://granary-demo.appspot.com/url?' + urllib.urlencode({
+            atom = 'https://granary.io/url?' + urllib.urlencode({
                 'input': 'html',
                 'output': 'atom',
                 'url': resp.url,
