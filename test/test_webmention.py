@@ -304,6 +304,29 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(('https://foo.com/inbox',), args)
         self.assertEqual(self.as2_create, kwargs['json'])
 
+    def test_activitypub_create_default_url_to_wm_source(self, mock_get, mock_post):
+        """Source post has no u-url. AS2 id should default to webmention source."""
+        missing_url = requests_response("""\
+<html>
+<body class="h-entry">
+<a class="u-repost-of p-name" href="http://orig/post">reposted!</a>
+<a class="p-author h-card" href="http://orig">Ms. ☕ Baz</a>
+</body>
+</html>
+""", content_type=CONTENT_TYPE_HTML)
+        mock_get.side_effect = [missing_url, self.orig_as2, self.actor]
+        mock_post.return_value = requests_response('abc xyz', status=203)
+
+        got = app.get_response('/webmention', method='POST', body=urllib.urlencode({
+                'source': 'http://a/repost',
+                'target': 'https://fed.brid.gy/',
+            }))
+        self.assertEquals(203, got.status_int)
+
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://foo.com/inbox',), args)
+        self.assert_equals(self.repost_as2, kwargs['json'])
+
     def test_salmon_reply(self, mock_get, mock_post):
         mock_get.side_effect = [self.reply, self.orig_html_atom, self.orig_atom]
 

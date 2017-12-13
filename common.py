@@ -261,9 +261,11 @@ def postprocess_as2(activity, target=None, key=None):
         elif obj != target_id:
             activity['object'] = target_id
 
-    # default id to url
+    # id is required for most things. default to url if it's not set.
     if not activity.get('id'):
         activity['id'] = activity.get('url')
+
+    assert activity.get('id') or (isinstance(obj, dict) and obj.get('id'))
 
     # cc public and target's author(s) and recipients
     # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting

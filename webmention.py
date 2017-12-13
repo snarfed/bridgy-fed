@@ -74,6 +74,12 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         entry = mf2util.find_first_entry(source_mf2, ['h-entry'])
         logging.info('First entry: %s', json.dumps(entry, indent=2))
+        # make sure it has url, since we use that for AS2 id, which is required
+        # for ActivityPub.
+        props = entry.setdefault('properties', {})
+        if not props.get('url'):
+            props['url'] = [source_url]
+
         source_obj = microformats2.json_to_object(entry)
         logging.info('Converted to AS: %s', json.dumps(source_obj, indent=2))
 
