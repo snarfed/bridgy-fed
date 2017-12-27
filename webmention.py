@@ -41,14 +41,15 @@ class WebmentionHandler(webapp2.RequestHandler):
         logging.info('(Params: %s )', self.request.params.items())
 
         source = util.get_required_param(self, 'source')
-        try:
-            msg = 'Bridgy Fed: new webmention from %s' % source
-            mail.send_mail(
-                sender='admin@bridgy-federated.appspotmail.com',
-                to='bridgy-fed@ryanb.org',
-                subject=msg, body=msg)
-        except BaseException:
-            logging.warning('Error sending email', exc_info=True)
+        if urlparse.urlparse(source).netloc.split(':')[0] != 'localhost':
+          try:
+              msg = 'Bridgy Fed: new webmention from %s' % source
+              mail.send_mail(
+                  sender='admin@bridgy-federated.appspotmail.com',
+                  to='bridgy-fed@ryanb.org',
+                  subject=msg, body=msg)
+          except BaseException:
+              logging.warning('Error sending email', exc_info=True)
 
         self.resp = None
         try:
