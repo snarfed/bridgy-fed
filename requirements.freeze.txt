@@ -13,7 +13,7 @@ html5lib==0.999999999
 httplib2==0.10.3
 -e git+git@github.com:snarfed/httpsig.git@6f0ebfe00af39fb75d50c7a29f46da49e8190d70#egg=httpsig
 humanize==0.5.1
-Jinja2==2.6
+Jinja2==2.10
 MarkupSafe==1.0
 mf2py==1.0.5
 mf2util==0.5.0
