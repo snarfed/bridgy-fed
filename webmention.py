@@ -71,7 +71,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         source_resp = common.requests_get(source)
         source_url = source_resp.url or source
         source_mf2 = mf2py.parse(source_resp.text, url=source_url)
-        # logging.debug('Parsed mf2 for %s: %s', source_resp.url, json.dumps(mf2, indent=2))
+        # logging.debug('Parsed mf2 for %s: %s', source_resp.url, json.dumps(source_mf2, indent=2))
 
         entry = mf2util.find_first_entry(source_mf2, ['h-entry'])
         logging.info('First entry: %s', json.dumps(entry, indent=2))
