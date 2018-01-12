@@ -81,7 +81,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         if not props.get('url'):
             props['url'] = [source_url]
 
-        source_obj = microformats2.json_to_object(entry)
+        source_obj = microformats2.json_to_object(entry, fetch_mf2=True)
         logging.info('Converted to AS: %s', json.dumps(source_obj, indent=2))
 
         # fetch target page as AS object. target is first in-reply-to, like-of,

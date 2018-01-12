@@ -328,8 +328,11 @@ class WebmentionTest(testutil.TestCase):
         self.assert_equals(self.repost_as2, kwargs['json'])
 
     def test_activitypub_create_author_only_url(self, mock_get, mock_post):
-        """Mf2 author property is just a URL."""
-        missing_url = requests_response("""\
+        """Mf2 author property is just a URL. We should run full authorship.
+
+        https://indieweb.org/authorship
+        """
+        repost = requests_response("""\
 <html>
 <body class="h-entry">
 <a class="u-repost-of p-name" href="http://orig/post">reposted!</a>
@@ -337,7 +340,15 @@ class WebmentionTest(testutil.TestCase):
 </body>
 </html>
 """, content_type=CONTENT_TYPE_HTML)
-        mock_get.side_effect = [missing_url, self.orig_as2, self.actor]
+        author = requests_response("""\
+<html>
+<body class="h-card">
+<a class="p-name u-url" rel="me" href="http://orig">Ms. ☕ Baz</span>
+<img class="u-photo" src="/pic" />
+</body>
+</html>
+""", content_type=CONTENT_TYPE_HTML)
+        mock_get.side_effect = [repost, author, self.orig_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz', status=201)
 
         got = app.get_response('/webmention', method='POST', body=urllib.urlencode({
@@ -350,7 +361,8 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(('https://foo.com/inbox',), args)
 
         repost_as2 = copy.deepcopy(self.repost_as2)
-        del repost_as2['actor']['name']
+        repost_as2['actor']['image'] = repost_as2['actor']['icon'] = \
+            {'type': 'Image', 'url': 'http://orig/pic'},
         self.assert_equals(repost_as2, kwargs['json'])
 
     def test_salmon_reply(self, mock_get, mock_post):
