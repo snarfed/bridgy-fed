@@ -29,6 +29,8 @@ import activitypub
 import common
 from models import MagicKey, Response
 
+SKIP_EMAIL_DOMAINS = frozenset(('localhost', 'snarfed.org'))
+
 
 class WebmentionHandler(webapp2.RequestHandler):
     """Handles inbound webmention, converts to ActivityPub or Salmon.
@@ -41,7 +43,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         logging.info('(Params: %s )', self.request.params.items())
 
         source = util.get_required_param(self, 'source')
-        if urlparse.urlparse(source).netloc.split(':')[0] != 'localhost':
+        if urlparse.urlparse(source).netloc.split(':')[0] not in SKIP_EMAIL_DOMAINS:
           try:
               msg = 'Bridgy Fed: new webmention from %s' % source
               mail.send_mail(
