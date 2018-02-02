@@ -160,7 +160,7 @@ class WebmentionTest(testutil.TestCase):
                 'id': 'http://a/reply',
                 'url': 'http://a/reply',
                 'name': 'foo ☕ bar',
-                'content': ' <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> <a href="https://fed.brid.gy/"></a> ',
+                'content': '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> <a href="https://fed.brid.gy/"></a>',
                 'inReplyTo': 'tag:orig,2017:as2',
                 'cc': [
                     AS2_PUBLIC_AUDIENCE,

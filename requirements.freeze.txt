@@ -5,6 +5,7 @@ bs4==0.0.1
 docopt==0.6.2
 feedparser==5.2.1
 funcsigs==1.0.2
+future==0.16.0
 gdata==2.0.18
 google-api-python-client==1.6.4
 -e git+git@github.com:snarfed/granary.git@eb8a8cce5a7558d920afcf9e989f72227c0adf74#egg=granary
@@ -18,6 +19,7 @@ MarkupSafe==1.0
 mf2py==1.0.5
 mf2util==0.5.0
 mock==2.0.0
+mox3==0.24.0
 -e git+git@github.com:snarfed/oauth-dropins.git@68eac643e1aa90b9107da6d1d9b77bac64dd9086#egg=oauth_dropins
 oauth2client==4.1.2
 oauthlib==2.0.2
@@ -35,5 +37,6 @@ six==1.10.0
 tweepy==3.5.0
 uritemplate==3.0.0
 urllib3==1.22
+webapp2==3.0.0b1
 webencodings==0.5.1
 -e git+https://github.com/snarfed/webmention-tools.git@a67be86024868a6e99f51be568f78505a79a1e2f#egg=webmentiontools
