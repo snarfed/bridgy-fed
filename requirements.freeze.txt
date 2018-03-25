@@ -8,7 +8,7 @@ funcsigs==1.0.2
 future==0.16.0
 gdata==2.0.18
 google-api-python-client==1.6.4
--e git+git@github.com:snarfed/granary.git@eb8a8cce5a7558d920afcf9e989f72227c0adf74#egg=granary
+granary==1.12
 html2text==2016.9.19
 html5lib==0.999999999
 httplib2==0.10.3

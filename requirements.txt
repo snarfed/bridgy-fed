@@ -2,7 +2,7 @@
 -e git+https://github.com/snarfed/webmention-tools.git#egg=webmentiontools
 bs4
 feedparser
-granary>=1.8
+granary>=1.12
 httpsig
 jinja2>=2.10
 mf2py>=1.0.4
