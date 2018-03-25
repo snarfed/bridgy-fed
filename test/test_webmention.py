@@ -160,7 +160,7 @@ class WebmentionTest(testutil.TestCase):
                 'id': 'http://a/reply',
                 'url': 'http://a/reply',
                 'name': 'foo ☕ bar',
-                'content': '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> <a href="https://fed.brid.gy/"></a>',
+                'content': '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>\n<a href="https://fed.brid.gy/"></a>',
                 'inReplyTo': 'tag:orig,2017:as2',
                 'cc': [
                     AS2_PUBLIC_AUDIENCE,
@@ -397,7 +397,7 @@ class WebmentionTest(testutil.TestCase):
             'ref': 'tag:fed.brid.gy,2017-08-22:orig-post'
         }, entry['thr_in-reply-to'])
         self.assertEquals(
-            '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a> <a href="https://fed.brid.gy/"></a>',
+            '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a><br />\n<a href="https://fed.brid.gy/"></a>',
             entry.content[0]['value'])
 
         resp = Response.get_by_id('http://a/reply http://orig/post')
