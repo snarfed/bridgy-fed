@@ -192,6 +192,23 @@ class WebmentionTest(testutil.TestCase):
 
         return data
 
+    def test_no_source_entry(self, mock_get, mock_post):
+        mock_get.return_value = requests_response("""
+<html>
+<body>
+<p>nothing to see here except <a href="https://fed.brid.gy/">link</a></p>
+</body>
+</html>""", content_type=CONTENT_TYPE_HTML)
+
+        got = app.get_response(
+            '/webmention', method='POST', body=urllib.urlencode({
+                'source': 'http://a/post',
+                'target': 'https://fed.brid.gy/',
+            }))
+        self.assertEquals(400, got.status_int)
+
+        mock_get.assert_has_calls((self.req('http://a/post'),))
+
     def test_activitypub_create_reply(self, mock_get, mock_post):
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz', status=203)

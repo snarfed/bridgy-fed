@@ -76,6 +76,9 @@ class WebmentionHandler(webapp2.RequestHandler):
         # logging.debug('Parsed mf2 for %s: %s', source_resp.url, json.dumps(source_mf2, indent=2))
 
         entry = mf2util.find_first_entry(source_mf2, ['h-entry'])
+        if not entry:
+            common.error(self, 'No microformats2 found on %s' % source_url)
+
         logging.info('First entry: %s', json.dumps(entry, indent=2))
         # make sure it has url, since we use that for AS2 id, which is required
         # for ActivityPub.
