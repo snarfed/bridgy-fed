@@ -42,17 +42,6 @@ class WebmentionHandler(webapp2.RequestHandler):
     def post(self):
         logging.info('(Params: %s )', self.request.params.items())
 
-        source = util.get_required_param(self, 'source')
-        if urlparse.urlparse(source).netloc.split(':')[0] not in SKIP_EMAIL_DOMAINS:
-          try:
-              msg = 'Bridgy Fed: new webmention from %s' % source
-              mail.send_mail(
-                  sender='admin@bridgy-federated.appspotmail.com',
-                  to='bridgy-fed@ryanb.org',
-                  subject=msg, body=msg)
-          except BaseException:
-              logging.warning('Error sending email', exc_info=True)
-
         self.resp = None
         try:
             self.try_activitypub()
@@ -65,6 +54,17 @@ class WebmentionHandler(webapp2.RequestHandler):
         finally:
             if self.resp:
                 self.resp.put()
+
+        source = util.get_required_param(self, 'source')
+        if urlparse.urlparse(source).netloc.split(':')[0] not in SKIP_EMAIL_DOMAINS:
+          try:
+              msg = 'Bridgy Fed: new webmention from %s' % source
+              mail.send_mail(
+                  sender='admin@bridgy-federated.appspotmail.com',
+                  to='bridgy-fed@ryanb.org',
+                  subject=msg, body=msg)
+          except BaseException:
+              logging.warning('Error sending email', exc_info=True)
 
     def try_activitypub(self):
         source = util.get_required_param(self, 'source')
