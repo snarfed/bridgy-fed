@@ -188,3 +188,32 @@ class WebFingerTest(testutil.TestCase):
             self.assertEquals('application/json; charset=utf-8',
                               got.headers['Content-Type'])
             self.assertEquals(self.expected_webfinger, json.loads(got.body))
+
+    @mock.patch('requests.get')
+    def test_webfinger_handler_custom_username(self, mock_get):
+        self.html = """
+<body class="h-card">
+<a class="u-url" rel="me" href="/about-me">
+  <img class="u-photo" src="/me.jpg" />
+  Mrs. ☕ Foo
+</a>
+<a class="u-url" href="acct:notthisuser@boop.org"></a>
+<a class="u-url" href="acct:customuser@foo.com"></a>
+</body>
+"""
+        self.expected_webfinger['subject'] = "acct:customuser@foo.com"
+        self.expected_webfinger['aliases'] = [u'https://foo.com/about-me',
+            u'acct:notthisuser@boop.org',
+            u'acct:customuser@foo.com',
+            u'https://foo.com/']
+        mock_get.return_value = requests_response(self.html, url='https://foo.com/')
+
+        for resource in ('customuser@foo.com', 'acct:customuser@foo.com',
+                         'foo.com', 'http://foo.com/', 'https://foo.com/'):
+            url = '/.well-known/webfinger?%s' % urllib.urlencode(
+                {'resource': resource})
+            got = app.get_response(url, headers={'Accept': 'application/json'})
+            self.assertEquals(200, got.status_int, got.body)
+            self.assertEquals('application/json; charset=utf-8',
+                              got.headers['Content-Type'])
+            self.assertEquals(self.expected_webfinger, json.loads(got.body))
