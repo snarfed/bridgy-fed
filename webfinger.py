@@ -58,12 +58,20 @@ class UserHandler(handlers.XrdOrJrdHandler):
 Couldn't find a <a href="http://microformats.org/wiki/representative-hcard-parsing">\
 representative h-card</a> on %s""" % resp.url)
 
-        acct = '%s@%s' % (domain, domain)
-        logging.info('Generating WebFinger data for %s', acct)
+        logging.info('Generating WebFinger data for %s', domain)
         key = models.MagicKey.get_or_create(domain)
         props = hcard.get('properties', {})
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])
         canonical_url = urls[0]
+
+        acct = '%s@%s' % (domain, domain)
+        for url in urls:
+            if url.startswith('acct:'):
+                urluser, urldomain = util.parse_acct_uri(url)
+                if urldomain == domain:
+                    acct = '%s@%s' % (urluser, domain)
+                    logging.info('Found custom username: acct:%s', acct)
+                    break
 
         # discover atom feed, if any
         atom = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
@@ -95,7 +103,7 @@ representative h-card</a> on %s""" % resp.url)
                 'rel': 'http://webfinger.net/rel/profile-page',
                 'type': 'text/html',
                 'href': url,
-            }] for url in urls), []) + [{
+            }] for url in urls if url.startswith("http")), []) + [{
                 'rel': 'http://webfinger.net/rel/avatar',
                 'href': url,
             } for url in props.get('photo', [])] + [{
