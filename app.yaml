@@ -7,8 +7,8 @@ threadsafe: yes
 api_version: 1
 default_expiration: 1h
 
-builtins:
-- remote_api: on
+includes:
+  - local/lib/python2.7/site-packages/oauth_dropins/webutil/app.common.yaml
 
 libraries:
 - name: jinja2
@@ -90,12 +90,3 @@ handlers:
 - url: /.well-known/.*
   script: webfinger.app
   secure: always
-
-skip_files:
-- ^(.*/)?.*\.(c|cc|cpp|h|o|py[co]|so)$
-- ^(.*/)?.*/RCS/.*
-- ^(.*/)?\.git.*
-- ^(.*/)?.*\.bak$
-- ^(.*/)?(\.?coverage|debian|docs?|examples?|l|pydocs?|python3|ref|samples?|TAGS|tests?)/.*
-- ^local/lib/python2.7/site-packages/Crypto/.*
-- ^local/lib/python2.7/site-packages/setuptools/script\ \(dev\)\.tmpl$
