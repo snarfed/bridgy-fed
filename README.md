@@ -15,7 +15,17 @@ License: This project is placed in the public domain.
 
 Development
 ---
-You'll need the [App Engine Python SDK](https://cloud.google.com/appengine/downloads#Google_App_Engine_SDK_for_Python) version 1.9.15 or later (for [`vendor`](https://cloud.google.com/appengine/docs/python/tools/libraries27#vendoring) support) or the [Google Cloud SDK](https://cloud.google.com/sdk/gcloud/) (aka `gcloud`) with the `gcloud-appengine-python` and `gcloud-appengine-python-extras` [components](https://cloud.google.com/sdk/docs/components#additional_components). Add it to your `$PYTHONPATH`, e.g. `export PYTHONPATH=$PYTHONPATH:/usr/local/google_appengine`, and then run:
+First, install the [Google Cloud SDK](https://cloud.google.com/sdk/gcloud/) (aka `gcloud`) with the `gcloud-appengine-python` and `gcloud-appengine-python-extras` [components](https://cloud.google.com/sdk/docs/components#additional_components).
+
+Once you've done that, run this to find the App Engine libraries directory:
+
+```sh
+gcloud info | grep -o -E '/[^:]+google_appengine'
+```
+
+(If that doesn't output anything, try just `gcloud info`, look in the _Python PATH_ section, and try to find the App Engine directory.)
+
+Add that directory to your `$PYTHONPATH`, e.g. `export PYTHONPATH=$PYTHONPATH:/opt/homebrew-cask/Caskroom/google-cloud-sdk/latest/google-cloud-sdk/platform/google_appengine`. Then, run:
 
 ```sh
 virtualenv local
@@ -56,7 +66,7 @@ ln -s <path to granary>/granary \
 The symlinks are necessary because App Engine's `vendor` module evidently
 doesn't follow `.egg-link` or `.pth` files. :/
 
-To deploy to App Engine, run:
+To deploy to the production instance on App Engine - if @snarfed has added you as an owner - run:
 
 ```sh
 gcloud -q app deploy --project bridgy-federated *.yaml
