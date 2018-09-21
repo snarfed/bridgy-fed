@@ -1,6 +1,9 @@
 beautifulsoup4==4.6.0
-brevity==0.2.14
+brevity==0.2.17
 bs4==0.0.1
+certifi==2018.4.16
+chardet==3.0.4
+coverage==4.0.3
 -e git+https://github.com/snarfed/django-salmon.git@3869986d640222ffe30b9678686b04500ac1de27#egg=django_salmon
 docopt==0.6.2
 feedparser==5.2.1
@@ -9,14 +12,15 @@ future==0.16.0
 gdata==2.0.18
 google-api-python-client==1.6.4
 granary==1.12
-html2text==2016.9.19
-html5lib==0.999999999
+html2text==2018.1.9
+html5lib==1.0.1
 httplib2==0.10.3
 -e git+git@github.com:snarfed/httpsig.git@6f0ebfe00af39fb75d50c7a29f46da49e8190d70#egg=httpsig
 humanize==0.5.1
+idna==2.7
 Jinja2==2.10
 MarkupSafe==1.0
-mf2py==1.0.5
+mf2py==1.1.2
 mf2util==0.5.0
 mock==2.0.0
 mox3==0.24.0
@@ -24,19 +28,19 @@ mox3==0.24.0
 oauth2client==4.1.2
 oauthlib==2.0.2
 pbr==3.1.1
-pyasn1==0.3.2
-pyasn1-modules==0.0.11
+pyasn1==0.3.3
+pyasn1-modules==0.1.1
 pycrypto==2.6.1
 python-dateutil==1.5
 python-tumblpy==1.1.4
-requests==2.10.0
+requests==2.19.1
 requests-oauthlib==0.8.0
-requests-toolbelt==0.6.2
+requests-toolbelt==0.8.0
 rsa==3.4.2
 six==1.10.0
 tweepy==3.5.0
 uritemplate==3.0.0
-urllib3==1.22
+urllib3==1.23
 webapp2==3.0.0b1
 webencodings==0.5.1
 -e git+https://github.com/snarfed/webmention-tools.git@a67be86024868a6e99f51be568f78505a79a1e2f#egg=webmentiontools
