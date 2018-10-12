@@ -360,7 +360,7 @@ class WebmentionTest(testutil.TestCase):
         author = requests_response("""\
 <html>
 <body class="h-card">
-<a class="p-name u-url" rel="me" href="http://orig">Ms. ☕ Baz</span>
+<a class="p-name u-url" rel="me" href="http://orig">Ms. ☕ Baz</a>
 <img class="u-photo" src="/pic" />
 </body>
 </html>
