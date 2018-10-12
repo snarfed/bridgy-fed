@@ -46,8 +46,8 @@ class UserHandler(handlers.XrdOrJrdHandler):
 
         for candidate in urls:
             resp = common.requests_get(candidate)
-            parsed = BeautifulSoup(resp.content, from_encoding=resp.encoding)
-            mf2 = mf2py.parse(parsed, url=resp.url)
+            parsed = common.beautifulsoup_parse(resp.content, from_encoding=resp.encoding)
+            mf2 = mf2py.parse(parsed, url=resp.url, img_with_alt=True)
             # logging.debug('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
             hcard = mf2util.representative_hcard(mf2, resp.url)
             if hcard:

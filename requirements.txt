@@ -1,6 +1,6 @@
 -e git+https://github.com/snarfed/django-salmon.git#egg=django_salmon
 -e git+https://github.com/snarfed/webmention-tools.git#egg=webmentiontools
-bs4
+beautifulsoup4
 feedparser
 granary>=1.12
 httpsig

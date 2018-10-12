@@ -72,7 +72,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         # fetch source page, convert to ActivityStreams
         source_resp = common.requests_get(source)
         source_url = source_resp.url or source
-        source_mf2 = mf2py.parse(source_resp.text, url=source_url)
+        source_mf2 = mf2py.parse(source_resp.text, url=source_url, img_with_alt=True)
         # logging.debug('Parsed mf2 for %s: %s', source_resp.url, json.dumps(source_mf2, indent=2))
 
         entry = mf2util.find_first_entry(source_mf2, ['h-entry'])
@@ -177,7 +177,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         if not target_resp:
             target_resp = common.requests_get(self.resp.target())
 
-        parsed = BeautifulSoup(target_resp.content, from_encoding=target_resp.encoding)
+        parsed = common.beautifulsoup_parse(target_resp.content, from_encoding=target_resp.encoding)
         atom_url = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
         if not atom_url or not atom_url.get('href'):
             common.error(self, 'Target post %s has no Atom link' % self.resp.target(),

@@ -127,7 +127,7 @@ def get_as2(url):
     if content_type(resp) in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
         return resp
 
-    parsed = BeautifulSoup(resp.content, from_encoding=resp.encoding)
+    parsed = beautifulsoup_parse(resp.content, from_encoding=resp.encoding)
     as2 = parsed.find('link', rel=('alternate', 'self'), type=(
         CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD))
     if not (as2 and as2['href']):
@@ -299,3 +299,25 @@ def postprocess_as2_actor(actor):
         domain = urlparse.urlparse(url).netloc
         actor.setdefault('preferredUsername', domain)
         actor['id'] = '%s/%s' % (appengine_config.HOST_URL, domain)
+
+
+def beautifulsoup_parse(html, **kwargs):
+  """Parses an HTML string with BeautifulSoup. Centralizes our parsing config.
+
+  *Copied from bridgy/util.py.*
+
+  We currently use lxml, which BeautifulSoup claims is the fastest and best:
+  http://www.crummy.com/software/BeautifulSoup/bs4/doc/#specifying-the-parser-to-use
+
+  lxml is a native module, so we don't bundle and deploy it to App Engine.
+  Instead, we use App Engine's version by declaring it in app.yaml.
+  https://cloud.google.com/appengine/docs/standard/python/tools/built-in-libraries-27
+
+  We pin App Engine's version in requirements.freeze.txt and tell BeautifulSoup
+  to use lxml explicitly to ensure we use the same parser and version in prod
+  and locally, since we've been bit by at least one meaningful difference
+  between lxml and e.g. html5lib: lxml includes the contents of <noscript> tags,
+  html5lib omits them. :(
+  https://github.com/snarfed/bridgy/issues/798#issuecomment-370508015
+  """
+  return BeautifulSoup(html, 'lxml', **kwargs)
