@@ -25,8 +25,8 @@ class WebFingerTest(testutil.TestCase):
     def setUp(self):
         super(WebFingerTest, self).setUp()
         self.html = """
-<body>
-<a class="h-card" rel="me" href="/about-me">
+<body class="h-card">
+<a class="u-url" rel="me" href="/about-me">
   <img class="u-photo" src="/me.jpg" />
   Mrs. ☕ Foo
 </a>
