@@ -267,6 +267,9 @@ def postprocess_as2(activity, target=None, key=None):
 
     assert activity.get('id') or (isinstance(obj, dict) and obj.get('id'))
 
+    activity['id'] = redirect_wrap(activity['id'])
+    activity['url'] = redirect_wrap(activity['url'])
+
     # cc public and target's author(s) and recipients
     # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting
     # https://w3c.github.io/activitypub/#delivery
@@ -299,6 +302,21 @@ def postprocess_as2_actor(actor):
         domain = urlparse.urlparse(url).netloc
         actor.setdefault('preferredUsername', domain)
         actor['id'] = '%s/%s' % (appengine_config.HOST_URL, domain)
+        actor['url'] = redirect_wrap(url)
+
+
+def redirect_wrap(url):
+    """Returns a URL on our domain that redirects to this URL.
+
+    ...to satisfy Mastodon's non-standard domain matching requirement. :(
+
+    https://github.com/snarfed/bridgy-fed/issues/16#issuecomment-424799599
+    https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
+    """
+    prefix = urlparse.urljoin(appengine_config.HOST_URL, '/r/')
+    if url.startswith(prefix):
+        return url
+    return prefix + url
 
 
 def beautifulsoup_parse(html, **kwargs):

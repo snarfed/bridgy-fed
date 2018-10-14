@@ -110,8 +110,8 @@ class WebmentionTest(testutil.TestCase):
         self.repost_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Announce',
-            'id': 'http://a/repost',
-            'url': 'http://a/repost',
+            'id': 'http://localhost/r/http://a/repost',
+            'url': 'http://localhost/r/http://a/repost',
             'name': 'reposted!',
             'object': 'tag:orig,2017:as2',
             'cc': [
@@ -123,7 +123,7 @@ class WebmentionTest(testutil.TestCase):
             'actor': {
                 'type': 'Person',
                 'id': 'http://localhost/orig',
-                'url': 'http://orig',
+                'url': 'http://localhost/r/http://orig',
                 'name': 'Ms. ☕ Baz',
                 'preferredUsername': 'orig',
             },
@@ -157,8 +157,8 @@ class WebmentionTest(testutil.TestCase):
             'object': {
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 'type': 'Note',
-                'id': 'http://a/reply',
-                'url': 'http://a/reply',
+                'id': 'http://localhost/r/http://a/reply',
+                'url': 'http://localhost/r/http://a/reply',
                 'name': 'foo ☕ bar',
                 'content': '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>\n<a href="https://fed.brid.gy/"></a>',
                 'inReplyTo': 'tag:orig,2017:as2',
@@ -171,7 +171,7 @@ class WebmentionTest(testutil.TestCase):
                 'attributedTo': [{
                     'type': 'Person',
                     'id': 'http://localhost/orig',
-                    'url': 'http://orig',
+                    'url': 'http://localhost/r/http://orig',
                     'preferredUsername': 'orig',
                     'name': 'Ms. ☕ Baz',
                 }],

@@ -42,7 +42,7 @@ class ActivityPubTest(testutil.TestCase):
             'name': 'Mrs. ☕ Foo',
             'preferredUsername': 'foo.com',
             'id': 'http://localhost/foo.com',
-            'url': 'https://foo.com/about-me',
+            'url': 'http://localhost/r/https://foo.com/about-me',
             'inbox': 'http://localhost/foo.com/inbox',
             'publicKey': {
                 'publicKeyPem': MagicKey.get_by_id('foo.com').public_pem(),
