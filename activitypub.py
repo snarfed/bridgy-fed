@@ -18,6 +18,7 @@ SUPPORTED_TYPES = (
     'Announce',
     'Article',
     'Audio',
+    'Create',
     'Image',
     'Like',
     'Note',
@@ -69,7 +70,13 @@ class InboxHandler(webapp2.RequestHandler):
         except (TypeError, ValueError, AssertionError):
             common.error(self, "Couldn't parse body as JSON", exc_info=True)
 
+        obj = activity.get('object') or {}
+        if isinstance(obj, basestring):
+            obj = {'id': obj}
+
         type = activity.get('type')
+        if type == 'Create':
+            type = obj.get('type')
         if type not in SUPPORTED_TYPES:
             common.error(self, 'Sorry, %s activities are not supported yet.' % type,
                          status=501)
@@ -77,10 +84,11 @@ class InboxHandler(webapp2.RequestHandler):
         # TODO: verify signature if there is one
 
         # fetch actor if necessary so we have name, profile photo, etc
-        if activity.get('type') in ('Like', 'Announce'):
-            actor = activity.get('actor')
-            if actor:
-                activity['actor'] = common.get_as2(actor).json()
+        if type in ('Like', 'Announce'):
+            for elem in obj, activity:
+                actor = elem.get('actor')
+                if actor and isinstance(actor, basestring):
+                    elem['actor'] = common.get_as2(actor).json()
 
         # send webmentions to each target
         as1 = as2.to_as1(activity)

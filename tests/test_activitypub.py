@@ -20,6 +20,20 @@ from models import MagicKey, Response
 import testutil
 
 
+REPLY_OBJECT = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'type': 'Note',
+    'content': 'A ☕ reply',
+    'url': 'http://this/reply',
+    'inReplyTo': 'http://orig/post',
+    'cc': ['https://www.w3.org/ns/activitystreams#Public'],
+}
+REPLY_ACTIVITY = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'type': 'Create',
+    'object': REPLY_OBJECT,
+}
+
 @patch('requests.post')
 @patch('requests.get')
 class ActivityPubTest(testutil.TestCase):
@@ -64,21 +78,19 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEquals(400, got.status_int)
         self.assertIn('representative h-card', got.body)
 
-    def test_inbox_reply(self, mock_get, mock_post):
+    def test_inbox_reply_object(self, mock_get, mock_post):
+        self._test_inbox_reply(REPLY_OBJECT, mock_get, mock_post)
+
+    def test_inbox_reply_create_activity(self, mock_get, mock_post):
+        self._test_inbox_reply(REPLY_ACTIVITY, mock_get, mock_post)
+
+    def _test_inbox_reply(self, as2, mock_get, mock_post):
         mock_get.return_value = requests_response(
             '<html><head><link rel="webmention" href="/webmention"></html>')
         mock_post.return_value = requests_response()
 
-        as2_note = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'type': 'Note',
-            'content': 'A ☕ reply',
-            'url': 'http://this/reply',
-            'inReplyTo': 'http://orig/post',
-            'cc': ['https://www.w3.org/ns/activitystreams#Public'],
-        }
         got = app.get_response('/foo.com/inbox', method='POST',
-                               body=json.dumps(as2_note))
+                               body=json.dumps(as2))
         self.assertEquals(200, got.status_int, got.body)
         mock_get.assert_called_once_with(
             'http://orig/post', headers=common.HEADERS, verify=False)
@@ -99,7 +111,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
-        self.assertEqual(as2_note, json.loads(resp.source_as2))
+        self.assertEqual(as2, json.loads(resp.source_as2))
 
     def test_inbox_like_proxy_url(self, mock_get, mock_post):
         actor = {

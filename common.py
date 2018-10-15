@@ -53,6 +53,7 @@ SUPPORTED_VERBS = (
     'checkin',
     'create',
     'like',
+    'post',
     'share',
     'tag',
     'update',
