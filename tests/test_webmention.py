@@ -175,6 +175,10 @@ class WebmentionTest(testutil.TestCase):
                     'preferredUsername': 'orig',
                     'name': 'Ms. ☕ Baz',
                 }],
+                'tag': [{
+                    'type': 'Mention',
+                    'href': 'http://orig/author',
+                }],
             },
         }
         self.as2_update = copy.deepcopy(self.as2_create)
@@ -503,4 +507,3 @@ class WebmentionTest(testutil.TestCase):
         self.assertIn('Target post http://orig/url has no Atom link', got.body)
 
         self.assertIsNone(Response.get_by_id('http://a/reply http://orig/post'))
-
