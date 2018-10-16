@@ -21,7 +21,7 @@ jobs:
           key: venv-{{ .Branch }}-{{ checksum "requirements.freeze.txt" }}
 
       - run:
-          name: Build and test
+          name: Python 2 dependencies
           command: |
             apt-get install -y python-virtualenv google-cloud-sdk-app-engine-python-extras
             virtualenv --python=python2 local
@@ -38,6 +38,10 @@ jobs:
             ln -s $VIRTUAL_ENV local  # we use app engine's vendor module to point here
             pip install coverage coveralls  # for https://coveralls.io/
 
+      - run:
+          name: Build and test
+          command: |
+            . local/bin/activate
             python2 -m coverage run --source=. --omit=appengine_config.py,local/\*,oauth-dropins/\*,tests/\* -m unittest discover -v
             python2 -m coverage html -d /tmp/coverage_html
 
