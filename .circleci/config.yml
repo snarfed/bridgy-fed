@@ -38,8 +38,7 @@ jobs:
             ln -s $VIRTUAL_ENV local  # we use app engine's vendor module to point here
             pip install coverage coveralls  # for https://coveralls.io/
 
-            . local/bin/activate
-            python2 -m coverage run --source=. --omit=appengine_config.py,local/\*,tests/\* -m unittest discover -v
+            python2 -m coverage run --source=. --omit=appengine_config.py,local/\*,oauth-dropins/\*,tests/\* -m unittest discover -v
             python2 -m coverage html -d /tmp/coverage_html
 
             # send coverage data to coveralls
