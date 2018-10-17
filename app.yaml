@@ -71,6 +71,10 @@ handlers:
   script: redirect.app
   secure: always
 
+- url: /superfeedr/.*
+  script: superfeedr.app
+  secure: always
+
 - url: /wm/.+
   script: add_webmention.app
   secure: always
