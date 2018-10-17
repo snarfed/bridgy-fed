@@ -165,9 +165,6 @@ class WebmentionHandler(webapp2.RequestHandler):
         resp = common.requests_post(inbox_url, json=source_activity, auth=auth,
                                     headers=headers)
         self.response.status_int = resp.status_code
-        if resp.status_code == 202:
-            self.response.write('202 response! If this is Mastodon 1.x, their '
-                                'signature verification probably failed. :(\n')
         self.response.write(resp.text)
 
     def send_salmon(self, source_obj, target_resp=None):
