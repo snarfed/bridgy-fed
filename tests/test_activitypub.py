@@ -29,9 +29,13 @@ REPLY_OBJECT = {
     'inReplyTo': 'http://orig/post',
     'cc': ['https://www.w3.org/ns/activitystreams#Public'],
 }
+REPLY_OBJECT_WRAPPED = copy.deepcopy(REPLY_OBJECT)
+REPLY_OBJECT_WRAPPED['inReplyTo'] = common.redirect_wrap(
+    REPLY_OBJECT_WRAPPED['inReplyTo'])
 REPLY_ACTIVITY = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Create',
+    'id': 'http://this/reply/as2',
     'object': REPLY_OBJECT,
 }
 
@@ -81,6 +85,9 @@ class ActivityPubTest(testutil.TestCase):
 
     def test_inbox_reply_object(self, mock_get, mock_post):
         self._test_inbox_reply(REPLY_OBJECT, mock_get, mock_post)
+
+    def test_inbox_reply_object_wrapped(self, mock_get, mock_post):
+        self._test_inbox_reply(REPLY_OBJECT_WRAPPED, mock_get, mock_post)
 
     def test_inbox_reply_create_activity(self, mock_get, mock_post):
         self._test_inbox_reply(REPLY_ACTIVITY, mock_get, mock_post)

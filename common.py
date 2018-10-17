@@ -24,6 +24,8 @@ ACCT_RE = r'(?:acct:)?([^@]+)@' + DOMAIN_RE
 HEADERS = {
     'User-Agent': 'Bridgy Fed (https://fed.brid.gy/)',
 }
+# see redirect_wrap() and  redirect_unwrap()
+REDIRECT_PREFIX = urlparse.urljoin(appengine_config.HOST_URL, '/r/')
 XML_UTF8 = "<?xml version='1.0' encoding='UTF-8'?>\n"
 # USERNAME = 'me'
 # USERNAME_EMOJI = '🌎'  # globe
@@ -193,6 +195,7 @@ def send_webmentions(handler, activity, **response_props):
         if not target:
             continue
 
+        target = redirect_unwrap(target)
         response = Response(source=source, target=target, direction='in',
                             **response_props)
         response.put()
@@ -329,10 +332,19 @@ def redirect_wrap(url):
     https://github.com/snarfed/bridgy-fed/issues/16#issuecomment-424799599
     https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
     """
-    prefix = urlparse.urljoin(appengine_config.HOST_URL, '/r/')
-    if url.startswith(prefix):
+    if url.startswith(REDIRECT_PREFIX):
         return url
-    return prefix + url
+    return REDIRECT_PREFIX + url
+
+
+def redirect_unwrap(url):
+    """Removes our redirect wrapping from a URL, if it's there.
+
+    If the URL isn't wrapped, returns it unchanged.
+    """
+    if url.startswith(REDIRECT_PREFIX):
+        return url[len(REDIRECT_PREFIX):]
+    return url
 
 
 def beautifulsoup_parse(html, **kwargs):
