@@ -24,6 +24,7 @@ REPLY_OBJECT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Note',
     'content': 'A ☕ reply',
+    'id': 'http://this/reply/id',
     'url': 'http://this/reply',
     'inReplyTo': 'http://orig/post',
     'cc': ['https://www.w3.org/ns/activitystreams#Public'],

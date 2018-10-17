@@ -175,7 +175,7 @@ def send_webmentions(handler, activity, **response_props):
 
     targets = util.get_list(activity, 'inReplyTo')
     if isinstance(obj, dict):
-        if not source:
+        if not source or verb in ('create', 'post', 'update'):
             source = obj_url or obj.get('id')
         targets.extend(util.get_list(obj, 'inReplyTo'))
     if verb in ('like', 'share'):
