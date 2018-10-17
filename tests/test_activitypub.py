@@ -38,6 +38,18 @@ REPLY_ACTIVITY = {
     'id': 'http://this/reply/as2',
     'object': REPLY_OBJECT,
 }
+# based on example Mastodon like:
+# https://github.com/snarfed/bridgy-fed/issues/4#issuecomment-334212362
+# (reposts are very similar)
+LIKE_ACTIVITY = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'id': 'http://this/like#ok',
+    'type': 'Like',
+    'object': 'http://orig/post',
+    'actor': 'http://orig/actor',
+}
+LIKE_ACTIVITY_WRAPPED = copy.deepcopy(LIKE_ACTIVITY)
+LIKE_ACTIVITY_WRAPPED['object'] = common.redirect_wrap(LIKE_ACTIVITY_WRAPPED['object'])
 
 @patch('requests.post')
 @patch('requests.get')
@@ -84,15 +96,15 @@ class ActivityPubTest(testutil.TestCase):
         self.assertIn('representative h-card', got.body)
 
     def test_inbox_reply_object(self, mock_get, mock_post):
-        self._test_inbox_reply(REPLY_OBJECT, mock_get, mock_post)
+        self._test_inbox_reply(REPLY_OBJECT, REPLY_OBJECT, mock_get, mock_post)
 
     def test_inbox_reply_object_wrapped(self, mock_get, mock_post):
-        self._test_inbox_reply(REPLY_OBJECT_WRAPPED, mock_get, mock_post)
+        self._test_inbox_reply(REPLY_OBJECT_WRAPPED, REPLY_OBJECT, mock_get, mock_post)
 
     def test_inbox_reply_create_activity(self, mock_get, mock_post):
-        self._test_inbox_reply(REPLY_ACTIVITY, mock_get, mock_post)
+        self._test_inbox_reply(REPLY_ACTIVITY, REPLY_ACTIVITY, mock_get, mock_post)
 
-    def _test_inbox_reply(self, as2, mock_get, mock_post):
+    def _test_inbox_reply(self, as2, expected_as2, mock_get, mock_post):
         mock_get.return_value = requests_response(
             '<html><head><link rel="webmention" href="/webmention"></html>')
         mock_post.return_value = requests_response()
@@ -108,7 +120,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_post.assert_called_once_with(
             'http://orig/webmention',
             data={
-                'source': 'http://this/reply',
+                'source': 'http://localhost/render?source=http%3A%2F%2Fthis%2Freply&target=http%3A%2F%2Forig%2Fpost',
                 'target': 'http://orig/post',
             },
             allow_redirects=False,
@@ -119,9 +131,9 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
-        self.assertEqual(as2, json.loads(resp.source_as2))
+        self.assertEqual(expected_as2, json.loads(resp.source_as2))
 
-    def test_inbox_like_proxy_url(self, mock_get, mock_post):
+    def test_inbox_like(self, mock_get, mock_post):
         actor = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': 'http://orig/actor',
@@ -139,19 +151,8 @@ class ActivityPubTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response()
 
-        # based on example Mastodon like:
-        # https://github.com/snarfed/bridgy-fed/issues/4#issuecomment-334212362
-        # (reposts are very similar)
-        as2_like = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': 'http://this/like#ok',
-            'type': 'Like',
-            'object': 'http://orig/post',
-            'actor': 'http://orig/actor',
-        }
-
         got = app.get_response('/foo.com/inbox', method='POST',
-                               body=json.dumps(as2_like))
+                               body=json.dumps(LIKE_ACTIVITY_WRAPPED))
         self.assertEquals(200, got.status_int)
 
         as2_headers = copy.deepcopy(common.HEADERS)
@@ -173,8 +174,9 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
-        as2_like['actor'] = actor
-        self.assertEqual(as2_like, json.loads(resp.source_as2))
+        like_activity = copy.deepcopy(LIKE_ACTIVITY)
+        like_activity['actor'] = actor
+        self.assertEqual(like_activity, json.loads(resp.source_as2))
 
     def test_inbox_unsupported_type(self, mock_get, mock_post):
         got = app.get_response('/foo.com/inbox', method='POST', body=json.dumps({

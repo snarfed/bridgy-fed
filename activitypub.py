@@ -92,8 +92,9 @@ class InboxHandler(webapp2.RequestHandler):
 
         # send webmentions to each target
         as1 = as2.to_as1(activity)
-        common.send_webmentions(self, as1, protocol='activitypub',
-                                source_as2=json.dumps(activity))
+        source_as2 = json.dumps(common.redirect_unwrap(activity))
+        common.send_webmentions(self, as1, proxy=True, protocol='activitypub',
+                                source_as2=source_as2)
 
 
 app = webapp2.WSGIApplication([

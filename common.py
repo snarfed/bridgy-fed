@@ -158,7 +158,7 @@ def error(handler, msg, status=None, exc_info=False):
     handler.abort(status, msg)
 
 
-def send_webmentions(handler, activity, **response_props):
+def send_webmentions(handler, activity, proxy=None, **response_props):
 
     """Sends webmentions for an incoming Salmon slap or ActivityPub inbox delivery.
     Args:
@@ -199,7 +199,8 @@ def send_webmentions(handler, activity, **response_props):
         response = Response(source=source, target=target, direction='in',
                             **response_props)
         response.put()
-        wm_source = response.proxy_url() if verb in ('like', 'share') else source
+        wm_source = (response.proxy_url() if verb in ('like', 'share') or proxy
+                     else source)
         logging.info('Sending webmention from %s to %s', wm_source, target)
 
         wm = send.WebmentionSend(wm_source, target)
@@ -337,14 +338,21 @@ def redirect_wrap(url):
     return REDIRECT_PREFIX + url
 
 
-def redirect_unwrap(url):
+def redirect_unwrap(val):
     """Removes our redirect wrapping from a URL, if it's there.
 
-    If the URL isn't wrapped, returns it unchanged.
+    url may be a string or dict. If it's a dict, all string and dict values are
+    unwrapped, recursively.
+
+    Strings that aren't wrapped URLs are left unchanged.
     """
-    if url.startswith(REDIRECT_PREFIX):
-        return url[len(REDIRECT_PREFIX):]
-    return url
+    if isinstance(val, dict):
+        return {k: redirect_unwrap(v) for k, v in val.items()}
+
+    if isinstance(val, basestring) and val.startswith(REDIRECT_PREFIX):
+        return val[len(REDIRECT_PREFIX):]
+
+    return val
 
 
 def beautifulsoup_parse(html, **kwargs):
