@@ -32,7 +32,7 @@ REPLY_OBJECT = {
 REPLY_OBJECT_WRAPPED = copy.deepcopy(REPLY_OBJECT)
 REPLY_OBJECT_WRAPPED['inReplyTo'] = common.redirect_wrap(
     REPLY_OBJECT_WRAPPED['inReplyTo'])
-REPLY_ACTIVITY = {
+REPLY = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Create',
     'id': 'http://this/reply/as2',
@@ -41,15 +41,34 @@ REPLY_ACTIVITY = {
 # based on example Mastodon like:
 # https://github.com/snarfed/bridgy-fed/issues/4#issuecomment-334212362
 # (reposts are very similar)
-LIKE_ACTIVITY = {
+LIKE = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'id': 'http://this/like#ok',
     'type': 'Like',
     'object': 'http://orig/post',
     'actor': 'http://orig/actor',
 }
-LIKE_ACTIVITY_WRAPPED = copy.deepcopy(LIKE_ACTIVITY)
-LIKE_ACTIVITY_WRAPPED['object'] = common.redirect_wrap(LIKE_ACTIVITY_WRAPPED['object'])
+LIKE_WRAPPED = copy.deepcopy(LIKE)
+LIKE_WRAPPED['object'] = common.redirect_wrap(LIKE_WRAPPED['object'])
+
+FOLLOW_WRAPPED = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'id': 'https://mastodon.social/6d1af0b9-ef6a-46b0-b662-f79b21d7c983',
+    'type': 'Follow',
+    'actor': 'https://mastodon.social/users/swentel',
+    'object': 'http://localhost/r/http://realize.be',
+}
+ACCEPT = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'type': 'Accept',
+    'id': 'tag:localhost:accept/realize.be/https://mastodon.social/6d1af0b9-ef6a-46b0-b662-f79b21d7c983',
+    'actor': 'http://localhost/r/http://realize.be',
+    'object': {
+        'type': 'Follow',
+        'actor': 'https://mastodon.social/users/swentel',
+        'object': 'http://localhost/r/http://realize.be',
+    }
+}
 
 @patch('requests.post')
 @patch('requests.get')
@@ -102,7 +121,7 @@ class ActivityPubTest(testutil.TestCase):
         self._test_inbox_reply(REPLY_OBJECT_WRAPPED, REPLY_OBJECT, mock_get, mock_post)
 
     def test_inbox_reply_create_activity(self, mock_get, mock_post):
-        self._test_inbox_reply(REPLY_ACTIVITY, REPLY_ACTIVITY, mock_get, mock_post)
+        self._test_inbox_reply(REPLY, REPLY, mock_get, mock_post)
 
     def _test_inbox_reply(self, as2, expected_as2, mock_get, mock_post):
         mock_get.return_value = requests_response(
@@ -152,7 +171,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_post.return_value = requests_response()
 
         got = app.get_response('/foo.com/inbox', method='POST',
-                               body=json.dumps(LIKE_ACTIVITY_WRAPPED))
+                               body=json.dumps(LIKE_WRAPPED))
         self.assertEquals(200, got.status_int)
 
         as2_headers = copy.deepcopy(common.HEADERS)
@@ -174,15 +193,44 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
-        like_activity = copy.deepcopy(LIKE_ACTIVITY)
+        like_activity = copy.deepcopy(LIKE)
         like_activity['actor'] = actor
         self.assertEqual(like_activity, json.loads(resp.source_as2))
+
+    def test_inbox_follow_accept(self, mock_get, mock_post):
+        actor = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': FOLLOW_WRAPPED['actor'],
+            'type': 'Person',
+            'inbox': 'http://follower/inbox',
+        }
+        mock_get.side_effect = [
+            # source actor
+            requests_response(actor, content_type=common.CONTENT_TYPE_AS2),
+        ]
+        mock_post.return_value = requests_response()
+
+        got = app.get_response('/foo.com/inbox', method='POST',
+                               body=json.dumps(FOLLOW_WRAPPED))
+        self.assertEquals(200, got.status_int)
+
+        as2_headers = copy.deepcopy(common.HEADERS)
+        as2_headers.update(common.CONNEG_HEADERS_AS2_HTML)
+        mock_get.assert_has_calls((
+            call(FOLLOW_WRAPPED['actor'], headers=as2_headers, timeout=15),
+        ))
+
+        args, kwargs = mock_post.call_args
+        self.assertEquals(('http://follower/inbox',), args)
+        self.assertEquals(ACCEPT, kwargs['json'])
+
+        # TODO: check webmention, Response
 
     def test_inbox_unsupported_type(self, mock_get, mock_post):
         got = app.get_response('/foo.com/inbox', method='POST', body=json.dumps({
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'https://xoxo.zone/users/aaronpk#follows/40',
-            'type': 'Follow',
+            'type': 'Block',
             'actor': 'https://xoxo.zone/users/aaronpk',
             'object': 'http://snarfed.org/',
         }))

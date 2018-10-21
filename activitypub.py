@@ -30,6 +30,38 @@ SUPPORTED_TYPES = (
 )
 
 
+def send(activity, inbox_url, user_domain):
+    """Sends an ActivityPub request to an inbox.
+
+    Args:
+      activity: dict, AS2 activity
+      inbox_url: string
+      user_domain: string, domain of the bridgy fed user sending the request
+
+    Returns:
+      requests.Response
+    """
+    logging.info('Sending AP request from %s: %s', user_domain, activity)
+
+    # prepare HTTP Signature (required by Mastodon)
+    # https://w3c.github.io/activitypub/#authorization-lds
+    # https://tools.ietf.org/html/draft-cavage-http-signatures-07
+    # https://github.com/tootsuite/mastodon/issues/4906#issuecomment-328844846
+    acct = 'acct:%s@%s' % (user_domain, user_domain)
+    key = MagicKey.get_or_create(user_domain)
+    auth = HTTPSignatureAuth(secret=key.private_pem(), key_id=acct,
+                             algorithm='rsa-sha256')
+
+    # deliver to inbox
+    headers = {
+        'Content-Type': common.CONTENT_TYPE_AS2,
+        # required for HTTP Signature
+        # https://tools.ietf.org/html/draft-cavage-http-signatures-07#section-2.1.3
+        'Date': datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT'),
+    }
+    return common.requests_post(inbox_url, json=activity, auth=auth, headers=headers)
+
+
 class ActorHandler(webapp2.RequestHandler):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
 
@@ -104,47 +136,39 @@ class InboxHandler(webapp2.RequestHandler):
         common.send_webmentions(self, as1, proxy=True, protocol='activitypub',
                                 source_as2=source_as2)
 
-    def accept_follow(activity):
-        logging.info('Sending Accept to inbox')
+    def accept_follow(self, follow):
+        """Replies to an AP Follow request with an Accept request.
 
+        Args:
+          follow: dict, AP Follow activity
+        """
+        logging.info('Replying to Follow with Accept')
+
+        obj = follow.get('object')
+        actor = follow.get('actor')
+        if not obj or not actor:
+            common.error(self, 'Follow activity requires object and actor. Got: %s' % follow)
+
+        actor_full = common.get_as2(actor).json()
+        inbox = actor_full.get('inbox')
+        if not inbox:
+            common.error(self, 'Found no inbox for actor %s', actor)
+
+        user_domain = util.domain_from_link(common.redirect_unwrap(obj))
         accept = {
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': activity['id'],
+            'id': util.tag_uri(appengine_config.HOST, 'accept/%s/%s' % (
+                (user_domain, follow.get('id')))),
             'type': 'Accept',
-            'actor': activity['object'],
+            'actor': obj,
             'object': {
               'type': 'Follow',
-               'actor': activity['actor'],
-               'object': activity['object'],
+               'actor': actor,
+               'object': obj,
             }
         }
-
-        # source domain - this is still wrong in so many ways ... :)
-        source_domain = string.replace(activity['object'], 'https://fed.brid.gy/r/', '')
-        source_domain = string.replace(source_domain, 'http://', '')
-        source_domain = string.replace(source_domain, 'https://', '')
-        logging.info('source domain ' + source_domain)
-
-        # inbox url.
-        target = activity['actor']
-        actor = common.get_as2(target).json()
-        inbox_url = actor.get('inbox')
-        logging.info('Inbox url ' + inbox_url)
-
-        acct = 'acct:%s@%s' % (source_domain, source_domain)
-        key = MagicKey.get_or_create(source_domain)
-        signature = HTTPSignatureAuth(secret=key.private_pem(), key_id=acct,
-                                 algorithm='rsa-sha256')
-
-        # deliver source object to target actor's inbox.
-        headers = {
-            'Content-Type': common.CONTENT_TYPE_AS2,
-            # required for HTTP Signature
-            # https://tools.ietf.org/html/draft-cavage-http-signatures-07#section-2.1.3
-            'Date': datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT'),
-            'signature': signature,
-        }
-        resp = common.requests_post(inbox_url, json=activity_accept, headers=headers)
+        resp = send(accept, inbox, user_domain)
+        self.response.status_int = resp.status_code
         self.response.write(resp.text)
 
 

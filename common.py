@@ -159,7 +159,6 @@ def error(handler, msg, status=None, exc_info=False):
 
 
 def send_webmentions(handler, activity, proxy=None, **response_props):
-
     """Sends webmentions for an incoming Salmon slap or ActivityPub inbox delivery.
     Args:
       handler: RequestHandler

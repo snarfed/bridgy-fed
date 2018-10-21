@@ -17,7 +17,6 @@ from django_salmon import magicsigs, utils
 import feedparser
 from google.appengine.api import mail
 from granary import as2, atom, microformats2, source
-from httpsig.requests_auth import HTTPSignatureAuth
 import mf2py
 import mf2util
 from oauth_dropins.webutil import util
@@ -146,24 +145,9 @@ class WebmentionHandler(webapp2.RequestHandler):
         if self.resp.status == 'complete':
             source_activity['type'] = 'Update'
 
-        # prepare HTTP Signature (required by Mastodon)
-        # https://w3c.github.io/activitypub/#authorization-lds
-        # https://tools.ietf.org/html/draft-cavage-http-signatures-07
-        # https://github.com/tootsuite/mastodon/issues/4906#issuecomment-328844846
-        acct = 'acct:%s@%s' % (source_domain, source_domain)
-        auth = HTTPSignatureAuth(secret=key.private_pem(), key_id=acct,
-                                 algorithm='rsa-sha256')
-
-        # deliver source object to target actor's inbox.
-        headers = {
-            'Content-Type': common.CONTENT_TYPE_AS2,
-            # required for HTTP Signature
-            # https://tools.ietf.org/html/draft-cavage-http-signatures-07#section-2.1.3
-            'Date': datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT'),
-        }
+        # send AP request
         inbox_url = urlparse.urljoin(target_url, inbox_url)
-        resp = common.requests_post(inbox_url, json=source_activity, auth=auth,
-                                    headers=headers)
+        resp = activitypub.send(source_activity, inbox_url)
         self.response.status_int = resp.status_code
         self.response.write(resp.text)
 
