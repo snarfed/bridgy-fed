@@ -348,8 +348,11 @@ def redirect_unwrap(val):
     if isinstance(val, dict):
         return {k: redirect_unwrap(v) for k, v in val.items()}
 
-    if isinstance(val, basestring) and val.startswith(REDIRECT_PREFIX):
-        return val[len(REDIRECT_PREFIX):]
+    if isinstance(val, basestring):
+        if val.startswith(REDIRECT_PREFIX):
+            return val[len(REDIRECT_PREFIX):]
+        elif val.startswith(appengine_config.HOST_URL):
+            return util.domain_from_link(urlparse.urlparse(val).path.strip('/'))
 
     return val
 

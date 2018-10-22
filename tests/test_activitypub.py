@@ -56,17 +56,17 @@ FOLLOW_WRAPPED = {
     'id': 'https://mastodon.social/6d1af0b9-ef6a-46b0-b662-f79b21d7c983',
     'type': 'Follow',
     'actor': 'https://mastodon.social/users/swentel',
-    'object': 'http://localhost/r/http://realize.be',
+    'object': 'http://localhost/realize.be',
 }
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Accept',
     'id': 'tag:localhost:accept/realize.be/https://mastodon.social/6d1af0b9-ef6a-46b0-b662-f79b21d7c983',
-    'actor': 'http://localhost/r/http://realize.be',
+    'actor': 'http://localhost/realize.be',
     'object': {
         'type': 'Follow',
         'actor': 'https://mastodon.social/users/swentel',
-        'object': 'http://localhost/r/http://realize.be',
+        'object': 'http://localhost/realize.be',
     }
 }
 
