@@ -122,3 +122,28 @@ class Response(StringIdModel):
     @classmethod
     def _decode(cls, val):
         return val.replace('__', '#')
+
+
+class Follower(StringIdModel):
+    """A follower of a Bridgy Fed user.
+
+    Key name is 'USER_DOMAIN FOLLOWER_ID', e.g.:
+      'snarfed.org https://mastodon.social/@swentel'.
+    """
+    # most recent AP Follow activity (JSON)
+    last_follow = ndb.TextProperty()
+
+    created = ndb.DateTimeProperty(auto_now_add=True)
+    updated = ndb.DateTimeProperty(auto_now=True)
+
+    @classmethod
+    def _id(cls, user_domain, follower_id):
+        assert user_domain
+        assert follower_id
+        return '%s %s' % (user_domain, follower_id)
+
+    @classmethod
+    def get_or_create(cls, user_domain, follower_id, **kwargs):
+        logging.info('new Follower for %s %s', user_domain, follower_id)
+        return cls.get_or_insert(cls._id(user_domain, follower_id), **kwargs)
+

@@ -14,7 +14,7 @@ from oauth_dropins.webutil import util
 import webapp2
 
 import common
-from models import MagicKey, Response
+from models import Follower, MagicKey, Response
 from httpsig.requests_auth import HTTPSignatureAuth
 
 SUPPORTED_TYPES = (
@@ -154,7 +154,11 @@ class InboxHandler(webapp2.RequestHandler):
         if not inbox:
             common.error(self, 'Found no inbox for actor %s', actor)
 
+        # store Follower
         user_domain = util.domain_from_link(common.redirect_unwrap(obj))
+        Follower.get_or_create(user_domain, actor, last_follow=json.dumps(follow))
+
+        # send AP Accept
         accept = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': util.tag_uri(appengine_config.HOST, 'accept/%s/%s' % (

@@ -16,7 +16,7 @@ import requests
 import activitypub
 from activitypub import app
 import common
-from models import MagicKey, Response
+from models import Follower, MagicKey, Response
 import testutil
 
 
@@ -198,9 +198,10 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(like_activity, json.loads(resp.source_as2))
 
     def test_inbox_follow_accept(self, mock_get, mock_post):
+        follower = FOLLOW_WRAPPED['actor']
         actor = {
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': FOLLOW_WRAPPED['actor'],
+            'id': follower,
             'type': 'Person',
             'inbox': 'http://follower/inbox',
         }
@@ -217,14 +218,18 @@ class ActivityPubTest(testutil.TestCase):
         as2_headers = copy.deepcopy(common.HEADERS)
         as2_headers.update(common.CONNEG_HEADERS_AS2_HTML)
         mock_get.assert_has_calls((
-            call(FOLLOW_WRAPPED['actor'], headers=as2_headers, timeout=15),
+            call(follower, headers=as2_headers, timeout=15),
         ))
 
         args, kwargs = mock_post.call_args
         self.assertEquals(('http://follower/inbox',), args)
         self.assertEquals(ACCEPT, kwargs['json'])
 
-        # TODO: check webmention, Response
+        # check that we stored a Follower object
+        follower = Follower.get_by_id('realize.be %s' % (follower))
+        self.assertEqual(FOLLOW_WRAPPED, json.loads(follower.last_follow))
+
+        # TODO: check webmention
 
     def test_inbox_unsupported_type(self, mock_get, mock_post):
         got = app.get_response('/foo.com/inbox', method='POST', body=json.dumps({
