@@ -147,7 +147,7 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         # send AP request
         inbox_url = urlparse.urljoin(target_url, inbox_url)
-        resp = activitypub.send(source_activity, inbox_url)
+        resp = activitypub.send(source_activity, inbox_url, source_domain)
         self.response.status_int = resp.status_code
         self.response.write(resp.text)
 
