@@ -16,6 +16,8 @@ import requests
 from webmentiontools import send
 from webob import exc
 
+from google.appengine.api import memcache
+
 import appengine_config
 from models import Response
 
@@ -195,7 +197,7 @@ def send_webmentions(handler, activity, proxy=None, **response_props):
         if not target:
             continue
 
-        target = util.follow_redirects(redirect_unwrap(target)).url
+        target = redirect_unwrap(target)
         response = Response(source=source, target=target, direction='in',
                             **response_props)
         response.put()
@@ -354,8 +356,9 @@ def redirect_unwrap(val):
         if val.startswith(REDIRECT_PREFIX):
             return val[len(REDIRECT_PREFIX):]
         elif val.startswith(appengine_config.HOST_URL):
-            return util.domain_from_link(urlparse.urlparse(val).path.strip('/'))
-
+            return util.follow_redirects(
+                util.domain_from_link(urlparse.urlparse(val).path.strip('/')),
+                cache=memcache).url
     return val
 
 
