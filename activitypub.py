@@ -119,44 +119,46 @@ class InboxHandler(webapp2.RequestHandler):
 
         # TODO: verify signature if there is one
 
-        if type == 'Follow':
-            self.accept_follow(activity)
-            return
-
         # fetch actor if necessary so we have name, profile photo, etc
-        if type in ('Like', 'Announce'):
+        if type in ('Announce', 'Like', 'Follow'):
             for elem in obj, activity:
                 actor = elem.get('actor')
                 if actor and isinstance(actor, basestring):
                     elem['actor'] = common.get_as2(actor).json()
 
-        # send webmentions to each target
-        as1 = as2.to_as1(activity)
-        source_as2 = json.dumps(common.redirect_unwrap(activity))
-        common.send_webmentions(self, as1, proxy=True, protocol='activitypub',
-                                source_as2=source_as2)
+        activity_unwrapped = common.redirect_unwrap(activity)
+        if type == 'Follow':
+            self.accept_follow(activity, activity_unwrapped)
+            return
 
-    def accept_follow(self, follow):
+        # send webmentions to each target
+        as1 = as2.to_as1(activity_unwrapped)
+        common.send_webmentions(self, as1, proxy=True, protocol='activitypub',
+                                source_as2=json.dumps(activity_unwrapped))
+
+    def accept_follow(self, follow, follow_unwrapped):
         """Replies to an AP Follow request with an Accept request.
 
         Args:
           follow: dict, AP Follow activity
+          follow_unwrapped: dict, same, except with redirect URLs unwrapped
         """
         logging.info('Replying to Follow with Accept')
 
-        obj = follow.get('object')
-        actor = follow.get('actor')
-        if not obj or not actor:
+        followee = follow.get('object')
+        followee_unwrapped = follow_unwrapped.get('object')
+        follower = follow.get('actor')
+        if not followee or not followee_unwrapped or not follower:
             common.error(self, 'Follow activity requires object and actor. Got: %s' % follow)
 
-        actor_full = common.get_as2(actor).json()
-        inbox = actor_full.get('inbox')
-        if not inbox:
-            common.error(self, 'Found no inbox for actor %s', actor)
+        inbox = follower.get('inbox')
+        follower_id = follower.get('id')
+        if not inbox or not follower_id:
+            common.error(self, 'Follow actor requires id and inbox. Got: %s', follower)
 
         # store Follower
-        user_domain = util.domain_from_link(common.redirect_unwrap(obj))
-        Follower.get_or_create(user_domain, actor, last_follow=json.dumps(follow))
+        user_domain = util.domain_from_link(followee_unwrapped)
+        Follower.get_or_create(user_domain, follower_id, last_follow=json.dumps(follow))
 
         # send AP Accept
         accept = {
@@ -164,11 +166,11 @@ class InboxHandler(webapp2.RequestHandler):
             'id': util.tag_uri(appengine_config.HOST, 'accept/%s/%s' % (
                 (user_domain, follow.get('id')))),
             'type': 'Accept',
-            'actor': obj,
+            'actor': followee,
             'object': {
-              'type': 'Follow',
-               'actor': actor,
-               'object': obj,
+                'type': 'Follow',
+                'actor': follower_id,
+                'object': followee,
             }
         }
         resp = send(accept, inbox, user_domain)
@@ -176,9 +178,9 @@ class InboxHandler(webapp2.RequestHandler):
         self.response.write(resp.text)
 
         # send webmention
-        unwrapped_as2 = common.redirect_unwrap(follow)
-        common.send_webmentions(self, as2.to_as1(follow), proxy=True,
-                                protocol='activitypub', source_as2=json.dumps(follow))
+        common.send_webmentions(
+            self, as2.to_as1(follow), proxy=True, protocol='activitypub',
+            source_as2=json.dumps(follow_unwrapped))
 
 
 app = webapp2.WSGIApplication([
