@@ -175,6 +175,11 @@ class InboxHandler(webapp2.RequestHandler):
         self.response.status_int = resp.status_code
         self.response.write(resp.text)
 
+        # send webmention
+        unwrapped_as2 = common.redirect_unwrap(follow)
+        common.send_webmentions(self, as2.to_as1(follow), proxy=True,
+                                protocol='activitypub', source_as2=json.dumps(follow))
+
 
 app = webapp2.WSGIApplication([
     (r'/%s/?' % common.DOMAIN_RE, ActorHandler),

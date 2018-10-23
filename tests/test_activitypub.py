@@ -53,7 +53,7 @@ LIKE_WRAPPED['object'] = common.redirect_wrap(LIKE_WRAPPED['object'])
 
 FOLLOW_WRAPPED = {
     '@context': 'https://www.w3.org/ns/activitystreams',
-    'id': 'https://mastodon.social/6d1af0b9-ef6a-46b0-b662-f79b21d7c983',
+    'id': 'https://mastodon.social/6d1a',
     'type': 'Follow',
     'actor': 'https://mastodon.social/users/swentel',
     'object': 'http://localhost/realize.be',
@@ -61,7 +61,7 @@ FOLLOW_WRAPPED = {
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Accept',
-    'id': 'tag:localhost:accept/realize.be/https://mastodon.social/6d1af0b9-ef6a-46b0-b662-f79b21d7c983',
+    'id': 'tag:localhost:accept/realize.be/https://mastodon.social/6d1a',
     'actor': 'http://localhost/realize.be',
     'object': {
         'type': 'Follow',
@@ -72,9 +72,10 @@ ACCEPT = {
 
 @patch('requests.post')
 @patch('requests.get')
+@patch('requests.head')
 class ActivityPubTest(testutil.TestCase):
 
-    def test_actor_handler(self, mock_get, _):
+    def test_actor_handler(self, _, mock_get, __):
         mock_get.return_value = requests_response("""
 <body>
 <a class="h-card u-url" rel="me" href="/about-me">Mrs. ☕ Foo</a>
@@ -99,7 +100,7 @@ class ActivityPubTest(testutil.TestCase):
             },
         }, json.loads(got.body))
 
-    def test_actor_handler_no_hcard(self, mock_get, _):
+    def test_actor_handler_no_hcard(self, _, mock_get, __):
         mock_get.return_value = requests_response("""
 <body>
 <div class="h-entry">
@@ -114,16 +115,17 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEquals(400, got.status_int)
         self.assertIn('representative h-card', got.body)
 
-    def test_inbox_reply_object(self, mock_get, mock_post):
-        self._test_inbox_reply(REPLY_OBJECT, REPLY_OBJECT, mock_get, mock_post)
+    def test_inbox_reply_object(self, *mocks):
+        self._test_inbox_reply(REPLY_OBJECT, REPLY_OBJECT, *mocks)
 
-    def test_inbox_reply_object_wrapped(self, mock_get, mock_post):
-        self._test_inbox_reply(REPLY_OBJECT_WRAPPED, REPLY_OBJECT, mock_get, mock_post)
+    def test_inbox_reply_object_wrapped(self, *mocks):
+        self._test_inbox_reply(REPLY_OBJECT_WRAPPED, REPLY_OBJECT, *mocks)
 
-    def test_inbox_reply_create_activity(self, mock_get, mock_post):
-        self._test_inbox_reply(REPLY, REPLY, mock_get, mock_post)
+    def test_inbox_reply_create_activity(self, *mocks):
+        self._test_inbox_reply(REPLY, REPLY, *mocks)
 
-    def _test_inbox_reply(self, as2, expected_as2, mock_get, mock_post):
+    def _test_inbox_reply(self, as2, expected_as2, mock_head, mock_get, mock_post):
+        mock_head.return_value = requests_response(url='http://orig/post')
         mock_get.return_value = requests_response(
             '<html><head><link rel="webmention" href="/webmention"></html>')
         mock_post.return_value = requests_response()
@@ -152,7 +154,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('complete', resp.status)
         self.assertEqual(expected_as2, json.loads(resp.source_as2))
 
-    def test_inbox_like(self, mock_get, mock_post):
+    def test_inbox_like(self, mock_head, mock_get, mock_post):
         actor = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': 'http://orig/actor',
@@ -161,6 +163,7 @@ class ActivityPubTest(testutil.TestCase):
             'preferredUsername': 'msactor',
             'image': {'type': 'Image', 'url': 'http://orig/pic.jpg'},
         }
+        mock_head.return_value = requests_response(url='http://orig/post')
         mock_get.side_effect = [
             # source actor
             requests_response(actor, headers={'Content-Type': common.CONTENT_TYPE_AS2}),
@@ -197,7 +200,7 @@ class ActivityPubTest(testutil.TestCase):
         like_activity['actor'] = actor
         self.assertEqual(like_activity, json.loads(resp.source_as2))
 
-    def test_inbox_follow_accept(self, mock_get, mock_post):
+    def test_inbox_follow_accept(self, mock_head, mock_get, mock_post):
         follower = FOLLOW_WRAPPED['actor']
         actor = {
             '@context': 'https://www.w3.org/ns/activitystreams',
@@ -205,9 +208,13 @@ class ActivityPubTest(testutil.TestCase):
             'type': 'Person',
             'inbox': 'http://follower/inbox',
         }
+        mock_head.return_value = requests_response(url='https://realize.be/')
         mock_get.side_effect = [
             # source actor
             requests_response(actor, content_type=common.CONTENT_TYPE_AS2),
+            # target post webmention discovery
+            requests_response(
+                '<html><head><link rel="webmention" href="/webmention"></html>'),
         ]
         mock_post.return_value = requests_response()
 
@@ -221,17 +228,31 @@ class ActivityPubTest(testutil.TestCase):
             call(follower, headers=as2_headers, timeout=15),
         ))
 
-        args, kwargs = mock_post.call_args
+        # check AP Accept
+        self.assertEqual(2, len(mock_post.call_args_list))
+        args, kwargs = mock_post.call_args_list[0]
         self.assertEquals(('http://follower/inbox',), args)
         self.assertEquals(ACCEPT, kwargs['json'])
+
+        # check webmention
+        args, kwargs = mock_post.call_args_list[1]
+        self.assertEquals(('https://realize.be/webmention',), args)
+        self.assertEquals({
+            'source': 'http://localhost/render?source=https%3A%2F%2Fmastodon.social%2F6d1a&target=https%3A%2F%2Frealize.be%2F',
+            'target': 'https://realize.be/',
+        }, kwargs['data'])
+
+        resp = Response.get_by_id('https://mastodon.social/6d1a https://realize.be/')
+        self.assertEqual('in', resp.direction)
+        self.assertEqual('activitypub', resp.protocol)
+        self.assertEqual('complete', resp.status)
+        self.assertEqual(FOLLOW_WRAPPED, json.loads(resp.source_as2))
 
         # check that we stored a Follower object
         follower = Follower.get_by_id('realize.be %s' % (follower))
         self.assertEqual(FOLLOW_WRAPPED, json.loads(follower.last_follow))
 
-        # TODO: check webmention
-
-    def test_inbox_unsupported_type(self, mock_get, mock_post):
+    def test_inbox_unsupported_type(self, *_):
         got = app.get_response('/foo.com/inbox', method='POST', body=json.dumps({
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'https://xoxo.zone/users/aaronpk#follows/40',

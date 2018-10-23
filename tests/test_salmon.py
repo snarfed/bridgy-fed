@@ -21,6 +21,7 @@ import testutil
 
 @mock.patch('requests.post')
 @mock.patch('requests.get')
+@mock.patch('requests.head')
 @mock.patch('urllib2.urlopen')
 class SalmonTest(testutil.TestCase):
 
@@ -28,7 +29,7 @@ class SalmonTest(testutil.TestCase):
         super(SalmonTest, self).setUp()
         self.key = MagicKey.get_or_create('alice')
 
-    def send_slap(self, mock_urlopen, mock_get, mock_post, atom_slap):
+    def send_slap(self, mock_urlopen, mock_head, mock_get, mock_post, atom_slap):
         # salmon magic key discovery. first host-meta, then webfinger
         mock_urlopen.side_effect = [
             UrlopenResult(200, """\
@@ -45,6 +46,7 @@ class SalmonTest(testutil.TestCase):
         ]
 
         # webmention discovery
+        mock_head.return_value = requests_response(url='http://orig/post')
         mock_get.return_value = requests_response(
             '<html><head><link rel="webmention" href="/webmention"></html>')
         # webmention post
@@ -66,7 +68,7 @@ class SalmonTest(testutil.TestCase):
         mock_get.assert_called_once_with(
             'http://orig/post', headers=common.HEADERS, verify=False)
 
-    def test_reply(self, mock_urlopen, mock_get, mock_post):
+    def test_reply(self, mock_urlopen, mock_head, mock_get, mock_post):
         atom_reply = """\
 <?xml version='1.0' encoding='UTF-8'?>
 <entry xmlns='http://www.w3.org/2005/Atom'>
@@ -83,7 +85,7 @@ class SalmonTest(testutil.TestCase):
   <title>My Reply</title>
   <updated>%s</updated>
 </entry>""" % datetime.datetime.now().isoformat(b'T')
-        self.send_slap(mock_urlopen, mock_get, mock_post, atom_reply)
+        self.send_slap(mock_urlopen, mock_head, mock_get, mock_post, atom_reply)
 
         # check webmention post
         mock_post.assert_called_once_with(
@@ -100,7 +102,7 @@ class SalmonTest(testutil.TestCase):
         self.assertEqual('complete', resp.status)
         self.assertEqual(atom_reply, resp.source_atom)
 
-    def test_like(self, mock_urlopen, mock_get, mock_post):
+    def test_like(self, mock_urlopen, mock_head, mock_get, mock_post):
         atom_like = """\
 <?xml version='1.0' encoding='UTF-8'?>
 <entry xmlns='http://www.w3.org/2005/Atom'
@@ -114,7 +116,7 @@ class SalmonTest(testutil.TestCase):
   <activity:object>http://orig/post</activity:object>
   <updated>%s</updated>
 </entry>""" % datetime.datetime.now().isoformat(b'T')
-        self.send_slap(mock_urlopen, mock_get, mock_post, atom_like)
+        self.send_slap(mock_urlopen, mock_head, mock_get, mock_post, atom_like)
 
         # check webmention post
         mock_post.assert_called_once_with(
@@ -134,17 +136,17 @@ class SalmonTest(testutil.TestCase):
         self.assertEqual('complete', resp.status)
         self.assertEqual(atom_like, resp.source_atom)
 
-    def test_bad_envelope(self, mock_urlopen, mock_get, mock_post):
+    def test_bad_envelope(self, *mocks):
         got = app.get_response('/foo.com/salmon', method='POST',
                                body='not xml'.encode('utf-8'))
         self.assertEquals(400, got.status_int)
 
-    def test_bad_inner_xml(self, mock_urlopen, mock_get, mock_post):
+    def test_bad_inner_xml(self, *mocks):
         slap = magicsigs.magic_envelope('not xml', common.CONTENT_TYPE_ATOM, self.key)
         got = app.get_response('/foo.com/salmon', method='POST', body=slap)
         self.assertEquals(400, got.status_int)
 
-    def test_rsvp_not_supported(self, mock_urlopen, mock_get, mock_post):
+    def test_rsvp_not_supported(self, *mocks):
         slap = magicsigs.magic_envelope("""\
 <?xml version='1.0' encoding='UTF-8'?>
 <entry xmlns='http://www.w3.org/2005/Atom'

@@ -54,6 +54,7 @@ CONNEG_HEADERS_AS2_HTML = {
 SUPPORTED_VERBS = (
     'checkin',
     'create',
+    'follow',
     'like',
     'post',
     'share',
@@ -179,7 +180,7 @@ def send_webmentions(handler, activity, proxy=None, **response_props):
         if not source or verb in ('create', 'post', 'update'):
             source = obj_url or obj.get('id')
         targets.extend(util.get_list(obj, 'inReplyTo'))
-    if verb in ('like', 'share'):
+    if verb in ('follow', 'like', 'share'):
          targets.append(obj_url)
 
     targets = util.dedupe_urls(util.get_url(t) for t in targets)
@@ -194,11 +195,12 @@ def send_webmentions(handler, activity, proxy=None, **response_props):
         if not target:
             continue
 
-        target = redirect_unwrap(target)
+        target = util.follow_redirects(redirect_unwrap(target)).url
         response = Response(source=source, target=target, direction='in',
                             **response_props)
         response.put()
-        wm_source = (response.proxy_url() if verb in ('like', 'share') or proxy
+        wm_source = (response.proxy_url()
+                     if verb in ('follow', 'like', 'share') or proxy
                      else source)
         logging.info('Sending webmention from %s to %s', wm_source, target)
 
