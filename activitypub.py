@@ -18,6 +18,7 @@ from models import Follower, MagicKey, Response
 from httpsig.requests_auth import HTTPSignatureAuth
 
 SUPPORTED_TYPES = (
+    'Accept',
     'Announce',
     'Article',
     'Audio',
@@ -111,9 +112,11 @@ class InboxHandler(webapp2.RequestHandler):
             obj = {'id': obj}
 
         type = activity.get('type')
+        if type == 'Accept':  # eg in response to a Follow
+            return  # noop
         if type == 'Create':
             type = obj.get('type')
-        if type not in SUPPORTED_TYPES:
+        elif type not in SUPPORTED_TYPES:
             common.error(self, 'Sorry, %s activities are not supported yet.' % type,
                          status=501)
 
