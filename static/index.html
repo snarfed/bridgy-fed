@@ -62,7 +62,7 @@ and the rest of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse<
 <li id="work" class="question">How does it work?</li>
 <li class="answer">
 <p>
-Bridgy Fed lets you interact with federated social networks like <a href="https://joinmastodon.org/">Mastodon</a> and <a href="https://project.hubzilla.org/">Hubzilla</a> from your <a href="https://indieweb.org/">IndieWeb</a> site. It translates replies, likes, and reposts from <a href="http://www.webmention.org/">webmentions</a> to federated social networking protocols like <a href="https://activitypub.rocks/">ActivityPub</a> and <a href="https://en.wikipedia.org/wiki/OStatus">OStatus</a>, and vice versa.
+Bridgy Fed lets you interact with federated social networks like <a href="https://joinmastodon.org/">Mastodon</a> and <a href="https://project.hubzilla.org/">Hubzilla</a> from your <a href="https://indieweb.org/">IndieWeb</a> site. It translates replies, likes, reposts, and follows from <a href="http://www.webmention.org/">webmentions</a> to federated social networking protocols like <a href="https://activitypub.rocks/">ActivityPub</a> and <a href="https://en.wikipedia.org/wiki/OStatus">OStatus</a>, and vice versa.
 </p>
 
 <p>
@@ -78,7 +78,7 @@ Here's <a href="https://mastodon.technology/@snarfed/3194674">an example on Mast
 These sites are currently supported:
 </p>
 <ul>
-<li><em><a href="https://joinmastodon.org/">Mastodon</a></em>: replies, likes, and reposts aka boosts, both directions, via ActivityPub.<br />
+<li><em><a href="https://joinmastodon.org/">Mastodon</a></em>: replies, likes, reposts aka boosts, and follows, both directions, via ActivityPub.<br />
 The instance must be running at least <a href="https://hackernoon.com/mastodon-and-the-w3c-f75f376f422">Mastodon 1.6</a>, and more reliably with 2.0 and up. You can find its version on the bottom or right of its <code>/about/more</code> page, e.g. <a href="https://mastodon.social/about/more">mastodon.social/about/more</a>.
 </li>
 <li><em><a href="https://project.hubzilla.org/">Hubzilla</a></em>: replies, likes, and reposts aka shares, both directions, via OStatus.<br />
@@ -187,7 +187,7 @@ Most fedsocnets also publish Atom themselves, so you can add profile URLs like <
 </p>
 
 <p>
-To like, repost or reply to a post on a fedsocnet, create an <a href="https://indieweb.org/like">indie like</a>, <a href="https://indieweb.org/repost">repost</a>, or <a href="https://indieweb.org/reply">reply</a> as usual, and include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post. Your web server should then <a href="#setup">send Bridgy Fed a webmention</a>, which it will translate to a Salmon slap or ActivityPub activity and forward to the destination. For example:
+To like, repost or reply to a post on a fedsocnet or follow a fedsocnet user, create an <a href="https://indieweb.org/like">indie like</a>, <a href="https://indieweb.org/repost">repost</a>, <a href="https://indieweb.org/reply">reply</a>, or <a href="https://indieweb.org/follow">follow</a> as usual, and include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post. Your web server should then <a href="#setup">send Bridgy Fed a webmention</a>, which it will translate to a Salmon slap or ActivityPub activity and forward to the destination. For example:
 </p>
 
 <pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
@@ -198,10 +198,10 @@ To like, repost or reply to a post on a fedsocnet, create an <a href="https://in
 </pre>
 
 <p>
-To receive likes, reposts, and replies from fedsocnets, just make sure your site accepts webmentions! Bridgy translates incoming Salmon slaps and ActivityPub activities to webmentions and sends them to your site.</p>
+To receive likes, reposts, replies, and follows from fedsocnets, just make sure your site accepts webmentions! Bridgy translates incoming Salmon slaps and ActivityPub activities to webmentions and sends them to your site.</p>
 
 <p>
-For replies, the source will usually be the permalink on the social network itself. For likes and reposts, the source will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>!
+The webmention source URL will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>!
 </p>
 </li>
 
