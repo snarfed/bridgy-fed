@@ -184,6 +184,42 @@ class WebmentionTest(testutil.TestCase):
         self.as2_update = copy.deepcopy(self.as2_create)
         self.as2_update['type'] = 'Update'
 
+        self.follow_html = """\
+<html>
+<body class="h-entry">
+<a class="u-url" href="http://a/follow"></a>
+<a class="u-follow-of" href="http://followee"></a>
+<a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>
+</body>
+</html>
+"""
+        self.follow = requests_response(
+            self.follow_html, content_type=CONTENT_TYPE_HTML)
+        self.follow_mf2 = mf2py.parse(self.follow_html, url='http://a/follow')
+        self.follow_as2 = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Follow',
+            'id': 'http://localhost/r/http://a/follow',
+            'url': 'http://localhost/r/http://a/follow',
+            'object': 'http://followee',
+            'actor': {
+                'id': 'http://localhost/orig',
+                'name': 'Ms. ☕ Baz',
+                'preferredUsername': 'orig',
+                'type': 'Person',
+                'url': 'http://localhost/r/https://orig',
+            },
+            'cc': ['https://www.w3.org/ns/activitystreams#Public'],
+        }
+
+        self.actor = requests_response({
+            'objectType' : 'person',
+            'displayName': 'Mrs. ☕ Foo',
+            'url': 'https://foo.com/about-me',
+            'inbox': 'https://foo.com/inbox',
+        }, content_type=CONTENT_TYPE_AS2)
+        self.activitypub_gets = [self.reply, self.orig_as2, self.actor]
+
     def verify_salmon(self, mock_post):
         args, kwargs = mock_post.call_args
         self.assertEqual(('http://orig/salmon',), args)
@@ -385,6 +421,38 @@ class WebmentionTest(testutil.TestCase):
         repost_as2['actor']['image'] = repost_as2['actor']['icon'] = \
             {'type': 'Image', 'url': 'http://orig/pic'},
         self.assert_equals(repost_as2, kwargs['json'])
+
+    def test_activitypub_follow(self, mock_get, mock_post):
+        mock_get.side_effect = [self.follow, self.actor]
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = app.get_response(
+            '/webmention', method='POST', body=urllib.urlencode({
+                'source': 'http://a/follow',
+                'target': 'https://fed.brid.gy/',
+            }))
+        self.assertEquals(200, got.status_int)
+
+        mock_get.assert_has_calls((
+            self.req('http://a/follow'),
+            self.req('http://followee', headers=CONNEG_HEADERS_AS2_HTML),
+        ))
+
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://foo.com/inbox',), args)
+        self.assertEqual(self.follow_as2, kwargs['json'])
+
+        headers = kwargs['headers']
+        self.assertEqual(CONTENT_TYPE_AS2, headers['Content-Type'])
+
+        rsa_key = kwargs['auth'].header_signer._rsa._key
+        self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
+
+        resp = Response.get_by_id('http://a/follow http://followee')
+        self.assertEqual('out', resp.direction)
+        self.assertEqual('activitypub', resp.protocol)
+        self.assertEqual('complete', resp.status)
+        self.assertEqual(self.follow_mf2, json.loads(resp.source_mf2))
 
     def test_salmon_reply(self, mock_get, mock_post):
         mock_get.side_effect = [self.reply, self.orig_html_atom, self.orig_atom]

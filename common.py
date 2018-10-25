@@ -281,7 +281,7 @@ def postprocess_as2(activity, target=None, key=None):
     if obj:
         if isinstance(obj, dict) and not obj.get('id'):
             obj['id'] = target_id or obj.get('url')
-        elif obj != target_id:
+        elif target_id and obj != target_id:
             activity['object'] = target_id
 
     # id is required for most things. default to url if it's not set.
