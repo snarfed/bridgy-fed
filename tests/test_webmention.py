@@ -30,7 +30,7 @@ from common import (
     CONTENT_TYPE_MAGIC_ENVELOPE,
     HEADERS,
 )
-from models import MagicKey, Response
+from models import Follower, MagicKey, Response
 import testutil
 import webmention
 from webmention import app
@@ -210,6 +210,47 @@ class WebmentionTest(testutil.TestCase):
                 'url': 'http://localhost/r/https://orig',
             },
             'cc': ['https://www.w3.org/ns/activitystreams#Public'],
+        }
+
+        self.actor = requests_response({
+            'objectType' : 'person',
+            'displayName': 'Mrs. ☕ Foo',
+            'url': 'https://foo.com/about-me',
+            'inbox': 'https://foo.com/inbox',
+        }, content_type=CONTENT_TYPE_AS2)
+        self.activitypub_gets = [self.reply, self.orig_as2, self.actor]
+
+        self.create_html = """\
+<html>
+<body class="h-entry">
+<a class="u-url" href="http://orig/post"></a>
+<p class="e-content p-name">hello i am a post</p>
+<a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>
+</body>
+</html>
+"""
+        self.create = requests_response(
+            self.create_html, content_type=CONTENT_TYPE_HTML)
+        self.create_mf2 = mf2py.parse(self.create_html, url='http://a/create')
+        self.create_as2 = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'object': {
+                '@context': 'https://www.w3.org/ns/activitystreams',
+                'type': 'Note',
+                'id': 'http://localhost/r/http://orig/post',
+                'url': 'http://localhost/r/http://orig/post',
+                'name': 'hello i am a post',
+                'content': 'hello i am a post',
+                'attributedTo': [{
+                    'type': 'Person',
+                    'id': 'http://localhost/orig',
+                    'url': 'http://localhost/r/https://orig',
+                    'name': 'Ms. ☕ Baz',
+                    'preferredUsername': 'orig',
+                }],
+                'cc': ['https://www.w3.org/ns/activitystreams#Public'],
+            },
         }
 
         self.actor = requests_response({
@@ -421,6 +462,51 @@ class WebmentionTest(testutil.TestCase):
         repost_as2['actor']['image'] = repost_as2['actor']['icon'] = \
             {'type': 'Image', 'url': 'http://orig/pic'},
         self.assert_equals(repost_as2, kwargs['json'])
+
+    def test_activitypub_create_post(self, mock_get, mock_post):
+        mock_get.side_effect = [self.create, self.actor]
+        mock_post.return_value = requests_response('abc xyz')
+
+        Follower.get_or_create('orig', 'https://mastodon/aaa')
+        Follower.get_or_create('orig', 'https://mastodon/bbb',
+                               last_follow=json.dumps({'actor': {
+                                   'publicInbox': 'https://public/inbox',
+                                   'inbox': 'https://unused',
+                               }}))
+        Follower.get_or_create('orig', 'https://mastodon/ccc',
+                               last_follow=json.dumps({'actor': {
+                                   'endpoints': {
+                                       'sharedInbox': 'https://shared/inbox',
+                                   },
+                               }}))
+        Follower.get_or_create('orig', 'https://mastodon/ddd',
+                               last_follow=json.dumps({'actor': {
+                                   'inbox': 'https://inbox',
+                               }}))
+        self.datastore_stub.Flush()
+
+        got = app.get_response(
+            '/webmention', method='POST', body=urllib.urlencode({
+                'source': 'http://orig/post',
+                'target': 'https://fed.brid.gy/',
+            }))
+        self.assertEquals(200, got.status_int)
+
+        mock_get.assert_has_calls((
+            self.req('http://orig/post'),
+        ))
+
+        inboxes = ('https://public/inbox', 'https://shared/inbox', 'https://inbox')
+        for call, inbox in zip(mock_post.call_args_list, inboxes):
+            self.assertEquals((inbox,), call[0])
+            self.assertEquals(self.create_as2, call[1]['json'])
+
+        for inbox in inboxes:
+            resp = Response.get_by_id('http://orig/post %s' % inbox)
+            self.assertEqual('out', resp.direction, inbox)
+            self.assertEqual('activitypub', resp.protocol, inbox)
+            self.assertEqual('complete', resp.status, inbox)
+            self.assertEqual(self.create_mf2, json.loads(resp.source_mf2), inbox)
 
     def test_activitypub_follow(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow, self.actor]

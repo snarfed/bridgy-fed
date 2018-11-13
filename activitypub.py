@@ -42,7 +42,8 @@ def send(activity, inbox_url, user_domain):
     Returns:
       requests.Response
     """
-    logging.info('Sending AP request from %s: %s', user_domain, activity)
+    logging.info('Sending AP request from %s: %s', user_domain,
+                 json.dumps(activity, indent=2))
 
     # prepare HTTP Signature (required by Mastodon)
     # https://w3c.github.io/activitypub/#authorization-lds

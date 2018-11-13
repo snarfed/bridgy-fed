@@ -16,6 +16,7 @@ import django_salmon
 from django_salmon import magicsigs, utils
 import feedparser
 from google.appengine.api import mail
+from google.appengine.ext.ndb import Key
 from granary import as2, atom, microformats2, source
 import mf2py
 import mf2util
@@ -26,36 +27,48 @@ from webob import exc
 
 import activitypub
 import common
-from models import MagicKey, Response
+from models import Follower, MagicKey, Response
 
 SKIP_EMAIL_DOMAINS = frozenset(('localhost', 'snarfed.org'))
 
 
 class WebmentionHandler(webapp2.RequestHandler):
-    """Handles inbound webmention, converts to ActivityPub or Salmon.
-
-    Instance attributes:
-      resp: Response
-    """
+    """Handles inbound webmention, converts to ActivityPub or Salmon."""
+    # resp = None           # Response
+    source_url = None     # string
+    source_domain = None  # string
+    source_mf2 = None     # parsed mf2 dict
+    source_obj = None     # parsed AS1 dict
 
     def post(self):
         logging.info('(Params: %s )', self.request.params.items())
 
-        self.resp = None
-        try:
-            self.try_activitypub()
-            if self.resp:
-                self.resp.status = 'complete'
-        except:
-            if self.resp:
-                self.resp.status = 'error'
-            raise
-        finally:
-            if self.resp:
-                self.resp.put()
-
+        # fetch source page
         source = util.get_required_param(self, 'source')
-        if urlparse.urlparse(source).netloc.split(':')[0] not in SKIP_EMAIL_DOMAINS:
+        source_resp = common.requests_get(source)
+        self.source_url = source_resp.url or source
+        self.source_domain = urlparse.urlparse(self.source_url).netloc.split(':')[0]
+        self.source_mf2 = mf2py.parse(source_resp.text, url=self.source_url, img_with_alt=True)
+        # logging.debug('Parsed mf2 for %s: %s', source_resp.url, json.dumps(self.source_mf2, indent=2))
+
+        # convert source page to ActivityStreams
+        entry = mf2util.find_first_entry(self.source_mf2, ['h-entry'])
+        if not entry:
+            common.error(self, 'No microformats2 found on %s' % self.source_url)
+
+        logging.info('First entry: %s', json.dumps(entry, indent=2))
+        # make sure it has url, since we use that for AS2 id, which is required
+        # for ActivityPub.
+        props = entry.setdefault('properties', {})
+        if not props.get('url'):
+            props['url'] = [self.source_url]
+
+        self.source_obj = microformats2.json_to_object(entry, fetch_mf2=True)
+        logging.info('Converted to AS1: %s', json.dumps(self.source_obj, indent=2))
+
+        self.try_activitypub() or self.try_salmon()
+
+        if self.source_domain not in SKIP_EMAIL_DOMAINS:
           try:
               msg = 'Bridgy Fed: new webmention from %s' % source
               mail.send_mail(
@@ -66,53 +79,89 @@ class WebmentionHandler(webapp2.RequestHandler):
               logging.warning('Error sending email', exc_info=True)
 
     def try_activitypub(self):
-        source = util.get_required_param(self, 'source')
+        """Returns True if we attempted ActivityPub delivery, False otherwise."""
+        targets = self._activitypub_targets()
+        if not targets:
+            return False
 
-        # fetch source page, convert to ActivityStreams
-        source_resp = common.requests_get(source)
-        source_url = source_resp.url or source
-        source_mf2 = mf2py.parse(source_resp.text, url=source_url, img_with_alt=True)
-        # logging.debug('Parsed mf2 for %s: %s', source_resp.url, json.dumps(source_mf2, indent=2))
+        key = MagicKey.get_or_create(self.source_domain)
+        error = False
+        delivered = set()  # inboxes we've delivered to
 
-        entry = mf2util.find_first_entry(source_mf2, ['h-entry'])
-        if not entry:
-            common.error(self, 'No microformats2 found on %s' % source_url)
+        # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
 
-        logging.info('First entry: %s', json.dumps(entry, indent=2))
-        # make sure it has url, since we use that for AS2 id, which is required
-        # for ActivityPub.
-        props = entry.setdefault('properties', {})
-        if not props.get('url'):
-            props['url'] = [source_url]
+        for resp, inbox in targets:
+            source_activity = common.postprocess_as2(
+                as2.from_as1(self.source_obj), key=key)#target=target_obj
 
-        source_obj = microformats2.json_to_object(entry, fetch_mf2=True)
-        logging.info('Converted to AS: %s', json.dumps(source_obj, indent=2))
+            if resp.status == 'complete':
+                source_activity['type'] = 'Update'
 
-        # fetch target page as AS object. target is first in-reply-to, like-of,
-        # or repost-of, *not* target query param.)
-        target = util.get_url(util.get_first(source_obj, 'inReplyTo') or
-                              util.get_first(source_obj, 'object'))
+            try:
+                last = activitypub.send(source_activity, inbox, self.source_domain)
+                resp.status = 'complete'
+            except:
+                resp.status = 'error'
+
+            resp.put()
+            if resp.status == 'error':
+                error = sent
+
+        # Pass the AP response status code and body through as our response
+        self.response.status_int = (error or last).status_code
+        self.response.write((error or last).text)
+
+        return not error
+
+
+    def _activitypub_targets(self):
+        """
+        Returns: list of (Response, string inbox URL)
+        """
+        # if there's an in-reply-to, like-of, or repost-of, that's the target.
+        # otherwise, it's all followers' inboxes.
+        target = util.get_first(self.source_obj, 'inReplyTo')
+
+        verb = self.source_obj.get('verb')
+        if not target and verb in source.VERBS_WITH_OBJECT:
+            target = util.get_first(self.source_obj, 'object')
+
         if not target:
-            common.error(self, 'No u-in-reply-to, u-like-of, or u-repost-of '
-                         'found in %s' % source_url)
+            # interpret this as a Create or Update, deliver it to followers
+            followers = Follower.query().filter(
+                Follower.key > Key('Follower', self.source_domain + ' '),
+                Follower.key < Key('Follower', self.source_domain + chr(ord(' ') + 1)))
+            actors = [json.loads(f.last_follow)['actor'] for f in followers
+                      if f.last_follow]
+            inboxes = [a.get('endpoints', {}).get('sharedInbox') or
+                       a.get('publicInbox') or a.get('inbox')
+                       for a in actors]
+            return [(Response.get_or_create(
+                        source=self.source_url, target=inbox, direction='out',
+                        protocol='activitypub', source_mf2=json.dumps(self.source_mf2)),
+                     inbox)
+                    for inbox in inboxes if inbox]
 
+        if not target:
+            return []  # give up
+
+        # fetch target page as AS2 object
         try:
             target_resp = common.get_as2(target)
         except (requests.HTTPError, exc.HTTPBadGateway) as e:
             if (e.response.status_code // 100 == 2 and
                 common.content_type(e.response).startswith('text/html')):
-                self.resp = Response.get_or_create(
-                    source=source_url, target=e.response.url or target,
-                    direction='out', source_mf2=json.dumps(source_mf2))
-                return self.send_salmon(source_obj, target_resp=e.response)
-            raise
-
+                # TODO: pass e.response to try_salmon()'s target_resp
+                return False  # make post() try Salmon
+            else:
+                raise
         target_url = target_resp.url or target
-        self.resp = Response.get_or_create(
-            source=source_url, target=target_url, direction='out',
-            protocol='activitypub', source_mf2=json.dumps(source_mf2))
 
-        # find actor's inbox
+        resp = Response.get_or_create(
+            source=self.source_url, target=target_url, direction='out',
+            protocol='activitypub', source_mf2=json.dumps(self.source_mf2))
+
+        # find target's inbox
         target_obj = target_resp.json()
         inbox_url = target_obj.get('inbox')
 
@@ -134,34 +183,41 @@ class WebmentionHandler(webapp2.RequestHandler):
             # TODO: probably need a way to save errors like this so that we can
             # return them if ostatus fails too.
             # common.error(self, 'Target actor has no inbox')
-            return self.send_salmon(source_obj, target_resp=target_resp)
+            return []
 
-        # convert to AS2
-        source_domain = urlparse.urlparse(source_url).netloc
-        key = MagicKey.get_or_create(source_domain)
-        source_activity = common.postprocess_as2(
-            as2.from_as1(source_obj), target=target_obj, key=key)
-
-        if self.resp.status == 'complete':
-            source_activity['type'] = 'Update'
-
-        # send AP request
         inbox_url = urlparse.urljoin(target_url, inbox_url)
-        resp = activitypub.send(source_activity, inbox_url, source_domain)
-        self.response.status_int = resp.status_code
-        self.response.write(resp.text)
+        return [(resp, inbox_url)]
 
-    def send_salmon(self, source_obj, target_resp=None):
-        self.resp.protocol = 'ostatus'
+    def try_salmon(self, target_resp=None):
+        """Returns True if we attempted OStatus delivery. Raises otherwise."""
+        resp = Response.get_or_create(
+            source=self.source_url, target=e.response.url or target,
+            direction='out', source_mf2=json.dumps(self.source_mf2))
+        resp.protocol = 'ostatus'
 
+        try:
+            return self._try_salmon(resp, target_resp=target_resp)
+            resp.status = 'complete'
+        except:
+            resp.status = 'error'
+            raise
+        finally:
+            resp.put()
+
+    def _try_salmon(self, resp, target_resp=None):
+        """
+        Args:
+          resp: Response
+          target_resp: requests.Response
+        """
         # fetch target HTML page, extract Atom rel-alternate link
         if not target_resp:
-            target_resp = common.requests_get(self.resp.target())
+            target_resp = common.requests_get(resp.target())
 
         parsed = common.beautifulsoup_parse(target_resp.content, from_encoding=target_resp.encoding)
         atom_url = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
         if not atom_url or not atom_url.get('href'):
-            common.error(self, 'Target post %s has no Atom link' % self.resp.target(),
+            common.error(self, 'Target post %s has no Atom link' % resp.target(),
                          status=400)
 
         # fetch Atom target post, extract and inject id into source object
@@ -171,8 +227,8 @@ class WebmentionHandler(webapp2.RequestHandler):
                                               default=lambda key: '-'))
         entry = parsed.entries[0]
         target_id = entry.id
-        in_reply_to = source_obj.get('inReplyTo')
-        source_obj_obj = source_obj.get('object')
+        in_reply_to = self.source_obj.get('inReplyTo')
+        source_obj_obj = self.source_obj.get('object')
         if in_reply_to:
             in_reply_to[0]['id'] = target_id
         elif isinstance(source_obj_obj, dict):
@@ -186,7 +242,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         if authors:
             url = entry.authors[0].get('href')
             if url:
-                source_obj.setdefault('tags', []).append({'url': url})
+                self.source_obj.setdefault('tags', []).append({'url': url})
 
         # extract and discover salmon endpoint
         logging.info('Discovering Salmon endpoint in %s', atom_url['href'])
@@ -194,7 +250,7 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         if not endpoint:
             # try webfinger
-            parsed = urlparse.urlparse(self.resp.target())
+            parsed = urlparse.urlparse(resp.target())
             # TODO: test missing email
             email = entry.author_detail.get('email') or '@'.join(
                 (entry.author_detail.name, parsed.netloc))
@@ -212,14 +268,15 @@ class WebmentionHandler(webapp2.RequestHandler):
         logging.info('Discovered Salmon endpoint %s', endpoint)
 
         # construct reply Atom object
-        source_url = self.resp.source()
-        activity = (source_obj if source_obj.get('verb') in source.VERBS_WITH_OBJECT
-                    else {'object': source_obj})
-        entry = atom.activity_to_atom(activity, xml_base=source_url)
-        logging.info('Converted %s to Atom:\n%s', source_url, entry)
+        self.source_url = resp.source()
+        activity = self.source_obj
+        if self.source_obj.get('verb') not in source.VERBS_WITH_OBJECT:
+            activity = {'object': self.source_obj}
+        entry = atom.activity_to_atom(activity, xml_base=self.source_url)
+        logging.info('Converted %s to Atom:\n%s', self.source_url, entry)
 
         # sign reply and wrap in magic envelope
-        domain = urlparse.urlparse(source_url).netloc
+        domain = urlparse.urlparse(self.source_url).netloc
         key = MagicKey.get_or_create(domain)
         logging.info('Using key for %s: %s', domain, key)
         magic_envelope = magicsigs.magic_envelope(
@@ -229,6 +286,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         common.requests_post(
             endpoint, data=common.XML_UTF8 + magic_envelope,
             headers={'Content-Type': common.CONTENT_TYPE_MAGIC_ENVELOPE})
+        return True
 
 
 app = webapp2.WSGIApplication([
