@@ -20,6 +20,7 @@ First, install the [Google Cloud SDK](https://cloud.google.com/sdk/gcloud/) (aka
 Once you've done that, run this to find the App Engine libraries directory:
 
 ```sh
+STATE instead use Installation Root: [/usr/local/Caskroom/google-cloud-sdk/latest/google-cloud-sdk]
 gcloud info | grep -o -E '/[^:]+google_appengine'
 ```
 

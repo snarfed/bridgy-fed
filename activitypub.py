@@ -123,11 +123,10 @@ class InboxHandler(webapp2.RequestHandler):
         # TODO: verify signature if there is one
 
         # fetch actor if necessary so we have name, profile photo, etc
-        if type in ('Announce', 'Like', 'Follow'):
-            for elem in obj, activity:
-                actor = elem.get('actor')
-                if actor and isinstance(actor, basestring):
-                    elem['actor'] = common.get_as2(actor).json()
+        for elem in obj, activity:
+            actor = elem.get('actor')
+            if actor and isinstance(actor, basestring):
+                elem['actor'] = common.get_as2(actor).json()
 
         activity_unwrapped = common.redirect_unwrap(activity)
         if type == 'Follow':
