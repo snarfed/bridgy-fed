@@ -10,7 +10,7 @@ funcsigs==1.0.2
 future==0.16.0
 gdata==2.0.18
 google-api-python-client==1.6.4
-granary==1.12
+granary==1.14
 html2text==2018.1.9
 html5lib==1.0.1
 httplib2==0.10.3
@@ -26,7 +26,7 @@ mf2py==1.1.2
 mf2util==0.5.0
 mock==2.0.0
 mox3==0.24.0
--e git+git@github.com:snarfed/oauth-dropins.git@68eac643e1aa90b9107da6d1d9b77bac64dd9086#egg=oauth_dropins
+oauth-dropins==1.14
 oauth2client==4.1.2
 oauthlib==2.0.2
 pbr==3.1.1
