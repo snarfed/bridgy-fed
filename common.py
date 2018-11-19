@@ -265,16 +265,16 @@ def postprocess_as2(activity, target=None, key=None):
         # notification to the original post's author. not required for likes,
         # reposts, etc. details:
         # https://github.com/snarfed/bridgy-fed/issues/34
-        to = target.get('actor') or target.get('attributedTo')
-        if to:
-            if isinstance(to, dict):
-                to = to.get('url') or to.get('id')
+        if target:
+            to = target.get('actor') or target.get('attributedTo')
             if to:
-                activity.setdefault('tag', []).append({
-                    'type': 'Mention',
-                    'href': to,
-                })
-
+                if isinstance(to, dict):
+                    to = to.get('url') or to.get('id')
+                if to:
+                    activity.setdefault('tag', []).append({
+                        'type': 'Mention',
+                        'href': to,
+                    })
 
     # activity objects (for Like, Announce, etc): prefer id over url
     obj = activity.get('object', {})

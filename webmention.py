@@ -34,11 +34,11 @@ SKIP_EMAIL_DOMAINS = frozenset(('localhost', 'snarfed.org'))
 
 class WebmentionHandler(webapp2.RequestHandler):
     """Handles inbound webmention, converts to ActivityPub or Salmon."""
-    # resp = None           # Response
     source_url = None     # string
     source_domain = None  # string
     source_mf2 = None     # parsed mf2 dict
     source_obj = None     # parsed AS1 dict
+    target_resp = None    # requests.Response
 
     def post(self):
         logging.info('(Params: %s )', self.request.params.items())
@@ -113,6 +113,16 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         return not error
 
+    def _single_target(self):
+        """
+        Returns: string URL, the source's inReplyTo or object (if appropriate)
+        """
+        target = util.get_first(self.source_obj, 'inReplyTo')
+        if target:
+            return util.get_url(target)
+
+        if self.source_obj.get('verb') in source.VERBS_WITH_OBJECT:
+            return util.get_url(util.get_first(self.source_obj, 'object'))
 
     def _activitypub_targets(self):
         """
@@ -120,11 +130,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         """
         # if there's an in-reply-to, like-of, or repost-of, that's the target.
         # otherwise, it's all followers' inboxes.
-        target = util.get_first(self.source_obj, 'inReplyTo')
-
-        verb = self.source_obj.get('verb')
-        if not target and verb in source.VERBS_WITH_OBJECT:
-            target = util.get_first(self.source_obj, 'object')
+        target = self._single_target()
 
         if not target:
             # interpret this as a Create or Update, deliver it to followers
@@ -147,22 +153,23 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         # fetch target page as AS2 object
         try:
-            target_resp = common.get_as2(target)
+            self.target_resp = common.get_as2(target)
         except (requests.HTTPError, exc.HTTPBadGateway) as e:
+            self.target_resp = e.response
             if (e.response.status_code // 100 == 2 and
                 common.content_type(e.response).startswith('text/html')):
                 # TODO: pass e.response to try_salmon()'s target_resp
                 return False  # make post() try Salmon
             else:
                 raise
-        target_url = target_resp.url or target
+        target_url = self.target_resp.url or target
 
         resp = Response.get_or_create(
             source=self.source_url, target=target_url, direction='out',
             protocol='activitypub', source_mf2=json.dumps(self.source_mf2))
 
         # find target's inbox
-        target_obj = target_resp.json()
+        target_obj = self.target_resp.json()
         inbox_url = target_obj.get('inbox')
 
         if not inbox_url:
@@ -188,33 +195,35 @@ class WebmentionHandler(webapp2.RequestHandler):
         inbox_url = urlparse.urljoin(target_url, inbox_url)
         return [(resp, inbox_url)]
 
-    def try_salmon(self, target_resp=None):
+    def try_salmon(self):
         """Returns True if we attempted OStatus delivery. Raises otherwise."""
+        target = self.target_resp.url if self.target_resp else self._single_target()
         resp = Response.get_or_create(
-            source=self.source_url, target=e.response.url or target,
-            direction='out', source_mf2=json.dumps(self.source_mf2))
+            source=self.source_url, target=target, direction='out',
+            source_mf2=json.dumps(self.source_mf2))
         resp.protocol = 'ostatus'
 
         try:
-            return self._try_salmon(resp, target_resp=target_resp)
+            ret = self._try_salmon(resp)
             resp.status = 'complete'
+            return ret
         except:
             resp.status = 'error'
             raise
         finally:
             resp.put()
 
-    def _try_salmon(self, resp, target_resp=None):
+    def _try_salmon(self, resp):
         """
         Args:
           resp: Response
-          target_resp: requests.Response
         """
         # fetch target HTML page, extract Atom rel-alternate link
-        if not target_resp:
-            target_resp = common.requests_get(resp.target())
+        if not self.target_resp:
+            self.target_resp = common.requests_get(resp.target())
 
-        parsed = common.beautifulsoup_parse(target_resp.content, from_encoding=target_resp.encoding)
+        parsed = common.beautifulsoup_parse(self.target_resp.content,
+                                            from_encoding=self.target_resp.encoding)
         atom_url = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
         if not atom_url or not atom_url.get('href'):
             common.error(self, 'Target post %s has no Atom link' % resp.target(),
@@ -256,10 +265,10 @@ class WebmentionHandler(webapp2.RequestHandler):
                 (entry.author_detail.name, parsed.netloc))
             try:
                 # TODO: always https?
-                resp = common.requests_get(
+                profile = common.requests_get(
                     '%s://%s/.well-known/webfinger?resource=acct:%s' %
                     (parsed.scheme, parsed.netloc, email), verify=False)
-                endpoint = django_salmon.get_salmon_replies_link(resp.json())
+                endpoint = django_salmon.get_salmon_replies_link(profile.json())
             except requests.HTTPError as e:
                 pass
 
