@@ -80,6 +80,8 @@ class Response(StringIdModel):
     source_as2 = ndb.TextProperty()  # JSON
     source_atom = ndb.TextProperty()
 
+    target_as2 = ndb.TextProperty()  # JSON
+
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 

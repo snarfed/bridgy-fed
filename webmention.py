@@ -91,8 +91,9 @@ class WebmentionHandler(webapp2.RequestHandler):
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
 
         for resp, inbox in targets:
+            target_obj = json.loads(resp.target_as2) if resp.target_as2 else None
             source_activity = common.postprocess_as2(
-                as2.from_as1(self.source_obj), key=key)#target=target_obj
+                as2.from_as1(self.source_obj), target=target_obj, key=key)
 
             if resp.status == 'complete':
                 source_activity['type'] = 'Update'
@@ -170,6 +171,7 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         # find target's inbox
         target_obj = self.target_resp.json()
+        resp.target_as2 = json.dumps(target_obj)
         inbox_url = target_obj.get('inbox')
 
         if not inbox_url:
