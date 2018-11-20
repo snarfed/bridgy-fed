@@ -132,7 +132,8 @@ class Follower(StringIdModel):
     Key name is 'USER_DOMAIN FOLLOWER_ID', e.g.:
       'snarfed.org https://mastodon.social/@swentel'.
     """
-    # most recent AP Follow activity (JSON)
+    # most recent AP Follow activity (JSON). must have a composite actor object
+    # with an inbox, publicInbox, or sharedInbox!
     last_follow = ndb.TextProperty()
 
     created = ndb.DateTimeProperty(auto_now_add=True)
