@@ -140,10 +140,11 @@ class WebmentionHandler(webapp2.RequestHandler):
                 Follower.key > Key('Follower', self.source_domain + ' '),
                 Follower.key < Key('Follower', self.source_domain + chr(ord(' ') + 1))):
                 if follower.last_follow:
-                    actor = json.loads(follower.last_follow).get('actor', {})
-                    inboxes.append(actor.get('endpoints', {}).get('sharedInbox') or
-                                   actor.get('publicInbox')or
-                                   actor.get('inbox'))
+                    actor = json.loads(follower.last_follow).get('actor')
+                    if actor and isinstance(actor, dict):
+                        inboxes.append(actor.get('endpoints', {}).get('sharedInbox') or
+                                       actor.get('publicInbox')or
+                                       actor.get('inbox'))
             return [(Response.get_or_create(
                         source=self.source_url, target=inbox, direction='out',
                         protocol='activitypub', source_mf2=json.dumps(self.source_mf2)),
