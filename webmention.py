@@ -68,15 +68,15 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         self.try_activitypub() or self.try_salmon()
 
-        if self.source_domain not in SKIP_EMAIL_DOMAINS:
-          try:
-              msg = 'Bridgy Fed: new webmention from %s' % source
-              mail.send_mail(
-                  sender='admin@bridgy-federated.appspotmail.com',
-                  to='bridgy-fed@ryanb.org',
-                  subject=msg, body=msg)
-          except BaseException:
-              logging.warning('Error sending email', exc_info=True)
+        # if self.source_domain not in SKIP_EMAIL_DOMAINS:
+        #   try:
+        #       msg = 'Bridgy Fed: new webmention from %s' % source
+        #       mail.send_mail(
+        #           sender='admin@bridgy-federated.appspotmail.com',
+        #           to='bridgy-fed@ryanb.org',
+        #           subject=msg, body=msg)
+        #   except BaseException:
+        #       logging.warning('Error sending email', exc_info=True)
 
     def try_activitypub(self):
         """Returns True if we attempted ActivityPub delivery, False otherwise."""
