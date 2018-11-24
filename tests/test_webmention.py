@@ -508,6 +508,35 @@ class WebmentionTest(testutil.TestCase):
             self.assertEqual('complete', resp.status, inbox)
             self.assertEqual(self.create_mf2, json.loads(resp.source_mf2), inbox)
 
+    def test_activitypub_create_with_image(self, mock_get, mock_post):
+        create_html = self.create_html.replace(
+            '</body>', '<img class="u-photo" src="http://im/age" />\n</body>')
+        mock_get.side_effect = [
+            requests_response(create_html, content_type=CONTENT_TYPE_HTML),
+            self.actor,
+        ]
+        mock_post.return_value = requests_response('abc xyz ')
+
+        Follower.get_or_create(
+            'orig', 'https://mastodon/aaa',
+            last_follow=json.dumps({'actor': {'inbox': 'https://inbox'}}))
+        self.datastore_stub.Flush()
+
+        got = app.get_response(
+            '/webmention', method='POST', body=urllib.urlencode({
+                'source': 'http://orig/post',
+                'target': 'https://fed.brid.gy/',
+            }))
+        self.assertEquals(200, got.status_int)
+
+        self.assertEquals(('https://inbox',), mock_post.call_args[0])
+        create = copy.deepcopy(self.create_as2)
+        create['object'].update({
+            'image': [{'url': 'http://im/age', 'type': 'Image'}],
+            'attachment': [{'url': 'http://im/age', 'type': 'Image'}],
+        })
+        self.assertEquals(create, mock_post.call_args[1]['json'])
+
     def test_activitypub_follow(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow, self.actor]
         mock_post.return_value = requests_response('abc xyz')

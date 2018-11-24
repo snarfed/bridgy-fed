@@ -277,7 +277,7 @@ def postprocess_as2(activity, target=None, key=None):
                     })
 
     # activity objects (for Like, Announce, etc): prefer id over url
-    obj = activity.get('object', {})
+    obj = activity.get('object')
     if obj:
         if isinstance(obj, dict) and not obj.get('id'):
             obj['id'] = target_id or obj.get('url')
@@ -292,6 +292,12 @@ def postprocess_as2(activity, target=None, key=None):
 
     activity['id'] = redirect_wrap(activity['id'])
     activity['url'] = redirect_wrap(activity['url'])
+
+    # copy image(s) into attachment(s). may be Mastodon-specific.
+    # https://github.com/snarfed/bridgy-fed/issues/33#issuecomment-440965618
+    obj_or_activity = obj if isinstance(obj, dict) else activity
+    obj_or_activity.setdefault('attachment', []).extend(
+        obj_or_activity.get('image', []))
 
     # cc public and target's author(s) and recipients
     # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting
