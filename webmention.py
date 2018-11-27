@@ -7,6 +7,7 @@ TODO tests:
 import datetime
 import json
 import logging
+import urllib
 import urlparse
 
 import appengine_config
@@ -50,6 +51,12 @@ class WebmentionHandler(webapp2.RequestHandler):
         self.source_domain = urlparse.urlparse(self.source_url).netloc.split(':')[0]
         self.source_mf2 = mf2py.parse(source_resp.text, url=self.source_url, img_with_alt=True)
         # logging.debug('Parsed mf2 for %s: %s', source_resp.url, json.dumps(self.source_mf2, indent=2))
+
+        # check for backlink to bridgy fed (for webmention spec and to confirm
+        # source's intent to federate to mastodon)
+        if (self.request.host_url not in source_resp.text and
+            urllib.quote(self.request.host_url, safe='') not in source_resp.text):
+            common.error(self, "Couldn't find link to %s" % self.request.host_url)
 
         # convert source page to ActivityStreams
         entry = mf2util.find_first_entry(self.source_mf2, ['h-entry'])

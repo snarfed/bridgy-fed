@@ -84,7 +84,7 @@ class WebmentionTest(testutil.TestCase):
 <a class="u-url" href="http://a/reply"></a>
 <p class="e-content p-name">
 <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>
-<a href="https://fed.brid.gy/"></a>
+<a href="http://localhost/"></a>
 </p>
 <a class="p-author h-card" href="http://orig">Ms. ☕ Baz</a>
 </div>
@@ -101,6 +101,7 @@ class WebmentionTest(testutil.TestCase):
 <a class="u-url" href="http://a/repost"></a>
 <a class="u-repost-of p-name" href="http://orig/post">reposted!</a>
 <a class="p-author h-card" href="http://orig">Ms. ☕ Baz</a>
+<a href="http://localhost/"></a>
 </body>
 </html>
 """
@@ -136,6 +137,7 @@ class WebmentionTest(testutil.TestCase):
 <a class="u-like-of" href="http://orig/post"></a>
 <!--<a class="u-like-of p-name" href="http://orig/post">liked!</a>-->
 <a class="p-author h-card" href="http://orig">Ms. ☕ Baz</a>
+<a href="http://localhost/"></a>
 </body>
 </html>
 """
@@ -160,7 +162,7 @@ class WebmentionTest(testutil.TestCase):
                 'id': 'http://localhost/r/http://a/reply',
                 'url': 'http://localhost/r/http://a/reply',
                 'name': 'foo ☕ bar',
-                'content': '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>\n<a href="https://fed.brid.gy/"></a>',
+                'content': '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>\n<a href="http://localhost/"></a>',
                 'inReplyTo': 'tag:orig,2017:as2',
                 'cc': [
                     AS2_PUBLIC_AUDIENCE,
@@ -190,6 +192,7 @@ class WebmentionTest(testutil.TestCase):
 <a class="u-url" href="http://a/follow"></a>
 <a class="u-follow-of" href="http://followee"></a>
 <a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>
+<a href="http://localhost/"></a>
 </body>
 </html>
 """
@@ -226,6 +229,7 @@ class WebmentionTest(testutil.TestCase):
 <a class="u-url" href="http://orig/post"></a>
 <p class="e-content p-name">hello i am a post</p>
 <a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>
+<a href="http://localhost/"></a>
 </body>
 </html>
 """
@@ -277,9 +281,23 @@ class WebmentionTest(testutil.TestCase):
         mock_get.return_value = requests_response("""
 <html>
 <body>
-<p>nothing to see here except <a href="https://fed.brid.gy/">link</a></p>
+<p>nothing to see here except <a href="http://localhost/">link</a></p>
 </body>
 </html>""", content_type=CONTENT_TYPE_HTML)
+
+        got = app.get_response(
+            '/webmention', method='POST', body=urllib.urlencode({
+                'source': 'http://a/post',
+                'target': 'https://fed.brid.gy/',
+            }))
+        self.assertEquals(400, got.status_int)
+
+        mock_get.assert_has_calls((self.req('http://a/post'),))
+
+    def test_no_backlink(self, mock_get, mock_post):
+        mock_get.return_value = requests_response(
+            self.reply_html.replace('<a href="http://localhost/"></a>', ''),
+                                    content_type=CONTENT_TYPE_HTML)
 
         got = app.get_response(
             '/webmention', method='POST', body=urllib.urlencode({
@@ -409,6 +427,7 @@ class WebmentionTest(testutil.TestCase):
 <body class="h-entry">
 <a class="u-repost-of p-name" href="http://orig/post">reposted!</a>
 <a class="p-author h-card" href="http://orig">Ms. ☕ Baz</a>
+<a href="http://localhost/"></a>
 </body>
 </html>
 """, content_type=CONTENT_TYPE_HTML)
@@ -435,6 +454,7 @@ class WebmentionTest(testutil.TestCase):
 <body class="h-entry">
 <a class="u-repost-of p-name" href="http://orig/post">reposted!</a>
 <a class="u-author" href="http://orig"></a>
+<a href="http://localhost/"></a>
 </body>
 </html>
 """, content_type=CONTENT_TYPE_HTML)
@@ -601,7 +621,7 @@ class WebmentionTest(testutil.TestCase):
             'ref': 'tag:fed.brid.gy,2017-08-22:orig-post'
         }, entry['thr_in-reply-to'])
         self.assertEquals(
-            '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a><br />\n<a href="https://fed.brid.gy/"></a>',
+            '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a><br />\n<a href="http://localhost/"></a>',
             entry.content[0]['value'])
 
         resp = Response.get_by_id('http://a/reply http://orig/post')
