@@ -209,6 +209,10 @@ class WebmentionHandler(webapp2.RequestHandler):
     def try_salmon(self):
         """Returns True if we attempted OStatus delivery. Raises otherwise."""
         target = self.target_resp.url if self.target_resp else self._single_target()
+        if not target:
+            logging.warning("No targets or followers. Ignoring.")
+            return False
+
         resp = Response.get_or_create(
             source=self.source_url, target=target, direction='out',
             source_mf2=json.dumps(self.source_mf2))

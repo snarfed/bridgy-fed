@@ -294,6 +294,23 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((self.req('http://a/post'),))
 
+    def test_no_targets(self, mock_get, mock_post):
+        mock_get.return_value = requests_response("""
+<html>
+<body class="h-entry">
+<p class="e-content">no one to send to! <a href="http://localhost/"></a></p>
+</body>
+</html>""", content_type=CONTENT_TYPE_HTML)
+
+        got = app.get_response(
+            '/webmention', method='POST', body=urllib.urlencode({
+                'source': 'http://a/post',
+                'target': 'https://fed.brid.gy/',
+            }))
+        self.assertEquals(200, got.status_int)
+
+        mock_get.assert_has_calls((self.req('http://a/post'),))
+
     def test_no_backlink(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
             self.reply_html.replace('<a href="http://localhost/"></a>', ''),
