@@ -67,7 +67,7 @@ class WebmentionTest(testutil.TestCase):
   <content type="html">baz ☕ baj</content>
 </entry>
 """)
-        self.orig_as2 = requests_response({
+        self.orig_as2_data = {
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Article',
             'id': 'tag:orig,2017:as2',
@@ -75,7 +75,10 @@ class WebmentionTest(testutil.TestCase):
             'actor': {'url': 'http://orig/author'},
             'to': ['http://orig/recipient'],
             'cc': ['http://orig/bystander', AS2_PUBLIC_AUDIENCE],
-        }, url='http://orig/as2', content_type=CONTENT_TYPE_AS2 + '; charset=utf-8')
+        }
+        self.orig_as2 = requests_response(
+            self.orig_as2_data, url='http://orig/as2',
+            content_type=CONTENT_TYPE_AS2 + '; charset=utf-8')
 
         self.reply_html = """\
 <html>
@@ -363,6 +366,56 @@ class WebmentionTest(testutil.TestCase):
         # self.assertEqual([self.as2_create], resp.request_statuses)
         # self.assertEqual([self.as2_create], resp.requests)
         # self.assertEqual(['abc xyz'], resp.responses)
+
+    def test_activitypub_update_reply(self, mock_get, mock_post):
+        Response(id='http://a/reply http://orig/as2', status='complete').put()
+
+        mock_get.side_effect = self.activitypub_gets
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = app.get_response(
+            '/webmention', method='POST', body=urllib.urlencode({
+                'source': 'http://a/reply',
+                'target': 'https://fed.brid.gy/',
+            }))
+        self.assertEquals(200, got.status_int)
+
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://foo.com/inbox',), args)
+        self.assertEqual(self.as2_update, kwargs['json'])
+
+    def test_activitypub_create_reply_attributed_to_id_only(self, mock_get, mock_post):
+        """Based on PeerTube's AS2.
+
+        https://github.com/snarfed/bridgy-fed/issues/40
+        """
+        del self.orig_as2_data['actor']
+        self.orig_as2_data['attributedTo'] = [{
+            'type': 'Person',
+            'id': 'http://orig/author',
+        }]
+        orig_as2_resp = requests_response(
+            self.orig_as2_data, content_type=CONTENT_TYPE_AS2 + '; charset=utf-8')
+
+        mock_get.side_effect = [self.reply, orig_as2_resp, self.actor]
+        mock_post.return_value = requests_response('abc xyz', status=203)
+
+        got = app.get_response(
+            '/webmention', method='POST', body=urllib.urlencode({
+                'source': 'http://a/reply',
+                'target': 'https://fed.brid.gy/',
+            }))
+        self.assertEquals(203, got.status_int)
+
+        mock_get.assert_has_calls((
+            self.req('http://a/reply'),
+            self.req('http://orig/post', headers=CONNEG_HEADERS_AS2_HTML),
+            self.req('http://orig/author', headers=CONNEG_HEADERS_AS2_HTML),
+        ))
+
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://foo.com/inbox',), args)
+        self.assertEqual(self.as2_create, kwargs['json'])
 
     def test_activitypub_update_reply(self, mock_get, mock_post):
         Response(id='http://a/reply http://orig/as2', status='complete').put()

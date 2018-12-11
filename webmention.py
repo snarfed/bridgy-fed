@@ -185,12 +185,15 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         if not inbox_url:
             # TODO: test actor/attributedTo and not, with/without inbox
-            actor = target_obj.get('actor') or target_obj.get('attributedTo')
+            actor = (util.get_first(target_obj, 'actor') or
+                     util.get_first(target_obj, 'attributedTo'))
             if isinstance(actor, dict):
                 inbox_url = actor.get('inbox')
-                actor = actor.get('url')
+                actor = actor.get('url') or actor.get('id')
             if not inbox_url and not actor:
-                common.error(self, 'Target object has no actor or attributedTo URL')
+                common.error(self, 'Target object has no actor or attributedTo with URL or id.')
+            elif not isinstance(actor, basestring):
+                common.error(self, 'Target actor or attributedTo has unexpected url or id object: %r' % actor)
 
         if not inbox_url:
             # fetch actor as AS object

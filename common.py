@@ -266,8 +266,8 @@ def postprocess_as2(activity, target=None, key=None):
         # reposts, etc. details:
         # https://github.com/snarfed/bridgy-fed/issues/34
         if target:
-            to = target.get('actor') or target.get('attributedTo')
-            if to:
+            for to in (util.get_list(target, 'attributedTo') +
+                       util.get_list(target, 'actor')):
                 if isinstance(to, dict):
                     to = to.get('url') or to.get('id')
                 if to:
@@ -307,7 +307,8 @@ def postprocess_as2(activity, target=None, key=None):
         if target:
             recips += itertools.chain(*(util.get_list(target, field) for field in
                                         ('actor', 'attributedTo', 'to', 'cc')))
-        activity['cc'] = util.dedupe_urls(util.get_url(recip) for recip in recips)
+        activity['cc'] = util.dedupe_urls(util.get_url(recip) or recip.get('id')
+                                          for recip in recips)
 
     # wrap articles and notes in a Create activity
     if type in ('Article', 'Note'):
