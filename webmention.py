@@ -92,7 +92,7 @@ class WebmentionHandler(webapp2.RequestHandler):
             return False
 
         key = MagicKey.get_or_create(self.source_domain)
-        error = False
+        error = None
         delivered = set()  # inboxes we've delivered to
 
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
@@ -108,16 +108,21 @@ class WebmentionHandler(webapp2.RequestHandler):
             try:
                 last = activitypub.send(source_activity, inbox, self.source_domain)
                 resp.status = 'complete'
-            except:
+            except BaseException as e:
+                error = e
                 resp.status = 'error'
 
             resp.put()
-            if resp.status == 'error':
-                error = sent
 
         # Pass the AP response status code and body through as our response
-        self.response.status_int = (error or last).status_code
-        self.response.write((error or last).text)
+        if not error:
+            self.response.status_int = last.status_code
+            self.response.write(last.text)
+        elif isinstance(error, requests.HTTPError):
+            self.response.status_int = error.status_code
+            self.response.write(error.text)
+        else:
+            self.response.write(unicode(error))
 
         return not error
 
