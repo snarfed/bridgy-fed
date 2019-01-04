@@ -35,6 +35,37 @@ import testutil
 import webmention
 from webmention import app
 
+REPOST_HTML = """\
+<html>
+<body class="h-entry">
+<a class="u-url" href="http://a/repost"></a>
+<a class="u-repost-of p-name" href="http://orig/post">reposted!</a>
+<a class="p-author h-card" href="http://orig">Ms. ☕ Baz</a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+"""
+REPOST_AS2 = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'type': 'Announce',
+    'id': 'http://localhost/r/http://a/repost',
+    'url': 'http://localhost/r/http://a/repost',
+    'name': 'reposted!',
+    'object': 'tag:orig,2017:as2',
+    'cc': [
+        AS2_PUBLIC_AUDIENCE,
+        'http://orig/author',
+        'http://orig/recipient',
+        'http://orig/bystander',
+    ],
+    'actor': {
+        'type': 'Person',
+        'id': 'http://localhost/orig',
+        'url': 'http://localhost/r/http://orig',
+        'name': 'Ms. ☕ Baz',
+        'preferredUsername': 'orig',
+    },
+}
 
 @mock.patch('requests.post')
 @mock.patch('requests.get')
@@ -98,40 +129,11 @@ class WebmentionTest(testutil.TestCase):
             self.reply_html, content_type=CONTENT_TYPE_HTML)
         self.reply_mf2 = mf2py.parse(self.reply_html, url='http://a/reply')
 
-        self.repost_html = """\
-<html>
-<body class="h-entry">
-<a class="u-url" href="http://a/repost"></a>
-<a class="u-repost-of p-name" href="http://orig/post">reposted!</a>
-<a class="p-author h-card" href="http://orig">Ms. ☕ Baz</a>
-<a href="http://localhost/"></a>
-</body>
-</html>
-"""
+        self.repost_html = REPOST_HTML
         self.repost = requests_response(
             self.repost_html, content_type=CONTENT_TYPE_HTML)
         self.repost_mf2 = mf2py.parse(self.repost_html, url='http://a/repost')
-        self.repost_as2 = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'type': 'Announce',
-            'id': 'http://localhost/r/http://a/repost',
-            'url': 'http://localhost/r/http://a/repost',
-            'name': 'reposted!',
-            'object': 'tag:orig,2017:as2',
-            'cc': [
-                AS2_PUBLIC_AUDIENCE,
-                'http://orig/author',
-                'http://orig/recipient',
-                'http://orig/bystander',
-            ],
-            'actor': {
-                'type': 'Person',
-                'id': 'http://localhost/orig',
-                'url': 'http://localhost/r/http://orig',
-                'name': 'Ms. ☕ Baz',
-                'preferredUsername': 'orig',
-            },
-        }
+        self.repost_as2 = REPOST_AS2
 
         self.like_html = """\
 <html>
