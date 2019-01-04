@@ -240,6 +240,7 @@ def postprocess_as2(activity, target=None, key=None):
             # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
             # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
             activity['publicKey'] = {
+                'id': activity.get('preferredUsername'),
                 'publicKeyPem': key.public_pem(),
             }
         return activity
@@ -333,6 +334,9 @@ def postprocess_as2_actor(actor):
         actor.setdefault('preferredUsername', domain)
         actor['id'] = '%s/%s' % (appengine_config.HOST_URL, domain)
         actor['url'] = redirect_wrap(url)
+
+    # required by pixelfed. https://github.com/snarfed/bridgy-fed/issues/39
+    actor.setdefault('summary', '')
 
 
 def redirect_wrap(url):

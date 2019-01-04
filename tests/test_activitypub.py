@@ -118,11 +118,14 @@ class ActivityPubTest(testutil.TestCase):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type' : 'Person',
             'name': 'Mrs. ☕ Foo',
+            'summary': '',
             'preferredUsername': 'foo.com',
             'id': 'http://localhost/foo.com',
             'url': 'http://localhost/r/https://foo.com/about-me',
             'inbox': 'http://localhost/foo.com/inbox',
+            'outbox': 'http://localhost/foo.com/outbox',
             'publicKey': {
+                'id': 'foo.com',
                 'publicKeyPem': MagicKey.get_by_id('foo.com').public_pem(),
             },
         }, json.loads(got.body))

@@ -85,6 +85,7 @@ representative h-card</a> on %s""" % resp.url)
                                      key=key)
         obj.update({
             'inbox': '%s/%s/inbox' % (appengine_config.HOST_URL, domain),
+            'outbox': '%s/%s/outbox' % (appengine_config.HOST_URL, domain),
         })
         logging.info('Returning: %s', json.dumps(obj, indent=2))
 
