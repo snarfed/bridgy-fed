@@ -86,6 +86,8 @@ representative h-card</a> on %s""" % resp.url)
         obj.update({
             'inbox': '%s/%s/inbox' % (appengine_config.HOST_URL, domain),
             'outbox': '%s/%s/outbox' % (appengine_config.HOST_URL, domain),
+            'following': '%s/%s/following' % (appengine_config.HOST_URL, domain),
+            'followers': '%s/%s/followers' % (appengine_config.HOST_URL, domain),
         })
         logging.info('Returning: %s', json.dumps(obj, indent=2))
 

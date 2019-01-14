@@ -124,6 +124,8 @@ class ActivityPubTest(testutil.TestCase):
             'url': 'http://localhost/r/https://foo.com/about-me',
             'inbox': 'http://localhost/foo.com/inbox',
             'outbox': 'http://localhost/foo.com/outbox',
+            'following': 'http://localhost/foo.com/following',
+            'followers': 'http://localhost/foo.com/followers',
             'publicKey': {
                 'id': 'foo.com',
                 'publicKeyPem': MagicKey.get_by_id('foo.com').public_pem(),
