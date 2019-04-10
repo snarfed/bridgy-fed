@@ -79,7 +79,11 @@ def _requests_fn(fn, url, parse_json=False, **kwargs):
     """Wraps requests.* and adds raise_for_status() and User-Agent."""
     kwargs.setdefault('headers', {}).update(HEADERS)
 
-    resp = fn(url, **kwargs)
+    try:
+        resp = fn(url, **kwargs)
+    except (requests.ConnectionError, requests.Timeout) as e:
+        logging.warning(url, exc_info=True)
+        raise exc.HTTPBadGateway(unicode(e))
 
     logging.info('Got %s headers:%s', resp.status_code, resp.headers)
     type = content_type(resp)

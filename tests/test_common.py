@@ -58,3 +58,9 @@ class CommonTest(testutil.TestCase):
     def test_get_as2_not_acceptable(self, mock_get):
         with self.assertRaises(exc.HTTPBadGateway):
             resp = common.get_as2('http://orig')
+
+    @mock.patch('requests.get', side_effect=requests.exceptions.SSLError)
+    def test_get_ssl_error(self, mock_get):
+        with self.assertRaises(exc.HTTPBadGateway):
+            resp = common.get_as2('http://orig')
+
