@@ -295,8 +295,8 @@ def postprocess_as2(activity, target=None, key=None):
 
     assert activity.get('id') or (isinstance(obj, dict) and obj.get('id'))
 
-    activity['id'] = redirect_wrap(activity['id'])
-    activity['url'] = redirect_wrap(activity['url'])
+    activity['id'] = redirect_wrap(activity.get('id'))
+    activity['url'] = redirect_wrap(activity.get('url'))
 
     # copy image(s) into attachment(s). may be Mastodon-specific.
     # https://github.com/snarfed/bridgy-fed/issues/33#issuecomment-440965618
