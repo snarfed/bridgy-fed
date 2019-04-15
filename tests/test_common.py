@@ -64,3 +64,7 @@ class CommonTest(testutil.TestCase):
         with self.assertRaises(exc.HTTPBadGateway):
             resp = common.get_as2('http://orig')
 
+    def test_redirect_wrap_empty(self):
+        self.assertIsNone(common.redirect_wrap(None))
+        self.assertEqual('', common.redirect_wrap(''))
+

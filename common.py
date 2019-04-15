@@ -351,6 +351,8 @@ def redirect_wrap(url):
     https://github.com/snarfed/bridgy-fed/issues/16#issuecomment-424799599
     https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
     """
+    if not url:
+        return url
     if url.startswith(REDIRECT_PREFIX):
         return url
     return REDIRECT_PREFIX + url
