@@ -1,20 +1,24 @@
 # coding=utf-8
 """Renders mf2 proxy pages based on stored Responses."""
+import datetime
 import json
 
 import appengine_config
 
 from granary import as2, atom, microformats2
-from oauth_dropins.webutil.handlers import ModernHandler
+from oauth_dropins.webutil.handlers import memcache_response, ModernHandler
 from oauth_dropins.webutil import util
 import webapp2
 
 from models import Response
 
+CACHE_TIME = datetime.timedelta(minutes=15)
+
 
 class RenderHandler(ModernHandler):
     """Fetches a stored Response and renders it as HTML."""
 
+    @memcache_response(CACHE_TIME)
     def get(self):
         source = util.get_required_param(self, 'source')
         target = util.get_required_param(self, 'target')

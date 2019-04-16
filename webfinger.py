@@ -11,6 +11,7 @@ TODO: test:
 * user URL that redirects
 """
 from __future__ import unicode_literals
+import datetime
 import json
 import logging
 import urllib
@@ -28,10 +29,16 @@ import webapp2
 import common
 import models
 
+CACHE_TIME = datetime.timedelta(seconds=15)
+
 
 class UserHandler(handlers.XrdOrJrdHandler):
     """Fetches a site's home page, converts its mf2 to WebFinger, and serves."""
     JRD_TEMPLATE = False
+
+    @handlers.memcache_response(CACHE_TIME)
+    def get(self, *args, **kwargs):
+        return super(UserHandler, self).get(*args, **kwargs)
 
     def template_prefix(self):
         return 'templates/webfinger_user'

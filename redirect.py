@@ -8,16 +8,20 @@ accepts them. Background:
 https://github.com/snarfed/bridgy-fed/issues/16#issuecomment-424799599
 https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
 """
-import logging
+import datetime
 import json
+import logging
 
 from granary import as2, microformats2
 import mf2py
 import mf2util
+from oauth_dropins.webutil.handlers import memcache_response
 import webapp2
 
 import appengine_config
 import common
+
+CACHE_TIME = datetime.timedelta(seconds=15)
 
 
 class RedirectHandler(webapp2.RequestHandler):
@@ -26,6 +30,7 @@ class RedirectHandler(webapp2.RequestHandler):
     e.g. redirects /r/https://foo.com/bar?baz to https://foo.com/bar?baz
     """
 
+    @memcache_response(CACHE_TIME)
     def get(self):
         assert self.request.path_qs.startswith('/r/')
         to = self.request.path_qs[3:]

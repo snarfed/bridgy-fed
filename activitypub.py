@@ -11,11 +11,14 @@ from granary import as2, microformats2
 import mf2py
 import mf2util
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.handlers import memcache_response
 import webapp2
 
 import common
 from models import Follower, MagicKey, Response
 from httpsig.requests_auth import HTTPSignatureAuth
+
+CACHE_TIME = datetime.timedelta(seconds=15)
 
 SUPPORTED_TYPES = (
     'Accept',
@@ -67,6 +70,7 @@ def send(activity, inbox_url, user_domain):
 class ActorHandler(webapp2.RequestHandler):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
 
+    @memcache_response(CACHE_TIME)
     def get(self, domain):
         url = 'http://%s/' % domain
         resp = common.requests_get(url)

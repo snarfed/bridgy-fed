@@ -1,10 +1,12 @@
 """HTTP proxy that injects our webmention endpoint.
 """
+import datetime
 import logging
 import urllib
 
 import appengine_config
 
+from oauth_dropins.webutil.handlers import memcache_response
 import requests
 import webapp2
 
@@ -12,10 +14,13 @@ import common
 
 LINK_HEADER = '<%s>; rel="webmention"'
 
+CACHE_TIME = datetime.timedelta(seconds=15)
+
 
 class AddWebmentionHandler(webapp2.RequestHandler):
     """Proxies HTTP requests and adds Link header to our webmention endpoint."""
 
+    @memcache_response(CACHE_TIME)
     def get(self, url):
         url = urllib.unquote(url)
         if not url.startswith('http://') and not url.startswith('https://'):
