@@ -212,7 +212,11 @@ def send_webmentions(handler, activity_wrapped, proxy=None, **response_props):
     # send webmentions and store Responses
     errors = []
     for target in targets:
-        # TODO: drop if domain is same as source
+        if util.domain_from_link(target) == util.domain_from_link(source):
+            logging.info('Skipping same-domain webmention from %s to %s',
+                         source, target)
+            continue
+
         response = Response(source=source, target=target, direction='in',
                             **response_props)
         response.put()

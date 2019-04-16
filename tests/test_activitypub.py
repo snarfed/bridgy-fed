@@ -214,6 +214,23 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('complete', resp.status)
         self.assertEqual(expected_as2, json.loads(resp.source_as2))
 
+    def test_inbox_reply_drop_self_domain_target(self, mock_head, mock_get, mock_post):
+        reply = copy.deepcopy(REPLY_OBJECT)
+        # same domain as source; should drop
+        reply['inReplyTo'] = 'http://localhost/this',
+
+        mock_head.return_value = requests_response(url='http://this/')
+
+        got = app.get_response('/foo.com/inbox', method='POST',
+                               body=json.dumps(reply))
+        self.assertEquals(200, got.status_int, got.body)
+
+        mock_head.assert_called_once_with(
+            'http://this', allow_redirects=True, timeout=15)
+        mock_get.assert_not_called()
+        mock_post.assert_not_called()
+        self.assertEquals(0, Response.query().count())
+
     def test_inbox_mention_object(self, *mocks):
         self._test_inbox_mention(MENTION_OBJECT, *mocks)
 
