@@ -19,6 +19,7 @@ from webob import exc
 from google.appengine.api import memcache
 
 import appengine_config
+import common
 from models import Response
 
 DOMAIN_RE = r'([^/]+\.[^/]+)'
@@ -165,13 +166,15 @@ def error(handler, msg, status=None, exc_info=False):
     handler.abort(status, msg)
 
 
-def send_webmentions(handler, activity, proxy=None, **response_props):
+def send_webmentions(handler, activity_wrapped, proxy=None, **response_props):
     """Sends webmentions for an incoming Salmon slap or ActivityPub inbox delivery.
     Args:
       handler: RequestHandler
-      activity: dict, AS1 activity
+      activity_wrapped: dict, AS1 activity
       response_props: passed through to the newly created Responses
     """
+    activity = common.redirect_unwrap(activity_wrapped)
+
     verb = activity.get('verb')
     if verb and verb not in SUPPORTED_VERBS:
         error(handler, '%s activities are not supported yet.' % verb)
@@ -186,6 +189,17 @@ def send_webmentions(handler, activity, proxy=None, **response_props):
         if not source or verb in ('create', 'post', 'update'):
             source = obj_url or obj.get('id')
         targets.extend(util.get_list(obj, 'inReplyTo'))
+
+    tags = util.get_list(activity_wrapped, 'tags')
+    obj_wrapped = activity_wrapped.get('object')
+    if isinstance(obj_wrapped, dict):
+        tags.extend(util.get_list(obj_wrapped, 'tags'))
+    for tag in tags:
+        if tag.get('objectType') == 'mention':
+            url = tag.get('url')
+            if url and url.startswith(appengine_config.HOST_URL):
+                targets.append(redirect_unwrap(url))
+
     if verb in ('follow', 'like', 'share'):
          targets.append(obj_url)
 
@@ -193,15 +207,12 @@ def send_webmentions(handler, activity, proxy=None, **response_props):
     if not source:
         error(handler, "Couldn't find original post URL")
     if not targets:
-        error(handler, "Couldn't find target URLs (inReplyTo or object)")
+        error(handler, "Couldn't find any target URLs in inReplyTo, object, or mention tags")
 
     # send webmentions and store Responses
     errors = []
     for target in targets:
-        if not target:
-            continue
-
-        target = redirect_unwrap(target)
+        # TODO: drop if domain is same as source
         response = Response(source=source, target=target, direction='in',
                             **response_props)
         response.put()
@@ -361,21 +372,25 @@ def redirect_wrap(url):
 def redirect_unwrap(val):
     """Removes our redirect wrapping from a URL, if it's there.
 
-    url may be a string or dict. If it's a dict, all string and dict values are
-    unwrapped, recursively.
+    url may be a string, dict, or list. dicts and lists are unwrapped
+    recursively.
 
     Strings that aren't wrapped URLs are left unchanged.
     """
     if isinstance(val, dict):
         return {k: redirect_unwrap(v) for k, v in val.items()}
 
-    if isinstance(val, basestring):
+    elif isinstance(val, list):
+        return [redirect_unwrap(v) for v in val]
+
+    elif isinstance(val, basestring):
         if val.startswith(REDIRECT_PREFIX):
             return val[len(REDIRECT_PREFIX):]
         elif val.startswith(appengine_config.HOST_URL):
             return util.follow_redirects(
                 util.domain_from_link(urlparse.urlparse(val).path.strip('/')),
                 cache=memcache).url
+
     return val
 
 

@@ -38,6 +38,34 @@ REPLY = {
     'id': 'http://this/reply/as2',
     'object': REPLY_OBJECT,
 }
+MENTION_OBJECT = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'type': 'Note',
+    'content': '☕ mentions of @other @target@target',
+    'id': 'http://this/mention/id',
+    'url': 'http://this/mention',
+    'to': ['https://www.w3.org/ns/activitystreams#Public'],
+    'cc': [
+        'https://this/author/followers',
+        'https://masto.foo/@other',
+        'http://localhost/target',  # redirect-wrapped
+    ],
+    'tag': [{
+        'type': 'Mention',
+        'href': 'https://masto.foo/@other',
+        'name': '@other@masto.foo',
+    }, {
+        'type': 'Mention',
+        'href': 'http://localhost/target',  # redirect-wrapped
+        'name': '@target@target',
+    }],
+}
+MENTION = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'type': 'Create',
+    'id': 'http://this/mention/as2',
+    'object': MENTION_OBJECT,
+}
 # based on example Mastodon like:
 # https://github.com/snarfed/bridgy-fed/issues/4#issuecomment-334212362
 # (reposts are very similar)
@@ -185,6 +213,42 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
         self.assertEqual(expected_as2, json.loads(resp.source_as2))
+
+    def test_inbox_mention_object(self, *mocks):
+        self._test_inbox_mention(MENTION_OBJECT, *mocks)
+
+    def test_inbox_mention_create_activity(self, *mocks):
+        self._test_inbox_mention(MENTION, *mocks)
+
+    def _test_inbox_mention(self, as2, mock_head, mock_get, mock_post):
+        mock_head.return_value = requests_response(url='http://target')
+        mock_get.return_value = requests_response(
+            '<html><head><link rel="webmention" href="/webmention"></html>')
+        mock_post.return_value = requests_response()
+
+        got = app.get_response('/foo.com/inbox', method='POST',
+                               body=json.dumps(as2))
+        self.assertEquals(200, got.status_int, got.body)
+        mock_get.assert_called_once_with(
+            'http://target/', headers=common.HEADERS, verify=False)
+
+        expected_headers = copy.deepcopy(common.HEADERS)
+        expected_headers['Accept'] = '*/*'
+        mock_post.assert_called_once_with(
+            'http://target/webmention',
+            data={
+                'source': 'http://localhost/render?source=http%3A%2F%2Fthis%2Fmention&target=http%3A%2F%2Ftarget%2F',
+                'target': 'http://target/',
+            },
+            allow_redirects=False,
+            headers=expected_headers,
+            verify=False)
+
+        resp = Response.get_by_id('http://this/mention http://target/')
+        self.assertEqual('in', resp.direction)
+        self.assertEqual('activitypub', resp.protocol)
+        self.assertEqual('complete', resp.status)
+        self.assertEqual(common.redirect_unwrap(as2), json.loads(resp.source_as2))
 
     def test_inbox_like(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='http://orig/post')

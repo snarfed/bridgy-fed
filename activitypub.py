@@ -138,7 +138,7 @@ class InboxHandler(webapp2.RequestHandler):
             return
 
         # send webmentions to each target
-        as1 = as2.to_as1(activity_unwrapped)
+        as1 = as2.to_as1(activity)
         common.send_webmentions(self, as1, proxy=True, protocol='activitypub',
                                 source_as2=json.dumps(activity_unwrapped))
 
