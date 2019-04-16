@@ -89,11 +89,11 @@ class Response(StringIdModel):
         if source and target:
             assert 'id' not in kwargs
             kwargs['id'] = self._id(source, target)
+        logging.info('Response id (source target): %s', kwargs.get('id'))
         super(Response, self).__init__(**kwargs)
 
     @classmethod
     def get_or_create(cls, source=None, target=None, **kwargs):
-        logging.info('Response source target: %s %s', source, target)
         return cls.get_or_insert(cls._id(source, target), **kwargs)
 
     def source(self):
