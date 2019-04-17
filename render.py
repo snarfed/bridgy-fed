@@ -37,7 +37,14 @@ class RenderHandler(ModernHandler):
         else:
             self.abort(404, 'Stored response for %s has no data' % id)
 
-        self.response.write(microformats2.activities_to_html([as1]))
+        # add HTML meta redirect to source page. should trigger for end users in
+        # browsers but not for webmention receivers (hopefully).
+        html = microformats2.activities_to_html([as1])
+        utf8 = '<meta charset="utf-8">'
+        refresh = '<meta http-equiv="refresh" content="0;url=%s">' % source
+        html = html.replace(utf8, utf8 + '\n' + refresh)
+
+        self.response.write(html)
 
 
 app = webapp2.WSGIApplication([
