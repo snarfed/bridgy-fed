@@ -50,6 +50,7 @@ and the rest of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse<
 <li><a href="#sites">Which sites are supported?</a></li>
 <li><a href="#setup">How do I set it up?</a></li>
 <li><a href="#use">How do I use it?</a></li>
+<li><a href="#image">How do I include an image in a post?</a></li>
 <li><a href="#discovery">How can people on the fediverse find me?</a></li>
 <li><a href="#troubleshooting">I tried it, and it didn't work!</a></li>
 <li><a href="#cost">How much does it cost?</a></li>
@@ -203,6 +204,18 @@ To receive likes, reposts, replies, and follows from fedsocnets, just make sure 
 
 <p>
 The webmention source URL will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>!
+</p>
+</li>
+
+<li id="image" class="question">How do I include an image in a post?</li>
+<li class="answer">
+<p>
+Use <code>&lt;img class="u-photo"&gt;</code> for the image in your post. For example:
+
+<pre>
+&lt;img class="<span class='keyword'>u-photo</span>" src="<span class='value'>/full_glass.jpg</span>" /&gt;
+I love scotch. Scotchy scotchy scotch.
+</pre>
 </p>
 </li>
 
