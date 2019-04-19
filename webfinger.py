@@ -30,6 +30,7 @@ import common
 import models
 
 CACHE_TIME = datetime.timedelta(seconds=15)
+NON_TLDS = frozenset(('html', 'json', 'php', 'xml'))
 
 
 class UserHandler(handlers.XrdOrJrdHandler):
@@ -45,6 +46,9 @@ class UserHandler(handlers.XrdOrJrdHandler):
 
     def template_vars(self, domain, url=None):
         assert domain
+
+        if domain.split('.')[-1] in NON_TLDS:
+            common.error(self, "%s doesn't look like a domain" % domain, status=404)
 
         # find representative h-card. try url, then url's home page, then domain
         urls = ['http://%s/' % domain]

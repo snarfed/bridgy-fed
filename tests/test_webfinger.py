@@ -175,6 +175,11 @@ class WebFingerTest(testutil.TestCase):
         self.assertEquals(400, got.status_int)
         self.assertIn('representative h-card', got.body)
 
+    def test_user_handler_bad_tld(self):
+        got = app.get_response('/foo.json')
+        self.assertEquals(404, got.status_int)
+        self.assertIn("doesn't look like a domain", got.body)
+
     @mock.patch('requests.get')
     def test_webfinger_handler(self, mock_get):
         mock_get.return_value = requests_response(self.html, url='https://foo.com/')
