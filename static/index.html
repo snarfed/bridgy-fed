@@ -108,9 +108,10 @@ First, your site needs to support <a href="http://www.webmention.org/">webmentio
 </p>
 
 <p>
-Next, add an <a href="https://en.wikipedia.org/wiki/Atom_(standard)">Atom</a> feed if your site doesn't already have one. If you're on <a href="https://wordpress.org/">WordPress</a>, install the <a href="https://wordpress.org/plugins/atom-default-feed/">Atom Default Feed plugin</a>.
- <!-- or just <a href="https://codex.wordpress.org/WordPress_Feeds#Finding_Your_Feed_URL">add this</a> to your HTML header:<br /> -->
-Otherwise, you can use <a href="https://granary.io/">granary</a>. Just add this to your site's HTML <code>&lt;head&gt;</code> and fill in <code>DOMAIN</code> with your site's domain:
+Next, add an <a href="https://en.wikipedia.org/wiki/Atom_(standard)">Atom</a> feed if your site doesn't already have one. If you're on <a href="https://wordpress.org/">WordPress</a>, <a href="https://codex.wordpress.org/WordPress_Feeds#Finding_Your_Feed_URL">add this</a> to your site's HTML <code>&lt;head&gt;</code> and replace <code>[DOMAIN]</code> with your site's domain:
+</p>
+<pre>&lt;link rel="alternate" type="application/atom+xml" href="http://[DOMAIN]/?feed=atom" /&gt;</pre>
+<p>If you're not on WordPress, you can use <a href="https://granary.io/">granary</a>:
 </p>
 <pre>&lt;link rel="alternate" type="application/atom+xml"
       href="https://granary.io/url?url=http://[DOMAIN]/&input=html&output=atom&hub=https://bridgy-fed.superfeedr.com/" /&gt;</pre>
