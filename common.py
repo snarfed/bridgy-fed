@@ -278,7 +278,7 @@ def postprocess_as2(activity, target=None, key=None):
             if len(in_reply_to) > 1:
                 logging.warning(
                     "AS2 doesn't support multiple inReplyTo URLs! "
-                    'Only using the first: %s' % in_reply_tos[0])
+                    'Only using the first: %s' % in_reply_to[0])
             activity['inReplyTo'] = in_reply_to[0]
 
         # Mastodon evidently requires a Mention tag for replies to generate a

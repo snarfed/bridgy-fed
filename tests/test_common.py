@@ -68,3 +68,11 @@ class CommonTest(testutil.TestCase):
         self.assertIsNone(common.redirect_wrap(None))
         self.assertEqual('', common.redirect_wrap(''))
 
+    def test_postprocess_as2_multiple_in_reply_tos(self):
+        self.assertEqual({
+            'id': 'http://localhost/r/xyz',
+            'inReplyTo': 'foo',
+        }, common.postprocess_as2({
+            'id': 'xyz',
+            'inReplyTo': ['foo', 'bar'],
+        }))
