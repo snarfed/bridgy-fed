@@ -66,8 +66,7 @@ class UserHandler(handlers.XrdOrJrdHandler):
                 break
         else:
             common.error(self, """\
-Couldn't find a <a href="http://microformats.org/wiki/representative-hcard-parsing">\
-representative h-card</a> on %s""" % resp.url)
+Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on %s""" % resp.url)
 
         logging.info('Generating WebFinger data for %s', domain)
         key = models.MagicKey.get_or_create(domain)

@@ -81,8 +81,7 @@ class ActorHandler(webapp2.RequestHandler):
         logging.info('Representative h-card: %s', json.dumps(hcard, indent=2))
         if not hcard:
             common.error(self, """\
-Couldn't find a <a href="http://microformats.org/wiki/representative-hcard-parsing">\
-representative h-card</a> on %s""" % resp.url)
+Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on %s""" % resp.url)
 
         key = MagicKey.get_or_create(domain)
         obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(hcard)),
