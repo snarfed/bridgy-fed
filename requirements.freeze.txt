@@ -1,6 +1,6 @@
 beautifulsoup4==4.6.3
 brevity==0.2.17
-certifi==2018.4.16
+certifi==2019.3.9
 chardet==3.0.4
 coverage==4.0.3
 -e git+https://github.com/snarfed/django-salmon.git@3869986d640222ffe30b9678686b04500ac1de27#egg=django_salmon
@@ -10,39 +10,39 @@ funcsigs==1.0.2
 future==0.16.0
 gdata==2.0.18
 google-api-python-client==1.6.4
-granary==1.14
+granary==2.0
 html2text==2018.1.9
 html5lib==1.0.1
 httplib2==0.10.3
 -e git+git@github.com:snarfed/httpsig.git@6f0ebfe00af39fb75d50c7a29f46da49e8190d70#egg=httpsig
 humanize==0.5.1
-idna==2.7
-Jinja2==2.10
+idna==2.8
+Jinja2==2.10.1
 # app engine's built in lxml is 3.7.3
 # https://cloud.google.com/appengine/docs/standard/python/tools/built-in-libraries-27
 lxml==3.7.3
-MarkupSafe==1.0
+MarkupSafe==1.1.1
 mf2py==1.1.2
 mf2util==0.5.0
 mock==2.0.0
 mox3==0.24.0
 oauth-dropins==1.14
 oauth2client==4.1.2
-oauthlib==2.0.2
+oauthlib==3.0.1
 pbr==3.1.1
 pyasn1==0.3.3
 pyasn1-modules==0.1.1
 pycrypto==2.6.1
 python-dateutil==1.5
 python-tumblpy==1.1.4
-requests==2.19.1
-requests-oauthlib==0.8.0
-requests-toolbelt==0.8.0
+requests==2.22.0
+requests-oauthlib==1.2.0
+requests-toolbelt==0.9.1
 rsa==3.4.2
 six==1.10.0
 tweepy==3.5.0
 uritemplate==3.0.0
-urllib3==1.23
+urllib3==1.25.2
 webapp2==3.0.0b1
 webencodings==0.5.1
 -e git+https://github.com/snarfed/webmention-tools.git@a67be86024868a6e99f51be568f78505a79a1e2f#egg=webmentiontools
