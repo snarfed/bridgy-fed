@@ -308,7 +308,10 @@ def postprocess_as2(activity, target=None, key=None):
     if not activity.get('id'):
         activity['id'] = activity.get('url')
 
-    assert activity.get('id') or (isinstance(obj, dict) and obj.get('id'))
+    # TODO: find a better way to check this, sometimes or always?
+    # removed for now since it fires on posts without u-id or u-url, eg
+    # https://chrisbeckstrom.com/2018/12/27/32551/
+    # assert activity.get('id') or (isinstance(obj, dict) and obj.get('id'))
 
     activity['id'] = redirect_wrap(activity.get('id'))
     activity['url'] = redirect_wrap(activity.get('url'))
