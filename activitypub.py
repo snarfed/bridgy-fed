@@ -7,6 +7,7 @@ import string
 
 import appengine_config
 
+from google.appengine.ext import ndb
 from granary import as2, microformats2
 import mf2py
 import mf2util
@@ -30,6 +31,7 @@ SUPPORTED_TYPES = (
     'Image',
     'Like',
     'Note',
+    'Undo',
     'Video',
 )
 
@@ -129,6 +131,10 @@ class InboxHandler(webapp2.RequestHandler):
 
         # TODO: verify signature if there is one
 
+        if type == 'Undo' and obj.get('type') == 'Follow':
+            # skip actor fetch below; we don't need it to undo a follow
+            return self.undo_follow(common.redirect_unwrap(activity))
+
         # fetch actor if necessary so we have name, profile photo, etc
         for elem in obj, activity:
             actor = elem.get('actor')
@@ -137,8 +143,7 @@ class InboxHandler(webapp2.RequestHandler):
 
         activity_unwrapped = common.redirect_unwrap(activity)
         if type == 'Follow':
-            self.accept_follow(activity, activity_unwrapped)
-            return
+            return self.accept_follow(activity, activity_unwrapped)
 
         # send webmentions to each target
         as1 = as2.to_as1(activity)
@@ -190,6 +195,33 @@ class InboxHandler(webapp2.RequestHandler):
         common.send_webmentions(
             self, as2.to_as1(follow), proxy=True, protocol='activitypub',
             source_as2=json.dumps(follow_unwrapped))
+
+    @ndb.transactional
+    def undo_follow(self, undo_unwrapped):
+        """Replies to an AP Follow request with an Accept request.
+
+        Args:
+          undo_unwrapped: dict, AP Undo activity with redirect URLs unwrapped
+        """
+        logging.info('Undoing Follow')
+
+        follow = undo_unwrapped.get('object', {})
+        follower = follow.get('actor')
+        followee = follow.get('object')
+        if not follower or not followee:
+            common.error(self, 'Undo of Follow requires object with actor and object. Got: %s' % follow)
+
+        # deactivate Follower
+        user_domain = util.domain_from_link(followee)
+        follower_obj = Follower.get_by_id(Follower._id(user_domain, follower))
+        if not follower_obj:
+            common.error(self, '%s has never followed %s' % (follower, user_domain))
+
+        logging.info('Marking %s as inactive' % follower_obj.key)
+        follower_obj.status = 'inactive'
+        follower_obj.put()
+
+        # TODO send webmention with 410 of u-follow
 
 
 app = webapp2.WSGIApplication([

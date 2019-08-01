@@ -125,6 +125,14 @@ ACCEPT = {
     }
 }
 
+UNDO_FOLLOW_WRAPPED = {
+  '@context': 'https://www.w3.org/ns/activitystreams',
+  'id': 'https://mastodon.social/6d1b',
+  'type': 'Undo',
+  'actor': 'https://mastodon.social/users/swentel',
+  'object': FOLLOW_WRAPPED,
+}
+
 @patch('requests.post')
 @patch('requests.get')
 @patch('requests.head')
@@ -347,7 +355,37 @@ class ActivityPubTest(testutil.TestCase):
 
         # check that we stored a Follower object
         follower = Follower.get_by_id('realize.be %s' % (FOLLOW['actor']))
+        self.assertEqual('active', follower.status)
         self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, json.loads(follower.last_follow))
+
+    def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
+        mock_head.return_value = requests_response(url='https://realize.be/')
+
+        Follower(id=Follower._id('realize.be', FOLLOW['actor'])).put()
+
+        got = app.get_response('/foo.com/inbox', method='POST',
+                               body=json.dumps(UNDO_FOLLOW_WRAPPED))
+        self.assertEquals(200, got.status_int)
+
+        follower = Follower.get_by_id('realize.be %s' % FOLLOW['actor'])
+        self.assertEqual('inactive', follower.status)
+
+    def test_inbox_undo_follow_doesnt_exist(self, mock_head, mock_get, mock_post):
+        mock_head.return_value = requests_response(url='https://realize.be/')
+
+        got = app.get_response('/foo.com/inbox', method='POST',
+                               body=json.dumps(UNDO_FOLLOW_WRAPPED))
+        self.assertEquals(400, got.status_int)
+        self.assertIn('has never followed realize.be', got.text)
+
+    def test_inbox_undo_follow_inactive(self, mock_head, mock_get, mock_post):
+        mock_head.return_value = requests_response(url='https://realize.be/')
+        Follower(id=Follower._id('realize.be', 'https://mastodon.social/users/swentel'),
+                 status='inactive').put()
+
+        got = app.get_response('/foo.com/inbox', method='POST',
+                               body=json.dumps(UNDO_FOLLOW_WRAPPED))
+        self.assertEquals(200, got.status_int)
 
     def test_inbox_unsupported_type(self, *_):
         got = app.get_response('/foo.com/inbox', method='POST', body=json.dumps({

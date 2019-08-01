@@ -133,9 +133,12 @@ class Follower(StringIdModel):
     Key name is 'USER_DOMAIN FOLLOWER_ID', e.g.:
       'snarfed.org https://mastodon.social/@swentel'.
     """
+    STATUSES = ('active', 'inactive')
+
     # most recent AP Follow activity (JSON). must have a composite actor object
     # with an inbox, publicInbox, or sharedInbox!
     last_follow = ndb.TextProperty()
+    status = ndb.StringProperty(choices=STATUSES, default='active')
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
