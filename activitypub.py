@@ -214,12 +214,13 @@ class InboxHandler(webapp2.RequestHandler):
         # deactivate Follower
         user_domain = util.domain_from_link(followee)
         follower_obj = Follower.get_by_id(Follower._id(user_domain, follower))
-        if not follower_obj:
-            common.error(self, '%s has never followed %s' % (follower, user_domain))
+        if follower_obj:
+            logging.info('Marking %s as inactive' % follower_obj.key)
+            follower_obj.status = 'inactive'
+            follower_obj.put()
+        else:
+            logging.warning(self, 'No Follower found for %s %s' % (user_domain, follower))
 
-        logging.info('Marking %s as inactive' % follower_obj.key)
-        follower_obj.status = 'inactive'
-        follower_obj.put()
 
         # TODO send webmention with 410 of u-follow
 

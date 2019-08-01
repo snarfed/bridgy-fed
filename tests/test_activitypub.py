@@ -375,8 +375,7 @@ class ActivityPubTest(testutil.TestCase):
 
         got = app.get_response('/foo.com/inbox', method='POST',
                                body=json.dumps(UNDO_FOLLOW_WRAPPED))
-        self.assertEquals(400, got.status_int)
-        self.assertIn('has never followed realize.be', got.text)
+        self.assertEquals(200, got.status_int)
 
     def test_inbox_undo_follow_inactive(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://realize.be/')
