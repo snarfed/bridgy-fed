@@ -151,7 +151,7 @@ class WebmentionHandler(webapp2.RequestHandler):
             for follower in Follower.query().filter(
                 Follower.key > Key('Follower', self.source_domain + ' '),
                 Follower.key < Key('Follower', self.source_domain + chr(ord(' ') + 1))):
-                if follower.last_follow:
+                if follower.status != 'inactive' and follower.last_follow:
                     actor = json.loads(follower.last_follow).get('actor')
                     if actor and isinstance(actor, dict):
                         inboxes.append(actor.get('endpoints', {}).get('sharedInbox') or

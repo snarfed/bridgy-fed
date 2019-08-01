@@ -575,6 +575,11 @@ class WebmentionTest(testutil.TestCase):
                                last_follow=json.dumps({'actor': {
                                    'inbox': 'https://inbox',
                                }}))
+        Follower.get_or_create('orig', 'https://mastodon/eee',
+                               status='inactive',
+                               last_follow=json.dumps({'actor': {
+                                   'inbox': 'https://unused/2',
+                               }}))
         self.datastore_stub.Flush()
 
         got = app.get_response(
@@ -589,6 +594,7 @@ class WebmentionTest(testutil.TestCase):
         ))
 
         inboxes = ('https://public/inbox', 'https://shared/inbox', 'https://inbox')
+        self.assertEquals(len(inboxes), len(mock_post.call_args_list))
         for call, inbox in zip(mock_post.call_args_list, inboxes):
             self.assertEquals((inbox,), call[0])
             self.assertEquals(self.create_as2, call[1]['json'])
