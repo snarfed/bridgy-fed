@@ -46,7 +46,7 @@ jobs:
             python2 -m coverage html -d /tmp/coverage_html
 
             # send coverage data to coveralls
-            if [ "$COVERALLS_REPO_TOKEN" != "" ]; then coveralls; fi
+            if [ "$COVERALLS_REPO_TOKEN" != "" ]; then coveralls || true; fi
 
       - save_cache:
           key: venv-{{ .Branch }}-{{ checksum "requirements.freeze.txt" }}
