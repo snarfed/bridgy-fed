@@ -82,6 +82,10 @@ def _requests_fn(fn, url, parse_json=False, **kwargs):
 
     try:
         resp = fn(url, **kwargs)
+    except ValueError as e:
+        msg = 'Bad URL %s: %s' % (url, e)
+        logging.warning(msg)
+        raise exc.HTTPBadRequest(msg)
     except (requests.ConnectionError, requests.Timeout) as e:
         logging.warning(url, exc_info=True)
         raise exc.HTTPBadGateway(unicode(e))

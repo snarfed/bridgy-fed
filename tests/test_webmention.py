@@ -282,6 +282,15 @@ class WebmentionTest(testutil.TestCase):
 
         return data
 
+    def test_bad_source_url(self, mock_get, mock_post):
+        got = app.get_response('/webmention', method='POST', body=b'')
+        self.assertEquals(400, got.status_int)
+
+        mock_get.side_effect = ValueError('foo bar')
+        got = app.get_response('/webmention', method='POST',
+                               body=urllib.urlencode({'source': 'bad'}))
+        self.assertEquals(400, got.status_int)
+
     def test_no_source_entry(self, mock_get, mock_post):
         mock_get.return_value = requests_response("""
 <html>
@@ -315,6 +324,16 @@ class WebmentionTest(testutil.TestCase):
         self.assertEquals(200, got.status_int)
 
         mock_get.assert_has_calls((self.req('http://a/post'),))
+
+    def test_bad_target_url(self, mock_get, mock_post):
+        mock_get.side_effect = (
+            requests_response(self.reply_html.replace('http://orig/post', 'bad'),
+                              content_type=CONTENT_TYPE_HTML),
+            ValueError('foo bar'))
+
+        got = app.get_response('/webmention', method='POST',
+                               body=urllib.urlencode({'source': 'http://a/post'}))
+        self.assertEquals(400, got.status_int)
 
     def test_no_backlink(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
