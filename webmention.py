@@ -170,9 +170,9 @@ class WebmentionHandler(webapp2.RequestHandler):
         try:
             self.target_resp = common.get_as2(target)
         except (requests.HTTPError, exc.HTTPBadGateway) as e:
-            self.target_resp = e.response
-            if (e.response.status_code // 100 == 2 and
-                common.content_type(e.response).startswith('text/html')):
+            self.target_resp = getattr(e, 'response', None)
+            if (self.target_resp and self.target_resp.status_code // 100 == 2 and
+                common.content_type(self.target_resp).startswith('text/html')):
                 # TODO: pass e.response to try_salmon()'s target_resp
                 return False  # make post() try Salmon
             else:

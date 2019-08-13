@@ -335,6 +335,16 @@ class WebmentionTest(testutil.TestCase):
                                body=urllib.urlencode({'source': 'http://a/post'}))
         self.assertEquals(400, got.status_int)
 
+    def test_target_fetch_fails(self, mock_get, mock_post):
+        mock_get.side_effect = (
+            requests_response(self.reply_html.replace('http://orig/post', 'bad'),
+                              content_type=CONTENT_TYPE_HTML),
+            requests.Timeout('foo bar'))
+
+        got = app.get_response('/webmention', method='POST',
+                               body=urllib.urlencode({'source': 'http://a/post'}))
+        self.assertEquals(502, got.status_int)
+
     def test_no_backlink(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
             self.reply_html.replace('<a href="http://localhost/"></a>', ''),
