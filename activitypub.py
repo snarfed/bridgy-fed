@@ -219,7 +219,7 @@ class InboxHandler(webapp2.RequestHandler):
             follower_obj.status = 'inactive'
             follower_obj.put()
         else:
-            logging.warning(self, 'No Follower found for %s %s' % (user_domain, follower))
+            logging.warning('No Follower found for %s %s', user_domain, follower)
 
 
         # TODO send webmention with 410 of u-follow
