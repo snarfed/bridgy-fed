@@ -19,8 +19,6 @@ import urlparse
 
 import appengine_config
 
-from bs4 import BeautifulSoup
-from granary import microformats2
 import mf2py
 import mf2util
 from oauth_dropins.webutil import handlers, util

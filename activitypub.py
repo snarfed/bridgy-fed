@@ -3,7 +3,6 @@
 import datetime
 import json
 import logging
-import string
 
 import appengine_config
 
@@ -16,7 +15,7 @@ from oauth_dropins.webutil.handlers import memcache_response
 import webapp2
 
 import common
-from models import Follower, MagicKey, Response
+from models import Follower, MagicKey
 from httpsig.requests_auth import HTTPSignatureAuth
 
 CACHE_TIME = datetime.timedelta(seconds=15)

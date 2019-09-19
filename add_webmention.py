@@ -1,7 +1,6 @@
 """HTTP proxy that injects our webmention endpoint.
 """
 import datetime
-import logging
 import urllib
 
 import appengine_config

@@ -4,7 +4,6 @@ TODO tests:
 * actor/attributedTo could be string URL
 * salmon rel via webfinger via author.name + domain
 """
-import datetime
 import json
 import logging
 import urllib
@@ -12,9 +11,8 @@ import urlparse
 
 import appengine_config
 
-from bs4 import BeautifulSoup
 import django_salmon
-from django_salmon import magicsigs, utils
+from django_salmon import magicsigs
 import feedparser
 from google.appengine.api import mail
 from google.appengine.ext.ndb import Key
@@ -93,7 +91,6 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         key = MagicKey.get_or_create(self.source_domain)
         error = None
-        delivered = set()  # inboxes we've delivered to
 
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
 
@@ -162,9 +159,6 @@ class WebmentionHandler(webapp2.RequestHandler):
                         protocol='activitypub', source_mf2=json.dumps(self.source_mf2)),
                      inbox)
                     for inbox in inboxes if inbox]
-
-        if not target:
-            return []  # give up
 
         # fetch target page as AS2 object
         try:
