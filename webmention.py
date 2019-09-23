@@ -247,7 +247,15 @@ class WebmentionHandler(webapp2.RequestHandler):
                          status=400)
 
         # fetch Atom target post, extract and inject id into source object
-        feed = common.requests_get(atom_url['href']).text
+        base_url = ''
+        base = parsed.find('base')
+        if base and base.get('href'):
+            base_url = base['href']
+        atom_link = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
+        atom_url = urlparse.urljoin(
+            resp.target(), urlparse.urljoin(base_url, atom_link['href']))
+
+        feed = common.requests_get(atom_url).text
         parsed = feedparser.parse(feed)
         logging.info('Parsed: %s', json.dumps(parsed, indent=2,
                                               default=lambda key: '-'))
@@ -271,7 +279,7 @@ class WebmentionHandler(webapp2.RequestHandler):
                 self.source_obj.setdefault('tags', []).append({'url': url})
 
         # extract and discover salmon endpoint
-        logging.info('Discovering Salmon endpoint in %s', atom_url['href'])
+        logging.info('Discovering Salmon endpoint in %s', atom_url)
         endpoint = django_salmon.discover_salmon_endpoint(feed)
 
         if not endpoint:

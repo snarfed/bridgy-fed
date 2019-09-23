@@ -26,6 +26,7 @@ from common import (
     CONNEG_HEADERS_AS2,
     CONNEG_HEADERS_AS2_HTML,
     CONTENT_TYPE_AS2,
+    CONTENT_TYPE_ATOM,
     CONTENT_TYPE_HTML,
     CONTENT_TYPE_MAGIC_ENVELOPE,
     HEADERS,
@@ -97,7 +98,7 @@ class WebmentionTest(testutil.TestCase):
   <link rel="salmon" href="http://orig/salmon"/>
   <content type="html">baz ☕ baj</content>
 </entry>
-""")
+""", content_type=CONTENT_TYPE_ATOM)
         self.orig_as2_data = {
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Article',
@@ -817,3 +818,42 @@ class WebmentionTest(testutil.TestCase):
         self.assertIn('Target post http://orig/url has no Atom link', got.body)
 
         self.assertIsNone(Response.get_by_id('http://a/reply http://orig/post'))
+
+    def test_salmon_relative_atom_href(self, mock_get, mock_post):
+        orig_relative = requests_response("""\
+<html>
+<meta>
+<link href='atom/1' rel='alternate' type='application/atom+xml'>
+</meta>
+</html>""", 'http://orig/url')
+        mock_get.side_effect = [self.reply, orig_relative, self.orig_atom]
+
+        got = app.get_response('/webmention', method='POST', body=urllib.urlencode({
+            'source': 'http://a/reply',
+            'target': 'http://orig/post',
+        }))
+        self.assertEquals(200, got.status_int)
+
+        mock_get.assert_any_call('http://orig/atom/1', headers=HEADERS,
+                                 timeout=util.HTTP_TIMEOUT)
+        data = self.verify_salmon(mock_post)
+
+    def test_salmon_relative_atom_href_with_base(self, mock_get, mock_post):
+        orig_base = requests_response("""\
+<html>
+<meta>
+<base href='/base/'>
+<link href='atom/1' rel='alternate' type='application/atom+xml'>
+</meta>
+</html>""", 'http://orig/url')
+        mock_get.side_effect = [self.reply, orig_base, self.orig_atom]
+
+        got = app.get_response('/webmention', method='POST', body=urllib.urlencode({
+            'source': 'http://a/reply',
+            'target': 'http://orig/post',
+        }))
+        self.assertEquals(200, got.status_int)
+
+        mock_get.assert_any_call('http://orig/base/atom/1', headers=HEADERS,
+                                 timeout=util.HTTP_TIMEOUT)
+        data = self.verify_salmon(mock_post)
