@@ -13,8 +13,8 @@ import json
 import logging
 
 from granary import as2, microformats2
-import mf2py
 import mf2util
+from oauth_dropins.webutil import util
 from oauth_dropins.webutil.handlers import memcache_response
 import webapp2
 
@@ -53,10 +53,9 @@ class RedirectHandler(webapp2.RequestHandler):
         Currently mainly for Pixelfed.
         https://github.com/snarfed/bridgy-fed/issues/39
         """
-        resp = common.requests_get(url)
-        mf2 = mf2py.parse(resp.text, url=resp.url, img_with_alt=True)
+        mf2 = util.fetch_mf2(url)
         entry = mf2util.find_first_entry(mf2, ['h-entry'])
-        logging.info('Parsed mf2 for %s: %s', resp.url, json.dumps(entry, indent=2))
+        logging.info('Parsed mf2 for %s: %s', mf2['url'], json.dumps(entry, indent=2))
 
         obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(entry)))
         logging.info('Returning: %s', json.dumps(obj, indent=2))

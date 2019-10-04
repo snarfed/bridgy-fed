@@ -17,7 +17,6 @@ import feedparser
 from google.appengine.api import mail
 from google.appengine.ext.ndb import Key
 from granary import as2, atom, microformats2, source
-import mf2py
 import mf2util
 from oauth_dropins.webutil import util
 import requests
@@ -47,8 +46,9 @@ class WebmentionHandler(webapp2.RequestHandler):
         source_resp = common.requests_get(source)
         self.source_url = source_resp.url or source
         self.source_domain = urlparse.urlparse(self.source_url).netloc.split(':')[0]
-        self.source_mf2 = mf2py.parse(source_resp.text, url=self.source_url, img_with_alt=True)
-        # logging.debug('Parsed mf2 for %s: %s', source_resp.url, json.dumps(self.source_mf2, indent=2))
+        self.source_mf2 = util.parse_mf2(source_resp)
+
+        # logging.debug('Parsed mf2 for %s: %s', source_resp.url, json.dumps(self.source_mf2 indent=2))
 
         # check for backlink to bridgy fed (for webmention spec and to confirm
         # source's intent to federate to mastodon)
@@ -239,8 +239,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         if not self.target_resp:
             self.target_resp = common.requests_get(resp.target())
 
-        parsed = common.beautifulsoup_parse(self.target_resp.content,
-                                            from_encoding=self.target_resp.encoding)
+        parsed = util.parse_html(self.target_resp)
         atom_url = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
         if not atom_url or not atom_url.get('href'):
             common.error(self, 'Target post %s has no Atom link' % resp.target(),

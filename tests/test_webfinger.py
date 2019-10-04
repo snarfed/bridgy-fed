@@ -112,7 +112,7 @@ class WebFingerTest(testutil.TestCase):
         self.assertEquals('application/json; charset=utf-8',
                           got.headers['Content-Type'])
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
-                                         timeout=util.HTTP_TIMEOUT)
+                                         stream=True, timeout=util.HTTP_TIMEOUT)
 
         self.assertEquals(self.expected_webfinger, json.loads(got.body))
 
@@ -171,7 +171,7 @@ class WebFingerTest(testutil.TestCase):
 """)
         got = app.get_response('/foo.com')
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
-                                         timeout=util.HTTP_TIMEOUT)
+                                         stream=True, timeout=util.HTTP_TIMEOUT)
         self.assertEquals(400, got.status_int)
         self.assertIn('representative h-card', got.body)
 

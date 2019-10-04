@@ -8,7 +8,6 @@ import logging
 import re
 import urlparse
 
-from bs4 import BeautifulSoup
 from granary import as2
 from oauth_dropins.webutil import handlers, util
 import requests
@@ -42,7 +41,7 @@ AS2_PUBLIC_AUDIENCE = 'https://www.w3.org/ns/activitystreams#Public'
 CONTENT_TYPE_AS2_LD = b'application/ld+json; profile="https://www.w3.org/ns/activitystreams"'
 CONTENT_TYPE_AS2 = b'application/activity+json'
 CONTENT_TYPE_AS1 = b'application/stream+json'
-CONTENT_TYPE_HTML = b'text/html'
+CONTENT_TYPE_HTML = b'text/html; charset=utf-8'
 CONTENT_TYPE_ATOM = b'application/atom+xml'
 CONTENT_TYPE_MAGIC_ENVELOPE = b'application/magic-envelope+xml'
 
@@ -78,27 +77,13 @@ def requests_post(url, **kwargs):
 def _requests_fn(fn, url, parse_json=False, **kwargs):
     """Wraps requests.* and adds raise_for_status() and User-Agent."""
     kwargs.setdefault('headers', {}).update(HEADERS)
-
-    try:
-        resp = fn(url, **kwargs)
-    except ValueError as e:
-        msg = 'Bad URL %s: %s' % (url, e)
-        logging.warning(msg)
-        raise exc.HTTPBadRequest(msg)
-    except (requests.ConnectionError, requests.Timeout) as e:
-        logging.warning(url, exc_info=True)
-        raise exc.HTTPBadGateway(unicode(e))
+    resp = fn(url, gateway=True, **kwargs)
 
     logging.info('Got %s headers:%s', resp.status_code, resp.headers)
     type = content_type(resp)
     if (type and type != 'text/html' and
         (type.startswith('text/') or type.endswith('+json') or type.endswith('/json'))):
         logging.info(resp.text)
-
-    if resp.status_code // 100 in (4, 5):
-        msg = 'Received %s from %s:\n%s' % (resp.status_code, url, resp.text)
-        logging.info(msg)
-        raise exc.HTTPBadGateway(msg)
 
     if parse_json:
         try:
@@ -141,7 +126,7 @@ def get_as2(url):
     if content_type(resp) in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
         return resp
 
-    parsed = beautifulsoup_parse(resp.content, from_encoding=resp.encoding)
+    parsed = util.parse_html(resp)
     as2 = parsed.find('link', rel=('alternate', 'self'), type=(
         CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD))
     if not (as2 and as2['href']):
@@ -402,25 +387,3 @@ def redirect_unwrap(val):
                 cache=memcache).url
 
     return val
-
-
-def beautifulsoup_parse(html, **kwargs):
-  """Parses an HTML string with BeautifulSoup. Centralizes our parsing config.
-
-  *Copied from bridgy/util.py.*
-
-  We currently use lxml, which BeautifulSoup claims is the fastest and best:
-  http://www.crummy.com/software/BeautifulSoup/bs4/doc/#specifying-the-parser-to-use
-
-  lxml is a native module, so we don't bundle and deploy it to App Engine.
-  Instead, we use App Engine's version by declaring it in app.yaml.
-  https://cloud.google.com/appengine/docs/standard/python/tools/built-in-libraries-27
-
-  We pin App Engine's version in requirements.freeze.txt and tell BeautifulSoup
-  to use lxml explicitly to ensure we use the same parser and version in prod
-  and locally, since we've been bit by at least one meaningful difference
-  between lxml and e.g. html5lib: lxml includes the contents of <noscript> tags,
-  html5lib omits them. :(
-  https://github.com/snarfed/bridgy/issues/798#issuecomment-370508015
-  """
-  return BeautifulSoup(html, 'lxml', **kwargs)

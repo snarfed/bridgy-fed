@@ -8,7 +8,6 @@ import appengine_config
 
 from google.appengine.ext import ndb
 from granary import as2, microformats2
-import mf2py
 import mf2util
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.handlers import memcache_response
@@ -73,16 +72,15 @@ class ActorHandler(webapp2.RequestHandler):
 
     @memcache_response(CACHE_TIME)
     def get(self, domain):
-        url = 'http://%s/' % domain
-        resp = common.requests_get(url)
-        mf2 = mf2py.parse(resp.text, url=resp.url, img_with_alt=True)
+        mf2 = util.fetch_mf2('http://%s/' % domain, gateway=True,
+                             headers=common.HEADERS)
         # logging.info('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
 
-        hcard = mf2util.representative_hcard(mf2, resp.url)
+        hcard = mf2util.representative_hcard(mf2, mf2['url'])
         logging.info('Representative h-card: %s', json.dumps(hcard, indent=2))
         if not hcard:
             common.error(self, """\
-Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on %s""" % resp.url)
+Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on %s""" % mf2['url'])
 
         key = MagicKey.get_or_create(domain)
         obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(hcard)),

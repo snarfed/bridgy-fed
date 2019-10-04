@@ -143,11 +143,11 @@ class ActivityPubTest(testutil.TestCase):
 <body>
 <a class="h-card u-url" rel="me" href="/about-me">Mrs. ☕ Foo</a>
 </body>
-""", url='https://foo.com/')
+""", url='https://foo.com/', content_type=common.CONTENT_TYPE_HTML)
 
         got = app.get_response('/foo.com')
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
-                                         timeout=util.HTTP_TIMEOUT)
+                                         stream=True, timeout=util.HTTP_TIMEOUT)
         self.assertEquals(200, got.status_int)
         self.assertEquals(common.CONTENT_TYPE_AS2, got.headers['Content-Type'])
         self.assertEquals({
@@ -179,7 +179,7 @@ class ActivityPubTest(testutil.TestCase):
 
         got = app.get_response('/foo.com')
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
-                                         timeout=util.HTTP_TIMEOUT)
+                                         stream=True, timeout=util.HTTP_TIMEOUT)
         self.assertEquals(400, got.status_int)
         self.assertIn('representative h-card', got.body)
 
@@ -234,7 +234,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEquals(200, got.status_int, got.body)
 
         mock_head.assert_called_once_with(
-            'http://this', allow_redirects=True, timeout=15)
+            'http://this', allow_redirects=True, stream=True, timeout=15)
         mock_get.assert_not_called()
         mock_post.assert_not_called()
         self.assertEquals(0, Response.query().count())
@@ -293,7 +293,7 @@ class ActivityPubTest(testutil.TestCase):
         as2_headers = copy.deepcopy(common.HEADERS)
         as2_headers.update(common.CONNEG_HEADERS_AS2_HTML)
         mock_get.assert_has_calls((
-            call('http://orig/actor', headers=as2_headers, timeout=15),
+            call('http://orig/actor', headers=as2_headers, stream=True, timeout=15),
             call('http://orig/post', headers=common.HEADERS, verify=False),
         ))
 
@@ -330,7 +330,7 @@ class ActivityPubTest(testutil.TestCase):
         as2_headers = copy.deepcopy(common.HEADERS)
         as2_headers.update(common.CONNEG_HEADERS_AS2_HTML)
         mock_get.assert_has_calls((
-            call(FOLLOW['actor'], headers=as2_headers, timeout=15),
+            call(FOLLOW['actor'], headers=as2_headers, stream=True, timeout=15),
         ))
 
         # check AP Accept

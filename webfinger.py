@@ -19,7 +19,6 @@ import urlparse
 
 import appengine_config
 
-import mf2py
 import mf2util
 from oauth_dropins.webutil import handlers, util
 import webapp2
@@ -55,8 +54,8 @@ class UserHandler(handlers.XrdOrJrdHandler):
 
         for candidate in urls:
             resp = common.requests_get(candidate)
-            parsed = common.beautifulsoup_parse(resp.content, from_encoding=resp.encoding)
-            mf2 = mf2py.parse(parsed, url=resp.url, img_with_alt=True)
+            parsed = util.parse_html(resp)
+            mf2 = util.parse_mf2(parsed, url=resp.url)
             # logging.debug('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
             hcard = mf2util.representative_hcard(mf2, resp.url)
             if hcard:

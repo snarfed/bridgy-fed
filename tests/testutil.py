@@ -38,5 +38,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             kwargs['headers'] = headers
 
         kwargs.setdefault('timeout', util.HTTP_TIMEOUT)
+        kwargs.setdefault('stream', True)
 
         return call(url, **kwargs)

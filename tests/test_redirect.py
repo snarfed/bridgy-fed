@@ -33,7 +33,7 @@ class RedirectTest(testutil.TestCase):
         self._test_as2(common.CONTENT_TYPE_AS2_LD)
 
     @patch('requests.get')
-    def _test_as2(self, content_type, mock_get):
+    def _test_as2(self, accept, mock_get):
         """Currently mainly for Pixelfed.
 
         https://github.com/snarfed/bridgy-fed/issues/39
@@ -45,11 +45,9 @@ class RedirectTest(testutil.TestCase):
         })
 
         mock_get.return_value = requests_response(
-            REPOST_HTML, content_type=content_type)
+            REPOST_HTML, content_type=common.CONTENT_TYPE_HTML)
 
-        got = app.get_response('/r/https://foo.com/bar', headers={
-            'Accept': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
-        })
+        got = app.get_response('/r/https://foo.com/bar', headers={'Accept': accept})
 
         args, kwargs = mock_get.call_args
         self.assertEqual(('https://foo.com/bar',), args)

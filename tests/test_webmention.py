@@ -13,7 +13,6 @@ from django_salmon import magicsigs, utils
 import feedparser
 from granary import atom, microformats2
 from httpsig.sign import HeaderSigner
-import mf2py
 import mock
 from mock import call
 from oauth_dropins.webutil import util
@@ -128,12 +127,12 @@ class WebmentionTest(testutil.TestCase):
 """
         self.reply = requests_response(
             self.reply_html, content_type=CONTENT_TYPE_HTML)
-        self.reply_mf2 = mf2py.parse(self.reply_html, url='http://a/reply')
+        self.reply_mf2 = util.parse_mf2(self.reply_html, url='http://a/reply')
 
         self.repost_html = REPOST_HTML
         self.repost = requests_response(
             self.repost_html, content_type=CONTENT_TYPE_HTML)
-        self.repost_mf2 = mf2py.parse(self.repost_html, url='http://a/repost')
+        self.repost_mf2 = util.parse_mf2(self.repost_html, url='http://a/repost')
         self.repost_as2 = REPOST_AS2
 
         self.like_html = """\
@@ -149,7 +148,7 @@ class WebmentionTest(testutil.TestCase):
 """
         self.like = requests_response(
             self.like_html, content_type=CONTENT_TYPE_HTML)
-        self.like_mf2 = mf2py.parse(self.like_html, url='http://a/like')
+        self.like_mf2 = util.parse_mf2(self.like_html, url='http://a/like')
 
         self.actor = requests_response({
             'objectType' : 'person',
@@ -204,7 +203,7 @@ class WebmentionTest(testutil.TestCase):
 """
         self.follow = requests_response(
             self.follow_html, content_type=CONTENT_TYPE_HTML)
-        self.follow_mf2 = mf2py.parse(self.follow_html, url='http://a/follow')
+        self.follow_mf2 = util.parse_mf2(self.follow_html, url='http://a/follow')
         self.follow_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Follow',
@@ -241,7 +240,7 @@ class WebmentionTest(testutil.TestCase):
 """
         self.create = requests_response(
             self.create_html, content_type=CONTENT_TYPE_HTML)
-        self.create_mf2 = mf2py.parse(self.create_html, url='http://a/create')
+        self.create_mf2 = util.parse_mf2(self.create_html, url='http://a/create')
         self.create_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
@@ -567,7 +566,7 @@ class WebmentionTest(testutil.TestCase):
 <img class="u-photo" src="/pic" />
 </body>
 </html>
-""", content_type=CONTENT_TYPE_HTML)
+""", url='http://orig', content_type=CONTENT_TYPE_HTML)
         mock_get.side_effect = [repost, author, self.orig_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz', status=201)
 
@@ -800,7 +799,7 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_any_call(
             'http://orig/.well-known/webfinger?resource=acct:ryan@orig',
-            headers=HEADERS, timeout=util.HTTP_TIMEOUT, verify=False)
+            headers=HEADERS, stream=True, timeout=util.HTTP_TIMEOUT, verify=False)
         self.assertEqual(('http://orig/@ryan/salmon',), mock_post.call_args[0])
 
     def test_salmon_no_target_atom(self, mock_get, mock_post):
@@ -835,7 +834,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEquals(200, got.status_int)
 
         mock_get.assert_any_call('http://orig/atom/1', headers=HEADERS,
-                                 timeout=util.HTTP_TIMEOUT)
+                                 stream=True, timeout=util.HTTP_TIMEOUT)
         data = self.verify_salmon(mock_post)
 
     def test_salmon_relative_atom_href_with_base(self, mock_get, mock_post):
@@ -855,5 +854,5 @@ class WebmentionTest(testutil.TestCase):
         self.assertEquals(200, got.status_int)
 
         mock_get.assert_any_call('http://orig/base/atom/1', headers=HEADERS,
-                                 timeout=util.HTTP_TIMEOUT)
+                                 stream=True, timeout=util.HTTP_TIMEOUT)
         data = self.verify_salmon(mock_post)
