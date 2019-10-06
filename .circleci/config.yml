@@ -27,15 +27,6 @@ jobs:
             virtualenv --python=python2 local
             . local/bin/activate
             pip install -r requirements.freeze.txt
-
-            # granary and oauth-dropins master at head. (see pip install -e 's below.)
-            cd /tmp; git clone https://github.com/snarfed/oauth-dropins.git
-            cd /tmp/oauth-dropins; git submodule sync; git submodule update --init
-            cd /tmp/oauth-dropins/oauth_dropins/webutil; git checkout master; git pull
-            pip install -e /tmp/oauth-dropins/
-            pip install -e git+https://github.com/snarfed/granary.git#egg=granary
-
-            ln -s $VIRTUAL_ENV local  # we use app engine's vendor module to point here
             pip install coverage coveralls  # for https://coveralls.io/
 
       - run:
