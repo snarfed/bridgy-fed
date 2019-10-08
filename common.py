@@ -3,7 +3,6 @@
 """
 from __future__ import unicode_literals
 import itertools
-import json
 import logging
 import re
 import urlparse
@@ -11,6 +10,7 @@ import urlparse
 from granary import as2
 from oauth_dropins.webutil import handlers, util
 import requests
+import ujson as json
 from webmentiontools import send
 from webob import exc
 

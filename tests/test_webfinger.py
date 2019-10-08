@@ -4,13 +4,13 @@
 TODO: test error handling
 """
 from __future__ import unicode_literals
-import json
 import urllib
 
 import mock
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 import requests
+import ujson as json
 
 import common
 import models

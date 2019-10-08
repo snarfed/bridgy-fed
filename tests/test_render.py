@@ -1,7 +1,8 @@
 # coding=utf-8
 """Unit tests for render.py."""
 from __future__ import unicode_literals
-import json
+
+import ujson as json
 
 from models import Response
 import testutil

@@ -1,13 +1,13 @@
 # coding=utf-8
 """Renders mf2 proxy pages based on stored Responses."""
 import datetime
-import json
 
 import appengine_config
 
 from granary import as2, atom, microformats2
 from oauth_dropins.webutil.handlers import memcache_response, ModernHandler
 from oauth_dropins.webutil import util
+import ujson as json
 import webapp2
 
 from models import Response

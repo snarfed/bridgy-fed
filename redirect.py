@@ -9,13 +9,13 @@ https://github.com/snarfed/bridgy-fed/issues/16#issuecomment-424799599
 https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
 """
 import datetime
-import json
 import logging
 
 from granary import as2, microformats2
 import mf2util
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.handlers import memcache_response
+import ujson as json
 import webapp2
 
 import appengine_config

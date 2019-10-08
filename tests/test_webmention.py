@@ -5,7 +5,6 @@ TODO: test error handling
 """
 from __future__ import unicode_literals
 import copy
-import json
 import urllib
 import urllib2
 
@@ -18,6 +17,7 @@ from mock import call
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 import requests
+import ujson as json
 
 import activitypub
 from common import (

@@ -53,6 +53,7 @@ soupsieve==1.9.4
 testtools==2.3.0
 traceback2==1.4.0
 tweepy==3.8.0
+ujson==1.35
 unittest2==1.1.0
 uritemplate==3.0.0
 urllib3==1.25.6

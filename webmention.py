@@ -4,7 +4,6 @@ TODO tests:
 * actor/attributedTo could be string URL
 * salmon rel via webfinger via author.name + domain
 """
-import json
 import logging
 import urllib
 import urlparse
@@ -20,6 +19,7 @@ from granary import as2, atom, microformats2, source
 import mf2util
 from oauth_dropins.webutil import util
 import requests
+import ujson as json
 import webapp2
 from webob import exc
 
@@ -256,8 +256,7 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         feed = common.requests_get(atom_url).text
         parsed = feedparser.parse(feed)
-        logging.info('Parsed: %s', json.dumps(parsed, indent=2,
-                                              default=lambda key: '-'))
+        logging.info('Parsed: %s', json.dumps(parsed, indent=2))
         entry = parsed.entries[0]
         target_id = entry.id
         in_reply_to = self.source_obj.get('inReplyTo')

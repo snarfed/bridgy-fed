@@ -19,6 +19,8 @@ libraries:
   version: latest
 - name: ssl
   version: latest
+- name: ujson
+  version: latest
 - name: webob
   version: latest
 

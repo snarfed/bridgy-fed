@@ -12,7 +12,6 @@ TODO: test:
 """
 from __future__ import unicode_literals
 import datetime
-import json
 import logging
 import urllib
 import urlparse
@@ -21,6 +20,7 @@ import appengine_config
 
 import mf2util
 from oauth_dropins.webutil import handlers, util
+import ujson as json
 import webapp2
 
 import common

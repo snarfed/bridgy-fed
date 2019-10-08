@@ -1,13 +1,13 @@
 # coding=utf-8
 """Unit tests for common.py."""
 from __future__ import unicode_literals
-import json
 import logging
 
 import mock
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 import requests
+import ujson as json
 from webob import exc
 
 import common
