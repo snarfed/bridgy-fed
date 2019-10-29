@@ -23,6 +23,7 @@ html2text==2019.8.11
 html5lib==1.0.1
 httplib2==0.14.0
 -e git+git@github.com:snarfed/httpsig.git@6f0ebfe00af39fb75d50c7a29f46da49e8190d70#egg=httpsig
+humanfriendly==4.18
 humanize==0.5.1
 idna==2.8
 Jinja2==2.10.3
