@@ -5,7 +5,7 @@ import urllib
 
 import appengine_config
 
-from oauth_dropins.webutil.handlers import memcache_response
+from oauth_dropins.webutil.handlers import cache_response
 import requests
 import webapp2
 
@@ -19,7 +19,7 @@ CACHE_TIME = datetime.timedelta(seconds=15)
 class AddWebmentionHandler(webapp2.RequestHandler):
     """Proxies HTTP requests and adds Link header to our webmention endpoint."""
 
-    @memcache_response(CACHE_TIME)
+    @cache_response(CACHE_TIME)
     def get(self, url):
         url = urllib.unquote(url)
         if not url.startswith('http://') and not url.startswith('https://'):

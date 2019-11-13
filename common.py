@@ -14,8 +14,6 @@ import ujson as json
 from webmentiontools import send
 from webob import exc
 
-from google.appengine.api import memcache
-
 import appengine_config
 import common
 from models import Response
@@ -383,7 +381,6 @@ def redirect_unwrap(val):
             return val[len(REDIRECT_PREFIX):]
         elif val.startswith(appengine_config.HOST_URL):
             return util.follow_redirects(
-                util.domain_from_link(urlparse.urlparse(val).path.strip('/')),
-                cache=memcache).url
+                util.domain_from_link(urlparse.urlparse(val).path.strip('/'))).url
 
     return val

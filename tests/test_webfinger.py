@@ -15,7 +15,7 @@ import ujson as json
 import common
 import models
 import testutil
-from webfinger import app
+from webfinger import app, UserHandler, WebfingerHandler
 
 USER = 'foo.com@foo.com'
 
@@ -24,6 +24,8 @@ class WebFingerTest(testutil.TestCase):
 
     def setUp(self):
         super(WebFingerTest, self).setUp()
+        UserHandler.get.cache_clear()
+        WebfingerHandler.get.cache_clear()
         self.html = """
 <body class="h-card">
 <a class="u-url" rel="me" href="/about-me">

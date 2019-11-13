@@ -5,7 +5,7 @@ import datetime
 import appengine_config
 
 from granary import as2, atom, microformats2
-from oauth_dropins.webutil.handlers import memcache_response, ModernHandler
+from oauth_dropins.webutil.handlers import cache_response, ModernHandler
 from oauth_dropins.webutil import util
 import ujson as json
 import webapp2
@@ -18,7 +18,7 @@ CACHE_TIME = datetime.timedelta(minutes=15)
 class RenderHandler(ModernHandler):
     """Fetches a stored Response and renders it as HTML."""
 
-    @memcache_response(CACHE_TIME)
+    @cache_response(CACHE_TIME)
     def get(self):
         source = util.get_required_param(self, 'source')
         target = util.get_required_param(self, 'target')

@@ -13,7 +13,6 @@ import appengine_config
 import django_salmon
 from django_salmon import magicsigs
 import feedparser
-from google.appengine.api import mail
 from google.appengine.ext.ndb import Key
 from granary import as2, atom, microformats2, source
 import mf2util

@@ -9,7 +9,7 @@ from google.appengine.ext import ndb
 from granary import as2, microformats2
 import mf2util
 from oauth_dropins.webutil import util
-from oauth_dropins.webutil.handlers import memcache_response
+from oauth_dropins.webutil.handlers import cache_response
 import ujson as json
 import webapp2
 
@@ -70,7 +70,7 @@ def send(activity, inbox_url, user_domain):
 class ActorHandler(webapp2.RequestHandler):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
 
-    @memcache_response(CACHE_TIME)
+    @cache_response(CACHE_TIME)
     def get(self, domain):
         mf2 = util.fetch_mf2('http://%s/' % domain, gateway=True,
                              headers=common.HEADERS)

@@ -14,7 +14,7 @@ import logging
 from granary import as2, microformats2
 import mf2util
 from oauth_dropins.webutil import util
-from oauth_dropins.webutil.handlers import memcache_response
+from oauth_dropins.webutil.handlers import cache_response
 import ujson as json
 import webapp2
 
@@ -30,7 +30,7 @@ class RedirectHandler(webapp2.RequestHandler):
     e.g. redirects /r/https://foo.com/bar?baz to https://foo.com/bar?baz
     """
 
-    @memcache_response(CACHE_TIME)
+    @cache_response(CACHE_TIME)
     def get(self):
         assert self.request.path_qs.startswith('/r/')
         to = self.request.path_qs[3:]

@@ -6,14 +6,14 @@ import ujson as json
 
 from models import Response
 import testutil
-from render import app
+from render import app, RenderHandler
 
 
 class RenderTest(testutil.TestCase):
 
     def setUp(self):
         super(RenderTest, self).setUp()
-
+        RenderHandler.get.cache_clear()
         self.as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Note',

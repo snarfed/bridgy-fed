@@ -6,12 +6,16 @@ from mock import patch
 from oauth_dropins.webutil.testutil import requests_response
 
 import common
-from redirect import app
+from redirect import app, RedirectHandler
 from test_webmention import REPOST_HTML, REPOST_AS2
 import testutil
 
 
 class RedirectTest(testutil.TestCase):
+
+    def setUp(self):
+        super(RedirectTest, self).setUp()
+        RedirectHandler.get.cache_clear()
 
     def test_redirect(self):
         got = app.get_response('/r/https://foo.com/bar?baz=baj&biff')

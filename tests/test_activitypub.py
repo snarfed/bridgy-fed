@@ -14,7 +14,7 @@ import requests
 import ujson as json
 
 import activitypub
-from activitypub import app
+from activitypub import ActorHandler, app
 import common
 from models import Follower, MagicKey, Response
 import testutil
@@ -137,6 +137,10 @@ UNDO_FOLLOW_WRAPPED = {
 @patch('requests.get')
 @patch('requests.head')
 class ActivityPubTest(testutil.TestCase):
+
+    def setUp(self):
+        super(ActivityPubTest, self).setUp()
+        ActorHandler.get.cache_clear()
 
     def test_actor_handler(self, _, mock_get, __):
         mock_get.return_value = requests_response("""

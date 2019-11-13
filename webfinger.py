@@ -34,7 +34,7 @@ class UserHandler(handlers.XrdOrJrdHandler):
     """Fetches a site's home page, converts its mf2 to WebFinger, and serves."""
     JRD_TEMPLATE = False
 
-    @handlers.memcache_response(CACHE_TIME)
+    @handlers.cache_response(CACHE_TIME)
     def get(self, *args, **kwargs):
         return super(UserHandler, self).get(*args, **kwargs)
 
