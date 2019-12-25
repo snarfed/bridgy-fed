@@ -10,8 +10,8 @@ import urllib
 from mock import call, patch
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
-import ujson as json
 
 import activitypub
 from activitypub import ActorHandler, app
@@ -170,7 +170,7 @@ class ActivityPubTest(testutil.TestCase):
                 'id': 'foo.com',
                 'publicKeyPem': MagicKey.get_by_id('foo.com').public_pem(),
             },
-        }, json.loads(got.body))
+        }, json_loads(got.body))
 
     def test_actor_handler_no_hcard(self, _, mock_get, __):
         mock_get.return_value = requests_response("""
@@ -203,7 +203,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_post.return_value = requests_response()
 
         got = app.get_response('/foo.com/inbox', method='POST',
-                               body=json.dumps(as2))
+                               body=json_dumps(as2))
         self.assertEquals(200, got.status_int, got.body)
         mock_get.assert_called_once_with(
             'http://orig/post', headers=common.HEADERS, verify=False)
@@ -224,7 +224,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
-        self.assertEqual(expected_as2, json.loads(resp.source_as2))
+        self.assertEqual(expected_as2, json_loads(resp.source_as2))
 
     def test_inbox_reply_drop_self_domain_target(self, mock_head, mock_get, mock_post):
         reply = copy.deepcopy(REPLY_OBJECT)
@@ -234,7 +234,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_head.return_value = requests_response(url='http://this/')
 
         got = app.get_response('/foo.com/inbox', method='POST',
-                               body=json.dumps(reply))
+                               body=json_dumps(reply))
         self.assertEquals(200, got.status_int, got.body)
 
         mock_head.assert_called_once_with(
@@ -256,7 +256,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_post.return_value = requests_response()
 
         got = app.get_response('/foo.com/inbox', method='POST',
-                               body=json.dumps(as2))
+                               body=json_dumps(as2))
         self.assertEquals(200, got.status_int, got.body)
         mock_get.assert_called_once_with(
             'http://target/', headers=common.HEADERS, verify=False)
@@ -277,7 +277,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
-        self.assertEqual(common.redirect_unwrap(as2), json.loads(resp.source_as2))
+        self.assertEqual(common.redirect_unwrap(as2), json_loads(resp.source_as2))
 
     def test_inbox_like(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='http://orig/post')
@@ -291,7 +291,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_post.return_value = requests_response()
 
         got = app.get_response('/foo.com/inbox', method='POST',
-                               body=json.dumps(LIKE_WRAPPED))
+                               body=json_dumps(LIKE_WRAPPED))
         self.assertEquals(200, got.status_int)
 
         as2_headers = copy.deepcopy(common.HEADERS)
@@ -313,7 +313,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
-        self.assertEqual(LIKE_WITH_ACTOR, json.loads(resp.source_as2))
+        self.assertEqual(LIKE_WITH_ACTOR, json_loads(resp.source_as2))
 
     def test_inbox_follow_accept(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://realize.be/')
@@ -328,7 +328,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_post.return_value = requests_response()
 
         got = app.get_response('/foo.com/inbox', method='POST',
-                               body=json.dumps(FOLLOW_WRAPPED))
+                               body=json_dumps(FOLLOW_WRAPPED))
         self.assertEquals(200, got.status_int)
 
         as2_headers = copy.deepcopy(common.HEADERS)
@@ -355,12 +355,12 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
-        self.assertEqual(FOLLOW_WITH_ACTOR, json.loads(resp.source_as2))
+        self.assertEqual(FOLLOW_WITH_ACTOR, json_loads(resp.source_as2))
 
         # check that we stored a Follower object
         follower = Follower.get_by_id('realize.be %s' % (FOLLOW['actor']))
         self.assertEqual('active', follower.status)
-        self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, json.loads(follower.last_follow))
+        self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, json_loads(follower.last_follow))
 
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://realize.be/')
@@ -368,7 +368,7 @@ class ActivityPubTest(testutil.TestCase):
         Follower(id=Follower._id('realize.be', FOLLOW['actor'])).put()
 
         got = app.get_response('/foo.com/inbox', method='POST',
-                               body=json.dumps(UNDO_FOLLOW_WRAPPED))
+                               body=json_dumps(UNDO_FOLLOW_WRAPPED))
         self.assertEquals(200, got.status_int)
 
         follower = Follower.get_by_id('realize.be %s' % FOLLOW['actor'])
@@ -378,7 +378,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_head.return_value = requests_response(url='https://realize.be/')
 
         got = app.get_response('/foo.com/inbox', method='POST',
-                               body=json.dumps(UNDO_FOLLOW_WRAPPED))
+                               body=json_dumps(UNDO_FOLLOW_WRAPPED))
         self.assertEquals(200, got.status_int)
 
     def test_inbox_undo_follow_inactive(self, mock_head, mock_get, mock_post):
@@ -387,11 +387,11 @@ class ActivityPubTest(testutil.TestCase):
                  status='inactive').put()
 
         got = app.get_response('/foo.com/inbox', method='POST',
-                               body=json.dumps(UNDO_FOLLOW_WRAPPED))
+                               body=json_dumps(UNDO_FOLLOW_WRAPPED))
         self.assertEquals(200, got.status_int)
 
     def test_inbox_unsupported_type(self, *_):
-        got = app.get_response('/foo.com/inbox', method='POST', body=json.dumps({
+        got = app.get_response('/foo.com/inbox', method='POST', body=json_dumps({
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'https://xoxo.zone/users/aaronpk#follows/40',
             'type': 'Block',

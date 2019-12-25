@@ -17,8 +17,8 @@ from google.appengine.ext.ndb import Key
 from granary import as2, atom, microformats2, source
 import mf2util
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
-import ujson as json
 import webapp2
 from webob import exc
 
@@ -47,7 +47,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         self.source_domain = urlparse.urlparse(self.source_url).netloc.split(':')[0]
         self.source_mf2 = util.parse_mf2(source_resp)
 
-        # logging.debug('Parsed mf2 for %s: %s', source_resp.url, json.dumps(self.source_mf2 indent=2))
+        # logging.debug('Parsed mf2 for %s: %s', source_resp.url, json_dumps(self.source_mf2 indent=2))
 
         # check for backlink to bridgy fed (for webmention spec and to confirm
         # source's intent to federate to mastodon)
@@ -60,7 +60,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         if not entry:
             common.error(self, 'No microformats2 found on %s' % self.source_url)
 
-        logging.info('First entry: %s', json.dumps(entry, indent=2))
+        logging.info('First entry: %s', json_dumps(entry, indent=2))
         # make sure it has url, since we use that for AS2 id, which is required
         # for ActivityPub.
         props = entry.setdefault('properties', {})
@@ -68,7 +68,7 @@ class WebmentionHandler(webapp2.RequestHandler):
             props['url'] = [self.source_url]
 
         self.source_obj = microformats2.json_to_object(entry, fetch_mf2=True)
-        logging.info('Converted to AS1: %s', json.dumps(self.source_obj, indent=2))
+        logging.info('Converted to AS1: %s', json_dumps(self.source_obj, indent=2))
 
         self.try_activitypub() or self.try_salmon()
 
@@ -94,7 +94,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
 
         for resp, inbox in targets:
-            target_obj = json.loads(resp.target_as2) if resp.target_as2 else None
+            target_obj = json_loads(resp.target_as2) if resp.target_as2 else None
             source_activity = common.postprocess_as2(
                 as2.from_as1(self.source_obj), target=target_obj, key=key)
 
@@ -148,14 +148,14 @@ class WebmentionHandler(webapp2.RequestHandler):
                 Follower.key > Key('Follower', self.source_domain + ' '),
                 Follower.key < Key('Follower', self.source_domain + chr(ord(' ') + 1))):
                 if follower.status != 'inactive' and follower.last_follow:
-                    actor = json.loads(follower.last_follow).get('actor')
+                    actor = json_loads(follower.last_follow).get('actor')
                     if actor and isinstance(actor, dict):
                         inboxes.append(actor.get('endpoints', {}).get('sharedInbox') or
                                        actor.get('publicInbox')or
                                        actor.get('inbox'))
             return [(Response.get_or_create(
                         source=self.source_url, target=inbox, direction='out',
-                        protocol='activitypub', source_mf2=json.dumps(self.source_mf2)),
+                        protocol='activitypub', source_mf2=json_dumps(self.source_mf2)),
                      inbox)
                     for inbox in inboxes if inbox]
 
@@ -174,11 +174,11 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         resp = Response.get_or_create(
             source=self.source_url, target=target_url, direction='out',
-            protocol='activitypub', source_mf2=json.dumps(self.source_mf2))
+            protocol='activitypub', source_mf2=json_dumps(self.source_mf2))
 
         # find target's inbox
         target_obj = self.target_resp.json()
-        resp.target_as2 = json.dumps(target_obj)
+        resp.target_as2 = json_dumps(target_obj)
         inbox_url = target_obj.get('inbox')
 
         if not inbox_url:
@@ -216,7 +216,7 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         resp = Response.get_or_create(
             source=self.source_url, target=target, direction='out',
-            source_mf2=json.dumps(self.source_mf2))
+            source_mf2=json_dumps(self.source_mf2))
         resp.protocol = 'ostatus'
 
         try:
@@ -255,7 +255,7 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         feed = common.requests_get(atom_url).text
         parsed = feedparser.parse(feed)
-        logging.info('Parsed: %s', json.dumps(parsed, indent=2))
+        logging.info('Parsed: %s', json_dumps(parsed, indent=2))
         entry = parsed.entries[0]
         target_id = entry.id
         in_reply_to = self.source_obj.get('inReplyTo')

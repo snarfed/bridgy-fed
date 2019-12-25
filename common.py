@@ -10,7 +10,6 @@ import urlparse
 from granary import as2
 from oauth_dropins.webutil import handlers, util
 import requests
-import ujson as json
 from webmentiontools import send
 from webob import exc
 
@@ -222,7 +221,7 @@ def send_webmentions(handler, activity_wrapped, proxy=None, **response_props):
         response.put()
 
     if errors:
-        msg = 'Errors:\n' + '\n'.join(json.dumps(e, indent=2) for e in errors)
+        msg = 'Errors:\n' + '\n'.join(util.json_dumps(e, indent=2) for e in errors)
         error(handler, msg, status=errors[0].get('http_status'))
 
 

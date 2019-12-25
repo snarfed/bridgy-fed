@@ -10,7 +10,7 @@ from granary import as2, microformats2
 import mf2util
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.handlers import cache_response
-import ujson as json
+from oauth_dropins.webutil.util import json_dumps, json_loads
 import webapp2
 
 import common
@@ -46,7 +46,7 @@ def send(activity, inbox_url, user_domain):
       requests.Response
     """
     logging.info('Sending AP request from %s: %s', user_domain,
-                 json.dumps(activity, indent=2))
+                 json_dumps(activity, indent=2))
 
     # prepare HTTP Signature (required by Mastodon)
     # https://w3c.github.io/activitypub/#authorization-lds
@@ -74,10 +74,10 @@ class ActorHandler(webapp2.RequestHandler):
     def get(self, domain):
         mf2 = util.fetch_mf2('http://%s/' % domain, gateway=True,
                              headers=common.HEADERS)
-        # logging.info('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
+        # logging.info('Parsed mf2 for %s: %s', resp.url, json_dumps(mf2, indent=2))
 
         hcard = mf2util.representative_hcard(mf2, mf2['url'])
-        logging.info('Representative h-card: %s', json.dumps(hcard, indent=2))
+        logging.info('Representative h-card: %s', json_dumps(hcard, indent=2))
         if not hcard:
             common.error(self, """\
 Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on %s""" % mf2['url'])
@@ -91,13 +91,13 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
             'following': '%s/%s/following' % (appengine_config.HOST_URL, domain),
             'followers': '%s/%s/followers' % (appengine_config.HOST_URL, domain),
         })
-        logging.info('Returning: %s', json.dumps(obj, indent=2))
+        logging.info('Returning: %s', json_dumps(obj, indent=2))
 
         self.response.headers.update({
             'Content-Type': common.CONTENT_TYPE_AS2,
             'Access-Control-Allow-Origin': '*',
         })
-        self.response.write(json.dumps(obj, indent=2))
+        self.response.write(json_dumps(obj, indent=2))
 
 
 class InboxHandler(webapp2.RequestHandler):
@@ -108,7 +108,7 @@ class InboxHandler(webapp2.RequestHandler):
 
         # parse and validate AS2 activity
         try:
-            activity = json.loads(self.request.body)
+            activity = json_loads(self.request.body)
             assert activity
         except (TypeError, ValueError, AssertionError):
             common.error(self, "Couldn't parse body as JSON", exc_info=True)
@@ -145,7 +145,7 @@ class InboxHandler(webapp2.RequestHandler):
         # send webmentions to each target
         as1 = as2.to_as1(activity)
         common.send_webmentions(self, as1, proxy=True, protocol='activitypub',
-                                source_as2=json.dumps(activity_unwrapped))
+                                source_as2=json_dumps(activity_unwrapped))
 
     def accept_follow(self, follow, follow_unwrapped):
         """Replies to an AP Follow request with an Accept request.
@@ -169,7 +169,7 @@ class InboxHandler(webapp2.RequestHandler):
 
         # store Follower
         user_domain = util.domain_from_link(followee_unwrapped)
-        Follower.get_or_create(user_domain, follower_id, last_follow=json.dumps(follow))
+        Follower.get_or_create(user_domain, follower_id, last_follow=json_dumps(follow))
 
         # send AP Accept
         accept = {
@@ -191,7 +191,7 @@ class InboxHandler(webapp2.RequestHandler):
         # send webmention
         common.send_webmentions(
             self, as2.to_as1(follow), proxy=True, protocol='activitypub',
-            source_as2=json.dumps(follow_unwrapped))
+            source_as2=json_dumps(follow_unwrapped))
 
     @ndb.transactional
     def undo_follow(self, undo_unwrapped):

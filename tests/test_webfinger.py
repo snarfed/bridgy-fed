@@ -9,8 +9,8 @@ import urllib
 import mock
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.util import json_loads
 import requests
-import ujson as json
 
 import common
 import models
@@ -116,10 +116,10 @@ class WebFingerTest(testutil.TestCase):
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
                                          stream=True, timeout=util.HTTP_TIMEOUT)
 
-        self.assertEquals(self.expected_webfinger, json.loads(got.body))
+        self.assertEquals(self.expected_webfinger, json_loads(got.body))
 
         # check that magic key is persistent
-        again = json.loads(app.get_response(
+        again = json_loads(app.get_response(
             '/foo.com', headers={'Accept': 'application/json'}).body)
         self.assertEquals(self.key.href(), again['magic_keys'][0]['value'])
 
@@ -144,7 +144,7 @@ class WebFingerTest(testutil.TestCase):
             'rel': 'http://schemas.google.com/g/2010#updates-from',
             'type': 'application/atom+xml',
             'href': 'https://foo.com/use-this',
-        }, json.loads(got.body)['links'])
+        }, json_loads(got.body)['links'])
 
     @mock.patch('requests.get')
     def test_user_handler_with_push_header(self, mock_get):
@@ -160,7 +160,7 @@ class WebFingerTest(testutil.TestCase):
         self.assertIn({
             'rel': 'hub',
             'href': 'http://a.custom.hub/',
-        }, json.loads(got.body)['links'])
+        }, json_loads(got.body)['links'])
 
     @mock.patch('requests.get')
     def test_user_handler_no_hcard(self, mock_get):
@@ -194,7 +194,7 @@ class WebFingerTest(testutil.TestCase):
             self.assertEquals(200, got.status_int, got.body)
             self.assertEquals('application/json; charset=utf-8',
                               got.headers['Content-Type'])
-            self.assertEquals(self.expected_webfinger, json.loads(got.body))
+            self.assertEquals(self.expected_webfinger, json_loads(got.body))
 
     @mock.patch('requests.get')
     def test_webfinger_handler_custom_username(self, mock_get):
@@ -223,4 +223,4 @@ class WebFingerTest(testutil.TestCase):
             self.assertEquals(200, got.status_int, got.body)
             self.assertEquals('application/json; charset=utf-8',
                               got.headers['Content-Type'])
-            self.assertEquals(self.expected_webfinger, json.loads(got.body))
+            self.assertEquals(self.expected_webfinger, json_loads(got.body))

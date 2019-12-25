@@ -2,7 +2,7 @@
 """Unit tests for render.py."""
 from __future__ import unicode_literals
 
-import ujson as json
+from oauth_dropins.webutil.util import json_dumps
 
 from models import Response
 import testutil
@@ -74,14 +74,14 @@ class RenderTest(testutil.TestCase):
         self.assertEquals(404, resp.status_int)
 
     def test_render_as2(self):
-        Response(id='abc xyz', source_as2=json.dumps(self.as2)).put()
+        Response(id='abc xyz', source_as2=json_dumps(self.as2)).put()
         resp = app.get_response('/render?source=abc&target=xyz')
         self.assertEquals(200, resp.status_int)
         self.assert_multiline_equals(self.html, resp.body.decode('utf-8'),
                                      ignore_blanks=True)
 
     def test_render_mf2(self):
-        Response(id='abc xyz', source_mf2=json.dumps(self.mf2)).put()
+        Response(id='abc xyz', source_mf2=json_dumps(self.mf2)).put()
         resp = app.get_response('/render?source=abc&target=xyz')
         self.assertEquals(200, resp.status_int)
         self.assert_multiline_equals(self.html, resp.body.decode('utf-8'),

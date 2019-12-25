@@ -20,7 +20,7 @@ import appengine_config
 
 import mf2util
 from oauth_dropins.webutil import handlers, util
-import ujson as json
+from oauth_dropins.webutil.util import json_dumps
 import webapp2
 
 import common
@@ -56,10 +56,10 @@ class UserHandler(handlers.XrdOrJrdHandler):
             resp = common.requests_get(candidate)
             parsed = util.parse_html(resp)
             mf2 = util.parse_mf2(parsed, url=resp.url)
-            # logging.debug('Parsed mf2 for %s: %s', resp.url, json.dumps(mf2, indent=2))
+            # logging.debug('Parsed mf2 for %s: %s', resp.url, json_dumps(mf2, indent=2))
             hcard = mf2util.representative_hcard(mf2, resp.url)
             if hcard:
-                logging.info('Representative h-card: %s', json.dumps(hcard, indent=2))
+                logging.info('Representative h-card: %s', json_dumps(hcard, indent=2))
                 break
         else:
             common.error(self, """\
@@ -149,7 +149,7 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
                 'href': '%s/%s/salmon' % (appengine_config.HOST_URL, domain),
             }]
         })
-        logging.info('Returning WebFinger data: %s', json.dumps(data, indent=2))
+        logging.info('Returning WebFinger data: %s', json_dumps(data, indent=2))
         return data
 
 

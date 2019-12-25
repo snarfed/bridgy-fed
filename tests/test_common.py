@@ -7,7 +7,6 @@ import mock
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 import requests
-import ujson as json
 from webob import exc
 
 import common

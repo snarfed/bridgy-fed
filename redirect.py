@@ -15,6 +15,7 @@ from granary import as2, microformats2
 import mf2util
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.handlers import cache_response
+from oauth_dropins.webutil.util import json_dumps
 import ujson as json
 import webapp2
 
@@ -55,16 +56,16 @@ class RedirectHandler(webapp2.RequestHandler):
         """
         mf2 = util.fetch_mf2(url)
         entry = mf2util.find_first_entry(mf2, ['h-entry'])
-        logging.info('Parsed mf2 for %s: %s', mf2['url'], json.dumps(entry, indent=2))
+        logging.info('Parsed mf2 for %s: %s', mf2['url'], json_dumps(entry, indent=2))
 
         obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(entry)))
-        logging.info('Returning: %s', json.dumps(obj, indent=2))
+        logging.info('Returning: %s', json_dumps(obj, indent=2))
 
         self.response.headers.update({
             'Content-Type': common.CONTENT_TYPE_AS2,
             'Access-Control-Allow-Origin': '*',
         })
-        self.response.write(json.dumps(obj, indent=2))
+        self.response.write(json_dumps(obj, indent=2))
 
 
 app = webapp2.WSGIApplication([

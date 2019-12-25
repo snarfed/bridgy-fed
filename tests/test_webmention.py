@@ -16,8 +16,8 @@ import mock
 from mock import call
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
-import ujson as json
 
 import activitypub
 from common import (
@@ -390,7 +390,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('out', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
-        self.assertEqual(self.reply_mf2, json.loads(resp.source_mf2))
+        self.assertEqual(self.reply_mf2, json_loads(resp.source_mf2))
 
         # TODO: if i do this, maybe switch to separate HttpRequest model and
         # foreign key
@@ -496,7 +496,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('out', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
-        self.assertEqual(self.repost_mf2, json.loads(resp.source_mf2))
+        self.assertEqual(self.repost_mf2, json_loads(resp.source_mf2))
 
     def test_activitypub_link_rel_alternate_as2(self, mock_get, mock_post):
         mock_get.side_effect = [self.reply, self.orig_html_as2, self.orig_as2,
@@ -590,23 +590,23 @@ class WebmentionTest(testutil.TestCase):
 
         Follower.get_or_create('orig', 'https://mastodon/aaa')
         Follower.get_or_create('orig', 'https://mastodon/bbb',
-                               last_follow=json.dumps({'actor': {
+                               last_follow=json_dumps({'actor': {
                                    'publicInbox': 'https://public/inbox',
                                    'inbox': 'https://unused',
                                }}))
         Follower.get_or_create('orig', 'https://mastodon/ccc',
-                               last_follow=json.dumps({'actor': {
+                               last_follow=json_dumps({'actor': {
                                    'endpoints': {
                                        'sharedInbox': 'https://shared/inbox',
                                    },
                                }}))
         Follower.get_or_create('orig', 'https://mastodon/ddd',
-                               last_follow=json.dumps({'actor': {
+                               last_follow=json_dumps({'actor': {
                                    'inbox': 'https://inbox',
                                }}))
         Follower.get_or_create('orig', 'https://mastodon/eee',
                                status='inactive',
-                               last_follow=json.dumps({'actor': {
+                               last_follow=json_dumps({'actor': {
                                    'inbox': 'https://unused/2',
                                }}))
         self.datastore_stub.Flush()
@@ -633,7 +633,7 @@ class WebmentionTest(testutil.TestCase):
             self.assertEqual('out', resp.direction, inbox)
             self.assertEqual('activitypub', resp.protocol, inbox)
             self.assertEqual('complete', resp.status, inbox)
-            self.assertEqual(self.create_mf2, json.loads(resp.source_mf2), inbox)
+            self.assertEqual(self.create_mf2, json_loads(resp.source_mf2), inbox)
 
     def test_activitypub_create_with_image(self, mock_get, mock_post):
         create_html = self.create_html.replace(
@@ -646,7 +646,7 @@ class WebmentionTest(testutil.TestCase):
 
         Follower.get_or_create(
             'orig', 'https://mastodon/aaa',
-            last_follow=json.dumps({'actor': {'inbox': 'https://inbox'}}))
+            last_follow=json_dumps({'actor': {'inbox': 'https://inbox'}}))
         self.datastore_stub.Flush()
 
         got = app.get_response(
@@ -694,7 +694,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('out', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
-        self.assertEqual(self.follow_mf2, json.loads(resp.source_mf2))
+        self.assertEqual(self.follow_mf2, json_loads(resp.source_mf2))
 
     def test_salmon_reply(self, mock_get, mock_post):
         mock_get.side_effect = [self.reply, self.orig_html_atom, self.orig_atom]
@@ -735,7 +735,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('out', resp.direction)
         self.assertEqual('ostatus', resp.protocol)
         self.assertEqual('complete', resp.status)
-        self.assertEqual(self.reply_mf2, json.loads(resp.source_mf2))
+        self.assertEqual(self.reply_mf2, json_loads(resp.source_mf2))
 
     def test_salmon_like(self, mock_get, mock_post):
         mock_get.side_effect = [self.like, self.orig_html_atom, self.orig_atom]
@@ -769,7 +769,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('out', resp.direction)
         self.assertEqual('ostatus', resp.protocol)
         self.assertEqual('complete', resp.status)
-        self.assertEqual(self.like_mf2, json.loads(resp.source_mf2))
+        self.assertEqual(self.like_mf2, json_loads(resp.source_mf2))
 
     def test_salmon_get_salmon_from_webfinger(self, mock_get, mock_post):
         orig_atom = requests_response("""\
