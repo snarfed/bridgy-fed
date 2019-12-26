@@ -116,7 +116,7 @@ class WebmentionHandler(webapp2.RequestHandler):
             self.response.status_int = error.status_code
             self.response.write(error.text)
         else:
-            self.response.write(unicode(error))
+            self.response.write(str(error))
 
         return not error
 
