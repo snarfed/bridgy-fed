@@ -281,8 +281,9 @@ class WebmentionHandler(webapp2.RequestHandler):
             # try webfinger
             parsed = urllib.parse.urlparse(resp.target())
             # TODO: test missing email
-            email = entry.author_detail.get('email') or '@'.join(
-                (entry.author_detail.name, parsed.netloc))
+            author = entry.get('author_detail', {})
+            email = author.get('email') or '@'.join(
+                (author.get('name', ''), parsed.netloc))
             try:
                 # TODO: always https?
                 profile = common.requests_get(
