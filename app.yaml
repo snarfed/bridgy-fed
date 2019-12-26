@@ -12,8 +12,8 @@ handlers:
 
 # static
 - url: /(static/bootstrap.*\.css)
-  static_files: local/lib/python2.7/site-packages/oauth_dropins/\1
-  upload: local/lib/python2.7/site-packages/oauth_dropins/static/bootstrap.*\.css
+  static_files: oauth_dropins/\1
+  upload: oauth_dropins/static/bootstrap.*\.css
   secure: always
 
 - url: /static
@@ -21,7 +21,7 @@ handlers:
   secure: always
 
 - url: /oauth_dropins/static
-  static_dir: local/lib/python2.7/site-packages/oauth_dropins/static
+  static_dir: oauth_dropins/static
   secure: always
 
 - url: /.well-known/acme-challenge
