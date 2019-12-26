@@ -1,10 +1,9 @@
 """HTTP proxy that injects our webmention endpoint.
 """
 import datetime
-import urllib
+import urllib.parse
 
-import appengine_config
-
+from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.handlers import cache_response
 import requests
 import webapp2
@@ -21,7 +20,7 @@ class AddWebmentionHandler(webapp2.RequestHandler):
 
     @cache_response(CACHE_TIME)
     def get(self, url):
-        url = urllib.unquote(url)
+        url = urllib.parse.unquote(url)
         if not url.startswith('http://') and not url.startswith('https://'):
             common.error(self, 'URL must start with http:// or https://')
 
@@ -36,12 +35,12 @@ class AddWebmentionHandler(webapp2.RequestHandler):
         self.response.write(resp.content)
 
         endpoint = LINK_HEADER % (str(self.request.get('endpoint')) or
-                                  appengine_config.HOST_URL + '/webmention')
+                                  appengine_info.HOST_URL + '/webmention')
         self.response.headers.clear()
         self.response.headers.update(resp.headers)
         self.response.headers.add('Link', endpoint)
 
 
-app = webapp2.WSGIApplication([
+ROUTES = [
     ('/wm/(.+)', AddWebmentionHandler),
-], debug=appengine_config.DEBUG)
+]

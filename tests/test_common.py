@@ -1,16 +1,15 @@
 # coding=utf-8
 """Unit tests for common.py."""
-from __future__ import unicode_literals
 import logging
+from unittest import mock
 
-import mock
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 from webob import exc
 
 import common
-import testutil
+from . import testutil
 
 HTML = requests_response('<html></html>', headers={
     'Content-Type': common.CONTENT_TYPE_HTML,

@@ -1,28 +1,12 @@
 # https://cloud.google.com/appengine/docs/standard/python/config/appref
 
 # application: bridgy-federated
-# version: 1
-runtime: python27
-threadsafe: yes
-api_version: 1
-default_expiration: 1h
+runtime: python37
+# default_expiration: 1h
 
-includes:
-  - local/lib/python2.7/site-packages/oauth_dropins/webutil/app.common.yaml
-
-libraries:
-- name: jinja2
-  version: latest
-- name: lxml
-  version: latest
-- name: pycrypto
-  version: latest
-- name: ssl
-  version: latest
-- name: ujson
-  version: latest
-- name: webob
-  version: latest
+# https://cloud.google.com/appengine/docs/standard/python3/runtime#entrypoint_best_practices
+# https://docs.gunicorn.org/en/latest/settings.html#timeout
+entrypoint: gunicorn --workers 1 --threads 10 --timeout 60 -b :$PORT app:application
 
 handlers:
 
@@ -61,42 +45,6 @@ handlers:
   secure: always
 
 # dynamic
-- url: /render
-  script: render.app
-  secure: always
-
-- url: /(log|responses)
-  script: logs.app
-  secure: always
-
-- url: /r/.+
-  script: redirect.app
-  secure: always
-
-- url: /superfeedr/.*
-  script: superfeedr.app
-  secure: always
-
-- url: /wm/.+
-  script: add_webmention.app
-  secure: always
-
-- url: /webmention
-  script: webmention.app
-  secure: always
-
-- url: /[^@/]+/?(inbox)?
-  script: activitypub.app
-  secure: always
-
-- url: /[^/]+/salmon/?
-  script: salmon.app
-  secure: always
-
-- url: /(acct:)?[^/]+/?
-  script: webfinger.app
-  secure: always
-
-- url: /.well-known/.*
-  script: webfinger.app
+- url: .*
+  script: auto
   secure: always

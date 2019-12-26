@@ -1,14 +1,15 @@
 """Unit tests for redirect.py.
 """
 import copy
+from unittest.mock import patch
 
-from mock import patch
 from oauth_dropins.webutil.testutil import requests_response
 
+from app import application
 import common
-from redirect import app, RedirectHandler
-from test_webmention import REPOST_HTML, REPOST_AS2
-import testutil
+from redirect import RedirectHandler
+from .test_webmention import REPOST_HTML, REPOST_AS2
+from . import testutil
 
 
 class RedirectTest(testutil.TestCase):
@@ -18,16 +19,16 @@ class RedirectTest(testutil.TestCase):
         RedirectHandler.get.cache_clear()
 
     def test_redirect(self):
-        got = app.get_response('/r/https://foo.com/bar?baz=baj&biff')
+        got = application.get_response('/r/https://foo.com/bar?baz=baj&biff')
         self.assertEqual(302, got.status_int)
         self.assertEqual('https://foo.com/bar?baz=baj&biff', got.headers['Location'])
 
     def test_redirect_scheme_missing(self):
-        got = app.get_response('/r/asdf.com')
+        got = application.get_response('/r/asdf.com')
         self.assertEqual(400, got.status_int)
 
     def test_redirect_url_missing(self):
-        got = app.get_response('/r/')
+        got = application.get_response('/r/')
         self.assertEqual(404, got.status_int)
 
     def test_as2(self):
@@ -51,7 +52,7 @@ class RedirectTest(testutil.TestCase):
         mock_get.return_value = requests_response(
             REPOST_HTML, content_type=common.CONTENT_TYPE_HTML)
 
-        got = app.get_response('/r/https://foo.com/bar', headers={'Accept': accept})
+        got = application.get_response('/r/https://foo.com/bar', headers={'Accept': accept})
 
         args, kwargs = mock_get.call_args
         self.assertEqual(('https://foo.com/bar',), args)

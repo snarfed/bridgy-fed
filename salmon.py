@@ -6,8 +6,6 @@ https://github.com/salmon-protocol/salmon-protocol/blob/master/draft-panzer-magi
 import logging
 from xml.etree.ElementTree import ParseError
 
-import appengine_config
-
 from django_salmon import magicsigs, utils
 from granary import atom
 from oauth_dropins.webutil import util
@@ -41,7 +39,7 @@ class SlapHandler(webapp2.RequestHandler):
             parsed = utils.parse_magic_envelope(self.request.body)
         except ParseError as e:
             common.error(self, 'Could not parse POST body as XML', exc_info=True)
-        data = utils.decode(parsed['data'])
+        data = parsed['data']
         logging.info('Decoded: %s', data)
 
         # check that we support this activity type
@@ -80,7 +78,7 @@ class SlapHandler(webapp2.RequestHandler):
         common.send_webmentions(self, activity, protocol='ostatus', source_atom=data)
 
 
-app = webapp2.WSGIApplication([
+ROUTES = [
     (r'/%s/salmon' % common.ACCT_RE, SlapHandler),
     (r'/()%s/salmon' % common.DOMAIN_RE, SlapHandler),
-], debug=appengine_config.DEBUG)
+]

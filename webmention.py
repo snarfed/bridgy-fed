@@ -5,15 +5,13 @@ TODO tests:
 * salmon rel via webfinger via author.name + domain
 """
 import logging
-import urllib
-import urlparse
-
-import appengine_config
+import urllib.parse
+from  urllib.parse import urlencode
 
 import django_salmon
 from django_salmon import magicsigs
 import feedparser
-from google.appengine.ext.ndb import Key
+from google.cloud.ndb import Key
 from granary import as2, atom, microformats2, source
 import mf2util
 from oauth_dropins.webutil import util
@@ -44,7 +42,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         source = util.get_required_param(self, 'source')
         source_resp = common.requests_get(source)
         self.source_url = source_resp.url or source
-        self.source_domain = urlparse.urlparse(self.source_url).netloc.split(':')[0]
+        self.source_domain = urllib.parse.urlparse(self.source_url).netloc.split(':')[0]
         self.source_mf2 = util.parse_mf2(source_resp)
 
         # logging.debug('Parsed mf2 for %s: %s', source_resp.url, json_dumps(self.source_mf2 indent=2))
@@ -52,7 +50,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         # check for backlink to bridgy fed (for webmention spec and to confirm
         # source's intent to federate to mastodon)
         if (self.request.host_url not in source_resp.text and
-            urllib.quote(self.request.host_url, safe='') not in source_resp.text):
+            urllib.parse.quote(self.request.host_url, safe='') not in source_resp.text):
             common.error(self, "Couldn't find link to %s" % self.request.host_url)
 
         # convert source page to ActivityStreams
@@ -190,7 +188,7 @@ class WebmentionHandler(webapp2.RequestHandler):
                 actor = actor.get('url') or actor.get('id')
             if not inbox_url and not actor:
                 common.error(self, 'Target object has no actor or attributedTo with URL or id.')
-            elif not isinstance(actor, basestring):
+            elif not isinstance(actor, str):
                 common.error(self, 'Target actor or attributedTo has unexpected url or id object: %r' % actor)
 
         if not inbox_url:
@@ -204,7 +202,7 @@ class WebmentionHandler(webapp2.RequestHandler):
             # common.error(self, 'Target actor has no inbox')
             return []
 
-        inbox_url = urlparse.urljoin(target_url, inbox_url)
+        inbox_url = urllib.parse.urljoin(target_url, inbox_url)
         return [(resp, inbox_url)]
 
     def try_salmon(self):
@@ -250,8 +248,8 @@ class WebmentionHandler(webapp2.RequestHandler):
         if base and base.get('href'):
             base_url = base['href']
         atom_link = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
-        atom_url = urlparse.urljoin(
-            resp.target(), urlparse.urljoin(base_url, atom_link['href']))
+        atom_url = urllib.parse.urljoin(
+            resp.target(), urllib.parse.urljoin(base_url, atom_link['href']))
 
         feed = common.requests_get(atom_url).text
         parsed = feedparser.parse(feed)
@@ -281,7 +279,7 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         if not endpoint:
             # try webfinger
-            parsed = urlparse.urlparse(resp.target())
+            parsed = urllib.parse.urlparse(resp.target())
             # TODO: test missing email
             email = entry.author_detail.get('email') or '@'.join(
                 (entry.author_detail.name, parsed.netloc))
@@ -307,11 +305,11 @@ class WebmentionHandler(webapp2.RequestHandler):
         logging.info('Converted %s to Atom:\n%s', self.source_url, entry)
 
         # sign reply and wrap in magic envelope
-        domain = urlparse.urlparse(self.source_url).netloc
+        domain = urllib.parse.urlparse(self.source_url).netloc
         key = MagicKey.get_or_create(domain)
         logging.info('Using key for %s: %s', domain, key)
         magic_envelope = magicsigs.magic_envelope(
-            entry, common.CONTENT_TYPE_ATOM, key)
+            entry, common.CONTENT_TYPE_ATOM, key).decode()
 
         logging.info('Sending Salmon slap to %s', endpoint)
         common.requests_post(
@@ -320,6 +318,6 @@ class WebmentionHandler(webapp2.RequestHandler):
         return True
 
 
-app = webapp2.WSGIApplication([
+ROUTES = [
     ('/webmention', WebmentionHandler),
-], debug=appengine_config.DEBUG)
+]

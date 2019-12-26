@@ -3,19 +3,19 @@
 
 TODO: test error handling
 """
-from __future__ import unicode_literals
-import urllib
+from unittest import mock
+import urllib.parse
 
-import mock
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_loads
 import requests
 
+from app import application
 import common
 import models
-import testutil
-from webfinger import app, UserHandler, WebfingerHandler
+from webfinger import UserHandler, WebfingerHandler
+from . import testutil
 
 USER = 'foo.com@foo.com'
 
@@ -68,7 +68,7 @@ class WebFingerTest(testutil.TestCase):
             }, {
                 'rel': 'http://schemas.google.com/g/2010#updates-from',
                 'type': 'application/atom+xml',
-                'href': 'https://granary.io/url?url=https%3A%2F%2Ffoo.com%2F&input=html&hub=https%3A%2F%2Ffoo.com%2F&output=atom',
+                'href': 'https://granary.io/url?input=html&output=atom&url=https%3A%2F%2Ffoo.com%2F&hub=https%3A%2F%2Ffoo.com%2F',
             }, {
                 'rel': 'hub',
                 'href': 'https://bridgy-fed.superfeedr.com/'
@@ -85,46 +85,50 @@ class WebFingerTest(testutil.TestCase):
         }
 
     def test_host_meta_handler_xrd(self):
-        got = app.get_response('/.well-known/host-meta')
-        self.assertEquals(200, got.status_int)
-        self.assertEquals('application/xrd+xml; charset=utf-8',
+        got = application.get_response('/.well-known/host-meta')
+        self.assertEqual(200, got.status_int)
+        self.assertEqual('application/xrd+xml; charset=utf-8',
                           got.headers['Content-Type'])
-        self.assertTrue(got.body.startswith('<?xml'), got.body)
+        body = got.body.decode()
+        self.assertTrue(body.startswith('<?xml'), body)
 
     def test_host_meta_handler_xrds(self):
-        got = app.get_response('/.well-known/host-meta.xrds')
-        self.assertEquals(200, got.status_int)
-        self.assertEquals('application/xrds+xml; charset=utf-8',
+        got = application.get_response('/.well-known/host-meta.xrds')
+        self.assertEqual(200, got.status_int)
+        self.assertEqual('application/xrds+xml; charset=utf-8',
                           got.headers['Content-Type'])
-        self.assertTrue(got.body.startswith('<XRDS'), got.body)
+        body = got.body.decode()
+        self.assertTrue(body.startswith('<XRDS'), body)
 
     def test_host_meta_handler_jrd(self):
-        got = app.get_response('/.well-known/host-meta.json')
-        self.assertEquals(200, got.status_int)
-        self.assertEquals('application/json; charset=utf-8',
+        got = application.get_response('/.well-known/host-meta.json')
+        self.assertEqual(200, got.status_int)
+        self.assertEqual('application/json; charset=utf-8',
                           got.headers['Content-Type'])
-        self.assertTrue(got.body.startswith('{'), got.body)
+        body = got.body.decode()
+        self.assertTrue(body.startswith('{'), body)
 
     @mock.patch('requests.get')
     def test_user_handler(self, mock_get):
         mock_get.return_value = requests_response(self.html, url = 'https://foo.com/')
 
-        got = app.get_response('/foo.com', headers={'Accept': 'application/json'})
-        self.assertEquals(200, got.status_int)
-        self.assertEquals('application/json; charset=utf-8',
+        got = application.get_response('/acct:foo.com',
+                                       headers={'Accept': 'application/json'})
+        self.assertEqual(200, got.status_int)
+        self.assertEqual('application/json; charset=utf-8',
                           got.headers['Content-Type'])
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
                                          stream=True, timeout=util.HTTP_TIMEOUT)
 
-        self.assertEquals(self.expected_webfinger, json_loads(got.body))
+        self.assertEqual(self.expected_webfinger, json_loads(got.body.decode()))
 
         # check that magic key is persistent
-        again = json_loads(app.get_response(
-            '/foo.com', headers={'Accept': 'application/json'}).body)
-        self.assertEquals(self.key.href(), again['magic_keys'][0]['value'])
+        again = json_loads(application.get_response(
+            '/acct:foo.com', headers={'Accept': 'application/json'}).body.decode())
+        self.assertEqual(self.key.href(), again['magic_keys'][0]['value'])
 
         links = {l['rel']: l['href'] for l in again['links']}
-        self.assertEquals(self.key.href(), links['magic-public-key'])
+        self.assertEqual(self.key.href(), links['magic-public-key'])
 
     @mock.patch('requests.get')
     def test_user_handler_with_atom_feed(self, mock_get):
@@ -138,13 +142,14 @@ class WebFingerTest(testutil.TestCase):
 """ + self.html
         mock_get.return_value = requests_response(html, url = 'https://foo.com/')
 
-        got = app.get_response('/foo.com', headers={'Accept': 'application/json'})
-        self.assertEquals(200, got.status_int)
+        got = application.get_response('/acct:foo.com',
+                                       headers={'Accept': 'application/json'})
+        self.assertEqual(200, got.status_int)
         self.assertIn({
             'rel': 'http://schemas.google.com/g/2010#updates-from',
             'type': 'application/atom+xml',
             'href': 'https://foo.com/use-this',
-        }, json_loads(got.body)['links'])
+        }, json_loads(got.body.decode())['links'])
 
     @mock.patch('requests.get')
     def test_user_handler_with_push_header(self, mock_get):
@@ -155,12 +160,13 @@ class WebFingerTest(testutil.TestCase):
                         '<http://a.custom.hub/>; rel="hub"',
             })
 
-        got = app.get_response('/foo.com', headers={'Accept': 'application/json'})
-        self.assertEquals(200, got.status_int)
+        got = application.get_response('/acct:foo.com',
+                                       headers={'Accept': 'application/json'})
+        self.assertEqual(200, got.status_int)
         self.assertIn({
             'rel': 'hub',
             'href': 'http://a.custom.hub/',
-        }, json_loads(got.body)['links'])
+        }, json_loads(got.body.decode())['links'])
 
     @mock.patch('requests.get')
     def test_user_handler_no_hcard(self, mock_get):
@@ -171,16 +177,16 @@ class WebFingerTest(testutil.TestCase):
 </div>
 </body>
 """)
-        got = app.get_response('/foo.com')
+        got = application.get_response('/acct:foo.com')
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
                                          stream=True, timeout=util.HTTP_TIMEOUT)
-        self.assertEquals(400, got.status_int)
-        self.assertIn('representative h-card', got.body)
+        self.assertEqual(400, got.status_int)
+        self.assertIn('representative h-card', got.body.decode())
 
     def test_user_handler_bad_tld(self):
-        got = app.get_response('/foo.json')
-        self.assertEquals(404, got.status_int)
-        self.assertIn("doesn't look like a domain", got.body)
+        got = application.get_response('/acct:foo.json')
+        self.assertEqual(404, got.status_int)
+        self.assertIn("doesn't look like a domain", got.body.decode())
 
     @mock.patch('requests.get')
     def test_webfinger_handler(self, mock_get):
@@ -188,13 +194,14 @@ class WebFingerTest(testutil.TestCase):
 
         for resource in ('foo.com@foo.com', 'acct:foo.com@foo.com', 'xyz@foo.com',
                          'foo.com', 'http://foo.com/', 'https://foo.com/'):
-            url = '/.well-known/webfinger?%s' % urllib.urlencode(
+            url = '/.well-known/webfinger?%s' % urllib.parse.urlencode(
                 {'resource': resource})
-            got = app.get_response(url, headers={'Accept': 'application/json'})
-            self.assertEquals(200, got.status_int, got.body)
-            self.assertEquals('application/json; charset=utf-8',
+            got = application.get_response(url, headers={'Accept': 'application/json'})
+            body = got.body.decode()
+            self.assertEqual(200, got.status_int, body)
+            self.assertEqual('application/json; charset=utf-8',
                               got.headers['Content-Type'])
-            self.assertEquals(self.expected_webfinger, json_loads(got.body))
+            self.assertEqual(self.expected_webfinger, json_loads(body))
 
     @mock.patch('requests.get')
     def test_webfinger_handler_custom_username(self, mock_get):
@@ -217,10 +224,11 @@ class WebFingerTest(testutil.TestCase):
 
         for resource in ('customuser@foo.com', 'acct:customuser@foo.com',
                          'foo.com', 'http://foo.com/', 'https://foo.com/'):
-            url = '/.well-known/webfinger?%s' % urllib.urlencode(
+            url = '/.well-known/webfinger?%s' % urllib.parse.urlencode(
                 {'resource': resource})
-            got = app.get_response(url, headers={'Accept': 'application/json'})
-            self.assertEquals(200, got.status_int, got.body)
-            self.assertEquals('application/json; charset=utf-8',
+            got = application.get_response(url, headers={'Accept': 'application/json'})
+            body = got.body.decode()
+            self.assertEqual(200, got.status_int, body)
+            self.assertEqual('application/json; charset=utf-8',
                               got.headers['Content-Type'])
-            self.assertEquals(self.expected_webfinger, json_loads(got.body))
+            self.assertEqual(self.expected_webfinger, json_loads(body))

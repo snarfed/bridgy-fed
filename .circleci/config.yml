@@ -9,38 +9,45 @@ jobs:
     docker:
       # https://circleci.com/docs/2.0/google-container-engine/#selecting-a-base-image
       - image: google/cloud-sdk
-      - image: python:2.7.12
 
     environment:
-      - PYTHONPATH: /usr/lib/google-cloud-sdk/platform/google_appengine
+      # https://github.com/GoogleCloudPlatform/google-cloud-datastore/issues/168#issuecomment-294418422
+      - APPLICATION_ID: dev~bridgy-federated
 
     steps:
       - checkout
 
       - restore_cache:
-          key: venv-{{ .Branch }}-{{ checksum "requirements.freeze.txt" }}
+          key: venv-{{ .Branch }}-{{ checksum "requirements.txt" }}
 
       - run:
-          name: Python 2 dependencies
+          name: Base dependencies
           command: |
-            apt-get install -y python-virtualenv google-cloud-sdk-app-engine-python-extras
-            virtualenv --python=python2 local
-            . local/bin/activate
-            pip install -r requirements.freeze.txt
-            pip install coverage coveralls  # for https://coveralls.io/
+            apt-get update
+            apt-get install -y python3
+
+      - run:
+          name: Python 3 dependencies
+          command: |
+            apt-get install -y python3-venv python3-dev
+            python3 -m venv local3
+            . local3/bin/activate
+            pip install -U -r requirements.txt
+            pip install mox3
+            pip install coverage coveralls
 
       - run:
           name: Build and test
           command: |
-            . local/bin/activate
-            python2 -m coverage run --source=. --omit=appengine_config.py,local/\*,oauth-dropins/\*,tests/\* -m unittest discover -v
-            python2 -m coverage html -d /tmp/coverage_html
-
-            # send coverage data to coveralls
+            . local3/bin/activate
+            CLOUDSDK_CORE_PROJECT=bridgy-federated gcloud beta emulators datastore start --no-store-on-disk --consistency=1.0 --host-port=localhost:8089 < /dev/null >& /dev/null &
+            sleep 5s
+            python -m coverage run --source=. --omit=appengine_config.py,local3/\*,logs.py,tests/\* -m unittest discover -v
+            python -m coverage html -d /tmp/coverage_html
             if [ "$COVERALLS_REPO_TOKEN" != "" ]; then coveralls || true; fi
 
       - save_cache:
-          key: venv-{{ .Branch }}-{{ checksum "requirements.freeze.txt" }}
+          key: venv-{{ .Branch }}-{{ checksum "requirements.txt" }}
           paths:
             - local
 

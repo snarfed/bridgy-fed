@@ -2,8 +2,6 @@
 """Renders mf2 proxy pages based on stored Responses."""
 import datetime
 
-import appengine_config
-
 from granary import as2, atom, microformats2
 from oauth_dropins.webutil.handlers import cache_response, ModernHandler
 from oauth_dropins.webutil import util
@@ -47,6 +45,6 @@ class RenderHandler(ModernHandler):
         self.response.write(html)
 
 
-app = webapp2.WSGIApplication([
-    ('/render', RenderHandler),
-], debug=appengine_config.DEBUG)
+ROUTES = [
+  ('/render', RenderHandler),
+]

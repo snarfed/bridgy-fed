@@ -1,16 +1,10 @@
--e git+https://github.com/snarfed/django-salmon.git#egg=django_salmon
--e git+https://github.com/snarfed/webmention-tools.git#egg=webmentiontools
-beautifulsoup4
-feedparser
-granary>=1.14
-httpsig
-jinja2>=2.10
-mf2py>=1.0.4
-mf2util>=0.5.0
-mock
-mox3>=0.24.0
-pycrypto
-requests==2.10.0
-requests-toolbelt==0.6.2
-ujson>=1.35
-urllib3>=1.14
+git+https://github.com/snarfed/django-salmon.git#egg=django_salmon
+git+https://github.com/snarfed/httpsig.git@signature_header#egg=httpsig
+git+https://github.com/snarfed/webmention-tools.git@python3#egg=webmentiontools
+git+https://github.com/snarfed/oauth-dropins.git@master#egg=oauth_dropins
+git+https://github.com/snarfed/granary.git@master#egg=granary
+feedparser~=5.2
+google-cloud-logging~=1.14
+mf2util~=0.5.0
+pycrypto~=2.6
+requests~=2.22

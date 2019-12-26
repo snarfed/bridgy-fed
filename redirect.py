@@ -19,7 +19,6 @@ from oauth_dropins.webutil.util import json_dumps
 import ujson as json
 import webapp2
 
-import appengine_config
 import common
 
 CACHE_TIME = datetime.timedelta(seconds=15)
@@ -68,6 +67,6 @@ class RedirectHandler(webapp2.RequestHandler):
         self.response.write(json_dumps(obj, indent=2))
 
 
-app = webapp2.WSGIApplication([
+ROUTES = [
     (r'/r/.+', RedirectHandler),
-], debug=appengine_config.DEBUG)
+]

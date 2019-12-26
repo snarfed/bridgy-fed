@@ -3,12 +3,10 @@
 import datetime
 import logging
 
-import appengine_config
-
-from google.appengine.ext import ndb
+from google.cloud import ndb
 from granary import as2, microformats2
 import mf2util
-from oauth_dropins.webutil import util
+from oauth_dropins.webutil import appengine_info, util
 from oauth_dropins.webutil.handlers import cache_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import webapp2
@@ -86,10 +84,10 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
         obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(hcard)),
                                      key=key)
         obj.update({
-            'inbox': '%s/%s/inbox' % (appengine_config.HOST_URL, domain),
-            'outbox': '%s/%s/outbox' % (appengine_config.HOST_URL, domain),
-            'following': '%s/%s/following' % (appengine_config.HOST_URL, domain),
-            'followers': '%s/%s/followers' % (appengine_config.HOST_URL, domain),
+            'inbox': '%s/%s/inbox' % (appengine_info.HOST_URL, domain),
+            'outbox': '%s/%s/outbox' % (appengine_info.HOST_URL, domain),
+            'following': '%s/%s/following' % (appengine_info.HOST_URL, domain),
+            'followers': '%s/%s/followers' % (appengine_info.HOST_URL, domain),
         })
         logging.info('Returning: %s', json_dumps(obj, indent=2))
 
@@ -114,7 +112,7 @@ class InboxHandler(webapp2.RequestHandler):
             common.error(self, "Couldn't parse body as JSON", exc_info=True)
 
         obj = activity.get('object') or {}
-        if isinstance(obj, basestring):
+        if isinstance(obj, str):
             obj = {'id': obj}
 
         type = activity.get('type')
@@ -135,7 +133,7 @@ class InboxHandler(webapp2.RequestHandler):
         # fetch actor if necessary so we have name, profile photo, etc
         for elem in obj, activity:
             actor = elem.get('actor')
-            if actor and isinstance(actor, basestring):
+            if actor and isinstance(actor, str):
                 elem['actor'] = common.get_as2(actor).json()
 
         activity_unwrapped = common.redirect_unwrap(activity)
@@ -174,7 +172,7 @@ class InboxHandler(webapp2.RequestHandler):
         # send AP Accept
         accept = {
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': util.tag_uri(appengine_config.HOST, 'accept/%s/%s' % (
+            'id': util.tag_uri(appengine_info.HOST, 'accept/%s/%s' % (
                 (user_domain, follow.get('id')))),
             'type': 'Accept',
             'actor': followee,
@@ -193,7 +191,7 @@ class InboxHandler(webapp2.RequestHandler):
             self, as2.to_as1(follow), proxy=True, protocol='activitypub',
             source_as2=json_dumps(follow_unwrapped))
 
-    @ndb.transactional
+    @ndb.transactional()
     def undo_follow(self, undo_unwrapped):
         """Replies to an AP Follow request with an Accept request.
 
@@ -222,7 +220,7 @@ class InboxHandler(webapp2.RequestHandler):
         # TODO send webmention with 410 of u-follow
 
 
-app = webapp2.WSGIApplication([
+ROUTES = [
     (r'/%s/?' % common.DOMAIN_RE, ActorHandler),
     (r'/%s/inbox' % common.DOMAIN_RE, InboxHandler),
-], debug=appengine_config.DEBUG)
+]

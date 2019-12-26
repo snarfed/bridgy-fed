@@ -3,14 +3,13 @@
 Based on webfinger-unofficial/user.py.
 """
 import logging
-import urllib
+import urllib.parse
 
 from Crypto.PublicKey import RSA
 from django_salmon import magicsigs
-from google.appengine.ext import ndb
+from google.cloud import ndb
+from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.models import StringIdModel
-
-import appengine_config
 
 
 class MagicKey(StringIdModel):
@@ -31,7 +30,7 @@ class MagicKey(StringIdModel):
     private_exponent = ndb.StringProperty(required=True)
 
     @staticmethod
-    @ndb.transactional
+    @ndb.transactional()
     def get_or_create(domain):
         """Loads and returns a MagicKey. Creates it if necessary."""
         key = MagicKey.get_by_id(domain)
@@ -51,11 +50,13 @@ class MagicKey(StringIdModel):
             self.mod, self.public_exponent)
 
     def public_pem(self):
+        """Returns: bytes"""
         rsa = RSA.construct((magicsigs.base64_to_long(str(self.mod)),
                              magicsigs.base64_to_long(str(self.public_exponent))))
         return rsa.exportKey(format='PEM')
 
     def private_pem(self):
+        """Returns: bytes"""
         rsa = RSA.construct((magicsigs.base64_to_long(str(self.mod)),
                              magicsigs.base64_to_long(str(self.public_exponent)),
                              magicsigs.base64_to_long(str(self.private_exponent))))
@@ -107,7 +108,7 @@ class Response(StringIdModel):
         """Returns the Bridgy Fed proxy URL to render this response as HTML."""
         if self.source_mf2 or self.source_as2 or self.source_atom:
             source, target = self.key.id().split(' ')
-            return '%s/render?%s' % (appengine_config.HOST_URL, urllib.urlencode({
+            return '%s/render?%s' % (appengine_info.HOST_URL, urllib.parse.urlencode({
                 'source': source,
                 'target': target,
             }))

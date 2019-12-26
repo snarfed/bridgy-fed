@@ -10,16 +10,13 @@ TODO: test:
 * acct: URI handling
 * user URL that redirects
 """
-from __future__ import unicode_literals
 import datetime
 import logging
-import urllib
-import urlparse
-
-import appengine_config
+import urllib.parse
+import urllib.parse
 
 import mf2util
-from oauth_dropins.webutil import handlers, util
+from oauth_dropins.webutil import appengine_info, handlers, util
 from oauth_dropins.webutil.util import json_dumps
 import webapp2
 
@@ -50,7 +47,7 @@ class UserHandler(handlers.XrdOrJrdHandler):
         # find representative h-card. try url, then url's home page, then domain
         urls = ['http://%s/' % domain]
         if url:
-            urls = [url, urlparse.urljoin(url, '/')] + urls
+            urls = [url, urllib.parse.urljoin(url, '/')] + urls
 
         for candidate in urls:
             resp = common.requests_get(candidate)
@@ -83,9 +80,9 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
         # discover atom feed, if any
         atom = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
         if atom and atom['href']:
-            atom = urlparse.urljoin(resp.url, atom['href'])
+            atom = urllib.parse.urljoin(resp.url, atom['href'])
         else:
-            atom = 'https://granary.io/url?' + urllib.urlencode({
+            atom = 'https://granary.io/url?' + urllib.parse.urlencode({
                 'input': 'html',
                 'output': 'atom',
                 'url': resp.url,
@@ -122,15 +119,15 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
             # ActivityPub
             {
                 'rel': 'self',
-                'type': 'application/activity+json',
+                'type': common.CONTENT_TYPE_AS2,
                 # use HOST_URL instead of e.g. request.host_url because it
                 # sometimes lost port, e.g. http://localhost:8080 would become
                 # just http://localhost. no clue how or why.
-                'href': '%s/%s' % (appengine_config.HOST_URL, domain),
+                'href': '%s/%s' % (appengine_info.HOST_URL, domain),
             }, {
                 'rel': 'inbox',
-                'type': 'application/activity+json',
-                'href': '%s/%s/inbox' % (appengine_config.HOST_URL, domain),
+                'type': common.CONTENT_TYPE_AS2,
+                'href': '%s/%s/inbox' % (appengine_info.HOST_URL, domain),
             },
 
             # OStatus
@@ -146,7 +143,7 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
                 'href': key.href(),
             }, {
                 'rel': 'salmon',
-                'href': '%s/%s/salmon' % (appengine_config.HOST_URL, domain),
+                'href': '%s/%s/salmon' % (appengine_info.HOST_URL, domain),
             }]
         })
         logging.info('Returning WebFinger data: %s', json_dumps(data, indent=2))
@@ -163,7 +160,7 @@ class WebfingerHandler(UserHandler):
         try:
             _, domain = util.parse_acct_uri(resource)
         except ValueError:
-            domain = urlparse.urlparse(resource).netloc or resource
+            domain = urllib.parse.urlparse(resource).netloc or resource
 
         url = None
         if resource.startswith('http://') or resource.startswith('https://'):
@@ -172,7 +169,7 @@ class WebfingerHandler(UserHandler):
         return super(WebfingerHandler, self).template_vars(domain, url=url)
 
 
-app = webapp2.WSGIApplication([
-    (r'/%s/?' % common.DOMAIN_RE, UserHandler),
+ROUTES = [
+    (r'/acct:%s/?' % common.DOMAIN_RE, UserHandler),
     ('/.well-known/webfinger', WebfingerHandler),
-] + handlers.HOST_META_ROUTES, debug=appengine_config.DEBUG)
+] + handlers.HOST_META_ROUTES

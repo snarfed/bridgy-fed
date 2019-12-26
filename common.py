@@ -1,29 +1,28 @@
 # coding=utf-8
 """Misc common utilities.
 """
-from __future__ import unicode_literals
 import itertools
 import logging
 import re
-import urlparse
+import urllib.parse
 
 from granary import as2
+from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil import handlers, util
 import requests
 from webmentiontools import send
 from webob import exc
 
-import appengine_config
 import common
 from models import Response
 
-DOMAIN_RE = r'([^/]+\.[^/]+)'
+DOMAIN_RE = r'([^/:]+\.[^/:]+)'
 ACCT_RE = r'(?:acct:)?([^@]+)@' + DOMAIN_RE
 HEADERS = {
     'User-Agent': 'Bridgy Fed (https://fed.brid.gy/)',
 }
 # see redirect_wrap() and  redirect_unwrap()
-REDIRECT_PREFIX = urlparse.urljoin(appengine_config.HOST_URL, '/r/')
+REDIRECT_PREFIX = urllib.parse.urljoin(appengine_info.HOST_URL, '/r/')
 XML_UTF8 = "<?xml version='1.0' encoding='UTF-8'?>\n"
 # USERNAME = 'me'
 # USERNAME_EMOJI = '🌎'  # globe
@@ -35,12 +34,12 @@ AS2_PUBLIC_AUDIENCE = 'https://www.w3.org/ns/activitystreams#Public'
 #
 # ActivityPub Content-Type details:
 # https://www.w3.org/TR/activitypub/#retrieving-objects
-CONTENT_TYPE_AS2_LD = b'application/ld+json; profile="https://www.w3.org/ns/activitystreams"'
-CONTENT_TYPE_AS2 = b'application/activity+json'
-CONTENT_TYPE_AS1 = b'application/stream+json'
-CONTENT_TYPE_HTML = b'text/html; charset=utf-8'
-CONTENT_TYPE_ATOM = b'application/atom+xml'
-CONTENT_TYPE_MAGIC_ENVELOPE = b'application/magic-envelope+xml'
+CONTENT_TYPE_AS2_LD = 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"'
+CONTENT_TYPE_AS2 = 'application/activity+json'
+CONTENT_TYPE_AS1 = 'application/stream+json'
+CONTENT_TYPE_HTML = 'text/html; charset=utf-8'
+CONTENT_TYPE_ATOM = 'application/atom+xml'
+CONTENT_TYPE_MAGIC_ENVELOPE = 'application/magic-envelope+xml'
 
 CONNEG_HEADERS_AS2 = {
     'Accept': '%s; q=0.9, %s; q=0.8' % (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD),
@@ -129,7 +128,7 @@ def get_as2(url):
     if not (as2 and as2['href']):
         _error(resp)
 
-    resp = requests_get(urlparse.urljoin(resp.url, as2['href']),
+    resp = requests_get(urllib.parse.urljoin(resp.url, as2['href']),
                         headers=CONNEG_HEADERS_AS2)
     if content_type(resp) in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
         return resp
@@ -182,7 +181,7 @@ def send_webmentions(handler, activity_wrapped, proxy=None, **response_props):
     for tag in tags:
         if tag.get('objectType') == 'mention':
             url = tag.get('url')
-            if url and url.startswith(appengine_config.HOST_URL):
+            if url and url.startswith(appengine_info.HOST_URL):
                 targets.append(redirect_unwrap(url))
 
     if verb in ('follow', 'like', 'share'):
@@ -245,7 +244,7 @@ def postprocess_as2(activity, target=None, key=None):
             # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
             activity['publicKey'] = {
                 'id': activity.get('preferredUsername'),
-                'publicKeyPem': key.public_pem(),
+                'publicKeyPem': key.public_pem().decode(),
             }
         return activity
 
@@ -337,9 +336,9 @@ def postprocess_as2_actor(actor):
     """
     url = actor.get('url')
     if url:
-        domain = urlparse.urlparse(url).netloc
+        domain = urllib.parse.urlparse(url).netloc
         actor.setdefault('preferredUsername', domain)
-        actor['id'] = '%s/%s' % (appengine_config.HOST_URL, domain)
+        actor['id'] = '%s/%s' % (appengine_info.HOST_URL, domain)
         actor['url'] = redirect_wrap(url)
 
     # required by pixelfed. https://github.com/snarfed/bridgy-fed/issues/39
@@ -375,11 +374,11 @@ def redirect_unwrap(val):
     elif isinstance(val, list):
         return [redirect_unwrap(v) for v in val]
 
-    elif isinstance(val, basestring):
+    elif isinstance(val, str):
         if val.startswith(REDIRECT_PREFIX):
             return val[len(REDIRECT_PREFIX):]
-        elif val.startswith(appengine_config.HOST_URL):
+        elif val.startswith(appengine_info.HOST_URL):
             return util.follow_redirects(
-                util.domain_from_link(urlparse.urlparse(val).path.strip('/'))).url
+                util.domain_from_link(urllib.parse.urlparse(val).path.strip('/'))).url
 
     return val

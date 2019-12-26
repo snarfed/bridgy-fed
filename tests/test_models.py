@@ -1,9 +1,7 @@
 # coding=utf-8
 """Unit tests for models.py."""
-from __future__ import unicode_literals
-
 from models import MagicKey, Response
-import testutil
+from . import testutil
 
 
 class MagicKeyTest(testutil.TestCase):
@@ -18,7 +16,7 @@ class MagicKeyTest(testutil.TestCase):
         assert self.key.private_exponent
 
         same = MagicKey.get_or_create('y.z')
-        self.assertEquals(same, self.key)
+        self.assertEqual(same, self.key)
 
     def test_href(self):
         href = self.key.href()
@@ -28,35 +26,35 @@ class MagicKeyTest(testutil.TestCase):
 
     def test_public_pem(self):
         pem = self.key.public_pem()
-        self.assertTrue(pem.startswith('-----BEGIN PUBLIC KEY-----\n'), pem)
-        self.assertTrue(pem.endswith('-----END PUBLIC KEY-----'), pem)
+        self.assertTrue(pem.decode().startswith('-----BEGIN PUBLIC KEY-----\n'), pem)
+        self.assertTrue(pem.decode().endswith('-----END PUBLIC KEY-----'), pem)
 
-    def test_public_pem(self):
+    def test_private_pem(self):
         pem = self.key.private_pem()
-        self.assertTrue(pem.startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
-        self.assertTrue(pem.endswith('-----END RSA PRIVATE KEY-----'), pem)
+        self.assertTrue(pem.decode().startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
+        self.assertTrue(pem.decode().endswith('-----END RSA PRIVATE KEY-----'), pem)
 
 
 class ResponseTest(testutil.TestCase):
 
     def test_constructor(self):
         resp = Response('abc', 'xyz')
-        self.assertEquals('abc xyz', resp.key.id())
+        self.assertEqual('abc xyz', resp.key.id())
 
         resp = Response('abc#1', 'xyz#Z')
-        self.assertEquals('abc__1 xyz__Z', resp.key.id())
+        self.assertEqual('abc__1 xyz__Z', resp.key.id())
 
     def test_get_or_create(self):
         resp = Response.get_or_create('abc', 'xyz')
-        self.assertEquals('abc xyz', resp.key.id())
+        self.assertEqual('abc xyz', resp.key.id())
 
         resp = Response.get_or_create('abc#1', 'xyz#Z')
-        self.assertEquals('abc__1 xyz__Z', resp.key.id())
+        self.assertEqual('abc__1 xyz__Z', resp.key.id())
 
     def test_proxy_url(self):
         resp = Response.get_or_create('abc', 'xyz')
         self.assertIsNone(resp.proxy_url())
 
         resp.source_as2 = 'as2'
-        self.assertEquals('http://localhost/render?source=abc&target=xyz',
+        self.assertEqual('http://localhost/render?source=abc&target=xyz',
                           resp.proxy_url())

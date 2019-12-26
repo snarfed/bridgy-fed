@@ -3,26 +3,24 @@
 
 TODO: test error handling
 """
-from __future__ import unicode_literals
 import copy
 import datetime
-import urllib
+from unittest import mock
 
 from django_salmon import magicsigs
-import mock
 from oauth_dropins.webutil.testutil import requests_response, UrlopenResult
 import requests
 
+from app import application
 import common
 from models import MagicKey, Response
-from salmon import app
-import testutil
+from . import testutil
 
 
 @mock.patch('requests.post')
 @mock.patch('requests.get')
 @mock.patch('requests.head')
-@mock.patch('urllib2.urlopen')
+@mock.patch('urllib.request.urlopen')
 class SalmonTest(testutil.TestCase):
 
     def setUp(self):
@@ -53,8 +51,9 @@ class SalmonTest(testutil.TestCase):
         mock_post.return_value = requests_response()
 
         slap = magicsigs.magic_envelope(atom_slap, common.CONTENT_TYPE_ATOM, self.key)
-        got = app.get_response('/foo.com@foo.com/salmon', method='POST', body=slap)
-        self.assertEquals(200, got.status_int)
+        got = application.get_response('/foo.com@foo.com/salmon', method='POST',
+                                       body=slap)
+        self.assertEqual(200, got.status_int)
 
         # check salmon magic key discovery
         mock_urlopen.assert_has_calls((
@@ -84,7 +83,7 @@ class SalmonTest(testutil.TestCase):
   <content>I hereby reply.</content>
   <title>My Reply</title>
   <updated>%s</updated>
-</entry>""" % datetime.datetime.now().isoformat(b'T')
+</entry>""" % datetime.datetime.now().isoformat('T')
         self.send_slap(mock_urlopen, mock_head, mock_get, mock_post, atom_reply)
 
         # check webmention post
@@ -115,7 +114,7 @@ class SalmonTest(testutil.TestCase):
   <activity:verb>http://activitystrea.ms/schema/1.0/like</activity:verb>
   <activity:object>http://orig/post</activity:object>
   <updated>%s</updated>
-</entry>""" % datetime.datetime.now().isoformat(b'T')
+</entry>""" % datetime.datetime.now().isoformat('T')
         self.send_slap(mock_urlopen, mock_head, mock_get, mock_post, atom_like)
 
         # check webmention post
@@ -137,14 +136,14 @@ class SalmonTest(testutil.TestCase):
         self.assertEqual(atom_like, resp.source_atom)
 
     def test_bad_envelope(self, *mocks):
-        got = app.get_response('/foo.com/salmon', method='POST',
-                               body='not xml'.encode('utf-8'))
-        self.assertEquals(400, got.status_int)
+        got = application.get_response('/foo.com/salmon', method='POST',
+                                       body=b'not xml')
+        self.assertEqual(400, got.status_int)
 
     def test_bad_inner_xml(self, *mocks):
         slap = magicsigs.magic_envelope('not xml', common.CONTENT_TYPE_ATOM, self.key)
-        got = app.get_response('/foo.com/salmon', method='POST', body=slap)
-        self.assertEquals(400, got.status_int)
+        got = application.get_response('/foo.com/salmon', method='POST', body=slap)
+        self.assertEqual(400, got.status_int)
 
     def test_rsvp_not_supported(self, *mocks):
         slap = magicsigs.magic_envelope("""\
@@ -155,5 +154,5 @@ class SalmonTest(testutil.TestCase):
   <activity:verb>http://activitystrea.ms/schema/1.0/rsvp</activity:verb>
   <activity:object>http://orig/event</activity:object>
 </entry>""", common.CONTENT_TYPE_ATOM, self.key)
-        got = app.get_response('/foo.com/salmon', method='POST', body=slap)
-        self.assertEquals(501, got.status_int)
+        got = application.get_response('/foo.com/salmon', method='POST', body=slap)
+        self.assertEqual(501, got.status_int)

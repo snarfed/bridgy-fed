@@ -8,8 +8,6 @@ import logging
 
 import webapp2
 
-import appengine_config
-
 
 class SuperfeedrHandler(webapp2.RequestHandler):
     """Superfeedr subscription callback handler.
@@ -24,6 +22,6 @@ class SuperfeedrHandler(webapp2.RequestHandler):
     get = post
 
 
-app = webapp2.WSGIApplication([
+ROUTES = [
     (r'/superfeedr/.*', SuperfeedrHandler),
-], debug=appengine_config.DEBUG)
+]

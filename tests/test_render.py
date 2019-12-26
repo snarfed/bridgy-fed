@@ -1,12 +1,11 @@
 # coding=utf-8
 """Unit tests for render.py."""
-from __future__ import unicode_literals
-
 from oauth_dropins.webutil.util import json_dumps
 
+from app import application
 from models import Response
-import testutil
-from render import app, RenderHandler
+from render import RenderHandler
+from . import testutil
 
 
 class RenderTest(testutil.TestCase):
@@ -61,35 +60,35 @@ class RenderTest(testutil.TestCase):
 
     def test_render_errors(self):
         for source, target in ('', ''), ('abc', ''), ('', 'xyz'):
-            resp = app.get_response('/render?source=%s&target=%s' % (source, target))
-            self.assertEquals(400, resp.status_int, resp.body)
+            resp = application.get_response('/render?source=%s&target=%s' % (source, target))
+            self.assertEqual(400, resp.status_int, resp.body)
 
         # no Response
-        resp = app.get_response('/render?source=abc&target=xyz')
-        self.assertEquals(404, resp.status_int)
+        resp = application.get_response('/render?source=abc&target=xyz')
+        self.assertEqual(404, resp.status_int)
 
         # no source data
         Response(id='abc xyz').put()
-        resp = app.get_response('/render?source=abc&target=xyz')
-        self.assertEquals(404, resp.status_int)
+        resp = application.get_response('/render?source=abc&target=xyz')
+        self.assertEqual(404, resp.status_int)
 
     def test_render_as2(self):
         Response(id='abc xyz', source_as2=json_dumps(self.as2)).put()
-        resp = app.get_response('/render?source=abc&target=xyz')
-        self.assertEquals(200, resp.status_int)
-        self.assert_multiline_equals(self.html, resp.body.decode('utf-8'),
+        resp = application.get_response('/render?source=abc&target=xyz')
+        self.assertEqual(200, resp.status_int)
+        self.assert_multiline_equals(self.html, resp.body.decode(),
                                      ignore_blanks=True)
 
     def test_render_mf2(self):
         Response(id='abc xyz', source_mf2=json_dumps(self.mf2)).put()
-        resp = app.get_response('/render?source=abc&target=xyz')
-        self.assertEquals(200, resp.status_int)
-        self.assert_multiline_equals(self.html, resp.body.decode('utf-8'),
+        resp = application.get_response('/render?source=abc&target=xyz')
+        self.assertEqual(200, resp.status_int)
+        self.assert_multiline_equals(self.html, resp.body.decode(),
                                      ignore_blanks=True)
 
     def test_render_atom(self):
         Response(id='abc xyz', source_atom=self.atom).put()
-        resp = app.get_response('/render?source=abc&target=xyz')
-        self.assertEquals(200, resp.status_int)
-        self.assert_multiline_equals(self.html, resp.body.decode('utf-8'),
+        resp = application.get_response('/render?source=abc&target=xyz')
+        self.assertEqual(200, resp.status_int)
+        self.assert_multiline_equals(self.html, resp.body.decode(),
                                      ignore_blanks=True)
