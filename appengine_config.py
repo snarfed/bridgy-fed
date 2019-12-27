@@ -2,9 +2,9 @@
 """
 import os
 
-from oauth_dropins.webutil.appengine_info import HOST, HOST_URL
+from oauth_dropins.webutil.appengine_info import DEBUG, HOST, HOST_URL, SCHEME
 
-if os.environ.get('SERVER_SOFTWARE', '').startswith('Google App Engine/'):
+if not DEBUG:
   HOST = 'fed.brid.gy'
   HOST_URL = '%s://%s' % (SCHEME, HOST)
 
