@@ -16,10 +16,11 @@ import urllib.parse
 import urllib.parse
 
 import mf2util
-from oauth_dropins.webutil import appengine_info, handlers, util
+from oauth_dropins.webutil import handlers, util
 from oauth_dropins.webutil.util import json_dumps
 import webapp2
 
+from appengine_config import HOST, HOST_URL
 import common
 import models
 
@@ -123,11 +124,11 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
                 # use HOST_URL instead of e.g. request.host_url because it
                 # sometimes lost port, e.g. http://localhost:8080 would become
                 # just http://localhost. no clue how or why.
-                'href': '%s/%s' % (appengine_info.HOST_URL, domain),
+                'href': '%s/%s' % (HOST_URL, domain),
             }, {
                 'rel': 'inbox',
                 'type': common.CONTENT_TYPE_AS2,
-                'href': '%s/%s/inbox' % (appengine_info.HOST_URL, domain),
+                'href': '%s/%s/inbox' % (HOST_URL, domain),
             },
 
             # OStatus
@@ -143,7 +144,7 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
                 'href': key.href(),
             }, {
                 'rel': 'salmon',
-                'href': '%s/%s/salmon' % (appengine_info.HOST_URL, domain),
+                'href': '%s/%s/salmon' % (HOST_URL, domain),
             }]
         })
         logging.info('Returning WebFinger data: %s', json_dumps(data, indent=2))

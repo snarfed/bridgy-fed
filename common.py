@@ -7,12 +7,12 @@ import re
 import urllib.parse
 
 from granary import as2
-from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil import handlers, util
 import requests
 from webmentiontools import send
 from webob import exc
 
+from appengine_config import HOST, HOST_URL
 import common
 from models import Response
 
@@ -22,7 +22,7 @@ HEADERS = {
     'User-Agent': 'Bridgy Fed (https://fed.brid.gy/)',
 }
 # see redirect_wrap() and  redirect_unwrap()
-REDIRECT_PREFIX = urllib.parse.urljoin(appengine_info.HOST_URL, '/r/')
+REDIRECT_PREFIX = urllib.parse.urljoin(HOST_URL, '/r/')
 XML_UTF8 = "<?xml version='1.0' encoding='UTF-8'?>\n"
 # USERNAME = 'me'
 # USERNAME_EMOJI = '🌎'  # globe
@@ -181,7 +181,7 @@ def send_webmentions(handler, activity_wrapped, proxy=None, **response_props):
     for tag in tags:
         if tag.get('objectType') == 'mention':
             url = tag.get('url')
-            if url and url.startswith(appengine_info.HOST_URL):
+            if url and url.startswith(HOST_URL):
                 targets.append(redirect_unwrap(url))
 
     if verb in ('follow', 'like', 'share'):
@@ -338,7 +338,7 @@ def postprocess_as2_actor(actor):
     if url:
         domain = urllib.parse.urlparse(url).netloc
         actor.setdefault('preferredUsername', domain)
-        actor['id'] = '%s/%s' % (appengine_info.HOST_URL, domain)
+        actor['id'] = '%s/%s' % (HOST_URL, domain)
         actor['url'] = redirect_wrap(url)
 
     # required by pixelfed. https://github.com/snarfed/bridgy-fed/issues/39
@@ -377,7 +377,7 @@ def redirect_unwrap(val):
     elif isinstance(val, str):
         if val.startswith(REDIRECT_PREFIX):
             return val[len(REDIRECT_PREFIX):]
-        elif val.startswith(appengine_info.HOST_URL):
+        elif val.startswith(HOST_URL):
             return util.follow_redirects(
                 util.domain_from_link(urllib.parse.urlparse(val).path.strip('/'))).url
 

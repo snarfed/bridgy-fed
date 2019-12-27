@@ -1,10 +1,12 @@
 """Bridgy App Engine config.
 """
-# import os
+import os
 
-# if os.environ.get('SERVER_SOFTWARE', '').startswith('Google App Engine/'):
-#   HOST = 'fed.brid.gy'
-#   HOST_URL = '%s://%s' % (SCHEME, HOST)
+from oauth_dropins.webutil.appengine_info import HOST, HOST_URL
+
+if os.environ.get('SERVER_SOFTWARE', '').startswith('Google App Engine/'):
+  HOST = 'fed.brid.gy'
+  HOST_URL = '%s://%s' % (SCHEME, HOST)
 
 # suppresses these INFO logs:
 # Sandbox prevented access to file "/usr/local/Caskroom/google-cloud-sdk"

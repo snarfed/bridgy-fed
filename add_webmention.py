@@ -3,11 +3,11 @@
 import datetime
 import urllib.parse
 
-from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.handlers import cache_response
 import requests
 import webapp2
 
+from appengine_config import HOST, HOST_URL
 import common
 
 LINK_HEADER = '<%s>; rel="webmention"'
@@ -35,7 +35,7 @@ class AddWebmentionHandler(webapp2.RequestHandler):
         self.response.write(resp.content)
 
         endpoint = LINK_HEADER % (str(self.request.get('endpoint')) or
-                                  appengine_info.HOST_URL + '/webmention')
+                                  HOST_URL + '/webmention')
         self.response.headers.clear()
         self.response.headers.update(resp.headers)
         self.response.headers.add('Link', endpoint)

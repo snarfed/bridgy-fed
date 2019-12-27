@@ -6,11 +6,12 @@ import logging
 from google.cloud import ndb
 from granary import as2, microformats2
 import mf2util
-from oauth_dropins.webutil import appengine_info, util
+from oauth_dropins.webutil import util
 from oauth_dropins.webutil.handlers import cache_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import webapp2
 
+from appengine_config import HOST, HOST_URL
 import common
 from models import Follower, MagicKey
 from httpsig.requests_auth import HTTPSignatureAuth
@@ -84,10 +85,10 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
         obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(hcard)),
                                      key=key)
         obj.update({
-            'inbox': '%s/%s/inbox' % (appengine_info.HOST_URL, domain),
-            'outbox': '%s/%s/outbox' % (appengine_info.HOST_URL, domain),
-            'following': '%s/%s/following' % (appengine_info.HOST_URL, domain),
-            'followers': '%s/%s/followers' % (appengine_info.HOST_URL, domain),
+            'inbox': '%s/%s/inbox' % (HOST_URL, domain),
+            'outbox': '%s/%s/outbox' % (HOST_URL, domain),
+            'following': '%s/%s/following' % (HOST_URL, domain),
+            'followers': '%s/%s/followers' % (HOST_URL, domain),
         })
         logging.info('Returning: %s', json_dumps(obj, indent=2))
 
@@ -172,7 +173,7 @@ class InboxHandler(webapp2.RequestHandler):
         # send AP Accept
         accept = {
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': util.tag_uri(appengine_info.HOST, 'accept/%s/%s' % (
+            'id': util.tag_uri(HOST, 'accept/%s/%s' % (
                 (user_domain, follow.get('id')))),
             'type': 'Accept',
             'actor': followee,

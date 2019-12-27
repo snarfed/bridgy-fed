@@ -36,7 +36,7 @@ class WebmentionHandler(webapp2.RequestHandler):
     target_resp = None    # requests.Response
 
     def post(self):
-        logging.info('(Params: %s )', self.request.params.items())
+        logging.info('Params: %s', list(self.request.params.items()))
 
         # fetch source page
         source = util.get_required_param(self, 'source')
