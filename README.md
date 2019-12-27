@@ -21,10 +21,23 @@ You'll need Python 3. Install the [Google Cloud SDK](https://cloud.google.com/sd
 python3 -m venv local3
 source local3/bin/activate
 pip install -r requirements.txt
-python -m unittest discover
 ```
 
-The last command runs the unit tests. If you send a pull request, please include (or update) a test for the new functionality!
+Now, run the tests to check that everything is set up ok:
+
+```shell
+gcloud beta emulators datastore start --no-store-on-disk --consistency=1.0 --host-port=localhost:8089 < /dev/null >& /dev/null &
+python3 -m unittest discover
+kill %1
+```
+
+Finally, run this in the repo root directory to start the web app locally:
+
+```shell
+dev_appserver.py --log_level debug --enable_host_checking false --support_datastore_emulator --datastore_emulator_port=8089 --application=bridgy-federated app.yaml
+```
+
+If you send a pull request, please include (or update) a test for the new functionality!
 
 If you hit an error during setup, check out the [oauth-dropins Troubleshooting/FAQ section](https://github.com/snarfed/oauth-dropins#troubleshootingfaq). For searchability, here are a handful of error messages that [have solutions there](https://github.com/snarfed/oauth-dropins#troubleshootingfaq):
 
