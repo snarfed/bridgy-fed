@@ -8,8 +8,10 @@ import logging
 
 import webapp2
 
+import common
 
-class SuperfeedrHandler(webapp2.RequestHandler):
+
+class SuperfeedrHandler(common.Handler):
     """Superfeedr subscription callback handler.
 
     https://documentation.superfeedr.com/publishers.html#subscription-callback

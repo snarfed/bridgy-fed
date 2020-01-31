@@ -28,8 +28,7 @@ REPLY_OBJECT = {
     'cc': ['https://www.w3.org/ns/activitystreams#Public'],
 }
 REPLY_OBJECT_WRAPPED = copy.deepcopy(REPLY_OBJECT)
-REPLY_OBJECT_WRAPPED['inReplyTo'] = common.redirect_wrap(
-    REPLY_OBJECT_WRAPPED['inReplyTo'])
+REPLY_OBJECT_WRAPPED['inReplyTo'] = 'http://localhost:80/r/orig/post'
 REPLY = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Create',
@@ -75,7 +74,7 @@ LIKE = {
     'actor': 'http://orig/actor',
 }
 LIKE_WRAPPED = copy.deepcopy(LIKE)
-LIKE_WRAPPED['object'] = common.redirect_wrap(LIKE_WRAPPED['object'])
+LIKE_WRAPPED['object'] = 'http://localhost/r/http://orig/post'
 LIKE_WITH_ACTOR = copy.deepcopy(LIKE)
 LIKE_WITH_ACTOR['actor'] = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -114,7 +113,7 @@ FOLLOW_WRAPPED_WITH_ACTOR['actor'] = FOLLOW_WITH_ACTOR['actor']
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Accept',
-    'id': 'tag:localhost:accept/realize.be/https://mastodon.social/6d1a',
+    'id': 'tag:localhost:80:accept/realize.be/https://mastodon.social/6d1a',
     'actor': 'http://localhost/realize.be',
     'object': {
         'type': 'Follow',
@@ -276,7 +275,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
-        self.assertEqual(common.redirect_unwrap(as2), json_loads(resp.source_as2))
+        self.assertEqual(self.handler.redirect_unwrap(as2), json_loads(resp.source_as2))
 
     def test_inbox_like(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='http://orig/post')
@@ -290,7 +289,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_post.return_value = requests_response()
 
         got = application.get_response('/foo.com/inbox', method='POST',
-                               body=json_dumps(LIKE_WRAPPED).encode())
+                                       body=json_dumps(LIKE_WRAPPED).encode())
         self.assertEqual(200, got.status_int)
 
         as2_headers = copy.deepcopy(common.HEADERS)

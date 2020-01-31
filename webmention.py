@@ -27,7 +27,7 @@ from models import Follower, MagicKey, Response
 SKIP_EMAIL_DOMAINS = frozenset(('localhost', 'snarfed.org'))
 
 
-class WebmentionHandler(webapp2.RequestHandler):
+class WebmentionHandler(common.Handler):
     """Handles inbound webmention, converts to ActivityPub or Salmon."""
     source_url = None     # string
     source_domain = None  # string
@@ -51,12 +51,12 @@ class WebmentionHandler(webapp2.RequestHandler):
         # source's intent to federate to mastodon)
         if (self.request.host_url not in source_resp.text and
             urllib.parse.quote(self.request.host_url, safe='') not in source_resp.text):
-            common.error(self, "Couldn't find link to %s" % self.request.host_url)
+            self.error("Couldn't find link to %s" % self.request.host_url)
 
         # convert source page to ActivityStreams
         entry = mf2util.find_first_entry(self.source_mf2, ['h-entry'])
         if not entry:
-            common.error(self, 'No microformats2 found on %s' % self.source_url)
+            self.error('No microformats2 found on %s' % self.source_url)
 
         logging.info('First entry: %s', json_dumps(entry, indent=2))
         # make sure it has url, since we use that for AS2 id, which is required
@@ -93,7 +93,7 @@ class WebmentionHandler(webapp2.RequestHandler):
 
         for resp, inbox in targets:
             target_obj = json_loads(resp.target_as2) if resp.target_as2 else None
-            source_activity = common.postprocess_as2(
+            source_activity = self.postprocess_as2(
                 as2.from_as1(self.source_obj), target=target_obj, key=key)
 
             if resp.status == 'complete':
@@ -187,9 +187,9 @@ class WebmentionHandler(webapp2.RequestHandler):
                 inbox_url = actor.get('inbox')
                 actor = actor.get('url') or actor.get('id')
             if not inbox_url and not actor:
-                common.error(self, 'Target object has no actor or attributedTo with URL or id.')
+                self.error('Target object has no actor or attributedTo with URL or id.')
             elif not isinstance(actor, str):
-                common.error(self, 'Target actor or attributedTo has unexpected url or id object: %r' % actor)
+                self.error('Target actor or attributedTo has unexpected url or id object: %r' % actor)
 
         if not inbox_url:
             # fetch actor as AS object
@@ -199,7 +199,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         if not inbox_url:
             # TODO: probably need a way to save errors like this so that we can
             # return them if ostatus fails too.
-            # common.error(self, 'Target actor has no inbox')
+            # self.error('Target actor has no inbox')
             return []
 
         inbox_url = urllib.parse.urljoin(target_url, inbox_url)
@@ -239,8 +239,7 @@ class WebmentionHandler(webapp2.RequestHandler):
         parsed = util.parse_html(self.target_resp)
         atom_url = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
         if not atom_url or not atom_url.get('href'):
-            common.error(self, 'Target post %s has no Atom link' % resp.target(),
-                         status=400)
+            self.error('Target post %s has no Atom link' % resp.target(), status=400)
 
         # fetch Atom target post, extract and inject id into source object
         base_url = ''
@@ -294,7 +293,7 @@ class WebmentionHandler(webapp2.RequestHandler):
                 pass
 
         if not endpoint:
-            common.error(self, 'No salmon endpoint found!', status=400)
+            self.error('No salmon endpoint found!', status=400)
         logging.info('Discovered Salmon endpoint %s', endpoint)
 
         # construct reply Atom object

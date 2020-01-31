@@ -7,6 +7,7 @@ from unittest.mock import ANY, call
 from oauth_dropins.webutil import testutil, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 import requests
+import webapp2
 
 import common
 
@@ -21,6 +22,10 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         requests.post('http://%s/reset' % ndb_client.host)
         self.ndb_context = ndb_client.context()
         self.ndb_context.__enter__()
+
+        self.request = webapp2.Request.blank('/')
+        self.response = webapp2.Response()
+        self.handler = common.Handler(self.request, self.response)
 
     def tearDown(self):
         self.ndb_context.__exit__(None, None, None)

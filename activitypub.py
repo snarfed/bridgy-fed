@@ -11,7 +11,6 @@ from oauth_dropins.webutil.handlers import cache_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import webapp2
 
-from appengine_config import HOST, HOST_URL
 import common
 from models import Follower, MagicKey
 from httpsig.requests_auth import HTTPSignatureAuth
@@ -66,7 +65,7 @@ def send(activity, inbox_url, user_domain):
     return common.requests_post(inbox_url, json=activity, auth=auth, headers=headers)
 
 
-class ActorHandler(webapp2.RequestHandler):
+class ActorHandler(common.Handler):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
 
     @cache_response(CACHE_TIME)
@@ -78,17 +77,17 @@ class ActorHandler(webapp2.RequestHandler):
         hcard = mf2util.representative_hcard(mf2, mf2['url'])
         logging.info('Representative h-card: %s', json_dumps(hcard, indent=2))
         if not hcard:
-            common.error(self, """\
+            self.error("""\
 Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on %s""" % mf2['url'])
 
         key = MagicKey.get_or_create(domain)
-        obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(hcard)),
-                                     key=key)
+        obj = self.postprocess_as2(as2.from_as1(microformats2.json_to_object(hcard)),
+                                   key=key)
         obj.update({
-            'inbox': '%s/%s/inbox' % (HOST_URL, domain),
-            'outbox': '%s/%s/outbox' % (HOST_URL, domain),
-            'following': '%s/%s/following' % (HOST_URL, domain),
-            'followers': '%s/%s/followers' % (HOST_URL, domain),
+            'inbox': '%s/%s/inbox' % (self.request.host_url, domain),
+            'outbox': '%s/%s/outbox' % (self.request.host_url, domain),
+            'following': '%s/%s/following' % (self.request.host_url, domain),
+            'followers': '%s/%s/followers' % (self.request.host_url, domain),
         })
         logging.info('Returning: %s', json_dumps(obj, indent=2))
 
@@ -99,9 +98,8 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
         self.response.write(json_dumps(obj, indent=2))
 
 
-class InboxHandler(webapp2.RequestHandler):
+class InboxHandler(common.Handler):
     """Accepts POSTs to /[DOMAIN]/inbox and converts to outbound webmentions."""
-
     def post(self, domain):
         logging.info('Got: %s', self.request.body)
 
@@ -110,7 +108,7 @@ class InboxHandler(webapp2.RequestHandler):
             activity = json_loads(self.request.body)
             assert activity
         except (TypeError, ValueError, AssertionError):
-            common.error(self, "Couldn't parse body as JSON", exc_info=True)
+            self.error("Couldn't parse body as JSON", exc_info=True)
 
         obj = activity.get('object') or {}
         if isinstance(obj, str):
@@ -122,14 +120,14 @@ class InboxHandler(webapp2.RequestHandler):
         if type == 'Create':
             type = obj.get('type')
         elif type not in SUPPORTED_TYPES:
-            common.error(self, 'Sorry, %s activities are not supported yet.' % type,
-                         status=501)
+            self.error('Sorry, %s activities are not supported yet.' % type,
+                       status=501)
 
         # TODO: verify signature if there is one
 
         if type == 'Undo' and obj.get('type') == 'Follow':
             # skip actor fetch below; we don't need it to undo a follow
-            return self.undo_follow(common.redirect_unwrap(activity))
+            return self.undo_follow(self.redirect_unwrap(activity))
 
         # fetch actor if necessary so we have name, profile photo, etc
         for elem in obj, activity:
@@ -137,14 +135,14 @@ class InboxHandler(webapp2.RequestHandler):
             if actor and isinstance(actor, str):
                 elem['actor'] = common.get_as2(actor).json()
 
-        activity_unwrapped = common.redirect_unwrap(activity)
+        activity_unwrapped = self.redirect_unwrap(activity)
         if type == 'Follow':
             return self.accept_follow(activity, activity_unwrapped)
 
         # send webmentions to each target
         as1 = as2.to_as1(activity)
-        common.send_webmentions(self, as1, proxy=True, protocol='activitypub',
-                                source_as2=json_dumps(activity_unwrapped))
+        self.send_webmentions(as1, proxy=True, protocol='activitypub',
+                              source_as2=json_dumps(activity_unwrapped))
 
     def accept_follow(self, follow, follow_unwrapped):
         """Replies to an AP Follow request with an Accept request.
@@ -159,12 +157,12 @@ class InboxHandler(webapp2.RequestHandler):
         followee_unwrapped = follow_unwrapped.get('object')
         follower = follow.get('actor')
         if not followee or not followee_unwrapped or not follower:
-            common.error(self, 'Follow activity requires object and actor. Got: %s' % follow)
+            self.error('Follow activity requires object and actor. Got: %s' % follow)
 
         inbox = follower.get('inbox')
         follower_id = follower.get('id')
         if not inbox or not follower_id:
-            common.error(self, 'Follow actor requires id and inbox. Got: %s', follower)
+            self.error('Follow actor requires id and inbox. Got: %s', follower)
 
         # store Follower
         user_domain = util.domain_from_link(followee_unwrapped)
@@ -173,7 +171,7 @@ class InboxHandler(webapp2.RequestHandler):
         # send AP Accept
         accept = {
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': util.tag_uri(HOST, 'accept/%s/%s' % (
+            'id': util.tag_uri(self.request.host, 'accept/%s/%s' % (
                 (user_domain, follow.get('id')))),
             'type': 'Accept',
             'actor': followee,
@@ -188,9 +186,8 @@ class InboxHandler(webapp2.RequestHandler):
         self.response.write(resp.text)
 
         # send webmention
-        common.send_webmentions(
-            self, as2.to_as1(follow), proxy=True, protocol='activitypub',
-            source_as2=json_dumps(follow_unwrapped))
+        self.send_webmentions(as2.to_as1(follow), proxy=True, protocol='activitypub',
+                              source_as2=json_dumps(follow_unwrapped))
 
     @ndb.transactional()
     def undo_follow(self, undo_unwrapped):
@@ -205,7 +202,7 @@ class InboxHandler(webapp2.RequestHandler):
         follower = follow.get('actor')
         followee = follow.get('object')
         if not follower or not followee:
-            common.error(self, 'Undo of Follow requires object with actor and object. Got: %s' % follow)
+            self.error('Undo of Follow requires object with actor and object. Got: %s' % follow)
 
         # deactivate Follower
         user_domain = util.domain_from_link(followee)

@@ -29,7 +29,6 @@ NOT_ACCEPTABLE = requests_response(status=406)
 
 
 class CommonTest(testutil.TestCase):
-
     @mock.patch('requests.get', return_value=AS2)
     def test_get_as2_direct(self, mock_get):
         resp = common.get_as2('http://orig')
@@ -63,14 +62,14 @@ class CommonTest(testutil.TestCase):
             resp = common.get_as2('http://orig')
 
     def test_redirect_wrap_empty(self):
-        self.assertIsNone(common.redirect_wrap(None))
-        self.assertEqual('', common.redirect_wrap(''))
+        self.assertIsNone(self.handler.redirect_wrap(None))
+        self.assertEqual('', self.handler.redirect_wrap(''))
 
     def test_postprocess_as2_multiple_in_reply_tos(self):
         self.assertEqual({
             'id': 'http://localhost/r/xyz',
             'inReplyTo': 'foo',
-        }, common.postprocess_as2({
+        }, self.handler.postprocess_as2({
             'id': 'xyz',
             'inReplyTo': ['foo', 'bar'],
         }))

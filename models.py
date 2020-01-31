@@ -10,8 +10,6 @@ from django_salmon import magicsigs
 from google.cloud import ndb
 from oauth_dropins.webutil.models import StringIdModel
 
-from appengine_config import HOST, HOST_URL
-
 
 class MagicKey(StringIdModel):
     """Stores a user's public/private key pair used for Magic Signatures.
@@ -105,11 +103,11 @@ class Response(StringIdModel):
     def target(self):
         return self.key.id().split()[1]
 
-    def proxy_url(self):
+    def proxy_url(self, handler):
         """Returns the Bridgy Fed proxy URL to render this response as HTML."""
         if self.source_mf2 or self.source_as2 or self.source_atom:
             source, target = self.key.id().split(' ')
-            return '%s/render?%s' % (HOST_URL, urllib.parse.urlencode({
+            return '%s/render?%s' % (handler.request.host_url, urllib.parse.urlencode({
                 'source': source,
                 'target': target,
             }))

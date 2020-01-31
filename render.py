@@ -3,17 +3,18 @@
 import datetime
 
 from granary import as2, atom, microformats2
-from oauth_dropins.webutil.handlers import cache_response, ModernHandler
+from oauth_dropins.webutil.handlers import cache_response
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_loads
 import webapp2
 
+import common
 from models import Response
 
 CACHE_TIME = datetime.timedelta(minutes=15)
 
 
-class RenderHandler(ModernHandler):
+class RenderHandler(common.Handler):
     """Fetches a stored Response and renders it as HTML."""
 
     @cache_response(CACHE_TIME)

@@ -28,9 +28,8 @@ SUPPORTED_VERBS = (
 )
 
 
-class SlapHandler(webapp2.RequestHandler):
+class SlapHandler(common.Handler):
     """Accepts POSTs to /[ACCT]/salmon and converts to outbound webmentions."""
-
     # TODO: unify with activitypub
     def post(self, username, domain):
         logging.info('Got: %s', self.request.body)
@@ -38,7 +37,7 @@ class SlapHandler(webapp2.RequestHandler):
         try:
             parsed = utils.parse_magic_envelope(self.request.body)
         except ParseError as e:
-            common.error(self, 'Could not parse POST body as XML', exc_info=True)
+            self.error('Could not parse POST body as XML', exc_info=True)
         data = parsed['data']
         logging.info('Decoded: %s', data)
 
@@ -46,23 +45,23 @@ class SlapHandler(webapp2.RequestHandler):
         try:
             activity = atom.atom_to_activity(data)
         except ParseError as e:
-            common.error(self, 'Could not parse envelope data as XML', exc_info=True)
+            self.error('Could not parse envelope data as XML', exc_info=True)
 
         verb = activity.get('verb')
         if verb and verb not in SUPPORTED_VERBS:
-            common.error(self, 'Sorry, %s activities are not supported yet.' % verb,
-                         status=501)
+            self.error('Sorry, %s activities are not supported yet.' % verb,
+                       status=501)
 
         # verify author and signature
         author = util.get_url(activity.get('actor'))
         if ':' not in author:
             author = 'acct:%s' % author
         elif not author.startswith('acct:'):
-            common.error(self, 'Author URI %s has unsupported scheme; expected acct:' % author)
+            self.error('Author URI %s has unsupported scheme; expected acct:' % author)
 
         logging.info('Fetching Salmon key for %s' % author)
         if not magicsigs.verify(author, data, parsed['sig']):
-            common.error(self, 'Could not verify magic signature.')
+            self.error('Could not verify magic signature.')
         logging.info('Verified magic signature.')
 
         # Verify that the timestamp is recent. Required by spec.
@@ -71,11 +70,11 @@ class SlapHandler(webapp2.RequestHandler):
         #
         # updated = utils.parse_updated_from_atom(data)
         # if not utils.verify_timestamp(updated):
-        #     common.error(self, 'Timestamp is more than 1h old.')
+        #     self.error('Timestamp is more than 1h old.')
 
         # send webmentions to each target
         activity = atom.atom_to_activity(data)
-        common.send_webmentions(self, activity, protocol='ostatus', source_atom=data)
+        self.send_webmentions(activity, protocol='ostatus', source_atom=data)
 
 
 ROUTES = [

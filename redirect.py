@@ -24,7 +24,7 @@ import common
 CACHE_TIME = datetime.timedelta(seconds=15)
 
 
-class RedirectHandler(webapp2.RequestHandler):
+class RedirectHandler(common.Handler):
     """301 redirects to the embedded fully qualified URL.
 
     e.g. redirects /r/https://foo.com/bar?baz to https://foo.com/bar?baz
@@ -35,7 +35,7 @@ class RedirectHandler(webapp2.RequestHandler):
         assert self.request.path_qs.startswith('/r/')
         to = self.request.path_qs[3:]
         if not to.startswith('http://') and not to.startswith('https://'):
-            common.error(self, 'Expected fully qualified URL; got %s' % to)
+            self.error('Expected fully qualified URL; got %s' % to)
 
         # poor man's conneg, only handle single Accept values, not multiple with
         # priorities.
@@ -57,7 +57,7 @@ class RedirectHandler(webapp2.RequestHandler):
         entry = mf2util.find_first_entry(mf2, ['h-entry'])
         logging.info('Parsed mf2 for %s: %s', mf2['url'], json_dumps(entry, indent=2))
 
-        obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(entry)))
+        obj = self.postprocess_as2(as2.from_as1(microformats2.json_to_object(entry)))
         logging.info('Returning: %s', json_dumps(obj, indent=2))
 
         self.response.headers.update({

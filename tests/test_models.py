@@ -53,8 +53,8 @@ class ResponseTest(testutil.TestCase):
 
     def test_proxy_url(self):
         resp = Response.get_or_create('abc', 'xyz')
-        self.assertIsNone(resp.proxy_url())
+        self.assertIsNone(resp.proxy_url(self.handler))
 
         resp.source_as2 = 'as2'
         self.assertEqual('http://localhost/render?source=abc&target=xyz',
-                          resp.proxy_url())
+                          resp.proxy_url(self.handler))

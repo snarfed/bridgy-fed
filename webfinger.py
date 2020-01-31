@@ -20,7 +20,6 @@ from oauth_dropins.webutil import handlers, util
 from oauth_dropins.webutil.util import json_dumps
 import webapp2
 
-from appengine_config import HOST, HOST_URL
 import common
 import models
 
@@ -28,7 +27,7 @@ CACHE_TIME = datetime.timedelta(seconds=15)
 NON_TLDS = frozenset(('html', 'json', 'php', 'xml'))
 
 
-class UserHandler(handlers.XrdOrJrdHandler):
+class UserHandler(common.Handler, handlers.XrdOrJrdHandler):
     """Fetches a site's home page, converts its mf2 to WebFinger, and serves."""
     JRD_TEMPLATE = False
 
@@ -43,7 +42,7 @@ class UserHandler(handlers.XrdOrJrdHandler):
         assert domain
 
         if domain.split('.')[-1] in NON_TLDS:
-            common.error(self, "%s doesn't look like a domain" % domain, status=404)
+            self.error("%s doesn't look like a domain" % domain, status=404)
 
         # find representative h-card. try url, then url's home page, then domain
         urls = ['http://%s/' % domain]
@@ -60,7 +59,7 @@ class UserHandler(handlers.XrdOrJrdHandler):
                 logging.info('Representative h-card: %s', json_dumps(hcard, indent=2))
                 break
         else:
-            common.error(self, """\
+            self.error("""\
 Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on %s""" % resp.url)
 
         logging.info('Generating WebFinger data for %s', domain)
@@ -121,14 +120,14 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
             {
                 'rel': 'self',
                 'type': common.CONTENT_TYPE_AS2,
-                # use HOST_URL instead of e.g. request.host_url because it
-                # sometimes lost port, e.g. http://localhost:8080 would become
-                # just http://localhost. no clue how or why.
-                'href': '%s/%s' % (HOST_URL, domain),
+                # WARNING: in python 2 sometimes request.host_url lost port,
+                # http://localhost:8080 would become just http://localhost. no
+                # clue how or why. pay attention here if that happens again.
+                'href': '%s/%s' % (self.request.host_url, domain),
             }, {
                 'rel': 'inbox',
                 'type': common.CONTENT_TYPE_AS2,
-                'href': '%s/%s/inbox' % (HOST_URL, domain),
+                'href': '%s/%s/inbox' % (self.request.host_url, domain),
             },
 
             # OStatus
@@ -144,7 +143,7 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
                 'href': key.href(),
             }, {
                 'rel': 'salmon',
-                'href': '%s/%s/salmon' % (HOST_URL, domain),
+                'href': '%s/%s/salmon' % (self.request.host_url, domain),
             }]
         })
         logging.info('Returning WebFinger data: %s', json_dumps(data, indent=2))
@@ -152,7 +151,6 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
 
 
 class WebfingerHandler(UserHandler):
-
     def is_jrd(self):
         return True
 
