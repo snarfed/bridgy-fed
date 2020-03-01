@@ -23,6 +23,7 @@ SUPPORTED_TYPES = (
     'Article',
     'Audio',
     'Create',
+    'Delete',
     'Follow',
     'Image',
     'Like',
@@ -128,6 +129,15 @@ class InboxHandler(common.Handler):
         if type == 'Undo' and obj.get('type') == 'Follow':
             # skip actor fetch below; we don't need it to undo a follow
             return self.undo_follow(self.redirect_unwrap(activity))
+        elif type == 'Delete':
+            id = obj.get('id')
+            if isinstance(id, str):
+                # assume this is an actor
+                # https://github.com/snarfed/bridgy-fed/issues/63
+                for key in Follower.query().iter(keys_only=True):
+                    if key.id().split(' ')[-1] == id:
+                        key.delete()
+            return
 
         # fetch actor if necessary so we have name, profile photo, etc
         for elem in obj, activity:

@@ -130,6 +130,15 @@ UNDO_FOLLOW_WRAPPED = {
   'object': FOLLOW_WRAPPED,
 }
 
+DELETE = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'id': 'https://mastodon.social/users/swentel#delete',
+    'type': 'Delete',
+    'actor': 'https://mastodon.social/users/swentel',
+    'object': 'https://mastodon.social/users/swentel',
+}
+
+
 @patch('requests.post')
 @patch('requests.get')
 @patch('requests.head')
@@ -397,3 +406,16 @@ class ActivityPubTest(testutil.TestCase):
             'object': 'http://snarfed.org/',
         }).encode())
         self.assertEqual(501, got.status_int)
+
+    def test_inbox_delete_actor(self, mock_head, mock_get, mock_post):
+        follower = Follower.get_or_create('realize.be', DELETE['actor'])
+        Follower.get_or_create('snarfed.org', DELETE['actor'])
+        # other unrelated follower
+        other = Follower.get_or_create('realize.be', 'https://mas.to/users/other')
+        self.assertEqual(3, Follower.query().count())
+
+        got = application.get_response('/realize.be/inbox', method='POST',
+                               body=json_dumps(DELETE).encode())
+        self.assertEqual(200, got.status_int)
+
+        self.assertEqual([other], Follower.query().fetch())
