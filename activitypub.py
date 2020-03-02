@@ -71,6 +71,10 @@ class ActorHandler(common.Handler):
 
     @cache_response(CACHE_TIME)
     def get(self, domain):
+        tld = domain.split('.')[-1]
+        if tld in common.TLD_BLOCKLIST:
+            self.error('', status=404)
+
         mf2 = util.fetch_mf2('http://%s/' % domain, gateway=True,
                              headers=common.HEADERS)
         # logging.info('Parsed mf2 for %s: %s', resp.url, json_dumps(mf2, indent=2))

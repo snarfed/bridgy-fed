@@ -194,6 +194,10 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(400, got.status_int)
         self.assertIn('representative h-card', got.body.decode())
 
+    def test_actor_blocked_tld(self, _, __, ___):
+        got = application.get_response('/foo.json')
+        self.assertEqual(404, got.status_int)
+
     def test_inbox_reply_object(self, *mocks):
         self._test_inbox_reply(REPLY_OBJECT, REPLY_OBJECT, *mocks)
 
