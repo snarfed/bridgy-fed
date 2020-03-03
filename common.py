@@ -17,8 +17,8 @@ from models import Response
 
 DOMAIN_RE = r'([^/:]+\.[^/:]+)'
 ACCT_RE = r'(?:acct:)?([^@]+)@' + DOMAIN_RE
-TLD_BLOCKLIST = ('asp', 'aspx', 'gif', 'html', 'ico', 'jpg', 'jpeg', 'js',
-                 'json', 'php', 'png', 'txt', 'yaml', 'yml')
+TLD_BLOCKLIST = ('7z', 'asp', 'aspx', 'gif', 'html', 'ico', 'jpg', 'jpeg', 'js',
+                 'json', 'php', 'png', 'rar', 'txt', 'yaml', 'yml', 'zip')
 HEADERS = {
     'User-Agent': 'Bridgy Fed (https://fed.brid.gy/)',
 }
