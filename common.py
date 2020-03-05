@@ -168,7 +168,6 @@ class Handler(handlers.ModernHandler):
         obj = activity.get('object')
         obj_url = util.get_url(obj)
 
-        logging.info('@@@ %s', activity_wrapped)
         targets = util.get_list(activity, 'inReplyTo')
         if isinstance(obj, dict):
             if not source or verb in ('create', 'post', 'update'):
@@ -182,7 +181,6 @@ class Handler(handlers.ModernHandler):
         for tag in tags:
             if tag.get('objectType') == 'mention':
                 url = tag.get('url')
-                logging.info('@@@ %s %s', url, self.request.host_url)
                 if url and url.startswith(self.request.host_url):
                     targets.append(self.redirect_unwrap(url))
 
