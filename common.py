@@ -112,7 +112,7 @@ def get_as2(url):
     """
     def _error(resp):
         msg = "Couldn't fetch %s as ActivityStreams 2" % url
-        logging.error(msg)
+        logging.warning(msg)
         err = exc.HTTPBadGateway(msg)
         err.response = resp
         raise err
