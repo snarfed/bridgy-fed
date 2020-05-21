@@ -153,7 +153,6 @@ class WebmentionTest(testutil.TestCase):
             'url': 'https://foo.com/about-me',
             'inbox': 'https://foo.com/inbox',
         }, content_type=CONTENT_TYPE_AS2)
-        self.activitypub_gets = [self.reply, self.orig_as2, self.actor]
 
         self.as2_create = {
             '@context': 'https://www.w3.org/ns/activitystreams',
@@ -217,14 +216,6 @@ class WebmentionTest(testutil.TestCase):
             'cc': ['https://www.w3.org/ns/activitystreams#Public'],
         }
 
-        self.actor = requests_response({
-            'objectType' : 'person',
-            'displayName': 'Mrs. ☕ Foo',
-            'url': 'https://foo.com/about-me',
-            'inbox': 'https://foo.com/inbox',
-        }, content_type=CONTENT_TYPE_AS2)
-        self.activitypub_gets = [self.reply, self.orig_as2, self.actor]
-
         self.create_html = """\
 <html>
 <body class="h-entry">
@@ -259,12 +250,6 @@ class WebmentionTest(testutil.TestCase):
             },
         }
 
-        self.actor = requests_response({
-            'objectType' : 'person',
-            'displayName': 'Mrs. ☕ Foo',
-            'url': 'https://foo.com/about-me',
-            'inbox': 'https://foo.com/inbox',
-        }, content_type=CONTENT_TYPE_AS2)
         self.activitypub_gets = [self.reply, self.orig_as2, self.actor]
 
     def verify_salmon(self, mock_post):
@@ -338,6 +323,16 @@ class WebmentionTest(testutil.TestCase):
                               content_type=CONTENT_TYPE_HTML),
             requests.Timeout('foo bar'))
 
+        got = application.get_response(
+            '/webmention', method='POST',
+            body=urlencode({'source': 'http://a/post'}).encode())
+        self.assertEqual(502, got.status_int)
+
+    def test_target_fetch_has_no_content_type(self, mock_get, mock_post):
+        mock_get.side_effect = (
+            requests_response(self.reply_html),
+            requests_response(self.reply_html, content_type='None')
+        )
         got = application.get_response(
             '/webmention', method='POST',
             body=urlencode({'source': 'http://a/post'}).encode())
