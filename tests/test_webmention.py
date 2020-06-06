@@ -114,6 +114,7 @@ class WebmentionTest(testutil.TestCase):
 <div class="h-entry">
 <a class="u-url" href="http://a/reply"></a>
 <p class="e-content p-name">
+<a class="u-in-reply-to" href="http://not/fediverse"></a>
 <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>
 <a href="http://localhost/"></a>
 </p>
@@ -163,7 +164,10 @@ class WebmentionTest(testutil.TestCase):
                 'id': 'http://localhost/r/http://a/reply',
                 'url': 'http://localhost/r/http://a/reply',
                 'name': 'foo ☕ bar',
-                'content': '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>\n<a href="http://localhost/"></a>',
+                'content': """\
+<a class="u-in-reply-to" href="http://not/fediverse"></a>
+<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>
+<a href="http://localhost/"></a>""",
                 'inReplyTo': 'tag:orig,2017:as2',
                 'cc': [
                     AS2_PUBLIC_AUDIENCE,
@@ -250,7 +254,12 @@ class WebmentionTest(testutil.TestCase):
             },
         }
 
-        self.activitypub_gets = [self.reply, self.orig_as2, self.actor]
+        self.not_fediverse = requests_response("""\
+<html>
+<body>foo</body>
+</html>
+""", url='http://not/fediverse', content_type=CONTENT_TYPE_HTML)
+        self.activitypub_gets = [self.reply, self.not_fediverse, self.orig_as2, self.actor]
 
     def verify_salmon(self, mock_post):
         args, kwargs = mock_post.call_args
@@ -365,6 +374,7 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((
             self.req('http://a/reply'),
+            self.req('http://not/fediverse', headers=CONNEG_HEADERS_AS2_HTML),
             self.req('http://orig/post', headers=CONNEG_HEADERS_AS2_HTML),
             self.req('http://orig/author', headers=CONNEG_HEADERS_AS2_HTML),
         ))
@@ -421,7 +431,8 @@ class WebmentionTest(testutil.TestCase):
         orig_as2_resp = requests_response(
             self.orig_as2_data, content_type=CONTENT_TYPE_AS2 + '; charset=utf-8')
 
-        mock_get.side_effect = [self.reply, orig_as2_resp, self.actor]
+        mock_get.side_effect = [self.reply, self.not_fediverse, orig_as2_resp,
+                                self.actor]
         mock_post.return_value = requests_response('abc xyz', status=203)
 
         got = application.get_response(
@@ -433,6 +444,7 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((
             self.req('http://a/reply'),
+            self.req('http://not/fediverse', headers=CONNEG_HEADERS_AS2_HTML),
             self.req('http://orig/post', headers=CONNEG_HEADERS_AS2_HTML),
             self.req('http://orig/author', headers=CONNEG_HEADERS_AS2_HTML),
         ))
@@ -492,8 +504,8 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.repost_mf2, json_loads(resp.source_mf2))
 
     def test_activitypub_link_rel_alternate_as2(self, mock_get, mock_post):
-        mock_get.side_effect = [self.reply, self.orig_html_as2, self.orig_as2,
-                                self.actor]
+        mock_get.side_effect = [self.reply, self.not_fediverse,
+                                self.orig_html_as2, self.orig_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
         got = application.get_response(
@@ -505,6 +517,7 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((
             self.req('http://a/reply'),
+            self.req('http://not/fediverse', headers=CONNEG_HEADERS_AS2_HTML),
             self.req('http://orig/post', headers=CONNEG_HEADERS_AS2_HTML),
             self.req('http://orig/as2', headers=CONNEG_HEADERS_AS2),
             self.req('http://orig/author', headers=CONNEG_HEADERS_AS2_HTML),
@@ -668,7 +681,7 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((
             self.req('http://a/follow'),
-            self.req('http://followee', headers=CONNEG_HEADERS_AS2_HTML),
+            self.req('http://followee/', headers=CONNEG_HEADERS_AS2_HTML),
         ))
 
         args, kwargs = mock_post.call_args
@@ -681,14 +694,15 @@ class WebmentionTest(testutil.TestCase):
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
-        resp = Response.get_by_id('http://a/follow http://followee')
+        resp = Response.get_by_id('http://a/follow http://followee/')
         self.assertEqual('out', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
         self.assertEqual(self.follow_mf2, json_loads(resp.source_mf2))
 
     def test_salmon_reply(self, mock_get, mock_post):
-        mock_get.side_effect = [self.reply, self.orig_html_atom, self.orig_atom]
+        mock_get.side_effect = [self.reply, self.not_fediverse,
+                                self.orig_html_atom, self.orig_atom]
 
         got = application.get_response(
             '/webmention', method='POST', body=urlencode({
@@ -699,6 +713,7 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((
             self.req('http://a/reply'),
+            self.req('http://not/fediverse', headers=CONNEG_HEADERS_AS2_HTML),
             self.req('http://orig/post', headers=CONNEG_HEADERS_AS2_HTML),
             self.req('http://orig/atom'),
         ))
@@ -716,10 +731,12 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual({
             'type': 'text/html',
             'href': 'http://orig/post',
-            'ref': 'tag:fed.brid.gy,2017-08-22:orig-post'
+            'ref': 'tag:fed.brid.gy,2017-08-22:orig-post',
         }, entry['thr_in-reply-to'])
-        self.assertEqual(
-            '<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a><br></br>\n<a href="http://localhost/"></a>',
+        self.assertEqual("""\
+<a class="u-in-reply-to" href="http://not/fediverse"></a><br></br>
+<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a><br></br>
+<a href="http://localhost/"></a>""",
             entry.content[0]['value'])
 
         resp = Response.get_by_id('http://a/reply http://orig/post')
@@ -780,7 +797,8 @@ class WebmentionTest(testutil.TestCase):
                 'href': 'http://orig/@ryan/salmon',
             }],
         })
-        mock_get.side_effect = [self.reply, self.orig_html_atom, orig_atom, webfinger]
+        mock_get.side_effect = [self.reply, self.not_fediverse,
+                                self.orig_html_atom, orig_atom, webfinger]
 
         got = application.get_response('/webmention', method='POST', body=urlencode({
             'source': 'http://a/reply',
@@ -798,7 +816,7 @@ class WebmentionTest(testutil.TestCase):
 <html>
 <body>foo</body>
 </html>""", 'http://orig/url')
-        mock_get.side_effect = [self.reply, orig_no_atom]
+        mock_get.side_effect = [self.reply, self.not_fediverse, orig_no_atom]
 
         got = application.get_response('/webmention', method='POST', body=urlencode({
             'source': 'http://a/reply',
@@ -816,7 +834,8 @@ class WebmentionTest(testutil.TestCase):
 <link href='atom/1' rel='alternate' type='application/atom+xml'>
 </meta>
 </html>""", 'http://orig/url')
-        mock_get.side_effect = [self.reply, orig_relative, self.orig_atom]
+        mock_get.side_effect = [self.reply, self.not_fediverse, orig_relative,
+                                self.orig_atom]
 
         got = application.get_response('/webmention', method='POST', body=urlencode({
             'source': 'http://a/reply',
@@ -836,7 +855,8 @@ class WebmentionTest(testutil.TestCase):
 <link href='atom/1' rel='alternate' type='application/atom+xml'>
 </meta>
 </html>""", 'http://orig/url')
-        mock_get.side_effect = [self.reply, orig_base, self.orig_atom]
+        mock_get.side_effect = [self.reply, self.not_fediverse, orig_base,
+                                self.orig_atom]
 
         got = application.get_response('/webmention', method='POST', body=urlencode({
             'source': 'http://a/reply',

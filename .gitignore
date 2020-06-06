@@ -3,6 +3,6 @@
 datastore.dat*
 /docs/_build/
 /l
-/local
+/local*
 private_notes
 TAGS

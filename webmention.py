@@ -70,16 +70,6 @@ class WebmentionHandler(common.Handler):
 
         self.try_activitypub() or self.try_salmon()
 
-        # if self.source_domain not in SKIP_EMAIL_DOMAINS:
-        #   try:
-        #       msg = 'Bridgy Fed: new webmention from %s' % source
-        #       mail.send_mail(
-        #           sender='admin@bridgy-federated.appspotmail.com',
-        #           to='bridgy-fed@ryanb.org',
-        #           subject=msg, body=msg)
-        #   except BaseException:
-        #       logging.warning('Error sending email', exc_info=True)
-
     def try_activitypub(self):
         """Returns True if we attempted ActivityPub delivery, False otherwise."""
         targets = self._activitypub_targets()
@@ -88,6 +78,7 @@ class WebmentionHandler(common.Handler):
 
         key = MagicKey.get_or_create(self.source_domain)
         error = None
+        last_success = None
 
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
 
@@ -102,6 +93,7 @@ class WebmentionHandler(common.Handler):
             try:
                 last = activitypub.send(source_activity, inbox, self.source_domain)
                 resp.status = 'complete'
+                last_success = last
             except BaseException as e:
                 error = e
                 resp.status = 'error'
@@ -109,37 +101,38 @@ class WebmentionHandler(common.Handler):
             resp.put()
 
         # Pass the AP response status code and body through as our response
-        if not error:
-            self.response.status_int = last.status_code
-            self.response.write(last.text)
+        if last_success:
+            self.response.status_int = last_success.status_code
+            self.response.write(last_success.text)
         elif isinstance(error, requests.HTTPError):
             self.response.status_int = error.status_code
             self.response.write(error.text)
         else:
             self.response.write(str(error))
 
-        return not error
+        return bool(last_success)
 
-    def _single_target(self):
+    def _targets(self):
         """
-        Returns: string URL, the source's inReplyTo or object (if appropriate)
+        Returns: list of string URLs, the source's inReplyTos or objects
+          (if appropriate)
         """
-        target = util.get_first(self.source_obj, 'inReplyTo')
-        if target:
-            return util.get_url(target)
+        targets = util.get_urls(self.source_obj, 'inReplyTo')
+        if targets:
+            return targets
 
         if self.source_obj.get('verb') in source.VERBS_WITH_OBJECT:
-            return util.get_url(util.get_first(self.source_obj, 'object'))
+            return util.get_urls(self.source_obj, 'object')
 
     def _activitypub_targets(self):
         """
         Returns: list of (Response, string inbox URL)
         """
-        # if there's an in-reply-to, like-of, or repost-of, that's the target.
+        # if there's in-reply-to, like-of, or repost-of, they're the targets.
         # otherwise, it's all followers' inboxes.
-        target = self._single_target()
+        targets = self._targets()
 
-        if not target:
+        if not targets:
             # interpret this as a Create or Update, deliver it to followers
             inboxes = []
             for follower in Follower.query().filter(
@@ -157,57 +150,67 @@ class WebmentionHandler(common.Handler):
                      inbox)
                     for inbox in inboxes if inbox]
 
-        # fetch target page as AS2 object
-        try:
-            self.target_resp = common.get_as2(target)
-        except (requests.HTTPError, exc.HTTPBadGateway) as e:
-            self.target_resp = getattr(e, 'response', None)
-            if self.target_resp and self.target_resp.status_code // 100 == 2:
-                content_type = common.content_type(self.target_resp) or ''
-                if content_type.startswith('text/html'):
-                    # TODO: pass e.response to try_salmon()'s target_resp
-                    return False  # make post() try Salmon
-            raise
-        target_url = self.target_resp.url or target
+        resps_and_inbox_urls = []
+        for target in targets:
+          # fetch target page as AS2 object
+          try:
+              self.target_resp = common.get_as2(target)
+          except (requests.HTTPError, exc.HTTPBadGateway) as e:
+              self.target_resp = getattr(e, 'response', None)
+              if self.target_resp and self.target_resp.status_code // 100 == 2:
+                  content_type = common.content_type(self.target_resp) or ''
+                  if content_type.startswith('text/html'):
+                      # TODO: pass e.response to try_salmon()'s target_resp
+                      continue  # give up
+              raise
+          target_url = self.target_resp.url or target
 
-        resp = Response.get_or_create(
-            source=self.source_url, target=target_url, direction='out',
-            protocol='activitypub', source_mf2=json_dumps(self.source_mf2))
+          resp = Response.get_or_create(
+              source=self.source_url, target=target_url, direction='out',
+              protocol='activitypub', source_mf2=json_dumps(self.source_mf2))
 
-        # find target's inbox
-        target_obj = self.target_resp.json()
-        resp.target_as2 = json_dumps(target_obj)
-        inbox_url = target_obj.get('inbox')
+          # find target's inbox
+          target_obj = self.target_resp.json()
+          resp.target_as2 = json_dumps(target_obj)
+          inbox_url = target_obj.get('inbox')
 
-        if not inbox_url:
-            # TODO: test actor/attributedTo and not, with/without inbox
-            actor = (util.get_first(target_obj, 'actor') or
-                     util.get_first(target_obj, 'attributedTo'))
-            if isinstance(actor, dict):
-                inbox_url = actor.get('inbox')
-                actor = actor.get('url') or actor.get('id')
-            if not inbox_url and not actor:
-                self.error('Target object has no actor or attributedTo with URL or id.')
-            elif not isinstance(actor, str):
-                self.error('Target actor or attributedTo has unexpected url or id object: %r' % actor)
+          if not inbox_url:
+              # TODO: test actor/attributedTo and not, with/without inbox
+              actor = (util.get_first(target_obj, 'actor') or
+                       util.get_first(target_obj, 'attributedTo'))
+              if isinstance(actor, dict):
+                  inbox_url = actor.get('inbox')
+                  actor = actor.get('url') or actor.get('id')
+              if not inbox_url and not actor:
+                  self.error('Target object has no actor or attributedTo with URL or id.')
+              elif not isinstance(actor, str):
+                  self.error('Target actor or attributedTo has unexpected url or id object: %r' % actor)
 
-        if not inbox_url:
-            # fetch actor as AS object
-            actor = common.get_as2(actor).json()
-            inbox_url = actor.get('inbox')
+          if not inbox_url:
+              # fetch actor as AS object
+              actor = common.get_as2(actor).json()
+              inbox_url = actor.get('inbox')
 
-        if not inbox_url:
-            # TODO: probably need a way to save errors like this so that we can
-            # return them if ostatus fails too.
-            # self.error('Target actor has no inbox')
-            return []
+          if not inbox_url:
+              # TODO: probably need a way to save errors like this so that we can
+              # return them if ostatus fails too.
+              # self.error('Target actor has no inbox')
+              continue
 
-        inbox_url = urllib.parse.urljoin(target_url, inbox_url)
-        return [(resp, inbox_url)]
+          inbox_url = urllib.parse.urljoin(target_url, inbox_url)
+          resps_and_inbox_urls.append((resp, inbox_url))
+
+        return resps_and_inbox_urls
 
     def try_salmon(self):
         """Returns True if we attempted OStatus delivery. Raises otherwise."""
-        target = self.target_resp.url if self.target_resp else self._single_target()
+        target = None
+        if self.target_resp:
+            target = self.target_resp.url
+        else:
+            targets = self._targets()
+            if targets:
+                target = targets[0]
         if not target:
             logging.warning("No targets or followers. Ignoring.")
             return False
@@ -233,8 +236,9 @@ class WebmentionHandler(common.Handler):
           resp: Response
         """
         # fetch target HTML page, extract Atom rel-alternate link
+        target = resp.target()
         if not self.target_resp:
-            self.target_resp = common.requests_get(resp.target())
+            self.target_resp = common.requests_get(target)
 
         parsed = util.parse_html(self.target_resp)
         atom_url = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
@@ -258,7 +262,9 @@ class WebmentionHandler(common.Handler):
         in_reply_to = self.source_obj.get('inReplyTo')
         source_obj_obj = self.source_obj.get('object')
         if in_reply_to:
-            in_reply_to[0]['id'] = target_id
+            for elem in in_reply_to:
+                if elem.get('url') == target:
+                    elem['id'] = target_id
         elif isinstance(source_obj_obj, dict):
             source_obj_obj['id'] = target_id
 
