@@ -109,3 +109,30 @@ Here are in progress notes on how I'm testing interoperability with various fede
   * [snarfed@mastodon.technology](https://mastodon.technology/@snarfed)
   * Example post: [HTML](https://mastodon.technology/@snarfed/2604611), [Atom](https://mastodon.technology/users/snarfed/updates/73978.atom)
   * Profile HTML/Atom have Salmon link rel. Individual post HTML/Atom don't. `author.email` is snarfed@mastodon.technology
+
+
+Stats
+---
+
+I occasionally generate stats and graphs of usage and growth via BigQuery, [like I do with Bridgy](https://bridgy.readthedocs.io/#stats). Here's how.
+
+1. [Export the full datastore to Google Cloud Storage.](https://cloud.google.com/datastore/docs/export-import-entities) Include all entities except `MagicKey`. Check to see if any new kinds have been added since the last time this command was run.
+
+    ```
+    gcloud datastore export --async gs://bridgy-federated.appspot.com/stats/ --kinds Follower,Response
+    ```
+
+    Note that `--kinds` is required. [From the export docs](https://cloud.google.com/datastore/docs/export-import-entities#limitations):
+    > _Data exported without specifying an entity filter cannot be loaded into BigQuery._
+1. Wait for it to be done with `gcloud datastore operations list | grep done`.
+1. [Import it into BigQuery](https://cloud.google.com/bigquery/docs/loading-data-cloud-datastore#loading_cloud_datastore_export_service_data):
+
+    ```
+    for kind in Follower Response; do
+      bq load --replace --nosync --source_format=DATASTORE_BACKUP datastore.$kind gs://bridgy-federated.appspot.com/stats/all_namespaces/kind_$kind/all_namespaces_kind_$kind.export_metadata
+    done
+    ```
+1. Check the jobs with `bq ls -j`, then wait for them with `bq wait`.
+1. [Run the full stats BigQuery query.](https://console.cloud.google.com/bigquery?sq=664405099227:58879d2908824a21b737eee98fff2de8) Download the results as CSV.
+1. [Open the stats spreadsheet.](https://docs.google.com/spreadsheets/d/1OtOZ2Rb4EqAGEp9rHziWkyJD4BaRFb_971KjOqMKePA/edit) Import the CSV, replacing the _data_ sheet.
+1. Check out the graphs! Save full size images with OS or browser screenshots, thumbnails with the _Download Chart_ button.
