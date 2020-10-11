@@ -135,12 +135,21 @@ class InboxHandler(common.Handler):
             return self.undo_follow(self.redirect_unwrap(activity))
         elif type == 'Delete':
             id = obj.get('id')
-            if isinstance(id, str):
-                # assume this is an actor
-                # https://github.com/snarfed/bridgy-fed/issues/63
-                for key in Follower.query().iter(keys_only=True):
-                    if key.id().split(' ')[-1] == id:
-                        key.delete()
+
+            # !!! temporarily disabled actually deleting Followers below because
+            # mastodon.social sends Deletes for every Bridgy Fed account, all at
+            # basically the same time, and we have many Follower objects, so we
+            # have to do this table scan for each one, so the requests take a
+            # long time and end up spawning extra App Engine instances that we
+            # get billed for. and the Delete requests are almost never for
+            # followers we have. TODO: revisit this and do it right.
+
+            # if isinstance(id, str):
+            #     # assume this is an actor
+            #     # https://github.com/snarfed/bridgy-fed/issues/63
+            #     for key in Follower.query().iter(keys_only=True):
+            #         if key.id().split(' ')[-1] == id:
+            #             key.delete()
             return
 
         # fetch actor if necessary so we have name, profile photo, etc

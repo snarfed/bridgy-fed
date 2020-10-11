@@ -1,7 +1,11 @@
 # https://cloud.google.com/appengine/docs/standard/python/config/appref
 
 # application: bridgy-federated
+
+# pycrypto doesn't support python 3.8 (due to time.clock). should switch to
+# pycryptodome.
 runtime: python37
+
 # default_expiration: 1h
 
 # https://cloud.google.com/appengine/docs/standard/python3/runtime#entrypoint_best_practices

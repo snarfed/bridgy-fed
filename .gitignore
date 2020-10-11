@@ -5,4 +5,5 @@ datastore.dat*
 /l
 /local*
 private_notes
+service_account_creds.json
 TAGS

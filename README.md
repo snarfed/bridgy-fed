@@ -18,8 +18,8 @@ Development
 You'll need Python 3. Install the [Google Cloud SDK](https://cloud.google.com/sdk/gcloud/) (aka `gcloud`) with the `gcloud-appengine-python` and `gcloud-appengine-python-extras` [components](https://cloud.google.com/sdk/docs/components#additional_components). Then, run:
 
 ```sh
-python3 -m venv local3
-source local3/bin/activate
+python3 -m venv local
+source local/bin/activate
 pip install -r requirements.txt
 ```
 
