@@ -27,6 +27,7 @@ jobs:
             apt-get install -y python3.7 python3.7-venv python3.7-dev
             python3.7 -m venv local3
             . local3/bin/activate
+            pip install cython  # avoids grpcio install bug (search _needs_stub)
             pip install -U -r requirements.txt
             pip install mox3
             pip install coverage coveralls
