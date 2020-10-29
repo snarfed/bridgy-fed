@@ -1,6 +1,8 @@
 """Handles requests for ActivityPub endpoints: actors, inbox, etc.
 """
+from base64 import b64encode
 import datetime
+from hashlib import sha256
 import logging
 
 from google.cloud import ndb
@@ -48,13 +50,14 @@ def send(activity, inbox_url, user_domain):
                  json_dumps(activity, indent=2))
 
     # prepare HTTP Signature (required by Mastodon)
-    # https://w3c.github.io/activitypub/#authorization-lds
+    # https://w3c.github.io/activitypub/#authorization
     # https://tools.ietf.org/html/draft-cavage-http-signatures-07
     # https://github.com/tootsuite/mastodon/issues/4906#issuecomment-328844846
     acct = 'acct:%s@%s' % (user_domain, user_domain)
     key = MagicKey.get_or_create(user_domain)
     auth = HTTPSignatureAuth(secret=key.private_pem(), key_id=acct,
-                             algorithm='rsa-sha256')
+                             algorithm='rsa-sha256', sign_header='signature',
+                             headers=('Date', 'Digest', 'Host'))
 
     # deliver to inbox
     headers = {
@@ -62,6 +65,10 @@ def send(activity, inbox_url, user_domain):
         # required for HTTP Signature
         # https://tools.ietf.org/html/draft-cavage-http-signatures-07#section-2.1.3
         'Date': datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT'),
+        # required by Mastodon
+        # https://github.com/tootsuite/mastodon/pull/14556#issuecomment-674077648
+        'Digest': 'SHA256=' + b64encode(sha256(json_dumps(activity).encode()).digest()).decode(),
+        'Host': util.domain_from_link(inbox_url),
     }
     return common.requests_post(inbox_url, json=activity, auth=auth, headers=headers)
 
