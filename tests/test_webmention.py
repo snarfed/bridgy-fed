@@ -381,7 +381,7 @@ class WebmentionTest(testutil.TestCase):
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.as2_create, kwargs['json'])
+        self.assertEqual(self.as2_create, json_loads(kwargs['data']))
 
         headers = kwargs['headers']
         self.assertEqual(CONTENT_TYPE_AS2, headers['Content-Type'])
@@ -416,7 +416,7 @@ class WebmentionTest(testutil.TestCase):
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.as2_update, kwargs['json'])
+        self.assertEqual(self.as2_update, json_loads(kwargs['data']))
 
     def test_activitypub_create_reply_attributed_to_id_only(self, mock_get, mock_post):
         """Based on PeerTube's AS2.
@@ -451,7 +451,7 @@ class WebmentionTest(testutil.TestCase):
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.as2_create, kwargs['json'])
+        self.assertEqual(self.as2_create, json_loads(kwargs['data']))
 
     def test_activitypub_update_reply(self, mock_get, mock_post):
         Response(id='http://a/reply http://orig/as2', status='complete').put()
@@ -468,7 +468,7 @@ class WebmentionTest(testutil.TestCase):
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.as2_update, kwargs['json'])
+        self.assertEqual(self.as2_update, json_loads(kwargs['data']))
 
     def test_activitypub_create_repost(self, mock_get, mock_post):
         mock_get.side_effect = [self.repost, self.orig_as2, self.actor]
@@ -489,7 +489,7 @@ class WebmentionTest(testutil.TestCase):
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.repost_as2, kwargs['json'])
+        self.assertEqual(self.repost_as2, json_loads(kwargs['data']))
 
         headers = kwargs['headers']
         self.assertEqual(CONTENT_TYPE_AS2, headers['Content-Type'])
@@ -525,7 +525,7 @@ class WebmentionTest(testutil.TestCase):
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.as2_create, kwargs['json'])
+        self.assertEqual(self.as2_create, json_loads(kwargs['data']))
 
     def test_activitypub_create_default_url_to_wm_source(self, mock_get, mock_post):
         """Source post has no u-url. AS2 id should default to webmention source."""
@@ -549,7 +549,7 @@ class WebmentionTest(testutil.TestCase):
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
-        self.assert_equals(self.repost_as2, kwargs['json'])
+        self.assert_equals(self.repost_as2, json_loads(kwargs['data']))
 
     def test_activitypub_create_author_only_url(self, mock_get, mock_post):
         """Mf2 author property is just a URL. We should run full authorship.
@@ -588,7 +588,7 @@ class WebmentionTest(testutil.TestCase):
         repost_as2 = copy.deepcopy(self.repost_as2)
         repost_as2['actor']['image'] = repost_as2['actor']['icon'] = \
             {'type': 'Image', 'url': 'http://orig/pic'},
-        self.assert_equals(repost_as2, kwargs['json'])
+        self.assert_equals(repost_as2, json_loads(kwargs['data']))
 
     def test_activitypub_create_post(self, mock_get, mock_post):
         mock_get.side_effect = [self.create, self.actor]
@@ -631,7 +631,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(len(inboxes), len(mock_post.call_args_list))
         for call, inbox in zip(mock_post.call_args_list, inboxes):
             self.assertEqual((inbox,), call[0])
-            self.assertEqual(self.create_as2, call[1]['json'])
+            self.assertEqual(self.create_as2, json_loads(call[1]['data']))
 
         for inbox in inboxes:
             resp = Response.get_by_id('http://orig/post %s' % inbox)
@@ -666,7 +666,7 @@ class WebmentionTest(testutil.TestCase):
             'image': [{'url': 'http://im/age', 'type': 'Image'}],
             'attachment': [{'url': 'http://im/age', 'type': 'Image'}],
         })
-        self.assertEqual(create, mock_post.call_args[1]['json'])
+        self.assertEqual(create, json_loads(mock_post.call_args[1]['data']))
 
     def test_activitypub_follow(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow, self.actor]
@@ -686,7 +686,7 @@ class WebmentionTest(testutil.TestCase):
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.follow_as2, kwargs['json'])
+        self.assertEqual(self.follow_as2, json_loads(kwargs['data']))
 
         headers = kwargs['headers']
         self.assertEqual(CONTENT_TYPE_AS2, headers['Content-Type'])

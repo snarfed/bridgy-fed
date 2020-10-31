@@ -60,6 +60,7 @@ def send(activity, inbox_url, user_domain):
                              headers=('Date', 'Digest', 'Host'))
 
     # deliver to inbox
+    body = json_dumps(activity).encode()
     headers = {
         'Content-Type': common.CONTENT_TYPE_AS2,
         # required for HTTP Signature
@@ -67,10 +68,11 @@ def send(activity, inbox_url, user_domain):
         'Date': datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT'),
         # required by Mastodon
         # https://github.com/tootsuite/mastodon/pull/14556#issuecomment-674077648
-        'Digest': 'SHA256=' + b64encode(sha256(json_dumps(activity).encode()).digest()).decode(),
+        'Digest': 'SHA-256=' + b64encode(sha256(body).digest()).decode(),
         'Host': util.domain_from_link(inbox_url),
     }
-    return common.requests_post(inbox_url, json=activity, auth=auth, headers=headers)
+    return common.requests_post(inbox_url, data=body, auth=auth,
+                                headers=headers)
 
 
 class ActorHandler(common.Handler):

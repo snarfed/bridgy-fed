@@ -352,7 +352,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(2, len(mock_post.call_args_list))
         args, kwargs = mock_post.call_args_list[0]
         self.assertEqual(('http://follower/inbox',), args)
-        self.assertEqual(ACCEPT, kwargs['json'])
+        self.assertEqual(ACCEPT, json_loads(kwargs['data']))
 
         # check webmention
         args, kwargs = mock_post.call_args_list[1]
