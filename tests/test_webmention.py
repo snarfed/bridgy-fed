@@ -268,7 +268,7 @@ class WebmentionTest(testutil.TestCase):
                          kwargs['headers']['Content-Type'])
 
         env = utils.parse_magic_envelope(kwargs['data'])
-        assert magicsigs.verify(None, env['data'], env['sig'].encode(), key=self.key)
+        assert magicsigs.verify(env['data'], env['sig'].encode(), key=self.key)
 
         return env['data']
 

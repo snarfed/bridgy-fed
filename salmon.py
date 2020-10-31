@@ -60,7 +60,7 @@ class SlapHandler(common.Handler):
             self.error('Author URI %s has unsupported scheme; expected acct:' % author)
 
         logging.info('Fetching Salmon key for %s' % author)
-        if not magicsigs.verify(author, data, parsed['sig']):
+        if not magicsigs.verify(data, parsed['sig'], author_uri=author):
             self.error('Could not verify magic signature.')
         logging.info('Verified magic signature.')
 
