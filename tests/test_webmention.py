@@ -700,6 +700,42 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('complete', resp.status)
         self.assertEqual(self.follow_mf2, json_loads(resp.source_mf2))
 
+    def test_activitypub_error_no_salmon_fallback(self, mock_get, mock_post):
+        mock_get.side_effect = [self.follow, self.actor]
+        mock_post.return_value = requests_response(
+            'abc xyz', status=405, url='https://foo.com/inbox')
+
+        got = application.get_response(
+            '/webmention', method='POST', body=urlencode({
+                'source': 'http://a/follow',
+                'target': 'https://fed.brid.gy/',
+            }).encode())
+        self.assertEqual(502, got.status_int, got.text)
+        self.assertEqual(
+            '405 Client Error: None for url: https://foo.com/inbox ; abc xyz',
+            got.text)
+
+        mock_get.assert_has_calls((
+            self.req('http://a/follow'),
+            self.req('http://followee/', headers=CONNEG_HEADERS_AS2_HTML),
+        ))
+
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://foo.com/inbox',), args)
+        self.assertEqual(self.follow_as2, json_loads(kwargs['data']))
+
+        headers = kwargs['headers']
+        self.assertEqual(CONTENT_TYPE_AS2, headers['Content-Type'])
+
+        rsa_key = kwargs['auth'].header_signer._rsa._key
+        self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
+
+        resp = Response.get_by_id('http://a/follow http://followee/')
+        self.assertEqual('out', resp.direction)
+        self.assertEqual('activitypub', resp.protocol)
+        self.assertEqual('error', resp.status)
+        self.assertEqual(self.follow_mf2, json_loads(resp.source_mf2))
+
     def test_salmon_reply(self, mock_get, mock_post):
         mock_get.side_effect = [self.reply, self.not_fediverse,
                                 self.orig_html_atom, self.orig_atom]

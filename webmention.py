@@ -68,13 +68,19 @@ class WebmentionHandler(common.Handler):
         self.source_obj = microformats2.json_to_object(entry, fetch_mf2=True)
         logging.info('Converted to AS1: %s', json_dumps(self.source_obj, indent=2))
 
-        self.try_activitypub() or self.try_salmon()
+        tried_ap = self.try_activitypub()
+        if tried_ap is None:
+            self.try_salmon()
 
     def try_activitypub(self):
-        """Returns True if we attempted ActivityPub delivery, False otherwise."""
+        """Attempts ActivityPub delivery.
+
+        Returns True if we succeeded, False if we failed, None if ActivityPub
+        was not available.
+        """
         targets = self._activitypub_targets()
         if not targets:
-            return False
+            return None
 
         key = MagicKey.get_or_create(self.source_domain)
         error = None
@@ -104,9 +110,9 @@ class WebmentionHandler(common.Handler):
         if last_success:
             self.response.status_int = last_success.status_code
             self.response.write(last_success.text)
-        elif isinstance(error, requests.HTTPError):
+        elif isinstance(error, (requests.HTTPError, exc.HTTPBadGateway)):
             self.response.status_int = error.status_code
-            self.response.write(error.text)
+            self.response.write(str(error))
         else:
             self.response.write(str(error))
 
