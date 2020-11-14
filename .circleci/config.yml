@@ -18,7 +18,7 @@ jobs:
       - checkout
 
       - restore_cache:
-          key: venv-{{ .Branch }}-{{ checksum "requirements.txt" }}
+          key: venv-2-{{ .Branch }}-{{ checksum "requirements.txt" }}
 
       - run:
           name: Dependencies
@@ -43,7 +43,7 @@ jobs:
             if [ "$COVERALLS_REPO_TOKEN" != "" ]; then coveralls || true; fi
 
       - save_cache:
-          key: venv-{{ .Branch }}-{{ checksum "requirements.txt" }}
+          key: venv-2-{{ .Branch }}-{{ checksum "requirements.txt" }}
           paths:
             - local
 
