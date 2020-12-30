@@ -58,7 +58,13 @@ SUPPORTED_VERBS = (
     'update',
 )
 
-canonicalize_domain = handlers.redirect('bridgy-federated.appspot.com', 'fed.brid.gy')
+PRIMARY_DOMAIN = 'fed.brid.gy'
+OTHER_DOMAINS = (
+    'bridgy-federated.appspot.com',
+    'localhost',
+)
+DOMAINS = (PRIMARY_DOMAIN,) + OTHER_DOMAINS
+canonicalize_domain = handlers.redirect(OTHER_DOMAINS, PRIMARY_DOMAIN)
 
 
 def requests_get(url, **kwargs):

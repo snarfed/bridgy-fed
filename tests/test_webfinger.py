@@ -20,10 +20,10 @@ from . import testutil
 USER = 'foo.com@foo.com'
 
 
-class WebFingerTest(testutil.TestCase):
+class WebfingerTest(testutil.TestCase):
 
     def setUp(self):
-        super(WebFingerTest, self).setUp()
+        super(WebfingerTest, self).setUp()
         UserHandler.get.cache_clear()
         WebfingerHandler.get.cache_clear()
         self.html = """
@@ -215,15 +215,30 @@ class WebFingerTest(testutil.TestCase):
 <a class="u-url" href="acct:customuser@foo.com"></a>
 </body>
 """
-        self.expected_webfinger['subject'] = "acct:customuser@foo.com"
-        self.expected_webfinger['aliases'] = [u'https://foo.com/about-me',
-            u'acct:notthisuser@boop.org',
-            u'acct:customuser@foo.com',
-            u'https://foo.com/']
+        self.expected_webfinger.update({
+            'subject': 'acct:customuser@foo.com',
+            'aliases': [
+                'https://foo.com/about-me',
+                'acct:notthisuser@boop.org',
+                'acct:customuser@foo.com',
+                'https://foo.com/',
+            ],
+        })
         mock_get.return_value = requests_response(self.html, url='https://foo.com/')
 
-        for resource in ('customuser@foo.com', 'acct:customuser@foo.com',
-                         'foo.com', 'http://foo.com/', 'https://foo.com/'):
+        for resource in (
+                'customuser@foo.com',
+                'acct:customuser@foo.com',
+                'foo.com',
+                'http://foo.com/',
+                'https://foo.com/',
+                # Mastodon requires this as of 3.3.0
+                # https://github.com/snarfed/bridgy-fed/issues/73
+                # 'acct:foo.com@fed.brid.gy',
+                'acct:foo.com@fed.brid.gy',
+                'acct:foo.com@bridgy-federated.appspot.com',
+                'acct:foo.com@localhost',
+        ):
             url = '/.well-known/webfinger?%s' % urllib.parse.urlencode(
                 {'resource': resource})
             got = application.get_response(url, headers={'Accept': 'application/json'})
