@@ -158,11 +158,10 @@ class WebfingerHandler(UserHandler):
         resource = util.get_required_param(self, 'resource')
         try:
             user, domain = util.parse_acct_uri(resource)
+            if domain in common.DOMAINS:
+                domain = user
         except ValueError:
             domain = urllib.parse.urlparse(resource).netloc or resource
-
-        if domain in common.DOMAINS:
-            domain = user
 
         url = None
         if resource.startswith('http://') or resource.startswith('https://'):
