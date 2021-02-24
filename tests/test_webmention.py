@@ -615,6 +615,11 @@ class WebmentionTest(testutil.TestCase):
                                last_follow=json_dumps({'actor': {
                                    'inbox': 'https://unused/2',
                                }}))
+        Follower.get_or_create('orig', 'https://mastodon/fff',
+                               last_follow=json_dumps({'actor': {
+                                   # dupe of eee; should be de-duped
+                                   'inbox': 'https://inbox',
+                               }}))
 
         got = application.get_response(
             '/webmention', method='POST', body=urlencode({
@@ -627,7 +632,7 @@ class WebmentionTest(testutil.TestCase):
             self.req('http://orig/post'),
         ))
 
-        inboxes = ('https://public/inbox', 'https://shared/inbox', 'https://inbox')
+        inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
         self.assertEqual(len(inboxes), len(mock_post.call_args_list))
         for call, inbox in zip(mock_post.call_args_list, inboxes):
             self.assertEqual((inbox,), call[0])

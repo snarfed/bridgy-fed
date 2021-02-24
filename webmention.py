@@ -140,21 +140,21 @@ class WebmentionHandler(common.Handler):
 
         if not targets:
             # interpret this as a Create or Update, deliver it to followers
-            inboxes = []
+            inboxes = set()
             for follower in Follower.query().filter(
                 Follower.key > Key('Follower', self.source_domain + ' '),
                 Follower.key < Key('Follower', self.source_domain + chr(ord(' ') + 1))):
                 if follower.status != 'inactive' and follower.last_follow:
                     actor = json_loads(follower.last_follow).get('actor')
                     if actor and isinstance(actor, dict):
-                        inboxes.append(actor.get('endpoints', {}).get('sharedInbox') or
-                                       actor.get('publicInbox')or
-                                       actor.get('inbox'))
+                        inboxes.add(actor.get('endpoints', {}).get('sharedInbox') or
+                                    actor.get('publicInbox')or
+                                    actor.get('inbox'))
             return [(Response.get_or_create(
                         source=self.source_url, target=inbox, direction='out',
                         protocol='activitypub', source_mf2=json_dumps(self.source_mf2)),
                      inbox)
-                    for inbox in inboxes if inbox]
+                    for inbox in sorted(inboxes) if inbox]
 
         resps_and_inbox_urls = []
         for target in targets:

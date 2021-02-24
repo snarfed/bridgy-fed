@@ -10,8 +10,6 @@ import webapp2
 
 from models import Response
 
-VERSION_1_DEPLOYED = datetime.datetime(2017, 10, 26, 16, 0)
-
 
 class LogHandler(logs.LogHandler):
   VERSION_IDS = ['1']
