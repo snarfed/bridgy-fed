@@ -775,8 +775,8 @@ class WebmentionTest(testutil.TestCase):
             'ref': 'tag:fed.brid.gy,2017-08-22:orig-post',
         }, entry['thr_in-reply-to'])
         self.assertEqual("""\
-<a class="u-in-reply-to" href="http://not/fediverse"></a><br></br>
-<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a><br></br>
+<a class="u-in-reply-to" href="http://not/fediverse"></a><br />
+<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a><br />
 <a href="http://localhost/"></a>""",
             entry.content[0]['value'])
 

@@ -2,9 +2,7 @@
 
 # application: bridgy-federated
 
-# pycrypto doesn't support python 3.8 (due to time.clock). should switch to
-# pycryptodome.
-runtime: python37
+runtime: python39
 
 # default_expiration: 1h
 
