@@ -20,7 +20,7 @@ class RedirectTest(testutil.TestCase):
 
     def test_redirect(self):
         got = application.get_response('/r/https://foo.com/bar?baz=baj&biff')
-        self.assertEqual(302, got.status_int)
+        self.assertEqual(301, got.status_int)
         self.assertEqual('https://foo.com/bar?baz=baj&biff', got.headers['Location'])
 
     def test_redirect_scheme_missing(self):

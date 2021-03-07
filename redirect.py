@@ -45,7 +45,7 @@ class RedirectHandler(common.Handler):
 
         # redirect
         logging.info('redirecting to %s', to)
-        self.redirect(to)
+        self.redirect(to, permanent=True)
 
     def convert_to_as2(self, url):
         """Fetch a URL as HTML, convert it to AS2, and return it.
