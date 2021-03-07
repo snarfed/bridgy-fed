@@ -10,6 +10,7 @@ https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
 """
 import datetime
 import logging
+import urllib.parse
 
 from granary import as2, microformats2
 import mf2util
@@ -20,6 +21,7 @@ import ujson as json
 import webapp2
 
 import common
+from models import MagicKey
 
 CACHE_TIME = datetime.timedelta(seconds=15)
 
@@ -36,6 +38,16 @@ class RedirectHandler(common.Handler):
         to = self.request.path_qs[3:]
         if not to.startswith('http://') and not to.startswith('https://'):
             self.error('Expected fully qualified URL; got %s' % to)
+
+        # check that we've seen this domain before so we're not an open redirect
+        domains = set((util.domain_from_link(to),
+                       urllib.parse.urlparse(to).hostname))
+        for domain in domains:
+            if MagicKey.get_by_id(domain):
+                logging.info(f'Found MagicKey for domain {domain}')
+                break
+        else:
+            self.error(f'No user found for any of {domains}', status=404)
 
         # poor man's conneg, only handle single Accept values, not multiple with
         # priorities.

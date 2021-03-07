@@ -7,6 +7,7 @@ from oauth_dropins.webutil.testutil import requests_response
 
 from app import application
 import common
+from models import MagicKey
 from redirect import RedirectHandler
 from .test_webmention import REPOST_HTML, REPOST_AS2
 from . import testutil
@@ -17,6 +18,7 @@ class RedirectTest(testutil.TestCase):
     def setUp(self):
         super(RedirectTest, self).setUp()
         RedirectHandler.get.cache_clear()
+        MagicKey.get_or_create('foo.com')
 
     def test_redirect(self):
         got = application.get_response('/r/https://foo.com/bar?baz=baj&biff')
@@ -24,11 +26,15 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual('https://foo.com/bar?baz=baj&biff', got.headers['Location'])
 
     def test_redirect_scheme_missing(self):
-        got = application.get_response('/r/asdf.com')
+        got = application.get_response('/r/foo.com')
         self.assertEqual(400, got.status_int)
 
     def test_redirect_url_missing(self):
         got = application.get_response('/r/')
+        self.assertEqual(404, got.status_int)
+
+    def test_no_magic_key_for_domain(self):
+        got = application.get_response('/r/http://bar.com/baz')
         self.assertEqual(404, got.status_int)
 
     def test_as2(self):
