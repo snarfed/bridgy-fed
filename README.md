@@ -88,8 +88,10 @@ Here are in progress notes on how I'm testing interoperability with various fede
   * Tried posting a bunch of ways, couldn't get any to work :/
 * [Kroeg](https://github.com/puckipedia/Kroeg)
   * Not open to other users yet. Seems to be running at [puckipedia.com/social](https://puckipedia.com/social).
+* [Pleroma](https://pleroma.social/)
+  * [snarfed@cawfee.club](https://cawfee.club/snarfed)
 
-### Salmon
+### OStatus / Salmon
 
 * [Friendica](http://friendi.ca/)
   * [snarfed@libranet.de](https://libranet.de/profile/snarfed)
@@ -105,12 +107,6 @@ Here are in progress notes on how I'm testing interoperability with various fede
   * Only has Atom `link rel="alternate"` for [full feed](https://lastauth.com/feed/snarfed?f=&top=1), not individual post :/
   * Atom feed has Salmon link rels inside top level `feed`, not in individual `entry`s
   * Atom entries have  `author.name` as username (snarfed)
-* [Mastodon](https://joinmastodon.org/)
-  * [snarfed@mastodon.technology](https://mastodon.technology/@snarfed)
-  * Example post: [HTML](https://mastodon.technology/@snarfed/2604611), [Atom](https://mastodon.technology/users/snarfed/updates/73978.atom)
-  * Profile HTML/Atom have Salmon link rel. Individual post HTML/Atom don't. `author.email` is snarfed@mastodon.technology
-* [Pleroma](https://pleroma.social/)
-  * [snarfed@cawfee.club](https://cawfee.club/snarfed)
 
 Stats
 ---
