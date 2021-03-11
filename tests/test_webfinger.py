@@ -103,8 +103,8 @@ class WebfingerTest(testutil.TestCase):
     def test_host_meta_handler_jrd(self):
         got = application.get_response('/.well-known/host-meta.json')
         self.assertEqual(200, got.status_int)
-        self.assertEqual('application/json; charset=utf-8',
-                          got.headers['Content-Type'])
+        self.assertEqual('application/jrd+json; charset=utf-8',
+                         got.headers['Content-Type'])
         body = got.body.decode()
         self.assertTrue(body.startswith('{'), body)
 
@@ -115,7 +115,7 @@ class WebfingerTest(testutil.TestCase):
         got = application.get_response('/acct:foo.com',
                                        headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_int)
-        self.assertEqual('application/json; charset=utf-8',
+        self.assertEqual('application/jrd+json; charset=utf-8',
                           got.headers['Content-Type'])
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
                                          stream=True, timeout=util.HTTP_TIMEOUT)
@@ -199,8 +199,8 @@ class WebfingerTest(testutil.TestCase):
             got = application.get_response(url, headers={'Accept': 'application/json'})
             body = got.body.decode()
             self.assertEqual(200, got.status_int, body)
-            self.assertEqual('application/json; charset=utf-8',
-                              got.headers['Content-Type'])
+            self.assertEqual('application/jrd+json; charset=utf-8',
+                             got.headers['Content-Type'])
             self.assertEqual(self.expected_webfinger, json_loads(body))
 
     @mock.patch('requests.get')
@@ -244,6 +244,6 @@ class WebfingerTest(testutil.TestCase):
             got = application.get_response(url, headers={'Accept': 'application/json'})
             body = got.body.decode()
             self.assertEqual(200, got.status_int, body)
-            self.assertEqual('application/json; charset=utf-8',
-                              got.headers['Content-Type'])
+            self.assertEqual('application/jrd+json; charset=utf-8',
+                             got.headers['Content-Type'])
             self.assertEqual(self.expected_webfinger, json_loads(body))
