@@ -327,6 +327,7 @@ class Handler(handlers.ModernHandler):
             activity = {
                 '@context': as2.CONTEXT,
                 'type': 'Create',
+                'id': f'{activity["id"]}#bridgy-fed-create',
                 'object': activity,
             }
 

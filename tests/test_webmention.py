@@ -158,6 +158,7 @@ class WebmentionTest(testutil.TestCase):
         self.as2_create = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
+            'id': 'http://localhost/r/http://a/reply#bridgy-fed-create',
             'object': {
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 'type': 'Note',
@@ -236,6 +237,7 @@ class WebmentionTest(testutil.TestCase):
         self.create_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
+            'id': 'http://localhost/r/http://orig/post#bridgy-fed-create',
             'object': {
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 'type': 'Note',
@@ -259,7 +261,8 @@ class WebmentionTest(testutil.TestCase):
 <body>foo</body>
 </html>
 """, url='http://not/fediverse', content_type=CONTENT_TYPE_HTML)
-        self.activitypub_gets = [self.reply, self.not_fediverse, self.orig_as2, self.actor]
+        self.activitypub_gets = [self.reply, self.not_fediverse, self.orig_as2,
+                                 self.actor]
 
     def verify_salmon(self, mock_post):
         args, kwargs = mock_post.call_args
