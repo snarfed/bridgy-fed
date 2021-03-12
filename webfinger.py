@@ -15,6 +15,7 @@ import logging
 import urllib.parse
 import urllib.parse
 
+from granary.microformats2 import get_text
 import mf2util
 from oauth_dropins.webutil import handlers, util
 from oauth_dropins.webutil.util import json_dumps
@@ -31,8 +32,9 @@ class UserHandler(common.Handler, handlers.XrdOrJrdHandler):
     """Fetches a site's home page, converts its mf2 to WebFinger, and serves."""
     JRD_TEMPLATE = False
 
-    @handlers.cache_response(CACHE_TIME)
+    @handlers.cache_response(CACHE_TIME, headers=['Accept'])
     def get(self, *args, **kwargs):
+        logging.debug(f'Headers: {self.request.headers.items()}')
         return super(UserHandler, self).get(*args, **kwargs)
 
     def template_prefix(self):
@@ -97,7 +99,6 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
             else:
                 hub = 'https://bridgy-fed.superfeedr.com/'
 
-
         # generate webfinger content
         data = util.trim_nulls({
             'subject': 'acct:' + acct,
@@ -109,7 +110,7 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
                 'href': url,
             }] for url in urls if url.startswith("http")), []) + [{
                 'rel': 'http://webfinger.net/rel/avatar',
-                'href': url,
+                'href': get_text(url),
             } for url in props.get('photo', [])] + [{
                 'rel': 'canonical_uri',
                 'type': 'text/html',
@@ -151,9 +152,6 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
 
 
 class WebfingerHandler(UserHandler):
-    def is_jrd(self):
-        return True
-
     def template_vars(self):
         resource = util.get_required_param(self, 'resource')
         try:
