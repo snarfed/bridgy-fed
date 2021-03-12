@@ -31,7 +31,6 @@ class RedirectHandler(common.Handler):
 
     e.g. redirects /r/https://foo.com/bar?baz to https://foo.com/bar?baz
     """
-
     @cache_response(CACHE_TIME)
     def get(self):
         assert self.request.path_qs.startswith('/r/')
@@ -47,7 +46,8 @@ class RedirectHandler(common.Handler):
                 logging.info(f'Found MagicKey for domain {domain}')
                 break
         else:
-            self.error(f'No user found for any of {domains}', status=404)
+            logging.info(f'No user found for any of {domains}; returning 404')
+            self.abort(404)
 
         # poor man's conneg, only handle single Accept values, not multiple with
         # priorities.
