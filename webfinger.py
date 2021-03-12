@@ -4,11 +4,6 @@ https://webfinger.net/
 https://tools.ietf.org/html/rfc7033
 
 Largely based on webfinger-unofficial/user.py.
-
-TODO: test:
-* /.well-known/webfinger
-* acct: URI handling
-* user URL that redirects
 """
 import datetime
 import logging
@@ -152,6 +147,13 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
 
 
 class WebfingerHandler(UserHandler):
+    """Handles Webfinger requests.
+
+    https://webfinger.net/
+
+    Supports both JRD and XRD; defaults to JRD.
+    https://tools.ietf.org/html/rfc7033#section-4
+    """
     def template_vars(self):
         resource = util.get_required_param(self, 'resource')
         try:

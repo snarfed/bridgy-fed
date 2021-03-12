@@ -1,7 +1,9 @@
 # coding=utf-8
 """Unit tests for webfinger.py.
 
-TODO: test error handling
+to test:
+* user URL that redirects
+* error handling
 """
 from unittest import mock
 import urllib.parse
@@ -16,8 +18,6 @@ import common
 import models
 from webfinger import UserHandler, WebfingerHandler
 from . import testutil
-
-USER = 'foo.com@foo.com'
 
 
 class WebfingerTest(testutil.TestCase):
@@ -36,7 +36,7 @@ class WebfingerTest(testutil.TestCase):
 """
         self.key = models.MagicKey.get_or_create('foo.com')
         self.expected_webfinger = {
-            'subject': 'acct:' + USER,
+            'subject': 'acct:foo.com@foo.com',
             'aliases': [
                 'https://foo.com/about-me',
                 'https://foo.com/',
@@ -78,9 +78,6 @@ class WebfingerTest(testutil.TestCase):
             }, {
                 'rel': 'salmon',
                 'href': 'http://localhost/foo.com/salmon'
-            # }, {
-            #     'rel': 'http://ostatus.org/schema/1.0/subscribe',
-            #     'template': 'https://mastodon.technology/authorize_follow?acct={uri}'
             }]
         }
 
