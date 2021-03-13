@@ -29,7 +29,7 @@ class UserHandler(common.Handler, handlers.XrdOrJrdHandler):
 
     @handlers.cache_response(CACHE_TIME, headers=['Accept'])
     def get(self, *args, **kwargs):
-        logging.debug(f'Headers: {self.request.headers.items()}')
+        logging.debug(f'Headers: {list(self.request.headers.items())}')
         return super(UserHandler, self).get(*args, **kwargs)
 
     def template_prefix(self):
