@@ -162,7 +162,10 @@ class ActivityPubTest(testutil.TestCase):
         type = got.headers['Content-Type']
         self.assertTrue(type.startswith(common.CONTENT_TYPE_AS2), type)
         self.assertEqual({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': [
+                'https://www.w3.org/ns/activitystreams',
+                'https://w3id.org/security/v1',
+            ],
             'type' : 'Person',
             'name': 'Mrs. ☕ Foo',
             'summary': '',

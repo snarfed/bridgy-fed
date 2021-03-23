@@ -247,10 +247,14 @@ class Handler(handlers.ModernHandler):
                 # underspecified, inferred from this issue and Mastodon's implementation:
                 # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
                 # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
-                activity['publicKey'] = {
-                    'id': activity.get('preferredUsername'),
-                    'publicKeyPem': key.public_pem().decode(),
-                }
+                activity.update({
+                    'publicKey': {
+                        'id': activity.get('preferredUsername'),
+                        'publicKeyPem': key.public_pem().decode(),
+                    },
+                    '@context': (util.get_list(activity, '@context') +
+                                 ['https://w3id.org/security/v1']),
+                })
             return activity
 
         for actor in (util.get_list(activity, 'attributedTo') +
