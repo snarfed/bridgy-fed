@@ -852,7 +852,7 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_any_call(
             'http://orig/.well-known/webfinger?resource=acct:ryan@orig',
-            headers=HEADERS, stream=True, timeout=util.HTTP_TIMEOUT, verify=False)
+            headers=HEADERS, stream=True, timeout=util.HTTP_TIMEOUT)
         self.assertEqual(('http://orig/@ryan/salmon',), mock_post.call_args[0])
 
     def test_salmon_no_target_atom(self, mock_get, mock_post):

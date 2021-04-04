@@ -219,8 +219,7 @@ class ActivityPubTest(testutil.TestCase):
         got = application.get_response('/foo.com/inbox', method='POST',
                                body=json_dumps(as2).encode())
         self.assertEqual(200, got.status_int, got.body)
-        mock_get.assert_called_once_with(
-            'http://orig/post', headers=common.HEADERS, verify=False)
+        mock_get.assert_called_once_with('http://orig/post', headers=common.HEADERS)
 
         expected_headers = copy.deepcopy(common.HEADERS)
         expected_headers['Accept'] = '*/*'
@@ -231,8 +230,7 @@ class ActivityPubTest(testutil.TestCase):
                 'target': 'http://orig/post',
             },
             allow_redirects=False,
-            headers=expected_headers,
-            verify=False)
+            headers=expected_headers)
 
         resp = Response.get_by_id('http://this/reply http://orig/post')
         self.assertEqual('in', resp.direction)
@@ -272,8 +270,7 @@ class ActivityPubTest(testutil.TestCase):
         got = application.get_response('/foo.com/inbox', method='POST',
                                body=json_dumps(as2).encode())
         self.assertEqual(200, got.status_int, got.body)
-        mock_get.assert_called_once_with(
-            'http://target/', headers=common.HEADERS, verify=False)
+        mock_get.assert_called_once_with('http://target/', headers=common.HEADERS)
 
         expected_headers = copy.deepcopy(common.HEADERS)
         expected_headers['Accept'] = '*/*'
@@ -284,8 +281,7 @@ class ActivityPubTest(testutil.TestCase):
                 'target': 'http://target/',
             },
             allow_redirects=False,
-            headers=expected_headers,
-            verify=False)
+            headers=expected_headers)
 
         resp = Response.get_by_id('http://this/mention http://target/')
         self.assertEqual('in', resp.direction)
@@ -312,7 +308,7 @@ class ActivityPubTest(testutil.TestCase):
         as2_headers.update(common.CONNEG_HEADERS_AS2_HTML)
         mock_get.assert_has_calls((
             call('http://orig/actor', headers=as2_headers, stream=True, timeout=15),
-            call('http://orig/post', headers=common.HEADERS, verify=False),
+            call('http://orig/post', headers=common.HEADERS),
         ))
 
         args, kwargs = mock_post.call_args

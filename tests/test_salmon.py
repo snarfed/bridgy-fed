@@ -65,7 +65,7 @@ class SalmonTest(testutil.TestCase):
         self.expected_headers = copy.deepcopy(common.HEADERS)
         self.expected_headers['Accept'] = '*/*'
         mock_get.assert_called_once_with(
-            'http://orig/post', headers=common.HEADERS, verify=False)
+            'http://orig/post', headers=common.HEADERS)
 
     def test_reply(self, mock_urlopen, mock_head, mock_get, mock_post):
         atom_reply = """\
@@ -91,8 +91,7 @@ class SalmonTest(testutil.TestCase):
             'http://orig/webmention',
             data={'source': 'https://my/reply', 'target': 'http://orig/post'},
             allow_redirects=False,
-            headers=self.expected_headers,
-            verify=False)
+            headers=self.expected_headers)
 
         # check stored response
         resp = Response.get_by_id('https://my/reply http://orig/post')
@@ -125,8 +124,7 @@ class SalmonTest(testutil.TestCase):
                 'target': 'http://orig/post',
             },
             allow_redirects=False,
-            headers=self.expected_headers,
-            verify=False)
+            headers=self.expected_headers)
 
         # check stored response
         resp = Response.get_by_id('https://my/like http://orig/post')

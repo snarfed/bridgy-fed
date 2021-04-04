@@ -299,8 +299,7 @@ class WebmentionHandler(common.Handler):
                 # TODO: always https?
                 profile = common.requests_get(
                     '%s://%s/.well-known/webfinger?resource=acct:%s' %
-                    (parsed.scheme, parsed.netloc, email), verify=False,
-                    parse_json=True)
+                    (parsed.scheme, parsed.netloc, email), parse_json=True)
                 endpoint = django_salmon.get_salmon_replies_link(profile)
             except requests.HTTPError as e:
                 pass
