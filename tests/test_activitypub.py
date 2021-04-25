@@ -219,7 +219,8 @@ class ActivityPubTest(testutil.TestCase):
         got = application.get_response('/foo.com/inbox', method='POST',
                                body=json_dumps(as2).encode())
         self.assertEqual(200, got.status_int, got.body)
-        mock_get.assert_called_once_with('http://orig/post', headers=common.HEADERS)
+        mock_get.assert_called_once_with(
+            'http://orig/post', headers=common.HEADERS, timeout=15, stream=True)
 
         expected_headers = copy.deepcopy(common.HEADERS)
         expected_headers['Accept'] = '*/*'
@@ -229,7 +230,7 @@ class ActivityPubTest(testutil.TestCase):
                 'source': 'http://localhost/render?source=http%3A%2F%2Fthis%2Freply&target=http%3A%2F%2Forig%2Fpost',
                 'target': 'http://orig/post',
             },
-            allow_redirects=False,
+            allow_redirects=False, timeout=15, stream=True,
             headers=expected_headers)
 
         resp = Response.get_by_id('http://this/reply http://orig/post')
@@ -270,7 +271,8 @@ class ActivityPubTest(testutil.TestCase):
         got = application.get_response('/foo.com/inbox', method='POST',
                                body=json_dumps(as2).encode())
         self.assertEqual(200, got.status_int, got.body)
-        mock_get.assert_called_once_with('http://target/', headers=common.HEADERS)
+        mock_get.assert_called_once_with(
+            'http://target/', headers=common.HEADERS, timeout=15, stream=True)
 
         expected_headers = copy.deepcopy(common.HEADERS)
         expected_headers['Accept'] = '*/*'
@@ -280,7 +282,7 @@ class ActivityPubTest(testutil.TestCase):
                 'source': 'http://localhost/render?source=http%3A%2F%2Fthis%2Fmention&target=http%3A%2F%2Ftarget%2F',
                 'target': 'http://target/',
             },
-            allow_redirects=False,
+            allow_redirects=False, timeout=15, stream=True,
             headers=expected_headers)
 
         resp = Response.get_by_id('http://this/mention http://target/')
@@ -308,7 +310,7 @@ class ActivityPubTest(testutil.TestCase):
         as2_headers.update(common.CONNEG_HEADERS_AS2_HTML)
         mock_get.assert_has_calls((
             call('http://orig/actor', headers=as2_headers, stream=True, timeout=15),
-            call('http://orig/post', headers=common.HEADERS),
+            call('http://orig/post', headers=common.HEADERS, stream=True, timeout=15),
         ))
 
         args, kwargs = mock_post.call_args

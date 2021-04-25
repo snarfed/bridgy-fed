@@ -7,9 +7,8 @@ import re
 import urllib.parse
 
 from granary import as2
-from oauth_dropins.webutil import handlers, util
+from oauth_dropins.webutil import handlers, util, webmention
 import requests
-from webmentiontools import send
 from webob import exc
 
 import common
@@ -215,18 +214,20 @@ class Handler(handlers.ModernHandler):
                          else source)
             logging.info('Sending webmention from %s to %s', wm_source, target)
 
-            wm = send.WebmentionSend(wm_source, target)
-            if wm.send(headers=HEADERS):
-                logging.info('Success: %s', wm.response)
-                response.status = 'complete'
-            else:
-                logging.warning('Failed: %s', wm.error)
-                errors.append(wm.error)
-                response.status = 'error'
+            try:
+                endpoint = webmention.discover(target, headers=HEADERS).endpoint
+                if endpoint:
+                    webmention.send(endpoint, wm_source, target, headers=HEADERS)
+                    response.status = 'complete'
+                    logging.info('Success!')
+            except BaseException as e:
+                util.interpret_http_exception(e)
+                logging.warning(f'Failed! {e}')
+                errors.append(e)
             response.put()
 
         if errors:
-            msg = 'Errors:\n' + '\n'.join(util.json_dumps(e, indent=2) for e in errors)
+            msg = 'Errors:\n' + '\n'.join(str(e) for e in errors)
             self.error(msg, status=errors[0].get('http_status'))
 
     def postprocess_as2(self, activity, target=None, key=None):
