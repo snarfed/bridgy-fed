@@ -33,9 +33,14 @@ class RedirectTest(testutil.TestCase):
         got = application.get_response('/r/')
         self.assertEqual(404, got.status_int)
 
-    def test_no_magic_key_for_domain(self):
+    def test_redirect_no_magic_key_for_domain(self):
         got = application.get_response('/r/http://bar.com/baz')
         self.assertEqual(404, got.status_int)
+
+    def test_redirect_single_slash(self):
+        got = application.get_response('/r/https:/foo.com/bar')
+        self.assertEqual(301, got.status_int)
+        self.assertEqual('https://foo.com/bar', got.headers['Location'])
 
     def test_as2(self):
         self._test_as2(common.CONTENT_TYPE_AS2)

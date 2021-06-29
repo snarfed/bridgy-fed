@@ -10,6 +10,7 @@ https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
 """
 import datetime
 import logging
+import re
 import urllib.parse
 
 from granary import as2, microformats2
@@ -35,6 +36,11 @@ class RedirectHandler(common.Handler):
     def get(self):
         assert self.request.path_qs.startswith('/r/')
         to = self.request.path_qs[3:]
+
+        # some browsers collapse repeated /s in the path down to a single slash.
+        # if that happened to this URL, expand it back to two /s.
+        to = re.sub(r'^(https?:/)([^/])', r'\1/\2', to)
+
         if not to.startswith('http://') and not to.startswith('https://'):
             self.error('Expected fully qualified URL; got %s' % to)
 
