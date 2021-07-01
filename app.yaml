@@ -10,6 +10,13 @@ runtime: python39
 # https://docs.gunicorn.org/en/latest/settings.html#timeout
 entrypoint: gunicorn --workers 1 --threads 10 --timeout 60 -b :$PORT app:application
 
+# background: https://github.com/snarfed/bridgy/issues/578
+automatic_scaling:
+  max_idle_instances: 1
+  target_cpu_utilization: .9
+  min_pending_latency: 3000ms
+  max_concurrent_requests: 30
+
 handlers:
 
 # static
