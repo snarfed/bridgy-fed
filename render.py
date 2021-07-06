@@ -3,10 +3,9 @@
 import datetime
 
 from flask import Flask, request
+from flask_caching import Cache
 from granary import as2, atom, microformats2
-from oauth_dropins.webutil.appengine_config import ndb_client
-from oauth_dropins.webutil.handlers import cache_response
-from oauth_dropins.webutil import util
+from oauth_dropins.webutil import appengine_config, handlers
 from oauth_dropins.webutil.util import json_loads
 
 import common
@@ -14,19 +13,23 @@ from models import Response
 
 CACHE_TIME = datetime.timedelta(minutes=15)
 
-app = Flask(__name__)
+app = Flask('bridgy-fed')
+app.config.from_mapping({'CACHE_TYPE': 'SimpleCache'})
+app.wsgi_app = handlers.ndb_context_middleware(
+    app.wsgi_app, client=appengine_config.ndb_client)
+cache = Cache(app)
 
 
 @app.route('/render')
-# TODO
-# @cache_response(CACHE_TIME)
+@cache.cached(timeout=CACHE_TIME.total_seconds(), query_string=True,
+              # don't cache 5xxes
+              response_filter=lambda resp: resp[1] // 100 != 5)
 def render():
-    source = request.args['source']
-    target = request.args['target']
+    source = common.get_required_param(request, 'source')
+    target = common.get_required_param(request, 'target')
 
     id = f'{source} {target}'
-    with ndb_client.context():
-        resp = Response.get_by_id(id)
+    resp = Response.get_by_id(id)
     if not resp:
         return (f'No stored response for {id}', 404)
 

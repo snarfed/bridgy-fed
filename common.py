@@ -10,6 +10,7 @@ from granary import as2
 from oauth_dropins.webutil import handlers, util, webmention
 import requests
 from webob import exc
+from werkzeug.exceptions import BadRequest
 
 import common
 from models import Response
@@ -145,6 +146,18 @@ def content_type(resp):
     type = resp.headers.get('Content-Type')
     if type:
         return type.split(';')[0]
+
+
+def get_required_param(request, name):
+  try:
+    val = request.args.get(name)
+  except (UnicodeDecodeError, UnicodeEncodeError) as e:
+    raise BadRequest(f"Couldn't decode query parameters as UTF-8: {e}")
+
+  if not val:
+    raise BadRequest(f'Missing required parameter: {name}')
+
+  return val
 
 
 class Handler(handlers.ModernHandler):
