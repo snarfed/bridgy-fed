@@ -20,10 +20,13 @@ app.wsgi_app = handlers.ndb_context_middleware(
 cache = Cache(app)
 
 
+def not_5xx(resp):
+    return isinstance(resp, tuple) and resp[1] // 100 != 5
+
+
 @app.route('/render')
 @cache.cached(timeout=CACHE_TIME.total_seconds(), query_string=True,
-              # don't cache 5xxes
-              response_filter=lambda resp: resp[1] // 100 != 5)
+              response_filter=not_5xx)
 def render():
     source = common.get_required_param(request, 'source')
     target = common.get_required_param(request, 'target')

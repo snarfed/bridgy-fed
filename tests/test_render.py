@@ -3,7 +3,7 @@
 from oauth_dropins.webutil.util import json_dumps
 
 from models import Response
-from render import app
+from render import app, cache
 from . import testutil
 
 client = app.test_client()
@@ -13,8 +13,7 @@ class RenderTest(testutil.TestCase):
 
     def setUp(self):
         super(RenderTest, self).setUp()
-        app.config['TESTING'] = True
-
+        cache.clear()
         self.as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Note',

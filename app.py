@@ -11,7 +11,6 @@ for module in (
   'add_webmention',
   'logs',
   'redirect',
-  'render',
   'salmon',
   'superfeedr',
   'webfinger',
