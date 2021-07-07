@@ -67,6 +67,10 @@ DOMAINS = (PRIMARY_DOMAIN,) + OTHER_DOMAINS
 canonicalize_domain = handlers.redirect(OTHER_DOMAINS, PRIMARY_DOMAIN)
 
 
+def not_5xx(resp):
+    return isinstance(resp, tuple) and resp[1] // 100 != 5
+
+
 def requests_get(url, **kwargs):
     return _requests_fn(util.requests_get, url, **kwargs)
 

@@ -2,8 +2,9 @@
 """Unit tests for render.py."""
 from oauth_dropins.webutil.util import json_dumps
 
+from app import app, cache
 from models import Response
-from render import app, cache
+import render
 from . import testutil
 
 client = app.test_client()
@@ -13,6 +14,7 @@ class RenderTest(testutil.TestCase):
 
     def setUp(self):
         super(RenderTest, self).setUp()
+        app.testing = True
         cache.clear()
         self.as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',

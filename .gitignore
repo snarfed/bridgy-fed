@@ -2,6 +2,7 @@
 /.well-known/acme-challenge/
 datastore.dat*
 /docs/_build/
+flask_secret_key
 /l
 /local*
 private_notes

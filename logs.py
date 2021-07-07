@@ -1,13 +1,12 @@
 """Render recent responses and logs."""
 import calendar
-import datetime
 import urllib.parse
 
+from flask import render_template
 from oauth_dropins.webutil import util
-from oauth_dropins.webutil.handlers import TemplateHandler
 from oauth_dropins.webutil import logs
-import webapp2
 
+from app import app
 from models import Response
 
 
@@ -15,29 +14,23 @@ class LogHandler(logs.LogHandler):
   VERSION_IDS = ['1']
 
 
-class ResponsesHandler(TemplateHandler):
+@app.route('/responses')
+def responses():
     """Renders recent Responses, with links to logs."""
+    responses = Response.query().order(-Response.updated).fetch(20)
 
-    def template_file(self):
-        return 'templates/responses.html'
+    for r in responses:
+        r.source_link = util.pretty_link(r.source())
+        r.target_link = util.pretty_link(r.target())
+        r.log_url_path = '/log?' + urllib.parse.urlencode({
+          'key': r.key.id(),
+          'start_time': calendar.timegm(r.updated.timetuple()),
+        })
 
-    def template_vars(self):
-        responses = Response.query().order(-Response.updated).fetch(20)
-
-        for r in responses:
-            r.source_link = util.pretty_link(r.source())
-            r.target_link = util.pretty_link(r.target())
-            r.log_url_path = '/log?' + urllib.parse.urlencode({
-              'key': r.key.id(),
-              'start_time': calendar.timegm(r.updated.timetuple()),
-            })
-
-        return {
-            'responses': responses,
-        }
+    print(f'@ {app.root_path} {app.template_folder} {app.jinja_loader.searchpath} {repr(app.jinja_loader)}')
+    return render_template('responses.html', responses=responses)
 
 
 ROUTES = [
     ('/log', LogHandler),
-    ('/responses', ResponsesHandler),
 ]
