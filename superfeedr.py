@@ -6,24 +6,17 @@ https://documentation.superfeedr.com/publishers.html
 """
 import logging
 
-import webapp2
+from flask import request
 
-import common
+from app import app
 
 
-class SuperfeedrHandler(common.Handler):
+@app.route(r'/superfeedr/', methods=['GET', 'POST'])
+@app.route(r'/superfeedr/<path:_>', methods=['GET', 'POST'])
+def superfeedr(_=None):
     """Superfeedr subscription callback handler.
 
     https://documentation.superfeedr.com/publishers.html#subscription-callback
     """
-
-    def post(self):
-        logging.info('Got:\n%s', self.request.body)
-        self.response.status_int = 204
-
-    get = post
-
-
-ROUTES = [
-    (r'/superfeedr/.*', SuperfeedrHandler),
-]
+    logging.info(f'Got:\n{request.get_data(as_text=True)}')
+    return '', 204
