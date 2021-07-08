@@ -3,43 +3,34 @@
 import datetime
 import urllib.parse
 
-from oauth_dropins.webutil.handlers import cache_response
+import flask
+from flask import request
 import requests
-import webapp2
 
+from app import app, cache
 import common
 
 LINK_HEADER = '<%s>; rel="webmention"'
-
 CACHE_TIME = datetime.timedelta(seconds=15)
 
 
-class AddWebmentionHandler(common.Handler):
+@app.route(r'/wm/<path:url>')
+@cache.cached(timeout=CACHE_TIME.total_seconds(), query_string=True,
+              response_filter=common.not_5xx)
+def add_wm(url=None):
     """Proxies HTTP requests and adds Link header to our webmention endpoint."""
+    url = urllib.parse.unquote(url)
+    if not url.startswith('http://') and not url.startswith('https://'):
+        common.error('URL must start with http:// or https://')
 
-    @cache_response(CACHE_TIME)
-    def get(self, url):
-        url = urllib.parse.unquote(url)
-        if not url.startswith('http://') and not url.startswith('https://'):
-            self.error('URL must start with http:// or https://')
+    try:
+        got = common.requests_get(url)
+    except requests.exceptions.Timeout as e:
+        common.error(str(e), status=504, exc_info=True)
+    except requests.exceptions.RequestException as e:
+        common.error(str(e), status=502, exc_info=True)
 
-        try:
-            resp = common.requests_get(url)
-        except requests.exceptions.Timeout as e:
-            self.error(str(e), status=504, exc_info=True)
-        except requests.exceptions.RequestException as e:
-            self.error(str(e), status=502, exc_info=True)
-
-        self.response.status_int = resp.status_code
-        self.response.write(resp.content)
-
-        endpoint = LINK_HEADER % (str(self.request.get('endpoint')) or
-                                  self.request.host_url + '/webmention')
-        self.response.headers.clear()
-        self.response.headers.update(resp.headers)
-        self.response.headers.add('Link', endpoint)
-
-
-ROUTES = [
-    ('/wm/(.+)', AddWebmentionHandler),
-]
+    resp = flask.make_response(got.content, got.status_code, dict(got.headers))
+    resp.headers.add('Link', LINK_HEADER % (request.args.get('endpoint') or
+                                            request.host_url + 'webmention'))
+    return resp

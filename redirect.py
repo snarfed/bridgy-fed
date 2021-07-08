@@ -25,9 +25,12 @@ import common
 from common import error
 from models import MagicKey
 
+CACHE_TIME = datetime.timedelta(seconds=15)
+
 
 @app.route(r'/r/<path:to>')
-@cache.cached(15)  # seconds
+@cache.cached(timeout=CACHE_TIME.total_seconds(), query_string=True,
+              response_filter=common.not_5xx)
 def redir(to=None):
     """301 redirect to the embedded fully qualified URL.
 
