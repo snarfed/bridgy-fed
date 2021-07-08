@@ -17,7 +17,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 import activitypub
-from app import application
+from app import app
 from common import (
     AS2_PUBLIC_AUDIENCE,
     CONNEG_HEADERS_AS2,

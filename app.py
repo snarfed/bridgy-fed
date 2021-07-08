@@ -9,6 +9,7 @@ app.config.from_mapping(
     ENV='development' if appengine_info.DEBUG else 'PRODUCTION',
     CACHE_TYPE='SimpleCache',
     SECRET_KEY=util.read('flask_secret_key'),
+    JSONIFY_PRETTYPRINT_REGULAR=True,
 )
 app.wsgi_app = handlers.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client)
