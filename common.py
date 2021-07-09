@@ -172,83 +172,79 @@ def error(msg, status=None, exc_info=False):
     abort(status, msg)
 
 
-class Handler(handlers.ModernHandler):
-    """Common request handler base class with lots of utilities."""
-    error = error
+def send_webmentions(activity_wrapped, proxy=None, **response_props):
+    """Sends webmentions for an incoming Salmon slap or ActivityPub inbox delivery.
+    Args:
+      activity_wrapped: dict, AS1 activity
+      response_props: passed through to the newly created Responses
+    """
+    activity = redirect_unwrap(activity_wrapped)
 
-    def send_webmentions(self, activity_wrapped, proxy=None, **response_props):
-        """Sends webmentions for an incoming Salmon slap or ActivityPub inbox delivery.
-        Args:
-          activity_wrapped: dict, AS1 activity
-          response_props: passed through to the newly created Responses
-        """
-        activity = self.redirect_unwrap(activity_wrapped)
+    verb = activity.get('verb')
+    if verb and verb not in SUPPORTED_VERBS:
+        return error('%s activities are not supported yet.' % verb)
 
-        verb = activity.get('verb')
-        if verb and verb not in SUPPORTED_VERBS:
-            self.error('%s activities are not supported yet.' % verb)
+    # extract source and targets
+    source = activity.get('url') or activity.get('id')
+    obj = activity.get('object')
+    obj_url = util.get_url(obj)
 
-        # extract source and targets
-        source = activity.get('url') or activity.get('id')
-        obj = activity.get('object')
-        obj_url = util.get_url(obj)
+    targets = util.get_list(activity, 'inReplyTo')
+    if isinstance(obj, dict):
+        if not source or verb in ('create', 'post', 'update'):
+            source = obj_url or obj.get('id')
+        targets.extend(util.get_list(obj, 'inReplyTo'))
 
-        targets = util.get_list(activity, 'inReplyTo')
-        if isinstance(obj, dict):
-            if not source or verb in ('create', 'post', 'update'):
-                source = obj_url or obj.get('id')
-            targets.extend(util.get_list(obj, 'inReplyTo'))
+    tags = util.get_list(activity_wrapped, 'tags')
+    obj_wrapped = activity_wrapped.get('object')
+    if isinstance(obj_wrapped, dict):
+        tags.extend(util.get_list(obj_wrapped, 'tags'))
+    for tag in tags:
+        if tag.get('objectType') == 'mention':
+            url = tag.get('url')
+            if url and url.startswith(request.host_url):
+                targets.append(redirect_unwrap(url))
 
-        tags = util.get_list(activity_wrapped, 'tags')
-        obj_wrapped = activity_wrapped.get('object')
-        if isinstance(obj_wrapped, dict):
-            tags.extend(util.get_list(obj_wrapped, 'tags'))
-        for tag in tags:
-            if tag.get('objectType') == 'mention':
-                url = tag.get('url')
-                if url and url.startswith(self.request.host_url):
-                    targets.append(self.redirect_unwrap(url))
+    if verb in ('follow', 'like', 'share'):
+         targets.append(obj_url)
 
-        if verb in ('follow', 'like', 'share'):
-             targets.append(obj_url)
+    targets = util.dedupe_urls(util.get_url(t) for t in targets)
+    if not source:
+        return error("Couldn't find original post URL")
+    if not targets:
+        return error("Couldn't find any target URLs in inReplyTo, object, or mention tags")
 
-        targets = util.dedupe_urls(util.get_url(t) for t in targets)
-        if not source:
-            self.error("Couldn't find original post URL")
-        if not targets:
-            self.error("Couldn't find any target URLs in inReplyTo, object, or mention tags")
+    # send webmentions and store Responses
+    errors = []
+    for target in targets:
+        if util.domain_from_link(target) == util.domain_from_link(source):
+            logging.info('Skipping same-domain webmention from %s to %s',
+                         source, target)
+            continue
 
-        # send webmentions and store Responses
-        errors = []
-        for target in targets:
-            if util.domain_from_link(target) == util.domain_from_link(source):
-                logging.info('Skipping same-domain webmention from %s to %s',
-                             source, target)
-                continue
+        response = Response(source=source, target=target, direction='in',
+                            **response_props)
+        response.put()
+        wm_source = (response.proxy_url()
+                     if verb in ('follow', 'like', 'share') or proxy
+                     else source)
+        logging.info('Sending webmention from %s to %s', wm_source, target)
 
-            response = Response(source=source, target=target, direction='in',
-                                **response_props)
-            response.put()
-            wm_source = (response.proxy_url(self)
-                         if verb in ('follow', 'like', 'share') or proxy
-                         else source)
-            logging.info('Sending webmention from %s to %s', wm_source, target)
+        try:
+            endpoint = webmention.discover(target, headers=HEADERS).endpoint
+            if endpoint:
+                webmention.send(endpoint, wm_source, target, headers=HEADERS)
+                response.status = 'complete'
+                logging.info('Success!')
+        except BaseException as e:
+            util.interpret_http_exception(e)
+            logging.warning(f'Failed! {e}')
+            errors.append(e)
+        response.put()
 
-            try:
-                endpoint = webmention.discover(target, headers=HEADERS).endpoint
-                if endpoint:
-                    webmention.send(endpoint, wm_source, target, headers=HEADERS)
-                    response.status = 'complete'
-                    logging.info('Success!')
-            except BaseException as e:
-                util.interpret_http_exception(e)
-                logging.warning(f'Failed! {e}')
-                errors.append(e)
-            response.put()
-
-        if errors:
-            msg = 'Errors:\n' + '\n'.join(str(e) for e in errors)
-            self.error(msg, status=errors[0].get('http_status'))
+    if errors:
+        msg = 'Errors:\n' + '\n'.join(str(e) for e in errors)
+        return error(msg, status=errors[0].get('http_status'))
 
 
 def postprocess_as2(activity, target=None, key=None):

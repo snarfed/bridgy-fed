@@ -23,7 +23,7 @@ CACHE_TIME = datetime.timedelta(seconds=15)
 NON_TLDS = frozenset(('html', 'json', 'php', 'xml'))
 
 
-class UserHandler(common.Handler, handlers.XrdOrJrdHandler):
+class UserHandler(handlers.XrdOrJrdHandler):
     """Fetches a site's home page, converts its mf2 to WebFinger, and serves."""
     JRD_TEMPLATE = False
 
@@ -119,11 +119,11 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
                 # WARNING: in python 2 sometimes request.host_url lost port,
                 # http://localhost:8080 would become just http://localhost. no
                 # clue how or why. pay attention here if that happens again.
-                'href': '%s/%s' % (self.request.host_url, domain),
+                'href': f'{self.request.host_url}{domain}',
             }, {
                 'rel': 'inbox',
                 'type': common.CONTENT_TYPE_AS2,
-                'href': '%s/%s/inbox' % (self.request.host_url, domain),
+                'href': f'{self.request.host_url}{domain}/inbox',
             },
 
             # OStatus
@@ -139,7 +139,7 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
                 'href': key.href(),
             }, {
                 'rel': 'salmon',
-                'href': '%s/%s/salmon' % (self.request.host_url, domain),
+                'href': f'{self.request.host_url}{domain}/salmon',
             }]
         })
         logging.info('Returning WebFinger data: %s', json_dumps(data, indent=2))

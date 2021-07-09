@@ -11,10 +11,12 @@ from django_salmon import magicsigs
 from oauth_dropins.webutil.testutil import requests_response, UrlopenResult
 import requests
 
-from app import application
+from app import app
 import common
 from models import MagicKey, Response
 from . import testutil
+
+client = app.test_client()
 
 
 @mock.patch('requests.post')
@@ -25,6 +27,7 @@ class SalmonTest(testutil.TestCase):
 
     def setUp(self):
         super(SalmonTest, self).setUp()
+        app.testing = True
         self.key = MagicKey.get_or_create('alice')
 
     def send_slap(self, mock_urlopen, mock_head, mock_get, mock_post, atom_slap):
@@ -51,9 +54,8 @@ class SalmonTest(testutil.TestCase):
         mock_post.return_value = requests_response()
 
         slap = magicsigs.magic_envelope(atom_slap, common.CONTENT_TYPE_ATOM, self.key)
-        got = application.get_response('/foo.com@foo.com/salmon', method='POST',
-                                       body=slap)
-        self.assertEqual(200, got.status_int)
+        got = client.post('/foo.com@foo.com/salmon', data=slap)
+        self.assertEqual(200, got.status_code)
 
         # check salmon magic key discovery
         mock_urlopen.assert_has_calls((
@@ -134,14 +136,13 @@ class SalmonTest(testutil.TestCase):
         self.assertEqual(atom_like, resp.source_atom)
 
     def test_bad_envelope(self, *mocks):
-        got = application.get_response('/foo.com/salmon', method='POST',
-                                       body=b'not xml')
-        self.assertEqual(400, got.status_int)
+        got = client.post('/foo.com/salmon', data='not xml')
+        self.assertEqual(400, got.status_code)
 
     def test_bad_inner_xml(self, *mocks):
         slap = magicsigs.magic_envelope('not xml', common.CONTENT_TYPE_ATOM, self.key)
-        got = application.get_response('/foo.com/salmon', method='POST', body=slap)
-        self.assertEqual(400, got.status_int)
+        got = client.post('/foo.com/salmon', data=slap)
+        self.assertEqual(400, got.status_code)
 
     def test_rsvp_not_supported(self, *mocks):
         slap = magicsigs.magic_envelope("""\
@@ -152,5 +153,5 @@ class SalmonTest(testutil.TestCase):
   <activity:verb>http://activitystrea.ms/schema/1.0/rsvp</activity:verb>
   <activity:object>http://orig/event</activity:object>
 </entry>""", common.CONTENT_TYPE_ATOM, self.key)
-        got = application.get_response('/foo.com/salmon', method='POST', body=slap)
-        self.assertEqual(501, got.status_int)
+        got = client.post('/foo.com/salmon', data=slap)
+        self.assertEqual(501, got.status_code)

@@ -25,7 +25,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         self.request = webapp2.Request.blank('/')
         self.response = webapp2.Response()
-        self.handler = common.Handler(self.request, self.response)
+        # self.handler = common.Handler(self.request, self.response)
 
     def tearDown(self):
         self.ndb_context.__exit__(None, None, None)

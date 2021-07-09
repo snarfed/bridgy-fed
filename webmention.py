@@ -27,7 +27,7 @@ from models import Follower, MagicKey, Response
 SKIP_EMAIL_DOMAINS = frozenset(('localhost', 'snarfed.org'))
 
 
-class WebmentionHandler(common.Handler):
+class WebmentionHandler():
     """Handles inbound webmention, converts to ActivityPub or Salmon."""
     source_url = None     # string
     source_domain = None  # string
@@ -51,7 +51,7 @@ class WebmentionHandler(common.Handler):
         # source's intent to federate to mastodon)
         if (self.request.host_url not in source_resp.text and
             urllib.parse.quote(self.request.host_url, safe='') not in source_resp.text):
-            self.error("Couldn't find link to %s" % self.request.host_url)
+            self.error("Couldn't find link to {request.host_url}")
 
         # convert source page to ActivityStreams
         entry = mf2util.find_first_entry(self.source_mf2, ['h-entry'])

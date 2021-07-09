@@ -75,7 +75,7 @@ def send(activity, inbox_url, user_domain):
                                 headers=headers)
 
 
-class ActorHandler(common.Handler):
+class ActorHandler():
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
 
     @cache_response(CACHE_TIME)
@@ -98,10 +98,10 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
         obj = self.postprocess_as2(as2.from_as1(microformats2.json_to_object(hcard)),
                                    key=key)
         obj.update({
-            'inbox': '%s/%s/inbox' % (self.request.host_url, domain),
-            'outbox': '%s/%s/outbox' % (self.request.host_url, domain),
-            'following': '%s/%s/following' % (self.request.host_url, domain),
-            'followers': '%s/%s/followers' % (self.request.host_url, domain),
+            'inbox': f'{request.host_url}{domain}/inbox',
+            'outbox': f'{request.host_url}{domain}/outbox',
+            'following': f'{request.host_url}{domain}/following',
+            'followers': f'{request.host_url}{domain}/followers',
         })
         logging.info('Returning: %s', json_dumps(obj, indent=2))
 
@@ -112,7 +112,7 @@ Couldn't find a representative h-card (http://microformats.org/wiki/representati
         self.response.write(json_dumps(obj, indent=2))
 
 
-class InboxHandler(common.Handler):
+class InboxHandler():
     """Accepts POSTs to /[DOMAIN]/inbox and converts to outbound webmentions."""
     def post(self, domain):
         logging.info('Got: %s', self.request.body)

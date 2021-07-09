@@ -7,6 +7,7 @@ import urllib.parse
 
 from Crypto.PublicKey import RSA
 from django_salmon import magicsigs
+from flask import request
 from google.cloud import ndb
 from oauth_dropins.webutil.models import StringIdModel
 
@@ -103,14 +104,14 @@ class Response(StringIdModel):
     def target(self):
         return self.key.id().split()[1]
 
-    def proxy_url(self, handler):
+    def proxy_url(self):
         """Returns the Bridgy Fed proxy URL to render this response as HTML."""
         if self.source_mf2 or self.source_as2 or self.source_atom:
             source, target = self.key.id().split(' ')
-            return '%s/render?%s' % (handler.request.host_url, urllib.parse.urlencode({
+            return f'{request.host_url}render?' + urllib.parse.urlencode({
                 'source': source,
                 'target': target,
-            }))
+            })
 
     @classmethod
     def _id(cls, source, target):
