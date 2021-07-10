@@ -8,6 +8,7 @@ from oauth_dropins.webutil.testutil import requests_response
 import requests
 from webob import exc
 
+from app import app
 import common
 from . import testutil
 
@@ -62,14 +63,15 @@ class CommonTest(testutil.TestCase):
             resp = common.get_as2('http://orig')
 
     def test_redirect_wrap_empty(self):
-        self.assertIsNone(self.handler.redirect_wrap(None))
-        self.assertEqual('', self.handler.redirect_wrap(''))
+        self.assertIsNone(common.redirect_wrap(None))
+        self.assertEqual('', common.redirect_wrap(''))
 
     def test_postprocess_as2_multiple_in_reply_tos(self):
-        self.assertEqual({
-            'id': 'http://localhost/r/xyz',
-            'inReplyTo': 'foo',
-        }, self.handler.postprocess_as2({
-            'id': 'xyz',
-            'inReplyTo': ['foo', 'bar'],
-        }))
+        with app.test_request_context('/'):
+            self.assertEqual({
+                'id': 'http://localhost/r/xyz',
+                'inReplyTo': 'foo',
+            }, common.postprocess_as2({
+                'id': 'xyz',
+                'inReplyTo': ['foo', 'bar'],
+            }))

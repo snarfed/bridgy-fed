@@ -8,7 +8,7 @@ import urllib.parse
 
 from flask import request
 from granary import as2
-from oauth_dropins.webutil import handlers, util, webmention
+from oauth_dropins.webutil import util, webmention
 import requests
 from webob import exc
 from werkzeug.exceptions import abort
@@ -65,7 +65,6 @@ OTHER_DOMAINS = (
     'localhost',
 )
 DOMAINS = (PRIMARY_DOMAIN,) + OTHER_DOMAINS
-canonicalize_domain = handlers.redirect(OTHER_DOMAINS, PRIMARY_DOMAIN)
 
 
 def not_5xx(resp):
