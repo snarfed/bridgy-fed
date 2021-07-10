@@ -76,7 +76,7 @@ def slap(acct):
     #
     # updated = utils.parse_updated_from_atom(data)
     # if not utils.verify_timestamp(updated):
-    #     self.error('Timestamp is more than 1h old.')
+    #     return error('Timestamp is more than 1h old.')
 
     # send webmentions to each target
     activity = atom.atom_to_activity(data)

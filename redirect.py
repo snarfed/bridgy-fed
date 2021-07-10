@@ -43,7 +43,7 @@ def redir(to=None):
     to = re.sub(r'^(https?:/)([^/])', r'\1/\2', to)
 
     if not to.startswith('http://') and not to.startswith('https://'):
-        error(f'Expected fully qualified URL; got {to}')
+        return error(f'Expected fully qualified URL; got {to}')
 
     # check that we've seen this domain before so we're not an open redirect
     domains = set((util.domain_from_link(to),

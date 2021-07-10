@@ -12,11 +12,10 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 import activitypub
-from app import application
+from app import app, cache
 import common
 from models import Follower, MagicKey, Response
 from . import testutil
-
 
 REPLY_OBJECT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -28,7 +27,7 @@ REPLY_OBJECT = {
     'cc': ['https://www.w3.org/ns/activitystreams#Public'],
 }
 REPLY_OBJECT_WRAPPED = copy.deepcopy(REPLY_OBJECT)
-REPLY_OBJECT_WRAPPED['inReplyTo'] = 'http://localhost:80/r/orig/post'
+REPLY_OBJECT_WRAPPED['inReplyTo'] = 'http://localhost/r/orig/post'
 REPLY = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Create',
@@ -113,7 +112,7 @@ FOLLOW_WRAPPED_WITH_ACTOR['actor'] = FOLLOW_WITH_ACTOR['actor']
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Accept',
-    'id': 'tag:localhost:80:accept/realize.be/https://mastodon.social/6d1a',
+    'id': 'tag:localhost:accept/realize.be/https://mastodon.social/6d1a',
     'actor': 'http://localhost/realize.be',
     'object': {
         'type': 'Follow',
@@ -138,6 +137,8 @@ DELETE = {
     'object': 'https://mastodon.social/users/swentel',
 }
 
+client = app.test_client()
+
 
 @patch('requests.post')
 @patch('requests.get')
@@ -146,19 +147,20 @@ class ActivityPubTest(testutil.TestCase):
 
     def setUp(self):
         super(ActivityPubTest, self).setUp()
-        activitypub.ActorHandler.get.cache_clear()
+        app.testing = True
+        cache.clear()
 
-    def test_actor_handler(self, _, mock_get, __):
+    def test_actor(self, _, mock_get, __):
         mock_get.return_value = requests_response("""
 <body>
 <a class="h-card u-url" rel="me" href="/about-me">Mrs. ☕ Foo</a>
 </body>
 """, url='https://foo.com/', content_type=common.CONTENT_TYPE_HTML)
 
-        got = application.get_response('/foo.com')
+        got = client.get('/foo.com')
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
                                          stream=True, timeout=util.HTTP_TIMEOUT)
-        self.assertEqual(200, got.status_int)
+        self.assertEqual(200, got.status_code)
         type = got.headers['Content-Type']
         self.assertTrue(type.startswith(common.CONTENT_TYPE_AS2), type)
         self.assertEqual({
@@ -180,9 +182,9 @@ class ActivityPubTest(testutil.TestCase):
                 'id': 'foo.com',
                 'publicKeyPem': MagicKey.get_by_id('foo.com').public_pem().decode(),
             },
-        }, json_loads(got.body))
+        }, got.json)
 
-    def test_actor_handler_no_hcard(self, _, mock_get, __):
+    def test_actor_no_hcard(self, _, mock_get, __):
         mock_get.return_value = requests_response("""
 <body>
 <div class="h-entry">
@@ -191,15 +193,15 @@ class ActivityPubTest(testutil.TestCase):
 </body>
 """)
 
-        got = application.get_response('/foo.com')
+        got = client.get('/foo.com')
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
                                          stream=True, timeout=util.HTTP_TIMEOUT)
-        self.assertEqual(400, got.status_int)
-        self.assertIn('representative h-card', got.body.decode())
+        self.assertEqual(400, got.status_code)
+        self.assertIn('representative h-card', got.get_data(as_text=True))
 
     def test_actor_blocked_tld(self, _, __, ___):
-        got = application.get_response('/foo.json')
-        self.assertEqual(404, got.status_int)
+        got = client.get('/foo.json')
+        self.assertEqual(404, got.status_code)
 
     def test_inbox_reply_object(self, *mocks):
         self._test_inbox_reply(REPLY_OBJECT, REPLY_OBJECT, *mocks)
@@ -216,9 +218,8 @@ class ActivityPubTest(testutil.TestCase):
             '<html><head><link rel="webmention" href="/webmention"></html>')
         mock_post.return_value = requests_response()
 
-        got = application.get_response('/foo.com/inbox', method='POST',
-                               body=json_dumps(as2).encode())
-        self.assertEqual(200, got.status_int, got.body)
+        got = client.post('/foo.com/inbox', json=as2)
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         mock_get.assert_called_once_with(
             'http://orig/post', headers=common.HEADERS, timeout=15, stream=True)
 
@@ -246,9 +247,8 @@ class ActivityPubTest(testutil.TestCase):
 
         mock_head.return_value = requests_response(url='http://this/')
 
-        got = application.get_response('/foo.com/inbox', method='POST',
-                               body=json_dumps(reply).encode())
-        self.assertEqual(200, got.status_int, got.body)
+        got = client.post('/foo.com/inbox', json=reply)
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
         mock_head.assert_called_once_with(
             'http://this', allow_redirects=True, stream=True, timeout=15)
@@ -268,28 +268,28 @@ class ActivityPubTest(testutil.TestCase):
             '<html><head><link rel="webmention" href="/webmention"></html>')
         mock_post.return_value = requests_response()
 
-        got = application.get_response('/foo.com/inbox', method='POST',
-                               body=json_dumps(as2).encode())
-        self.assertEqual(200, got.status_int, got.body)
-        mock_get.assert_called_once_with(
-            'http://target/', headers=common.HEADERS, timeout=15, stream=True)
+        with app.test_client() as test_client:
+            got = test_client.post('/foo.com/inbox', json=as2)
+            self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+            mock_get.assert_called_once_with(
+                'http://target/', headers=common.HEADERS, timeout=15, stream=True)
 
-        expected_headers = copy.deepcopy(common.HEADERS)
-        expected_headers['Accept'] = '*/*'
-        mock_post.assert_called_once_with(
-            'http://target/webmention',
-            data={
-                'source': 'http://localhost/render?source=http%3A%2F%2Fthis%2Fmention&target=http%3A%2F%2Ftarget%2F',
-                'target': 'http://target/',
-            },
-            allow_redirects=False, timeout=15, stream=True,
-            headers=expected_headers)
+            expected_headers = copy.deepcopy(common.HEADERS)
+            expected_headers['Accept'] = '*/*'
+            mock_post.assert_called_once_with(
+                'http://target/webmention',
+                data={
+                    'source': 'http://localhost/render?source=http%3A%2F%2Fthis%2Fmention&target=http%3A%2F%2Ftarget%2F',
+                    'target': 'http://target/',
+                },
+                allow_redirects=False, timeout=15, stream=True,
+                headers=expected_headers)
 
-        resp = Response.get_by_id('http://this/mention http://target/')
-        self.assertEqual('in', resp.direction)
-        self.assertEqual('activitypub', resp.protocol)
-        self.assertEqual('complete', resp.status)
-        self.assertEqual(self.handler.redirect_unwrap(as2), json_loads(resp.source_as2))
+            resp = Response.get_by_id('http://this/mention http://target/')
+            self.assertEqual('in', resp.direction)
+            self.assertEqual('activitypub', resp.protocol)
+            self.assertEqual('complete', resp.status)
+            self.assertEqual(common.redirect_unwrap(as2), json_loads(resp.source_as2))
 
     def test_inbox_like(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='http://orig/post')
@@ -302,9 +302,8 @@ class ActivityPubTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response()
 
-        got = application.get_response('/foo.com/inbox', method='POST',
-                                       body=json_dumps(LIKE_WRAPPED).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/foo.com/inbox', json=LIKE)
+        self.assertEqual(200, got.status_code)
 
         as2_headers = copy.deepcopy(common.HEADERS)
         as2_headers.update(common.CONNEG_HEADERS_AS2_HTML)
@@ -339,9 +338,8 @@ class ActivityPubTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response()
 
-        got = application.get_response('/foo.com/inbox', method='POST',
-                               body=json_dumps(FOLLOW_WRAPPED).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
+        self.assertEqual(200, got.status_code)
 
         as2_headers = copy.deepcopy(common.HEADERS)
         as2_headers.update(common.CONNEG_HEADERS_AS2_HTML)
@@ -379,9 +377,8 @@ class ActivityPubTest(testutil.TestCase):
 
         Follower(id=Follower._id('realize.be', FOLLOW['actor'])).put()
 
-        got = application.get_response('/foo.com/inbox', method='POST',
-                               body=json_dumps(UNDO_FOLLOW_WRAPPED).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
+        self.assertEqual(200, got.status_code)
 
         follower = Follower.get_by_id('realize.be %s' % FOLLOW['actor'])
         self.assertEqual('inactive', follower.status)
@@ -389,28 +386,26 @@ class ActivityPubTest(testutil.TestCase):
     def test_inbox_undo_follow_doesnt_exist(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://realize.be/')
 
-        got = application.get_response('/foo.com/inbox', method='POST',
-                               body=json_dumps(UNDO_FOLLOW_WRAPPED).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
+        self.assertEqual(200, got.status_code)
 
     def test_inbox_undo_follow_inactive(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://realize.be/')
         Follower(id=Follower._id('realize.be', 'https://mastodon.social/users/swentel'),
                  status='inactive').put()
 
-        got = application.get_response('/foo.com/inbox', method='POST',
-                               body=json_dumps(UNDO_FOLLOW_WRAPPED).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
+        self.assertEqual(200, got.status_code)
 
     def test_inbox_unsupported_type(self, *_):
-        got = application.get_response('/foo.com/inbox', method='POST', body=json_dumps({
+        got = client.post('/foo.com/inbox', json={
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'https://xoxo.zone/users/aaronpk#follows/40',
             'type': 'Block',
             'actor': 'https://xoxo.zone/users/aaronpk',
             'object': 'http://snarfed.org/',
-        }).encode())
-        self.assertEqual(501, got.status_int)
+        })
+        self.assertEqual(501, got.status_code)
 
     def test_inbox_delete_actor(self, mock_head, mock_get, mock_post):
         follower = Follower.get_or_create('realize.be', DELETE['actor'])
@@ -419,9 +414,8 @@ class ActivityPubTest(testutil.TestCase):
         other = Follower.get_or_create('realize.be', 'https://mas.to/users/other')
         self.assertEqual(3, Follower.query().count())
 
-        got = application.get_response('/realize.be/inbox', method='POST',
-                               body=json_dumps(DELETE).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/realize.be/inbox', json=DELETE)
+        self.assertEqual(200, got.status_code)
 
         # TODO: bring back
         # self.assertEqual([other], Follower.query().fetch())

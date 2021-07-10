@@ -169,7 +169,7 @@ def error(msg, status=None, exc_info=False):
     if not status:
         status = 400
     logging.info('Returning %s: %s' % (status, msg), exc_info=exc_info)
-    abort(status, msg)
+    return (msg, status)
 
 
 def send_webmentions(activity_wrapped, proxy=None, **response_props):
@@ -244,7 +244,7 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
 
     if errors:
         msg = 'Errors:\n' + '\n'.join(str(e) for e in errors)
-        return error(msg, status=errors[0].get('http_status'))
+        return error(msg, status=getattr(errors[0], 'http_status', None))
 
 
 def postprocess_as2(activity, target=None, key=None):
@@ -418,9 +418,9 @@ def redirect_unwrap(val):
     elif isinstance(val, str):
         prefix = urllib.parse.urljoin(request.host_url, '/r/')
         if val.startswith(prefix):
-            return val[len(prefix):]
+            return util.follow_redirects(val[len(prefix):]).url
         elif val.startswith(request.host_url):
-            return util.follow_redirects(
-                util.domain_from_link(urllib.parse.urlparse(val).path.strip('/'))).url
+            domain = util.domain_from_link(urllib.parse.urlparse(val).path.strip('/'))
+            return util.follow_redirects(domain).url
 
     return val
