@@ -18,8 +18,8 @@ CACHE_TIME = datetime.timedelta(minutes=15)
               response_filter=common.not_5xx)
 def render():
     """Fetches a stored Response and renders it as HTML."""
-    source = common.get_required_param(request, 'source')
-    target = common.get_required_param(request, 'target')
+    source = common.get_required_param('source')
+    target = common.get_required_param('target')
 
     id = f'{source} {target}'
     resp = Response.get_by_id(id)

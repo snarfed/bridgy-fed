@@ -64,13 +64,16 @@ REPOST_AS2 = {
     },
 }
 
+client = app.test_client()
+
+
 @mock.patch('requests.post')
 @mock.patch('requests.get')
 class WebmentionTest(testutil.TestCase):
-
     def setUp(self):
         super(WebmentionTest, self).setUp()
         self.key = MagicKey.get_or_create('a')
+        app.testing = True
 
         self.orig_html_as2 = requests_response("""\
 <html>
@@ -276,13 +279,12 @@ class WebmentionTest(testutil.TestCase):
         return env['data']
 
     def test_bad_source_url(self, mock_get, mock_post):
-        got = application.get_response('/webmention', method='POST', body=b'')
-        self.assertEqual(400, got.status_int)
+        got = client.post('/webmention', data=b'')
+        self.assertEqual(400, got.status_code)
 
         mock_get.side_effect = ValueError('foo bar')
-        got = application.get_response('/webmention', method='POST',
-                               body=urlencode({'source': 'bad'}).encode())
-        self.assertEqual(400, got.status_int)
+        got = client.post('/webmention', data={'source': 'bad'})
+        self.assertEqual(400, got.status_code)
 
     def test_no_source_entry(self, mock_get, mock_post):
         mock_get.return_value = requests_response("""
@@ -292,12 +294,11 @@ class WebmentionTest(testutil.TestCase):
 </body>
 </html>""", content_type=CONTENT_TYPE_HTML)
 
-        got = application.get_response(
-            '/webmention', method='POST', body=urlencode({
-                'source': 'http://a/post',
-                'target': 'https://fed.brid.gy/',
-            }).encode())
-        self.assertEqual(400, got.status_int)
+        got = client.post( '/webmention', data={
+            'source': 'http://a/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(400, got.status_code)
 
         mock_get.assert_has_calls((self.req('http://a/post'),))
 
@@ -309,12 +310,11 @@ class WebmentionTest(testutil.TestCase):
 </body>
 </html>""", content_type=CONTENT_TYPE_HTML)
 
-        got = application.get_response(
-            '/webmention', method='POST', body=urlencode({
-                'source': 'http://a/post',
-                'target': 'https://fed.brid.gy/',
-            }).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/webmention', data={
+            'source': 'http://a/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((self.req('http://a/post'),))
 
@@ -324,43 +324,36 @@ class WebmentionTest(testutil.TestCase):
                               content_type=CONTENT_TYPE_HTML),
             ValueError('foo bar'))
 
-        got = application.get_response(
-            '/webmention', method='POST',
-            body=urlencode({'source': 'http://a/post'}).encode())
-        self.assertEqual(400, got.status_int)
+        got = client.post('/webmention', data={'source': 'http://a/post'})
+        self.assertEqual(400, got.status_code)
 
-    def test_target_fetch_fails(self, mock_get, mock_post):
+    def test_source_fetch_fails(self, mock_get, mock_post):
         mock_get.side_effect = (
             requests_response(self.reply_html.replace('http://orig/post', 'bad'),
                               content_type=CONTENT_TYPE_HTML),
             requests.Timeout('foo bar'))
 
-        got = application.get_response(
-            '/webmention', method='POST',
-            body=urlencode({'source': 'http://a/post'}).encode())
-        self.assertEqual(502, got.status_int)
+        got = client.post('/webmention', data={'source': 'http://a/post'})
+        self.assertEqual(502, got.status_code)
 
-    def test_target_fetch_has_no_content_type(self, mock_get, mock_post):
+    def test_source_fetch_has_no_content_type(self, mock_get, mock_post):
         mock_get.side_effect = (
             requests_response(self.reply_html),
             requests_response(self.reply_html, content_type='None')
         )
-        got = application.get_response(
-            '/webmention', method='POST',
-            body=urlencode({'source': 'http://a/post'}).encode())
-        self.assertEqual(502, got.status_int)
+        got = client.post('/webmention', data={'source': 'http://a/post'})
+        self.assertEqual(502, got.status_code)
 
     def test_no_backlink(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
             self.reply_html.replace('<a href="http://localhost/"></a>', ''),
                                     content_type=CONTENT_TYPE_HTML)
 
-        got = application.get_response(
-            '/webmention', method='POST', body=urlencode({
-                'source': 'http://a/post',
-                'target': 'https://fed.brid.gy/',
-            }).encode())
-        self.assertEqual(400, got.status_int)
+        got = client.post('/webmention', data={
+            'source': 'http://a/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(400, got.status_code)
 
         mock_get.assert_has_calls((self.req('http://a/post'),))
 
@@ -368,12 +361,11 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz', status=203)
 
-        got = application.get_response(
-            '/webmention', method='POST', body=urlencode({
-                'source': 'http://a/reply',
-                'target': 'https://fed.brid.gy/',
-            }).encode())
-        self.assertEqual(203, got.status_int)
+        got = client.post('/webmention', data={
+            'source': 'http://a/reply',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(203, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('http://a/reply'),
@@ -410,12 +402,11 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz')
 
-        got = application.get_response(
-            '/webmention', method='POST', body=urlencode({
-                'source': 'http://a/reply',
-                'target': 'https://fed.brid.gy/',
-            }).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/webmention', data={
+            'source': 'http://a/reply',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
@@ -438,12 +429,11 @@ class WebmentionTest(testutil.TestCase):
                                 self.actor]
         mock_post.return_value = requests_response('abc xyz', status=203)
 
-        got = application.get_response(
-            '/webmention', method='POST', body=urlencode({
-                'source': 'http://a/reply',
-                'target': 'https://fed.brid.gy/',
-            }).encode())
-        self.assertEqual(203, got.status_int)
+        got = client.post('/webmention', data={
+            'source': 'http://a/reply',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(203, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('http://a/reply'),
@@ -462,12 +452,11 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz')
 
-        got = application.get_response(
-            '/webmention', method='POST', body=urlencode({
-                'source': 'http://a/reply',
-                'target': 'https://fed.brid.gy/',
-            }).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/webmention', data={
+            'source': 'http://a/reply',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
@@ -477,12 +466,11 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.repost, self.orig_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = application.get_response(
-            '/webmention', method='POST', body=urlencode({
-                'source': 'http://a/repost',
-                'target': 'https://fed.brid.gy/',
-            }).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/webmention', data={
+            'source': 'http://a/repost',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('http://a/repost'),
@@ -511,12 +499,11 @@ class WebmentionTest(testutil.TestCase):
                                 self.orig_html_as2, self.orig_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = application.get_response(
-            '/webmention', method='POST', body=urlencode({
-                'source': 'http://a/reply',
-                'target': 'https://fed.brid.gy/',
-            }).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/webmention', data={
+            'source': 'http://a/reply',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('http://a/reply'),
@@ -544,11 +531,11 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [missing_url, self.orig_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz', status=203)
 
-        got = application.get_response('/webmention', method='POST', body=urlencode({
-                'source': 'http://a/repost',
-                'target': 'https://fed.brid.gy/',
-            }).encode())
-        self.assertEqual(203, got.status_int)
+        got = client.post('/webmention', data={
+            'source': 'http://a/repost',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(203, got.status_code)
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
@@ -579,11 +566,11 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [repost, author, self.orig_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz', status=201)
 
-        got = application.get_response('/webmention', method='POST', body=urlencode({
-                'source': 'http://a/repost',
-                'target': 'https://fed.brid.gy/',
-            }).encode())
-        self.assertEqual(201, got.status_int)
+        got = client.post('/webmention', data={
+            'source': 'http://a/repost',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(201, got.status_code)
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
@@ -624,12 +611,11 @@ class WebmentionTest(testutil.TestCase):
                                    'inbox': 'https://inbox',
                                }}))
 
-        got = application.get_response(
-            '/webmention', method='POST', body=urlencode({
-                'source': 'http://orig/post',
-                'target': 'https://fed.brid.gy/',
-            }).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/webmention', data={
+            'source': 'http://orig/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('http://orig/post'),
@@ -661,12 +647,11 @@ class WebmentionTest(testutil.TestCase):
             'orig', 'https://mastodon/aaa',
             last_follow=json_dumps({'actor': {'inbox': 'https://inbox'}}))
 
-        got = application.get_response(
-            '/webmention', method='POST', body=urlencode({
-                'source': 'http://orig/post',
-                'target': 'https://fed.brid.gy/',
-            }).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/webmention', data={
+            'source': 'http://orig/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
 
         self.assertEqual(('https://inbox',), mock_post.call_args[0])
         create = copy.deepcopy(self.create_as2)
@@ -680,12 +665,11 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.follow, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = application.get_response(
-            '/webmention', method='POST', body=urlencode({
-                'source': 'http://a/follow',
-                'target': 'https://fed.brid.gy/',
-            }).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/webmention', data={
+            'source': 'http://a/follow',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('http://a/follow'),
@@ -713,15 +697,15 @@ class WebmentionTest(testutil.TestCase):
         mock_post.return_value = requests_response(
             'abc xyz', status=405, url='https://foo.com/inbox')
 
-        got = application.get_response(
-            '/webmention', method='POST', body=urlencode({
-                'source': 'http://a/follow',
-                'target': 'https://fed.brid.gy/',
-            }).encode())
-        self.assertEqual(502, got.status_int, got.text)
+        got = client.post('/webmention', data={
+            'source': 'http://a/follow',
+            'target': 'https://fed.brid.gy/',
+        })
+        body = got.get_data(as_text=True)
+        self.assertEqual(502, got.status_code, body)
         self.assertEqual(
             '405 Client Error: None for url: https://foo.com/inbox ; abc xyz',
-            got.text)
+            body)
 
         mock_get.assert_has_calls((
             self.req('http://a/follow'),
@@ -748,12 +732,11 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.reply, self.not_fediverse,
                                 self.orig_html_atom, self.orig_atom]
 
-        got = application.get_response(
-            '/webmention', method='POST', body=urlencode({
-                'source': 'http://a/reply',
-                'target': 'http://orig/post',
-            }).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/webmention', data={
+            'source': 'http://a/reply',
+            'target': 'http://orig/post',
+        })
+        self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('http://a/reply'),
@@ -792,12 +775,11 @@ class WebmentionTest(testutil.TestCase):
     def test_salmon_like(self, mock_get, mock_post):
         mock_get.side_effect = [self.like, self.orig_html_atom, self.orig_atom]
 
-        got = application.get_response(
-            '/webmention', method='POST', body=urlencode({
-                'source': 'http://a/like',
-                'target': 'http://orig/post',
-            }).encode())
-        self.assertEqual(200, got.status_int)
+        got = client.post('/webmention', data={
+            'source': 'http://a/like',
+            'target': 'http://orig/post',
+        })
+        self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('http://a/like'),
@@ -844,11 +826,11 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.reply, self.not_fediverse,
                                 self.orig_html_atom, orig_atom, webfinger]
 
-        got = application.get_response('/webmention', method='POST', body=urlencode({
+        got = client.post('/webmention', data={
             'source': 'http://a/reply',
             'target': 'http://orig/post',
-        }).encode())
-        self.assertEqual(200, got.status_int)
+        })
+        self.assertEqual(200, got.status_code)
 
         mock_get.assert_any_call(
             'http://orig/.well-known/webfinger?resource=acct:ryan@orig',
@@ -862,12 +844,13 @@ class WebmentionTest(testutil.TestCase):
 </html>""", 'http://orig/url')
         mock_get.side_effect = [self.reply, self.not_fediverse, orig_no_atom]
 
-        got = application.get_response('/webmention', method='POST', body=urlencode({
+        got = client.post('/webmention', data={
             'source': 'http://a/reply',
             'target': 'http://orig/post',
-        }).encode())
-        self.assertEqual(400, got.status_int)
-        self.assertIn('Target post http://orig/url has no Atom link', got.body.decode())
+        })
+        self.assertEqual(400, got.status_code)
+        self.assertIn('Target post http://orig/url has no Atom link',
+                      got.get_data(as_text=True))
 
         self.assertIsNone(Response.get_by_id('http://a/reply http://orig/post'))
 
@@ -881,11 +864,11 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.reply, self.not_fediverse, orig_relative,
                                 self.orig_atom]
 
-        got = application.get_response('/webmention', method='POST', body=urlencode({
+        got = client.post('/webmention', data={
             'source': 'http://a/reply',
             'target': 'http://orig/post',
-        }).encode())
-        self.assertEqual(200, got.status_int)
+        })
+        self.assertEqual(200, got.status_code)
 
         mock_get.assert_any_call('http://orig/atom/1', headers=HEADERS,
                                  stream=True, timeout=util.HTTP_TIMEOUT)
@@ -902,11 +885,11 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.reply, self.not_fediverse, orig_base,
                                 self.orig_atom]
 
-        got = application.get_response('/webmention', method='POST', body=urlencode({
+        got = client.post('/webmention', data={
             'source': 'http://a/reply',
             'target': 'http://orig/post',
-        }).encode())
-        self.assertEqual(200, got.status_int)
+        })
+        self.assertEqual(200, got.status_code)
 
         mock_get.assert_any_call('http://orig/base/atom/1', headers=HEADERS,
                                  stream=True, timeout=util.HTTP_TIMEOUT)

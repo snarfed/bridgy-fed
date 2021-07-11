@@ -155,7 +155,7 @@ class WebfingerHandler(UserHandler):
     https://tools.ietf.org/html/rfc7033#section-4
     """
     def template_vars(self):
-        resource = util.get_required_param(self, 'resource')
+        resource = common.get_required_param('resource')
         try:
             user, domain = util.parse_acct_uri(resource)
             if domain in common.DOMAINS:

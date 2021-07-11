@@ -6,11 +6,13 @@ TODO tests:
 """
 import logging
 import urllib.parse
-from  urllib.parse import urlencode
+from urllib.parse import urlencode
 
 import django_salmon
 from django_salmon import magicsigs
 import feedparser
+from flask import request
+from flask.views import View
 from google.cloud.ndb import Key
 from granary import as2, atom, microformats2, source
 import mf2util
@@ -21,13 +23,15 @@ import webapp2
 from webob import exc
 
 import activitypub
+from app import app
 import common
+from common import error
 from models import Follower, MagicKey, Response
 
 SKIP_EMAIL_DOMAINS = frozenset(('localhost', 'snarfed.org'))
 
 
-class WebmentionHandler():
+class Webmention(View):
     """Handles inbound webmention, converts to ActivityPub or Salmon."""
     source_url = None     # string
     source_domain = None  # string
@@ -35,11 +39,11 @@ class WebmentionHandler():
     source_obj = None     # parsed AS1 dict
     target_resp = None    # requests.Response
 
-    def post(self):
-        logging.info('Params: %s', list(self.request.params.items()))
+    def dispatch_request(self):
+        logging.info(f'Params: {list(request.form.items())}')
 
         # fetch source page
-        source = util.get_required_param(self, 'source')
+        source = common.get_required_param('source')
         source_resp = common.requests_get(source)
         self.source_url = source_resp.url or source
         self.source_domain = urllib.parse.urlparse(self.source_url).netloc.split(':')[0]
@@ -49,16 +53,16 @@ class WebmentionHandler():
 
         # check for backlink to bridgy fed (for webmention spec and to confirm
         # source's intent to federate to mastodon)
-        if (self.request.host_url not in source_resp.text and
-            urllib.parse.quote(self.request.host_url, safe='') not in source_resp.text):
-            self.error("Couldn't find link to {request.host_url}")
+        if (request.host_url not in source_resp.text and
+            urllib.parse.quote(request.host_url, safe='') not in source_resp.text):
+            return error("Couldn't find link to {request.host_url}")
 
         # convert source page to ActivityStreams
         entry = mf2util.find_first_entry(self.source_mf2, ['h-entry'])
         if not entry:
-            self.error('No microformats2 found on %s' % self.source_url)
+            return error('No microformats2 found on {self.source_url}')
 
-        logging.info('First entry: %s', json_dumps(entry, indent=2))
+        logging.info(f'First entry: {json_dumps(entry, indent=2)}')
         # make sure it has url, since we use that for AS2 id, which is required
         # for ActivityPub.
         props = entry.setdefault('properties', {})
@@ -66,17 +70,20 @@ class WebmentionHandler():
             props['url'] = [self.source_url]
 
         self.source_obj = microformats2.json_to_object(entry, fetch_mf2=True)
-        logging.info('Converted to AS1: %s', json_dumps(self.source_obj, indent=2))
+        logging.info(f'Converted to AS1: {json_dumps(self.source_obj, indent=2)}')
 
-        tried_ap = self.try_activitypub()
-        if tried_ap is None:
-            self.try_salmon()
+        for method in self.try_activitypub, self.try_salmon:
+            ret = method()
+            if ret:
+                return ret
+
+        return ''
 
     def try_activitypub(self):
         """Attempts ActivityPub delivery.
 
-        Returns True if we succeeded, False if we failed, None if ActivityPub
-        was not available.
+        Returns Flask response (string body or tuple) if we succeeded or failed,
+        None if ActivityPub was not available.
         """
         targets = self._activitypub_targets()
         if not targets:
@@ -90,7 +97,7 @@ class WebmentionHandler():
 
         for resp, inbox in targets:
             target_obj = json_loads(resp.target_as2) if resp.target_as2 else None
-            source_activity = self.postprocess_as2(
+            source_activity = common.postprocess_as2(
                 as2.from_as1(self.source_obj), target=target_obj, key=key)
 
             if resp.status == 'complete':
@@ -108,15 +115,11 @@ class WebmentionHandler():
 
         # Pass the AP response status code and body through as our response
         if last_success:
-            self.response.status_int = last_success.status_code
-            self.response.write(last_success.text)
+            return last_success.text, last_success.status_code
         elif isinstance(error, (requests.HTTPError, exc.HTTPBadGateway)):
-            self.response.status_int = error.status_code
-            self.response.write(str(error))
+            return str(error), error.status_code
         else:
-            self.response.write(str(error))
-
-        return bool(last_success)
+            return str(error)
 
     def _targets(self):
         """
@@ -188,9 +191,9 @@ class WebmentionHandler():
                   inbox_url = actor.get('inbox')
                   actor = actor.get('url') or actor.get('id')
               if not inbox_url and not actor:
-                  self.error('Target object has no actor or attributedTo with URL or id.')
+                  return error('Target object has no actor or attributedTo with URL or id.')
               elif not isinstance(actor, str):
-                  self.error('Target actor or attributedTo has unexpected url or id object: %r' % actor)
+                  return error(f'Target actor or attributedTo has unexpected url or id object: {actor}')
 
           if not inbox_url:
               # fetch actor as AS object
@@ -200,7 +203,7 @@ class WebmentionHandler():
           if not inbox_url:
               # TODO: probably need a way to save errors like this so that we can
               # return them if ostatus fails too.
-              # self.error('Target actor has no inbox')
+              # return error('Target actor has no inbox')
               continue
 
           inbox_url = urllib.parse.urljoin(target_url, inbox_url)
@@ -209,7 +212,11 @@ class WebmentionHandler():
         return resps_and_inbox_urls
 
     def try_salmon(self):
-        """Returns True if we attempted OStatus delivery. Raises otherwise."""
+        """
+        Returns Flask response (string body or tuple) if we attempted OStatus
+        delivery (whether successful or not), None if we didn't attempt, raises
+        an exception otherwise.
+        """
         target = None
         if self.target_resp:
             target = self.target_resp.url
@@ -219,7 +226,7 @@ class WebmentionHandler():
                 target = targets[0]
         if not target:
             logging.warning("No targets or followers. Ignoring.")
-            return False
+            return
 
         resp = Response.get_or_create(
             source=self.source_url, target=target, direction='out',
@@ -249,7 +256,7 @@ class WebmentionHandler():
         parsed = util.parse_html(self.target_resp)
         atom_url = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
         if not atom_url or not atom_url.get('href'):
-            self.error('Target post %s has no Atom link' % resp.target(), status=400)
+            return error(f'Target post {resp.target()} has no Atom link')
 
         # fetch Atom target post, extract and inject id into source object
         base_url = ''
@@ -262,7 +269,7 @@ class WebmentionHandler():
 
         feed = common.requests_get(atom_url).text
         parsed = feedparser.parse(feed)
-        logging.info('Parsed: %s', json_dumps(parsed, indent=2))
+        logging.info(f'Parsed: {json_dumps(parsed, indent=2)}')
         entry = parsed.entries[0]
         target_id = entry.id
         in_reply_to = self.source_obj.get('inReplyTo')
@@ -285,7 +292,7 @@ class WebmentionHandler():
                 self.source_obj.setdefault('tags', []).append({'url': url})
 
         # extract and discover salmon endpoint
-        logging.info('Discovering Salmon endpoint in %s', atom_url)
+        logging.info(f'Discovering Salmon endpoint in {atom_url}')
         endpoint = django_salmon.discover_salmon_endpoint(feed)
 
         if not endpoint:
@@ -305,8 +312,8 @@ class WebmentionHandler():
                 pass
 
         if not endpoint:
-            self.error('No salmon endpoint found!', status=400)
-        logging.info('Discovered Salmon endpoint %s', endpoint)
+            return error('No salmon endpoint found!')
+        logging.info(f'Discovered Salmon endpoint {endpoint}')
 
         # construct reply Atom object
         self.source_url = resp.source()
@@ -314,22 +321,22 @@ class WebmentionHandler():
         if self.source_obj.get('verb') not in source.VERBS_WITH_OBJECT:
             activity = {'object': self.source_obj}
         entry = atom.activity_to_atom(activity, xml_base=self.source_url)
-        logging.info('Converted %s to Atom:\n%s', self.source_url, entry)
+        logging.info(f'Converted {self.source_url} to Atom:\n{entry}')
 
         # sign reply and wrap in magic envelope
         domain = urllib.parse.urlparse(self.source_url).netloc
         key = MagicKey.get_or_create(domain)
-        logging.info('Using key for %s: %s', domain, key)
+        logging.info(f'Using key for {domain}: {key}')
         magic_envelope = magicsigs.magic_envelope(
             entry, common.CONTENT_TYPE_ATOM, key).decode()
 
-        logging.info('Sending Salmon slap to %s', endpoint)
+        logging.info(f'Sending Salmon slap to {endpoint}')
         common.requests_post(
             endpoint, data=common.XML_UTF8 + magic_envelope,
             headers={'Content-Type': common.CONTENT_TYPE_MAGIC_ENVELOPE})
-        return True
+
+        return ''
 
 
-ROUTES = [
-    ('/webmention', WebmentionHandler),
-]
+app.add_url_rule('/webmention', view_func=Webmention.as_view('webmention'),
+                 methods=['POST'])

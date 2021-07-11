@@ -16,4 +16,14 @@ app.wsgi_app = handlers.ndb_context_middleware(
 
 cache = Cache(app)
 
+@app.errorhandler(Exception)
+def handle_exception(e):
+  """A Flask error handler that propagates HTTP exceptions into the response."""
+  code, body = util.interpret_http_exception(e)
+  if code:
+    return ((f'Upstream server request failed: {e}' if code in ('502', '504')
+             else f'HTTP Error {code}: {body}'),
+            int(code))
+  return e
+
 import activitypub, add_webmention, logs, redirect, render, salmon, superfeedr, webfinger, webmention

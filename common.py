@@ -152,11 +152,11 @@ def content_type(resp):
         return type.split(';')[0]
 
 
-def get_required_param(request, name):
+def get_required_param(name):
     try:
-        val = request.args.get(name)
+        val = request.args.get(name) or request.form.get(name)
     except (UnicodeDecodeError, UnicodeEncodeError) as e:
-        abort(400, f"Couldn't decode query parameters as UTF-8: {e}")
+        abort(400, f"Couldn't decode parameters as UTF-8: {e}")
 
     if not val:
         abort(400, f'Missing required parameter: {name}')
