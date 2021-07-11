@@ -13,7 +13,7 @@ from models import Response
 CACHE_TIME = datetime.timedelta(minutes=15)
 
 
-@app.route('/render')
+@app.get('/render')
 @cache.cached(timeout=CACHE_TIME.total_seconds(), query_string=True,
               response_filter=common.not_5xx)
 def render():

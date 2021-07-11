@@ -31,7 +31,7 @@ SUPPORTED_VERBS = (
 )
 
 
-@app.route('/<string:acct>/salmon', methods=['POST'])
+@app.post('/<acct>/salmon')
 def slap(acct):
     """Accepts POSTs to /[ACCT]/salmon and converts to outbound webmentions."""
     # TODO: unify with activitypub

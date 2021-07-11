@@ -28,7 +28,7 @@ from models import MagicKey
 CACHE_TIME = datetime.timedelta(seconds=15)
 
 
-@app.route(r'/r/<path:to>')
+@app.get(r'/r/<path:to>')
 @cache.cached(timeout=CACHE_TIME.total_seconds(), query_string=True,
               response_filter=common.not_5xx)
 def redir(to=None):

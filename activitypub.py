@@ -79,7 +79,7 @@ def send(activity, inbox_url, user_domain):
                                 headers=headers)
 
 
-@app.route('/<string:domain>')
+@app.get('/<domain>')
 @cache.cached(CACHE_TIME.total_seconds())
 def actor(domain):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
@@ -117,7 +117,7 @@ Coul find a representative h-card (http://microformats.org/wiki/representative-h
     })
 
 
-@app.route('/<string:domain>/inbox', methods=['POST'])
+@app.post('/<domain>/inbox')
 def inbox(domain):
     """Accepts POSTs to /[DOMAIN]/inbox and converts to outbound webmentions."""
     body = request.get_data(as_text=True)

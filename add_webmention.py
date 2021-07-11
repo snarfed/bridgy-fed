@@ -15,7 +15,7 @@ LINK_HEADER = '<%s>; rel="webmention"'
 CACHE_TIME = datetime.timedelta(seconds=15)
 
 
-@app.route(r'/wm/<path:url>')
+@app.get(r'/wm/<path:url>')
 @cache.cached(timeout=CACHE_TIME.total_seconds(), query_string=True,
               response_filter=common.not_5xx)
 def add_wm(url=None):

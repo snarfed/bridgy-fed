@@ -14,7 +14,7 @@ class LogHandler(logs.LogHandler):
   VERSION_IDS = ['1']
 
 
-@app.route('/responses')
+@app.get('/responses')
 def responses():
     """Renders recent Responses, with links to logs."""
     responses = Response.query().order(-Response.updated).fetch(20)

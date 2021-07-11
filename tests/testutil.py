@@ -16,7 +16,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
     maxDiff = None
 
     def setUp(self):
-        super(TestCase, self).setUp()
+        super().setUp()
 
         # clear datastore
         requests.post('http://%s/reset' % ndb_client.host)
@@ -29,7 +29,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
     def tearDown(self):
         self.ndb_context.__exit__(None, None, None)
-        super(TestCase, self).tearDown()
+        super().tearDown()
 
     def req(self, url, **kwargs):
         """Returns a mock requests call."""
