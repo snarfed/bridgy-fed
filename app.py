@@ -1,6 +1,10 @@
 """Main Flask application."""
+import logging
+
 from flask import Flask
 from flask_caching import Cache
+from werkzeug.exceptions import HTTPException
+
 from oauth_dropins.webutil import appengine_info, appengine_config, handlers, util
 
 app = Flask('bridgy-fed')
@@ -18,12 +22,17 @@ cache = Cache(app)
 
 @app.errorhandler(Exception)
 def handle_exception(e):
-  """A Flask error handler that propagates HTTP exceptions into the response."""
-  code, body = util.interpret_http_exception(e)
-  if code:
-    return ((f'Upstream server request failed: {e}' if code in ('502', '504')
-             else f'HTTP Error {code}: {body}'),
-            int(code))
-  return e
+    """A Flask error handler that propagates HTTP exceptions into the response."""
+    code, body = util.interpret_http_exception(e)
+    if code:
+        return ((f'Upstream server request failed: {e}' if code in ('502', '504')
+                 else f'HTTP Error {code}: {body}'),
+                int(code))
+
+    logging.error(f'{e.__class__}: {e}')
+    if isinstance(e, HTTPException):
+        return e
+    else:
+        raise e
 
 import activitypub, add_webmention, logs, redirect, render, salmon, superfeedr, webfinger, webmention
