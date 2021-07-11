@@ -174,5 +174,29 @@ class Webfinger(User):
         return super().template_vars(domain=domain, url=url)
 
 
+class HostMeta(common.XrdOrJrd):
+    """Renders and serves the /.well-known/host-meta file.
+
+    Supports both JRD and XRD; defaults to XRD.
+    https://tools.ietf.org/html/rfc6415#section-3
+    """
+    DEFAULT_TYPE = common.XrdOrJrd.XRD
+
+    def template_prefix(self):
+        return 'host-meta'
+
+    def template_vars(self):
+        return {'host_uri': request.host_url}
+
+
+@app.get('/.well-known/host-meta.xrds')
+def host_meta_xrds():
+    """Renders and serves the /.well-known/host-meta.xrds XRDS-Simple file."""
+    return (render_template('host-meta.xrds', host_uri=request.host_url),
+            {'Content-Type': 'application/xrds+xml'})
+
+
 app.add_url_rule('/acct:<domain>', view_func=User.as_view('user'))
 app.add_url_rule('/.well-known/webfinger', view_func=Webfinger.as_view('webfinger'))
+app.add_url_rule('/.well-known/host-meta', view_func=HostMeta.as_view('hostmeta'))
+app.add_url_rule('/.well-known/host-meta.json', view_func=HostMeta.as_view('hostmeta-json'))

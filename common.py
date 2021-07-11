@@ -93,7 +93,8 @@ DOMAINS = (PRIMARY_DOMAIN,) + OTHER_DOMAINS
 
 
 def not_5xx(resp):
-    return isinstance(resp, tuple) and resp[1] // 100 != 5
+    return (isinstance(resp, tuple) and len(resp) > 1 and util.is_int(resp[1]) and
+            resp[1] // 100 != 5)
 
 
 def requests_get(url, **kwargs):

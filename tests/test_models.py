@@ -1,5 +1,6 @@
 # coding=utf-8
 """Unit tests for models.py."""
+from app import app
 from models import MagicKey, Response
 from . import testutil
 
@@ -52,9 +53,10 @@ class ResponseTest(testutil.TestCase):
         self.assertEqual('abc__1 xyz__Z', resp.key.id())
 
     def test_proxy_url(self):
-        resp = Response.get_or_create('abc', 'xyz')
-        self.assertIsNone(resp.proxy_url(self.handler))
+        with app.test_request_context('/'):
+            resp = Response.get_or_create('abc', 'xyz')
+            self.assertIsNone(resp.proxy_url())
 
-        resp.source_as2 = 'as2'
-        self.assertEqual('http://localhost/render?source=abc&target=xyz',
-                          resp.proxy_url(self.handler))
+            resp.source_as2 = 'as2'
+            self.assertEqual('http://localhost/render?source=abc&target=xyz',
+                             resp.proxy_url())

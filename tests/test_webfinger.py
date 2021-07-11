@@ -94,8 +94,7 @@ class WebfingerTest(testutil.TestCase):
     def test_host_meta_handler_xrds(self):
         got = client.get('/.well-known/host-meta.xrds')
         self.assertEqual(200, got.status_code)
-        self.assertEqual('application/xrds+xml; charset=utf-8',
-                          got.headers['Content-Type'])
+        self.assertEqual('application/xrds+xml', got.headers['Content-Type'])
         body = got.get_data(as_text=True)
         self.assertTrue(body.startswith('<XRDS'), body)
 
