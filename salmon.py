@@ -31,15 +31,12 @@ SUPPORTED_VERBS = (
 )
 
 
-@app.post('/<acct>/salmon')
+@app.post(f'/<regex("{common.ACCT_RE}|{common.DOMAIN_RE}"):acct>/salmon')
 def slap(acct):
     """Accepts POSTs to /[ACCT]/salmon and converts to outbound webmentions."""
     # TODO: unify with activitypub
     body = request.get_data(as_text=True)
     logging.info(f'Got: {body}')
-
-    if not re.match(common.ACCT_RE, acct) and not re.match(common.DOMAIN_RE, acct):
-        return error(f'{acct} is not an account or domain', 404)
 
     try:
         parsed = utils.parse_magic_envelope(body)

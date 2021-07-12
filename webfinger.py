@@ -38,9 +38,6 @@ class User(common.XrdOrJrd):
         return 'webfinger_user'
 
     def template_vars(self, domain=None, url=None):
-        if not re.match(common.DOMAIN_RE, domain):
-            return error(f'{domain} is not a domain', status=404)
-
         logging.debug(f'Headers: {list(request.headers.items())}')
 
         if domain.split('.')[-1] in NON_TLDS:
@@ -196,7 +193,8 @@ def host_meta_xrds():
             {'Content-Type': 'application/xrds+xml'})
 
 
-app.add_url_rule('/acct:<domain>', view_func=User.as_view('user'))
+app.add_url_rule(f'/acct:<regex("{common.DOMAIN_RE}"):domain>',
+                 view_func=User.as_view('user'))
 app.add_url_rule('/.well-known/webfinger', view_func=Webfinger.as_view('webfinger'))
 app.add_url_rule('/.well-known/host-meta', view_func=HostMeta.as_view('hostmeta'))
 app.add_url_rule('/.well-known/host-meta.json', view_func=HostMeta.as_view('hostmeta-json'))

@@ -79,13 +79,10 @@ def send(activity, inbox_url, user_domain):
                                 headers=headers)
 
 
-@app.get('/<domain>')
+@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>')
 @cache.cached(CACHE_TIME.total_seconds())
 def actor(domain):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
-    if not re.match(common.DOMAIN_RE, domain):
-        return error(f'{domain} is not a domain', 404)
-
     tld = domain.split('.')[-1]
     if tld in common.TLD_BLOCKLIST:
         return error('', status=404)
@@ -117,14 +114,11 @@ Coul find a representative h-card (http://microformats.org/wiki/representative-h
     })
 
 
-@app.post('/<domain>/inbox')
+@app.post(f'/<regex("{common.DOMAIN_RE}"):domain>/inbox')
 def inbox(domain):
     """Accepts POSTs to /[DOMAIN]/inbox and converts to outbound webmentions."""
     body = request.get_data(as_text=True)
     logging.info(f'Got: {body}')
-
-    if not re.match(common.DOMAIN_RE, domain):
-        return error(f'{acct} is not a domain', 404)
 
     # parse and validate AS2 activity
     try:
