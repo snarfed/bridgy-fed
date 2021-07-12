@@ -84,7 +84,7 @@ def send(activity, inbox_url, user_domain):
 def actor(domain):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
     if not re.match(common.DOMAIN_RE, domain):
-        return error(f'{acct} is not a domain', 404)
+        return error(f'{domain} is not a domain', 404)
 
     tld = domain.split('.')[-1]
     if tld in common.TLD_BLOCKLIST:

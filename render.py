@@ -8,6 +8,7 @@ from oauth_dropins.webutil.util import json_loads
 
 from app import app, cache
 import common
+from common import error
 from models import Response
 
 CACHE_TIME = datetime.timedelta(minutes=15)
@@ -24,7 +25,7 @@ def render():
     id = f'{source} {target}'
     resp = Response.get_by_id(id)
     if not resp:
-        return (f'No stored response for {id}', 404)
+        return error(f'No stored response for {id}', status=404)
 
     if resp.source_mf2:
         as1 = microformats2.json_to_object(json_loads(resp.source_mf2))
@@ -33,7 +34,7 @@ def render():
     elif resp.source_atom:
         as1 = atom.atom_to_activity(resp.source_atom)
     else:
-        return (f'Stored response for {id} has no data', 404)
+        return error(f'Stored response for {id} has no data', status=404)
 
     # add HTML meta redirect to source page. should trigger for end users in
     # browsers but not for webmention receivers (hopefully).
