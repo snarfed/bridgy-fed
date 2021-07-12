@@ -15,7 +15,6 @@ import requests
 from webob import exc
 from werkzeug.exceptions import abort
 
-import common
 from models import Response
 
 DOMAIN_RE = r'([^/:]+\.[^/:]+)'
@@ -50,6 +49,24 @@ CONNEG_HEADERS_AS2_HTML = {
     'Accept': CONNEG_HEADERS_AS2['Accept'] + ', %s; q=0.7' % CONTENT_TYPE_HTML,
 }
 
+# Modern HTTP headers for CORS, CSP, other security, etc.
+MODERN_HEADERS = {
+    'Access-Control-Allow-Headers': '*',
+    'Access-Control-Allow-Methods': '*',
+    'Access-Control-Allow-Origin': '*',
+    # see https://content-security-policy.com/
+    'Content-Security-Policy':
+      "script-src https: localhost:8080 my.dev.com:8080 'unsafe-inline'; "
+      "frame-ancestors 'self'; "
+      "report-uri /csp-report; ",
+    # 16070400 seconds is 6 months
+    'Strict-Transport-Security': 'max-age=16070400; preload',
+    'X-Content-Type-Options': 'nosniff',
+    # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options
+    'X-Frame-Options': 'SAMEORIGIN',
+    'X-XSS-Protection': '1; mode=block',
+}
+
 SUPPORTED_VERBS = (
     'checkin',
     'create',
@@ -67,29 +84,6 @@ OTHER_DOMAINS = (
     'localhost',
 )
 DOMAINS = (PRIMARY_DOMAIN,) + OTHER_DOMAINS
-
-
-# TODO: add to all handlers:
-  #   self.response.headers.update({
-  #     'Access-Control-Allow-Headers': '*',
-  #     'Access-Control-Allow-Methods': '*',
-  #     'Access-Control-Allow-Origin': '*',
-  #     # see https://content-security-policy.com/
-  #     'Content-Security-Policy':
-  #       "script-src https: localhost:8080 my.dev.com:8080 'unsafe-inline'; "
-  #       "frame-ancestors 'self'; "
-  #       "report-uri /csp-report; ",
-  #     # 16070400 seconds is 6 months
-  #     'Strict-Transport-Security': 'max-age=16070400; preload',
-  #     'X-Content-Type-Options': 'nosniff',
-  #     # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options
-  #     'X-Frame-Options': 'SAMEORIGIN',
-  #     'X-XSS-Protection': '1; mode=block',
-  #   })
-
-  # def options(self, *args, **kwargs):
-  #   """Respond to CORS pre-flight OPTIONS requests."""
-  #   pass
 
 
 def not_5xx(resp):

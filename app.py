@@ -35,4 +35,17 @@ def handle_exception(e):
     else:
         raise e
 
+
+# Add modern headers, but let the response override them
+from common import MODERN_HEADERS
+
+def default_modern_headers(resp):
+    for name, value in MODERN_HEADERS.items():
+        resp.headers.setdefault(name, value)
+
+    return resp
+
+app.after_request(default_modern_headers)
+
+
 import activitypub, add_webmention, logs, redirect, render, salmon, superfeedr, webfinger, webmention
