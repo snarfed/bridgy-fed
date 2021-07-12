@@ -4,7 +4,7 @@
     <Type>xri://$xrds*simple</Type>
     <Service>
       <Type>lrdd</Type>
-      <URI>{{ host_uri }}/.well-known/webfinger?resource={uri}</URI>
+      <URI>{{ host_uri }}.well-known/webfinger?resource={uri}</URI>
     </Service>
   </XRD>
 </XRDS>
