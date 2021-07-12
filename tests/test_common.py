@@ -4,7 +4,7 @@ import logging
 import os
 from unittest import mock
 
-from flask import Flask
+from flask import Flask, request
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 import requests
@@ -77,6 +77,22 @@ class CommonTest(testutil.TestCase):
                 'id': 'xyz',
                 'inReplyTo': ['foo', 'bar'],
             }))
+
+    def test_regex_converter(self):
+        app = Flask('test_regex_converter')
+        app.url_map.converters['regex'] = common.RegexConverter
+
+        @app.route('/<regex("abc|def"):letters>')
+        def fn(letters):
+            return ''
+
+        with app.test_client() as client:
+            resp = client.get('/def')
+            self.assertEqual(200, resp.status_code)
+            self.assertEqual('def', request.view_args['letters'])
+
+            resp = client.get('/xyz')
+            self.assertEqual(404, resp.status_code)
 
 
 class XrdOrJrdTest(testutil.TestCase):

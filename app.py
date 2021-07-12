@@ -3,9 +3,11 @@ import logging
 
 from flask import Flask
 from flask_caching import Cache
+from oauth_dropins.webutil import appengine_info, appengine_config, handlers, util
 from werkzeug.exceptions import HTTPException
 
-from oauth_dropins.webutil import appengine_info, appengine_config, handlers, util
+import common
+
 
 app = Flask('bridgy-fed')
 app.template_folder = './templates'
@@ -15,6 +17,7 @@ app.config.from_mapping(
     SECRET_KEY=util.read('flask_secret_key'),
     JSONIFY_PRETTYPRINT_REGULAR=True,
 )
+app.url_map.converters['regex'] = common.RegexConverter
 app.wsgi_app = handlers.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client)
 

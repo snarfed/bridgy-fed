@@ -14,6 +14,7 @@ from oauth_dropins.webutil import util, webmention
 import requests
 from webob import exc
 from werkzeug.exceptions import abort
+from werkzeug.routing import BaseConverter
 
 from models import Response
 
@@ -87,8 +88,37 @@ DOMAINS = (PRIMARY_DOMAIN,) + OTHER_DOMAINS
 
 
 def not_5xx(resp):
+    """Returns True if resp is an HTTP 5xx, False otherwise.
+
+    Useful to pass to `@cache.cached`'s `response_filter` kwarg to avoid caching
+    5xxes.
+
+    Args:
+      resp: :class:`flask.Response`
+
+    Returns: boolean
+    """
     return (isinstance(resp, tuple) and len(resp) > 1 and util.is_int(resp[1]) and
             resp[1] // 100 != 5)
+
+
+class RegexConverter(BaseConverter):
+    """Regexp URL route for Werkzeug/Flask.
+
+    Based on https://github.com/rhyselsmore/flask-reggie.
+
+    Usage:
+
+      @app.route('/<regex("(abc|def)"):letters>')
+
+    Install with:
+
+      app = Flask(...)
+      app.url_map.converters['regex'] = RegexConverter
+    """
+    def __init__(self, url_map, *items):
+        super(RegexConverter, self).__init__(url_map)
+        self.regex = items[0]
 
 
 def requests_get(url, **kwargs):
@@ -132,10 +162,10 @@ def get_as2(url):
         url: string
 
     Returns:
-        requests.Response
+        :class:`requests.Response`
 
     Raises:
-        requests.HTTPError, webob.exc.HTTPException
+        :class:`requests.HTTPError`, :class:`webob.exc.HTTPException`
 
         If we raise webob HTTPException, it will have an additional response
         attribute with the last requests.Response we received.
@@ -166,7 +196,7 @@ def get_as2(url):
 
 
 def content_type(resp):
-    """Returns a requests.Response's Content-Type, without charset suffix."""
+    """Returns a :class:`requests.Response`'s Content-Type, without charset suffix."""
     type = resp.headers.get('Content-Type')
     if type:
         return type.split(';')[0]
@@ -273,7 +303,8 @@ def postprocess_as2(activity, target=None, key=None):
       activity: dict, AS2 object or activity
       target: dict, AS2 object, optional. The target of activity's inReplyTo or
         Like/Announce/etc object, if any.
-      key: MagicKey, optional. populated into publicKey field if provided.
+      key: :class:`models.MagicKey`, optional. populated into publicKey field
+        if provided.
     """
     type = activity.get('type')
 
