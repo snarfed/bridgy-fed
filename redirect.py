@@ -16,7 +16,7 @@ import urllib.parse
 from flask import redirect, request
 from granary import as2, microformats2
 import mf2util
-from oauth_dropins.webutil import util
+from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.util import json_dumps
 from werkzeug.exceptions import abort
 
@@ -30,7 +30,7 @@ CACHE_TIME = datetime.timedelta(seconds=15)
 
 @app.get(r'/r/<path:to>')
 @cache.cached(timeout=CACHE_TIME.total_seconds(), query_string=True,
-              response_filter=common.not_5xx)
+              response_filter=flask_util.not_5xx)
 def redir(to=None):
     """301 redirect to the embedded fully qualified URL.
 

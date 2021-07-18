@@ -3,7 +3,13 @@ import logging
 
 from flask import Flask
 from flask_caching import Cache
-from oauth_dropins.webutil import appengine_info, appengine_config, handlers, util
+from oauth_dropins.webutil import (
+    appengine_info,
+    appengine_config,
+    flask_util,
+    handlers,
+    util,
+)
 from werkzeug.exceptions import HTTPException
 
 import common
@@ -17,7 +23,7 @@ app.config.from_mapping(
     SECRET_KEY=util.read('flask_secret_key'),
     JSONIFY_PRETTYPRINT_REGULAR=True,
 )
-app.url_map.converters['regex'] = common.RegexConverter
+app.url_map.converters['regex'] = flask_util.RegexConverter
 app.wsgi_app = handlers.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client)
 
@@ -40,10 +46,8 @@ def handle_exception(e):
 
 
 # Add modern headers, but let the response override them
-from common import MODERN_HEADERS
-
 def default_modern_headers(resp):
-    for name, value in MODERN_HEADERS.items():
+    for name, value in flask_util.MODERN_HEADERS.items():
         resp.headers.setdefault(name, value)
 
     return resp

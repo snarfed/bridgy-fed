@@ -12,12 +12,11 @@ from flask import render_template
 from google.cloud import ndb
 from google.cloud.logging import Client
 import humanize
-from oauth_dropins.webutil import util
+from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.appengine_info import APP_ID
 import webapp2
 
 from app import app, cache
-import common
 from common import error
 from models import Response
 
@@ -174,7 +173,7 @@ def log():
       start_time: float, seconds since the epoch
       key: string that should appear in the first app log
     """
-    start_time = common.get_required_param('start_time')
+    start_time = flask_util.get_required_param('start_time')
     if not util.is_float(start_time):
       return error("Couldn't convert start_time to float: %r" % start_time)
 
@@ -184,7 +183,7 @@ def log():
 
     client = Client()
     project = 'projects/%s' % APP_ID
-    key = urllib.parse.unquote_plus(common.get_required_param('key'))
+    key = urllib.parse.unquote_plus(flask_util.get_required_param('key'))
 
     # first, find the individual stdout log message to get the trace id
     timestamp_filter = 'timestamp>="%s" timestamp<="%s"' % (

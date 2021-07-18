@@ -5,6 +5,7 @@ import urllib.parse
 
 import flask
 from flask import request
+from oauth_dropins.webutil import flask_util
 import requests
 
 from app import app, cache
@@ -17,7 +18,7 @@ CACHE_TIME = datetime.timedelta(seconds=15)
 
 @app.get(r'/wm/<path:url>')
 @cache.cached(timeout=CACHE_TIME.total_seconds(), query_string=True,
-              response_filter=common.not_5xx)
+              response_filter=flask_util.not_5xx)
 def add_wm(url=None):
     """Proxies HTTP requests and adds Link header to our webmention endpoint."""
     url = urllib.parse.unquote(url)

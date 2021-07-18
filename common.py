@@ -7,14 +7,11 @@ import os
 import re
 import urllib.parse
 
-from flask import render_template, request
-from flask.views import View
+from flask import request
 from granary import as2
 from oauth_dropins.webutil import util, webmention
 import requests
 from webob import exc
-from werkzeug.exceptions import abort
-from werkzeug.routing import BaseConverter
 
 from models import Response
 
@@ -50,24 +47,6 @@ CONNEG_HEADERS_AS2_HTML = {
     'Accept': CONNEG_HEADERS_AS2['Accept'] + ', %s; q=0.7' % CONTENT_TYPE_HTML,
 }
 
-# Modern HTTP headers for CORS, CSP, other security, etc.
-MODERN_HEADERS = {
-    'Access-Control-Allow-Headers': '*',
-    'Access-Control-Allow-Methods': '*',
-    'Access-Control-Allow-Origin': '*',
-    # see https://content-security-policy.com/
-    'Content-Security-Policy':
-      "script-src https: localhost:8080 my.dev.com:8080 'unsafe-inline'; "
-      "frame-ancestors 'self'; "
-      "report-uri /csp-report; ",
-    # 16070400 seconds is 6 months
-    'Strict-Transport-Security': 'max-age=16070400; preload',
-    'X-Content-Type-Options': 'nosniff',
-    # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/X-Frame-Options
-    'X-Frame-Options': 'SAMEORIGIN',
-    'X-XSS-Protection': '1; mode=block',
-}
-
 SUPPORTED_VERBS = (
     'checkin',
     'create',
@@ -85,40 +64,6 @@ OTHER_DOMAINS = (
     'localhost',
 )
 DOMAINS = (PRIMARY_DOMAIN,) + OTHER_DOMAINS
-
-
-def not_5xx(resp):
-    """Returns True if resp is an HTTP 5xx, False otherwise.
-
-    Useful to pass to `@cache.cached`'s `response_filter` kwarg to avoid caching
-    5xxes.
-
-    Args:
-      resp: :class:`flask.Response`
-
-    Returns: boolean
-    """
-    return (isinstance(resp, tuple) and len(resp) > 1 and util.is_int(resp[1]) and
-            resp[1] // 100 != 5)
-
-
-class RegexConverter(BaseConverter):
-    """Regexp URL route for Werkzeug/Flask.
-
-    Based on https://github.com/rhyselsmore/flask-reggie.
-
-    Usage:
-
-      @app.route('/<regex("(abc|def)"):letters>')
-
-    Install with:
-
-      app = Flask(...)
-      app.url_map.converters['regex'] = RegexConverter
-    """
-    def __init__(self, url_map, *items):
-        super(RegexConverter, self).__init__(url_map)
-        self.regex = items[0]
 
 
 def requests_get(url, **kwargs):
@@ -200,18 +145,6 @@ def content_type(resp):
     type = resp.headers.get('Content-Type')
     if type:
         return type.split(';')[0]
-
-
-def get_required_param(name):
-    try:
-        val = request.args.get(name) or request.form.get(name)
-    except (UnicodeDecodeError, UnicodeEncodeError) as e:
-        abort(400, f"Couldn't decode parameters as UTF-8: {e}")
-
-    if not val:
-        abort(400, f'Missing required parameter: {name}')
-
-    return val
 
 
 def error(msg, status=None, exc_info=False):
@@ -474,79 +407,3 @@ def redirect_unwrap(val):
             return util.follow_redirects(domain).url
 
     return val
-
-
-class XrdOrJrd(View):
-    """Renders and serves an XRD or JRD file.
-
-    JRD is served if the request path ends in .jrd or .json, or the format query
-    parameter is 'jrd' or 'json', or the request's Accept header includes 'jrd' or
-    'json'.
-
-    XRD is served if the request path ends in .xrd or .xml, or the format query
-    parameter is 'xml' or 'xrd', or the request's Accept header includes 'xml' or
-    'xrd'.
-
-    Otherwise, defaults to DEFAULT_TYPE.
-
-    Subclasses must override :meth:`template_prefix()` and
-    :meth:`template_vars()`. URL route variables are passed through to
-    :meth:`template_vars()` as keyword args.
-
-    Class members:
-      DEFAULT_TYPE: either JRD or XRD, which type to return by default if the
-        request doesn't ask for one explicitly with the Accept header.
-
-    """
-    JRD = 'jrd'
-    XRD = 'xrd'
-    DEFAULT_TYPE = JRD  # either JRD or XRD
-
-    def template_prefix(self):
-        """Returns template filename, without extension."""
-        raise NotImplementedError()
-
-    def template_vars(self, **kwargs):
-        """Returns a dict with template variables.
-
-        URL route variables are passed through as kwargs.
-        """
-        raise NotImplementedError()
-
-    def _type(self):
-        """Returns XRD or JRD."""
-        format = request.args.get('format', '').lower()
-        ext = os.path.splitext(request.path)[1]
-
-        if ext in ('.jrd', '.json') or format in ('jrd', 'json'):
-            return self.JRD
-        elif ext in ('.xrd', '.xml') or format in ('xrd', 'xml'):
-            return self.XRD
-
-        # We don't do full content negotiation (Accept Header parsing); we just
-        # check whether jrd/json and xrd/xml are in the header, and if they both
-        # are, which one comes first. :/
-        # https://developer.mozilla.org/en-US/docs/Web/HTTP/Content_negotiation
-        accept = request.headers.get('Accept', '').lower()
-        jrd = re.search(r'jrd|json', accept)
-        xrd = re.search(r'xrd|xml', accept)
-        if jrd and (not xrd or jrd.start() < xrd.start()):
-            return self.JRD
-        elif xrd and (not jrd or xrd.start() < jrd.start()):
-            return self.XRD
-
-        assert self.DEFAULT_TYPE in (self.JRD, self.XRD)
-        return self.DEFAULT_TYPE
-
-    def dispatch_request(self, **kwargs):
-        data = self.template_vars(**kwargs)
-        if not isinstance(data, dict):
-            return data
-
-        # Content-Types are from https://tools.ietf.org/html/rfc7033#section-10.2
-        if self._type() == self.JRD:
-            return data, {'Content-Type': 'application/jrd+json'}
-        else:
-            template = f'{self.template_prefix()}.{self._type()}'
-            return (render_template(template, **data),
-                    {'Content-Type': 'application/xrd+xml; charset=utf-8'})

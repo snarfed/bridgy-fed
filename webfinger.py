@@ -14,7 +14,7 @@ from flask import render_template, request
 from flask.views import View
 from granary.microformats2 import get_text
 import mf2util
-from oauth_dropins.webutil import handlers, util
+from oauth_dropins.webutil import flask_util, handlers, util
 from oauth_dropins.webutil.util import json_dumps
 import webapp2
 
@@ -32,7 +32,7 @@ NON_TLDS = frozenset(('html', 'json', 'php', 'xml'))
 #     CACHE_TIME.total_seconds(),
 #     make_cache_key=lambda domain: f'{request.path} {request.headers.get("Accept")}')
 
-class User(common.XrdOrJrd):
+class User(flask_util.XrdOrJrd):
     """Fetches a site's home page, converts its mf2 to WebFinger, and serves."""
     def template_prefix(self):
         return 'webfinger_user'
@@ -156,7 +156,7 @@ class Webfinger(User):
     https://tools.ietf.org/html/rfc7033#section-4
     """
     def template_vars(self):
-        resource = common.get_required_param('resource')
+        resource = flask_util.get_required_param('resource')
         try:
             user, domain = util.parse_acct_uri(resource)
             if domain in common.DOMAINS:
@@ -171,13 +171,13 @@ class Webfinger(User):
         return super().template_vars(domain=domain, url=url)
 
 
-class HostMeta(common.XrdOrJrd):
+class HostMeta(flask_util.XrdOrJrd):
     """Renders and serves the /.well-known/host-meta file.
 
     Supports both JRD and XRD; defaults to XRD.
     https://tools.ietf.org/html/rfc6415#section-3
     """
-    DEFAULT_TYPE = common.XrdOrJrd.XRD
+    DEFAULT_TYPE = flask_util.XrdOrJrd.XRD
 
     def template_prefix(self):
         return 'host-meta'

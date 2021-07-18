@@ -16,7 +16,7 @@ from flask.views import View
 from google.cloud.ndb import Key
 from granary import as2, atom, microformats2, source
 import mf2util
-from oauth_dropins.webutil import util
+from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 import webapp2
@@ -43,7 +43,7 @@ class Webmention(View):
         logging.info(f'Params: {list(request.form.items())}')
 
         # fetch source page
-        source = common.get_required_param('source')
+        source = flask_util.get_required_param('source')
         source_resp = common.requests_get(source)
         self.source_url = source_resp.url or source
         self.source_domain = urllib.parse.urlparse(self.source_url).netloc.split(':')[0]

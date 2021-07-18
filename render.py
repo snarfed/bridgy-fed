@@ -4,6 +4,7 @@ import datetime
 
 from flask import request
 from granary import as2, atom, microformats2
+from oauth_dropins.webutil import flask_util
 from oauth_dropins.webutil.util import json_loads
 
 from app import app, cache
@@ -16,11 +17,11 @@ CACHE_TIME = datetime.timedelta(minutes=15)
 
 @app.get('/render')
 @cache.cached(timeout=CACHE_TIME.total_seconds(), query_string=True,
-              response_filter=common.not_5xx)
+              response_filter=flask_util.not_5xx)
 def render():
     """Fetches a stored Response and renders it as HTML."""
-    source = common.get_required_param('source')
-    target = common.get_required_param('target')
+    source = flask_util.get_required_param('source')
+    target = flask_util.get_required_param('target')
 
     id = f'{source} {target}'
     resp = Response.get_by_id(id)
