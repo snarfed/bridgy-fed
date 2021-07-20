@@ -285,6 +285,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = ValueError('foo bar')
         got = client.post('/webmention', data={'source': 'bad'})
         self.assertEqual(400, got.status_code)
+        self.assertEqual(0, Response.query().count())
 
     def test_no_source_entry(self, mock_get, mock_post):
         mock_get.return_value = requests_response("""
@@ -299,6 +300,7 @@ class WebmentionTest(testutil.TestCase):
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(400, got.status_code)
+        self.assertEqual(0, Response.query().count())
 
         mock_get.assert_has_calls((self.req('http://a/post'),))
 
@@ -315,6 +317,7 @@ class WebmentionTest(testutil.TestCase):
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
+        self.assertEqual(0, Response.query().count())
 
         mock_get.assert_has_calls((self.req('http://a/post'),))
 
@@ -326,6 +329,7 @@ class WebmentionTest(testutil.TestCase):
 
         got = client.post('/webmention', data={'source': 'http://a/post'})
         self.assertEqual(400, got.status_code)
+        self.assertEqual(0, Response.query().count())
 
     def test_source_fetch_fails(self, mock_get, mock_post):
         mock_get.side_effect = (
@@ -343,6 +347,7 @@ class WebmentionTest(testutil.TestCase):
         )
         got = client.post('/webmention', data={'source': 'http://a/post'})
         self.assertEqual(502, got.status_code)
+        self.assertEqual(0, Response.query().count())
 
     def test_no_backlink(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
@@ -354,6 +359,7 @@ class WebmentionTest(testutil.TestCase):
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(400, got.status_code)
+        self.assertEqual(0, Response.query().count())
 
         mock_get.assert_has_calls((self.req('http://a/post'),))
 
@@ -851,8 +857,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(400, got.status_code)
         self.assertIn('Target post http://orig/url has no Atom link',
                       got.get_data(as_text=True))
-
-        self.assertIsNone(Response.get_by_id('http://a/reply http://orig/post'))
+        self.assertEqual(0, Response.query().count())
 
     def test_salmon_relative_atom_href(self, mock_get, mock_post):
         orig_relative = requests_response("""\

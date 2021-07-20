@@ -115,7 +115,7 @@ class Webmention(View):
 
         # Pass the AP response status code and body through as our response
         if last_success:
-            return last_success.text, last_success.status_code
+            return last_success.text or 'Sent!', last_success.status_code
         elif isinstance(error, (requests.HTTPError, exc.HTTPBadGateway)):
             return str(error), error.status_code
         else:
@@ -228,35 +228,34 @@ class Webmention(View):
             logging.warning("No targets or followers. Ignoring.")
             return
 
-        resp = Response.get_or_create(
-            source=self.source_url, target=target, direction='out',
-            source_mf2=json_dumps(self.source_mf2))
-        resp.protocol = 'ostatus'
-
+        status = None
         try:
-            ret = self._try_salmon(resp)
-            resp.status = 'complete'
+            ret = self._try_salmon(target)
+            if isinstance(ret, str):
+                status = 'complete'
             return ret
         except:
-            resp.status = 'error'
+            status = 'error'
             raise
         finally:
-            resp.put()
+            if status:
+                Response(source=self.source_url, target=target, status=status,
+                         direction='out', protocol = 'ostatus',
+                         source_mf2=json_dumps(self.source_mf2)).put()
 
-    def _try_salmon(self, resp):
+    def _try_salmon(self, target):
         """
         Args:
-          resp: Response
+          target: string
         """
         # fetch target HTML page, extract Atom rel-alternate link
-        target = resp.target()
         if not self.target_resp:
             self.target_resp = common.requests_get(target)
 
         parsed = util.parse_html(self.target_resp)
         atom_url = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
         if not atom_url or not atom_url.get('href'):
-            return error(f'Target post {resp.target()} has no Atom link')
+            return error(f'Target post {target} has no Atom link')
 
         # fetch Atom target post, extract and inject id into source object
         base_url = ''
@@ -265,7 +264,7 @@ class Webmention(View):
             base_url = base['href']
         atom_link = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
         atom_url = urllib.parse.urljoin(
-            resp.target(), urllib.parse.urljoin(base_url, atom_link['href']))
+            target, urllib.parse.urljoin(base_url, atom_link['href']))
 
         feed = common.requests_get(atom_url).text
         parsed = feedparser.parse(feed)
@@ -297,7 +296,7 @@ class Webmention(View):
 
         if not endpoint:
             # try webfinger
-            parsed = urllib.parse.urlparse(resp.target())
+            parsed = urllib.parse.urlparse(target)
             # TODO: test missing email
             author = entry.get('author_detail', {})
             email = author.get('email') or '@'.join(
@@ -316,7 +315,6 @@ class Webmention(View):
         logging.info(f'Discovered Salmon endpoint {endpoint}')
 
         # construct reply Atom object
-        self.source_url = resp.source()
         activity = self.source_obj
         if self.source_obj.get('verb') not in source.VERBS_WITH_OBJECT:
             activity = {'object': self.source_obj}
@@ -335,7 +333,7 @@ class Webmention(View):
             endpoint, data=common.XML_UTF8 + magic_envelope,
             headers={'Content-Type': common.CONTENT_TYPE_MAGIC_ENVELOPE})
 
-        return ''
+        return 'Sent!'
 
 
 app.add_url_rule('/webmention', view_func=Webmention.as_view('webmention'),
