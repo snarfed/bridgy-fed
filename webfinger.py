@@ -2,8 +2,6 @@
 
 https://webfinger.net/
 https://tools.ietf.org/html/rfc7033
-
-Largely based on webfinger-unofficial/user.py.
 """
 import datetime
 import logging
@@ -11,7 +9,6 @@ import re
 import urllib.parse
 
 from flask import render_template, request
-from flask.views import View
 from granary.microformats2 import get_text
 import mf2util
 from oauth_dropins.webutil import flask_util, handlers, util

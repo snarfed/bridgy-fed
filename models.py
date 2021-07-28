@@ -1,7 +1,4 @@
-"""Datastore model classes.
-
-Based on webfinger-unofficial/user.py.
-"""
+"""Datastore model classes."""
 import logging
 import urllib.parse
 

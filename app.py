@@ -10,7 +10,6 @@ from oauth_dropins.webutil import (
     handlers,
     util,
 )
-from werkzeug.exceptions import HTTPException
 
 import common
 
@@ -24,35 +23,13 @@ app.config.from_mapping(
     JSONIFY_PRETTYPRINT_REGULAR=True,
 )
 app.url_map.converters['regex'] = flask_util.RegexConverter
+app.after_request(flask_util.default_modern_headers)
+app.register_error_handler(Exception, flask_util.handle_exception)
+
 app.wsgi_app = handlers.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client)
 
 cache = Cache(app)
-
-@app.errorhandler(Exception)
-def handle_exception(e):
-    """A Flask error handler that propagates HTTP exceptions into the response."""
-    code, body = util.interpret_http_exception(e)
-    if code:
-        return ((f'Upstream server request failed: {e}' if code in ('502', '504')
-                 else f'HTTP Error {code}: {body}'),
-                int(code))
-
-    logging.error(f'{e.__class__}: {e}')
-    if isinstance(e, HTTPException):
-        return e
-    else:
-        raise e
-
-
-# Add modern headers, but let the response override them
-def default_modern_headers(resp):
-    for name, value in flask_util.MODERN_HEADERS.items():
-        resp.headers.setdefault(name, value)
-
-    return resp
-
-app.after_request(default_modern_headers)
 
 
 import activitypub, add_webmention, logs, redirect, render, salmon, superfeedr, webfinger, webmention
