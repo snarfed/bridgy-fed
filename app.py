@@ -26,6 +26,9 @@ app.url_map.converters['regex'] = flask_util.RegexConverter
 app.after_request(flask_util.default_modern_headers)
 app.register_error_handler(Exception, flask_util.handle_exception)
 
+# don't redirect API requests with blank path elements
+app.url_map.redirect_defaults = True
+
 app.wsgi_app = handlers.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client)
 
