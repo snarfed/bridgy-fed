@@ -5,6 +5,7 @@ to test:
 * user URL that redirects
 * error handling
 """
+import html
 from unittest import mock
 import urllib.parse
 
@@ -179,7 +180,8 @@ class WebfingerTest(testutil.TestCase):
     def test_user_handler_bad_tld(self):
         got = client.get('/acct:foo.json')
         self.assertEqual(404, got.status_code)
-        self.assertIn("doesn't look like a domain", got.get_data(as_text=True))
+        self.assertIn("doesn't look like a domain",
+                      html.unescape(got.get_data(as_text=True)))
 
     @mock.patch('requests.get')
     def test_webfinger_handler(self, mock_get):

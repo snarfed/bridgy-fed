@@ -23,8 +23,6 @@ HEADERS = {
     'User-Agent': 'Bridgy Fed (https://fed.brid.gy/)',
 }
 XML_UTF8 = "<?xml version='1.0' encoding='UTF-8'?>\n"
-# USERNAME = 'me'
-# USERNAME_EMOJI = '🌎'  # globe
 LINK_HEADER_RE = re.compile(r""" *< *([^ >]+) *> *; *rel=['"]([^'"]+)['"] *""")
 AS2_PUBLIC_AUDIENCE = 'https://www.w3.org/ns/activitystreams#Public'
 
@@ -147,13 +145,6 @@ def content_type(resp):
         return type.split(';')[0]
 
 
-def error(msg, status=None, exc_info=False):
-    if not status:
-        status = 400
-    logging.info('Returning %s: %s' % (status, msg), exc_info=exc_info)
-    return (msg, status)
-
-
 def send_webmentions(activity_wrapped, proxy=None, **response_props):
     """Sends webmentions for an incoming Salmon slap or ActivityPub inbox delivery.
     Args:
@@ -164,7 +155,7 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
 
     verb = activity.get('verb')
     if verb and verb not in SUPPORTED_VERBS:
-        return error('%s activities are not supported yet.' % verb)
+        error('%s activities are not supported yet.' % verb)
 
     # extract source and targets
     source = activity.get('url') or activity.get('id')
@@ -192,9 +183,9 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
 
     targets = util.dedupe_urls(util.get_url(t) for t in targets)
     if not source:
-        return error("Couldn't find original post URL")
+        error("Couldn't find original post URL")
     if not targets:
-        return error("Couldn't find any target URLs in inReplyTo, object, or mention tags")
+        error("Couldn't find any target URLs in inReplyTo, object, or mention tags")
 
     # send webmentions and store Responses
     errors = []
@@ -226,7 +217,7 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
 
     if errors:
         msg = 'Errors:\n' + '\n'.join(str(e) for e in errors)
-        return error(msg, status=getattr(errors[0], 'http_status', None))
+        error(msg, status=getattr(errors[0], 'http_status', None))
 
 
 def postprocess_as2(activity, target=None, key=None):

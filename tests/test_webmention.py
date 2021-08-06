@@ -857,7 +857,11 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(400, got.status_code)
         self.assertIn('Target post http://orig/url has no Atom link',
                       got.get_data(as_text=True))
-        self.assertEqual(0, Response.query().count())
+
+        resp = Response.get_by_id('http://a/reply http://orig/url')
+        self.assertEqual('out', resp.direction)
+        self.assertEqual('ostatus', resp.protocol)
+        self.assertEqual('error', resp.status)
 
     def test_salmon_relative_atom_href(self, mock_get, mock_post):
         orig_relative = requests_response("""\

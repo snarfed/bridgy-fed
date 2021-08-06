@@ -5,11 +5,11 @@ import datetime
 from flask import request
 from granary import as2, atom, microformats2
 from oauth_dropins.webutil import flask_util
+from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_loads
 
 from app import app, cache
 import common
-from common import error
 from models import Response
 
 CACHE_TIME = datetime.timedelta(minutes=15)
@@ -26,7 +26,7 @@ def render():
     id = f'{source} {target}'
     resp = Response.get_by_id(id)
     if not resp:
-        return error(f'No stored response for {id}', status=404)
+        error(f'No stored response for {id}', status=404)
 
     if resp.source_mf2:
         as1 = microformats2.json_to_object(json_loads(resp.source_mf2))
@@ -35,7 +35,7 @@ def render():
     elif resp.source_atom:
         as1 = atom.atom_to_activity(resp.source_atom)
     else:
-        return error(f'Stored response for {id} has no data', status=404)
+        error(f'Stored response for {id} has no data', status=404)
 
     # add HTML meta redirect to source page. should trigger for end users in
     # browsers but not for webmention receivers (hopefully).

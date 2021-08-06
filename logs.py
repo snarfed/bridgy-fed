@@ -15,9 +15,9 @@ import humanize
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.appengine_info import APP_ID
 import webapp2
+from oauth_dropins.webutil.flask_util import error
 
 from app import app, cache
-from common import error
 from models import Response
 
 LEVELS = {

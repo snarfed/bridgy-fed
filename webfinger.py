@@ -12,12 +12,12 @@ from flask import render_template, request
 from granary.microformats2 import get_text
 import mf2util
 from oauth_dropins.webutil import flask_util, handlers, util
+from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps
 import webapp2
 
 from app import app, cache
 import common
-from common import error
 import models
 
 CACHE_TIME = datetime.timedelta(seconds=15)
@@ -38,7 +38,7 @@ class User(flask_util.XrdOrJrd):
         logging.debug(f'Headers: {list(request.headers.items())}')
 
         if domain.split('.')[-1] in NON_TLDS:
-            return error(f"{domain} doesn't look like a domain", status=404)
+            error(f"{domain} doesn't look like a domain", status=404)
 
         # find representative h-card. try url, then url's home page, then domain
         urls = [f'http://{domain}/']
@@ -55,7 +55,7 @@ class User(flask_util.XrdOrJrd):
                 logging.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')
                 break
         else:
-            return error(f"didn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {resp.url}")
+            error(f"didn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {resp.url}")
 
         logging.info(f'Generating WebFinger data for {domain}')
         key = models.MagicKey.get_or_create(domain)

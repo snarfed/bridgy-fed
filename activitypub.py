@@ -11,13 +11,14 @@ from google.cloud import ndb
 from granary import as2, microformats2
 import mf2util
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.handlers import cache_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import webapp2
 
 from app import app, cache
 import common
-from common import error, redirect_unwrap, redirect_wrap
+from common import redirect_unwrap, redirect_wrap
 from models import Follower, MagicKey
 from httpsig.requests_auth import HTTPSignatureAuth
 
@@ -85,7 +86,7 @@ def actor(domain):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
     tld = domain.split('.')[-1]
     if tld in common.TLD_BLOCKLIST:
-        return error('', status=404)
+        error('', status=404)
 
     mf2 = util.fetch_mf2('http://%s/' % domain, gateway=True,
                          headers=common.HEADERS)
@@ -94,7 +95,7 @@ def actor(domain):
     hcard = mf2util.representative_hcard(mf2, mf2['url'])
     logging.info('Representative h-card: %s', json_dumps(hcard, indent=2))
     if not hcard:
-        return error("""\
+        error("""\
 Coul find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on %s""" % mf2['url'])
 
     key = MagicKey.get_or_create(domain)
@@ -125,7 +126,7 @@ def inbox(domain):
         activity = request.json
         assert activity
     except (TypeError, ValueError, AssertionError):
-        return error("Couldn't parse body as JSON", exc_info=True)
+        error("Couldn't parse body as JSON", exc_info=True)
 
     obj = activity.get('object') or {}
     if isinstance(obj, str):
@@ -137,7 +138,7 @@ def inbox(domain):
     if type == 'Create':
         type = obj.get('type')
     elif type not in SUPPORTED_TYPES:
-        return error('Sorry, %s activities are not supported yet.' % type,
+        error('Sorry, %s activities are not supported yet.' % type,
                      status=501)
 
     # TODO: verify signature if there is one
@@ -196,12 +197,12 @@ def accept_follow(follow, follow_unwrapped):
     followee_unwrapped = follow_unwrapped.get('object')
     follower = follow.get('actor')
     if not followee or not followee_unwrapped or not follower:
-        return error('Follow activity requires object and actor. Got: %s' % follow)
+        error('Follow activity requires object and actor. Got: %s' % follow)
 
     inbox = follower.get('inbox')
     follower_id = follower.get('id')
     if not inbox or not follower_id:
-        return error('Follow actor requires id and inbox. Got: %s', follower)
+        error('Follow actor requires id and inbox. Got: %s', follower)
 
     # store Follower
     user_domain = util.domain_from_link(followee_unwrapped)
@@ -242,7 +243,7 @@ def undo_follow(undo_unwrapped):
     follower = follow.get('actor')
     followee = follow.get('object')
     if not follower or not followee:
-        return error('Undo of Follow requires object with actor and object. Got: %s' % follow)
+        error('Undo of Follow requires object with actor and object. Got: %s' % follow)
 
     # deactivate Follower
     user_domain = util.domain_from_link(followee)

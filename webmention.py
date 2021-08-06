@@ -17,6 +17,7 @@ from google.cloud.ndb import Key
 from granary import as2, atom, microformats2, source
 import mf2util
 from oauth_dropins.webutil import flask_util, util
+from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 import webapp2
@@ -25,7 +26,6 @@ from webob import exc
 import activitypub
 from app import app
 import common
-from common import error
 from models import Follower, MagicKey, Response
 
 SKIP_EMAIL_DOMAINS = frozenset(('localhost', 'snarfed.org'))
@@ -55,12 +55,12 @@ class Webmention(View):
         # source's intent to federate to mastodon)
         if (request.host_url not in source_resp.text and
             urllib.parse.quote(request.host_url, safe='') not in source_resp.text):
-            return error("Couldn't find link to {request.host_url}")
+            error("Couldn't find link to {request.host_url}")
 
         # convert source page to ActivityStreams
         entry = mf2util.find_first_entry(self.source_mf2, ['h-entry'])
         if not entry:
-            return error('No microformats2 found on {self.source_url}')
+            error('No microformats2 found on {self.source_url}')
 
         logging.info(f'First entry: {json_dumps(entry, indent=2)}')
         # make sure it has url, since we use that for AS2 id, which is required
@@ -191,9 +191,9 @@ class Webmention(View):
                   inbox_url = actor.get('inbox')
                   actor = actor.get('url') or actor.get('id')
               if not inbox_url and not actor:
-                  return error('Target object has no actor or attributedTo with URL or id.')
+                  error('Target object has no actor or attributedTo with URL or id.')
               elif not isinstance(actor, str):
-                  return error(f'Target actor or attributedTo has unexpected url or id object: {actor}')
+                  error(f'Target actor or attributedTo has unexpected url or id object: {actor}')
 
           if not inbox_url:
               # fetch actor as AS object
@@ -203,7 +203,7 @@ class Webmention(View):
           if not inbox_url:
               # TODO: probably need a way to save errors like this so that we can
               # return them if ostatus fails too.
-              # return error('Target actor has no inbox')
+              # error('Target actor has no inbox')
               continue
 
           inbox_url = urllib.parse.urljoin(target_url, inbox_url)
@@ -255,7 +255,7 @@ class Webmention(View):
         parsed = util.parse_html(self.target_resp)
         atom_url = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
         if not atom_url or not atom_url.get('href'):
-            return error(f'Target post {target} has no Atom link')
+            error(f'Target post {target} has no Atom link')
 
         # fetch Atom target post, extract and inject id into source object
         base_url = ''
@@ -311,7 +311,7 @@ class Webmention(View):
                 pass
 
         if not endpoint:
-            return error('No salmon endpoint found!')
+            error('No salmon endpoint found!')
         logging.info(f'Discovered Salmon endpoint {endpoint}')
 
         # construct reply Atom object

@@ -17,12 +17,12 @@ from flask import redirect, request
 from granary import as2, microformats2
 import mf2util
 from oauth_dropins.webutil import flask_util, util
+from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps
 from werkzeug.exceptions import abort
 
 from app import app, cache
 import common
-from common import error
 from models import MagicKey
 
 CACHE_TIME = datetime.timedelta(seconds=15)
@@ -43,7 +43,7 @@ def redir(to):
     to = re.sub(r'^(https?:/)([^/])', r'\1/\2', to)
 
     if not to.startswith('http://') and not to.startswith('https://'):
-        return error(f'Expected fully qualified URL; got {to}')
+        error(f'Expected fully qualified URL; got {to}')
 
     # check that we've seen this domain before so we're not an open redirect
     domains = set((util.domain_from_link(to),
