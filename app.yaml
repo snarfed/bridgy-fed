@@ -21,22 +21,12 @@ automatic_scaling:
 handlers:
 
 # static
-- url: /(static/bootstrap.*\.css)
-  static_files: oauth_dropins/\1
-  upload: oauth_dropins/static/bootstrap.*\.css
-  secure: always
-
 - url: /static
   static_dir: static
   secure: always
 
-- url: /oauth_dropins/static
-  static_dir: oauth_dropins/static
-  secure: always
-
-- url: /.well-known/acme-challenge
-  static_dir: .well-known/acme-challenge
-  secure: always
+- url: /oauth_dropins_static
+  static_dir: oauth_dropins_static
 
 - url: /
   static_files: static/index.html
