@@ -340,10 +340,14 @@ class WebmentionTest(testutil.TestCase):
         got = client.post('/webmention', data={'source': 'http://a/post'})
         self.assertEqual(502, got.status_code)
 
-    def test_source_fetch_has_no_content_type(self, mock_get, mock_post):
+    def test_target_fetch_has_no_content_type(self, mock_get, mock_post):
+        html = self.reply_html.replace(
+            '</body>',
+            "<link href='http://as2' rel='alternate' type='application/activity+json'></body")
         mock_get.side_effect = (
             requests_response(self.reply_html),
-            requests_response(self.reply_html, content_type='None')
+            # http://not/fediverse
+            requests_response(self.reply_html, content_type='None'),
         )
         got = client.post('/webmention', data={'source': 'http://a/post'})
         self.assertEqual(502, got.status_code)
@@ -709,7 +713,7 @@ class WebmentionTest(testutil.TestCase):
         })
         body = got.get_data(as_text=True)
         self.assertEqual(502, got.status_code, body)
-        self.assertEqual(
+        self.assertIn(
             '405 Client Error: None for url: https://foo.com/inbox ; abc xyz',
             body)
 

@@ -12,9 +12,7 @@ from granary import as2, microformats2
 import mf2util
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.flask_util import error
-from oauth_dropins.webutil.handlers import cache_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
-import webapp2
 
 from app import app, cache
 import common

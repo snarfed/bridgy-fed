@@ -7,7 +7,7 @@ from unittest import mock
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 import requests
-from webob import exc
+from werkzeug.exceptions import BadGateway
 
 from app import app
 import common
@@ -50,17 +50,17 @@ class CommonTest(testutil.TestCase):
 
     @mock.patch('requests.get', return_value=HTML)
     def test_get_as2_only_html(self, mock_get):
-        with self.assertRaises(exc.HTTPBadGateway):
+        with self.assertRaises(BadGateway):
             resp = common.get_as2('http://orig')
 
     @mock.patch('requests.get', return_value=NOT_ACCEPTABLE)
     def test_get_as2_not_acceptable(self, mock_get):
-        with self.assertRaises(exc.HTTPBadGateway):
+        with self.assertRaises(BadGateway):
             resp = common.get_as2('http://orig')
 
     @mock.patch('requests.get', side_effect=requests.exceptions.SSLError)
     def test_get_ssl_error(self, mock_get):
-        with self.assertRaises(exc.HTTPBadGateway):
+        with self.assertRaises(BadGateway):
             resp = common.get_as2('http://orig')
 
     def test_redirect_wrap_empty(self):

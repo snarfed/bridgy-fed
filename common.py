@@ -10,8 +10,9 @@ import urllib.parse
 from flask import request
 from granary import as2
 from oauth_dropins.webutil import util, webmention
+from oauth_dropins.webutil.flask_util import error
 import requests
-from webob import exc
+from werkzeug.exceptions import BadGateway
 
 from models import Response
 
@@ -108,15 +109,15 @@ def get_as2(url):
         :class:`requests.Response`
 
     Raises:
-        :class:`requests.HTTPError`, :class:`webob.exc.HTTPException`
+        :class:`requests.HTTPError`, :class:`werkzeug.exceptions.HTTPException`
 
-        If we raise webob HTTPException, it will have an additional response
-        attribute with the last requests.Response we received.
+        If we raise a werkzeug HTTPException, it will have an additional
+        response attribute with the last requests.Response we received.
     """
     def _error(resp):
         msg = "Couldn't fetch %s as ActivityStreams 2" % url
         logging.warning(msg)
-        err = exc.HTTPBadGateway(msg)
+        err = BadGateway(msg)
         err.response = resp
         raise err
 
@@ -155,7 +156,7 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
 
     verb = activity.get('verb')
     if verb and verb not in SUPPORTED_VERBS:
-        error('%s activities are not supported yet.' % verb)
+        error(f'{verb} activities are not supported yet.')
 
     # extract source and targets
     source = activity.get('url') or activity.get('id')

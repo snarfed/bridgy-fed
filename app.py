@@ -7,7 +7,6 @@ from oauth_dropins.webutil import (
     appengine_info,
     appengine_config,
     flask_util,
-    handlers,
     util,
 )
 
@@ -29,7 +28,7 @@ app.register_error_handler(Exception, flask_util.handle_exception)
 # don't redirect API requests with blank path elements
 app.url_map.redirect_defaults = True
 
-app.wsgi_app = handlers.ndb_context_middleware(
+app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client)
 
 cache = Cache(app)

@@ -20,8 +20,7 @@ from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
-import webapp2
-from webob import exc
+from werkzeug.exceptions import BadGateway
 
 import activitypub
 from app import app
@@ -116,7 +115,9 @@ class Webmention(View):
         # Pass the AP response status code and body through as our response
         if last_success:
             return last_success.text or 'Sent!', last_success.status_code
-        elif isinstance(error, (requests.HTTPError, exc.HTTPBadGateway)):
+        elif isinstance(error, BadGateway):
+            raise error
+        elif isinstance(error, requests.HTTPError):
             return str(error), error.status_code
         else:
             return str(error)
@@ -164,7 +165,7 @@ class Webmention(View):
           # fetch target page as AS2 object
           try:
               self.target_resp = common.get_as2(target)
-          except (requests.HTTPError, exc.HTTPBadGateway) as e:
+          except (requests.HTTPError, BadGateway) as e:
               self.target_resp = getattr(e, 'response', None)
               if self.target_resp and self.target_resp.status_code // 100 == 2:
                   content_type = common.content_type(self.target_resp) or ''
