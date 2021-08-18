@@ -90,7 +90,7 @@ def _requests_fn(fn, url, parse_json=False, **kwargs):
         except ValueError:
             msg = "Couldn't parse response as JSON"
             logging.info(msg, exc_info=True)
-            raise exc.HTTPBadGateway(msg)
+            raise BadGateway(msg)
 
     return resp
 
@@ -112,13 +112,13 @@ def get_as2(url):
         :class:`requests.HTTPError`, :class:`werkzeug.exceptions.HTTPException`
 
         If we raise a werkzeug HTTPException, it will have an additional
-        response attribute with the last requests.Response we received.
+        requests_response attribute with the last requests.Response we received.
     """
     def _error(resp):
         msg = "Couldn't fetch %s as ActivityStreams 2" % url
         logging.warning(msg)
         err = BadGateway(msg)
-        err.response = resp
+        err.requests_response = resp
         raise err
 
     resp = requests_get(url, headers=CONNEG_HEADERS_AS2_HTML)

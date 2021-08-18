@@ -166,11 +166,11 @@ class Webmention(View):
           try:
               self.target_resp = common.get_as2(target)
           except (requests.HTTPError, BadGateway) as e:
-              self.target_resp = getattr(e, 'response', None)
+              self.target_resp = getattr(e, 'requests_response', None)
               if self.target_resp and self.target_resp.status_code // 100 == 2:
                   content_type = common.content_type(self.target_resp) or ''
                   if content_type.startswith('text/html'):
-                      # TODO: pass e.response to try_salmon()'s target_resp
+                      # TODO: pass e.requests_response to try_salmon's target_resp
                       continue  # give up
               raise
           target_url = self.target_resp.url or target
