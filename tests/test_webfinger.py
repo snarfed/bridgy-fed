@@ -14,20 +14,15 @@ from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_loads
 import requests
 
-from app import app, cache
 import common
 import models
 from . import testutil
-
-client = app.test_client()
 
 
 class WebfingerTest(testutil.TestCase):
 
     def setUp(self):
-        super(WebfingerTest, self).setUp()
-        app.testing = True
-        cache.clear()
+        super().setUp()
 
         self.html = """
 <body class="h-card">
@@ -85,7 +80,7 @@ class WebfingerTest(testutil.TestCase):
         }
 
     def test_host_meta_handler_xrd(self):
-        got = client.get('/.well-known/host-meta')
+        got = self.client.get('/.well-known/host-meta')
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/xrd+xml; charset=utf-8',
                           got.headers['Content-Type'])
@@ -93,14 +88,14 @@ class WebfingerTest(testutil.TestCase):
         self.assertTrue(body.startswith('<?xml'), body)
 
     def test_host_meta_handler_xrds(self):
-        got = client.get('/.well-known/host-meta.xrds')
+        got = self.client.get('/.well-known/host-meta.xrds')
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/xrds+xml', got.headers['Content-Type'])
         body = got.get_data(as_text=True)
         self.assertTrue(body.startswith('<XRDS'), body)
 
     def test_host_meta_handler_jrd(self):
-        got = client.get('/.well-known/host-meta.json')
+        got = self.client.get('/.well-known/host-meta.json')
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
         body = got.get_data(as_text=True)
@@ -110,7 +105,7 @@ class WebfingerTest(testutil.TestCase):
     def test_user_handler(self, mock_get):
         mock_get.return_value = requests_response(self.html, url='https://foo.com/')
 
-        got = client.get('/acct:foo.com', headers={'Accept': 'application/json'})
+        got = self.client.get('/acct:foo.com', headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
@@ -119,7 +114,7 @@ class WebfingerTest(testutil.TestCase):
         self.assertEqual(self.expected_webfinger, got.json)
 
         # check that magic key is persistent
-        again = client.get('/acct:foo.com',
+        again = self.client.get('/acct:foo.com',
                            headers={'Accept': 'application/json'}).json
         self.assertEqual(self.key.href(), again['magic_keys'][0]['value'])
 
@@ -138,7 +133,7 @@ class WebfingerTest(testutil.TestCase):
 """ + self.html
         mock_get.return_value = requests_response(html, url = 'https://foo.com/')
 
-        got = client.get('/acct:foo.com', headers={'Accept': 'application/json'})
+        got = self.client.get('/acct:foo.com', headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code)
         self.assertIn({
             'rel': 'http://schemas.google.com/g/2010#updates-from',
@@ -155,7 +150,7 @@ class WebfingerTest(testutil.TestCase):
                         '<http://a.custom.hub/>; rel="hub"',
             })
 
-        got = client.get('/acct:foo.com', headers={'Accept': 'application/json'})
+        got = self.client.get('/acct:foo.com', headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code)
         self.assertIn({
             'rel': 'hub',
@@ -171,14 +166,14 @@ class WebfingerTest(testutil.TestCase):
 </div>
 </body>
 """)
-        got = client.get('/acct:foo.com')
+        got = self.client.get('/acct:foo.com')
         mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
                                          stream=True, timeout=util.HTTP_TIMEOUT)
         self.assertEqual(400, got.status_code)
         self.assertIn('representative h-card', got.get_data(as_text=True))
 
     def test_user_handler_bad_tld(self):
-        got = client.get('/acct:foo.json')
+        got = self.client.get('/acct:foo.json')
         self.assertEqual(404, got.status_code)
         self.assertIn("doesn't look like a domain",
                       html.unescape(got.get_data(as_text=True)))
@@ -191,7 +186,7 @@ class WebfingerTest(testutil.TestCase):
                          'foo.com', 'http://foo.com/', 'https://foo.com/'):
             url = '/.well-known/webfinger?%s' % urllib.parse.urlencode(
                 {'resource': resource})
-            got = client.get(url, headers={'Accept': 'application/json'})
+            got = self.client.get(url, headers={'Accept': 'application/json'})
             self.assertEqual(200, got.status_code, got.get_data(as_text=True))
             self.assertEqual('application/jrd+json', got.headers['Content-Type'])
             self.assertEqual(self.expected_webfinger, got.json)
@@ -234,7 +229,7 @@ class WebfingerTest(testutil.TestCase):
         ):
             url = '/.well-known/webfinger?%s' % urllib.parse.urlencode(
                 {'resource': resource})
-            got = client.get(url, headers={'Accept': 'application/json'})
+            got = self.client.get(url, headers={'Accept': 'application/json'})
             self.assertEqual(200, got.status_code, got.get_data(as_text=True))
             self.assertEqual('application/jrd+json', got.headers['Content-Type'])
             self.assertEqual(self.expected_webfinger, got.json)

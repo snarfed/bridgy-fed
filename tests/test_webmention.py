@@ -17,7 +17,6 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 import activitypub
-from app import app
 from common import (
     AS2_PUBLIC_AUDIENCE,
     CONNEG_HEADERS_AS2,
@@ -64,16 +63,13 @@ REPOST_AS2 = {
     },
 }
 
-client = app.test_client()
-
 
 @mock.patch('requests.post')
 @mock.patch('requests.get')
 class WebmentionTest(testutil.TestCase):
     def setUp(self):
-        super(WebmentionTest, self).setUp()
+        super().setUp()
         self.key = MagicKey.get_or_create('a')
-        app.testing = True
 
         self.orig_html_as2 = requests_response("""\
 <html>
@@ -279,11 +275,11 @@ class WebmentionTest(testutil.TestCase):
         return env['data']
 
     def test_bad_source_url(self, mock_get, mock_post):
-        got = client.post('/webmention', data=b'')
+        got = self.client.post('/webmention', data=b'')
         self.assertEqual(400, got.status_code)
 
         mock_get.side_effect = ValueError('foo bar')
-        got = client.post('/webmention', data={'source': 'bad'})
+        got = self.client.post('/webmention', data={'source': 'bad'})
         self.assertEqual(400, got.status_code)
         self.assertEqual(0, Response.query().count())
 
@@ -295,7 +291,7 @@ class WebmentionTest(testutil.TestCase):
 </body>
 </html>""", content_type=CONTENT_TYPE_HTML)
 
-        got = client.post( '/webmention', data={
+        got = self.client.post( '/webmention', data={
             'source': 'http://a/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -312,7 +308,7 @@ class WebmentionTest(testutil.TestCase):
 </body>
 </html>""", content_type=CONTENT_TYPE_HTML)
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -327,7 +323,7 @@ class WebmentionTest(testutil.TestCase):
                               content_type=CONTENT_TYPE_HTML),
             ValueError('foo bar'))
 
-        got = client.post('/webmention', data={'source': 'http://a/post'})
+        got = self.client.post('/webmention', data={'source': 'http://a/post'})
         self.assertEqual(400, got.status_code)
         self.assertEqual(0, Response.query().count())
 
@@ -337,7 +333,7 @@ class WebmentionTest(testutil.TestCase):
                               content_type=CONTENT_TYPE_HTML),
             requests.Timeout('foo bar'))
 
-        got = client.post('/webmention', data={'source': 'http://a/post'})
+        got = self.client.post('/webmention', data={'source': 'http://a/post'})
         self.assertEqual(502, got.status_code)
 
     def test_target_fetch_has_no_content_type(self, mock_get, mock_post):
@@ -349,7 +345,7 @@ class WebmentionTest(testutil.TestCase):
             # http://not/fediverse
             requests_response(self.reply_html, content_type='None'),
         )
-        got = client.post('/webmention', data={'source': 'http://a/post'})
+        got = self.client.post('/webmention', data={'source': 'http://a/post'})
         self.assertEqual(502, got.status_code)
         self.assertEqual(0, Response.query().count())
 
@@ -358,7 +354,7 @@ class WebmentionTest(testutil.TestCase):
             self.reply_html.replace('<a href="http://localhost/"></a>', ''),
                                     content_type=CONTENT_TYPE_HTML)
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -371,7 +367,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz', status=203)
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -412,7 +408,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz')
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -439,7 +435,7 @@ class WebmentionTest(testutil.TestCase):
                                 self.actor]
         mock_post.return_value = requests_response('abc xyz', status=203)
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -462,7 +458,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz')
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -476,7 +472,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.repost, self.orig_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/repost',
             'target': 'https://fed.brid.gy/',
         })
@@ -509,7 +505,7 @@ class WebmentionTest(testutil.TestCase):
                                 self.orig_html_as2, self.orig_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -541,7 +537,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [missing_url, self.orig_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz', status=203)
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/repost',
             'target': 'https://fed.brid.gy/',
         })
@@ -576,7 +572,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [repost, author, self.orig_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz', status=201)
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/repost',
             'target': 'https://fed.brid.gy/',
         })
@@ -621,7 +617,7 @@ class WebmentionTest(testutil.TestCase):
                                    'inbox': 'https://inbox',
                                }}))
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://orig/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -657,7 +653,7 @@ class WebmentionTest(testutil.TestCase):
             'orig', 'https://mastodon/aaa',
             last_follow=json_dumps({'actor': {'inbox': 'https://inbox'}}))
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://orig/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -675,7 +671,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.follow, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/follow',
             'target': 'https://fed.brid.gy/',
         })
@@ -707,7 +703,7 @@ class WebmentionTest(testutil.TestCase):
         mock_post.return_value = requests_response(
             'abc xyz', status=405, url='https://foo.com/inbox')
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/follow',
             'target': 'https://fed.brid.gy/',
         })
@@ -742,7 +738,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.reply, self.not_fediverse,
                                 self.orig_html_atom, self.orig_atom]
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/reply',
             'target': 'http://orig/post',
         })
@@ -785,7 +781,7 @@ class WebmentionTest(testutil.TestCase):
     def test_salmon_like(self, mock_get, mock_post):
         mock_get.side_effect = [self.like, self.orig_html_atom, self.orig_atom]
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/like',
             'target': 'http://orig/post',
         })
@@ -836,7 +832,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.reply, self.not_fediverse,
                                 self.orig_html_atom, orig_atom, webfinger]
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/reply',
             'target': 'http://orig/post',
         })
@@ -854,7 +850,7 @@ class WebmentionTest(testutil.TestCase):
 </html>""", 'http://orig/url')
         mock_get.side_effect = [self.reply, self.not_fediverse, orig_no_atom]
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/reply',
             'target': 'http://orig/post',
         })
@@ -877,7 +873,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.reply, self.not_fediverse, orig_relative,
                                 self.orig_atom]
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/reply',
             'target': 'http://orig/post',
         })
@@ -898,7 +894,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.reply, self.not_fediverse, orig_base,
                                 self.orig_atom]
 
-        got = client.post('/webmention', data={
+        got = self.client.post('/webmention', data={
             'source': 'http://a/reply',
             'target': 'http://orig/post',
         })

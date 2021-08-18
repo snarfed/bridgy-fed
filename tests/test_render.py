@@ -2,20 +2,15 @@
 """Unit tests for render.py."""
 from oauth_dropins.webutil.util import json_dumps
 
-from app import app, cache
 from models import Response
 import render
 from . import testutil
-
-client = app.test_client()
 
 
 class RenderTest(testutil.TestCase):
 
     def setUp(self):
-        super(RenderTest, self).setUp()
-        app.testing = True
-        cache.clear()
+        super().setUp()
         self.as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Note',
@@ -63,35 +58,35 @@ class RenderTest(testutil.TestCase):
 
     def test_render_errors(self):
         for source, target in ('', ''), ('abc', ''), ('', 'xyz'):
-            resp = client.get(f'/render?source={source}&target={target}')
+            resp = self.client.get(f'/render?source={source}&target={target}')
             self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
 
         # no Response
-        resp = client.get('/render?source=abc&target=xyz')
+        resp = self.client.get('/render?source=abc&target=xyz')
         self.assertEqual(404, resp.status_code)
 
         # no source data
         Response(id='abc xyz').put()
-        resp = client.get('/render?source=abc&target=xyz')
+        resp = self.client.get('/render?source=abc&target=xyz')
         self.assertEqual(404, resp.status_code)
 
     def test_render_as2(self):
         Response(id='abc xyz', source_as2=json_dumps(self.as2)).put()
-        resp = client.get('/render?source=abc&target=xyz')
+        resp = self.client.get('/render?source=abc&target=xyz')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_equals(self.html, resp.get_data(as_text=True),
                                      ignore_blanks=True)
 
     def test_render_mf2(self):
         Response(id='abc xyz', source_mf2=json_dumps(self.mf2)).put()
-        resp = client.get('/render?source=abc&target=xyz')
+        resp = self.client.get('/render?source=abc&target=xyz')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_equals(self.html, resp.get_data(as_text=True),
                                      ignore_blanks=True)
 
     def test_render_atom(self):
         Response(id='abc xyz', source_atom=self.atom).put()
-        resp = client.get('/render?source=abc&target=xyz')
+        resp = self.client.get('/render?source=abc&target=xyz')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_equals(self.html, resp.get_data(as_text=True),
                                      ignore_blanks=True)

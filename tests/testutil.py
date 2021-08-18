@@ -4,6 +4,7 @@ import copy
 import unittest
 from unittest.mock import ANY, call
 
+from app import app, cache
 from oauth_dropins.webutil import testutil, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 import requests
@@ -16,6 +17,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
     def setUp(self):
         super().setUp()
+        app.testing = True
+        cache.clear()
+        self.client = app.test_client()
 
         # clear datastore
         requests.post('http://%s/reset' % ndb_client.host)
