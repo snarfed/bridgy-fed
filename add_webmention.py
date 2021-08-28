@@ -17,8 +17,7 @@ CACHE_TIME = datetime.timedelta(seconds=15)
 
 
 @app.get(r'/wm/<path:url>')
-@cache.cached(timeout=CACHE_TIME.total_seconds(), query_string=True,
-              response_filter=flask_util.not_5xx)
+@flask_util.cached(cache, CACHE_TIME)
 def add_wm(url=None):
     """Proxies HTTP requests and adds Link header to our webmention endpoint."""
     url = urllib.parse.unquote(url)

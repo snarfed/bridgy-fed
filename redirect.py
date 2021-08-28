@@ -29,8 +29,7 @@ CACHE_TIME = datetime.timedelta(seconds=15)
 
 
 @app.get(r'/r/<path:to>')
-@cache.cached(timeout=CACHE_TIME.total_seconds(), query_string=True,
-              response_filter=flask_util.not_5xx)
+@flask_util.cached(cache, CACHE_TIME)
 def redir(to):
     """301 redirect to the embedded fully qualified URL.
 

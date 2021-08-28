@@ -10,7 +10,7 @@ from flask import request
 from google.cloud import ndb
 from granary import as2, microformats2
 import mf2util
-from oauth_dropins.webutil import util
+from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
@@ -79,7 +79,7 @@ def send(activity, inbox_url, user_domain):
 
 
 @app.get(f'/<regex("{common.DOMAIN_RE}"):domain>')
-@cache.cached(CACHE_TIME.total_seconds())
+@flask_util.cached(cache, CACHE_TIME)
 def actor(domain):
     """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
     tld = domain.split('.')[-1]

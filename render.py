@@ -16,8 +16,7 @@ CACHE_TIME = datetime.timedelta(minutes=15)
 
 
 @app.get('/render')
-@cache.cached(timeout=CACHE_TIME.total_seconds(), query_string=True,
-              response_filter=flask_util.not_5xx)
+@flask_util.cached(cache, CACHE_TIME)
 def render():
     """Fetches a stored Response and renders it as HTML."""
     source = flask_util.get_required_param('source')
