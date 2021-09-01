@@ -189,7 +189,7 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
         error("Couldn't find any target URLs in inReplyTo, object, or mention tags")
 
     # send webmentions and store Responses
-    errors = []
+    errors = []  # stores (code, body) tuples
     for target in targets:
         if util.domain_from_link(target) == util.domain_from_link(source):
             logging.info('Skipping same-domain webmention from %s to %s',
@@ -211,14 +211,12 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
                 response.status = 'complete'
                 logging.info('Success!')
         except BaseException as e:
-            util.interpret_http_exception(e)
-            logging.warning(f'Failed! {e}')
-            errors.append(e)
+            errors.append(util.interpret_http_exception(e))
         response.put()
 
     if errors:
-        msg = 'Errors:\n' + '\n'.join(str(e) for e in errors)
-        error(msg, status=getattr(errors[0], 'http_status', None))
+        msg = 'Errors: ' + ', '.join(f'{code} {body}' for code, body in errors)
+        error(msg, status=int(errors[0][0] or 502))
 
 
 def postprocess_as2(activity, target=None, key=None):

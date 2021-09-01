@@ -10,6 +10,7 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
+from urllib3.exceptions import ReadTimeoutError
 
 import activitypub
 import common
@@ -411,3 +412,17 @@ class ActivityPubTest(testutil.TestCase):
 
         # TODO: bring back
         # self.assertEqual([other], Follower.query().fetch())
+
+    def test_inbox_webmention_discovery_connection_fails(self, mock_head,
+                                                         mock_get, mock_post):
+        mock_get.side_effect = [
+            # source actor
+            requests_response(LIKE_WITH_ACTOR['actor'],
+                              headers={'Content-Type': common.CONTENT_TYPE_AS2}),
+            # target post webmention discovery
+            ReadTimeoutError(None, None, None),
+        ]
+
+        got = self.client.post('/foo.com/inbox', json=LIKE)
+        self.assertEqual(504, got.status_code)
+
