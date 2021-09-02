@@ -39,6 +39,10 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual(301, got.status_code)
         self.assertEqual('https://foo.com/bar', got.headers['Location'])
 
+    def test_redirect_trailing_garbage_chars(self):
+        got = self.client.get(r'/r/https://v2.jacky.wtf\"')
+        self.assertEqual(404, got.status_code)
+
     def test_as2(self):
         self._test_as2(common.CONTENT_TYPE_AS2)
 

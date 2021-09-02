@@ -48,7 +48,7 @@ def redir(to):
     domains = set((util.domain_from_link(to),
                    urllib.parse.urlparse(to).hostname))
     for domain in domains:
-        if MagicKey.get_by_id(domain):
+        if domain and MagicKey.get_by_id(domain):
             logging.info(f'Found MagicKey for domain {domain}')
             break
     else:
