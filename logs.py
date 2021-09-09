@@ -3,7 +3,7 @@ import calendar
 import urllib.parse
 
 from flask import render_template
-from oauth_dropins.webutil import logs, util
+from oauth_dropins.webutil import flask_util, logs, util
 
 from app import app, cache
 from models import Response
@@ -26,6 +26,6 @@ def responses():
 
 
 @app.get('/log')
-@cache.cached(logs.CACHE_TIME.total_seconds())
+@flask_util.cached(cache, logs.CACHE_TIME)
 def log():
     return logs.log()
