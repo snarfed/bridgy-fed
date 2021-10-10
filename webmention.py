@@ -100,6 +100,21 @@ class Webmention(View):
                 as2.from_as1(self.source_obj), target=target_obj, key=key)
 
             if resp.status == 'complete':
+                if resp.source_mf2:
+                    def content(mf2):
+                        items = mf2.get('items')
+                        if items:
+                            return microformats2.first_props(
+                                items[0].get('properties')
+                            ).get('content')
+
+                    orig_content = content(json_loads(resp.source_mf2))
+                    new_content = content(self.source_mf2)
+                    if orig_content and new_content and orig_content == new_content:
+                        msg = f'Skipping; new content is same as content published before at {resp.updated}'
+                        logging.info(msg)
+                        return msg
+
                 source_activity['type'] = 'Update'
 
             try:

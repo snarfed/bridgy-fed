@@ -418,6 +418,20 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(('https://foo.com/inbox',), args)
         self.assertEqual(self.as2_update, json_loads(kwargs['data']))
 
+    def test_activitypub_skip_update_if_content_unchanged(self, mock_get, mock_post):
+        """https://github.com/snarfed/bridgy-fed/issues/78"""
+        Response(id='http://a/reply http://orig/as2', status='complete',
+                 source_mf2=json_dumps(self.reply_mf2)).put()
+
+        mock_get.side_effect = self.activitypub_gets
+
+        got = self.client.post('/webmention', data={
+            'source': 'http://a/reply',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
+        mock_post.assert_not_called()
+
     def test_activitypub_create_reply_attributed_to_id_only(self, mock_get, mock_post):
         """Based on PeerTube's AS2.
 
@@ -451,22 +465,6 @@ class WebmentionTest(testutil.TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
         self.assertEqual(self.as2_create, json_loads(kwargs['data']))
-
-    def test_activitypub_update_reply(self, mock_get, mock_post):
-        Response(id='http://a/reply http://orig/as2', status='complete').put()
-
-        mock_get.side_effect = self.activitypub_gets
-        mock_post.return_value = requests_response('abc xyz')
-
-        got = self.client.post('/webmention', data={
-            'source': 'http://a/reply',
-            'target': 'https://fed.brid.gy/',
-        })
-        self.assertEqual(200, got.status_code)
-
-        args, kwargs = mock_post.call_args
-        self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.as2_update, json_loads(kwargs['data']))
 
     def test_activitypub_create_repost(self, mock_get, mock_post):
         mock_get.side_effect = [self.repost, self.orig_as2, self.actor]
