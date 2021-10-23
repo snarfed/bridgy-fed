@@ -225,7 +225,9 @@ class WebmentionTest(testutil.TestCase):
 <body class="h-entry">
 <a class="u-url" href="http://orig/post"></a>
 <p class="e-content p-name">hello i am a post</p>
-<a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>
+<a class="p-author h-card" href="https://orig">
+  <p class="p-name">Ms. ☕ <span class="p-nickname">Baz</span></p>
+</a>
 <a href="http://localhost/"></a>
 </body>
 </html>

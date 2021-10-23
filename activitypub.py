@@ -100,6 +100,7 @@ Coul find a representative h-card (http://microformats.org/wiki/representative-h
     obj = common.postprocess_as2(
         as2.from_as1(microformats2.json_to_object(hcard)), key=key)
     obj.update({
+        'preferredUsername': domain,
         'inbox': f'{request.host_url}{domain}/inbox',
         'outbox': f'{request.host_url}{domain}/outbox',
         'following': f'{request.host_url}{domain}/following',

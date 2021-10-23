@@ -192,6 +192,19 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(400, got.status_code)
         self.assertIn('representative h-card', got.get_data(as_text=True))
 
+    def test_actor_override_preferredUsername(self, _, mock_get, __):
+        mock_get.return_value = requests_response("""
+<body>
+<a class="h-card u-url" rel="me" href="/about-me">
+  <span class="p-nickname">Nick</span>
+</a>
+</body>
+""", url='https://foo.com/', content_type=common.CONTENT_TYPE_HTML)
+
+        got = self.client.get('/foo.com')
+        self.assertEqual(200, got.status_code)
+        self.assertEqual('foo.com', got.json['preferredUsername'])
+
     def test_actor_blocked_tld(self, _, __, ___):
         got = self.client.get('/foo.json')
         self.assertEqual(404, got.status_code)

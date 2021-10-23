@@ -338,9 +338,11 @@ def postprocess_as2_actor(actor):
     url = actor.get('url')
     if url:
         domain = urllib.parse.urlparse(url).netloc
-        actor.setdefault('preferredUsername', domain)
-        actor['id'] = request.host_url + domain
-        actor['url'] = redirect_wrap(url)
+        actor.update({
+            'id': request.host_url + domain,
+            'url': redirect_wrap(url),
+            'preferredUsername': domain,
+        })
 
     # required by pixelfed. https://github.com/snarfed/bridgy-fed/issues/39
     actor.setdefault('summary', '')
