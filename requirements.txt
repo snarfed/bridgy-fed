@@ -2,6 +2,7 @@ git+https://github.com/snarfed/django-salmon.git#egg=django_salmon
 git+https://github.com/snarfed/httpsig.git@HTTPSignatureAuth-sign-header#egg=httpsig
 git+https://github.com/snarfed/oauth-dropins.git#egg=oauth_dropins
 git+https://github.com/snarfed/granary.git#egg=granary
+app-server~=0.7.0; python_version>="3.8"
 feedparser~=6.0.2
 flask~=2.0.1
 flask-caching~=1.10.1
