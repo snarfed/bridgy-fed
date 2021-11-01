@@ -59,7 +59,7 @@ class Webmention(View):
         # convert source page to ActivityStreams
         entry = mf2util.find_first_entry(self.source_mf2, ['h-entry'])
         if not entry:
-            error('No microformats2 found on {self.source_url}')
+            error(f'No microformats2 found on {self.source_url}')
 
         logging.info(f'First entry: {json_dumps(entry, indent=2)}')
         # make sure it has url, since we use that for AS2 id, which is required
