@@ -3,7 +3,7 @@ git+https://github.com/snarfed/httpsig.git@HTTPSignatureAuth-sign-header#egg=htt
 git+https://github.com/snarfed/oauth-dropins.git#egg=oauth_dropins
 git+https://github.com/snarfed/granary.git#egg=granary
 app-server~=0.7.0; python_version>="3.8"
-feedparser~=6.0.2
+feedparser~=6.0.8
 flask~=2.0.1
 flask-caching~=1.10.1
 google-cloud-logging~=2.2.0
