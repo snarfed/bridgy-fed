@@ -284,8 +284,8 @@ class Webmention(View):
 
         feed = common.requests_get(atom_url).text
         parsed = feedparser.parse(feed)
-        logging.info(f'Parsed: {json_dumps(parsed, indent=2)}')
         entry = parsed.entries[0]
+        logging.info(f'Parsed: {json_dumps(entry, indent=2)}')
         target_id = entry.id
         in_reply_to = self.source_obj.get('inReplyTo')
         source_obj_obj = self.source_obj.get('object')
