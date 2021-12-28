@@ -49,8 +49,7 @@ def send(activity, inbox_url, user_domain):
     Returns:
       requests.Response
     """
-    logging.info('Sending AP request from %s: %s', user_domain,
-                 json_dumps(activity, indent=2))
+    logging.info('Sending AP request from {user_domain}: {json_dumps(activity, indent=2)}')
 
     # prepare HTTP Signature (required by Mastodon)
     # https://w3c.github.io/activitypub/#authorization
@@ -86,15 +85,12 @@ def actor(domain):
     if tld in common.TLD_BLOCKLIST:
         error('', status=404)
 
-    mf2 = util.fetch_mf2('http://%s/' % domain, gateway=True,
-                         headers=common.HEADERS)
-    # logging.info('Parsed mf2 for %s: %s', resp.url, json_dumps(mf2, indent=2))
+    mf2 = util.fetch_mf2(f'http://{domain}/', gateway=True, headers=common.HEADERS)
 
     hcard = mf2util.representative_hcard(mf2, mf2['url'])
-    logging.info('Representative h-card: %s', json_dumps(hcard, indent=2))
+    logging.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')
     if not hcard:
-        error("""\
-Coul find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on %s""" % mf2['url'])
+        error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {mf2['url']}")
 
     key = MagicKey.get_or_create(domain)
     obj = common.postprocess_as2(
@@ -106,7 +102,7 @@ Coul find a representative h-card (http://microformats.org/wiki/representative-h
         'following': f'{request.host_url}{domain}/following',
         'followers': f'{request.host_url}{domain}/followers',
     })
-    logging.info('Returning: %s', json_dumps(obj, indent=2))
+    logging.info(f'Returning: {json_dumps(obj, indent=2)}')
 
     return (obj, {
         'Content-Type': common.CONTENT_TYPE_AS2,
@@ -248,10 +244,10 @@ def undo_follow(undo_unwrapped):
     user_domain = util.domain_from_link(followee)
     follower_obj = Follower.get_by_id(Follower._id(user_domain, follower))
     if follower_obj:
-        logging.info('Marking %s as inactive' % follower_obj.key)
+        logging.info(f'Marking {follower_obj.key} as inactive')
         follower_obj.status = 'inactive'
         follower_obj.put()
     else:
-        logging.warning('No Follower found for %s %s', user_domain, follower)
+        logging.warning(f'No Follower found for {user_domain} {follower}')
 
     # TODO send webmention with 410 of u-follow

@@ -48,7 +48,7 @@ class Webmention(View):
         self.source_domain = urllib.parse.urlparse(self.source_url).netloc.split(':')[0]
         self.source_mf2 = util.parse_mf2(source_resp)
 
-        # logging.debug('Parsed mf2 for %s: %s', source_resp.url, json_dumps(self.source_mf2 indent=2))
+        # logging.debug(f'Parsed mf2 for {source_resp.url} : {json_dumps(self.source_mf2 indent=2)}')
 
         # check for backlink to bridgy fed (for webmention spec and to confirm
         # source's intent to federate to mastodon)

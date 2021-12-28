@@ -62,7 +62,7 @@ def redir(to):
         return convert_to_as2(to)
 
     # redirect
-    logging.info('redirecting to %s', to)
+    logging.info(f'redirecting to {to}')
     return redirect(to, code=301)
 
 
@@ -74,10 +74,10 @@ def convert_to_as2(url):
     """
     mf2 = util.fetch_mf2(url)
     entry = mf2util.find_first_entry(mf2, ['h-entry'])
-    logging.info('Parsed mf2 for %s: %s', mf2['url'], json_dumps(entry, indent=2))
+    logging.info(f"Parsed mf2 for {mf2['url']}: {json_dumps(entry, indent=2)}")
 
     obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(entry)))
-    logging.info('Returning: %s', json_dumps(obj, indent=2))
+    logging.info(f'Returning: {json_dumps(obj, indent=2)}')
 
     return obj, {
         'Content-Type': common.CONTENT_TYPE_AS2,

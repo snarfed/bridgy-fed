@@ -48,7 +48,7 @@ class User(flask_util.XrdOrJrd):
             resp = common.requests_get(candidate)
             parsed = util.parse_html(resp)
             mf2 = util.parse_mf2(parsed, url=resp.url)
-            # logging.debug('Parsed mf2 for %s: %s', resp.url, json_dumps(mf2, indent=2))
+            # logging.debug(f'Parsed mf2 for {resp.url}: {json_dumps(mf2, indent=2)}')
             hcard = mf2util.representative_hcard(mf2, resp.url)
             if hcard:
                 logging.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')

@@ -78,7 +78,7 @@ def _requests_fn(fn, url, parse_json=False, **kwargs):
     kwargs.setdefault('headers', {}).update(HEADERS)
     resp = fn(url, gateway=True, **kwargs)
 
-    logging.info('Got %s headers:%s', resp.status_code, resp.headers)
+    logging.info(f'Got {resp.status_code} headers: {resp.headers}')
     type = content_type(resp)
     if (type and type != 'text/html' and
         (type.startswith('text/') or type.endswith('+json') or type.endswith('/json'))):
@@ -192,8 +192,7 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
     errors = []  # stores (code, body) tuples
     for target in targets:
         if util.domain_from_link(target) == util.domain_from_link(source):
-            logging.info('Skipping same-domain webmention from %s to %s',
-                         source, target)
+            logging.info(f'Skipping same-domain webmention from {source} to {target}')
             continue
 
         response = Response(source=source, target=target, direction='in',
@@ -202,7 +201,7 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
         wm_source = (response.proxy_url()
                      if verb in ('follow', 'like', 'share') or proxy
                      else source)
-        logging.info('Sending webmention from %s to %s', wm_source, target)
+        logging.info(f'Sending webmention from {wm_source} to {target}')
 
         try:
             endpoint = webmention.discover(target, headers=HEADERS).endpoint
