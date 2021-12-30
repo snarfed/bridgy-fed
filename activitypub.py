@@ -129,7 +129,7 @@ def inbox(domain):
 
     type = activity.get('type')
     if type == 'Accept':  # eg in response to a Follow
-        return  # noop
+        return ''  # noop
     if type == 'Create':
         type = obj.get('type')
     elif type not in SUPPORTED_TYPES:
