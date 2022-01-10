@@ -10,4 +10,4 @@ google-cloud-logging~=2.7.0
 gunicorn~=20.1
 mf2util~=0.5.1
 mox3~=1.1
-requests~=2.26
+requests~=2.27
