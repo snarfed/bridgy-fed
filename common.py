@@ -209,6 +209,9 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
                 webmention.send(endpoint, wm_source, target, headers=HEADERS)
                 response.status = 'complete'
                 logging.info('Success!')
+            else:
+                response.status = 'ignored'
+                logging.info('Ignoring.')
         except BaseException as e:
             errors.append(util.interpret_http_exception(e))
         response.put()

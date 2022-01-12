@@ -439,3 +439,19 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/foo.com/inbox', json=LIKE)
         self.assertEqual(504, got.status_code)
 
+    def test_inbox_no_webmention_endpoint(self, mock_head, mock_get, mock_post):
+        mock_get.side_effect = [
+            # source actor
+            requests_response(LIKE_WITH_ACTOR['actor'],
+                              headers={'Content-Type': common.CONTENT_TYPE_AS2}),
+            # target post webmention discovery
+            requests_response('<html><body>foo</body></html>'),
+        ]
+
+        got = self.client.post('/foo.com/inbox', json=LIKE)
+        self.assertEqual(200, got.status_code)
+
+        resp = Response.get_by_id('http://this/like__ok http://orig/post')
+        self.assertEqual('in', resp.direction)
+        self.assertEqual('activitypub', resp.protocol)
+        self.assertEqual('ignored', resp.status)

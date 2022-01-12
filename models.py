@@ -65,7 +65,7 @@ class Response(StringIdModel):
 
     Key name is 'SOURCE_URL TARGET_URL', e.g. 'http://a/reply http://orig/post'.
     """
-    STATUSES = ('new', 'complete', 'error')
+    STATUSES = ('new', 'complete', 'error', 'ignored')
     PROTOCOLS = ('activitypub', 'ostatus')
     DIRECTIONS = ('out', 'in')
 
