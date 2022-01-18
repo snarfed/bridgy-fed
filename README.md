@@ -33,7 +33,7 @@ python3 -m unittest discover
 Finally, run this in the repo root directory to start the web app locally:
 
 ```shell
-env GAE_ENV=localdev flask run -p 8080
+GAE_ENV=localdev FLASK_ENV=development flask run -p 8080
 ```
 
 
