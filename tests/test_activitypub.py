@@ -4,7 +4,7 @@
 TODO: test error handling
 """
 import copy
-from unittest.mock import call, patch
+from unittest.mock import ANY, call, patch
 
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
@@ -257,7 +257,8 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
         mock_head.assert_called_once_with(
-            'http://this', allow_redirects=True, stream=True, timeout=15)
+            'http://this', allow_redirects=True, stream=True, timeout=15,
+            headers=ANY)
         mock_get.assert_not_called()
         mock_post.assert_not_called()
         self.assertEqual(0, Response.query().count())
