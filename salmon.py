@@ -16,6 +16,8 @@ from oauth_dropins.webutil.flask_util import error
 from app import app
 import common
 
+logger = logging.getLogger(__name__)
+
 # from django_salmon.feeds
 ATOM_NS = 'http://www.w3.org/2005/Atom'
 ATOM_THREADING_NS = 'http://purl.org/syndication/thread/1.0'
@@ -36,14 +38,14 @@ def slap(acct):
     """Accepts POSTs to /[ACCT]/salmon and converts to outbound webmentions."""
     # TODO: unify with activitypub
     body = request.get_data(as_text=True)
-    logging.info(f'Got: {body}')
+    logger.info(f'Got: {body}')
 
     try:
         parsed = utils.parse_magic_envelope(body)
     except ParseError as e:
         error('Could not parse POST body as XML', exc_info=True)
     data = parsed['data']
-    logging.info(f'Decoded: {data}')
+    logger.info(f'Decoded: {data}')
 
     # check that we support this activity type
     try:
@@ -62,10 +64,10 @@ def slap(acct):
     elif not author.startswith('acct:'):
         error(f'Author URI {author} has unsupported scheme; expected acct:')
 
-    logging.info(f'Fetching Salmon key for {author}')
+    logger.info(f'Fetching Salmon key for {author}')
     if not magicsigs.verify(data, parsed['sig'], author_uri=author):
         error('Could not verify magic signature.')
-    logging.info('Verified magic signature.')
+    logger.info('Verified magic signature.')
 
     # Verify that the timestamp is recent. Required by spec.
     # I get that this helps prevent spam, but in practice it's a bit silly,

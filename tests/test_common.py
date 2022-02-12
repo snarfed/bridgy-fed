@@ -1,7 +1,5 @@
 # coding=utf-8
 """Unit tests for common.py."""
-import logging
-import os
 from unittest import mock
 
 from oauth_dropins.webutil import util

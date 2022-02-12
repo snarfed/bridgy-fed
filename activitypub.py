@@ -20,6 +20,8 @@ from common import redirect_unwrap, redirect_wrap
 from models import Follower, MagicKey
 from httpsig.requests_auth import HTTPSignatureAuth
 
+logger = logging.getLogger(__name__)
+
 CACHE_TIME = datetime.timedelta(seconds=15)
 
 SUPPORTED_TYPES = (
@@ -49,7 +51,7 @@ def send(activity, inbox_url, user_domain):
     Returns:
       requests.Response
     """
-    logging.info('Sending AP request from {user_domain}: {json_dumps(activity, indent=2)}')
+    logger.info('Sending AP request from {user_domain}: {json_dumps(activity, indent=2)}')
 
     # prepare HTTP Signature (required by Mastodon)
     # https://w3c.github.io/activitypub/#authorization
@@ -88,7 +90,7 @@ def actor(domain):
     mf2 = util.fetch_mf2(f'http://{domain}/', gateway=True, headers=common.HEADERS)
 
     hcard = mf2util.representative_hcard(mf2, mf2['url'])
-    logging.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')
+    logger.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')
     if not hcard:
         error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {mf2['url']}")
 
@@ -102,7 +104,7 @@ def actor(domain):
         'following': f'{request.host_url}{domain}/following',
         'followers': f'{request.host_url}{domain}/followers',
     })
-    logging.info(f'Returning: {json_dumps(obj, indent=2)}')
+    logger.info(f'Returning: {json_dumps(obj, indent=2)}')
 
     return (obj, {
         'Content-Type': common.CONTENT_TYPE_AS2,
@@ -114,7 +116,7 @@ def actor(domain):
 def inbox(domain):
     """Accepts POSTs to /[DOMAIN]/inbox and converts to outbound webmentions."""
     body = request.get_data(as_text=True)
-    logging.info(f'Got: {body}')
+    logger.info(f'Got: {body}')
 
     # parse and validate AS2 activity
     try:
@@ -186,7 +188,7 @@ def accept_follow(follow, follow_unwrapped):
       follow: dict, AP Follow activity
       follow_unwrapped: dict, same, except with redirect URLs unwrapped
     """
-    logging.info('Replying to Follow with Accept')
+    logger.info('Replying to Follow with Accept')
 
     followee = follow.get('object')
     followee_unwrapped = follow_unwrapped.get('object')
@@ -232,7 +234,7 @@ def undo_follow(undo_unwrapped):
     Args:
       undo_unwrapped: dict, AP Undo activity with redirect URLs unwrapped
     """
-    logging.info('Undoing Follow')
+    logger.info('Undoing Follow')
 
     follow = undo_unwrapped.get('object', {})
     follower = follow.get('actor')
@@ -244,10 +246,10 @@ def undo_follow(undo_unwrapped):
     user_domain = util.domain_from_link(followee)
     follower_obj = Follower.get_by_id(Follower._id(user_domain, follower))
     if follower_obj:
-        logging.info(f'Marking {follower_obj.key} as inactive')
+        logger.info(f'Marking {follower_obj.key} as inactive')
         follower_obj.status = 'inactive'
         follower_obj.put()
     else:
-        logging.warning(f'No Follower found for {user_domain} {follower}')
+        logger.warning(f'No Follower found for {user_domain} {follower}')
 
     # TODO send webmention with 410 of u-follow

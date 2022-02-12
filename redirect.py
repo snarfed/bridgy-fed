@@ -25,6 +25,8 @@ from app import app, cache
 import common
 from models import MagicKey
 
+logger = logging.getLogger(__name__)
+
 CACHE_TIME = datetime.timedelta(seconds=15)
 
 
@@ -49,10 +51,10 @@ def redir(to):
                    urllib.parse.urlparse(to).hostname))
     for domain in domains:
         if domain and MagicKey.get_by_id(domain):
-            logging.info(f'Found MagicKey for domain {domain}')
+            logger.info(f'Found MagicKey for domain {domain}')
             break
     else:
-        logging.info(f'No user found for any of {domains}; returning 404')
+        logger.info(f'No user found for any of {domains}; returning 404')
         abort(404)
 
     # poor man's conneg, only handle single Accept values, not multiple with
@@ -62,7 +64,7 @@ def redir(to):
         return convert_to_as2(to)
 
     # redirect
-    logging.info(f'redirecting to {to}')
+    logger.info(f'redirecting to {to}')
     return redirect(to, code=301)
 
 
@@ -74,10 +76,10 @@ def convert_to_as2(url):
     """
     mf2 = util.fetch_mf2(url)
     entry = mf2util.find_first_entry(mf2, ['h-entry'])
-    logging.info(f"Parsed mf2 for {mf2['url']}: {json_dumps(entry, indent=2)}")
+    logger.info(f"Parsed mf2 for {mf2['url']}: {json_dumps(entry, indent=2)}")
 
     obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(entry)))
-    logging.info(f'Returning: {json_dumps(obj, indent=2)}')
+    logger.info(f'Returning: {json_dumps(obj, indent=2)}')
 
     return obj, {
         'Content-Type': common.CONTENT_TYPE_AS2,

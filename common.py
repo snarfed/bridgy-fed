@@ -16,6 +16,8 @@ from werkzeug.exceptions import BadGateway
 
 from models import Response
 
+logger = logging.getLogger(__name__)
+
 DOMAIN_RE = r'([^/:]+\.[^/:]+)'
 ACCT_RE = r'(?:acct:)?([^@]+)@' + DOMAIN_RE
 TLD_BLOCKLIST = ('7z', 'asp', 'aspx', 'gif', 'html', 'ico', 'jpg', 'jpeg', 'js',
@@ -78,18 +80,18 @@ def _requests_fn(fn, url, parse_json=False, **kwargs):
     kwargs.setdefault('headers', {}).update(HEADERS)
     resp = fn(url, gateway=True, **kwargs)
 
-    logging.info(f'Got {resp.status_code} headers: {resp.headers}')
+    logger.info(f'Got {resp.status_code} headers: {resp.headers}')
     type = content_type(resp)
     if (type and type != 'text/html' and
         (type.startswith('text/') or type.endswith('+json') or type.endswith('/json'))):
-        logging.info(resp.text)
+        logger.info(resp.text)
 
     if parse_json:
         try:
             return resp.json()
         except ValueError:
             msg = "Couldn't parse response as JSON"
-            logging.info(msg, exc_info=True)
+            logger.info(msg, exc_info=True)
             raise BadGateway(msg)
 
     return resp
@@ -116,7 +118,7 @@ def get_as2(url):
     """
     def _error(resp):
         msg = "Couldn't fetch %s as ActivityStreams 2" % url
-        logging.warning(msg)
+        logger.warning(msg)
         err = BadGateway(msg)
         err.requests_response = resp
         raise err
@@ -192,7 +194,7 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
     errors = []  # stores (code, body) tuples
     for target in targets:
         if util.domain_from_link(target) == util.domain_from_link(source):
-            logging.info(f'Skipping same-domain webmention from {source} to {target}')
+            logger.info(f'Skipping same-domain webmention from {source} to {target}')
             continue
 
         response = Response(source=source, target=target, direction='in',
@@ -201,17 +203,17 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
         wm_source = (response.proxy_url()
                      if verb in ('follow', 'like', 'share') or proxy
                      else source)
-        logging.info(f'Sending webmention from {wm_source} to {target}')
+        logger.info(f'Sending webmention from {wm_source} to {target}')
 
         try:
             endpoint = webmention.discover(target, headers=HEADERS).endpoint
             if endpoint:
                 webmention.send(endpoint, wm_source, target, headers=HEADERS)
                 response.status = 'complete'
-                logging.info('Success!')
+                logger.info('Success!')
             else:
                 response.status = 'ignored'
-                logging.info('Ignoring.')
+                logger.info('Ignoring.')
         except BaseException as e:
             errors.append(util.interpret_http_exception(e))
         response.put()
@@ -262,7 +264,7 @@ def postprocess_as2(activity, target=None, key=None):
             activity['inReplyTo'] = target_id
         elif isinstance(in_reply_to, list):
             if len(in_reply_to) > 1:
-                logging.warning(
+                logger.warning(
                     "AS2 doesn't support multiple inReplyTo URLs! "
                     'Only using the first: %s' % in_reply_to[0])
             activity['inReplyTo'] = in_reply_to[0]

@@ -27,6 +27,8 @@ from app import app
 import common
 from models import Follower, MagicKey, Response
 
+logger = logging.getLogger(__name__)
+
 SKIP_EMAIL_DOMAINS = frozenset(('localhost', 'snarfed.org'))
 
 
@@ -39,7 +41,7 @@ class Webmention(View):
     target_resp = None    # requests.Response
 
     def dispatch_request(self):
-        logging.info(f'Params: {list(request.form.items())}')
+        logger.info(f'Params: {list(request.form.items())}')
 
         # fetch source page
         source = flask_util.get_required_param('source')
@@ -48,7 +50,7 @@ class Webmention(View):
         self.source_domain = urllib.parse.urlparse(self.source_url).netloc.split(':')[0]
         self.source_mf2 = util.parse_mf2(source_resp)
 
-        # logging.debug(f'Parsed mf2 for {source_resp.url} : {json_dumps(self.source_mf2 indent=2)}')
+        # logger.debug(f'Parsed mf2 for {source_resp.url} : {json_dumps(self.source_mf2 indent=2)}')
 
         # check for backlink to bridgy fed (for webmention spec and to confirm
         # source's intent to federate to mastodon)
@@ -61,7 +63,7 @@ class Webmention(View):
         if not entry:
             error(f'No microformats2 found on {self.source_url}')
 
-        logging.info(f'First entry: {json_dumps(entry, indent=2)}')
+        logger.info(f'First entry: {json_dumps(entry, indent=2)}')
         # make sure it has url, since we use that for AS2 id, which is required
         # for ActivityPub.
         props = entry.setdefault('properties', {})
@@ -69,7 +71,7 @@ class Webmention(View):
             props['url'] = [self.source_url]
 
         self.source_obj = microformats2.json_to_object(entry, fetch_mf2=True)
-        logging.info(f'Converted to AS1: {json_dumps(self.source_obj, indent=2)}')
+        logger.info(f'Converted to AS1: {json_dumps(self.source_obj, indent=2)}')
 
         for method in self.try_activitypub, self.try_salmon:
             ret = method()
@@ -112,7 +114,7 @@ class Webmention(View):
                     new_content = content(self.source_mf2)
                     if orig_content and new_content and orig_content == new_content:
                         msg = f'Skipping; new content is same as content published before at {resp.updated}'
-                        logging.info(msg)
+                        logger.info(msg)
                         return msg
 
                 source_activity['type'] = 'Update'
@@ -241,7 +243,7 @@ class Webmention(View):
             if targets:
                 target = targets[0]
         if not target:
-            logging.warning("No targets or followers. Ignoring.")
+            logger.warning("No targets or followers. Ignoring.")
             return
 
         status = None
@@ -285,7 +287,7 @@ class Webmention(View):
         feed = common.requests_get(atom_url).text
         parsed = feedparser.parse(feed)
         entry = parsed.entries[0]
-        logging.info(f'Parsed: {json_dumps(entry, indent=2)}')
+        logger.info(f'Parsed: {json_dumps(entry, indent=2)}')
         target_id = entry.id
         in_reply_to = self.source_obj.get('inReplyTo')
         source_obj_obj = self.source_obj.get('object')
@@ -307,7 +309,7 @@ class Webmention(View):
                 self.source_obj.setdefault('tags', []).append({'url': url})
 
         # extract and discover salmon endpoint
-        logging.info(f'Discovering Salmon endpoint in {atom_url}')
+        logger.info(f'Discovering Salmon endpoint in {atom_url}')
         endpoint = django_salmon.discover_salmon_endpoint(feed)
 
         if not endpoint:
@@ -328,23 +330,23 @@ class Webmention(View):
 
         if not endpoint:
             error('No salmon endpoint found!')
-        logging.info(f'Discovered Salmon endpoint {endpoint}')
+        logger.info(f'Discovered Salmon endpoint {endpoint}')
 
         # construct reply Atom object
         activity = self.source_obj
         if self.source_obj.get('verb') not in source.VERBS_WITH_OBJECT:
             activity = {'object': self.source_obj}
         entry = atom.activity_to_atom(activity, xml_base=self.source_url)
-        logging.info(f'Converted {self.source_url} to Atom:\n{entry}')
+        logger.info(f'Converted {self.source_url} to Atom:\n{entry}')
 
         # sign reply and wrap in magic envelope
         domain = urllib.parse.urlparse(self.source_url).netloc
         key = MagicKey.get_or_create(domain)
-        logging.info(f'Using key for {domain}: {key}')
+        logger.info(f'Using key for {domain}: {key}')
         magic_envelope = magicsigs.magic_envelope(
             entry, common.CONTENT_TYPE_ATOM, key).decode()
 
-        logging.info(f'Sending Salmon slap to {endpoint}')
+        logger.info(f'Sending Salmon slap to {endpoint}')
         common.requests_post(
             endpoint, data=common.XML_UTF8 + magic_envelope,
             headers={'Content-Type': common.CONTENT_TYPE_MAGIC_ENVELOPE})

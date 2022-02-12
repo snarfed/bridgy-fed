@@ -10,6 +10,8 @@ from flask import request
 
 from app import app
 
+logger = logging.getLogger(__name__)
+
 
 @app.route(r'/superfeedr/', methods=['GET', 'POST'])
 @app.route(r'/superfeedr/<path:_>', methods=['GET', 'POST'])
@@ -18,5 +20,5 @@ def superfeedr(_=None):
 
     https://documentation.superfeedr.com/publishers.html#subscription-callback
     """
-    logging.info(f'Got:\n{request.get_data(as_text=True)}')
+    logger.info(f'Got:\n{request.get_data(as_text=True)}')
     return '', 204

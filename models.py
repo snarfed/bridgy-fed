@@ -8,6 +8,8 @@ from flask import request
 from google.cloud import ndb
 from oauth_dropins.webutil.models import StringIdModel
 
+logger = logging.getLogger(__name__)
+
 
 class MagicKey(StringIdModel):
     """Stores a user's public/private key pair used for Magic Signatures.
@@ -87,12 +89,12 @@ class Response(StringIdModel):
         if source and target:
             assert 'id' not in kwargs
             kwargs['id'] = self._id(source, target)
-            logging.info(f"Response id (source target): {kwargs['id']}")
+            logger.info(f"Response id (source target): {kwargs['id']}")
         super(Response, self).__init__(**kwargs)
 
     @classmethod
     def get_or_create(cls, source=None, target=None, **kwargs):
-        logging.info(f'Response source target: {source} {target}')
+        logger.info(f'Response source target: {source} {target}')
         return cls.get_or_insert(cls._id(source, target), **kwargs)
 
     def source(self):
@@ -149,6 +151,6 @@ class Follower(StringIdModel):
 
     @classmethod
     def get_or_create(cls, user_domain, follower_id, **kwargs):
-        logging.info(f'new Follower for {user_domain} {follower_id}')
+        logger.info(f'new Follower for {user_domain} {follower_id}')
         return cls.get_or_insert(cls._id(user_domain, follower_id), **kwargs)
 

@@ -22,6 +22,8 @@ import models
 CACHE_TIME = datetime.timedelta(seconds=15)
 NON_TLDS = frozenset(('html', 'json', 'php', 'xml'))
 
+logger = logging.getLogger(__name__)
+
 
 # TODO
 # @cache.cached(
@@ -34,7 +36,7 @@ class User(flask_util.XrdOrJrd):
         return 'webfinger_user'
 
     def template_vars(self, domain=None, url=None):
-        logging.debug(f'Headers: {list(request.headers.items())}')
+        logger.debug(f'Headers: {list(request.headers.items())}')
 
         if domain.split('.')[-1] in NON_TLDS:
             error(f"{domain} doesn't look like a domain", status=404)
@@ -48,15 +50,15 @@ class User(flask_util.XrdOrJrd):
             resp = common.requests_get(candidate)
             parsed = util.parse_html(resp)
             mf2 = util.parse_mf2(parsed, url=resp.url)
-            # logging.debug(f'Parsed mf2 for {resp.url}: {json_dumps(mf2, indent=2)}')
+            # logger.debug(f'Parsed mf2 for {resp.url}: {json_dumps(mf2, indent=2)}')
             hcard = mf2util.representative_hcard(mf2, resp.url)
             if hcard:
-                logging.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')
+                logger.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')
                 break
         else:
             error(f"didn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {resp.url}")
 
-        logging.info(f'Generating WebFinger data for {domain}')
+        logger.info(f'Generating WebFinger data for {domain}')
         key = models.MagicKey.get_or_create(domain)
         props = hcard.get('properties', {})
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])
@@ -68,7 +70,7 @@ class User(flask_util.XrdOrJrd):
                 urluser, urldomain = util.parse_acct_uri(url)
                 if urldomain == domain:
                     acct = f'{urluser}@{domain}'
-                    logging.info(f'Found custom username: acct:{acct}')
+                    logger.info(f'Found custom username: acct:{acct}')
                     break
 
         # discover atom feed, if any
@@ -139,7 +141,7 @@ class User(flask_util.XrdOrJrd):
                 'href': f'{request.host_url}{domain}/salmon',
             }]
         })
-        logging.info(f'Returning WebFinger data: {json_dumps(data, indent=2)}')
+        logger.info(f'Returning WebFinger data: {json_dumps(data, indent=2)}')
         return data
 
 
