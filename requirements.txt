@@ -26,7 +26,7 @@ google-auth==1.35.0
 google-cloud-appengine-logging==1.1.0
 google-cloud-audit-log==0.2.0
 google-cloud-core==1.7.2
-google-cloud-datastore==1.15.3
+google-cloud-datastore==2.4.0
 google-cloud-logging==3.0.0
 google-cloud-ndb==1.11.1
 googleapis-common-protos==1.54.0
