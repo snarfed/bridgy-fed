@@ -18,7 +18,7 @@ extras==1.0.0
 feedgen==0.9.0
 feedparser==6.0.8
 fixtures==3.0.0
-Flask==2.0.2
+Flask==2.0.3
 Flask-Caching==1.10.1
 flask-gae-static==0.2
 google-api-core==1.31.5
@@ -41,7 +41,7 @@ idna==3.3
 itsdangerous==2.0.1
 Jinja2==3.0.3
 lxml==4.7.1
-MarkupSafe==2.0.1
+MarkupSafe==2.1.0
 mf2py==1.1.2
 mf2util==0.5.1
 mox3==1.1.0
