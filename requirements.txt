@@ -40,7 +40,7 @@ humanize==4.0.0
 idna==3.3
 itsdangerous==2.1.0
 Jinja2==3.0.3
-lxml==4.7.1
+lxml==4.8.0
 MarkupSafe==2.1.0
 mf2py==1.1.2
 mf2util==0.5.1
