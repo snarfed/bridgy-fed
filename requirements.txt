@@ -9,7 +9,7 @@ brevity==0.2.17
 cachetools==4.2.4
 certifi==2021.10.8
 charset-normalizer==2.0.12
-click==8.0.3
+click==8.0.4
 colorama==0.4.4
 Deprecated==1.2.13
 domain2idna==1.12.0
