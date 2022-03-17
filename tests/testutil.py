@@ -34,11 +34,20 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         """Returns a mock requests call."""
         existing = kwargs.get('headers', {})
         if existing is not ANY:
-            headers = copy.deepcopy(common.HEADERS)
-            headers.update(existing)
-            kwargs['headers'] = headers
+            kwargs['headers'] = {
+              'User-Agent': util.user_agent,
+              **existing,
+            }
 
         kwargs.setdefault('timeout', util.HTTP_TIMEOUT)
         kwargs.setdefault('stream', True)
 
         return call(url, **kwargs)
+
+    def assert_req(self, mock, url, **kwargs):
+        """Checks a mock requests call."""
+        kwargs.setdefault('headers', {}).setdefault('User-Agent', 'Bridgy Fed (https://fed.brid.gy/)')
+        kwargs.setdefault('stream', True)
+        kwargs.setdefault('timeout', util.HTTP_TIMEOUT)
+
+        mock.assert_any_call(url, **kwargs)

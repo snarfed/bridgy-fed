@@ -108,8 +108,7 @@ class WebfingerTest(testutil.TestCase):
         got = self.client.get('/acct:foo.com', headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
-        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
-                                         stream=True, timeout=util.HTTP_TIMEOUT)
+        self.assert_req(mock_get, 'http://foo.com/')
 
         self.assertEqual(self.expected_webfinger, got.json)
 
@@ -167,8 +166,7 @@ class WebfingerTest(testutil.TestCase):
 </body>
 """)
         got = self.client.get('/acct:foo.com')
-        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
-                                         stream=True, timeout=util.HTTP_TIMEOUT)
+        self.assert_req(mock_get, 'http://foo.com/')
         self.assertEqual(400, got.status_code)
         self.assertIn('representative h-card', got.get_data(as_text=True))
 

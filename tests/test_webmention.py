@@ -25,7 +25,6 @@ from common import (
     CONTENT_TYPE_ATOM,
     CONTENT_TYPE_HTML,
     CONTENT_TYPE_MAGIC_ENVELOPE,
-    HEADERS,
 )
 from models import Follower, MagicKey, Response
 import webmention
@@ -838,9 +837,7 @@ class WebmentionTest(testutil.TestCase):
         })
         self.assertEqual(200, got.status_code)
 
-        mock_get.assert_any_call(
-            'http://orig/.well-known/webfinger?resource=acct:ryan@orig',
-            headers=HEADERS, stream=True, timeout=util.HTTP_TIMEOUT)
+        self.assert_req(mock_get, 'http://orig/.well-known/webfinger?resource=acct:ryan@orig')
         self.assertEqual(('http://orig/@ryan/salmon',), mock_post.call_args[0])
 
     def test_salmon_no_target_atom(self, mock_get, mock_post):
@@ -879,8 +876,7 @@ class WebmentionTest(testutil.TestCase):
         })
         self.assertEqual(200, got.status_code)
 
-        mock_get.assert_any_call('http://orig/atom/1', headers=HEADERS,
-                                 stream=True, timeout=util.HTTP_TIMEOUT)
+        self.assert_req(mock_get, 'http://orig/atom/1')
         data = self.verify_salmon(mock_post)
 
     def test_salmon_relative_atom_href_with_base(self, mock_get, mock_post):
@@ -900,6 +896,5 @@ class WebmentionTest(testutil.TestCase):
         })
         self.assertEqual(200, got.status_code)
 
-        mock_get.assert_any_call('http://orig/base/atom/1', headers=HEADERS,
-                                 stream=True, timeout=util.HTTP_TIMEOUT)
+        self.assert_req(mock_get, 'http://orig/base/atom/1')
         data = self.verify_salmon(mock_post)

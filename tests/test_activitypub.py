@@ -151,8 +151,7 @@ class ActivityPubTest(testutil.TestCase):
 """, url='https://foo.com/', content_type=common.CONTENT_TYPE_HTML)
 
         got = self.client.get('/foo.com')
-        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
-                                         stream=True, timeout=util.HTTP_TIMEOUT)
+        self.assert_req(mock_get, 'http://foo.com/')
         self.assertEqual(200, got.status_code)
         type = got.headers['Content-Type']
         self.assertTrue(type.startswith(common.CONTENT_TYPE_AS2), type)
@@ -187,8 +186,7 @@ class ActivityPubTest(testutil.TestCase):
 """)
 
         got = self.client.get('/foo.com')
-        mock_get.assert_called_once_with('http://foo.com/', headers=common.HEADERS,
-                                         stream=True, timeout=util.HTTP_TIMEOUT)
+        self.assert_req(mock_get, 'http://foo.com/')
         self.assertEqual(400, got.status_code)
         self.assertIn('representative h-card', got.get_data(as_text=True))
 
@@ -226,19 +224,17 @@ class ActivityPubTest(testutil.TestCase):
 
         got = self.client.post('/foo.com/inbox', json=as2)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-        mock_get.assert_called_once_with(
-            'http://orig/post', headers=common.HEADERS, timeout=15, stream=True)
-
-        expected_headers = copy.deepcopy(common.HEADERS)
-        expected_headers['Accept'] = '*/*'
-        mock_post.assert_called_once_with(
+        self.assert_req(mock_get, 'http://orig/post')
+        self.assert_req(
+            mock_post,
             'http://orig/webmention',
+            headers={'Accept': '*/*'},
+            allow_redirects=False,
             data={
                 'source': 'http://localhost/render?source=http%3A%2F%2Fthis%2Freply&target=http%3A%2F%2Forig%2Fpost',
                 'target': 'http://orig/post',
             },
-            allow_redirects=False, timeout=15, stream=True,
-            headers=expected_headers)
+        )
 
         resp = Response.get_by_id('http://this/reply http://orig/post')
         self.assertEqual('in', resp.direction)
@@ -256,9 +252,7 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/foo.com/inbox', json=reply)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
-        mock_head.assert_called_once_with(
-            'http://this', allow_redirects=True, stream=True, timeout=15,
-            headers=ANY)
+        self.assert_req(mock_head, 'http://this', allow_redirects=True)
         mock_get.assert_not_called()
         mock_post.assert_not_called()
         self.assertEqual(0, Response.query().count())
@@ -278,19 +272,17 @@ class ActivityPubTest(testutil.TestCase):
         with self.client:
             got = self.client.post('/foo.com/inbox', json=as2)
             self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-            mock_get.assert_called_once_with(
-                'http://target/', headers=common.HEADERS, timeout=15, stream=True)
-
-            expected_headers = copy.deepcopy(common.HEADERS)
-            expected_headers['Accept'] = '*/*'
-            mock_post.assert_called_once_with(
+            self.assert_req(mock_get, 'http://target/')
+            self.assert_req(
+                mock_post,
                 'http://target/webmention',
+                headers={'Accept': '*/*'},
+                allow_redirects=False,
                 data={
                     'source': 'http://localhost/render?source=http%3A%2F%2Fthis%2Fmention&target=http%3A%2F%2Ftarget%2F',
                     'target': 'http://target/',
                 },
-                allow_redirects=False, timeout=15, stream=True,
-                headers=expected_headers)
+            )
 
             resp = Response.get_by_id('http://this/mention http://target/')
             self.assertEqual('in', resp.direction)
@@ -312,12 +304,9 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/foo.com/inbox', json=LIKE)
         self.assertEqual(200, got.status_code)
 
-        as2_headers = copy.deepcopy(common.HEADERS)
-        as2_headers.update(common.CONNEG_HEADERS_AS2_HTML)
-        mock_get.assert_has_calls((
-            call('http://orig/actor', headers=as2_headers, stream=True, timeout=15),
-            call('http://orig/post', headers=common.HEADERS, stream=True, timeout=15),
-        ))
+        self.assert_req(mock_get, 'http://orig/actor',
+                        headers=common.CONNEG_HEADERS_AS2_HTML)
+        self.assert_req(mock_get, 'http://orig/post')
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('http://orig/webmention',), args)
@@ -348,11 +337,8 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
-        as2_headers = copy.deepcopy(common.HEADERS)
-        as2_headers.update(common.CONNEG_HEADERS_AS2_HTML)
-        mock_get.assert_has_calls((
-            call(FOLLOW['actor'], headers=as2_headers, stream=True, timeout=15),
-        ))
+        self.assert_req(mock_get, FOLLOW['actor'],
+                        headers=common.CONNEG_HEADERS_AS2_HTML)
 
         # check AP Accept
         self.assertEqual(2, len(mock_post.call_args_list))

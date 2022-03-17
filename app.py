@@ -34,5 +34,7 @@ app.wsgi_app = flask_util.ndb_context_middleware(
 
 cache = Cache(app)
 
+util.set_user_agent('Bridgy Fed (https://fed.brid.gy/)')
+
 
 import activitypub, add_webmention, logs, redirect, render, salmon, superfeedr, webfinger, webmention

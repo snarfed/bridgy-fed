@@ -87,7 +87,7 @@ def actor(domain):
     if tld in common.TLD_BLOCKLIST:
         error('', status=404)
 
-    mf2 = util.fetch_mf2(f'http://{domain}/', gateway=True, headers=common.HEADERS)
+    mf2 = util.fetch_mf2(f'http://{domain}/', gateway=True)
 
     hcard = mf2util.representative_hcard(mf2, mf2['url'])
     logger.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')

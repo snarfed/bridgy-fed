@@ -22,9 +22,6 @@ DOMAIN_RE = r'([^/:]+\.[^/:]+)'
 ACCT_RE = r'(?:acct:)?([^@]+)@' + DOMAIN_RE
 TLD_BLOCKLIST = ('7z', 'asp', 'aspx', 'gif', 'html', 'ico', 'jpg', 'jpeg', 'js',
                  'json', 'php', 'png', 'rar', 'txt', 'yaml', 'yml', 'zip')
-HEADERS = {
-    'User-Agent': 'Bridgy Fed (https://fed.brid.gy/)',
-}
 XML_UTF8 = "<?xml version='1.0' encoding='UTF-8'?>\n"
 LINK_HEADER_RE = re.compile(r""" *< *([^ >]+) *> *; *rel=['"]([^'"]+)['"] *""")
 AS2_PUBLIC_AUDIENCE = 'https://www.w3.org/ns/activitystreams#Public'
@@ -76,8 +73,7 @@ def requests_post(url, **kwargs):
 
 
 def _requests_fn(fn, url, parse_json=False, **kwargs):
-    """Wraps requests.* and adds raise_for_status() and User-Agent."""
-    kwargs.setdefault('headers', {}).update(HEADERS)
+    """Wraps requests.* and adds raise_for_status()."""
     resp = fn(url, gateway=True, **kwargs)
 
     logger.info(f'Got {resp.status_code} headers: {resp.headers}')
@@ -206,9 +202,9 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
         logger.info(f'Sending webmention from {wm_source} to {target}')
 
         try:
-            endpoint = webmention.discover(target, headers=HEADERS).endpoint
+            endpoint = webmention.discover(target).endpoint
             if endpoint:
-                webmention.send(endpoint, wm_source, target, headers=HEADERS)
+                webmention.send(endpoint, wm_source, target)
                 response.status = 'complete'
                 logger.info('Success!')
             else:

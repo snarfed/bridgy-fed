@@ -60,10 +60,7 @@ class SalmonTest(testutil.TestCase):
         ))
 
         # check webmention discovery
-        self.expected_headers = copy.deepcopy(common.HEADERS)
-        self.expected_headers['Accept'] = '*/*'
-        mock_get.assert_called_once_with(
-            'http://orig/post', headers=common.HEADERS, timeout=15, stream=True)
+        self.assert_req(mock_get, 'http://orig/post')
 
     def test_reply(self, mock_urlopen, mock_head, mock_get, mock_post):
         atom_reply = """\
@@ -85,11 +82,12 @@ class SalmonTest(testutil.TestCase):
         self.send_slap(mock_urlopen, mock_head, mock_get, mock_post, atom_reply)
 
         # check webmention post
-        mock_post.assert_called_once_with(
+        self.assert_req(
+            mock_post,
             'http://orig/webmention',
             data={'source': 'https://my/reply', 'target': 'http://orig/post'},
-            allow_redirects=False, timeout=15, stream=True,
-            headers=self.expected_headers)
+            allow_redirects=False,
+            headers={'Accept': '*/*'})
 
         # check stored response
         resp = Response.get_by_id('https://my/reply http://orig/post')
@@ -115,14 +113,15 @@ class SalmonTest(testutil.TestCase):
         self.send_slap(mock_urlopen, mock_head, mock_get, mock_post, atom_like)
 
         # check webmention post
-        mock_post.assert_called_once_with(
+        self.assert_req(
+            mock_post,
             'http://orig/webmention',
             data={
                 'source': 'http://localhost/render?source=https%3A%2F%2Fmy%2Flike&target=http%3A%2F%2Forig%2Fpost',
                 'target': 'http://orig/post',
             },
-            allow_redirects=False, timeout=15, stream=True,
-            headers=self.expected_headers)
+            allow_redirects=False,
+            headers={'Accept': '*/*'})
 
         # check stored response
         resp = Response.get_by_id('https://my/like http://orig/post')
