@@ -38,7 +38,7 @@ html5lib==1.1
 humanfriendly==10.0
 humanize==4.0.0
 idna==3.3
-itsdangerous==2.1.1
+itsdangerous==2.1.2
 Jinja2==3.1.0
 lxml==4.8.0
 MarkupSafe==2.1.1
