@@ -26,7 +26,7 @@ pip install -r requirements.txt
 Now, run the tests to check that everything is set up ok:
 
 ```shell
-gcloud beta emulators datastore start --no-store-on-disk --consistency=1.0 --host-port=localhost:8089 < /dev/null >& /dev/null &
+gcloud beta emulators datastore start --no-store-on-disk --consistency=1.0 --host-port=:8089 < /dev/null >& /dev/null &
 python3 -m unittest discover
 ```
 
