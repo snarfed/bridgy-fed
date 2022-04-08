@@ -21,12 +21,12 @@ fixtures==3.0.0
 Flask==2.1.1
 Flask-Caching==1.10.1
 flask-gae-static==0.2
-google-api-core==1.31.5
-google-auth==1.35.0
+google-api-core==2.7.1
+google-auth==2.6.3
 google-cloud-appengine-logging==1.1.1
 google-cloud-audit-log==0.2.0
-google-cloud-core==1.7.2
-google-cloud-datastore==1.15.3
+google-cloud-core==2.2.3
+google-cloud-datastore==1.15.4
 google-cloud-logging==3.0.0
 google-cloud-ndb==1.11.1
 googleapis-common-protos==1.56.0
