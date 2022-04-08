@@ -4,7 +4,7 @@ git+https://github.com/snarfed/oauth-dropins.git#egg=oauth_dropins
 git+https://github.com/snarfed/granary.git#egg=granary
 git+https://github.com/dvska/gdata-python3.git#egg=gdata
 
-beautifulsoup4==4.10.0
+beautifulsoup4==4.11.0
 brevity==0.2.17
 cachetools==4.2.4
 certifi==2021.10.8
