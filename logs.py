@@ -12,7 +12,9 @@ from models import Response
 @app.get('/responses')
 def responses():
     """Renders recent Responses, with links to logs."""
-    responses = Response.query().order(-Response.updated).fetch(20)
+    responses = Response.query()\
+        .filter(Response.status.IN(('new', 'complete', 'error')))\
+        .order(-Response.updated).fetch(20)
 
     for r in responses:
         r.source_link = util.pretty_link(r.source())
