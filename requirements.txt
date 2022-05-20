@@ -16,7 +16,7 @@ domain2idna==1.12.0
 ecdsa==0.17.0
 extras==1.0.0
 feedgen==0.9.0
-feedparser==6.0.8
+feedparser==6.0.9
 fixtures==4.0.0
 Flask==2.1.2
 Flask-Caching==1.10.1
