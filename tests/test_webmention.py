@@ -796,7 +796,7 @@ class WebmentionTest(testutil.TestCase):
         parsed = feedparser.parse(data)
         entry = parsed.entries[0]
 
-        self.assertEqual('http://a/like', entry['id'])
+        self.assertEqual('tag:fed.brid.gy,2017-08-22:orig-post', entry['id'])
         self.assertIn({
             'rel': 'alternate',
             'href': 'http://a/like',
