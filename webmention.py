@@ -14,7 +14,7 @@ import feedparser
 from flask import request
 from flask.views import View
 from google.cloud.ndb import Key
-from granary import as2, atom, microformats2, source
+from granary import as1, as2, atom, microformats2
 import mf2util
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
@@ -148,7 +148,7 @@ class Webmention(View):
         if targets:
             return targets
 
-        if self.source_obj.get('verb') in source.VERBS_WITH_OBJECT:
+        if self.source_obj.get('verb') in as1.VERBS_WITH_OBJECT:
             return util.get_urls(self.source_obj, 'object')
 
     def _activitypub_targets(self):
@@ -334,7 +334,7 @@ class Webmention(View):
 
         # construct reply Atom object
         activity = self.source_obj
-        if self.source_obj.get('verb') not in source.VERBS_WITH_OBJECT:
+        if self.source_obj.get('verb') not in as1.VERBS_WITH_OBJECT:
             activity = {'object': self.source_obj}
         entry = atom.activity_to_atom(activity, xml_base=self.source_url)
         logger.info(f'Converted {self.source_url} to Atom:\n{entry}')
