@@ -19,7 +19,7 @@ feedgen==0.9.0
 feedparser==6.0.10
 fixtures==4.0.1
 Flask==2.1.2
-Flask-Caching==2.0.0
+Flask-Caching==2.0.1
 flask-gae-static==0.2
 google-api-core==2.7.1
 google-auth==2.6.3
@@ -36,7 +36,7 @@ gunicorn==20.1.0
 html2text==2020.1.16
 html5lib==1.1
 humanfriendly==10.0
-humanize==4.2.3
+humanize==4.3.0
 idna==3.3
 itsdangerous==2.1.2
 Jinja2==3.1.2
