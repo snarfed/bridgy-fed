@@ -12,7 +12,7 @@ from oauth_dropins.webutil import (
 import common
 
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder=None)
 app.template_folder = './templates'
 app.config.from_mapping(
     ENV='development' if appengine_info.DEBUG else 'PRODUCTION',
