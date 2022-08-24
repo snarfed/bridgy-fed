@@ -3,6 +3,7 @@
 import copy
 from unittest.mock import patch
 
+from granary import as2
 from oauth_dropins.webutil.testutil import requests_response
 
 import common
@@ -55,10 +56,10 @@ class RedirectTest(testutil.TestCase):
 
         https://github.com/snarfed/bridgy-fed/issues/39
         """
-        as2 = copy.deepcopy(REPOST_AS2)
-        del as2['cc']
-        as2.update({
-            'to': [common.AS2_PUBLIC_AUDIENCE],
+        repost = copy.deepcopy(REPOST_AS2)
+        del repost['cc']
+        repost.update({
+            'to': [as2.PUBLIC_AUDIENCE],
             'object': 'http://orig/post',
         })
 
@@ -71,4 +72,4 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual(('https://foo.com/bar',), args)
 
         self.assertEqual(200, got.status_code)
-        self.assertEqual(as2, got.json)
+        self.assertEqual(repost, got.json)

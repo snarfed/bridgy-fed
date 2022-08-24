@@ -2,6 +2,7 @@
 """Unit tests for common.py."""
 from unittest import mock
 
+from granary import as2
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 import requests
@@ -71,7 +72,7 @@ class CommonTest(testutil.TestCase):
             self.assert_equals({
                 'id': 'http://localhost/r/xyz',
                 'inReplyTo': 'foo',
-                'to': [common.AS2_PUBLIC_AUDIENCE],
+                'to': [as2.PUBLIC_AUDIENCE],
             }, common.postprocess_as2({
                 'id': 'xyz',
                 'inReplyTo': ['foo', 'bar'],
@@ -94,7 +95,7 @@ class CommonTest(testutil.TestCase):
                     'preferredUsername': 'foo.com',
                     'url': 'http://localhost/r/https://foo.com/',
                 }],
-                'to': [common.AS2_PUBLIC_AUDIENCE],
+                'to': [as2.PUBLIC_AUDIENCE],
             }, common.postprocess_as2({
                 'attributedTo': [{'id': 'bar'}, {'id': 'baz'}],
                 'actor': {'id': 'baj'},
@@ -114,7 +115,7 @@ class CommonTest(testutil.TestCase):
                 'object': {
                     'id': 'http://localhost/r/xyz',
                     'type': 'Note',
-                    'to': [common.AS2_PUBLIC_AUDIENCE],
+                    'to': [as2.PUBLIC_AUDIENCE],
                 },
             }, common.postprocess_as2({
                 'id': 'xyz',

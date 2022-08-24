@@ -6,6 +6,7 @@ TODO: test error handling
 import copy
 from unittest.mock import ANY, call, patch
 
+from granary import as2
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -24,7 +25,7 @@ REPLY_OBJECT = {
     'id': 'http://this/reply/id',
     'url': 'http://this/reply',
     'inReplyTo': 'http://orig/post',
-    'to': [common.AS2_PUBLIC_AUDIENCE],
+    'to': [as2.PUBLIC_AUDIENCE],
 }
 REPLY_OBJECT_WRAPPED = copy.deepcopy(REPLY_OBJECT)
 REPLY_OBJECT_WRAPPED['inReplyTo'] = 'http://localhost/r/orig/post'
@@ -40,7 +41,7 @@ NOTE_OBJECT = {
     'content': '☕ just a normal post',
     'id': 'http://this/note/id',
     'url': 'http://this/note',
-    'to': [common.AS2_PUBLIC_AUDIENCE],
+    'to': [as2.PUBLIC_AUDIENCE],
     'cc': [
         'https://this/author/followers',
         'https://masto.foo/@other',
@@ -297,6 +298,21 @@ class ActivityPubTest(testutil.TestCase):
             self.assertEqual(common.redirect_unwrap(expected_as2),
                              json_loads(activity.source_as2))
             self.assert_equals(['foo.com', 'baz.com'], activity.domain)
+
+    def test_inbox_not_public(self, mock_head, mock_get, mock_post):
+        Follower.get_or_create(ACTOR['id'], 'foo.com')
+
+        mock_head.return_value = requests_response(url='http://target')
+        mock_get.return_value = requests_response(  # source actor
+            ACTOR, headers={'Content-Type': common.CONTENT_TYPE_AS2})
+
+        not_public = copy.deepcopy(NOTE)
+        del not_public['object']['to']
+
+        with self.client:
+            got = self.client.post('/foo.com/inbox', json=not_public)
+            self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+            self.assertEqual(0, Activity.query().count())
 
     def test_inbox_mention_object(self, *mocks):
         self._test_inbox_mention(MENTION_OBJECT, *mocks)

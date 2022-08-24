@@ -24,7 +24,6 @@ TLD_BLOCKLIST = ('7z', 'asp', 'aspx', 'gif', 'html', 'ico', 'jpg', 'jpeg', 'js',
                  'json', 'php', 'png', 'rar', 'txt', 'yaml', 'yml', 'zip')
 XML_UTF8 = "<?xml version='1.0' encoding='UTF-8'?>\n"
 LINK_HEADER_RE = re.compile(r""" *< *([^ >]+) *> *; *rel=['"]([^'"]+)['"] *""")
-AS2_PUBLIC_AUDIENCE = 'https://www.w3.org/ns/activitystreams#Public'
 
 # Content-Type values. All non-unicode strings because App Engine's wsgi.py
 # requires header values to be str, not unicode.
@@ -352,8 +351,8 @@ def postprocess_as2(activity, user=None, target=None):
     # https://socialhub.activitypub.rocks/t/visibility-to-cc-mapping/284
     # https://wordsmith.social/falkreon/securing-activitypub
     to = activity.setdefault('to', [])
-    if AS2_PUBLIC_AUDIENCE not in to:
-        to.append(AS2_PUBLIC_AUDIENCE)
+    if as2.PUBLIC_AUDIENCE not in to:
+        to.append(as2.PUBLIC_AUDIENCE)
 
     # wrap articles and notes in a Create activity
     if type in ('Article', 'Note'):

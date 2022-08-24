@@ -181,6 +181,13 @@ def inbox(domain):
                                    source_as2=source_as2)
 
     if not sent and type in ('Create', 'Announce'):
+        # check that this activity is public. only do this check for Creates,
+        # not Like, Follow, or other activity types, since Mastodon doesn't
+        # currently mark those as explicitly public.
+        if not as2.is_public(activity_unwrapped):
+            logging.info('Dropping non-public activity')
+            return ''
+
         # normal post, deliver to BF followers
         source = activity.get('url') or activity.get('id')
         domains = []

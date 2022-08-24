@@ -9,7 +9,7 @@ from urllib.parse import urlencode
 
 from django_salmon import magicsigs, utils
 import feedparser
-from granary import atom, microformats2
+from granary import as2, atom, microformats2
 from httpsig.sign import HeaderSigner
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
@@ -18,7 +18,6 @@ import requests
 
 import activitypub
 from common import (
-    AS2_PUBLIC_AUDIENCE,
     CONNEG_HEADERS_AS2,
     CONNEG_HEADERS_AS2_HTML,
     CONTENT_TYPE_AS2,
@@ -47,11 +46,11 @@ REPOST_AS2 = {
     'url': 'http://localhost/r/http://a/repost',
     'name': 'reposted!',
     'object': 'tag:orig,2017:as2',
-    'to': [AS2_PUBLIC_AUDIENCE],
+    'to': [as2.PUBLIC_AUDIENCE],
     'cc': [
         'http://orig/author',
         'http://orig/recipient',
-        AS2_PUBLIC_AUDIENCE,
+        as2.PUBLIC_AUDIENCE,
         'http://orig/bystander',
     ],
     'actor': {
@@ -100,8 +99,8 @@ class WebmentionTest(testutil.TestCase):
             'id': 'tag:orig,2017:as2',
             'content': 'Lots of ☕ words...',
             'actor': {'url': 'http://orig/author'},
-            'to': ['http://orig/recipient', AS2_PUBLIC_AUDIENCE],
-            'cc': ['http://orig/bystander', AS2_PUBLIC_AUDIENCE],
+            'to': ['http://orig/recipient', as2.PUBLIC_AUDIENCE],
+            'cc': ['http://orig/bystander', as2.PUBLIC_AUDIENCE],
         }
         self.orig_as2 = requests_response(
             self.orig_as2_data, url='http://orig/as2',
@@ -174,11 +173,11 @@ class WebmentionTest(testutil.TestCase):
 <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>
 <a href="http://localhost/"></a>""",
                 'inReplyTo': 'tag:orig,2017:as2',
-                'to': [AS2_PUBLIC_AUDIENCE],
+                'to': [as2.PUBLIC_AUDIENCE],
                 'cc': [
                     'http://orig/author',
                     'http://orig/recipient',
-                    AS2_PUBLIC_AUDIENCE,
+                    as2.PUBLIC_AUDIENCE,
                     'http://orig/bystander',
                 ],
                 'attributedTo': [{
@@ -223,7 +222,7 @@ class WebmentionTest(testutil.TestCase):
                 'type': 'Person',
                 'url': 'http://localhost/r/https://orig',
             },
-            'to': [AS2_PUBLIC_AUDIENCE],
+            'to': [as2.PUBLIC_AUDIENCE],
         }
 
         self.create_html = """\
@@ -264,7 +263,7 @@ class WebmentionTest(testutil.TestCase):
                     'name': 'Ms. ☕ Baz',
                     'preferredUsername': 'orig',
                 }],
-                'to': [AS2_PUBLIC_AUDIENCE],
+                'to': [as2.PUBLIC_AUDIENCE],
             },
         }
         self.update_as2 = copy.deepcopy(self.create_as2)
