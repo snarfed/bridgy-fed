@@ -410,7 +410,7 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/realize.be/inbox', json=DELETE)
         self.assertEqual(200, got.status_code)
 
-        # TODO: bring back
+        # TODO: bring back once we actually delete followers
         # self.assertEqual([other], Follower.query().fetch())
 
     def test_inbox_webmention_discovery_connection_fails(self, mock_head,

@@ -36,7 +36,6 @@ SUPPORTED_VERBS = (
 @app.post(f'/<regex("{common.ACCT_RE}|{common.DOMAIN_RE}"):acct>/salmon')
 def slap(acct):
     """Accepts POSTs to /[ACCT]/salmon and converts to outbound webmentions."""
-    # TODO: unify with activitypub
     body = request.get_data(as_text=True)
     logger.info(f'Got: {body}')
 
