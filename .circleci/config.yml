@@ -51,8 +51,12 @@ jobs:
           key: venv-3-{{ .Branch }}-{{ checksum "requirements.txt" }}
           paths:
             - /home/circleci/.pyenv
-            - /usr/lib/google-cloud-sdk
-            - /usr/lib/jvm/java-11-openjdk-amd64
+            # Ideally we'd cache these, but they need root, and the cimg/python
+            # Docker image's default user is circleci :/
+            # https://github.com/cypress-io/circleci-orb/issues/269
+            #
+            # - /usr/lib/google-cloud-sdk
+            # - /usr/lib/jvm/java-11-openjdk-amd64
 
       - store_artifacts:
           path: /tmp/coverage_html
