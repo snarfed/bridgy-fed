@@ -175,12 +175,11 @@ Finally, configure your web site to redirect these URL paths to the same paths o
 <li><em><a href="http://withknown.com/">Known</a></em> or <em><a href="https://drupal.org/project/indieweb">Drupal</a></em>: follow the <a href="#apache">Apache</a> or <a href="#nginx">nginx</a> instructions below.
 </li>
 
-<li id="apache"><em><a href="http://httpd.apache.org/">Apache</a></em>: add this to your <code>.htaccess</code> file:
-  <pre>RewriteEngine on
+<li id="apache"><em><a href="http://httpd.apache.org/">Apache</a></em>: add this to your <code>.htaccess</code> file:<br />
+<pre>RewriteEngine on
 RewriteBase /
 RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redirect=302,last]</pre>
- or if your top level <code>.htaccess</code> file already has <code>RewriteEngine on</code>, you may add just this one line:
- <pre>RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redirect=302,last]</pre>
+(<code>RewriteEngine on</code> is optional if you already have it earlier in your <code>.htaccess</code>. <code>RewriteBase /</code> is optional if you don't have any other <code>RewriteBase</code> directives, or if you put this <code>RewriteRule</code> inside an existing <code>RewriteBase /</code> section.)
 </li>
 
 <li id="nginx"><em><a href="https://nginx.org/">nginx</a></em>: add this to your <code>nginx.conf</code> file, in the <code>server</code> section:<br />
