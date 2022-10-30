@@ -255,6 +255,8 @@ class WebmentionTest(testutil.TestCase):
                 'cc': ['https://www.w3.org/ns/activitystreams#Public'],
             },
         }
+        self.update_as2 = copy.deepcopy(self.create_as2)
+        self.update_as2['type'] = 'Update'
 
         self.not_fediverse = requests_response("""\
 <html>
@@ -589,6 +591,15 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.create, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
+        Response(id='http://orig/post https://skipped/inbox', status='complete',
+                 source_mf2=json_dumps(self.create_mf2)).put()
+
+        different_create_mf2 = copy.deepcopy(self.create_mf2)
+        different_create_mf2['items'][0]['properties']['content'][0]['value'] += ' different'
+        Response(id='http://orig/post https://updated/inbox', status='complete',
+                 direction='out', protocol='activitypub',
+                 source_mf2=json_dumps(different_create_mf2)).put()
+
         Follower.get_or_create('orig', 'https://mastodon/aaa')
         Follower.get_or_create('orig', 'https://mastodon/bbb',
                                last_follow=json_dumps({'actor': {
@@ -605,12 +616,22 @@ class WebmentionTest(testutil.TestCase):
                                last_follow=json_dumps({'actor': {
                                    'inbox': 'https://inbox',
                                }}))
+        # already sent, should be skipped
         Follower.get_or_create('orig', 'https://mastodon/eee',
+                               last_follow=json_dumps({'actor': {
+                                   'inbox': 'https://skipped/inbox',
+                               }}))
+        # changed, should still be sent
+        Follower.get_or_create('orig', 'https://mastodon/fff',
+                               last_follow=json_dumps({'actor': {
+                                   'inbox': 'https://updated/inbox',
+                               }}))
+        Follower.get_or_create('orig', 'https://mastodon/ggg',
                                status='inactive',
                                last_follow=json_dumps({'actor': {
                                    'inbox': 'https://unused/2',
                                }}))
-        Follower.get_or_create('orig', 'https://mastodon/fff',
+        Follower.get_or_create('orig', 'https://mastodon/hhh',
                                last_follow=json_dumps({'actor': {
                                    # dupe of eee; should be de-duped
                                    'inbox': 'https://inbox',
@@ -626,18 +647,23 @@ class WebmentionTest(testutil.TestCase):
             self.req('http://orig/post'),
         ))
 
-        inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
+        inboxes = ('https://inbox', 'https://public/inbox',
+                   'https://shared/inbox', 'https://updated/inbox')
         self.assertEqual(len(inboxes), len(mock_post.call_args_list))
+
         for call, inbox in zip(mock_post.call_args_list, inboxes):
             self.assertEqual((inbox,), call[0])
-            self.assertEqual(self.create_as2, json_loads(call[1]['data']))
+            self.assertEqual(
+                self.update_as2 if inbox == 'https://updated/inbox' else self.create_as2,
+                json_loads(call[1]['data']))
 
-        for inbox in inboxes:
             resp = Response.get_by_id('http://orig/post %s' % inbox)
             self.assertEqual('out', resp.direction, inbox)
             self.assertEqual('activitypub', resp.protocol, inbox)
             self.assertEqual('complete', resp.status, inbox)
-            self.assertEqual(self.create_mf2, json_loads(resp.source_mf2), inbox)
+            self.assertEqual((different_create_mf2 if inbox == 'https://updated/inbox'
+                              else self.create_mf2),
+                             json_loads(resp.source_mf2), inbox)
 
     def test_activitypub_create_with_image(self, mock_get, mock_post):
         create_html = self.create_html.replace(

@@ -115,7 +115,7 @@ class Webmention(View):
                     if orig_content and new_content and orig_content == new_content:
                         msg = f'Skipping; new content is same as content published before at {resp.updated}'
                         logger.info(msg)
-                        return msg
+                        continue
 
                 source_activity['type'] = 'Update'
 
