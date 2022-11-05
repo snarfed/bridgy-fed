@@ -125,6 +125,8 @@ def inbox(domain):
     except (TypeError, ValueError, AssertionError):
         error("Couldn't parse body as JSON", exc_info=True)
 
+    logger.info(f'Got: {json_dumps(activity, indent=2)}')
+
     obj = activity.get('object') or {}
     if isinstance(obj, str):
         obj = {'id': obj}
