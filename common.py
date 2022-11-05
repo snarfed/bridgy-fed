@@ -303,8 +303,9 @@ def postprocess_as2(activity, target=None, key=None):
     # copy image(s) into attachment(s). may be Mastodon-specific.
     # https://github.com/snarfed/bridgy-fed/issues/33#issuecomment-440965618
     obj_or_activity = obj if isinstance(obj, dict) else activity
-    obj_or_activity.setdefault('attachment', []).extend(
-        obj_or_activity.get('image', []))
+    img = obj_or_activity.get('image')
+    if img:
+        obj_or_activity.setdefault('attachment', []).append(img)
 
     # cc public and target's author(s) and recipients
     # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting

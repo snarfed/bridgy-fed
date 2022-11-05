@@ -584,7 +584,7 @@ class WebmentionTest(testutil.TestCase):
 
         repost_as2 = copy.deepcopy(self.repost_as2)
         repost_as2['actor']['image'] = repost_as2['actor']['icon'] = \
-            {'type': 'Image', 'url': 'http://orig/pic'},
+            {'type': 'Image', 'url': 'http://orig/pic'}
         self.assert_equals(repost_as2, json_loads(kwargs['data']))
 
     def test_activitypub_create_post(self, mock_get, mock_post):
@@ -687,7 +687,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(('https://inbox',), mock_post.call_args[0])
         create = copy.deepcopy(self.create_as2)
         create['object'].update({
-            'image': [{'url': 'http://im/age', 'type': 'Image'}],
+            'image': {'url': 'http://im/age', 'type': 'Image'},
             'attachment': [{'url': 'http://im/age', 'type': 'Image'}],
         })
         self.assertEqual(create, json_loads(mock_post.call_args[1]['data']))
