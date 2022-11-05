@@ -238,9 +238,11 @@ def postprocess_as2(activity, target=None, key=None):
             # underspecified, inferred from this issue and Mastodon's implementation:
             # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
             # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
+            actor_url = request.host_url + activity.get('preferredUsername')
             activity.update({
                 'publicKey': {
-                    'id': activity.get('preferredUsername'),
+                    'id': actor_url,
+                    'owner': actor_url,
                     'publicKeyPem': key.public_pem().decode(),
                 },
                 '@context': (util.get_list(activity, '@context') +

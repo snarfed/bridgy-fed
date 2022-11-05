@@ -171,7 +171,8 @@ class ActivityPubTest(testutil.TestCase):
             'following': 'http://localhost/foo.com/following',
             'followers': 'http://localhost/foo.com/followers',
             'publicKey': {
-                'id': 'foo.com',
+                'id': 'http://localhost/foo.com',
+                'owner': 'http://localhost/foo.com',
                 'publicKeyPem': MagicKey.get_by_id('foo.com').public_pem().decode(),
             },
         }, got.json)

@@ -57,9 +57,9 @@ def send(activity, inbox_url, user_domain):
     # https://w3c.github.io/activitypub/#authorization
     # https://tools.ietf.org/html/draft-cavage-http-signatures-07
     # https://github.com/tootsuite/mastodon/issues/4906#issuecomment-328844846
-    acct = 'acct:%s@%s' % (user_domain, user_domain)
+    key_id = request.host_url + user_domain
     key = MagicKey.get_or_create(user_domain)
-    auth = HTTPSignatureAuth(secret=key.private_pem(), key_id=acct,
+    auth = HTTPSignatureAuth(secret=key.private_pem(), key_id=key_id,
                              algorithm='rsa-sha256', sign_header='signature',
                              headers=('Date', 'Digest', 'Host'))
 
