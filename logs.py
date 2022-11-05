@@ -1,9 +1,11 @@
 """Render recent responses and logs."""
 import calendar
+from itertools import islice
 import urllib.parse
 
-from flask import render_template
+from flask import render_template, request
 from oauth_dropins.webutil import flask_util, logs, util
+from oauth_dropins.webutil.flask_util import error
 
 from app import app, cache
 from models import Response
@@ -12,10 +14,33 @@ from models import Response
 @app.get('/responses')
 def responses():
     """Renders recent Responses, with links to logs."""
-    responses = Response.query()\
+    query = Response.query()\
         .filter(Response.status.IN(('new', 'complete', 'error')))\
-        .order(-Response.updated).fetch(20)
+        .order(-Response.updated)
 
+    # if there's a paging param (responses_before or responses_after), update
+    # query with it
+    # TODO: unify this with Bridgy's user page
+    def get_paging_param(param):
+        val = request.values.get(param)
+        try:
+            return util.parse_iso8601(val.replace(' ', '+')) if val else None
+        except BaseException:
+            error(f"Couldn't parse {param}, {val!r} as ISO8601")
+
+    before = get_paging_param('responses_before')
+    after = get_paging_param('responses_after')
+    if before and after:
+        error("can't handle both responses_before and responses_after")
+    elif after:
+        query = query.filter(Response.updated > after).order(Response.updated)
+    elif before:
+        query = query.filter(Response.updated < before).order(-Response.updated)
+    else:
+        query = query.order(-Response.updated)
+
+    query_iter = query.iter()
+    responses = list(islice(query_iter, 0, 20))
     for r in responses:
         r.source_link = util.pretty_link(r.source())
         r.target_link = util.pretty_link(r.target())
@@ -24,7 +49,26 @@ def responses():
           'start_time': calendar.timegm(r.updated.timetuple()),
         })
 
-    return render_template('responses.html', responses=responses)
+    vars = {'responses': sorted(responses, key=lambda r: r.updated, reverse=True)}
+
+    # calculate new paging param(s)
+    new_after = (
+        before if before
+        else responses[0].updated
+            if responses and query_iter.probably_has_next() and (before or after)
+        else None)
+    if new_after:
+        vars['responses_after_link'] = f'?responses_after={new_after.isoformat()}#responses'
+
+    new_before = (
+        after if after else
+        responses[-1].updated if
+            responses and query_iter.probably_has_next()
+        else None)
+    if new_before:
+        vars['responses_before_link'] = f'?responses_before={new_before.isoformat()}#responses'
+
+    return render_template('responses.html', **vars)
 
 
 @app.get('/log')
