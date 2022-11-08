@@ -73,7 +73,7 @@ def send(activity, inbox_url, user_domain):
         # required by Mastodon
         # https://github.com/tootsuite/mastodon/pull/14556#issuecomment-674077648
         'Digest': 'SHA-256=' + b64encode(sha256(body).digest()).decode(),
-        'Host': util.domain_from_link(inbox_url),
+        'Host': util.domain_from_link(inbox_url, minimize=False),
     }
     return common.requests_post(inbox_url, data=body, auth=auth,
                                 headers=headers)
@@ -204,7 +204,7 @@ def accept_follow(follow, follow_unwrapped):
         error('Follow actor requires id and inbox. Got: %s', follower)
 
     # store Follower
-    user_domain = util.domain_from_link(followee_unwrapped)
+    user_domain = util.domain_from_link(followee_unwrapped, minimize=False)
     Follower.get_or_create(user_domain, follower_id, last_follow=json_dumps(follow))
 
     # send AP Accept
@@ -220,6 +220,8 @@ def accept_follow(follow, follow_unwrapped):
             'object': followee,
         }
     }
+    # STATE: this fails, then we don't create a Response, since that happens in
+    # send_webmentions
     resp = send(accept, inbox, user_domain)
 
     # send webmention
@@ -231,7 +233,7 @@ def accept_follow(follow, follow_unwrapped):
 
 @ndb.transactional()
 def undo_follow(undo_unwrapped):
-    """Replies to an AP Follow request with an Accept request.
+    """Handles an AP Undo Follow request by deactivating the Follower entity.
 
     Args:
       undo_unwrapped: dict, AP Undo activity with redirect URLs unwrapped
@@ -245,7 +247,7 @@ def undo_follow(undo_unwrapped):
         error('Undo of Follow requires object with actor and object. Got: %s' % follow)
 
     # deactivate Follower
-    user_domain = util.domain_from_link(followee)
+    user_domain = util.domain_from_link(followee, minimize=False)
     follower_obj = Follower.get_by_id(Follower._id(user_domain, follower))
     if follower_obj:
         logger.info(f'Marking {follower_obj.key} as inactive')

@@ -189,7 +189,8 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
     # send webmentions and store Responses
     errors = []  # stores (code, body) tuples
     for target in targets:
-        if util.domain_from_link(target) == util.domain_from_link(source):
+        if (util.domain_from_link(target, minimize=False) ==
+            util.domain_from_link(source, minimize=False)):
             logger.info(f'Skipping same-domain webmention from {source} to {target}')
             continue
 
@@ -398,7 +399,8 @@ def redirect_unwrap(val):
         if val.startswith(prefix):
             return util.follow_redirects(val[len(prefix):]).url
         elif val.startswith(request.host_url):
-            domain = util.domain_from_link(urllib.parse.urlparse(val).path.strip('/'))
+            domain = util.domain_from_link(urllib.parse.urlparse(val).path.strip('/'),
+                                           minimize=False)
             return util.follow_redirects(domain).url
 
     return val

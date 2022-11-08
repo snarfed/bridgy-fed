@@ -89,10 +89,10 @@ FOLLOW = {
     'id': 'https://mastodon.social/6d1a',
     'type': 'Follow',
     'actor': 'https://mastodon.social/users/swentel',
-    'object': 'https://realize.be/',
+    'object': 'https://www.realize.be/',
 }
 FOLLOW_WRAPPED = copy.deepcopy(FOLLOW)
-FOLLOW_WRAPPED['object'] = 'http://localhost/realize.be'
+FOLLOW_WRAPPED['object'] = 'http://localhost/www.realize.be'
 ACTOR = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'id': FOLLOW['actor'],
@@ -112,12 +112,12 @@ FOLLOW_WRAPPED_WITH_ACTOR['actor'] = FOLLOW_WITH_ACTOR['actor']
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Accept',
-    'id': 'tag:localhost:accept/realize.be/https://mastodon.social/6d1a',
-    'actor': 'http://localhost/realize.be',
+    'id': 'tag:localhost:accept/www.realize.be/https://mastodon.social/6d1a',
+    'actor': 'http://localhost/www.realize.be',
     'object': {
         'type': 'Follow',
         'actor': 'https://mastodon.social/users/swentel',
-        'object': 'http://localhost/realize.be',
+        'object': 'http://localhost/www.realize.be',
     }
 }
 
@@ -324,7 +324,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(LIKE_WITH_ACTOR, json_loads(resp.source_as2))
 
     def test_inbox_follow_accept(self, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='https://realize.be/')
+        mock_head.return_value = requests_response(url='https://www.realize.be/')
         mock_get.side_effect = [
             # source actor
             requests_response(FOLLOW_WITH_ACTOR['actor'],
@@ -349,32 +349,32 @@ class ActivityPubTest(testutil.TestCase):
 
         # check webmention
         args, kwargs = mock_post.call_args_list[1]
-        self.assertEqual(('https://realize.be/webmention',), args)
+        self.assertEqual(('https://www.realize.be/webmention',), args)
         self.assertEqual({
-            'source': 'http://localhost/render?source=https%3A%2F%2Fmastodon.social%2F6d1a&target=https%3A%2F%2Frealize.be%2F',
-            'target': 'https://realize.be/',
+            'source': 'http://localhost/render?source=https%3A%2F%2Fmastodon.social%2F6d1a&target=https%3A%2F%2Fwww.realize.be%2F',
+            'target': 'https://www.realize.be/',
         }, kwargs['data'])
 
-        resp = Response.get_by_id('https://mastodon.social/6d1a https://realize.be/')
+        resp = Response.get_by_id('https://mastodon.social/6d1a https://www.realize.be/')
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
         self.assertEqual(FOLLOW_WITH_ACTOR, json_loads(resp.source_as2))
 
         # check that we stored a Follower object
-        follower = Follower.get_by_id('realize.be %s' % (FOLLOW['actor']))
+        follower = Follower.get_by_id('www.realize.be %s' % (FOLLOW['actor']))
         self.assertEqual('active', follower.status)
         self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, json_loads(follower.last_follow))
 
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='https://realize.be/')
+        mock_head.return_value = requests_response(url='https://www.realize.be/')
 
-        Follower(id=Follower._id('realize.be', FOLLOW['actor'])).put()
+        Follower(id=Follower._id('www.realize.be', FOLLOW['actor'])).put()
 
         got = self.client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
-        follower = Follower.get_by_id('realize.be %s' % FOLLOW['actor'])
+        follower = Follower.get_by_id('www.realize.be %s' % FOLLOW['actor'])
         self.assertEqual('inactive', follower.status)
 
     def test_inbox_undo_follow_doesnt_exist(self, mock_head, mock_get, mock_post):

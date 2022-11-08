@@ -47,7 +47,8 @@ def redir(to):
         error(f'Expected fully qualified URL; got {to}')
 
     # check that we've seen this domain before so we're not an open redirect
-    domains = set((util.domain_from_link(to),
+    domains = set((util.domain_from_link(to, minimize=True),
+                   util.domain_from_link(to, minimize=False),
                    urllib.parse.urlparse(to).hostname))
     for domain in domains:
         if domain and MagicKey.get_by_id(domain):
