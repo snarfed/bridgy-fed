@@ -220,8 +220,6 @@ def accept_follow(follow, follow_unwrapped):
             'object': followee,
         }
     }
-    # STATE: this fails, then we don't create a Response, since that happens in
-    # send_webmentions
     resp = send(accept, inbox, user_domain)
 
     # send webmention
