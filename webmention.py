@@ -172,8 +172,9 @@ class Webmention(View):
                                     actor.get('publicInbox')or
                                     actor.get('inbox'))
             return [(Response.get_or_create(
-                        source=self.source_url, target=inbox, direction='out',
-                        protocol='activitypub', source_mf2=json_dumps(self.source_mf2)),
+                        source=self.source_url, target=inbox, domain=self.source_domain,
+                        direction='out', protocol='activitypub',
+                        source_mf2=json_dumps(self.source_mf2)),
                      inbox)
                     for inbox in sorted(inboxes) if inbox]
 
@@ -193,8 +194,9 @@ class Webmention(View):
           target_url = self.target_resp.url or target
 
           resp = Response.get_or_create(
-              source=self.source_url, target=target_url, direction='out',
-              protocol='activitypub', source_mf2=json_dumps(self.source_mf2))
+              source=self.source_url, target=target_url, domain=self.source_domain,
+              direction='out', protocol='activitypub',
+              source_mf2=json_dumps(self.source_mf2))
 
           # find target's inbox
           target_obj = self.target_resp.json()
@@ -258,7 +260,8 @@ class Webmention(View):
         finally:
             if status:
                 Response(source=self.source_url, target=target, status=status,
-                         direction='out', protocol = 'ostatus',
+                         domain=self.source_domain, direction='out',
+                         protocol = 'ostatus',
                          source_mf2=json_dumps(self.source_mf2)).put()
 
     def _try_salmon(self, target):

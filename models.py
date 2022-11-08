@@ -71,6 +71,7 @@ class Response(StringIdModel):
     PROTOCOLS = ('activitypub', 'ostatus')
     DIRECTIONS = ('out', 'in')
 
+    domain = ndb.StringProperty()
     status = ndb.StringProperty(choices=STATUSES, default='new')
     protocol = ndb.StringProperty(choices=PROTOCOLS)
     direction = ndb.StringProperty(choices=DIRECTIONS)

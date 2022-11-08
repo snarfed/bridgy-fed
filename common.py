@@ -189,13 +189,13 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
     # send webmentions and store Responses
     errors = []  # stores (code, body) tuples
     for target in targets:
-        if (util.domain_from_link(target, minimize=False) ==
-            util.domain_from_link(source, minimize=False)):
+        domain = util.domain_from_link(target, minimize=False)
+        if (domain == util.domain_from_link(source, minimize=False)):
             logger.info(f'Skipping same-domain webmention from {source} to {target}')
             continue
 
         response = Response(source=source, target=target, direction='in',
-                            **response_props)
+                            domain=domain, **response_props)
         response.put()
         wm_source = (response.proxy_url()
                      if verb in ('follow', 'like', 'share') or proxy

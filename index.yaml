@@ -11,3 +11,10 @@ indexes:
   - name: status
   - name: updated
     direction: desc
+
+- kind: Response
+  properties:
+  - name: domain
+  - name: status
+  - name: updated
+    direction: desc

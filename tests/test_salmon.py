@@ -91,6 +91,7 @@ class SalmonTest(testutil.TestCase):
 
         # check stored response
         resp = Response.get_by_id('https://my/reply http://orig/post')
+        self.assertEqual('orig', resp.domain)
         self.assertEqual('in', resp.direction)
         self.assertEqual('ostatus', resp.protocol)
         self.assertEqual('complete', resp.status)
@@ -125,6 +126,7 @@ class SalmonTest(testutil.TestCase):
 
         # check stored response
         resp = Response.get_by_id('https://my/like http://orig/post')
+        self.assertEqual('orig', resp.domain)
         self.assertEqual('in', resp.direction)
         self.assertEqual('ostatus', resp.protocol)
         self.assertEqual('complete', resp.status)

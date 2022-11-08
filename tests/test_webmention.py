@@ -394,6 +394,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
         resp = Response.get_by_id('http://a/reply http://orig/as2')
+        self.assertEqual('a', resp.domain)
         self.assertEqual('out', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
@@ -496,6 +497,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
         resp = Response.get_by_id('http://a/repost http://orig/as2')
+        self.assertEqual('a', resp.domain)
         self.assertEqual('out', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
@@ -591,13 +593,13 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.create, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        Response(id='http://orig/post https://skipped/inbox', status='complete',
-                 source_mf2=json_dumps(self.create_mf2)).put()
+        Response(id='http://orig/post https://skipped/inbox', domain='orig',
+                 status='complete', source_mf2=json_dumps(self.create_mf2)).put()
 
         different_create_mf2 = copy.deepcopy(self.create_mf2)
         different_create_mf2['items'][0]['properties']['content'][0]['value'] += ' different'
-        Response(id='http://orig/post https://updated/inbox', status='complete',
-                 direction='out', protocol='activitypub',
+        Response(id='http://orig/post https://updated/inbox', domain='orig',
+                 status='complete', direction='out', protocol='activitypub',
                  source_mf2=json_dumps(different_create_mf2)).put()
 
         Follower.get_or_create('orig', 'https://mastodon/aaa')
@@ -652,18 +654,20 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(len(inboxes), len(mock_post.call_args_list))
 
         for call, inbox in zip(mock_post.call_args_list, inboxes):
-            self.assertEqual((inbox,), call[0])
-            self.assertEqual(
-                self.update_as2 if inbox == 'https://updated/inbox' else self.create_as2,
-                json_loads(call[1]['data']))
+            with self.subTest(call=call, inbox=inbox):
+                self.assertEqual((inbox,), call[0])
+                self.assertEqual(
+                    self.update_as2 if inbox == 'https://updated/inbox' else self.create_as2,
+                    json_loads(call[1]['data']))
 
-            resp = Response.get_by_id('http://orig/post %s' % inbox)
-            self.assertEqual('out', resp.direction, inbox)
-            self.assertEqual('activitypub', resp.protocol, inbox)
-            self.assertEqual('complete', resp.status, inbox)
-            self.assertEqual((different_create_mf2 if inbox == 'https://updated/inbox'
-                              else self.create_mf2),
-                             json_loads(resp.source_mf2), inbox)
+                resp = Response.get_by_id('http://orig/post %s' % inbox)
+                self.assertEqual('orig', resp.domain)
+                self.assertEqual('out', resp.direction, inbox)
+                self.assertEqual('activitypub', resp.protocol, inbox)
+                self.assertEqual('complete', resp.status, inbox)
+                self.assertEqual((different_create_mf2 if inbox == 'https://updated/inbox'
+                                  else self.create_mf2),
+                                 json_loads(resp.source_mf2), inbox)
 
     def test_activitypub_create_with_image(self, mock_get, mock_post):
         create_html = self.create_html.replace(
@@ -718,6 +722,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
         resp = Response.get_by_id('http://a/follow http://followee/')
+        self.assertEqual('a', resp.domain)
         self.assertEqual('out', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
@@ -754,6 +759,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
         resp = Response.get_by_id('http://a/follow http://followee/')
+        self.assertEqual('a', resp.domain)
         self.assertEqual('out', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('error', resp.status)
@@ -798,6 +804,7 @@ class WebmentionTest(testutil.TestCase):
             entry.content[0]['value'])
 
         resp = Response.get_by_id('http://a/reply http://orig/post')
+        self.assertEqual('a', resp.domain)
         self.assertEqual('out', resp.direction)
         self.assertEqual('ostatus', resp.protocol)
         self.assertEqual('complete', resp.status)
@@ -831,6 +838,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('http://orig/post', entry['activity_object'])
 
         resp = Response.get_by_id('http://a/like http://orig/post')
+        self.assertEqual('a', resp.domain)
         self.assertEqual('out', resp.direction)
         self.assertEqual('ostatus', resp.protocol)
         self.assertEqual('complete', resp.status)
@@ -882,6 +890,7 @@ class WebmentionTest(testutil.TestCase):
                       got.get_data(as_text=True))
 
         resp = Response.get_by_id('http://a/reply http://orig/url')
+        self.assertEqual('a', resp.domain)
         self.assertEqual('out', resp.direction)
         self.assertEqual('ostatus', resp.protocol)
         self.assertEqual('error', resp.status)

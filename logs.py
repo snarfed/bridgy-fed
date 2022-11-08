@@ -8,15 +8,20 @@ from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import error
 
 from app import app, cache
+import common
 from models import Response
 
 
 @app.get('/responses')
-def responses():
+@app.get(f'/responses/<regex("{common.DOMAIN_RE}"):domain>')
+def responses(domain=None):
     """Renders recent Responses, with links to logs."""
     query = Response.query()\
         .filter(Response.status.IN(('new', 'complete', 'error')))\
         .order(-Response.updated)
+
+    if domain:
+        query = query.filter(Response.domain == domain)
 
     # if there's a paging param (responses_before or responses_after), update
     # query with it

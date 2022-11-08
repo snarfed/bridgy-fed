@@ -238,6 +238,7 @@ class ActivityPubTest(testutil.TestCase):
         )
 
         resp = Response.get_by_id('http://this/reply http://orig/post')
+        self.assertEqual('orig', resp.domain)
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
@@ -286,6 +287,7 @@ class ActivityPubTest(testutil.TestCase):
             )
 
             resp = Response.get_by_id('http://this/mention http://target/')
+            self.assertEqual('target', resp.domain)
             self.assertEqual('in', resp.direction)
             self.assertEqual('activitypub', resp.protocol)
             self.assertEqual('complete', resp.status)
@@ -318,6 +320,7 @@ class ActivityPubTest(testutil.TestCase):
         }, kwargs['data'])
 
         resp = Response.get_by_id('http://this/like__ok http://orig/post')
+        self.assertEqual('orig', resp.domain)
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
@@ -356,6 +359,7 @@ class ActivityPubTest(testutil.TestCase):
         }, kwargs['data'])
 
         resp = Response.get_by_id('https://mastodon.social/6d1a https://www.realize.be/')
+        self.assertEqual('www.realize.be', resp.domain)
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('complete', resp.status)
@@ -440,6 +444,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(200, got.status_code)
 
         resp = Response.get_by_id('http://this/like__ok http://orig/post')
+        self.assertEqual('orig', resp.domain)
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
         self.assertEqual('ignored', resp.status)
