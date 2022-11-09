@@ -134,6 +134,10 @@ To receive likes, reposts, replies, and follows from fedsocnets, just make sure 
 <p>
 The webmention source URL will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>!
 </p>
+
+<p>
+You can see your recent interactions at <a href="https://fed.brid.gy/responses/[your-domain.com]">fed.brid.gy/responses/[your-domain.com]</a>.
+</p>
 </li>
 
 <li id="setup" class="question">How do I set it up?</li>
@@ -238,7 +242,7 @@ I love scotch. Scotchy scotchy scotch.
 <li class="answer">
 <p>If you sent a webmention, check the HTTP response code and body. It will usually describe the error.</p>
 <p>If you got an HTTP 204 from an attempt to federate a response to Mastodon, that means Mastodon accepted the response. If it doesn't show up, that's a known inconsistency right now. We're actively working with them to debug these cases.</p>
-<p>You can also <a href="/responses">see recent Bridgy Fed requests here</a>, including raw logs. Warning: not for the faint of heart!</p>
+<p>You can also <a href="/responses">see all recent Bridgy Fed requests here</a>, including raw logs. Warning: not for the faint of heart!</p>
 </li>
 
 <li id="cost" class="question">How much does it cost?</li>

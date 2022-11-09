@@ -54,7 +54,10 @@ def responses(domain=None):
           'start_time': calendar.timegm(r.updated.timetuple()),
         })
 
-    vars = {'responses': sorted(responses, key=lambda r: r.updated, reverse=True)}
+    vars = {
+        'domain': domain,
+        'responses': sorted(responses, key=lambda r: r.updated, reverse=True),
+    }
 
     # calculate new paging param(s)
     new_after = (
