@@ -4,6 +4,7 @@ from itertools import islice
 import urllib.parse
 
 from flask import render_template, request
+from google.cloud.ndb.stats import KindStat
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import error
 
@@ -77,6 +78,16 @@ def responses(domain=None):
         vars['responses_before_link'] = f'?responses_before={new_before.isoformat()}#responses'
 
     return render_template('responses.html', **vars)
+
+
+@app.get('/stats')
+def stats():
+   return render_template(
+       'stats.html',
+       users=KindStat.query(KindStat.kind_name == 'MagicKey').get().count,
+       responses=KindStat.query(KindStat.kind_name == 'Response').get().count,
+       followers=KindStat.query(KindStat.kind_name == 'Follower').get().count,
+   )
 
 
 @app.get('/log')
