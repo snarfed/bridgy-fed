@@ -108,14 +108,15 @@ class Response(StringIdModel):
         """Returns the Bridgy Fed proxy URL to render this response as HTML."""
         if self.source_mf2 or self.source_as2 or self.source_atom:
             source, target = self.key.id().split(' ')
+            # via https://stackoverflow.com/questions/2506379/add-params-to-given-url-in-python
             url = f'{request.host_url}render'
             params = {
                     'source': source,
                     'target': target,
                     }
 
-            url_parts = list(urlparse.urlparse(url))
-            query = dict(urlparse.parse_qsl(url_parts[4]))
+            url_parts = list(parse.urlparse(url))
+            query = dict(parse.parse_qsl(url_parts[4]))
             query.update(params)
 
             url_parts[4] = urlencode(query)
