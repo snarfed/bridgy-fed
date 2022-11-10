@@ -1,6 +1,6 @@
 """Datastore model classes."""
 import logging
-import urllib.parse
+import urllib.parse as urlparse
 
 from Crypto.PublicKey import RSA
 from django_salmon import magicsigs
@@ -115,8 +115,8 @@ class Response(StringIdModel):
                     'target': target,
                     }
 
-            url_parts = list(parse.urlparse(url))
-            query = dict(parse.parse_qsl(url_parts[4]))
+            url_parts = list(urlparse.urlparse(url))
+            query = dict(urlparse.parse_qsl(url_parts[4]))
             query.update(params)
 
             url_parts[4] = urlencode(query)
