@@ -1,6 +1,7 @@
 """Datastore model classes."""
 import logging
 import urllib.parse as urlparse
+from urllib.parse import urlencode
 
 from Crypto.PublicKey import RSA
 from django_salmon import magicsigs
