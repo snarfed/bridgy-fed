@@ -108,10 +108,19 @@ class Response(StringIdModel):
         """Returns the Bridgy Fed proxy URL to render this response as HTML."""
         if self.source_mf2 or self.source_as2 or self.source_atom:
             source, target = self.key.id().split(' ')
-            return f'{request.host_url}render?' + urllib.parse.urlencode({
-                'source': source,
-                'target': target,
-            })
+            url = f'{request.host_url}render'
+            params = {
+                    'source': source,
+                    'target': target,
+                    }
+
+            url_parts = list(urlparse.urlparse(url))
+            query = dict(urlparse.parse_qsl(url_parts[4]))
+            query.update(params)
+
+            url_parts[4] = urlencode(query)
+
+            return urlparse.urlunparse(url_parts)
 
     @classmethod
     def _id(cls, source, target):

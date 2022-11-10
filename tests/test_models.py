@@ -58,5 +58,5 @@ class ResponseTest(testutil.TestCase):
             self.assertIsNone(resp.proxy_url())
 
             resp.source_as2 = 'as2'
-            self.assertEqual('http://localhost/render?source=abc&target=xyz',
+            self.assertEqual('http://localhost/render?source=abc%26target=xyz',
                              resp.proxy_url())
