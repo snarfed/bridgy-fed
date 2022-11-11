@@ -1,50 +1,35 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<title>Bridgy Fed: {{ domain or 'Recent activity' }}</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="mobile-web-app-capable" content="yes"/>
-<link rel="stylesheet" href="/oauth_dropins_static/bootstrap.min.css" />
-<link rel="stylesheet" href="/static/style.css" type="text/css" />
-</head>
+<!-- <table> -->
+<!-- <tr><th>Source</th> <th>Target</th> <th>Protocol</th> <th>Status</th> <th>Time (click for log)</th></tr> -->
 
-<body>
-<main class="tp-main lead container">
-<h1>Bridgy Fed</h1>
-<h3>{{ domain or 'Recent activity' }}</h3>
+<br>
 
-<table>
-<tr><th>Source</th> <th>Target</th> <th>Protocol</th> <th>Status</th> <th>Time (click for log)</th></tr>
 {% for r in responses %}
-<tr>
-  <td>{{ r.source_link|safe }}</td>
-  <td>{{ r.target_link|safe }}</td>
-  <td>{{ r.protocol }}</td>
-  <td>{{ r.status }}</td>
-  <td>
+<div class="row">
+  <div class="col-sm-3">{{ util.pretty_link(r.source())|safe }}</div>
+  <div class="col-sm-3">{{ util.pretty_link(r.target())|safe }}</div>
+  <div class="col-sm-2">{{ r.protocol }}</div>
+  <div class="col-sm-2">{{ r.status }}</div>
+  <div class="col-sm-2">
   {% if r.log_url_path %}<a href="{{ r.log_url_path }}">{% endif %}
     {{ r.updated.replace(microsecond=0) }}
   {% if r.log_url_path %}</a>{% endif %}
-  </td>
-</tr>
+  </div>
+</div>
+{% else %}
+<div class="row">None</div>
 {% endfor %}
-</table>
+<!-- </table> -->
 
 <div class="row">
 <div class="col-sm-3">
-  {% if responses_after_link %}
-    <a href="{{ responses_after_link }}">&larr; Newer</a>
+  {% if after %}
+    <a href="?after={{ after }}#responses">&larr; Newer</a>
   {% endif %}
 </div>
 
 <div class="col-sm-3 col-sm-offset-6">
-  {% if responses_before_link %}
-    <a href="{{ responses_before_link }}">Older &rarr;</a>
+  {% if before %}
+    <a href="?before={{ before }}#responses">Older &rarr;</a>
   {% endif %}
 </div>
 </div>
-
-</main>
-</body>
-</html>

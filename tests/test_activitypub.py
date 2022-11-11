@@ -366,7 +366,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(FOLLOW_WITH_ACTOR, json_loads(resp.source_as2))
 
         # check that we stored a Follower object
-        follower = Follower.get_by_id('www.realize.be %s' % (FOLLOW['actor']))
+        follower = Follower.get_by_id(f'www.realize.be {FOLLOW["actor"]}')
         self.assertEqual('active', follower.status)
         self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, json_loads(follower.last_follow))
 
@@ -378,7 +378,7 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
-        follower = Follower.get_by_id('www.realize.be %s' % FOLLOW['actor'])
+        follower = Follower.get_by_id(f'www.realize.be {FOLLOW["actor"]}')
         self.assertEqual('inactive', follower.status)
 
     def test_inbox_undo_follow_doesnt_exist(self, mock_head, mock_get, mock_post):

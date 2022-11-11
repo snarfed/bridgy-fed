@@ -192,7 +192,7 @@ def host_meta_xrds():
 
 
 app.add_url_rule(f'/acct:<regex("{common.DOMAIN_RE}"):domain>',
-                 view_func=User.as_view('user'))
+                 view_func=User.as_view('actor_acct'))
 app.add_url_rule('/.well-known/webfinger', view_func=Webfinger.as_view('webfinger'))
 app.add_url_rule('/.well-known/host-meta', view_func=HostMeta.as_view('hostmeta'))
 app.add_url_rule('/.well-known/host-meta.json', view_func=HostMeta.as_view('hostmeta-json'))

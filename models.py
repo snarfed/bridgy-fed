@@ -131,11 +131,15 @@ class Response(StringIdModel):
 class Follower(StringIdModel):
     """A follower of a Bridgy Fed user.
 
-    Key name is 'USER_DOMAIN FOLLOWER_ID', e.g.:
-      'snarfed.org https://mastodon.social/@swentel'.
+    Key name is 'TO FROM', where each part is either a domain or an AP id, eg:
+    'snarfed.org https://mastodon.social/@swentel'.
+
+    Both parts are duplicated in the src and dest properties.
     """
     STATUSES = ('active', 'inactive')
 
+    src = ndb.StringProperty()
+    dest = ndb.StringProperty()
     # most recent AP Follow activity (JSON). must have a composite actor object
     # with an inbox, publicInbox, or sharedInbox!
     last_follow = ndb.TextProperty()
@@ -145,13 +149,13 @@ class Follower(StringIdModel):
     updated = ndb.DateTimeProperty(auto_now=True)
 
     @classmethod
-    def _id(cls, user_domain, follower_id):
-        assert user_domain
-        assert follower_id
-        return '%s %s' % (user_domain, follower_id)
+    def _id(cls, dest, src):
+        assert src
+        assert dest
+        return '%s %s' % (dest, src)
 
     @classmethod
-    def get_or_create(cls, user_domain, follower_id, **kwargs):
-        logger.info(f'new Follower for {user_domain} {follower_id}')
-        return cls.get_or_insert(cls._id(user_domain, follower_id), **kwargs)
+    def get_or_create(cls, dest, src, **kwargs):
+        logger.info(f'new Follower from {src} to {dest}')
+        return cls.get_or_insert(cls._id(dest, src), src=src, dest=dest, **kwargs)
 

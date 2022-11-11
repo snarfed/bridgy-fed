@@ -11,7 +11,10 @@ from oauth_dropins.webutil.flask_util import error
 
 from app import app, cache
 import common
-from models import Response
+from models import Follower, Response
+
+PAGE_SIZE = 20
+FOLLOWERS_UI_LIMIT = 999
 
 
 @app.route('/')
@@ -21,19 +24,64 @@ def front_page():
   return render_template('index.html')
 
 
-@app.get('/responses')
-@app.get(f'/responses/<regex("{common.DOMAIN_RE}"):domain>')
-def responses(domain=None):
+@app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>')
+@app.get(f'/responses/<regex("{common.DOMAIN_RE}"):domain>')  # deprecated
+def user(domain):
+    query = Response.query(
+        Response.status.IN(('new', 'complete', 'error')),
+        Response.domain == domain,
+        )
+    responses, before, after = fetch_page(query, Response)
+
+    followers = Follower.query(Follower.dest == domain)\
+                        .count(limit=FOLLOWERS_UI_LIMIT)
+    followers = f'{followers}{"+" if followers == FOLLOWERS_UI_LIMIT else ""}'
+
+    following = Follower.query(Follower.src == domain)\
+                        .count(limit=FOLLOWERS_UI_LIMIT)
+    following = f'{following}{"+" if following == FOLLOWERS_UI_LIMIT else ""}'
+
+    return render_template(
+        'user.html',
+        util=util,
+        **locals(),
+    )
+
+
+@app.get('/recent')
+@app.get('/responses')  # deprecated
+def recent():
     """Renders recent Responses, with links to logs."""
-    query = Response.query()\
-        .filter(Response.status.IN(('new', 'complete', 'error')))\
-        .order(-Response.updated)
+    query = Response.query(Response.status.IN(('new', 'complete', 'error')))
+    responses, before, after = fetch_page(query, Response)
+    return render_template(
+      'recent.html',
+      util=util,
+      **locals(),
+    )
 
-    if domain:
-        query = query.filter(Response.domain == domain)
 
-    # if there's a paging param (responses_before or responses_after), update
-    # query with it
+def fetch_page(query, model_class):
+    """Fetches a page of results from a datastore query.
+
+    Uses the `before` and `after` query params (if provided; should be ISO8601
+    timestamps) and the queried model class's `updated` property to identify the
+    page to fetch.
+
+    Populates a `log_url_path` property on each result entity that points to a
+    its most recent logged request.
+
+    Args:
+      query: :class:`ndb.Query`
+      model_class: ndb model class
+
+    Returns:
+      (results, new_before, new_after) tuple with:
+      results: list of query result entities
+      new_before, new_after: str query param values for `before` and `after`
+        to fetch the previous and next pages, respectively
+    """
+    # if there's a paging param ('before' or 'after'), update query with it
     # TODO: unify this with Bridgy's user page
     def get_paging_param(param):
         val = request.values.get(param)
@@ -42,50 +90,42 @@ def responses(domain=None):
         except BaseException:
             error(f"Couldn't parse {param}, {val!r} as ISO8601")
 
-    before = get_paging_param('responses_before')
-    after = get_paging_param('responses_after')
+    before = get_paging_param('before')
+    after = get_paging_param('after')
     if before and after:
-        error("can't handle both responses_before and responses_after")
+        error("can't handle both before and after")
     elif after:
-        query = query.filter(Response.updated > after).order(Response.updated)
+        query = query.filter(model_class.updated > after).order(-model_class.updated)
     elif before:
-        query = query.filter(Response.updated < before).order(-Response.updated)
+        query = query.filter(model_class.updated < before).order(-model_class.updated)
     else:
-        query = query.order(-Response.updated)
+        query = query.order(-model_class.updated)
 
     query_iter = query.iter()
-    responses = list(islice(query_iter, 0, 20))
-    for r in responses:
-        r.source_link = util.pretty_link(r.source())
-        r.target_link = util.pretty_link(r.target())
+    results = sorted(islice(query_iter, 0, 20), key=lambda r: r.updated, reverse=True)
+    for r in results:
         r.log_url_path = '/log?' + urllib.parse.urlencode({
           'key': r.key.id(),
           'start_time': calendar.timegm(r.updated.timetuple()),
         })
 
-    vars = {
-        'domain': domain,
-        'responses': sorted(responses, key=lambda r: r.updated, reverse=True),
-    }
-
     # calculate new paging param(s)
+    has_next = results and query_iter.probably_has_next()
     new_after = (
         before if before
-        else responses[0].updated
-            if responses and query_iter.probably_has_next() and (before or after)
+        else results[0].updated if has_next and after
         else None)
     if new_after:
-        vars['responses_after_link'] = f'?responses_after={new_after.isoformat()}#responses'
+        new_after = new_after.isoformat()
 
     new_before = (
         after if after else
-        responses[-1].updated if
-            responses and query_iter.probably_has_next()
+        results[-1].updated if has_next
         else None)
     if new_before:
-        vars['responses_before_link'] = f'?responses_before={new_before.isoformat()}#responses'
+        new_before = new_before.isoformat()
 
-    return render_template('responses.html', **vars)
+    return results, new_before, new_after
 
 
 @app.get('/stats')
