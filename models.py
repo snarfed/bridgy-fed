@@ -168,4 +168,7 @@ class Follower(StringIdModel):
         follower = cls.get_or_insert(cls._id(dest, src), src=src, dest=dest, **kwargs)
         follower.dest = dest
         follower.src = src
+        for prop, val in kwargs.items():
+            setattr(follower, prop, val)
+        follower.put()
         return follower
