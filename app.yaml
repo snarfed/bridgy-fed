@@ -28,12 +28,6 @@ handlers:
 - url: /oauth_dropins_static
   static_dir: oauth_dropins_static
 
-- url: /
-  static_files: static/index.html
-  upload: static/index.html
-  expiration: 1m
-  secure: always
-
 - url: /favicon.ico
   static_files: static/favicon.ico
   upload: static/favicon.ico

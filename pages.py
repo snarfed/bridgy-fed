@@ -1,5 +1,6 @@
 """Render recent responses and logs."""
 import calendar
+import datetime
 from itertools import islice
 import urllib.parse
 
@@ -11,6 +12,13 @@ from oauth_dropins.webutil.flask_util import error
 from app import app, cache
 import common
 from models import Response
+
+
+@app.route('/')
+@flask_util.cached(cache, datetime.timedelta(days=1))
+def front_page():
+  """View for the front page."""
+  return render_template('index.html')
 
 
 @app.get('/responses')

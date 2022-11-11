@@ -1,48 +1,6 @@
-<!DOCTYPE html>
-<html>
-<head>
-<meta http-equiv="content-type" content="text/html; charset=utf-8" />
-<title>Bridgy Fed</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="mobile-web-app-capable" content="yes"/>
-<link rel="shortcut icon" sizes="128x128" href="https://brid.gy/static/bridgy_logo_128.jpg">
-<link rel="apple-touch-icon-precomposed" sizes="128x128" href="https://brid.gy/static/bridgy_logo_128.jpg">
-<!-- 32x32 last so that browsers prefer it -->
-<link rel="shortcut icon" sizes="32x32" href="https://brid.gy/static/favicon.png">
-<link rel="apple-touch-icon-precomposed" sizes="32x32" href="https://brid.gy/static/favicon.png">
-<link rel="stylesheet" href="/oauth_dropins_static/bootstrap.min.css" />
-<link rel="stylesheet" href="/static/style.css" type="text/css" />
-<link rel="webmention" href="/webmention" />
-</head>
+{% extends "base.html" %}
 
-<body>
-
-<main class="tp-main lead container">
-
-<br />
-
-<div id="intro" class="row">
-<div id="logos" class="col-xs-4">
- <a href="/"><img class="img-responsive" src="/static/bridgy_logo.jpg" /></a>
-</div>
-
-<div id="fedsocnet-logos" class="col-xs-1">
- <a href="https://joinmastodon.org/"><img src="/static/mastodon_logo.png" class="img-responsive" /></a>
- <a href="https://hubzilla.org/"><img src="/static/hubzilla_logo.png" class="img-responsive" /></a>
-</div>
-
-<div id="header" class="col-xs-7">
-<p class="big">
-Got an <a href="https://indieweb.org/">IndieWeb</a> site?
-Want to interact with <a href="https://joinmastodon.org/">Mastodon</a>, <a href="https://project.hubzilla.org/">Hubzilla</a>,
-and the rest of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>?
-<a id="title" href="/">Bridgy Fed</a> is for you.
-</p></div>
-</div>
-
-<p class="clearfix"></p>
-
-<br />
+{% block content %}
 
 <div id="docs">
 <ul>
@@ -280,16 +238,4 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who
 </ul>
 </div>
 
-<div id="footer">
-  <a href="https://github.com/snarfed/bridgy-fed/issues">Bugs</a>
-  | <a href="https://github.com/snarfed/bridgy-fed">Source</a>
-  | <a href="https://indieweb.org/">#IndieWeb</a>
-  | <a href="https://brid.gy/">Bridgy</a>
-</div>
-
-</div>
-</main>
-
-<script src="/static/fragmention.js"></script>
-</body>
-</html>
+{% endblock %}
