@@ -6,7 +6,7 @@ from unittest.mock import patch
 from oauth_dropins.webutil.testutil import requests_response
 
 import common
-from models import MagicKey
+from models import Domain
 from .test_webmention import REPOST_HTML, REPOST_AS2
 from . import testutil
 
@@ -15,7 +15,7 @@ class RedirectTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        MagicKey.get_or_create('foo.com')
+        Domain.get_or_create('foo.com')
 
     def test_redirect(self):
         got = self.client.get('/r/https://foo.com/bar?baz=baj&biff')

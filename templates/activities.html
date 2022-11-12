@@ -1,0 +1,23 @@
+<!-- <table> -->
+<!-- <tr><th>Source</th> <th>Target</th> <th>Protocol</th> <th>Status</th> <th>Time (click for log)</th></tr> -->
+
+<br>
+
+{% for a in activities %}
+<div class="row">
+  <div class="col-sm-3">{{ util.pretty_link(a.source())|safe }}</div>
+  <div class="col-sm-3">{{ util.pretty_link(a.target())|safe }}</div>
+  <div class="col-sm-2">{{ a.protocol }}</div>
+  <div class="col-sm-2">{{ a.status }}</div>
+  <div class="col-sm-2">
+  {% if a.log_url_path %}<a href="{{ a.log_url_path }}">{% endif %}
+    {{ a.updated.replace(microsecond=0) }}
+  {% if a.log_url_path %}</a>{% endif %}
+  </div>
+</div>
+{% else %}
+<div class="row">None</div>
+{% endfor %}
+<!-- </table> -->
+
+{% include "paging.html" %}

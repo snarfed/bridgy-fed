@@ -26,7 +26,7 @@ from common import (
     CONTENT_TYPE_HTML,
     CONTENT_TYPE_MAGIC_ENVELOPE,
 )
-from models import Follower, MagicKey, Response
+from models import Follower, Domain, Activity
 import webmention
 from . import testutil
 
@@ -68,7 +68,7 @@ REPOST_AS2 = {
 class WebmentionTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
-        self.key = MagicKey.get_or_create('a')
+        self.key = Domain.get_or_create('a')
 
         self.orig_html_as2 = requests_response("""\
 <html>
@@ -284,7 +284,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = ValueError('foo bar')
         got = self.client.post('/webmention', data={'source': 'bad'})
         self.assertEqual(400, got.status_code)
-        self.assertEqual(0, Response.query().count())
+        self.assertEqual(0, Activity.query().count())
 
     def test_no_source_entry(self, mock_get, mock_post):
         mock_get.return_value = requests_response("""
@@ -299,7 +299,7 @@ class WebmentionTest(testutil.TestCase):
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(400, got.status_code)
-        self.assertEqual(0, Response.query().count())
+        self.assertEqual(0, Activity.query().count())
 
         mock_get.assert_has_calls((self.req('http://a/post'),))
 
@@ -316,7 +316,7 @@ class WebmentionTest(testutil.TestCase):
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
-        self.assertEqual(0, Response.query().count())
+        self.assertEqual(0, Activity.query().count())
 
         mock_get.assert_has_calls((self.req('http://a/post'),))
 
@@ -328,7 +328,7 @@ class WebmentionTest(testutil.TestCase):
 
         got = self.client.post('/webmention', data={'source': 'http://a/post'})
         self.assertEqual(400, got.status_code)
-        self.assertEqual(0, Response.query().count())
+        self.assertEqual(0, Activity.query().count())
 
     def test_source_fetch_fails(self, mock_get, mock_post):
         mock_get.side_effect = (
@@ -350,7 +350,7 @@ class WebmentionTest(testutil.TestCase):
         )
         got = self.client.post('/webmention', data={'source': 'http://a/post'})
         self.assertEqual(502, got.status_code)
-        self.assertEqual(0, Response.query().count())
+        self.assertEqual(0, Activity.query().count())
 
     def test_no_backlink(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
@@ -362,7 +362,7 @@ class WebmentionTest(testutil.TestCase):
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(400, got.status_code)
-        self.assertEqual(0, Response.query().count())
+        self.assertEqual(0, Activity.query().count())
 
         mock_get.assert_has_calls((self.req('http://a/post'),))
 
@@ -405,7 +405,7 @@ class WebmentionTest(testutil.TestCase):
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
-        resp = Response.get_by_id('http://a/reply http://orig/as2')
+        resp = Activity.get_by_id('http://a/reply http://orig/as2')
         self.assertEqual('a', resp.domain)
         self.assertEqual('out', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
@@ -419,7 +419,7 @@ class WebmentionTest(testutil.TestCase):
         # self.assertEqual(['abc xyz'], resp.responses)
 
     def test_activitypub_update_reply(self, mock_get, mock_post):
-        Response(id='http://a/reply http://orig/as2', status='complete').put()
+        Activity(id='http://a/reply http://orig/as2', status='complete').put()
 
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz')
@@ -436,7 +436,7 @@ class WebmentionTest(testutil.TestCase):
 
     def test_activitypub_skip_update_if_content_unchanged(self, mock_get, mock_post):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
-        Response(id='http://a/reply http://orig/as2', status='complete',
+        Activity(id='http://a/reply http://orig/as2', status='complete',
                  source_mf2=json_dumps(self.reply_mf2)).put()
 
         mock_get.side_effect = self.activitypub_gets
@@ -508,7 +508,7 @@ class WebmentionTest(testutil.TestCase):
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
-        resp = Response.get_by_id('http://a/repost http://orig/as2')
+        resp = Activity.get_by_id('http://a/repost http://orig/as2')
         self.assertEqual('a', resp.domain)
         self.assertEqual('out', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
@@ -605,12 +605,12 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.create, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        Response(id='http://orig/post https://skipped/inbox', domain='orig',
+        Activity(id='http://orig/post https://skipped/inbox', domain='orig',
                  status='complete', source_mf2=json_dumps(self.create_mf2)).put()
 
         different_create_mf2 = copy.deepcopy(self.create_mf2)
         different_create_mf2['items'][0]['properties']['content'][0]['value'] += ' different'
-        Response(id='http://orig/post https://updated/inbox', domain='orig',
+        Activity(id='http://orig/post https://updated/inbox', domain='orig',
                  status='complete', direction='out', protocol='activitypub',
                  source_mf2=json_dumps(different_create_mf2)).put()
 
@@ -672,7 +672,7 @@ class WebmentionTest(testutil.TestCase):
                     self.update_as2 if inbox == 'https://updated/inbox' else self.create_as2,
                     json_loads(call[1]['data']))
 
-                resp = Response.get_by_id('http://orig/post %s' % inbox)
+                resp = Activity.get_by_id('http://orig/post %s' % inbox)
                 self.assertEqual('orig', resp.domain)
                 self.assertEqual('out', resp.direction, inbox)
                 self.assertEqual('activitypub', resp.protocol, inbox)
@@ -733,7 +733,7 @@ class WebmentionTest(testutil.TestCase):
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
-        resp = Response.get_by_id('http://a/follow http://followee/')
+        resp = Activity.get_by_id('http://a/follow http://followee/')
         self.assertEqual('a', resp.domain)
         self.assertEqual('out', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
@@ -776,7 +776,7 @@ class WebmentionTest(testutil.TestCase):
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
-        resp = Response.get_by_id('http://a/follow http://followee/')
+        resp = Activity.get_by_id('http://a/follow http://followee/')
         self.assertEqual('a', resp.domain)
         self.assertEqual('out', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
@@ -821,7 +821,7 @@ class WebmentionTest(testutil.TestCase):
 <a href="http://localhost/"></a>""",
             entry.content[0]['value'])
 
-        resp = Response.get_by_id('http://a/reply http://orig/post')
+        resp = Activity.get_by_id('http://a/reply http://orig/post')
         self.assertEqual('a', resp.domain)
         self.assertEqual('out', resp.direction)
         self.assertEqual('ostatus', resp.protocol)
@@ -855,7 +855,7 @@ class WebmentionTest(testutil.TestCase):
         }, entry['links'])
         self.assertEqual('http://orig/post', entry['activity_object'])
 
-        resp = Response.get_by_id('http://a/like http://orig/post')
+        resp = Activity.get_by_id('http://a/like http://orig/post')
         self.assertEqual('a', resp.domain)
         self.assertEqual('out', resp.direction)
         self.assertEqual('ostatus', resp.protocol)
@@ -907,7 +907,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertIn('Target post http://orig/url has no Atom link',
                       got.get_data(as_text=True))
 
-        resp = Response.get_by_id('http://a/reply http://orig/url')
+        resp = Activity.get_by_id('http://a/reply http://orig/url')
         self.assertEqual('a', resp.domain)
         self.assertEqual('out', resp.direction)
         self.assertEqual('ostatus', resp.protocol)

@@ -14,7 +14,7 @@ from oauth_dropins.webutil.flask_util import error
 import requests
 from werkzeug.exceptions import BadGateway
 
-from models import Response
+from models import Activity
 
 logger = logging.getLogger(__name__)
 
@@ -144,11 +144,11 @@ def content_type(resp):
         return type.split(';')[0]
 
 
-def send_webmentions(activity_wrapped, proxy=None, **response_props):
+def send_webmentions(activity_wrapped, proxy=None, **activity_props):
     """Sends webmentions for an incoming Salmon slap or ActivityPub inbox delivery.
     Args:
       activity_wrapped: dict, AS1 activity
-      response_props: passed through to the newly created Responses
+      activity_props: passed through to the newly created Activity entities
     """
     activity = redirect_unwrap(activity_wrapped)
 
@@ -186,7 +186,7 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
     if not targets:
         error("Couldn't find any target URLs in inReplyTo, object, or mention tags")
 
-    # send webmentions and store Responses
+    # send webmentions and store Activitys
     errors = []  # stores (code, body) tuples
     for target in targets:
         domain = util.domain_from_link(target, minimize=False)
@@ -194,10 +194,10 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
             logger.info(f'Skipping same-domain webmention from {source} to {target}')
             continue
 
-        response = Response(source=source, target=target, direction='in',
-                            domain=domain, **response_props)
-        response.put()
-        wm_source = (response.proxy_url()
+        activity = Activity(source=source, target=target, direction='in',
+                        domain=domain, **activity_props)
+        activity.put()
+        wm_source = (activity.proxy_url()
                      if verb in ('follow', 'like', 'share') or proxy
                      else source)
         logger.info(f'Sending webmention from {wm_source} to {target}')
@@ -206,14 +206,14 @@ def send_webmentions(activity_wrapped, proxy=None, **response_props):
             endpoint = webmention.discover(target).endpoint
             if endpoint:
                 webmention.send(endpoint, wm_source, target)
-                response.status = 'complete'
+                activity.status = 'complete'
                 logger.info('Success!')
             else:
-                response.status = 'ignored'
+                activity.status = 'ignored'
                 logger.info('Ignoring.')
         except BaseException as e:
             errors.append(util.interpret_http_exception(e))
-        response.put()
+        activity.put()
 
     if errors:
         msg = 'Errors: ' + ', '.join(f'{code} {body}' for code, body in errors)
@@ -227,7 +227,7 @@ def postprocess_as2(activity, target=None, key=None):
       activity: dict, AS2 object or activity
       target: dict, AS2 object, optional. The target of activity's inReplyTo or
         Like/Announce/etc object, if any.
-      key: :class:`models.MagicKey`, optional. populated into publicKey field
+      key: :class:`models.Domain`, optional. populated into publicKey field
         if provided.
     """
     type = activity.get('type')

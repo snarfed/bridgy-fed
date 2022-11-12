@@ -1,4 +1,4 @@
-"""Render recent responses and logs."""
+"""UI pages."""
 import calendar
 import datetime
 from itertools import islice
@@ -12,7 +12,7 @@ from oauth_dropins.webutil.flask_util import error
 
 from app import app, cache
 import common
-from models import Follower, MagicKey, Response
+from models import Follower, Domain, Activity
 
 PAGE_SIZE = 20
 FOLLOWERS_UI_LIMIT = 999
@@ -28,14 +28,14 @@ def front_page():
 @app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>')
 @app.get(f'/responses/<regex("{common.DOMAIN_RE}"):domain>')  # deprecated
 def user(domain):
-    if not MagicKey.get_by_id(domain):
+    if not Domain.get_by_id(domain):
       return render_template('user_not_found.html', domain=domain), 404
 
-    query = Response.query(
-        Response.status.IN(('new', 'complete', 'error')),
-        Response.domain == domain,
+    query = Activity.query(
+        Activity.status.IN(('new', 'complete', 'error')),
+        Activity.domain == domain,
         )
-    responses, before, after = fetch_page(query, Response)
+    activities, before, after = fetch_page(query, Activity)
 
     followers = Follower.query(Follower.dest == domain)\
                         .count(limit=FOLLOWERS_UI_LIMIT)
@@ -54,7 +54,10 @@ def user(domain):
 
 @app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>/followers')
 def followers(domain):
-    if not MagicKey.get_by_id(domain):
+    # TODO:
+    # pull more info from last_follow, eg name, profile picture, url
+    # unify with following
+    if not Domain.get_by_id(domain):
       return render_template('user_not_found.html', domain=domain), 404
 
     query = Follower.query(
@@ -79,7 +82,7 @@ def followers(domain):
 
 @app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>/following')
 def following(domain):
-    if not MagicKey.get_by_id(domain):
+    if not Domain.get_by_id(domain):
       return render_template('user_not_found.html', domain=domain), 404
 
     query = Follower.query(
@@ -105,9 +108,9 @@ def following(domain):
 @app.get('/recent')
 @app.get('/responses')  # deprecated
 def recent():
-    """Renders recent Responses, with links to logs."""
-    query = Response.query(Response.status.IN(('new', 'complete', 'error')))
-    responses, before, after = fetch_page(query, Response)
+    """Renders recent activities, with links to logs."""
+    query = Activity.query(Activity.status.IN(('new', 'complete', 'error')))
+    activities, before, after = fetch_page(query, Activity)
     return render_template(
       'recent.html',
       util=util,
@@ -186,8 +189,8 @@ def fetch_page(query, model_class):
 def stats():
    return render_template(
        'stats.html',
-       users=KindStat.query(KindStat.kind_name == 'MagicKey').get().count,
-       responses=KindStat.query(KindStat.kind_name == 'Response').get().count,
+       users=KindStat.query(KindStat.kind_name == 'Domain').get().count,
+       activities=KindStat.query(KindStat.kind_name == 'Activity').get().count,
        followers=KindStat.query(KindStat.kind_name == 'Follower').get().count,
    )
 

@@ -14,7 +14,7 @@ from urllib3.exceptions import ReadTimeoutError
 
 import activitypub
 import common
-from models import Follower, MagicKey, Response
+from models import Follower, Domain, Activity
 from . import testutil
 
 REPLY_OBJECT = {
@@ -173,7 +173,7 @@ class ActivityPubTest(testutil.TestCase):
             'publicKey': {
                 'id': 'http://localhost/foo.com',
                 'owner': 'http://localhost/foo.com',
-                'publicKeyPem': MagicKey.get_by_id('foo.com').public_pem().decode(),
+                'publicKeyPem': Domain.get_by_id('foo.com').public_pem().decode(),
             },
         }, got.json)
 
@@ -237,7 +237,7 @@ class ActivityPubTest(testutil.TestCase):
             },
         )
 
-        resp = Response.get_by_id('http://this/reply http://orig/post')
+        resp = Activity.get_by_id('http://this/reply http://orig/post')
         self.assertEqual('orig', resp.domain)
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
@@ -257,7 +257,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assert_req(mock_head, 'http://this', allow_redirects=True)
         mock_get.assert_not_called()
         mock_post.assert_not_called()
-        self.assertEqual(0, Response.query().count())
+        self.assertEqual(0, Activity.query().count())
 
     def test_inbox_mention_object(self, *mocks):
         self._test_inbox_mention(MENTION_OBJECT, *mocks)
@@ -286,7 +286,7 @@ class ActivityPubTest(testutil.TestCase):
                 },
             )
 
-            resp = Response.get_by_id('http://this/mention http://target/')
+            resp = Activity.get_by_id('http://this/mention http://target/')
             self.assertEqual('target', resp.domain)
             self.assertEqual('in', resp.direction)
             self.assertEqual('activitypub', resp.protocol)
@@ -319,7 +319,7 @@ class ActivityPubTest(testutil.TestCase):
             'target': 'http://orig/post',
         }, kwargs['data'])
 
-        resp = Response.get_by_id('http://this/like__ok http://orig/post')
+        resp = Activity.get_by_id('http://this/like__ok http://orig/post')
         self.assertEqual('orig', resp.domain)
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
@@ -358,7 +358,7 @@ class ActivityPubTest(testutil.TestCase):
             'target': 'https://www.realize.be/',
         }, kwargs['data'])
 
-        resp = Response.get_by_id('https://mastodon.social/6d1a https://www.realize.be/')
+        resp = Activity.get_by_id('https://mastodon.social/6d1a https://www.realize.be/')
         self.assertEqual('www.realize.be', resp.domain)
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)
@@ -443,7 +443,7 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/foo.com/inbox', json=LIKE)
         self.assertEqual(200, got.status_code)
 
-        resp = Response.get_by_id('http://this/like__ok http://orig/post')
+        resp = Activity.get_by_id('http://this/like__ok http://orig/post')
         self.assertEqual('orig', resp.domain)
         self.assertEqual('in', resp.direction)
         self.assertEqual('activitypub', resp.protocol)

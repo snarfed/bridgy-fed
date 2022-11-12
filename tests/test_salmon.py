@@ -12,7 +12,7 @@ from oauth_dropins.webutil.testutil import requests_response, UrlopenResult
 import requests
 
 import common
-from models import MagicKey, Response
+from models import Domain, Activity
 from . import testutil
 
 
@@ -24,7 +24,7 @@ class SalmonTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.key = MagicKey.get_or_create('alice')
+        self.key = Domain.get_or_create('alice')
 
     def send_slap(self, mock_urlopen, mock_head, mock_get, mock_post, atom_slap):
         # salmon magic key discovery. first host-meta, then webfinger
@@ -89,8 +89,8 @@ class SalmonTest(testutil.TestCase):
             allow_redirects=False,
             headers={'Accept': '*/*'})
 
-        # check stored response
-        resp = Response.get_by_id('https://my/reply http://orig/post')
+        # check stored post
+        resp = Activity.get_by_id('https://my/reply http://orig/post')
         self.assertEqual('orig', resp.domain)
         self.assertEqual('in', resp.direction)
         self.assertEqual('ostatus', resp.protocol)
@@ -124,8 +124,8 @@ class SalmonTest(testutil.TestCase):
             allow_redirects=False,
             headers={'Accept': '*/*'})
 
-        # check stored response
-        resp = Response.get_by_id('https://my/like http://orig/post')
+        # check stored post
+        resp = Activity.get_by_id('https://my/like http://orig/post')
         self.assertEqual('orig', resp.domain)
         self.assertEqual('in', resp.direction)
         self.assertEqual('ostatus', resp.protocol)

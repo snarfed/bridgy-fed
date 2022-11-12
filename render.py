@@ -1,5 +1,5 @@
 # coding=utf-8
-"""Renders mf2 proxy pages based on stored Responses."""
+"""Renders mf2 proxy pages based on stored Activity entities."""
 import datetime
 
 from flask import request
@@ -10,7 +10,7 @@ from oauth_dropins.webutil.util import json_loads
 
 from app import app, cache
 import common
-from models import Response
+from models import Activity
 
 CACHE_TIME = datetime.timedelta(minutes=15)
 
@@ -18,23 +18,23 @@ CACHE_TIME = datetime.timedelta(minutes=15)
 @app.get('/render')
 @flask_util.cached(cache, CACHE_TIME)
 def render():
-    """Fetches a stored Response and renders it as HTML."""
+    """Fetches a stored Activity and renders it as HTML."""
     source = flask_util.get_required_param('source')
     target = flask_util.get_required_param('target')
 
     id = f'{source} {target}'
-    resp = Response.get_by_id(id)
-    if not resp:
-        error(f'No stored response for {id}', status=404)
+    activity = Activity.get_by_id(id)
+    if not activity:
+        error(f'No stored activity for {id}', status=404)
 
-    if resp.source_mf2:
-        as1 = microformats2.json_to_object(json_loads(resp.source_mf2))
-    elif resp.source_as2:
-        as1 = as2.to_as1(json_loads(resp.source_as2))
-    elif resp.source_atom:
-        as1 = atom.atom_to_activity(resp.source_atom)
+    if activity.source_mf2:
+        as1 = microformats2.json_to_object(json_loads(activity.source_mf2))
+    elif activity.source_as2:
+        as1 = as2.to_as1(json_loads(activity.source_as2))
+    elif activity.source_atom:
+        as1 = atom.atom_to_activity(activity.source_atom)
     else:
-        error(f'Stored response for {id} has no data', status=404)
+        error(f'Stored activity for {id} has no data', status=404)
 
     # add HTML meta redirect to source page. should trigger for end users in
     # browsers but not for webmention receivers (hopefully).

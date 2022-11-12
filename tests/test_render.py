@@ -2,7 +2,7 @@
 """Unit tests for render.py."""
 from oauth_dropins.webutil.util import json_dumps
 
-from models import Response
+from models import Activity
 import render
 from . import testutil
 
@@ -61,31 +61,31 @@ class RenderTest(testutil.TestCase):
             resp = self.client.get(f'/render?source={source}&target={target}')
             self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
 
-        # no Response
+        # no Activity
         resp = self.client.get('/render?source=abc&target=xyz')
         self.assertEqual(404, resp.status_code)
 
         # no source data
-        Response(id='abc xyz').put()
+        Activity(id='abc xyz').put()
         resp = self.client.get('/render?source=abc&target=xyz')
         self.assertEqual(404, resp.status_code)
 
     def test_render_as2(self):
-        Response(id='abc xyz', source_as2=json_dumps(self.as2)).put()
+        Activity(id='abc xyz', source_as2=json_dumps(self.as2)).put()
         resp = self.client.get('/render?source=abc&target=xyz')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_equals(self.html, resp.get_data(as_text=True),
                                      ignore_blanks=True)
 
     def test_render_mf2(self):
-        Response(id='abc xyz', source_mf2=json_dumps(self.mf2)).put()
+        Activity(id='abc xyz', source_mf2=json_dumps(self.mf2)).put()
         resp = self.client.get('/render?source=abc&target=xyz')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_equals(self.html, resp.get_data(as_text=True),
                                      ignore_blanks=True)
 
     def test_render_atom(self):
-        Response(id='abc xyz', source_atom=self.atom).put()
+        Activity(id='abc xyz', source_atom=self.atom).put()
         resp = self.client.get('/render?source=abc&target=xyz')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_equals(self.html, resp.get_data(as_text=True),

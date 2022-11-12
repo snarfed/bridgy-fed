@@ -32,7 +32,7 @@ class WebfingerTest(testutil.TestCase):
 </a>
 </body>
 """
-        self.key = models.MagicKey.get_or_create('foo.com')
+        self.key = models.Domain.get_or_create('foo.com')
         self.expected_webfinger = {
             'subject': 'acct:foo.com@foo.com',
             'aliases': [

@@ -17,7 +17,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from app import app, cache
 import common
 from common import redirect_unwrap, redirect_wrap
-from models import Follower, MagicKey
+from models import Follower, Domain
 from httpsig.requests_auth import HTTPSignatureAuth
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ def send(activity, inbox_url, user_domain):
     # https://tools.ietf.org/html/draft-cavage-http-signatures-07
     # https://github.com/tootsuite/mastodon/issues/4906#issuecomment-328844846
     key_id = request.host_url + user_domain
-    key = MagicKey.get_or_create(user_domain)
+    key = Domain.get_or_create(user_domain)
     auth = HTTPSignatureAuth(secret=key.private_pem(), key_id=key_id,
                              algorithm='rsa-sha256', sign_header='signature',
                              headers=('Date', 'Digest', 'Host'))
@@ -94,7 +94,7 @@ def actor(domain):
     if not hcard:
         error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {mf2['url']}")
 
-    key = MagicKey.get_or_create(domain)
+    key = Domain.get_or_create(domain)
     obj = common.postprocess_as2(
         as2.from_as1(microformats2.json_to_object(hcard)), key=key)
     obj.update({

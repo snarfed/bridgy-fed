@@ -11,7 +11,7 @@ from oauth_dropins.webutil.models import StringIdModel
 logger = logging.getLogger(__name__)
 
 
-class MagicKey(StringIdModel):
+class Domain(StringIdModel):
     """Stores a user's public/private key pair used for Magic Signatures.
 
     The key name is the domain.
@@ -28,17 +28,21 @@ class MagicKey(StringIdModel):
     public_exponent = ndb.StringProperty(required=True)
     private_exponent = ndb.StringProperty(required=True)
 
+    @classmethod
+    def _get_kind(cls):
+        return 'MagicKey'
+
     @staticmethod
     @ndb.transactional()
     def get_or_create(domain):
-        """Loads and returns a MagicKey. Creates it if necessary."""
-        key = MagicKey.get_by_id(domain)
+        """Loads and returns a Domain. Creates it if necessary."""
+        key = Domain.get_by_id(domain)
 
         if not key:
             # this uses urandom(), and does nontrivial math, so it can take a
             # while depending on the amount of randomness available.
             pubexp, mod, privexp = magicsigs.generate()
-            key = MagicKey(id=domain, mod=mod, public_exponent=pubexp,
+            key = Domain(id=domain, mod=mod, public_exponent=pubexp,
                            private_exponent=privexp)
             key.put()
 
@@ -62,7 +66,7 @@ class MagicKey(StringIdModel):
         return rsa.exportKey(format='PEM')
 
 
-class Response(StringIdModel):
+class Activity(StringIdModel):
     """A reply, like, repost, or other interaction that we've relayed.
 
     Key name is 'SOURCE_URL TARGET_URL', e.g. 'http://a/reply http://orig/post'.
@@ -86,16 +90,20 @@ class Response(StringIdModel):
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
+    @classmethod
+    def _get_kind(cls):
+        return 'Response'
+
     def __init__(self, source=None, target=None, **kwargs):
         if source and target:
             assert 'id' not in kwargs
             kwargs['id'] = self._id(source, target)
-            logger.info(f"Response id (source target): {kwargs['id']}")
-        super(Response, self).__init__(**kwargs)
+            logger.info(f"Activity id (source target): {kwargs['id']}")
+        super(Activity, self).__init__(**kwargs)
 
     @classmethod
     def get_or_create(cls, source=None, target=None, **kwargs):
-        logger.info(f'Response source target: {source} {target}')
+        logger.info(f'Activity source target: {source} {target}')
         return cls.get_or_insert(cls._id(source, target), **kwargs)
 
     def source(self):
@@ -105,7 +113,7 @@ class Response(StringIdModel):
         return self.key.id().split()[1]
 
     def proxy_url(self):
-        """Returns the Bridgy Fed proxy URL to render this response as HTML."""
+        """Returns the Bridgy Fed proxy URL to render this post as HTML."""
         if self.source_mf2 or self.source_as2 or self.source_atom:
             source, target = self.key.id().split(' ')
             return f'{request.host_url}render?' + urllib.parse.urlencode({

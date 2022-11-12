@@ -23,7 +23,7 @@ from werkzeug.exceptions import abort
 
 from app import app, cache
 import common
-from models import MagicKey
+from models import Domain
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +51,8 @@ def redir(to):
                    util.domain_from_link(to, minimize=False),
                    urllib.parse.urlparse(to).hostname))
     for domain in domains:
-        if domain and MagicKey.get_by_id(domain):
-            logger.info(f'Found MagicKey for domain {domain}')
+        if domain and Domain.get_by_id(domain):
+            logger.info(f'Found Domain for domain {domain}')
             break
     else:
         logger.info(f'No user found for any of {domains}; returning 404')

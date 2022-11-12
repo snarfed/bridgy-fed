@@ -59,7 +59,7 @@ class User(flask_util.XrdOrJrd):
             error(f"didn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {resp.url}")
 
         logger.info(f'Generating WebFinger data for {domain}')
-        key = models.MagicKey.get_or_create(domain)
+        key = models.Domain.get_or_create(domain)
         props = hcard.get('properties', {})
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])
         canonical_url = urls[0]

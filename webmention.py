@@ -25,7 +25,7 @@ from werkzeug.exceptions import BadGateway
 import activitypub
 from app import app
 import common
-from models import Follower, MagicKey, Response
+from models import Follower, Domain, Activity
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ class Webmention(View):
         if not targets:
             return None
 
-        key = MagicKey.get_or_create(self.source_domain)
+        key = Domain.get_or_create(self.source_domain)
         error = None
         last_success = None
 
@@ -160,7 +160,7 @@ class Webmention(View):
 
     def _activitypub_targets(self):
         """
-        Returns: list of (Response, string inbox URL)
+        Returns: list of (Activity, string inbox URL)
         """
         # if there's in-reply-to, like-of, or repost-of, they're the targets.
         # otherwise, it's all followers' inboxes.
@@ -178,7 +178,7 @@ class Webmention(View):
                         inboxes.add(actor.get('endpoints', {}).get('sharedInbox') or
                                     actor.get('publicInbox')or
                                     actor.get('inbox'))
-            return [(Response.get_or_create(
+            return [(Activity.get_or_create(
                         source=self.source_url, target=inbox, domain=self.source_domain,
                         direction='out', protocol='activitypub',
                         source_mf2=json_dumps(self.source_mf2)),
@@ -200,7 +200,7 @@ class Webmention(View):
               raise
           target_url = self.target_resp.url or target
 
-          resp = Response.get_or_create(
+          resp = Activity.get_or_create(
               source=self.source_url, target=target_url, domain=self.source_domain,
               direction='out', protocol='activitypub',
               source_mf2=json_dumps(self.source_mf2))
@@ -266,7 +266,7 @@ class Webmention(View):
             raise
         finally:
             if status:
-                Response(source=self.source_url, target=target, status=status,
+                Activity(source=self.source_url, target=target, status=status,
                          domain=self.source_domain, direction='out',
                          protocol = 'ostatus',
                          source_mf2=json_dumps(self.source_mf2)).put()
@@ -351,7 +351,7 @@ class Webmention(View):
 
         # sign reply and wrap in magic envelope
         domain = urllib.parse.urlparse(self.source_url).netloc
-        key = MagicKey.get_or_create(domain)
+        key = Domain.get_or_create(domain)
         logger.info(f'Using key for {domain}: {key}')
         magic_envelope = magicsigs.magic_envelope(
             entry, common.CONTENT_TYPE_ATOM, key).decode()

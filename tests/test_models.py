@@ -1,22 +1,22 @@
 # coding=utf-8
 """Unit tests for models.py."""
 from app import app
-from models import MagicKey, Response
+from models import Domain, Activity
 from . import testutil
 
 
-class MagicKeyTest(testutil.TestCase):
+class DomainTest(testutil.TestCase):
 
     def setUp(self):
-        super(MagicKeyTest, self).setUp()
-        self.key = MagicKey.get_or_create('y.z')
+        super(DomainTest, self).setUp()
+        self.key = Domain.get_or_create('y.z')
 
     def test_magic_key_get_or_create(self):
         assert self.key.mod
         assert self.key.public_exponent
         assert self.key.private_exponent
 
-        same = MagicKey.get_or_create('y.z')
+        same = Domain.get_or_create('y.z')
         self.assertEqual(same, self.key)
 
     def test_href(self):
@@ -36,25 +36,25 @@ class MagicKeyTest(testutil.TestCase):
         self.assertTrue(pem.decode().endswith('-----END RSA PRIVATE KEY-----'), pem)
 
 
-class ResponseTest(testutil.TestCase):
+class ActivityTest(testutil.TestCase):
 
     def test_constructor(self):
-        resp = Response('abc', 'xyz')
+        resp = Activity('abc', 'xyz')
         self.assertEqual('abc xyz', resp.key.id())
 
-        resp = Response('abc#1', 'xyz#Z')
+        resp = Activity('abc#1', 'xyz#Z')
         self.assertEqual('abc__1 xyz__Z', resp.key.id())
 
     def test_get_or_create(self):
-        resp = Response.get_or_create('abc', 'xyz')
+        resp = Activity.get_or_create('abc', 'xyz')
         self.assertEqual('abc xyz', resp.key.id())
 
-        resp = Response.get_or_create('abc#1', 'xyz#Z')
+        resp = Activity.get_or_create('abc#1', 'xyz#Z')
         self.assertEqual('abc__1 xyz__Z', resp.key.id())
 
     def test_proxy_url(self):
         with app.test_request_context('/'):
-            resp = Response.get_or_create('abc', 'xyz')
+            resp = Activity.get_or_create('abc', 'xyz')
             self.assertIsNone(resp.proxy_url())
 
             resp.source_as2 = 'as2'
