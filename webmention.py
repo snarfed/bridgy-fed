@@ -54,9 +54,10 @@ class Webmention(View):
 
         # check for backlink to bridgy fed (for webmention spec and to confirm
         # source's intent to federate to mastodon)
-        if (request.host_url not in source_resp.text and
-            urllib.parse.quote(request.host_url, safe='') not in source_resp.text):
-            error("Couldn't find link to {request.host_url}")
+        host_url = request.host_url.rstrip('/')  # don't require / path
+        if (host_url not in source_resp.text and
+            urllib.parse.quote(host_url, safe='') not in source_resp.text):
+            error(f"Couldn't find link to {host_url}")
 
         # convert source page to ActivityStreams
         entry = mf2util.find_first_entry(self.source_mf2, ['h-entry'])

@@ -366,6 +366,18 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((self.req('http://a/post'),))
 
+    def test_backlink_without_trailing_slash(self, mock_get, mock_post):
+        mock_get.return_value = requests_response(
+            self.reply_html.replace('<a href="http://localhost/"></a>',
+                                    '<a href="http://localhost"></a>'),
+            content_type=CONTENT_TYPE_HTML)
+
+        got = self.client.post('/webmention', data={
+            'source': 'http://a/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
+
     def test_activitypub_create_reply(self, mock_get, mock_post):
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz', status=203)

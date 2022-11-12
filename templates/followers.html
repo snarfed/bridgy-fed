@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}{{ domain }}'s followers - Bridgy Fed{% endblock %}
+
+{% block content %}
+
+<h2 class="row">
+  <a href="https://{{ domain }}/">🌐 {{ domain }}</a>
+</h2>
+<h3 class="row">
+  <a href="/user/{{ domain }}/followers">{{ followers }} follower{% if followers != '1' %}s{% endif %}</a>
+  <!-- | <a href="/user/{{ domain }}/following">{{ following }} following</a> -->
+</h3>
+
+{% include "responses.html" %}
+
+{% endblock %}
