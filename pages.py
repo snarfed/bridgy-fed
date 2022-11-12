@@ -11,7 +11,7 @@ from oauth_dropins.webutil.flask_util import error
 
 from app import app, cache
 import common
-from models import Follower, Response
+from models import Follower, MagicKey, Response
 
 PAGE_SIZE = 20
 FOLLOWERS_UI_LIMIT = 999
@@ -27,6 +27,9 @@ def front_page():
 @app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>')
 @app.get(f'/responses/<regex("{common.DOMAIN_RE}"):domain>')  # deprecated
 def user(domain):
+    if not MagicKey.get_by_id(domain):
+      return render_template('user_not_found.html', domain=domain), 404
+
     query = Response.query(
         Response.status.IN(('new', 'complete', 'error')),
         Response.domain == domain,
