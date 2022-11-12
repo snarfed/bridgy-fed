@@ -18,3 +18,17 @@ indexes:
   - name: status
   - name: updated
     direction: desc
+
+- kind: Follower
+  properties:
+  - name: dest
+  - name: status
+  - name: updated
+    direction: desc
+
+- kind: Follower
+  properties:
+  - name: src
+  - name: status
+  - name: updated
+    direction: desc

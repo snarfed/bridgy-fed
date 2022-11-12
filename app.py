@@ -23,7 +23,7 @@ app.json.compact = False
 app.url_map.converters['regex'] = flask_util.RegexConverter
 app.after_request(flask_util.default_modern_headers)
 app.register_error_handler(Exception, flask_util.handle_exception)
-if appengine_info.DEBUG:
+if appengine_info.LOCAL:
     flask_gae_static.init_app(app)
 
 # don't redirect API requests with blank path elements

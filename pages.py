@@ -2,6 +2,7 @@
 import calendar
 import datetime
 from itertools import islice
+import re
 import urllib.parse
 
 from flask import render_template, request
@@ -48,6 +49,56 @@ def user(domain):
         'user.html',
         util=util,
         **locals(),
+    )
+
+
+@app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>/followers')
+def followers(domain):
+    if not MagicKey.get_by_id(domain):
+      return render_template('user_not_found.html', domain=domain), 404
+
+    query = Follower.query(
+        Follower.status == 'active',
+        Follower.dest == domain,
+    ).order(-Follower.updated)
+    followers, before, after = fetch_page(query, Follower)
+
+    follower_links = [
+      util.pretty_link(
+        f.src,
+        text=re.sub(r'^https?://(.+)/(users/|@)(.+)$', r'@\3@\1', f.src),
+      ) for f in followers
+    ]
+
+    return render_template(
+        'followers.html',
+        util=util,
+        **locals()
+    )
+
+
+@app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>/following')
+def following(domain):
+    if not MagicKey.get_by_id(domain):
+      return render_template('user_not_found.html', domain=domain), 404
+
+    query = Follower.query(
+        Follower.status == 'active',
+        Follower.src == domain,
+    ).order(-Follower.updated)
+    followers, before, after = fetch_page(query, Follower)
+
+    follower_links = [
+      util.pretty_link(
+        f.src,
+        text=re.sub(r'^https?://(.+)/(users/|@)(.+)$', r'@\3@\1', f.dest),
+      ) for f in followers
+    ]
+
+    return render_template(
+        'following.html',
+        util=util,
+        **locals()
     )
 
 
