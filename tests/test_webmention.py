@@ -728,6 +728,12 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('complete', resp.status)
         self.assertEqual(self.follow_mf2, json_loads(resp.source_mf2))
 
+        followers = Follower.query().fetch()
+        self.assertEqual(1, len(followers))
+        self.assertEqual('http://followee a', followers[0].key.id())
+        self.assertEqual('a', followers[0].src)
+        self.assertEqual('http://followee', followers[0].dest)
+
     def test_activitypub_error_no_salmon_fallback(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow, self.actor]
         mock_post.return_value = requests_response(

@@ -96,6 +96,12 @@ class Webmention(View):
 
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
 
+        if self.source_obj.get('verb') == 'follow':
+            dest_url = self.source_obj.get('object', {}).get('url')
+            if dest_url:
+                Follower.get_or_create(dest=dest_url, src=self.source_domain,
+                                       last_follow=json_dumps(self.source_obj))
+
         for resp, inbox in targets:
             target_obj = json_loads(resp.target_as2) if resp.target_as2 else None
             source_activity = common.postprocess_as2(

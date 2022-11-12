@@ -205,7 +205,8 @@ def accept_follow(follow, follow_unwrapped):
 
     # store Follower
     user_domain = util.domain_from_link(followee_unwrapped, minimize=False)
-    Follower.get_or_create(user_domain, follower_id, last_follow=json_dumps(follow))
+    Follower.get_or_create(dest=user_domain, src=follower_id,
+                           last_follow=json_dumps(follow))
 
     # send AP Accept
     accept = {
@@ -246,7 +247,7 @@ def undo_follow(undo_unwrapped):
 
     # deactivate Follower
     user_domain = util.domain_from_link(followee, minimize=False)
-    follower_obj = Follower.get_by_id(Follower._id(user_domain, follower))
+    follower_obj = Follower.get_by_id(Follower._id(dest=user_domain, src=follower))
     if follower_obj:
         logger.info(f'Marking {follower_obj.key} as inactive')
         follower_obj.status = 'inactive'
