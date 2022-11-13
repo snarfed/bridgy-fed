@@ -39,24 +39,24 @@ class DomainTest(testutil.TestCase):
 class ActivityTest(testutil.TestCase):
 
     def test_constructor(self):
-        resp = Activity('abc', 'xyz')
-        self.assertEqual('abc xyz', resp.key.id())
+        activity = Activity('abc', 'xyz')
+        self.assertEqual('abc xyz', activity.key.id())
 
-        resp = Activity('abc#1', 'xyz#Z')
-        self.assertEqual('abc__1 xyz__Z', resp.key.id())
+        activity = Activity('abc#1', 'xyz#Z')
+        self.assertEqual('abc__1 xyz__Z', activity.key.id())
 
     def test_get_or_create(self):
-        resp = Activity.get_or_create('abc', 'xyz')
-        self.assertEqual('abc xyz', resp.key.id())
+        activity = Activity.get_or_create('abc', 'xyz')
+        self.assertEqual('abc xyz', activity.key.id())
 
-        resp = Activity.get_or_create('abc#1', 'xyz#Z')
-        self.assertEqual('abc__1 xyz__Z', resp.key.id())
+        activity = Activity.get_or_create('abc#1', 'xyz#Z')
+        self.assertEqual('abc__1 xyz__Z', activity.key.id())
 
     def test_proxy_url(self):
         with app.test_request_context('/'):
-            resp = Activity.get_or_create('abc', 'xyz')
-            self.assertIsNone(resp.proxy_url())
+            activity = Activity.get_or_create('abc', 'xyz')
+            self.assertIsNone(activity.proxy_url())
 
-            resp.source_as2 = 'as2'
+            activity.source_as2 = 'as2'
             self.assertEqual('http://localhost/render?source=abc&target=xyz',
-                             resp.proxy_url())
+                             activity.proxy_url())

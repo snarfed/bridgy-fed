@@ -237,12 +237,12 @@ class ActivityPubTest(testutil.TestCase):
             },
         )
 
-        resp = Activity.get_by_id('http://this/reply http://orig/post')
-        self.assertEqual('orig', resp.domain)
-        self.assertEqual('in', resp.direction)
-        self.assertEqual('activitypub', resp.protocol)
-        self.assertEqual('complete', resp.status)
-        self.assertEqual(expected_as2, json_loads(resp.source_as2))
+        activity = Activity.get_by_id('http://this/reply http://orig/post')
+        self.assertEqual('orig', activity.domain)
+        self.assertEqual('in', activity.direction)
+        self.assertEqual('activitypub', activity.protocol)
+        self.assertEqual('complete', activity.status)
+        self.assertEqual(expected_as2, json_loads(activity.source_as2))
 
     def test_inbox_reply_drop_self_domain_target(self, mock_head, mock_get, mock_post):
         reply = copy.deepcopy(REPLY_OBJECT)
@@ -286,12 +286,12 @@ class ActivityPubTest(testutil.TestCase):
                 },
             )
 
-            resp = Activity.get_by_id('http://this/mention http://target/')
-            self.assertEqual('target', resp.domain)
-            self.assertEqual('in', resp.direction)
-            self.assertEqual('activitypub', resp.protocol)
-            self.assertEqual('complete', resp.status)
-            self.assertEqual(common.redirect_unwrap(as2), json_loads(resp.source_as2))
+            activity = Activity.get_by_id('http://this/mention http://target/')
+            self.assertEqual('target', activity.domain)
+            self.assertEqual('in', activity.direction)
+            self.assertEqual('activitypub', activity.protocol)
+            self.assertEqual('complete', activity.status)
+            self.assertEqual(common.redirect_unwrap(as2), json_loads(activity.source_as2))
 
     def test_inbox_like(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='http://orig/post')
@@ -319,12 +319,12 @@ class ActivityPubTest(testutil.TestCase):
             'target': 'http://orig/post',
         }, kwargs['data'])
 
-        resp = Activity.get_by_id('http://this/like__ok http://orig/post')
-        self.assertEqual('orig', resp.domain)
-        self.assertEqual('in', resp.direction)
-        self.assertEqual('activitypub', resp.protocol)
-        self.assertEqual('complete', resp.status)
-        self.assertEqual(LIKE_WITH_ACTOR, json_loads(resp.source_as2))
+        activity = Activity.get_by_id('http://this/like__ok http://orig/post')
+        self.assertEqual('orig', activity.domain)
+        self.assertEqual('in', activity.direction)
+        self.assertEqual('activitypub', activity.protocol)
+        self.assertEqual('complete', activity.status)
+        self.assertEqual(LIKE_WITH_ACTOR, json_loads(activity.source_as2))
 
     def test_inbox_follow_accept(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://www.realize.be/')
@@ -358,12 +358,12 @@ class ActivityPubTest(testutil.TestCase):
             'target': 'https://www.realize.be/',
         }, kwargs['data'])
 
-        resp = Activity.get_by_id('https://mastodon.social/6d1a https://www.realize.be/')
-        self.assertEqual('www.realize.be', resp.domain)
-        self.assertEqual('in', resp.direction)
-        self.assertEqual('activitypub', resp.protocol)
-        self.assertEqual('complete', resp.status)
-        self.assertEqual(FOLLOW_WITH_ACTOR, json_loads(resp.source_as2))
+        activity = Activity.get_by_id('https://mastodon.social/6d1a https://www.realize.be/')
+        self.assertEqual('www.realize.be', activity.domain)
+        self.assertEqual('in', activity.direction)
+        self.assertEqual('activitypub', activity.protocol)
+        self.assertEqual('complete', activity.status)
+        self.assertEqual(FOLLOW_WITH_ACTOR, json_loads(activity.source_as2))
 
         # check that we stored a Follower object
         follower = Follower.get_by_id(f'www.realize.be {FOLLOW["actor"]}')
@@ -443,8 +443,8 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/foo.com/inbox', json=LIKE)
         self.assertEqual(200, got.status_code)
 
-        resp = Activity.get_by_id('http://this/like__ok http://orig/post')
-        self.assertEqual('orig', resp.domain)
-        self.assertEqual('in', resp.direction)
-        self.assertEqual('activitypub', resp.protocol)
-        self.assertEqual('ignored', resp.status)
+        activity = Activity.get_by_id('http://this/like__ok http://orig/post')
+        self.assertEqual('orig', activity.domain)
+        self.assertEqual('in', activity.direction)
+        self.assertEqual('activitypub', activity.protocol)
+        self.assertEqual('ignored', activity.status)

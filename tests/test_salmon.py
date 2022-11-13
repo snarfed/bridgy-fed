@@ -90,12 +90,12 @@ class SalmonTest(testutil.TestCase):
             headers={'Accept': '*/*'})
 
         # check stored post
-        resp = Activity.get_by_id('https://my/reply http://orig/post')
-        self.assertEqual('orig', resp.domain)
-        self.assertEqual('in', resp.direction)
-        self.assertEqual('ostatus', resp.protocol)
-        self.assertEqual('complete', resp.status)
-        self.assertEqual(atom_reply, resp.source_atom)
+        activity = Activity.get_by_id('https://my/reply http://orig/post')
+        self.assertEqual('orig', activity.domain)
+        self.assertEqual('in', activity.direction)
+        self.assertEqual('ostatus', activity.protocol)
+        self.assertEqual('complete', activity.status)
+        self.assertEqual(atom_reply, activity.source_atom)
 
     def test_like(self, mock_urlopen, mock_head, mock_get, mock_post):
         atom_like = """\
@@ -125,12 +125,12 @@ class SalmonTest(testutil.TestCase):
             headers={'Accept': '*/*'})
 
         # check stored post
-        resp = Activity.get_by_id('https://my/like http://orig/post')
-        self.assertEqual('orig', resp.domain)
-        self.assertEqual('in', resp.direction)
-        self.assertEqual('ostatus', resp.protocol)
-        self.assertEqual('complete', resp.status)
-        self.assertEqual(atom_like, resp.source_atom)
+        activity = Activity.get_by_id('https://my/like http://orig/post')
+        self.assertEqual('orig', activity.domain)
+        self.assertEqual('in', activity.direction)
+        self.assertEqual('ostatus', activity.protocol)
+        self.assertEqual('complete', activity.status)
+        self.assertEqual(atom_like, activity.source_atom)
 
     def test_bad_envelope(self, *mocks):
         got = self.client.post('/foo.com/salmon', data='not xml')

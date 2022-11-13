@@ -405,18 +405,18 @@ class WebmentionTest(testutil.TestCase):
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
-        resp = Activity.get_by_id('http://a/reply http://orig/as2')
-        self.assertEqual('a', resp.domain)
-        self.assertEqual('out', resp.direction)
-        self.assertEqual('activitypub', resp.protocol)
-        self.assertEqual('complete', resp.status)
-        self.assertEqual(self.reply_mf2, json_loads(resp.source_mf2))
+        activity = Activity.get_by_id('http://a/reply http://orig/as2')
+        self.assertEqual('a', activity.domain)
+        self.assertEqual('out', activity.direction)
+        self.assertEqual('activitypub', activity.protocol)
+        self.assertEqual('complete', activity.status)
+        self.assertEqual(self.reply_mf2, json_loads(activity.source_mf2))
 
         # TODO: if i do this, maybe switch to separate HttpRequest model and
         # foreign key
-        # self.assertEqual([self.as2_create], resp.request_statuses)
-        # self.assertEqual([self.as2_create], resp.requests)
-        # self.assertEqual(['abc xyz'], resp.responses)
+        # self.assertEqual([self.as2_create], activity.request_statuses)
+        # self.assertEqual([self.as2_create], activity.requests)
+        # self.assertEqual(['abc xyz'], activity.responses)
 
     def test_activitypub_update_reply(self, mock_get, mock_post):
         Activity(id='http://a/reply http://orig/as2', status='complete').put()
@@ -508,12 +508,12 @@ class WebmentionTest(testutil.TestCase):
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
-        resp = Activity.get_by_id('http://a/repost http://orig/as2')
-        self.assertEqual('a', resp.domain)
-        self.assertEqual('out', resp.direction)
-        self.assertEqual('activitypub', resp.protocol)
-        self.assertEqual('complete', resp.status)
-        self.assertEqual(self.repost_mf2, json_loads(resp.source_mf2))
+        activity = Activity.get_by_id('http://a/repost http://orig/as2')
+        self.assertEqual('a', activity.domain)
+        self.assertEqual('out', activity.direction)
+        self.assertEqual('activitypub', activity.protocol)
+        self.assertEqual('complete', activity.status)
+        self.assertEqual(self.repost_mf2, json_loads(activity.source_mf2))
 
     def test_activitypub_link_rel_alternate_as2(self, mock_get, mock_post):
         mock_get.side_effect = [self.reply, self.not_fediverse,
@@ -672,14 +672,14 @@ class WebmentionTest(testutil.TestCase):
                     self.update_as2 if inbox == 'https://updated/inbox' else self.create_as2,
                     json_loads(call[1]['data']))
 
-                resp = Activity.get_by_id('http://orig/post %s' % inbox)
-                self.assertEqual('orig', resp.domain)
-                self.assertEqual('out', resp.direction, inbox)
-                self.assertEqual('activitypub', resp.protocol, inbox)
-                self.assertEqual('complete', resp.status, inbox)
+                activity = Activity.get_by_id('http://orig/post %s' % inbox)
+                self.assertEqual('orig', activity.domain)
+                self.assertEqual('out', activity.direction, inbox)
+                self.assertEqual('activitypub', activity.protocol, inbox)
+                self.assertEqual('complete', activity.status, inbox)
                 self.assertEqual((different_create_mf2 if inbox == 'https://updated/inbox'
                                   else self.create_mf2),
-                                 json_loads(resp.source_mf2), inbox)
+                                 json_loads(activity.source_mf2), inbox)
 
     def test_activitypub_create_with_image(self, mock_get, mock_post):
         create_html = self.create_html.replace(
@@ -733,12 +733,12 @@ class WebmentionTest(testutil.TestCase):
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
-        resp = Activity.get_by_id('http://a/follow http://followee/')
-        self.assertEqual('a', resp.domain)
-        self.assertEqual('out', resp.direction)
-        self.assertEqual('activitypub', resp.protocol)
-        self.assertEqual('complete', resp.status)
-        self.assertEqual(self.follow_mf2, json_loads(resp.source_mf2))
+        activity = Activity.get_by_id('http://a/follow http://followee/')
+        self.assertEqual('a', activity.domain)
+        self.assertEqual('out', activity.direction)
+        self.assertEqual('activitypub', activity.protocol)
+        self.assertEqual('complete', activity.status)
+        self.assertEqual(self.follow_mf2, json_loads(activity.source_mf2))
 
         followers = Follower.query().fetch()
         self.assertEqual(1, len(followers))
@@ -776,12 +776,12 @@ class WebmentionTest(testutil.TestCase):
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
-        resp = Activity.get_by_id('http://a/follow http://followee/')
-        self.assertEqual('a', resp.domain)
-        self.assertEqual('out', resp.direction)
-        self.assertEqual('activitypub', resp.protocol)
-        self.assertEqual('error', resp.status)
-        self.assertEqual(self.follow_mf2, json_loads(resp.source_mf2))
+        activity = Activity.get_by_id('http://a/follow http://followee/')
+        self.assertEqual('a', activity.domain)
+        self.assertEqual('out', activity.direction)
+        self.assertEqual('activitypub', activity.protocol)
+        self.assertEqual('error', activity.status)
+        self.assertEqual(self.follow_mf2, json_loads(activity.source_mf2))
 
     def test_salmon_reply(self, mock_get, mock_post):
         mock_get.side_effect = [self.reply, self.not_fediverse,
@@ -821,12 +821,12 @@ class WebmentionTest(testutil.TestCase):
 <a href="http://localhost/"></a>""",
             entry.content[0]['value'])
 
-        resp = Activity.get_by_id('http://a/reply http://orig/post')
-        self.assertEqual('a', resp.domain)
-        self.assertEqual('out', resp.direction)
-        self.assertEqual('ostatus', resp.protocol)
-        self.assertEqual('complete', resp.status)
-        self.assertEqual(self.reply_mf2, json_loads(resp.source_mf2))
+        activity = Activity.get_by_id('http://a/reply http://orig/post')
+        self.assertEqual('a', activity.domain)
+        self.assertEqual('out', activity.direction)
+        self.assertEqual('ostatus', activity.protocol)
+        self.assertEqual('complete', activity.status)
+        self.assertEqual(self.reply_mf2, json_loads(activity.source_mf2))
 
     def test_salmon_like(self, mock_get, mock_post):
         mock_get.side_effect = [self.like, self.orig_html_atom, self.orig_atom]
@@ -855,12 +855,12 @@ class WebmentionTest(testutil.TestCase):
         }, entry['links'])
         self.assertEqual('http://orig/post', entry['activity_object'])
 
-        resp = Activity.get_by_id('http://a/like http://orig/post')
-        self.assertEqual('a', resp.domain)
-        self.assertEqual('out', resp.direction)
-        self.assertEqual('ostatus', resp.protocol)
-        self.assertEqual('complete', resp.status)
-        self.assertEqual(self.like_mf2, json_loads(resp.source_mf2))
+        activity = Activity.get_by_id('http://a/like http://orig/post')
+        self.assertEqual('a', activity.domain)
+        self.assertEqual('out', activity.direction)
+        self.assertEqual('ostatus', activity.protocol)
+        self.assertEqual('complete', activity.status)
+        self.assertEqual(self.like_mf2, json_loads(activity.source_mf2))
 
     def test_salmon_get_salmon_from_webfinger(self, mock_get, mock_post):
         orig_atom = requests_response("""\
@@ -907,11 +907,11 @@ class WebmentionTest(testutil.TestCase):
         self.assertIn('Target post http://orig/url has no Atom link',
                       got.get_data(as_text=True))
 
-        resp = Activity.get_by_id('http://a/reply http://orig/url')
-        self.assertEqual('a', resp.domain)
-        self.assertEqual('out', resp.direction)
-        self.assertEqual('ostatus', resp.protocol)
-        self.assertEqual('error', resp.status)
+        activity = Activity.get_by_id('http://a/reply http://orig/url')
+        self.assertEqual('a', activity.domain)
+        self.assertEqual('out', activity.direction)
+        self.assertEqual('ostatus', activity.protocol)
+        self.assertEqual('error', activity.status)
 
     def test_salmon_relative_atom_href(self, mock_get, mock_post):
         orig_relative = requests_response("""\

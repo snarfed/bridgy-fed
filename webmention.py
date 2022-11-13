@@ -185,7 +185,7 @@ class Webmention(View):
                      inbox)
                     for inbox in sorted(inboxes) if inbox]
 
-        resps_and_inbox_urls = []
+        activities_and_inbox_urls = []
         for target in targets:
           # fetch target page as AS2 object
           try:
@@ -200,14 +200,14 @@ class Webmention(View):
               raise
           target_url = self.target_resp.url or target
 
-          resp = Activity.get_or_create(
+          activity = Activity.get_or_create(
               source=self.source_url, target=target_url, domain=self.source_domain,
               direction='out', protocol='activitypub',
               source_mf2=json_dumps(self.source_mf2))
 
           # find target's inbox
           target_obj = self.target_resp.json()
-          resp.target_as2 = json_dumps(target_obj)
+          activity.target_as2 = json_dumps(target_obj)
           inbox_url = target_obj.get('inbox')
 
           if not inbox_url:
@@ -234,9 +234,9 @@ class Webmention(View):
               continue
 
           inbox_url = urllib.parse.urljoin(target_url, inbox_url)
-          resps_and_inbox_urls.append((resp, inbox_url))
+          activities_and_inbox_urls.append((activity, inbox_url))
 
-        return resps_and_inbox_urls
+        return activities_and_inbox_urls
 
     def try_salmon(self):
         """
