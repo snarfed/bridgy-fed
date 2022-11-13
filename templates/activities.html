@@ -10,7 +10,7 @@
     {% else %}{% if a.status == 'new' %}
      <span title="Processing" class="glyphicon glyphicon-transfer"></span>
     {% endif %}{% endif %}
-    {{ logs.maybe_link(a.updated, a.key)|safe }}
+    {{ logs.maybe_link(a.updated, a.key.id())|safe }}
   </div>
 </div>
 {% else %}
