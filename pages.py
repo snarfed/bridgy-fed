@@ -9,6 +9,7 @@ from flask import render_template, request
 from google.cloud.ndb.stats import KindStat
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import error
+from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app, cache
 import common
@@ -47,6 +48,7 @@ def user(domain):
 
     return render_template(
         'user.html',
+        logs=logs,
         util=util,
         **locals(),
     )
@@ -66,12 +68,12 @@ def followers(domain):
     ).order(-Follower.updated)
     followers, before, after = fetch_page(query, Follower)
 
-    follower_links = [
-      util.pretty_link(
-        f.src,
-        text=re.sub(r'^https?://(.+)/(users/|@)(.+)$', r'@\3@\1', f.src),
-      ) for f in followers
-    ]
+    for f in followers:
+        f.url = f.src
+        f.handle = re.sub(r'^https?://(.+)/(users/|@)(.+)$', r'@\3@\1', f.src)
+        if f.last_follow:
+            last_follow = json_loads(f.last_follow)
+            f.picture = last_follow.get('actor', {}).get('icon', {}).get('url')
 
     return render_template(
         'followers.html',
@@ -91,12 +93,9 @@ def following(domain):
     ).order(-Follower.updated)
     followers, before, after = fetch_page(query, Follower)
 
-    follower_links = [
-      util.pretty_link(
-        f.src,
-        text=re.sub(r'^https?://(.+)/(users/|@)(.+)$', r'@\3@\1', f.dest),
-      ) for f in followers
-    ]
+    for f in followers:
+        f.url = f.dest
+        f.handle = re.sub(r'^https?://(.+)/(users/|@)(.+)$', r'@\3@\1', f.dest)
 
     return render_template(
         'following.html',
@@ -112,9 +111,10 @@ def recent():
     query = Activity.query(Activity.status.IN(('new', 'complete', 'error')))
     activities, before, after = fetch_page(query, Activity)
     return render_template(
-      'recent.html',
-      util=util,
-      **locals(),
+        'recent.html',
+        logs=logs,
+        util=util,
+        **locals(),
     )
 
 
@@ -160,11 +160,6 @@ def fetch_page(query, model_class):
 
     query_iter = query.iter()
     results = sorted(islice(query_iter, 0, 20), key=lambda r: r.updated, reverse=True)
-    for r in results:
-        r.log_url_path = '/log?' + urllib.parse.urlencode({
-          'key': r.key.id(),
-          'start_time': calendar.timegm(r.updated.timetuple()),
-        })
 
     # calculate new paging param(s)
     has_next = results and query_iter.probably_has_next()

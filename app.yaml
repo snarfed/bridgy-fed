@@ -28,6 +28,9 @@ handlers:
 - url: /oauth_dropins_static
   static_dir: oauth_dropins_static
 
+- url: /fonts
+  static_dir: oauth_dropins_fonts
+
 - url: /favicon.ico
   static_files: static/favicon.ico
   upload: static/favicon.ico

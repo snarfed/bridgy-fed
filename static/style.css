@@ -164,3 +164,16 @@ td, th {
   padding-top: .2em;
   padding-bottom: .2em;
 }
+
+.follower {
+  text-align: left;
+  margin-top: .5em;
+}
+
+/* .glyphicon-warning-sign { color: gold; } */
+.glyphicon-ok-sign { color: green; }
+.glyphicon-exclamation-sign { color: gold; }
+.glyphicon-pause { color: gold; }
+.glyphicon-refresh { color: blue; }
+.glyphicon-remove { color: red !important; }
+.glyphicon-transfer { color: blue; }

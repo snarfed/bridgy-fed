@@ -1,10 +1,13 @@
 <br>
 
 <div class="row">
-{% for link in follower_links %}
-  <div class="col-sm-4">{{ link|safe }}</div>
+{% for f in followers %}
+  <a class="follower col-xs-6 col-sm-4" href="{{ f.url }}" title="{{ f.handle }}">
+    <img class="profile u-photo" src="{{ f.picture }}" width="48px">
+    {{ util.ellipsize(f.handle, chars=25) }}
+  </a>
 {% else %}
-  <div class="col-sm-4">None</div>
+  None
 {% endfor %}
 </div>
 
