@@ -56,8 +56,9 @@ class RedirectTest(testutil.TestCase):
         https://github.com/snarfed/bridgy-fed/issues/39
         """
         as2 = copy.deepcopy(REPOST_AS2)
+        del as2['cc']
         as2.update({
-            'cc': [common.AS2_PUBLIC_AUDIENCE],
+            'to': [common.AS2_PUBLIC_AUDIENCE],
             'object': 'http://orig/post',
         })
 

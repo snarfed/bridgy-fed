@@ -167,6 +167,9 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
             source = obj_url or obj.get('id')
         targets.extend(util.get_list(obj, 'inReplyTo'))
 
+    if not source:
+        error("Couldn't find original post URL")
+
     tags = util.get_list(activity_wrapped, 'tags')
     obj_wrapped = activity_wrapped.get('object')
     if isinstance(obj_wrapped, dict):
@@ -181,8 +184,6 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
          targets.append(obj_url)
 
     targets = util.dedupe_urls(util.get_url(t) for t in targets)
-    if not source:
-        error("Couldn't find original post URL")
     if not targets:
         error("Couldn't find any target URLs in inReplyTo, object, or mention tags")
 
@@ -195,7 +196,7 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
             continue
 
         activity = Activity(source=source, target=target, direction='in',
-                        domain=domain, **activity_props)
+                            domain=domain, **activity_props)
         activity.put()
         wm_source = (activity.proxy_url()
                      if verb in ('follow', 'like', 'share') or proxy
@@ -310,16 +311,19 @@ def postprocess_as2(activity, target=None, key=None):
     if img:
         obj_or_activity.setdefault('attachment', []).append(img)
 
-    # cc public and target's author(s) and recipients
+    # cc target's author(s) and recipients
     # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting
     # https://w3c.github.io/activitypub/#delivery
-    if type in as2.TYPE_TO_VERB or type in ('Article', 'Note'):
-        recips = [AS2_PUBLIC_AUDIENCE]
-        if target:
-            recips += itertools.chain(*(util.get_list(target, field) for field in
-                                        ('actor', 'attributedTo', 'to', 'cc')))
+    if target and (type in as2.TYPE_TO_VERB or type in ('Article', 'Note')):
+        recips = itertools.chain(*(util.get_list(target, field) for field in
+                                 ('actor', 'attributedTo', 'to', 'cc')))
         activity['cc'] = util.dedupe_urls(util.get_url(recip) or recip.get('id')
                                           for recip in recips)
+
+    # to public, since Mastodon interprets to public as public, cc public as unlisted:
+    # https://socialhub.activitypub.rocks/t/visibility-to-cc-mapping/284
+    # https://wordsmith.social/falkreon/securing-activitypub
+    activity.setdefault('to', []).append(AS2_PUBLIC_AUDIENCE)
 
     # wrap articles and notes in a Create activity
     if type in ('Article', 'Note'):

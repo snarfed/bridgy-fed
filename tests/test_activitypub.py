@@ -24,7 +24,7 @@ REPLY_OBJECT = {
     'id': 'http://this/reply/id',
     'url': 'http://this/reply',
     'inReplyTo': 'http://orig/post',
-    'cc': ['https://www.w3.org/ns/activitystreams#Public'],
+    'to': ['https://www.w3.org/ns/activitystreams#Public'],
 }
 REPLY_OBJECT_WRAPPED = copy.deepcopy(REPLY_OBJECT)
 REPLY_OBJECT_WRAPPED['inReplyTo'] = 'http://localhost/r/orig/post'
@@ -34,10 +34,10 @@ REPLY = {
     'id': 'http://this/reply/as2',
     'object': REPLY_OBJECT,
 }
-MENTION_OBJECT = {
+NOTE_OBJECT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Note',
-    'content': '☕ mentions of @other @target@target',
+    'content': '☕ just a normal post',
     'id': 'http://this/mention/id',
     'url': 'http://this/mention',
     'to': ['https://www.w3.org/ns/activitystreams#Public'],
@@ -46,16 +46,23 @@ MENTION_OBJECT = {
         'https://masto.foo/@other',
         'http://localhost/target',  # redirect-wrapped
     ],
-    'tag': [{
-        'type': 'Mention',
-        'href': 'https://masto.foo/@other',
-        'name': '@other@masto.foo',
-    }, {
-        'type': 'Mention',
-        'href': 'http://localhost/target',  # redirect-wrapped
-        'name': '@target@target',
-    }],
 }
+NOTE = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'type': 'Create',
+    'id': 'http://this/note/as2',
+    'object': NOTE_OBJECT,
+}
+MENTION_OBJECT = copy.deepcopy(NOTE_OBJECT)
+MENTION_OBJECT['tag'] = [{
+    'type': 'Mention',
+    'href': 'https://masto.foo/@other',
+    'name': '@other@masto.foo',
+}, {
+    'type': 'Mention',
+    'href': 'http://localhost/target',  # redirect-wrapped
+    'name': '@target@target',
+}]
 MENTION = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Create',

@@ -47,10 +47,11 @@ REPOST_AS2 = {
     'url': 'http://localhost/r/http://a/repost',
     'name': 'reposted!',
     'object': 'tag:orig,2017:as2',
+    'to': [AS2_PUBLIC_AUDIENCE],
     'cc': [
-        AS2_PUBLIC_AUDIENCE,
         'http://orig/author',
         'http://orig/recipient',
+        AS2_PUBLIC_AUDIENCE,
         'http://orig/bystander',
     ],
     'actor': {
@@ -99,7 +100,7 @@ class WebmentionTest(testutil.TestCase):
             'id': 'tag:orig,2017:as2',
             'content': 'Lots of ☕ words...',
             'actor': {'url': 'http://orig/author'},
-            'to': ['http://orig/recipient'],
+            'to': ['http://orig/recipient', AS2_PUBLIC_AUDIENCE],
             'cc': ['http://orig/bystander', AS2_PUBLIC_AUDIENCE],
         }
         self.orig_as2 = requests_response(
@@ -168,10 +169,11 @@ class WebmentionTest(testutil.TestCase):
 <a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a>
 <a href="http://localhost/"></a>""",
                 'inReplyTo': 'tag:orig,2017:as2',
+                'to': [AS2_PUBLIC_AUDIENCE],
                 'cc': [
-                    AS2_PUBLIC_AUDIENCE,
                     'http://orig/author',
                     'http://orig/recipient',
+                    AS2_PUBLIC_AUDIENCE,
                     'http://orig/bystander',
                 ],
                 'attributedTo': [{
@@ -216,7 +218,7 @@ class WebmentionTest(testutil.TestCase):
                 'type': 'Person',
                 'url': 'http://localhost/r/https://orig',
             },
-            'cc': ['https://www.w3.org/ns/activitystreams#Public'],
+            'to': [AS2_PUBLIC_AUDIENCE],
         }
 
         self.create_html = """\
@@ -252,7 +254,7 @@ class WebmentionTest(testutil.TestCase):
                     'name': 'Ms. ☕ Baz',
                     'preferredUsername': 'orig',
                 }],
-                'cc': ['https://www.w3.org/ns/activitystreams#Public'],
+                'to': [AS2_PUBLIC_AUDIENCE],
             },
         }
         self.update_as2 = copy.deepcopy(self.create_as2)

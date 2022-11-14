@@ -70,6 +70,7 @@ class CommonTest(testutil.TestCase):
             self.assertEqual({
                 'id': 'http://localhost/r/xyz',
                 'inReplyTo': 'foo',
+                'to': [common.AS2_PUBLIC_AUDIENCE],
             }, common.postprocess_as2({
                 'id': 'xyz',
                 'inReplyTo': ['foo', 'bar'],
