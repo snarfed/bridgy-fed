@@ -24,7 +24,7 @@ REPLY_OBJECT = {
     'id': 'http://this/reply/id',
     'url': 'http://this/reply',
     'inReplyTo': 'http://orig/post',
-    'to': ['https://www.w3.org/ns/activitystreams#Public'],
+    'to': [common.AS2_PUBLIC_AUDIENCE],
 }
 REPLY_OBJECT_WRAPPED = copy.deepcopy(REPLY_OBJECT)
 REPLY_OBJECT_WRAPPED['inReplyTo'] = 'http://localhost/r/orig/post'
@@ -40,7 +40,7 @@ NOTE_OBJECT = {
     'content': '☕ just a normal post',
     'id': 'http://this/mention/id',
     'url': 'http://this/mention',
-    'to': ['https://www.w3.org/ns/activitystreams#Public'],
+    'to': [common.AS2_PUBLIC_AUDIENCE],
     'cc': [
         'https://this/author/followers',
         'https://masto.foo/@other',
@@ -251,17 +251,25 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('complete', activity.status)
         self.assertEqual(expected_as2, json_loads(activity.source_as2))
 
-    def test_inbox_reply_drop_self_domain_target(self, mock_head, mock_get, mock_post):
+    def test_inbox_reply_to_self_domain(self, mock_head, mock_get, mock_post):
+        self._test_inbox_ignore_reply_to('http://localhost/this', 200,
+                                         mock_head, mock_get, mock_post)
+        self.assert_req(mock_head, 'http://this', allow_redirects=True)
+
+    def test_inbox_reply_to_in_blocklist(self, *mocks):
+        self._test_inbox_ignore_reply_to('https://twitter.com/foo', 400, *mocks)
+
+    def _test_inbox_ignore_reply_to(self, reply_to, status, mock_head, mock_get,
+                                    mock_post):
         reply = copy.deepcopy(REPLY_OBJECT)
         # same domain as source; should drop
-        reply['inReplyTo'] = 'http://localhost/this',
+        reply['inReplyTo'] = reply_to
 
         mock_head.return_value = requests_response(url='http://this/')
 
         got = self.client.post('/foo.com/inbox', json=reply)
-        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(status, got.status_code, got.get_data(as_text=True))
 
-        self.assert_req(mock_head, 'http://this', allow_redirects=True)
         mock_get.assert_not_called()
         mock_post.assert_not_called()
         self.assertEqual(0, Activity.query().count())

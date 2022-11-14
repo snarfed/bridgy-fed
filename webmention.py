@@ -153,10 +153,13 @@ class Webmention(View):
         """
         targets = util.get_urls(self.source_obj, 'inReplyTo')
         if targets:
+            logger.info(f'targets from inReplyTo: {targets}')
             return targets
 
         if self.source_obj.get('verb') in as1.VERBS_WITH_OBJECT:
-            return util.get_urls(self.source_obj, 'object')
+            targets = util.get_urls(self.source_obj, 'object')
+            logger.info(f'targets from object: {targets}')
+            return targets
 
     def _activitypub_targets(self):
         """
@@ -178,64 +181,71 @@ class Webmention(View):
                         inboxes.add(actor.get('endpoints', {}).get('sharedInbox') or
                                     actor.get('publicInbox')or
                                     actor.get('inbox'))
-            return [(Activity.get_or_create(
-                        source=self.source_url, target=inbox, domain=self.source_domain,
-                        direction='out', protocol='activitypub',
-                        source_mf2=json_dumps(self.source_mf2)),
-                     inbox)
-                    for inbox in sorted(inboxes) if inbox]
+            inboxes = [(Activity.get_or_create(
+                          source=self.source_url, target=inbox, domain=self.source_domain,
+                          direction='out', protocol='activitypub',
+                          source_mf2=json_dumps(self.source_mf2)),
+                        inbox)
+                       for inbox in sorted(inboxes) if inbox]
+            logger.info(f"Delivering to followers' inboxes: {[i for _, i in inboxes]}")
+            return inboxes
+
+        targets = common.remove_blocklisted(targets)
+        if not targets:
+            error(f"Silo responses are not yet supported.")
 
         activities_and_inbox_urls = []
         for target in targets:
-          # fetch target page as AS2 object
-          try:
-              self.target_resp = common.get_as2(target)
-          except (requests.HTTPError, BadGateway) as e:
-              self.target_resp = getattr(e, 'requests_response', None)
-              if self.target_resp and self.target_resp.status_code // 100 == 2:
-                  content_type = common.content_type(self.target_resp) or ''
-                  if content_type.startswith('text/html'):
-                      # TODO: pass e.requests_response to try_salmon's target_resp
-                      continue  # give up
-              raise
-          target_url = self.target_resp.url or target
+            # fetch target page as AS2 object
+            try:
+                self.target_resp = common.get_as2(target)
+            except (requests.HTTPError, BadGateway) as e:
+                self.target_resp = getattr(e, 'requests_response', None)
+                if self.target_resp and self.target_resp.status_code // 100 == 2:
+                    content_type = common.content_type(self.target_resp) or ''
+                    if content_type.startswith('text/html'):
+                        # TODO: pass e.requests_response to try_salmon's target_resp
+                        continue  # give up
+                raise
+            target_url = self.target_resp.url or target
 
-          activity = Activity.get_or_create(
-              source=self.source_url, target=target_url, domain=self.source_domain,
-              direction='out', protocol='activitypub',
-              source_mf2=json_dumps(self.source_mf2))
+            activity = Activity.get_or_create(
+                source=self.source_url, target=target_url, domain=self.source_domain,
+                direction='out', protocol='activitypub',
+                source_mf2=json_dumps(self.source_mf2))
 
-          # find target's inbox
-          target_obj = self.target_resp.json()
-          activity.target_as2 = json_dumps(target_obj)
-          inbox_url = target_obj.get('inbox')
+            # find target's inbox
+            target_obj = self.target_resp.json()
+            activity.target_as2 = json_dumps(target_obj)
+            inbox_url = target_obj.get('inbox')
 
-          if not inbox_url:
-              # TODO: test actor/attributedTo and not, with/without inbox
-              actor = (util.get_first(target_obj, 'actor') or
-                       util.get_first(target_obj, 'attributedTo'))
-              if isinstance(actor, dict):
-                  inbox_url = actor.get('inbox')
-                  actor = actor.get('url') or actor.get('id')
-              if not inbox_url and not actor:
-                  error('Target object has no actor or attributedTo with URL or id.')
-              elif not isinstance(actor, str):
-                  error(f'Target actor or attributedTo has unexpected url or id object: {actor}')
+            if not inbox_url:
+                # TODO: test actor/attributedTo and not, with/without inbox
+                actor = (util.get_first(target_obj, 'actor') or
+                         util.get_first(target_obj, 'attributedTo'))
+                if isinstance(actor, dict):
+                    inbox_url = actor.get('inbox')
+                    actor = actor.get('url') or actor.get('id')
+                if not inbox_url and not actor:
+                    error('Target object has no actor or attributedTo with URL or id.')
+                elif not isinstance(actor, str):
+                    error(f'Target actor or attributedTo has unexpected url or id object: {actor}')
 
-          if not inbox_url:
-              # fetch actor as AS object
-              actor = common.get_as2(actor).json()
-              inbox_url = actor.get('inbox')
+            if not inbox_url:
+                # fetch actor as AS object
+                actor = common.get_as2(actor).json()
+                inbox_url = actor.get('inbox')
 
-          if not inbox_url:
-              # TODO: probably need a way to save errors like this so that we can
-              # return them if ostatus fails too.
-              # error('Target actor has no inbox')
-              continue
+            if not inbox_url:
+                # TODO: probably need a way to save errors like this so that we can
+                # return them if ostatus fails too.
+                # error('Target actor has no inbox')
+                continue
 
-          inbox_url = urllib.parse.urljoin(target_url, inbox_url)
-          activities_and_inbox_urls.append((activity, inbox_url))
+            inbox_url = urllib.parse.urljoin(target_url, inbox_url)
+            activities_and_inbox_urls.append((activity, inbox_url))
 
+        logger.info(f"Delivering to targets' inboxes: {[i for _, i in activities_and_inbox_urls]}")
         return activities_and_inbox_urls
 
     def try_salmon(self):

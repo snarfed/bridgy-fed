@@ -62,6 +62,13 @@ OTHER_DOMAINS = (
     'localhost',
 )
 DOMAINS = (PRIMARY_DOMAIN,) + OTHER_DOMAINS
+# TODO: unify with Bridgy's
+DOMAIN_BLOCKLIST = frozenset((
+    'facebook.com',
+    'fb.com',
+    't.co',
+    'twitter.com',
+) + DOMAINS)
 
 
 def requests_get(url, **kwargs):
@@ -144,6 +151,18 @@ def content_type(resp):
         return type.split(';')[0]
 
 
+def remove_blocklisted(urls):
+    """Returns the subset of input URLs that aren't in our domain blocklist.
+
+    Args:
+      urls: sequence of str
+
+    Returns: list of str
+    """
+    return [u for u in urls if not util.domain_or_parent_in(
+              util.domain_from_link(u), DOMAIN_BLOCKLIST)]
+
+
 def send_webmentions(activity_wrapped, proxy=None, **activity_props):
     """Sends webmentions for an incoming Salmon slap or ActivityPub inbox delivery.
     Args:
@@ -183,9 +202,11 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
     if verb in ('follow', 'like', 'share'):
          targets.append(obj_url)
 
-    targets = util.dedupe_urls(util.get_url(t) for t in targets)
+    targets = remove_blocklisted(util.dedupe_urls(
+        util.get_url(t).lower() for t in targets))
     if not targets:
-        error("Couldn't find any target URLs in inReplyTo, object, or mention tags")
+        error("Couldn't find any fediverse target URLs in inReplyTo, object, or mention tags")
+    logger.info(f'targets: {targets}')
 
     # send webmentions and store Activitys
     errors = []  # stores (code, body) tuples

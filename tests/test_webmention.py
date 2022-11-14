@@ -802,6 +802,18 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('error', activity.status)
         self.assertEqual(self.follow_mf2, json_loads(activity.source_mf2))
 
+    def test_activitypub_repost_blocklisted_error(self, mock_get, mock_post):
+        """Reposts of non-fediverse (ie blocklisted) sites aren't yet supported."""
+        repost_html = REPOST_HTML.replace('http://orig/post', 'https://twitter.com/foo')
+        repost_resp = requests_response(repost_html, content_type=CONTENT_TYPE_HTML)
+        mock_get.side_effect = [repost_resp]
+
+        got = self.client.post('/webmention', data={
+            'source': 'http://a/repost',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(400, got.status_code)
+
     def test_salmon_reply(self, mock_get, mock_post):
         mock_get.side_effect = [self.reply, self.not_fediverse,
                                 self.orig_html_atom, self.orig_atom]
