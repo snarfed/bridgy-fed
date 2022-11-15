@@ -18,6 +18,9 @@ automatic_scaling:
   min_pending_latency: 3000ms
   max_concurrent_requests: 30
 
+inbound_services:
+- warmup
+
 handlers:
 
 # static
