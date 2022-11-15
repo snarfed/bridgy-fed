@@ -120,11 +120,11 @@ class Webmention(View):
                     orig_content = content(json_loads(resp.source_mf2))
                     new_content = content(self.source_mf2)
                     if orig_content and new_content and orig_content == new_content:
-                        msg = f'Skipping; new content is same as content published before at {resp.updated}'
-                        logger.info(msg)
+                        logger.info(f'Skipping; new content is same as content published before at {resp.updated}')
                         continue
 
-                source_activity['type'] = 'Update'
+                if source_activity.get('type') == 'Create':
+                    source_activity['type'] = 'Update'
 
             try:
                 last = activitypub.send(source_activity, inbox, self.source_domain)

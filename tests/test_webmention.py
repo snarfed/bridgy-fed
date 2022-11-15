@@ -436,6 +436,23 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(('https://foo.com/inbox',), args)
         self.assertEqual(self.as2_update, json_loads(kwargs['data']))
 
+    def test_activitypub_redo_repost_isnt_update(self, mock_get, mock_post):
+        """Like and Announce shouldn't use Update, they should just resend as is."""
+        Activity(id='http://a/repost http://orig/as2', status='complete').put()
+
+        mock_get.side_effect = [self.repost, self.orig_as2, self.actor]
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = self.client.post('/webmention', data={
+            'source': 'http://a/repost',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
+
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://foo.com/inbox',), args)
+        self.assertEqual(self.repost_as2, json_loads(kwargs['data']))
+
     def test_activitypub_skip_update_if_content_unchanged(self, mock_get, mock_post):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
         Activity(id='http://a/reply http://orig/as2', status='complete',
