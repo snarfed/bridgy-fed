@@ -5,7 +5,7 @@ from itertools import islice
 import re
 import urllib.parse
 
-from flask import render_template, request
+from flask import redirect, render_template, request
 from google.cloud.ndb.stats import KindStat
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import error
@@ -26,8 +26,12 @@ def front_page():
   return render_template('index.html')
 
 
-@app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>')
 @app.get(f'/responses/<regex("{common.DOMAIN_RE}"):domain>')  # deprecated
+def user_deprecated(domain):
+    return redirect(f'/user/{domain}', code=301)
+
+
+@app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>')
 def user(domain):
     if not Domain.get_by_id(domain):
       return render_template('user_not_found.html', domain=domain), 404
@@ -104,8 +108,12 @@ def following(domain):
     )
 
 
-@app.get('/recent')
 @app.get('/responses')  # deprecated
+def recent_deprecated():
+    return redirect('/recent', code=301)
+
+
+@app.get('/recent')
 def recent():
     """Renders recent activities, with links to logs."""
     query = Activity.query(Activity.status.IN(('new', 'complete', 'error')))
