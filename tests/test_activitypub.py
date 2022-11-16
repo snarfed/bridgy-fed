@@ -158,7 +158,7 @@ class ActivityPubTest(testutil.TestCase):
 """, url='https://foo.com/', content_type=common.CONTENT_TYPE_HTML)
 
         got = self.client.get('/foo.com')
-        self.assert_req(mock_get, 'http://foo.com/')
+        self.assert_req(mock_get, 'https://foo.com/')
         self.assertEqual(200, got.status_code)
         type = got.headers['Content-Type']
         self.assertTrue(type.startswith(common.CONTENT_TYPE_AS2), type)
@@ -195,7 +195,7 @@ class ActivityPubTest(testutil.TestCase):
 """)
 
         got = self.client.get('/foo.com')
-        self.assert_req(mock_get, 'http://foo.com/')
+        self.assert_req(mock_get, 'https://foo.com/')
         self.assertEqual(400, got.status_code)
         self.assertIn('representative h-card', got.get_data(as_text=True))
 

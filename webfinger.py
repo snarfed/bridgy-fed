@@ -42,7 +42,7 @@ class Actor(flask_util.XrdOrJrd):
             error(f"{domain} doesn't look like a domain", status=404)
 
         # find representative h-card. try url, then url's home page, then domain
-        urls = [f'http://{domain}/']
+        urls = [f'https://{domain}/']
         if url:
             urls = [url, urllib.parse.urljoin(url, '/')] + urls
 
