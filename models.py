@@ -165,5 +165,7 @@ class Follower(StringIdModel):
     @classmethod
     def get_or_create(cls, dest, src, **kwargs):
         logger.info(f'new Follower from {src} to {dest}')
-        return cls.get_or_insert(cls._id(dest, src), src=src, dest=dest, **kwargs)
-
+        follower = cls.get_or_insert(cls._id(dest, src), src=src, dest=dest, **kwargs)
+        follower.dest = dest
+        follower.src = src
+        return follower
