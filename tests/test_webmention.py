@@ -158,6 +158,11 @@ class WebmentionTest(testutil.TestCase):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
             'id': 'http://localhost/r/http://a/reply#bridgy-fed-create',
+            'actor': {
+                'id': 'http://localhost/a',
+                'url': 'http://localhost/r/https://a/',
+                'preferredUsername': 'a',
+            },
             'object': {
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 'type': 'Note',
@@ -240,6 +245,11 @@ class WebmentionTest(testutil.TestCase):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
             'id': 'http://localhost/r/http://orig/post#bridgy-fed-create',
+            'actor': {
+                'id': 'http://localhost/orig',
+                'url': 'http://localhost/r/https://orig/',
+                'preferredUsername': 'orig',
+            },
             'object': {
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 'type': 'Note',

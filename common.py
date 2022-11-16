@@ -14,7 +14,7 @@ from oauth_dropins.webutil.flask_util import error
 import requests
 from werkzeug.exceptions import BadGateway
 
-from models import Activity
+from models import Activity, Domain
 
 logger = logging.getLogger(__name__)
 
@@ -242,22 +242,23 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
         error(msg, status=int(errors[0][0] or 502))
 
 
-def postprocess_as2(activity, target=None, domain=None):
+def postprocess_as2(activity, domain=None, target=None):
     """Prepare an AS2 object to be served or sent via ActivityPub.
 
     Args:
       activity: dict, AS2 object or activity
+      domain: :class:`Domain`, required. populated into actor.id and
+        publicKey fields if needed.
       target: dict, AS2 object, optional. The target of activity's inReplyTo or
         Like/Announce/etc object, if any.
-      domain: :class:`models.Domain`, optional. populated into publicKey field
-        if provided.
     """
+    assert domain
     type = activity.get('type')
 
     # actor objects
     if type == 'Person':
-        postprocess_as2_actor(activity)
-        if not activity.get('publicKey') and domain:
+        postprocess_as2_actor(activity, domain)
+        if not activity.get('publicKey'):
             # underspecified, inferred from this issue and Mastodon's implementation:
             # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
             # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
@@ -275,7 +276,7 @@ def postprocess_as2(activity, target=None, domain=None):
 
     for actor in (util.get_list(activity, 'attributedTo') +
                   util.get_list(activity, 'actor')):
-        postprocess_as2_actor(actor)
+        postprocess_as2_actor(actor, domain)
 
     # inReplyTo: singly valued, prefer id over url
     target_id = target.get('id') if target else None
@@ -344,7 +345,9 @@ def postprocess_as2(activity, target=None, domain=None):
     # to public, since Mastodon interprets to public as public, cc public as unlisted:
     # https://socialhub.activitypub.rocks/t/visibility-to-cc-mapping/284
     # https://wordsmith.social/falkreon/securing-activitypub
-    activity.setdefault('to', []).append(AS2_PUBLIC_AUDIENCE)
+    to = activity.setdefault('to', [])
+    if AS2_PUBLIC_AUDIENCE not in to:
+        to.append(AS2_PUBLIC_AUDIENCE)
 
     # wrap articles and notes in a Create activity
     if type in ('Article', 'Note'):
@@ -352,29 +355,37 @@ def postprocess_as2(activity, target=None, domain=None):
             '@context': as2.CONTEXT,
             'type': 'Create',
             'id': f'{activity["id"]}#bridgy-fed-create',
+            'actor': postprocess_as2_actor({}, domain),
             'object': activity,
         }
 
     return util.trim_nulls(activity)
 
 
-def postprocess_as2_actor(actor):
+def postprocess_as2_actor(actor, domain=None):
     """Prepare an AS2 actor object to be served or sent via ActivityPub.
+
+    Modifies actor in place.
 
     Args:
       actor: dict, AS2 actor object
+      domain: :class:`Domain`
+
+    Returns:
+      actor dict
     """
-    url = actor.get('url')
-    if url:
-        domain = urllib.parse.urlparse(url).netloc
-        actor.update({
-            'id': request.host_url + domain,
-            'url': redirect_wrap(url),
-            'preferredUsername': domain,
-        })
+    url = actor.get('url') or f'https://{domain.key.id()}/'
+    domain_str = urllib.parse.urlparse(url).netloc
+
+    actor.setdefault('id', request.host_url + domain_str)
+    actor.update({
+        'url': redirect_wrap(url),
+        'preferredUsername': domain_str,
+    })
 
     # required by pixelfed. https://github.com/snarfed/bridgy-fed/issues/39
     actor.setdefault('summary', '')
+    return actor
 
 
 def redirect_wrap(url):
