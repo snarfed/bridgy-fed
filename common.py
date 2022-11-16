@@ -14,7 +14,7 @@ from oauth_dropins.webutil.flask_util import error
 import requests
 from werkzeug.exceptions import BadGateway
 
-from models import Activity, Domain
+from models import Activity, User
 
 logger = logging.getLogger(__name__)
 
@@ -242,22 +242,22 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
         error(msg, status=int(errors[0][0] or 502))
 
 
-def postprocess_as2(activity, domain=None, target=None):
+def postprocess_as2(activity, user=None, target=None):
     """Prepare an AS2 object to be served or sent via ActivityPub.
 
     Args:
       activity: dict, AS2 object or activity
-      domain: :class:`Domain`, required. populated into actor.id and
+      user: :class:`User`, required. populated into actor.id and
         publicKey fields if needed.
       target: dict, AS2 object, optional. The target of activity's inReplyTo or
         Like/Announce/etc object, if any.
     """
-    assert domain
+    assert user
     type = activity.get('type')
 
     # actor objects
     if type == 'Person':
-        postprocess_as2_actor(activity, domain)
+        postprocess_as2_actor(activity, user)
         if not activity.get('publicKey'):
             # underspecified, inferred from this issue and Mastodon's implementation:
             # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
@@ -267,7 +267,7 @@ def postprocess_as2(activity, domain=None, target=None):
                 'publicKey': {
                     'id': actor_url,
                     'owner': actor_url,
-                    'publicKeyPem': domain.public_pem().decode(),
+                    'publicKeyPem': user.public_pem().decode(),
                 },
                 '@context': (util.get_list(activity, '@context') +
                              ['https://w3id.org/security/v1']),
@@ -276,7 +276,7 @@ def postprocess_as2(activity, domain=None, target=None):
 
     for actor in (util.get_list(activity, 'attributedTo') +
                   util.get_list(activity, 'actor')):
-        postprocess_as2_actor(actor, domain)
+        postprocess_as2_actor(actor, user)
 
     # inReplyTo: singly valued, prefer id over url
     target_id = target.get('id') if target else None
@@ -355,32 +355,32 @@ def postprocess_as2(activity, domain=None, target=None):
             '@context': as2.CONTEXT,
             'type': 'Create',
             'id': f'{activity["id"]}#bridgy-fed-create',
-            'actor': postprocess_as2_actor({}, domain),
+            'actor': postprocess_as2_actor({}, user),
             'object': activity,
         }
 
     return util.trim_nulls(activity)
 
 
-def postprocess_as2_actor(actor, domain=None):
+def postprocess_as2_actor(actor, user=None):
     """Prepare an AS2 actor object to be served or sent via ActivityPub.
 
     Modifies actor in place.
 
     Args:
       actor: dict, AS2 actor object
-      domain: :class:`Domain`
+      user: :class:`User`
 
     Returns:
       actor dict
     """
-    url = actor.get('url') or f'https://{domain.key.id()}/'
-    domain_str = urllib.parse.urlparse(url).netloc
+    url = actor.get('url') or f'https://{user.key.id()}/'
+    domain = urllib.parse.urlparse(url).netloc
 
-    actor.setdefault('id', request.host_url + domain_str)
+    actor.setdefault('id', request.host_url + domain)
     actor.update({
         'url': redirect_wrap(url),
-        'preferredUsername': domain_str,
+        'preferredUsername': domain,
     })
 
     # required by pixelfed. https://github.com/snarfed/bridgy-fed/issues/39

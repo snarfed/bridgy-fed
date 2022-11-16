@@ -26,7 +26,7 @@ from common import (
     CONTENT_TYPE_HTML,
     CONTENT_TYPE_MAGIC_ENVELOPE,
 )
-from models import Follower, Domain, Activity
+from models import Follower, User, Activity
 import webmention
 from . import testutil
 
@@ -69,7 +69,7 @@ REPOST_AS2 = {
 class WebmentionTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
-        self.key = Domain.get_or_create('a')
+        self.key = User.get_or_create('a')
 
         self.orig_html_as2 = requests_response("""\
 <html>

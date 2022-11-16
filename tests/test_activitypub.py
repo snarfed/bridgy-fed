@@ -14,7 +14,7 @@ from urllib3.exceptions import ReadTimeoutError
 
 import activitypub
 import common
-from models import Follower, Domain, Activity
+from models import Follower, User, Activity
 from . import testutil
 
 REPLY_OBJECT = {
@@ -180,7 +180,7 @@ class ActivityPubTest(testutil.TestCase):
             'publicKey': {
                 'id': 'http://localhost/foo.com',
                 'owner': 'http://localhost/foo.com',
-                'publicKeyPem': Domain.get_by_id('foo.com').public_pem().decode(),
+                'publicKeyPem': User.get_by_id('foo.com').public_pem().decode(),
             },
         }, got.json)
 

@@ -23,7 +23,7 @@ from werkzeug.exceptions import abort
 
 from app import app, cache
 import common
-from models import Domain
+from models import User
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +52,9 @@ def redir(to):
                    urllib.parse.urlparse(to).hostname))
     for domain in domains:
         if domain:
-            entity = Domain.get_by_id(domain)
-            if entity:
-                logger.info(f'Found Domain for domain {domain}')
+            user = User.get_by_id(domain)
+            if user:
+                logger.info(f'Found User for domain {domain}')
                 break
     else:
         logger.info(f'No user found for any of {domains}; returning 404')
@@ -64,7 +64,7 @@ def redir(to):
     # priorities.
     if request.headers.get('Accept') in (common.CONTENT_TYPE_AS2,
                                          common.CONTENT_TYPE_AS2_LD):
-        return convert_to_as2(to, entity)
+        return convert_to_as2(to, user)
 
     # redirect
     logger.info(f'redirecting to {to}')
@@ -79,7 +79,7 @@ def convert_to_as2(url, domain):
 
     Args:
       url: str
-      domain: :class:`Domain`
+      domain: :class:`User`
     """
     mf2 = util.fetch_mf2(url)
     entry = mf2util.find_first_entry(mf2, ['h-entry'])

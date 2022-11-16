@@ -1,37 +1,37 @@
 # coding=utf-8
 """Unit tests for models.py."""
 from app import app
-from models import Domain, Activity
+from models import User, Activity
 from . import testutil
 
 
-class DomainTest(testutil.TestCase):
+class UserTest(testutil.TestCase):
 
     def setUp(self):
-        super(DomainTest, self).setUp()
-        self.domain = Domain.get_or_create('y.z')
+        super(UserTest, self).setUp()
+        self.user = User.get_or_create('y.z')
 
     def test_magic_key_get_or_create(self):
-        assert self.domain.mod
-        assert self.domain.public_exponent
-        assert self.domain.private_exponent
+        assert self.user.mod
+        assert self.user.public_exponent
+        assert self.user.private_exponent
 
-        same = Domain.get_or_create('y.z')
-        self.assertEqual(same, self.domain)
+        same = User.get_or_create('y.z')
+        self.assertEqual(same, self.user)
 
     def test_href(self):
-        href = self.domain.href()
+        href = self.user.href()
         self.assertTrue(href.startswith('data:application/magic-public-key,RSA.'), href)
-        self.assertIn(self.domain.mod, href)
-        self.assertIn(self.domain.public_exponent, href)
+        self.assertIn(self.user.mod, href)
+        self.assertIn(self.user.public_exponent, href)
 
     def test_public_pem(self):
-        pem = self.domain.public_pem()
+        pem = self.user.public_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN PUBLIC KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END PUBLIC KEY-----'), pem)
 
     def test_private_pem(self):
-        pem = self.domain.private_pem()
+        pem = self.user.private_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END RSA PRIVATE KEY-----'), pem)
 

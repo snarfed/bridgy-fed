@@ -12,7 +12,7 @@ from oauth_dropins.webutil.testutil import requests_response, UrlopenResult
 import requests
 
 import common
-from models import Domain, Activity
+from models import User, Activity
 from . import testutil
 
 
@@ -24,7 +24,7 @@ class SalmonTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.key = Domain.get_or_create('alice')
+        self.key = User.get_or_create('alice')
 
     def send_slap(self, mock_urlopen, mock_head, mock_get, mock_post, atom_slap):
         # salmon magic key discovery. first host-meta, then webfinger

@@ -9,7 +9,7 @@ from werkzeug.exceptions import BadGateway
 
 from app import app
 import common
-from models import Domain
+from models import User
 from . import testutil
 
 HTML = requests_response('<html></html>', headers={
@@ -75,7 +75,7 @@ class CommonTest(testutil.TestCase):
             }, common.postprocess_as2({
                 'id': 'xyz',
                 'inReplyTo': ['foo', 'bar'],
-            }, domain=Domain(id='foo.com')))
+            }, user=User(id='foo.com')))
 
     def test_postprocess_as2_actor_attributedTo(self):
         with app.test_request_context('/'):
@@ -98,7 +98,7 @@ class CommonTest(testutil.TestCase):
             }, common.postprocess_as2({
                 'attributedTo': [{'id': 'bar'}, {'id': 'baz'}],
                 'actor': {'id': 'baj'},
-            }, domain=Domain(id='foo.com')))
+            }, user=User(id='foo.com')))
 
     def test_postprocess_as2_note(self):
         with app.test_request_context('/'):
@@ -119,5 +119,5 @@ class CommonTest(testutil.TestCase):
             }, common.postprocess_as2({
                 'id': 'xyz',
                 'type': 'Note',
-            }, domain=Domain(id='foo.com')))
+            }, user=User(id='foo.com')))
 

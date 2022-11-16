@@ -13,7 +13,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app, cache
 import common
-from models import Follower, Domain, Activity
+from models import Follower, User, Activity
 
 PAGE_SIZE = 20
 FOLLOWERS_UI_LIMIT = 999
@@ -33,7 +33,7 @@ def user_deprecated(domain):
 
 @app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>')
 def user(domain):
-    if not Domain.get_by_id(domain):
+    if not User.get_by_id(domain):
       return render_template('user_not_found.html', domain=domain), 404
 
     query = Activity.query(
@@ -63,7 +63,7 @@ def followers(domain):
     # TODO:
     # pull more info from last_follow, eg name, profile picture, url
     # unify with following
-    if not Domain.get_by_id(domain):
+    if not User.get_by_id(domain):
       return render_template('user_not_found.html', domain=domain), 404
 
     query = Follower.query(
@@ -88,7 +88,7 @@ def followers(domain):
 
 @app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>/following')
 def following(domain):
-    if not Domain.get_by_id(domain):
+    if not User.get_by_id(domain):
       return render_template('user_not_found.html', domain=domain), 404
 
     query = Follower.query(
@@ -192,7 +192,7 @@ def fetch_page(query, model_class):
 def stats():
    return render_template(
        'stats.html',
-       users=KindStat.query(KindStat.kind_name == 'Domain').get().count,
+       users=KindStat.query(KindStat.kind_name == 'User').get().count,
        activities=KindStat.query(KindStat.kind_name == 'Activity').get().count,
        followers=KindStat.query(KindStat.kind_name == 'Follower').get().count,
    )

@@ -25,7 +25,7 @@ from werkzeug.exceptions import BadGateway
 import activitypub
 from app import app
 import common
-from models import Follower, Domain, Activity
+from models import Follower, User, Activity
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ class Webmention(View):
         if not targets:
             return None
 
-        domain = Domain.get_or_create(self.source_domain)
+        user = User.get_or_create(self.source_domain)
         error = None
         last_success = None
 
@@ -106,7 +106,7 @@ class Webmention(View):
         for resp, inbox in targets:
             target_obj = json_loads(resp.target_as2) if resp.target_as2 else None
             source_activity = common.postprocess_as2(
-                as2.from_as1(self.source_obj), target=target_obj, domain=domain)
+                as2.from_as1(self.source_obj), target=target_obj, user=user)
 
             if resp.status == 'complete':
                 if resp.source_mf2:
@@ -361,10 +361,10 @@ class Webmention(View):
 
         # sign reply and wrap in magic envelope
         domain = urllib.parse.urlparse(self.source_url).netloc
-        entity = Domain.get_or_create(domain)
-        logger.info(f'Using key for {domain}: {entity}')
+        user = User.get_or_create(domain)
+        logger.info(f'Using key for {domain}: {user}')
         magic_envelope = magicsigs.magic_envelope(
-            entry, common.CONTENT_TYPE_ATOM, entity).decode()
+            entry, common.CONTENT_TYPE_ATOM, user).decode()
 
         logger.info(f'Sending Salmon slap to {endpoint}')
         common.requests_post(

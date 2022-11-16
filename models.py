@@ -11,7 +11,7 @@ from oauth_dropins.webutil.models import StringIdModel
 logger = logging.getLogger(__name__)
 
 
-class Domain(StringIdModel):
+class User(StringIdModel):
     """Stores a user's public/private key pair used for Magic Signatures.
 
     The key name is the domain.
@@ -35,18 +35,18 @@ class Domain(StringIdModel):
     @staticmethod
     @ndb.transactional()
     def get_or_create(domain):
-        """Loads and returns a Domain. Creates it if necessary."""
-        entity = Domain.get_by_id(domain)
+        """Loads and returns a User. Creates it if necessary."""
+        user = User.get_by_id(domain)
 
-        if not entity:
+        if not user:
             # this uses urandom(), and does nontrivial math, so it can take a
             # while depending on the amount of randomness available.
             pubexp, mod, privexp = magicsigs.generate()
-            entity = Domain(id=domain, mod=mod, public_exponent=pubexp,
+            user = User(id=domain, mod=mod, public_exponent=pubexp,
                            private_exponent=privexp)
-            entity.put()
+            user.put()
 
-        return entity
+        return user
 
     def href(self):
         return 'data:application/magic-public-key,RSA.%s.%s' % (

@@ -17,7 +17,7 @@ from oauth_dropins.webutil.util import json_dumps
 
 from app import app, cache
 import common
-import models
+from models import User
 
 CACHE_TIME = datetime.timedelta(seconds=15)
 NON_TLDS = frozenset(('html', 'json', 'php', 'xml'))
@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 #     CACHE_TIME.total_seconds(),
 #     make_cache_key=lambda domain: f'{request.path} {request.headers.get("Accept")}')
 
-class User(flask_util.XrdOrJrd):
+class Actor(flask_util.XrdOrJrd):
     """Fetches a site's home page, converts its mf2 to WebFinger, and serves."""
     def template_prefix(self):
         return 'webfinger_user'
@@ -59,7 +59,7 @@ class User(flask_util.XrdOrJrd):
             error(f"didn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {resp.url}")
 
         logger.info(f'Generating WebFinger data for {domain}')
-        entity = models.Domain.get_or_create(domain)
+        user = User.get_or_create(domain)
         props = hcard.get('properties', {})
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])
         canonical_url = urls[0]
@@ -97,7 +97,7 @@ class User(flask_util.XrdOrJrd):
         data = util.trim_nulls({
             'subject': 'acct:' + acct,
             'aliases': urls,
-            'magic_keys': [{'value': entity.href()}],
+            'magic_keys': [{'value': user.href()}],
             'links': sum(([{
                 'rel': 'http://webfinger.net/rel/profile-page',
                 'type': 'text/html',
@@ -135,7 +135,7 @@ class User(flask_util.XrdOrJrd):
                 'href': hub,
             }, {
                 'rel': 'magic-public-key',
-                'href': entity.href(),
+                'href': user.href(),
             }, {
                 'rel': 'salmon',
                 'href': f'{request.host_url}{domain}/salmon',
@@ -145,7 +145,7 @@ class User(flask_util.XrdOrJrd):
         return data
 
 
-class Webfinger(User):
+class Webfinger(Actor):
     """Handles Webfinger requests.
 
     https://webfinger.net/
@@ -192,7 +192,7 @@ def host_meta_xrds():
 
 
 app.add_url_rule(f'/acct:<regex("{common.DOMAIN_RE}"):domain>',
-                 view_func=User.as_view('actor_acct'))
+                 view_func=Actor.as_view('actor_acct'))
 app.add_url_rule('/.well-known/webfinger', view_func=Webfinger.as_view('webfinger'))
 app.add_url_rule('/.well-known/host-meta', view_func=HostMeta.as_view('hostmeta'))
 app.add_url_rule('/.well-known/host-meta.json', view_func=HostMeta.as_view('hostmeta-json'))
