@@ -36,17 +36,17 @@ class Domain(StringIdModel):
     @ndb.transactional()
     def get_or_create(domain):
         """Loads and returns a Domain. Creates it if necessary."""
-        key = Domain.get_by_id(domain)
+        entity = Domain.get_by_id(domain)
 
-        if not key:
+        if not entity:
             # this uses urandom(), and does nontrivial math, so it can take a
             # while depending on the amount of randomness available.
             pubexp, mod, privexp = magicsigs.generate()
-            key = Domain(id=domain, mod=mod, public_exponent=pubexp,
+            entity = Domain(id=domain, mod=mod, public_exponent=pubexp,
                            private_exponent=privexp)
-            key.put()
+            entity.put()
 
-        return key
+        return entity
 
     def href(self):
         return 'data:application/magic-public-key,RSA.%s.%s' % (

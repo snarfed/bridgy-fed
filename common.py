@@ -242,14 +242,14 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
         error(msg, status=int(errors[0][0] or 502))
 
 
-def postprocess_as2(activity, target=None, key=None):
+def postprocess_as2(activity, target=None, domain=None):
     """Prepare an AS2 object to be served or sent via ActivityPub.
 
     Args:
       activity: dict, AS2 object or activity
       target: dict, AS2 object, optional. The target of activity's inReplyTo or
         Like/Announce/etc object, if any.
-      key: :class:`models.Domain`, optional. populated into publicKey field
+      domain: :class:`models.Domain`, optional. populated into publicKey field
         if provided.
     """
     type = activity.get('type')
@@ -257,7 +257,7 @@ def postprocess_as2(activity, target=None, key=None):
     # actor objects
     if type == 'Person':
         postprocess_as2_actor(activity)
-        if not activity.get('publicKey'):
+        if not activity.get('publicKey') and domain:
             # underspecified, inferred from this issue and Mastodon's implementation:
             # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
             # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
@@ -266,7 +266,7 @@ def postprocess_as2(activity, target=None, key=None):
                 'publicKey': {
                     'id': actor_url,
                     'owner': actor_url,
-                    'publicKeyPem': key.public_pem().decode(),
+                    'publicKeyPem': domain.public_pem().decode(),
                 },
                 '@context': (util.get_list(activity, '@context') +
                              ['https://w3id.org/security/v1']),

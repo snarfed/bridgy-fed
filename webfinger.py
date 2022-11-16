@@ -59,7 +59,7 @@ class User(flask_util.XrdOrJrd):
             error(f"didn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {resp.url}")
 
         logger.info(f'Generating WebFinger data for {domain}')
-        key = models.Domain.get_or_create(domain)
+        entity = models.Domain.get_or_create(domain)
         props = hcard.get('properties', {})
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])
         canonical_url = urls[0]
@@ -97,7 +97,7 @@ class User(flask_util.XrdOrJrd):
         data = util.trim_nulls({
             'subject': 'acct:' + acct,
             'aliases': urls,
-            'magic_keys': [{'value': key.href()}],
+            'magic_keys': [{'value': entity.href()}],
             'links': sum(([{
                 'rel': 'http://webfinger.net/rel/profile-page',
                 'type': 'text/html',
@@ -135,7 +135,7 @@ class User(flask_util.XrdOrJrd):
                 'href': hub,
             }, {
                 'rel': 'magic-public-key',
-                'href': key.href(),
+                'href': entity.href(),
             }, {
                 'rel': 'salmon',
                 'href': f'{request.host_url}{domain}/salmon',

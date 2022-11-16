@@ -9,29 +9,29 @@ class DomainTest(testutil.TestCase):
 
     def setUp(self):
         super(DomainTest, self).setUp()
-        self.key = Domain.get_or_create('y.z')
+        self.domain = Domain.get_or_create('y.z')
 
     def test_magic_key_get_or_create(self):
-        assert self.key.mod
-        assert self.key.public_exponent
-        assert self.key.private_exponent
+        assert self.domain.mod
+        assert self.domain.public_exponent
+        assert self.domain.private_exponent
 
         same = Domain.get_or_create('y.z')
-        self.assertEqual(same, self.key)
+        self.assertEqual(same, self.domain)
 
     def test_href(self):
-        href = self.key.href()
+        href = self.domain.href()
         self.assertTrue(href.startswith('data:application/magic-public-key,RSA.'), href)
-        self.assertIn(self.key.mod, href)
-        self.assertIn(self.key.public_exponent, href)
+        self.assertIn(self.domain.mod, href)
+        self.assertIn(self.domain.public_exponent, href)
 
     def test_public_pem(self):
-        pem = self.key.public_pem()
+        pem = self.domain.public_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN PUBLIC KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END PUBLIC KEY-----'), pem)
 
     def test_private_pem(self):
-        pem = self.key.private_pem()
+        pem = self.domain.private_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END RSA PRIVATE KEY-----'), pem)
 
