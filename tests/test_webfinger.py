@@ -64,6 +64,10 @@ class WebfingerTest(testutil.TestCase):
                 'type': 'application/activity+json',
                 'href': 'http://localhost/foo.com/inbox'
             }, {
+                'rel': 'sharedInbox',
+                'type': 'application/activity+json',
+                'href': 'http://localhost/inbox'
+            }, {
                 'rel': 'http://schemas.google.com/g/2010#updates-from',
                 'type': 'application/atom+xml',
                 'href': 'https://granary.io/url?input=html&output=atom&url=https%3A%2F%2Ffoo.com%2F&hub=https%3A%2F%2Ffoo.com%2F',

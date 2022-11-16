@@ -100,6 +100,7 @@ def actor(domain):
     obj.update({
         'preferredUsername': domain,
         'inbox': f'{request.host_url}{domain}/inbox',
+        'sharedInbox': f'{request.host_url}inbox',
         'outbox': f'{request.host_url}{domain}/outbox',
         'following': f'{request.host_url}{domain}/following',
         'followers': f'{request.host_url}{domain}/followers',
@@ -112,9 +113,10 @@ def actor(domain):
     })
 
 
+@app.post(f'/inbox')
 @app.post(f'/<regex("{common.DOMAIN_RE}"):domain>/inbox')
 def inbox(domain):
-    """Accepts POSTs to /[DOMAIN]/inbox and converts to outbound webmentions."""
+    """Handles ActivityPub inbox delivery."""
     body = request.get_data(as_text=True)
     logger.info(f'Got: {body}')
 
