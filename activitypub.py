@@ -98,6 +98,7 @@ def actor(domain):
     obj = common.postprocess_as2(
         as2.from_as1(microformats2.json_to_object(hcard)), user=user)
     obj.update({
+        'id': f'{request.host_url}{domain}',
         'preferredUsername': domain,
         'inbox': f'{request.host_url}{domain}/inbox',
         'outbox': f'{request.host_url}{domain}/outbox',
