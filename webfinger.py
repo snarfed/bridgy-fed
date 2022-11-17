@@ -162,6 +162,10 @@ class Webfinger(Actor):
     """
     def template_vars(self):
         resource = flask_util.get_required_param('resource')
+
+        # handle Bridgy Fed actor URLs, eg https://fed.brid.gy/snarfed.org
+        resource = resource.removeprefix(request.host_url)
+
         try:
             user, domain = util.parse_acct_uri(resource)
             if domain in common.DOMAINS:

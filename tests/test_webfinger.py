@@ -185,7 +185,8 @@ class WebfingerTest(testutil.TestCase):
         mock_get.return_value = requests_response(self.html, url='https://foo.com/')
 
         for resource in ('foo.com@foo.com', 'acct:foo.com@foo.com', 'xyz@foo.com',
-                         'foo.com', 'http://foo.com/', 'https://foo.com/'):
+                         'foo.com', 'http://foo.com/', 'https://foo.com/',
+                         'http://localhost/foo.com'):
             url = '/.well-known/webfinger?%s' % urllib.parse.urlencode(
                 {'resource': resource})
             got = self.client.get(url, headers={'Accept': 'application/json'})
