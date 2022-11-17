@@ -7,6 +7,7 @@ import urllib.parse
 
 from flask import redirect, render_template, request
 from google.cloud.ndb.stats import KindStat
+from granary import as2, atom, microformats2, rss
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -106,6 +107,44 @@ def following(domain):
         util=util,
         **locals()
     )
+
+
+@app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>/feed')
+def feed(domain):
+    format = request.args.get('format', 'html')
+    if format not in ('html', 'atom', 'rss'):
+      error(f'format {format} not supported; expected html, atom, or rss')
+
+    as2_activities, _, _ = Activity.query(
+        Activity.domain == domain, Activity.direction == 'in'
+        ).order(-Activity.created
+        ).fetch_page(PAGE_SIZE)
+    as1_activities = [as2.to_as1(json_loads(a.source_as2))
+                      for a in as2_activities
+                      if a.source_as2]
+    as1_activities = [a for a in as1_activities
+                      if a.get('verb') not in ('like', 'update', 'follow')]
+
+    actor = {
+      'displayName': domain,
+      'url': f'https://{domain}',
+    }
+    title = f'Bridgy Fed feed for {domain}'
+    extra = '<link rel="stylesheet" href="/static/feed.css" type="text/css" />'
+    if not as1_activities:
+      extra += '\n<p>Nothing yet. Follow more people, check back soon!</p>'
+
+    if format == 'html':
+      return microformats2.activities_to_html(as1_activities, extra=extra,
+                                              body_class='h-feed')
+    elif format == 'atom':
+      body = atom.activities_to_atom(as1_activities, actor=actor, title=title,
+                                 request_url=request.url)
+      return body, {'Content-Type': atom.CONTENT_TYPE}
+    elif format == 'rss':
+      body = rss.from_activities(as1_activities, actor=actor, title=title,
+                                 feed_url=request.url)
+      return body, {'Content-Type': rss.CONTENT_TYPE}
 
 
 @app.get('/responses')  # deprecated

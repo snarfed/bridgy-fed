@@ -43,7 +43,7 @@ class RenderTest(testutil.TestCase):
 <html>
 <head><meta charset="utf-8">
 <meta http-equiv="refresh" content="0;url=abc"></head>
-<body>
+<body class="">
 <article class="h-entry">
   <span class="p-uid">http://this/reply</span>
   <a class="u-url" href="http://this/reply">http://this/reply</a>

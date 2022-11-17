@@ -1,0 +1,24 @@
+/** From Bridgy's mf2 handlers:
+ * https://github.com/snarfed/bridgy/blob/0b4b37cab61257510b45aee5b0678ba53af69d80/handlers.py#L43-L70
+ *
+ * Also see:
+ * https://github.com/kevinmarks/unmung/blob/master/styles/hfeed.css
+ * https://github.com/kevinmarks/unmung/blob/master/styles/mastoview.css
+ */
+body {
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+
+.p-uid {
+  display: none;
+}
+
+.u-photo {
+  max-width: 50px;
+  border-radius: 4px;
+}
+
+.e-content {
+  margin-top: 10px;
+  font-size: 1.3em;
+}

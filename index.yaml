@@ -19,6 +19,13 @@ indexes:
   - name: updated
     direction: desc
 
+- kind: Response
+  properties:
+  - name: direction
+  - name: domain
+  - name: created
+    direction: desc
+
 - kind: Follower
   properties:
   - name: dest
