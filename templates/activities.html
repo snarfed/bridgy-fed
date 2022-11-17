@@ -3,7 +3,10 @@
 {% for a in activities %}
 <div class="row">
   <div class="col-sm-5">{{ util.pretty_link(a.source())|safe }}</div>
-  <div class="col-sm-4">{{ util.pretty_link(a.target())|safe }}</div>
+  <div class="col-sm-4">
+    {% set target = a.target() %}
+    {{ (util.pretty_link(target) if target.startswith('http') else target)|safe }}
+  </div>
   <div class="col-sm-3">
     {% if a.status == 'error' %}
      <span title="Error" class="glyphicon glyphicon-exclamation-sign"></span>
