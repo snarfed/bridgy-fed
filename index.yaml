@@ -32,3 +32,8 @@ indexes:
   - name: status
   - name: updated
     direction: desc
+
+- kind: Follower
+  properties:
+  - name: dest
+  - name: src
