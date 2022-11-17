@@ -17,7 +17,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from app import app, cache
 import common
 from common import redirect_unwrap, redirect_wrap
-from models import Follower, User
+from models import Activity, Follower, User
 from httpsig.requests_auth import HTTPSignatureAuth
 
 logger = logging.getLogger(__name__)
@@ -136,9 +136,7 @@ def inbox(domain):
     type = activity.get('type')
     if type == 'Accept':  # eg in response to a Follow
         return ''  # noop
-    if type == 'Create':
-        type = obj.get('type')
-    elif type not in SUPPORTED_TYPES:
+    if type not in SUPPORTED_TYPES:
         error('Sorry, %s activities are not supported yet.' % type,
                      status=501)
 
@@ -168,10 +166,9 @@ def inbox(domain):
         return ''
 
     # fetch actor if necessary so we have name, profile photo, etc
-    for elem in obj, activity:
-        actor = elem.get('actor')
-        if actor and isinstance(actor, str):
-            elem['actor'] = common.get_as2(actor).json()
+    actor = activity.get('actor')
+    if actor and isinstance(actor, str):
+        actor = activity['actor'] = common.get_as2(actor).json()
 
     activity_unwrapped = redirect_unwrap(activity)
     if type == 'Follow':
@@ -179,8 +176,25 @@ def inbox(domain):
 
     # send webmentions to each target
     as1 = as2.to_as1(activity)
-    common.send_webmentions(as1, proxy=True, protocol='activitypub',
-                            source_as2=json_dumps(activity_unwrapped))
+    source_as2 = json_dumps(activity_unwrapped)
+    sent = common.send_webmentions(as1, proxy=True, protocol='activitypub',
+                                   source_as2=source_as2)
+
+    if not sent and type in ('Create', 'Announce'):
+        # normal post, deliver to BF followers
+        source = activity.get('url') or activity.get('id')
+        domains = []
+        if actor:
+            actor_id = actor.get('id')
+            if actor_id:
+                logging.info(f'Finding followers of {actor_id}')
+                domains = [f.src for f in
+                           Follower.query(Follower.dest == actor_id,
+                                          projection=[Follower.src]).fetch()]
+        key = Activity(source=source, target='Public', direction='in',
+                       protocol='activitypub', domain=domains, status='complete',
+                       source_as2=source_as2).put()
+        logging.info(f'Wrote Activity {key} with {len(domains)} follower domains')
 
     return ''
 

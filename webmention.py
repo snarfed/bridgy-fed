@@ -182,11 +182,10 @@ class Webmention(View):
                                     actor.get('publicInbox')or
                                     actor.get('inbox'))
             inboxes = [(Activity.get_or_create(
-                          source=self.source_url, target=inbox, domain=self.source_domain,
-                          direction='out', protocol='activitypub',
-                          source_mf2=json_dumps(self.source_mf2)),
-                        inbox)
-                       for inbox in sorted(inboxes) if inbox]
+                          source=self.source_url, target=inbox,
+                          domain=[self.source_domain], direction='out',
+                          protocol='activitypub', source_mf2=json_dumps(self.source_mf2)),
+                        inbox) for inbox in sorted(inboxes) if inbox]
             logger.info(f"Delivering to followers' inboxes: {[i for _, i in inboxes]}")
             return inboxes
 
@@ -210,7 +209,7 @@ class Webmention(View):
             target_url = self.target_resp.url or target
 
             activity = Activity.get_or_create(
-                source=self.source_url, target=target_url, domain=self.source_domain,
+                source=self.source_url, target=target_url, domain=[self.source_domain],
                 direction='out', protocol='activitypub',
                 source_mf2=json_dumps(self.source_mf2))
 
@@ -277,7 +276,7 @@ class Webmention(View):
         finally:
             if status:
                 Activity(source=self.source_url, target=target, status=status,
-                         domain=self.source_domain, direction='out',
+                         domain=[self.source_domain], direction='out',
                          protocol = 'ostatus',
                          source_mf2=json_dumps(self.source_mf2)).put()
 

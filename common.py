@@ -168,6 +168,8 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
     Args:
       activity_wrapped: dict, AS1 activity
       activity_props: passed through to the newly created Activity entities
+
+    Returns: boolean, True if any webmentions were sent, False otherwise
     """
     activity = redirect_unwrap(activity_wrapped)
 
@@ -202,10 +204,12 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
     if verb in ('follow', 'like', 'share'):
          targets.append(obj_url)
 
-    targets = remove_blocklisted(util.dedupe_urls(
-        util.get_url(t).lower() for t in targets))
+    targets = util.dedupe_urls(util.get_url(t) for t in targets)
+    targets = remove_blocklisted(t.lower() for t in targets)
     if not targets:
-        error("Couldn't find any fediverse target URLs in inReplyTo, object, or mention tags")
+        logger.info("Couldn't find any IndieWeb target URLs in inReplyTo, object, or mention tags")
+        return False
+
     logger.info(f'targets: {targets}')
 
     # send webmentions and store Activitys
@@ -217,7 +221,7 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
             continue
 
         activity = Activity(source=source, target=target, direction='in',
-                            domain=domain, **activity_props)
+                            domain=[domain], **activity_props)
         activity.put()
         wm_source = (activity.proxy_url()
                      if verb in ('follow', 'like', 'share') or proxy
@@ -240,6 +244,8 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
     if errors:
         msg = 'Errors: ' + ', '.join(f'{code} {body}' for code, body in errors)
         error(msg, status=int(errors[0][0] or 502))
+
+    return True
 
 
 def postprocess_as2(activity, user=None, target=None):

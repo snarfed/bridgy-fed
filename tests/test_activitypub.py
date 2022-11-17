@@ -38,8 +38,8 @@ NOTE_OBJECT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Note',
     'content': '☕ just a normal post',
-    'id': 'http://this/mention/id',
-    'url': 'http://this/mention',
+    'id': 'http://this/note/id',
+    'url': 'http://this/note',
     'to': [common.AS2_PUBLIC_AUDIENCE],
     'cc': [
         'https://this/author/followers',
@@ -51,18 +51,23 @@ NOTE = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Create',
     'id': 'http://this/note/as2',
+    'actor': 'https://masto.foo/@author',
     'object': NOTE_OBJECT,
 }
 MENTION_OBJECT = copy.deepcopy(NOTE_OBJECT)
-MENTION_OBJECT['tag'] = [{
-    'type': 'Mention',
-    'href': 'https://masto.foo/@other',
-    'name': '@other@masto.foo',
-}, {
-    'type': 'Mention',
-    'href': 'http://localhost/target',  # redirect-wrapped
-    'name': '@target@target',
-}]
+MENTION_OBJECT.update({
+    'id': 'http://this/mention/id',
+    'url': 'http://this/mention',
+    'tag': [{
+        'type': 'Mention',
+        'href': 'https://masto.foo/@other',
+        'name': '@other@masto.foo',
+    }, {
+        'type': 'Mention',
+        'href': 'http://localhost/target',  # redirect-wrapped
+        'name': '@target@target',
+    }],
+})
 MENTION = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Create',
@@ -91,30 +96,25 @@ LIKE_WITH_ACTOR['actor'] = {
     'image': {'type': 'Image', 'url': 'http://orig/pic.jpg'},
 }
 
+ACTOR = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'id': 'https://mastodon.social/users/swentel',
+    'type': 'Person',
+    'inbox': 'http://follower/inbox',
+}
 FOLLOW = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'id': 'https://mastodon.social/6d1a',
     'type': 'Follow',
-    'actor': 'https://mastodon.social/users/swentel',
+    'actor': ACTOR['id'],
     'object': 'https://www.realize.be/',
 }
 FOLLOW_WRAPPED = copy.deepcopy(FOLLOW)
 FOLLOW_WRAPPED['object'] = 'http://localhost/www.realize.be'
-ACTOR = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
-    'id': FOLLOW['actor'],
-    'type': 'Person',
-    'inbox': 'http://follower/inbox',
-}
 FOLLOW_WITH_ACTOR = copy.deepcopy(FOLLOW)
-FOLLOW_WITH_ACTOR['actor'] = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
-    'id': FOLLOW['actor'],
-    'type': 'Person',
-    'inbox': 'http://follower/inbox',
-}
+FOLLOW_WITH_ACTOR['actor'] = ACTOR
 FOLLOW_WRAPPED_WITH_ACTOR = copy.deepcopy(FOLLOW_WRAPPED)
-FOLLOW_WRAPPED_WITH_ACTOR['actor'] = FOLLOW_WITH_ACTOR['actor']
+FOLLOW_WRAPPED_WITH_ACTOR['actor'] = ACTOR
 
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -246,22 +246,21 @@ class ActivityPubTest(testutil.TestCase):
         )
 
         activity = Activity.get_by_id('http://this/reply http://orig/post')
-        self.assertEqual('orig', activity.domain)
+        self.assertEqual(['orig'], activity.domain)
         self.assertEqual('in', activity.direction)
         self.assertEqual('activitypub', activity.protocol)
         self.assertEqual('complete', activity.status)
         self.assertEqual(expected_as2, json_loads(activity.source_as2))
 
     def test_inbox_reply_to_self_domain(self, mock_head, mock_get, mock_post):
-        self._test_inbox_ignore_reply_to('http://localhost/this', 200,
+        self._test_inbox_ignore_reply_to('http://localhost/this',
                                          mock_head, mock_get, mock_post)
         self.assert_req(mock_head, 'http://this', allow_redirects=True)
 
     def test_inbox_reply_to_in_blocklist(self, *mocks):
-        self._test_inbox_ignore_reply_to('https://twitter.com/foo', 400, *mocks)
+        self._test_inbox_ignore_reply_to('https://twitter.com/foo', *mocks)
 
-    def _test_inbox_ignore_reply_to(self, reply_to, status, mock_head, mock_get,
-                                    mock_post):
+    def _test_inbox_ignore_reply_to(self, reply_to, mock_head, mock_get, mock_post):
         reply = copy.deepcopy(REPLY_OBJECT)
         # same domain as source; should drop
         reply['inReplyTo'] = reply_to
@@ -269,11 +268,35 @@ class ActivityPubTest(testutil.TestCase):
         mock_head.return_value = requests_response(url='http://this/')
 
         got = self.client.post('/foo.com/inbox', json=reply)
-        self.assertEqual(status, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
         mock_get.assert_not_called()
         mock_post.assert_not_called()
         self.assertEqual(0, Activity.query().count())
+
+    def test_inbox_create_activity(self, mock_head, mock_get, mock_post):
+        Follower.get_or_create(ACTOR['id'], 'foo.com')
+        Follower.get_or_create('http://other/actor', 'bar.com')
+        Follower.get_or_create(ACTOR['id'], 'baz.com')
+
+        mock_head.return_value = requests_response(url='http://target')
+        mock_get.return_value = requests_response(  # source actor
+            ACTOR, headers={'Content-Type': common.CONTENT_TYPE_AS2})
+        mock_post.return_value = requests_response()
+
+        with self.client:
+            got = self.client.post('/foo.com/inbox', json=NOTE)
+            self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+
+            activity = Activity.get_by_id('http://this/note/as2 Public')
+            self.assertEqual('in', activity.direction)
+            self.assertEqual('activitypub', activity.protocol)
+            self.assertEqual('complete', activity.status)
+            expected_as2 = copy.deepcopy(NOTE)
+            expected_as2['actor'] = ACTOR
+            self.assertEqual(common.redirect_unwrap(expected_as2),
+                             json_loads(activity.source_as2))
+            self.assert_equals(['foo.com', 'baz.com'], activity.domain)
 
     def test_inbox_mention_object(self, *mocks):
         self._test_inbox_mention(MENTION_OBJECT, *mocks)
@@ -303,7 +326,7 @@ class ActivityPubTest(testutil.TestCase):
             )
 
             activity = Activity.get_by_id('http://this/mention http://target/')
-            self.assertEqual('target', activity.domain)
+            self.assertEqual(['target'], activity.domain)
             self.assertEqual('in', activity.direction)
             self.assertEqual('activitypub', activity.protocol)
             self.assertEqual('complete', activity.status)
@@ -336,7 +359,7 @@ class ActivityPubTest(testutil.TestCase):
         }, kwargs['data'])
 
         activity = Activity.get_by_id('http://this/like__ok http://orig/post')
-        self.assertEqual('orig', activity.domain)
+        self.assertEqual(['orig'], activity.domain)
         self.assertEqual('in', activity.direction)
         self.assertEqual('activitypub', activity.protocol)
         self.assertEqual('complete', activity.status)
@@ -375,7 +398,7 @@ class ActivityPubTest(testutil.TestCase):
         }, kwargs['data'])
 
         activity = Activity.get_by_id('https://mastodon.social/6d1a https://www.realize.be/')
-        self.assertEqual('www.realize.be', activity.domain)
+        self.assertEqual(['www.realize.be'], activity.domain)
         self.assertEqual('in', activity.direction)
         self.assertEqual('activitypub', activity.protocol)
         self.assertEqual('complete', activity.status)
@@ -389,7 +412,7 @@ class ActivityPubTest(testutil.TestCase):
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://www.realize.be/')
 
-        Follower(id=Follower._id('www.realize.be', FOLLOW['actor'])).put()
+        Follower.get_or_create('www.realize.be', ACTOR['id'])
 
         got = self.client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
@@ -405,8 +428,7 @@ class ActivityPubTest(testutil.TestCase):
 
     def test_inbox_undo_follow_inactive(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://realize.be/')
-        Follower(id=Follower._id('realize.be', 'https://mastodon.social/users/swentel'),
-                 status='inactive').put()
+        Follower.get_or_create('realize.be', ACTOR['id'], status='inactive')
 
         got = self.client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
@@ -460,7 +482,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(200, got.status_code)
 
         activity = Activity.get_by_id('http://this/like__ok http://orig/post')
-        self.assertEqual('orig', activity.domain)
+        self.assertEqual(['orig'], activity.domain)
         self.assertEqual('in', activity.direction)
         self.assertEqual('activitypub', activity.protocol)
         self.assertEqual('ignored', activity.status)

@@ -91,7 +91,7 @@ class SalmonTest(testutil.TestCase):
 
         # check stored post
         activity = Activity.get_by_id('https://my/reply http://orig/post')
-        self.assertEqual('orig', activity.domain)
+        self.assertEqual(['orig'], activity.domain)
         self.assertEqual('in', activity.direction)
         self.assertEqual('ostatus', activity.protocol)
         self.assertEqual('complete', activity.status)
@@ -126,7 +126,7 @@ class SalmonTest(testutil.TestCase):
 
         # check stored post
         activity = Activity.get_by_id('https://my/like http://orig/post')
-        self.assertEqual('orig', activity.domain)
+        self.assertEqual(['orig'], activity.domain)
         self.assertEqual('in', activity.direction)
         self.assertEqual('ostatus', activity.protocol)
         self.assertEqual('complete', activity.status)

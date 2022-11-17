@@ -418,7 +418,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
         activity = Activity.get_by_id('http://a/reply http://orig/as2')
-        self.assertEqual('a', activity.domain)
+        self.assertEqual(['a'], activity.domain)
         self.assertEqual('out', activity.direction)
         self.assertEqual('activitypub', activity.protocol)
         self.assertEqual('complete', activity.status)
@@ -538,7 +538,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
         activity = Activity.get_by_id('http://a/repost http://orig/as2')
-        self.assertEqual('a', activity.domain)
+        self.assertEqual(['a'], activity.domain)
         self.assertEqual('out', activity.direction)
         self.assertEqual('activitypub', activity.protocol)
         self.assertEqual('complete', activity.status)
@@ -634,12 +634,12 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.create, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        Activity(id='http://orig/post https://skipped/inbox', domain='orig',
+        Activity(id='http://orig/post https://skipped/inbox', domain=['orig'],
                  status='complete', source_mf2=json_dumps(self.create_mf2)).put()
 
         different_create_mf2 = copy.deepcopy(self.create_mf2)
         different_create_mf2['items'][0]['properties']['content'][0]['value'] += ' different'
-        Activity(id='http://orig/post https://updated/inbox', domain='orig',
+        Activity(id='http://orig/post https://updated/inbox', domain=['orig'],
                  status='complete', direction='out', protocol='activitypub',
                  source_mf2=json_dumps(different_create_mf2)).put()
 
@@ -702,7 +702,7 @@ class WebmentionTest(testutil.TestCase):
                     json_loads(call[1]['data']))
 
                 activity = Activity.get_by_id('http://orig/post %s' % inbox)
-                self.assertEqual('orig', activity.domain)
+                self.assertEqual(['orig'], activity.domain)
                 self.assertEqual('out', activity.direction, inbox)
                 self.assertEqual('activitypub', activity.protocol, inbox)
                 self.assertEqual('complete', activity.status, inbox)
@@ -763,7 +763,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
         activity = Activity.get_by_id('http://a/follow http://followee/')
-        self.assertEqual('a', activity.domain)
+        self.assertEqual(['a'], activity.domain)
         self.assertEqual('out', activity.direction)
         self.assertEqual('activitypub', activity.protocol)
         self.assertEqual('complete', activity.status)
@@ -806,7 +806,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
 
         activity = Activity.get_by_id('http://a/follow http://followee/')
-        self.assertEqual('a', activity.domain)
+        self.assertEqual(['a'], activity.domain)
         self.assertEqual('out', activity.direction)
         self.assertEqual('activitypub', activity.protocol)
         self.assertEqual('error', activity.status)
@@ -863,7 +863,7 @@ class WebmentionTest(testutil.TestCase):
             entry.content[0]['value'])
 
         activity = Activity.get_by_id('http://a/reply http://orig/post')
-        self.assertEqual('a', activity.domain)
+        self.assertEqual(['a'], activity.domain)
         self.assertEqual('out', activity.direction)
         self.assertEqual('ostatus', activity.protocol)
         self.assertEqual('complete', activity.status)
@@ -897,7 +897,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('http://orig/post', entry['activity_object'])
 
         activity = Activity.get_by_id('http://a/like http://orig/post')
-        self.assertEqual('a', activity.domain)
+        self.assertEqual(['a'], activity.domain)
         self.assertEqual('out', activity.direction)
         self.assertEqual('ostatus', activity.protocol)
         self.assertEqual('complete', activity.status)
@@ -949,7 +949,7 @@ class WebmentionTest(testutil.TestCase):
                       got.get_data(as_text=True))
 
         activity = Activity.get_by_id('http://a/reply http://orig/url')
-        self.assertEqual('a', activity.domain)
+        self.assertEqual(['a'], activity.domain)
         self.assertEqual('out', activity.direction)
         self.assertEqual('ostatus', activity.protocol)
         self.assertEqual('error', activity.status)

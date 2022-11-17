@@ -75,7 +75,8 @@ class Activity(StringIdModel):
     PROTOCOLS = ('activitypub', 'ostatus')
     DIRECTIONS = ('out', 'in')
 
-    domain = ndb.StringProperty()
+    # domains of the Bridgy Fed users this activity is to or from
+    domain = ndb.StringProperty(repeated=True)
     status = ndb.StringProperty(choices=STATUSES, default='new')
     protocol = ndb.StringProperty(choices=PROTOCOLS)
     direction = ndb.StringProperty(choices=DIRECTIONS)
@@ -84,7 +85,6 @@ class Activity(StringIdModel):
     source_mf2 = ndb.TextProperty()  # JSON
     source_as2 = ndb.TextProperty()  # JSON
     source_atom = ndb.TextProperty()
-
     target_as2 = ndb.TextProperty()  # JSON
 
     created = ndb.DateTimeProperty(auto_now_add=True)
