@@ -100,10 +100,12 @@ def actor(domain):
     obj.update({
         'preferredUsername': domain,
         'inbox': f'{request.host_url}{domain}/inbox',
-        'sharedInbox': f'{request.host_url}inbox',
         'outbox': f'{request.host_url}{domain}/outbox',
         'following': f'{request.host_url}{domain}/following',
         'followers': f'{request.host_url}{domain}/followers',
+        'endpoints': {
+            'sharedInbox': f'{request.host_url}inbox',
+        },
     })
     logger.info(f'Returning: {json_dumps(obj, indent=2)}')
 

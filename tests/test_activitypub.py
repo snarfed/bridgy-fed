@@ -175,10 +175,12 @@ class ActivityPubTest(testutil.TestCase):
             'id': 'http://localhost/foo.com',
             'url': 'http://localhost/r/https://foo.com/about-me',
             'inbox': 'http://localhost/foo.com/inbox',
-            'sharedInbox': 'http://localhost/inbox',
             'outbox': 'http://localhost/foo.com/outbox',
             'following': 'http://localhost/foo.com/following',
             'followers': 'http://localhost/foo.com/followers',
+            'endpoints': {
+                'sharedInbox': 'http://localhost/inbox',
+            },
             'publicKey': {
                 'id': 'http://localhost/foo.com',
                 'owner': 'http://localhost/foo.com',
