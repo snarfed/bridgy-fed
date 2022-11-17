@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}{{ domain }}'s feed - Bridgy Fed{% endblock %}
+
+{% block content %}
+
+<h2 class="row">
+  <a href="/user/{{ domain }}">🌐 {{ domain }}</a>'s feed
+</h2>
+<br>
+
+<link rel="stylesheet" href="/static/feed.css" type="text/css" />
+<div class="row h-feed">
+{% for e in entries %}
+  {{ e|safe }}
+{% else %}
+  Nothing yet. <a href="/#To+use+it">Follow more people</a>, check back soon!
+{% endfor %}
+</div>
+
+{% endblock %}

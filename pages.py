@@ -113,7 +113,7 @@ def following(domain):
 def feed(domain):
     format = request.args.get('format', 'html')
     if format not in ('html', 'atom', 'rss'):
-      error(f'format {format} not supported; expected html, atom, or rss')
+        error(f'format {format} not supported; expected html, atom, or rss')
 
     as2_activities, _, _ = Activity.query(
         Activity.domain == domain, Activity.direction == 'in'
@@ -130,21 +130,18 @@ def feed(domain):
       'url': f'https://{domain}',
     }
     title = f'Bridgy Fed feed for {domain}'
-    extra = '<link rel="stylesheet" href="/static/feed.css" type="text/css" />'
-    if not as1_activities:
-      extra += '\n<p>Nothing yet. Follow more people, check back soon!</p>'
 
     if format == 'html':
-      return microformats2.activities_to_html(as1_activities, extra=extra,
-                                              body_class='h-feed')
+        entries = [microformats2.object_to_html(a) for a in as1_activities]
+        return render_template('feed.html', **locals())
     elif format == 'atom':
-      body = atom.activities_to_atom(as1_activities, actor=actor, title=title,
-                                 request_url=request.url)
-      return body, {'Content-Type': atom.CONTENT_TYPE}
+        body = atom.activities_to_atom(as1_activities, actor=actor, title=title,
+                                       request_url=request.url)
+        return body, {'Content-Type': atom.CONTENT_TYPE}
     elif format == 'rss':
-      body = rss.from_activities(as1_activities, actor=actor, title=title,
-                                 feed_url=request.url)
-      return body, {'Content-Type': rss.CONTENT_TYPE}
+        body = rss.from_activities(as1_activities, actor=actor, title=title,
+                                   feed_url=request.url)
+        return body, {'Content-Type': rss.CONTENT_TYPE}
 
 
 @app.get('/responses')  # deprecated
