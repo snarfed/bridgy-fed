@@ -117,7 +117,7 @@ def actor(domain):
 
 @app.post(f'/inbox')
 @app.post(f'/<regex("{common.DOMAIN_RE}"):domain>/inbox')
-def inbox(domain):
+def inbox(domain=None):
     """Handles ActivityPub inbox delivery."""
     body = request.get_data(as_text=True)
     logger.info(f'Got: {body}')
