@@ -1,3 +1,4 @@
 User-agent: *
 Disallow: /*?*
 Disallow: /user/*
+Disallow: /recent*
