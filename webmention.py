@@ -51,6 +51,9 @@ class Webmention(View):
         fragment = urllib.parse.urlparse(self.source_url).fragment
         self.source_mf2 = util.parse_mf2(source_resp, id=fragment)
 
+        if id and self.source_mf2 is None:
+            error(f'id {fragment} not found in {self.source_url}')
+
         # logger.debug(f'Parsed mf2 for {source_resp.url} : {json_dumps(self.source_mf2 indent=2)}')
 
         # check for backlink to bridgy fed (for webmention spec and to confirm

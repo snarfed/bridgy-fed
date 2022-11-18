@@ -225,6 +225,31 @@ class WebmentionTest(testutil.TestCase):
             'to': [as2.PUBLIC_AUDIENCE],
         }
 
+        self.follow_fragment_html = """\
+<html>
+<body>
+<article class=h-entry id=1>
+<h1>Ignored</h1>
+</article>
+<article class=h-entry id=2>
+<a class="u-url" href="http://a/follow#2"></a>
+<a class="u-follow-of" href="http://followee"></a>
+<a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>
+<a href="http://localhost/"></a>
+</article>
+</body>
+</html>
+"""
+        self.follow_fragment = requests_response(
+            self.follow_fragment_html, content_type=CONTENT_TYPE_HTML)
+        self.follow_fragment_mf2 = util.parse_mf2(
+            self.follow_fragment_html, url='http://a/follow', id='2')
+        self.follow_fragment_as2 = copy.deepcopy(self.follow_as2)
+        self.follow_fragment_as2.update({
+            'id': 'http://localhost/r/http://a/follow#2',
+            'url': 'http://localhost/r/http://a/follow#2',
+        })
+
         self.create_html = """\
 <html>
 <body class="h-entry">
@@ -775,48 +800,14 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('http://followee', followers[0].dest)
 
     def test_activitypub_follow_fragment(self, mock_get, mock_post):
-        self.follow_html = """\
-<html>
-<body>
-<article class=h-entry id=1>
-<h1>Ignored</h1>
-</article>
-<article class=h-entry id=2>
-<a class="u-url" href="http://a/follow#2"></a>
-<a class="u-follow-of" href="http://followee"></a>
-<a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>
-<a href="http://localhost/"></a>
-</article>
-</body>
-</html>
-"""
-        self.follow = requests_response(
-            self.follow_html, content_type=CONTENT_TYPE_HTML)
-        self.follow_mf2 = util.parse_mf2(self.follow_html, url='http://a/follow')
-        self.follow_as2 = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'type': 'Follow',
-            'id': 'http://localhost/r/http://a/follow#2',
-            'url': 'http://localhost/r/http://a/follow#2',
-            'object': 'http://followee',
-            'actor': {
-                'id': 'http://localhost/orig',
-                'name': 'Ms. ☕ Baz',
-                'preferredUsername': 'orig',
-                'type': 'Person',
-                'url': 'http://localhost/r/https://orig',
-            },
-            'to': [as2.PUBLIC_AUDIENCE],
-        }
-
-        mock_get.side_effect = [self.follow, self.actor]
+        mock_get.side_effect = [self.follow_fragment, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/webmention', data={
             'source': 'http://a/follow#2',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assert_equals(200, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('http://a/follow#2'),
@@ -824,41 +815,36 @@ class WebmentionTest(testutil.TestCase):
         ))
 
         args, kwargs = mock_post.call_args
-        self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.follow_as2, json_loads(kwargs['data']))
+        self.assert_equals(('https://foo.com/inbox',), args)
+        self.assert_equals(self.follow_fragment_as2, json_loads(kwargs['data']))
 
         headers = kwargs['headers']
-        self.assertEqual(CONTENT_TYPE_AS2, headers['Content-Type'])
+        self.assert_equals(CONTENT_TYPE_AS2, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
+        self.assert_equals(self.key.private_pem(), rsa_key.exportKey())
 
         activity = Activity.get_by_id('http://a/follow__2 http://followee/')
-        self.assertEqual(['a'], activity.domain)
-        self.assertEqual('out', activity.direction)
-        self.assertEqual('activitypub', activity.protocol)
-        self.assertEqual('complete', activity.status)
-        follow_html_for_fragement = """
-<html>
-<body>
-<article class=h-entry id=2>
-<a class="u-url" href="http://a/follow#2"></a>
-<a class="u-follow-of" href="http://followee"></a>
-<a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>
-<a href="http://localhost/"></a>
-</article>
-</html>
-        """
-        follow_mf2_for_fragment = util.parse_mf2(follow_html_for_fragement, url='http://a/follow')
-        # for some reason, this doesn't get picked up correctly when it's a fragment
-        follow_mf2_for_fragment['debug']['markup parser'] = 'unknown'
-        self.assertEqual(follow_mf2_for_fragment, json_loads(activity.source_mf2))
+        self.assert_equals(['a'], activity.domain)
+        self.assert_equals('out', activity.direction)
+        self.assert_equals('activitypub', activity.protocol)
+        self.assert_equals('complete', activity.status)
+        self.assert_equals(self.follow_fragment_mf2, json_loads(activity.source_mf2))
 
         followers = Follower.query().fetch()
-        self.assertEqual(1, len(followers))
-        self.assertEqual('http://followee a', followers[0].key.id())
-        self.assertEqual('a', followers[0].src)
-        self.assertEqual('http://followee', followers[0].dest)
+        self.assert_equals(1, len(followers))
+        self.assert_equals('http://followee a', followers[0].key.id())
+        self.assert_equals('a', followers[0].src)
+        self.assert_equals('http://followee', followers[0].dest)
+
+    def test_activitypub_error_fragment_missing(self, mock_get, mock_post):
+        mock_get.side_effect = [self.follow_fragment]
+
+        got = self.client.post('/webmention', data={
+            'source': 'http://a/follow#3',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assert_equals(400, got.status_code)
 
     def test_activitypub_error_no_salmon_fallback(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow, self.actor]
