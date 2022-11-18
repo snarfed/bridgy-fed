@@ -48,7 +48,8 @@ class Webmention(View):
         source_resp = common.requests_get(source)
         self.source_url = source_resp.url or source
         self.source_domain = urllib.parse.urlparse(self.source_url).netloc.split(':')[0]
-        self.source_mf2 = util.parse_mf2(source_resp)
+        fragment = urllib.parse.urlparse(self.source_url).fragment
+        self.source_mf2 = util.parse_mf2(source_resp, id=fragment)
 
         # logger.debug(f'Parsed mf2 for {source_resp.url} : {json_dumps(self.source_mf2 indent=2)}')
 
@@ -64,7 +65,7 @@ class Webmention(View):
         if not entry:
             error(f'No microformats2 found on {self.source_url}')
 
-        logger.info(f'First entry: {json_dumps(entry, indent=2)}')
+        logger.info(f'First entry (id={fragment}: {json_dumps(entry, indent=2)}')
         # make sure it has url, since we use that for AS2 id, which is required
         # for ActivityPub.
         props = entry.setdefault('properties', {})
