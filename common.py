@@ -8,9 +8,11 @@ import re
 import urllib.parse
 
 from flask import request
-from granary import as2
+from granary import as2, microformats2
+import mf2util
 from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.flask_util import error
+from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadGateway
 
@@ -445,3 +447,42 @@ def redirect_unwrap(val):
             return util.follow_redirects(domain).url
 
     return val
+
+
+def actor(domain):
+    """Fetches a home page, converts its representative h-card to AS2 actor.
+
+    Creates a User for the given domain if one doesn't already exist.
+
+    Args:
+      domain: str
+
+    Returns: dict, AS2 actor
+    """
+    tld = domain.split('.')[-1]
+    if tld in TLD_BLOCKLIST:
+        error('', status=404)
+
+    mf2 = util.fetch_mf2(f'https://{domain}/', gateway=True)
+    hcard = mf2util.representative_hcard(mf2, mf2['url'])
+    logger.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')
+    if not hcard:
+        error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {mf2['url']}")
+
+    user = User.get_or_create(domain)
+    actor = postprocess_as2(
+        as2.from_as1(microformats2.json_to_object(hcard)), user=user)
+    actor.update({
+        'id': f'{request.host_url}{domain}',
+        'preferredUsername': domain,
+        'inbox': f'{request.host_url}{domain}/inbox',
+        'outbox': f'{request.host_url}{domain}/outbox',
+        'following': f'{request.host_url}{domain}/following',
+        'followers': f'{request.host_url}{domain}/followers',
+        'endpoints': {
+            'sharedInbox': f'{request.host_url}inbox',
+        },
+    })
+
+    logger.info(f'Generated AS2 actor: {json_dumps(actor, indent=2)}')
+    return actor

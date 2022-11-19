@@ -8,8 +8,7 @@ import re
 
 from flask import request
 from google.cloud import ndb
-from granary import as2, microformats2
-import mf2util
+from granary import as2
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -82,35 +81,9 @@ def send(activity, inbox_url, user_domain):
 @app.get(f'/<regex("{common.DOMAIN_RE}"):domain>')
 @flask_util.cached(cache, CACHE_TIME)
 def actor(domain):
-    """Serves /[DOMAIN], fetches its mf2, converts to AS Actor, and serves it."""
-    tld = domain.split('.')[-1]
-    if tld in common.TLD_BLOCKLIST:
-        error('', status=404)
-
-    mf2 = util.fetch_mf2(f'https://{domain}/', gateway=True)
-
-    hcard = mf2util.representative_hcard(mf2, mf2['url'])
-    logger.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')
-    if not hcard:
-        error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {mf2['url']}")
-
-    user = User.get_or_create(domain)
-    obj = common.postprocess_as2(
-        as2.from_as1(microformats2.json_to_object(hcard)), user=user)
-    obj.update({
-        'id': f'{request.host_url}{domain}',
-        'preferredUsername': domain,
-        'inbox': f'{request.host_url}{domain}/inbox',
-        'outbox': f'{request.host_url}{domain}/outbox',
-        'following': f'{request.host_url}{domain}/following',
-        'followers': f'{request.host_url}{domain}/followers',
-        'endpoints': {
-            'sharedInbox': f'{request.host_url}inbox',
-        },
-    })
-    logger.info(f'Returning: {json_dumps(obj, indent=2)}')
-
-    return (obj, {
+    """Fetches a domain's h-card and converts to AS2 actor."""
+    actor = common.actor(domain)
+    return (actor, {
         'Content-Type': common.CONTENT_TYPE_AS2,
         'Access-Control-Allow-Origin': '*',
     })
