@@ -4,6 +4,25 @@
 
 {% block content %}
 
+{% if user.has_redirects == False %}
+<div class="row promo warning">
+<p>Your site isn't serving the <code>.well-known</code> redirects.
+  <a href="/docs#redirect+these+URL+paths">Please set those up!</a>
+</p>
+</div>
+{% endif %}
+
+{% if user.has_hcard == False %}
+<div class="row promo warning">
+<p>Your site doesn't have a
+  <a href="https://indieweb.org/representative_h-card">representative h-card</a>.
+  <a href="https://indieweb.org/h-card#How">Please add one!</a>
+</p>
+</div>
+{% endif %}
+
+<br>
+
 <div class="row">
   <h2 style="display: inline">
     <a href="https://{{ domain }}/">🌐 {{ domain }}</a>

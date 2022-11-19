@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div id="docs">
+<ul>
+<li><a href="#work">How does it work?</a></li>
+<li><a href="#sites">Which sites are supported?</a></li>
+<li><a href="#use">How do I use it?</a></li>
+<li><a href="#setup">How do I set it up?</a></li>
+<li><a href="#image">How do I include an image in a post?</a></li>
+<li><a href="#fragment">Can I publish just one part of a page?</a></li>
+<li><a href="#discovery">How can people on the fediverse find me?</a></li>
+<li><a href="#troubleshooting">I tried it, and it didn't work!</a></li>
+<li><a href="#cost">How much does it cost?</a></li>
+<li><a href="#who">Who are you? Why did you make this?</a></li>
+<li><a href="#privacy">What do you do with my data?</a></li>
+<li><a href="#history">How long has this been around?</a></li>
+<li><a href="#bug">I found a bug! I have a feature request!</a></li>
+</ul>
+
+<ul>
+<li id="work" class="question">How does it work?</li>
+<li class="answer">
+<p>
+Bridgy Fed lets you interact with federated social networks like <a href="https://joinmastodon.org/">Mastodon</a> and <a href="https://project.hubzilla.org/">Hubzilla</a> from your <a href="https://indieweb.org/">IndieWeb</a> site. It translates posts, replies, likes, reposts, and follows from <a href="http://www.webmention.org/">webmentions</a> to federated social networking protocols like <a href="https://activitypub.rocks/">ActivityPub</a> and <a href="https://en.wikipedia.org/wiki/OStatus">OStatus</a>, and vice versa.
+</p>
+
+<p>
+This isn't <a href="https://indieweb.org/syndication">syndication</a> or <a href="https://indieweb.org/POSSE">POSSE</a>! You don't need an account on Mastodon, Hubzilla, or anywhere else. Bridgy Fed lets your site act like a first class member of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>. People on federated social networks (aka fedsocnets) will see your posts directly from your own site, and vice versa.
+</p>
+
+<p>
+Here's <a href="https://mastodon.technology/@snarfed/3194674">an example on Mastodon</a>, and <a href="https://hubzilla.com.br/channel/snarfed/?f=&mid=459a0b809f2d5395efd5d581dad70043c5ea9e1dbd156bc5e1b2f771c98eb970@hubzilla.com.br&zid=snarfed%40hubzilla.com.br">another example on Hubzilla</a>.
+</p>
+
+<p>
+(If you just want people in the fediverse to see posts from your web site, <a href="https://www.google.com/search?q=rss+atom+mastodon+bot">consider an RSS or Atom feed bot instead</a>. Bridgy Fed is more powerful, but also more work to set up and use.)
+</p>
+
+<li id="sites" class="question">Which sites are supported?</li>
+<li class="answer">
+<p>
+These sites are currently supported:
+</p>
+<ul>
+<li><em><a href="https://joinmastodon.org/">Mastodon</a></em>: posts, replies, likes, reposts aka boosts, @-mentions, and follows, both directions, via ActivityPub.<br />
+The instance must be running at least <a href="https://hackernoon.com/mastodon-and-the-w3c-f75f376f422">Mastodon 1.6</a>, and more reliably with 2.0 and up. You can find its version on the bottom or right of its <code>/about/more</code> page, e.g. <a href="https://mastodon.social/about/more">mastodon.social/about/more</a>.
+</li>
+<li><em><a href="https://project.hubzilla.org/">Hubzilla</a></em>: replies, likes, and reposts aka shares, both directions, via OStatus.<br />
+The instance must be running <a href="https://hub.somaton.com/channel/mario/?f=&mid=6db16e0e253c3c376cb921e7b31f94c24522933d7e54c6cf9febaa05359ab2fe@hub.somaton.com">Hubzilla 2.6</a> or higher. You can find its version on its <code>/siteinfo</code> page, e.g. <a href="https://hub.somaton.com/siteinfo">hub.somaton.com/siteinfo</a>. It also needs the GNU Social addon installed and enabled, and you also need to enable it in your account settings on the <em>Feature/Addon settings</em> page (<code>/settings/featured</code>).
+</li>
+</ul>
+
+<p>
+We're aware of the sites below, and we've made progress on some, but they're not yet supported. Click through and vote for their feature requests if you're interested in any of them!
+</p>
+<ul>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/7">Diaspora</a></em>, via OStatus.</li>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/9">Friendica</a></em>, via OStatus.</li>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/8">GNU Social</a></em> (née StatusNet), via OStatus.</li>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/11">MediaGoblin</a></em>, via ActivityPub?</li>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/12">Pleroma</a></em>, via ActivityPub.</li>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/10">postActiv</a></em>, via ActivityPub or OStatus.</li>
+</ul>
+</li>
+
+<li id="use" class="question">How do I use it?</li>
+<li class="answer">
+
+<p>
+Federated social network identities take the form <code>@username@example.com</code>, like an email address with a leading <code>@</code>. Your site's identity via Bridgy Fed will be <code>@yourdomain.com@yourdomain.com</code>. Once you've <a href="#setup">set up Atom on your site</a>, people can follow you at that address.
+</p>
+
+<p>
+Most fedsocnets also publish Atom themselves, so you can add profile URLs like <a href="https://mastodon.technology/@snarfed">mastodon.technology/@snarfed</a> to your <a href="https://indieweb.org/reader">reader</a> and see their posts there too.
+</p>
+
+<p>
+To use it, first <a href="#setup">set up your site</a>, then create an IndieWeb <a href="https://indieweb.org/post">post</a>, <a href="https://indieweb.org/like">like</a>, <a href="https://indieweb.org/repost">repost</a>, <a href="https://indieweb.org/reply">reply</a>, or <a href="https://indieweb.org/follow">follow</a> as usual, and include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post. Your web server should then <a href="#setup">send Bridgy Fed a webmention</a>, which it will translate to a Salmon slap or ActivityPub activity and forward to the destination. For example:
+</p>
+
+<pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
+  Regarding &lt;a class="<span class='keyword'>u-in-reply-to</span>" href="<a href='https://mastodon.technology/@snarfed/3194674'>https://mastodon.technology/@snarfed/3194674</a>"&gt;this post&lt;/a&gt;:
+  &lt;p class="<span class='keyword'>e-content</span>"&gt;<span class='value'>Highly entertaining. Please subscribe me to your newsletter.</span>&lt;/p&gt;
+  &lt;a href="<a href='https://fed.brid.gy/'>https://fed.brid.gy/</a>"&gt;&lt;/a&gt;
+&lt;/div&gt;
+</pre>
+
+<p>
+To receive likes, reposts, replies, and follows from fedsocnets, just make sure your site accepts webmentions! Bridgy translates incoming Salmon slaps and ActivityPub activities to webmentions and sends them to your site.</p>
+
+<p>
+The webmention source URL will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>!
+</p>
+
+<p>
+You can see your recent interactions at <a href="https://fed.brid.gy/user/[your-domain.com]">fed.brid.gy/user/[your-domain.com]</a>.
+</p>
+</li>
+
+<li id="setup" class="question">How do I set it up?</li>
+<li class="answer">
+<p>
+First, your site needs to support <a href="http://www.webmention.org/">webmentions</a>. <a href="https://indieweb.org/webmention#Publishing_Software">Check out the IndieWeb wiki</a> for instructions for your web server.
+</p>
+
+<p>
+Next, configure your web site to redirect these URL paths to the same paths on <code>https://fed.brid.gy/</code>, including query parameters:
+</p>
+<pre>
+/.well-known/host-meta
+/.well-known/webfinger
+</pre>
+
+<p>Here are instructions for a few common web servers:</p>
+
+<ul>
+<li>
+<p><em><a href="http://wordpress.org/">WordPress</a> (self-hosted)</em>: install the <a href="https://wordpress.org/plugins/safe-redirect-manager/">Safe Redirect Manager</a> plugin, then add these entries:</p>
+<code>
+  /.well-known/host-meta* => https://fed.brid.gy/.well-known/host-meta*<br/>
+  /.well-known/webfinger* => https://fed.brid.gy/.well-known/webfinger*
+</code>
+</li>
+
+<li><em><a href="http://withknown.com/">Known</a></em> or <em><a href="https://drupal.org/project/indieweb">Drupal</a></em>: follow the <a href="#apache">Apache</a> or <a href="#nginx">nginx</a> instructions below.
+</li>
+
+<li id="apache"><em><a href="http://httpd.apache.org/">Apache</a></em>: add this to your <code>.htaccess</code> file:<br />
+<pre>RewriteEngine on
+RewriteBase /
+RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redirect=302,last]</pre>
+(<code>RewriteEngine on</code> is optional if you already have it earlier in your <code>.htaccess</code>. <code>RewriteBase /</code> is optional if you don't have any other <code>RewriteBase</code> directives, or if you put this <code>RewriteRule</code> inside an existing <code>RewriteBase /</code> section.)
+</li>
+
+<li id="nginx"><em><a href="https://nginx.org/">nginx</a></em>: add this to your <code>nginx.conf</code> file, in the <code>server</code> section:<br />
+  <pre>rewrite ^/.well-known/(host-meta|webfinger).* https://fed.brid.gy$request_uri redirect;</pre>
+</li>
+
+<!--
+<em><a href="https://www.blogger.com/">Blogger</a></em>:
+Not to other domains
+https://helplogger.blogspot.com/2014/07/how-to-set-custom-redirects-for-blogger-post.html
+
+<em><a href="https://medium.com/">Medium</a>: TODO</em>
+Redirects but not custom
+https://help.medium.com/hc/en-us/articles/213475208-301-Redirects
+
+<em><a href="http://www.tumblr.com/">Tumblr</a></em>:
+Looks doable!
+https://tumblr.zendesk.com/hc/en-us/articles/231449328-Redirect-pages
+
+<em><a href="http://wordpress.com/">WordPress.com</a></em>:
+Site Redirect, but not per URL
+https://en.support.wordpress.com/site-redirect/
+
+-->
+
+</ul>
+
+<p>
+If you want people on OStatus sites like Hubzilla to see your posts, your web site will also need to support <a href="https://indieweb.org/WebSub">WebSub</a> (née PubSubHubbub). Specifically, <a href="https://blog.superfeedr.com/howto-pubsubhubbub/#discovery">your Atom feed needs to advertise it</a>. <a href="https://github.com/tootsuite/mastodon/issues/1441#issuecomment-302969948">Example details for Mastodon.</a> If you're on a CMS, it may already have a plugin! <a href="https://wordpress.org/">WordPress</a> has <a href="https://indieweb.org/WebSub#WordPress_Plugins_for_PuSH">a couple</a>, and <a href="http://withknown.com/">Known</a> has it <a href="https://indieweb.org/WebSub#1000s_of_Known_Sites">built in</a>. Or you can use <a href="https://superfeedr.com/publisher">Superfeedr</a> or <a href="https://switchboard.p3k.io/">Switchboard</a>.
+</p>
+
+</ol>
+</li>
+
+<li id="image" class="question">How do I include an image in a post?</li>
+<li class="answer">
+<p>
+Use <code>&lt;img class="u-photo"&gt;</code> for the image in your post. For example:
+
+<pre>
+&lt;img class="<span class='keyword'>u-photo</span>" src="<span class='value'>/full_glass.jpg</span>" /&gt;
+I love scotch. Scotchy scotchy scotch.
+</pre>
+</p>
+</li>
+
+<li id="fragment" class="question">Can I publish just one part of a page?</li>
+<li class="answer">
+<p>If that HTML element has its own id, then sure! Just put the id in the fragment of the URL that you publish. For example, to publish the <code>bar</code> post here:</p>
+<pre>&lt;div id="<span class='value'>a</span>" class="<span class='keyword'>h-entry</span>"&gt;<span class='value'>foo</span>&lt;/div&gt;
+&lt;div id="<span class='value'>b</span>" class="<span class='keyword'>h-entry</span>"&gt;<span class='value'>bar</span>&lt;/div&gt;
+&lt;div id="<span class='value'>c</span>" class="<span class='keyword'>h-entry</span>"&gt;<span class='value'>baz</span>&lt;/div&gt;
+</pre>
+<p>...just add the id to your page's URL in a fragment, e.g. <code>http://site/post#b</code> here.</p>
+</li>
+
+<li id="discovery" class="question">How can people on the fediverse find me?</li>
+<li class="answer">
+<p>In general, all you have to do is use Bridgy Fed to interact with the fediverse once. Send an original post from your site, like or repost something, follow someone, etc. Then, when other users search for <code>@yourdomain.com@yourdomain.com</code>, they should find your profile!
+</p>
+<p>In practice, this can be a bit finicky, and takes time to propagate to other instances besides the one you first interacted with, but it generally does work.
+</p>
+</li>
+
+<li id="troubleshooting" class="question">I tried it, and it didn't work!</li>
+<li class="answer">
+<p>If you sent a webmention, check the HTTP response code and body. It will usually describe the error.</p>
+<p>If you got an HTTP 204 from an attempt to federate a response to Mastodon, that means Mastodon accepted the response. If it doesn't show up, that's a known inconsistency right now. We're actively working with them to debug these cases.</p>
+<p>You can also <a href="/recent">see all recent Bridgy Fed requests here</a>, including raw logs. Warning: not for the faint of heart!</p>
+</li>
+
+<li id="cost" class="question">How much does it cost?</li>
+<li class="answer">
+<p>Nothing! Bridgy Fed is small, and it doesn't cost much to run. We don't need donations, promise.
+</p>
+<p>If you <em>really</em> want to contribute, <a href="https://github.com/snarfed/bridgy-fed/issues">file an issue</a> or <a href="https://github.com/snarfed/bridgy-fed">send a pull request</a>, or <a href="https://opencollective.com/indieweb">donate to the IndieWeb</a>!
+</p></li>
+
+<li id="who" class="question">Who are you? Why did you make this?</li>
+<li class="answer">
+<p>
+I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who
+<a href="https://snarfed.org/2012-07-25_why_i_have_my_own_web_site">likes the web</a> and <a href="https://indieweb.org/why">owning my data</a>.
+</p>
+</li>
+
+<li id="privacy" class="question">What do you do with my data?</li>
+<li class="answer">
+<p>Nothing! Bridgy Fed isn't a business, and never will be, so we don't have the same motivations to abuse your data that other services might. More concretely, Bridgy Fed won't ever send you email, it stores as little of your <a href="http://en.wikipedia.org/wiki/Personally_identifiable_information">PII</a> (personally identifiable information) as possible, and it <em>never</em> has access to any of your passwords.
+</p>
+</li>
+
+<li id="history" class="question">How long has this been around?</li>
+<li class="answer">
+<p>I started thinking about bridging federated social networks and peer to peer networks when I discovered them in the early 2000s. I started talking about bridging them to the IndieWeb in 2016, <a href="http://indieweb.org/2017/ostatusbridge">led a session on it at IndieWeb Summit</a> in July 2017, wrote up <a href="https://snarfed.org/indieweb-activitypub-bridge">concrete</a> <a href="https://snarfed.org/indieweb-ostatus-bridge"> designs</a> soon after, and started working on Bridgy Fed in August 2017.
+</li>
+
+<li id="bug" class="question">I found a bug! I have a feature request!</li>
+<li class="answer">
+<p>Great! Please <a href="https://github.com/snarfed/bridgy-fed/issues">file it in GitHub</a>. Thank you!
+</p>
+</li>
+
+</ul>
+</div>
+
+{% endblock %}

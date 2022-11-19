@@ -9,7 +9,7 @@ from flask import redirect, render_template, request
 from google.cloud.ndb.stats import KindStat
 from granary import as2, atom, microformats2, rss
 from oauth_dropins.webutil import flask_util, logs, util
-from oauth_dropins.webutil.flask_util import error
+from oauth_dropins.webutil.flask_util import error, flash, redirect
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app, cache
@@ -23,8 +23,40 @@ FOLLOWERS_UI_LIMIT = 999
 @app.route('/')
 @flask_util.cached(cache, datetime.timedelta(days=1))
 def front_page():
-  """View for the front page."""
-  return render_template('index.html')
+    """View for the front page."""
+    return render_template('index.html')
+
+
+@app.route('/docs')
+@flask_util.cached(cache, datetime.timedelta(days=1))
+def docs():
+    """View for the docs page."""
+    return render_template('docs.html')
+
+
+@app.get('/web-site')
+@flask_util.cached(cache, datetime.timedelta(days=1))
+def enter_web_site():
+    return render_template('enter_web_site.html')
+
+
+@app.post('/web-site')
+def check_web_site():
+    url = request.values['url']
+    domain = util.domain_from_link(url)
+    if not domain:
+        error(f'No domain found in {url}')
+
+    user = User.get_or_create(domain)
+    try:
+        user.verify()
+    except BaseException as e:
+        if util.is_connection_failure(e):
+            flash(f"Couldn't connect to {url}")
+            return render_template('enter_web_site.html')
+
+    user.put()
+    return redirect(f'/user/{domain}')
 
 
 @app.get(f'/responses/<regex("{common.DOMAIN_RE}"):domain>')  # deprecated
@@ -34,13 +66,14 @@ def user_deprecated(domain):
 
 @app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>')
 def user(domain):
-    if not User.get_by_id(domain):
-      return render_template('user_not_found.html', domain=domain), 404
+    user = User.get_by_id(domain)
+    if not user:
+        return render_template('user_not_found.html', domain=domain), 404
 
     query = Activity.query(
         Activity.status.IN(('new', 'complete', 'error')),
         Activity.domain == domain,
-        )
+    )
     activities, before, after = fetch_page(query, Activity)
 
     followers = Follower.query(Follower.dest == domain)\

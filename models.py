@@ -2,6 +2,7 @@
 import logging
 import urllib.parse
 
+import requests
 from werkzeug.exceptions import BadRequest, NotFound
 
 from Crypto.PublicKey import RSA
@@ -79,18 +80,21 @@ class User(StringIdModel):
 
         # check webfinger redirect
         path = f'/.well-known/webfinger?resource=acct:{domain}@{domain}'
-        resp = common.requests_get(urllib.parse.urljoin(site, path),
-                                   allow_redirects=False)
-        expected = urllib.parse.urljoin(request.host_url, path)
-        if resp.is_redirect and resp.headers.get('Location') == expected:
-            self.has_redirects = True
+        try:
+            resp = common.requests_get(urllib.parse.urljoin(site, path),
+                                       allow_redirects=False, gateway=False)
+            expected = urllib.parse.urljoin(request.host_url, path)
+            self.has_redirects = (resp.is_redirect and
+                                  resp.headers.get('Location') == expected)
+        except requests.RequestException:
+            self.has_redirects = False
 
         # check home page
         try:
-            common.actor(self.key.id())
+            common.actor(self.key.id(), user=self)
             self.has_hcard = True
         except (BadRequest, NotFound):
-            pass
+            self.has_hcard = False
 
 
 class Activity(StringIdModel):

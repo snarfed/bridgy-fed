@@ -18,6 +18,48 @@
   min-width: 30px;
 }
 
+#messages {
+  position: fixed;
+  width: 100%;
+  font-size: 1.5em;
+  top: .2em;
+  text-align: center;
+  z-index: 999;
+}
+
+.message {
+  display: block;
+  opacity: 1;
+  background-color: gold;
+  color: #444;
+  padding: .5em;
+  transition: opacity 5s linear 20s;
+}
+
+#logins {
+  margin-top: .3em;
+  text-align: right;
+}
+
+@media (max-width: 600px) {
+  #logo {
+    float: left;
+  }
+  #header {
+    float: none;
+    width: 100%;
+  }
+}
+
+#signups {
+  margin-top: 2em;
+}
+
+#signups hr {
+  width: 50%;
+  border-color: lightgray;
+}
+
 .big {
   font-size: 1.5em;
 }
@@ -40,22 +82,157 @@
   font-weight: normal;
 }
 
+#more-link {
+  font-size: .7em;
+}
+
+body.about #more-link {
+  display: none;
+}
+
+pre .keyword, code .keyword, code.keyword {
+  color: green;
+}
+
+pre .value, code .value, code.value {
+  color: chocolate;
+}
+
 .row {
   text-align: center;
 }
 
-#top {
+#blogposts, #publishes, #webmentions, #user {
+  margin-top: 1em;
+}
+
+#top, #listen-ui, #listening-label, #publish-ui, #publishing-label {
   margin-bottom: 1em;
+}
+
+/* tentatively removed since it didn't look great with webmention signups */
+/* @media (min-width: 768px) { */
+/*   #listen-signup, #listen-ui { */
+/*     border-left: 1px solid lightgray; */
+/*     border-right: 1px solid lightgray; */
+/*   } */
+/* } */
+
+#listen-signups input, #webmention-signups input {
+  margin: .5em;
+}
+
+.header, #user, .promo, #listen-signups, #webmention-signups {
+  margin-bottom: 1em;
+}
+
+#edit-profile em {
+  font-style: normal;
+}
+
+form {
+   display: inline;
+}
+
+form input {
+  vertical-align: middle;
+}
+
+.delete-website {
+  padding: 0;
+  font-size: .7em;
+  border: none;
+  background-color: transparent;
+}
+
+.delete-website:hover {
+  color: red;
+  background-color: transparent;
+}
+
+#users-label {
+  margin-top: 1em;
+}
+
+#users {
+  list-style: none;
+}
+
+#users-paging {
+  clear: both;
+}
+
+.source {
+  text-align: left;
+  margin-top: .5em;
+}
+
+#choose-blog > ul {
+  list-style: none;
+  text-align: left;
+}
+
+@media (min-width: 768px) {
+  .user-items > .row {
+    display: table;
+    table-layout: fixed !important;
+    width: 100%;
+    text-align: left;
+  }
+
+  .user-items > .row > .col-sm-1,
+  .user-items > .row > .col-sm-2,
+  .user-items > .row > .col-sm-3,
+  .user-items > .row > .col-sm-4 {
+    display: table-cell;
+    float: none;
+    text-align: left;
+    border-spacing: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .user-items > .row {
+    margin-bottom: 1em;
+  }
+}
+
+.source-buttons, .original-post {
+  white-space: nowrap;
+}
+
+.delete {
+  border: none;
+  background: none;
+  font-weight: bold;
+  color: red;
+}
+
+.delete:hover, .delete:focus {
+  color: darkred;
+}
+
+/* .glyphicon-warning-sign { color: gold; } */
+.glyphicon-ok-sign { color: green; }
+.glyphicon-exclamation-sign { color: gold; }
+.glyphicon-pause { color: gold`; }
+.glyphicon-refresh { color: blue; }
+.glyphicon-remove { color: red !important; }
+.glyphicon-transfer { color: blue; }
+
+.user-items {
+  font-size: .8em;
+  list-style: none;
 }
 
 code {
   color: black;
   background-color: white !important;
-  font-size: .8em;
 }
 
-a code {
-  color: inherit;
+.original-post-links {
+  list-style: none;
+  padding-left: 0;
 }
 
 label {
@@ -63,16 +240,11 @@ label {
   font-weight: 300;
 }
 
-#sites li {
-  display: inline;
-}
-
-#sites li::before {
-  content: "\2022 \00A0";
-}
-
-#sites li:first-child::before {
-  content: none;
+/* Seems like this shouldn't be necessary, but cursor was ending up as auto on the
+ * a > img for the disabled Facebook signup button for some reason, not sure why.
+ */
+a > img {
+  cursor: pointer;
 }
 
 button {
@@ -86,7 +258,26 @@ button {
   border-radius: 2px;
 }
 
+button[disabled] {
+  border-color: gray !important;
+  color: gray !important;
+  pointer-events: auto !important;
+}
+
+button[disabled]:hover {
+  background-color: lightgray !important;
+}
+
+#preview-ui {
+  margin-top: 1em;
+}
+
+#preview-ui > * {
+  vertical-align: middle;
+}
+
 .btn-default {
+  background-color: #CEF;
   border-color: #337AB7;
   color: #337AB7;
 }
@@ -97,15 +288,76 @@ button {
   color: #337AB7;
 }
 
-#get-started {
-  border-color: green;
-  color: white;
-  background-color: #6A6;
-  font-size: 1.5em;
+.disable-button, #bad-button {
+  border-color: red;
+  color: red;
 }
 
-#get-started:hover {
-  background-color: #8C8;
+.disable-button:hover, #bad-button:hover {
+  background-color: #FCC;
+}
+
+#good-button {
+  border-color: green;
+  color: green;
+}
+
+#good-button:hover {
+  background-color: #DED;
+}
+
+#micropub-token-button, #disable-publish-button {
+  margin-top: -6px;
+}
+
+.mastodon-button {
+  height: 50px;
+  padding: 6px;
+  background-color: #323946;
+}
+
+#preview .verb {
+  font-weight: bold;
+}
+
+#preview-text {
+  display: inline-block;
+  margin-top: 1em;
+  text-align: left;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: inherit;
+  max-width: 98%;
+}
+
+#preview-text hr {
+  border-color: #cccccc;
+}
+
+#preview-text img, #preview-text video {
+  max-height: 200px;
+  max-width: 100%;
+  margin-top: 1em;
+}
+
+.mastodon-embed {
+  margin: 1em;
+}
+
+input[type="text"], input[type="url"] {
+  padding-left: .3em;
+  padding-right: .3em;
+  border: 1px solid black;
+  font-size: 1em;
+}
+
+#sent pre {
+  display: inline-block;
+}
+
+/* Override the inline display:block which makes it align left instead of center. */
+iframe#twitter-widget-0 {
+  display: inline !important;
 }
 
 #footer {
@@ -114,7 +366,7 @@ button {
   text-align: right;
 }
 
-.shadow {
+.shadow, .profile, #screenshot {
   -moz-box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
   -webkit-box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
   /* CSS3 */
@@ -125,7 +377,7 @@ button {
   filter: progid:DXImageTransform.Microsoft.Shadow(Strength=2,Direction=135,Color='#666666');
 }
 
-.shadow:hover {
+.shadow:hover, .profile:hover, #screenshot:hover {
   -moz-box-shadow: 2px 2px 4px rgba(0,0,0,0.8);
   -webkit-box-shadow: 2px 2px 4px rgba(0,0,0,0.8);
   /* CSS3 */
@@ -136,7 +388,30 @@ button {
   filter: progid:DXImageTransform.Microsoft.Shadow(Strength=2,Direction=135,Color='#222222');
 }
 
-#docs > ul {
+.error, .warning {
+  margin: 10px;
+  padding: .2em;
+  font-style: italic;
+}
+
+.error {
+  background-color: lightcoral !important;
+}
+
+.warning {
+  background-color: gold !important;
+}
+
+.error p, .warning p {
+  margin: 10px;
+}
+
+.error code, .warning code {
+  font-style: normal;
+  background-color: inherit !important;
+}
+
+#docs {
   list-style: none;
 }
 
@@ -146,34 +421,18 @@ button {
   font-weight: bold;
 }
 
-.answer ul {
+.answer ul li, .answer ol {
   margin-bottom: .5em;
 }
 
-pre .keyword, code.keyword {
-  color: green;
-}
-
-pre .value, code.value {
-  color: chocolate;
-}
-
-td, th {
-  padding-left: .4em;
-  padding-right: .4em;
-  padding-top: .2em;
-  padding-bottom: .2em;
+/* confirm_instagram.html */
+iframe {
+  width: 50%;
+  border: 1px solid gray;
+  height: 300px;
 }
 
 .follower {
   text-align: left;
   margin-top: .5em;
 }
-
-/* .glyphicon-warning-sign { color: gold; } */
-.glyphicon-ok-sign { color: green; }
-.glyphicon-exclamation-sign { color: gold; }
-.glyphicon-pause { color: gold; }
-.glyphicon-refresh { color: blue; }
-.glyphicon-remove { color: red !important; }
-.glyphicon-transfer { color: blue; }

@@ -13,9 +13,22 @@
 <link rel="stylesheet" href="/oauth_dropins_static/bootstrap.min.css" />
 <link rel="stylesheet" href="/static/style.css" type="text/css" />
 <link rel="webmention" href="/webmention" />
+<!-- Not async because it adds a DOMContentLoaded event listener, which may
+  -- happen before an async script loads. -->
+<script src="/oauth_dropins_static/util.js"></script>
 </head>
 
 <body>
+
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+  <div id="messages">
+  {% for message in messages %}
+    <p class="message shadow">{{ message|safe }}</p>
+  {% endfor %}
+  </div>
+{% endif %}
+{% endwith %}
 
 <main class="tp-main lead container">
 
@@ -33,10 +46,9 @@
 
 <div id="header" class="col-xs-7">
 <p class="big">
-Got an <a href="https://indieweb.org/">IndieWeb</a> site?
-Want to interact with <a href="https://joinmastodon.org/">Mastodon</a>
-and the rest of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>?
-<a id="title" href="/" style="white-space: nowrap">Bridgy Fed</a> is for you.
+<a id="title" href="/" style="white-space: nowrap">Bridgy Fed</a>
+connects your web site to <a href="https://joinmastodon.org/">Mastodon</a>
+and the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>.
 </p></div>
 </div>
 
@@ -48,7 +60,8 @@ and the rest of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse<
 {% endblock %}
 
 <div id="footer">
-  <a href="https://github.com/snarfed/bridgy-fed/issues">Bugs</a>
+  <a href="/docs">Docs</a>
+  | <a href="https://github.com/snarfed/bridgy-fed/issues">Bug?</a>
   | <a href="https://github.com/snarfed/bridgy-fed">Source</a>
   | <a href="https://indieweb.org/">#IndieWeb</a>
   | <a href="https://brid.gy/">Bridgy</a>

@@ -82,7 +82,8 @@ def requests_post(url, **kwargs):
 
 def _requests_fn(fn, url, parse_json=False, **kwargs):
     """Wraps requests.* and adds raise_for_status()."""
-    resp = fn(url, gateway=True, **kwargs)
+    kwargs.setdefault('gateway', True)
+    resp = fn(url, **kwargs)
 
     logger.info(f'Got {resp.status_code} headers: {resp.headers}')
     type = content_type(resp)
@@ -449,13 +450,14 @@ def redirect_unwrap(val):
     return val
 
 
-def actor(domain):
+def actor(domain, user=None):
     """Fetches a home page, converts its representative h-card to AS2 actor.
 
     Creates a User for the given domain if one doesn't already exist.
 
     Args:
       domain: str
+      user: :class:`User`, optional
 
     Returns: dict, AS2 actor
     """
@@ -469,7 +471,9 @@ def actor(domain):
     if not hcard:
         error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {mf2['url']}")
 
-    user = User.get_or_create(domain)
+    if not user:
+        user = User.get_or_create(domain)
+
     actor = postprocess_as2(
         as2.from_as1(microformats2.json_to_object(hcard)), user=user)
     actor.update({

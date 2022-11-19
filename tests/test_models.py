@@ -82,6 +82,10 @@ class UserTest(testutil.TestCase):
         mock_get.side_effect = [full_redir, hcard]
         check(True, True)
 
+        # reset
+        mock_get.side_effect = [empty, empty]
+        check(False, False)
+
 
 class ActivityTest(testutil.TestCase):
 
