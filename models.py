@@ -2,11 +2,15 @@
 import logging
 import urllib.parse
 
+from werkzeug.exceptions import BadRequest, NotFound
+
 from Crypto.PublicKey import RSA
 from django_salmon import magicsigs
 from flask import request
 from google.cloud import ndb
 from oauth_dropins.webutil.models import StringIdModel
+
+import common
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +31,8 @@ class User(StringIdModel):
     mod = ndb.StringProperty(required=True)
     public_exponent = ndb.StringProperty(required=True)
     private_exponent = ndb.StringProperty(required=True)
+    has_redirects = ndb.BooleanProperty()
+    has_hcard = ndb.BooleanProperty()
 
     @classmethod
     def _get_kind(cls):
@@ -64,6 +70,27 @@ class User(StringIdModel):
                              magicsigs.base64_to_long(str(self.public_exponent)),
                              magicsigs.base64_to_long(str(self.private_exponent))))
         return rsa.exportKey(format='PEM')
+
+    def verify(self):
+        """Fetches site a couple ways to check for redirects and h-card."""
+        domain = self.key.id()
+        site = f'https://{domain}/'
+        logger.info(f'Verifying {site}')
+
+        # check webfinger redirect
+        path = f'/.well-known/webfinger?resource=acct:{domain}@{domain}'
+        resp = common.requests_get(urllib.parse.urljoin(site, path),
+                                   allow_redirects=False)
+        expected = urllib.parse.urljoin(request.host_url, path)
+        if resp.is_redirect and resp.headers.get('Location') == expected:
+            self.has_redirects = True
+
+        # check home page
+        try:
+            common.actor(self.key.id())
+            self.has_hcard = True
+        except (BadRequest, NotFound):
+            pass
 
 
 class Activity(StringIdModel):

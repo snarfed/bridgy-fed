@@ -1,5 +1,9 @@
 # coding=utf-8
 """Unit tests for models.py."""
+from unittest import mock
+
+from oauth_dropins.webutil.testutil import requests_response
+
 from app import app
 from models import User, Activity
 from . import testutil
@@ -34,6 +38,49 @@ class UserTest(testutil.TestCase):
         pem = self.user.private_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END RSA PRIVATE KEY-----'), pem)
+
+    @mock.patch('requests.get')
+    def test_verify(self, mock_get):
+        self.assertFalse(self.user.has_redirects)
+        self.assertFalse(self.user.has_hcard)
+
+        def check(redirects, hcard):
+            with app.test_request_context('/'):
+                self.user.verify()
+            with self.subTest(redirects=redirects, hcard=hcard):
+                self.assertEqual(redirects, bool(self.user.has_redirects))
+                self.assertEqual(hcard, bool(self.user.has_hcard))
+
+        # both fail
+        empty = requests_response('')
+        mock_get.side_effect = [empty, empty]
+        check(False, False)
+
+        # redirect works but strips query params, no h-card
+        half_redir = requests_response(
+            status=302, redirected_url='http://localhost/.well-known/webfinger')
+        no_hcard = requests_response('<html><body></body></html>')
+        mock_get.side_effect = [half_redir, no_hcard]
+        check(False, False)
+
+        # redirect works, non-representative h-card
+        full_redir = requests_response(
+            status=302, allow_redirects=False,
+            redirected_url='http://localhost/.well-known/webfinger?resource=acct:y.z@y.z')
+        bad_hcard = requests_response(
+            '<html><body><a class="h-card u-url" href="https://a.b/">me</a></body></html>',
+            url='https://y.z/',
+        )
+        mock_get.side_effect = [full_redir, bad_hcard]
+        check(True, False)
+
+        # both work
+        hcard = requests_response(
+            '<html><body><a class="h-card u-url" href="/">me</a></body></html>',
+            url='https://y.z/',
+        )
+        mock_get.side_effect = [full_redir, hcard]
+        check(True, True)
 
 
 class ActivityTest(testutil.TestCase):
