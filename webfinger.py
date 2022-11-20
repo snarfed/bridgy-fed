@@ -64,14 +64,8 @@ class Actor(flask_util.XrdOrJrd):
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])
         canonical_url = urls[0]
 
-        acct = f'{domain}@{domain}'
-        for url in urls:
-            if url.startswith('acct:'):
-                urluser, urldomain = util.parse_acct_uri(url)
-                if urldomain == domain:
-                    acct = f'{urluser}@{domain}'
-                    logger.info(f'Found custom username: acct:{acct}')
-                    break
+        username = common.get_username(domain, urls)
+        acct = f'{username}@{domain}'
 
         # discover atom feed, if any
         atom = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)

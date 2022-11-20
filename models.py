@@ -10,6 +10,7 @@ from django_salmon import magicsigs
 from flask import request
 from google.cloud import ndb
 from oauth_dropins.webutil.models import StringIdModel
+from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
 
@@ -34,6 +35,7 @@ class User(StringIdModel):
     private_exponent = ndb.StringProperty(required=True)
     has_redirects = ndb.BooleanProperty()
     has_hcard = ndb.BooleanProperty()
+    actor_as2 = ndb.TextProperty()
 
     @classmethod
     def _get_kind(cls):
@@ -72,6 +74,16 @@ class User(StringIdModel):
                              magicsigs.base64_to_long(str(self.private_exponent))))
         return rsa.exportKey(format='PEM')
 
+    def address(self):
+        """Returns this user's ActivityPub address, eg '@me@foo.com'."""
+        domain = self.key.id()
+
+        username = None
+        if self.actor_as2 is not None:
+            username = json_loads(self.actor_as2).get('preferredUsername')
+
+        return f'@{username or domain}@{domain}'
+
     def verify(self):
         """Fetches site a couple ways to check for redirects and h-card."""
         domain = self.key.id()
@@ -91,9 +103,10 @@ class User(StringIdModel):
 
         # check home page
         try:
-            common.actor(self.key.id(), user=self)
+            self.actor_as2 = json_dumps(common.actor(self.key.id(), user=self))
             self.has_hcard = True
         except (BadRequest, NotFound):
+            self.actor_as2 = None
             self.has_hcard = False
 
 

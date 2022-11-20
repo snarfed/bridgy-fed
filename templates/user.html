@@ -21,14 +21,16 @@
 </div>
 {% endif %}
 
-<br>
-
 <div class="row">
   <h2 style="display: inline">
-    <a href="https://{{ domain }}/">🌐 {{ domain }}</a>
+    <span title="Fediverse address">
+      <img class="logo" src="/static/fediverse_logo.svg"> {{ user.address() }}</span> |
+    <a title="Web site" href="https://{{ domain }}/">🌐 {{ domain }}</a>
   </h2>
+</div>
+<div class="row">
   <h3 style="display: inline">
-    | <a href="/user/{{ domain }}/followers">{{ followers }} follower{% if followers != '1' %}s{% endif %}</a>
+    <a href="/user/{{ domain }}/followers">{{ followers }} follower{% if followers != '1' %}s{% endif %}</a>
     | <a href="/user/{{ domain }}/following">following {{ following }}</a>
     | <a href="/user/{{ domain }}/feed">HTML</a>,
       <a href="/user/{{ domain }}/feed?format=atom">Atom</a>,

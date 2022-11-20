@@ -320,7 +320,7 @@ button[disabled]:hover {
   border-radius: 1em;
 }
 
-.btn-home img {
+.btn-home img, .logo {
   height: 1em;
 }
 

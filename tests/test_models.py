@@ -3,6 +3,7 @@
 from unittest import mock
 
 from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app
 from models import User, Activity
@@ -15,7 +16,7 @@ class UserTest(testutil.TestCase):
         super(UserTest, self).setUp()
         self.user = User.get_or_create('y.z')
 
-    def test_magic_key_get_or_create(self):
+    def test_get_or_create(self):
         assert self.user.mod
         assert self.user.public_exponent
         assert self.user.private_exponent
@@ -39,52 +40,75 @@ class UserTest(testutil.TestCase):
         self.assertTrue(pem.decode().startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END RSA PRIVATE KEY-----'), pem)
 
+    def test_address(self):
+        self.assertEqual('@y.z@y.z', self.user.address())
+
+        self.user.actor_as2 = '{"type": "Person"}'
+        self.assertEqual('@y.z@y.z', self.user.address())
+
+        self.user.actor_as2 = '{"preferredUsername": "foo"}'
+        self.assertEqual('@foo@y.z', self.user.address())
+
     @mock.patch('requests.get')
     def test_verify(self, mock_get):
         self.assertFalse(self.user.has_redirects)
         self.assertFalse(self.user.has_hcard)
 
-        def check(redirects, hcard):
+        def check(redirects, hcard, actor):
             with app.test_request_context('/'):
                 self.user.verify()
-            with self.subTest(redirects=redirects, hcard=hcard):
-                self.assertEqual(redirects, bool(self.user.has_redirects))
-                self.assertEqual(hcard, bool(self.user.has_hcard))
+            with self.subTest(redirects=redirects, hcard=hcard, actor=actor):
+                self.assert_equals(redirects, bool(self.user.has_redirects))
+                self.assert_equals(hcard, bool(self.user.has_hcard))
+                if actor is None:
+                    self.assertIsNone(self.user.actor_as2)
+                else:
+                    got = {k: v for k, v in json_loads(self.user.actor_as2).items()
+                           if k in actor}
+                    self.assert_equals(actor, got)
 
         # both fail
         empty = requests_response('')
         mock_get.side_effect = [empty, empty]
-        check(False, False)
+        check(False, False, None)
 
         # redirect works but strips query params, no h-card
         half_redir = requests_response(
             status=302, redirected_url='http://localhost/.well-known/webfinger')
         no_hcard = requests_response('<html><body></body></html>')
         mock_get.side_effect = [half_redir, no_hcard]
-        check(False, False)
+        check(False, False, None)
 
         # redirect works, non-representative h-card
         full_redir = requests_response(
             status=302, allow_redirects=False,
             redirected_url='http://localhost/.well-known/webfinger?resource=acct:y.z@y.z')
         bad_hcard = requests_response(
-            '<html><body><a class="h-card u-url" href="https://a.b/">me</a></body></html>',
+            '<html><body><a class="h-card u-url" href="https://a.b/">acct:me@y.z</a></body></html>',
             url='https://y.z/',
         )
         mock_get.side_effect = [full_redir, bad_hcard]
-        check(True, False)
+        check(True, False, None)
 
         # both work
-        hcard = requests_response(
-            '<html><body><a class="h-card u-url" href="/">me</a></body></html>',
+        hcard = requests_response("""
+<html><body class="h-card">
+  <a class="u-url p-name" href="/">me</a>
+  <a class="u-url" href="acct:myself@y.z">Masto</a>
+</body></html>""",
             url='https://y.z/',
         )
         mock_get.side_effect = [full_redir, hcard]
-        check(True, True)
+        check(True, True, {
+            'type': 'Person',
+            'name': 'me',
+            'url': 'http://localhost/r/https://y.z/',
+            'preferredUsername': 'myself',
+        })
 
         # reset
         mock_get.side_effect = [empty, empty]
-        check(False, False)
+        check(False, False, None)
 
 
 class ActivityTest(testutil.TestCase):
