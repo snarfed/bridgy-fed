@@ -295,17 +295,20 @@ button[disabled]:hover {
   white-space: normal;
 }
 
-.btn-default {
+.btn-default, .btn-home {
   background-color: #CEF;
   border-color: #337AB7;
   color: #337AB7;
-  margin-bottom: 1em;
 }
 
-.btn-default:hover {
+.btn-default:hover, .btn-home:hover {
   background-color: #BDE;
   border-color: #337AB7;
   color: #337AB7;
+}
+
+.btn-home {
+  margin-bottom: 1em;
 }
 
 .btn-default pre {
@@ -388,6 +391,10 @@ input[type="text"], input[type="url"] {
   padding-right: .3em;
   border: 1px solid black;
   font-size: 1em;
+}
+
+input[type="submit"] {
+  font-size: .75em;
 }
 
 #sent pre {
