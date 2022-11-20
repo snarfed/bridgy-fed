@@ -2,6 +2,7 @@
 import calendar
 import datetime
 from itertools import islice
+import logging
 import re
 import urllib.parse
 
@@ -18,6 +19,8 @@ from models import Follower, User, Activity
 
 PAGE_SIZE = 20
 FOLLOWERS_UI_LIMIT = 999
+
+logger = logging.getLogger(__name__)
 
 
 @app.route('/')
@@ -54,6 +57,7 @@ def check_web_site():
         if util.is_connection_failure(e):
             flash(f"Couldn't connect to {url}")
             return render_template('enter_web_site.html')
+        raise
 
     user.put()
     return redirect(f'/user/{domain}')

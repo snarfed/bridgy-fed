@@ -95,9 +95,11 @@ class User(StringIdModel):
         try:
             resp = common.requests_get(urllib.parse.urljoin(site, path),
                                        allow_redirects=False, gateway=False)
-            expected = urllib.parse.urljoin(request.host_url, path)
+            domain_urls = ([f'https://{domain}/' for domain in common.DOMAINS] +
+                           [request.host_url])
+            expected = [urllib.parse.urljoin(url, path) for url in domain_urls]
             self.has_redirects = (resp.is_redirect and
-                                  resp.headers.get('Location') == expected)
+                                  resp.headers.get('Location') in expected)
         except requests.RequestException:
             self.has_redirects = False
 
