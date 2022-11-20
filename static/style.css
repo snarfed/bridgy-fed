@@ -7,17 +7,6 @@
   z-index: 1;
 }
 
-#fedsocnet-logos {
-  padding-left: 0;
-  margin-right: 15px;
-  max-width: 80px;
-  z-index: 1;
-}
-
-#fedsocnet-logos img {
-  min-width: 30px;
-}
-
 #messages {
   position: fixed;
   width: 100%;
