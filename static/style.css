@@ -64,6 +64,10 @@
   font-size: 1.5em;
 }
 
+.bigger {
+  font-size: 2.25em;
+}
+
 .small {
   font-size: .8em;
 }
@@ -287,16 +291,15 @@ button[disabled]:hover {
   vertical-align: middle;
 }
 
+.btn {
+  white-space: normal;
+}
+
 .btn-default {
   background-color: #CEF;
   border-color: #337AB7;
   color: #337AB7;
   margin-bottom: 1em;
-  padding-top: .5em;
-  padding-bottom: .5em;
-  padding-left: 1em;
-  padding-right: 1em;
-  border-radius: 10px;
 }
 
 .btn-default:hover {
@@ -308,6 +311,14 @@ button[disabled]:hover {
 .btn-default pre {
   background-color: transparent;
   border: none;
+}
+
+.btn-home {
+  border-radius: 1em;
+}
+
+.btn-home img {
+  height: 1em;
 }
 
 .highlight {
