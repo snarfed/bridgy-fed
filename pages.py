@@ -43,7 +43,7 @@ def enter_web_site():
 @app.post('/web-site')
 def check_web_site():
     url = request.values['url']
-    domain = util.domain_from_link(url)
+    domain = util.domain_from_link(url, minimize=False)
     if not domain:
         error(f'No domain found in {url}')
 
