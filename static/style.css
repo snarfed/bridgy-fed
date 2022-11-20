@@ -68,6 +68,16 @@
   font-size: .8em;
 }
 
+#header br {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  #header br {
+    display: inline;
+  }
+}
+
 #header {
   float: none;
   width: 100%;
@@ -100,6 +110,7 @@ pre .value, code .value, code.value {
 
 .row {
   text-align: center;
+  margin-bottom: 1em;
 }
 
 #blogposts, #publishes, #webmentions, #user {
@@ -280,12 +291,29 @@ button[disabled]:hover {
   background-color: #CEF;
   border-color: #337AB7;
   color: #337AB7;
+  margin-bottom: 1em;
+  padding-top: .5em;
+  padding-bottom: .5em;
+  padding-left: 1em;
+  padding-right: 1em;
+  border-radius: 10px;
 }
 
 .btn-default:hover {
   background-color: #BDE;
   border-color: #337AB7;
   color: #337AB7;
+}
+
+.btn-default pre {
+  background-color: transparent;
+  border: none;
+}
+
+.highlight {
+  background-color: lightgreen;
+  padding: .2em;
+  border-radius: .5em;
 }
 
 .disable-button, #bad-button {
