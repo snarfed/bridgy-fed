@@ -8,6 +8,7 @@ import re
 
 from flask import request
 from google.cloud import ndb
+from google.cloud.ndb import OR
 from granary import as2
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
@@ -123,23 +124,26 @@ def inbox(domain=None):
         undo_follow(redirect_unwrap(activity))
         return ''
     elif type == 'Delete':
-        id = obj.get('id')
+        # we currently only actually delete followers for Deletes that are sent
+        # to the shared inbox, not individual users' inboxes, to help scaling
+        # background: https://github.com/snarfed/bridgy-fed/issues/284
+        if domain:
+            logger.info('Skipping Delete sent to individual user inbox')
+            return 'OK'
 
-        # !!! temporarily disabled actually deleting Followers below because
-        # mastodon.social sends Deletes for every Bridgy Fed account, all at
-        # basically the same time, and we have many Follower objects, so we
-        # have to do this table scan for each one, so the requests take a
-        # long time and end up spawning extra App Engine instances that we
-        # get billed for. and the Delete requests are almost never for
-        # followers we have. TODO: revisit this and do it right.
-
-        # if isinstance(id, str):
-        #     # assume this is an actor
-        #     # https://github.com/snarfed/bridgy-fed/issues/63
-        #     for key in Follower.query().iter(keys_only=True):
-        #         if key.id().split(' ')[-1] == id:
-        #             key.delete()
-        return ''
+        id = obj.get('id') if isinstance(obj, dict) else obj
+        if not isinstance(id, str):
+            error("Couldn't find id of object to delete")
+            # assume this is an actor
+            # https://github.com/snarfed/bridgy-fed/issues/63
+        logger.info(f'Deactivating Followers with src or dest = {id}')
+        followers = Follower.query(OR(Follower.src == id,
+                                      Follower.dest == id)
+                                   ).fetch()
+        for f in followers:
+            f.status = 'inactive'
+        ndb.put_multi(followers)
+        return 'OK'
 
     # fetch actor if necessary so we have name, profile photo, etc
     actor = activity.get('actor')

@@ -461,18 +461,34 @@ class ActivityPubTest(testutil.TestCase):
         })
         self.assertEqual(501, got.status_code)
 
-    def test_inbox_delete_actor(self, mock_head, mock_get, mock_post):
+    def test_individual_inbox_delete_actor_noop(self, mock_head, mock_get, mock_post):
+        """Deletes sent to individual users' inboxes do nothing."""
         follower = Follower.get_or_create('realize.be', DELETE['actor'])
-        Follower.get_or_create('snarfed.org', DELETE['actor'])
+        followee = Follower.get_or_create(DELETE['actor'], 'snarfed.org')
         # other unrelated follower
         other = Follower.get_or_create('realize.be', 'https://mas.to/users/other')
         self.assertEqual(3, Follower.query().count())
 
         got = self.client.post('/realize.be/inbox', json=DELETE)
         self.assertEqual(200, got.status_code)
+        self.assertEqual('active', follower.key.get().status)
+        self.assertEqual('active', followee.key.get().status)
+        self.assertEqual('active', other.key.get().status)
 
-        # TODO: bring back once we actually delete followers
-        # self.assertEqual([other], Follower.query().fetch())
+    def test_shared_inbox_delete_actor(self, mock_head, mock_get, mock_post):
+        """Deletes sent to the shared inbox actually deactivate followers."""
+        follower = Follower.get_or_create('realize.be', DELETE['actor'])
+        followee = Follower.get_or_create(DELETE['actor'], 'snarfed.org')
+        # other unrelated follower
+        other = Follower.get_or_create('realize.be', 'https://mas.to/users/other')
+        self.assertEqual(3, Follower.query().count())
+
+        got = self.client.post('/inbox', json=DELETE)
+        self.assertEqual(200, got.status_code)
+        self.assertEqual('inactive', follower.key.get().status)
+        self.assertEqual('inactive', followee.key.get().status)
+        self.assertEqual('active', other.key.get().status)
+
 
     def test_inbox_webmention_discovery_connection_fails(self, mock_head,
                                                          mock_get, mock_post):
