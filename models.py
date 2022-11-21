@@ -9,6 +9,7 @@ from Crypto.PublicKey import RSA
 from django_salmon import magicsigs
 from flask import request
 from google.cloud import ndb
+from granary import as2, microformats2
 from oauth_dropins.webutil.models import StringIdModel
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
@@ -166,6 +167,18 @@ class Activity(StringIdModel):
                 'source': source,
                 'target': target,
             })
+
+    def to_as1(self):
+        """Returns this activity as an ActivityStreams 1 dict, if available."""
+        if self.source_mf2:
+            mf2 = json_loads(self.source_mf2)
+            items = mf2.get('items')
+            if items:
+                return microformats2.json_to_object(items[0])
+        if self.source_as2:
+            return as2.to_as1(json_loads(self.source_as2))
+        if self.source_atom:
+            return atom.atom_to_activity(self.source_atom)
 
     @classmethod
     def _id(cls, source, target):

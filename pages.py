@@ -78,7 +78,7 @@ def user(domain):
         Activity.status.IN(('new', 'complete', 'error')),
         Activity.domain == domain,
     )
-    activities, before, after = fetch_page(query, Activity)
+    activities, before, after = fetch_activities(query)
 
     followers = Follower.query(Follower.dest == domain)\
                         .count(limit=FOLLOWERS_UI_LIMIT)
@@ -190,9 +190,10 @@ def recent_deprecated():
 def recent():
     """Renders recent activities, with links to logs."""
     query = Activity.query(Activity.status.IN(('new', 'complete', 'error')))
-    activities, before, after = fetch_page(query, Activity)
+    activities, before, after = fetch_activities(query)
     return render_template(
         'recent.html',
+        show_domains=True,
         logs=logs,
         util=util,
         **locals(),
@@ -240,7 +241,8 @@ def fetch_page(query, model_class):
         query = query.order(-model_class.updated)
 
     query_iter = query.iter()
-    results = sorted(islice(query_iter, 0, 20), key=lambda r: r.updated, reverse=True)
+    results = sorted(islice(query_iter, 0, PAGE_SIZE),
+                     key=lambda r: r.updated, reverse=True)
 
     # calculate new paging param(s)
     has_next = results and query_iter.probably_has_next()
@@ -259,6 +261,72 @@ def fetch_page(query, model_class):
         new_before = new_before.isoformat()
 
     return results, new_before, new_after
+
+
+def fetch_activities(query):
+    """Fetches a page of Activity entities from a datastore query.
+
+    Wraps :func:`fetch_page` and adds attributes to the returned Activity
+    entities for rendering in activities.html.
+
+    Args:
+      query: :class:`ndb.Query`
+
+    Returns:
+      (results, new_before, new_after) tuple with:
+      results: list of Activity entities
+      new_before, new_after: str query param values for `before` and `after`
+        to fetch the previous and next pages, respectively
+    """
+    activities, new_before, new_after = fetch_page(query, Activity)
+
+    # synthesize human-friendly content for activities
+    for activity in activities:
+        a = activity.to_as1()
+        verb = a.get('verb') or a.get('objectType')
+        obj = a.get('object') or {}
+
+        actor = a.get('actor') or a.get('author') or {}
+        activity.actor_url = actor.get('url')
+        activity.actor_name = (actor.get('displayName') or
+                               util.pretty_link(activity.actor_url) or
+                               '-')
+        activity.actor_image = util.get_url(actor, 'image')
+
+        phrases = {
+            'article': 'posted',
+            'note': 'posted',
+            'post': 'posted',
+            'comment': 'replied',
+            'like': 'liked',
+            'follow': 'followed',
+            'repost': 'reposted',
+            'share': 'reposted',
+            'rsvp-yes': 'is attending',
+            'rsvp-no': 'is not attending',
+            'rsvp-maybe': 'might attend',
+            'rsvp-interested': 'is interested in',
+            'invite': 'is invited to',
+        }
+        activity.phrase = phrases.get(verb)
+
+        obj_content = obj.get('content') or obj.get('displayName')
+        obj_url = obj.get('url')
+        if obj_url:
+            obj_content = util.pretty_link(obj_url, text=obj_content)
+
+        activity.content = a.get('content') or a.get('displayName')
+        activity.url = a.get('url')
+
+        if (verb in ('like', 'follow', 'repost', 'share') or
+            not activity.content):
+            if activity.url:
+                activity.phrase = util.pretty_link(activity.url, text=activity.phrase)
+            if obj_content:
+                activity.content = obj_content
+                activity.url = obj_url
+
+    return activities, new_before, new_after
 
 
 @app.get('/stats')

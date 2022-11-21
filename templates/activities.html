@@ -1,13 +1,39 @@
-<br>
+<div class="row">
+<ul class="user-items">
 
 {% for a in activities %}
-<div class="row">
-  <div class="col-sm-5">{{ util.pretty_link(a.source())|safe }}</div>
-  <div class="col-sm-4">
-    {% set target = a.target() %}
-    {{ (util.pretty_link(target) if target.startswith('http') else target)|safe }}
+<li class="row">
+  <div class="col-sm-{{ 8 if show_domains else 10 }}">
+    <a target="_blank" href="{{ a.actor_url }}" title="{{ a.actor_name|striptags }}">
+      {% if a.actor_image %}
+        <img class="profile" src="{{ a.actor_image }}" width="32" />
+      {% endif %}
+      {{ a.actor_name|striptags|truncate(30) }}
+    </a>
+    {{ a.phrase|safe }}
+    <a target="_blank" href="{{ a.url }}">
+      {{ a.content|default('--', true)|striptags|truncate(60) }}
+    </a>
   </div>
-  <div class="col-sm-3">
+
+  {% if show_domains %}
+  <div class="col-sm-2">
+    {% for domain in a.domain %}
+      {% if loop.index0 == 3 %}
+        <span id="more-domains" style="display: none">
+      {% endif %}
+      <a href="/user/{{ domain }}">🌐 {{ domain }}</a>
+      <br>
+    {% endfor %}
+    {% if a.domain|length > 3 %}
+      </span>
+      <a onclick="toggle('more-domains'); toggle('show-more-domains'); return false"
+         id="show-more-domains" href="#" />...</a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="col-sm-2">
     {% if a.status == 'error' %}
      <span title="Error" class="glyphicon glyphicon-exclamation-sign"></span>
     {% else %}{% if a.status == 'new' %}
@@ -15,9 +41,11 @@
     {% endif %}{% endif %}
     {{ logs.maybe_link(a.updated, a.key.id())|safe }}
   </div>
-</div>
+</li>
 {% else %}
-<div class="row">Nothing yet!</div>
+<li class="row">Nothing yet!</li>
 {% endfor %}
+
+</ul>
 
 {% include "paging.html" %}
