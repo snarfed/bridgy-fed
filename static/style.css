@@ -311,8 +311,10 @@ button[disabled]:hover {
 }
 
 .btn-home img, .logo {
-  height: 1em;
+  height: 1.1em;
+  margin-top: -.2em;
 }
+
 
 .highlight {
   background-color: lightgreen;
