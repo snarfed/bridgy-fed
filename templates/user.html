@@ -22,23 +22,25 @@
 {% endif %}
 
 <div class="row">
-  <h2 style="display: inline">
+  <div class="big" style="display: inline">
     <span title="Fediverse address">
-      <img class="logo" src="/static/fediverse_logo.svg"> {{ user.address() }}</span> |
-    <a title="Web site" href="https://{{ domain }}/">🌐 {{ domain }}</a>
-  </h2>
+      <img class="logo" src="/static/fediverse_logo.svg"> {{ user.address() }}</span> &middot;
+    <a title="Web site" href="https://{{ domain }}/">🌐 {{ domain }}
+      <!-- <span style="font-size: .5em;">↗️</span> -->
+    </a>
+  </div>
 </div>
 <div class="row">
-  <h3 style="display: inline">
     <a href="/user/{{ domain }}/followers">{{ followers }} follower{% if followers != '1' %}s{% endif %}</a>
-    | <a href="/user/{{ domain }}/following">following {{ following }}</a>
-    | <a href="/user/{{ domain }}/feed">HTML</a>,
-      <a href="/user/{{ domain }}/feed?format=atom">Atom</a>,
-      <a href="/user/{{ domain }}/feed?format=rss">RSS</a> feeds
-  </h3>
+  &middot; <a href="/user/{{ domain }}/following">following {{ following }}</a>
+  &middot; <a href="/user/{{ domain }}/feed">HTML</a>
+  &middot; <a href="/user/{{ domain }}/feed?format=atom">Atom</a>
+  &middot; <a href="/user/{{ domain }}/feed?format=rss">RSS</a>
+  &middot; <a href="/.well-known/webfinger?resource=acct:{{ domain }}@{{ domain }}">Webfinger</a>
+  &middot; <a href="/{{ domain }}">ActivityPub</a>
 </div>
 
-<h3 class="row">Recent activity</h3>
+<!-- <div class="row">Recent activity</div> -->
 
 {% include "activities.html" %}
 

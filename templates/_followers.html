@@ -1,14 +1,17 @@
-<br>
-
 <div class="row">
+<ul class="user-items">
+
 {% for f in followers %}
-  <a class="follower col-xs-6 col-sm-4" href="{{ f.url }}" title="{{ f.handle }}">
+<li class="row">
+  <a class="follower col-xs-12 col-sm-6 big" href="{{ f.url }}" title="{{ f.handle }}">
     <img class="profile u-photo" src="{{ f.picture }}" width="48px">
-    {{ util.ellipsize(f.handle, chars=25) }}
+    {{ util.ellipsize(f.handle, chars=40) }}
   </a>
+</li>
 {% else %}
-  None
+  None yet. Check back soon!
 {% endfor %}
-</div>
+
+</ul>
 
 {% include "paging.html" %}

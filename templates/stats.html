@@ -1,12 +1,9 @@
-<!DOCTYPE html>
-<html>
-<head>
-<title>Bridgy Fed: Stats</title>
-</head>
+{% extends "base.html" %}
 
-<body>
-<main class="tp-main lead container">
-<h1>Bridgy Fed</h1>
+{% block title %}Stats - Bridgy Fed{% endblock %}
+
+{% block content %}
+
 <h3>Stats</h3>
 <ul>
 <li><a href="https://snarfed.org/2017-10-22_bridgy-fed">Launched Octover 17, 2022</a>
@@ -14,6 +11,6 @@
 <li>{{ followers }} fediverse followers</li>
 <li>{{ activities }} activities handled</li>
 </ul>
-</main>
-</body>
-</html>
+</h3>
+
+{% endblock %}

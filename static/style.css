@@ -1,10 +1,5 @@
 #intro {
   margin-top: 2em;
-  z-index: -1;
-}
-
-#logos {
-  z-index: 1;
 }
 
 #messages {
@@ -187,7 +182,13 @@ form input {
   .user-items > .row > .col-sm-1,
   .user-items > .row > .col-sm-2,
   .user-items > .row > .col-sm-3,
-  .user-items > .row > .col-sm-4 {
+  .user-items > .row > .col-sm-4,
+  .user-items > .row > .col-sm-5,
+  .user-items > .row > .col-sm-6,
+  .user-items > .row > .col-sm-7,
+  .user-items > .row > .col-sm-8,
+  .user-items > .row > .col-sm-9,
+  .user-items > .row > .col-sm-10 {
     display: table-cell;
     float: none;
     text-align: left;
@@ -219,7 +220,7 @@ form input {
 /* .glyphicon-warning-sign { color: gold; } */
 .glyphicon-ok-sign { color: green; }
 .glyphicon-exclamation-sign { color: gold; }
-.glyphicon-pause { color: gold`; }
+.glyphicon-pause { color: gold; }
 .glyphicon-refresh { color: blue; }
 .glyphicon-remove { color: red !important; }
 .glyphicon-transfer { color: blue; }
@@ -465,9 +466,4 @@ iframe {
   width: 50%;
   border: 1px solid gray;
   height: 300px;
-}
-
-.follower {
-  text-align: left;
-  margin-top: .5em;
 }
