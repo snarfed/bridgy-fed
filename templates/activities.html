@@ -3,7 +3,7 @@
 
 {% for a in activities %}
 <li class="row">
-  <div class="col-sm-{{ 8 if show_domains else 10 }}">
+  <div class="col-sm-{{ 7 if show_domains else 10 }}">
     <a target="_blank" href="{{ a.actor_url }}" title="{{ a.actor_name|striptags }}">
       {% if a.actor_image %}
         <img class="profile" src="{{ a.actor_image }}" width="32" />
@@ -12,12 +12,12 @@
     </a>
     {{ a.phrase|safe }}
     <a target="_blank" href="{{ a.url }}">
-      {{ a.content|default('--', true)|striptags|truncate(60) }}
+      {{ a.content|default('--', true)|striptags|truncate(50) }}
     </a>
   </div>
 
   {% if show_domains %}
-  <div class="col-sm-2">
+  <div class="col-sm-3">
     {% for domain in a.domain %}
       {% if loop.index0 == 3 %}
         <span id="more-domains" style="display: none">

@@ -18,6 +18,7 @@ import common
 from models import Follower, User, Activity
 
 PAGE_SIZE = 20
+ACTIVITIES_FETCH_LIMIT = 200
 FOLLOWERS_UI_LIMIT = 999
 
 logger = logging.getLogger(__name__)
@@ -278,11 +279,22 @@ def fetch_activities(query):
       new_before, new_after: str query param values for `before` and `after`
         to fetch the previous and next pages, respectively
     """
-    activities, new_before, new_after = fetch_page(query, Activity)
+    orig_activities, new_before, new_after = fetch_page(query, Activity)
+    activities = []
+    seen = set()
 
     # synthesize human-friendly content for activities
-    for activity in activities:
+    for i, activity in enumerate(orig_activities):
         a = activity.to_as1()
+
+        # de-dupe
+        ids = set((a[field] for field in ('id', 'url') if a.get(field)))
+        if ids & seen:
+            continue
+        seen.update(ids)
+        activities.append(activity)
+
+        # synthesize text snippet
         verb = a.get('verb') or a.get('objectType')
         obj = a.get('object') or {}
 
