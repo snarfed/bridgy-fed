@@ -131,7 +131,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 </li>
 
 <li id="nginx"><em><a href="https://nginx.org/">nginx</a></em>: add this to your <code>nginx.conf</code> file, in the <code>server</code> section:<br />
-  <pre>rewrite ^/.well-known/(host-meta|webfinger).* https://fed.brid.gy$request_uri redirect;</pre>
+  <pre>rewrite ^/\.well-known/(host-meta|webfinger).* https://fed.brid.gy$request_uri redirect;</pre>
 </li>
 
 <!--
