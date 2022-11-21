@@ -4,12 +4,16 @@
 {% for a in activities %}
 <li class="row">
   <div class="col-sm-{{ 7 if show_domains else 10 }}">
+    {% if a.actor_url %}
     <a target="_blank" href="{{ a.actor_url }}" title="{{ a.actor_name|striptags }}">
+    {% endif %}
       {% if a.actor_image %}
         <img class="profile" src="{{ a.actor_image }}" width="32" />
       {% endif %}
       {{ a.actor_name|striptags|truncate(30) }}
+    {% if a.actor_url %}
     </a>
+    {% endif %}
     {{ a.phrase|safe }}
     <a target="_blank" href="{{ a.url }}">
       {{ a.content|default('--', true)|striptags|truncate(50) }}

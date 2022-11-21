@@ -296,13 +296,13 @@ def fetch_activities(query):
 
         # synthesize text snippet
         verb = a.get('verb') or a.get('objectType')
-        obj = a.get('object') or {}
+        obj = util.get_first(a, 'object') or {}
 
-        actor = a.get('actor') or a.get('author') or {}
-        activity.actor_url = actor.get('url')
+        actor = util.get_first(a, 'actor') or util.get_first(a, 'author') or {}
+        activity.actor_url = util.get_first(actor, 'url')
         activity.actor_name = (actor.get('displayName') or
-                               util.pretty_link(activity.actor_url) or
-                               '-')
+                               (util.pretty_link(activity.actor_url) if activity.actor_url
+                                else '-'))
         activity.actor_image = util.get_url(actor, 'image')
 
         phrases = {
@@ -323,12 +323,12 @@ def fetch_activities(query):
         activity.phrase = phrases.get(verb)
 
         obj_content = obj.get('content') or obj.get('displayName')
-        obj_url = obj.get('url')
+        obj_url = util.get_first(obj, 'url')
         if obj_url:
             obj_content = util.pretty_link(obj_url, text=obj_content)
 
         activity.content = a.get('content') or a.get('displayName')
-        activity.url = a.get('url')
+        activity.url = util.get_first(a, 'url')
 
         if (verb in ('like', 'follow', 'repost', 'share') or
             not activity.content):
