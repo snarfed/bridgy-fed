@@ -3,7 +3,7 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from granary import as2, atom, microformats2, rss
 
-from models import Follower, Activity
+from models import Activity, Follower, User
 from . import testutil
 from .test_activitypub import LIKE, MENTION, NOTE, REPLY
 
@@ -13,8 +13,11 @@ def contents(activities):
 
 
 class PagesTest(testutil.TestCase):
-
     EXPECTED = contents([as2.to_as1(REPLY), as2.to_as1(NOTE)])
+
+    def setUp(self):
+        super().setUp()
+        User.get_or_create('foo.com')
 
     @staticmethod
     def add_activities():
@@ -33,6 +36,22 @@ class PagesTest(testutil.TestCase):
         # skip Likes
         Activity(id='f', domain=['foo.com'], direction='in',
                  source_as2=json_dumps(LIKE)).put()
+
+    def test_user_user_not_found(self):
+        got = self.client.get('/user/bar.com')
+        self.assert_equals(404, got.status_code)
+
+    def test_followers_user_not_found(self):
+        got = self.client.get('/user/bar.com/followers')
+        self.assert_equals(404, got.status_code)
+
+    def test_following_user_not_found(self):
+        got = self.client.get('/user/bar.com/following')
+        self.assert_equals(404, got.status_code)
+
+    def test_feed_user_not_found(self):
+        got = self.client.get('/user/bar.com/feed')
+        self.assert_equals(404, got.status_code)
 
     def test_feed_html_empty(self):
         got = self.client.get('/user/foo.com/feed')

@@ -4,9 +4,9 @@
 
 {% block content %}
 
-<h2 class="row">
-  <a href="/user/{{ domain }}">🌐 {{ domain }}</a>'s feed
-</h2>
+{% include "user_addresses.html" %}
+
+<div class="row big">Feed</div>
 
 <link rel="stylesheet" href="/static/feed.css" type="text/css" />
 <div class="row h-feed">

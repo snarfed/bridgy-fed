@@ -100,7 +100,7 @@ def user(domain):
 @app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>/followers')
 def followers(domain):
     # unify with following
-    if not User.get_by_id(domain):
+    if not (user := User.get_by_id(domain)):
       return render_template('user_not_found.html', domain=domain), 404
 
     query = Follower.query(
@@ -127,7 +127,7 @@ def followers(domain):
 
 @app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>/following')
 def following(domain):
-    if not User.get_by_id(domain):
+    if not (user := User.get_by_id(domain)):
       return render_template('user_not_found.html', domain=domain), 404
 
     query = Follower.query(
@@ -153,6 +153,9 @@ def feed(domain):
     if format not in ('html', 'atom', 'rss'):
         error(f'format {format} not supported; expected html, atom, or rss')
 
+    if not (user := User.get_by_id(domain)):
+      return render_template('user_not_found.html', domain=domain), 404
+
     as2_activities, _, _ = Activity.query(
         Activity.domain == domain, Activity.direction == 'in'
         ).order(-Activity.created
@@ -171,7 +174,7 @@ def feed(domain):
 
     if format == 'html':
         entries = [microformats2.object_to_html(a) for a in as1_activities]
-        return render_template('feed.html', **locals())
+        return render_template('feed.html', util=util, **locals())
     elif format == 'atom':
         body = atom.activities_to_atom(as1_activities, actor=actor, title=title,
                                        request_url=request.url)

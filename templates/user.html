@@ -21,15 +21,8 @@
 </div>
 {% endif %}
 
-<div class="row">
-  <div class="big" style="display: inline">
-    <span title="Fediverse address">
-      <img class="logo" src="/static/fediverse_logo.svg"> {{ user.address() }}</span> &middot;
-    <a title="Web site" href="https://{{ domain }}/">🌐 {{ domain }}
-      <!-- <span style="font-size: .5em;">↗️</span> -->
-    </a>
-  </div>
-</div>
+{% include "user_addresses.html" %}
+
 <div class="row">
     <a href="/user/{{ domain }}/followers">{{ followers }} follower{% if followers != '1' %}s{% endif %}</a>
   &middot; <a href="/user/{{ domain }}/following">following {{ following }}</a>

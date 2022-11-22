@@ -4,9 +4,9 @@
 
 {% block content %}
 
-<div class="row big">
-  <a href="/user/{{ domain }}">🌐 {{ domain }}</a>'s followers:
-</div>
+{% include "user_addresses.html" %}
+
+<div class="row big">Followers</div>
 
 {% include "_followers.html" %}
 
