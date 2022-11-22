@@ -3,9 +3,12 @@
 
 {% for f in followers %}
 <li class="row">
-  <a class="follower col-xs-12 col-sm-6 big" href="{{ f.url }}" title="{{ f.handle }}">
-    <img class="profile u-photo" src="{{ f.picture }}" width="48px">
-    {{ util.ellipsize(f.handle, chars=40) }}
+  <a class="follower col-xs-12 col-sm-6 col-lg-6" href="{{ f.url }}">
+    {% if f.picture %}
+      <img class="profile u-photo" src="{{ f.picture }}" width="48px">
+    {% endif %}
+    {{  f.name or '' }}
+    {{ f.handle }}
   </a>
 </li>
 {% else %}

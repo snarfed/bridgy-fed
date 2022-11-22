@@ -116,7 +116,10 @@ def followers(domain):
         f.handle = re.sub(r'^https?://(.+)/(users/|@)(.+)$', r'@\3@\1', f.src)
         if f.last_follow:
             last_follow = json_loads(f.last_follow)
-            f.picture = last_follow.get('actor', {}).get('icon', {}).get('url')
+            print('@', last_follow)
+            actor = last_follow.get('actor', {})
+            f.name = actor.get('name') or ''
+            f.picture = actor.get('icon', {}).get('url')
 
     return render_template(
         'followers.html',
