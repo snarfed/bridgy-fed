@@ -103,7 +103,7 @@ class UserTest(testutil.TestCase):
             'type': 'Person',
             'name': 'me',
             'url': 'http://localhost/r/https://y.z/',
-            'preferredUsername': 'myself',
+            'preferredUsername': 'y.z',
         })
 
         # reset

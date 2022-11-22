@@ -389,6 +389,8 @@ def postprocess_as2_actor(actor, user=None):
     actor.setdefault('id', request.host_url + domain)
     actor.update({
         'url': redirect_wrap(url),
+        # This has to be the domain for Mastodon interop/Webfinger discovery!
+        # See related comment in actor() below.
         'preferredUsername': domain,
     })
 
@@ -481,7 +483,12 @@ def actor(domain, user=None):
     username = common.get_username(domain, urls)
     actor.update({
         'id': f'{request.host_url}{domain}',
-        'preferredUsername': username,
+        # This has to be the domain for Mastodon etc interop! It seems like it
+        # should be the custom username from the acct: u-url in their h-card,
+        # but that breaks Mastodon's Webfinger discovery. Background:
+        # https://github.com/snarfed/bridgy-fed/issues/302#issuecomment-1324305460
+        # https://github.com/snarfed/bridgy-fed/issues/77
+        'preferredUsername': domain,
         'inbox': f'{request.host_url}{domain}/inbox',
         'outbox': f'{request.host_url}{domain}/outbox',
         'following': f'{request.host_url}{domain}/following',
