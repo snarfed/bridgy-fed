@@ -520,3 +520,78 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('in', activity.direction)
         self.assertEqual('activitypub', activity.protocol)
         self.assertEqual('ignored', activity.status)
+
+    def test_followers_collection_unknown_user(self, *args):
+        resp = self.client.get('/foo.com/followers')
+        self.assertEqual(404, resp.status_code)
+
+    def test_followers_collection(self, *args):
+        User.get_or_create('foo.com')
+
+        resp = self.client.get('/foo.com/followers')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'summary': "foo.com's followers",
+            'type': 'Collection',
+            'totalItems': 0,
+            'items': [],
+        }, resp.json)
+
+        Follower.get_or_create('foo.com', 'bar.com')
+        Follower.get_or_create('http://other/actor', 'foo.com')
+        Follower.get_or_create('foo.com', 'baz.com')
+        Follower.get_or_create('foo.com', 'baj.com', status='inactive')
+
+        resp = self.client.get('/foo.com/followers')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'summary': "foo.com's followers",
+            'type': 'Collection',
+            'totalItems': 2,
+            'items': [],
+# TODO
+# {
+#                 'type': 'Create',
+#                 'actor': 'http://www.test.example/sally',
+#                 'object': 'http://example.org/foo',
+#             },
+#             {
+#                 'type': 'Like',
+#                 'actor': 'http://www.test.example/joe',
+#                 'object': 'http://example.org/foo',
+#             }],
+        }, resp.json)
+
+    def test_following_collection_unknown_user(self, *args):
+        resp = self.client.get('/foo.com/following')
+        self.assertEqual(404, resp.status_code)
+
+    def test_following_collection(self, *args):
+        User.get_or_create('foo.com')
+
+        resp = self.client.get('/foo.com/following')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'summary': "foo.com's following",
+            'type': 'Collection',
+            'totalItems': 0,
+            'items': [],
+        }, resp.json)
+
+        Follower.get_or_create('bar.com', 'foo.com')
+        Follower.get_or_create('foo.com', 'http://other/actor')
+        Follower.get_or_create('baz.com', 'foo.com')
+        Follower.get_or_create('baj.com', 'foo.com', status='inactive')
+
+        resp = self.client.get('/foo.com/following')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'summary': "foo.com's following",
+            'type': 'Collection',
+            'totalItems': 2,
+            'items': [],
+        }, resp.json)

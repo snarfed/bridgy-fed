@@ -99,8 +99,6 @@ def user(domain):
 
 @app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>/followers')
 def followers(domain):
-    # TODO:
-    # pull more info from last_follow, eg name, profile picture, url
     # unify with following
     if not User.get_by_id(domain):
       return render_template('user_not_found.html', domain=domain), 404
@@ -116,7 +114,6 @@ def followers(domain):
         f.handle = re.sub(r'^https?://(.+)/(users/|@)(.+)$', r'@\3@\1', f.src)
         if f.last_follow:
             last_follow = json_loads(f.last_follow)
-            print('@', last_follow)
             actor = last_follow.get('actor', {})
             f.name = actor.get('name') or ''
             f.picture = actor.get('icon', {}).get('url')

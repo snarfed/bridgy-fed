@@ -259,3 +259,62 @@ def undo_follow(undo_unwrapped):
         logger.warning(f'No Follower found for {user_domain} {follower}')
 
     # TODO send webmention with 410 of u-follow
+
+
+# TODO: unify with following_collection
+@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/followers')
+@flask_util.cached(cache, CACHE_TIME)
+def followers_collection(domain):
+    """ActivityPub Followers collection.
+
+    https://www.w3.org/TR/activitypub/#followers
+    https://www.w3.org/TR/activitypub/#collections
+    https://www.w3.org/TR/activitystreams-core/#paging
+    """
+    if not User.get_by_id(domain):
+        return f'User {domain} not found', 404
+
+    logger.info(f"Counting {domain}'s followers")
+    count = Follower.query(
+        Follower.status == 'active',
+        Follower.dest == domain,
+    ).count()
+
+    ret = {
+        '@context': 'https://www.w3.org/ns/activitystreams',
+        'summary': f"{domain}'s followers",
+        'type': 'Collection',
+        'totalItems': count,
+        'items': [],  # TODO
+    }
+    logger.info(f'Returning {json_dumps(ret, indent=2)}')
+    return ret
+
+
+@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/following')
+@flask_util.cached(cache, CACHE_TIME)
+def following_collection(domain):
+    """ActivityPub Following collection.
+
+    https://www.w3.org/TR/activitypub/#following
+    https://www.w3.org/TR/activitypub/#collections
+    https://www.w3.org/TR/activitystreams-core/#paging
+    """
+    if not User.get_by_id(domain):
+        return f'User {domain} not found', 404
+
+    logger.info(f"Counting {domain}'s following")
+    count = Follower.query(
+        Follower.status == 'active',
+        Follower.src == domain,
+    ).count()
+
+    ret = {
+        '@context': 'https://www.w3.org/ns/activitystreams',
+        'summary': f"{domain}'s following",
+        'type': 'Collection',
+        'totalItems': count,
+        'items': [],  # TODO
+    }
+    logger.info(f'Returning {json_dumps(ret, indent=2)}')
+    return ret
