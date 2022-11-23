@@ -315,6 +315,13 @@ button[disabled]:hover {
   margin-top: -.2em;
 }
 
+.retry {
+  font-size: 1em !important;
+  font-style: normal;
+  border: none;
+  background-color: transparent;
+  vertical-align: baseline;
+}
 
 .highlight {
   background-color: lightgreen;

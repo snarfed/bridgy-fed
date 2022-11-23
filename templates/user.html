@@ -6,18 +6,25 @@
 
 {% if user.has_redirects == False %}
 <div class="row promo warning">
-<p>Your site isn't serving the <code>.well-known</code> redirects.
-  <a href="/docs#redirect+these+URL+paths">Please set those up!</a>
-</p>
+<form method="post" action="/web-site">
+  <a href="/docs#redirect+these+URL+paths">
+    Set up the <code>/.well-known/</code> redirects.
+  </a>
+  <input type="hidden" name="url" value="https://{{ domain }}" />
+  <input type="submit" class="retry" value="🔄" title="Retry" />
+</form>
 </div>
 {% endif %}
 
 {% if user.has_hcard == False %}
 <div class="row promo warning">
-<p>Your site doesn't have a
-  <a href="https://indieweb.org/representative_h-card">representative h-card</a>.
-  <a href="https://indiewebify.me/validate-h-card/?url=https://{{ domain }}">Check it here!</a>
-</p>
+<form method="post" action="/web-site">
+  <a href="https://indiewebify.me/validate-h-card/?url=https://{{ domain }}">
+    Add a representative h-card.
+  </a>
+  <input type="hidden" name="url" value="https://{{ domain }}" />
+  <input type="submit" class="retry" value="🔄" title="Retry" />
+</form>
 </div>
 {% endif %}
 
