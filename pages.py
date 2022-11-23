@@ -348,8 +348,8 @@ def fetch_activities(query):
 def stats():
    return render_template(
        'stats.html',
-       users=KindStat.query(KindStat.kind_name == 'User').get().count,
-       activities=KindStat.query(KindStat.kind_name == 'Activity').get().count,
+       users=KindStat.query(KindStat.kind_name == 'MagicKey').get().count,
+       activities=KindStat.query(KindStat.kind_name == 'Response').get().count,
        followers=KindStat.query(KindStat.kind_name == 'Follower').get().count,
    )
 
