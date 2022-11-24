@@ -106,19 +106,13 @@ class Webmention(View):
 
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
 
-        if self.source_obj.get('verb') == 'follow':
-            dest_url = self.source_obj.get('object', {}).get('url')
-            if dest_url:
-                Follower.get_or_create(dest=dest_url, src=self.source_domain,
-                                       last_follow=json_dumps(self.source_obj))
-
-        for resp, inbox in targets:
-            target_obj = json_loads(resp.target_as2) if resp.target_as2 else None
+        for activity, inbox in targets:
+            target_obj = json_loads(activity.target_as2) if activity.target_as2 else None
             source_activity = common.postprocess_as2(
                 as2.from_as1(self.source_obj), target=target_obj, user=self.user)
 
-            if resp.status == 'complete':
-                if resp.source_mf2:
+            if activity.status == 'complete':
+                if activity.source_mf2:
                     def content(mf2):
                         items = mf2.get('items')
                         if items:
@@ -126,24 +120,32 @@ class Webmention(View):
                                 items[0].get('properties')
                             ).get('content')
 
-                    orig_content = content(json_loads(resp.source_mf2))
+                    orig_content = content(json_loads(activity.source_mf2))
                     new_content = content(self.source_mf2)
                     if orig_content and new_content and orig_content == new_content:
-                        logger.info(f'Skipping; new content is same as content published before at {resp.updated}')
+                        logger.info(f'Skipping; new content is same as content published before at {activity.updated}')
                         continue
 
                 if source_activity.get('type') == 'Create':
                     source_activity['type'] = 'Update'
 
+            if self.source_obj.get('verb') == 'follow':
+                # prefer AS2 id or url, if available
+                # https://github.com/snarfed/bridgy-fed/issues/307
+                dest = ((target_obj.get('id') or target_obj.get('url')) if target_obj
+                        else self.source_obj.get('object', {}).get('url'))
+                Follower.get_or_create(dest=dest, src=self.source_domain,
+                                       last_follow=json_dumps(self.source_obj))
+
             try:
                 last = common.signed_post(inbox, data=source_activity, user=self.user)
-                resp.status = 'complete'
+                activity.status = 'complete'
                 last_success = last
             except BaseException as e:
                 error = e
-                resp.status = 'error'
+                activity.status = 'error'
 
-            resp.put()
+            activity.put()
 
         # Pass the AP response status code and body through as our response
         if last_success:

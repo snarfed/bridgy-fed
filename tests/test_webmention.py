@@ -802,9 +802,9 @@ class WebmentionTest(testutil.TestCase):
 
         followers = Follower.query().fetch()
         self.assertEqual(1, len(followers))
-        self.assertEqual('http://followee a', followers[0].key.id())
+        self.assertEqual('https://foo.com/about-me a', followers[0].key.id())
         self.assertEqual('a', followers[0].src)
-        self.assertEqual('http://followee', followers[0].dest)
+        self.assertEqual('https://foo.com/about-me', followers[0].dest)
 
     def test_activitypub_follow_fragment(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow_fragment, self.actor]
@@ -840,9 +840,9 @@ class WebmentionTest(testutil.TestCase):
 
         followers = Follower.query().fetch()
         self.assert_equals(1, len(followers))
-        self.assert_equals('http://followee a', followers[0].key.id())
+        self.assert_equals('https://foo.com/about-me a', followers[0].key.id())
         self.assert_equals('a', followers[0].src)
-        self.assert_equals('http://followee', followers[0].dest)
+        self.assert_equals('https://foo.com/about-me', followers[0].dest)
 
     def test_activitypub_error_fragment_missing(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow_fragment]
