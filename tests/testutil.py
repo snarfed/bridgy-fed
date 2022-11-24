@@ -44,9 +44,12 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         return call(url, **kwargs)
 
     def as2_req(self, url, **kwargs):
+        # TODO: these aren't currently getting checked?!
         headers = {
             'Date': 'Wed, 23 Nov 2022 22:29:19 GMT',
             'Host': util.domain_from_link(url, minimize=False),
+            'Content-Type': 'application/activity+json',
+            'Digest': ANY,
             **common.CONNEG_HEADERS_AS2_HTML,
             **kwargs.pop('headers', {}),
         }
@@ -54,7 +57,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
     def assert_req(self, mock, url, **kwargs):
         """Checks a mock requests call."""
-        kwargs.setdefault('headers', {}).setdefault('User-Agent', 'Bridgy Fed (https://fed.brid.gy/)')
+        kwargs.setdefault('headers', {}).setdefault(
+            'User-Agent', 'Bridgy Fed (https://fed.brid.gy/)')
         kwargs.setdefault('stream', True)
         kwargs.setdefault('timeout', util.HTTP_TIMEOUT)
         mock.assert_any_call(url, **kwargs)
