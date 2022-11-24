@@ -24,6 +24,7 @@ from common import (
     CONTENT_TYPE_ATOM,
     CONTENT_TYPE_HTML,
     CONTENT_TYPE_MAGIC_ENVELOPE,
+    default_signature_user,
 )
 from models import Follower, User, Activity
 import webmention
@@ -68,7 +69,7 @@ REPOST_AS2 = {
 class WebmentionTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
-        self.key = User.get_or_create('a')
+        self.user = User.get_or_create('a')
 
         self.orig_html_as2 = requests_response("""\
 <html>
@@ -309,7 +310,7 @@ class WebmentionTest(testutil.TestCase):
                          kwargs['headers']['Content-Type'])
 
         env = utils.parse_magic_envelope(kwargs['data'])
-        assert magicsigs.verify(env['data'], env['sig'].encode(), key=self.key)
+        assert magicsigs.verify(env['data'], env['sig'].encode(), key=self.user)
 
         return env['data']
 
@@ -426,9 +427,9 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((
             self.req('http://a/reply'),
-            self.req('http://not/fediverse', headers=CONNEG_HEADERS_AS2_HTML),
-            self.req('http://orig/post', headers=CONNEG_HEADERS_AS2_HTML),
-            self.req('http://orig/author', headers=CONNEG_HEADERS_AS2_HTML),
+            self.as2_req('http://not/fediverse'),
+            self.as2_req('http://orig/post'),
+            self.as2_req('http://orig/author'),
         ))
 
         args, kwargs = mock_post.call_args
@@ -439,7 +440,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(CONTENT_TYPE_AS2, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
+        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
 
         activity = Activity.get_by_id('http://a/reply http://orig/as2')
         self.assertEqual(['a'], activity.domain)
@@ -526,9 +527,9 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((
             self.req('http://a/reply'),
-            self.req('http://not/fediverse', headers=CONNEG_HEADERS_AS2_HTML),
-            self.req('http://orig/post', headers=CONNEG_HEADERS_AS2_HTML),
-            self.req('http://orig/author', headers=CONNEG_HEADERS_AS2_HTML),
+            self.as2_req('http://not/fediverse'),
+            self.as2_req('http://orig/post'),
+            self.as2_req('http://orig/author'),
         ))
 
         args, kwargs = mock_post.call_args
@@ -547,8 +548,8 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((
             self.req('http://a/repost'),
-            self.req('http://orig/post', headers=CONNEG_HEADERS_AS2_HTML),
-            self.req('http://orig/author', headers=CONNEG_HEADERS_AS2_HTML),
+            self.as2_req('http://orig/post'),
+            self.as2_req('http://orig/author'),
         ))
 
         args, kwargs = mock_post.call_args
@@ -559,7 +560,13 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(CONTENT_TYPE_AS2, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
+        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
+
+        for args, kwargs in mock_get.call_args_list[1:]:
+            with self.subTest(url=args[0]):
+                rsa_key = kwargs['auth'].header_signer._rsa._key
+                self.assertEqual(default_signature_user().private_pem(),
+                                 rsa_key.exportKey())
 
         activity = Activity.get_by_id('http://a/repost http://orig/as2')
         self.assertEqual(['a'], activity.domain)
@@ -581,10 +588,10 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((
             self.req('http://a/reply'),
-            self.req('http://not/fediverse', headers=CONNEG_HEADERS_AS2_HTML),
-            self.req('http://orig/post', headers=CONNEG_HEADERS_AS2_HTML),
-            self.req('http://orig/as2', headers=CONNEG_HEADERS_AS2),
-            self.req('http://orig/author', headers=CONNEG_HEADERS_AS2_HTML),
+            self.as2_req('http://not/fediverse'),
+            self.as2_req('http://orig/post'),
+            self.req('http://orig/as2', auth=mock.ANY, headers=CONNEG_HEADERS_AS2),
+            self.as2_req('http://orig/author'),
         ))
 
         args, kwargs = mock_post.call_args
@@ -773,7 +780,7 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((
             self.req('http://a/follow'),
-            self.req('http://followee/', headers=CONNEG_HEADERS_AS2_HTML),
+            self.as2_req('http://followee/'),
         ))
 
         args, kwargs = mock_post.call_args
@@ -784,7 +791,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(CONTENT_TYPE_AS2, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
+        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
 
         activity = Activity.get_by_id('http://a/follow http://followee/')
         self.assertEqual(['a'], activity.domain)
@@ -811,7 +818,7 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((
             self.req('http://a/follow#2'),
-            self.req('http://followee/', headers=CONNEG_HEADERS_AS2_HTML),
+            self.as2_req('http://followee/'),
         ))
 
         args, kwargs = mock_post.call_args
@@ -822,7 +829,7 @@ class WebmentionTest(testutil.TestCase):
         self.assert_equals(CONTENT_TYPE_AS2, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assert_equals(self.key.private_pem(), rsa_key.exportKey())
+        self.assert_equals(self.user.private_pem(), rsa_key.exportKey())
 
         activity = Activity.get_by_id('http://a/follow__2 http://followee/')
         self.assert_equals(['a'], activity.domain)
@@ -863,7 +870,7 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((
             self.req('http://a/follow'),
-            self.req('http://followee/', headers=CONNEG_HEADERS_AS2_HTML),
+            self.as2_req('http://followee/'),
         ))
 
         args, kwargs = mock_post.call_args
@@ -874,7 +881,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(CONTENT_TYPE_AS2, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.key.private_pem(), rsa_key.exportKey())
+        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
 
         activity = Activity.get_by_id('http://a/follow http://followee/')
         self.assertEqual(['a'], activity.domain)
@@ -907,8 +914,8 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((
             self.req('http://a/reply'),
-            self.req('http://not/fediverse', headers=CONNEG_HEADERS_AS2_HTML),
-            self.req('http://orig/post', headers=CONNEG_HEADERS_AS2_HTML),
+            self.as2_req('http://not/fediverse'),
+            self.as2_req('http://orig/post'),
             self.req('http://orig/atom'),
         ))
 
@@ -951,7 +958,7 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((
             self.req('http://a/like'),
-            self.req('http://orig/post', headers=CONNEG_HEADERS_AS2_HTML),
+            self.as2_req('http://orig/post'),
             self.req('http://orig/atom'),
         ))
 

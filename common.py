@@ -1,6 +1,9 @@
 # coding=utf-8
 """Misc common utilities.
 """
+from base64 import b64encode
+import datetime
+from hashlib import sha256
 import itertools
 import logging
 import os
@@ -9,6 +12,7 @@ import urllib.parse
 
 from flask import request
 from granary import as2, microformats2
+from httpsig.requests_auth import HTTPSignatureAuth
 import mf2util
 from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.flask_util import error
@@ -72,19 +76,71 @@ DOMAIN_BLOCKLIST = frozenset((
     'twitter.com',
 ) + DOMAINS)
 
+_DEFAULT_SIGNATURE_USER = None
 
-def requests_get(url, **kwargs):
-    return _requests_fn(util.requests_get, url, **kwargs)
-
-
-def requests_post(url, **kwargs):
-    return _requests_fn(util.requests_post, url, **kwargs)
+# alias allows unit tests to mock the function
+utcnow = datetime.datetime.utcnow
 
 
-def _requests_fn(fn, url, parse_json=False, **kwargs):
-    """Wraps requests.* and adds raise_for_status()."""
+def default_signature_user():
+    global _DEFAULT_SIGNATURE_USER
+    if _DEFAULT_SIGNATURE_USER is None:
+        _DEFAULT_SIGNATURE_USER = User.get_or_create('snarfed.org')
+    return _DEFAULT_SIGNATURE_USER
+
+
+def signed_get(url, **kwargs):
+    return signed_request(util.requests_get, url, **kwargs)
+
+
+def signed_post(url, **kwargs):
+    return signed_request(util.requests_post, url, **kwargs)
+
+
+def signed_request(fn, url, data=None, user=None, headers=None, **kwargs):
+    """Wraps requests.* and adds HTTP Signature.
+
+    Args:
+      fn: :func:`util.requests_get` or  :func:`util.requests_get`
+      url: str
+      data: optional AS2 object
+      user: optional :class:`User` to sign request with
+      kwargs: passed through to requests
+
+    Returns: :class:`requests.Response`
+    """
+    if headers is None:
+        headers = {}
+
+    # prepare HTTP Signature and headers
+    if not user:
+        user = default_signature_user()
+
+    if data:
+        data = kwargs['data'] = json_dumps(data).encode()
+
+    headers.update({
+        # required for HTTP Signature
+        # https://tools.ietf.org/html/draft-cavage-http-signatures-07#section-2.1.3
+        'Date': utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT'),
+        # required by Mastodon
+        # https://github.com/tootsuite/mastodon/pull/14556#issuecomment-674077648
+        'Host': util.domain_from_link(url, minimize=False),
+        'Content-Type': common.CONTENT_TYPE_AS2,
+        # required for HTTP Signature and Mastodon
+        'Digest': f'SHA-256={b64encode(sha256(data or b"").digest()).decode()}',
+    })
+
+    domain = user.key.id()
+    logger.info(f"Signing with {domain}'s key")
+    key_id = request.host_url + domain
+    auth = HTTPSignatureAuth(secret=user.private_pem(), key_id=key_id,
+                             algorithm='rsa-sha256', sign_header='signature',
+                             headers=('Date', 'Host', 'Digest'))
+
+    # make HTTP request
     kwargs.setdefault('gateway', True)
-    resp = fn(url, **kwargs)
+    resp = fn(url, auth=auth, headers=headers, **kwargs)
 
     logger.info(f'Got {resp.status_code} headers: {resp.headers}')
     type = content_type(resp)
@@ -92,26 +148,29 @@ def _requests_fn(fn, url, parse_json=False, **kwargs):
         (type.startswith('text/') or type.endswith('+json') or type.endswith('/json'))):
         logger.info(resp.text)
 
-    if parse_json:
-        try:
-            return resp.json()
-        except ValueError:
-            msg = "Couldn't parse response as JSON"
-            logger.info(msg, exc_info=True)
-            raise BadGateway(msg)
-
     return resp
 
 
-def get_as2(url):
+def get_as2(url, user=None):
     """Tries to fetch the given URL as ActivityStreams 2.
 
     Uses HTTP content negotiation via the Content-Type header. If the url is
     HTML and it has a rel-alternate link with an AS2 content type, fetches and
     returns that URL.
 
+    Includes an HTTP Signature with the request.
+    https://w3c.github.io/activitypub/#authorization
+    https://tools.ietf.org/html/draft-cavage-http-signatures-07
+    https://github.com/mastodon/mastodon/pull/11269
+
+    Mastodon requires this signature if AUTHORIZED_FETCH aka secure mode is on:
+    https://docs.joinmastodon.org/admin/config/#authorized_fetch
+
+    If user is not provided, defaults to using @snarfed.org@snarfed.org's key.
+
     Args:
         url: string
+        user: :class:`User` used to sign request
 
     Returns:
         :class:`requests.Response`
@@ -129,7 +188,7 @@ def get_as2(url):
         err.requests_response = resp
         raise err
 
-    resp = requests_get(url, headers=CONNEG_HEADERS_AS2_HTML)
+    resp = signed_get(url, user=user, headers=CONNEG_HEADERS_AS2_HTML)
     if content_type(resp) in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
         return resp
 
@@ -139,8 +198,8 @@ def get_as2(url):
     if not (as2 and as2['href']):
         _error(resp)
 
-    resp = requests_get(urllib.parse.urljoin(resp.url, as2['href']),
-                        headers=CONNEG_HEADERS_AS2)
+    resp = signed_get(urllib.parse.urljoin(resp.url, as2['href']),
+                      headers=CONNEG_HEADERS_AS2)
     if content_type(resp) in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
         return resp
 

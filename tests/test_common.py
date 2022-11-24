@@ -31,12 +31,21 @@ NOT_ACCEPTABLE = requests_response(status=406)
 
 
 class CommonTest(testutil.TestCase):
+    def setUp(self):
+        super().setUp()
+        self.app_context = app.test_request_context('/')
+        self.app_context.push()
+
+    def tearDown(self):
+        self.app_context.pop()
+        super().tearDown()
+
     @mock.patch('requests.get', return_value=AS2)
     def test_get_as2_direct(self, mock_get):
         resp = common.get_as2('http://orig')
         self.assertEqual(AS2, resp)
         mock_get.assert_has_calls((
-            self.req('http://orig', headers=common.CONNEG_HEADERS_AS2_HTML),
+            self.as2_req('http://orig'),
         ))
 
     @mock.patch('requests.get', side_effect=[HTML_WITH_AS2, AS2])
@@ -44,8 +53,8 @@ class CommonTest(testutil.TestCase):
         resp = common.get_as2('http://orig')
         self.assertEqual(AS2, resp)
         mock_get.assert_has_calls((
-            self.req('http://orig', headers=common.CONNEG_HEADERS_AS2_HTML),
-            self.req('http://as2', headers=common.CONNEG_HEADERS_AS2),
+            self.as2_req('http://orig'),
+            self.as2_req('http://as2', headers=common.CONNEG_HEADERS_AS2),
         ))
 
     @mock.patch('requests.get', return_value=HTML)

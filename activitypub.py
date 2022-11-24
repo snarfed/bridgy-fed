@@ -1,8 +1,6 @@
 """Handles requests for ActivityPub endpoints: actors, inbox, etc.
 """
-from base64 import b64encode
 import datetime
-from hashlib import sha256
 import logging
 import re
 
@@ -18,7 +16,6 @@ from app import app, cache
 import common
 from common import redirect_unwrap, redirect_wrap
 from models import Activity, Follower, User
-from httpsig.requests_auth import HTTPSignatureAuth
 
 logger = logging.getLogger(__name__)
 
@@ -38,45 +35,6 @@ SUPPORTED_TYPES = (
     'Undo',
     'Video',
 )
-
-
-def send(activity, inbox_url, user_domain):
-    """Sends an ActivityPub request to an inbox.
-
-    Args:
-      activity: dict, AS2 activity
-      inbox_url: string
-      user_domain: string, domain of the bridgy fed user sending the request
-
-    Returns:
-      requests.Response
-    """
-    logger.info(f'Sending AP request from {user_domain}: {json_dumps(activity, indent=2)}')
-
-    # prepare HTTP Signature (required by Mastodon)
-    # https://w3c.github.io/activitypub/#authorization
-    # https://tools.ietf.org/html/draft-cavage-http-signatures-07
-    # https://github.com/tootsuite/mastodon/issues/4906#issuecomment-328844846
-    key_id = request.host_url + user_domain
-    user = User.get_or_create(user_domain)
-    auth = HTTPSignatureAuth(secret=user.private_pem(), key_id=key_id,
-                             algorithm='rsa-sha256', sign_header='signature',
-                             headers=('Date', 'Digest', 'Host'))
-
-    # deliver to inbox
-    body = json_dumps(activity).encode()
-    headers = {
-        'Content-Type': common.CONTENT_TYPE_AS2,
-        # required for HTTP Signature
-        # https://tools.ietf.org/html/draft-cavage-http-signatures-07#section-2.1.3
-        'Date': datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT'),
-        # required by Mastodon
-        # https://github.com/tootsuite/mastodon/pull/14556#issuecomment-674077648
-        'Digest': 'SHA-256=' + b64encode(sha256(body).digest()).decode(),
-        'Host': util.domain_from_link(inbox_url, minimize=False),
-    }
-    return common.requests_post(inbox_url, data=body, auth=auth,
-                                headers=headers)
 
 
 @app.get(f'/<regex("{common.DOMAIN_RE}"):domain>')
@@ -102,7 +60,7 @@ def inbox(domain=None):
         activity = request.json
         assert activity
     except (TypeError, ValueError, AssertionError):
-        error("Couldn't parse body as JSON", exc_info=True)
+        error(f"Couldn't parse body as JSON", exc_info=True)
 
     logger.info(f'Got: {json_dumps(activity, indent=2)}')
 
@@ -118,6 +76,8 @@ def inbox(domain=None):
                      status=501)
 
     # TODO: verify signature if there is one
+
+    user = User.get_or_create(domain) if domain else None
 
     if type == 'Undo' and obj.get('type') == 'Follow':
         # skip actor fetch below; we don't need it to undo a follow
@@ -148,11 +108,11 @@ def inbox(domain=None):
     # fetch actor if necessary so we have name, profile photo, etc
     actor = activity.get('actor')
     if actor and isinstance(actor, str):
-        actor = activity['actor'] = common.get_as2(actor).json()
+        actor = activity['actor'] = common.get_as2(actor, user=user).json()
 
     activity_unwrapped = redirect_unwrap(activity)
     if type == 'Follow':
-        return accept_follow(activity, activity_unwrapped)
+        return accept_follow(activity, activity_unwrapped, user)
 
     # send webmentions to each target
     as1 = as2.to_as1(activity)
@@ -186,12 +146,13 @@ def inbox(domain=None):
     return ''
 
 
-def accept_follow(follow, follow_unwrapped):
+def accept_follow(follow, follow_unwrapped, user):
     """Replies to an AP Follow request with an Accept request.
 
     Args:
       follow: dict, AP Follow activity
       follow_unwrapped: dict, same, except with redirect URLs unwrapped
+      user: :class:`User`
     """
     logger.info('Replying to Follow with Accept')
 
@@ -224,7 +185,7 @@ def accept_follow(follow, follow_unwrapped):
             'object': followee,
         }
     }
-    resp = send(accept, inbox, user_domain)
+    resp = common.signed_post(inbox, data=accept, user=user)
 
     # send webmention
     common.send_webmentions(as2.to_as1(follow), proxy=True, protocol='activitypub',

@@ -11,6 +11,7 @@ from flask import request
 from google.cloud import ndb
 from granary import as2, microformats2
 from oauth_dropins.webutil.models import StringIdModel
+from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
@@ -94,8 +95,8 @@ class User(StringIdModel):
         # check webfinger redirect
         path = f'/.well-known/webfinger?resource=acct:{domain}@{domain}'
         try:
-            resp = common.requests_get(urllib.parse.urljoin(site, path),
-                                       allow_redirects=False, gateway=False)
+            resp = util.requests_get(urllib.parse.urljoin(site, path),
+                                     allow_redirects=False, gateway=False)
             domain_urls = ([f'https://{domain}/' for domain in common.DOMAINS] +
                            [request.host_url])
             expected = [urllib.parse.urljoin(url, path) for url in domain_urls]

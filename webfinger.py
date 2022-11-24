@@ -47,7 +47,7 @@ class Actor(flask_util.XrdOrJrd):
             urls = [url, urllib.parse.urljoin(url, '/')] + urls
 
         for candidate in urls:
-            resp = common.requests_get(candidate)
+            resp = util.requests_get(candidate)
             parsed = util.parse_html(resp)
             mf2 = util.parse_mf2(parsed, url=resp.url)
             # logger.debug(f'Parsed mf2 for {resp.url}: {json_dumps(mf2, indent=2)}')

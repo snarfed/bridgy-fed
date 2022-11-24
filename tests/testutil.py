@@ -1,6 +1,7 @@
 """Common test utility code.
 """
 import copy
+import datetime
 import unittest
 from unittest.mock import ANY, call
 
@@ -11,6 +12,8 @@ import requests
 
 import common
 
+NOW = datetime.datetime(2022, 11, 23, 22, 29, 19)
+
 
 class TestCase(unittest.TestCase, testutil.Asserts):
     maxDiff = None
@@ -20,6 +23,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         app.testing = True
         cache.clear()
         self.client = app.test_client()
+        common.utcnow = lambda: NOW
 
         # clear datastore
         requests.post('http://%s/reset' % ndb_client.host)
@@ -32,22 +36,25 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
     def req(self, url, **kwargs):
         """Returns a mock requests call."""
-        existing = kwargs.get('headers', {})
-        if existing is not ANY:
-            kwargs['headers'] = {
-              'User-Agent': util.user_agent,
-              **existing,
-            }
-
+        kwargs.setdefault('headers', {}).update({
+            'User-Agent': util.user_agent,
+        })
         kwargs.setdefault('timeout', util.HTTP_TIMEOUT)
         kwargs.setdefault('stream', True)
-
         return call(url, **kwargs)
+
+    def as2_req(self, url, **kwargs):
+        headers = {
+            'Date': 'Wed, 23 Nov 2022 22:29:19 GMT',
+            'Host': util.domain_from_link(url, minimize=False),
+            **common.CONNEG_HEADERS_AS2_HTML,
+            **kwargs.pop('headers', {}),
+        }
+        return self.req(url, auth=ANY, headers=headers, **kwargs)
 
     def assert_req(self, mock, url, **kwargs):
         """Checks a mock requests call."""
         kwargs.setdefault('headers', {}).setdefault('User-Agent', 'Bridgy Fed (https://fed.brid.gy/)')
         kwargs.setdefault('stream', True)
         kwargs.setdefault('timeout', util.HTTP_TIMEOUT)
-
         mock.assert_any_call(url, **kwargs)

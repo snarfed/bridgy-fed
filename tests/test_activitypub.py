@@ -364,9 +364,10 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/foo.com/inbox', json=LIKE)
         self.assertEqual(200, got.status_code)
 
-        self.assert_req(mock_get, 'http://orig/actor',
-                        headers=common.CONNEG_HEADERS_AS2_HTML)
-        self.assert_req(mock_get, 'http://orig/post')
+        mock_get.assert_has_calls((
+            self.as2_req('http://orig/actor'),
+            self.req('http://orig/post'),
+        )),
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('http://orig/webmention',), args)
@@ -398,8 +399,9 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
-        self.assert_req(mock_get, FOLLOW['actor'],
-                        headers=common.CONNEG_HEADERS_AS2_HTML)
+        mock_get.assert_has_calls((
+            self.as2_req(FOLLOW['actor']),
+        ))
 
         # check AP Accept
         self.assertEqual(2, len(mock_post.call_args_list))
@@ -488,7 +490,6 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('inactive', follower.key.get().status)
         self.assertEqual('inactive', followee.key.get().status)
         self.assertEqual('active', other.key.get().status)
-
 
     def test_inbox_webmention_discovery_connection_fails(self, mock_head,
                                                          mock_get, mock_post):

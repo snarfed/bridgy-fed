@@ -5,7 +5,7 @@ import urllib.parse
 
 import flask
 from flask import request
-from oauth_dropins.webutil import flask_util
+from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 import requests
 
@@ -25,7 +25,7 @@ def add_wm(url=None):
         error('URL must start with http:// or https://')
 
     try:
-        got = common.requests_get(url)
+        got = util.requests_get(url)
     except requests.exceptions.Timeout as e:
         error(str(e), status=504, exc_info=True)
     except requests.exceptions.RequestException as e:

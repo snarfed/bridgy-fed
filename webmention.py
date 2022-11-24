@@ -25,7 +25,7 @@ from werkzeug.exceptions import BadGateway
 import activitypub
 from app import app
 import common
-from models import Follower, User, Activity
+from models import Activity, Follower, User
 
 logger = logging.getLogger(__name__)
 
@@ -39,13 +39,17 @@ class Webmention(View):
     source_mf2 = None     # parsed mf2 dict
     source_obj = None     # parsed AS1 dict
     target_resp = None    # requests.Response
+    user = None           # User
 
     def dispatch_request(self):
         logger.info(f'Params: {list(request.form.items())}')
 
         # fetch source page
         source = flask_util.get_required_param('source')
-        source_resp = common.requests_get(source)
+        try:
+            source_resp = util.requests_get(source)
+        except ValueError as e:
+            error(f'Bad source URL: {source}: {e}')
         self.source_url = source_resp.url or source
         self.source_domain = urllib.parse.urlparse(self.source_url).netloc.split(':')[0]
         fragment = urllib.parse.urlparse(self.source_url).fragment
@@ -78,6 +82,7 @@ class Webmention(View):
         self.source_obj = microformats2.json_to_object(entry, fetch_mf2=True)
         logger.info(f'Converted to AS1: {json_dumps(self.source_obj, indent=2)}')
 
+        self.user = User.get_or_create(self.source_domain)
         for method in self.try_activitypub, self.try_salmon:
             ret = method()
             if ret:
@@ -95,7 +100,6 @@ class Webmention(View):
         if not targets:
             return None
 
-        user = User.get_or_create(self.source_domain)
         error = None
         last_success = None
 
@@ -110,7 +114,7 @@ class Webmention(View):
         for resp, inbox in targets:
             target_obj = json_loads(resp.target_as2) if resp.target_as2 else None
             source_activity = common.postprocess_as2(
-                as2.from_as1(self.source_obj), target=target_obj, user=user)
+                as2.from_as1(self.source_obj), target=target_obj, user=self.user)
 
             if resp.status == 'complete':
                 if resp.source_mf2:
@@ -131,7 +135,7 @@ class Webmention(View):
                     source_activity['type'] = 'Update'
 
             try:
-                last = activitypub.send(source_activity, inbox, self.source_domain)
+                last = common.signed_post(inbox, data=source_activity, user=self.user)
                 resp.status = 'complete'
                 last_success = last
             except BaseException as e:
@@ -291,7 +295,7 @@ class Webmention(View):
         """
         # fetch target HTML page, extract Atom rel-alternate link
         if not self.target_resp:
-            self.target_resp = common.requests_get(target)
+            self.target_resp = util.requests_get(target)
 
         parsed = util.parse_html(self.target_resp)
         atom_url = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
@@ -307,7 +311,7 @@ class Webmention(View):
         atom_url = urllib.parse.urljoin(
             target, urllib.parse.urljoin(base_url, atom_link['href']))
 
-        feed = common.requests_get(atom_url).text
+        feed = util.requests_get(atom_url).text
         parsed = feedparser.parse(feed)
         entry = parsed.entries[0]
         logger.info(f'Parsed: {json_dumps(entry, indent=2)}')
@@ -344,11 +348,13 @@ class Webmention(View):
                 (author.get('name', ''), parsed.netloc))
             try:
                 # TODO: always https?
-                profile = common.requests_get(
+                profile = util.requests_get(
                     '%s://%s/.well-known/webfinger?resource=acct:%s' %
-                    (parsed.scheme, parsed.netloc, email), parse_json=True)
-                endpoint = django_salmon.get_salmon_replies_link(profile)
-            except requests.HTTPError as e:
+                    (parsed.scheme, parsed.netloc, email))
+                endpoint = django_salmon.get_salmon_replies_link(profile.json())
+            except ValueError:
+                logging.warning("Couldn't parse response as JSON")
+            except requests.HTTPError:
                 pass
 
         if not endpoint:
@@ -364,13 +370,11 @@ class Webmention(View):
 
         # sign reply and wrap in magic envelope
         domain = urllib.parse.urlparse(self.source_url).netloc
-        user = User.get_or_create(domain)
-        logger.info(f'Using key for {domain}: {user}')
         magic_envelope = magicsigs.magic_envelope(
-            entry, common.CONTENT_TYPE_ATOM, user).decode()
+            entry, common.CONTENT_TYPE_ATOM, self.user).decode()
 
         logger.info(f'Sending Salmon slap to {endpoint}')
-        common.requests_post(
+        util.requests_post(
             endpoint, data=common.XML_UTF8 + magic_envelope,
             headers={'Content-Type': common.CONTENT_TYPE_MAGIC_ENVELOPE})
 
