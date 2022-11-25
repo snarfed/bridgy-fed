@@ -3,13 +3,34 @@
 {% block content %}
 
 <div id="docs">
-<ul>
-<p><em>General</em></p>
-<li><a href="#work">How does it work?</a></li>
-<li><a href="#sites">Which sites are supported?</a></li>
-<li><a href="#use">How do I use it?</a></li>
+
+<p>
+Bridgy Fed lets you interact with <a href="https://joinmastodon.org/">Mastodon</a> and the rest of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a> from your web site. It translates <a href="https://indieweb.org/">IndieWeb</a> posts, replies, likes, reposts, and follows from <a href="http://www.webmention.org/">webmentions</a> to federated social networking protocols like <a href="https://activitypub.rocks/">ActivityPub</a> and <a href="https://en.wikipedia.org/wiki/OStatus">OStatus</a>, and vice versa.
+</p>
+
+<p>
+This isn't <a href="https://indieweb.org/syndication">syndication</a> or <a href="https://indieweb.org/POSSE">POSSE</a>! You don't need an account on Mastodon or anywhere else. Bridgy Fed lets your site act like a first class member of the fediverse. Other people on the fediverse will see your posts directly from your own site, and vice versa.
+</p>
+
+<p>
+Here's <a href="https://mastodon.technology/@snarfed/3194674">an example on Mastodon</a>, and <a href="https://hubzilla.com.br/channel/snarfed/?f=&mid=459a0b809f2d5395efd5d581dad70043c5ea9e1dbd156bc5e1b2f771c98eb970@hubzilla.com.br&zid=snarfed%40hubzilla.com.br">another example on Hubzilla</a>.
+</p>
+
+<p>
+(If you just want people in the fediverse to see posts from your web site, <a href="https://www.google.com/search?q=rss+atom+mastodon+bot">consider an RSS or Atom feed bot instead</a>. Bridgy Fed is more powerful, but also more work to set up and use.)
+</p>
+
+<br>
+
+<ul class="docs">
+<p><em>Setup</em></p>
 <li><a href="#setup">How do I set it up?</a></li>
 <li><a href="#profile">How do I set up my profile?</a></li>
+<li><a href="#sites">Which sites are supported?</a></li>
+
+<br>
+<p><em>Usage</em></p>
+<li><a href="#use">How do I use it?</a></li>
 <li><a href="#image">How do I include an image in a post?</a></li>
 <li><a href="#fragment">Can I publish just one part of a page?</a></li>
 <li><a href="#discovery">How can people on the fediverse find me?</a></li>
@@ -26,80 +47,10 @@
 <li><a href="#vulnerability">I found a security vulnerability!</a></li>
 </ul>
 
-<ul>
-<li id="work" class="question">How does it work?</li>
-<li class="answer">
-<p>
-Bridgy Fed lets you interact with the fediverse, eg <a href="https://joinmastodon.org/">Mastodon</a>, from your web site. It translates <a href="https://indieweb.org/">IndieWeb</a> posts, replies, likes, reposts, and follows from <a href="http://www.webmention.org/">webmentions</a> to federated social networking protocols like <a href="https://activitypub.rocks/">ActivityPub</a> and <a href="https://en.wikipedia.org/wiki/OStatus">OStatus</a>, and vice versa.
-</p>
+<ul class="docs">
 
-<p>
-This isn't <a href="https://indieweb.org/syndication">syndication</a> or <a href="https://indieweb.org/POSSE">POSSE</a>! You don't need an account on Mastodon, Hubzilla, or anywhere else. Bridgy Fed lets your site act like a first class member of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>. Other people on the fediverse will see your posts directly from your own site, and vice versa.
-</p>
-
-<p>
-Here's <a href="https://mastodon.technology/@snarfed/3194674">an example on Mastodon</a>, and <a href="https://hubzilla.com.br/channel/snarfed/?f=&mid=459a0b809f2d5395efd5d581dad70043c5ea9e1dbd156bc5e1b2f771c98eb970@hubzilla.com.br&zid=snarfed%40hubzilla.com.br">another example on Hubzilla</a>.
-</p>
-
-<p>
-(If you just want people in the fediverse to see posts from your web site, <a href="https://www.google.com/search?q=rss+atom+mastodon+bot">consider an RSS or Atom feed bot instead</a>. Bridgy Fed is more powerful, but also more work to set up and use.)
-</p>
-
-<li id="sites" class="question">Which sites are supported?</li>
-<li class="answer">
-<p>
-These sites are currently supported:
-</p>
-<ul>
-<li><em><a href="https://joinmastodon.org/">Mastodon</a></em>: posts, replies, likes, reposts aka boosts, @-mentions, and follows, both directions, via ActivityPub.<br />
-The instance must be running at least <a href="https://hackernoon.com/mastodon-and-the-w3c-f75f376f422">Mastodon 1.6</a>, and more reliably with 2.0 and up. You can find its version on the bottom or right of its <code>/about/more</code> page, e.g. <a href="https://mastodon.social/about/more">mastodon.social/about/more</a>.
-</li>
-<li><em><a href="https://project.hubzilla.org/">Hubzilla</a></em>: replies, likes, and reposts aka shares, both directions, via OStatus.<br />
-The instance must be running <a href="https://hub.somaton.com/channel/mario/?f=&mid=6db16e0e253c3c376cb921e7b31f94c24522933d7e54c6cf9febaa05359ab2fe@hub.somaton.com">Hubzilla 2.6</a> or higher. You can find its version on its <code>/siteinfo</code> page, e.g. <a href="https://hub.somaton.com/siteinfo">hub.somaton.com/siteinfo</a>. It also needs the GNU Social addon installed and enabled, and you also need to enable it in your account settings on the <em>Feature/Addon settings</em> page (<code>/settings/featured</code>).
-</li>
-</ul>
-
-<p>
-We're aware of the sites below, and we've made progress on some, but they're not yet supported. Click through and vote for their feature requests if you're interested in any of them!
-</p>
-<ul>
-<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/7">Diaspora</a></em>, via OStatus.</li>
-<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/9">Friendica</a></em>, via OStatus.</li>
-<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/8">GNU Social</a></em> (née StatusNet), via OStatus.</li>
-<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/11">MediaGoblin</a></em>, via ActivityPub?</li>
-<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/12">Pleroma</a></em>, via ActivityPub.</li>
-</ul>
-</li>
-
-<li id="use" class="question">How do I use it?</li>
-<li class="answer">
-
-<p>
-Federated social network identities take the form <code>@username@example.com</code>, like an email address with a leading <code>@</code>. Your site's identity via Bridgy Fed will be <code>@yourdomain.com@yourdomain.com</code>. (You can customize the username if you prefer.)
-</p>
-
-<p>
-To use it, first <a href="#setup">set up your site</a>, then create an IndieWeb <a href="https://indieweb.org/post">post</a>, <a href="https://indieweb.org/like">like</a>, <a href="https://indieweb.org/repost">repost</a>, <a href="https://indieweb.org/reply">reply</a>, or <a href="https://indieweb.org/follow">follow</a> as usual, and include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post. Your web server should then <a href="#setup">send Bridgy Fed a webmention</a>, which it will translate to a Salmon slap or ActivityPub activity and forward to the destination. For example:
-</p>
-
-<pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
-  Regarding &lt;a class="<span class='keyword'>u-in-reply-to</span>" href="<a href='https://mastodon.technology/@snarfed/3194674'>https://mastodon.technology/@snarfed/3194674</a>"&gt;this post&lt;/a&gt;:
-  &lt;p class="<span class='keyword'>e-content</span>"&gt;<span class='value'>Highly entertaining. Please subscribe me to your newsletter.</span>&lt;/p&gt;
-  &lt;a href="<a href='https://fed.brid.gy/'>https://fed.brid.gy/</a>"&gt;&lt;/a&gt;
-&lt;/div&gt;
-</pre>
-
-<p>Basic HTML formatting like links, lists, blockquotes, bold, and italics are often preserved and visible in the fediverse, but specifics vary from site to site.
-</p>
-
-<p>
-To receive likes, reposts, replies, @-mentions, and follows from the fediverse, just make sure your site accepts webmentions! Bridgy Fed translates those interactions and sends them to your site as webmentions. The webmention source URL will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>!
-</p>
-
-<p>
-You can see your recent interactions at <a href="https://fed.brid.gy/user/[your-domain.com]">fed.brid.gy/user/yourdomain.com</a>.
-</p>
-</li>
+<br>
+<h3 id="setup">Setup</h3>
 
 <li id="setup" class="question">How do I set it up?</li>
 <li class="answer">
@@ -182,6 +133,65 @@ Your site's fediverse profile comes from the <a href="https://microformats.org/w
 </pre>
 </li>
 
+<li id="sites" class="question">Which sites are supported?</li>
+<li class="answer">
+<p>
+These sites are currently supported:
+</p>
+<ul>
+<li><em><a href="https://joinmastodon.org/">Mastodon</a></em>: posts, replies, likes, reposts aka boosts, @-mentions, and follows, both directions, via ActivityPub.<br />
+The instance must be running at least <a href="https://hackernoon.com/mastodon-and-the-w3c-f75f376f422">Mastodon 1.6</a>, and more reliably with 2.0 and up. You can find its version on the bottom or right of its <code>/about/more</code> page, e.g. <a href="https://mastodon.social/about/more">mastodon.social/about/more</a>.
+</li>
+<li><em><a href="https://project.hubzilla.org/">Hubzilla</a></em>: replies, likes, and reposts aka shares, both directions, via OStatus.<br />
+The instance must be running <a href="https://hub.somaton.com/channel/mario/?f=&mid=6db16e0e253c3c376cb921e7b31f94c24522933d7e54c6cf9febaa05359ab2fe@hub.somaton.com">Hubzilla 2.6</a> or higher. You can find its version on its <code>/siteinfo</code> page, e.g. <a href="https://hub.somaton.com/siteinfo">hub.somaton.com/siteinfo</a>. It also needs the GNU Social addon installed and enabled, and you also need to enable it in your account settings on the <em>Feature/Addon settings</em> page (<code>/settings/featured</code>).
+</li>
+</ul>
+
+<p>
+We're aware of the sites below, and we've made progress on some, but they're not yet supported. Click through and vote for their feature requests if you're interested in any of them!
+</p>
+<ul>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/7">Diaspora</a></em>, via OStatus.</li>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/9">Friendica</a></em>, via OStatus.</li>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/8">GNU Social</a></em> (née StatusNet), via OStatus.</li>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/11">MediaGoblin</a></em>, via ActivityPub?</li>
+<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/12">Pleroma</a></em>, via ActivityPub.</li>
+</ul>
+</li>
+
+<br>
+<h3 id="usage">Usage</h3>
+
+<li id="use" class="question">How do I use it?</li>
+<li class="answer">
+
+<p>
+Federated social network identities take the form <code>@username@example.com</code>, like an email address with a leading <code>@</code>. Your site's identity via Bridgy Fed will be <code>@yourdomain.com@yourdomain.com</code>. (You can customize the username if you prefer.)
+</p>
+
+<p>
+To use it, first <a href="#setup">set up your site</a>, then create an IndieWeb <a href="https://indieweb.org/post">post</a>, <a href="https://indieweb.org/like">like</a>, <a href="https://indieweb.org/repost">repost</a>, <a href="https://indieweb.org/reply">reply</a>, or <a href="https://indieweb.org/follow">follow</a> as usual, and include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post. Your web server should then <a href="#setup">send Bridgy Fed a webmention</a>, which it will translate to a Salmon slap or ActivityPub activity and forward to the destination. For example:
+</p>
+
+<pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
+  Regarding &lt;a class="<span class='keyword'>u-in-reply-to</span>" href="<a href='https://mastodon.technology/@snarfed/3194674'>https://mastodon.technology/@snarfed/3194674</a>"&gt;this post&lt;/a&gt;:
+  &lt;p class="<span class='keyword'>e-content</span>"&gt;<span class='value'>Highly entertaining. Please subscribe me to your newsletter.</span>&lt;/p&gt;
+  &lt;a href="<a href='https://fed.brid.gy/'>https://fed.brid.gy/</a>"&gt;&lt;/a&gt;
+&lt;/div&gt;
+</pre>
+
+<p>Basic HTML formatting like links, lists, blockquotes, bold, and italics are often preserved and visible in the fediverse, but specifics vary from site to site.
+</p>
+
+<p>
+To receive likes, reposts, replies, @-mentions, and follows from the fediverse, just make sure your site accepts webmentions! Bridgy Fed translates those interactions and sends them to your site as webmentions. The webmention source URL will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>!
+</p>
+
+<p>
+You can see your recent interactions at <a href="https://fed.brid.gy/user/[your-domain.com]">fed.brid.gy/user/yourdomain.com</a>.
+</p>
+</li>
+
 <li id="image" class="question">How do I include an image in a post?</li>
 <li class="answer">
 <p>
@@ -219,6 +229,10 @@ I love scotch. Scotchy scotchy scotch.
 <p>You can also <a href="/recent">see all recent Bridgy Fed requests here</a>, including raw logs. Warning: not for the faint of heart!</p>
 </li>
 
+
+<br>
+<h3 id="about">About</h3>
+
 <li id="who" class="question">Who are you? Why did you make this?</li>
 <li class="answer">
 <p>
@@ -246,7 +260,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 
 <li id="terms" class="question">What are the terms of service?</li>
 <li class="answer">
-<p>Bridgy Fed's terms of service are very simple. You agree not to deliberately attack, breach, or otherwise harm the service. If you manage to access private data such as API tokens, you agree to <a href="#vulnerability">report the vulnerability</a> and not use or disclose that data.
+<p>Bridgy Fed's terms of service are very simple. You agree not to deliberately attack, breach, or otherwise harm the service. If you manage to access private keys or other private data, you agree to <a href="#vulnerability">report the vulnerability</a> and not use or disclose that data.
 </p>
 <p>Otherwise, you may use the service for any purpose you see fit. However, we may terminate or block your access for any reason, or no reason at all. (We've never done this, and we expect we never will. Just playing it safe.)
 </p>
@@ -266,7 +280,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <ul>
 <li>Vulnerabilities must be in the application itself, not unrelated services like email (eg SPF/DKIM/DMARC).</li>
 <li>Out of scope: rate limiting, XSS/CSRF attacks (Bridgy Fed has no authenticated sessions or private data accessible to users), <code>/admin/*</code> pages.
-<li>User data is intentionally public. That's not a vulnerability.</li>
+<li>Public user data is intentionally public. That's not a vulnerability.</li>
 <li>No automated fuzzing, DoSes, or other high volume traffic. We block this traffic, and it will disqualify you from any possible award.</li>
 </ul>
 <p>Otherwise, <a href="https://github.com/snarfed/bridgy-fed/">the code is open source</a>, feel free to try to break in, let us know if you succeed!</p>
