@@ -4,30 +4,37 @@
 
 <div id="docs">
 <ul>
+<p><em>General</em></p>
 <li><a href="#work">How does it work?</a></li>
 <li><a href="#sites">Which sites are supported?</a></li>
 <li><a href="#use">How do I use it?</a></li>
 <li><a href="#setup">How do I set it up?</a></li>
+<li><a href="#profile">How do I set up my profile?</a></li>
 <li><a href="#image">How do I include an image in a post?</a></li>
 <li><a href="#fragment">Can I publish just one part of a page?</a></li>
 <li><a href="#discovery">How can people on the fediverse find me?</a></li>
 <li><a href="#troubleshooting">I tried it, and it didn't work!</a></li>
-<li><a href="#cost">How much does it cost?</a></li>
+
+<br>
+<p><em>About</em></p>
 <li><a href="#who">Who are you? Why did you make this?</a></li>
+<li><a href="#cost">How much does it cost?</a></li>
 <li><a href="#privacy">What do you do with my data?</a></li>
 <li><a href="#history">How long has this been around?</a></li>
+<li><a href="#terms">What are the terms of service?</a></li>
 <li><a href="#bug">I found a bug! I have a feature request!</a></li>
+<li><a href="#vulnerability">I found a security vulnerability!</a></li>
 </ul>
 
 <ul>
 <li id="work" class="question">How does it work?</li>
 <li class="answer">
 <p>
-Bridgy Fed lets you interact with federated social networks like <a href="https://joinmastodon.org/">Mastodon</a> and <a href="https://project.hubzilla.org/">Hubzilla</a> from your <a href="https://indieweb.org/">IndieWeb</a> site. It translates posts, replies, likes, reposts, and follows from <a href="http://www.webmention.org/">webmentions</a> to federated social networking protocols like <a href="https://activitypub.rocks/">ActivityPub</a> and <a href="https://en.wikipedia.org/wiki/OStatus">OStatus</a>, and vice versa.
+Bridgy Fed lets you interact with the fediverse, eg <a href="https://joinmastodon.org/">Mastodon</a>, from your web site. It translates <a href="https://indieweb.org/">IndieWeb</a> posts, replies, likes, reposts, and follows from <a href="http://www.webmention.org/">webmentions</a> to federated social networking protocols like <a href="https://activitypub.rocks/">ActivityPub</a> and <a href="https://en.wikipedia.org/wiki/OStatus">OStatus</a>, and vice versa.
 </p>
 
 <p>
-This isn't <a href="https://indieweb.org/syndication">syndication</a> or <a href="https://indieweb.org/POSSE">POSSE</a>! You don't need an account on Mastodon, Hubzilla, or anywhere else. Bridgy Fed lets your site act like a first class member of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>. People on federated social networks (aka fedsocnets) will see your posts directly from your own site, and vice versa.
+This isn't <a href="https://indieweb.org/syndication">syndication</a> or <a href="https://indieweb.org/POSSE">POSSE</a>! You don't need an account on Mastodon, Hubzilla, or anywhere else. Bridgy Fed lets your site act like a first class member of the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>. Other people on the fediverse will see your posts directly from your own site, and vice versa.
 </p>
 
 <p>
@@ -61,7 +68,6 @@ We're aware of the sites below, and we've made progress on some, but they're not
 <li><em><a href="https://github.com/snarfed/bridgy-fed/issues/8">GNU Social</a></em> (née StatusNet), via OStatus.</li>
 <li><em><a href="https://github.com/snarfed/bridgy-fed/issues/11">MediaGoblin</a></em>, via ActivityPub?</li>
 <li><em><a href="https://github.com/snarfed/bridgy-fed/issues/12">Pleroma</a></em>, via ActivityPub.</li>
-<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/10">postActiv</a></em>, via ActivityPub or OStatus.</li>
 </ul>
 </li>
 
@@ -69,7 +75,7 @@ We're aware of the sites below, and we've made progress on some, but they're not
 <li class="answer">
 
 <p>
-Federated social network identities take the form <code>@username@example.com</code>, like an email address with a leading <code>@</code>. Your site's identity via Bridgy Fed will be <code>@yourdomain.com@yourdomain.com</code>.
+Federated social network identities take the form <code>@username@example.com</code>, like an email address with a leading <code>@</code>. Your site's identity via Bridgy Fed will be <code>@yourdomain.com@yourdomain.com</code>. (You can customize the username if you prefer.)
 </p>
 
 <p>
@@ -83,27 +89,25 @@ To use it, first <a href="#setup">set up your site</a>, then create an IndieWeb 
 &lt;/div&gt;
 </pre>
 
-<p>
-To receive likes, reposts, replies, and follows from fedsocnets, just make sure your site accepts webmentions! Bridgy translates incoming Salmon slaps and ActivityPub activities to webmentions and sends them to your site.</p>
-
-<p>
-The webmention source URL will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>!
+<p>Basic HTML formatting like links, lists, blockquotes, bold, and italics are often preserved and visible in the fediverse, but specifics vary from site to site.
 </p>
 
 <p>
-You can see your recent interactions at <a href="https://fed.brid.gy/user/[your-domain.com]">fed.brid.gy/user/[your-domain.com]</a>.
+To receive likes, reposts, replies, @-mentions, and follows from the fediverse, just make sure your site accepts webmentions! Bridgy Fed translates those interactions and sends them to your site as webmentions. The webmention source URL will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>!
+</p>
+
+<p>
+You can see your recent interactions at <a href="https://fed.brid.gy/user/[your-domain.com]">fed.brid.gy/user/yourdomain.com</a>.
 </p>
 </li>
 
 <li id="setup" class="question">How do I set it up?</li>
 <li class="answer">
 <p>
-First, your site needs to support <a href="http://www.webmention.org/">webmentions</a>. <a href="https://indieweb.org/webmention#Publishing_Software">Check out the IndieWeb wiki</a> for instructions for your web server.
-</p>
-
-<p>
-Next, configure your web site to redirect these URL paths to the same paths on <code>https://fed.brid.gy/</code>, including query parameters:
-</p>
+<ol>
+<li>Your site needs to support SSL. Bridgy Fed uses your domain as your identity, so it depends on SSL to prove that you own it.</li>
+<li>Add <a href="http://www.webmention.org/">webmention</a> support to your site. This is strongly recommended, but technically optional. You don't have to automate the webmentions to Bridgy Fed to federate your posts, and you don't have to accept the inbound webmentions that Bridgy Fed sends, but you'll have a much better experience if you do. <a href="https://indieweb.org/webmention#Publishing_Software">Check out the IndieWeb wiki</a> for instructions for your web server.</li>
+<li>Configure your web site to redirect these URL paths to the same paths on <code>https://fed.brid.gy/</code>, including query parameters:</li>
 <pre>
 /.well-known/host-meta
 /.well-known/webfinger
@@ -158,6 +162,26 @@ https://en.support.wordpress.com/site-redirect/
 </ol>
 </li>
 
+<li id="profile" class="question">How do I set up my profile?</li>
+<li class="answer">
+<p>
+Your site's fediverse profile comes from the <a href="https://microformats.org/wiki/microformats2">microformats2</a> <a href="https://indieweb.org/representative_h-card">representative h-card</a> on your site's home page. Here's a minimal example to set your name and a profile picture:
+
+<pre>
+&lt;span class="<span class='keyword'>h-card</span>"&gt;
+  &lt;a rel="<span class='keyword'>me</span>" href="<span class='value'>/</span>"&gt;<span class='value'>Alice Foo</span>&lt;/a&gt;
+  &lt;img class="<span class='keyword'>u-photo</span>" src="<span class='value'>/me.jpg</span>" /&gt;
+&lt;/span&gt;
+</pre>
+</p>
+
+<p>By default, your fediverse address will be <code>@yourdomain.com@yourdomain.com</code>. We recommend this for simplicity and predictability, for everyone else as well as you, but if you want a different username, you can set it by adding an <code>acct:</code> <a href="https://microformats.org/wiki/rel-me">u-url</a> link inside your h-card with <code>username@yourdomain.com</code>, eg:
+
+<pre>
+&lt;a class="<span class='keyword'>u-url</span>" href="<span class='value'>acct:alice@yourdomain.com</span>"&gt;<span class='value'></span>&lt;/a&gt;
+</pre>
+</li>
+
 <li id="image" class="question">How do I include an image in a post?</li>
 <li class="answer">
 <p>
@@ -195,20 +219,19 @@ I love scotch. Scotchy scotchy scotch.
 <p>You can also <a href="/recent">see all recent Bridgy Fed requests here</a>, including raw logs. Warning: not for the faint of heart!</p>
 </li>
 
+<li id="who" class="question">Who are you? Why did you make this?</li>
+<li class="answer">
+<p>
+I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a href="https://snarfed.org/2012-07-25_why_i_have_my_own_web_site">the web</a> and <a href="https://indieweb.org/why">owning my data</a>.
+</p>
+</li>
+
 <li id="cost" class="question">How much does it cost?</li>
 <li class="answer">
 <p>Nothing! Bridgy Fed is small, and it doesn't cost much to run. We don't need donations, promise.
 </p>
 <p>If you <em>really</em> want to contribute, <a href="https://github.com/snarfed/bridgy-fed/issues">file an issue</a> or <a href="https://github.com/snarfed/bridgy-fed">send a pull request</a>, or <a href="https://opencollective.com/indieweb">donate to the IndieWeb</a>!
 </p></li>
-
-<li id="who" class="question">Who are you? Why did you make this?</li>
-<li class="answer">
-<p>
-I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who
-<a href="https://snarfed.org/2012-07-25_why_i_have_my_own_web_site">likes the web</a> and <a href="https://indieweb.org/why">owning my data</a>.
-</p>
-</li>
 
 <li id="privacy" class="question">What do you do with my data?</li>
 <li class="answer">
@@ -221,10 +244,32 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who
 <p>I started thinking about bridging federated social networks and peer to peer networks when I discovered them in the early 2000s. I started talking about bridging them to the IndieWeb in 2016, <a href="http://indieweb.org/2017/ostatusbridge">led a session on it at IndieWeb Summit</a> in July 2017, wrote up <a href="https://snarfed.org/indieweb-activitypub-bridge">concrete</a> <a href="https://snarfed.org/indieweb-ostatus-bridge"> designs</a> soon after, and started working on Bridgy Fed in August 2017.
 </li>
 
+<li id="terms" class="question">What are the terms of service?</li>
+<li class="answer">
+<p>Bridgy Fed's terms of service are very simple. You agree not to deliberately attack, breach, or otherwise harm the service. If you manage to access private data such as API tokens, you agree to <a href="#vulnerability">report the vulnerability</a> and not use or disclose that data.
+</p>
+<p>Otherwise, you may use the service for any purpose you see fit. However, we may terminate or block your access for any reason, or no reason at all. (We've never done this, and we expect we never will. Just playing it safe.)
+</p>
+<p>Do you an administer an instance or other service that Bridgy Fed interacts with? If you have any concerns or questions, feel free to <a href="https://github.com/snarfed/bridgy-fed/issues">file an issue</a>!
+</p>
+</li>
+
 <li id="bug" class="question">I found a bug! I have a feature request!</li>
 <li class="answer">
 <p>Great! Please <a href="https://github.com/snarfed/bridgy-fed/issues">file it in GitHub</a>. Thank you!
 </p>
+</li>
+
+<li id="vulnerability" class="question">I found a security vulnerability!</li>
+<li class="answer">
+<p>Oof. Thank you for reporting it! Please send details to <a href="mailto:security@brid.gy">security@brid.gy</a>. We may provide monetary awards for reports of significant vulnerabilities, eg reading or modifying stored access tokens, <em>if</em> you follow these rules:</p>
+<ul>
+<li>Vulnerabilities must be in the application itself, not unrelated services like email (eg SPF/DKIM/DMARC).</li>
+<li>Out of scope: rate limiting, XSS/CSRF attacks (Bridgy Fed has no authenticated sessions or private data accessible to users), <code>/admin/*</code> pages.
+<li>User data is intentionally public. That's not a vulnerability.</li>
+<li>No automated fuzzing, DoSes, or other high volume traffic. We block this traffic, and it will disqualify you from any possible award.</li>
+</ul>
+<p>Otherwise, <a href="https://github.com/snarfed/bridgy-fed/">the code is open source</a>, feel free to try to break in, let us know if you succeed!</p>
 </li>
 
 </ul>
