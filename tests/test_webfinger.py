@@ -83,7 +83,7 @@ class WebfingerTest(testutil.TestCase):
             }]
         }
 
-    def test_host_meta_handler_xrd(self):
+    def test_host_meta_xrd(self):
         got = self.client.get('/.well-known/host-meta')
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/xrd+xml; charset=utf-8',
@@ -91,14 +91,14 @@ class WebfingerTest(testutil.TestCase):
         body = got.get_data(as_text=True)
         self.assertTrue(body.startswith('<?xml'), body)
 
-    def test_host_meta_handler_xrds(self):
+    def test_host_meta_xrds(self):
         got = self.client.get('/.well-known/host-meta.xrds')
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/xrds+xml', got.headers['Content-Type'])
         body = got.get_data(as_text=True)
         self.assertTrue(body.startswith('<XRDS'), body)
 
-    def test_host_meta_handler_jrd(self):
+    def test_host_meta_jrd(self):
         got = self.client.get('/.well-known/host-meta.json')
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
@@ -106,7 +106,7 @@ class WebfingerTest(testutil.TestCase):
         self.assertTrue(body.startswith('{'), body)
 
     @mock.patch('requests.get')
-    def test_user_handler(self, mock_get):
+    def test_user(self, mock_get):
         mock_get.return_value = requests_response(self.html, url='https://foo.com/')
 
         got = self.client.get('/acct:foo.com', headers={'Accept': 'application/json'})
@@ -125,7 +125,7 @@ class WebfingerTest(testutil.TestCase):
         self.assertEqual(self.key.href(), links['magic-public-key'])
 
     @mock.patch('requests.get')
-    def test_user_handler_with_atom_feed(self, mock_get):
+    def test_user_with_atom_feed(self, mock_get):
         html = """\
 <html>
 <head>
@@ -145,7 +145,7 @@ class WebfingerTest(testutil.TestCase):
         }, got.json['links'])
 
     @mock.patch('requests.get')
-    def test_user_handler_with_push_header(self, mock_get):
+    def test_user_with_push_header(self, mock_get):
         mock_get.return_value = requests_response(
             self.html, url = 'https://foo.com/', headers={
                 'Link': 'badly formatted, '
@@ -161,7 +161,7 @@ class WebfingerTest(testutil.TestCase):
         }, got.json['links'])
 
     @mock.patch('requests.get')
-    def test_user_handler_no_hcard(self, mock_get):
+    def test_user_no_hcard(self, mock_get):
         mock_get.return_value = requests_response("""
 <body>
 <div class="h-entry">
@@ -174,14 +174,14 @@ class WebfingerTest(testutil.TestCase):
         self.assertEqual(400, got.status_code)
         self.assertIn('representative h-card', got.get_data(as_text=True))
 
-    def test_user_handler_bad_tld(self):
+    def test_user_bad_tld(self):
         got = self.client.get('/acct:foo.json')
         self.assertEqual(404, got.status_code)
         self.assertIn("doesn't look like a domain",
                       html.unescape(got.get_data(as_text=True)))
 
     @mock.patch('requests.get')
-    def test_webfinger_handler(self, mock_get):
+    def test_webfinger(self, mock_get):
         mock_get.return_value = requests_response(self.html, url='https://foo.com/')
 
         for resource in ('foo.com@foo.com', 'acct:foo.com@foo.com', 'xyz@foo.com',
@@ -195,7 +195,7 @@ class WebfingerTest(testutil.TestCase):
             self.assertEqual(self.expected_webfinger, got.json)
 
     @mock.patch('requests.get')
-    def test_webfinger_handler_custom_username(self, mock_get):
+    def test_webfinger_custom_username(self, mock_get):
         self.html = """
 <body class="h-card">
 <a class="u-url" rel="me" href="/about-me">
@@ -236,3 +236,8 @@ class WebfingerTest(testutil.TestCase):
             self.assertEqual(200, got.status_code, got.get_data(as_text=True))
             self.assertEqual('application/jrd+json', got.headers['Content-Type'])
             self.assertEqual(self.expected_webfinger, got.json)
+
+    def test_webfinger_fed_brid_gy(self):
+        got = self.client.get('/.well-known/webfinger?resource=http://localhost/')
+        self.assertEqual(400, got.status_code, got.get_data(as_text=True))
+
