@@ -66,12 +66,6 @@
   }
 }
 
-#header {
-  float: none;
-  width: 100%;
-  z-index: 0;
-}
-
 #header p {
   text-align: left;
 }
@@ -433,6 +427,12 @@ iframe#twitter-widget-0 {
   filter: progid:DXImageTransform.Microsoft.Shadow(Strength=2,Direction=135,Color='#222222');
 }
 
+a img.shadow:hover
+{
+	box-shadow: 3px 3px 3px #06c !important;
+}
+
+
 .error, .warning {
   margin: 10px;
   padding: .2em;
@@ -475,4 +475,45 @@ iframe {
   width: 50%;
   border: 1px solid gray;
   height: 300px;
+}
+
+.right {
+	float: right;
+	margin-left: 20px;
+	text-align: center;
+}
+
+.left {
+	float: left;
+	margin-right: 20px;
+	text-align: center;
+}
+
+.left img, .right img {
+  width: 100%;
+}
+
+.left p, .right p {
+  margin-top: .3em;
+  margin-bottom: 1em;
+}
+
+@media screen and (min-width: 312px) {
+}
+
+@media screen and (max-width: 455px) {
+	.half, .half-sidebyside {
+		width: 100%;
+	}
+	.third, .quarter, .sixth {
+		width: 50%;
+	}
+}
+
+@media screen and (min-width: 456px) {
+	.half { width: 50%; }
+	.half-sidebyside { width: 45%; }
+	.third { width: 32%; }
+	.quarter { width: 25%; }
+	.sixth { width: 17%; }
 }
