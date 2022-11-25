@@ -24,7 +24,7 @@ This isn't <a href="https://indieweb.org/syndication">syndication</a> or <a href
 </p>
 
 <p>
-Bridgy Fed does take some technical know-how to set up, and there are simpler (but less powerful) alternatives. If you just want your site's posts to show up in the fediverse, without any other interactions, <a href="https://www.google.com/search?q=rss+atom+mastodon+bot">consider an RSS or Atom feed bot instead</a>. Or, if you want to cross-post to an existing Mastodon account, <a href="https://brid.gy/">try Bridgy</a>.
+Bridgy Fed takes some technical know-how to set up, and there are simpler (but less powerful) alternatives. If you just want your site's posts to show up in the fediverse, without any other interactions, <a href="https://www.google.com/search?q=rss+atom+mastodon+bot">consider an RSS or Atom feed bot instead</a>. Or, if you want to cross-post to an existing Mastodon account, <a href="https://brid.gy/">try Bridgy</a>.
 </p>
 
 <br>
@@ -33,11 +33,14 @@ Bridgy Fed does take some technical know-how to set up, and there are simpler (b
 <p><em>Setup</em></p>
 <li><a href="#setup">How do I set it up?</a></li>
 <li><a href="#profile">How do I set up my profile?</a></li>
-<li><a href="#sites">Which sites are supported?</a></li>
+<!-- <li><a href="#sites">Which sites are supported?</a></li> -->
 
 <br>
 <p><em>Usage</em></p>
 <li><a href="#use">How do I use it?</a></li>
+<li><a href="#reply">How do I reply to a fediverse post?</a></li>
+<li><a href="#like">How do I favorite (aka like) or boost (aka repost) a fediverse post?</a></li>
+<li><a href="#follow">How do I follow someone?</a></li>
 <li><a href="#image">How do I include an image in a post?</a></li>
 <li><a href="#fragment">Can I publish just one part of a page?</a></li>
 <li><a href="#discovery">How can people on the fediverse find me?</a></li>
@@ -64,8 +67,7 @@ Bridgy Fed does take some technical know-how to set up, and there are simpler (b
 <p>
 <ol>
 <li>Your site needs to support SSL. Bridgy Fed uses your domain as your identity, so it depends on SSL to prove that you own it.</li>
-<li>Add <a href="http://www.webmention.org/">webmention</a> support to your site. This is strongly recommended, but technically optional. You don't have to automate the webmentions to Bridgy Fed to federate your posts, and you don't have to accept the inbound webmentions that Bridgy Fed sends, but you'll have a much better experience if you do. <a href="https://indieweb.org/webmention#Publishing_Software">Check out the IndieWeb wiki</a> for instructions for your web server.</li>
-<li>Configure your web site to redirect these URL paths to the same paths on <code>https://fed.brid.gy/</code>, including query parameters:</li>
+<li>Configure your site to redirect these URL paths to the same paths on <code>https://fed.brid.gy/</code>, including query parameters:</li>
 <pre>
 /.well-known/host-meta
 /.well-known/webfinger
@@ -106,17 +108,17 @@ Redirects but not custom
 https://help.medium.com/hc/en-us/articles/213475208-301-Redirects
 
 <em><a href="http://www.tumblr.com/">Tumblr</a></em>:
-Looks doable!
+Haven't found how yet. "Link pages" here mention redirects but aren't what we need:
 https://tumblr.zendesk.com/hc/en-us/articles/231449328-Redirect-pages
 
 <em><a href="http://wordpress.com/">WordPress.com</a></em>:
 Site Redirect, but not per URL
 https://en.support.wordpress.com/site-redirect/
-
 -->
 
 </ul>
 
+<li>Add <a href="http://www.webmention.org/">webmention</a> support to your site. This is strongly recommended, but technically optional. You don't have to automate the webmentions to Bridgy Fed to federate your posts, and you don't have to accept the inbound webmentions that Bridgy Fed sends, but you'll have a much better experience if you do. <a href="https://indieweb.org/webmention#Publishing_Software">Check out the IndieWeb wiki</a> for instructions for your web server.</li>
 </ol>
 </li>
 
@@ -133,51 +135,51 @@ Your site's fediverse profile comes from the <a href="https://microformats.org/w
 </pre>
 </p>
 
-<p>By default, your fediverse address will be <code>@yourdomain.com@yourdomain.com</code>. We recommend this for simplicity and predictability, for everyone else as well as you, but if you want a different username, you can set it by adding an <code>acct:</code> <a href="https://microformats.org/wiki/rel-me">u-url</a> link inside your h-card with <code>username@yourdomain.com</code>, eg:
+<p>By default, your fediverse address will be <code>@yourdomain.com@yourdomain.com</code>. Many services (eg Mastodon) default to only showing the username, so this generally shows up as just <code>@yourdomain.com</code> in posts, and the full address appears on hover.</p>
+
+<p>We recommend this for simplicity and predictability, for everyone else as well as you, but if you want a different username, you can set it by adding an <code>acct:</code> <a href="https://microformats.org/wiki/rel-me">u-url</a> link inside your h-card with <code>username@yourdomain.com</code>, eg:
 
 <pre>
 &lt;a class="<span class='keyword'>u-url</span>" href="<span class='value'>acct:alice@yourdomain.com</span>"&gt;<span class='value'></span>&lt;/a&gt;
 </pre>
 </li>
 
-<li id="sites" class="question">Which sites are supported?</li>
-<li class="answer">
-<p>
-These sites are currently supported:
-</p>
-<ul>
-<li><em><a href="https://joinmastodon.org/">Mastodon</a></em>: posts, replies, likes, reposts aka boosts, @-mentions, and follows, both directions, via ActivityPub.<br />
-The instance must be running at least <a href="https://hackernoon.com/mastodon-and-the-w3c-f75f376f422">Mastodon 1.6</a>, and more reliably with 2.0 and up. You can find its version on the bottom or right of its <code>/about/more</code> page, e.g. <a href="https://mastodon.social/about/more">mastodon.social/about/more</a>.
-</li>
-<li><em><a href="https://project.hubzilla.org/">Hubzilla</a></em>: replies, likes, and reposts aka shares, both directions, via OStatus.<br />
-The instance must be running <a href="https://hub.somaton.com/channel/mario/?f=&mid=6db16e0e253c3c376cb921e7b31f94c24522933d7e54c6cf9febaa05359ab2fe@hub.somaton.com">Hubzilla 2.6</a> or higher. You can find its version on its <code>/siteinfo</code> page, e.g. <a href="https://hub.somaton.com/siteinfo">hub.somaton.com/siteinfo</a>. It also needs the GNU Social addon installed and enabled, and you also need to enable it in your account settings on the <em>Feature/Addon settings</em> page (<code>/settings/featured</code>).
-</li>
-</ul>
+<!-- <li id="sites" class="question">Which sites are supported?</li> -->
+<!-- <li class="answer"> -->
+<!-- <p> -->
+<!-- These sites are currently supported: -->
+<!-- </p> -->
+<!-- <ul> -->
+<!-- <li><em><a href="https://joinmastodon.org/">Mastodon</a></em>: posts, replies, likes, reposts aka boosts, @-mentions, and follows, both directions, via ActivityPub.<br /> -->
+<!-- The instance must be running at least <a href="https://hackernoon.com/mastodon-and-the-w3c-f75f376f422">Mastodon 1.6</a>, and more reliably with 2.0 and up. You can find its version on the bottom or right of its <code>/about/more</code> page, e.g. <a href="https://mastodon.social/about/more">mastodon.social/about/more</a>. -->
+<!-- </li> -->
+<!-- <li><em><a href="https://project.hubzilla.org/">Hubzilla</a></em>: replies, likes, and reposts aka shares, both directions, via OStatus.<br /> -->
+<!-- The instance must be running <a href="https://hub.somaton.com/channel/mario/?f=&mid=6db16e0e253c3c376cb921e7b31f94c24522933d7e54c6cf9febaa05359ab2fe@hub.somaton.com">Hubzilla 2.6</a> or higher. You can find its version on its <code>/siteinfo</code> page, e.g. <a href="https://hub.somaton.com/siteinfo">hub.somaton.com/siteinfo</a>. It also needs the GNU Social addon installed and enabled, and you also need to enable it in your account settings on the <em>Feature/Addon settings</em> page (<code>/settings/featured</code>). -->
+<!-- </li> -->
+<!-- </ul> -->
 
-<p>
-We're aware of the sites below, and we've made progress on some, but they're not yet supported. Click through and vote for their feature requests if you're interested in any of them!
-</p>
-<ul>
-<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/7">Diaspora</a></em>, via OStatus.</li>
-<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/9">Friendica</a></em>, via OStatus.</li>
-<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/8">GNU Social</a></em> (née StatusNet), via OStatus.</li>
-<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/11">MediaGoblin</a></em>, via ActivityPub?</li>
-<li><em><a href="https://github.com/snarfed/bridgy-fed/issues/12">Pleroma</a></em>, via ActivityPub.</li>
-</ul>
-</li>
+<!-- <p> -->
+<!-- We're aware of the sites below, and we've made progress on some, but they're not yet supported. Click through and vote for their feature requests if you're interested in any of them! -->
+<!-- </p> -->
+<!-- <ul> -->
+<!-- <li><em><a href="https://github.com/snarfed/bridgy-fed/issues/7">Diaspora</a></em>, via OStatus.</li> -->
+<!-- <li><em><a href="https://github.com/snarfed/bridgy-fed/issues/9">Friendica</a></em>, via OStatus.</li> -->
+<!-- <li><em><a href="https://github.com/snarfed/bridgy-fed/issues/8">GNU Social</a></em> (née StatusNet), via OStatus.</li> -->
+<!-- <li><em><a href="https://github.com/snarfed/bridgy-fed/issues/11">MediaGoblin</a></em>, via ActivityPub?</li> -->
+<!-- <li><em><a href="https://github.com/snarfed/bridgy-fed/issues/12">Pleroma</a></em>, via ActivityPub.</li> -->
+<!-- </ul> -->
+<!-- </li> -->
 
 <br>
 <h3 id="usage">Usage</h3>
 
 <li id="use" class="question">How do I use it?</li>
 <li class="answer">
-
 <p>
-Federated social network identities take the form <code>@username@example.com</code>, like an email address with a leading <code>@</code>. Your site's identity via Bridgy Fed will be <code>@yourdomain.com@yourdomain.com</code>. (You can customize the username if you prefer.)
+Fediverse address take the form <code>@username@example.com</code>, like an email address with a leading <code>@</code>. <a href="#profile">Your site's address defaults to <code>@yourdomain.com@yourdomain.com</code>. You can customize the username if you prefer.</a>
 </p>
-
 <p>
-To use it, first <a href="#setup">set up your site</a>, then create an IndieWeb <a href="https://indieweb.org/post">post</a>, <a href="https://indieweb.org/like">like</a>, <a href="https://indieweb.org/repost">repost</a>, <a href="https://indieweb.org/reply">reply</a>, or <a href="https://indieweb.org/follow">follow</a> as usual, and include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post. Your web server should then <a href="#setup">send Bridgy Fed a webmention</a>, which it will translate to a Salmon slap or ActivityPub activity and forward to the destination. For example:
+To use it, first <a href="#setup">set up your site</a>, then create an IndieWeb <a href="https://indieweb.org/post">post</a>, <a href="https://indieweb.org/like">like</a>, <a href="https://indieweb.org/repost">repost</a>, <a href="https://indieweb.org/reply">reply</a>, or <a href="https://indieweb.org/follow">follow</a> as usual, and include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post. It can be empty if you want. Your web server should then <a href="#setup">send Bridgy Fed a webmention</a>, which it will translate to a Salmon slap or ActivityPub activity and forward to the destination. For example:
 </p>
 
 <pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
@@ -187,7 +189,7 @@ To use it, first <a href="#setup">set up your site</a>, then create an IndieWeb 
 &lt;/div&gt;
 </pre>
 
-<p>Basic HTML formatting like links, lists, blockquotes, bold, and italics are often preserved and visible in the fediverse, but specifics vary from site to site.
+<p>Basic HTML formatting like links, lists, bold, and italics are often preserved and visible in the fediverse, but specifics vary from site to site.
 </p>
 
 <p>
@@ -195,14 +197,56 @@ To receive likes, reposts, replies, @-mentions, and follows from the fediverse, 
 </p>
 
 <p>
-You can see your recent interactions at <a href="https://fed.brid.gy/user/[your-domain.com]">fed.brid.gy/user/yourdomain.com</a>.
+You can see your recent interactions by <a href="/web-site">entering your domain here</a>.
+</p>
+</li>
+
+<li id="reply" class="question">How do I reply to a fediverse post?</li>
+<li class="answer">
+<p>
+Put the reply in a new post on your web site, and include a link to the fediverse post you're replying to with class <code><a href="http://microformats.org/wiki/rel-in-reply-to">u-in-reply-to</a></code>, as if you were publishing a normal <a href="https://indieweb.org/comment">IndieWeb reply</a>. For example:
+
+<pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
+  &lt;p class="<span class='keyword'>e-content</span>"&gt;<span class='value'>Highly entertaining. Please subscribe me to your newsletter.</span>&lt;/p&gt;
+  &lt;a class="<span class='keyword'>u-in-reply-to</span>" href="<a href='https://indieweb.social/@tchambers/109243684867780200'>https://indieweb.social/@tchambers/109243684867780200</a>"&gt;&lt;/a&gt;
+  &lt;a href="<a href='https://fed.brid.gy/'>https://fed.brid.gy/</a>"&gt;&lt;/a&gt;
+&lt;/div&gt;
+</pre>
+</p>
+</li>
+
+<li id="like" class="question">How do I favorite (aka like) or boost (aka repost) a fediverse post?</li>
+<li class="answer">
+<p>Favoriting and boosting are almost exactly the <a href="#reply">same as replying</a>. The only difference is that you use <code><a href="https://indieweb.org/like">u-like-of</a></code> for a favorite/like or <code><a href="https://indieweb.org/repost">u-repost-of</a></code> for a boost/repost.
+
+<pre>
+&lt;a class="<span class='keyword'>u-like-of</span>" href="<a href='https://octodon.social/@cwebber/109405439825087368'>https://octodon.social/@cwebber/109405439825087368</a>"&gt;&lt;/a&gt;
+</pre>
+
+<pre>
+&lt;a class="<span class='keyword'>u-repost-of</span>" href="<a href='https://prodromou.pub/@evan/109390803478257847'>https://prodromou.pub/@evan/109390803478257847</a>"&gt;&lt;/a&gt;
+</pre>
+</p>
+</li>
+
+<li id="follow" class="question">How do I follow someone?</li>
+<li class="answer">
+<p>
+Post an <a href="https://indieweb.org/follow#How_to_markup">IndieWeb follow</a> on your site with <code>u-follow-of</code> microformats2, then send a webmention to Bridgy Fed. Your site may do that automatically if it supports webmentions. For example:
+</p>
+
+<pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
+  I'm now following &lt;a class="<span class='keyword'>u-follow-of</span>" href="<a href='https://octodon.social/@cwebber'>https://octodon.social/@cwebber</a>"&gt;@cwebber@octodon.social&lt;/a&gt;!
+  &lt;a href="<a href='https://fed.brid.gy/'>https://fed.brid.gy/</a>"&gt;&lt;/a&gt;
+&lt;/div&gt;
+</pre>
 </p>
 </li>
 
 <li id="image" class="question">How do I include an image in a post?</li>
 <li class="answer">
 <p>
-Use <code>&lt;img class="u-photo"&gt;</code> for the image in your post. For example:
+Use <code>&lt;img class="<span class='keyword'>u-photo</span>"&gt;</code> for the image in your post. For example:
 
 <pre>
 &lt;img class="<span class='keyword'>u-photo</span>" src="<span class='value'>/full_glass.jpg</span>" /&gt;
@@ -223,17 +267,13 @@ I love scotch. Scotchy scotchy scotch.
 
 <li id="discovery" class="question">How can people on the fediverse find me?</li>
 <li class="answer">
-<p>In general, all you have to do is use Bridgy Fed to interact with the fediverse once. Send an original post from your site, like or repost something, follow someone, etc. Then, when other users search for <code>@yourdomain.com@yourdomain.com</code>, they should find your profile!
-</p>
-<p>In practice, this can be a bit finicky, and takes time to propagate to other instances besides the one you first interacted with, but it generally does work.
+<p>They can search for your web site in any Mastodon instance! Often you can just enter your domain, eg <code>yourdomain.com</code>, in any Mastodon search box. If that doesn't work, try your full fediverse address, eg <code>@yourdomain.com@yourdomain.com</code>. This can be finicky now and then, but it usually works.
 </p>
 </li>
 
 <li id="troubleshooting" class="question">I tried it, and it didn't work!</li>
 <li class="answer">
-<p>If you sent a webmention, check the HTTP response code and body. It will usually describe the error.</p>
-<p>If you got an HTTP 204 from an attempt to federate a response to Mastodon, that means Mastodon accepted the response. If it doesn't show up, that's a known inconsistency right now. We're actively working with them to debug these cases.</p>
-<p>You can also <a href="/recent">see all recent Bridgy Fed requests here</a>, including raw logs. Warning: not for the faint of heart!</p>
+<p><a href="/web-site">Check out your user page!</a> It detects and describes common problems with <a href="#setup">your setup</a>, and it shows your recent interactions and detailed logs.
 </li>
 
 
