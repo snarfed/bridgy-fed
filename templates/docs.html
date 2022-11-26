@@ -136,6 +136,14 @@ Your site's fediverse profile comes from the <a href="https://microformats.org/w
 </pre>
 </p>
 
+<p>If you want to set a <a href="https://docs.joinmastodon.org/user/profile/#header">header image</a>, add a <code><a href="https://indieweb.org/featured">u-featured</a></code> image to your h-card, eg:
+
+<pre>
+&lt;img class="<span class='keyword'>u-featured</span>" src="<span class='value'>/my-header.png</span>" /&gt;
+</pre>
+</p>
+
+
 <p>By default, your fediverse address will be <code>@yourdomain.com@yourdomain.com</code>. Many services (eg Mastodon) default to only showing the username, so this generally shows up as just <code>@yourdomain.com</code> in posts, and the full address appears on hover.</p>
 
 <p>We recommend this for simplicity and predictability, for everyone else as well as you, but if you want a different username, you can set it by adding an <code>acct:</code> <a href="https://microformats.org/wiki/rel-me">u-url</a> link inside your h-card with <code>username@yourdomain.com</code>, eg:
