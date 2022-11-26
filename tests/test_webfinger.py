@@ -187,12 +187,13 @@ class WebfingerTest(testutil.TestCase):
         for resource in ('foo.com@foo.com', 'acct:foo.com@foo.com', 'xyz@foo.com',
                          'foo.com', 'http://foo.com/', 'https://foo.com/',
                          'http://localhost/foo.com'):
-            url = '/.well-known/webfinger?%s' % urllib.parse.urlencode(
-                {'resource': resource})
-            got = self.client.get(url, headers={'Accept': 'application/json'})
-            self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-            self.assertEqual('application/jrd+json', got.headers['Content-Type'])
-            self.assertEqual(self.expected_webfinger, got.json)
+            with self.subTest(resource=resource):
+                url = '/.well-known/webfinger?%s' % urllib.parse.urlencode(
+                    {'resource': resource})
+                got = self.client.get(url, headers={'Accept': 'application/json'})
+                self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+                self.assertEqual('application/jrd+json', got.headers['Content-Type'])
+                self.assertEqual(self.expected_webfinger, got.json)
 
     @mock.patch('requests.get')
     def test_webfinger_custom_username(self, mock_get):
@@ -241,3 +242,5 @@ class WebfingerTest(testutil.TestCase):
         got = self.client.get('/.well-known/webfinger?resource=http://localhost/')
         self.assertEqual(400, got.status_code, got.get_data(as_text=True))
 
+        got = self.client.get('/.well-known/webfinger?resource=acct%3A%40localhost')
+        self.assertEqual(400, got.status_code, got.get_data(as_text=True))

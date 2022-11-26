@@ -156,10 +156,10 @@ class Webfinger(Actor):
     """
     def template_vars(self):
         resource = flask_util.get_required_param('resource').strip()
+        resource = resource.removeprefix(request.host_url)
 
         # handle Bridgy Fed actor URLs, eg https://fed.brid.gy/snarfed.org
-        resource = resource.removeprefix(request.host_url)
-        if not resource or resource == '/':
+        if resource in ('', '/', f'acct:{request.host}', f'acct:@{request.host}'):
             error('Expected other domain, not fed.brid.gy')
 
         try:
