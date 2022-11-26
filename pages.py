@@ -301,13 +301,6 @@ def fetch_activities(query):
         verb = a.get('verb') or a.get('objectType')
         obj = util.get_first(a, 'object') or {}
 
-        actor = util.get_first(a, 'actor') or util.get_first(a, 'author') or {}
-        activity.actor_url = util.get_first(actor, 'url')
-        activity.actor_name = (actor.get('displayName') or
-                               (util.pretty_link(activity.actor_url) if activity.actor_url
-                                else '-'))
-        activity.actor_image = util.get_url(actor, 'image')
-
         phrases = {
             'article': 'posted',
             'note': 'posted',

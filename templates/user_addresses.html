@@ -1,9 +1,6 @@
 <div class="row">
   <div class="big" style="display: inline">
-    {% if user.actor_as2 %}
-      <img src="{{ util.json_loads(user.actor_as2).get('icon', {}).get('url') }}"
-           class="profile u-photo" width="48px">
-    {% endif %}
+    {{ user.user_page_link()|safe }}
     <span title="Fediverse address">
       <img class="logo" src="/static/fediverse_logo.svg"> {{ user.address() }}</span> &middot;
     <a title="Web site" href="https://{{ domain }}/">🌐 {{ domain }}</a>

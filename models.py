@@ -86,6 +86,23 @@ class User(StringIdModel):
 
         return f'@{username or domain}@{domain}'
 
+    def user_page_link(self):
+        """Returns a pretty user page link with the user's name and profile picture.
+
+        If actor_as2 is not set, returns ''.
+        """
+        if not self.actor_as2:
+            return ''
+
+        actor = util.json_loads(self.actor_as2)
+        img = actor.get('icon', {}).get('url') or ''
+        return f"""\
+        <a href="/user/{self.key.id()}">
+          <img src="{img}" class="profile">
+          {actor.get('name') or ''}
+        </a>"""
+
+
     def verify(self):
         """Fetches site a couple ways to check for redirects and h-card."""
         domain = self.key.id()
@@ -180,6 +197,30 @@ class Activity(StringIdModel):
             return as2.to_as1(json_loads(self.source_as2))
         if self.source_atom:
             return atom.atom_to_activity(self.source_atom)
+
+    def actor_link(self, as1=None):
+        """Returns a pretty actor link with their name and profile picture."""
+        if self.direction == 'out' and self.domain:
+            return User.get_by_id(self.domain[0]).user_page_link()
+
+        if not as1:
+           as1 = self.to_as1()
+
+        actor = util.get_first(as1, 'actor') or util.get_first(as1, 'author') or {}
+        if isinstance(actor, str):
+            return util.pretty_link(url)
+
+        url = util.get_first(actor, 'url')
+        name = actor.get('displayName')
+        image = util.get_url(actor, 'image')
+        if not image:
+            return util.pretty_link(url, text=name)
+
+        return f"""\
+        <a href="{url}" title="{name}">
+          <img class="profile" src="{image}" />
+          {util.ellipsize(name, chars=40)}
+        </a>"""
 
     @classmethod
     def _id(cls, source, target):

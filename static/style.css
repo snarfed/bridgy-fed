@@ -405,6 +405,14 @@ iframe#twitter-widget-0 {
   text-align: right;
 }
 
+.profile {
+  width: 32px;
+}
+
+.big .profile {
+  width: 48px;
+}
+
 .shadow, .profile, #screenshot {
   -moz-box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
   -webkit-box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
