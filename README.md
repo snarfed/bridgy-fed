@@ -1,11 +1,11 @@
-![](https://raw.github.com/snarfed/bridgy/master/static/bridgy_logo_thumb.jpg) [Bridgy Fed](https://fed.brid.gy/) [![Circle CI](https://circleci.com/gh/snarfed/bridgy-fed.svg?style=svg)](https://circleci.com/gh/snarfed/bridgy-fed) [![Coverage Status](https://coveralls.io/repos/github/snarfed/bridgy-fed/badge.svg?branch=master)](https://coveralls.io/github/snarfed/bridgy-fed?branch=main)
+<img src="https://raw.github.com/snarfed/bridgy-fed/main/static/bridgy_fed_logo.png" width="120" /> [Bridgy Fed](https://fed.brid.gy/) [![Circle CI](https://circleci.com/gh/snarfed/bridgy-fed.svg?style=svg)](https://circleci.com/gh/snarfed/bridgy-fed) [![Coverage Status](https://coveralls.io/repos/github/snarfed/bridgy-fed/badge.svg?branch=master)](https://coveralls.io/github/snarfed/bridgy-fed?branch=main)
 ===
 
-Got an [IndieWeb](https://indieweb.org/) site? Want to interact with federated social networks like [Mastodon](https://joinmastodon.org/), [Hubzilla](https://project.hubzilla.org/), and more? Bridgy Fed is for you.
+Bridgy Fed connects your web site to [Mastodon](https://joinmastodon.org) and the [fediverse](https://en.wikipedia.org/wiki/Fediverse) via [ActivityPub](https://activitypub.rocks/), [OStatus](https://en.wikipedia.org/wiki/OStatus), [webmentions](https://webmention.net/), and [microformats2](https://microformats.org/wiki/microformats2). Your site gets its own fediverse profile, posts and avatar and header and all. Bridgy Fed translates likes, reposts, mentions, follows, and more back and forth. [See the user docs](https://fed.brid.gy/docs) for more details.
 
 https://fed.brid.gy/
 
-Bridgy Fed connects the [IndieWeb](https://indieweb.org/) with federated social networks using [ActivityPub](https://activitypub.rocks/) and [OStatus](https://en.wikipedia.org/wiki/OStatus). Original design docs:
+Original design docs:
 
 * https://snarfed.org/indieweb-activitypub-bridge
 * https://snarfed.org/indieweb-ostatus-bridge
@@ -79,7 +79,7 @@ Here are in progress notes on how I'm testing interoperability with various fede
 
 * [Mastodon](https://joinmastodon.org/) ([issue](https://github.com/tootsuite/mastodon/issues/1557)) works! [They shipped support in 1.6.](https://github.com/tootsuite/mastodon/releases/tag/v1.6.0rc1)
   * [snarfed@mastodon.technology](https://mastodon.technology/@snarfed), [example post](https://mastodon.technology/@snarfed/2604611)
-* [Hubzilla](https://project.hubzilla.org/) [is getting close](https://hub.somaton.com/channel/mario/&f=&mid=6db16e0e253c3c376cb921e7b31f94c24522933d7e54c6cf9febaa05359ab2fe@hub.somaton.com)!
+* [Hubzilla](https://project.hubzilla.org/) [2.6 and later](https://hub.somaton.com/channel/mario/&f=&mid=6db16e0e253c3c376cb921e7b31f94c24522933d7e54c6cf9febaa05359ab2fe@hub.somaton.com) work!
   * Old since lastauth.com is down now: ~~[snarfed@lastauth.com](https://lastauth.com/channel/snarfed), [example post](https://lastauth.com/channel/snarfed/?mid=7cfa12e54cf97aaed3b0bb185651ae37a1e24027fbf3e845fab261e108392707@lastauth.com)~~
 * [distbin](http://distbin.com/)
   * No explicit accounts, can post anything as anyone
