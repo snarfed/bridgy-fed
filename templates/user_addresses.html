@@ -1,10 +1,7 @@
 <div class="row">
   <div class="big" style="display: inline">
-    {% set user_page_link = user.user_page_link() %}
-    {% if user_page_link %}
-      {{ user_page_link|safe }}
-      &middot;
-    {% endif %}
+    {{ user.user_page_link()|safe }}
+    &middot;
     <span title="Fediverse address">
       <img class="logo" src="/static/fediverse_logo.svg"> {{ user.address() }}</span>
     &middot;
