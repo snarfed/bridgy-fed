@@ -185,10 +185,7 @@ Your site's fediverse profile comes from the <a href="https://microformats.org/w
 <li id="use" class="question">How do I use it?</li>
 <li class="answer">
 <p>
-Fediverse address take the form <code>@username@example.com</code>, like an email address with a leading <code>@</code>. <a href="#profile">Your site's address defaults to <code>@yourdomain.com@yourdomain.com</code>. You can customize the username if you prefer.</a>
-</p>
-<p>
-To use it, first <a href="#setup">set up your site</a>, then create an IndieWeb <a href="https://indieweb.org/post">post</a>, <a href="https://indieweb.org/like">like</a>, <a href="https://indieweb.org/repost">repost</a>, <a href="https://indieweb.org/reply">reply</a>, or <a href="https://indieweb.org/follow">follow</a> as usual, and include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post. It can be empty if you want. Your web server should then <a href="#setup">send Bridgy Fed a webmention</a>, which it will translate to a Salmon slap or ActivityPub activity and forward to the destination. For example:
+Create an IndieWeb <a href="https://indieweb.org/post">post</a>, <a href="https://indieweb.org/like">like</a>, <a href="https://indieweb.org/repost">repost</a>, <a href="https://indieweb.org/reply">reply</a>, or <a href="https://indieweb.org/follow">follow</a> as usual, and include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post. It can be empty if you want. Your web server should then <a href="#setup">send Bridgy Fed a webmention</a>, which it will translate and forward into the fediverse. Alternatively, <a href="https://indieweb.org/Webmention#Manual_Webmentions">you can send the webmention manually.</a> For example:
 </p>
 
 <pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
@@ -202,7 +199,7 @@ To use it, first <a href="#setup">set up your site</a>, then create an IndieWeb 
 </p>
 
 <p>
-To receive likes, reposts, replies, @-mentions, and follows from the fediverse, just make sure your site accepts webmentions! Bridgy Fed translates those interactions and sends them to your site as webmentions. The webmention source URL will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>!
+To receive likes, reposts, replies, @-mentions, and follows from the fediverse, just make sure your site accepts webmentions! Bridgy Fed translates those interactions and sends them to your site as webmentions. The source URL will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>.
 </p>
 
 <p>
