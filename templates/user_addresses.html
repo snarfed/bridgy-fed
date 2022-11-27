@@ -3,8 +3,14 @@
     {{ user.user_page_link()|safe }}
     &middot;
     <span title="Fediverse address">
-      <img class="logo" src="/static/fediverse_logo.svg"> {{ user.address() }}</span>
+      <nobr>
+        <img class="logo" src="/static/fediverse_logo.svg">
+        {{ user.address() }}
+      </nobr>
+    </span>
     &middot;
-    <a title="Web site" href="https://{{ domain }}/">🌐 {{ domain }}</a>
+    <nobr>
+      <a title="Web site" href="https://{{ domain }}/">🌐 {{ domain }}</a>
+    </nobr>
   </div>
 </div>
