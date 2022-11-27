@@ -35,4 +35,4 @@ cache = Cache(app)
 util.set_user_agent('Bridgy Fed (https://fed.brid.gy/)')
 
 
-import activitypub, add_webmention, pages, redirect, render, salmon, superfeedr, webfinger, webmention
+import activitypub, add_webmention, follow, pages, redirect, render, salmon, superfeedr, webfinger, webmention
