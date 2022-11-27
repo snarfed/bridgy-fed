@@ -7,11 +7,12 @@
 {% if user.has_redirects == False %}
 <div class="row promo warning">
 <form method="post" action="/web-site">
+  Next step to set up your site:
   <a href="/docs#redirect+these+URL+paths">
-    Set up the <code>/.well-known/</code> redirects.
+    add the .well-known redirects.
   </a>
   <input type="hidden" name="url" value="https://{{ domain }}" />
-  <input type="submit" class="retry" value="🔄" title="Retry" />
+  <input type="submit" class="retry" value="🔄" title="Check again" />
 </form>
 </div>
 {% endif %}
@@ -19,11 +20,12 @@
 {% if user.has_hcard == False %}
 <div class="row promo warning">
 <form method="post" action="/web-site">
+  Next step to set up your site:
   <a href="https://indiewebify.me/validate-h-card/?url=https://{{ domain }}">
-    Add a representative h-card.
+    add a representative h-card.
   </a>
   <input type="hidden" name="url" value="https://{{ domain }}" />
-  <input type="submit" class="retry" value="🔄" title="Retry" />
+  <input type="submit" class="retry" value="🔄" title="Check again" />
 </form>
 </div>
 {% endif %}
