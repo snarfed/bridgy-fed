@@ -107,21 +107,29 @@ class User(StringIdModel):
         """Returns this user's ActivityPub address, eg '@me@foo.com'."""
         return f'@{self.username()}@{self.key.id()}'
 
-    def user_page_link(self):
+    def user_page_link(self, domain_as_name=False):
         """Returns a pretty user page link with the user's name and profile picture.
 
         If actor_as2 is not set, returns ''.
+
+        Args:
+          domain_as_name: if True, renders domain if user's name isn't available.
         """
         if not self.actor_as2:
             return ''
 
         actor = util.json_loads(self.actor_as2)
         img = actor.get('icon', {}).get('url') or ''
-        return f"""\
-        <a href="/user/{self.key.id()}">
-          <img src="{img}" class="profile">
-          {actor.get('name') or ''}
-        </a>"""
+        name = actor.get('name') or ''
+
+        domain = self.key.id()
+        if not name and domain_as_name:
+            name = util.domain_from_link(domain)
+
+        if not img and not name:
+            return ''
+
+        return f'<a href="/user/{domain}"><img src="{img}" class="profile">{name}</a>'
 
 
     def verify(self):
@@ -222,7 +230,7 @@ class Activity(StringIdModel):
     def actor_link(self, as1=None):
         """Returns a pretty actor link with their name and profile picture."""
         if self.direction == 'out' and self.domain:
-            return User.get_by_id(self.domain[0]).user_page_link()
+            return User.get_by_id(self.domain[0]).user_page_link(domain_as_name=True)
 
         if not as1:
            as1 = self.to_as1()
