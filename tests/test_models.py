@@ -46,8 +46,11 @@ class UserTest(testutil.TestCase):
         self.user.actor_as2 = '{"type": "Person"}'
         self.assertEqual('@y.z@y.z', self.user.address())
 
-        self.user.actor_as2 = '{"preferredUsername": "foo"}'
-        self.assertEqual('@foo@y.z', self.user.address())
+        self.user.actor_as2 = '{"url": "http://foo"}'
+        self.assertEqual('@y.z@y.z', self.user.address())
+
+        self.user.actor_as2 = '{"urls": ["http://foo", "acct:bar@foo", "acct:baz@y.z"]}'
+        self.assertEqual('@baz@y.z', self.user.address())
 
     @mock.patch('requests.get')
     def test_verify(self, mock_get):

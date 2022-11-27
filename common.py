@@ -517,6 +517,8 @@ def actor(domain, user=None):
 
     Creates a User for the given domain if one doesn't already exist.
 
+    TODO: unify with webfinger.Actor
+
     Args:
       domain: str
       user: :class:`User`, optional
@@ -538,8 +540,6 @@ def actor(domain, user=None):
 
     actor = postprocess_as2(
         as2.from_as1(microformats2.json_to_object(hcard)), user=user)
-    urls = util.dedupe_urls(microformats2.get_string_urls([hcard]))
-    username = common.get_username(domain, urls)
     actor.update({
         'id': f'{request.host_url}{domain}',
         # This has to be the domain for Mastodon etc interop! It seems like it
@@ -559,28 +559,3 @@ def actor(domain, user=None):
 
     logger.info(f'Generated AS2 actor: {json_dumps(actor, indent=2)}')
     return actor
-
-
-def get_username(domain, urls):
-    """Returns a user's preferred username from an acct: url, if available.
-
-    If there's no acct: URL, returns domain.
-
-    Args:
-      domain: str
-      urls: sequence of str
-
-    Returns: str
-    """
-    assert domain
-    assert urls
-
-    for url in urls:
-        if url.startswith('acct:'):
-            urluser, urldomain = util.parse_acct_uri(url)
-            if urldomain == domain:
-                logger.info(f'Found custom username: urluser')
-                return urluser
-
-    logger.info(f'Defaulting username to domain {domain}')
-    return domain

@@ -9,7 +9,7 @@ import re
 import urllib.parse
 
 from flask import render_template, request
-from granary.microformats2 import get_text
+from granary import as2, microformats2
 import mf2util
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
@@ -31,7 +31,10 @@ logger = logging.getLogger(__name__)
 #     make_cache_key=lambda domain: f'{request.path} {request.headers.get("Accept")}')
 
 class Actor(flask_util.XrdOrJrd):
-    """Fetches a site's home page, converts its mf2 to WebFinger, and serves."""
+    """Fetches a site's home page, converts its mf2 to WebFinger, and serves.
+
+    TODO: unify with common.actor()
+    """
     def template_prefix(self):
         return 'webfinger_user'
 
@@ -64,8 +67,9 @@ class Actor(flask_util.XrdOrJrd):
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])
         canonical_url = urls[0]
 
-        username = common.get_username(domain, urls)
-        acct = f'{username}@{domain}'
+        user.actor_as2 = json_dumps(common.postprocess_as2(
+            as2.from_as1(microformats2.json_to_object(hcard)), user=user))
+        user.put()
 
         # discover atom feed, if any
         atom = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
@@ -89,7 +93,7 @@ class Actor(flask_util.XrdOrJrd):
 
         # generate webfinger content
         data = util.trim_nulls({
-            'subject': 'acct:' + acct,
+            'subject': 'acct:' + user.address().lstrip('@'),
             'aliases': urls,
             'magic_keys': [{'value': user.href()}],
             'links': sum(([{
@@ -98,7 +102,7 @@ class Actor(flask_util.XrdOrJrd):
                 'href': url,
             }] for url in urls if url.startswith("http")), []) + [{
                 'rel': 'http://webfinger.net/rel/avatar',
-                'href': get_text(url),
+                'href': microformats2.get_text(url),
             } for url in props.get('photo', [])] + [{
                 'rel': 'canonical_uri',
                 'type': 'text/html',

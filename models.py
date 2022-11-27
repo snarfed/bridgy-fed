@@ -76,15 +76,36 @@ class User(StringIdModel):
                              magicsigs.base64_to_long(str(self.private_exponent))))
         return rsa.exportKey(format='PEM')
 
-    def address(self):
-        """Returns this user's ActivityPub address, eg '@me@foo.com'."""
+    def username(self):
+        """Returns the user's preferred username from an acct: url, if available.
+
+        If there's no acct: URL, or if we haven't found their representative
+        h-card yet returns their domain.
+
+        Args:
+          domain: str
+          urls: sequence of str
+
+        Returns: str
+        """
         domain = self.key.id()
 
-        username = None
-        if self.actor_as2 is not None:
-            username = json_loads(self.actor_as2).get('preferredUsername')
+        if self.actor_as2:
+            actor = json_loads(self.actor_as2)
+            for url in [u.get('value') if isinstance(u, dict) else u
+                        for u in util.get_list(actor, 'urls')]:
+                if url and url.startswith('acct:'):
+                    urluser, urldomain = util.parse_acct_uri(url)
+                    if urldomain == domain:
+                        logger.info(f'Found custom username: {urluser}')
+                        return urluser
 
-        return f'@{username or domain}@{domain}'
+        logger.info(f'Defaulting username to domain {domain}')
+        return domain
+
+    def address(self):
+        """Returns this user's ActivityPub address, eg '@me@foo.com'."""
+        return f'@{self.username()}@{self.key.id()}'
 
     def user_page_link(self):
         """Returns a pretty user page link with the user's name and profile picture.
