@@ -806,6 +806,29 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('a', followers[0].src)
         self.assertEqual('https://foo.com/about-me', followers[0].dest)
 
+    def test_activitypub_follow_no_actor(self, mock_get, mock_post):
+        self.user.actor_as2 = json_dumps(self.follow_as2['actor'])
+        self.user.put()
+
+        html = self.follow_html.replace(
+            '<a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>', '')
+        follow = requests_response(html, content_type=CONTENT_TYPE_HTML)
+
+        mock_get.side_effect = [follow, self.actor]
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = self.client.post('/webmention', data={
+            'source': 'http://a/follow',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
+
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://foo.com/inbox',), args)
+        expected = self.follow_as2
+        expected['actor'] = 'http://localhost/a'
+        self.assertEqual(expected, json_loads(kwargs['data']))
+
     def test_activitypub_follow_fragment(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow_fragment, self.actor]
         mock_post.return_value = requests_response('abc xyz')

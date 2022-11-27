@@ -108,8 +108,11 @@ class Webmention(View):
 
         for activity, inbox in targets:
             target_obj = json_loads(activity.target_as2) if activity.target_as2 else None
+
             source_activity = common.postprocess_as2(
                 as2.from_as1(self.source_obj), target=target_obj, user=self.user)
+            if not source_activity.get('actor'):
+                source_activity['actor'] =  f'{request.host_url}{self.source_domain}'
 
             if activity.status == 'complete':
                 if activity.source_mf2:
