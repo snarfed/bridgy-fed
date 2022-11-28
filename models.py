@@ -20,22 +20,24 @@ logger = logging.getLogger(__name__)
 
 
 class User(StringIdModel):
-    """Stores a user's public/private key pair used for Magic Signatures.
+    """Stores a Bridgy Fed user.
 
-    The key name is the domain.
+    The key name is the domain. The key pair is used for both ActivityPub HTTP
+    Signatures and Salmon Magic Signatures.
 
-    The modulus and exponent properties are all encoded as base64url (ie URL-safe
-    base64) strings as described in RFC 4648 and section 5.1 of the Magic
-    Signatures spec.
-
-    Magic Signatures are used to sign Salmon slaps. Details:
+    https://tools.ietf.org/html/draft-cavage-http-signatures-07
     http://salmon-protocol.googlecode.com/svn/trunk/draft-panzer-magicsig-01.html
     http://salmon-protocol.googlecode.com/svn/trunk/draft-panzer-salmon-00.html
+
+    The key pair's modulus and exponent properties are all encoded as base64url
+    (ie URL-safe base64) strings as described in RFC 4648 and section 5.1 of the
+    Magic Signatures spec.
     """
     mod = ndb.StringProperty(required=True)
     public_exponent = ndb.StringProperty(required=True)
     private_exponent = ndb.StringProperty(required=True)
     has_redirects = ndb.BooleanProperty()
+    redirects_error = ndb.TextProperty()
     has_hcard = ndb.BooleanProperty()
     actor_as2 = ndb.TextProperty()
 
@@ -127,16 +129,22 @@ class User(StringIdModel):
 
         # check webfinger redirect
         path = f'/.well-known/webfinger?resource=acct:{domain}@{domain}'
+        self.has_redirects = False
+        self.redirects_error = None
         try:
-            resp = util.requests_get(urllib.parse.urljoin(site, path),
-                                     allow_redirects=False, gateway=False)
+            url = urllib.parse.urljoin(site, path)
+            resp = util.requests_get(url, allow_redirects=False, gateway=False)
             domain_urls = ([f'https://{domain}/' for domain in common.DOMAINS] +
                            [request.host_url])
             expected = [urllib.parse.urljoin(url, path) for url in domain_urls]
-            self.has_redirects = (resp.is_redirect and
-                                  resp.headers.get('Location') in expected)
+            if resp.is_redirect:
+                got = resp.headers.get('Location')
+                if got in expected:
+                    self.has_redirects = True
+                else:
+                    self.redirects_error = f'<code>{url}</code> redirects to <code>{got}</code> ; expected <code>{expected[0]}</code>'
         except requests.RequestException:
-            self.has_redirects = False
+            pass
 
         # check home page
         try:
