@@ -236,9 +236,9 @@ class Activity(StringIdModel):
         if isinstance(actor, str):
             return util.pretty_link(url)
 
-        url = util.get_first(actor, 'url')
-        name = actor.get('displayName')
-        image = util.get_url(actor, 'image')
+        url = util.get_first(actor, 'url') or ''
+        name = actor.get('displayName') or ''
+        image = util.get_url(actor, 'image') or ''
         if not image:
             return util.pretty_link(url, text=name)
 
