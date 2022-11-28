@@ -40,7 +40,7 @@ def remote_follow():
         addr_domain = util.domain_from_link(addr, minimize=False)
         resource = addr
     else:
-        flash('Enter your fediverse address in @user@domain.com format')
+        flash('Enter your fediverse address in @user@domain.social format')
         return redirect(f'/user/{domain}')
 
     # look up remote user via webfinger

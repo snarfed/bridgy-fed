@@ -121,7 +121,6 @@ class User(StringIdModel):
 
         return f'<a href="/user/{domain}"><img src="{img}" class="profile"> {name}</a>'
 
-
     def verify(self):
         """Fetches site a couple ways to check for redirects and h-card."""
         domain = self.key.id()
@@ -134,16 +133,15 @@ class User(StringIdModel):
         self.redirects_error = None
         try:
             url = urllib.parse.urljoin(site, path)
-            resp = util.requests_get(url, allow_redirects=False, gateway=False)
+            resp = util.requests_get(url, gateway=False)
             domain_urls = ([f'https://{domain}/' for domain in common.DOMAINS] +
                            [request.host_url])
             expected = [urllib.parse.urljoin(url, path) for url in domain_urls]
-            if resp.is_redirect:
-                got = resp.headers.get('Location')
-                if got in expected:
+            if resp.ok:
+                if resp.url in expected:
                     self.has_redirects = True
-                else:
-                    diff = '\n'.join(difflib.Differ().compare([got], [expected[0]]))
+                elif resp.url:
+                    diff = '\n'.join(difflib.Differ().compare([resp.url], [expected[0]]))
                     self.redirects_error = f'Current vs expected:<pre>{diff}</pre>'
         except requests.RequestException:
             pass

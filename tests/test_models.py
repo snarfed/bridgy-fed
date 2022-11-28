@@ -52,71 +52,79 @@ class UserTest(testutil.TestCase):
         self.user.actor_as2 = '{"urls": ["http://foo", "acct:bar@foo", "acct:baz@y.z"]}'
         self.assertEqual('@baz@y.z', self.user.address())
 
+    def _test_verify(self, redirects, hcard, actor, redirects_error=None):
+        with app.test_request_context('/'):
+            self.user.verify()
+        with self.subTest(redirects=redirects, hcard=hcard, actor=actor,
+                          redirects_error=redirects_error):
+            self.assert_equals(redirects, bool(self.user.has_redirects))
+            self.assert_equals(hcard, bool(self.user.has_hcard))
+            if actor is None:
+                self.assertIsNone(self.user.actor_as2)
+            else:
+                got = {k: v for k, v in json_loads(self.user.actor_as2).items()
+                       if k in actor}
+                self.assert_equals(actor, got)
+            self.assert_equals(redirects_error, self.user.redirects_error)
+
     @mock.patch('requests.get')
-    def test_verify(self, mock_get):
-        self.assertFalse(self.user.has_redirects)
-        self.assertFalse(self.user.has_hcard)
-
-        def check(redirects, hcard, actor, redirects_error=None):
-            with app.test_request_context('/'):
-                self.user.verify()
-            with self.subTest(redirects=redirects, hcard=hcard, actor=actor,
-                              redirects_error=redirects_error):
-                self.assert_equals(redirects, bool(self.user.has_redirects))
-                self.assert_equals(hcard, bool(self.user.has_hcard))
-                if actor is None:
-                    self.assertIsNone(self.user.actor_as2)
-                else:
-                    got = {k: v for k, v in json_loads(self.user.actor_as2).items()
-                           if k in actor}
-                    self.assert_equals(actor, got)
-                self.assert_equals(redirects_error, self.user.redirects_error)
-
-        # both fail
-        empty = requests_response('', allow_redirects=False)
+    def test_verify_neither(self, mock_get):
+        empty = requests_response('')
         mock_get.side_effect = [empty, empty]
-        check(False, False, None)
+        self._test_verify(False, False, None)
 
-        # redirect strips query params, no h-card
+    @mock.patch('requests.get')
+    def test_verify_redirect_strips_query_params(self, mock_get):
         half_redir = requests_response(
-            status=302, redirected_url='http://localhost/.well-known/webfinger',
-            allow_redirects=False)
+            status=302, redirected_url='http://localhost/.well-known/webfinger')
         no_hcard = requests_response('<html><body></body></html>')
         mock_get.side_effect = [half_redir, no_hcard]
-        check(False, False, None, """\
+        self._test_verify(False, False, None, """\
 Current vs expected:<pre>- http://localhost/.well-known/webfinger
 + https://fed.brid.gy/.well-known/webfinger?resource=acct:y.z@y.z</pre>""")
 
-        # redirect works, non-representative h-card
+    @mock.patch('requests.get')
+    def test_verify_multiple_redirects(self, mock_get):
+        two_redirs = requests_response(
+            status=302, redirected_url=[
+                'https://www.y.z/.well-known/webfinger?resource=acct:y.z@y.z',
+                'http://localhost/.well-known/webfinger?resource=acct:y.z@y.z',
+            ])
+        no_hcard = requests_response('<html><body></body></html>')
+        mock_get.side_effect = [two_redirs, no_hcard]
+        self._test_verify(True, False, None)
+
+    @mock.patch('requests.get')
+    def test_verify_non_representative_hcard(self, mock_get):
         full_redir = requests_response(
-            status=302, allow_redirects=False,
+            status=302,
             redirected_url='http://localhost/.well-known/webfinger?resource=acct:y.z@y.z')
         bad_hcard = requests_response(
             '<html><body><a class="h-card u-url" href="https://a.b/">acct:me@y.z</a></body></html>',
-            url='https://y.z/', allow_redirects=False,
+            url='https://y.z/',
         )
         mock_get.side_effect = [full_redir, bad_hcard]
-        check(True, False, None)
+        self._test_verify(True, False, None)
 
-        # both work
+    @mock.patch('requests.get')
+    def test_verify_both_work(self, mock_get):
+        full_redir = requests_response(
+            status=302,
+            redirected_url='http://localhost/.well-known/webfinger?resource=acct:y.z@y.z')
         hcard = requests_response("""
 <html><body class="h-card">
   <a class="u-url p-name" href="/">me</a>
   <a class="u-url" href="acct:myself@y.z">Masto</a>
 </body></html>""",
-            url='https://y.z/', allow_redirects=False,
+            url='https://y.z/',
         )
         mock_get.side_effect = [full_redir, hcard]
-        check(True, True, {
+        self._test_verify(True, True, {
             'type': 'Person',
             'name': 'me',
             'url': 'http://localhost/r/https://y.z/',
             'preferredUsername': 'y.z',
         })
-
-        # reset
-        mock_get.side_effect = [empty, empty]
-        check(False, False, None)
 
 
 class ActivityTest(testutil.TestCase):
