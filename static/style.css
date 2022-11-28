@@ -25,6 +25,10 @@
   text-align: right;
 }
 
+#logo {
+  z-index: -1;
+}
+
 @media (max-width: 600px) {
   #logo {
     float: left;
