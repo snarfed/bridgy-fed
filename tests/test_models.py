@@ -83,8 +83,9 @@ class UserTest(testutil.TestCase):
             allow_redirects=False)
         no_hcard = requests_response('<html><body></body></html>')
         mock_get.side_effect = [half_redir, no_hcard]
-        check(False, False, None,
-              '<code>https://y.z/.well-known/webfinger?resource=acct:y.z@y.z</code> redirects to <code>http://localhost/.well-known/webfinger</code> ; expected <code>https://fed.brid.gy/.well-known/webfinger?resource=acct:y.z@y.z</code>')
+        check(False, False, None, """\
+Current vs expected:<pre>- http://localhost/.well-known/webfinger
++ https://fed.brid.gy/.well-known/webfinger?resource=acct:y.z@y.z</pre>""")
 
         # redirect works, non-representative h-card
         full_redir = requests_response(

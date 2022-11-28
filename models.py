@@ -1,4 +1,5 @@
 """Datastore model classes."""
+import difflib
 import logging
 import urllib.parse
 
@@ -142,7 +143,8 @@ class User(StringIdModel):
                 if got in expected:
                     self.has_redirects = True
                 else:
-                    self.redirects_error = f'<code>{url}</code> redirects to <code>{got}</code> ; expected <code>{expected[0]}</code>'
+                    diff = '\n'.join(difflib.Differ().compare([got], [expected[0]]))
+                    self.redirects_error = f'Current vs expected:<pre>{diff}</pre>'
         except requests.RequestException:
             pass
 
