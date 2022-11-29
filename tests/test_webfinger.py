@@ -245,3 +245,13 @@ class WebfingerTest(testutil.TestCase):
 
         got = self.client.get('/.well-known/webfinger?resource=acct%3A%40localhost')
         self.assertEqual(400, got.status_code, got.get_data(as_text=True))
+
+    def test_webfinger_bad_resources(self):
+        for resource in (
+                # https://console.cloud.google.com/errors/detail/CKGv-b6impW3Jg;time=P30D?project=bridgy-federated
+                'acct:k',
+        ):
+            with self.subTest(resource=resource):
+                url = f'/.well-known/webfinger?resource={resource}'
+                got = self.client.get(url, headers={'Accept': 'application/json'})
+                self.assertEqual(400, got.status_code, got.get_data(as_text=True))

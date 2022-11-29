@@ -50,7 +50,11 @@ class Actor(flask_util.XrdOrJrd):
             urls = [url, urllib.parse.urljoin(url, '/')] + urls
 
         for candidate in urls:
-            resp = util.requests_get(candidate)
+            try:
+                resp = util.requests_get(candidate)
+            except ValueError:
+                logger.warning('', exc_info=True)
+                continue
             parsed = util.parse_html(resp)
             mf2 = util.parse_mf2(parsed, url=resp.url)
             # logger.debug(f'Parsed mf2 for {resp.url}: {json_dumps(mf2, indent=2)}')
@@ -59,7 +63,7 @@ class Actor(flask_util.XrdOrJrd):
                 logger.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')
                 break
         else:
-            error(f"didn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {resp.url}")
+            error(f"didn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) in any of {urls}")
 
         logger.info(f'Generating WebFinger data for {domain}')
         user = User.get_or_create(domain)
