@@ -62,13 +62,15 @@ def inbox(domain=None):
     except (TypeError, ValueError, AssertionError):
         error(f"Couldn't parse body as JSON", exc_info=True)
 
-    logger.info(f'Got: {json_dumps(activity, indent=2)}')
+    type = activity.get('type')
+    actor = activity.get('actor')
+    actor_id = actor.get('id') if isinstance(actor, dict) else actor
+    logger.info(f'Got {type} activity from {actor_id}: {json_dumps(activity, indent=2)}')
 
     obj = activity.get('object') or {}
     if isinstance(obj, str):
         obj = {'id': obj}
 
-    type = activity.get('type')
     if type == 'Accept':  # eg in response to a Follow
         return ''  # noop
     if type not in SUPPORTED_TYPES:
@@ -106,7 +108,6 @@ def inbox(domain=None):
         return 'OK'
 
     # fetch actor if necessary so we have name, profile photo, etc
-    actor = activity.get('actor')
     if actor and isinstance(actor, str):
         actor = activity['actor'] = common.get_as2(actor, user=user).json()
 

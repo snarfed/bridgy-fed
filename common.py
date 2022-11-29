@@ -529,7 +529,12 @@ def actor(domain, user=None):
     if tld in TLD_BLOCKLIST:
         error('', status=404)
 
-    mf2 = util.fetch_mf2(f'https://{domain}/', gateway=True)
+    url = f'https://{domain}/'
+    try:
+        mf2 = util.fetch_mf2(url, gateway=True)
+    except ValueError as e:
+        error(f"Couldn't fetch {url}: {e}")
+
     hcard = mf2util.representative_hcard(mf2, mf2['url'])
     logger.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')
     if not hcard:

@@ -219,6 +219,14 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.get('/foo.json')
         self.assertEqual(404, got.status_code)
 
+    def test_actor_bad_domain(self, _, mock_get, ___):
+        # https://console.cloud.google.com/errors/detail/CKGv-b6impW3Jg;time=P30D?project=bridgy-federated
+        mock_get.side_effect = [
+            ValueError('Invalid IPv6 URL'),
+        ]
+        got = self.client.get('/snarfed.org]')
+        self.assertEqual(400, got.status_code)
+
     def test_inbox_reply_object(self, *mocks):
         self._test_inbox_reply(REPLY_OBJECT, REPLY_OBJECT, *mocks)
 
