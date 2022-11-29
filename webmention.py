@@ -46,6 +46,7 @@ class Webmention(View):
 
         # fetch source page
         source = flask_util.get_required_param('source')
+        logger.info(f'webmention from {util.domain_from_link(source, minimize=False)}')
         try:
             source_resp = util.requests_get(source)
         except ValueError as e:
@@ -81,7 +82,12 @@ class Webmention(View):
             props['url'] = [self.source_url]
 
         self.source_obj = microformats2.json_to_object(entry, fetch_mf2=True)
-        logger.info(f'Converted to AS1: {json_dumps(self.source_obj, indent=2)}')
+        type_label = ' '.join((
+            self.source_obj.get('verb', ''),
+            self.source_obj.get('objectType'), '',
+            self.source_obj.get('object', {}).get('objectType', ''),
+        ))
+        logger.info(f'Converted to AS1: {type_label}: {json_dumps(self.source_obj, indent=2)}')
 
         self.user = User.get_or_create(self.source_domain)
         for method in self.try_activitypub, self.try_salmon:
