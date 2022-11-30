@@ -170,8 +170,10 @@ def accept_follow(follow, follow_unwrapped, user):
 
     # store Follower
     user_domain = util.domain_from_link(followee_unwrapped, minimize=False)
-    Follower.get_or_create(dest=user_domain, src=follower_id,
-                           last_follow=json_dumps(follow))
+    follower = Follower.get_or_create(dest=user_domain, src=follower_id,
+                                      last_follow=json_dumps(follow))
+    follower.status = 'active'
+    follower.put()
 
     # send AP Accept
     accept = {

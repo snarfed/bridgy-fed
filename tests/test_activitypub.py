@@ -448,6 +448,27 @@ class ActivityPubTest(testutil.TestCase):
         follower = Follower.get_by_id(f'www.realize.be {FOLLOW["actor"]}')
         self.assertEqual('inactive', follower.status)
 
+    def test_inbox_follow_inactive(self, mock_head, mock_get, mock_post):
+        Follower.get_or_create('www.realize.be', ACTOR['id'], status='inactive')
+
+        mock_head.return_value = requests_response(url='https://www.realize.be/')
+        mock_get.side_effect = [
+            # source actor
+            requests_response(FOLLOW_WITH_ACTOR['actor'],
+                              content_type=common.CONTENT_TYPE_AS2),
+            # target post webmention discovery
+            requests_response(
+                '<html><head><link rel="webmention" href="/webmention"></html>'),
+        ]
+        mock_post.return_value = requests_response()
+
+        got = self.client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
+        self.assertEqual(200, got.status_code)
+
+        # check that the Follower is now active
+        follower = Follower.get_by_id(f'www.realize.be {FOLLOW["actor"]}')
+        self.assertEqual('active', follower.status)
+
     def test_inbox_undo_follow_doesnt_exist(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://realize.be/')
 
