@@ -27,7 +27,7 @@ google-cloud-appengine-logging==1.1.6
 google-cloud-audit-log==0.2.4
 google-cloud-core==2.2.3
 google-cloud-datastore==1.15.4
-google-cloud-logging==3.2.5
+google-cloud-logging==3.3.0
 google-cloud-ndb==1.11.2
 googleapis-common-protos==1.57.0
 grpc-google-iam-v1==0.12.4
