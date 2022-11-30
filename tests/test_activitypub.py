@@ -174,6 +174,10 @@ class ActivityPubTest(testutil.TestCase):
             'preferredUsername': 'foo.com',
             'id': 'http://localhost/foo.com',
             'url': 'http://localhost/r/https://foo.com/about-me',
+            'attachment': [{
+                'type': 'PropertyValue',
+                'value': '<a href="https://foo.com/about-me" rel="me">https://foo.com/about-me</a>',
+            }],
             'inbox': 'http://localhost/foo.com/inbox',
             'outbox': 'http://localhost/foo.com/outbox',
             'following': 'http://localhost/foo.com/following',
