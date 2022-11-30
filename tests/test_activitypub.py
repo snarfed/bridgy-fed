@@ -176,6 +176,7 @@ class ActivityPubTest(testutil.TestCase):
             'url': 'http://localhost/r/https://foo.com/about-me',
             'attachment': [{
                 'type': 'PropertyValue',
+                'name': 'Link',
                 'value': '<a href="https://foo.com/about-me" rel="me">https://foo.com/about-me</a>',
             }],
             'inbox': 'http://localhost/foo.com/inbox',
