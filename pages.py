@@ -81,11 +81,11 @@ def user(domain):
     )
     activities, before, after = fetch_activities(query)
 
-    followers = Follower.query(Follower.dest == domain)\
+    followers = Follower.query(Follower.dest == domain, Follower.status == 'active')\
                         .count(limit=FOLLOWERS_UI_LIMIT)
     followers = f'{followers}{"+" if followers == FOLLOWERS_UI_LIMIT else ""}'
 
-    following = Follower.query(Follower.src == domain)\
+    following = Follower.query(Follower.src == domain, Follower.status == 'active')\
                         .count(limit=FOLLOWERS_UI_LIMIT)
     following = f'{following}{"+" if following == FOLLOWERS_UI_LIMIT else ""}'
 

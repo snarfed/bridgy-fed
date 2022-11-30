@@ -87,7 +87,7 @@ class Webmention(View):
             self.source_obj.get('objectType'), '',
             self.source_obj.get('object', {}).get('objectType', ''),
         ))
-        logger.info(f'Converted to AS1: {type_label}: {json_dumps(self.source_obj, indent=2)}')
+        logger.info(f'Converted webmention to AS1: {type_label}: {json_dumps(self.source_obj, indent=2)}')
 
         self.user = User.get_or_create(self.source_domain)
         for method in self.try_activitypub, self.try_salmon:
