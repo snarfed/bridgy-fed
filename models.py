@@ -96,7 +96,7 @@ class User(StringIdModel):
         if self.actor_as2:
             actor = json_loads(self.actor_as2)
             for url in [u.get('value') if isinstance(u, dict) else u
-                        for u in util.get_list(actor, 'urls')]:
+                        for u in util.get_list(actor, 'url')]:
                 if url and url.startswith('acct:'):
                     urluser, urldomain = util.parse_acct_uri(url)
                     if urldomain == domain:
@@ -117,7 +117,7 @@ class User(StringIdModel):
         name = (actor.get('name') or
                 # prettify if domain, noop if username
                 util.domain_from_link(self.username()))
-        img = actor.get('icon', {}).get('url') or ''
+        img = util.get_url(actor, 'icon') or ''
 
         return f'<a href="/user/{domain}"><img src="{img}" class="profile"> {name}</a>'
 

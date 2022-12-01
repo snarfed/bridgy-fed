@@ -116,7 +116,7 @@ def followers(domain):
             last_follow = json_loads(f.last_follow)
             actor = last_follow.get('actor', {})
             f.name = actor.get('name') or ''
-            f.picture = actor.get('icon', {}).get('url')
+            f.picture = util.get_url(actor, 'icon')
 
     return render_template(
         'followers.html',

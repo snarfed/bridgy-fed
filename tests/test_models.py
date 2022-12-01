@@ -49,7 +49,7 @@ class UserTest(testutil.TestCase):
         self.user.actor_as2 = '{"url": "http://foo"}'
         self.assertEqual('@y.z@y.z', self.user.address())
 
-        self.user.actor_as2 = '{"urls": ["http://foo", "acct:bar@foo", "acct:baz@y.z"]}'
+        self.user.actor_as2 = '{"url": ["http://foo", "acct:bar@foo", "acct:baz@y.z"]}'
         self.assertEqual('@baz@y.z', self.user.address())
 
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
@@ -122,7 +122,7 @@ Current vs expected:<pre>- http://localhost/.well-known/webfinger
         self._test_verify(True, True, {
             'type': 'Person',
             'name': 'me',
-            'url': 'http://localhost/r/https://y.z/',
+            'url': ['http://localhost/r/https://y.z/', 'acct:myself@y.z'],
             'preferredUsername': 'y.z',
         })
 

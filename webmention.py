@@ -141,8 +141,8 @@ class Webmention(View):
             if self.source_obj.get('verb') == 'follow':
                 # prefer AS2 id or url, if available
                 # https://github.com/snarfed/bridgy-fed/issues/307
-                dest = ((target_obj.get('id') or target_obj.get('url')) if target_obj
-                        else self.source_obj.get('object', {}).get('url'))
+                dest = ((target_obj.get('id') or util.get_first(target_obj, 'url'))
+                        if target_obj else util.get_url(self.source_obj, 'object'))
                 Follower.get_or_create(dest=dest, src=self.source_domain,
                                        last_follow=json_dumps(self.source_obj))
 
@@ -244,7 +244,7 @@ class Webmention(View):
                          util.get_first(target_obj, 'attributedTo'))
                 if isinstance(actor, dict):
                     inbox_url = actor.get('inbox')
-                    actor = actor.get('url') or actor.get('id')
+                    actor = util.get_first(actor, 'url') or actor.get('id')
                 if not inbox_url and not actor:
                     error('Target object has no actor or attributedTo with URL or id.')
                 elif not isinstance(actor, str):

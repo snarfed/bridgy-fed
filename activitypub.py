@@ -130,7 +130,7 @@ def inbox(domain=None):
             return ''
 
         # normal post, deliver to BF followers
-        source = activity.get('url') or activity.get('id')
+        source = util.get_first(activity, 'url') or activity.get('id')
         domains = []
         if actor:
             actor_id = actor.get('id')

@@ -367,7 +367,7 @@ def postprocess_as2(activity, user=None, target=None):
             for to in (util.get_list(target, 'attributedTo') +
                        util.get_list(target, 'actor')):
                 if isinstance(to, dict):
-                    to = to.get('url') or to.get('id')
+                    to = util.get_first(to, 'url') or to.get('id')
                 if to:
                     activity.setdefault('tag', []).append({
                         'type': 'Mention',
@@ -378,13 +378,13 @@ def postprocess_as2(activity, user=None, target=None):
     obj = activity.get('object')
     if obj:
         if isinstance(obj, dict) and not obj.get('id'):
-            obj['id'] = target_id or obj.get('url')
+            obj['id'] = target_id or util.get_first(obj, 'url')
         elif target_id and obj != target_id:
             activity['object'] = target_id
 
     # id is required for most things. default to url if it's not set.
     if not activity.get('id'):
-        activity['id'] = activity.get('url')
+        activity['id'] = util.get_first(activity, 'url')
 
     # TODO: find a better way to check this, sometimes or always?
     # removed for now since it fires on posts without u-id or u-url, eg
@@ -442,12 +442,13 @@ def postprocess_as2_actor(actor, user=None):
     Returns:
       actor dict
     """
-    url = actor.get('url') or f'https://{user.key.id()}/'
-    domain = urllib.parse.urlparse(url).netloc
+    urls = util.get_list(actor, 'url') or [f'https://{user.key.id()}/']
+    domain = util.domain_from_link(urls[0], minimize=False)
+    urls[0] = redirect_wrap(urls[0])
 
     actor.setdefault('id', request.host_url + domain)
     actor.update({
-        'url': redirect_wrap(url),
+        'url': urls if len(urls) > 1 else urls[0],
         # This has to be the domain for Mastodon interop/Webfinger discovery!
         # See related comment in actor() below.
         'preferredUsername': domain,
