@@ -53,7 +53,8 @@
 <p>
  <label for="follow-address">Enter your fediverse address to follow:</label>
  <input id="follow-address" name="address" type="text" required
-        placeholder="@user@domain.social" alt="fediverse address"></input>
+        placeholder="@user@domain.social" alt="fediverse address"
+        value="{{ follow_url }}"></input>
  <input name="domain" type="hidden" value="{{ domain }}"></input>
  <button type="submit" class="btn btn-default">Follow</button>
 </p>

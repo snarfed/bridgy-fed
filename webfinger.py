@@ -148,6 +148,14 @@ class Actor(flask_util.XrdOrJrd):
             }, {
                 'rel': 'salmon',
                 'href': f'{request.host_url}{domain}/salmon',
+            },
+
+            # remote follow
+            # https://socialhub.activitypub.rocks/t/what-is-the-current-spec-for-remote-follow/2020/11?u=snarfed
+            # https://github.com/snarfed/bridgy-fed/issues/60#issuecomment-1325589750
+            {
+                'rel': 'http://ostatus.org/schema/1.0/subscribe',
+                'template': f'{request.host_url}user/{domain}?url={{uri}}',
             }]
         })
         logger.info(f'Returning WebFinger data: {json_dumps(data, indent=2)}')

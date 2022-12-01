@@ -91,6 +91,7 @@ def user(domain):
 
     return render_template(
         'user.html',
+        follow_url=request.values.get('url'),
         logs=logs,
         util=util,
         **locals(),

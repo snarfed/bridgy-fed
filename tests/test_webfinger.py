@@ -80,6 +80,9 @@ class WebfingerTest(testutil.TestCase):
             }, {
                 'rel': 'salmon',
                 'href': 'http://localhost/foo.com/salmon'
+            }, {
+                'rel': 'http://ostatus.org/schema/1.0/subscribe',
+                'template': 'http://localhost/user/foo.com?url={uri}',
             }]
         }
 
@@ -121,7 +124,7 @@ class WebfingerTest(testutil.TestCase):
                            headers={'Accept': 'application/json'}).json
         self.assertEqual(self.key.href(), again['magic_keys'][0]['value'])
 
-        links = {l['rel']: l['href'] for l in again['links']}
+        links = {l['rel']: l.get('href') for l in again['links']}
         self.assertEqual(self.key.href(), links['magic-public-key'])
 
     @mock.patch('requests.get')
