@@ -20,7 +20,6 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadGateway
 
-import common
 from models import Activity, User
 
 logger = logging.getLogger(__name__)
@@ -126,7 +125,7 @@ def signed_request(fn, url, data=None, user=None, headers=None, **kwargs):
         # required by Mastodon
         # https://github.com/tootsuite/mastodon/pull/14556#issuecomment-674077648
         'Host': util.domain_from_link(url, minimize=False),
-        'Content-Type': common.CONTENT_TYPE_AS2,
+        'Content-Type': CONTENT_TYPE_AS2,
         # required for HTTP Signature and Mastodon
         'Digest': f'SHA-256={b64encode(sha256(data or b"").digest()).decode()}',
     })

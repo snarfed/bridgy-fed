@@ -61,7 +61,7 @@ def check_web_site():
         raise
 
     user.put()
-    return redirect(f'/user/{domain}')
+    return redirect(f'/user/{user.key.id()}')
 
 
 @app.get(f'/responses/<regex("{common.DOMAIN_RE}"):domain>')  # deprecated
@@ -74,6 +74,8 @@ def user(domain):
     user = User.get_by_id(domain)
     if not user:
         return render_template('user_not_found.html', domain=domain), 404
+    elif user.use_instead:
+        return redirect(f'/user/{user.use_instead.id()}', code=301)
 
     query = Activity.query(
         Activity.status.IN(('new', 'complete', 'error')),

@@ -17,7 +17,7 @@ class PagesTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        User.get_or_create('foo.com')
+        self.user = User.get_or_create('foo.com')
 
     @staticmethod
     def add_activities():
@@ -37,9 +37,22 @@ class PagesTest(testutil.TestCase):
         Activity(id='f', domain=['foo.com'], direction='in',
                  source_as2=json_dumps(LIKE)).put()
 
-    def test_user_user_not_found(self):
+    def test_user(self):
+        got = self.client.get('/user/foo.com')
+        self.assert_equals(200, got.status_code)
+
+    def test_user_not_found(self):
         got = self.client.get('/user/bar.com')
         self.assert_equals(404, got.status_code)
+
+    def test_user_use_instead(self):
+        bar = User.get_or_create('bar.com')
+        bar.use_instead = self.user.key
+        bar.put()
+
+        got = self.client.get('/user/bar.com')
+        self.assert_equals(301, got.status_code)
+        self.assert_equals('/user/foo.com', got.headers['Location'])
 
     def test_followers_user_not_found(self):
         got = self.client.get('/user/bar.com/followers')
