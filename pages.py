@@ -9,6 +9,7 @@ import urllib.parse
 from flask import redirect, render_template, request
 from google.cloud.ndb.stats import KindStat
 from granary import as2, atom, microformats2, rss
+import humanize
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import error, flash, redirect
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -342,12 +343,16 @@ def fetch_activities(query):
 
 @app.get('/stats')
 def stats():
-   return render_template(
-       'stats.html',
-       users=KindStat.query(KindStat.kind_name == 'MagicKey').get().count,
-       activities=KindStat.query(KindStat.kind_name == 'Response').get().count,
-       followers=KindStat.query(KindStat.kind_name == 'Follower').get().count,
-   )
+    def count(kind):
+        return humanize.intcomma(
+            KindStat.query(KindStat.kind_name == kind).get().count)
+
+    return render_template(
+        'stats.html',
+        users=count('MagicKey'),
+        activities=count('Response'),
+        followers=count('Follower'),
+    )
 
 
 @app.get('/log')
