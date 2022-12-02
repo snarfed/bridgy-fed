@@ -17,6 +17,11 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
 
+# https://github.com/snarfed/bridgy-fed/issues/314
+WWW_DOMAINS = frozenset((
+    'www.jvt.me',
+))
+
 logger = logging.getLogger(__name__)
 
 
@@ -134,7 +139,7 @@ class User(StringIdModel):
         site = f'https://{domain}/'
         logger.info(f'Verifying {site}')
 
-        if domain.startswith('www.'):
+        if domain.startswith('www.') and domain not in WWW_DOMAINS:
             # if root domain redirects to www, use root domain instead
             # https://github.com/snarfed/bridgy-fed/issues/314
             root = domain.removeprefix("www.")
@@ -142,7 +147,7 @@ class User(StringIdModel):
             try:
                 resp = util.requests_get(root_site, gateway=False)
                 if resp.ok and resp.url == site:
-                    logging.info(f'{root_site} redirects to {site}; using {root} instead')
+                    logging.info(f'{root_site} redirects to {site} ; using {root} instead')
                     root_user = User.get_or_create(root)
                     self.use_instead = root_user.key
                     self.put()
