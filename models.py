@@ -48,6 +48,9 @@ class User(StringIdModel):
     actor_as2 = ndb.TextProperty()
     use_instead = ndb.KeyProperty()
 
+    created = ndb.DateTimeProperty(auto_now_add=True)
+    updated = ndb.DateTimeProperty(auto_now=True)
+
     @classmethod
     def _get_kind(cls):
         return 'MagicKey'
