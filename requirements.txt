@@ -71,7 +71,7 @@ soupsieve==2.3.2.post1
 testtools==2.5.0
 tlslite-ng==0.7.6
 tweepy==4.12.1
-ujson==5.5.0
+ujson==5.6.0
 update-checker==0.18.0
 urllib3==1.26.13
 webapp2==3.0.0b1
