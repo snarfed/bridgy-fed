@@ -24,6 +24,13 @@ class UserTest(testutil.TestCase):
         same = User.get_or_create('y.z')
         self.assertEqual(same, self.user)
 
+    def test_get_or_create_use_instead(self):
+        user = User.get_or_create('a.b')
+        user.use_instead = self.user.key
+        user.put()
+
+        self.assertEqual('y.z', User.get_or_create('a.b').key.id())
+
     def test_href(self):
         href = self.user.href()
         self.assertTrue(href.startswith('data:application/magic-public-key,RSA.'), href)
@@ -54,7 +61,9 @@ class UserTest(testutil.TestCase):
 
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
         with app.test_request_context('/'):
-            self.user.verify()
+            got = self.user.verify()
+            self.assertEqual(self.user.key, got.key)
+
         with self.subTest(redirects=redirects, hcard=hcard, actor=actor,
                           redirects_error=redirects_error):
             self.assert_equals(redirects, bool(self.user.has_redirects))
@@ -125,6 +134,24 @@ Current vs expected:<pre>- http://localhost/.well-known/webfinger
             'url': ['http://localhost/r/https://y.z/', 'acct:myself@y.z'],
             'preferredUsername': 'y.z',
         })
+
+    @mock.patch('requests.get')
+    def test_verify_www_redirect(self, mock_get):
+        www_user = User.get_or_create('www.y.z')
+
+        empty = requests_response('')
+        mock_get.side_effect = [
+            requests_response(status=302, redirected_url='https://www.y.z/'),
+            empty, empty,
+        ]
+
+        with app.test_request_context('/'):
+            got = www_user.verify()
+            self.assertEqual('y.z', got.key.id())
+
+        root_user = User.get_by_id('y.z')
+        self.assertEqual(root_user.key, www_user.key.get().use_instead)
+        self.assertEqual(root_user.key, User.get_or_create('www.y.z').key)
 
 
 class ActivityTest(testutil.TestCase):

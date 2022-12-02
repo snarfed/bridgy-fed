@@ -53,7 +53,7 @@ def check_web_site():
 
     user = User.get_or_create(domain)
     try:
-        user.verify()
+        user = user.verify()
     except BaseException as e:
         if util.is_connection_failure(e):
             flash(f"Couldn't connect to {url}")

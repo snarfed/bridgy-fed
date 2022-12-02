@@ -41,6 +41,7 @@ class User(StringIdModel):
     redirects_error = ndb.TextProperty()
     has_hcard = ndb.BooleanProperty()
     actor_as2 = ndb.TextProperty()
+    use_instead = ndb.KeyProperty()
 
     @classmethod
     def _get_kind(cls):
@@ -59,6 +60,8 @@ class User(StringIdModel):
             user = User(id=domain, mod=mod, public_exponent=pubexp,
                         private_exponent=privexp)
             user.put()
+        elif user.use_instead:
+            user = user.use_instead.get()
 
         return user
 
@@ -122,10 +125,30 @@ class User(StringIdModel):
         return f'<a href="/user/{domain}"><img src="{img}" class="profile"> {name}</a>'
 
     def verify(self):
-        """Fetches site a couple ways to check for redirects and h-card."""
+        """Fetches site a couple ways to check for redirects and h-card.
+
+        Returns: User that was verified. May be different than self! eg if self's
+          domain started with www and we switch to the root domain.
+        """
         domain = self.key.id()
         site = f'https://{domain}/'
         logger.info(f'Verifying {site}')
+
+        if domain.startswith('www.'):
+            # if root domain redirects to www, use root domain instead
+            # https://github.com/snarfed/bridgy-fed/issues/314
+            root = domain.removeprefix("www.")
+            root_site = f'https://{root}/'
+            try:
+                resp = util.requests_get(root_site, gateway=False)
+                if resp.ok and resp.url == site:
+                    logging.info(f'{root_site} redirects to {site}; using {root} instead')
+                    root_user = User.get_or_create(root)
+                    self.use_instead = root_user.key
+                    self.put()
+                    return root_user.verify()
+            except requests.RequestException:
+                pass
 
         # check webfinger redirect
         path = f'/.well-known/webfinger?resource=acct:{domain}@{domain}'
@@ -153,6 +176,8 @@ class User(StringIdModel):
         except (BadRequest, NotFound):
             self.actor_as2 = None
             self.has_hcard = False
+
+        return self
 
 
 class Activity(StringIdModel):
