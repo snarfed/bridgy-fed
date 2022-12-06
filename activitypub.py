@@ -169,8 +169,10 @@ def accept_follow(follow, follow_unwrapped, user):
         error('Follow actor requires id and inbox. Got: %s', follower)
 
     # store Follower
-    user_domain = util.domain_from_link(followee_unwrapped, minimize=False)
-    follower = Follower.get_or_create(dest=user_domain, src=follower_id,
+    followee_domain = util.domain_from_link(followee_unwrapped, minimize=False)
+    # follow use_instead, if any
+    followee_domain = User.get_or_create(followee_domain).key.id()
+    follower = Follower.get_or_create(dest=followee_domain, src=follower_id,
                                       last_follow=json_dumps(follow))
     follower.status = 'active'
     follower.put()
@@ -179,7 +181,7 @@ def accept_follow(follow, follow_unwrapped, user):
     accept = {
         '@context': 'https://www.w3.org/ns/activitystreams',
         'id': util.tag_uri(request.host, 'accept/%s/%s' % (
-            (user_domain, follow.get('id')))),
+            (followee_domain, follow.get('id')))),
         'type': 'Accept',
         'actor': followee,
         'object': {

@@ -57,7 +57,7 @@ class User(StringIdModel):
 
     @staticmethod
     @ndb.transactional()
-    def get_or_create(domain):
+    def get_or_create(domain, **kwargs):
         """Loads and returns a User. Creates it if necessary."""
         user = User.get_by_id(domain)
 
@@ -66,7 +66,7 @@ class User(StringIdModel):
             # while depending on the amount of randomness available.
             pubexp, mod, privexp = magicsigs.generate()
             user = User(id=domain, mod=mod, public_exponent=pubexp,
-                        private_exponent=privexp)
+                        private_exponent=privexp, **kwargs)
             user.put()
         elif user.use_instead:
             user = user.use_instead.get()

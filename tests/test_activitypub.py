@@ -442,6 +442,31 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('active', follower.status)
         self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, json_loads(follower.last_follow))
 
+    def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
+        root = User.get_or_create('realize.be')
+        User.get_or_create('www.realize.be', use_instead=root.key)
+
+        mock_head.return_value = requests_response(url='https://www.realize.be/')
+        mock_get.side_effect = [
+            # source actor
+            requests_response(ACTOR, content_type=common.CONTENT_TYPE_AS2),
+            # target post webmention discovery
+            requests_response('<html></html>'),
+        ]
+        mock_post.return_value = requests_response()
+
+        follow = copy.deepcopy(FOLLOW_WRAPPED)
+        follow['object'] = 'http://localhost/realize.be'
+        got = self.client.post('/foo.com/inbox', json=follow)
+        self.assertEqual(200, got.status_code)
+
+        # check that the Follower doesn't have www
+        follower = Follower.get_by_id(f'realize.be {ACTOR["id"]}')
+        self.assertEqual('active', follower.status)
+
+        follow['actor'] = ACTOR
+        self.assertEqual(follow, json_loads(follower.last_follow))
+
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://www.realize.be/')
 
