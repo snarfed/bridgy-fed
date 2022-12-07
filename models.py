@@ -174,6 +174,11 @@ class User(StringIdModel):
                 elif resp.url:
                     diff = '\n'.join(difflib.Differ().compare([resp.url], [expected[0]]))
                     self.redirects_error = f'Current vs expected:<pre>{diff}</pre>'
+            else:
+                lines = [url, f'  returned HTTP {resp.status_code}']
+                if resp.url != url:
+                    lines[1:1] = ['  redirected to:', resp.url]
+                self.redirects_error = '\n'.join(lines)
         except requests.RequestException:
             pass
 

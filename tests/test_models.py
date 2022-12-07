@@ -104,6 +104,17 @@ Current vs expected:<pre>- http://localhost/.well-known/webfinger
         self._test_verify(True, False, None)
 
     @mock.patch('requests.get')
+    def test_verify_redirect_404(self, mock_get):
+        redir_404 = requests_response(status=404, redirected_url='http://this/404s')
+        no_hcard = requests_response('<html><body></body></html>')
+        mock_get.side_effect = [redir_404, no_hcard]
+        self._test_verify(False, False, None, """\
+https://y.z/.well-known/webfinger?resource=acct:y.z@y.z
+  redirected to:
+http://this/404s
+  returned HTTP 404""")
+
+    @mock.patch('requests.get')
     def test_verify_non_representative_hcard(self, mock_get):
         full_redir = requests_response(
             status=302,
