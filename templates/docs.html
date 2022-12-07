@@ -104,7 +104,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
   <li id="netlify"><em><a href="https://docs.netlify.com/routing/redirects/">Netlify</a></em>: add this to your <code>netlify.toml</code> file.
     <pre>
-    [[redirects]]
+[[redirects]]
   from = "/.well-known/host-meta*"
   to = "https://fed.brid.gy/.well-known/host-meta:splat"
   status = 302
