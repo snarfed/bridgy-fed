@@ -102,6 +102,20 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
   <pre>rewrite ^/\.well-known/(host-meta|webfinger).* https://fed.brid.gy$request_uri redirect;</pre>
 </li>
 
+  <li id="netlify"><em><a href="https://docs.netlify.com/routing/redirects/">Netlify</a></em>: add this to your <code>netlify.toml</code> file.
+    <pre>
+    [[redirects]]
+  from = "/.well-known/host-meta*"
+  to = "https://fed.brid.gy/.well-known/host-meta:splat"
+  status = 302
+[[redirects]]
+  from = "/.well-known/webfinger*"
+  to = "https://fed.brid.gy/.well-known/webfinger"
+  status = 302
+  </pre>
+  </li>
+
+
 <!--
 <em><a href="https://www.blogger.com/">Blogger</a></em>:
 Not to other domains
