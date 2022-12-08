@@ -79,8 +79,6 @@ def inbox(domain=None):
 
     # TODO: verify signature if there is one
 
-    user = User.get_or_create(domain) if domain else None
-
     if type == 'Undo' and obj.get('type') == 'Follow':
         # skip actor fetch below; we don't need it to undo a follow
         undo_follow(redirect_unwrap(activity))
@@ -106,6 +104,8 @@ def inbox(domain=None):
             f.status = 'inactive'
         ndb.put_multi(followers)
         return 'OK'
+
+    user = User.get_or_create(domain) if domain else None
 
     # fetch actor if necessary so we have name, profile photo, etc
     if actor and isinstance(actor, str):
