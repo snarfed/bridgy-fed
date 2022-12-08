@@ -44,6 +44,7 @@ Bridgy Fed takes some technical know-how to set up, and there are simpler (but l
 <li><a href="#like">How do I favorite (aka like) or boost (aka repost) a fediverse post?</a></li>
 <li><a href="#follow">How do I follow someone?</a></li>
 <li><a href="#image">How do I include an image in a post?</a></li>
+<li><a href="#update">How do I edit an existing post?</a></li>
 <li><a href="#fragment">Can I publish just one part of a page?</a></li>
 <li><a href="#backfeed">How do fediverse replies, likes, and other interactions show up on my site?</a></li>
 <li><a href="#read">How do I read my fediverse timeline/feed?</a></li>
@@ -282,6 +283,12 @@ Use <code>&lt;img class="<span class='keyword'>u-photo</span>"&gt;</code> for th
 &lt;img class="<span class='keyword'>u-photo</span>" src="<span class='value'>/full_glass.jpg</span>" /&gt;
 I love scotch. Scotchy scotchy scotch.
 </pre>
+</p>
+</li>
+
+<li id="update" class="question">How do I edit an existing post?</li>
+<li class="answer">
+<p>Edit the post on your web site, then send another webmention to Bridgy Fed for it. Bridgy Fed will refetch the post and send an <a href="https://www.w3.org/TR/activitypub/#update-activity-outbox"><code>Update</code> activity</a> for it to the fediverse.
 </p>
 </li>
 
