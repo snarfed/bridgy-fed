@@ -186,7 +186,7 @@ class Webfinger(Actor):
             domain = urllib.parse.urlparse(resource).netloc or resource
 
         url = None
-        if resource.startswith('http://') or resource.startswith('https://'):
+        if util.is_web(resource):
             url = resource
 
         return super().template_vars(domain=domain, url=url)

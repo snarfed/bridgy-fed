@@ -21,7 +21,7 @@ CACHE_TIME = datetime.timedelta(seconds=15)
 def add_wm(url=None):
     """Proxies HTTP requests and adds Link header to our webmention endpoint."""
     url = urllib.parse.unquote(url)
-    if not url.startswith('http://') and not url.startswith('https://'):
+    if not util.is_web(url):
         error('URL must start with http:// or https://')
 
     try:

@@ -36,7 +36,7 @@ def remote_follow():
     if len(split) == 2:
         addr_domain = split[1]
         resource = f'acct:{addr}'
-    elif addr.startswith('http://') or addr.startswith('https://'):
+    elif util.is_web(addr):
         addr_domain = util.domain_from_link(addr, minimize=False)
         resource = addr
     else:

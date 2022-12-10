@@ -43,7 +43,7 @@ def redir(to):
     # if that happened to this URL, expand it back to two /s.
     to = re.sub(r'^(https?:/)([^/])', r'\1/\2', to)
 
-    if not to.startswith('http://') and not to.startswith('https://'):
+    if not util.is_web(to):
         error(f'Expected fully qualified URL; got {to}')
 
     # check that we've seen this domain before so we're not an open redirect
