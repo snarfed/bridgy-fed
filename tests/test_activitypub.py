@@ -22,28 +22,28 @@ REPLY_OBJECT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Note',
     'content': 'A ☕ reply',
-    'id': 'http://this/reply/id',
-    'url': 'http://this/reply',
-    'inReplyTo': 'http://orig/post',
+    'id': 'http://th.is/reply/id',
+    'url': 'http://th.is/reply',
+    'inReplyTo': 'http://or.ig/post',
     'to': [as2.PUBLIC_AUDIENCE],
 }
 REPLY_OBJECT_WRAPPED = copy.deepcopy(REPLY_OBJECT)
-REPLY_OBJECT_WRAPPED['inReplyTo'] = 'http://localhost/r/orig/post'
+REPLY_OBJECT_WRAPPED['inReplyTo'] = 'http://localhost/r/http://or.ig/post'
 REPLY = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Create',
-    'id': 'http://this/reply/as2',
+    'id': 'http://th.is/reply/as2',
     'object': REPLY_OBJECT,
 }
 NOTE_OBJECT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Note',
     'content': '☕ just a normal post',
-    'id': 'http://this/note/id',
-    'url': 'http://this/note',
+    'id': 'http://th.is/note/id',
+    'url': 'http://th.is/note',
     'to': [as2.PUBLIC_AUDIENCE],
     'cc': [
-        'https://this/author/followers',
+        'https://th.is/author/followers',
         'https://masto.foo/@other',
         'http://localhost/target',  # redirect-wrapped
     ],
@@ -51,28 +51,28 @@ NOTE_OBJECT = {
 NOTE = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Create',
-    'id': 'http://this/note/as2',
+    'id': 'http://th.is/note/as2',
     'actor': 'https://masto.foo/@author',
     'object': NOTE_OBJECT,
 }
 MENTION_OBJECT = copy.deepcopy(NOTE_OBJECT)
 MENTION_OBJECT.update({
-    'id': 'http://this/mention/id',
-    'url': 'http://this/mention',
+    'id': 'http://th.is/mention/id',
+    'url': 'http://th.is/mention',
     'tag': [{
         'type': 'Mention',
         'href': 'https://masto.foo/@other',
         'name': '@other@masto.foo',
     }, {
         'type': 'Mention',
-        'href': 'http://localhost/target',  # redirect-wrapped
-        'name': '@target@target',
+        'href': 'http://localhost/tar.get',  # redirect-wrapped
+        'name': '@tar.get@tar.get',
     }],
 })
 MENTION = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Create',
-    'id': 'http://this/mention/as2',
+    'id': 'http://th.is/mention/as2',
     'object': MENTION_OBJECT,
 }
 # based on example Mastodon like:
@@ -80,21 +80,21 @@ MENTION = {
 # (reposts are very similar)
 LIKE = {
     '@context': 'https://www.w3.org/ns/activitystreams',
-    'id': 'http://this/like#ok',
+    'id': 'http://th.is/like#ok',
     'type': 'Like',
-    'object': 'http://orig/post',
-    'actor': 'http://orig/actor',
+    'object': 'http://or.ig/post',
+    'actor': 'http://or.ig/actor',
 }
 LIKE_WRAPPED = copy.deepcopy(LIKE)
-LIKE_WRAPPED['object'] = 'http://localhost/r/http://orig/post'
+LIKE_WRAPPED['object'] = 'http://localhost/r/http://or.ig/post'
 LIKE_WITH_ACTOR = copy.deepcopy(LIKE)
 LIKE_WITH_ACTOR['actor'] = {
     '@context': 'https://www.w3.org/ns/activitystreams',
-    'id': 'http://orig/actor',
+    'id': 'http://or.ig/actor',
     'type': 'Person',
     'name': 'Ms. Actor',
     'preferredUsername': 'msactor',
-    'image': {'type': 'Image', 'url': 'http://orig/pic.jpg'},
+    'image': {'type': 'Image', 'url': 'http://or.ig/pic.jpg'},
 }
 
 ACTOR = {
@@ -242,46 +242,45 @@ class ActivityPubTest(testutil.TestCase):
         self._test_inbox_reply(REPLY, REPLY, *mocks)
 
     def _test_inbox_reply(self, as2, expected_as2, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='http://orig/post')
+        mock_head.return_value = requests_response(url='http://or.ig/post')
         mock_get.return_value = requests_response(
             '<html><head><link rel="webmention" href="/webmention"></html>')
         mock_post.return_value = requests_response()
 
         got = self.client.post('/foo.com/inbox', json=as2)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-        self.assert_req(mock_get, 'http://orig/post')
+        self.assert_req(mock_get, 'http://or.ig/post')
         self.assert_req(
             mock_post,
-            'http://orig/webmention',
+            'http://or.ig/webmention',
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
-                'source': 'http://localhost/render?source=http%3A%2F%2Fthis%2Freply&target=http%3A%2F%2Forig%2Fpost',
-                'target': 'http://orig/post',
+                'source': 'http://localhost/render?source=http%3A%2F%2Fth.is%2Freply&target=http%3A%2F%2For.ig%2Fpost',
+                'target': 'http://or.ig/post',
             },
         )
 
-        activity = Activity.get_by_id('http://this/reply http://orig/post')
-        self.assertEqual(['orig'], activity.domain)
+        activity = Activity.get_by_id('http://th.is/reply http://or.ig/post')
+        self.assertEqual(['or.ig'], activity.domain)
         self.assertEqual('in', activity.direction)
         self.assertEqual('activitypub', activity.protocol)
         self.assertEqual('complete', activity.status)
         self.assertEqual(expected_as2, json_loads(activity.source_as2))
 
     def test_inbox_reply_to_self_domain(self, mock_head, mock_get, mock_post):
-        self._test_inbox_ignore_reply_to('http://localhost/this',
+        self._test_inbox_ignore_reply_to('http://localhost/th.is',
                                          mock_head, mock_get, mock_post)
-        self.assert_req(mock_head, 'http://this', allow_redirects=True)
+        self.assert_req(mock_head, 'http://th.is', allow_redirects=True)
 
     def test_inbox_reply_to_in_blocklist(self, *mocks):
         self._test_inbox_ignore_reply_to('https://twitter.com/foo', *mocks)
 
     def _test_inbox_ignore_reply_to(self, reply_to, mock_head, mock_get, mock_post):
         reply = copy.deepcopy(REPLY_OBJECT)
-        # same domain as source; should drop
         reply['inReplyTo'] = reply_to
 
-        mock_head.return_value = requests_response(url='http://this/')
+        mock_head.return_value = requests_response(url='http://th.is/')
 
         got = self.client.post('/foo.com/inbox', json=reply)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
@@ -304,7 +303,7 @@ class ActivityPubTest(testutil.TestCase):
             got = self.client.post('/foo.com/inbox', json=NOTE)
             self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
-            activity = Activity.get_by_id('http://this/note/as2 Public')
+            activity = Activity.get_by_id('http://th.is/note/as2 Public')
             self.assertEqual('in', activity.direction)
             self.assertEqual('activitypub', activity.protocol)
             self.assertEqual('complete', activity.status)
@@ -336,7 +335,7 @@ class ActivityPubTest(testutil.TestCase):
         self._test_inbox_mention(MENTION, *mocks)
 
     def _test_inbox_mention(self, as2, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='http://target')
+        mock_head.return_value = requests_response(url='http://tar.get')
         mock_get.return_value = requests_response(
             '<html><head><link rel="webmention" href="/webmention"></html>')
         mock_post.return_value = requests_response()
@@ -344,27 +343,27 @@ class ActivityPubTest(testutil.TestCase):
         with self.client:
             got = self.client.post('/foo.com/inbox', json=as2)
             self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-            self.assert_req(mock_get, 'http://target/')
+            self.assert_req(mock_get, 'http://tar.get/')
             self.assert_req(
                 mock_post,
-                'http://target/webmention',
+                'http://tar.get/webmention',
                 headers={'Accept': '*/*'},
                 allow_redirects=False,
                 data={
-                    'source': 'http://localhost/render?source=http%3A%2F%2Fthis%2Fmention&target=http%3A%2F%2Ftarget%2F',
-                    'target': 'http://target/',
+                    'source': 'http://localhost/render?source=http%3A%2F%2Fth.is%2Fmention&target=http%3A%2F%2Ftar.get%2F',
+                    'target': 'http://tar.get/',
                 },
             )
 
-            activity = Activity.get_by_id('http://this/mention http://target/')
-            self.assertEqual(['target'], activity.domain)
+            activity = Activity.get_by_id('http://th.is/mention http://tar.get/')
+            self.assertEqual(['tar.get'], activity.domain)
             self.assertEqual('in', activity.direction)
             self.assertEqual('activitypub', activity.protocol)
             self.assertEqual('complete', activity.status)
             self.assertEqual(common.redirect_unwrap(as2), json_loads(activity.source_as2))
 
     def test_inbox_like(self, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='http://orig/post')
+        mock_head.return_value = requests_response(url='http://or.ig/post')
         mock_get.side_effect = [
             # source actor
             requests_response(LIKE_WITH_ACTOR['actor'], headers={'Content-Type': common.CONTENT_TYPE_AS2}),
@@ -378,20 +377,20 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
-            self.as2_req('http://orig/actor'),
-            self.req('http://orig/post'),
+            self.as2_req('http://or.ig/actor'),
+            self.req('http://or.ig/post'),
         )),
 
         args, kwargs = mock_post.call_args
-        self.assertEqual(('http://orig/webmention',), args)
+        self.assertEqual(('http://or.ig/webmention',), args)
         self.assertEqual({
             # TODO
-            'source': 'http://localhost/render?source=http%3A%2F%2Fthis%2Flike__ok&target=http%3A%2F%2Forig%2Fpost',
-            'target': 'http://orig/post',
+            'source': 'http://localhost/render?source=http%3A%2F%2Fth.is%2Flike__ok&target=http%3A%2F%2For.ig%2Fpost',
+            'target': 'http://or.ig/post',
         }, kwargs['data'])
 
-        activity = Activity.get_by_id('http://this/like__ok http://orig/post')
-        self.assertEqual(['orig'], activity.domain)
+        activity = Activity.get_by_id('http://th.is/like__ok http://or.ig/post')
+        self.assertEqual(['or.ig'], activity.domain)
         self.assertEqual('in', activity.direction)
         self.assertEqual('activitypub', activity.protocol)
         self.assertEqual('complete', activity.status)
@@ -522,6 +521,25 @@ class ActivityPubTest(testutil.TestCase):
         })
         self.assertEqual(501, got.status_code)
 
+    def test_inbox_bad_object_url(self, mock_head, mock_get, mock_post):
+        # https://console.cloud.google.com/errors/detail/CMKn7tqbq-GIRA;time=P30D?project=bridgy-federated
+        mock_get.side_effect = [
+            # source actor
+            requests_response(ACTOR, content_type=common.CONTENT_TYPE_AS2),
+        ]
+        got = self.client.post('/foo.com/inbox', json={
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'https://mastodon.social/users/tmichellemoore#likes/56486252',
+            'type': 'Like',
+            'actor': ACTOR['id'],
+            'object': 'http://localhost/r/Testing \u2013 Brid.gy \u2013 Post to Mastodon 3',
+        })
+
+        # bad object, should ignore activity
+        self.assertEqual(200, got.status_code)
+        mock_post.assert_not_called()
+        self.assertEqual(0, Activity.query().count())
+
     def test_individual_inbox_delete_actor_noop(self, mock_head, mock_get, mock_post):
         """Deletes sent to individual users' inboxes do nothing."""
         follower = Follower.get_or_create('realize.be', DELETE['actor'])
@@ -575,8 +593,8 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/foo.com/inbox', json=LIKE)
         self.assertEqual(200, got.status_code)
 
-        activity = Activity.get_by_id('http://this/like__ok http://orig/post')
-        self.assertEqual(['orig'], activity.domain)
+        activity = Activity.get_by_id('http://th.is/like__ok http://or.ig/post')
+        self.assertEqual(['or.ig'], activity.domain)
         self.assertEqual('in', activity.direction)
         self.assertEqual('activitypub', activity.protocol)
         self.assertEqual('ignored', activity.status)

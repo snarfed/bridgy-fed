@@ -263,7 +263,7 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
                 targets.append(redirect_unwrap(url))
 
     if verb in ('follow', 'like', 'share'):
-         targets.append(obj_url)
+        targets.append(obj_url)
 
     targets = util.dedupe_urls(util.get_url(t) for t in targets)
     targets = remove_blocklisted(t.lower() for t in targets)
@@ -484,13 +484,13 @@ def redirect_wrap(url):
 def redirect_unwrap(val):
     """Removes our redirect wrapping from a URL, if it's there.
 
-    url may be a string, dict, or list. dicts and lists are unwrapped
+    val may be a string, dict, or list. dicts and lists are unwrapped
     recursively.
 
     Strings that aren't wrapped URLs are left unchanged.
 
     Args:
-      url: string
+      val: string or dict or list
 
     Returns: string, unwrapped url
     """
@@ -503,11 +503,13 @@ def redirect_unwrap(val):
     elif isinstance(val, str):
         prefix = urllib.parse.urljoin(request.host_url, '/r/')
         if val.startswith(prefix):
-            return util.follow_redirects(val[len(prefix):]).url
+            unwrapped = val.removeprefix(prefix)
+            if util.is_web(unwrapped):
+                return util.follow_redirects(unwrapped).url
         elif val.startswith(request.host_url):
-            domain = util.domain_from_link(urllib.parse.urlparse(val).path.strip('/'),
-                                           minimize=False)
-            return util.follow_redirects(domain).url
+            path = val.removeprefix(request.host_url)
+            if re.match(DOMAIN_RE, path):
+                return util.follow_redirects(path).url
 
     return val
 

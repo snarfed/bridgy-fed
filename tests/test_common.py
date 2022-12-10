@@ -76,6 +76,18 @@ class CommonTest(testutil.TestCase):
         self.assertIsNone(common.redirect_wrap(None))
         self.assertEqual('', common.redirect_wrap(''))
 
+    def test_redirect_unwrap_empty(self):
+        self.assertIsNone(common.redirect_unwrap(None))
+        for obj in '', {}, []:
+            self.assertEqual(obj, common.redirect_unwrap(obj))
+
+    def test_unwrap_not_web(self):
+        bad = {
+            'type': 'Like',
+            'object': 'http://localhost/r/foo bar',
+        }
+        self.assert_equals(bad, common.redirect_unwrap(bad))
+
     def test_postprocess_as2_multiple_in_reply_tos(self):
         with app.test_request_context('/'):
             self.assert_equals({
@@ -130,4 +142,3 @@ class CommonTest(testutil.TestCase):
                 'id': 'xyz',
                 'type': 'Note',
             }, user=User(id='foo.com')))
-
