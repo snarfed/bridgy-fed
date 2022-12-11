@@ -391,7 +391,9 @@ def postprocess_as2(activity, user=None, target=None):
     # assert activity.get('id') or (isinstance(obj, dict) and obj.get('id'))
 
     activity['id'] = redirect_wrap(activity.get('id'))
-    activity['url'] = redirect_wrap(activity.get('url'))
+    activity['url'] = [redirect_wrap(u) for u in util.get_list(activity, 'url')]
+    if len(activity['url']) == 1:
+        activity['url'] = activity['url'][0]
 
     # copy image(s) into attachment(s). may be Mastodon-specific.
     # https://github.com/snarfed/bridgy-fed/issues/33#issuecomment-440965618

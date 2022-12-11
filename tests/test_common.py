@@ -99,6 +99,17 @@ class CommonTest(testutil.TestCase):
                 'inReplyTo': ['foo', 'bar'],
             }, user=User(id='foo.com')))
 
+    def test_postprocess_as2_multiple_url(self):
+        with app.test_request_context('/'):
+            self.assert_equals({
+                'id': 'http://localhost/r/xyz',
+                'url': ['http://localhost/r/foo', 'http://localhost/r/bar'],
+                'to': [as2.PUBLIC_AUDIENCE],
+            }, common.postprocess_as2({
+                'id': 'xyz',
+                'url': ['foo', 'bar'],
+            }, user=User(id='foo.com')))
+
     def test_postprocess_as2_actor_attributedTo(self):
         with app.test_request_context('/'):
             self.assert_equals({
