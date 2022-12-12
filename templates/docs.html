@@ -40,6 +40,7 @@ Bridgy Fed takes some technical know-how to set up, and there are simpler (but l
 <p><em>Usage</em></p>
 <li><a href="#how-post">How do I post to the fediverse?</a></li>
 <li><a href="#which-posts">Which of my posts will show up in the fediverse?</a></li>
+<li><a href="#which-parts">How does it decide which parts of my posts to include?</a></li>
 <li><a href="#reply">How do I reply to a fediverse post?</a></li>
 <li><a href="#like">How do I favorite (aka like) or boost (aka repost) a fediverse post?</a></li>
 <li><a href="#follow">How do I follow someone?</a></li>
@@ -233,6 +234,17 @@ Create a <a href="https://indieweb.org/post">post</a> with the <a href="https://
 <p>Only the ones you <a href="#send+Bridgy+Fed+a+webmention">explicitly trigger with a webmention</a>. Bridgy Fed doesn't automatically create posts in the fediverse based on your site's Atom feed, HTML, or anything else. It only create posts in the fediverse on an opt in basis, per post, via webmention.
 </p>
 </li>
+
+<li id="which-parts" class="question">How does it decide which parts of my posts to include?</li>
+<li class="answer">
+<p>Magic! Most major blog engines and CMSes are supported out of the box, no setup necessary. Bridgy looks for <a href="http://microformats.org/">microformats</a> in your HTML, first the <a href="http://microformats.org/wiki/microformats2">microformats2</a> <code><a href="https://microformats.org/wiki/h-entry#Core_Properties">e-content</a></code> class and then the legacy <code><a href="https://microformats.org/wiki/hatom#Entry_Content">entry-content</a></code> class. It also understands more advanced microformats2 classes like <code><a href="#reply">in-reply-to</a></code>, <code><a href="#like">u-like-of</a></code>, <code><a href="#like">u-repost-of</a></code>, and <code><a href="#image">u-photo</a></code>.
+</p>
+
+<p>There are two broad types of text-based posts: short <a href="https://indieweb.org/note">notes</a>, eg tweets and toots, and longer <a href="https://indieweb.org/article">articles</a>, eg blog posts. We differentiate based on whether the post has a title: articles generally have titles, notes don't. See <a href="https://indieweb.org/post-type-discovery">post type discovery</a> for the gory details.
+</p>
+
+<p>Bridgy Fed currently posts the full contents of notes into the fediverse, but only titles and links to articles. This is because the fediverse and apps like Mastodon are primarily designed for smaller notes, not longer articles.
+</p>
 
 <li id="reply" class="question">How do I reply to a fediverse post?</li>
 <li class="answer">
