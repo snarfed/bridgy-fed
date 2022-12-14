@@ -243,7 +243,7 @@ def fetch_page(query, model_class):
     if before and after:
         error("can't handle both before and after")
     elif after:
-        query = query.filter(model_class.updated > after).order(-model_class.updated)
+        query = query.filter(model_class.updated > after).order(model_class.updated)
     elif before:
         query = query.filter(model_class.updated < before).order(-model_class.updated)
     else:

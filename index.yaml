@@ -17,6 +17,12 @@ indexes:
   - name: domain
   - name: status
   - name: updated
+
+- kind: Response
+  properties:
+  - name: domain
+  - name: status
+  - name: updated
     direction: desc
 
 - kind: Response
