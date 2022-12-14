@@ -116,6 +116,7 @@ def signed_request(fn, url, data=None, user=None, headers=None, **kwargs):
         user = default_signature_user()
 
     if data:
+        logging.info(f'Sending AS2 object: {json_dumps(data, indent=2)}')
         data = kwargs['data'] = json_dumps(data).encode()
 
     headers.update({
