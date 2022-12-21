@@ -255,7 +255,7 @@ Create a <a href="https://indieweb.org/post">post</a> with the <a href="https://
 <p>These can happen for a couple reasons. For articles, this is expected behavior, <a href="#which-parts">as described above</a>. The link is a Bridgy Fed URL that redirects to the original post on your web site. This is <a href="https://github.com/mastodon/mastodon/pull/6219#issuecomment-429142747">because</a> Mastodon <a href="https://github.com/snarfed/bridgy-fed/issues/16#issuecomment-424799599">requires</a> ActivityPub (ie fediverse) object URLs to use the same domain that serves them, which in this case is fed.brid.gy. We know it's awkward; sorry for the ugliness!
 </p>
 
-<p>Otherwise, this may be the <a href="#how-post">invisible fed.brid.gy link that's required to trigger Bridgy Fed</a>. If you put it outside of your post's <code><a href="https://microformats.org/wiki/h-entry#Core_Properties">e-content</a></code>, it won't show up in the fediverse post. It can go anywhere in your HTML!
+<p>Otherwise, this may be the <a href="#how-post">invisible fed.brid.gy link that's required to trigger Bridgy Fed</a>. Mastodon will show a preview of links even if their text is blank, so if your link is inside your <code><a href="https://microformats.org/wiki/h-entry#Core_Properties">e-content</a></code> microformats2 element, that's probably what's happening. You can prevent that by moving it outside of <code>e-content</code>. It can go anywhere in your HTML!
 </p>
 </li>
 
