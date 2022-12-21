@@ -48,7 +48,7 @@ class Webmention(View):
         source = flask_util.get_required_param('source')
         logger.info(f'webmention from {util.domain_from_link(source, minimize=False)}')
         try:
-            source_resp = util.requests_get(source)
+            source_resp = util.requests_get(source, gateway=True)
         except ValueError as e:
             error(f'Bad source URL: {source}: {e}')
         self.source_url = source_resp.url or source

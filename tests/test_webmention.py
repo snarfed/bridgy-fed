@@ -323,6 +323,15 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(400, got.status_code)
         self.assertEqual(0, Activity.query().count())
 
+    def test_source_fetch_fails(self, mock_get, mock_post):
+        mock_get.side_effect = (
+            requests_response(self.reply_html, status=405,
+                              content_type=CONTENT_TYPE_HTML),
+        )
+
+        got = self.client.post('/webmention', data={'source': 'http://a/post'})
+        self.assertEqual(502, got.status_code)
+
     def test_no_source_entry(self, mock_get, mock_post):
         mock_get.return_value = requests_response("""
 <html>
@@ -367,7 +376,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(400, got.status_code)
         self.assertEqual(0, Activity.query().count())
 
-    def test_source_fetch_fails(self, mock_get, mock_post):
+    def test_target_fetch_fails(self, mock_get, mock_post):
         mock_get.side_effect = (
             requests_response(self.reply_html.replace('http://orig/post', 'bad'),
                               content_type=CONTENT_TYPE_HTML),
