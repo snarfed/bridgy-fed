@@ -15,9 +15,12 @@ License: This project is placed in the public domain.
 
 Development
 ---
-You'll need Python 3. Install the [Google Cloud SDK](https://cloud.google.com/sdk/gcloud/) (aka `gcloud`) with the `gcloud-appengine-python` and `gcloud-appengine-python-extras` [components](https://cloud.google.com/sdk/docs/components#additional_components). Then, run:
+Pull requests are welcome! Feel free to [ping me in #indieweb-dev](https://indieweb.org/discuss) with any questions.
+
+First, fork and clone this repo. Then, install the [Google Cloud SDK](https://cloud.google.com/sdk/) and run `gcloud components install beta cloud-datastore-emulator` to install the [datastore emulator](https://cloud.google.com/datastore/docs/tools/datastore-emulator). Once you have them, set up your environment by running these commands in the repo root directory:
 
 ```sh
+gcloud config set project bridgy-federated
 python3 -m venv local
 source local/bin/activate
 pip install -r requirements.txt
@@ -26,7 +29,7 @@ pip install -r requirements.txt
 Now, run the tests to check that everything is set up ok:
 
 ```shell
-gcloud beta emulators datastore start --no-store-on-disk --consistency=1.0 --host-port=:8089 < /dev/null >& /dev/null &
+gcloud beta emulators datastore start --use-firestore-in-datastore-mode --no-store-on-disk --host-port=localhost:8089 --quiet < /dev/null >& /dev/null &
 python3 -m unittest discover
 ```
 
