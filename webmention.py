@@ -74,7 +74,7 @@ class Webmention(View):
         if not entry:
             error(f'No microformats2 found on {self.source_url}')
 
-        logger.info(f'First entry (id={fragment}: {json_dumps(entry, indent=2)}')
+        logger.info(f'First entry (id={fragment}): {json_dumps(entry, indent=2)}')
         # make sure it has url, since we use that for AS2 id, which is required
         # for ActivityPub.
         props = entry.setdefault('properties', {})
@@ -84,7 +84,7 @@ class Webmention(View):
         self.source_obj = microformats2.json_to_object(entry, fetch_mf2=True)
         type_label = ' '.join((
             self.source_obj.get('verb', ''),
-            self.source_obj.get('objectType'), '',
+            self.source_obj.get('objectType', ''),
             self.source_obj.get('object', {}).get('objectType', ''),
         ))
         logger.info(f'Converted webmention to AS1: {type_label}: {json_dumps(self.source_obj, indent=2)}')
