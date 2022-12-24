@@ -1,0 +1,58 @@
+# CircleCI automatically reads this file from our repo and uses it for
+# configuration. Docs:
+# https://circleci.com/docs/2.1/configuration-reference/
+# https://circleci.com/docs/2.1/sample-config/
+version: 2.1
+
+jobs:
+  build:
+    docker:
+      - image: cimg/python:3.9
+
+    steps:
+      - checkout
+
+      - restore_cache:
+          key: venv-1-{{ .Branch }}-{{ checksum "requirements.txt" }}
+
+      - run:
+          name: Base dependencies
+          command: |
+            # google-cloud-sdk: https://cloud.google.com/sdk/docs/install#deb
+            echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+            curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+            sudo apt-get update
+            sudo apt-get install -y apt-transport-https ca-certificates gnupg google-cloud-sdk google-cloud-sdk-datastore-emulator default-jre
+
+      - run:
+          name: Python dependencies
+          command: |
+            pip install -U pip
+            pip  -V
+            # make sure we install these at head, below
+            pip uninstall -y granary lexrpc oauth-dropins
+            pip install -U -r requirements.txt
+            pip install coverage coveralls
+
+      - run:
+          name: Build and test
+          command: |
+            CLOUDSDK_CORE_PROJECT=bridgy-at gcloud beta emulators datastore start --no-store-on-disk --consistency=1.0 --host-port=localhost:8089 < /dev/null >& /dev/null &
+            sleep 5s
+            python -m coverage run --source=. --omit=tests/\* -m unittest discover -v
+            python -m coverage html -d /tmp/coverage_html
+            if [ "$COVERALLS_REPO_TOKEN" != "" ]; then coveralls || true; fi
+
+      - save_cache:
+          key: venv-1-{{ .Branch }}-{{ checksum "requirements.txt" }}
+          paths:
+            - /home/circleci/.pyenv
+            # Ideally we'd cache these, but they need root, and the cimg/python
+            # Docker image's default user is circleci :/
+            # https://github.com/cypress-io/circleci-orb/issues/269
+            #
+            # - /usr/lib/google-cloud-sdk
+            # - /usr/lib/jvm/java-11-openjdk-amd64
+
+      - store_artifacts:
+          path: /tmp/coverage_html

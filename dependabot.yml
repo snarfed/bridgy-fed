@@ -1,0 +1,8 @@
+# GitHub Dependabot config
+# https://docs.github.com/en/github/administering-a-repository/keeping-your-dependencies-updated-automatically
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "daily"

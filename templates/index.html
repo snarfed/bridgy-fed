@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="row big">
+  What do you want to do?
+</div>
+
+<div class="row">
+
+<div class="col-lg-6 col-lg-offset-0 col-md-8 col-md-offset-2 col-sm-10 col-sm-offset-1 col-xs-12">
+<a class="btn btn-default btn-home" href="https://brid.gy/mastodon/start">
+<p class="bigger">Cross-post to a Mastodon account:<br>
+@you@mastodon.server</p>
+<pre class="bigger">      <img title="Pleroma" style="height: 1.5em; margin-bottom: -.2em" src="/static/pleroma_logo.svg">
+    /
+<span class="highlight" style="background-color: khaki" title="Your web site">🌐</span> — <span class="highlight"><img title="Mastodon" src="/oauth_dropins_static/mastodon_2x.png"></span> — <img title="Friendica" src="/static/friendica_logo.svg">
+    \
+      <img title="Mastodon" src="/oauth_dropins_static/mastodon_2x.png">
+</pre>
+<p class="big">You have a Mastodon account. You want to post on your web site, copy those posts to that account, and send responses back to your site.</p>
+</a>
+</div>
+
+<div class="col-lg-6 col-lg-offset-0 col-md-8 col-md-offset-2 col-sm-10 col-sm-offset-1 col-xs-12">
+<a class="btn btn-default btn-home" href="/web-site">
+<p class="bigger">Connect directly to the fediverse:<br>
+@yoursite.com</p>
+<pre class="bigger"><img title="Fediverse" src="/static/fediverse_logo.svg">   <img title="PeerTube" src="/static/peertube_logo.svg">
+\ /
+<img title="Misskey" src="/static/misskey_logo.png"> — <span class="highlight" title="Your web site">🌐</span> — <img title="Mastodon" src="/oauth_dropins_static/mastodon_2x.png">
+/ \
+<img title="GNU Social" src="/static/gnu_social_logo.svg">   <img title="Pixelfed" src="/oauth_dropins_static/pixelfed_2x.png">
+</pre>
+<p class="big">Your web site will be its own fediverse account, including its posts. Its username and instance will be your domain. This takes a bit of technical known-how.</p>
+</a>
+</div>
+</div>
+
+<div class="row">
+  <div class="big col-lg-6 col-lg-offset-3 col-md-12">
+    ...or create an account on <a href="https://micro.blog/">micro.blog</a> or <a href="https://joinmastodon.org/">Mastodon</a> to try out the <a href="https://fediverse.party/en/fediverse/">fediverse</a> first. <a href="https://indieweb.org/discuss">Ask us more in chat!</a>
+  </div>
+</div>
+
+</div>
+
+{% endblock %}

@@ -1,0 +1,419 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div id="docs">
+
+<div class="right third">
+<a href="/static/snarfed_web_site.png">
+  <img class="shadow" src="/static/snarfed_web_site.png" />
+</a>
+<p><em>Personal web site</em></p>
+<a href="/static/snarfed_mastodon.png">
+  <img class="shadow" src="/static/snarfed_mastodon.png" />
+</a>
+<p><em>Fediverse profile via Bridgy AT</em></p>
+</div>
+
+<p>
+Bridgy AT turns your web site into its own <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a> account, visible in <a href="https://joinmastodon.org/">Mastodon</a> and beyond. You can post, reply, like, repost, and follow fediverse accounts by posting on your site with <a href="https://microformats.org/wiki/microformats2">microformats2</a> and sending <a href="https://webmention.net/">webmentions</a>. Bridgy AT translates those posts to fediverse protocols like <a href="https://activitypub.rocks/">ActivityPub</a> and <a href="https://en.wikipedia.org/wiki/OStatus">OStatus</a>, and sends fediverse interactions back to your site as webmentions.
+</p>
+
+<p>
+This isn't <a href="https://indieweb.org/syndication">syndication</a> or <a href="https://indieweb.org/POSSE">POSSE</a>! You don't need an account on Mastodon or anywhere else. Bridgy AT lets your site act like a first class member of the fediverse. People there will see your posts directly from your site, and vice versa.
+</p>
+
+<p>
+Bridgy AT takes some technical know-how to set up, and there are simpler (but less powerful) alternatives. If you just want your site's posts to show up in the fediverse, without any other interactions, <a href="https://www.google.com/search?q=rss+atom+mastodon+bot">consider an RSS or Atom feed bot instead</a>. Or, if you want to cross-post to an existing Mastodon account, <a href="https://brid.gy/">try Bridgy</a>.
+</p>
+
+<br>
+
+<ul class="docs">
+<p><em>Setup</em></p>
+<li><a href="#setup">How do I set it up?</a></li>
+<li><a href="#profile">How do I set up my profile?</a></li>
+<li><a href="#user-page">Where's my user page and dashboard?</a></li>
+<!-- <li><a href="#sites">Which sites are supported?</a></li> -->
+
+<br>
+<p><em>Usage</em></p>
+<li><a href="#how-post">How do I post to the fediverse?</a></li>
+<li><a href="#which-posts">Which of my posts will show up in the fediverse?</a></li>
+<li><a href="#which-parts">How does it decide which parts of my posts to include?</a></li>
+<li><a href="#visible-links">What's up with the visible fed.brid.gy links in my fediverse posts?</a></li>
+<li><a href="#reply">How do I reply to a fediverse post?</a></li>
+<li><a href="#like">How do I favorite (aka like) or boost (aka repost) a fediverse post?</a></li>
+<li><a href="#follow">How do I follow someone?</a></li>
+<li><a href="#image">How do I include an image in a post?</a></li>
+<li><a href="#update">How do I edit an existing post?</a></li>
+<li><a href="#fragment">Can I publish just one part of a page?</a></li>
+<li><a href="#backfeed">How do fediverse replies, likes, and other interactions show up on my site?</a></li>
+<li><a href="#read">How do I read my fediverse timeline/feed?</a></li>
+<li><a href="#discovery">How can people on the fediverse find and follow me?</a></li>
+<li><a href="#troubleshooting">I tried it, and it didn't work!</a></li>
+
+<br>
+<p><em>About</em></p>
+<li><a href="#who">Who are you? Why did you make this?</a></li>
+<li><a href="#cost">How much does it cost?</a></li>
+<li><a href="#privacy">What do you do with my data?</a></li>
+<li><a href="#history">How long has this been around?</a></li>
+<li><a href="#terms">What are the terms of service?</a></li>
+<li><a href="#bug">I found a bug! I have a feature request!</a></li>
+<li><a href="#vulnerability">I found a security vulnerability!</a></li>
+</ul>
+
+<ul class="docs">
+
+<br>
+<h3 id="setup">Setup</h3>
+
+<li id="setup" class="question">How do I set it up?</li>
+<li class="answer">
+<p>
+<ol>
+<li>Your site needs to support SSL. Bridgy AT uses your domain as your identity, so it depends on SSL to prove that you own it.</li>
+<li>Configure your site to redirect these URL paths to the same paths on <code>https://fed.brid.gy/</code>, including query parameters:</li>
+<pre>
+/.well-known/host-meta
+/.well-known/webfinger
+</pre>
+
+<p>Here are instructions for a few common web servers:</p>
+
+<ul>
+<li>
+<p><em><a href="http://wordpress.org/">WordPress</a> (self-hosted)</em>: install the <a href="https://wordpress.org/plugins/safe-redirect-manager/">Safe Redirect Manager</a> plugin, then add these entries:</p>
+<code>
+  /.well-known/host-meta* => https://fed.brid.gy/.well-known/host-meta*<br/>
+  /.well-known/webfinger* => https://fed.brid.gy/.well-known/webfinger*
+</code>
+</li>
+
+<li><em><a href="http://withknown.com/">Known</a></em> or <em><a href="https://drupal.org/project/indieweb">Drupal</a></em>: follow the <a href="#apache">Apache</a> or <a href="#nginx">nginx</a> instructions below.
+</li>
+
+<li id="apache"><em><a href="http://httpd.apache.org/">Apache</a></em>: add this to your <code>.htaccess</code> file:<br />
+<pre>RewriteEngine on
+RewriteBase /
+RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redirect=302,last]</pre>
+(<code>RewriteEngine on</code> is optional if you already have it earlier in your <code>.htaccess</code>. <code>RewriteBase /</code> is optional if you don't have any other <code>RewriteBase</code> directives, or if you put this <code>RewriteRule</code> inside an existing <code>RewriteBase /</code> section.)
+</li>
+
+<li id="nginx"><em><a href="https://nginx.org/">nginx</a></em>: add this to your <code>nginx.conf</code> file, in the <code>server</code> section:<br />
+  <pre>rewrite ^/\.well-known/(host-meta|webfinger).* https://fed.brid.gy$request_uri? redirect;</pre>
+</li>
+
+  <li id="netlify"><em><a href="https://docs.netlify.com/routing/redirects/">Netlify</a></em>: add this to your <code>netlify.toml</code> file.
+    <pre>
+[[redirects]]
+  from = "/.well-known/host-meta*"
+  to = "https://fed.brid.gy/.well-known/host-meta:splat"
+  status = 302
+[[redirects]]
+  from = "/.well-known/webfinger*"
+  to = "https://fed.brid.gy/.well-known/webfinger"
+  status = 302
+  </pre>
+  </li>
+
+
+<!--
+<em><a href="https://www.blogger.com/">Blogger</a></em>:
+Not to other domains
+https://helplogger.blogspot.com/2014/07/how-to-set-custom-redirects-for-blogger-post.html
+
+<em><a href="https://medium.com/">Medium</a>: TODO</em>
+Redirects but not custom
+https://help.medium.com/hc/en-us/articles/213475208-301-Redirects
+
+<em><a href="http://www.tumblr.com/">Tumblr</a></em>:
+Haven't found how yet. "Link pages" here mention redirects but aren't what we need:
+https://tumblr.zendesk.com/hc/en-us/articles/231449328-Redirect-pages
+
+<em><a href="http://wordpress.com/">WordPress.com</a></em>:
+Site Redirect, but not per URL
+https://en.support.wordpress.com/site-redirect/
+-->
+
+</ul>
+
+<li>Add <a href="https://webmention.net/">webmention</a> support to your site. This is strongly recommended, but technically optional. You don't have to automate the webmentions to Bridgy AT to federate your posts, and you don't have to accept the inbound webmentions that Bridgy AT sends, but you'll have a much better experience if you do. <a href="https://indieweb.org/webmention#Publishing_Software">Check out the IndieWeb wiki</a> for instructions for your web server.</li>
+</ol>
+</li>
+
+<li id="profile" class="question">How do I set up my profile?</li>
+<li class="answer">
+<p>
+Your site's fediverse profile comes from the <a href="https://microformats.org/wiki/microformats2">microformats2</a> <a href="https://indieweb.org/representative_h-card">representative h-card</a> on your site's home page. Here's a minimal example to set your name and a profile picture:
+
+<pre>
+&lt;span class="<span class='keyword'>h-card</span>"&gt;
+  &lt;a rel="<span class='keyword'>me</span>" href="<span class='value'>/</span>"&gt;<span class='value'>Alice Foo</span>&lt;/a&gt;
+  &lt;img class="<span class='keyword'>u-photo</span>" src="<span class='value'>/me.jpg</span>" /&gt;
+&lt;/span&gt;
+</pre>
+</p>
+
+<p>If you want to set a <a href="https://docs.joinmastodon.org/user/profile/#header">header image</a>, add a <code><a href="https://indieweb.org/featured">u-featured</a></code> image to your h-card, eg:
+
+<pre>
+&lt;img class="<span class='keyword'>u-featured</span>" src="<span class='value'>/my-header.png</span>" /&gt;
+</pre>
+</p>
+
+<p>By default, your fediverse address will be <code>@yourdomain.com@yourdomain.com</code>. Many services (eg Mastodon) default to only showing the username, so this generally shows up as just <code>@yourdomain.com</code> in posts, and the full address appears on hover.</p>
+
+<p>We recommend this for simplicity and predictability, for everyone else as well as you, but if you want a different username, you can set it by adding an <code>acct:</code> <a href="https://microformats.org/wiki/rel-me">u-url</a> link inside your h-card with <code>username@yourdomain.com</code>, eg:
+
+<pre>
+&lt;a class="<span class='keyword'>u-url</span>" href="<span class='value'>acct:alice@yourdomain.com</span>"&gt;<span class='value'></span>&lt;/a&gt;
+</pre>
+</li>
+
+<li id="user-page" class="question">Where's my user page and dashboard?</li>
+<li class="answer">
+<p>
+<a href="/web-site">Enter your domain here</a> to see your user page. It shows your site's current status, recent interactions, remote follow UI, and links to your timeline feeds in various formats.
+</p>
+</li>
+
+<!-- <li id="sites" class="question">Which sites are supported?</li> -->
+<!-- <li class="answer"> -->
+<!-- <p> -->
+<!-- These sites are currently supported: -->
+<!-- </p> -->
+<!-- <ul> -->
+<!-- <li><em><a href="https://joinmastodon.org/">Mastodon</a></em>: posts, replies, likes, reposts aka boosts, @-mentions, and follows, both directions, via ActivityPub.<br /> -->
+<!-- The instance must be running at least <a href="https://hackernoon.com/mastodon-and-the-w3c-f75f376f422">Mastodon 1.6</a>, and more reliably with 2.0 and up. You can find its version on the bottom or right of its <code>/about/more</code> page, e.g. <a href="https://mastodon.social/about/more">mastodon.social/about/more</a>. -->
+<!-- </li> -->
+<!-- <li><em><a href="https://project.hubzilla.org/">Hubzilla</a></em>: replies, likes, and reposts aka shares, both directions, via OStatus.<br /> -->
+<!-- The instance must be running <a href="https://hub.somaton.com/channel/mario/?f=&mid=6db16e0e253c3c376cb921e7b31f94c24522933d7e54c6cf9febaa05359ab2fe@hub.somaton.com">Hubzilla 2.6</a> or higher. You can find its version on its <code>/siteinfo</code> page, e.g. <a href="https://hub.somaton.com/siteinfo">hub.somaton.com/siteinfo</a>. It also needs the GNU Social addon installed and enabled, and you also need to enable it in your account settings on the <em>Feature/Addon settings</em> page (<code>/settings/featured</code>). -->
+<!-- </li> -->
+<!-- </ul> -->
+
+<!-- <p> -->
+<!-- We're aware of the sites below, and we've made progress on some, but they're not yet supported. Click through and vote for their feature requests if you're interested in any of them! -->
+<!-- </p> -->
+<!-- <ul> -->
+<!-- <li><em><a href="https://github.com/snarfed/bridgy-at/issues/7">Diaspora</a></em>, via OStatus.</li> -->
+<!-- <li><em><a href="https://github.com/snarfed/bridgy-at/issues/9">Friendica</a></em>, via OStatus.</li> -->
+<!-- <li><em><a href="https://github.com/snarfed/bridgy-at/issues/8">GNU Social</a></em> (née StatusNet), via OStatus.</li> -->
+<!-- <li><em><a href="https://github.com/snarfed/bridgy-at/issues/11">MediaGoblin</a></em>, via ActivityPub?</li> -->
+<!-- <li><em><a href="https://github.com/snarfed/bridgy-at/issues/12">Pleroma</a></em>, via ActivityPub.</li> -->
+<!-- </ul> -->
+<!-- </li> -->
+
+<br>
+<h3 id="usage">Usage</h3>
+
+<li id="how-post" class="question">How do I post to the fediverse?</li>
+<li class="answer">
+<p>
+Create a <a href="https://indieweb.org/post">post</a> with the <a href="https://microformats.org/wiki/h-entry"><code>h-entry</code> microformat</a> on your web site. Many web servers include this or compatible microformats automatically. The post can be a <a href="https://indieweb.org/note#How_to">note</a>, <a href="https://indieweb.org/article">article</a>, <a href="https://indieweb.org/like">like</a>, <a href="https://indieweb.org/repost">repost</a>, <a href="https://indieweb.org/reply">reply</a>, or <a href="https://indieweb.org/follow">follow</a>. For example:
+
+<pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
+  &lt;p class="<span class='keyword'>e-content</span>"&gt;<span class='value'>Two naked tags walk into a bar. The bartender exclaims, "Hey, you can't come in here without microformats, this is a classy joint!"</span>&lt;/p&gt;
+  &lt;a class="<span class='keyword'>u-bridgy-at</span>" href="<a href='https://fed.brid.gy/'>https://fed.brid.gy/</a>"&gt;&lt;/a&gt;
+&lt;/div&gt;
+</pre>
+</p>
+
+<p>Basic HTML formatting like links, bold, and italics are generally preserved and visible in the fediverse, but specifics vary from site to site.
+</p>
+
+<p>Then, include a link (optionally blank) to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post and <a href="#setup">send Bridgy AT a webmention</a>. That webmention will trigger Bridgy AT to forward your post into the fediverse. Your web server may send the webmention automatically if it supports them, or <a href="https://indieweb.org/Webmention#Manual_Webmentions">you can send it manually.</a>
+</p>
+
+<p>(The <code>u-bridgy-at</code> class isn't strictly necessary, but it's useful in some cases to prevent microformats2 parsers from <a href="https://microformats.org/wiki/microformats2-implied-properties#hyperlink_and_url_property">interpreting the link as an implied <code>u-url</code></a>.)
+</p>
+</li>
+
+<li id="which-posts" class="question">Which of my posts will show up in the fediverse?</li>
+<li class="answer">
+<p>Only the ones you <a href="#send+Bridgy+Fed+a+webmention">explicitly trigger with a webmention</a>. Bridgy AT doesn't automatically create posts in the fediverse based on your site's Atom feed, HTML, or anything else. It only create posts in the fediverse on an opt in basis, per post, via webmention.
+</p>
+</li>
+
+<li id="which-parts" class="question">How does it decide which parts of my posts to include?</li>
+<li class="answer">
+<p>Magic! Most major blog engines and CMSes are supported out of the box, no setup necessary. Bridgy AT looks for <a href="http://microformats.org/">microformats</a> in your HTML, first the <a href="http://microformats.org/wiki/microformats2">microformats2</a> <code><a href="https://microformats.org/wiki/h-entry#Core_Properties">e-content</a></code> class and then the legacy <code><a href="https://microformats.org/wiki/hatom#Entry_Content">entry-content</a></code> class. It also understands more advanced microformats2 classes like <code><a href="#reply">in-reply-to</a></code>, <code><a href="#like">u-like-of</a></code>, <code><a href="#like">u-repost-of</a></code>, and <code><a href="#image">u-photo</a></code>.
+</p>
+
+<p>Bridgy AT sends the full contents of all posts, specifically everything inside <code><a href="https://microformats.org/wiki/h-entry#Core_Properties">e-content</a></code>, to the fediverse. However, not all fediverse apps currently <em>show</em> the full contents of all posts.
+</p>
+
+<p>For example, text-based posts fall into two broad buckets: short <a href="https://indieweb.org/note">notes</a>, eg tweets and toots, and longer <a href="https://indieweb.org/article">articles</a>, eg blog posts. In the IndieWeb, <a href="https://indieweb.org/post-type-discovery#Algorithm">we differentiate based on whether the post has a title</a>: articles generally have titles, notes don't.
+</p>
+
+<p>Mastodon currently shows the full text of notes, but for articles, it only shows their titles and a link to the full article. This is because Mastodon and most other fediverse apps are designed primarily for smaller notes, not longer articles.
+</li>
+
+<li id="visible-links" class="question">What's up with the visible fed.brid.gy links in my fediverse posts?</li>
+<li class="answer">
+<p>These can happen for a couple reasons. For articles, this is expected behavior, <a href="#which-parts">as described above</a>. The link is a Bridgy AT URL that redirects to the original post on your web site. This is <a href="https://github.com/mastodon/mastodon/pull/6219#issuecomment-429142747">because</a> Mastodon <a href="https://github.com/snarfed/bridgy-at/issues/16#issuecomment-424799599">requires</a> ActivityPub (ie fediverse) object URLs to use the same domain that serves them, which in this case is fed.brid.gy. We know it's awkward; sorry for the ugliness!
+</p>
+
+<p>Otherwise, this may be the <a href="#how-post">invisible fed.brid.gy link that's required to trigger Bridgy AT</a>. Mastodon will show a preview of links even if their text is blank, so if your link is inside your <code><a href="https://microformats.org/wiki/h-entry#Core_Properties">e-content</a></code> microformats2 element, that's probably what's happening. You can prevent that by moving it outside of <code>e-content</code>. It can go anywhere in your HTML!
+</p>
+</li>
+
+<li id="reply" class="question">How do I reply to a fediverse post?</li>
+<li class="answer">
+<p>
+Put the reply in a new post on your web site, and include a link to the fediverse post you're replying to with class <code><a href="http://microformats.org/wiki/rel-in-reply-to">u-in-reply-to</a></code>, as if you were publishing a normal <a href="https://indieweb.org/comment">IndieWeb reply</a>. For example:
+
+<pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
+  &lt;p class="<span class='keyword'>e-content</span>"&gt;<span class='value'>Highly entertaining. Please subscribe me to your newsletter.</span>&lt;/p&gt;
+  &lt;a class="<span class='keyword'>u-in-reply-to</span>" href="<a href='https://indieweb.social/@tchambers/109243684867780200'>https://indieweb.social/@tchambers/109243684867780200</a>"&gt;&lt;/a&gt;
+  &lt;a class="<span class='keyword'>u-bridgy-at</span>" href="<a href='https://fed.brid.gy/'>https://fed.brid.gy/</a>"&gt;&lt;/a&gt;
+&lt;/div&gt;
+</pre>
+</p>
+</li>
+
+<li id="like" class="question">How do I favorite (aka like) or boost (aka repost) a fediverse post?</li>
+<li class="answer">
+<p>Favoriting and boosting are almost exactly the <a href="#reply">same as replying</a>. The only difference is that you use <code><a href="https://indieweb.org/like">u-like-of</a></code> for a favorite/like or <code><a href="https://indieweb.org/repost">u-repost-of</a></code> for a boost/repost.
+
+<pre>
+&lt;a class="<span class='keyword'>u-like-of</span>" href="<a href='https://octodon.social/@cwebber/109405439825087368'>https://octodon.social/@cwebber/109405439825087368</a>"&gt;&lt;/a&gt;
+</pre>
+
+<pre>
+&lt;a class="<span class='keyword'>u-repost-of</span>" href="<a href='https://prodromou.pub/@evan/109390803478257847'>https://prodromou.pub/@evan/109390803478257847</a>"&gt;&lt;/a&gt;
+</pre>
+</p>
+</li>
+
+<li id="follow" class="question">How do I follow someone?</li>
+<li class="answer">
+<p>
+Post an <a href="https://indieweb.org/follow#How_to_markup">IndieWeb follow</a> on your site with <code>u-follow-of</code> microformats2, then send a webmention to Bridgy AT. Your site may do that automatically if it supports webmentions. For example:
+</p>
+
+<pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
+  I'm now following &lt;a class="<span class='keyword'>u-follow-of</span>" href="<a href='https://octodon.social/@cwebber'>https://octodon.social/@cwebber</a>"&gt;@cwebber@octodon.social&lt;/a&gt;!
+  &lt;a class="<span class='keyword'>u-bridgy-at</span>" href="<a href='https://fed.brid.gy/'>https://fed.brid.gy/</a>"&gt;&lt;/a&gt;
+&lt;/div&gt;
+</pre>
+</p>
+</li>
+
+<li id="image" class="question">How do I include an image in a post?</li>
+<li class="answer">
+<p>
+Use <code>&lt;img class="<span class='keyword'>u-photo</span>"&gt;</code> for the image in your post. For example:
+
+<pre>
+&lt;img class="<span class='keyword'>u-photo</span>" src="<span class='value'>/full_glass.jpg</span>" /&gt;
+I love scotch. Scotchy scotchy scotch.
+</pre>
+</p>
+</li>
+
+<li id="update" class="question">How do I edit an existing post?</li>
+<li class="answer">
+<p>Edit the post on your web site, then send another webmention to Bridgy AT for it. Bridgy AT will refetch the post and send an <a href="https://www.w3.org/TR/activitypub/#update-activity-outbox"><code>Update</code> activity</a> for it to the fediverse.
+</p>
+</li>
+
+<li id="fragment" class="question">Can I publish just one part of a page?</li>
+<li class="answer">
+<p>If that HTML element has its own id, then sure! Just put the id in the fragment of the URL that you publish. For example, to publish the <code>bar</code> post here:</p>
+<pre>&lt;div id="<span class='value'>a</span>" class="<span class='keyword'>h-entry</span>"&gt;<span class='value'>foo</span>&lt;/div&gt;
+&lt;div id="<span class='value'>b</span>" class="<span class='keyword'>h-entry</span>"&gt;<span class='value'>bar</span>&lt;/div&gt;
+&lt;div id="<span class='value'>c</span>" class="<span class='keyword'>h-entry</span>"&gt;<span class='value'>baz</span>&lt;/div&gt;
+</pre>
+<p>...just add the id to your page's URL in a fragment, e.g. <code>http://site/post#b</code> here.</p>
+</li>
+
+<li id="backfeed" class="question">How do fediverse replies, likes, and other interactions show up on my site?</li>
+<li class="answer">
+<p>
+To receive likes, reposts, replies, @-mentions, and follows from the fediverse, just make sure your site accepts <a href="https://webmention.net/">webmentions</a>! Bridgy AT translates those interactions and sends them to your site as webmentions. The source URL will usually be a proxy page on <code>fed.brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>.
+</p>
+</li>
+
+<li id="read" class="question">How do I read my fediverse timeline/feed?</li>
+<li class="answer">
+<p><a href="#user-page">Your user page</a> has links to your fediverse timeline/feed, ie posts from people you follow, in HTML, Atom, and RSS formats. Add them to your feed reader or read them in your browser!
+</p>
+</li>
+
+<li id="discovery" class="question">How can people on the fediverse find and follow me?</li>
+<li class="answer">
+<p>They can search for your web site in any Mastodon instance! Often you can just enter your domain, eg <code>yourdomain.com</code>, in any Mastodon search box. If that doesn't work, try your full fediverse address, eg <code>@yourdomain.com@yourdomain.com</code>. This can be finicky now and then, but it usually works.
+</p>
+
+<p><a href="#user-page">Your user page</a> also has a "remote follow" form that lets people enter their fediverse address and follow you directly.
+</p>
+</li>
+
+<li id="troubleshooting" class="question">I tried it, and it didn't work!</li>
+<li class="answer">
+<p><a href="#user-page">Check out your user page!</a> It detects and describes common problems with <a href="#setup">your setup</a>, and it shows your recent interactions and detailed logs.
+</li>
+
+
+<br>
+<h3 id="about">About</h3>
+
+<li id="who" class="question">Who are you? Why did you make this?</li>
+<li class="answer">
+<p>
+I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a href="https://snarfed.org/2012-07-25_why_i_have_my_own_web_site">the web</a> and <a href="https://indieweb.org/why">owning my data</a>.
+</p>
+</li>
+
+<li id="cost" class="question">How much does it cost?</li>
+<li class="answer">
+<p>Nothing! Bridgy AT is small, and it doesn't cost much to run. We don't need donations, promise.
+</p>
+<p>If you <em>really</em> want to contribute, <a href="https://github.com/snarfed/bridgy-at/issues">file an issue</a> or <a href="https://github.com/snarfed/bridgy-at">send a pull request</a>, or <a href="https://opencollective.com/indieweb">donate to the IndieWeb</a>!
+</p></li>
+
+<li id="privacy" class="question">What do you do with my data?</li>
+<li class="answer">
+<p>Nothing! Bridgy AT isn't a business, and never will be, so we don't have the same motivations to abuse your data that other services might. More concretely, Bridgy AT won't ever send you email, it stores as little of your <a href="http://en.wikipedia.org/wiki/Personally_identifiable_information">PII</a> (personally identifiable information) as possible, and it <em>never</em> has access to any of your passwords.
+</p>
+</li>
+
+<li id="history" class="question">How long has this been around?</li>
+<li class="answer">
+<p>I started thinking about bridging federated social networks and peer to peer networks when I discovered them in the early 2000s. I started talking about bridging them to the IndieWeb in 2016, <a href="http://indieweb.org/2017/ostatusbridge">led a session on it at IndieWeb Summit</a> in July 2017, wrote up <a href="https://snarfed.org/indieweb-activitypub-bridge">concrete</a> <a href="https://snarfed.org/indieweb-ostatus-bridge"> designs</a> soon after, started working on Bridgy AT in August 2017, and <a href="https://snarfed.org/2017-10-22_bridgy-at">launched it on October 22, 2017</a>.
+</li>
+
+<li id="terms" class="question">What are the terms of service?</li>
+<li class="answer">
+<p>Bridgy AT's terms of service are very simple. You agree not to deliberately attack, breach, or otherwise harm the service. If you manage to access private keys or other private data, you agree to <a href="#vulnerability">report the vulnerability</a> and not use or disclose that data.
+</p>
+<p>Otherwise, you may use the service for any purpose you see fit. However, we may terminate or block your access for any reason, or no reason at all. (We've never done this, and we expect we never will. Just playing it safe.)
+</p>
+<p>Do you an administer an instance or other service that Bridgy AT interacts with? If you have any concerns or questions, feel free to <a href="https://github.com/snarfed/bridgy-at/issues">file an issue</a>!
+</p>
+</li>
+
+<li id="bug" class="question">I found a bug! I have a feature request!</li>
+<li class="answer">
+<p>Great! Please <a href="https://github.com/snarfed/bridgy-at/issues">file it in GitHub</a>. Thank you!
+</p>
+</li>
+
+<li id="vulnerability" class="question">I found a security vulnerability!</li>
+<li class="answer">
+<p>Oof. Thank you for reporting it! Please send details to <a href="mailto:security@brid.gy">security@brid.gy</a>. We may provide monetary awards for reports of significant vulnerabilities, eg reading or modifying stored access tokens, <em>if</em> you follow these rules:</p>
+<ul>
+<li>Vulnerabilities must be in the application itself, not unrelated services like email (eg SPF/DKIM/DMARC).</li>
+<li>Out of scope: rate limiting, XSS/CSRF attacks (Bridgy AT has no authenticated sessions or private data accessible to users), <code>/admin/*</code> pages.
+<li>Public user data is intentionally public. That's not a vulnerability.</li>
+<li>No automated fuzzing, DoSes, or other high volume traffic. We block this traffic, and it will disqualify you from any possible award.</li>
+</ul>
+<p>Otherwise, <a href="https://github.com/snarfed/bridgy-at/">the code is open source</a>, feel free to try to break in, let us know if you succeed!</p>
+</li>
+
+</ul>
+</div>
+
+{% endblock %}

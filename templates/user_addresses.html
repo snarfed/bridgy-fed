@@ -1,0 +1,16 @@
+<div class="row">
+  <div class="big" style="display: inline">
+    {{ user.user_page_link()|safe }}
+    &middot;
+    <span title="Fediverse address">
+      <nobr>
+        <img class="logo" src="/static/fediverse_logo.svg">
+        {{ user.address() }}
+      </nobr>
+    </span>
+    &middot;
+    <nobr>
+      <a title="Web site" href="https://{{ domain }}/">🌐 {{ domain }}</a>
+    </nobr>
+  </div>
+</div>

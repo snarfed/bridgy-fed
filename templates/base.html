@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<title>{% block title %}Bridgy AT{% endblock %}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes"/>
+<link rel="shortcut icon" sizes="128x128" href="https://brid.gy/static/bridgy_logo_128.jpg">
+<link rel="apple-touch-icon-precomposed" sizes="128x128" href="https://brid.gy/static/bridgy_logo_128.jpg">
+<!-- 32x32 last so that browsers prefer it -->
+<link rel="shortcut icon" sizes="32x32" href="https://brid.gy/static/favicon.png">
+<link rel="apple-touch-icon-precomposed" sizes="32x32" href="https://brid.gy/static/favicon.png">
+<link rel="stylesheet" href="/oauth_dropins_static/bootstrap.min.css" />
+<link rel="stylesheet" href="/static/style.css" type="text/css" />
+<link rel="webmention" href="/webmention" />
+<!-- Not async because it adds a DOMContentLoaded event listener, which may
+  -- happen before an async script loads. -->
+<script src="/oauth_dropins_static/util.js"></script>
+</head>
+
+<body>
+
+{% with messages = get_flashed_messages() %}
+{% if messages %}
+  <div id="messages">
+  {% for message in messages %}
+    <p class="message shadow">{{ message|safe }}</p>
+  {% endfor %}
+  </div>
+{% endif %}
+{% endwith %}
+
+<main class="tp-main lead container">
+
+<div id="intro" class="row">
+<div id="logo" class="col-xs-4">
+ <a href="/"><img id="logo-img" class="img-responsive" src="/static/bridgy_fed_logo.png" /></a>
+</div>
+
+<div id="header" class="col-xs-7">
+<p class="big">
+<a id="title" href="/" style="white-space: nowrap">Bridgy AT</a>
+connects <a href="https://indieweb.org/">your web site</a> <br>
+to <a href="https://joinmastodon.org/">Mastodon</a> and the
+<a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>. <br>
+<a href="/docs">Learn more...</a>
+</p></div>
+</div>
+
+<p class="clearfix"></p>
+
+{% block content %}
+{% endblock %}
+
+<div id="footer">
+  <a href="/docs">Docs</a>
+  | <a href="https://github.com/snarfed/bridgy-at/issues">Bug?</a>
+  | <a href="https://github.com/snarfed/bridgy-at">Source</a>
+  | <a href="https://indieweb.org/">#IndieWeb</a>
+  | <a href="https://brid.gy/">Bridgy</a>
+</div>
+
+</div>
+</main>
+
+<script src="/static/fragmention.js"></script>
+</body>
+</html>
