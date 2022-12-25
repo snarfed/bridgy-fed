@@ -1,4 +1,5 @@
 """Unit tests for actor.py."""
+import app
 from . import testutil
 
 

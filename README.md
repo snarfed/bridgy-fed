@@ -4,3 +4,9 @@
 Early prototype of bridging the [IndieWeb](https://indieweb.org/) to [AT Protocol](https://atproto.com/).
 
 License: This project is placed in the public domain.
+
+
+### TODO
+
+* Decide whether to mirror the [`app.bsky` lexicons](https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky) in this repo or [fetch them dynamically via `getSchema`](https://atproto.com/guides/lexicon#schema-distribution), which isn't live on [bsky.app](https://bsky.app/) yet.
+* Support new lexicon format in lexrpc, eg app/bsky/embed/images.json, including `type` `object`, `ref`, etc.
