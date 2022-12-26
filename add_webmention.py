@@ -13,11 +13,10 @@ from app import app, cache
 import common
 
 LINK_HEADER = '<%s>; rel="webmention"'
-CACHE_TIME = datetime.timedelta(seconds=15)
 
 
 @app.get(r'/wm/<path:url>')
-@flask_util.cached(cache, CACHE_TIME)
+@flask_util.cached(cache, common.CACHE_TIME)
 def add_wm(url=None):
     """Proxies HTTP requests and adds Link header to our webmention endpoint."""
     url = urllib.parse.unquote(url)

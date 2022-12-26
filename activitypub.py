@@ -14,12 +14,10 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app, cache
 import common
-from common import redirect_unwrap, redirect_wrap
+from common import CACHE_TIME, redirect_unwrap, redirect_wrap
 from models import Activity, Follower, User
 
 logger = logging.getLogger(__name__)
-
-CACHE_TIME = datetime.timedelta(seconds=15)
 
 SUPPORTED_TYPES = (
     'Accept',

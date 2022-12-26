@@ -18,7 +18,7 @@ import urllib.parse
 from flask import redirect, request
 from granary import as2, microformats2
 import mf2util
-from negotiator import ContentNegotiator, AcceptParameters, ContentType, Language
+from negotiator import ContentNegotiator, AcceptParameters, ContentType
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps
@@ -26,6 +26,7 @@ from werkzeug.exceptions import abort
 
 from app import app, cache
 from common import (
+    CACHE_TIME,
     CONTENT_TYPE_AS2,
     CONTENT_TYPE_AS2_LD,
     CONTENT_TYPE_HTML,
@@ -35,8 +36,6 @@ from models import User
 
 logger = logging.getLogger(__name__)
 
-CACHE_TIME = datetime.timedelta(seconds=15)
-
 _negotiator = ContentNegotiator(acceptable=[
     AcceptParameters(ContentType(CONTENT_TYPE_HTML)),
     AcceptParameters(ContentType(CONTENT_TYPE_AS2)),
@@ -45,7 +44,7 @@ _negotiator = ContentNegotiator(acceptable=[
 
 
 @app.get(r'/r/<path:to>')
-@flask_util.cached(cache, CACHE_TIME)
+@flask_util.cached(cache, CACHE_TIME, headers=['Accept'])
 def redir(to):
     """301 redirect to the embedded fully qualified URL.
 
@@ -89,18 +88,6 @@ def redir(to):
     # redirect
     logger.info(f'redirecting to {to}')
     return redirect(to, code=301)
-
-# offically-supported-monkey-patch flask_caching to include Accept header in
-# cache key:
-# https://flask-caching.readthedocs.io/en/latest/api.html#flask_caching.Cache.cached
-# requires this pending bug fix:
-# https://github.com/pallets-eco/flask-caching/pull/431
-orig_cache_key = redir.make_cache_key
-
-def accept_header_cache_key(*args, **kwargs):
-    return f'{orig_cache_key(*args, **kwargs)}  {request.headers.get("Accept")}'
-
-redir.make_cache_key = accept_header_cache_key
 
 
 def convert_to_as2(url, domain):

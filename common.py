@@ -78,6 +78,8 @@ DOMAIN_BLOCKLIST = frozenset((
 
 _DEFAULT_SIGNATURE_USER = None
 
+CACHE_TIME = datetime.timedelta(seconds=10)
+
 # alias allows unit tests to mock the function
 utcnow = datetime.datetime.utcnow
 

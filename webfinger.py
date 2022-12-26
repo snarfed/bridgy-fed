@@ -19,22 +19,20 @@ from app import app, cache
 import common
 from models import User
 
-CACHE_TIME = datetime.timedelta(seconds=15)
 NON_TLDS = frozenset(('html', 'json', 'php', 'xml'))
 
 logger = logging.getLogger(__name__)
 
-
-# TODO
-# @cache.cached(
-#     CACHE_TIME.total_seconds(),
-#     make_cache_key=lambda domain: f'{request.path} {request.headers.get("Accept")}')
 
 class Actor(flask_util.XrdOrJrd):
     """Fetches a site's home page, converts its mf2 to WebFinger, and serves.
 
     TODO: unify with common.actor()
     """
+    @flask_util.cached(cache, common.CACHE_TIME, headers=['Accept'])
+    def dispatch_request(self, *args, **kwargs):
+        return super().dispatch_request(*args, **kwargs)
+
     def template_prefix(self):
         return 'webfinger_user'
 

@@ -12,11 +12,9 @@ from app import app, cache
 import common
 from models import Activity
 
-CACHE_TIME = datetime.timedelta(minutes=15)
-
 
 @app.get('/render')
-@flask_util.cached(cache, CACHE_TIME)
+@flask_util.cached(cache, common.CACHE_TIME)
 def render():
     """Fetches a stored Activity and renders it as HTML."""
     source = flask_util.get_required_param('source')
