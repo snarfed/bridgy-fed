@@ -6,6 +6,7 @@ from unittest.mock import patch
 from granary import as2
 from oauth_dropins.webutil.testutil import requests_response
 
+from app import app, cache
 import common
 from models import User
 from .test_webmention import REPOST_HTML, REPOST_AS2
@@ -49,6 +50,22 @@ class RedirectTest(testutil.TestCase):
 
     def test_as2_ld(self):
         self._test_as2(common.CONTENT_TYPE_AS2_LD)
+
+    def test_accept_header_cache_key(self):
+        app.config['CACHE_TYPE'] = 'SimpleCache'
+        cache.init_app(app)
+        self.client = app.test_client()
+
+        got = self.client.get('/r/https://foo.com/bar')
+        self.assertEqual(301, got.status_code)
+        self.assertEqual('https://foo.com/bar', got.headers['Location'])
+
+        self._test_as2(common.CONTENT_TYPE_AS2)
+
+        got = self.client.get('/r/https://foo.com/bar',
+                              headers={'Accept': 'text/html'})
+        self.assertEqual(301, got.status_code)
+        self.assertEqual('https://foo.com/bar', got.headers['Location'])
 
     @patch('requests.get')
     def _test_as2(self, accept, mock_get):

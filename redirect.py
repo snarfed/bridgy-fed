@@ -90,6 +90,18 @@ def redir(to):
     logger.info(f'redirecting to {to}')
     return redirect(to, code=301)
 
+# offically-supported-monkey-patch flask_caching to include Accept header in
+# cache key:
+# https://flask-caching.readthedocs.io/en/latest/api.html#flask_caching.Cache.cached
+# requires this pending bug fix:
+# https://github.com/pallets-eco/flask-caching/pull/431
+orig_cache_key = redir.make_cache_key
+
+def accept_header_cache_key(*args, **kwargs):
+    return f'{orig_cache_key(*args, **kwargs)}  {request.headers.get("Accept")}'
+
+redir.make_cache_key = accept_header_cache_key
+
 
 def convert_to_as2(url, domain):
     """Fetch a URL as HTML, convert it to AS2, and return it.

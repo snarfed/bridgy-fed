@@ -4,6 +4,7 @@ git+https://github.com/snarfed/oauth-dropins.git#egg=oauth_dropins
 git+https://github.com/snarfed/granary.git#egg=granary
 git+https://github.com/snarfed/negotiator.git@py3#egg=negotiator
 git+https://github.com/dvska/gdata-python3.git#egg=gdata
+git+https://github.com/snarfed/flask-caching.git@fix-97#egg=Flask-Caching
 
 beautifulsoup4==4.11.1
 brevity==0.2.17
@@ -20,7 +21,6 @@ feedgen==0.9.0
 feedparser==6.0.10
 fixtures==4.0.1
 Flask==2.2.2
-Flask-Caching==2.0.1
 flask-gae-static==1.0
 google-api-core==2.11.0
 google-auth==2.15.0
