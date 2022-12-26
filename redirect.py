@@ -1,12 +1,14 @@
-"""Simple endpoint that redirects to the embedded fully qualified URL.
+"""Simple conneg endpoint that serves AS2 or redirects to to the original post.
 
-May also instead fetch and convert to AS2, depending on conneg.
-
-Used to wrap ActivityPub ids with the fed.brid.gy domain so that Mastodon
-accepts them. Background:
+Serves /r/https://foo.com/bar URL paths, where https://foo.com/bar is an
+original post. Needed for Mastodon interop, they require that AS2 object ids and
+urls are on the same domain that serves them. Background:
 
 https://github.com/snarfed/bridgy-fed/issues/16#issuecomment-424799599
 https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
+
+The conneg makes these /r/ URLs searchable in Mastodon:
+https://github.com/snarfed/bridgy-fed/issues/352
 """
 import datetime
 import logging
@@ -16,18 +18,30 @@ import urllib.parse
 from flask import redirect, request
 from granary import as2, microformats2
 import mf2util
+from negotiator import ContentNegotiator, AcceptParameters, ContentType, Language
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps
 from werkzeug.exceptions import abort
 
 from app import app, cache
-import common
+from common import (
+    CONTENT_TYPE_AS2,
+    CONTENT_TYPE_AS2_LD,
+    CONTENT_TYPE_HTML,
+    postprocess_as2,
+)
 from models import User
 
 logger = logging.getLogger(__name__)
 
 CACHE_TIME = datetime.timedelta(seconds=15)
+
+_negotiator = ContentNegotiator(acceptable=[
+    AcceptParameters(ContentType(CONTENT_TYPE_HTML)),
+    AcceptParameters(ContentType(CONTENT_TYPE_AS2)),
+    AcceptParameters(ContentType(CONTENT_TYPE_AS2_LD)),
+])
 
 
 @app.get(r'/r/<path:to>')
@@ -60,11 +74,17 @@ def redir(to):
         logger.info(f'No user found for any of {domains}; returning 404')
         abort(404)
 
-    # poor man's conneg, only handle single Accept values, not multiple with
-    # priorities.
-    if request.headers.get('Accept') in (common.CONTENT_TYPE_AS2,
-                                         common.CONTENT_TYPE_AS2_LD):
-        return convert_to_as2(to, user)
+    # check conneg, serve AS2 if requested
+    accept = request.headers.get('Accept')
+    if accept:
+        negotiated = _negotiator.negotiate(accept)
+        if negotiated:
+            type = str(negotiated.content_type)
+            if type in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
+                return convert_to_as2(to, user), {
+                    'Content-Type': type,
+                    'Access-Control-Allow-Origin': '*',
+                }
 
     # redirect
     logger.info(f'redirecting to {to}')
@@ -74,22 +94,18 @@ def redir(to):
 def convert_to_as2(url, domain):
     """Fetch a URL as HTML, convert it to AS2, and return it.
 
-    Currently mainly for Pixelfed.
-    https://github.com/snarfed/bridgy-fed/issues/39
-
     Args:
       url: str
       domain: :class:`User`
+
+    Returns:
+      dict: AS2 object
     """
     mf2 = util.fetch_mf2(url)
     entry = mf2util.find_first_entry(mf2, ['h-entry'])
     logger.info(f"Parsed mf2 for {mf2['url']}: {json_dumps(entry, indent=2)}")
 
-    obj = common.postprocess_as2(as2.from_as1(microformats2.json_to_object(entry)),
-                                 domain)
+    obj = postprocess_as2(as2.from_as1(microformats2.json_to_object(entry)),
+                          domain, create=False)
     logger.info(f'Returning: {json_dumps(obj, indent=2)}')
-
-    return obj, {
-        'Content-Type': common.CONTENT_TYPE_AS2,
-        'Access-Control-Allow-Origin': '*',
-    }
+    return obj

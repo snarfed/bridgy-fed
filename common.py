@@ -2,6 +2,7 @@
 """Misc common utilities.
 """
 from base64 import b64encode
+import copy
 import datetime
 from hashlib import sha256
 import itertools
@@ -36,7 +37,8 @@ LINK_HEADER_RE = re.compile(r""" *< *([^ >]+) *> *; *rel=['"]([^'"]+)['"] *""")
 #
 # ActivityPub Content-Type details:
 # https://www.w3.org/TR/activitypub/#retrieving-objects
-CONTENT_TYPE_AS2_LD = 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"'
+CONTENT_TYPE_LD = 'application/ld+json'
+CONTENT_TYPE_AS2_LD = f'{CONTENT_TYPE_LD};profile="https://www.w3.org/ns/activitystreams"'
 CONTENT_TYPE_AS2 = 'application/activity+json'
 CONTENT_TYPE_AS1 = 'application/stream+json'
 CONTENT_TYPE_HTML = 'text/html; charset=utf-8'
@@ -46,9 +48,8 @@ CONTENT_TYPE_MAGIC_ENVELOPE = 'application/magic-envelope+xml'
 CONNEG_HEADERS_AS2 = {
     'Accept': '%s; q=0.9, %s; q=0.8' % (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD),
 }
-CONNEG_HEADERS_AS2_HTML = {
-    'Accept': CONNEG_HEADERS_AS2['Accept'] + ', %s; q=0.7' % CONTENT_TYPE_HTML,
-}
+CONNEG_HEADERS_AS2_HTML = copy.deepcopy(CONNEG_HEADERS_AS2)
+CONNEG_HEADERS_AS2_HTML['Accept'] += ', {CONTENT_TYPE_HTML}; q=0.7'
 
 SUPPORTED_VERBS = (
     'checkin',
@@ -189,7 +190,7 @@ def get_as2(url, user=None):
         raise err
 
     resp = signed_get(url, user=user, headers=CONNEG_HEADERS_AS2_HTML)
-    if content_type(resp) in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
+    if content_type(resp) in (CONTENT_TYPE_AS2, CONTENT_TYPE_LD):
         return resp
 
     parsed = util.parse_html(resp)
@@ -200,7 +201,7 @@ def get_as2(url, user=None):
 
     resp = signed_get(urllib.parse.urljoin(resp.url, as2['href']),
                       headers=CONNEG_HEADERS_AS2)
-    if content_type(resp) in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
+    if content_type(resp) in (CONTENT_TYPE_AS2, CONTENT_TYPE_LD):
         return resp
 
     _error(resp)
@@ -310,7 +311,7 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
     return True
 
 
-def postprocess_as2(activity, user=None, target=None):
+def postprocess_as2(activity, user=None, target=None, create=True):
     """Prepare an AS2 object to be served or sent via ActivityPub.
 
     Args:
@@ -319,6 +320,8 @@ def postprocess_as2(activity, user=None, target=None):
         publicKey fields if needed.
       target: dict, AS2 object, optional. The target of activity's inReplyTo or
         Like/Announce/etc object, if any.
+      create: boolean, whether to wrap `Note` and `Article` objects in a
+        `Create` activity
     """
     assert user
     type = activity.get('type')
@@ -420,7 +423,7 @@ def postprocess_as2(activity, user=None, target=None):
         to.append(as2.PUBLIC_AUDIENCE)
 
     # wrap articles and notes in a Create activity
-    if type in ('Article', 'Note'):
+    if create and type in ('Article', 'Note'):
         activity = {
             '@context': as2.CONTEXT,
             'type': 'Create',
