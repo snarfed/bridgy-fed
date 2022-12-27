@@ -168,8 +168,7 @@ def feed(domain):
                       for a in as2_activities
                       if a.source_as2]
     as1_activities = [a for a in as1_activities
-                      if a.get('verb') not in ('like', 'update', 'follow',
-                                               'repost', 'share')]
+                      if a.get('verb') not in ('like', 'update', 'follow')]
 
     actor = {
       'displayName': domain,
