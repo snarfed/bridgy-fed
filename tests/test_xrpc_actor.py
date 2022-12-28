@@ -57,3 +57,17 @@ class ActorTest(testutil.TestCase):
         self.assertEqual({
             'actors': [],
         }, got)
+
+    def test_search(self, _):
+        got = self.client.get('/xrpc/app.bsky.actor.search',
+                              query_string={'term': 'foo'}).json
+        self.assertEqual({
+            'users': [],
+        }, got)
+
+    def test_searchTypeahead(self, _):
+        got = self.client.get('/xrpc/app.bsky.actor.searchTypeahead',
+                              query_string={'term': 'foo'}).json
+        self.assertEqual({
+            'users': [],
+        }, got)

@@ -55,13 +55,18 @@ def getSuggestions(input):
 
 
 @xrpc_server.method('app.bsky.actor.search')
-def search(input):
+def search(input, term=None, limit=None, before=None):
     """
     lexicons/app/bsky/actor/search.json
     """
+    # TODO based on stored users
+    return {'users': []}
+
 
 @xrpc_server.method('app.bsky.actor.searchTypeahead')
-def searchTypeahead(input):
+def searchTypeahead(input, term=None, limit=None):
     """
     lexicons/app/bsky/actor/searchTypeahead.json
     """
+    # TODO based on stored users
+    return {'users': []}
