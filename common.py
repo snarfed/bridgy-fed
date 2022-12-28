@@ -70,6 +70,8 @@ OTHER_DOMAINS = (
 DOMAINS = (PRIMARY_DOMAIN,) + OTHER_DOMAINS
 # TODO: unify with Bridgy's
 DOMAIN_BLOCKLIST = frozenset((
+    # https://github.com/snarfed/bridgy-fed/issues/348
+    'aaronparecki.com',
     'facebook.com',
     'fb.com',
     't.co',
