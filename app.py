@@ -45,12 +45,9 @@ for filename in (app_dir / 'lexicons/app/bsky').glob('**/*.json'):
     logger.debug(f'Loading lexicon from {filename}')
     with open(filename) as f:
         lexicon = json.load(f)
-    # TODO
-    # if lexicon.get('defs', {}).get('main', {}).get('type') in ('query', 'procedure'):
-    #     lexicons.append(lexicon)
 
-xrpc_server = Server(lexicons)
+xrpc_server = Server(lexicons, validate=False)
 init_flask(xrpc_server, app)
 
 # import all modules to register their Flask handlers
-import pages
+import pages, xrpc_actor, xrpc_feed, xrpc_graph

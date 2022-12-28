@@ -21,6 +21,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         app.testing = True
         cache.clear()
         self.client = app.test_client()
+        self.xrpc = app.test_client()
         common.utcnow = lambda: NOW
 
         # clear datastore
