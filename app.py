@@ -44,7 +44,7 @@ lexicons = []
 for filename in (app_dir / 'lexicons/app/bsky').glob('**/*.json'):
     logger.debug(f'Loading lexicon from {filename}')
     with open(filename) as f:
-        lexicon = json.load(f)
+        lexicons.append(json.load(f))
 
 xrpc_server = Server(lexicons, validate=False)
 init_flask(xrpc_server, app)

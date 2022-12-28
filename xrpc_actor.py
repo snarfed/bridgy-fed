@@ -12,12 +12,6 @@ from app import xrpc_server
 logger = logging.getLogger(__name__)
 
 
-@xrpc_server.method('app.bsky.actor.createScene')
-def createScene(input):
-    """
-    lexicons/app/bsky/actor/createScene.json
-    """
-
 @xrpc_server.method('app.bsky.actor.getProfile')
 def getProfile(input, actor=None):
     """
@@ -50,11 +44,15 @@ def getProfile(input, actor=None):
     logger.info(f'Bluesky profile: {json.dumps(profile, indent=2)}')
     return profile
 
+
 @xrpc_server.method('app.bsky.actor.getSuggestions')
 def getSuggestions(input):
     """
     lexicons/app/bsky/actor/getSuggestions.json
     """
+    # TODO based on stored users
+    return {'actors': []}
+
 
 @xrpc_server.method('app.bsky.actor.search')
 def search(input):
@@ -66,10 +64,4 @@ def search(input):
 def searchTypeahead(input):
     """
     lexicons/app/bsky/actor/searchTypeahead.json
-    """
-
-@xrpc_server.method('app.bsky.actor.updateProfile')
-def updateProfile(input):
-    """
-    lexicons/app/bsky/actor/updateProfile.json
     """

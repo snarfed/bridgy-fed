@@ -5,7 +5,6 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
-from app import xrpc_server
 from . import testutil
 
 
@@ -22,6 +21,9 @@ class ActorTest(testutil.TestCase):
 </body>
 """, url='https://foo.com/')
 
+        got = self.client.get('/xrpc/app.bsky.actor.getProfile',
+                              query_string={'actor': 'foo.com'},
+                              ).json
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'handle': 'foo.com',
@@ -43,8 +45,15 @@ class ActorTest(testutil.TestCase):
                 'follow': 'TODO',
                 'member': 'TODO',
             },
-        }, xrpc_server.call('app.bsky.actor.getProfile', {}, actor='foo.com'))
+        }, got)
 
     def test_getProfile_not_domain(self, _):
-        with self.assertRaises(ValueError):
-            xrpc_server.call('app.bsky.actor.getProfile', {}, actor='not a domain')
+        resp = self.client.get('/xrpc/app.bsky.actor.getProfile',
+                               query_string={'actor': 'not a domain'})
+        self.assertEqual(400, resp.status_code)
+
+    def test_getSuggestions(self, _):
+        got = self.client.get('/xrpc/app.bsky.actor.getSuggestions').json
+        self.assertEqual({
+            'actors': [],
+        }, got)
