@@ -9,7 +9,7 @@ from . import testutil
 
 
 @patch('requests.get')
-class ActorTest(testutil.TestCase):
+class XrpcActorTest(testutil.TestCase):
 
     def test_getProfile(self, mock_get):
         mock_get.return_value = requests_response("""
