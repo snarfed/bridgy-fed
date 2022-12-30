@@ -8,53 +8,53 @@ import requests
 from . import testutil
 
 
-@patch('requests.get')
-class XrpcGraphTest(testutil.TestCase):
+# @patch('requests.get')
+# class XrpcGraphTest(testutil.TestCase):
 
-    def test_getAuthorFeed(self, mock_get):
-        mock_get.return_value = requests_response("""
-<body>
-</body>
-""", url='https://foo.com/')
+#     def test_getAuthorFeed(self, mock_get):
+#         mock_get.return_value = requests_response("""
+# <body>
+# </body>
+# """, url='https://foo.com/')
 
-        got = self.client.get('/xrpc/app.bsky.actor.getProfile',
-                              query_string={'actor': 'foo.com'},
-                              ).json
-        self.assertEqual({
-        }, got)
+#         got = self.client.get('/xrpc/app.bsky.actor.getProfile',
+#                               query_string={'actor': 'foo.com'},
+#                               ).json
+#         self.assertEqual({
+#         }, got)
 
-    def test_getPostThread(self, mock_get):
-        mock_get.return_value = requests_response("""
-<body>
-</body>
-""", url='https://foo.com/')
+#     def test_getPostThread(self, mock_get):
+#         mock_get.return_value = requests_response("""
+# <body>
+# </body>
+# """, url='https://foo.com/')
 
-        got = self.client.get('/xrpc/app.bsky.actor.getProfile',
-                              query_string={'actor': 'foo.com'},
-                              ).json
-        self.assertEqual({
-        }, got)
+#         got = self.client.get('/xrpc/app.bsky.actor.getProfile',
+#                               query_string={'actor': 'foo.com'},
+#                               ).json
+#         self.assertEqual({
+#         }, got)
 
-    def test_getRepostedBy(self, mock_get):
-        mock_get.return_value = requests_response("""
-<body>
-</body>
-""", url='https://foo.com/')
+#     def test_getRepostedBy(self, mock_get):
+#         mock_get.return_value = requests_response("""
+# <body>
+# </body>
+# """, url='https://foo.com/')
 
-        got = self.client.get('/xrpc/app.bsky.actor.getProfile',
-                              query_string={'actor': 'foo.com'},
-                              ).json
-        self.assertEqual({
-        }, got)
+#         got = self.client.get('/xrpc/app.bsky.actor.getProfile',
+#                               query_string={'actor': 'foo.com'},
+#                               ).json
+#         self.assertEqual({
+#         }, got)
 
-    def test_getTimeline(self, mock_get):
-        mock_get.return_value = requests_response("""
-<body>
-</body>
-""", url='https://foo.com/')
+#     def test_getTimeline(self, mock_get):
+#         mock_get.return_value = requests_response("""
+# <body>
+# </body>
+# """, url='https://foo.com/')
 
-        got = self.client.get('/xrpc/app.bsky.actor.getProfile',
-                              query_string={'actor': 'foo.com'},
-                              ).json
-        self.assertEqual({
-        }, got)
+#         got = self.client.get('/xrpc/app.bsky.actor.getProfile',
+#                               query_string={'actor': 'foo.com'},
+#                               ).json
+#         self.assertEqual({
+#         }, got)

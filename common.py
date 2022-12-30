@@ -18,6 +18,3 @@ DOMAIN_BLOCKLIST = frozenset((
     't.co',
     'twitter.com',
 ) + DOMAINS)
-
-# alias allows unit tests to mock the function
-utcnow = datetime.datetime.utcnow

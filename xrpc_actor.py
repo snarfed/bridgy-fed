@@ -31,10 +31,11 @@ def getProfile(input, actor=None):
     logger.info(f'Representative h-card: {json.dumps(hcard, indent=2)}')
 
     actor = microformats2.json_to_object(hcard)
+    actor.setdefault('url', url)
     logger.info(f'AS1 actor: {json.dumps(actor, indent=2)}')
 
     profile = {
-        **bluesky.from_as1(actor, from_url=url),
+        **bluesky.from_as1(actor),
         'myState': {
             # ?
             'follow': 'TODO',

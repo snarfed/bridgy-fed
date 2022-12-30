@@ -21,9 +21,9 @@ class XrpcActorTest(testutil.TestCase):
 </body>
 """, url='https://foo.com/')
 
-        got = self.client.get('/xrpc/app.bsky.actor.getProfile',
-                              query_string={'actor': 'foo.com'},
-                              ).json
+        resp = self.client.get('/xrpc/app.bsky.actor.getProfile',
+                               query_string={'actor': 'foo.com'})
+        self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'handle': 'foo.com',
@@ -45,7 +45,7 @@ class XrpcActorTest(testutil.TestCase):
                 'follow': 'TODO',
                 'member': 'TODO',
             },
-        }, got)
+        }, resp.json)
 
     def test_getProfile_not_domain(self, _):
         resp = self.client.get('/xrpc/app.bsky.actor.getProfile',
@@ -53,21 +53,24 @@ class XrpcActorTest(testutil.TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_getSuggestions(self, _):
-        got = self.client.get('/xrpc/app.bsky.actor.getSuggestions').json
+        resp = self.client.get('/xrpc/app.bsky.actor.getSuggestions')
+        self.assertEqual(200, resp.status_code)
         self.assertEqual({
             'actors': [],
-        }, got)
+        }, resp.json)
 
     def test_search(self, _):
-        got = self.client.get('/xrpc/app.bsky.actor.search',
-                              query_string={'term': 'foo'}).json
+        resp = self.client.get('/xrpc/app.bsky.actor.search',
+                              query_string={'term': 'foo'})
+        self.assertEqual(200, resp.status_code)
         self.assertEqual({
             'users': [],
-        }, got)
+        }, resp.json)
 
     def test_searchTypeahead(self, _):
-        got = self.client.get('/xrpc/app.bsky.actor.searchTypeahead',
-                              query_string={'term': 'foo'}).json
+        resp = self.client.get('/xrpc/app.bsky.actor.searchTypeahead',
+                              query_string={'term': 'foo'})
+        self.assertEqual(200, resp.status_code)
         self.assertEqual({
             'users': [],
-        }, got)
+        }, resp.json)
