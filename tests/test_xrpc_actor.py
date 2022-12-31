@@ -31,6 +31,7 @@ class XrpcActorTest(testutil.TestCase):
             'creator': 'TODO (a DID)',
             'displayName': 'Mrs. ☕ Foo',
             'declaration': {
+                '$type': 'app.bsky.system.declRef',
                 'cid': 'TODO',
                 'actorType': 'app.bsky.system.actorUser',
             },
