@@ -76,7 +76,11 @@ def redir(to):
     # check conneg, serve AS2 if requested
     accept = request.headers.get('Accept')
     if accept:
-        negotiated = _negotiator.negotiate(accept)
+        try:
+            negotiated = _negotiator.negotiate(accept)
+        except ValueError:
+            # work around https://github.com/CottageLabs/negotiator/issues/6
+            negotiated = None
         if negotiated:
             type = str(negotiated.content_type)
             if type in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
