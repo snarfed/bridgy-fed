@@ -12,8 +12,6 @@ import requests
 
 import common
 
-NOW = datetime.datetime(2022, 11, 23, 22, 29, 19)
-
 
 class TestCase(unittest.TestCase, testutil.Asserts):
     maxDiff = None
@@ -23,7 +21,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         app.testing = True
         cache.clear()
         self.client = app.test_client()
-        common.utcnow = lambda: NOW
 
         # clear datastore
         requests.post('http://%s/reset' % ndb_client.host)

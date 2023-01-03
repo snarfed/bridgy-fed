@@ -82,9 +82,6 @@ _DEFAULT_SIGNATURE_USER = None
 
 CACHE_TIME = datetime.timedelta(seconds=10)
 
-# alias allows unit tests to mock the function
-utcnow = datetime.datetime.utcnow
-
 
 def default_signature_user():
     global _DEFAULT_SIGNATURE_USER
@@ -127,7 +124,7 @@ def signed_request(fn, url, data=None, user=None, headers=None, **kwargs):
     headers.update({
         # required for HTTP Signature
         # https://tools.ietf.org/html/draft-cavage-http-signatures-07#section-2.1.3
-        'Date': utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT'),
+        'Date': util.now().strftime('%a, %d %b %Y %H:%M:%S GMT'),
         # required by Mastodon
         # https://github.com/tootsuite/mastodon/pull/14556#issuecomment-674077648
         'Host': util.domain_from_link(url, minimize=False),
