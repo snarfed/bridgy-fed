@@ -120,7 +120,7 @@ FOLLOW_WRAPPED_WITH_ACTOR['actor'] = ACTOR
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Accept',
-    'id': 'tag:localhost:accept/www.realize.be/https://mastodon.social/6d1a',
+    'id': 'tag:fed.brid.gy:accept/www.realize.be/https://mastodon.social/6d1a',
     'actor': 'http://localhost/www.realize.be',
     'object': {
         'type': 'Follow',

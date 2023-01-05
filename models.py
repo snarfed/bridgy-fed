@@ -188,7 +188,7 @@ class User(StringIdModel):
             url = urllib.parse.urljoin(site, path)
             resp = util.requests_get(url, gateway=False)
             domain_urls = ([f'https://{domain}/' for domain in common.DOMAINS] +
-                           [request.host_url])
+                           [common.host_url()])
             expected = [urllib.parse.urljoin(url, path) for url in domain_urls]
             if resp.ok:
                 if resp.url in expected:
@@ -265,10 +265,10 @@ class Activity(StringIdModel):
         """Returns the Bridgy Fed proxy URL to render this post as HTML."""
         if self.source_mf2 or self.source_as2 or self.source_atom:
             source, target = self.key.id().split(' ')
-            return f'{request.host_url}render?' + urllib.parse.urlencode({
+            return common.host_url('render?' + urllib.parse.urlencode({
                 'source': source,
                 'target': target,
-            })
+            }))
 
     def to_as1(self):
         """Returns this activity as an ActivityStreams 1 dict, if available."""

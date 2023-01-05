@@ -65,9 +65,14 @@ SUPPORTED_VERBS = (
 PRIMARY_DOMAIN = 'fed.brid.gy'
 OTHER_DOMAINS = (
     'bridgy-federated.appspot.com',
-    'localhost',
+    'bridgy-federated.uc.r.appspot.com',
 )
-DOMAINS = (PRIMARY_DOMAIN,) + OTHER_DOMAINS
+LOCAL_DOMAINS = (
+  'localhost',
+  'localhost:8080',
+  'my.dev.com:8080',
+)
+DOMAINS = (PRIMARY_DOMAIN,) + OTHER_DOMAINS + LOCAL_DOMAINS
 # TODO: unify with Bridgy's
 DOMAIN_BLOCKLIST = frozenset((
     # https://github.com/snarfed/bridgy-fed/issues/348
@@ -81,6 +86,13 @@ DOMAIN_BLOCKLIST = frozenset((
 _DEFAULT_SIGNATURE_USER = None
 
 CACHE_TIME = datetime.timedelta(seconds=10)
+
+
+def host_url(path_query=None):
+  domain = util.domain_from_link(request.host_url)
+  base = (f'https://{PRIMARY_DOMAIN}' if util.domain_or_parent_in(domain, OTHER_DOMAINS)
+          else request.host_url)
+  return urllib.parse.urljoin(base, path_query)
 
 
 def default_signature_user():
@@ -135,7 +147,7 @@ def signed_request(fn, url, data=None, user=None, headers=None, **kwargs):
 
     domain = user.key.id()
     logger.info(f"Signing with {domain}'s key")
-    key_id = request.host_url + domain
+    key_id = host_url(domain)
     auth = HTTPSignatureAuth(secret=user.private_pem(), key_id=key_id,
                              algorithm='rsa-sha256', sign_header='signature',
                              headers=('Date', 'Host', 'Digest'))
@@ -262,7 +274,7 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
     for tag in tags:
         if tag.get('objectType') == 'mention':
             url = tag.get('url')
-            if url and url.startswith(request.host_url):
+            if url and url.startswith(host_url()):
                 targets.append(redirect_unwrap(url))
 
     if verb in ('follow', 'like', 'share'):
@@ -334,7 +346,7 @@ def postprocess_as2(activity, user=None, target=None, create=True):
             # underspecified, inferred from this issue and Mastodon's implementation:
             # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
             # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
-            actor_url = request.host_url + activity.get('preferredUsername')
+            actor_url = host_url(activity.get('preferredUsername'))
             activity.update({
                 'publicKey': {
                     'id': actor_url,
@@ -452,7 +464,7 @@ def postprocess_as2_actor(actor, user=None):
     domain = util.domain_from_link(urls[0], minimize=False)
     urls[0] = redirect_wrap(urls[0])
 
-    actor.setdefault('id', request.host_url + domain)
+    actor.setdefault('id', host_url(domain))
     actor.update({
         'url': urls if len(urls) > 1 else urls[0],
         # This has to be the domain for Mastodon interop/Webfinger discovery!
@@ -481,7 +493,7 @@ def redirect_wrap(url):
     if not url:
         return url
 
-    prefix = urllib.parse.urljoin(request.host_url, '/r/')
+    prefix = host_url('/r/')
     if url.startswith(prefix):
         return url
 
@@ -508,13 +520,13 @@ def redirect_unwrap(val):
         return [redirect_unwrap(v) for v in val]
 
     elif isinstance(val, str):
-        prefix = urllib.parse.urljoin(request.host_url, '/r/')
+        prefix = host_url('/r/')
         if val.startswith(prefix):
             unwrapped = val.removeprefix(prefix)
             if util.is_web(unwrapped):
                 return util.follow_redirects(unwrapped).url
-        elif val.startswith(request.host_url):
-            path = val.removeprefix(request.host_url)
+        elif val.startswith(host_url()):
+            path = val.removeprefix(host_url())
             if re.match(DOMAIN_RE, path):
                 return util.follow_redirects(path).url
 
@@ -555,19 +567,19 @@ def actor(domain, user=None):
     actor = postprocess_as2(
         as2.from_as1(microformats2.json_to_object(hcard)), user=user)
     actor.update({
-        'id': f'{request.host_url}{domain}',
+        'id': host_url(domain),
         # This has to be the domain for Mastodon etc interop! It seems like it
         # should be the custom username from the acct: u-url in their h-card,
         # but that breaks Mastodon's Webfinger discovery. Background:
         # https://github.com/snarfed/bridgy-fed/issues/302#issuecomment-1324305460
         # https://github.com/snarfed/bridgy-fed/issues/77
         'preferredUsername': domain,
-        'inbox': f'{request.host_url}{domain}/inbox',
-        'outbox': f'{request.host_url}{domain}/outbox',
-        'following': f'{request.host_url}{domain}/following',
-        'followers': f'{request.host_url}{domain}/followers',
+        'inbox': host_url(f'{domain}/inbox'),
+        'outbox': host_url(f'{domain}/outbox'),
+        'following': host_url(f'{domain}/following'),
+        'followers': host_url(f'{domain}/followers'),
         'endpoints': {
-            'sharedInbox': f'{request.host_url}inbox',
+            'sharedInbox': host_url('inbox'),
         },
     })
 

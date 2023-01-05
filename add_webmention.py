@@ -32,5 +32,5 @@ def add_wm(url=None):
 
     resp = flask.make_response(got.content, got.status_code, dict(got.headers))
     resp.headers.add('Link', LINK_HEADER % (request.args.get('endpoint') or
-                                            request.host_url + 'webmention'))
+                                            common.host_url('webmention')))
     return resp

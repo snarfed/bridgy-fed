@@ -118,18 +118,18 @@ class Actor(flask_util.XrdOrJrd):
                 # WARNING: in python 2 sometimes request.host_url lost port,
                 # http://localhost:8080 would become just http://localhost. no
                 # clue how or why. pay attention here if that happens again.
-                'href': f'{request.host_url}{domain}',
+                'href': common.host_url(domain),
             }, {
                 'rel': 'inbox',
                 'type': common.CONTENT_TYPE_AS2,
-                'href': f'{request.host_url}{domain}/inbox',
+                'href': common.host_url(f'{domain}/inbox'),
             }, {
                 # AP reads this from the AS2 actor, not webfinger, so strictly
                 # speaking, it's probably not needed here.
                 # https://www.w3.org/TR/activitypub/#sharedInbox
                 'rel': 'sharedInbox',
                 'type': common.CONTENT_TYPE_AS2,
-                'href': f'{request.host_url}inbox',
+                'href': common.host_url('inbox'),
             },
 
             # OStatus
@@ -150,7 +150,7 @@ class Actor(flask_util.XrdOrJrd):
             # https://github.com/snarfed/bridgy-fed/issues/60#issuecomment-1325589750
             {
                 'rel': 'http://ostatus.org/schema/1.0/subscribe',
-                'template': f'{request.host_url}user/{domain}?url={{uri}}',
+                'template': common.host_url(f'user/{domain}?url={{uri}}'),
             }]
         })
         logger.info(f'Returning WebFinger data: {json_dumps(data, indent=2)}')
@@ -167,10 +167,11 @@ class Webfinger(Actor):
     """
     def template_vars(self):
         resource = flask_util.get_required_param('resource').strip()
-        resource = resource.removeprefix(request.host_url)
+        resource = resource.removeprefix(common.host_url())
 
         # handle Bridgy Fed actor URLs, eg https://fed.brid.gy/snarfed.org
-        if resource in ('', '/', f'acct:{request.host}', f'acct:@{request.host}'):
+        host = util.domain_from_link(common.host_url())
+        if resource in ('', '/', f'acct:{host}', f'acct:@{host}'):
             error('Expected other domain, not fed.brid.gy')
 
         try:
@@ -199,13 +200,13 @@ class HostMeta(flask_util.XrdOrJrd):
         return 'host-meta'
 
     def template_vars(self):
-        return {'host_uri': request.host_url}
+        return {'host_uri': common.host_url()}
 
 
 @app.get('/.well-known/host-meta.xrds')
 def host_meta_xrds():
     """Renders and serves the /.well-known/host-meta.xrds XRDS-Simple file."""
-    return (render_template('host-meta.xrds', host_uri=request.host_url),
+    return (render_template('host-meta.xrds', host_uri=common.host_url()),
             {'Content-Type': 'application/xrds+xml'})
 
 

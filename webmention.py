@@ -71,7 +71,7 @@ class Webmention(View):
             if domain in source_resp.text:
                 break
         else:
-            error(f"Couldn't find link to {request.host_url.rstrip('/')}")
+            error(f"Couldn't find link to {common.host_url().rstrip('/')}")
 
         # convert source page to ActivityStreams
         entry = mf2util.find_first_entry(self.source_mf2, ['h-entry'])
@@ -118,7 +118,7 @@ class Webmention(View):
             source_activity = common.postprocess_as2(
                 as2.from_as1(self.source_obj), target=target_obj, user=self.user)
             if not source_activity.get('actor'):
-                source_activity['actor'] =  f'{request.host_url}{self.source_domain}'
+                source_activity['actor'] = common.host_url(self.source_domain)
 
             if activity.status == 'complete':
                 if activity.source_mf2:

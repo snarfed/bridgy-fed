@@ -178,7 +178,7 @@ def accept_follow(follow, follow_unwrapped, user):
     # send AP Accept
     accept = {
         '@context': 'https://www.w3.org/ns/activitystreams',
-        'id': util.tag_uri(request.host, 'accept/%s/%s' % (
+        'id': util.tag_uri(common.PRIMARY_DOMAIN, 'accept/%s/%s' % (
             (followee_domain, follow.get('id')))),
         'type': 'Accept',
         'actor': followee,

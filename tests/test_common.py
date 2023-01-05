@@ -153,3 +153,18 @@ class CommonTest(testutil.TestCase):
                 'id': 'xyz',
                 'type': 'Note',
             }, user=User(id='foo.com')))
+
+    def test_host_url(self):
+        with app.test_request_context():
+            self.assertEqual('http://localhost/', common.host_url())
+            self.assertEqual('http://localhost/asdf', common.host_url('asdf'))
+            self.assertEqual('http://localhost/foo/bar', common.host_url('/foo/bar'))
+
+        with app.test_request_context(base_url='https://a.xyz', path='/foo'):
+            self.assertEqual('https://a.xyz/', common.host_url())
+            self.assertEqual('https://a.xyz/asdf', common.host_url('asdf'))
+            self.assertEqual('https://a.xyz/foo/bar', common.host_url('/foo/bar'))
+
+        with app.test_request_context(base_url='http://bridgy-federated.uc.r.appspot.com'):
+            self.assertEqual('https://fed.brid.gy/asdf', common.host_url('asdf'))
+
