@@ -11,6 +11,8 @@ import feedparser
 from granary import as2, atom, microformats2
 from httpsig.sign import HeaderSigner
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.appengine_config import tasks_client
+from oauth_dropins.webutil.appengine_info import APP_ID
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
@@ -27,6 +29,7 @@ from common import (
 )
 from models import Follower, User, Activity
 import webmention
+from webmention import TASKS_LOCATION
 from . import testutil
 
 REPOST_HTML = """\
@@ -345,7 +348,7 @@ class WebmentionTest(testutil.TestCase):
 </body>
 </html>""", content_type=CONTENT_TYPE_HTML)
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'http://a/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -658,7 +661,28 @@ class WebmentionTest(testutil.TestCase):
             {'type': 'Image', 'url': 'http://orig/pic'}
         self.assert_equals(repost_as2, json_loads(kwargs['data']))
 
-    def test_activitypub_create_post(self, mock_get, mock_post):
+    @mock.patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_activitypub_create_post_make_task(self, mock_create_task, mock_get, _):
+        mock_get.side_effect = [self.create, self.actor]
+
+        got = self.client.post('/webmention', data={
+            'source': 'http://orig/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(202, got.status_code)
+        mock_create_task.assert_called_with(
+            parent=f'projects/{APP_ID}/locations/{TASKS_LOCATION}/queues/webmention',
+            task={
+                'app_engine_http_request': {
+                    'http_method': 'POST',
+                    'relative_uri': '/_ah/queue/webmention',
+                    'body': urlencode({'source': 'http://orig/post'}).encode(),
+                    'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
+                },
+            },
+        )
+
+    def test_activitypub_create_post_run_task(self, mock_get, mock_post):
         mock_get.side_effect = [self.create, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
@@ -708,7 +732,7 @@ class WebmentionTest(testutil.TestCase):
                                    'inbox': 'https://inbox',
                                }}))
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'http://orig/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -751,7 +775,7 @@ class WebmentionTest(testutil.TestCase):
             'orig', 'https://mastodon/aaa',
             last_follow=json_dumps({'actor': {'inbox': 'https://inbox'}}))
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'http://orig/post',
             'target': 'https://fed.brid.gy/',
         })

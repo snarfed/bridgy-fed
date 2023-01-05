@@ -14,6 +14,8 @@ from google.cloud.ndb import Key
 from granary import as1, as2, atom, microformats2
 import mf2util
 from oauth_dropins.webutil import flask_util, util
+from oauth_dropins.webutil.appengine_config import tasks_client
+from oauth_dropins.webutil.appengine_info import APP_ID
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
@@ -28,9 +30,14 @@ logger = logging.getLogger(__name__)
 
 SKIP_EMAIL_DOMAINS = frozenset(('localhost', 'snarfed.org'))
 
+# https://cloud.google.com/appengine/docs/locations
+TASKS_LOCATION = 'us-central1'
+
 
 class Webmention(View):
     """Handles inbound webmention, converts to ActivityPub."""
+    IS_TASK = False
+
     source_url = None     # string
     source_domain = None  # string
     source_mf2 = None     # parsed mf2 dict
@@ -88,7 +95,7 @@ class Webmention(View):
 
         self.user = User.get_or_create(self.source_domain)
         ret = self.try_activitypub()
-        return ret or 'No action taken'
+        return ret or 'No ActivityPub targets'
 
     def try_activitypub(self):
         """Attempts ActivityPub delivery.
@@ -159,31 +166,40 @@ class Webmention(View):
         else:
             return str(error)
 
-    def _targets(self):
-        """
-        Returns: list of string URLs, the source's inReplyTos or objects
-          (if appropriate)
-        """
-        targets = util.get_urls(self.source_obj, 'inReplyTo')
-        if targets:
-            logger.info(f'targets from inReplyTo: {targets}')
-            return targets
-
-        if self.source_obj.get('verb') in as1.VERBS_WITH_OBJECT:
-            targets = util.get_urls(self.source_obj, 'object')
-            logger.info(f'targets from object: {targets}')
-            return targets
-
     def _activitypub_targets(self):
         """
         Returns: list of (Activity, string inbox URL)
         """
         # if there's in-reply-to, like-of, or repost-of, they're the targets.
         # otherwise, it's all followers' inboxes.
-        targets = self._targets()
+        targets = util.get_urls(self.source_obj, 'inReplyTo')
+        if targets:
+            logger.info(f'targets from inReplyTo: {targets}')
+        elif self.source_obj.get('verb') in as1.VERBS_WITH_OBJECT:
+            targets = util.get_urls(self.source_obj, 'object')
+            logger.info(f'targets from object: {targets}')
 
         if not targets:
-            # interpret this as a Create or Update, deliver it to followers
+            # interpret this as a Create or Update, deliver it to followers. use
+            # task queue since we send to each inbox in serial, which can take a
+            # long time with many followers/instances.
+            if not self.IS_TASK:
+                queue_path= tasks_client.queue_path(APP_ID, TASKS_LOCATION, 'webmention')
+                tasks_client.create_task(
+                    parent=queue_path,
+                    task={
+                        'app_engine_http_request': {
+                            'http_method': 'POST',
+                            'relative_uri': '/_ah/queue/webmention',
+                            'body': urlencode({'source': self.source_url}).encode(),
+                            # https://googleapis.dev/python/cloudtasks/latest/gapic/v2/types.html#google.cloud.tasks_v2.types.AppEngineHttpRequest.headers
+                            'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
+                        },
+                    },
+                )
+                # not actually an error
+                error('Delivering to followers in the background', status=202)
+
             inboxes = set()
             for follower in Follower.query().filter(
                 Follower.key > Key('Follower', self.source_domain + ' '),
@@ -259,5 +275,12 @@ class Webmention(View):
         return activities_and_inbox_urls
 
 
+class WebmentionTask(Webmention):
+    IS_TASK = True
+
+
 app.add_url_rule('/webmention', view_func=Webmention.as_view('webmention'),
+                 methods=['POST'])
+app.add_url_rule('/_ah/queue/webmention',
+                 view_func=WebmentionTask.as_view('webmention-task'),
                  methods=['POST'])
