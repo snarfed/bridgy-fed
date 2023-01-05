@@ -1,4 +1,5 @@
 """Datastore model classes."""
+import base64
 import difflib
 import logging
 import urllib.parse
@@ -6,8 +7,9 @@ import urllib.parse
 import requests
 from werkzeug.exceptions import BadRequest, NotFound
 
+from Crypto import Random
 from Crypto.PublicKey import RSA
-from django_salmon import magicsigs
+from Crypto.Util import number
 from flask import request
 from google.cloud import ndb
 from granary import as2, microformats2
@@ -22,18 +24,33 @@ WWW_DOMAINS = frozenset((
     'www.jvt.me',
 ))
 
+KEY_BITS = 1024
+
 logger = logging.getLogger(__name__)
+
+
+def base64_to_long(x):
+    """Converts x from URL safe base64 encoding to a long integer.
+
+    Originally from django_salmon.magicsigs.
+    """
+    return number.bytes_to_long(base64.urlsafe_b64decode(x))
+
+
+def long_to_base64(x):
+    """Converts x from a long integer to base64 URL safe encoding.
+
+    Originally from django_salmon.magicsigs.
+    """
+    return base64.urlsafe_b64encode(number.long_to_bytes(x))
 
 
 class User(StringIdModel):
     """Stores a Bridgy Fed user.
 
-    The key name is the domain. The key pair is used for both ActivityPub HTTP
-    Signatures and Salmon Magic Signatures.
+    The key name is the domain. The key pair is used for ActivityPub HTTP Signatures.
 
     https://tools.ietf.org/html/draft-cavage-http-signatures-07
-    http://salmon-protocol.googlecode.com/svn/trunk/draft-panzer-magicsig-01.html
-    http://salmon-protocol.googlecode.com/svn/trunk/draft-panzer-salmon-00.html
 
     The key pair's modulus and exponent properties are all encoded as base64url
     (ie URL-safe base64) strings as described in RFC 4648 and section 5.1 of the
@@ -62,11 +79,16 @@ class User(StringIdModel):
         user = User.get_by_id(domain)
 
         if not user:
+            # originally from django_salmon.magicsigs
             # this uses urandom(), and does nontrivial math, so it can take a
             # while depending on the amount of randomness available.
-            pubexp, mod, privexp = magicsigs.generate()
-            user = User(id=domain, mod=mod, public_exponent=pubexp,
-                        private_exponent=privexp, **kwargs)
+            rng = Random.new().read
+            key = RSA.generate(KEY_BITS, rng)
+            user = User(id=domain,
+                        mod=long_to_base64(key.n),
+                        public_exponent=long_to_base64(key.e),
+                        private_exponent=long_to_base64(key.d),
+                        **kwargs)
             user.put()
         elif user.use_instead:
             user = user.use_instead.get()
@@ -79,15 +101,15 @@ class User(StringIdModel):
 
     def public_pem(self):
         """Returns: bytes"""
-        rsa = RSA.construct((magicsigs.base64_to_long(str(self.mod)),
-                             magicsigs.base64_to_long(str(self.public_exponent))))
+        rsa = RSA.construct((base64_to_long(str(self.mod)),
+                             base64_to_long(str(self.public_exponent))))
         return rsa.exportKey(format='PEM')
 
     def private_pem(self):
         """Returns: bytes"""
-        rsa = RSA.construct((magicsigs.base64_to_long(str(self.mod)),
-                             magicsigs.base64_to_long(str(self.public_exponent)),
-                             magicsigs.base64_to_long(str(self.private_exponent))))
+        rsa = RSA.construct((base64_to_long(str(self.mod)),
+                             base64_to_long(str(self.public_exponent)),
+                             base64_to_long(str(self.private_exponent))))
         return rsa.exportKey(format='PEM')
 
     def username(self):

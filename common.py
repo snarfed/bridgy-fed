@@ -228,7 +228,7 @@ def remove_blocklisted(urls):
 
 
 def send_webmentions(activity_wrapped, proxy=None, **activity_props):
-    """Sends webmentions for an incoming Salmon slap or ActivityPub inbox delivery.
+    """Sends webmentions for an incoming ActivityPub inbox delivery.
     Args:
       activity_wrapped: dict, AS1 activity
       activity_props: passed through to the newly created Activity entities

@@ -1,4 +1,3 @@
-git+https://github.com/snarfed/django-salmon.git#egg=django_salmon
 git+https://github.com/snarfed/httpsig.git@HTTPSignatureAuth-sign-header#egg=httpsig
 git+https://github.com/snarfed/oauth-dropins.git#egg=oauth_dropins
 git+https://github.com/snarfed/granary.git#egg=granary

@@ -143,9 +143,6 @@ class Actor(flask_util.XrdOrJrd):
             }, {
                 'rel': 'magic-public-key',
                 'href': user.href(),
-            }, {
-                'rel': 'salmon',
-                'href': f'{request.host_url}{domain}/salmon',
             },
 
             # remote follow

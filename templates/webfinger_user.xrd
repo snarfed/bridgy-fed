@@ -9,11 +9,4 @@
     {% for link in links %}
     <Link rel='{{ link.rel }}' type='{{ link.type }}' href='{{ link.href }}' />
     {% endfor %}
-
-    {% for key in magic_keys %}
-    <Property xmlns:mk="http://salmon-protocol.org/ns/magic-key"
-              type="http://salmon-protocol.org/ns/magic-key">
-      {{ key.value }}
-    </Property>
-    {% endfor %}
 </XRD>

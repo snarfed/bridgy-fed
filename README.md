@@ -1,14 +1,11 @@
 <img src="https://raw.github.com/snarfed/bridgy-fed/main/static/bridgy_fed_logo.png" width="120" /> [Bridgy Fed](https://fed.brid.gy/) [![Circle CI](https://circleci.com/gh/snarfed/bridgy-fed.svg?style=svg)](https://circleci.com/gh/snarfed/bridgy-fed) [![Coverage Status](https://coveralls.io/repos/github/snarfed/bridgy-fed/badge.svg?branch=main)](https://coveralls.io/github/snarfed/bridgy-fed?branch=main)
 ===
 
-Bridgy Fed connects your web site to [Mastodon](https://joinmastodon.org) and the [fediverse](https://en.wikipedia.org/wiki/Fediverse) via [ActivityPub](https://activitypub.rocks/), [OStatus](https://en.wikipedia.org/wiki/OStatus), [webmentions](https://webmention.net/), and [microformats2](https://microformats.org/wiki/microformats2). Your site gets its own fediverse profile, posts and avatar and header and all. Bridgy Fed translates likes, reposts, mentions, follows, and more back and forth. [See the user docs](https://fed.brid.gy/docs) for more details.
+Bridgy Fed connects your web site to [Mastodon](https://joinmastodon.org) and the [fediverse](https://en.wikipedia.org/wiki/Fediverse) via [ActivityPub](https://activitypub.rocks/), [webmentions](https://webmention.net/), and [microformats2](https://microformats.org/wiki/microformats2). Your site gets its own fediverse profile, posts and avatar and header and all. Bridgy Fed translates likes, reposts, mentions, follows, and more back and forth. [See the user docs](https://fed.brid.gy/docs) for more details.
 
 https://fed.brid.gy/
 
-Original design docs:
-
-* https://snarfed.org/indieweb-activitypub-bridge
-* https://snarfed.org/indieweb-ostatus-bridge
+Also see the [original](https://snarfed.org/indieweb-activitypub-bridge) [design](https://snarfed.org/indieweb-ostatus-bridge) blog posts.
 
 License: This project is placed in the public domain.
 
@@ -93,23 +90,6 @@ Here are in progress notes on how I'm testing interoperability with various fede
   * Not open to other users yet. Seems to be running at [puckipedia.com/social](https://puckipedia.com/social).
 * [Pleroma](https://pleroma.social/)
   * [snarfed@cawfee.club](https://cawfee.club/snarfed)
-
-### OStatus / Salmon
-
-* [Friendica](http://friendi.ca/)
-  * [snarfed@libranet.de](https://libranet.de/profile/snarfed)
-  * Example post: [HTML](https://libranet.de/display/snarfed/3453879) ([alternate link](https://libranet.de/display/0b6b25a814599c43b430890795887058)), [Atom](https://libranet.de/display/snarfed/3453879.atom)
-  * Atom has Salmon link rel, `author.dfrn:handle` is user URI (dfrn is http://purl.org/macgirvin/dfrn/1.0))
-* [GNU Social](https://gnu.io/social/) (née StatusNet)
-  * [snarfed@quitter.se](https://quitter.se/snarfed)
-  * Example post: [HTML](https://quitter.se/notice/17459493), [Atom](https://quitter.se/api/statuses/show/17459493.atom)
-  * Atom has _no_ Salmon link rels! `author.name` is username (snarfed)
-* [Hubzilla](https://project.hubzilla.org/)
-  * [snarfed@lastauth.com](https://lastauth.com/channel/snarfed)
-  * Example post: [HTML](https://lastauth.com/channel/snarfed/?mid=7cfa12e54cf97aaed3b0bb185651ae37a1e24027fbf3e845fab261e108392707@lastauth.com)
-  * Only has Atom `link rel="alternate"` for [full feed](https://lastauth.com/feed/snarfed?f=&top=1), not individual post :/
-  * Atom feed has Salmon link rels inside top level `feed`, not in individual `entry`s
-  * Atom entries have  `author.name` as username (snarfed)
 
 Stats
 ---

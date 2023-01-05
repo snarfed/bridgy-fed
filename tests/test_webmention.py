@@ -7,7 +7,6 @@ import copy
 from unittest import mock
 from urllib.parse import urlencode
 
-from django_salmon import magicsigs, utils
 import feedparser
 from granary import as2, atom, microformats2
 from httpsig.sign import HeaderSigner
@@ -302,17 +301,6 @@ class WebmentionTest(testutil.TestCase):
 """, url='http://not/fediverse', content_type=CONTENT_TYPE_HTML)
         self.activitypub_gets = [self.reply, self.not_fediverse, self.orig_as2,
                                  self.actor]
-
-    def verify_salmon(self, mock_post):
-        args, kwargs = mock_post.call_args
-        self.assertEqual(('http://orig/salmon',), args)
-        self.assertEqual(CONTENT_TYPE_MAGIC_ENVELOPE,
-                         kwargs['headers']['Content-Type'])
-
-        env = utils.parse_magic_envelope(kwargs['data'])
-        assert magicsigs.verify(env['data'], env['sig'].encode(), key=self.user)
-
-        return env['data']
 
     def test_bad_source_url(self, mock_get, mock_post):
         got = self.client.post('/webmention', data=b'')
@@ -885,7 +873,7 @@ class WebmentionTest(testutil.TestCase):
         })
         self.assert_equals(400, got.status_code)
 
-    def test_activitypub_error_no_salmon_fallback(self, mock_get, mock_post):
+    def test_activitypub_error(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow, self.actor]
         mock_post.return_value = requests_response(
             'abc xyz', status=405, url='https://foo.com/inbox')
@@ -933,172 +921,3 @@ class WebmentionTest(testutil.TestCase):
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(400, got.status_code)
-
-    def test_salmon_reply(self, mock_get, mock_post):
-        mock_get.side_effect = [self.reply, self.not_fediverse,
-                                self.orig_html_atom, self.orig_atom]
-
-        got = self.client.post('/webmention', data={
-            'source': 'http://a/reply',
-            'target': 'http://orig/post',
-        })
-        self.assertEqual(200, got.status_code)
-
-        mock_get.assert_has_calls((
-            self.req('http://a/reply'),
-            self.as2_req('http://not/fediverse'),
-            self.as2_req('http://orig/post'),
-            self.req('http://orig/atom'),
-        ))
-
-        data = self.verify_salmon(mock_post)
-        parsed = feedparser.parse(data)
-        entry = parsed.entries[0]
-
-        self.assertEqual('http://a/reply', entry['id'])
-        self.assertIn({
-            'rel': 'alternate',
-            'href': 'http://a/reply',
-            'type': 'text/html',
-        }, entry['links'])
-        self.assertEqual({
-            'type': 'text/html',
-            'href': 'http://orig/post',
-            'ref': 'tag:fed.brid.gy,2017-08-22:orig-post',
-        }, entry['thr_in-reply-to'])
-        self.assertEqual("""\
-<a class="u-in-reply-to" href="http://not/fediverse"></a><br />
-<a class="u-in-reply-to" href="http://orig/post">foo ☕ bar</a><br />
-<a href="http://localhost/"></a>""",
-            entry.content[0]['value'])
-
-        activity = Activity.get_by_id('http://a/reply http://orig/post')
-        self.assertEqual(['a'], activity.domain)
-        self.assertEqual('out', activity.direction)
-        self.assertEqual('ostatus', activity.protocol)
-        self.assertEqual('complete', activity.status)
-        self.assertEqual(self.reply_mf2, json_loads(activity.source_mf2))
-
-    def test_salmon_like(self, mock_get, mock_post):
-        mock_get.side_effect = [self.like, self.orig_html_atom, self.orig_atom]
-
-        got = self.client.post('/webmention', data={
-            'source': 'http://a/like',
-            'target': 'http://orig/post',
-        })
-        self.assertEqual(200, got.status_code)
-
-        mock_get.assert_has_calls((
-            self.req('http://a/like'),
-            self.as2_req('http://orig/post'),
-            self.req('http://orig/atom'),
-        ))
-
-        data = self.verify_salmon(mock_post)
-        parsed = feedparser.parse(data)
-        entry = parsed.entries[0]
-
-        self.assertEqual('tag:fed.brid.gy,2017-08-22:orig-post', entry['id'])
-        self.assertIn({
-            'rel': 'alternate',
-            'href': 'http://a/like',
-            'type': 'text/html',
-        }, entry['links'])
-        self.assertEqual('http://orig/post', entry['activity_object'])
-
-        activity = Activity.get_by_id('http://a/like http://orig/post')
-        self.assertEqual(['a'], activity.domain)
-        self.assertEqual('out', activity.direction)
-        self.assertEqual('ostatus', activity.protocol)
-        self.assertEqual('complete', activity.status)
-        self.assertEqual(self.like_mf2, json_loads(activity.source_mf2))
-
-    def test_salmon_get_salmon_from_webfinger(self, mock_get, mock_post):
-        orig_atom = requests_response("""\
-<?xml version="1.0"?>
-<entry xmlns="http://www.w3.org/2005/Atom">
-  <author>
-    <name>ryan</name>
-    <email>ryan@orig</email>
-  </author>
-  <id>tag:fed.brid.gy,2017-08-22:orig-post</id>
-</entry>
-""")
-        webfinger = requests_response({
-            'subject': 'acct:ryan@orig',
-            'links': [{
-                'rel': 'salmon',
-                'href': 'http://orig/@ryan/salmon',
-            }],
-        })
-        mock_get.side_effect = [self.reply, self.not_fediverse,
-                                self.orig_html_atom, orig_atom, webfinger]
-
-        got = self.client.post('/webmention', data={
-            'source': 'http://a/reply',
-            'target': 'http://orig/post',
-        })
-        self.assertEqual(200, got.status_code)
-
-        self.assert_req(mock_get, 'http://orig/.well-known/webfinger?resource=acct:ryan@orig')
-        self.assertEqual(('http://orig/@ryan/salmon',), mock_post.call_args[0])
-
-    def test_salmon_no_target_atom(self, mock_get, mock_post):
-        orig_no_atom = requests_response("""\
-<html>
-<body>foo</body>
-</html>""", 'http://orig/url')
-        mock_get.side_effect = [self.reply, self.not_fediverse, orig_no_atom]
-
-        got = self.client.post('/webmention', data={
-            'source': 'http://a/reply',
-            'target': 'http://orig/post',
-        })
-        self.assertEqual(400, got.status_code)
-        self.assertIn('Target post http://orig/url has no Atom link',
-                      got.get_data(as_text=True))
-
-        activity = Activity.get_by_id('http://a/reply http://orig/url')
-        self.assertEqual(['a'], activity.domain)
-        self.assertEqual('out', activity.direction)
-        self.assertEqual('ostatus', activity.protocol)
-        self.assertEqual('error', activity.status)
-
-    def test_salmon_relative_atom_href(self, mock_get, mock_post):
-        orig_relative = requests_response("""\
-<html>
-<meta>
-<link href='atom/1' rel='alternate' type='application/atom+xml'>
-</meta>
-</html>""", 'http://orig/url')
-        mock_get.side_effect = [self.reply, self.not_fediverse, orig_relative,
-                                self.orig_atom]
-
-        got = self.client.post('/webmention', data={
-            'source': 'http://a/reply',
-            'target': 'http://orig/post',
-        })
-        self.assertEqual(200, got.status_code)
-
-        self.assert_req(mock_get, 'http://orig/atom/1')
-        data = self.verify_salmon(mock_post)
-
-    def test_salmon_relative_atom_href_with_base(self, mock_get, mock_post):
-        orig_base = requests_response("""\
-<html>
-<meta>
-<base href='/base/'>
-<link href='atom/1' rel='alternate' type='application/atom+xml'>
-</meta>
-</html>""", 'http://orig/url')
-        mock_get.side_effect = [self.reply, self.not_fediverse, orig_base,
-                                self.orig_atom]
-
-        got = self.client.post('/webmention', data={
-            'source': 'http://a/reply',
-            'target': 'http://orig/post',
-        })
-        self.assertEqual(200, got.status_code)
-
-        self.assert_req(mock_get, 'http://orig/base/atom/1')
-        data = self.verify_salmon(mock_post)

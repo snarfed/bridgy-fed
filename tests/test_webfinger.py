@@ -78,9 +78,6 @@ class WebfingerTest(testutil.TestCase):
                 'rel': 'magic-public-key',
                 'href': self.key.href(),
             }, {
-                'rel': 'salmon',
-                'href': 'http://localhost/foo.com/salmon'
-            }, {
                 'rel': 'http://ostatus.org/schema/1.0/subscribe',
                 'template': 'http://localhost/user/foo.com?url={uri}',
             }]
