@@ -5,11 +5,13 @@ import datetime
 import unittest
 from unittest.mock import ANY, call
 
-from app import app, cache
+from granary import as2
 from oauth_dropins.webutil import testutil, util
 from oauth_dropins.webutil.appengine_config import ndb_client
+from oauth_dropins.webutil.testutil import requests_response
 import requests
 
+from app import app, cache
 import common
 
 
@@ -51,6 +53,10 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             **kwargs.pop('headers', {}),
         }
         return self.req(url, auth=ANY, headers=headers, **kwargs)
+
+    def as2_resp(self, obj):
+        return requests_response(obj, content_type=as2.CONTENT_TYPE)
+
 
     def assert_req(self, mock, url, **kwargs):
         """Checks a mock requests call."""

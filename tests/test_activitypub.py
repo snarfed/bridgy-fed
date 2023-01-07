@@ -295,8 +295,7 @@ class ActivityPubTest(testutil.TestCase):
         Follower.get_or_create(ACTOR['id'], 'baz.com')
 
         mock_head.return_value = requests_response(url='http://target')
-        mock_get.return_value = requests_response(  # source actor
-            ACTOR, headers={'Content-Type': as2.CONTENT_TYPE})
+        mock_get.return_value = self.as2_resp(ACTOR)  # source actor
         mock_post.return_value = requests_response()
 
         with self.client:
@@ -317,8 +316,7 @@ class ActivityPubTest(testutil.TestCase):
         Follower.get_or_create(ACTOR['id'], 'foo.com')
 
         mock_head.return_value = requests_response(url='http://target')
-        mock_get.return_value = requests_response(  # source actor
-            ACTOR, headers={'Content-Type': as2.CONTENT_TYPE})
+        mock_get.return_value = self.as2_resp(ACTOR)  # source actor
 
         not_public = copy.deepcopy(NOTE)
         del not_public['object']['to']
@@ -366,7 +364,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_head.return_value = requests_response(url='http://or.ig/post')
         mock_get.side_effect = [
             # source actor
-            requests_response(LIKE_WITH_ACTOR['actor'], headers={'Content-Type': as2.CONTENT_TYPE}),
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
             # target post webmention discovery
             requests_response(
                 '<html><head><link rel="webmention" href="/webmention"></html>'),
@@ -400,8 +398,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_head.return_value = requests_response(url='https://www.realize.be/')
         mock_get.side_effect = [
             # source actor
-            requests_response(FOLLOW_WITH_ACTOR['actor'],
-                              content_type=as2.CONTENT_TYPE),
+            self.as2_resp(FOLLOW_WITH_ACTOR['actor']),
             # target post webmention discovery
             requests_response(
                 '<html><head><link rel="webmention" href="/webmention"></html>'),
@@ -448,7 +445,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_head.return_value = requests_response(url='https://www.realize.be/')
         mock_get.side_effect = [
             # source actor
-            requests_response(ACTOR, content_type=as2.CONTENT_TYPE),
+            self.as2_resp(ACTOR),
             # target post webmention discovery
             requests_response('<html></html>'),
         ]
@@ -483,8 +480,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_head.return_value = requests_response(url='https://www.realize.be/')
         mock_get.side_effect = [
             # source actor
-            requests_response(FOLLOW_WITH_ACTOR['actor'],
-                              content_type=as2.CONTENT_TYPE),
+            self.as2_resp(FOLLOW_WITH_ACTOR['actor']),
             # target post webmention discovery
             requests_response(
                 '<html><head><link rel="webmention" href="/webmention"></html>'),
@@ -523,10 +519,7 @@ class ActivityPubTest(testutil.TestCase):
 
     def test_inbox_bad_object_url(self, mock_head, mock_get, mock_post):
         # https://console.cloud.google.com/errors/detail/CMKn7tqbq-GIRA;time=P30D?project=bridgy-federated
-        mock_get.side_effect = [
-            # source actor
-            requests_response(ACTOR, content_type=as2.CONTENT_TYPE),
-        ]
+        mock_get.return_value = self.as2_resp(ACTOR)  # source actor
         got = self.client.post('/foo.com/inbox', json={
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': 'https://mastodon.social/users/tmichellemoore#likes/56486252',
@@ -572,8 +565,7 @@ class ActivityPubTest(testutil.TestCase):
                                                          mock_get, mock_post):
         mock_get.side_effect = [
             # source actor
-            requests_response(LIKE_WITH_ACTOR['actor'],
-                              headers={'Content-Type': as2.CONTENT_TYPE}),
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
             # target post webmention discovery
             ReadTimeoutError(None, None, None),
         ]
@@ -584,8 +576,7 @@ class ActivityPubTest(testutil.TestCase):
     def test_inbox_no_webmention_endpoint(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [
             # source actor
-            requests_response(LIKE_WITH_ACTOR['actor'],
-                              headers={'Content-Type': as2.CONTENT_TYPE}),
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
             # target post webmention discovery
             requests_response('<html><body>foo</body></html>'),
         ]
