@@ -8,8 +8,9 @@ from oauth_dropins.webutil import appengine_info, util
 # otherwise.
 SESSION_COOKIE_SECURE = True
 SESSION_COOKIE_HTTPONLY = True
-# Change to Lax if/when we add IndieAuth for anything.
-SESSION_COOKIE_SAMESITE = 'Strict'
+# Not strict because we flash messages after cross-site redirects for OAuth,
+# which strict blocks.
+SESSION_COOKIE_SAMESITE = 'Lax'
 
 if appengine_info.DEBUG:
   ENV = 'development'

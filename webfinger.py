@@ -120,12 +120,12 @@ class Actor(flask_util.XrdOrJrd):
                 # clue how or why. pay attention here if that happens again.
                 'href': common.host_url(domain),
             }, {
+                # AP reads this and sharedInbox from the AS2 actor, not
+                # webfinger, so strictly speaking, it's probably not needed here.
                 'rel': 'inbox',
                 'type': as2.CONTENT_TYPE,
                 'href': common.host_url(f'{domain}/inbox'),
             }, {
-                # AP reads this from the AS2 actor, not webfinger, so strictly
-                # speaking, it's probably not needed here.
                 # https://www.w3.org/TR/activitypub/#sharedInbox
                 'rel': 'sharedInbox',
                 'type': as2.CONTENT_TYPE,

@@ -97,6 +97,7 @@ def user(domain):
         follow_url=request.values.get('url'),
         logs=logs,
         util=util,
+        **request.args,
         **locals(),
     )
 
