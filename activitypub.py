@@ -41,7 +41,7 @@ def actor(domain):
     """Fetches a domain's h-card and converts to AS2 actor."""
     actor = common.actor(domain)
     return (actor, {
-        'Content-Type': common.CONTENT_TYPE_AS2,
+        'Content-Type': as2.CONTENT_TYPE,
         'Access-Control-Allow-Origin': '*',
     })
 

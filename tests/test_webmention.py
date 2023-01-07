@@ -19,12 +19,8 @@ import requests
 
 import activitypub
 from common import (
-    CONNEG_HEADERS_AS2,
     CONNEG_HEADERS_AS2_HTML,
-    CONTENT_TYPE_AS2,
-    CONTENT_TYPE_ATOM,
     CONTENT_TYPE_HTML,
-    CONTENT_TYPE_MAGIC_ENVELOPE,
     default_signature_user,
 )
 from models import Follower, User, Activity
@@ -95,7 +91,7 @@ class WebmentionTest(testutil.TestCase):
   <link rel="salmon" href="http://orig/salmon"/>
   <content type="html">baz ☕ baj</content>
 </entry>
-""", content_type=CONTENT_TYPE_ATOM)
+""", content_type=atom.CONTENT_TYPE)
         self.orig_as2_data = {
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Article',
@@ -107,7 +103,7 @@ class WebmentionTest(testutil.TestCase):
         }
         self.orig_as2 = requests_response(
             self.orig_as2_data, url='http://orig/as2',
-            content_type=CONTENT_TYPE_AS2 + '; charset=utf-8')
+            content_type=as2.CONTENT_TYPE + '; charset=utf-8')
 
         self.reply_html = """\
 <html>
@@ -154,7 +150,7 @@ class WebmentionTest(testutil.TestCase):
             'displayName': 'Mrs. ☕ Foo',
             'url': 'https://foo.com/about-me',
             'inbox': 'https://foo.com/inbox',
-        }, content_type=CONTENT_TYPE_AS2)
+        }, content_type=as2.CONTENT_TYPE)
 
         self.as2_create = {
             '@context': 'https://www.w3.org/ns/activitystreams',
@@ -437,7 +433,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.as2_create, json_loads(kwargs['data']))
 
         headers = kwargs['headers']
-        self.assertEqual(CONTENT_TYPE_AS2, headers['Content-Type'])
+        self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
@@ -513,7 +509,7 @@ class WebmentionTest(testutil.TestCase):
             'id': 'http://orig/author',
         }]
         orig_as2_resp = requests_response(
-            self.orig_as2_data, content_type=CONTENT_TYPE_AS2 + '; charset=utf-8')
+            self.orig_as2_data, content_type=as2.CONTENT_TYPE + '; charset=utf-8')
 
         mock_get.side_effect = [self.reply, self.not_fediverse, orig_as2_resp,
                                 self.actor]
@@ -557,7 +553,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.repost_as2, json_loads(kwargs['data']))
 
         headers = kwargs['headers']
-        self.assertEqual(CONTENT_TYPE_AS2, headers['Content-Type'])
+        self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
@@ -590,7 +586,7 @@ class WebmentionTest(testutil.TestCase):
             self.req('http://a/reply'),
             self.as2_req('http://not/fediverse'),
             self.as2_req('http://orig/post'),
-            self.req('http://orig/as2', auth=mock.ANY, headers=CONNEG_HEADERS_AS2),
+            self.req('http://orig/as2', auth=mock.ANY, headers=as2.CONNEG_HEADERS),
             self.as2_req('http://orig/author'),
         ))
 
@@ -809,7 +805,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.follow_as2, json_loads(kwargs['data']))
 
         headers = kwargs['headers']
-        self.assertEqual(CONTENT_TYPE_AS2, headers['Content-Type'])
+        self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
@@ -870,7 +866,7 @@ class WebmentionTest(testutil.TestCase):
         self.assert_equals(self.follow_fragment_as2, json_loads(kwargs['data']))
 
         headers = kwargs['headers']
-        self.assert_equals(CONTENT_TYPE_AS2, headers['Content-Type'])
+        self.assert_equals(as2.CONTENT_TYPE, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assert_equals(self.user.private_pem(), rsa_key.exportKey())
@@ -922,7 +918,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.follow_as2, json_loads(kwargs['data']))
 
         headers = kwargs['headers']
-        self.assertEqual(CONTENT_TYPE_AS2, headers['Content-Type'])
+        self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.user.private_pem(), rsa_key.exportKey())

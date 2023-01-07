@@ -32,23 +32,10 @@ TLD_BLOCKLIST = ('7z', 'asp', 'aspx', 'gif', 'html', 'ico', 'jpg', 'jpeg', 'js',
 XML_UTF8 = "<?xml version='1.0' encoding='UTF-8'?>\n"
 LINK_HEADER_RE = re.compile(r""" *< *([^ >]+) *> *; *rel=['"]([^'"]+)['"] *""")
 
-# Content-Type values. All non-unicode strings because App Engine's wsgi.py
-# requires header values to be str, not unicode.
-#
-# ActivityPub Content-Type details:
-# https://www.w3.org/TR/activitypub/#retrieving-objects
-CONTENT_TYPE_LD = 'application/ld+json'
-CONTENT_TYPE_AS2_LD = f'{CONTENT_TYPE_LD};profile="https://www.w3.org/ns/activitystreams"'
-CONTENT_TYPE_AS2 = 'application/activity+json'
-CONTENT_TYPE_AS1 = 'application/stream+json'
+CONTENT_TYPE_LD_PLAIN = 'application/ld+json'
 CONTENT_TYPE_HTML = 'text/html; charset=utf-8'
-CONTENT_TYPE_ATOM = 'application/atom+xml'
-CONTENT_TYPE_MAGIC_ENVELOPE = 'application/magic-envelope+xml'
 
-CONNEG_HEADERS_AS2 = {
-    'Accept': '%s; q=0.9, %s; q=0.8' % (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD),
-}
-CONNEG_HEADERS_AS2_HTML = copy.deepcopy(CONNEG_HEADERS_AS2)
+CONNEG_HEADERS_AS2_HTML = copy.deepcopy(as2.CONNEG_HEADERS)
 CONNEG_HEADERS_AS2_HTML['Accept'] += f', {CONTENT_TYPE_HTML}; q=0.7'
 
 SUPPORTED_VERBS = (
@@ -140,7 +127,7 @@ def signed_request(fn, url, data=None, user=None, headers=None, **kwargs):
         # required by Mastodon
         # https://github.com/tootsuite/mastodon/pull/14556#issuecomment-674077648
         'Host': util.domain_from_link(url, minimize=False),
-        'Content-Type': CONTENT_TYPE_AS2,
+        'Content-Type': as2.CONTENT_TYPE,
         # required for HTTP Signature and Mastodon
         'Digest': f'SHA-256={b64encode(sha256(data or b"").digest()).decode()}',
     })
@@ -203,18 +190,18 @@ def get_as2(url, user=None):
         raise err
 
     resp = signed_get(url, user=user, headers=CONNEG_HEADERS_AS2_HTML)
-    if content_type(resp) in (CONTENT_TYPE_AS2, CONTENT_TYPE_LD):
+    if content_type(resp) in (as2.CONTENT_TYPE, CONTENT_TYPE_LD_PLAIN):
         return resp
 
     parsed = util.parse_html(resp)
-    as2 = parsed.find('link', rel=('alternate', 'self'), type=(
-        CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD))
-    if not (as2 and as2['href']):
+    obj = parsed.find('link', rel=('alternate', 'self'), type=(
+        as2.CONTENT_TYPE, as2.CONTENT_TYPE_LD))
+    if not (obj and obj['href']):
         _error(resp)
 
-    resp = signed_get(urllib.parse.urljoin(resp.url, as2['href']),
-                      headers=CONNEG_HEADERS_AS2)
-    if content_type(resp) in (CONTENT_TYPE_AS2, CONTENT_TYPE_LD):
+    resp = signed_get(urllib.parse.urljoin(resp.url, obj['href']),
+                      headers=as2.CONNEG_HEADERS)
+    if content_type(resp) in (as2.CONTENT_TYPE, CONTENT_TYPE_LD_PLAIN):
         return resp
 
     _error(resp)

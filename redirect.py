@@ -27,8 +27,6 @@ from werkzeug.exceptions import abort
 from app import app, cache
 from common import (
     CACHE_TIME,
-    CONTENT_TYPE_AS2,
-    CONTENT_TYPE_AS2_LD,
     CONTENT_TYPE_HTML,
     postprocess_as2,
 )
@@ -38,8 +36,8 @@ logger = logging.getLogger(__name__)
 
 _negotiator = ContentNegotiator(acceptable=[
     AcceptParameters(ContentType(CONTENT_TYPE_HTML)),
-    AcceptParameters(ContentType(CONTENT_TYPE_AS2)),
-    AcceptParameters(ContentType(CONTENT_TYPE_AS2_LD)),
+    AcceptParameters(ContentType(as2.CONTENT_TYPE)),
+    AcceptParameters(ContentType(as2.CONTENT_TYPE_LD)),
 ])
 
 
@@ -83,7 +81,7 @@ def redir(to):
             negotiated = None
         if negotiated:
             type = str(negotiated.content_type)
-            if type in (CONTENT_TYPE_AS2, CONTENT_TYPE_AS2_LD):
+            if type in (as2.CONTENT_TYPE, as2.CONTENT_TYPE_LD):
                 return convert_to_as2(to, user), {
                     'Content-Type': type,
                     'Access-Control-Allow-Origin': '*',

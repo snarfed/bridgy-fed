@@ -25,7 +25,7 @@ HTML_WITH_AS2 = requests_response("""\
 })
 AS2_OBJ = {'foo': ['bar']}
 AS2 = requests_response(AS2_OBJ, headers={
-    'Content-Type': common.CONTENT_TYPE_AS2,
+    'Content-Type': as2.CONTENT_TYPE,
 })
 NOT_ACCEPTABLE = requests_response(status=406)
 
@@ -54,7 +54,7 @@ class CommonTest(testutil.TestCase):
         self.assertEqual(AS2, resp)
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
-            self.as2_req('http://as2', headers=common.CONNEG_HEADERS_AS2),
+            self.as2_req('http://as2', headers=common.as2.CONNEG_HEADERS),
         ))
 
     @mock.patch('requests.get', return_value=HTML)

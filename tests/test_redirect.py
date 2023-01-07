@@ -46,10 +46,10 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual(404, got.status_code)
 
     def test_as2(self):
-        self._test_as2(common.CONTENT_TYPE_AS2)
+        self._test_as2(as2.CONTENT_TYPE)
 
     def test_as2_ld(self):
-        self._test_as2(common.CONTENT_TYPE_AS2_LD)
+        self._test_as2(as2.CONTENT_TYPE_LD)
 
     def test_accept_header_cache_key(self):
         app.config['CACHE_TYPE'] = 'SimpleCache'
@@ -60,7 +60,7 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual(301, got.status_code)
         self.assertEqual('https://foo.com/bar', got.headers['Location'])
 
-        self._test_as2(common.CONTENT_TYPE_AS2)
+        self._test_as2(as2.CONTENT_TYPE)
 
         got = self.client.get('/r/https://foo.com/bar',
                               headers={'Accept': 'text/html'})

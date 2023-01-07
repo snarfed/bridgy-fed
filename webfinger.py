@@ -9,7 +9,7 @@ import re
 import urllib.parse
 
 from flask import render_template, request
-from granary import as2, microformats2
+from granary import as2, atom, microformats2
 import mf2util
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
@@ -74,11 +74,11 @@ class Actor(flask_util.XrdOrJrd):
         user.put()
 
         # discover atom feed, if any
-        atom = parsed.find('link', rel='alternate', type=common.CONTENT_TYPE_ATOM)
-        if atom and atom['href']:
-            atom = urllib.parse.urljoin(resp.url, atom['href'])
+        feed = parsed.find('link', rel='alternate', type=atom.CONTENT_TYPE)
+        if feed and feed['href']:
+            feed = urllib.parse.urljoin(resp.url, feed['href'])
         else:
-            atom = 'https://granary.io/url?' + urllib.parse.urlencode({
+            feed = 'https://granary.io/url?' + urllib.parse.urlencode({
                 'input': 'html',
                 'output': 'atom',
                 'url': resp.url,
@@ -114,29 +114,29 @@ class Actor(flask_util.XrdOrJrd):
             # ActivityPub
             {
                 'rel': 'self',
-                'type': common.CONTENT_TYPE_AS2,
+                'type': as2.CONTENT_TYPE,
                 # WARNING: in python 2 sometimes request.host_url lost port,
                 # http://localhost:8080 would become just http://localhost. no
                 # clue how or why. pay attention here if that happens again.
                 'href': common.host_url(domain),
             }, {
                 'rel': 'inbox',
-                'type': common.CONTENT_TYPE_AS2,
+                'type': as2.CONTENT_TYPE,
                 'href': common.host_url(f'{domain}/inbox'),
             }, {
                 # AP reads this from the AS2 actor, not webfinger, so strictly
                 # speaking, it's probably not needed here.
                 # https://www.w3.org/TR/activitypub/#sharedInbox
                 'rel': 'sharedInbox',
-                'type': common.CONTENT_TYPE_AS2,
+                'type': as2.CONTENT_TYPE,
                 'href': common.host_url('inbox'),
             },
 
             # OStatus
             {
                 'rel': 'http://schemas.google.com/g/2010#updates-from',
-                'type': common.CONTENT_TYPE_ATOM,
-                'href': atom,
+                'type': atom.CONTENT_TYPE,
+                'href': feed,
             }, {
                 'rel': 'hub',
                 'href': hub,
