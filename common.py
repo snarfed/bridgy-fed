@@ -17,6 +17,7 @@ from httpsig.requests_auth import HTTPSignatureAuth
 import mf2util
 from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.flask_util import error
+from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadGateway
@@ -76,9 +77,12 @@ CACHE_TIME = datetime.timedelta(seconds=10)
 
 
 def host_url(path_query=None):
-  domain = util.domain_from_link(request.host_url)
-  base = (f'https://{PRIMARY_DOMAIN}' if util.domain_or_parent_in(domain, OTHER_DOMAINS)
-          else request.host_url)
+  base = request.host_url
+  if (util.domain_or_parent_in(request.host, OTHER_DOMAINS) or
+      # when running locally against prod datastore
+      (not DEBUG and request.host in LOCAL_DOMAINS)):
+    base = f'https://{PRIMARY_DOMAIN}'
+
   return urllib.parse.urljoin(base, path_query)
 
 
