@@ -107,7 +107,16 @@ class AddFollowerTest(testutil.TestCase):
         self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
                         resp.headers['Location'])
 
-    def test_callback(self, mock_get, mock_post):
+    def test_callback_address(self, mock_get, mock_post):
+        self._test_callback('@foo@bar', WEBFINGER, mock_get, mock_post)
+        mock_get.assert_has_calls((
+            self.req('https://bar/.well-known/webfinger?resource=acct:foo@bar'),
+        ))
+
+    def test_callback_url(self, mock_get, mock_post):
+        self._test_callback('https://bar/actor', None, mock_get, mock_post)
+
+    def _test_callback(self, input, webfinger_data, mock_get, mock_post):
         followee = {
             'type': 'Person',
             'id': 'https://bar/id',
@@ -119,33 +128,35 @@ class AddFollowerTest(testutil.TestCase):
             requests_response('me=https://snarfed.org'),
             requests_response('OK'),  # AP Follow to inbox
         )
-        mock_get.side_effect = (
+        gets = [
             # oauth-dropins indieauth https://snarfed.org fetch for user json
             requests_response(''),
-            WEBFINGER,
             self.as2_resp(followee),
-        )
+        ]
+        if webfinger_data:
+            gets.insert(1, webfinger_data)
+        mock_get.side_effect = gets
+
         User.get_or_create('snarfed.org')
 
         state = util.encode_oauth_state({
             'endpoint': 'http://auth/endpoint',
             'me': 'https://snarfed.org',
-            'state': '@foo@bar',
+            'state': input,
         })
         with self.client:
             resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
             self.assertEqual(302, resp.status_code)
             self.assertEqual('/user/snarfed.org/following',resp.headers['Location'])
-            self.assertEqual(['Followed <a href="https://bar/url">@foo@bar</a>.'], get_flashed_messages())
+            self.assertEqual([f'Followed <a href="https://bar/url">{input}</a>.'], get_flashed_messages())
 
         mock_get.assert_has_calls((
-            self.req('https://bar/.well-known/webfinger?resource=acct:foo@bar'),
             self.as2_req('https://bar/actor'),
         ))
         mock_post.assert_has_calls((
             self.req('http://auth/endpoint', data={
                 'me': 'https://snarfed.org',
-                'state': '@foo@bar',
+                'state': input,
                 'code': 'my_code',
                 'client_id': indieauth.INDIEAUTH_CLIENT_ID,
                 'redirect_uri': 'http://localhost/follow/callback',
@@ -157,7 +168,7 @@ class AddFollowerTest(testutil.TestCase):
         expected_follow = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Follow',
-            'id': 'http://localhost/user/snarfed.org/following#2022-01-02T03:04:05-@foo@bar',
+            'id': f'http://localhost/user/snarfed.org/following#2022-01-02T03:04:05-{input}',
             'actor': 'http://localhost/snarfed.org',
             'object': followee,
             'to': [as2.PUBLIC_AUDIENCE],

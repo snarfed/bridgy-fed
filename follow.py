@@ -122,15 +122,19 @@ class FollowCallback(indieauth.Callback):
             error(f'No user for domain {domain}')
 
         addr = state
-        assert addr
-        webfinger = fetch_webfinger(addr)
-        if webfinger is None:
-            return redirect(f'/user/{domain}/following')
+        if not state:
+            error('Missing state')
+        elif util.is_web(state):
+            as2_url = state
+        else:
+            webfinger = fetch_webfinger(addr)
+            if webfinger is None:
+                return redirect(f'/user/{domain}/following')
 
-        as2_url = None
-        for link in webfinger.get('links', []):
-            if link.get('rel') == 'self' and link.get('type') == as2.CONTENT_TYPE:
-                as2_url = link.get('href')
+            as2_url = None
+            for link in webfinger.get('links', []):
+                if link.get('rel') == 'self' and link.get('type') == as2.CONTENT_TYPE:
+                    as2_url = link.get('href')
 
         if not as2_url:
             flash(f"Couldn't find ActivityPub profile link for {addr}")
@@ -152,7 +156,7 @@ class FollowCallback(indieauth.Callback):
             'object': followee,
             'actor': common.host_url(domain),
             'to': [as2.PUBLIC_AUDIENCE],
-        }
+       }
         common.signed_post(inbox, data=follow_as2)
 
         follow_json = json_dumps(follow_as2, sort_keys=True)
