@@ -167,6 +167,7 @@ def accept_follow(follow, follow_unwrapped, user):
         error('Follow actor requires id and inbox. Got: %s', follower)
 
     # store Follower
+    # TODO: handle composite followee object
     followee_domain = util.domain_from_link(followee_unwrapped, minimize=False)
     # follow use_instead, if any
     followee_domain = User.get_or_create(followee_domain).key.id()

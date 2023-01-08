@@ -137,9 +137,9 @@ class FollowCallback(indieauth.Callback):
             return redirect(f'/user/{domain}/following')
 
         resp = common.get_as2(as2_url)
-        obj = resp.json()
-        id = obj.get('id')
-        inbox = obj.get('inbox')
+        followee = resp.json()
+        id = followee.get('id')
+        inbox = followee.get('inbox')
         if not id or not inbox:
             flash(f"AS2 profile {as2_url} missing id or inbox")
             return redirect(f'/user/{domain}/following')
@@ -149,19 +149,20 @@ class FollowCallback(indieauth.Callback):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Follow',
             'id': common.host_url(f'/user/{domain}/following#{timestamp}-{addr}'),
-            'object': id,
+            'object': followee,
             'actor': common.host_url(domain),
             'to': [as2.PUBLIC_AUDIENCE],
         }
         common.signed_post(inbox, data=follow_as2)
 
+        follow_json = json_dumps(follow_as2, sort_keys=True)
         Follower.get_or_create(dest=id, src=domain, status='active',
-                               last_follow=json_dumps({}))
+                                last_follow=follow_json)
         Activity.get_or_create(source='UI', target=id, domain=[domain],
                                direction='out', protocol='activitypub', status='complete',
-                               source_as2=json_dumps(follow_as2, sort_keys=True))
+                               source_as2=follow_json)
 
-        link = util.pretty_link(obj.get('url') or id, text=addr)
+        link = util.pretty_link(followee.get('url') or id, text=addr)
         flash(f'Followed {link}.')
         return redirect(f'/user/{domain}/following')
 

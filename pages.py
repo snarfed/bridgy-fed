@@ -97,7 +97,7 @@ def user(domain):
         follow_url=request.values.get('url'),
         logs=logs,
         util=util,
-        **request.args,
+        address=request.args.get('address'),
         **locals(),
     )
 
@@ -144,6 +144,12 @@ def following(domain):
     for f in followers:
         f.url = f.dest
         f.handle = re.sub(r'^https?://(.+)/(users/|@)(.+)$', r'@\3@\1', f.dest)
+        if f.last_follow:
+            last_follow = json_loads(f.last_follow)
+            followee = last_follow.get('object', {})
+            # TODO: drop AS1-isms once we've backfilled existing entities to AS2
+            f.name = followee.get('name') or followee.get('displayName') or ''
+            f.picture = util.get_url(followee, 'icon') or util.get_url(followee, 'image')
 
     return render_template(
         'following.html',

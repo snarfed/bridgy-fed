@@ -108,6 +108,13 @@ class AddFollowerTest(testutil.TestCase):
                         resp.headers['Location'])
 
     def test_callback(self, mock_get, mock_post):
+        followee = {
+            'type': 'Person',
+            'id': 'https://bar/id',
+            'url': 'https://bar/url',
+            'inbox': 'http://bar/inbox',
+        }
+
         mock_post.side_effect = (
             requests_response('me=https://snarfed.org'),
             requests_response('OK'),  # AP Follow to inbox
@@ -116,12 +123,7 @@ class AddFollowerTest(testutil.TestCase):
             # oauth-dropins indieauth https://snarfed.org fetch for user json
             requests_response(''),
             WEBFINGER,
-            self.as2_resp({
-                'type': 'Person',
-                'id': 'https://bar/id',
-                'url': 'https://bar/url',
-                'inbox': 'http://bar/inbox',
-            }),
+            self.as2_resp(followee),
         )
         User.get_or_create('snarfed.org')
 
@@ -157,20 +159,24 @@ class AddFollowerTest(testutil.TestCase):
             'type': 'Follow',
             'id': 'http://localhost/user/snarfed.org/following#2022-01-02T03:04:05-@foo@bar',
             'actor': 'http://localhost/snarfed.org',
-            'object': 'https://bar/id',
+            'object': followee,
             'to': [as2.PUBLIC_AUDIENCE],
         }
         self.assert_equals(expected_follow, json_loads(inbox_kwargs['data']))
 
+        expected_follow_json = json_dumps(expected_follow, sort_keys=True)
         followers = Follower.query().fetch()
-        self.assertEqual(1, len(followers))
-        self.assertEqual('https://bar/id snarfed.org', followers[0].key.id())
+        self.assert_entities_equal(
+            Follower(id='https://bar/id snarfed.org', last_follow=expected_follow_json,
+                     src='snarfed.org', dest='https://bar/id', status='active'),
+            followers,
+            ignore=['created', 'updated'])
 
         activities = Activity.query().fetch()
         self.assert_entities_equal(
             [Activity(id='UI https://bar/id', domain=['snarfed.org'],
                       status='complete', protocol='activitypub', direction='out',
-                      source_as2=json_dumps(expected_follow, sort_keys=True))],
+                      source_as2=expected_follow_json)],
             activities,
             ignore=['created', 'updated'])
 
