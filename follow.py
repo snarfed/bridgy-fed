@@ -13,11 +13,12 @@ from oauth_dropins import indieauth
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error, flash
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.testutil import NOW
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app
 import common
-from models import Follower, User
+from models import Activity, Follower, User
 
 logger = logging.getLogger(__name__)
 
@@ -120,9 +121,6 @@ class FollowCallback(indieauth.Callback):
         if not User.get_by_id(domain):
             error(f'No user for domain {domain}')
 
-        # addr = state.get('address')
-        # if not addr:
-        #     error(f'state missing address field')
         addr = state
         assert addr
         webfinger = fetch_webfinger(addr)
@@ -146,18 +144,25 @@ class FollowCallback(indieauth.Callback):
             flash(f"AS2 profile {as2_url} missing id or inbox")
             return redirect(f'/user/{domain}/following')
 
-        common.signed_post(inbox, data={
+        timestamp = NOW.replace(microsecond=0, tzinfo=None).isoformat()
+        follow_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Follow',
-            'id': 'TODO',
+            'id': common.host_url(f'/user/{domain}/following#{timestamp}-{addr}'),
             'object': id,
             'actor': common.host_url(domain),
             'to': [as2.PUBLIC_AUDIENCE],
-        })
+        }
+        common.signed_post(inbox, data=follow_as2)
 
         Follower.get_or_create(dest=id, src=domain, status='active',
                                last_follow=json_dumps({}))
-        flash(f'Followed {addr}.')
+        Activity.get_or_create(source='UI', target=id, domain=[domain],
+                               direction='out', protocol='activitypub', status='complete',
+                               source_as2=json_dumps(follow_as2, sort_keys=True))
+
+        link = util.pretty_link(obj.get('url') or id, text=addr)
+        flash(f'Followed {link}.')
         return redirect(f'/user/{domain}/following')
 
 
@@ -165,4 +170,5 @@ app.add_url_rule('/follow/start',
                  view_func=FollowStart.as_view('follow_start', '/follow/callback'),
                  methods=['POST'])
 app.add_url_rule('/follow/callback',
-                 view_func=FollowCallback.as_view('follow_callback', 'unused'))
+                 view_func=FollowCallback.as_view('follow_callback', 'unused'),
+                 methods=['GET'])

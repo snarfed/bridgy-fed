@@ -10,7 +10,7 @@ from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
-from models import Follower, User
+from models import Activity, Follower, User
 from . import testutil
 
 WEBFINGER = requests_response({
@@ -119,6 +119,7 @@ class AddFollowerTest(testutil.TestCase):
             self.as2_resp({
                 'type': 'Person',
                 'id': 'https://bar/id',
+                'url': 'https://bar/url',
                 'inbox': 'http://bar/inbox',
             }),
         )
@@ -133,7 +134,7 @@ class AddFollowerTest(testutil.TestCase):
             resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
             self.assertEqual(302, resp.status_code)
             self.assertEqual('/user/snarfed.org/following',resp.headers['Location'])
-            self.assertEqual(['Followed @foo@bar.'], get_flashed_messages())
+            self.assertEqual(['Followed <a href="https://bar/url">@foo@bar</a>.'], get_flashed_messages())
 
         mock_get.assert_has_calls((
             self.req('https://bar/.well-known/webfinger?resource=acct:foo@bar'),
@@ -150,18 +151,28 @@ class AddFollowerTest(testutil.TestCase):
         ))
         inbox_args, inbox_kwargs = mock_post.call_args_list[-1]
         self.assertEqual(('http://bar/inbox',), inbox_args)
-        self.assert_equals({
+
+        expected_follow = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Follow',
-            'id': 'TODO',
+            'id': 'http://localhost/user/snarfed.org/following#2022-01-02T03:04:05-@foo@bar',
             'actor': 'http://localhost/snarfed.org',
             'object': 'https://bar/id',
             'to': [as2.PUBLIC_AUDIENCE],
-        }, json_loads(inbox_kwargs['data']))
+        }
+        self.assert_equals(expected_follow, json_loads(inbox_kwargs['data']))
 
         followers = Follower.query().fetch()
         self.assertEqual(1, len(followers))
         self.assertEqual('https://bar/id snarfed.org', followers[0].key.id())
+
+        activities = Activity.query().fetch()
+        self.assert_entities_equal(
+            [Activity(id='UI https://bar/id', domain=['snarfed.org'],
+                      status='complete', protocol='activitypub', direction='out',
+                      source_as2=json_dumps(expected_follow, sort_keys=True))],
+            activities,
+            ignore=['created', 'updated'])
 
     def test_callback_missing_user(self, mock_get, mock_post):
         mock_post.return_value = requests_response('me=https://snarfed.org')

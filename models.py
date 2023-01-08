@@ -333,8 +333,8 @@ class Follower(StringIdModel):
 
     src = ndb.StringProperty()
     dest = ndb.StringProperty()
-    # most recent AP Follow activity (JSON). must have a composite actor object
-    # with an inbox, publicInbox, or sharedInbox!
+    # Most recent AP Follow activity (JSON). If this is an inbound follow, must
+    # have a composite actor object with an inbox, publicInbox, or sharedInbox.
     last_follow = ndb.TextProperty()
     status = ndb.StringProperty(choices=STATUSES, default='active')
 
