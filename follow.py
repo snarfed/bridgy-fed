@@ -83,7 +83,8 @@ def remote_follow():
     if not user:
         error(f'No Bridgy Fed user found for domain {domain}')
 
-    webfinger = fetch_webfinger(request.values['address'])
+    addr = request.values['address']
+    webfinger = fetch_webfinger(addr)
     if webfinger is None:
         return redirect(f'/user/{domain}')
 
