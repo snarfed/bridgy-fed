@@ -394,7 +394,50 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('complete', activity.status)
         self.assertEqual(LIKE_WITH_ACTOR, json_loads(activity.source_as2))
 
-    def test_inbox_follow_accept(self, mock_head, mock_get, mock_post):
+    def test_inbox_follow_accept_with_id(self, mock_head, mock_get, mock_post):
+        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT,
+                                       mock_head, mock_get, mock_post)
+
+        activity = Activity.query().get()
+        self.assertEqual(FOLLOW_WITH_ACTOR, json_loads(activity.source_as2))
+
+        follower = Follower.query().get()
+        self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, json_loads(follower.last_follow))
+
+    def test_inbox_follow_accept_with_object(self, mock_head, mock_get, mock_post):
+        wrapped_user = {
+            'id': FOLLOW_WRAPPED['object'],
+            'url': FOLLOW_WRAPPED['object'],
+        }
+        unwrapped_user = {
+            'id': FOLLOW['object'],
+            'url': FOLLOW['object'],
+        }
+
+        follow = copy.deepcopy(FOLLOW_WRAPPED)
+        follow['object'] = wrapped_user
+
+        accept = copy.deepcopy(ACCEPT)
+        accept['actor'] = accept['object']['object'] = wrapped_user
+
+        self._test_inbox_follow_accept(follow, accept, mock_head, mock_get, mock_post)
+
+        activity = Activity.query().get()
+        follow.update({
+            'actor': FOLLOW_WITH_ACTOR['actor'],
+            'object': unwrapped_user,
+        })
+        self.assertEqual(follow, json_loads(activity.source_as2))
+
+        follower = Follower.query().get()
+        follow.update({
+            'actor': ACTOR,
+            'object': wrapped_user,
+        })
+        self.assertEqual(follow, json_loads(follower.last_follow))
+
+    def _test_inbox_follow_accept(self, follow_as2, accept_as2,
+                                  mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://www.realize.be/')
         mock_get.side_effect = [
             # source actor
@@ -405,7 +448,7 @@ class ActivityPubTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response()
 
-        got = self.client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
+        got = self.client.post('/foo.com/inbox', json=follow_as2)
         self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
@@ -416,7 +459,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(2, len(mock_post.call_args_list))
         args, kwargs = mock_post.call_args_list[0]
         self.assertEqual(('http://follower/inbox',), args)
-        self.assertEqual(ACCEPT, json_loads(kwargs['data']))
+        self.assertEqual(accept_as2, json_loads(kwargs['data']))
 
         # check webmention
         args, kwargs = mock_post.call_args_list[1]
@@ -431,12 +474,10 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('in', activity.direction)
         self.assertEqual('activitypub', activity.protocol)
         self.assertEqual('complete', activity.status)
-        self.assertEqual(FOLLOW_WITH_ACTOR, json_loads(activity.source_as2))
 
         # check that we stored a Follower object
         follower = Follower.get_by_id(f'www.realize.be {FOLLOW["actor"]}')
         self.assertEqual('active', follower.status)
-        self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, json_loads(follower.last_follow))
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
         root = User.get_or_create('realize.be')

@@ -166,7 +166,7 @@ class FollowCallback(indieauth.Callback):
                                direction='out', protocol='activitypub', status='complete',
                                source_as2=follow_json)
 
-        link = util.pretty_link(followee.get('url') or id, text=addr)
+        link = util.pretty_link(util.get_url(followee) or id, text=addr)
         flash(f'Followed {link}.')
         return redirect(f'/user/{domain}/following')
 

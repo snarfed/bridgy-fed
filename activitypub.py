@@ -157,6 +157,8 @@ def accept_follow(follow, follow_unwrapped, user):
 
     followee = follow.get('object')
     followee_unwrapped = follow_unwrapped.get('object')
+    if isinstance(followee_unwrapped, dict):
+        followee_unwrapped = followee_unwrapped.get('id')
     follower = follow.get('actor')
     if not followee or not followee_unwrapped or not follower:
         error('Follow activity requires object and actor. Got: %s' % follow)
@@ -167,7 +169,6 @@ def accept_follow(follow, follow_unwrapped, user):
         error('Follow actor requires id and inbox. Got: %s', follower)
 
     # store Follower
-    # TODO: handle composite followee object
     followee_domain = util.domain_from_link(followee_unwrapped, minimize=False)
     # follow use_instead, if any
     followee_domain = User.get_or_create(followee_domain).key.id()
