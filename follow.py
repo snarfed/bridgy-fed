@@ -149,10 +149,11 @@ class FollowCallback(indieauth.Callback):
             return redirect(f'/user/{domain}/following')
 
         timestamp = NOW.replace(microsecond=0, tzinfo=None).isoformat()
+        follow_id = common.host_url(f'/user/{domain}/following#{timestamp}-{addr}')
         follow_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Follow',
-            'id': common.host_url(f'/user/{domain}/following#{timestamp}-{addr}'),
+            'id': follow_id,
             'object': followee,
             'actor': common.host_url(domain),
             'to': [as2.PUBLIC_AUDIENCE],
@@ -162,7 +163,7 @@ class FollowCallback(indieauth.Callback):
         follow_json = json_dumps(follow_as2, sort_keys=True)
         Follower.get_or_create(dest=id, src=domain, status='active',
                                 last_follow=follow_json)
-        Activity.get_or_create(source='UI', target=id, domain=[domain],
+        Activity.get_or_create(source=follow_id, target=id, domain=[domain],
                                direction='out', protocol='activitypub', status='complete',
                                source_as2=follow_json)
 

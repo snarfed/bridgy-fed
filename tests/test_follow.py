@@ -185,8 +185,9 @@ class AddFollowerTest(testutil.TestCase):
 
         activities = Activity.query().fetch()
         self.assert_entities_equal(
-            [Activity(id='UI https://bar/id', domain=['snarfed.org'],
-                      status='complete', protocol='activitypub', direction='out',
+            [Activity(id=f'http://localhost/user/snarfed.org/following__2022-01-02T03:04:05-{input} https://bar/id',
+                      domain=['snarfed.org'], status='complete',
+                      protocol='activitypub', direction='out',
                       source_as2=expected_follow_json)],
             activities,
             ignore=['created', 'updated'])
