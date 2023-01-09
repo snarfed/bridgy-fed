@@ -51,7 +51,7 @@
 <div class="row">
 <form method="post" action="/remote-follow">
 <p>
- <label for="follow-address">Enter your fediverse address to follow:</label>
+ <label for="follow-address">Follow @{{ domain }} with your fediverse address:</label>
  <input id="follow-address" name="address" type="text" required
         placeholder="@user@domain.social" alt="fediverse address"
         value="{{ follow_url or '' }}"></input>
