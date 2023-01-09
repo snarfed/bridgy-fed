@@ -89,7 +89,7 @@ class Webmention(View):
         type_label = ' '.join((
             self.source_obj.get('verb', ''),
             self.source_obj.get('objectType', ''),
-            self.source_obj.get('object', {}).get('objectType', ''),
+            util.get_first(self.source_obj, 'object', {}).get('objectType', ''),
         ))
         logger.info(f'Converted webmention to AS1: {type_label}: {json_dumps(self.source_obj, indent=2)}')
 
