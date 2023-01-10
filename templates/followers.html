@@ -8,6 +8,8 @@
 
 <div class="row big">Followers</div>
 
-{% include "_followers.html" %}
+{% with page_name="followers" %}
+  {% include "_followers.html" %}
+{% endwith %}
 
 {% endblock %}

@@ -3,13 +3,21 @@
 
 {% for f in followers %}
 <li class="row">
-  <a class="follower col-xs-12 col-sm-6 col-lg-6" href="{{ f.url }}">
+  <a class="follower col-xs-10 col-sm-6 col-lg-6" href="{{ f.url }}">
     {% if f.picture %}
       <img class="profile u-photo" src="{{ f.picture }}" width="48px">
     {% endif %}
-    {{  f.name or '' }}
+    {{ f.name or '' }}
     {{ f.handle }}
   </a>
+  {% if page_name == 'following' %}
+    <form method="post" action="/unfollow/start" class="col-xs-2 col-sm-1 col-lg-1">
+      <input type="hidden" name="me" value="{{ domain }}" />
+      <input type="hidden" name="key" value="{{ f.key.id() }}" />
+      <input type="submit" title="Unfollow (requires IndieAuth)" value="✖"
+             class="btn delete-website" />
+    </form>
+  {% endif %}
 </li>
 {% else %}
   None yet. Check back soon!

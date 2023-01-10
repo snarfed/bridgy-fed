@@ -102,6 +102,7 @@ class FollowStart(indieauth.Start):
     """Starts the IndieAuth flow to add a follower to an existing user."""
     def dispatch_request(self):
         address = request.form['address']
+        domain = request.form['me']
 
         try:
             return redirect(self.redirect_url(state=address))
@@ -173,9 +174,71 @@ class FollowCallback(indieauth.Callback):
         return redirect(f'/user/{domain}/following')
 
 
+class UnfollowStart(indieauth.Start):
+    """Starts the IndieAuth flow to add a follower to an existing user."""
+    def dispatch_request(self):
+        key = request.form['key']
+        domain = request.form['me']
+
+        try:
+            return redirect(self.redirect_url(state=key))
+        except Exception as e:
+            if util.is_connection_failure(e) or util.interpret_http_exception(e)[0]:
+                flash(f"Couldn't fetch your web site: {e}")
+                return redirect(f'/user/{domain}/following')
+            raise
+
+
+class UnfollowCallback(indieauth.Callback):
+    """IndieAuth callback to add a follower to an existing user."""
+    def finish(self, auth_entity, state=None):
+        if not auth_entity:
+            return
+
+        domain = util.domain_from_link(auth_entity.key.id())
+        if not User.get_by_id(domain):
+            error(f'No user for domain {domain}')
+
+        follower = Follower.get_by_id(state)
+        if not follower:
+            error(f'Bad state {state}')
+
+        followee_id = follower.dest
+        last_follow = json_loads(follower.last_follow)
+        followee = last_follow['object']
+        inbox = last_follow['object']['inbox']
+
+        timestamp = NOW.replace(microsecond=0, tzinfo=None).isoformat()
+        unfollow_id = common.host_url(f'/user/{domain}/following#undo-{timestamp}-{followee_id}')
+        unfollow_as2 = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Undo',
+            'id': unfollow_id,
+            'actor': common.host_url(domain),
+            'object': last_follow,
+       }
+        common.signed_post(inbox, data=unfollow_as2)
+
+        follower.status = 'inactive'
+        follower.put()
+        Activity.get_or_create(source=unfollow_id, target=followee_id, domain=[domain],
+                               direction='out', protocol='activitypub', status='complete',
+                               source_as2=json_dumps(unfollow_as2))
+
+        link = util.pretty_link(util.get_url(followee) or followee_id)
+        flash(f'Unfollowed {link}.')
+        return redirect(f'/user/{domain}/following')
+
+
 app.add_url_rule('/follow/start',
                  view_func=FollowStart.as_view('follow_start', '/follow/callback'),
                  methods=['POST'])
 app.add_url_rule('/follow/callback',
                  view_func=FollowCallback.as_view('follow_callback', 'unused'),
+                 methods=['GET'])
+app.add_url_rule('/unfollow/start',
+                 view_func=UnfollowStart.as_view('unfollow_start', '/unfollow/callback'),
+                 methods=['POST'])
+app.add_url_rule('/unfollow/callback',
+                 view_func=UnfollowCallback.as_view('unfollow_callback', 'unused'),
                  methods=['GET'])
