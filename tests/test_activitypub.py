@@ -548,6 +548,15 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
+    def test_inbox_undo_follow_composite_object(self, mock_head, mock_get, mock_post):
+        mock_head.return_value = requests_response(url='https://realize.be/')
+        Follower.get_or_create('realize.be', ACTOR['id'], status='inactive')
+
+        undo_follow = copy.deepcopy(UNDO_FOLLOW_WRAPPED)
+        undo_follow['object']['object'] = {'id': undo_follow['object']['object']}
+        got = self.client.post('/foo.com/inbox', json=undo_follow)
+        self.assertEqual(200, got.status_code)
+
     def test_inbox_unsupported_type(self, *_):
         got = self.client.post('/foo.com/inbox', json={
             '@context': ['https://www.w3.org/ns/activitystreams'],

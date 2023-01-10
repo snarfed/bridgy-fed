@@ -211,6 +211,8 @@ def undo_follow(undo_unwrapped):
     follow = undo_unwrapped.get('object', {})
     follower = follow.get('actor')
     followee = follow.get('object')
+    if isinstance(followee, dict):
+        followee = followee.get('id') or util.get_url(followee)
     if not follower or not followee:
         error('Undo of Follow requires object with actor and object. Got: %s' % follow)
 
