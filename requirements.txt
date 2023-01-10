@@ -51,7 +51,7 @@ packaging==23.0
 pbr==5.11.0
 praw==7.6.1
 prawcore==2.3.0
-proto-plus==1.22.1
+proto-plus==1.22.2
 protobuf==3.20.3
 pyasn1==0.4.8
 pyasn1-modules==0.2.8
