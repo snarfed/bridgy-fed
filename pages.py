@@ -314,23 +314,24 @@ def fetch_activities(query):
 
         phrases = {
             'article': 'posted',
+            'comment': 'replied',
+            'follow': 'followed',
+            'invite': 'is invited to',
+            'like': 'liked',
             'note': 'posted',
             'post': 'posted',
-            'comment': 'replied',
-            'like': 'liked',
-            'follow': 'followed',
             'repost': 'reposted',
-            'share': 'reposted',
-            'rsvp-yes': 'is attending',
-            'rsvp-no': 'is not attending',
-            'rsvp-maybe': 'might attend',
             'rsvp-interested': 'is interested in',
-            'invite': 'is invited to',
+            'rsvp-maybe': 'might attend',
+            'rsvp-no': 'is not attending',
+            'rsvp-yes': 'is attending',
+            'share': 'reposted',
+            'stop-following': 'unfollowed',
         }
         activity.phrase = phrases.get(verb)
 
         obj_content = obj.get('content') or obj.get('displayName')
-        obj_url = util.get_first(obj, 'url')
+        obj_url = util.get_first(obj, 'url') or obj.get('id')
         if obj_url:
             obj_content = util.pretty_link(obj_url, text=obj_content)
 
