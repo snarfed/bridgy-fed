@@ -45,6 +45,7 @@ Bridgy Fed takes some technical know-how to set up, and there are simpler (but l
 <li><a href="#reply">How do I reply to a fediverse post?</a></li>
 <li><a href="#like">How do I favorite (aka like) or boost (aka repost) a fediverse post?</a></li>
 <li><a href="#follow">How do I follow someone?</a></li>
+<li><a href="#unfollow">How do I unfollow someone?</a></li>
 <li><a href="#image">How do I include an image in a post?</a></li>
 <li><a href="#update">How do I edit an existing post?</a></li>
 <li><a href="#fragment">Can I publish just one part of a page?</a></li>
@@ -263,8 +264,10 @@ Put the reply in a new post on your web site, and include a link to the fedivers
 
 <li id="follow" class="question">How do I follow someone?</li>
 <li class="answer">
-<p>
-Post an <a href="https://indieweb.org/follow#How_to_markup">IndieWeb follow</a> on your site with <code>u-follow-of</code> microformats2, then send a webmention to Bridgy Fed. Your site may do that automatically if it supports webmentions. For example:
+<p>If your web site supports <a href="https://indieauth.net/" style="white-space: nowrap"><img src="/oauth_dropins_static/indieauth_logo.png" style="height: 1em; margin-top: -.2em; white-space: nowrap" /> IndieAuth</a>, you can follow someone right here! <a href="/web-site">Go to your user page</a>, click the <em>Following</em> link, then enter the address of the account you want to follow.
+</p>
+
+<p>You can also follow someone by posting an <a href="https://indieweb.org/follow#How_to_markup">IndieWeb follow</a> on your site, including the <code>u-follow-of</code> microformats2 class, and sending a webmention to Bridgy Fed. Your site may do that automatically if it supports webmentions. For example:
 </p>
 
 <pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
@@ -272,6 +275,13 @@ Post an <a href="https://indieweb.org/follow#How_to_markup">IndieWeb follow</a> 
   &lt;a class="<span class='keyword'>u-bridgy-fed</span>" href="<a href='https://fed.brid.gy/'>https://fed.brid.gy/</a>"&gt;&lt;/a&gt;
 &lt;/div&gt;
 </pre>
+
+This method doesn't require IndieAuth, and it can be automated.</p>
+</li>
+
+<li id="unfollow" class="question">How do I unfollow someone?</li>
+<li class="answer">
+<p><a href="/web-site">Go to your user page</a>, click the <em>Following</em> link, find the account you want to unfollow, and click the X next to their address. Like <a href="#follow">following</a>, this requires your web site to support <a href="https://indieauth.net/" style="white-space: nowrap"><img src="/oauth_dropins_static/indieauth_logo.png" style="height: 1em; margin-top: -.2em; white-space: nowrap" /> IndieAuth</a>.
 </p>
 </li>
 
