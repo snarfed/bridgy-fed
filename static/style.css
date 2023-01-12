@@ -2,24 +2,6 @@
   margin-top: 2em;
 }
 
-#messages {
-  position: fixed;
-  width: 100%;
-  font-size: 1.5em;
-  top: .2em;
-  text-align: center;
-  z-index: 999;
-}
-
-.message {
-  display: block;
-  opacity: 1;
-  background-color: gold;
-  color: #444;
-  padding: .5em;
-  transition: opacity 5s linear 20s;
-}
-
 #logins {
   margin-top: .3em;
   text-align: right;
@@ -417,28 +399,6 @@ iframe#twitter-widget-0 {
 
 .big .profile {
   width: 48px;
-}
-
-.shadow, .profile, #screenshot {
-  -moz-box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
-  -webkit-box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
-  /* CSS3 */
-  box-shadow: 2px 2px 4px rgba(0,0,0,0.4);
-  /* For IE 8 */
-  -ms-filter: progid:DXImageTransform.Microsoft.Shadow(Strength=2,Direction=135,Color='#666666');
-  /* For IE 5.5 - 7 */
-  filter: progid:DXImageTransform.Microsoft.Shadow(Strength=2,Direction=135,Color='#666666');
-}
-
-.shadow:hover, .profile:hover, #screenshot:hover {
-  -moz-box-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-  -webkit-box-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-  /* CSS3 */
-  box-shadow: 2px 2px 4px rgba(0,0,0,0.8);
-  /* For IE 8 */
-  -ms-filter: progid:DXImageTransform.Microsoft.Shadow(Strength=2,Direction=135,Color='#222222');
-  /* For IE 5.5 - 7 */
-  filter: progid:DXImageTransform.Microsoft.Shadow(Strength=2,Direction=135,Color='#222222');
 }
 
 a img.shadow:hover
