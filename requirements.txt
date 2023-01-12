@@ -23,7 +23,7 @@ Flask==2.2.2
 flask-gae-static==1.0
 google-api-core==2.11.0
 google-auth==2.15.0
-google-cloud-appengine-logging==1.2.0
+google-cloud-appengine-logging==1.3.0
 google-cloud-audit-log==0.2.5
 google-cloud-core==2.3.2
 google-cloud-datastore==2.11.0
