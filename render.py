@@ -6,6 +6,7 @@ from flask import request
 from granary import as2, atom, microformats2
 from oauth_dropins.webutil import flask_util
 from oauth_dropins.webutil.flask_util import error
+from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_loads
 
 from app import app, cache
@@ -38,5 +39,6 @@ def render():
     # browsers but not for webmention receivers (hopefully).
     html = microformats2.activities_to_html([as1])
     utf8 = '<meta charset="utf-8">'
-    refresh = f'<meta http-equiv="refresh" content="0;url={source}">'
+    url = util.get_url(as1) or as1.get('id') or source
+    refresh = f'<meta http-equiv="refresh" content="0;url={url}">'
     return html.replace(utf8, utf8 + '\n' + refresh)

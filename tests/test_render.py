@@ -2,6 +2,7 @@
 """Unit tests for render.py."""
 from oauth_dropins.webutil.util import json_dumps
 
+import common
 from models import Activity
 import render
 from . import testutil
@@ -42,7 +43,7 @@ class RenderTest(testutil.TestCase):
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8">
-<meta http-equiv="refresh" content="0;url=abc"></head>
+<meta http-equiv="refresh" content="0;url=http://this/reply"></head>
 <body class="">
 <article class="h-entry">
   <span class="p-uid">http://this/reply</span>

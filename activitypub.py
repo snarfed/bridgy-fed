@@ -157,10 +157,10 @@ def accept_follow(follow, follow_unwrapped, user):
 
     followee = follow.get('object')
     followee_unwrapped = follow_unwrapped.get('object')
-    if isinstance(followee_unwrapped, dict):
-        followee_unwrapped = followee_unwrapped.get('id')
+    followee_id = (followee_unwrapped.get('id')
+                   if isinstance(followee_unwrapped, dict) else followee_unwrapped)
     follower = follow.get('actor')
-    if not followee or not followee_unwrapped or not follower:
+    if not followee or not followee_id or not follower:
         error('Follow activity requires object and actor. Got: %s' % follow)
 
     inbox = follower.get('inbox')
@@ -168,8 +168,17 @@ def accept_follow(follow, follow_unwrapped, user):
     if not inbox or not follower_id:
         error('Follow actor requires id and inbox. Got: %s', follower)
 
+    # rendered mf2 HTML proxy pages (in render.py) fall back to redirecting to
+    # the follow's AS2 id field, but Mastodon's ids are URLs that don't load in
+    # browsers, eg https://jawns.club/ac33c547-ca6b-4351-80d5-d11a6879a7b0
+    # so, set a synthetic URL based on the follower's profile.
+    # https://github.com/snarfed/bridgy-fed/issues/336
+    follower_url = util.get_url(follower) or follower_id
+    followee_url = util.get_url(followee_unwrapped) or followee_id
+    follow_unwrapped.setdefault('url', f'{follower_url}#followed-{followee_url}')
+
     # store Follower
-    followee_domain = util.domain_from_link(followee_unwrapped, minimize=False)
+    followee_domain = util.domain_from_link(followee_id, minimize=False)
     # follow use_instead, if any
     followee_domain = User.get_or_create(followee_domain).key.id()
     follower = Follower.get_or_create(dest=followee_domain, src=follower_id,

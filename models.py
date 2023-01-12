@@ -292,7 +292,7 @@ class Activity(StringIdModel):
 
         actor = util.get_first(as1, 'actor') or util.get_first(as1, 'author') or {}
         if isinstance(actor, str):
-            return util.pretty_link(url)
+            return util.pretty_link(actor)
 
         url = util.get_first(actor, 'url') or ''
         name = actor.get('displayName') or ''

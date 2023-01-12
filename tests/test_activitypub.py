@@ -399,7 +399,10 @@ class ActivityPubTest(testutil.TestCase):
                                        mock_head, mock_get, mock_post)
 
         activity = Activity.query().get()
-        self.assertEqual(FOLLOW_WITH_ACTOR, json_loads(activity.source_as2))
+        follow = copy.deepcopy(FOLLOW_WITH_ACTOR)
+        follow['url'] = 'https://mastodon.social/users/swentel#followed-https://www.realize.be/'
+
+        self.assertEqual(follow, json_loads(activity.source_as2))
 
         follower = Follower.query().get()
         self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, json_loads(follower.last_follow))
@@ -422,19 +425,20 @@ class ActivityPubTest(testutil.TestCase):
 
         self._test_inbox_follow_accept(follow, accept, mock_head, mock_get, mock_post)
 
-        activity = Activity.query().get()
-        follow.update({
-            'actor': FOLLOW_WITH_ACTOR['actor'],
-            'object': unwrapped_user,
-        })
-        self.assertEqual(follow, json_loads(activity.source_as2))
-
         follower = Follower.query().get()
         follow.update({
             'actor': ACTOR,
             'object': wrapped_user,
         })
         self.assertEqual(follow, json_loads(follower.last_follow))
+
+        activity = Activity.query().get()
+        follow.update({
+            'actor': FOLLOW_WITH_ACTOR['actor'],
+            'object': unwrapped_user,
+            'url': 'https://mastodon.social/users/swentel#followed-https://www.realize.be/',
+        })
+        self.assertEqual(follow, json_loads(activity.source_as2))
 
     def _test_inbox_follow_accept(self, follow_as2, accept_as2,
                                   mock_head, mock_get, mock_post):
