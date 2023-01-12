@@ -3,7 +3,7 @@ git+https://github.com/snarfed/oauth-dropins.git#egg=oauth_dropins
 git+https://github.com/snarfed/granary.git#egg=granary
 git+https://github.com/snarfed/negotiator.git@py3#egg=negotiator
 git+https://github.com/dvska/gdata-python3.git#egg=gdata
-git+https://github.com/snarfed/flask-caching.git@fix-97#egg=Flask-Caching
+git+https://github.com/pallets-eco/flask-caching.git#egg=Flask-Caching
 
 beautifulsoup4==4.11.1
 brevity==0.2.17
