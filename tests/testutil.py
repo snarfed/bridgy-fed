@@ -29,6 +29,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.ndb_context = ndb_client.context()
         self.ndb_context.__enter__()
 
+        util.now = lambda **kwargs: testutil.NOW
+
     def tearDown(self):
         self.ndb_context.__exit__(None, None, None)
         super().tearDown()
