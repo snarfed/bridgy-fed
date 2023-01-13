@@ -167,15 +167,12 @@ def feed(domain):
     if not (user := User.get_by_id(domain)):
       return render_template('user_not_found.html', domain=domain), 404
 
-    as2_activities, _, _ = Activity.query(
+    activities, _, _ = Activity.query(
         Activity.domain == domain, Activity.direction == 'in'
         ).order(-Activity.created
         ).fetch_page(PAGE_SIZE)
-    as1_activities = [as2.to_as1(json_loads(a.source_as2))
-                      for a in as2_activities
-                      if a.source_as2]
-    as1_activities = [a for a in as1_activities
-                      if a.get('verb') not in ('like', 'update', 'follow')]
+    as1_activities = [a for a in [a.to_as1() for a in activities]
+                      if a and a.get('verb') not in ('like', 'update', 'follow')]
 
     actor = {
       'displayName': domain,

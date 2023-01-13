@@ -3,11 +3,12 @@ import json
 import logging
 import re
 
-from granary import microformats2, bluesky
+from granary import bluesky, microformats2
 import mf2util
 from oauth_dropins.webutil import util
 
 from app import xrpc_server
+from models import Activity
 
 logger = logging.getLogger(__name__)
 
@@ -113,12 +114,27 @@ def getPostThread(input, uri=None, depth=None):
 #     }
 
 
-# TODO based on datastore
-# @xrpc_server.method('app.bsky.feed.getTimeline')
-# def getTimeline(input):
-#     """
-#     lexicons/app/bsky/feed/getTimeline.json
-#     """
+# TODO: cursor
+@xrpc_server.method('app.bsky.feed.getTimeline')
+def getTimeline(input, algorithm=None, limit=50, before=None):
+    """
+    lexicons/app/bsky/feed/getTimeline.json
+    """
+    # TODO: how to get authed user?
+    user = 'foo.com'
+
+    # TODO: de-dupe with pages.feed()
+    logger.info(f'Fetching {limit} activities for {user}')
+    activities, _, _ = Activity.query(
+        Activity.domain == user, Activity.direction == 'in'
+        ).order(-Activity.created
+        ).fetch_page(limit)
+    as1_activities = [a.to_as1() for a in activities]
+
+    return {
+        'feed': [bluesky.from_as1(a) for a in as1_activities
+                 if a and a.get('verb') not in ('like', 'update', 'follow')],
+    }
 
 
 # TODO: use likes as votes?

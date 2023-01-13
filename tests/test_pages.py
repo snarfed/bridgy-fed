@@ -13,7 +13,8 @@ def contents(activities):
 
 
 class PagesTest(testutil.TestCase):
-    EXPECTED = contents([as2.to_as1(REPLY), as2.to_as1(NOTE)])
+    EXPECTED_AS1 = [as2.to_as1(REPLY), as2.to_as1(NOTE)]
+    EXPECTED = contents(EXPECTED_AS1)
 
     def setUp(self):
         super().setUp()
