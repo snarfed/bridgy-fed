@@ -143,7 +143,7 @@ class XrpcFeedTest(testutil.TestCase):
 # </body>
 # """, url='https://foo.com/')
 
-#         got = self.client.get('/xrpc/app.bsky.actor.getProfile',
+#         got = self.client.get('/xrpc/app.bsky.feed.getRepostedBy',
 #                               query_string={'actor': 'foo.com'},
 #                               ).json
 #         self.assertEqual({
@@ -155,20 +155,16 @@ class XrpcFeedTest(testutil.TestCase):
 # </body>
 # """, url='https://foo.com/')
 
-#         got = self.client.get('/xrpc/app.bsky.actor.getProfile',
+#         got = self.client.get('/xrpc/app.bsky.feed.getTimeline',
 #                               query_string={'actor': 'foo.com'},
 #                               ).json
 #         self.assertEqual({
 #         }, got)
 
-#     def test_getVotes(self, mock_get):
-#         mock_get.return_value = requests_response("""
-# <body>
-# </body>
-# """, url='https://foo.com/')
-
-#         got = self.client.get('/xrpc/app.bsky.actor.getVotes',
-#                               query_string={'actor': 'foo.com'},
-#                               ).json
-#         self.assertEqual({
-#         }, got)
+    def test_getVotes(self, mock_get):
+        resp = self.client.get('/xrpc/app.bsky.feed.getVotes',
+                               query_string={'uri': 'http://a/post'})
+        self.assertEqual({
+            'uri': 'http://a/post',
+            'votes': [],
+        }, resp.json)

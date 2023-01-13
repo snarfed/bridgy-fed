@@ -88,15 +88,13 @@ def getTimeline(input):
     lexicons/app/bsky/feed/getTimeline.json
     """
 
-# votes are likes
+# TODO: use likes as votes?
 @xrpc_server.method('app.bsky.feed.getVotes')
 def getVotes(input, uri=None, direction=None, cid=None, limit=None, before=None):
     """
     lexicons/app/bsky/feed/getVotes.json
     """
-
-@xrpc_server.method('app.bsky.feed.setVote')
-def setVote(input):
-    """
-    lexicons/app/bsky/feed/setVote.json
-    """
+    return {
+        'uri': uri,
+        'votes': [],
+    }
