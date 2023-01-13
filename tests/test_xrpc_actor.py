@@ -26,7 +26,7 @@ class XrpcActorTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
-            'handle': 'foo.com',
+            'handle': 'foo.com/about-me',
             'did': 'did:web:foo.com:about-me',
             'creator': 'did:web:foo.com:about-me',
             'displayName': 'Mrs. ☕ Foo',

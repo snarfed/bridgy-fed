@@ -11,19 +11,23 @@ from models import Follower
 logger = logging.getLogger(__name__)
 
 
-@xrpc_server.method('app.bsky.graph.getFollowers')
-def getFollowers(input, user=None, limit=50, before=None):
-    """
-    lexicons/app/bsky/graph/getFollowers.json
+def get_followers(query_prop, output_field, user=None, limit=50, before=None):
+    """Runs the getFollowers or getFollows method. (They're almost identical.)
+
+    Args:
+      query_prop: str, property of Follower class to query
+      output_field: str, field in output to populate followers into
+
+    Returns:
+      dict, XRPC method output
     """
     # TODO: what is user?
     if not re.match(util.DOMAIN_RE, user):
         raise ValueError(f'{user} is not a domain')
 
     followers = []
-    for follower in Follower.query(Follower.dest == user).fetch(limit):
+    for follower in Follower.query(query_prop == user).fetch(limit):
         actor = follower.to_as1()
-        print('@', actor)
         if actor:
             followers.append({
                 **bluesky.actor_to_ref(actor),
@@ -33,14 +37,22 @@ def getFollowers(input, user=None, limit=50, before=None):
 
     return {
         'subject': bluesky.actor_to_ref({'url': f'https://{user}/'}),
-        'followers': followers,
+        output_field: followers,
         'cursor': '',
     }
 
 
+@xrpc_server.method('app.bsky.graph.getFollowers')
+def getFollowers(input, **kwargs):
+    """
+    lexicons/app/bsky/graph/getFollowers.json
+    """
+    return get_followers(Follower.dest, 'followers', **kwargs)
+
+
 @xrpc_server.method('app.bsky.graph.getFollows')
-def getFollows(input, user=None, limit=None, before=None):
+def getFollows(input, **kwargs):
     """
     lexicons/app/bsky/graph/getFollows.json
     """
-
+    return get_followers(Follower.src, 'follows', **kwargs)
