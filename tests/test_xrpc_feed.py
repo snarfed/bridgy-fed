@@ -1,5 +1,6 @@
 """Unit tests for feed.py."""
 import copy
+from unittest import skip
 from unittest.mock import patch
 
 from granary.tests.test_bluesky import (
@@ -32,10 +33,10 @@ POST_THREAD_HTML = copy.deepcopy(POST_HTML).replace('</article>', """
     <p class="p-content">Uh huh</p>
   </div>
 
-  <div class="h-cite">
+  <div class="u-repost h-cite">
     <a class="u-author h-card" href="http://eve.net/">Eve</a>
-    <p class="p-content">Nuh uh</p>
-    <a class="u-in-reply-to" href="http://orig/post"></a>
+    <p class="p-content">This</p>
+    <a class="u-repost-of" href="http://orig/post"></a>
   </div>
 </article>
 """)
@@ -137,17 +138,27 @@ class XrpcFeedTest(testutil.TestCase):
                                query_string={'uri': 'http://a/post'})
         self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
 
-#     def test_getRepostedBy(self, mock_get):
-#         mock_get.return_value = requests_response("""
-# <body>
-# </body>
-# """, url='https://foo.com/')
-
-#         got = self.client.get('/xrpc/app.bsky.feed.getRepostedBy',
-#                               query_string={'actor': 'foo.com'},
-#                               ).json
-#         self.assertEqual({
-#         }, got)
+    @skip
+    def test_getRepostedBy(self, mock_get):
+        mock_get.return_value = requests_response(POST_THREAD_HTML,
+                                                  url='http://orig/post')
+        got = self.client.get('/xrpc/app.bsky.feed.getRepostedBy',
+                               query_string={'uri': 'http://a/post'})
+        self.assertEqual({
+            'uri': 'http://orig/post',
+            'repostBy': [{
+                '$type': 'app.bsky.feed.getRepostedBy#repostedBy',
+                'did': 'did:web:eve.net',
+                'declaration': {
+                    '$type': 'app.bsky.system.declRef',
+                    'cid': 'TODO',
+                    'actorType': 'app.bsky.system.actorUser',
+                },
+                'handle': 'eve.net',
+                'displayName': 'Eve',
+                'indexedAt': '2022-01-02T03:04:05+00:00',
+            }],
+        }, got.json)
 
 #     def test_getTimeline(self, mock_get):
 #         mock_get.return_value = requests_response("""
@@ -156,10 +167,9 @@ class XrpcFeedTest(testutil.TestCase):
 # """, url='https://foo.com/')
 
 #         got = self.client.get('/xrpc/app.bsky.feed.getTimeline',
-#                               query_string={'actor': 'foo.com'},
-#                               ).json
+#                               query_string={'actor': 'foo.com'})
 #         self.assertEqual({
-#         }, got)
+#         }, got.json)
 
     def test_getVotes(self, mock_get):
         resp = self.client.get('/xrpc/app.bsky.feed.getVotes',

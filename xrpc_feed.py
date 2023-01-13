@@ -76,17 +76,50 @@ def getPostThread(input, uri=None, depth=None):
     }
 
 
-@xrpc_server.method('app.bsky.feed.getRepostedBy')
-def getRepostedBy(input, uri=None, cid=None, limit=None, before=None):
-    """
-    lexicons/app/bsky/feed/getRepostedBy.json
-    """
+# TODO
+# what's the mf2 for repost children of an h-entry? u-repost, like u-comment?
+# nothing about markup on https://indieweb.org/reposts
+# based on https://indieweb.org/comments-display , it would be u-repost
+# @xrpc_server.method('app.bsky.feed.getRepostedBy')
+# def getRepostedBy(input, uri=None, cid=None, limit=None, before=None):
+#     """
+#     lexicons/app/bsky/feed/getRepostedBy.json
+#     """
+#     mf2 = util.fetch_mf2(uri, gateway=True)
+#     logger.info(f'Got mf2: {json.dumps(mf2, indent=2)}')
 
-@xrpc_server.method('app.bsky.feed.getTimeline')
-def getTimeline(input):
-    """
-    lexicons/app/bsky/feed/getTimeline.json
-    """
+#     entry = mf2util.find_first_entry(mf2, ['h-entry'])
+#     logger.info(f'Entry: {json.dumps(entry, indent=2)}')
+#     if not entry:
+#         raise ValueError(f"No h-entry on {uri}")
+
+#     obj = microformats2.json_to_object(entry)
+#     logger.info(f'AS1: {json.dumps(obj, indent=2)}')
+
+#     return {
+#         'uri': 'http://orig/post',
+#         'repostBy': [{
+#             '$type': 'app.bsky.feed.getRepostedBy#repostedBy',
+#             'did': 'did:web:eve.net',
+#             'declaration': {
+#                 '$type': 'app.bsky.system.declRef',
+#                 'cid': 'TODO',
+#                 'actorType': 'app.bsky.system.actorUser',
+#             },
+#             'handle': 'eve.net',
+#             'displayName': 'Eve',
+#             'indexedAt': '2022-01-02T03:04:05+00:00',
+#         }],
+#     }
+
+
+# TODO based on datastore
+# @xrpc_server.method('app.bsky.feed.getTimeline')
+# def getTimeline(input):
+#     """
+#     lexicons/app/bsky/feed/getTimeline.json
+#     """
+
 
 # TODO: use likes as votes?
 @xrpc_server.method('app.bsky.feed.getVotes')
