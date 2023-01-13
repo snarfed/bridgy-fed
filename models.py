@@ -112,6 +112,11 @@ class User(StringIdModel):
                              base64_to_long(str(self.private_exponent))))
         return rsa.exportKey(format='PEM')
 
+    def to_as1(self):
+        """Returns this user as an AS1 actor dict, if possible."""
+        if self.actor_as2:
+            return as2.to_as1(json_loads(self.actor_as2))
+
     def username(self):
         """Returns the user's preferred username from an acct: url, if available.
 
@@ -357,3 +362,11 @@ class Follower(StringIdModel):
             setattr(follower, prop, val)
         follower.put()
         return follower
+
+    def to_as1(self):
+        """Returns this follower as an AS1 actor dict, if possible."""
+        if self.last_follow:
+            last_follow = json_loads(self.last_follow)
+            actor = last_follow.get('actor')
+            if actor:
+                return as2.to_as1(actor)
