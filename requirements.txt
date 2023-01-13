@@ -78,7 +78,7 @@ tlslite-ng==0.7.6
 tweepy==4.12.1
 ujson==5.7.0
 update-checker==0.18.0
-urllib3==1.26.13
+urllib3==1.26.14
 webapp2==3.0.0b1
 webencodings==0.5.1
 WebOb==1.8.7
