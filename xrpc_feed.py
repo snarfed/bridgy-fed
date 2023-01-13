@@ -39,7 +39,7 @@ def getAuthorFeed(input, author=None, limit=None, before=None):
             'displayName': author,
         }
 
-    activities = microformats2.json_to_activities(mf2)  #, actor)
+    activities = microformats2.json_to_activities(mf2)
     # default actor to feed author
     for a in activities:
         a.setdefault('actor', actor)
@@ -48,12 +48,33 @@ def getAuthorFeed(input, author=None, limit=None, before=None):
     return {'feed': [bluesky.from_as1(a) for a in activities]}
 
 
-# all the rest come from fetching uri, parsing as mf2, and extracting responses
 @xrpc_server.method('app.bsky.feed.getPostThread')
-def getPostThread(input):
+def getPostThread(input, uri=None, depth=None):
     """
     lexicons/app/bsky/feed/getPostThread.json
     """
+    mf2 = util.fetch_mf2(uri, gateway=True)
+    logger.info(f'Got mf2: {json.dumps(mf2, indent=2)}')
+
+    entry = mf2util.find_first_entry(mf2, ['h-entry'])
+    logger.info(f'Entry: {json.dumps(entry, indent=2)}')
+    if not entry:
+        raise ValueError(f"No h-entry on {uri}")
+
+    obj = microformats2.json_to_object(entry)
+    logger.info(f'AS1: {json.dumps(obj, indent=2)}')
+
+    return {
+        'thread': {
+            '$type': 'app.bsky.feed.getPostThread#threadViewPost',
+            'post': bluesky.from_as1(obj)['post'],
+            'replies': [{
+                '$type': 'app.bsky.feed.getPostThread#threadViewPost',
+                'post': bluesky.from_as1(reply)['post'],
+            } for reply in obj.get('replies', {}).get('items', [])],
+        },
+    }
+
 
 @xrpc_server.method('app.bsky.feed.getRepostedBy')
 def getRepostedBy(input, uri=None, cid=None, limit=None, before=None):

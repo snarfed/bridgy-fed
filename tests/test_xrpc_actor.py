@@ -27,8 +27,8 @@ class XrpcActorTest(testutil.TestCase):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'handle': 'foo.com',
-            'did': 'TODO',
-            'creator': 'TODO (a DID)',
+            'did': 'did:web:foo.com:about-me',
+            'creator': 'did:web:foo.com:about-me',
             'displayName': 'Mrs. ☕ Foo',
             'declaration': {
                 '$type': 'app.bsky.system.declRef',
