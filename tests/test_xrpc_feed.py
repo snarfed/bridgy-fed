@@ -100,6 +100,10 @@ class XrpcFeedTest(testutil.TestCase):
             'feed': [POST_BSKY, REPLY_BSKY, REPOST_BSKY],
         }, resp.json)
 
+    def test_getAuthorFeed_unset(self, _):
+        resp = self.client.get('/xrpc/app.bsky.feed.getAuthorFeed')
+        self.assertEqual(400, resp.status_code)
+
     def test_getAuthorFeed_not_domain(self, _):
         resp = self.client.get('/xrpc/app.bsky.feed.getAuthorFeed',
                                query_string={'author': 'not a domain'})
@@ -127,6 +131,10 @@ class XrpcFeedTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals(POST_THREAD_BSKY, resp.json)
 
+    def test_getPostThread_unset(self, mock_get):
+        mock_get.return_value = requests_response(status=500)
+        resp = self.client.get('/xrpc/app.bsky.feed.getPostThread')
+        self.assertEqual(400, resp.status_code)
 
     def test_getPostThread_fetch_fails(self, mock_get):
         mock_get.return_value = requests_response(status=500)

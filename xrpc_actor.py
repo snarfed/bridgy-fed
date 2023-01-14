@@ -19,7 +19,7 @@ def getProfile(input, actor=None):
     """
     # TODO: actor is either handle or DID
     # see actorWhereClause in atproto/packages/pds/src/db/util.ts
-    if not re.match(util.DOMAIN_RE, actor):
+    if not actor or not re.match(util.DOMAIN_RE, actor):
         raise ValueError(f'{actor} is not a domain')
 
     url = f'https://{actor}/'

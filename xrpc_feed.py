@@ -18,7 +18,7 @@ def getAuthorFeed(input, author=None, limit=None, before=None):
     """
     lexicons/app/bsky/feed/getAuthorFeed.json, feedViewPost.json
     """
-    if not re.match(util.DOMAIN_RE, author):
+    if not author or not re.match(util.DOMAIN_RE, author):
         raise ValueError(f'{author} is not a domain')
 
     url = f'https://{author}/'
@@ -54,6 +54,9 @@ def getPostThread(input, uri=None, depth=None):
     """
     lexicons/app/bsky/feed/getPostThread.json
     """
+    if not uri:
+        raise ValueError('Missing uri')
+
     mf2 = util.fetch_mf2(uri, gateway=True)
     logger.info(f'Got mf2: {json.dumps(mf2, indent=2)}')
 

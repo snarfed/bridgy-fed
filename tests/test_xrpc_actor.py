@@ -48,6 +48,10 @@ class XrpcActorTest(testutil.TestCase):
             },
         }, resp.json)
 
+    def test_getProfile_unset(self, _):
+        resp = self.client.get('/xrpc/app.bsky.actor.getProfile')
+        self.assertEqual(400, resp.status_code)
+
     def test_getProfile_not_domain(self, _):
         resp = self.client.get('/xrpc/app.bsky.actor.getProfile',
                                query_string={'actor': 'not a domain'})
