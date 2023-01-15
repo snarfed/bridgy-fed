@@ -47,7 +47,7 @@ jsonschema==4.17.3
 lxml==4.9.2
 MarkupSafe==2.1.1
 mf2py==1.1.2
-mf2util==0.5.1
+mf2util==0.5.2
 mox3==1.1.0
 oauthlib==3.2.2
 packaging==23.0
