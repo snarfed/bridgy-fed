@@ -22,7 +22,7 @@ def get_followers(query_prop, output_field, user=None, limit=50, before=None):
       dict, XRPC method output
     """
     # TODO: what is user?
-    if not re.match(util.DOMAIN_RE, user):
+    if not user or not re.match(util.DOMAIN_RE, user):
         raise ValueError(f'{user} is not a domain')
 
     followers = []

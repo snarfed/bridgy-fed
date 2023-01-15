@@ -45,6 +45,10 @@ OTHER_FOLLOW_AS2['actor'].update({
 @patch('requests.get')
 class XrpcGraphTest(testutil.TestCase):
 
+    def test_getProfile_no_user(self, _):
+        resp = self.client.get('/xrpc/app.bsky.graph.getFollowers')
+        self.assertEqual(400, resp.status_code)
+
     def test_getFollowers_not_domain(self, mock_get):
         resp = self.client.get('/xrpc/app.bsky.graph.getFollowers',
                               query_string={'user': 'not a domain'})
