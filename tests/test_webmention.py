@@ -586,7 +586,7 @@ class WebmentionTest(testutil.TestCase):
             self.req('http://a/reply'),
             self.as2_req('http://not/fediverse'),
             self.as2_req('http://orig/post'),
-            self.req('http://orig/as2', auth=mock.ANY, headers=as2.CONNEG_HEADERS),
+            self.as2_req('http://orig/as2', headers=as2.CONNEG_HEADERS),
             self.as2_req('http://orig/author'),
         ))
 

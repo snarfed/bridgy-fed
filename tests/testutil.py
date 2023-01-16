@@ -45,17 +45,16 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         return call(url, **kwargs)
 
     def as2_req(self, url, **kwargs):
-        # TODO: these aren't currently getting checked?!
         headers = {
-            'Date': 'Wed, 23 Nov 2022 22:29:19 GMT',
+            'Date': 'Sun, 02 Jan 2022 03:04:05 GMT',
             'Host': util.domain_from_link(url, minimize=False),
             'Content-Type': 'application/activity+json',
             'Digest': ANY,
             **common.CONNEG_HEADERS_AS2_HTML,
             **kwargs.pop('headers', {}),
         }
-        return self.req(url, auth=ANY, headers=headers, **kwargs)
-
+        return self.req(url, auth=ANY, headers=headers, allow_redirects=False,
+                        **kwargs)
     def as2_resp(self, obj):
         return requests_response(obj, content_type=as2.CONTENT_TYPE)
 

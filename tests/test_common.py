@@ -168,3 +168,17 @@ class CommonTest(testutil.TestCase):
         with app.test_request_context(base_url='http://bridgy-federated.uc.r.appspot.com'):
             self.assertEqual('https://fed.brid.gy/asdf', common.host_url('asdf'))
 
+    @mock.patch('requests.get')
+    def test_signed_request_redirects_manually_with_new_sig_headers(self, mock_get):
+        mock_get.side_effect = [
+            requests_response(status=302, redirected_url='http://second',
+                              allow_redirects=False),
+            requests_response(status=200, allow_redirects=False),
+        ]
+        resp = common.signed_get('https://first')
+
+        first = mock_get.call_args_list[0][1]
+        second = mock_get.call_args_list[1][1]
+        self.assertNotEqual(first['headers'], second['headers'])
+        self.assertNotEqual(first['auth'].header_signer.sign(first['headers']),
+                            second['auth'].header_signer.sign(second['headers']))

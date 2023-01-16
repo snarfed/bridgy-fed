@@ -124,6 +124,7 @@ def signed_request(fn, url, data=None, user=None, headers=None, **kwargs):
         logging.info(f'Sending AS2 object: {json_dumps(data, indent=2)}')
         data = kwargs['data'] = json_dumps(data).encode()
 
+    headers = copy.deepcopy(headers)
     headers.update({
         # required for HTTP Signature
         # https://tools.ietf.org/html/draft-cavage-http-signatures-07#section-2.1.3
@@ -145,9 +146,13 @@ def signed_request(fn, url, data=None, user=None, headers=None, **kwargs):
 
     # make HTTP request
     kwargs.setdefault('gateway', True)
-    resp = fn(url, auth=auth, headers=headers, **kwargs)
+    resp = fn(url, auth=auth, headers=headers, allow_redirects=False, **kwargs)
 
     logger.info(f'Got {resp.status_code} headers: {resp.headers}')
+    # handle redirects manually so that we generate a new HTTP signature
+    if resp.is_redirect:
+      return signed_request(fn, resp.headers['Location'], data=data, user=user,
+                            headers=headers, **kwargs)
     type = content_type(resp)
     if (type and type != 'text/html' and
         (type.startswith('text/') or type.endswith('+json') or type.endswith('/json'))):
