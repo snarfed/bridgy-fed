@@ -18,6 +18,9 @@ from oauth_dropins.webutil import (
 import common
 
 logger = logging.getLogger(__name__)
+logging.getLogger('lexrpc').setLevel(logging.INFO)
+logging.getLogger('negotiator').setLevel(logging.WARNING)
+
 app_dir = Path(__file__).parent
 
 
@@ -44,7 +47,6 @@ util.set_user_agent('Bridgy Fed (https://fed.brid.gy/)')
 # XRPC server
 lexicons = []
 for filename in (app_dir / 'lexicons/app/bsky').glob('**/*.json'):
-    logger.debug(f'Loading lexicon from {filename}')
     with open(filename) as f:
         lexicons.append(json.load(f))
 
