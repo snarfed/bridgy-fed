@@ -137,6 +137,13 @@ class Webmention(View):
 
                 if source_activity.get('type') == 'Create':
                     source_activity['type'] = 'Update'
+                    # Mastodon requires the updated field for Updates, so
+                    # generate it if it's not already there.
+                    # https://docs.joinmastodon.org/spec/activitypub/#supported-activities-for-statuses
+                    # https://socialhub.activitypub.rocks/t/what-could-be-the-reason-that-my-update-activity-does-not-work/2893/4
+                    # https://github.com/mastodon/documentation/pull/1150
+                    source_activity.get('object', {}).setdefault(
+                        'updated', util.now().isoformat())
 
             if self.source_obj.get('verb') == 'follow':
                 # prefer AS2 id or url, if available

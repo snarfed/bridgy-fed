@@ -194,6 +194,9 @@ class WebmentionTest(testutil.TestCase):
         }
         self.as2_update = copy.deepcopy(self.as2_create)
         self.as2_update['type'] = 'Update'
+        # we should generate this if it's not already in mf2 because Mastodon
+        # requires it for updates
+        self.as2_update['object']['updated'] = util.now().isoformat()
 
         self.follow_html = """\
 <html>
@@ -292,6 +295,7 @@ class WebmentionTest(testutil.TestCase):
         }
         self.update_as2 = copy.deepcopy(self.create_as2)
         self.update_as2['type'] = 'Update'
+        self.update_as2['object']['updated'] = util.now().isoformat()
 
         self.not_fediverse = requests_response("""\
 <html>
