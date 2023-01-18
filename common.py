@@ -140,9 +140,14 @@ def signed_request(fn, url, data=None, user=None, headers=None, **kwargs):
     domain = user.key.id()
     logger.info(f"Signing with {domain}'s key")
     key_id = host_url(domain)
-    auth = HTTPSignatureAuth(secret=user.private_pem(), key_id=key_id,
-                             algorithm='rsa-sha256', sign_header='signature',
-                             headers=('Date', 'Host', 'Digest'))
+    # (request-target) is a special HTTP Signatures header that some fediverse
+    # implementations require, eg Peertube.
+    # https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.3
+    # https://github.com/snarfed/bridgy-fed/issues/40
+    auth = HTTPSignatureAuth(
+      secret=user.private_pem(), key_id=key_id, algorithm='rsa-sha256',
+      sign_header='signature',
+      headers=('Date', 'Host', 'Digest', '(request-target)'))
 
     # make HTTP request
     kwargs.setdefault('gateway', True)

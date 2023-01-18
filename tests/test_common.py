@@ -180,5 +180,6 @@ class CommonTest(testutil.TestCase):
         first = mock_get.call_args_list[0][1]
         second = mock_get.call_args_list[1][1]
         self.assertNotEqual(first['headers'], second['headers'])
-        self.assertNotEqual(first['auth'].header_signer.sign(first['headers']),
-                            second['auth'].header_signer.sign(second['headers']))
+        self.assertNotEqual(
+            first['auth'].header_signer.sign(first['headers'], method='GET', path='/'),
+            second['auth'].header_signer.sign(second['headers'], method='GET', path='/'))
