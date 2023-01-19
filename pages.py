@@ -112,7 +112,7 @@ def followers_or_following(domain, collection):
         Follower.status == 'active',
         domain_prop == domain,
     ).order(-Follower.updated)
-    followers, before, after = fetch_page(query, Follower)
+    followers, before, after = common.fetch_page(query, Follower)
 
     for f in followers:
         f.url = f.src if collection == 'followers' else f.dest
