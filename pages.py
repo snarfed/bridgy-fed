@@ -105,14 +105,15 @@ def user(domain):
 @app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>/<any(followers,following):collection>')
 def followers_or_following(domain, collection):
     if not (user := User.get_by_id(domain)):
-      return render_template('user_not_found.html', domain=domain), 404
+        return render_template('user_not_found.html', domain=domain), 404
 
+    # this query is duplicated in activitypub.followers_collection()
     domain_prop = Follower.dest if collection == 'followers' else Follower.src
     query = Follower.query(
         Follower.status == 'active',
         domain_prop == domain,
     ).order(-Follower.updated)
-    followers, before, after = fetch_page(query, Follower)
+    followers, before, after = common.fetch_page(query, Follower)
 
     for f in followers:
         f.url = f.src if collection == 'followers' else f.dest
@@ -181,73 +182,10 @@ def recent():
     )
 
 
-def fetch_page(query, model_class):
-    """Fetches a page of results from a datastore query.
-
-    Uses the `before` and `after` query params (if provided; should be ISO8601
-    timestamps) and the queried model class's `updated` property to identify the
-    page to fetch.
-
-    Populates a `log_url_path` property on each result entity that points to a
-    its most recent logged request.
-
-    Args:
-      query: :class:`ndb.Query`
-      model_class: ndb model class
-
-    Returns:
-      (results, new_before, new_after) tuple with:
-      results: list of query result entities
-      new_before, new_after: str query param values for `before` and `after`
-        to fetch the previous and next pages, respectively
-    """
-    # if there's a paging param ('before' or 'after'), update query with it
-    # TODO: unify this with Bridgy's user page
-    def get_paging_param(param):
-        val = request.values.get(param)
-        try:
-            return util.parse_iso8601(val.replace(' ', '+')) if val else None
-        except BaseException:
-            error(f"Couldn't parse {param}, {val!r} as ISO8601")
-
-    before = get_paging_param('before')
-    after = get_paging_param('after')
-    if before and after:
-        error("can't handle both before and after")
-    elif after:
-        query = query.filter(model_class.updated > after).order(model_class.updated)
-    elif before:
-        query = query.filter(model_class.updated < before).order(-model_class.updated)
-    else:
-        query = query.order(-model_class.updated)
-
-    query_iter = query.iter()
-    results = sorted(islice(query_iter, 0, PAGE_SIZE),
-                     key=lambda r: r.updated, reverse=True)
-
-    # calculate new paging param(s)
-    has_next = results and query_iter.probably_has_next()
-    new_after = (
-        before if before
-        else results[0].updated if has_next and after
-        else None)
-    if new_after:
-        new_after = new_after.isoformat()
-
-    new_before = (
-        after if after else
-        results[-1].updated if has_next
-        else None)
-    if new_before:
-        new_before = new_before.isoformat()
-
-    return results, new_before, new_after
-
-
 def fetch_activities(query):
     """Fetches a page of Activity entities from a datastore query.
 
-    Wraps :func:`fetch_page` and adds attributes to the returned Activity
+    Wraps :func:`common.fetch_page` and adds attributes to the returned Activity
     entities for rendering in activities.html.
 
     Args:
@@ -259,7 +197,7 @@ def fetch_activities(query):
       new_before, new_after: str query param values for `before` and `after`
         to fetch the previous and next pages, respectively
     """
-    orig_activities, new_before, new_after = fetch_page(query, Activity)
+    orig_activities, new_before, new_after = common.fetch_page(query, Activity)
     activities = []
     seen = set()
 
