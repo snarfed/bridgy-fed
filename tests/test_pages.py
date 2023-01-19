@@ -6,8 +6,14 @@ from granary import as2, atom, microformats2, rss
 import common
 from models import Activity, Follower, User
 from . import testutil
-from .test_activitypub import LIKE, MENTION, NOTE, REPLY
-
+from .test_activitypub import (
+    FOLLOW_WITH_ACTOR,
+    FOLLOW_WITH_OBJECT,
+    LIKE,
+    MENTION,
+    NOTE,
+    REPLY,
+)
 
 def contents(activities):
     return [a['object']['content'] for a in activities]
@@ -56,9 +62,45 @@ class PagesTest(testutil.TestCase):
         self.assert_equals(301, got.status_code)
         self.assert_equals('/user/foo.com', got.headers['Location'])
 
+    def test_followers(self):
+        User.get_or_create('bar.com')
+        Follower.get_or_create('bar.com', 'https://no/stored/follow')
+        Follower.get_or_create('bar.com', 'https://masto/user',
+                               last_follow=json_dumps(FOLLOW_WITH_ACTOR))
+        got = self.client.get('/user/bar.com/followers')
+        self.assert_equals(200, got.status_code)
+
+        body = got.get_data(as_text=True)
+        self.assertIn('no/stored/follow', body)
+        self.assertIn('masto/user', body)
+
+    def test_followers_empty(self):
+        User.get_or_create('bar.com')
+        got = self.client.get('/user/bar.com/followers')
+        self.assert_equals(200, got.status_code)
+        self.assertNotIn('class="follower', got.get_data(as_text=True))
+
     def test_followers_user_not_found(self):
         got = self.client.get('/user/bar.com/followers')
         self.assert_equals(404, got.status_code)
+
+    def test_following(self):
+        Follower.get_or_create('https://no/stored/follow', 'bar.com')
+        Follower.get_or_create('https://masto/user', 'bar.com',
+                               last_follow=json_dumps(FOLLOW_WITH_OBJECT))
+        User.get_or_create('bar.com')
+        got = self.client.get('/user/bar.com/following')
+        self.assert_equals(200, got.status_code)
+
+        body = got.get_data(as_text=True)
+        self.assertIn('no/stored/follow', body)
+        self.assertIn('masto/user', body)
+
+    def test_following_empty(self):
+        User.get_or_create('bar.com')
+        got = self.client.get('/user/bar.com/following')
+        self.assert_equals(200, got.status_code)
+        self.assertNotIn('class="follower', got.get_data(as_text=True))
 
     def test_following_user_not_found(self):
         got = self.client.get('/user/bar.com/following')
