@@ -34,12 +34,12 @@ Bridgy Fed takes some technical know-how to set up, and there are simpler (but l
 <li><a href="#setup">How do I set it up?</a></li>
 <li><a href="#profile">How do I set up my profile?</a></li>
 <li><a href="#user-page">Where's my user page and dashboard?</a></li>
-<!-- <li><a href="#sites">Which sites are supported?</a></li> -->
 
 <br>
 <p><em>Usage</em></p>
 <li><a href="#how-post">How do I post to the fediverse?</a></li>
 <li><a href="#which-posts">Which of my posts will show up in the fediverse?</a></li>
+<li><a href="#apps">Which fediverse apps are supported?</a></li>
 <li><a href="#which-parts">How does it decide which parts of my posts to include?</a></li>
 <li><a href="#visible-links">What's up with the visible fed.brid.gy links in my fediverse posts?</a></li>
 <li><a href="#reply">How do I reply to a fediverse post?</a></li>
@@ -209,6 +209,28 @@ Create a <a href="https://indieweb.org/post">post</a> with the <a href="https://
 <li class="answer">
 <p>Only the ones you <a href="#send+Bridgy+Fed+a+webmention">explicitly trigger with a webmention</a>. Bridgy Fed doesn't automatically create posts in the fediverse based on your site's Atom feed, HTML, or anything else. It only create posts in the fediverse on an opt in basis, per post, via webmention.
 </p>
+</li>
+
+<li id="apps" class="question">Which fediverse apps are supported?</li>
+<li class="answer">
+<p>Bridgy Fed currently supports at least these <a href="https://the-federation.info/#projects">major fediverse apps</a>:</p>
+<ul>
+<li><a href="https://joinmastodon.org/">Mastodon</a></li>
+<li><a href="https://joinpeertube.org/">PeerTube</a>, <a href="https://github.com/snarfed/bridgy-fed/issues/40">details</a></li>
+<li><a href="https://friendi.ca/">Friendica</a>, <a href="https://github.com/snarfed/bridgy-fed/issues/9">details</a></li>
+<li><a href="https://misskey.page/">Misskey</a> (probably), <a href="https://github.com/snarfed/bridgy-fed/issues/375">details</a></li>
+<li><a href="">Hubzilla</a> (probably), <a href="https://github.com/snarfed/bridgy-fed/issues/377">details</a></li>
+</ul>
+
+<p>...and work is ongoing to support these:</p>
+<ul>
+<li><a href="https://pleroma.social/">Pleroma</a>, <a href="https://github.com/snarfed/bridgy-fed/issues/12">details</a></li>
+<li><a href="https://pixelfed.org/">Pixelfed</a>, <a href="https://github.com/snarfed/bridgy-fed/issues/39">details</a></li>
+<li><a href="https://akkoma.dev/">Akkoma</a>, <a href="https://github.com/snarfed/bridgy-fed/issues/374">details</a></li>
+<li><a href="https://join-lemmy.org/">Lemmy</a>, <a href="https://github.com/snarfed/bridgy-fed/issues/372">details</a></li>
+<li><a href="https://www.gnusocial.rocks/">GNU Social</a>, <a href="https://github.com/snarfed/bridgy-fed/issues/8">details</a></li>
+</ul>
+<p><a href="https://diasporafoundation.org/">diaspora*</a> is unlikely because they use <a href="https://diaspora.github.io/diaspora_federation/">their own federation protocol</a>, <a href="https://discourse.diasporafoundation.org/t/lets-talk-about-activitypub/741/1">not ActivityPub</a>. <a href="https://github.com/snarfed/bridgy-fed/issues/7">Details.</a></p>
 </li>
 
 <li id="which-parts" class="question">How does it decide which parts of my posts to include?</li>
