@@ -240,7 +240,7 @@ def undo_follow(undo_unwrapped):
 
 @app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/<any(followers,following):collection>')
 @flask_util.cached(cache, CACHE_TIME)
-def followers_collection(domain, collection):
+def follower_collection(domain, collection):
     """ActivityPub Followers and Following collections.
 
     https://www.w3.org/TR/activitypub/#followers
@@ -250,19 +250,22 @@ def followers_collection(domain, collection):
     if not User.get_by_id(domain):
         return f'User {domain} not found', 404
 
+    # this query is duplicated in pages.followers_or_following()
     logger.info(f"Counting {domain}'s {collection}")
     domain_prop = Follower.dest if collection == 'followers' else Follower.src
-    count = Follower.query(
+    query = Follower.query(
         Follower.status == 'active',
         domain_prop == domain,
-    ).count()
+    )
+    count = query.count()
+    followers, before, after = common.fetch_page(query, Follower)
 
     ret = {
         '@context': 'https://www.w3.org/ns/activitystreams',
         'summary': f"{domain}'s {collection}",
         'type': 'Collection',
         'totalItems': count,
-        'items': [],  # TODO
+        'items': [f.to_as2() for f in followers],
     }
     logger.info(f'Returning {json_dumps(ret, indent=2)}')
-    return ret
+    return ret, {'Content-Type': as2.CONTENT_TYPE}

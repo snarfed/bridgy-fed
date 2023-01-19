@@ -116,6 +116,8 @@ FOLLOW_WITH_ACTOR = copy.deepcopy(FOLLOW)
 FOLLOW_WITH_ACTOR['actor'] = ACTOR
 FOLLOW_WRAPPED_WITH_ACTOR = copy.deepcopy(FOLLOW_WRAPPED)
 FOLLOW_WRAPPED_WITH_ACTOR['actor'] = ACTOR
+FOLLOW_WITH_OBJECT = copy.deepcopy(FOLLOW)
+FOLLOW_WITH_OBJECT['object'] = ACTOR
 
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -648,7 +650,7 @@ class ActivityPubTest(testutil.TestCase):
         resp = self.client.get('/foo.com/followers')
         self.assertEqual(404, resp.status_code)
 
-    def test_followers_collection(self, *args):
+    def test_followers_collection_empty(self, *args):
         User.get_or_create('foo.com')
 
         resp = self.client.get('/foo.com/followers')
@@ -661,9 +663,14 @@ class ActivityPubTest(testutil.TestCase):
             'items': [],
         }, resp.json)
 
-        Follower.get_or_create('foo.com', 'bar.com')
+    def test_followers_collection(self, *args):
+        User.get_or_create('foo.com')
+
+        Follower.get_or_create('foo.com', 'https://bar.com',
+                               last_follow=json_dumps(FOLLOW_WITH_ACTOR))
         Follower.get_or_create('http://other/actor', 'foo.com')
-        Follower.get_or_create('foo.com', 'baz.com')
+        Follower.get_or_create('foo.com', 'https://baz.com',
+                               last_follow=json_dumps(FOLLOW_WITH_ACTOR))
         Follower.get_or_create('foo.com', 'baj.com', status='inactive')
 
         resp = self.client.get('/foo.com/followers')
@@ -673,25 +680,14 @@ class ActivityPubTest(testutil.TestCase):
             'summary': "foo.com's followers",
             'type': 'Collection',
             'totalItems': 2,
-            'items': [],
-# TODO
-# {
-#                 'type': 'Create',
-#                 'actor': 'http://www.test.example/sally',
-#                 'object': 'http://example.org/foo',
-#             },
-#             {
-#                 'type': 'Like',
-#                 'actor': 'http://www.test.example/joe',
-#                 'object': 'http://example.org/foo',
-#             }],
+            'items': [ACTOR, ACTOR],
         }, resp.json)
 
     def test_following_collection_unknown_user(self, *args):
         resp = self.client.get('/foo.com/following')
         self.assertEqual(404, resp.status_code)
 
-    def test_following_collection(self, *args):
+    def test_following_collection_empty(self, *args):
         User.get_or_create('foo.com')
 
         resp = self.client.get('/foo.com/following')
@@ -704,9 +700,14 @@ class ActivityPubTest(testutil.TestCase):
             'items': [],
         }, resp.json)
 
-        Follower.get_or_create('bar.com', 'foo.com')
+    def test_following_collection(self, *args):
+        User.get_or_create('foo.com')
+
+        Follower.get_or_create('https://bar.com', 'foo.com',
+                               last_follow=json_dumps(FOLLOW_WITH_OBJECT))
         Follower.get_or_create('foo.com', 'http://other/actor')
-        Follower.get_or_create('baz.com', 'foo.com')
+        Follower.get_or_create('https://baz.com', 'foo.com',
+                               last_follow=json_dumps(FOLLOW_WITH_OBJECT))
         Follower.get_or_create('baj.com', 'foo.com', status='inactive')
 
         resp = self.client.get('/foo.com/following')
@@ -716,5 +717,5 @@ class ActivityPubTest(testutil.TestCase):
             'summary': "foo.com's following",
             'type': 'Collection',
             'totalItems': 2,
-            'items': [],
+            'items': [ACTOR, ACTOR],
         }, resp.json)
