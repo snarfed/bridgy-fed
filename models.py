@@ -365,8 +365,12 @@ class Follower(StringIdModel):
 
     def to_as1(self):
         """Returns this follower as an AS1 actor dict, if possible."""
+        return as2.to_as1(self.to_as2())
+
+    def to_as2(self):
+        """Returns this follower as an AS2 actor dict, if possible."""
         if self.last_follow:
             last_follow = json_loads(self.last_follow)
             person = last_follow.get('actor' if util.is_web(self.src) else 'object')
             if person:
-                return as2.to_as1(person)
+                return person

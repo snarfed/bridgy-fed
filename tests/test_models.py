@@ -194,14 +194,22 @@ class ActivityTest(testutil.TestCase):
 
 
 class FollowerTest(testutil.TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.inbound = Follower(dest='foo.com', src='http://bar/@baz',
+                                last_follow=json_dumps({'actor': ACTOR}))
+        self.outbound = Follower(dest='http://bar/@baz', src='foo.com',
+                                 last_follow=json_dumps({'object': ACTOR}))
+
     def test_to_as1(self):
-        self.assertIsNone(Follower().to_as1())
+        self.assertEqual({}, Follower().to_as1())
 
         as1_actor = as2.to_as1(ACTOR)
-        f = Follower(dest='foo.com', src='http://bar/@baz',
-                     last_follow=json_dumps({'actor': ACTOR}))
-        self.assertEqual(as1_actor, f.to_as1())
+        self.assertEqual(as1_actor, self.inbound.to_as1())
+        self.assertEqual(as1_actor, self.outbound.to_as1())
 
-        f = Follower(dest='http://bar/@baz', src='foo.com',
-                     last_follow=json_dumps({'object': ACTOR}))
-        self.assertEqual(as1_actor, f.to_as1())
+    def test_to_as2(self):
+        self.assertIsNone(Follower().to_as2())
+        self.assertEqual(ACTOR, self.inbound.to_as2())
+        self.assertEqual(ACTOR, self.outbound.to_as2())
