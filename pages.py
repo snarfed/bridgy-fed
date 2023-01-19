@@ -1,7 +1,6 @@
 """UI pages."""
 import calendar
 import datetime
-from itertools import islice
 import logging
 import re
 import urllib.parse
@@ -16,9 +15,9 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app, cache
 import common
+from common import DOMAIN_RE, PAGE_SIZE
 from models import Follower, User, Activity
 
-PAGE_SIZE = 20
 ACTIVITIES_FETCH_LIMIT = 200
 FOLLOWERS_UI_LIMIT = 999
 
@@ -65,12 +64,12 @@ def check_web_site():
     return redirect(f'/user/{user.key.id()}')
 
 
-@app.get(f'/responses/<regex("{common.DOMAIN_RE}"):domain>')  # deprecated
+@app.get(f'/responses/<regex("{DOMAIN_RE}"):domain>')  # deprecated
 def user_deprecated(domain):
     return redirect(f'/user/{domain}', code=301)
 
 
-@app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>')
+@app.get(f'/user/<regex("{DOMAIN_RE}"):domain>')
 def user(domain):
     user = User.get_by_id(domain)
     if not user:
@@ -102,7 +101,7 @@ def user(domain):
     )
 
 
-@app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>/<any(followers,following):collection>')
+@app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
 def followers_or_following(domain, collection):
     if not (user := User.get_by_id(domain)):
         return render_template('user_not_found.html', domain=domain), 404
@@ -113,18 +112,15 @@ def followers_or_following(domain, collection):
         Follower.status == 'active',
         domain_prop == domain,
     ).order(-Follower.updated)
-    followers, before, after = common.fetch_page(query, Follower)
+    followers, before, after = fetch_page(query, Follower)
 
     for f in followers:
         f.url = f.src if collection == 'followers' else f.dest
         f.handle = re.sub(r'^https?://(.+)/(users/|@)(.+)$', r'@\3@\1', f.url)
-        if f.last_follow:
-            last_follow = json_loads(f.last_follow)
-            person = last_follow.get(
-                'actor' if collection == 'followers' else 'object', {})
-            if isinstance(person, dict):
-                f.name = person.get('name') or ''
-                f.picture = util.get_url(person, 'icon') or util.get_url(person, 'image')
+        person = f.to_as1()
+        if person and isinstance(person, dict):
+            f.name = person.get('name') or ''
+            f.picture = util.get_url(person, 'icon') or util.get_url(person, 'image')
 
     return render_template(
         f'{collection}.html',
@@ -133,7 +129,7 @@ def followers_or_following(domain, collection):
     )
 
 
-@app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>/feed')
+@app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/feed')
 def feed(domain):
     format = request.args.get('format', 'html')
     if format not in ('html', 'atom', 'rss'):

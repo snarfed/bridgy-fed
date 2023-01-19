@@ -74,6 +74,7 @@ DOMAIN_BLOCKLIST = frozenset((
 _DEFAULT_SIGNATURE_USER = None
 
 CACHE_TIME = datetime.timedelta(seconds=10)
+PAGE_SIZE = 20
 
 
 def host_url(path_query=None):
@@ -629,7 +630,7 @@ def fetch_page(query, model_class):
         query = query.order(-model_class.updated)
 
     query_iter = query.iter()
-    results = sorted(islice(query_iter, 0, PAGE_SIZE),
+    results = sorted(itertools.islice(query_iter, 0, PAGE_SIZE),
                      key=lambda r: r.updated, reverse=True)
 
     # calculate new paging param(s)

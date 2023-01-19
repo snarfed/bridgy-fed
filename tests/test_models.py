@@ -2,13 +2,15 @@
 """Unit tests for models.py."""
 from unittest import mock
 
+from granary import as2
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app
-from models import User, Activity
+from models import Activity, Follower, User
 from . import testutil
 
+from .test_activitypub import ACTOR
 
 class UserTest(testutil.TestCase):
 
@@ -189,3 +191,17 @@ class ActivityTest(testutil.TestCase):
             activity.source_as2 = 'as2'
             self.assertEqual('http://localhost/render?source=abc&target=xyz',
                              activity.proxy_url())
+
+
+class FollowerTest(testutil.TestCase):
+    def test_to_as1(self):
+        self.assertIsNone(Follower().to_as1())
+
+        as1_actor = as2.to_as1(ACTOR)
+        f = Follower(dest='foo.com', src='http://bar/@baz',
+                     last_follow=json_dumps({'actor': ACTOR}))
+        self.assertEqual(as1_actor, f.to_as1())
+
+        f = Follower(dest='http://bar/@baz', src='foo.com',
+                     last_follow=json_dumps({'object': ACTOR}))
+        self.assertEqual(as1_actor, f.to_as1())

@@ -7,7 +7,7 @@ from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
-from .test_activitypub import FOLLOW_WITH_ACTOR
+from .test_activitypub import ACTOR, FOLLOW
 from . import testutil
 from models import Follower
 
@@ -35,11 +35,13 @@ FOLLOWERS_BSKY = [{
     'declaration': ACTOR_DECLARATION,
     'indexedAt': '2022-01-02T03:04:05+00:00',
 }]
-OTHER_FOLLOW_AS2 = copy.deepcopy(FOLLOW_WITH_ACTOR)
-OTHER_FOLLOW_AS2['actor'].update({
+FOLLOW_WITH_OBJECT_AS2 = copy.deepcopy(FOLLOW)
+FOLLOW_WITH_OBJECT_AS2['object'] = ACTOR
+OTHER_FOLLOW_AS2 = copy.deepcopy(FOLLOW)
+OTHER_FOLLOW_AS2['object'] = {
     'url': 'http://other',
     'preferredUsername': 'yoozer',
-})
+}
 
 
 @patch('requests.get')
@@ -100,7 +102,7 @@ class XrpcGraphTest(testutil.TestCase):
     def test_getFollows(self, mock_get):
         Follower.get_or_create('https://no/stored/follow', 'foo.com')
         Follower.get_or_create('https://masto/user', 'foo.com',
-                               last_follow=json_dumps(FOLLOW_WITH_ACTOR))
+                               last_follow=json_dumps(FOLLOW_WITH_OBJECT_AS2))
         Follower.get_or_create( 'http://other', 'foo.com',
                                last_follow=json_dumps(OTHER_FOLLOW_AS2))
         Follower.get_or_create('http://nope', 'nope.com',
