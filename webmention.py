@@ -151,7 +151,7 @@ class Webmention(View):
                 dest = ((target_obj.get('id') or util.get_first(target_obj, 'url'))
                         if target_obj else util.get_url(self.source_obj, 'object'))
                 Follower.get_or_create(dest=dest, src=self.source_domain,
-                                       last_follow=json_dumps(self.source_obj))
+                                       last_follow=json_dumps(source_activity))
 
             try:
                 last = common.signed_post(inbox, data=source_activity, user=self.user)

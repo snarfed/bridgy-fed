@@ -826,6 +826,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('https://foo.com/about-me a', followers[0].key.id())
         self.assertEqual('a', followers[0].src)
         self.assertEqual('https://foo.com/about-me', followers[0].dest)
+        self.assertEqual(self.follow_as2, json_loads(followers[0].last_follow))
 
     def test_activitypub_follow_no_actor(self, mock_get, mock_post):
         self.user.actor_as2 = json_dumps(self.follow_as2['actor'])
