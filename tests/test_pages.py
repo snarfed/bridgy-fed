@@ -3,6 +3,7 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from granary import as2, atom, microformats2, rss
 
+import common
 from models import Activity, Follower, User
 from . import testutil
 from .test_activitypub import LIKE, MENTION, NOTE, REPLY

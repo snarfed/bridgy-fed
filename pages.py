@@ -102,57 +102,31 @@ def user(domain):
     )
 
 
-@app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>/followers')
-def followers(domain):
-    # unify with following
+@app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>/<any(followers,following):collection>')
+def followers_or_following(domain, collection):
     if not (user := User.get_by_id(domain)):
       return render_template('user_not_found.html', domain=domain), 404
 
+    domain_prop = Follower.dest if collection == 'followers' else Follower.src
     query = Follower.query(
         Follower.status == 'active',
-        Follower.dest == domain,
+        domain_prop == domain,
     ).order(-Follower.updated)
     followers, before, after = fetch_page(query, Follower)
 
     for f in followers:
-        f.url = f.src
-        f.handle = re.sub(r'^https?://(.+)/(users/|@)(.+)$', r'@\3@\1', f.src)
+        f.url = f.src if collection == 'followers' else f.dest
+        f.handle = re.sub(r'^https?://(.+)/(users/|@)(.+)$', r'@\3@\1', f.url)
         if f.last_follow:
             last_follow = json_loads(f.last_follow)
-            actor = last_follow.get('actor', {})
-            f.name = actor.get('name') or ''
-            f.picture = util.get_url(actor, 'icon')
+            person = last_follow.get(
+                'actor' if collection == 'followers' else 'object', {})
+            if isinstance(person, dict):
+                f.name = person.get('name') or ''
+                f.picture = util.get_url(person, 'icon') or util.get_url(person, 'image')
 
     return render_template(
-        'followers.html',
-        util=util,
-        **locals()
-    )
-
-
-@app.get(f'/user/<regex("{common.DOMAIN_RE}"):domain>/following')
-def following(domain):
-    if not (user := User.get_by_id(domain)):
-      return render_template('user_not_found.html', domain=domain), 404
-
-    query = Follower.query(
-        Follower.status == 'active',
-        Follower.src == domain,
-    ).order(-Follower.updated)
-    followers, before, after = fetch_page(query, Follower)
-
-    for f in followers:
-        f.url = f.dest
-        f.handle = re.sub(r'^https?://(.+)/(users/|@)(.+)$', r'@\3@\1', f.dest)
-        if f.last_follow:
-            last_follow = json_loads(f.last_follow)
-            followee = last_follow.get('object', {})
-            # TODO: drop AS1-isms once we've backfilled existing entities to AS2
-            f.name = followee.get('name') or followee.get('displayName') or ''
-            f.picture = util.get_url(followee, 'icon') or util.get_url(followee, 'image')
-
-    return render_template(
-        'following.html',
+        f'{collection}.html',
         util=util,
         **locals()
     )
