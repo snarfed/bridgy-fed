@@ -167,11 +167,6 @@ def feed(domain):
         return body, {'Content-Type': rss.CONTENT_TYPE}
 
 
-@app.get('/responses')  # deprecated
-def recent_deprecated():
-    return redirect('/recent', code=301)
-
-
 @app.get('/recent')
 def recent():
     """Renders recent activities, with links to logs."""
