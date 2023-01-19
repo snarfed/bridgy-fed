@@ -250,16 +250,14 @@ def follower_collection(domain, collection):
     if not User.get_by_id(domain):
         return f'User {domain} not found', 404
 
-    # this query is duplicated in pages.followers_or_following()
-    logger.info(f"Counting {domain}'s {collection}")
+    followers, before, after = common.fetch_followers(domain, collection)
+
     domain_prop = Follower.dest if collection == 'followers' else Follower.src
     query = Follower.query(
         Follower.status == 'active',
         domain_prop == domain,
     )
     count = query.count()
-    followers, before, after = common.fetch_page(query, Follower)
-
     ret = {
         '@context': 'https://www.w3.org/ns/activitystreams',
         'summary': f"{domain}'s {collection}",

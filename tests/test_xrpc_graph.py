@@ -9,7 +9,7 @@ import requests
 
 from .test_activitypub import ACTOR, FOLLOW, FOLLOW_WITH_ACTOR, FOLLOW_WITH_OBJECT
 from . import testutil
-from models import Follower
+from models import Follower, User
 
 ACTOR_DECLARATION = {
     '$type': 'app.bsky.system.declRef',
@@ -49,7 +49,14 @@ class XrpcGraphTest(testutil.TestCase):
                               query_string={'user': 'not a domain'})
         self.assertEqual(400, resp.status_code)
 
+    def test_getFollowers_no_user(self, mock_get):
+        resp = self.client.get('/xrpc/app.bsky.graph.getFollowers',
+                              query_string={'user': 'no.com'})
+        self.assertEqual(400, resp.status_code)
+
     def test_getFollowers_empty(self, mock_get):
+        User.get_or_create('foo.com')
+
         resp = self.client.get('/xrpc/app.bsky.graph.getFollowers',
                               query_string={'user': 'foo.com'})
         self.assertEqual(200, resp.status_code)
@@ -60,6 +67,8 @@ class XrpcGraphTest(testutil.TestCase):
         }, resp.json)
 
     def test_getFollowers(self, mock_get):
+        User.get_or_create('foo.com')
+
         other_follow = copy.deepcopy(FOLLOW)
         other_follow['actor'] = {
             'url': 'http://other',
@@ -89,6 +98,8 @@ class XrpcGraphTest(testutil.TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_getFollows_empty(self, mock_get):
+        User.get_or_create('foo.com')
+
         resp = self.client.get('/xrpc/app.bsky.graph.getFollows',
                               query_string={'user': 'foo.com'})
         self.assertEqual(200, resp.status_code)
@@ -99,6 +110,8 @@ class XrpcGraphTest(testutil.TestCase):
         }, resp.json)
 
     def test_getFollows(self, mock_get):
+        User.get_or_create('foo.com')
+
         other_follow = copy.deepcopy(FOLLOW)
         other_follow['object'] = {
             'url': 'http://other',

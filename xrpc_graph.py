@@ -6,7 +6,8 @@ from granary import bluesky
 from oauth_dropins.webutil import util
 
 from app import xrpc_server
-from models import Follower
+import common
+from models import Follower, User
 
 logger = logging.getLogger(__name__)
 
@@ -24,12 +25,17 @@ def get_followers(query_prop, output_field, user=None, limit=50, before=None):
     # TODO: what is user?
     if not user or not re.match(util.DOMAIN_RE, user):
         raise ValueError(f'{user} is not a domain')
+    elif not User.get_by_id(user):
+        raise ValueError(f'Unknown user {user}')
 
-    followers = []
-    for follower in Follower.query(query_prop == user).fetch(limit):
+    collection = 'followers' if output_field == 'followers' else 'following'
+    followers, before, after = common.fetch_followers(user, collection)
+
+    actors = []
+    for follower in followers:
         actor = follower.to_as1()
         if actor:
-            followers.append({
+            actors.append({
                 **bluesky.actor_to_ref(actor),
                 '$type': 'app.bsky.graph.getFollowers#follower',
                 'indexedAt': util.now().isoformat(),
@@ -37,7 +43,7 @@ def get_followers(query_prop, output_field, user=None, limit=50, before=None):
 
     return {
         'subject': bluesky.actor_to_ref({'url': f'https://{user}/'}),
-        output_field: followers,
+        output_field: actors,
         'cursor': '',
     }
 

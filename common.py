@@ -22,7 +22,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadGateway
 
-from models import Activity, User
+from models import Activity, Follower, User
 
 logger = logging.getLogger(__name__)
 
@@ -587,6 +587,32 @@ def actor(domain, user=None):
 
     logger.info(f'Generated AS2 actor: {json_dumps(actor, indent=2)}')
     return actor
+
+
+def fetch_followers(domain, collection):
+    """Fetches a page of Follower entities.
+
+    Wraps :func:`common.fetch_page`. Paging uses the `before` and `after` query
+    parameters, if available in the request.
+
+    Args:
+      domain: str, user to fetch entities for
+      collection, str, 'followers' or 'following'
+
+    Returns:
+      (results, new_before, new_after) tuple with:
+      results: list of Follower entities
+      new_before, new_after: str query param values for `before` and `after`
+        to fetch the previous and next pages, respectively
+    """
+    assert collection in ('followers', 'following'), collection
+
+    domain_prop = Follower.dest if collection == 'followers' else Follower.src
+    query = Follower.query(
+        Follower.status == 'active',
+        domain_prop == domain,
+    ).order(-Follower.updated)
+    return fetch_page(query, Follower)
 
 
 def fetch_page(query, model_class):

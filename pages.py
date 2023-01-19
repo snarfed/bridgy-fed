@@ -103,16 +103,10 @@ def user(domain):
 
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
 def followers_or_following(domain, collection):
-    if not (user := User.get_by_id(domain)):
+    if not (user := User.get_by_id(domain)):  # user var is used in template
         return render_template('user_not_found.html', domain=domain), 404
 
-    # this query is duplicated in activitypub.followers_collection()
-    domain_prop = Follower.dest if collection == 'followers' else Follower.src
-    query = Follower.query(
-        Follower.status == 'active',
-        domain_prop == domain,
-    ).order(-Follower.updated)
-    followers, before, after = common.fetch_page(query, Follower)
+    followers, before, after = common.fetch_followers(domain, collection)
 
     for f in followers:
         f.url = f.src if collection == 'followers' else f.dest
