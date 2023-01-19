@@ -26,8 +26,8 @@ from models import Activity, User
 
 logger = logging.getLogger(__name__)
 
-DOMAIN_RE = r'([^/:]+\.[^/:]+)'
-ACCT_RE = r'(?:acct:)?([^@]+)@' + DOMAIN_RE
+DOMAIN_RE = r'[^/:]+\.[^/:]+'
+ACCT_RE = f'(?:acct:)?([^@]+)@({DOMAIN_RE})'
 TLD_BLOCKLIST = ('7z', 'asp', 'aspx', 'gif', 'html', 'ico', 'jpg', 'jpeg', 'js',
                  'json', 'php', 'png', 'rar', 'txt', 'yaml', 'yml', 'zip')
 XML_UTF8 = "<?xml version='1.0' encoding='UTF-8'?>\n"

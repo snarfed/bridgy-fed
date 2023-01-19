@@ -46,7 +46,7 @@ def actor(domain):
     })
 
 
-@app.post(f'/inbox')
+@app.post('/inbox')
 @app.post(f'/<regex("{common.DOMAIN_RE}"):domain>/inbox')
 def inbox(domain=None):
     """Handles ActivityPub inbox delivery."""
@@ -238,11 +238,10 @@ def undo_follow(undo_unwrapped):
     # TODO send webmention with 410 of u-follow
 
 
-# TODO: unify with following_collection
-@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/followers')
+@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/<any(followers,following):collection>')
 @flask_util.cached(cache, CACHE_TIME)
-def followers_collection(domain):
-    """ActivityPub Followers collection.
+def followers_collection(domain, collection):
+    """ActivityPub Followers and Following collections.
 
     https://www.w3.org/TR/activitypub/#followers
     https://www.w3.org/TR/activitypub/#collections
@@ -251,44 +250,16 @@ def followers_collection(domain):
     if not User.get_by_id(domain):
         return f'User {domain} not found', 404
 
-    logger.info(f"Counting {domain}'s followers")
+    logger.info(f"Counting {domain}'s {collection}")
+    domain_prop = Follower.dest if collection == 'followers' else Follower.src
     count = Follower.query(
         Follower.status == 'active',
-        Follower.dest == domain,
+        domain_prop == domain,
     ).count()
 
     ret = {
         '@context': 'https://www.w3.org/ns/activitystreams',
-        'summary': f"{domain}'s followers",
-        'type': 'Collection',
-        'totalItems': count,
-        'items': [],  # TODO
-    }
-    logger.info(f'Returning {json_dumps(ret, indent=2)}')
-    return ret
-
-
-@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/following')
-@flask_util.cached(cache, CACHE_TIME)
-def following_collection(domain):
-    """ActivityPub Following collection.
-
-    https://www.w3.org/TR/activitypub/#following
-    https://www.w3.org/TR/activitypub/#collections
-    https://www.w3.org/TR/activitystreams-core/#paging
-    """
-    if not User.get_by_id(domain):
-        return f'User {domain} not found', 404
-
-    logger.info(f"Counting {domain}'s following")
-    count = Follower.query(
-        Follower.status == 'active',
-        Follower.src == domain,
-    ).count()
-
-    ret = {
-        '@context': 'https://www.w3.org/ns/activitystreams',
-        'summary': f"{domain}'s following",
+        'summary': f"{domain}'s {collection}",
         'type': 'Collection',
         'totalItems': count,
         'items': [],  # TODO
