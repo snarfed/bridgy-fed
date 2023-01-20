@@ -250,20 +250,46 @@ def follower_collection(domain, collection):
     if not User.get_by_id(domain):
         return f'User {domain} not found', 404
 
-    followers, before, after = common.fetch_followers(domain, collection)
+    # page
+    followers, new_before, new_after = common.fetch_followers(domain, collection)
+    items = []
+    for f in followers:
+        f_as2 = f.to_as2()
+        if f_as2:
+            items.append(f_as2)
 
+    page = {
+        'type': 'CollectionPage',
+        'partOf': request.base_url,
+        'items': items,
+    }
+    if new_before:
+        page['next'] = f'{request.base_url}?before={new_before}'
+    if new_after:
+        page['prev'] = f'{request.base_url}?after={new_after}'
+
+    if 'before' in request.args or 'after' in request.args:
+        page.update({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': request.url,
+        })
+        logger.info(f'Returning {json_dumps(page, indent=2)}')
+        return page, {'Content-Type': as2.CONTENT_TYPE}
+
+    # collection
     domain_prop = Follower.dest if collection == 'followers' else Follower.src
-    query = Follower.query(
+    count = Follower.query(
         Follower.status == 'active',
         domain_prop == domain,
-    )
-    count = query.count()
-    ret = {
+    ).count()
+
+    collection = {
         '@context': 'https://www.w3.org/ns/activitystreams',
-        'summary': f"{domain}'s {collection}",
+        'id': request.base_url,
         'type': 'Collection',
+        'summary': f"{domain}'s {collection}",
         'totalItems': count,
-        'items': [f.to_as2() for f in followers],
+        'first': page,
     }
-    logger.info(f'Returning {json_dumps(ret, indent=2)}')
-    return ret, {'Content-Type': as2.CONTENT_TYPE}
+    logger.info(f'Returning {json_dumps(collection, indent=2)}')
+    return collection, {'Content-Type': as2.CONTENT_TYPE}

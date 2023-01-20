@@ -4,6 +4,7 @@
 TODO: test error handling
 """
 import copy
+from datetime import datetime, timedelta
 from unittest.mock import ANY, call, patch
 
 from granary import as2
@@ -657,15 +658,18 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'summary': "foo.com's followers",
+            'id': 'http://localhost/foo.com/followers',
             'type': 'Collection',
+            'summary': "foo.com's followers",
             'totalItems': 0,
-            'items': [],
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': 'http://localhost/foo.com/followers',
+                'items': [],
+            },
         }, resp.json)
 
-    def test_followers_collection(self, *args):
-        User.get_or_create('foo.com')
-
+    def store_followers(self):
         Follower.get_or_create('foo.com', 'https://bar.com',
                                last_follow=json_dumps(FOLLOW_WITH_ACTOR))
         Follower.get_or_create('http://other/actor', 'foo.com')
@@ -673,14 +677,42 @@ class ActivityPubTest(testutil.TestCase):
                                last_follow=json_dumps(FOLLOW_WITH_ACTOR))
         Follower.get_or_create('foo.com', 'baj.com', status='inactive')
 
+    def test_followers_collection(self, *args):
+        User.get_or_create('foo.com')
+        self.store_followers()
+
         resp = self.client.get('/foo.com/followers')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'summary': "foo.com's followers",
+            'id': 'http://localhost/foo.com/followers',
             'type': 'Collection',
+            'summary': "foo.com's followers",
             'totalItems': 2,
-            'items': [ACTOR, ACTOR],
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': 'http://localhost/foo.com/followers',
+                'items': [ACTOR, ACTOR],
+            },
+        }, resp.json)
+
+    @patch('common.PAGE_SIZE', 1)
+    def test_followers_collection_page(self, *args):
+        User.get_or_create('foo.com')
+        self.store_followers()
+        before = (datetime.utcnow() + timedelta(seconds=1)).isoformat()
+        next = Follower.get_by_id('foo.com https://baz.com').updated.isoformat()
+
+        resp = self.client.get(f'/foo.com/followers?before={before}')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': f'http://localhost/foo.com/followers?before={before}',
+            'type': 'CollectionPage',
+            'partOf': 'http://localhost/foo.com/followers',
+            'next': f'http://localhost/foo.com/followers?before={next}',
+            'prev': f'http://localhost/foo.com/followers?after={before}',
+            'items': [ACTOR],
         }, resp.json)
 
     def test_following_collection_unknown_user(self, *args):
@@ -694,15 +726,18 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'http://localhost/foo.com/following',
             'summary': "foo.com's following",
             'type': 'Collection',
             'totalItems': 0,
-            'items': [],
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': 'http://localhost/foo.com/following',
+                'items': [],
+            },
         }, resp.json)
 
-    def test_following_collection(self, *args):
-        User.get_or_create('foo.com')
-
+    def store_following(self):
         Follower.get_or_create('https://bar.com', 'foo.com',
                                last_follow=json_dumps(FOLLOW_WITH_OBJECT))
         Follower.get_or_create('foo.com', 'http://other/actor')
@@ -710,12 +745,40 @@ class ActivityPubTest(testutil.TestCase):
                                last_follow=json_dumps(FOLLOW_WITH_OBJECT))
         Follower.get_or_create('baj.com', 'foo.com', status='inactive')
 
+    def test_following_collection(self, *args):
+        User.get_or_create('foo.com')
+        self.store_following()
+
         resp = self.client.get('/foo.com/following')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'http://localhost/foo.com/following',
             'summary': "foo.com's following",
             'type': 'Collection',
             'totalItems': 2,
-            'items': [ACTOR, ACTOR],
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': 'http://localhost/foo.com/following',
+                'items': [ACTOR, ACTOR],
+            },
+        }, resp.json)
+
+    @patch('common.PAGE_SIZE', 1)
+    def test_following_collection_page(self, *args):
+        User.get_or_create('foo.com')
+        self.store_following()
+        after = datetime(1900, 1, 1).isoformat()
+        prev = Follower.get_by_id('https://baz.com foo.com').updated.isoformat()
+
+        resp = self.client.get(f'/foo.com/following?after={after}')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': f'http://localhost/foo.com/following?after={after}',
+            'type': 'CollectionPage',
+            'partOf': 'http://localhost/foo.com/following',
+            'prev': f'http://localhost/foo.com/following?after={prev}',
+            'next': f'http://localhost/foo.com/following?before={after}',
+            'items': [ACTOR],
         }, resp.json)

@@ -3,7 +3,7 @@
 """
 from base64 import b64encode
 import copy
-import datetime
+from datetime import timedelta, timezone
 from hashlib import sha256
 import itertools
 import logging
@@ -73,7 +73,7 @@ DOMAIN_BLOCKLIST = frozenset((
 
 _DEFAULT_SIGNATURE_USER = None
 
-CACHE_TIME = datetime.timedelta(seconds=10)
+CACHE_TIME = timedelta(seconds=10)
 PAGE_SIZE = 20
 
 
@@ -639,17 +639,21 @@ def fetch_page(query, model_class):
     # TODO: unify this with Bridgy's user page
     def get_paging_param(param):
         val = request.values.get(param)
-        try:
-            return util.parse_iso8601(val.replace(' ', '+')) if val else None
-        except BaseException:
-            error(f"Couldn't parse {param}, {val!r} as ISO8601")
+        if val:
+            try:
+                dt = util.parse_iso8601(val.replace(' ', '+'))
+            except BaseException as e:
+                error(f"Couldn't parse {param}, {val!r} as ISO8601: {e}")
+            if dt.tzinfo:
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            return dt
 
     before = get_paging_param('before')
     after = get_paging_param('after')
     if before and after:
         error("can't handle both before and after")
     elif after:
-        query = query.filter(model_class.updated > after).order(model_class.updated)
+        query = query.filter(model_class.updated >= after).order(model_class.updated)
     elif before:
         query = query.filter(model_class.updated < before).order(-model_class.updated)
     else:
