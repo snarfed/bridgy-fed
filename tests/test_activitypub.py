@@ -179,7 +179,7 @@ class ActivityPubTest(testutil.TestCase):
             'url': 'http://localhost/r/https://foo.com/about-me',
             'attachment': [{
                 'type': 'PropertyValue',
-                'name': 'Link',
+                'name': 'Mrs. ☕ Foo',
                 'value': '<a rel=\"me\" href="https://foo.com/about-me">foo.com/about-me</a>',
             }],
             'inbox': 'http://localhost/foo.com/inbox',
@@ -195,6 +195,35 @@ class ActivityPubTest(testutil.TestCase):
                 'publicKeyPem': User.get_by_id('foo.com').public_pem().decode(),
             },
         }, got.json)
+
+    def test_actor_rel_me_links(self, _, mock_get, __):
+        mock_get.return_value = requests_response("""
+<body>
+<div class="h-card">
+<a class="u-url" rel="me" href="/about-me">Mrs. ☕ Foo</a>
+<a class="u-url" rel="me" href="http://one" title="one title">
+  one text
+</a>
+<a class="u-url" rel="me" href="https://two" title=" two title "> </a>
+</div>
+</body>
+""", url='https://foo.com/', content_type=common.CONTENT_TYPE_HTML)
+
+        got = self.client.get('/foo.com')
+        self.assertEqual(200, got.status_code)
+        self.assertEqual([{
+            'type': 'PropertyValue',
+            'name': 'Mrs. ☕ Foo',
+            'value': '<a rel="me" href="https://foo.com/about-me">foo.com/about-me</a>',
+        }, {
+            'type': 'PropertyValue',
+            'name': 'one text',
+            'value': '<a rel="me" href="http://one">one</a>',
+        }, {
+            'type': 'PropertyValue',
+            'name': 'two title',
+            'value': '<a rel="me" href="https://two">two</a>',
+        }], got.json['attachment'])
 
     def test_actor_no_hcard(self, _, mock_get, __):
         mock_get.return_value = requests_response("""

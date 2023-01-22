@@ -566,9 +566,9 @@ def actor(domain, user=None):
     if not user:
         user = User.get_or_create(domain)
 
-    actor = postprocess_as2(
-        as2.from_as1(microformats2.json_to_object(hcard)), user=user)
-    actor.update({
+    actor_as1 = microformats2.json_to_object(hcard, rel_urls=mf2.get('rel-urls'))
+    actor_as2 = postprocess_as2(as2.from_as1(actor_as1), user=user)
+    actor_as2.update({
         'id': host_url(domain),
         # This has to be the domain for Mastodon etc interop! It seems like it
         # should be the custom username from the acct: u-url in their h-card,
@@ -585,8 +585,8 @@ def actor(domain, user=None):
         },
     })
 
-    logger.info(f'Generated AS2 actor: {json_dumps(actor, indent=2)}')
-    return actor
+    logger.info(f'Generated AS2 actor: {json_dumps(actor_as2, indent=2)}')
+    return actor_as2
 
 
 def fetch_followers(domain, collection):
