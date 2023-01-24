@@ -1009,7 +1009,10 @@ class WebmentionTest(testutil.TestCase):
             'type': 'Update',
             'id': 'http://localhost/r/https://orig/#update-2022-01-02T03:04:05+00:00',
             'actor': 'http://localhost/orig',
-            'object': ACTOR_AS2_FULL,
+            'object': {
+                **ACTOR_AS2_FULL,
+                'updated': util.now().isoformat(),
+            },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         }
 
@@ -1019,6 +1022,7 @@ class WebmentionTest(testutil.TestCase):
                 got_update = json_loads(call[1]['data'])
                 del got_update['object']['publicKey']
                 self.assertEqual(expected_update, got_update)
+
                 activity = Activity.get_by_id(f'https://orig/ {inbox}')
                 self.assertEqual(['orig'], activity.domain)
                 self.assertEqual('out', activity.direction)

@@ -162,14 +162,14 @@ class Webmention(View):
                 if self.source_as2.get('type') == 'Create':
                     self.source_as2['type'] = 'Update'
 
-                if self.source_as2.get('type') == 'Update':
-                    # Mastodon requires the updated field for Updates, so
-                    # generate it if it's not already there.
-                    # https://docs.joinmastodon.org/spec/activitypub/#supported-activities-for-statuses
-                    # https://socialhub.activitypub.rocks/t/what-could-be-the-reason-that-my-update-activity-does-not-work/2893/4
-                    # https://github.com/mastodon/documentation/pull/1150
-                    self.source_as2.get('object', {}).setdefault(
-                        'updated', util.now().isoformat())
+            if self.source_as2.get('type') == 'Update':
+                # Mastodon requires the updated field for Updates, so
+                # generate it if it's not already there.
+                # https://docs.joinmastodon.org/spec/activitypub/#supported-activities-for-statuses
+                # https://socialhub.activitypub.rocks/t/what-could-be-the-reason-that-my-update-activity-does-not-work/2893/4
+                # https://github.com/mastodon/documentation/pull/1150
+                self.source_as2.get('object', {}).setdefault(
+                    'updated', util.now().isoformat())
 
             if self.source_as2.get('type') == 'Follow':
                 # prefer AS2 id or url, if available
