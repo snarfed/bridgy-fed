@@ -77,7 +77,7 @@ class RedirectTest(testutil.TestCase):
         del repost['cc']
         repost.update({
             'to': [as2.PUBLIC_AUDIENCE],
-            'object': 'http://orig/post',
+            'object': 'https://orig/post',
         })
 
         mock_get.return_value = requests_response(

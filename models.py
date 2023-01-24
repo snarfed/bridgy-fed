@@ -211,7 +211,8 @@ class User(StringIdModel):
 
         # check home page
         try:
-            self.actor_as2 = json_dumps(common.actor(self.key.id(), user=self))
+            _, _, actor_as2, _ = common.actor(self.key.id(), user=self)
+            self.actor_as2 = json_dumps(actor_as2)
             self.has_hcard = True
         except (BadRequest, NotFound):
             self.actor_as2 = None

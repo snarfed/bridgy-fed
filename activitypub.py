@@ -39,7 +39,7 @@ SUPPORTED_TYPES = (
 @flask_util.cached(cache, CACHE_TIME)
 def actor(domain):
     """Fetches a domain's h-card and converts to AS2 actor."""
-    actor = common.actor(domain)
+    _, _, actor, _ = common.actor(domain)
     return (actor, {
         'Content-Type': as2.CONTENT_TYPE,
         'Access-Control-Allow-Origin': '*',

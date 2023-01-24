@@ -546,7 +546,7 @@ def actor(domain, user=None):
       domain: str
       user: :class:`User`, optional
 
-    Returns: dict, AS2 actor
+    Returns: (dict mf2 item, dict AS1 actor, dict AS2 actor, User)
     """
     tld = domain.split('.')[-1]
     if tld in TLD_BLOCKLIST:
@@ -586,7 +586,7 @@ def actor(domain, user=None):
     })
 
     logger.info(f'Generated AS2 actor: {json_dumps(actor_as2, indent=2)}')
-    return actor_as2
+    return hcard, actor_as1, actor_as2, user
 
 
 def fetch_followers(domain, collection):

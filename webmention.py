@@ -41,16 +41,39 @@ class Webmention(View):
     source_url = None     # string
     source_domain = None  # string
     source_mf2 = None     # parsed mf2 dict
-    source_obj = None     # parsed AS1 dict
+    source_as1 = None     # AS1 dict
+    source_as2 = None     # AS2 dict
     target_resp = None    # requests.Response
     user = None           # User
 
     def dispatch_request(self):
         logger.info(f'Params: {list(request.form.items())}')
 
+        source = flask_util.get_required_param('source').strip()
+        domain = util.domain_from_link(source, minimize=False)
+        logger.info(f'webmention from {domain}')
+
+        # if source is home page, send an actor Update to followers' instances
+        if source.strip('/') == f'https://{domain}':
+            self.source_url = source
+            self.source_domain = domain
+            self.source_mf2, actor_as1, actor_as2, self.user = common.actor(domain)
+            id = common.host_url(f'{source}#update-{util.now().isoformat()}'),
+            self.source_as1 = {
+                'objectType': 'activity',
+                'verb': 'update',
+                'id': id,
+                'object': actor_as1,
+            }
+            self.source_as2 = common.postprocess_as2({
+                '@context': 'https://www.w3.org/ns/activitystreams',
+                'type': 'Update',
+                'id': common.host_url(f'{source}#update-{util.now().isoformat()}'),
+                'object': actor_as2,
+            }, user=self.user)
+            return self.try_activitypub() or 'No ActivityPub targets'
+
         # fetch source page
-        source = flask_util.get_required_param('source')
-        logger.info(f'webmention from {util.domain_from_link(source, minimize=False)}')
         try:
             source_resp = util.requests_get(source, gateway=True)
         except ValueError as e:
@@ -60,13 +83,13 @@ class Webmention(View):
         fragment = urllib.parse.urlparse(self.source_url).fragment
         self.source_mf2 = util.parse_mf2(source_resp, id=fragment)
 
-        if id and self.source_mf2 is None:
+        if fragment and self.source_mf2 is None:
             error(f'id {fragment} not found in {self.source_url}')
 
         # logger.debug(f'Parsed mf2 for {source_resp.url} : {json_dumps(self.source_mf2 indent=2)}')
 
-        # check for backlink to bridgy fed (for webmention spec and to confirm
-        # source's intent to federate to mastodon)
+        # check for backlink for webmention spec and to confirm source's intent
+        # to federate
         for domain in common.DOMAINS:
             if domain in source_resp.text:
                 break
@@ -85,13 +108,13 @@ class Webmention(View):
         if not props.get('url'):
             props['url'] = [self.source_url]
 
-        self.source_obj = microformats2.json_to_object(entry, fetch_mf2=True)
+        self.source_as1 = microformats2.json_to_object(entry, fetch_mf2=True)
         type_label = ' '.join((
-            self.source_obj.get('verb', ''),
-            self.source_obj.get('objectType', ''),
-            util.get_first(self.source_obj, 'object', {}).get('objectType', ''),
+            self.source_as1.get('verb', ''),
+            self.source_as1.get('objectType', ''),
+            util.get_first(self.source_as1, 'object', {}).get('objectType', ''),
         ))
-        logger.info(f'Converted webmention to AS1: {type_label}: {json_dumps(self.source_obj, indent=2)}')
+        logger.info(f'Converted webmention to AS1: {type_label}: {json_dumps(self.source_as1, indent=2)}')
 
         self.user = User.get_or_create(self.source_domain)
         ret = self.try_activitypub()
@@ -115,10 +138,11 @@ class Webmention(View):
         for activity, inbox in targets:
             target_obj = json_loads(activity.target_as2) if activity.target_as2 else None
 
-            source_activity = common.postprocess_as2(
-                as2.from_as1(self.source_obj), target=target_obj, user=self.user)
-            if not source_activity.get('actor'):
-                source_activity['actor'] = common.host_url(self.source_domain)
+            if not self.source_as2:
+                self.source_as2 = common.postprocess_as2(
+                    as2.from_as1(self.source_as1), target=target_obj, user=self.user)
+            if not self.source_as2.get('actor'):
+                self.source_as2['actor'] = common.host_url(self.source_domain)
 
             if activity.status == 'complete':
                 if activity.source_mf2:
@@ -135,26 +159,28 @@ class Webmention(View):
                         logger.info(f'Skipping; new content is same as content published before at {activity.updated}')
                         continue
 
-                if source_activity.get('type') == 'Create':
-                    source_activity['type'] = 'Update'
+                if self.source_as2.get('type') == 'Create':
+                    self.source_as2['type'] = 'Update'
+
+                if self.source_as2.get('type') == 'Update':
                     # Mastodon requires the updated field for Updates, so
                     # generate it if it's not already there.
                     # https://docs.joinmastodon.org/spec/activitypub/#supported-activities-for-statuses
                     # https://socialhub.activitypub.rocks/t/what-could-be-the-reason-that-my-update-activity-does-not-work/2893/4
                     # https://github.com/mastodon/documentation/pull/1150
-                    source_activity.get('object', {}).setdefault(
+                    self.source_as2.get('object', {}).setdefault(
                         'updated', util.now().isoformat())
 
-            if self.source_obj.get('verb') == 'follow':
+            if self.source_as2.get('type') == 'Follow':
                 # prefer AS2 id or url, if available
                 # https://github.com/snarfed/bridgy-fed/issues/307
                 dest = ((target_obj.get('id') or util.get_first(target_obj, 'url'))
-                        if target_obj else util.get_url(self.source_obj, 'object'))
+                        if target_obj else util.get_url(self.source_as1, 'object'))
                 Follower.get_or_create(dest=dest, src=self.source_domain,
-                                       last_follow=json_dumps(source_activity))
+                                       last_follow=json_dumps(self.source_as2))
 
             try:
-                last = common.signed_post(inbox, data=source_activity, user=self.user)
+                last = common.signed_post(inbox, data=self.source_as2, user=self.user)
                 activity.status = 'complete'
                 last_success = last
             except BaseException as e:
@@ -179,11 +205,11 @@ class Webmention(View):
         """
         # if there's in-reply-to, like-of, or repost-of, they're the targets.
         # otherwise, it's all followers' inboxes.
-        targets = util.get_urls(self.source_obj, 'inReplyTo')
+        targets = util.get_urls(self.source_as1, 'inReplyTo')
         if targets:
             logger.info(f'targets from inReplyTo: {targets}')
-        elif self.source_obj.get('verb') in as1.VERBS_WITH_OBJECT:
-            targets = util.get_urls(self.source_obj, 'object')
+        elif self.source_as1.get('verb') in as1.VERBS_WITH_OBJECT:
+            targets = util.get_urls(self.source_as1, 'object')
             logger.info(f'targets from object: {targets}')
 
         if not targets:
