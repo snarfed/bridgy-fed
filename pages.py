@@ -194,6 +194,8 @@ def fetch_activities(query):
     # synthesize human-friendly content for activities
     for i, activity in enumerate(orig_activities):
         a = activity.to_as1()
+        if not a:
+            continue
 
         # de-dupe
         ids = set((a[field] for field in ('id', 'url') if a.get(field)))

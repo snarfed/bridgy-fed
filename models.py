@@ -282,7 +282,8 @@ class Activity(StringIdModel):
             mf2 = json_loads(self.source_mf2)
             items = mf2.get('items')
             if items:
-                return microformats2.json_to_object(items[0])
+                mf2 = items[0]
+            return microformats2.json_to_object(mf2)
         if self.source_as2:
             return as2.to_as1(json_loads(self.source_as2))
         if self.source_atom:

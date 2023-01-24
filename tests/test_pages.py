@@ -14,6 +14,7 @@ from .test_activitypub import (
     NOTE,
     REPLY,
 )
+from .test_webmention import ACTOR_MF2
 
 def contents(activities):
     return [a['object']['content'] for a in activities]
@@ -31,6 +32,8 @@ class PagesTest(testutil.TestCase):
     def add_activities():
         Activity(id='a', domain=['foo.com'], direction='in',
                  source_as2=json_dumps(NOTE)).put()
+        Activity(id='g', domain=['foo.com'], direction='out',
+                 source_mf2=json_dumps(ACTOR_MF2)).put()
         # different domain
         Activity(id='b', domain=['bar.org'], direction='in',
                  source_as2=json_dumps(MENTION)).put()
@@ -46,6 +49,11 @@ class PagesTest(testutil.TestCase):
                  source_as2=json_dumps(LIKE)).put()
 
     def test_user(self):
+        got = self.client.get('/user/foo.com')
+        self.assert_equals(200, got.status_code)
+
+    def test_user_activities(self):
+        self.add_activities()
         got = self.client.get('/user/foo.com')
         self.assert_equals(200, got.status_code)
 
