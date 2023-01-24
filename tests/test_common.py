@@ -110,6 +110,18 @@ class CommonTest(testutil.TestCase):
                 'url': ['foo', 'bar'],
             }, user=User(id='foo.com')))
 
+    def test_postprocess_as2_multiple_image(self):
+        with app.test_request_context('/'):
+            self.assert_equals({
+                'id': 'http://localhost/r/xyz',
+                'attachment': [{'url': 'http://r/foo'}, {'url': 'http://r/bar'}],
+                'image': [{'url': 'http://r/foo'}, {'url': 'http://r/bar'}],
+                'to': [as2.PUBLIC_AUDIENCE],
+            }, common.postprocess_as2({
+                'id': 'xyz',
+                'image': [{'url': 'http://r/foo'}, {'url': 'http://r/bar'}],
+            }, user=User(id='foo.com')))
+
     def test_postprocess_as2_actor_attributedTo(self):
         with app.test_request_context('/'):
             self.assert_equals({

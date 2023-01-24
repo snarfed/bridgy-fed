@@ -231,9 +231,9 @@ class Webmention(View):
                     },
                 )
                 # not actually an error
-                msg = ("Updating profile on followers' instances"
+                msg = ("Updating profile on followers' instances..."
                        if self.source_url.strip('/') == f'https://{self.source_domain}'
-                       else 'Delivering to followers')
+                       else 'Delivering to followers...')
                 error(msg, status=202)
 
             inboxes = set()
