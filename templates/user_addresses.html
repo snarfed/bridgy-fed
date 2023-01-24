@@ -9,8 +9,15 @@
       </nobr>
     </span>
     &middot;
+
     <nobr>
       <a title="Web site" href="https://{{ domain }}/">🌐 {{ domain }}</a>
+      <form method="post" action="/webmention-interactive">
+        <input name="source" type="hidden" value="https://{{ domain }}/" />
+        <button id="update-profile-button" type="submit"
+                title="Update profile from web site"
+                class="btn btn-default glyphicon glyphicon-refresh"></button>
+      </form>
     </nobr>
   </div>
 </div>

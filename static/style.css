@@ -311,6 +311,10 @@ button[disabled]:hover {
   border-radius: .5em;
 }
 
+#update-profile-button {
+  margin-top: -.5em;
+}
+
 .disable-button, #bad-button {
   border-color: red;
   color: red;

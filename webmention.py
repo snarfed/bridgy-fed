@@ -8,7 +8,7 @@ import urllib.parse
 from urllib.parse import urlencode
 
 import feedparser
-from flask import request
+from flask import redirect, request
 from flask.views import View
 from google.cloud.ndb import Key
 from granary import as1, as2, atom, microformats2
@@ -16,10 +16,10 @@ import mf2util
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.appengine_info import APP_ID
-from oauth_dropins.webutil.flask_util import error
+from oauth_dropins.webutil.flask_util import error, flash
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
-from werkzeug.exceptions import BadGateway
+from werkzeug.exceptions import BadGateway, HTTPException
 
 import activitypub
 from app import app
@@ -50,14 +50,14 @@ class Webmention(View):
         logger.info(f'Params: {list(request.form.items())}')
 
         source = flask_util.get_required_param('source').strip()
-        domain = util.domain_from_link(source, minimize=False)
-        logger.info(f'webmention from {domain}')
+        self.source_domain = util.domain_from_link(source, minimize=False)
+        logger.info(f'webmention from {self.source_domain}')
 
         # if source is home page, send an actor Update to followers' instances
-        if source.strip('/') == f'https://{domain}':
+        if source.strip('/') == f'https://{self.source_domain}':
             self.source_url = source
-            self.source_domain = domain
-            self.source_mf2, actor_as1, actor_as2, self.user = common.actor(domain)
+            self.source_mf2, actor_as1, actor_as2, self.user = \
+                common.actor(self.source_domain)
             id = common.host_url(f'{source}#update-{util.now().isoformat()}'),
             self.source_as1 = {
                 'objectType': 'activity',
@@ -84,7 +84,7 @@ class Webmention(View):
         self.source_mf2 = util.parse_mf2(source_resp, id=fragment)
 
         if fragment and self.source_mf2 is None:
-            error(f'id {fragment} not found in {self.source_url}')
+            error(f'#{fragment} not found in {self.source_url}')
 
         # logger.debug(f'Parsed mf2 for {source_resp.url} : {json_dumps(self.source_mf2 indent=2)}')
 
@@ -231,7 +231,10 @@ class Webmention(View):
                     },
                 )
                 # not actually an error
-                error('Delivering to followers in the background', status=202)
+                msg = ("Updating profile on followers' instances"
+                       if self.source_url.strip('/') == f'https://{self.source_domain}'
+                       else 'Delivering to followers')
+                error(msg, status=202)
 
             inboxes = set()
             for follower in Follower.query().filter(
@@ -309,10 +312,28 @@ class Webmention(View):
 
 
 class WebmentionTask(Webmention):
+    """Handler that runs tasks, not external HTTP requests."""
     IS_TASK = True
 
 
+class WebmentionInteractive(Webmention):
+    """Handler that runs interactive webmention-based requests from the web UI.
+
+    ...eg the update profile button on user pages.
+    """
+    def dispatch_request(self):
+        try:
+            super().dispatch_request()
+            flash('OK')
+        except HTTPException as e:
+            flash(util.linkify(str(e.description), pretty=True))
+            return redirect(f'/user/{self.source_domain}', code=302)
+
+
 app.add_url_rule('/webmention', view_func=Webmention.as_view('webmention'),
+                 methods=['POST'])
+app.add_url_rule('/webmention-interactive',
+                 view_func=WebmentionInteractive.as_view('webmention-interactive'),
                  methods=['POST'])
 app.add_url_rule('/_ah/queue/webmention',
                  view_func=WebmentionTask.as_view('webmention-task'),
