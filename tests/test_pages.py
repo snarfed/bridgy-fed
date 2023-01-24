@@ -32,6 +32,7 @@ class PagesTest(testutil.TestCase):
     def add_activities():
         Activity(id='a', domain=['foo.com'], direction='in',
                  source_as2=json_dumps(NOTE)).put()
+        # profile update
         Activity(id='g', domain=['foo.com'], direction='out',
                  source_mf2=json_dumps(ACTOR_MF2)).put()
         # different domain

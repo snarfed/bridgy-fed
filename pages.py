@@ -230,6 +230,10 @@ def fetch_activities(query):
         obj_url = util.get_first(obj, 'url') or obj.get('id')
         if obj_url:
             obj_content = util.pretty_link(obj_url, text=obj_content)
+        elif (activity.domain and
+              a.get('id', '').strip('/') == f'https://{activity.domain[0]}'):
+            activity.phrase = 'updated'
+            a['content'] = 'their profile'
 
         activity.content = a.get('content') or a.get('displayName')
         activity.url = util.get_first(a, 'url')
