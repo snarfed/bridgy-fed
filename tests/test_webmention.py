@@ -763,7 +763,7 @@ class WebmentionTest(testutil.TestCase):
                     self.update_as2 if inbox == 'https://updated/inbox' else self.create_as2,
                     json_loads(call[1]['data']))
 
-                activity = Activity.get_by_id('https://orig/post %s' % inbox)
+                activity = Activity.get_by_id(f'https://orig/post {inbox}')
                 self.assertEqual(['orig'], activity.domain)
                 self.assertEqual('out', activity.direction, inbox)
                 self.assertEqual('activitypub', activity.protocol, inbox)

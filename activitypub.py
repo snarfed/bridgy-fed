@@ -72,8 +72,7 @@ def inbox(domain=None):
     if type == 'Accept':  # eg in response to a Follow
         return ''  # noop
     if type not in SUPPORTED_TYPES:
-        error('Sorry, %s activities are not supported yet.' % type,
-                     status=501)
+        error(f'Sorry, {type} activities are not supported yet.', status=501)
 
     # TODO: verify signature if there is one
 
@@ -161,12 +160,12 @@ def accept_follow(follow, follow_unwrapped, user):
                    if isinstance(followee_unwrapped, dict) else followee_unwrapped)
     follower = follow.get('actor')
     if not followee or not followee_id or not follower:
-        error('Follow activity requires object and actor. Got: %s' % follow)
+        error(f'Follow activity requires object and actor. Got: {follow}')
 
     inbox = follower.get('inbox')
     follower_id = follower.get('id')
     if not inbox or not follower_id:
-        error('Follow actor requires id and inbox. Got: %s', follower)
+        error(f'Follow actor requires id and inbox. Got: {follower}')
 
     # rendered mf2 HTML proxy pages (in render.py) fall back to redirecting to
     # the follow's AS2 id field, but Mastodon's ids are URLs that don't load in
@@ -189,8 +188,8 @@ def accept_follow(follow, follow_unwrapped, user):
     # send AP Accept
     accept = {
         '@context': 'https://www.w3.org/ns/activitystreams',
-        'id': util.tag_uri(common.PRIMARY_DOMAIN, 'accept/%s/%s' % (
-            (followee_domain, follow.get('id')))),
+        'id': util.tag_uri(common.PRIMARY_DOMAIN,
+                           f'accept/{followee_domain}/{follow.get("id")}'),
         'type': 'Accept',
         'actor': followee,
         'object': {
@@ -223,7 +222,7 @@ def undo_follow(undo_unwrapped):
     if isinstance(followee, dict):
         followee = followee.get('id') or util.get_url(followee)
     if not follower or not followee:
-        error('Undo of Follow requires object with actor and object. Got: %s' % follow)
+        error(f'Undo of Follow requires object with actor and object. Got: {follow}')
 
     # deactivate Follower
     user_domain = util.domain_from_link(followee, minimize=False)

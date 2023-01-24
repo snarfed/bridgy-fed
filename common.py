@@ -198,7 +198,7 @@ def get_as2(url, user=None):
         requests_response attribute with the last requests.Response we received.
     """
     def _error(resp):
-        msg = "Couldn't fetch %s as ActivityStreams 2" % url
+        msg = f"Couldn't fetch {url} as ActivityStreams 2"
         logger.warning(msg)
         err = BadGateway(msg)
         err.requests_response = resp
@@ -374,7 +374,7 @@ def postprocess_as2(activity, user=None, target=None, create=True):
             if len(in_reply_to) > 1:
                 logger.warning(
                     "AS2 doesn't support multiple inReplyTo URLs! "
-                    'Only using the first: %s' % in_reply_to[0])
+                    f'Only using the first: {in_reply_to[0]}')
             activity['inReplyTo'] = in_reply_to[0]
 
         # Mastodon evidently requires a Mention tag for replies to generate a

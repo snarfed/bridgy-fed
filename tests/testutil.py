@@ -25,7 +25,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.client = app.test_client()
 
         # clear datastore
-        requests.post('http://%s/reset' % ndb_client.host)
+        requests.post(f'http://{ndb_client.host}/reset')
         self.ndb_context = ndb_client.context()
         self.ndb_context.__enter__()
 

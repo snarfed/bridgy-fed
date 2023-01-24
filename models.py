@@ -96,8 +96,7 @@ class User(StringIdModel):
         return user
 
     def href(self):
-        return 'data:application/magic-public-key,RSA.%s.%s' % (
-            self.mod, self.public_exponent)
+        return f'data:application/magic-public-key,RSA.{self.mod}.{self.public_exponent}'
 
     def public_pem(self):
         """Returns: bytes"""
@@ -317,7 +316,7 @@ class Activity(StringIdModel):
     def _id(cls, source, target):
         assert source
         assert target
-        return '%s %s' % (cls._encode(source), cls._encode(target))
+        return f'{cls._encode(source)} {cls._encode(target)}'
 
     @classmethod
     def _encode(cls, val):
@@ -352,7 +351,7 @@ class Follower(StringIdModel):
     def _id(cls, dest, src):
         assert src
         assert dest
-        return '%s %s' % (dest, src)
+        return f'{dest} {src}'
 
     @classmethod
     def get_or_create(cls, dest, src, **kwargs):

@@ -188,8 +188,8 @@ class WebfingerTest(testutil.TestCase):
                          'foo.com', 'http://foo.com/', 'https://foo.com/',
                          'http://localhost/foo.com'):
             with self.subTest(resource=resource):
-                url = '/.well-known/webfinger?%s' % urllib.parse.urlencode(
-                    {'resource': resource})
+                url = (f'/.well-known/webfinger?' +
+                       urllib.parse.urlencode({'resource': resource}))
                 got = self.client.get(url, headers={'Accept': 'application/json'})
                 self.assertEqual(200, got.status_code, got.get_data(as_text=True))
                 self.assertEqual('application/jrd+json', got.headers['Content-Type'])
@@ -232,8 +232,8 @@ class WebfingerTest(testutil.TestCase):
                 'acct:foo.com@localhost',
         ):
             with self.subTest(resource=resource):
-                url = '/.well-known/webfinger?%s' % urllib.parse.urlencode(
-                    {'resource': resource})
+                url = (f'/.well-known/webfinger?' +
+                       urllib.parse.urlencode({'resource': resource}))
                 got = self.client.get(url, headers={'Accept': 'application/json'})
                 self.assertEqual(200, got.status_code, got.get_data(as_text=True))
                 self.assertEqual('application/jrd+json', got.headers['Content-Type'])
