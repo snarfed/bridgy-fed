@@ -42,7 +42,7 @@ _negotiator = ContentNegotiator(acceptable=[
 
 
 @app.get(r'/r/<path:to>')
-@flask_util.cached(cache, CACHE_TIME, headers=['Accept'])
+@flask_util.cached(cache, CACHE_TIME, headers=['Accept'], http_5xx=True)
 def redir(to):
     """301 redirect to the embedded fully qualified URL.
 

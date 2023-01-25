@@ -29,7 +29,7 @@ class Actor(flask_util.XrdOrJrd):
 
     TODO: unify with common.actor()
     """
-    @flask_util.cached(cache, common.CACHE_TIME, headers=['Accept'])
+    @flask_util.cached(cache, common.CACHE_TIME, headers=['Accept'], http_5xx=True)
     def dispatch_request(self, *args, **kwargs):
         return super().dispatch_request(*args, **kwargs)
 

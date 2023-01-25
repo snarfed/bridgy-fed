@@ -36,7 +36,7 @@ SUPPORTED_TYPES = (
 
 
 @app.get(f'/<regex("{common.DOMAIN_RE}"):domain>')
-@flask_util.cached(cache, CACHE_TIME)
+@flask_util.cached(cache, CACHE_TIME, http_5xx=True)
 def actor(domain):
     """Fetches a domain's h-card and converts to AS2 actor."""
     _, _, actor, _ = common.actor(domain)

@@ -16,7 +16,7 @@ LINK_HEADER = '<%s>; rel="webmention"'
 
 
 @app.get(r'/wm/<path:url>')
-@flask_util.cached(cache, common.CACHE_TIME)
+@flask_util.cached(cache, common.CACHE_TIME, http_5xx=True)
 def add_wm(url=None):
     """Proxies HTTP requests and adds Link header to our webmention endpoint."""
     url = urllib.parse.unquote(url)
