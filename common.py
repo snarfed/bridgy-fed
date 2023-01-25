@@ -102,13 +102,14 @@ def signed_post(url, **kwargs):
     return signed_request(util.requests_post, url, **kwargs)
 
 
-def signed_request(fn, url, data=None, user=None, headers=None, **kwargs):
+def signed_request(fn, url, data=None, log_data=True, user=None, headers=None, **kwargs):
     """Wraps requests.* and adds HTTP Signature.
 
     Args:
       fn: :func:`util.requests_get` or  :func:`util.requests_get`
       url: str
       data: optional AS2 object
+      log_data: boolean, whether to log full data object
       user: optional :class:`User` to sign request with
       kwargs: passed through to requests
 
@@ -122,7 +123,8 @@ def signed_request(fn, url, data=None, user=None, headers=None, **kwargs):
         user = default_signature_user()
 
     if data:
-        logging.info(f'Sending AS2 object: {json_dumps(data, indent=2)}')
+        if log_data:
+            logging.info(f'Sending AS2 object: {json_dumps(data, indent=2)}')
         data = kwargs['data'] = json_dumps(data).encode()
 
     headers = copy.deepcopy(headers)

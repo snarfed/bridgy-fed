@@ -132,6 +132,7 @@ class Webmention(View):
 
         error = None
         last_success = None
+        log_data = True
 
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
 
@@ -180,12 +181,15 @@ class Webmention(View):
                                        last_follow=json_dumps(self.source_as2))
 
             try:
-                last = common.signed_post(inbox, data=self.source_as2, user=self.user)
+                last = common.signed_post(inbox, data=self.source_as2,
+                                          log_data=log_data, user=self.user)
                 activity.status = 'complete'
                 last_success = last
             except BaseException as e:
                 error = e
                 activity.status = 'error'
+            finally:
+                log_data = False
 
             activity.put()
 
