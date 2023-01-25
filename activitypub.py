@@ -292,3 +292,20 @@ def follower_collection(domain, collection):
     }
     logger.info(f'Returning {json_dumps(collection, indent=2)}')
     return collection, {'Content-Type': as2.CONTENT_TYPE}
+
+
+@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/outbox')
+def outbox(domain):
+    url = common.host_url(f"{domain}/outbox")
+    return {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': url,
+            'summary': f"{domain}'s outbox",
+            'type': 'OrderedCollection',
+            'totalItems': 0,
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': url,
+                'items': [],
+            },
+        }, {'Content-Type': as2.CONTENT_TYPE}

@@ -816,3 +816,20 @@ class ActivityPubTest(testutil.TestCase):
             'next': f'http://localhost/foo.com/following?before={after}',
             'items': [ACTOR],
         }, resp.json)
+
+
+    def test_outbox_empty(self, _, mock_get, __):
+        resp = self.client.get(f'/foo.com/outbox')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'http://localhost/foo.com/outbox',
+            'summary': "foo.com's outbox",
+            'type': 'OrderedCollection',
+            'totalItems': 0,
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': 'http://localhost/foo.com/outbox',
+                'items': [],
+            },
+        }, resp.json)
