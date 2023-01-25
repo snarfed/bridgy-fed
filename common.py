@@ -464,7 +464,11 @@ def postprocess_as2_actor(actor, user=None):
     Returns:
       actor dict
     """
-    urls = util.get_list(actor, 'url') or [f'https://{user.key.id()}/']
+    url = f'https://{user.key.id()}/' if user else None
+    urls = util.get_list(actor, 'url')
+    if not urls and url:
+      urls = [url]
+
     domain = util.domain_from_link(urls[0], minimize=False)
     urls[0] = redirect_wrap(urls[0])
 
@@ -475,6 +479,14 @@ def postprocess_as2_actor(actor, user=None):
         # See related comment in actor() below.
         'preferredUsername': domain,
     })
+
+    # Override the label for their home page to be "Web site"
+    for att in util.get_list(actor, 'attachment'):
+      if att.get('type') == 'PropertyValue':
+        val = att.get('value', '')
+        link = util.parse_html(val).find('a')
+        if url and (val == url or link.get('href') == url):
+          att['name'] = 'Web site'
 
     # required by pixelfed. https://github.com/snarfed/bridgy-fed/issues/39
     actor.setdefault('summary', '')

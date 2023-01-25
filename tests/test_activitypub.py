@@ -201,6 +201,7 @@ class ActivityPubTest(testutil.TestCase):
 <body>
 <div class="h-card">
 <a class="u-url" rel="me" href="/about-me">Mrs. ☕ Foo</a>
+<a class="u-url" rel="me" href="/">should be ignored</a>
 <a class="u-url" rel="me" href="http://one" title="one title">
   one text
 </a>
@@ -215,6 +216,10 @@ class ActivityPubTest(testutil.TestCase):
             'type': 'PropertyValue',
             'name': 'Mrs. ☕ Foo',
             'value': '<a rel="me" href="https://foo.com/about-me">foo.com/about-me</a>',
+        }, {
+            'type': 'PropertyValue',
+            'name': 'Web site',
+            'value': '<a rel="me" href="https://foo.com/">foo.com</a>',
         }, {
             'type': 'PropertyValue',
             'name': 'one text',
