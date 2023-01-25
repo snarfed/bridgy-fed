@@ -73,7 +73,7 @@ DOMAIN_BLOCKLIST = frozenset((
 
 _DEFAULT_SIGNATURE_USER = None
 
-CACHE_TIME = timedelta(seconds=10)
+CACHE_TIME = timedelta(seconds=60)
 PAGE_SIZE = 20
 
 

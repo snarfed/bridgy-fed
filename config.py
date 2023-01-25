@@ -11,6 +11,7 @@ SESSION_COOKIE_HTTPONLY = True
 # Not strict because we flash messages after cross-site redirects for OAuth,
 # which strict blocks.
 SESSION_COOKIE_SAMESITE = 'Lax'
+CACHE_THRESHOLD = 3000
 
 if appengine_info.DEBUG:
   ENV = 'development'
