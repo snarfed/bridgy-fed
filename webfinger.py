@@ -42,6 +42,10 @@ class Actor(flask_util.XrdOrJrd):
         if domain.split('.')[-1] in NON_TLDS:
             error(f"{domain} doesn't look like a domain", status=404)
 
+        user = User.get_by_id(domain)
+        if not user:
+            error(f'No user for {domain}', status=404)
+
         # find representative h-card. try url, then url's home page, then domain
         urls = [f'https://{domain}/']
         if url:
@@ -64,7 +68,6 @@ class Actor(flask_util.XrdOrJrd):
             error(f"didn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) in any of {urls}")
 
         logger.info(f'Generating WebFinger data for {domain}')
-        user = User.get_or_create(domain)
         props = hcard.get('properties', {})
         urls = util.dedupe_urls(props.get('url', []) + [resp.url])
         canonical_url = urls[0]

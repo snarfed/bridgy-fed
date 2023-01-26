@@ -180,6 +180,10 @@ class WebfingerTest(testutil.TestCase):
         self.assertIn("doesn't look like a domain",
                       html.unescape(got.get_data(as_text=True)))
 
+    def test_user_not_found(self):
+        got = self.client.get('/acct:nope.com', headers={'Accept': 'application/json'})
+        self.assertEqual(404, got.status_code)
+
     @mock.patch('requests.get')
     def test_webfinger(self, mock_get):
         mock_get.return_value = requests_response(self.html, url='https://foo.com/')
@@ -226,7 +230,6 @@ class WebfingerTest(testutil.TestCase):
                 'https://foo.com/',
                 # Mastodon requires this as of 3.3.0
                 # https://github.com/snarfed/bridgy-fed/issues/73
-                # 'acct:foo.com@fed.brid.gy',
                 'acct:foo.com@fed.brid.gy',
                 'acct:foo.com@bridgy-federated.appspot.com',
                 'acct:foo.com@localhost',
@@ -247,6 +250,9 @@ class WebfingerTest(testutil.TestCase):
         self.assertEqual(400, got.status_code, got.get_data(as_text=True))
 
     def test_webfinger_bad_resources(self):
+        # TODO: remove now that we check the User exists first? we won't create
+        # users with keys like this, right?
+        models.User.get_or_create('acct:k')
         for resource in (
                 # https://console.cloud.google.com/errors/detail/CKGv-b6impW3Jg;time=P30D?project=bridgy-federated
                 'acct:k',
