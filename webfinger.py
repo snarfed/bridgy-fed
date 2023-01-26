@@ -51,6 +51,7 @@ class Actor(flask_util.XrdOrJrd):
         if url:
             urls = [url, urllib.parse.urljoin(url, '/')] + urls
 
+        resp = None
         for candidate in urls:
             try:
                 resp = util.requests_get(candidate)
@@ -63,38 +64,21 @@ class Actor(flask_util.XrdOrJrd):
             hcard = mf2util.representative_hcard(mf2, resp.url)
             if hcard:
                 logger.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')
+                user.actor_as2 = json_dumps(common.postprocess_as2(
+                    as2.from_as1(microformats2.json_to_object(hcard)), user=user))
+                user.put()
                 break
         else:
-            error(f"didn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) in any of {urls}")
+            logger.info(f"didn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) in any of {urls}")
+            hcard = {'properties': {
+                'url': [f'https://{domain}/'],
+            }}
 
         logger.info(f'Generating WebFinger data for {domain}')
         props = hcard.get('properties', {})
-        urls = util.dedupe_urls(props.get('url', []) + [resp.url])
+        urls = util.dedupe_urls(props.get('url', []) +
+                                ([resp.url] if resp else []))
         canonical_url = urls[0]
-
-        user.actor_as2 = json_dumps(common.postprocess_as2(
-            as2.from_as1(microformats2.json_to_object(hcard)), user=user))
-        user.put()
-
-        # discover atom feed, if any
-        feed = parsed.find('link', rel='alternate', type=atom.CONTENT_TYPE)
-        if feed and feed['href']:
-            feed = urllib.parse.urljoin(resp.url, feed['href'])
-        else:
-            feed = 'https://granary.io/url?' + urllib.parse.urlencode({
-                'input': 'html',
-                'output': 'atom',
-                'url': resp.url,
-                'hub': resp.url,
-            })
-
-        # discover PuSH, if any
-        for link in resp.headers.get('Link', '').split(','):
-            match = common.LINK_HEADER_RE.match(link)
-            if match and match.group(2) == 'hub':
-                hub = match.group(1)
-            else:
-                hub = 'https://bridgy-fed.superfeedr.com/'
 
         # generate webfinger content
         data = util.trim_nulls({
@@ -136,14 +120,8 @@ class Actor(flask_util.XrdOrJrd):
             },
 
             # OStatus
+            # TODO: remove?
             {
-                'rel': 'http://schemas.google.com/g/2010#updates-from',
-                'type': atom.CONTENT_TYPE,
-                'href': feed,
-            }, {
-                'rel': 'hub',
-                'href': hub,
-            }, {
                 'rel': 'magic-public-key',
                 'href': user.href(),
             },
@@ -156,6 +134,40 @@ class Actor(flask_util.XrdOrJrd):
                 'template': common.host_url(f'user/{domain}?url={{uri}}'),
             }]
         })
+
+        # OStatus: discover atom feed, if any
+        # TODO: remove?
+        if resp:
+            feed = parsed.find('link', rel='alternate', type=atom.CONTENT_TYPE)
+            if feed and feed['href']:
+                feed = urllib.parse.urljoin(resp.url, feed['href'])
+            else:
+                feed = 'https://granary.io/url?' + urllib.parse.urlencode({
+                    'input': 'html',
+                    'output': 'atom',
+                    'url': resp.url,
+                    'hub': resp.url,
+                })
+            data['links'].append({
+                'rel': 'http://schemas.google.com/g/2010#updates-from',
+                'type': atom.CONTENT_TYPE,
+                'href': feed,
+            })
+
+        # OStatus: discover PuSH, if any
+        # TODO: remove?
+        if resp:
+            for link in resp.headers.get('Link', '').split(','):
+                match = common.LINK_HEADER_RE.match(link)
+                if match and match.group(2) == 'hub':
+                    hub = match.group(1)
+                else:
+                    hub = 'https://bridgy-fed.superfeedr.com/'
+            data['links'].append({
+                'rel': 'hub',
+                'href': hub,
+            })
+
         logger.info(f'Returning WebFinger data: {json_dumps(data, indent=2)}')
         return data
 

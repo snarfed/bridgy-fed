@@ -68,18 +68,18 @@ class WebfingerTest(testutil.TestCase):
                 'type': 'application/activity+json',
                 'href': 'http://localhost/inbox'
             }, {
+                'rel': 'magic-public-key',
+                'href': self.key.href(),
+            }, {
+                'rel': 'http://ostatus.org/schema/1.0/subscribe',
+                'template': 'http://localhost/user/foo.com?url={uri}',
+            }, {
                 'rel': 'http://schemas.google.com/g/2010#updates-from',
                 'type': 'application/atom+xml',
                 'href': 'https://granary.io/url?input=html&output=atom&url=https%3A%2F%2Ffoo.com%2F&hub=https%3A%2F%2Ffoo.com%2F',
             }, {
                 'rel': 'hub',
                 'href': 'https://bridgy-fed.superfeedr.com/'
-            }, {
-                'rel': 'magic-public-key',
-                'href': self.key.href(),
-            }, {
-                'rel': 'http://ostatus.org/schema/1.0/subscribe',
-                'template': 'http://localhost/user/foo.com?url={uri}',
             }]
         }
 
@@ -168,11 +168,49 @@ class WebfingerTest(testutil.TestCase):
   <p class="e-content">foo bar</p>
 </div>
 </body>
-""")
+""", url='https://foo.com/')
         got = self.client.get('/acct:foo.com')
         self.assert_req(mock_get, 'https://foo.com/')
-        self.assertEqual(400, got.status_code)
-        self.assertIn('representative h-card', got.get_data(as_text=True))
+        self.assertEqual(200, got.status_code)
+        self.assert_equals({
+            'subject': 'acct:foo.com@foo.com',
+            'aliases': ['https://foo.com/'],
+            'magic_keys': [{'value': self.key.href()}],
+            'links': [{
+                'rel': 'http://webfinger.net/rel/profile-page',
+                'type': 'text/html',
+                'href': 'https://foo.com/'
+            }, {
+                'rel': 'canonical_uri',
+                'type': 'text/html',
+                'href': 'https://foo.com/'
+            }, {
+                'rel': 'self',
+                'type': 'application/activity+json',
+                'href': 'http://localhost/foo.com'
+            }, {
+                'rel': 'inbox',
+                'type': 'application/activity+json',
+                'href': 'http://localhost/foo.com/inbox'
+            }, {
+                'rel': 'sharedInbox',
+                'type': 'application/activity+json',
+                'href': 'http://localhost/inbox'
+            }, {
+                'rel': 'http://schemas.google.com/g/2010#updates-from',
+                'type': 'application/atom+xml',
+                'href': 'https://granary.io/url?input=html&output=atom&url=https%3A%2F%2Ffoo.com%2F&hub=https%3A%2F%2Ffoo.com%2F',
+            }, {
+                'rel': 'hub',
+                'href': 'https://bridgy-fed.superfeedr.com/'
+            }, {
+                'rel': 'magic-public-key',
+                'href': self.key.href(),
+            }, {
+                'rel': 'http://ostatus.org/schema/1.0/subscribe',
+                'template': 'http://localhost/user/foo.com?url={uri}',
+            }]
+        }, got.json)
 
     def test_user_bad_tld(self):
         got = self.client.get('/acct:foo.json')
@@ -248,16 +286,3 @@ class WebfingerTest(testutil.TestCase):
 
         got = self.client.get('/.well-known/webfinger?resource=acct%3A%40localhost')
         self.assertEqual(400, got.status_code, got.get_data(as_text=True))
-
-    def test_webfinger_bad_resources(self):
-        # TODO: remove now that we check the User exists first? we won't create
-        # users with keys like this, right?
-        models.User.get_or_create('acct:k')
-        for resource in (
-                # https://console.cloud.google.com/errors/detail/CKGv-b6impW3Jg;time=P30D?project=bridgy-federated
-                'acct:k',
-        ):
-            with self.subTest(resource=resource):
-                url = f'/.well-known/webfinger?resource={resource}'
-                got = self.client.get(url, headers={'Accept': 'application/json'})
-                self.assertEqual(400, got.status_code, got.get_data(as_text=True))
