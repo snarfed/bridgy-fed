@@ -31,6 +31,7 @@ SUPPORTED_TYPES = (
     'Like',
     'Note',
     'Undo',
+    'Update',
     'Video',
 )
 
@@ -80,6 +81,11 @@ def inbox(domain=None):
         # skip actor fetch below; we don't need it to undo a follow
         undo_follow(redirect_unwrap(activity))
         return ''
+    elif type == 'Update':
+        if obj.get('type') == 'Person':
+            return ''  # noop
+        else:
+            error(f'Sorry, {type} activities are not supported yet.', status=501)
     elif type == 'Delete':
         # we currently only actually delete followers for Deletes that are sent
         # to the shared inbox, not individual users' inboxes, to help scaling

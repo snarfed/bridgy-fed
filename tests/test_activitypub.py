@@ -148,6 +148,26 @@ DELETE = {
     'object': 'https://mastodon.social/users/swentel',
 }
 
+UPDATE_PERSON = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'id': 'https://a/person#update',
+    'type': 'Update',
+    'actor': 'https://mastodon.social/users/swentel',
+    'object': {
+        'type': 'Person',
+        'id': 'https://a/person',
+    },
+}
+UPDATE_NOTE = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'id': 'https://a/note#update',
+    'type': 'Update',
+    'actor': 'https://mastodon.social/users/swentel',
+    'object': {
+        'type': 'Note',
+        'id': 'https://a/note',
+    },
+}
 
 @patch('requests.post')
 @patch('requests.get')
@@ -652,6 +672,16 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('inactive', followee.key.get().status)
         self.assertEqual('active', other.key.get().status)
 
+    def test_update_person_noop(self, _, __, ___):
+        """Updates to Person objects do nothing."""
+        got = self.client.post('/inbox', json=UPDATE_PERSON)
+        self.assertEqual(200, got.status_code)
+
+    def test_update_note_not_implemented(self, _, __, ___):
+        """Updates to non-Person objects are not implemented."""
+        got = self.client.post('/inbox', json=UPDATE_NOTE)
+        self.assertEqual(501, got.status_code)
+
     def test_inbox_webmention_discovery_connection_fails(self, mock_head,
                                                          mock_get, mock_post):
         mock_get.side_effect = [
@@ -816,7 +846,6 @@ class ActivityPubTest(testutil.TestCase):
             'next': f'http://localhost/foo.com/following?before={after}',
             'items': [ACTOR],
         }, resp.json)
-
 
     def test_outbox_empty(self, _, mock_get, __):
         resp = self.client.get(f'/foo.com/outbox')
