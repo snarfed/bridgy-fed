@@ -39,7 +39,6 @@ class WebfingerTest(testutil.TestCase):
                 'https://foo.com/about-me',
                 'https://foo.com/',
             ],
-            'magic_keys': [{'value': self.key.href()}],
             'links': [{
                 'rel': 'http://webfinger.net/rel/profile-page',
                 'type': 'text/html',
@@ -68,19 +67,9 @@ class WebfingerTest(testutil.TestCase):
                 'type': 'application/activity+json',
                 'href': 'http://localhost/inbox'
             }, {
-                'rel': 'magic-public-key',
-                'href': self.key.href(),
-            }, {
                 'rel': 'http://ostatus.org/schema/1.0/subscribe',
                 'template': 'http://localhost/user/foo.com?url={uri}',
-            }, {
-                'rel': 'http://schemas.google.com/g/2010#updates-from',
-                'type': 'application/atom+xml',
-                'href': 'https://granary.io/url?input=html&output=atom&url=https%3A%2F%2Ffoo.com%2F&hub=https%3A%2F%2Ffoo.com%2F',
-            }, {
-                'rel': 'hub',
-                'href': 'https://bridgy-fed.superfeedr.com/'
-            }]
+            }],
         }
 
     def test_host_meta_xrd(self):
@@ -116,50 +105,6 @@ class WebfingerTest(testutil.TestCase):
 
         self.assertEqual(self.expected_webfinger, got.json)
 
-        # check that magic key is persistent
-        again = self.client.get('/acct:foo.com',
-                           headers={'Accept': 'application/json'}).json
-        self.assertEqual(self.key.href(), again['magic_keys'][0]['value'])
-
-        links = {l['rel']: l.get('href') for l in again['links']}
-        self.assertEqual(self.key.href(), links['magic-public-key'])
-
-    @mock.patch('requests.get')
-    def test_user_with_atom_feed(self, mock_get):
-        html = """\
-<html>
-<head>
-<link rel="feed" href="/dont-use">
-<link rel="alternate" type="application/rss+xml" href="/dont-use-either">
-<link rel="alternate" type="application/atom+xml" href="/use-this">
-</head>
-""" + self.html
-        mock_get.return_value = requests_response(html, url = 'https://foo.com/')
-
-        got = self.client.get('/acct:foo.com', headers={'Accept': 'application/json'})
-        self.assertEqual(200, got.status_code)
-        self.assertIn({
-            'rel': 'http://schemas.google.com/g/2010#updates-from',
-            'type': 'application/atom+xml',
-            'href': 'https://foo.com/use-this',
-        }, got.json['links'])
-
-    @mock.patch('requests.get')
-    def test_user_with_push_header(self, mock_get):
-        mock_get.return_value = requests_response(
-            self.html, url = 'https://foo.com/', headers={
-                'Link': 'badly formatted, '
-                        "<xyz>; rel='foo',"
-                        '<http://a.custom.hub/>; rel="hub"',
-            })
-
-        got = self.client.get('/acct:foo.com', headers={'Accept': 'application/json'})
-        self.assertEqual(200, got.status_code)
-        self.assertIn({
-            'rel': 'hub',
-            'href': 'http://a.custom.hub/',
-        }, got.json['links'])
-
     @mock.patch('requests.get')
     def test_user_no_hcard(self, mock_get):
         mock_get.return_value = requests_response("""
@@ -175,7 +120,6 @@ class WebfingerTest(testutil.TestCase):
         self.assert_equals({
             'subject': 'acct:foo.com@foo.com',
             'aliases': ['https://foo.com/'],
-            'magic_keys': [{'value': self.key.href()}],
             'links': [{
                 'rel': 'http://webfinger.net/rel/profile-page',
                 'type': 'text/html',
@@ -196,16 +140,6 @@ class WebfingerTest(testutil.TestCase):
                 'rel': 'sharedInbox',
                 'type': 'application/activity+json',
                 'href': 'http://localhost/inbox'
-            }, {
-                'rel': 'http://schemas.google.com/g/2010#updates-from',
-                'type': 'application/atom+xml',
-                'href': 'https://granary.io/url?input=html&output=atom&url=https%3A%2F%2Ffoo.com%2F&hub=https%3A%2F%2Ffoo.com%2F',
-            }, {
-                'rel': 'hub',
-                'href': 'https://bridgy-fed.superfeedr.com/'
-            }, {
-                'rel': 'magic-public-key',
-                'href': self.key.href(),
             }, {
                 'rel': 'http://ostatus.org/schema/1.0/subscribe',
                 'template': 'http://localhost/user/foo.com?url={uri}',

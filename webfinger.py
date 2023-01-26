@@ -84,7 +84,6 @@ class Actor(flask_util.XrdOrJrd):
         data = util.trim_nulls({
             'subject': 'acct:' + user.address().lstrip('@'),
             'aliases': urls,
-            'magic_keys': [{'value': user.href()}],
             'links': sum(([{
                 'rel': 'http://webfinger.net/rel/profile-page',
                 'type': 'text/html',
@@ -119,13 +118,6 @@ class Actor(flask_util.XrdOrJrd):
                 'href': common.host_url('inbox'),
             },
 
-            # OStatus
-            # TODO: remove?
-            {
-                'rel': 'magic-public-key',
-                'href': user.href(),
-            },
-
             # remote follow
             # https://socialhub.activitypub.rocks/t/what-is-the-current-spec-for-remote-follow/2020/11?u=snarfed
             # https://github.com/snarfed/bridgy-fed/issues/60#issuecomment-1325589750
@@ -134,39 +126,6 @@ class Actor(flask_util.XrdOrJrd):
                 'template': common.host_url(f'user/{domain}?url={{uri}}'),
             }]
         })
-
-        # OStatus: discover atom feed, if any
-        # TODO: remove?
-        if resp:
-            feed = parsed.find('link', rel='alternate', type=atom.CONTENT_TYPE)
-            if feed and feed['href']:
-                feed = urllib.parse.urljoin(resp.url, feed['href'])
-            else:
-                feed = 'https://granary.io/url?' + urllib.parse.urlencode({
-                    'input': 'html',
-                    'output': 'atom',
-                    'url': resp.url,
-                    'hub': resp.url,
-                })
-            data['links'].append({
-                'rel': 'http://schemas.google.com/g/2010#updates-from',
-                'type': atom.CONTENT_TYPE,
-                'href': feed,
-            })
-
-        # OStatus: discover PuSH, if any
-        # TODO: remove?
-        if resp:
-            for link in resp.headers.get('Link', '').split(','):
-                match = common.LINK_HEADER_RE.match(link)
-                if match and match.group(2) == 'hub':
-                    hub = match.group(1)
-                else:
-                    hub = 'https://bridgy-fed.superfeedr.com/'
-            data['links'].append({
-                'rel': 'hub',
-                'href': hub,
-            })
 
         logger.info(f'Returning WebFinger data: {json_dumps(data, indent=2)}')
         return data
