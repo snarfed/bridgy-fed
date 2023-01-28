@@ -227,78 +227,50 @@ class User(StringIdModel):
         return self
 
 
-class Activity(StringIdModel):
-    """A reply, like, repost, or other interaction that we've relayed.
+class Object(StringIdModel):
+    """An activity or other object, eg actor.
 
-    Key name is 'SOURCE_URL TARGET_URL', e.g. 'http://a/reply http://orig/post'.
+    Key name is the id. We synthesize ids if necessary.
     """
-    STATUSES = ('new', 'complete', 'error', 'ignored')
-    PROTOCOLS = ('activitypub', 'ostatus')
-    DIRECTIONS = ('out', 'in')
+    STATUSES = ('new', 'in progress', 'complete', 'ignored')
+    PROTOCOLS = ('activitypub', 'bluesky', 'webmention')
+    LABELS = ('feed', 'notification')
 
     # domains of the Bridgy Fed users this activity is to or from
-    domain = ndb.StringProperty(repeated=True)
+    domains = ndb.StringProperty(repeated=True)
     status = ndb.StringProperty(choices=STATUSES, default='new')
-    protocol = ndb.StringProperty(choices=PROTOCOLS)
-    direction = ndb.StringProperty(choices=DIRECTIONS)
+    source_protocol = ndb.StringProperty(choices=PROTOCOLS)
+    labels = ndb.StringProperty(repeated=True, choices=LABELS)
 
-    # usually only one of these at most will be populated.
-    source_mf2 = ndb.TextProperty()  # JSON
-    source_as2 = ndb.TextProperty()  # JSON
-    source_atom = ndb.TextProperty()
-    target_as2 = ndb.TextProperty()  # JSON
+    # these are all JSON. They're TextProperty, and not JsonProperty, so that
+    # their plain text is visible in the App Engine admin console. (JsonProperty
+    # uses a blob.)
+    as1 = ndb.TextProperty(required=True)  # converted from source data
+    as2 = ndb.TextProperty()  # only one of the rest will be populated...
+    bsky = ndb.TextProperty()  # Bluesky / AT Protocol
+    mf2 = ndb.TextProperty()  # HTML microformats2
+
+    type = ndb.StringProperty()  # AS1 objectType, or verb if it's an activity
+    deleted = ndb.BooleanProperty(default=False)
+    object_ids = ndb.StringProperty(repeated=True)  # id(s) of inner objects
+
+    # ActivityPub inbox delivery
+    ap_delivered = ndb.StringProperty(repeated=True)
+    ap_undelivered = ndb.StringProperty(repeated=True)
+    ap_failed = ndb.StringProperty(repeated=True)
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
-    @classmethod
-    def _get_kind(cls):
-        return 'Response'
-
-    def __init__(self, source=None, target=None, **kwargs):
-        if source and target:
-            assert 'id' not in kwargs
-            kwargs['id'] = self._id(source, target)
-            logger.info(f"Activity id (source target): {kwargs['id']}")
-        super(Activity, self).__init__(**kwargs)
-
-    @classmethod
-    def get_or_create(cls, source=None, target=None, **kwargs):
-        logger.info(f'Activity source target: {source} {target}')
-        return cls.get_or_insert(cls._id(source, target), **kwargs)
-
-    def source(self):
-        return self.key.id().split()[0]
-
-    def target(self):
-        return self.key.id().split()[1]
-
     def proxy_url(self):
         """Returns the Bridgy Fed proxy URL to render this post as HTML."""
-        if self.source_mf2 or self.source_as2 or self.source_atom:
-            source, target = self.key.id().split(' ')
-            return common.host_url('render?' + urllib.parse.urlencode({
-                'source': source,
-                'target': target,
-            }))
-
-    def to_as1(self):
-        """Returns this activity as an ActivityStreams 1 dict, if available."""
-        if self.source_mf2:
-            mf2 = json_loads(self.source_mf2)
-            items = mf2.get('items')
-            if items:
-                mf2 = items[0]
-            return microformats2.json_to_object(mf2)
-        if self.source_as2:
-            return as2.to_as1(json_loads(self.source_as2))
-        if self.source_atom:
-            return atom.atom_to_activity(self.source_atom)
+        return common.host_url('render?' +
+                               urllib.parse.urlencode({'id': self.key.id()}))
 
     def actor_link(self, as1=None):
         """Returns a pretty actor link with their name and profile picture."""
-        if self.direction == 'out' and self.domain:
-            return User.get_by_id(self.domain[0]).user_page_link()
+        if self.direction == 'out' and self.domains:
+            return User.get_by_id(self.domains[0]).user_page_link()
 
         if not as1:
            as1 = self.to_as1()
@@ -318,20 +290,6 @@ class Activity(StringIdModel):
           <img class="profile" src="{image}" />
           {util.ellipsize(name, chars=40)}
         </a>"""
-
-    @classmethod
-    def _id(cls, source, target):
-        assert source
-        assert target
-        return f'{cls._encode(source)} {cls._encode(target)}'
-
-    @classmethod
-    def _encode(cls, val):
-        return val.replace('#', '__')
-
-    @classmethod
-    def _decode(cls, val):
-        return val.replace('__', '#')
 
 
 class Follower(StringIdModel):

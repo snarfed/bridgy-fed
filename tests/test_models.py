@@ -7,7 +7,7 @@ from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app
-from models import Activity, Follower, User
+from models import Follower, Object, User
 from . import testutil
 
 from .test_activitypub import ACTOR
@@ -167,30 +167,12 @@ http://this/404s
         self.assertEqual(root_user.key, User.get_or_create('www.y.z').key)
 
 
-class ActivityTest(testutil.TestCase):
-
-    def test_constructor(self):
-        activity = Activity('abc', 'xyz')
-        self.assertEqual('abc xyz', activity.key.id())
-
-        activity = Activity('abc#1', 'xyz#Z')
-        self.assertEqual('abc__1 xyz__Z', activity.key.id())
-
-    def test_get_or_create(self):
-        activity = Activity.get_or_create('abc', 'xyz')
-        self.assertEqual('abc xyz', activity.key.id())
-
-        activity = Activity.get_or_create('abc#1', 'xyz#Z')
-        self.assertEqual('abc__1 xyz__Z', activity.key.id())
+class ObjectTest(testutil.TestCase):
 
     def test_proxy_url(self):
         with app.test_request_context('/'):
-            activity = Activity.get_or_create('abc', 'xyz')
-            self.assertIsNone(activity.proxy_url())
-
-            activity.source_as2 = 'as2'
-            self.assertEqual('http://localhost/render?source=abc&target=xyz',
-                             activity.proxy_url())
+            obj = Object.get_or_insert('abc')
+            self.assertEqual('http://localhost/render?id=abc', obj.proxy_url())
 
 
 class FollowerTest(testutil.TestCase):

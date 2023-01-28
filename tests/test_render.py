@@ -1,93 +1,81 @@
 # coding=utf-8
 """Unit tests for render.py."""
+import copy
+
+from granary.tests.test_as1 import COMMENT, DELETE_OF_ID, UPDATE
 from oauth_dropins.webutil.util import json_dumps
 
 import common
-from models import Activity
+from models import Object
 import render
 from . import testutil
 
-
-class RenderTest(testutil.TestCase):
-
-    def setUp(self):
-        super().setUp()
-        self.as2 = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'type': 'Note',
-            'id': 'http://this/reply',
-            'url': 'http://this/reply',
-            'content': 'A ☕ reply',
-            'inReplyTo': 'http://orig/post',
-        }
-        self.mf2 = {
-            'type': ['h-entry'],
-            'properties': {
-                'uid': ['http://this/reply'],
-                'url': ['http://this/reply'],
-                'content': [{'value': 'A ☕ reply'}],
-                'in-reply-to': ['http://orig/post'],
-            },
-        }
-        self.atom = """\
-<?xml version="1.0" encoding="UTF-8"?>
-<entry xmlns="http://www.w3.org/2005/Atom"
-       xmlns:thr="http://purl.org/syndication/thread/1.0">
-
-<uri>http://this/reply</uri>
-<thr:in-reply-to href="http://orig/post" />
-<content>A ☕ reply</content>
-</entry>
-"""
-        self.html = """\
+EXPECTED_HTML = """\
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8">
-<meta http-equiv="refresh" content="0;url=http://this/reply"></head>
+<meta http-equiv="refresh" content="0;url=https://fake.com/123456"></head>
 <body class="">
 <article class="h-entry">
-  <span class="p-uid">http://this/reply</span>
-  <a class="u-url" href="http://this/reply">http://this/reply</a>
+  <span class="p-uid">tag:fake.com:123456</span>
+  <time class="dt-published" datetime="2012-12-05T00:58:26+00:00">2012-12-05T00:58:26+00:00</time>
+  <a class="u-url" href="https://fake.com/123456">https://fake.com/123456</a>
   <div class="e-content p-name">
   A ☕ reply
   </div>
-  <a class="u-in-reply-to" href="http://orig/post"></a>
+  <a class="u-in-reply-to" href="https://fake.com/123"></a>
 </article>
 </body>
 </html>
 """
 
+class RenderTest(testutil.TestCase):
+
+    def setUp(self):
+        super().setUp()
+
     def test_render_errors(self):
-        for source, target in ('', ''), ('abc', ''), ('', 'xyz'):
-            resp = self.client.get(f'/render?source={source}&target={target}')
-            self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+        resp = self.client.get(f'/render?id=')
+        self.assertEqual(400, resp.status_code)
 
-        # no Activity
-        resp = self.client.get('/render?source=abc&target=xyz')
+        resp = self.client.get(f'/render')
+        self.assertEqual(400, resp.status_code)
+
+        # no Object
+        resp = self.client.get('/render?id=abc')
         self.assertEqual(404, resp.status_code)
 
-        # no source data
-        Activity(id='abc xyz').put()
-        resp = self.client.get('/render?source=abc&target=xyz')
-        self.assertEqual(404, resp.status_code)
-
-    def test_render_as2(self):
-        Activity(id='abc xyz', source_as2=json_dumps(self.as2)).put()
-        resp = self.client.get('/render?source=abc&target=xyz')
+    def test_render(self):
+        Object(id='abc', as1=json_dumps(COMMENT)).put()
+        resp = self.client.get('/render?id=abc')
         self.assertEqual(200, resp.status_code)
-        self.assert_multiline_equals(self.html, resp.get_data(as_text=True),
+        self.assert_multiline_equals(EXPECTED_HTML, resp.get_data(as_text=True), ignore_blanks=True)
+
+    def test_render_no_url(self):
+        comment = copy.deepcopy(COMMENT)
+        del comment['url']
+        Object(id='abc', as1=json_dumps(comment)).put()
+
+        resp = self.client.get('/render?id=abc')
+        self.assertEqual(200, resp.status_code)
+        expected = EXPECTED_HTML.replace(
+            '\n<meta http-equiv="refresh" content="0;url=https://fake.com/123456">', ''
+            ).replace('<a class="u-url" href="https://fake.com/123456">https://fake.com/123456</a>', '')
+        self.assert_multiline_equals(expected, resp.get_data(as_text=True),
                                      ignore_blanks=True)
 
-    def test_render_mf2(self):
-        Activity(id='abc xyz', source_mf2=json_dumps(self.mf2)).put()
-        resp = self.client.get('/render?source=abc&target=xyz')
-        self.assertEqual(200, resp.status_code)
-        self.assert_multiline_equals(self.html, resp.get_data(as_text=True),
-                                     ignore_blanks=True)
+    def test_render_update_redirect(self):
+        # UPDATE's object field is a full object
+        Object(id='abc', as1=json_dumps(UPDATE)).put()
+        resp = self.client.get('/render?id=abc')
+        self.assertEqual(301, resp.status_code)
+        self.assertEqual(f'/render?id=tag%3Afake.com%3A123456',
+                         resp.headers['Location'])
 
-    def test_render_atom(self):
-        Activity(id='abc xyz', source_atom=self.atom).put()
-        resp = self.client.get('/render?source=abc&target=xyz')
-        self.assertEqual(200, resp.status_code)
-        self.assert_multiline_equals(self.html, resp.get_data(as_text=True),
-                                     ignore_blanks=True)
+    def test_render_delete_redirect(self):
+        # DELETE_OF_ID's object field is a bare string id
+        Object(id='abc', as1=json_dumps(DELETE_OF_ID)).put()
+        resp = self.client.get('/render?id=abc')
+        self.assertEqual(301, resp.status_code)
+        self.assertEqual(f'/render?id=tag%3Afake.com%3A123456',
+                         resp.headers['Location'])
