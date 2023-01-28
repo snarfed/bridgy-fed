@@ -233,7 +233,7 @@ class Object(StringIdModel):
     Key name is the id. We synthesize ids if necessary.
     """
     STATUSES = ('new', 'in progress', 'complete', 'ignored')
-    PROTOCOLS = ('activitypub', 'bluesky', 'webmention')
+    PROTOCOLS = ('activitypub', 'bluesky', 'webmention', 'ui')
     LABELS = ('feed', 'notification')
 
     # domains of the Bridgy Fed users this activity is to or from

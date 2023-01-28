@@ -18,7 +18,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app
 import common
-from models import Activity, Follower, User
+from models import Follower, Object, User
 
 logger = logging.getLogger(__name__)
 
@@ -167,9 +167,10 @@ class FollowCallback(indieauth.Callback):
         follow_json = json_dumps(follow_as2, sort_keys=True)
         Follower.get_or_create(dest=id, src=domain, status='active',
                                 last_follow=follow_json)
-        Activity.get_or_create(source=follow_id, target=id, domain=[domain],
-                               direction='out', protocol='activitypub', status='complete',
-                               source_as2=follow_json)
+        Object(id=follow_id, domains=[domain], labels=['notification'],
+               source_protocol='ui', status='complete', as2=follow_json,
+               as1=json_dumps(as2.to_as1(follow_as2), sort_keys=True),
+               ).put()
 
         link = util.pretty_link(util.get_url(followee) or id, text=addr)
         flash(f'Followed {link}.')
@@ -223,9 +224,11 @@ class UnfollowCallback(indieauth.Callback):
 
         follower.status = 'inactive'
         follower.put()
-        Activity.get_or_create(source=unfollow_id, target=followee_id, domain=[domain],
-                               direction='out', protocol='activitypub', status='complete',
-                               source_as2=json_dumps(unfollow_as2))
+        Object(id=unfollow_id, domains=[domain], labels=['notification'],
+               source_protocol='ui', status='complete',
+               as2=json_dumps(unfollow_as2, sort_keys=True),
+               as1=json_dumps(as2.to_as1(unfollow_as2), sort_keys=True),
+               ).put()
 
         link = util.pretty_link(util.get_url(followee) or followee_id)
         flash(f'Unfollowed {link}.')

@@ -11,7 +11,7 @@ from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
-from models import Activity, Follower, User
+from models import Follower, Object, User
 from . import testutil
 
 WEBFINGER = requests_response({
@@ -180,20 +180,22 @@ class FollowTest(testutil.TestCase):
         self.assertEqual(('http://bar/inbox',), inbox_args)
         self.assert_equals(expected_follow, json_loads(inbox_kwargs['data']))
 
-        follow_json = json_dumps(expected_follow, sort_keys=True)
+        follow_as2 = json_dumps(expected_follow, sort_keys=True)
+        follow_as1 = json_dumps(as2.to_as1(expected_follow), sort_keys=True)
         followers = Follower.query().fetch()
         self.assert_entities_equal(
-            Follower(id='https://bar/id snarfed.org', last_follow=follow_json,
+            Follower(id='https://bar/id snarfed.org', last_follow=follow_as2,
                      src='snarfed.org', dest='https://bar/id', status='active'),
             followers,
             ignore=['created', 'updated'])
 
-        id = f'http://localhost/user/snarfed.org/following__2022-01-02T03:04:05-{input} https://bar/id'
-        activities = Activity.query().fetch()
+        id = f'http://localhost/user/snarfed.org/following#2022-01-02T03:04:05-{input}'
+        objects = Object.query().fetch()
         self.assert_entities_equal(
-            [Activity(id=id, domain=['snarfed.org'], status='complete',
-                      protocol='activitypub', direction='out', source_as2=follow_json)],
-            activities,
+            [Object(id=id, domains=['snarfed.org'], status='complete',
+                    labels=['notification'], source_protocol='ui',
+                    as1=follow_as1, as2=follow_as2)],
+            objects,
             ignore=['created', 'updated'])
 
     def test_callback_missing_user(self, mock_get, mock_post):
@@ -282,12 +284,15 @@ class UnfollowTest(testutil.TestCase):
         follower = Follower.get_by_id('https://bar/id snarfed.org')
         self.assertEqual('inactive', follower.status)
 
-        activities = Activity.query().fetch()
+        objects = Object.query().fetch()
         self.assert_entities_equal(
-            [Activity(id='http://localhost/user/snarfed.org/following__undo-2022-01-02T03:04:05-https://bar/id https://bar/id', domain=['snarfed.org'],
-                      status='complete', protocol='activitypub', direction='out',
-                      source_as2=json_dumps(UNDO_FOLLOW))],
-            activities,
+            [Object(id='http://localhost/user/snarfed.org/following#undo-2022-01-02T03:04:05-https://bar/id',
+                    domains=['snarfed.org'], status='complete',
+                    source_protocol='ui', labels=['notification'],
+                    as2=json_dumps(UNDO_FOLLOW, sort_keys=True),
+                    as1=json_dumps(as2.to_as1(UNDO_FOLLOW), sort_keys=True),
+                    )],
+            objects,
             ignore=['created', 'updated'])
 
     def test_callback_missing_user(self, mock_get, mock_post):
