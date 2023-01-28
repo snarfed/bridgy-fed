@@ -15,7 +15,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from app import app, cache
 import common
 from common import CACHE_TIME, redirect_unwrap, redirect_wrap
-from models import Activity, Follower, User
+from models import Follower, Object, User
 
 logger = logging.getLogger(__name__)
 
@@ -119,10 +119,11 @@ def inbox(domain=None):
         return accept_follow(activity, activity_unwrapped, user)
 
     # send webmentions to each target
-    as1 = as2.to_as1(activity)
-    source_as2 = json_dumps(activity_unwrapped)
-    sent = common.send_webmentions(as1, proxy=True, protocol='activitypub',
-                                   source_as2=source_as2)
+    activity_as2 = json_dumps(activity_unwrapped)
+    activity_as1 = json_dumps(as2.to_as1(activity_unwrapped))
+    sent = common.send_webmentions(as2.to_as1(activity), proxy=True,
+                                   source_protocol='activitypub',
+                                   as2=activity_as2, as1=activity_as1)
 
     if not sent and type in ('Create', 'Announce'):
         # check that this activity is public. only do this check for Creates,
@@ -142,10 +143,10 @@ def inbox(domain=None):
                 domains = [f.src for f in
                            Follower.query(Follower.dest == actor_id,
                                           projection=[Follower.src]).fetch()]
-        key = Activity(source=source, target='Public', direction='in',
-                       protocol='activitypub', domain=domains, status='complete',
-                       source_as2=source_as2).put()
-        logging.info(f'Wrote Activity {key} with {len(domains)} follower domains')
+
+        key = Object(id=source, source_protocol='activitypub', domains=domains,
+                     status='complete', as2=activity_as2, as1=activity_as1).put()
+        logging.info(f'Wrote Object {key} with {len(domains)} follower domains')
 
     return ''
 
@@ -207,8 +208,9 @@ def accept_follow(follow, follow_unwrapped, user):
     resp = common.signed_post(inbox, data=accept, user=user)
 
     # send webmention
-    common.send_webmentions(as2.to_as1(follow), proxy=True, protocol='activitypub',
-                            source_as2=json_dumps(follow_unwrapped))
+    common.send_webmentions(as2.to_as1(follow), proxy=True, source_protocol='activitypub',
+                            as2=json_dumps(follow_unwrapped),
+                            as1=json_dumps(as2.to_as1(follow_unwrapped)))
 
     return resp.text, resp.status_code
 

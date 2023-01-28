@@ -22,7 +22,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadGateway
 
-from models import Activity, Follower, User
+from models import Follower, Object, User
 
 logger = logging.getLogger(__name__)
 
@@ -243,11 +243,11 @@ def remove_blocklisted(urls):
               util.domain_from_link(u), DOMAIN_BLOCKLIST)]
 
 
-def send_webmentions(activity_wrapped, proxy=None, **activity_props):
+def send_webmentions(activity_wrapped, proxy=None, **object_props):
     """Sends webmentions for an incoming ActivityPub inbox delivery.
     Args:
       activity_wrapped: dict, AS1 activity
-      activity_props: passed through to the newly created Activity entities
+      object_props: passed through to the newly created Object entities
 
     Returns: boolean, True if any webmentions were sent, False otherwise
     """
@@ -292,7 +292,7 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
 
     logger.info(f'targets: {targets}')
 
-    # send webmentions and store Activitys
+    # send webmentions and store Objects
     errors = []  # stores (code, body) tuples
     for target in targets:
         domain = util.domain_from_link(target, minimize=False)
@@ -300,10 +300,9 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
             logger.info(f'Skipping same-domain webmention from {source} to {target}')
             continue
 
-        activity = Activity(source=source, target=target, direction='in',
-                            domain=[domain], **activity_props)
-        activity.put()
-        wm_source = (activity.proxy_url()
+        obj = Object(id=source, domains=[domain], **object_props)
+        obj.put()
+        wm_source = (obj.proxy_url()
                      if verb in ('follow', 'like', 'share') or proxy
                      else source)
         logger.info(f'Sending webmention from {wm_source} to {target}')
@@ -312,14 +311,14 @@ def send_webmentions(activity_wrapped, proxy=None, **activity_props):
             endpoint = webmention.discover(target).endpoint
             if endpoint:
                 webmention.send(endpoint, wm_source, target)
-                activity.status = 'complete'
+                obj.status = 'complete'
                 logger.info('Success!')
             else:
-                activity.status = 'ignored'
+                obj.status = 'ignored'
                 logger.info('Ignoring.')
         except BaseException as e:
             errors.append(util.interpret_http_exception(e))
-        activity.put()
+        obj.put()
 
     if errors:
         msg = 'Errors: ' + ', '.join(f'{code} {body}' for code, body in errors)
