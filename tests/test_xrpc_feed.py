@@ -5,8 +5,6 @@ from unittest.mock import patch
 
 from granary import bluesky
 from granary.tests.test_bluesky import (
-    ACTOR_AS,
-    ACTOR_REF_BSKY,
     POST_BSKY,
     POST_HTML,
     REPLY_BSKY,
@@ -171,7 +169,7 @@ class XrpcFeedTest(testutil.TestCase):
         }, got.json)
 
     def test_getTimeline(self, mock_get):
-        PagesTest.add_activities()
+        PagesTest.add_objects()
 
         got = self.client.get('/xrpc/app.bsky.feed.getTimeline')
         self.assertEqual({
