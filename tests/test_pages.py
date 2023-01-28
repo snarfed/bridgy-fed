@@ -2,26 +2,28 @@
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from granary import as2, atom, microformats2, rss
-
-import common
-from models import Activity, Follower, User
-from . import testutil
-from .test_activitypub import (
+from granary.tests.test_bluesky import REPLY_BSKY
+from granary.tests.test_as1 import (
+    ACTOR,
+    COMMENT,
     FOLLOW_WITH_ACTOR,
     FOLLOW_WITH_OBJECT,
     LIKE,
     MENTION,
     NOTE,
-    REPLY,
 )
+
+import common
+from models import Object, Follower, User
+from . import testutil
 from .test_webmention import ACTOR_MF2
 
 def contents(activities):
-    return [a['object']['content'] for a in activities]
+    return [(a.get('object') or a)['content'] for a in activities]
 
 
 class PagesTest(testutil.TestCase):
-    EXPECTED_AS1 = [as2.to_as1(REPLY), as2.to_as1(NOTE)]
+    EXPECTED_AS1 = [COMMENT, NOTE]
     EXPECTED = contents(EXPECTED_AS1)
 
     def setUp(self):
@@ -29,32 +31,25 @@ class PagesTest(testutil.TestCase):
         self.user = User.get_or_create('foo.com')
 
     @staticmethod
-    def add_activities():
-        Activity(id='a', domain=['foo.com'], direction='in',
-                 source_as2=json_dumps(NOTE)).put()
-        # profile update
-        Activity(id='g', domain=['foo.com'], direction='out',
-                 source_mf2=json_dumps(ACTOR_MF2)).put()
+    def add_objects():
+        # post
+        Object(id='a', domains=['foo.com'], labels=['feed'],
+                 as1=json_dumps(NOTE)).put()
         # different domain
-        Activity(id='b', domain=['bar.org'], direction='in',
-                 source_as2=json_dumps(MENTION)).put()
-        # empty, should be skipped
-        Activity(id='c', domain=['foo.com'], direction='in').put()
-        Activity(id='d', domain=['foo.com'], direction='in',
-                 source_as2=json_dumps(REPLY)).put()
-        # wrong direction
-        Activity(id='e', domain=['foo.com'], direction='out',
-                 source_as2=json_dumps(NOTE)).put()
-        # skip Likes
-        Activity(id='f', domain=['foo.com'], direction='in',
-                 source_as2=json_dumps(LIKE)).put()
+        Object(id='b', domains=['bar.org'], labels=['feed'],
+               as1=json_dumps(MENTION)).put()
+        # reply
+        Object(id='d', domains=['foo.com'], labels=['feed'],
+               as1=json_dumps(COMMENT)).put()
+        # not feed
+        Object(id='e', domains=['foo.com'], as1=json_dumps(NOTE)).put()
 
     def test_user(self):
         got = self.client.get('/user/foo.com')
         self.assert_equals(200, got.status_code)
 
-    def test_user_activities(self):
-        self.add_activities()
+    def test_user_objects(self):
+        self.add_objects()
         got = self.client.get('/user/foo.com')
         self.assert_equals(200, got.status_code)
 
@@ -125,7 +120,7 @@ class PagesTest(testutil.TestCase):
         self.assert_equals([], microformats2.html_to_activities(got.text))
 
     def test_feed_html(self):
-        self.add_activities()
+        self.add_objects()
         got = self.client.get('/user/foo.com/feed')
         self.assert_equals(200, got.status_code)
         self.assert_equals(self.EXPECTED,
@@ -137,7 +132,7 @@ class PagesTest(testutil.TestCase):
         self.assert_equals([], atom.atom_to_activities(got.text))
 
     def test_feed_atom(self):
-        self.add_activities()
+        self.add_objects()
         got = self.client.get('/user/foo.com/feed?format=atom')
         self.assert_equals(200, got.status_code)
         self.assert_equals(self.EXPECTED, contents(atom.atom_to_activities(got.text)))
@@ -148,7 +143,7 @@ class PagesTest(testutil.TestCase):
         self.assert_equals([], rss.to_activities(got.text))
 
     def test_feed_rss(self):
-        self.add_activities()
+        self.add_objects()
         got = self.client.get('/user/foo.com/feed?format=rss')
         self.assert_equals(200, got.status_code)
         self.assert_equals(self.EXPECTED, contents(rss.to_activities(got.text)))

@@ -7,7 +7,7 @@ import urllib.parse
 
 from flask import redirect, render_template, request
 from google.cloud.ndb.stats import KindStat
-from granary import as2, atom, microformats2, rss
+from granary import as1, as2, atom, microformats2, rss
 import humanize
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import error, flash, redirect
@@ -16,9 +16,8 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from app import app, cache
 import common
 from common import DOMAIN_RE, PAGE_SIZE
-from models import Follower, User, Activity
+from models import Follower, Object, User
 
-ACTIVITIES_FETCH_LIMIT = 200
 FOLLOWERS_UI_LIMIT = 999
 
 logger = logging.getLogger(__name__)
@@ -79,11 +78,11 @@ def user(domain):
 
     assert not user.use_instead
 
-    query = Activity.query(
-        Activity.status.IN(('new', 'complete', 'error')),
-        Activity.domain == domain,
+    query = Object.query(
+        Object.status.IN(('new', 'in progress', 'complete')),
+        Object.domains == domain,
     )
-    activities, before, after = fetch_activities(query)
+    objects, before, after = fetch_objects(query)
 
     followers = Follower.query(Follower.dest == domain, Follower.status == 'active')\
                         .count(limit=FOLLOWERS_UI_LIMIT)
@@ -134,12 +133,11 @@ def feed(domain):
     if not (user := User.get_by_id(domain)):
       return render_template('user_not_found.html', domain=domain), 404
 
-    activities, _, _ = Activity.query(
-        Activity.domain == domain, Activity.direction == 'in'
-        ).order(-Activity.created
-        ).fetch_page(PAGE_SIZE)
-    as1_activities = [a for a in [a.to_as1() for a in activities]
-                      if a and a.get('verb') not in ('like', 'update', 'follow')]
+    objects, _, _ = Object.query(
+        Object.domains == domain, Object.labels == 'feed') \
+        .order(-Object.created) \
+        .fetch_page(PAGE_SIZE)
+    activities = [json_loads(obj.as1) for obj in objects]
 
     actor = {
       'displayName': domain,
@@ -148,23 +146,23 @@ def feed(domain):
     title = f'Bridgy Fed feed for {domain}'
 
     if format == 'html':
-        entries = [microformats2.object_to_html(a) for a in as1_activities]
+        entries = [microformats2.object_to_html(a) for a in activities]
         return render_template('feed.html', util=util, **locals())
     elif format == 'atom':
-        body = atom.activities_to_atom(as1_activities, actor=actor, title=title,
+        body = atom.activities_to_atom(activities, actor=actor, title=title,
                                        request_url=request.url)
         return body, {'Content-Type': atom.CONTENT_TYPE}
     elif format == 'rss':
-        body = rss.from_activities(as1_activities, actor=actor, title=title,
+        body = rss.from_activities(activities, actor=actor, title=title,
                                    feed_url=request.url)
         return body, {'Content-Type': rss.CONTENT_TYPE}
 
 
 @app.get('/recent')
 def recent():
-    """Renders recent activities, with links to logs."""
-    query = Activity.query(Activity.status.IN(('new', 'complete', 'error')))
-    activities, before, after = fetch_activities(query)
+    """Renders recent objects, with links to logs."""
+    query = Object.query(Object.status.IN(('new', 'in progress', 'complete')))
+    objects, before, after = fetch_objects(query)
     return render_template(
         'recent.html',
         show_domains=True,
@@ -174,42 +172,31 @@ def recent():
     )
 
 
-def fetch_activities(query):
-    """Fetches a page of Activity entities from a datastore query.
+def fetch_objects(query):
+    """Fetches a page of Object entities from a datastore query.
 
-    Wraps :func:`common.fetch_page` and adds attributes to the returned Activity
-    entities for rendering in activities.html.
+    Wraps :func:`common.fetch_page` and adds attributes to the returned Object
+    entities for rendering in objects.html.
 
     Args:
       query: :class:`ndb.Query`
 
     Returns:
       (results, new_before, new_after) tuple with:
-      results: list of Activity entities
+      results: list of Object entities
       new_before, new_after: str query param values for `before` and `after`
         to fetch the previous and next pages, respectively
     """
-    orig_activities, new_before, new_after = common.fetch_page(query, Activity)
-    activities = []
+    orig_objects, new_before, new_after = common.fetch_page(query, Object)
+    objects = []
     seen = set()
 
-    # synthesize human-friendly content for activities
-    for i, activity in enumerate(orig_activities):
-        a = activity.to_as1()
-        if not a:
-            continue
-
-        # de-dupe
-        ids = set((a[field] for field in ('id', 'url') if a.get(field)))
-        if ids & seen:
-            continue
-        seen.update(ids)
-        activities.append(activity)
+    # synthesize human-friendly content for objects
+    for i, obj in enumerate(orig_objects):
+        obj_as1 = json_loads(obj.as1)
 
         # synthesize text snippet
-        verb = a.get('verb') or a.get('objectType')
-        obj = util.get_first(a, 'object') or {}
-
+        type = as1.object_type(obj_as1)
         phrases = {
             'article': 'posted',
             'comment': 'replied',
@@ -226,29 +213,36 @@ def fetch_activities(query):
             'share': 'reposted',
             'stop-following': 'unfollowed',
         }
-        activity.phrase = phrases.get(verb)
+        obj.phrase = phrases.get(type)
 
-        obj_content = obj.get('content') or obj.get('displayName')
-        obj_url = util.get_first(obj, 'url') or obj.get('id')
-        if obj_url:
-            obj_content = util.pretty_link(obj_url, text=obj_content)
-        elif (activity.domain and
-              a.get('id', '').strip('/') == f'https://{activity.domain[0]}'):
-            activity.phrase = 'updated'
-            a['content'] = 'their profile'
+        # TODO: unify inner object loading? optionally fetch external?
+        inner_obj = util.get_first(obj_as1, 'object') or {}
+        if isinstance(inner_obj, str):
+            inner_obj = Object.get_by_id(inner_obj)
+            if inner_obj:
+                inner_obj = json_loads(inner_obj.as1)
 
-        activity.content = a.get('content') or a.get('displayName')
-        activity.url = util.get_first(a, 'url')
+        content = inner_obj.get('content') or inner_obj.get('displayName')
+        url = util.get_first(inner_obj, 'url') or inner_obj.get('id')
+        if url:
+            content = util.pretty_link(url, text=content)
+        elif (obj.domains and
+              obj_as1.get('id', '').strip('/') == f'https://{obj.domains[0]}'):
+            obj.phrase = 'updated'
+            obj_as1['content'] = 'their profile'
 
-        if (verb in ('like', 'follow', 'repost', 'share') or
-            not activity.content):
-            if activity.url:
-                activity.phrase = util.pretty_link(activity.url, text=activity.phrase)
-            if obj_content:
-                activity.content = obj_content
-                activity.url = obj_url
+        obj.content = obj_as1.get('content') or obj_as1.get('displayName')
+        obj.url = util.get_first(obj_as1, 'url')
 
-    return activities, new_before, new_after
+        if (type in ('like', 'follow', 'repost', 'share') or
+            not obj.content):
+            if obj.url:
+                obj.phrase = util.pretty_link(obj.url, text=obj.phrase)
+            if content:
+                obj.content = content
+                obj.url = url
+
+    return objects, new_before, new_after
 
 
 @app.get('/stats')
@@ -260,7 +254,7 @@ def stats():
     return render_template(
         'stats.html',
         users=count('MagicKey'),
-        activities=count('Response'),
+        objects=count('Object'),
         followers=count('Follower'),
     )
 

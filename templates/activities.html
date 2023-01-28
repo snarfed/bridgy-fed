@@ -1,26 +1,26 @@
 <div class="row">
 <ul class="user-items">
 
-{% for a in activities %}
+{% for obj in objects %}
 <li class="row">
   <div class="col-sm-{{ 7 if show_domains else 10 }}">
-    {{ a.actor_link()|safe }}
-    {{ a.phrase|safe }}
-    <a target="_blank" href="{{ a.url }}">
-      {{ a.content|default('--', true)|striptags|truncate(50) }}
+    {{ obj.actor_link()|safe }}
+    {{ obj.phrase|safe }}
+    <a target="_blank" href="{{ obj.url }}">
+      {{ obj.content|default('--', true)|striptags|truncate(50) }}
     </a>
   </div>
 
   {% if show_domains %}
   <div class="col-sm-3">
-    {% for domain in a.domain %}
+    {% for domain in obj.domains %}
       {% if loop.index0 == 3 %}
         <span id="more-domains" style="display: none">
       {% endif %}
       <a href="/user/{{ domain }}">🌐 {{ domain }}</a>
       <br>
     {% endfor %}
-    {% if a.domain|length > 3 %}
+    {% if obj.domains|length > 3 %}
       </span>
       <a onclick="toggle('more-domains'); toggle('show-more-domains'); return false"
          id="show-more-domains" href="#" />...</a>
@@ -29,12 +29,12 @@
   {% endif %}
 
   <div class="col-sm-2">
-    {% if a.status == 'error' %}
+    {% if obj.status == 'error' %}
      <span title="Error" class="glyphicon glyphicon-exclamation-sign"></span>
-    {% else %}{% if a.status == 'new' %}
+    {% else %}{% if obj.status == 'new' %}
      <span title="Processing" class="glyphicon glyphicon-transfer"></span>
     {% endif %}{% endif %}
-    {{ logs.maybe_link(a.updated, a.key.id())|safe }}
+    {{ logs.maybe_link(obj.updated, obj.key.id())|safe }}
   </div>
 </li>
 {% else %}
