@@ -290,15 +290,16 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(400, got.status_code)
 
     def test_inbox_reply_object(self, *mocks):
-        self._test_inbox_reply(REPLY_OBJECT, REPLY_OBJECT, *mocks)
+        self._test_inbox_reply(REPLY_OBJECT, REPLY_OBJECT, 'comment', *mocks)
 
     def test_inbox_reply_object_wrapped(self, *mocks):
-        self._test_inbox_reply(REPLY_OBJECT_WRAPPED, REPLY_OBJECT, *mocks)
+        self._test_inbox_reply(REPLY_OBJECT_WRAPPED, REPLY_OBJECT, 'comment', *mocks)
 
     def test_inbox_reply_create_activity(self, *mocks):
-        self._test_inbox_reply(REPLY, REPLY, *mocks)
+        self._test_inbox_reply(REPLY, REPLY, 'post', *mocks)
 
-    def _test_inbox_reply(self, reply, expected_as2, mock_head, mock_get, mock_post):
+    def _test_inbox_reply(self, reply, expected_as2, expected_type,
+                          mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='http://or.ig/post')
         mock_get.return_value = requests_response(
             '<html><head><link rel="webmention" href="/webmention"></html>')
@@ -318,12 +319,13 @@ class ActivityPubTest(testutil.TestCase):
             },
         )
 
-        obj = Object.get_by_id('http://th.is/reply')
-        self.assertEqual(['or.ig'], obj.domains)
-        self.assertEqual('activitypub', obj.source_protocol)
-        self.assertEqual('complete', obj.status)
-        self.assertEqual(expected_as2, json_loads(obj.as2))
-        self.assertEqual(as2.to_as1(expected_as2), json_loads(obj.as1))
+        self.assert_object('http://th.is/reply',
+                           domains=['or.ig'],
+                           source_protocol='activitypub',
+                           status='complete',
+                           as2=expected_as2,
+                           as1=as2.to_as1(expected_as2),
+                           type=expected_type)
 
     def test_inbox_reply_to_self_domain(self, mock_head, mock_get, mock_post):
         self._test_inbox_ignore_reply_to('http://localhost/th.is',
@@ -358,17 +360,18 @@ class ActivityPubTest(testutil.TestCase):
         with self.client:
             got = self.client.post('/foo.com/inbox', json=NOTE)
             self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-
-            obj = Object.get_by_id('http://th.is/note/as2')
-            self.assertEqual('activitypub', obj.source_protocol)
-            self.assertEqual('complete', obj.status)
             expected_as2 = common.redirect_unwrap({
                 **NOTE,
                 'actor': ACTOR,
             })
-            self.assertEqual(expected_as2, json_loads(obj.as2))
-            self.assertEqual(as2.to_as1(expected_as2), json_loads(obj.as1))
-            self.assert_equals(['foo.com', 'baz.com'], obj.domains)
+
+        self.assert_object('http://th.is/note/as2',
+                           source_protocol='activitypub',
+                           status='complete',
+                           as2=expected_as2,
+                           as1=as2.to_as1(expected_as2),
+                           domains=['foo.com', 'baz.com'],
+                           type='post')
 
     def test_inbox_not_public(self, mock_head, mock_get, mock_post):
         Follower.get_or_create(ACTOR['id'], 'foo.com')
@@ -385,12 +388,12 @@ class ActivityPubTest(testutil.TestCase):
             self.assertEqual(0, Object.query().count())
 
     def test_inbox_mention_object(self, *mocks):
-        self._test_inbox_mention(MENTION_OBJECT, *mocks)
+        self._test_inbox_mention(MENTION_OBJECT, 'note', *mocks)
 
     def test_inbox_mention_create_activity(self, *mocks):
-        self._test_inbox_mention(MENTION, *mocks)
+        self._test_inbox_mention(MENTION, 'post', *mocks)
 
-    def _test_inbox_mention(self, mention, mock_head, mock_get, mock_post):
+    def _test_inbox_mention(self, mention, expected_type, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='http://tar.get')
         mock_get.return_value = requests_response(
             '<html><head><link rel="webmention" href="/webmention"></html>')
@@ -411,14 +414,14 @@ class ActivityPubTest(testutil.TestCase):
                 },
             )
 
-            obj = Object.get_by_id('http://th.is/mention')
-            self.assertEqual(['tar.get'], obj.domains)
-            self.assertEqual('activitypub', obj.source_protocol)
-            self.assertEqual('complete', obj.status)
-
             expected_as2 = common.redirect_unwrap(mention)
-            self.assertEqual(expected_as2, json_loads(obj.as2))
-            self.assertEqual(as2.to_as1(expected_as2), json_loads(obj.as1))
+            self.assert_object('http://th.is/mention',
+                               domains=['tar.get'],
+                               source_protocol='activitypub',
+                               status='complete',
+                               as2=expected_as2,
+                               as1=as2.to_as1(expected_as2),
+                               type=expected_type)  # not mention (?)
 
     def test_inbox_like(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='http://or.ig/post')
@@ -447,23 +450,28 @@ class ActivityPubTest(testutil.TestCase):
             'target': 'http://or.ig/post',
         }, kwargs['data'])
 
-        obj = Object.get_by_id('http://th.is/like#ok')
-        self.assertEqual(['or.ig'], obj.domains)
-        self.assertEqual('activitypub', obj.source_protocol)
-        self.assertEqual('complete', obj.status)
-        self.assertEqual(LIKE_WITH_ACTOR, json_loads(obj.as2))
-        self.assertEqual(as2.to_as1(LIKE_WITH_ACTOR), json_loads(obj.as1))
+        self.assert_object('http://th.is/like#ok',
+                           domains=['or.ig'],
+                           source_protocol='activitypub',
+                           status='complete',
+                           as2=LIKE_WITH_ACTOR,
+                           as1=as2.to_as1(LIKE_WITH_ACTOR),
+                           type='like')
 
     def test_inbox_follow_accept_with_id(self, mock_head, mock_get, mock_post):
         self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT,
                                        mock_head, mock_get, mock_post)
 
-        obj = Object.query().get()
         follow = copy.deepcopy(FOLLOW_WITH_ACTOR)
         follow['url'] = 'https://mastodon.social/users/swentel#followed-https://www.realize.be/'
 
-        self.assertEqual(follow, json_loads(obj.as2))
-        self.assertEqual(as2.to_as1(follow), json_loads(obj.as1))
+        self.assert_object('https://mastodon.social/6d1a',
+                           domains=['www.realize.be'],
+                           source_protocol='activitypub',
+                           status='complete',
+                           as2=follow,
+                           as1=as2.to_as1(follow),
+                           type='follow')
 
         follower = Follower.query().get()
         self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, json_loads(follower.last_follow))
@@ -493,14 +501,18 @@ class ActivityPubTest(testutil.TestCase):
         })
         self.assertEqual(follow, json_loads(follower.last_follow))
 
-        obj = Object.query().get()
         follow.update({
             'actor': FOLLOW_WITH_ACTOR['actor'],
             'object': unwrapped_user,
             'url': 'https://mastodon.social/users/swentel#followed-https://www.realize.be/',
         })
-        self.assertEqual(follow, json_loads(obj.as2))
-        self.assertEqual(as2.to_as1(follow), json_loads(obj.as1))
+        self.assert_object('https://mastodon.social/6d1a',
+                           domains=['www.realize.be'],
+                           source_protocol='activitypub',
+                           status='complete',
+                           as2=follow,
+                           as1=as2.to_as1(follow),
+                           type='follow')
 
     def _test_inbox_follow_accept(self, follow_as2, accept_as2,
                                   mock_head, mock_get, mock_post):
@@ -534,11 +546,6 @@ class ActivityPubTest(testutil.TestCase):
             'source': 'http://localhost/render?id=https%3A%2F%2Fmastodon.social%2F6d1a',
             'target': 'https://www.realize.be/',
         }, kwargs['data'])
-
-        obj = Object.get_by_id('https://mastodon.social/6d1a')
-        self.assertEqual(['www.realize.be'], obj.domains)
-        self.assertEqual('activitypub', obj.source_protocol)
-        self.assertEqual('complete', obj.status)
 
         # check that we stored a Follower object
         follower = Follower.get_by_id(f'www.realize.be {FOLLOW["actor"]}')
@@ -709,10 +716,13 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/foo.com/inbox', json=LIKE)
         self.assertEqual(200, got.status_code)
 
-        obj = Object.get_by_id('http://th.is/like#ok')
-        self.assertEqual(['or.ig'], obj.domains)
-        self.assertEqual('activitypub', obj.source_protocol)
-        self.assertEqual('ignored', obj.status)
+        self.assert_object('http://th.is/like#ok',
+                           domains=['or.ig'],
+                           source_protocol='activitypub',
+                           status='ignored',
+                           as2=LIKE_WITH_ACTOR,
+                           as1=as2.to_as1(LIKE_WITH_ACTOR),
+                           type='like')
 
     def test_followers_collection_unknown_user(self, *args):
         resp = self.client.get('/foo.com/followers')

@@ -149,12 +149,15 @@ class Webmention(View):
                          as1=json_dumps(self.source_as1),
                          ap_undelivered=list(inboxes_to_targets.keys()),
                          ap_delivered=[],
-                         ap_failed=[])
+                         ap_failed=[],
+                         type=as1.object_type(self.source_as1))
 
         if (obj.status == 'complete' and
             not as1.activity_changed(json_loads(obj.as1), self.source_as1)):
             logger.info(f'Skipping; new content is same as content published before at {obj.updated}')
             return 'OK'
+
+        obj.put()
 
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
         #

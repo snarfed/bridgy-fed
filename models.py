@@ -247,7 +247,7 @@ class Object(StringIdModel):
     # uses a blob.)
     as1 = ndb.TextProperty(required=True)  # converted from source data
     as2 = ndb.TextProperty()  # only one of the rest will be populated...
-    bsky = ndb.TextProperty()  # Bluesky / AT Protocol
+    bsky = ndb.TextProperty() # Bluesky / AT Protocol
     mf2 = ndb.TextProperty()  # HTML microformats2
 
     type = ndb.StringProperty()  # AS1 objectType, or verb if it's an activity

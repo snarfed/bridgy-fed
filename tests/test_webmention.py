@@ -340,21 +340,6 @@ class WebmentionTest(testutil.TestCase):
         self.author = requests_response(ACTOR_HTML, url='https://orig/',
                                         content_type=CONTENT_TYPE_HTML)
 
-    def assert_object(self, id, **props):
-        got = Object.get_by_id(id)
-        assert got, id
-
-        # sort keys in JSON properties
-        for prop in 'as1', 'as2', 'bsky', 'mf2':
-            if prop in props:
-                props[prop] = json_dumps(json_loads(props[prop]), sort_keys=True)
-            got_val = getattr(got, prop, None)
-            if got_val:
-                setattr(got, prop, json_dumps(json_loads(got_val), sort_keys=True))
-
-        self.assert_entities_equal(Object(id=id, **props), got,
-                                   ignore=['created', 'updated'])
-
     def assert_deliveries(self, mock_post, inboxes, data):
         self.assertEqual(len(inboxes), len(mock_post.call_args_list))
         calls = {call[0][0]: call for call in mock_post.call_args_list}
@@ -509,10 +494,9 @@ class WebmentionTest(testutil.TestCase):
                            source_protocol='activitypub',
                            status='complete',
                            ap_delivered=['https://foo.com/inbox'],
-                           ap_undelivered=[],
-                           ap_failed=[],
-                           mf2=json_dumps(self.reply_mf2),
-                           as1=json_dumps(self.reply_as1),
+                           mf2=self.reply_mf2,
+                           as1=self.reply_as1,
+                           type='comment',
                            )
 
     def test_update_reply(self, mock_get, mock_post):
@@ -631,9 +615,10 @@ class WebmentionTest(testutil.TestCase):
                            domains=['a'],
                            source_protocol='activitypub',
                            status='complete',
-                           mf2=json_dumps(self.repost_mf2),
-                           as1=json_dumps(self.repost_as1),
+                           mf2=self.repost_mf2,
+                           as1=self.repost_as1,
                            ap_delivered=['https://foo.com/inbox'],
+                           type='share',
                            )
 
     def test_link_rel_alternate_as2(self, mock_get, mock_post):
@@ -807,11 +792,13 @@ class WebmentionTest(testutil.TestCase):
                            source_protocol='activitypub',
                            status='complete',
 #(different_create_mf2 if inbox == 'https://updated/inbox' else
-                           mf2=json_dumps(self.create_mf2),
-                           as1=json_dumps(self.create_as1),
+                           mf2=self.create_mf2,
+                           as1=self.create_as1,
                            ap_delivered=inboxes,
+                           type='note',
                            )
 #(different_create_as1 if inbox == 'https://updated/inbox' else
+
     def test_create_with_image(self, mock_get, mock_post):
         create_html = self.create_html.replace(
             '</body>', '<img class="u-photo" src="http://im/age" />\n</body>')
@@ -868,9 +855,10 @@ class WebmentionTest(testutil.TestCase):
                            domains=['a'],
                            source_protocol='activitypub',
                            status='complete',
-                           mf2=json_dumps(self.follow_mf2),
-                           as1=json_dumps(self.follow_as1),
+                           mf2=self.follow_mf2,
+                           as1=self.follow_as1,
                            ap_delivered=['https://foo.com/inbox'],
+                           type='follow',
                            )
 
         followers = Follower.query().fetch()
@@ -932,9 +920,10 @@ class WebmentionTest(testutil.TestCase):
                            domains=['a'],
                            source_protocol='activitypub',
                            status='complete',
-                           mf2=json_dumps(self.follow_fragment_mf2),
-                           as1=json_dumps(self.follow_fragment_as1),
+                           mf2=self.follow_fragment_mf2,
+                           as1=self.follow_fragment_as1,
                            ap_delivered=['https://foo.com/inbox'],
+                           type='follow',
                            )
 
         followers = Follower.query().fetch()
@@ -986,9 +975,10 @@ class WebmentionTest(testutil.TestCase):
                            domains=['a'],
                            source_protocol='activitypub',
                            status='failed',
-                           mf2=json_dumps(self.follow_mf2),
-                           as1=json_dumps(self.follow_as1),
+                           mf2=self.follow_mf2,
+                           as1=self.follow_as1,
                            ap_failed=['https://foo.com/inbox'],
+                           type='follow',
                           )
 
     def test_repost_blocklisted_error(self, mock_get, mock_post):
@@ -1069,7 +1059,8 @@ class WebmentionTest(testutil.TestCase):
                            domains=['orig'],
                            source_protocol='activitypub',
                            status='complete',
-                           mf2=json_dumps(ACTOR_MF2),
-                           as1=json_dumps(expected_as1),
+                           mf2=ACTOR_MF2,
+                           as1=expected_as1,
                            ap_delivered=['https://inbox', 'https://shared/inbox'],
+                           type='update',
                            )

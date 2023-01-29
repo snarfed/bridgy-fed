@@ -9,10 +9,12 @@ from granary import as2
 from oauth_dropins.webutil import testutil, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 from app import app, cache
 import common
+from models import Object
 
 
 class TestCase(unittest.TestCase, testutil.Asserts):
@@ -58,7 +60,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
     def as2_resp(self, obj):
         return requests_response(obj, content_type=as2.CONTENT_TYPE)
 
-
     def assert_req(self, mock, url, **kwargs):
         """Checks a mock requests call."""
         kwargs.setdefault('headers', {}).setdefault(
@@ -66,3 +67,19 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         kwargs.setdefault('stream', True)
         kwargs.setdefault('timeout', util.HTTP_TIMEOUT)
         mock.assert_any_call(url, **kwargs)
+
+    def assert_object(self, id, **props):
+        got = Object.get_by_id(id)
+        assert got, id
+
+        # sort keys in JSON properties
+        for prop in 'as1', 'as2', 'bsky', 'mf2':
+            if prop in props:
+                props[prop] = json_dumps(props[prop], sort_keys=True)
+            got_val = getattr(got, prop, None)
+            if got_val:
+                setattr(got, prop, json_dumps(json_loads(got_val), sort_keys=True))
+
+        self.assert_entities_equal(Object(id=id, **props), got,
+                                   ignore=['created', 'updated'])
+

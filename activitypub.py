@@ -7,7 +7,7 @@ import re
 from flask import request
 from google.cloud import ndb
 from google.cloud.ndb import OR
-from granary import as2
+from granary import as1, as2
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -119,11 +119,14 @@ def inbox(domain=None):
         return accept_follow(activity, activity_unwrapped, user)
 
     # send webmentions to each target
-    activity_as2 = json_dumps(activity_unwrapped)
-    activity_as1 = json_dumps(as2.to_as1(activity_unwrapped))
+    activity_as2_str = json_dumps(activity_unwrapped)
+    activity_as1 = as2.to_as1(activity_unwrapped)
+    as1_type = as1.object_type(activity_as1)
+    activity_as1_str = json_dumps(activity_as1)
     sent = common.send_webmentions(as2.to_as1(activity), proxy=True,
                                    source_protocol='activitypub',
-                                   as2=activity_as2, as1=activity_as1)
+                                   as2=activity_as2_str, as1=activity_as1_str,
+                                   type=as1_type)
 
     if not sent and type in ('Create', 'Announce'):
         # check that this activity is public. only do this check for Creates,
@@ -145,7 +148,8 @@ def inbox(domain=None):
                                           projection=[Follower.src]).fetch()]
 
         key = Object(id=source, source_protocol='activitypub', domains=domains,
-                     status='complete', as2=activity_as2, as1=activity_as1).put()
+                     status='complete', as2=activity_as2_str, as1=activity_as1_str,
+                     type=as1_type).put()
         logging.info(f'Wrote Object {key} with {len(domains)} follower domains')
 
     return ''
@@ -210,7 +214,8 @@ def accept_follow(follow, follow_unwrapped, user):
     # send webmention
     common.send_webmentions(as2.to_as1(follow), proxy=True, source_protocol='activitypub',
                             as2=json_dumps(follow_unwrapped),
-                            as1=json_dumps(as2.to_as1(follow_unwrapped)))
+                            as1=json_dumps(as2.to_as1(follow_unwrapped)),
+                            type='follow')
 
     return resp.text, resp.status_code
 

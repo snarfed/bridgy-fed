@@ -12,7 +12,7 @@ import re
 import urllib.parse
 
 from flask import request
-from granary import as2, microformats2
+from granary import as1, as2, microformats2
 from httpsig.requests_auth import HTTPSignatureAuth
 import mf2util
 from oauth_dropins.webutil import util, webmention
