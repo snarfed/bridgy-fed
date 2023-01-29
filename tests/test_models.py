@@ -171,7 +171,7 @@ class ObjectTest(testutil.TestCase):
 
     def test_proxy_url(self):
         with app.test_request_context('/'):
-            obj = Object.get_or_insert('abc')
+            obj = Object(id='abc', as1='{}')
             self.assertEqual('http://localhost/render?id=abc', obj.proxy_url())
 
 

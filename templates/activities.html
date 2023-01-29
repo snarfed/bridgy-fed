@@ -29,7 +29,7 @@
   {% endif %}
 
   <div class="col-sm-2">
-    {% if obj.status == 'error' %}
+    {% if obj.status == 'failed' %}
      <span title="Error" class="glyphicon glyphicon-exclamation-sign"></span>
     {% else %}{% if obj.status == 'new' %}
      <span title="Processing" class="glyphicon glyphicon-transfer"></span>

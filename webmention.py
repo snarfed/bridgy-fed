@@ -24,7 +24,7 @@ from werkzeug.exceptions import BadGateway, HTTPException
 import activitypub
 from app import app
 import common
-from models import Activity, Follower, User
+from models import Follower, Object, User
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ class Webmention(View):
             self.source_url = source
             self.source_mf2, actor_as1, actor_as2, self.user = \
                 common.actor(self.source_domain)
-            id = common.host_url(f'{source}#update-{util.now().isoformat()}'),
+            id = common.host_url(f'{source}#update-{util.now().isoformat()}')
             self.source_as1 = {
                 'objectType': 'activity',
                 'verb': 'update',
@@ -134,34 +134,24 @@ class Webmention(View):
         last_success = None
         log_data = True
 
+        obj = Object.get_or_insert(self.source_url, domains=[self.source_domain],
+                                   source_protocol='activitypub',
+                                   mf2=json_dumps(self.source_mf2),
+                                   as1=json_dumps(self.source_as1))
+        if (obj.status == 'complete' and
+            not as1.activity_changed(json_loads(obj.as1), self.source_as1)):
+            logger.info(f'Skipping; new content is same as content published before at {obj.updated}')
+            return 'OK'
+
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
-
-        for activity, inbox in targets:
-            target_obj = json_loads(activity.target_as2) if activity.target_as2 else None
-
+        for target_as2, inbox in targets:
             if not self.source_as2:
                 self.source_as2 = common.postprocess_as2(
-                    as2.from_as1(self.source_as1), target=target_obj, user=self.user)
+                    as2.from_as1(self.source_as1), target=target_as2, user=self.user)
             if not self.source_as2.get('actor'):
                 self.source_as2['actor'] = common.host_url(self.source_domain)
-
-            if activity.status == 'complete':
-                if activity.source_mf2:
-                    def content(mf2):
-                        items = mf2.get('items')
-                        if items:
-                            return microformats2.first_props(
-                                items[0].get('properties')
-                            ).get('content')
-
-                    orig_content = content(json_loads(activity.source_mf2))
-                    new_content = content(self.source_mf2)
-                    if orig_content and new_content and orig_content == new_content:
-                        logger.info(f'Skipping; new content is same as content published before at {activity.updated}')
-                        continue
-
-                if self.source_as2.get('type') == 'Create':
-                    self.source_as2['type'] = 'Update'
+            if obj.status == 'complete' and self.source_as2.get('type') == 'Create':
+                self.source_as2['type'] = 'Update'
 
             if self.source_as2.get('type') == 'Update':
                 # Mastodon requires the updated field for Updates, so
@@ -175,23 +165,25 @@ class Webmention(View):
             if self.source_as2.get('type') == 'Follow':
                 # prefer AS2 id or url, if available
                 # https://github.com/snarfed/bridgy-fed/issues/307
-                dest = ((target_obj.get('id') or util.get_first(target_obj, 'url'))
-                        if target_obj else util.get_url(self.source_as1, 'object'))
+                dest = ((target_as2.get('id') or util.get_first(target_as2, 'url'))
+                        if target_as2 else util.get_url(self.source_as1, 'object'))
                 Follower.get_or_create(dest=dest, src=self.source_domain,
                                        last_follow=json_dumps(self.source_as2))
 
             try:
                 last = common.signed_post(inbox, data=self.source_as2,
                                           log_data=log_data, user=self.user)
-                activity.status = 'complete'
+                # obj.status = 'complete'
                 last_success = last
             except BaseException as e:
                 error = e
-                activity.status = 'error'
+                # obj.status = 'failed'
             finally:
                 log_data = False
 
-            activity.put()
+        # TODO
+        obj.status = 'complete' if last_success else 'failed'
+        obj.put()
 
         # Pass the AP response status code and body through as our response
         if last_success:
@@ -205,7 +197,7 @@ class Webmention(View):
 
     def _activitypub_targets(self):
         """
-        Returns: list of (Activity, string inbox URL)
+        Returns: list of (Object, string inbox URL)
         """
         # if there's in-reply-to, like-of, or repost-of, they're the targets.
         # otherwise, it's all followers' inboxes.
@@ -248,21 +240,18 @@ class Webmention(View):
                     actor = json_loads(follower.last_follow).get('actor')
                     if actor and isinstance(actor, dict):
                         inboxes.add(actor.get('endpoints', {}).get('sharedInbox') or
-                                    actor.get('publicInbox')or
+                                    actor.get('publicInbox') or
                                     actor.get('inbox'))
-            inboxes = [(Activity.get_or_create(
-                          source=self.source_url, target=inbox,
-                          domain=[self.source_domain], direction='out',
-                          protocol='activitypub', source_mf2=json_dumps(self.source_mf2)),
-                        inbox) for inbox in sorted(inboxes) if inbox]
-            logger.info(f"Delivering to followers' inboxes: {[i for _, i in inboxes]}")
+            # TODO: collect inboxes into ap_* properties
+            inboxes = [(None, inbox) for inbox in sorted(inboxes) if inbox]
+            logger.info(f"Delivering to followers' inboxes: {inboxes}")
             return inboxes
 
         targets = common.remove_blocklisted(targets)
         if not targets:
             error(f"Silo responses are not yet supported.")
 
-        activities_and_inbox_urls = []
+        targets_and_inbox_urls = []
         for target in targets:
             # fetch target page as AS2 object
             try:
@@ -276,14 +265,8 @@ class Webmention(View):
                 raise
             target_url = self.target_resp.url or target
 
-            activity = Activity.get_or_create(
-                source=self.source_url, target=target_url, domain=[self.source_domain],
-                direction='out', protocol='activitypub',
-                source_mf2=json_dumps(self.source_mf2))
-
             # find target's inbox
             target_obj = self.target_resp.json()
-            activity.target_as2 = json_dumps(target_obj)
             inbox_url = target_obj.get('inbox')
 
             if not inbox_url:
@@ -309,10 +292,10 @@ class Webmention(View):
                 continue
 
             inbox_url = urllib.parse.urljoin(target_url, inbox_url)
-            activities_and_inbox_urls.append((activity, inbox_url))
+            targets_and_inbox_urls.append((target_obj, inbox_url))
 
-        logger.info(f"Delivering to targets' inboxes: {[i for _, i in activities_and_inbox_urls]}")
-        return activities_and_inbox_urls
+        logger.info(f"Delivering to targets' inboxes: {[i for _, i in targets_and_inbox_urls]}")
+        return targets_and_inbox_urls
 
 
 class WebmentionTask(Webmention):

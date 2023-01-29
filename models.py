@@ -232,7 +232,7 @@ class Object(StringIdModel):
 
     Key name is the id. We synthesize ids if necessary.
     """
-    STATUSES = ('new', 'in progress', 'complete', 'ignored')
+    STATUSES = ('new', 'in progress', 'complete', 'failed', 'ignored')
     PROTOCOLS = ('activitypub', 'bluesky', 'webmention', 'ui')
     LABELS = ('feed', 'notification')
 
