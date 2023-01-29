@@ -130,6 +130,7 @@ class Webmention(View):
         if not targets:
             return None
 
+        inboxes = [i for _, i in targets]
         error = None
         last_success = None
         log_data = True
@@ -137,7 +138,10 @@ class Webmention(View):
         obj = Object.get_or_insert(self.source_url, domains=[self.source_domain],
                                    source_protocol='activitypub',
                                    mf2=json_dumps(self.source_mf2),
-                                   as1=json_dumps(self.source_as1))
+                                   as1=json_dumps(self.source_as1),
+                                   ap_undelivered=inboxes,
+                                   ap_delivered=[],
+                                   ap_failed=[])
         if (obj.status == 'complete' and
             not as1.activity_changed(json_loads(obj.as1), self.source_as1)):
             logger.info(f'Skipping; new content is same as content published before at {obj.updated}')
@@ -171,18 +175,20 @@ class Webmention(View):
                                        last_follow=json_dumps(self.source_as2))
 
             try:
+                obj.ap_undelivered.remove(inbox)
                 last = common.signed_post(inbox, data=self.source_as2,
                                           log_data=log_data, user=self.user)
-                # obj.status = 'complete'
+                obj.ap_delivered.append(inbox)
+                obj.put()
                 last_success = last
             except BaseException as e:
+                obj.ap_failed.append(inbox)
+                obj.put()
                 error = e
-                # obj.status = 'failed'
             finally:
                 log_data = False
 
-        # TODO
-        obj.status = 'complete' if last_success else 'failed'
+        obj.status = 'complete' if obj.ap_delivered else 'failed'
         obj.put()
 
         # Pass the AP response status code and body through as our response

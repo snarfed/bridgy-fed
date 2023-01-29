@@ -334,6 +334,11 @@ class WebmentionTest(testutil.TestCase):
         self.author = requests_response(ACTOR_HTML, url='https://orig/',
                                         content_type=CONTENT_TYPE_HTML)
 
+    def assert_object(self, id, **props):
+        self.assert_entities_equal(Object(id=id, **props),
+                                   Object.get_by_id(id),
+                                   ignore=['created', 'updated'])
+
     def test_bad_source_url(self, mock_get, mock_post):
         got = self.client.post('/webmention', data=b'')
         self.assertEqual(400, got.status_code)
@@ -351,6 +356,7 @@ class WebmentionTest(testutil.TestCase):
 
         got = self.client.post('/webmention', data={'source': 'http://a/post'})
         self.assertEqual(502, got.status_code)
+        self.assertEqual(0, Object.query().count())
 
     def test_no_source_entry(self, mock_get, mock_post):
         mock_get.return_value = requests_response("""
@@ -390,7 +396,8 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = (
             requests_response(self.reply_html.replace('https://orig/post', 'bad'),
                               content_type=CONTENT_TYPE_HTML),
-            ValueError('foo bar'))
+            ValueError('foo bar'),
+        )
 
         got = self.client.post('/webmention', data={'source': 'http://a/post'})
         self.assertEqual(400, got.status_code)
@@ -471,12 +478,16 @@ class WebmentionTest(testutil.TestCase):
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
 
-        obj = Object.get_by_id('http://a/reply')
-        self.assertEqual(['a'], obj.domains)
-        self.assertEqual('activitypub', obj.source_protocol)
-        self.assertEqual('complete', obj.status)
-        self.assertEqual(self.reply_mf2, json_loads(obj.mf2))
-        self.assertEqual(self.reply_as1, json_loads(obj.as1))
+        self.assert_object('http://a/reply',
+                           domains=['a'],
+                           source_protocol='activitypub',
+                           status='complete',
+                           ap_delivered=['https://foo.com/inbox'],
+                           ap_undelivered=[],
+                           ap_failed=[],
+                           mf2=json_dumps(self.reply_mf2),
+                           as1=json_dumps(self.reply_as1),
+                           )
 
     def test_update_reply(self, mock_get, mock_post):
         Object(id='http://a/reply', status='complete', as1='{}').put()
