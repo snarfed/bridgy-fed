@@ -601,12 +601,13 @@ class WebmentionTest(testutil.TestCase):
                 self.assertEqual(default_signature_user().private_pem(),
                                  rsa_key.exportKey())
 
-        obj = Object.get_by_id('http://a/repost')
-        self.assertEqual(['a'], obj.domains)
-        self.assertEqual('activitypub', obj.source_protocol)
-        self.assertEqual('complete', obj.status)
-        self.assertEqual(self.repost_mf2, json_loads(obj.mf2))
-        self.assertEqual(self.repost_as1, json_loads(obj.as1))
+        self.assert_object('http://a/repost',
+                           domains=['a'],
+                           source_protocol='activitypub',
+                           status='complete',
+                           mf2=json_dumps(self.repost_mf2),
+                           as1=json_dumps(self.repost_as1),
+                           )
 
     def test_link_rel_alternate_as2(self, mock_get, mock_post):
         mock_get.side_effect = [self.reply, self.not_fediverse,
@@ -781,17 +782,15 @@ class WebmentionTest(testutil.TestCase):
                     self.create_as2,
                     json_loads(call[1]['data']))
 
-        obj = Object.get_by_id(f'https://orig/post')
-        self.assertEqual(['orig'], obj.domains)
-        self.assertEqual('activitypub', obj.source_protocol)
-        self.assertEqual('complete', obj.status)
-        self.assertEqual(#(different_create_mf2 if inbox == 'https://updated/inbox' else
-                         self.create_mf2,
-                         json_loads(obj.mf2))
-        self.assertEqual(#(different_create_as1 if inbox == 'https://updated/inbox' else
-                         self.create_as1,
-                         json_loads(obj.as1))
-
+        self.assert_object(f'https://orig/post',
+                           domains=['orig'],
+                           source_protocol='activitypub',
+                           status='complete',
+#(different_create_mf2 if inbox == 'https://updated/inbox' else
+                           mf2=json_dumps(self.create_mf2),
+                           as1=json_dumps(self.create_as1),
+                           )
+#(different_create_as1 if inbox == 'https://updated/inbox' else
     def test_create_with_image(self, mock_get, mock_post):
         create_html = self.create_html.replace(
             '</body>', '<img class="u-photo" src="http://im/age" />\n</body>')
@@ -844,12 +843,13 @@ class WebmentionTest(testutil.TestCase):
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
 
-        obj = Object.get_by_id('http://a/follow')
-        self.assertEqual(['a'], obj.domains)
-        self.assertEqual('activitypub', obj.source_protocol)
-        self.assertEqual('complete', obj.status)
-        self.assertEqual(self.follow_mf2, json_loads(obj.mf2))
-        self.assertEqual(self.follow_as1, json_loads(obj.as1))
+        self.assert_object('http://a/follow',
+                           domains=['a'],
+                           source_protocol='activitypub',
+                           status='complete',
+                           mf2=json_dumps(self.follow_mf2),
+                           as1=json_dumps(self.follow_as1),
+                           )
 
         followers = Follower.query().fetch()
         self.assertEqual(1, len(followers))
@@ -906,12 +906,13 @@ class WebmentionTest(testutil.TestCase):
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assert_equals(self.user.private_pem(), rsa_key.exportKey())
 
-        obj = Object.get_by_id('http://a/follow#2')
-        self.assert_equals(['a'], obj.domains)
-        self.assert_equals('activitypub', obj.source_protocol)
-        self.assert_equals('complete', obj.status)
-        self.assert_equals(self.follow_fragment_mf2, json_loads(obj.mf2))
-        self.assert_equals(self.follow_fragment_as1, json_loads(obj.as1))
+        self.assert_object('http://a/follow#2',
+                           domains=['a'],
+                           source_protocol='activitypub',
+                           status='complete',
+                           mf2=json_dumps(self.follow_fragment_mf2),
+                           as1=json_dumps(self.follow_fragment_as1),
+                           )
 
         followers = Follower.query().fetch()
         self.assert_equals(1, len(followers))
@@ -958,12 +959,13 @@ class WebmentionTest(testutil.TestCase):
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
 
-        obj = Object.get_by_id('http://a/follow')
-        self.assertEqual(['a'], obj.domains)
-        self.assertEqual('activitypub', obj.source_protocol)
-        self.assertEqual('failed', obj.status)
-        self.assertEqual(self.follow_mf2, json_loads(obj.mf2))
-        self.assertEqual(self.follow_as1, json_loads(obj.as1))
+        self.assert_object('http://a/follow',
+                           domains=['a'],
+                           source_protocol='activitypub',
+                           status='failed',
+                           mf2=json_dumps(self.follow_mf2),
+                           as1=json_dumps(self.follow_as1),
+                           )
 
     def test_repost_blocklisted_error(self, mock_get, mock_post):
         """Reposts of non-fediverse (ie blocklisted) sites aren't yet supported."""
@@ -1043,11 +1045,12 @@ class WebmentionTest(testutil.TestCase):
                 del got_update['object']['publicKey']
                 self.assertEqual(expected_update, got_update)
 
-        obj = Object.get_by_id(f'https://orig/')
-        self.assertEqual(['orig'], obj.domains)
-        self.assertEqual('activitypub', obj.source_protocol)
-        self.assertEqual('complete', obj.status)
-        self.assert_equals(ACTOR_MF2, json_loads(obj.mf2))
+        self.assert_object(f'https://orig/',
+                           domains=['orig'],
+                           source_protocol='activitypub',
+                           status='complete',
+                           mf2=json_dumps(ACTOR_MF2),
+                           )
 
         self.assert_equals({
             'id': 'https://orig/#update-2022-01-02T03:04:05+00:00',
