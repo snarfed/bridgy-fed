@@ -126,29 +126,46 @@ class Webmention(View):
         Returns Flask response (string body or tuple) if we succeeded or failed,
         None if ActivityPub was not available.
         """
-        targets = self._activitypub_targets()
-        if not targets:
+        inboxes_to_targets = self._activitypub_targets()
+        if not inboxes_to_targets:
             return None
 
-        inboxes = [i for _, i in targets]
         error = None
         last_success = None
         log_data = True
 
-        obj = Object.get_or_insert(self.source_url, domains=[self.source_domain],
-                                   source_protocol='activitypub',
-                                   mf2=json_dumps(self.source_mf2),
-                                   as1=json_dumps(self.source_as1),
-                                   ap_undelivered=inboxes,
-                                   ap_delivered=[],
-                                   ap_failed=[])
+        obj = Object.get_by_id(self.source_url)
+        if obj:
+            logging.info(f'Resuming existing Object {obj}')
+            seen = obj.ap_delivered + obj.ap_undelivered + obj.ap_failed
+            new_inboxes = [i for i in inboxes_to_targets.keys() if i not in seen]
+            if new_inboxes:
+                logging.info(f'Adding new inboxes: {new_inboxes}')
+                obj.ap_undelivered += new_inboxes
+        else:
+            obj = Object(id=self.source_url, domains=[self.source_domain],
+                         source_protocol='activitypub',
+                         mf2=json_dumps(self.source_mf2),
+                         as1=json_dumps(self.source_as1),
+                         ap_undelivered=list(inboxes_to_targets.keys()),
+                         ap_delivered=[],
+                         ap_failed=[])
+
         if (obj.status == 'complete' and
             not as1.activity_changed(json_loads(obj.as1), self.source_as1)):
             logger.info(f'Skipping; new content is same as content published before at {obj.updated}')
             return 'OK'
 
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
-        for target_as2, inbox in targets:
+        #
+        # make copy of ap_undelivered because we modify it below
+        for inbox in list(obj.ap_undelivered):
+            if inbox in inboxes_to_targets:
+                target_as2 = inboxes_to_targets[inbox]
+            else:
+                logging.warning(f'Missing target_as2 for inbox {inbox}!')
+                target_as2 = None
+
             if not self.source_as2:
                 self.source_as2 = common.postprocess_as2(
                     as2.from_as1(self.source_as1), target=target_as2, user=self.user)
@@ -175,18 +192,18 @@ class Webmention(View):
                                        last_follow=json_dumps(self.source_as2))
 
             try:
-                obj.ap_undelivered.remove(inbox)
                 last = common.signed_post(inbox, data=self.source_as2,
                                           log_data=log_data, user=self.user)
                 obj.ap_delivered.append(inbox)
-                obj.put()
                 last_success = last
             except BaseException as e:
                 obj.ap_failed.append(inbox)
-                obj.put()
                 error = e
             finally:
                 log_data = False
+
+            obj.ap_undelivered.remove(inbox)
+            obj.put()
 
         obj.status = 'complete' if obj.ap_delivered else 'failed'
         obj.put()
@@ -203,7 +220,7 @@ class Webmention(View):
 
     def _activitypub_targets(self):
         """
-        Returns: list of (Object, string inbox URL)
+        Returns: dict of {str inbox URL: dict target AS2 object}
         """
         # if there's in-reply-to, like-of, or repost-of, they're the targets.
         # otherwise, it's all followers' inboxes.
@@ -248,16 +265,14 @@ class Webmention(View):
                         inboxes.add(actor.get('endpoints', {}).get('sharedInbox') or
                                     actor.get('publicInbox') or
                                     actor.get('inbox'))
-            # TODO: collect inboxes into ap_* properties
-            inboxes = [(None, inbox) for inbox in sorted(inboxes) if inbox]
-            logger.info(f"Delivering to followers' inboxes: {inboxes}")
-            return inboxes
+            logger.info(f"Delivering to followers' inboxes: {sorted(inboxes)}")
+            return {inbox: None for inbox in inboxes}
 
         targets = common.remove_blocklisted(targets)
         if not targets:
             error(f"Silo responses are not yet supported.")
 
-        targets_and_inbox_urls = []
+        inboxes_to_targets = {}
         for target in targets:
             # fetch target page as AS2 object
             try:
@@ -298,10 +313,10 @@ class Webmention(View):
                 continue
 
             inbox_url = urllib.parse.urljoin(target_url, inbox_url)
-            targets_and_inbox_urls.append((target_obj, inbox_url))
+            inboxes_to_targets[inbox_url] = target_obj
 
-        logger.info(f"Delivering to targets' inboxes: {[i for _, i in targets_and_inbox_urls]}")
-        return targets_and_inbox_urls
+        logger.info(f"Delivering to targets' inboxes: {inboxes_to_targets.keys()}")
+        return inboxes_to_targets
 
 
 class WebmentionTask(Webmention):

@@ -44,6 +44,12 @@ ACTOR_MF2 = {
         'name': ['Ms. ☕ Baz'],
     },
 }
+ACTOR_AS1_UNWRAPPED = {
+    'objectType': 'person',
+    'displayName': 'Ms. ☕ Baz',
+    'url': 'https://orig',
+    'urls': [{'value': 'https://orig', 'displayName': 'Ms. ☕ Baz'}],
+}
 ACTOR_AS2 = {
     'type': 'Person',
     'id': 'http://localhost/orig',
@@ -335,9 +341,29 @@ class WebmentionTest(testutil.TestCase):
                                         content_type=CONTENT_TYPE_HTML)
 
     def assert_object(self, id, **props):
-        self.assert_entities_equal(Object(id=id, **props),
-                                   Object.get_by_id(id),
+        got = Object.get_by_id(id)
+        assert got, id
+
+        # sort keys in JSON properties
+        for prop in 'as1', 'as2', 'bsky', 'mf2':
+            if prop in props:
+                props[prop] = json_dumps(json_loads(props[prop]), sort_keys=True)
+            got_val = getattr(got, prop, None)
+            if got_val:
+                setattr(got, prop, json_dumps(json_loads(got_val), sort_keys=True))
+
+        self.assert_entities_equal(Object(id=id, **props), got,
                                    ignore=['created', 'updated'])
+
+    def assert_deliveries(self, mock_post, inboxes, data):
+        self.assertEqual(len(inboxes), len(mock_post.call_args_list))
+        calls = {call[0][0]: call for call in mock_post.call_args_list}
+
+        for inbox in inboxes:
+            with self.subTest(inbox=inbox):
+                got = json_loads(calls[inbox][1]['data'])
+                got.get('object', {}).pop('publicKey', None)
+                self.assertEqual(data, got)
 
     def test_bad_source_url(self, mock_get, mock_post):
         got = self.client.post('/webmention', data=b'')
@@ -607,6 +633,7 @@ class WebmentionTest(testutil.TestCase):
                            status='complete',
                            mf2=json_dumps(self.repost_mf2),
                            as1=json_dumps(self.repost_as1),
+                           ap_delivered=['https://foo.com/inbox'],
                            )
 
     def test_link_rel_alternate_as2(self, mock_get, mock_post):
@@ -771,16 +798,9 @@ class WebmentionTest(testutil.TestCase):
 
         inboxes = ('https://inbox', 'https://public/inbox',
                    'https://shared/inbox', 'https://updated/inbox')
-        self.assertEqual(len(inboxes), len(mock_post.call_args_list),
-                         mock_post.call_args_list)
-        for call, inbox in zip(mock_post.call_args_list, inboxes):
-            with self.subTest(call=call, inbox=inbox):
-                self.assertEqual((inbox,), call[0])
-                self.assertEqual(
+        self.assert_deliveries(mock_post, inboxes, self.create_as2)
                     # TODO
                     # self.update_as2 if inbox == 'https://updated/inbox' else
-                    self.create_as2,
-                    json_loads(call[1]['data']))
 
         self.assert_object(f'https://orig/post',
                            domains=['orig'],
@@ -789,6 +809,7 @@ class WebmentionTest(testutil.TestCase):
 #(different_create_mf2 if inbox == 'https://updated/inbox' else
                            mf2=json_dumps(self.create_mf2),
                            as1=json_dumps(self.create_as1),
+                           ap_delivered=inboxes,
                            )
 #(different_create_as1 if inbox == 'https://updated/inbox' else
     def test_create_with_image(self, mock_get, mock_post):
@@ -849,6 +870,7 @@ class WebmentionTest(testutil.TestCase):
                            status='complete',
                            mf2=json_dumps(self.follow_mf2),
                            as1=json_dumps(self.follow_as1),
+                           ap_delivered=['https://foo.com/inbox'],
                            )
 
         followers = Follower.query().fetch()
@@ -912,6 +934,7 @@ class WebmentionTest(testutil.TestCase):
                            status='complete',
                            mf2=json_dumps(self.follow_fragment_mf2),
                            as1=json_dumps(self.follow_fragment_as1),
+                           ap_delivered=['https://foo.com/inbox'],
                            )
 
         followers = Follower.query().fetch()
@@ -965,7 +988,8 @@ class WebmentionTest(testutil.TestCase):
                            status='failed',
                            mf2=json_dumps(self.follow_mf2),
                            as1=json_dumps(self.follow_as1),
-                           )
+                           ap_failed=['https://foo.com/inbox'],
+                          )
 
     def test_repost_blocklisted_error(self, mock_get, mock_post):
         """Reposts of non-fediverse (ie blocklisted) sites aren't yet supported."""
@@ -980,7 +1004,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(400, got.status_code)
 
     @mock.patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_create_post_make_task(self, mock_create_task, mock_get, _):
+    def test_update_profile_make_task(self, mock_create_task, mock_get, _):
         mock_get.side_effect = [self.author]
 
         got = self.client.post('/webmention', data={
@@ -1023,10 +1047,7 @@ class WebmentionTest(testutil.TestCase):
             self.req('https://orig/'),
         ))
 
-        inboxes = ('https://inbox', 'https://shared/inbox',)
-        self.assertEqual(len(inboxes), len(mock_post.call_args_list))
-
-        expected_update = {
+        self.assert_deliveries(mock_post, ('https://shared/inbox', 'https://inbox'), {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Update',
             'id': 'http://localhost/r/https://orig/#update-2022-01-02T03:04:05+00:00',
@@ -1036,30 +1057,19 @@ class WebmentionTest(testutil.TestCase):
                 'updated': util.now().isoformat(),
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        })
+
+        expected_as1 = {
+            'id': 'https://orig/#update-2022-01-02T03:04:05+00:00',
+            'objectType': 'activity',
+            'verb': 'update',
+            'object': ACTOR_AS1_UNWRAPPED,
         }
-
-        for call, inbox in zip(mock_post.call_args_list, inboxes):
-            with self.subTest(call=call, inbox=inbox):
-                self.assertEqual((inbox,), call[0])
-                got_update = json_loads(call[1]['data'])
-                del got_update['object']['publicKey']
-                self.assertEqual(expected_update, got_update)
-
         self.assert_object(f'https://orig/',
                            domains=['orig'],
                            source_protocol='activitypub',
                            status='complete',
                            mf2=json_dumps(ACTOR_MF2),
+                           as1=json_dumps(expected_as1),
+                           ap_delivered=['https://inbox', 'https://shared/inbox'],
                            )
-
-        self.assert_equals({
-            'id': 'https://orig/#update-2022-01-02T03:04:05+00:00',
-            'objectType': 'activity',
-            'verb': 'update',
-            'object': {
-                'objectType': 'person',
-                'displayName': 'Ms. ☕ Baz',
-                'url': 'https://orig',
-                'urls': [{'value': 'https://orig', 'displayName': 'Ms. ☕ Baz'}],
-            },
-        }, json_loads(obj.as1))
