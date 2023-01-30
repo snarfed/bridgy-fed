@@ -290,16 +290,24 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(400, got.status_code)
 
     def test_inbox_reply_object(self, *mocks):
-        self._test_inbox_reply(REPLY_OBJECT, REPLY_OBJECT, 'comment', *mocks)
+        self._test_inbox_reply(REPLY_OBJECT,
+                               {'as2': REPLY_OBJECT, 'type': 'comment'},
+                               *mocks)
 
     def test_inbox_reply_object_wrapped(self, *mocks):
-        self._test_inbox_reply(REPLY_OBJECT_WRAPPED, REPLY_OBJECT, 'comment', *mocks)
+        self._test_inbox_reply(REPLY_OBJECT_WRAPPED,
+                               {'as2': REPLY_OBJECT,
+                                'type': 'comment'},
+                               *mocks)
 
     def test_inbox_reply_create_activity(self, *mocks):
-        self._test_inbox_reply(REPLY, REPLY, 'post', *mocks)
+        self._test_inbox_reply(REPLY,
+                               {'as2': REPLY,
+                                'type': 'post',
+                                'object_ids': [REPLY_OBJECT['id']]},
+                               *mocks)
 
-    def _test_inbox_reply(self, reply, expected_as2, expected_type,
-                          mock_head, mock_get, mock_post):
+    def _test_inbox_reply(self, reply, expected_props, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='http://or.ig/post')
         mock_get.return_value = requests_response(
             '<html><head><link rel="webmention" href="/webmention"></html>')
@@ -323,9 +331,8 @@ class ActivityPubTest(testutil.TestCase):
                            domains=['or.ig'],
                            source_protocol='activitypub',
                            status='complete',
-                           as2=expected_as2,
-                           as1=as2.to_as1(expected_as2),
-                           type=expected_type)
+                           as1=as2.to_as1(expected_props['as2']),
+                           **expected_props)
 
     def test_inbox_reply_to_self_domain(self, mock_head, mock_get, mock_post):
         self._test_inbox_ignore_reply_to('http://localhost/th.is',
@@ -371,7 +378,8 @@ class ActivityPubTest(testutil.TestCase):
                            as2=expected_as2,
                            as1=as2.to_as1(expected_as2),
                            domains=['foo.com', 'baz.com'],
-                           type='post')
+                           type='post',
+                           object_ids=[NOTE_OBJECT['id']])
 
     def test_inbox_not_public(self, mock_head, mock_get, mock_post):
         Follower.get_or_create(ACTOR['id'], 'foo.com')
@@ -388,12 +396,23 @@ class ActivityPubTest(testutil.TestCase):
             self.assertEqual(0, Object.query().count())
 
     def test_inbox_mention_object(self, *mocks):
-        self._test_inbox_mention(MENTION_OBJECT, 'note', *mocks)
+        self._test_inbox_mention(
+            MENTION_OBJECT,
+            {'type': 'note'},  # not mention (?)
+            *mocks,
+        )
 
     def test_inbox_mention_create_activity(self, *mocks):
-        self._test_inbox_mention(MENTION, 'post', *mocks)
+        self._test_inbox_mention(
+            MENTION,
+            {
+                'type': 'post',  # not mention (?)
+                'object_ids': [MENTION_OBJECT['id']],
+            },
+            *mocks,
+        )
 
-    def _test_inbox_mention(self, mention, expected_type, mock_head, mock_get, mock_post):
+    def _test_inbox_mention(self, mention, expected_props, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='http://tar.get')
         mock_get.return_value = requests_response(
             '<html><head><link rel="webmention" href="/webmention"></html>')
@@ -421,7 +440,7 @@ class ActivityPubTest(testutil.TestCase):
                                status='complete',
                                as2=expected_as2,
                                as1=as2.to_as1(expected_as2),
-                               type=expected_type)  # not mention (?)
+                               **expected_props)
 
     def test_inbox_like(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='http://or.ig/post')
@@ -456,7 +475,8 @@ class ActivityPubTest(testutil.TestCase):
                            status='complete',
                            as2=LIKE_WITH_ACTOR,
                            as1=as2.to_as1(LIKE_WITH_ACTOR),
-                           type='like')
+                           type='like',
+                           object_ids=[LIKE['object']])
 
     def test_inbox_follow_accept_with_id(self, mock_head, mock_get, mock_post):
         self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT,
@@ -471,7 +491,8 @@ class ActivityPubTest(testutil.TestCase):
                            status='complete',
                            as2=follow,
                            as1=as2.to_as1(follow),
-                           type='follow')
+                           type='follow',
+                           object_ids=[FOLLOW['object']])
 
         follower = Follower.query().get()
         self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, json_loads(follower.last_follow))
@@ -512,7 +533,8 @@ class ActivityPubTest(testutil.TestCase):
                            status='complete',
                            as2=follow,
                            as1=as2.to_as1(follow),
-                           type='follow')
+                           type='follow',
+                           object_ids=[FOLLOW['object']])
 
     def _test_inbox_follow_accept(self, follow_as2, accept_as2,
                                   mock_head, mock_get, mock_post):
@@ -722,7 +744,8 @@ class ActivityPubTest(testutil.TestCase):
                            status='ignored',
                            as2=LIKE_WITH_ACTOR,
                            as1=as2.to_as1(LIKE_WITH_ACTOR),
-                           type='like')
+                           type='like',
+                           object_ids=[LIKE['object']])
 
     def test_followers_collection_unknown_user(self, *args):
         resp = self.client.get('/foo.com/followers')

@@ -124,9 +124,9 @@ def inbox(domain=None):
     as1_type = as1.object_type(activity_as1)
     activity_as1_str = json_dumps(activity_as1)
     sent = common.send_webmentions(as2.to_as1(activity), proxy=True,
-                                   source_protocol='activitypub',
+                                   source_protocol='activitypub', type=as1_type,
                                    as2=activity_as2_str, as1=activity_as1_str,
-                                   type=as1_type)
+                                   object_ids=as1.get_ids(activity_as1, 'object'))
 
     if not sent and type in ('Create', 'Announce'):
         # check that this activity is public. only do this check for Creates,
@@ -149,7 +149,8 @@ def inbox(domain=None):
 
         key = Object(id=source, source_protocol='activitypub', domains=domains,
                      status='complete', as2=activity_as2_str, as1=activity_as1_str,
-                     type=as1_type).put()
+                     type=as1_type, object_ids=as1.get_ids(activity_as1, 'object'),
+                     ).put()
         logging.info(f'Wrote Object {key} with {len(domains)} follower domains')
 
     return ''
@@ -215,7 +216,7 @@ def accept_follow(follow, follow_unwrapped, user):
     common.send_webmentions(as2.to_as1(follow), proxy=True, source_protocol='activitypub',
                             as2=json_dumps(follow_unwrapped),
                             as1=json_dumps(as2.to_as1(follow_unwrapped)),
-                            type='follow')
+                            type='follow', object_ids=[followee_id])
 
     return resp.text, resp.status_code
 

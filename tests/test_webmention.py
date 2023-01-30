@@ -619,6 +619,7 @@ class WebmentionTest(testutil.TestCase):
                            as1=self.repost_as1,
                            ap_delivered=['https://foo.com/inbox'],
                            type='share',
+                           object_ids=['https://orig/post'],
                            )
 
     def test_link_rel_alternate_as2(self, mock_get, mock_post):
@@ -859,6 +860,7 @@ class WebmentionTest(testutil.TestCase):
                            as1=self.follow_as1,
                            ap_delivered=['https://foo.com/inbox'],
                            type='follow',
+                           object_ids=['http://followee'],
                            )
 
         followers = Follower.query().fetch()
@@ -924,6 +926,7 @@ class WebmentionTest(testutil.TestCase):
                            as1=self.follow_fragment_as1,
                            ap_delivered=['https://foo.com/inbox'],
                            type='follow',
+                           object_ids=['http://followee'],
                            )
 
         followers = Follower.query().fetch()
@@ -979,6 +982,7 @@ class WebmentionTest(testutil.TestCase):
                            as1=self.follow_as1,
                            ap_failed=['https://foo.com/inbox'],
                            type='follow',
+                           object_ids=['http://followee'],
                           )
 
     def test_repost_blocklisted_error(self, mock_get, mock_post):
@@ -1063,4 +1067,5 @@ class WebmentionTest(testutil.TestCase):
                            as1=expected_as1,
                            ap_delivered=['https://inbox', 'https://shared/inbox'],
                            type='update',
+                           object_ids=['https://orig'],
                            )

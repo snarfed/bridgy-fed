@@ -150,7 +150,9 @@ class Webmention(View):
                          ap_undelivered=list(inboxes_to_targets.keys()),
                          ap_delivered=[],
                          ap_failed=[],
-                         type=as1.object_type(self.source_as1))
+                         type=as1.object_type(self.source_as1),
+                         object_ids=as1.get_ids(self.source_as1, 'object'))
+
 
         if (obj.status == 'complete' and
             not as1.activity_changed(json_loads(obj.as1), self.source_as1)):
