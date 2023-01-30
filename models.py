@@ -24,7 +24,7 @@ WWW_DOMAINS = frozenset((
     'www.jvt.me',
 ))
 
-KEY_BITS = 1024
+KEY_BITS = 2048
 
 logger = logging.getLogger(__name__)
 
