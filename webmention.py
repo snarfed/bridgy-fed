@@ -134,36 +134,44 @@ class Webmention(View):
         last_success = None
         log_data = True
 
+        type = as1.object_type(self.source_as1)
         obj = Object.get_by_id(self.source_url)
+        changed = False
+
         if obj:
-            logging.info(f'Resuming existing Object {obj}')
+            logging.info(f'Resuming existing {obj}')
+            obj.ap_failed = []
             seen = obj.ap_delivered + obj.ap_undelivered + obj.ap_failed
             new_inboxes = [i for i in inboxes_to_targets.keys() if i not in seen]
             if new_inboxes:
                 logging.info(f'Adding new inboxes: {new_inboxes}')
                 obj.ap_undelivered += new_inboxes
+            if type in ('note', 'article', 'comment'):
+                changed = as1.activity_changed(json_loads(obj.as1), self.source_as1)
+                if changed:
+                    obj.ap_undelivered += obj.ap_delivered
+                    obj.ap_delivered = []
+                    logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes: {obj.ap_undelivered}')
+
         else:
-            obj = Object(id=self.source_url, domains=[self.source_domain],
-                         source_protocol='activitypub',
-                         mf2=json_dumps(self.source_mf2),
-                         as1=json_dumps(self.source_as1),
+            obj = Object(id=self.source_url,
                          ap_undelivered=list(inboxes_to_targets.keys()),
                          ap_delivered=[],
-                         ap_failed=[],
-                         type=as1.object_type(self.source_as1),
-                         object_ids=as1.get_ids(self.source_as1, 'object'))
+                         ap_failed=[])
+            logging.info(f'Storing new {obj}')
 
-
-        if (obj.status == 'complete' and
-            not as1.activity_changed(json_loads(obj.as1), self.source_as1)):
-            logger.info(f'Skipping; new content is same as content published before at {obj.updated}')
-            return 'OK'
-
+        obj.domains = [self.source_domain]
+        obj.source_protocol = 'activitypub'
+        obj.mf2 = json_dumps(self.source_mf2)
+        obj.as1 = json_dumps(self.source_as1)
+        obj.type = type
+        obj.object_ids = as1.get_ids(self.source_as1, 'object')
         obj.put()
 
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
         #
         # make copy of ap_undelivered because we modify it below
+        logger.info(f'Delivering to inboxes: {sorted(obj.ap_undelivered)}')
         for inbox in list(obj.ap_undelivered):
             if inbox in inboxes_to_targets:
                 target_as2 = inboxes_to_targets[inbox]
@@ -176,7 +184,7 @@ class Webmention(View):
                     as2.from_as1(self.source_as1), target=target_as2, user=self.user)
             if not self.source_as2.get('actor'):
                 self.source_as2['actor'] = common.host_url(self.source_domain)
-            if obj.status == 'complete' and self.source_as2.get('type') == 'Create':
+            if changed:
                 self.source_as2['type'] = 'Update'
 
             if self.source_as2.get('type') == 'Update':
@@ -270,7 +278,7 @@ class Webmention(View):
                         inboxes.add(actor.get('endpoints', {}).get('sharedInbox') or
                                     actor.get('publicInbox') or
                                     actor.get('inbox'))
-            logger.info(f"Delivering to followers' inboxes: {sorted(inboxes)}")
+            logger.info('Delivering to followers')
             return {inbox: None for inbox in inboxes}
 
         targets = common.remove_blocklisted(targets)

@@ -500,7 +500,9 @@ class WebmentionTest(testutil.TestCase):
                            )
 
     def test_update_reply(self, mock_get, mock_post):
-        Object(id='http://a/reply', status='complete', as1='{}').put()
+        # different = copy.deepcopy(self.reply_as1)
+        # different['content'] += ' other'
+        Object(id='http://a/reply', status='complete', as1='{"content": "other"}').put()
 
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz')
@@ -513,7 +515,7 @@ class WebmentionTest(testutil.TestCase):
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.as2_update, json_loads(kwargs['data']))
+        self.assert_equals(self.as2_update, json_loads(kwargs['data']))
 
     def test_redo_repost_isnt_update(self, mock_get, mock_post):
         """Like and Announce shouldn't use Update, they should just resend as is."""
@@ -530,12 +532,13 @@ class WebmentionTest(testutil.TestCase):
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.repost_as2, json_loads(kwargs['data']))
+        self.assert_equals(self.repost_as2, json_loads(kwargs['data']))
 
     def test_skip_update_if_content_unchanged(self, mock_get, mock_post):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
         Object(id='http://a/reply', status='complete',
-               as1=json_dumps(self.reply_as1)).put()
+               as1=json_dumps(self.reply_as1),
+               ap_delivered=['https://foo.com/inbox']).put()
         mock_get.side_effect = self.activitypub_gets
 
         got = self.client.post('/webmention', data={
@@ -717,23 +720,8 @@ class WebmentionTest(testutil.TestCase):
             },
         )
 
-    def test_create_post_run_task(self, mock_get, mock_post):
-        mock_get.side_effect = [self.create, self.actor]
-        mock_post.return_value = requests_response('abc xyz')
-
-        # Object(id='https://orig/post', domains=['orig'],
-        #        status='complete', mf2=json_dumps(self.create_mf2),
-        #        as1=json_dumps(self.create_as1)).put()
-
-        # different_create_mf2 = copy.deepcopy(self.create_mf2)
-        # different_create_mf2['items'][0]['properties']['content'][0]['value'] += ' different'
-        # different_create_as1 = copy.deepcopy(self.create_as1)
-        # different_create_as1['content'] += ' different'
-        # Object(id='https://orig/post', domains=['orig'],
-        #          status='complete', source_protocol='activitypub',
-        #          mf2=json_dumps(different_create_mf2),
-        #          as1=json_dumps(different_create_as1)).put()
-
+    @staticmethod
+    def make_followers():
         Follower.get_or_create('orig', 'https://mastodon/aaa')
         Follower.get_or_create('orig', 'https://mastodon/bbb',
                                last_follow=json_dumps({'actor': {
@@ -750,17 +738,6 @@ class WebmentionTest(testutil.TestCase):
                                last_follow=json_dumps({'actor': {
                                    'inbox': 'https://inbox',
                                }}))
-        # TODO
-        # # already sent, should be skipped
-        # Follower.get_or_create('orig', 'https://mastodon/eee',
-        #                        last_follow=json_dumps({'actor': {
-        #                            'inbox': 'https://skipped/inbox',
-        #                        }}))
-        # changed, should still be sent
-        Follower.get_or_create('orig', 'https://mastodon/fff',
-                               last_follow=json_dumps({'actor': {
-                                   'inbox': 'https://updated/inbox',
-                               }}))
         Follower.get_or_create('orig', 'https://mastodon/ggg',
                                status='inactive',
                                last_follow=json_dumps({'actor': {
@@ -770,6 +747,51 @@ class WebmentionTest(testutil.TestCase):
                                last_follow=json_dumps({'actor': {
                                    # dupe of eee; should be de-duped
                                    'inbox': 'https://inbox',
+                               }}))
+
+    def test_create_post_run_task_new(self, mock_get, mock_post):
+        mock_get.side_effect = [self.create, self.actor]
+        mock_post.return_value = requests_response('abc xyz')
+        self.make_followers()
+
+        got = self.client.post('/_ah/queue/webmention', data={
+            'source': 'https://orig/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
+
+        mock_get.assert_has_calls((
+            self.req('https://orig/post'),
+        ))
+        inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
+        self.assert_deliveries(mock_post, inboxes, self.create_as2)
+
+        self.assert_object(f'https://orig/post',
+                           domains=['orig'],
+                           source_protocol='activitypub',
+                           status='complete',
+                           mf2=self.create_mf2,
+                           as1=self.create_as1,
+                           ap_delivered=inboxes,
+                           type='note',
+                           )
+
+    def test_create_post_run_task_resume(self, mock_get, mock_post):
+        mock_get.side_effect = [self.create, self.actor]
+        mock_post.return_value = requests_response('abc xyz')
+
+        Object(id='https://orig/post', domains=['orig'], status='in progress',
+               as1=json_dumps(self.create_as1),
+               ap_delivered=['https://skipped/inbox'],
+               ap_undelivered=['https://shared/inbox'],
+               ap_failed=['https://public/inbox'],
+               ).put()
+
+        self.make_followers()
+        # already sent, should be skipped
+        Follower.get_or_create('orig', 'https://mastodon/eee',
+                               last_follow=json_dumps({'actor': {
+                                   'inbox': 'https://skipped/inbox',
                                }}))
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -782,23 +804,59 @@ class WebmentionTest(testutil.TestCase):
             self.req('https://orig/post'),
         ))
 
-        inboxes = ('https://inbox', 'https://public/inbox',
-                   'https://shared/inbox', 'https://updated/inbox')
+        inboxes = ['https://inbox', 'https://public/inbox', 'https://shared/inbox']
         self.assert_deliveries(mock_post, inboxes, self.create_as2)
-                    # TODO
-                    # self.update_as2 if inbox == 'https://updated/inbox' else
 
         self.assert_object(f'https://orig/post',
                            domains=['orig'],
                            source_protocol='activitypub',
                            status='complete',
-#(different_create_mf2 if inbox == 'https://updated/inbox' else
+                           mf2=self.create_mf2,
+                           as1=self.create_as1,
+                           ap_delivered=inboxes + ['https://skipped/inbox'],
+                           type='note',
+                           )
+
+    def test_create_post_run_task_update(self, mock_get, mock_post):
+        different_create_as1 = copy.deepcopy(self.create_as1)
+        different_create_as1['content'] += ' different'
+
+        mock_get.side_effect = [self.create, self.actor]
+        mock_post.return_value = requests_response('abc xyz')
+
+        Object(id='https://orig/post', domains=['orig'], status='in progress',
+               as1=json_dumps(different_create_as1),
+               ap_delivered=['https://delivered/inbox'],
+               ap_undelivered=['https://shared/inbox'],
+               ap_failed=['https://public/inbox'],
+               ).put()
+
+        self.make_followers()
+
+        got = self.client.post('/_ah/queue/webmention', data={
+            'source': 'https://orig/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
+
+        mock_get.assert_has_calls((
+            self.req('https://orig/post'),
+        ))
+        self.assertEqual(4, len(mock_post.call_args_list), mock_post.call_args_list)
+
+        inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox',
+                   'https://delivered/inbox')
+        self.assert_deliveries(mock_post, inboxes, self.update_as2)
+
+        self.assert_object(f'https://orig/post',
+                           domains=['orig'],
+                           source_protocol='activitypub',
+                           status='complete',
                            mf2=self.create_mf2,
                            as1=self.create_as1,
                            ap_delivered=inboxes,
                            type='note',
                            )
-#(different_create_as1 if inbox == 'https://updated/inbox' else
 
     def test_create_with_image(self, mock_get, mock_post):
         create_html = self.create_html.replace(
