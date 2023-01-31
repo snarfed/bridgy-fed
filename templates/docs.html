@@ -201,7 +201,7 @@ Create a <a href="https://indieweb.org/post">post</a> with the <a href="https://
 </pre>
 </p>
 
-<p>Basic HTML formatting like links, bold, and italics are generally preserved and visible in the fediverse, but specifics vary from site to site.
+<p><a href="https://docs.joinmastodon.org/spec/activitypub/#sanitization">Mastodon preserves HTML links and line breaks, but removes all other formatting and tags.</a> Other fediverse sites vary in their HTML handling.
 </p>
 
 <p>Then, include a link (optionally blank) to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post and <a href="#setup">send Bridgy Fed a webmention</a>. That webmention will trigger Bridgy Fed to forward your post into the fediverse. Your web server may send the webmention automatically if it supports them, or <a href="https://indieweb.org/Webmention#Manual_Webmentions">you can send it manually.</a>
