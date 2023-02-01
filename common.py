@@ -294,16 +294,20 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
 
     # send webmentions and store Objects
     errors = []  # stores (code, body) tuples
+    domains = []
+
+    obj = Object(id=source, labels=['notification'], undelivered=targets, **object_props)
+    if activity.get('objectType') == 'activity':
+      obj.labels.append('activity')
+    obj.put()
+
     for target in targets:
         domain = util.domain_from_link(target, minimize=False)
         if (domain == util.domain_from_link(source, minimize=False)):
             logger.info(f'Skipping same-domain webmention from {source} to {target}')
             continue
 
-        # TODO: unify across targets
-        obj = Object(id=source, domains=[domain], labels=['notification'],
-                     **object_props)
-        obj.put()
+        domains.append(domain)
         wm_source = (obj.proxy_url()
                      if verb in ('follow', 'like', 'share') or proxy
                      else source)
@@ -313,14 +317,23 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
             endpoint = webmention.discover(target).endpoint
             if endpoint:
                 webmention.send(endpoint, wm_source, target)
-                obj.status = 'complete'
                 logger.info('Success!')
+                obj.delivered.append(target)
             else:
-                obj.status = 'ignored'
-                logger.info('Ignoring.')
+                logger.info('No webmention endpoint')
         except BaseException as e:
-            errors.append(util.interpret_http_exception(e))
+          code, body = util.interpret_http_exception(e)
+          if not code and not body:
+            raise
+          errors.append((code, body))
+          obj.failed.append(target)
+
+        obj.undelivered.remove(target)
         obj.put()
+
+    obj.status = 'complete' if obj.delivered else 'failed' if obj.failed else 'ignored'
+    obj.domains = domains
+    obj.put()
 
     if errors:
         msg = 'Errors: ' + ', '.join(f'{code} {body}' for code, body in errors)

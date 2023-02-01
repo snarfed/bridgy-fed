@@ -234,7 +234,7 @@ class Object(StringIdModel):
     """
     STATUSES = ('new', 'in progress', 'complete', 'failed', 'ignored')
     PROTOCOLS = ('activitypub', 'bluesky', 'ostatus', 'webmention', 'ui')
-    LABELS = ('feed', 'notification', 'user')
+    LABELS = ('activity', 'feed', 'notification', 'user')
 
     # domains of the Bridgy Fed users this activity is to or from
     domains = ndb.StringProperty(repeated=True)
@@ -254,10 +254,10 @@ class Object(StringIdModel):
     deleted = ndb.BooleanProperty()
     object_ids = ndb.StringProperty(repeated=True)  # id(s) of inner objects
 
-    # ActivityPub inbox delivery
-    ap_delivered = ndb.StringProperty(repeated=True)
-    ap_undelivered = ndb.StringProperty(repeated=True)
-    ap_failed = ndb.StringProperty(repeated=True)
+    # URLs we deliver(ed) this to. ActivityPub inboxes, webmention targets, etc.
+    delivered = ndb.StringProperty(repeated=True)
+    undelivered = ndb.StringProperty(repeated=True)
+    failed = ndb.StringProperty(repeated=True)
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)

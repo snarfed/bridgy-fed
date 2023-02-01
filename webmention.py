@@ -140,23 +140,22 @@ class Webmention(View):
 
         if obj:
             logging.info(f'Resuming existing {obj}')
-            obj.ap_failed = []
-            seen = obj.ap_delivered + obj.ap_undelivered + obj.ap_failed
+            obj.failed = []
+            seen = obj.delivered + obj.undelivered + obj.failed
             new_inboxes = [i for i in inboxes_to_targets.keys() if i not in seen]
             if new_inboxes:
                 logging.info(f'Adding new inboxes: {new_inboxes}')
-                obj.ap_undelivered += new_inboxes
+                obj.undelivered += new_inboxes
             if type in ('note', 'article', 'comment'):
                 changed = as1.activity_changed(json_loads(obj.as1), self.source_as1)
                 if changed:
-                    obj.ap_undelivered += obj.ap_delivered
-                    obj.ap_delivered = []
-                    logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes: {obj.ap_undelivered}')
+                    obj.undelivered += obj.delivered
+                    obj.delivered = []
+                    logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes: {obj.undelivered}')
 
         else:
-            obj = Object(id=self.source_url,
-                         ap_undelivered=list(inboxes_to_targets.keys()),
-                         ap_delivered=[], ap_failed=[])
+            obj = Object(id=self.source_url, undelivered=list(inboxes_to_targets.keys()),
+                         delivered=[], failed=[])
             logging.info(f'Storing new {obj}')
 
         obj.domains = [self.source_domain]
@@ -166,13 +165,15 @@ class Webmention(View):
         obj.type = type
         obj.object_ids = as1.get_ids(self.source_as1, 'object')
         obj.labels = ['user']
+        if self.source_as1.get('objectType') == 'activity':
+            obj.labels.append('activity')
         obj.put()
 
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
         #
-        # make copy of ap_undelivered because we modify it below
-        logger.info(f'Delivering to inboxes: {sorted(obj.ap_undelivered)}')
-        for inbox in list(obj.ap_undelivered):
+        # make copy of undelivered because we modify it below
+        logger.info(f'Delivering to inboxes: {sorted(obj.undelivered)}')
+        for inbox in list(obj.undelivered):
             if inbox in inboxes_to_targets:
                 target_as2 = inboxes_to_targets[inbox]
             else:
@@ -207,18 +208,18 @@ class Webmention(View):
             try:
                 last = common.signed_post(inbox, data=self.source_as2,
                                           log_data=log_data, user=self.user)
-                obj.ap_delivered.append(inbox)
+                obj.delivered.append(inbox)
                 last_success = last
             except BaseException as e:
-                obj.ap_failed.append(inbox)
+                obj.failed.append(inbox)
                 error = e
             finally:
                 log_data = False
 
-            obj.ap_undelivered.remove(inbox)
+            obj.undelivered.remove(inbox)
             obj.put()
 
-        obj.status = 'complete' if obj.ap_delivered else 'failed'
+        obj.status = 'complete' if obj.delivered else 'failed'
         obj.put()
 
         # Pass the AP response status code and body through as our response

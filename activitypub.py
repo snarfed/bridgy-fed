@@ -136,7 +136,7 @@ def inbox(domain=None):
             logging.info('Dropping non-public activity')
             return ''
 
-        # normal post, deliver to BF followers
+        # normal post, deliver to BF followers locally
         source = util.get_first(activity, 'url') or activity.get('id')
         domains = []
         if actor:
@@ -150,7 +150,7 @@ def inbox(domain=None):
         key = Object(id=source, source_protocol='activitypub', domains=domains,
                      status='complete', as2=activity_as2_str, as1=activity_as1_str,
                      type=as1_type, object_ids=as1.get_ids(activity_as1, 'object'),
-                     labels=['feed']).put()
+                     labels=['feed', 'activity']).put()
         logging.info(f'Wrote Object {key} with {len(domains)} follower domains')
 
     return ''

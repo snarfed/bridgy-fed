@@ -493,7 +493,7 @@ class WebmentionTest(testutil.TestCase):
                            domains=['a'],
                            source_protocol='webmention',
                            status='complete',
-                           ap_delivered=['https://foo.com/inbox'],
+                           delivered=['https://foo.com/inbox'],
                            mf2=self.reply_mf2,
                            as1=self.reply_as1,
                            type='comment',
@@ -501,8 +501,6 @@ class WebmentionTest(testutil.TestCase):
                            )
 
     def test_update_reply(self, mock_get, mock_post):
-        # different = copy.deepcopy(self.reply_as1)
-        # different['content'] += ' other'
         Object(id='http://a/reply', status='complete', as1='{"content": "other"}').put()
 
         mock_get.side_effect = self.activitypub_gets
@@ -539,7 +537,7 @@ class WebmentionTest(testutil.TestCase):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
         Object(id='http://a/reply', status='complete',
                as1=json_dumps(self.reply_as1),
-               ap_delivered=['https://foo.com/inbox']).put()
+               delivered=['https://foo.com/inbox']).put()
         mock_get.side_effect = self.activitypub_gets
 
         got = self.client.post('/webmention', data={
@@ -621,10 +619,10 @@ class WebmentionTest(testutil.TestCase):
                            status='complete',
                            mf2=self.repost_mf2,
                            as1=self.repost_as1,
-                           ap_delivered=['https://foo.com/inbox'],
+                           delivered=['https://foo.com/inbox'],
                            type='share',
                            object_ids=['https://orig/post'],
-                           labels=['user'],
+                           labels=['user', 'activity'],
                            )
 
     def test_link_rel_alternate_as2(self, mock_get, mock_post):
@@ -774,7 +772,7 @@ class WebmentionTest(testutil.TestCase):
                            status='complete',
                            mf2=self.create_mf2,
                            as1=self.create_as1,
-                           ap_delivered=inboxes,
+                           delivered=inboxes,
                            type='note',
                            labels=['user'],
                            )
@@ -785,9 +783,9 @@ class WebmentionTest(testutil.TestCase):
 
         Object(id='https://orig/post', domains=['orig'], status='in progress',
                as1=json_dumps(self.create_as1),
-               ap_delivered=['https://skipped/inbox'],
-               ap_undelivered=['https://shared/inbox'],
-               ap_failed=['https://public/inbox'],
+               delivered=['https://skipped/inbox'],
+               undelivered=['https://shared/inbox'],
+               failed=['https://public/inbox'],
                ).put()
 
         self.make_followers()
@@ -816,7 +814,7 @@ class WebmentionTest(testutil.TestCase):
                            status='complete',
                            mf2=self.create_mf2,
                            as1=self.create_as1,
-                           ap_delivered=inboxes + ['https://skipped/inbox'],
+                           delivered=inboxes + ['https://skipped/inbox'],
                            type='note',
                            labels=['user'],
                            )
@@ -830,9 +828,9 @@ class WebmentionTest(testutil.TestCase):
 
         Object(id='https://orig/post', domains=['orig'], status='in progress',
                as1=json_dumps(different_create_as1),
-               ap_delivered=['https://delivered/inbox'],
-               ap_undelivered=['https://shared/inbox'],
-               ap_failed=['https://public/inbox'],
+               delivered=['https://delivered/inbox'],
+               undelivered=['https://shared/inbox'],
+               failed=['https://public/inbox'],
                ).put()
 
         self.make_followers()
@@ -858,7 +856,7 @@ class WebmentionTest(testutil.TestCase):
                            status='complete',
                            mf2=self.create_mf2,
                            as1=self.create_as1,
-                           ap_delivered=inboxes,
+                           delivered=inboxes,
                            type='note',
                            labels=['user'],
                            )
@@ -921,10 +919,10 @@ class WebmentionTest(testutil.TestCase):
                            status='complete',
                            mf2=self.follow_mf2,
                            as1=self.follow_as1,
-                           ap_delivered=['https://foo.com/inbox'],
+                           delivered=['https://foo.com/inbox'],
                            type='follow',
                            object_ids=['http://followee'],
-                           labels=['user'],
+                           labels=['user', 'activity'],
                            )
 
         followers = Follower.query().fetch()
@@ -988,10 +986,10 @@ class WebmentionTest(testutil.TestCase):
                            status='complete',
                            mf2=self.follow_fragment_mf2,
                            as1=self.follow_fragment_as1,
-                           ap_delivered=['https://foo.com/inbox'],
+                           delivered=['https://foo.com/inbox'],
                            type='follow',
                            object_ids=['http://followee'],
-                           labels=['user'],
+                           labels=['user', 'activity'],
                            )
 
         followers = Follower.query().fetch()
@@ -1045,10 +1043,10 @@ class WebmentionTest(testutil.TestCase):
                            status='failed',
                            mf2=self.follow_mf2,
                            as1=self.follow_as1,
-                           ap_failed=['https://foo.com/inbox'],
+                           failed=['https://foo.com/inbox'],
                            type='follow',
                            object_ids=['http://followee'],
-                           labels=['user'],
+                           labels=['user', 'activity'],
                           )
 
     def test_repost_blocklisted_error(self, mock_get, mock_post):
@@ -1131,8 +1129,8 @@ class WebmentionTest(testutil.TestCase):
                            status='complete',
                            mf2=ACTOR_MF2,
                            as1=expected_as1,
-                           ap_delivered=['https://inbox', 'https://shared/inbox'],
+                           delivered=['https://inbox', 'https://shared/inbox'],
                            type='update',
                            object_ids=['https://orig'],
-                           labels=['user'],
+                           labels=['user', 'activity'],
                            )

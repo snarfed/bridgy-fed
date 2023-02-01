@@ -180,23 +180,18 @@ class FollowTest(testutil.TestCase):
         self.assertEqual(('http://bar/inbox',), inbox_args)
         self.assert_equals(expected_follow, json_loads(inbox_kwargs['data']))
 
-        follow_as2 = json_dumps(expected_follow, sort_keys=True)
-        follow_as1 = json_dumps(as2.to_as1(expected_follow), sort_keys=True)
         followers = Follower.query().fetch()
         self.assert_entities_equal(
-            Follower(id='https://bar/id snarfed.org', last_follow=follow_as2,
+            Follower(id='https://bar/id snarfed.org',
+                     last_follow=json_dumps(expected_follow, sort_keys=True),
                      src='snarfed.org', dest='https://bar/id', status='active'),
             followers,
             ignore=['created', 'updated'])
 
         id = f'http://localhost/user/snarfed.org/following#2022-01-02T03:04:05-{input}'
-        objects = Object.query().fetch()
-        self.assert_entities_equal(
-            [Object(id=id, domains=['snarfed.org'], status='complete',
-                    labels=['user'], source_protocol='ui',
-                    as1=follow_as1, as2=follow_as2)],
-            objects,
-            ignore=['created', 'updated'])
+        self.assert_object(id, domains=['snarfed.org'], status='complete',
+                           labels=['user', 'activity'], source_protocol='ui',
+                           as2=expected_follow, as1=as2.to_as1(expected_follow))
 
     def test_callback_missing_user(self, mock_get, mock_post):
         mock_post.return_value = requests_response('me=https://snarfed.org')
@@ -284,16 +279,11 @@ class UnfollowTest(testutil.TestCase):
         follower = Follower.get_by_id('https://bar/id snarfed.org')
         self.assertEqual('inactive', follower.status)
 
-        objects = Object.query().fetch()
-        self.assert_entities_equal(
-            [Object(id='http://localhost/user/snarfed.org/following#undo-2022-01-02T03:04:05-https://bar/id',
-                    domains=['snarfed.org'], status='complete',
-                    source_protocol='ui', labels=['user'],
-                    as2=json_dumps(UNDO_FOLLOW, sort_keys=True),
-                    as1=json_dumps(as2.to_as1(UNDO_FOLLOW), sort_keys=True),
-                    )],
-            objects,
-            ignore=['created', 'updated'])
+        self.assert_object(
+            'http://localhost/user/snarfed.org/following#undo-2022-01-02T03:04:05-https://bar/id',
+            domains=['snarfed.org'], status='complete',
+            source_protocol='ui', labels=['user', 'activity'],
+            as2=UNDO_FOLLOW, as1=as2.to_as1(UNDO_FOLLOW))
 
     def test_callback_missing_user(self, mock_get, mock_post):
         mock_post.return_value = requests_response('me=https://snarfed.org')

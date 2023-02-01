@@ -291,20 +291,25 @@ class ActivityPubTest(testutil.TestCase):
 
     def test_inbox_reply_object(self, *mocks):
         self._test_inbox_reply(REPLY_OBJECT,
-                               {'as2': REPLY_OBJECT, 'type': 'comment'},
+                               {'as2': REPLY_OBJECT,
+                                'type': 'comment',
+                                'labels': ['notification']},
                                *mocks)
 
     def test_inbox_reply_object_wrapped(self, *mocks):
         self._test_inbox_reply(REPLY_OBJECT_WRAPPED,
                                {'as2': REPLY_OBJECT,
-                                'type': 'comment'},
+                                'type': 'comment',
+                                'labels': ['notification']},
                                *mocks)
 
     def test_inbox_reply_create_activity(self, *mocks):
         self._test_inbox_reply(REPLY,
                                {'as2': REPLY,
                                 'type': 'post',
-                                'object_ids': [REPLY_OBJECT['id']]},
+                                'object_ids': [REPLY_OBJECT['id']],
+                                'labels': ['notification', 'activity'],
+                                },
                                *mocks)
 
     def _test_inbox_reply(self, reply, expected_props, mock_head, mock_get, mock_post):
@@ -332,7 +337,7 @@ class ActivityPubTest(testutil.TestCase):
                            source_protocol='activitypub',
                            status='complete',
                            as1=as2.to_as1(expected_props['as2']),
-                           labels=['notification'],
+                           delivered=['http://or.ig/post'],
                            **expected_props)
 
     def test_inbox_reply_to_self_domain(self, mock_head, mock_get, mock_post):
@@ -354,7 +359,6 @@ class ActivityPubTest(testutil.TestCase):
 
         mock_get.assert_not_called()
         mock_post.assert_not_called()
-        self.assertEqual(0, Object.query().count())
 
     def test_inbox_create_obj(self, mock_head, mock_get, mock_post):
         Follower.get_or_create(ACTOR['id'], 'foo.com')
@@ -380,7 +384,7 @@ class ActivityPubTest(testutil.TestCase):
                            as1=as2.to_as1(expected_as2),
                            domains=['foo.com', 'baz.com'],
                            type='post',
-                           labels=['feed'],
+                           labels=['feed', 'activity'],
                            object_ids=[NOTE_OBJECT['id']])
 
     def test_inbox_not_public(self, mock_head, mock_get, mock_post):
@@ -400,7 +404,10 @@ class ActivityPubTest(testutil.TestCase):
     def test_inbox_mention_object(self, *mocks):
         self._test_inbox_mention(
             MENTION_OBJECT,
-            {'type': 'note'},  # not mention (?)
+            {
+                'type': 'note',  # not mention (?)
+                'labels': ['notification'],
+            },
             *mocks,
         )
 
@@ -410,6 +417,7 @@ class ActivityPubTest(testutil.TestCase):
             {
                 'type': 'post',  # not mention (?)
                 'object_ids': [MENTION_OBJECT['id']],
+                'labels': ['notification', 'activity'],
             },
             *mocks,
         )
@@ -442,7 +450,7 @@ class ActivityPubTest(testutil.TestCase):
                                status='complete',
                                as2=expected_as2,
                                as1=as2.to_as1(expected_as2),
-                               labels=['notification'],
+                               delivered=['http://tar.get/'],
                                **expected_props)
 
     def test_inbox_like(self, mock_head, mock_get, mock_post):
@@ -477,8 +485,9 @@ class ActivityPubTest(testutil.TestCase):
                            status='complete',
                            as2=LIKE_WITH_ACTOR,
                            as1=as2.to_as1(LIKE_WITH_ACTOR),
+                           delivered=['http://or.ig/post'],
                            type='like',
-                           labels=['notification'],
+                           labels=['notification', 'activity'],
                            object_ids=[LIKE['object']])
 
     def test_inbox_follow_accept_with_id(self, mock_head, mock_get, mock_post):
@@ -494,8 +503,9 @@ class ActivityPubTest(testutil.TestCase):
                            status='complete',
                            as2=follow,
                            as1=as2.to_as1(follow),
+                           delivered=['https://www.realize.be/'],
                            type='follow',
-                           labels=['notification'],
+                           labels=['notification', 'activity'],
                            object_ids=[FOLLOW['object']])
 
         follower = Follower.query().get()
@@ -537,8 +547,9 @@ class ActivityPubTest(testutil.TestCase):
                            status='complete',
                            as2=follow,
                            as1=as2.to_as1(follow),
+                           delivered=['https://www.realize.be/'],
                            type='follow',
-                           labels=['notification'],
+                           labels=['notification', 'activity'],
                            object_ids=[FOLLOW['object']])
 
     def _test_inbox_follow_accept(self, follow_as2, accept_as2,
@@ -750,7 +761,7 @@ class ActivityPubTest(testutil.TestCase):
                            as2=LIKE_WITH_ACTOR,
                            as1=as2.to_as1(LIKE_WITH_ACTOR),
                            type='like',
-                           labels=['notification'],
+                           labels=['notification', 'activity'],
                            object_ids=[LIKE['object']])
 
     def test_followers_collection_unknown_user(self, *args):
