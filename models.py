@@ -233,8 +233,8 @@ class Object(StringIdModel):
     Key name is the id. We synthesize ids if necessary.
     """
     STATUSES = ('new', 'in progress', 'complete', 'failed', 'ignored')
-    PROTOCOLS = ('activitypub', 'bluesky', 'webmention', 'ui')
-    LABELS = ('feed', 'notification')
+    PROTOCOLS = ('activitypub', 'bluesky', 'ostatus', 'webmention', 'ui')
+    LABELS = ('feed', 'notification', 'user')
 
     # domains of the Bridgy Fed users this activity is to or from
     domains = ndb.StringProperty(repeated=True)
@@ -251,7 +251,7 @@ class Object(StringIdModel):
     mf2 = ndb.TextProperty()  # HTML microformats2
 
     type = ndb.StringProperty()  # AS1 objectType, or verb if it's an activity
-    deleted = ndb.BooleanProperty(default=False)
+    deleted = ndb.BooleanProperty()
     object_ids = ndb.StringProperty(repeated=True)  # id(s) of inner objects
 
     # ActivityPub inbox delivery

@@ -156,16 +156,16 @@ class Webmention(View):
         else:
             obj = Object(id=self.source_url,
                          ap_undelivered=list(inboxes_to_targets.keys()),
-                         ap_delivered=[],
-                         ap_failed=[])
+                         ap_delivered=[], ap_failed=[])
             logging.info(f'Storing new {obj}')
 
         obj.domains = [self.source_domain]
-        obj.source_protocol = 'activitypub'
+        obj.source_protocol = 'webmention'
         obj.mf2 = json_dumps(self.source_mf2)
         obj.as1 = json_dumps(self.source_as1)
         obj.type = type
         obj.object_ids = as1.get_ids(self.source_as1, 'object')
+        obj.labels = ['user']
         obj.put()
 
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients

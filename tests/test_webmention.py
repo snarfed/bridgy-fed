@@ -491,12 +491,13 @@ class WebmentionTest(testutil.TestCase):
 
         self.assert_object('http://a/reply',
                            domains=['a'],
-                           source_protocol='activitypub',
+                           source_protocol='webmention',
                            status='complete',
                            ap_delivered=['https://foo.com/inbox'],
                            mf2=self.reply_mf2,
                            as1=self.reply_as1,
                            type='comment',
+                           labels=['user'],
                            )
 
     def test_update_reply(self, mock_get, mock_post):
@@ -616,13 +617,14 @@ class WebmentionTest(testutil.TestCase):
 
         self.assert_object('http://a/repost',
                            domains=['a'],
-                           source_protocol='activitypub',
+                           source_protocol='webmention',
                            status='complete',
                            mf2=self.repost_mf2,
                            as1=self.repost_as1,
                            ap_delivered=['https://foo.com/inbox'],
                            type='share',
                            object_ids=['https://orig/post'],
+                           labels=['user'],
                            )
 
     def test_link_rel_alternate_as2(self, mock_get, mock_post):
@@ -768,12 +770,13 @@ class WebmentionTest(testutil.TestCase):
 
         self.assert_object(f'https://orig/post',
                            domains=['orig'],
-                           source_protocol='activitypub',
+                           source_protocol='webmention',
                            status='complete',
                            mf2=self.create_mf2,
                            as1=self.create_as1,
                            ap_delivered=inboxes,
                            type='note',
+                           labels=['user'],
                            )
 
     def test_create_post_run_task_resume(self, mock_get, mock_post):
@@ -809,12 +812,13 @@ class WebmentionTest(testutil.TestCase):
 
         self.assert_object(f'https://orig/post',
                            domains=['orig'],
-                           source_protocol='activitypub',
+                           source_protocol='webmention',
                            status='complete',
                            mf2=self.create_mf2,
                            as1=self.create_as1,
                            ap_delivered=inboxes + ['https://skipped/inbox'],
                            type='note',
+                           labels=['user'],
                            )
 
     def test_create_post_run_task_update(self, mock_get, mock_post):
@@ -850,12 +854,13 @@ class WebmentionTest(testutil.TestCase):
 
         self.assert_object(f'https://orig/post',
                            domains=['orig'],
-                           source_protocol='activitypub',
+                           source_protocol='webmention',
                            status='complete',
                            mf2=self.create_mf2,
                            as1=self.create_as1,
                            ap_delivered=inboxes,
                            type='note',
+                           labels=['user'],
                            )
 
     def test_create_with_image(self, mock_get, mock_post):
@@ -912,13 +917,14 @@ class WebmentionTest(testutil.TestCase):
 
         self.assert_object('http://a/follow',
                            domains=['a'],
-                           source_protocol='activitypub',
+                           source_protocol='webmention',
                            status='complete',
                            mf2=self.follow_mf2,
                            as1=self.follow_as1,
                            ap_delivered=['https://foo.com/inbox'],
                            type='follow',
                            object_ids=['http://followee'],
+                           labels=['user'],
                            )
 
         followers = Follower.query().fetch()
@@ -978,13 +984,14 @@ class WebmentionTest(testutil.TestCase):
 
         self.assert_object('http://a/follow#2',
                            domains=['a'],
-                           source_protocol='activitypub',
+                           source_protocol='webmention',
                            status='complete',
                            mf2=self.follow_fragment_mf2,
                            as1=self.follow_fragment_as1,
                            ap_delivered=['https://foo.com/inbox'],
                            type='follow',
                            object_ids=['http://followee'],
+                           labels=['user'],
                            )
 
         followers = Follower.query().fetch()
@@ -1034,13 +1041,14 @@ class WebmentionTest(testutil.TestCase):
 
         self.assert_object('http://a/follow',
                            domains=['a'],
-                           source_protocol='activitypub',
+                           source_protocol='webmention',
                            status='failed',
                            mf2=self.follow_mf2,
                            as1=self.follow_as1,
                            ap_failed=['https://foo.com/inbox'],
                            type='follow',
                            object_ids=['http://followee'],
+                           labels=['user'],
                           )
 
     def test_repost_blocklisted_error(self, mock_get, mock_post):
@@ -1119,11 +1127,12 @@ class WebmentionTest(testutil.TestCase):
         }
         self.assert_object(f'https://orig/',
                            domains=['orig'],
-                           source_protocol='activitypub',
+                           source_protocol='webmention',
                            status='complete',
                            mf2=ACTOR_MF2,
                            as1=expected_as1,
                            ap_delivered=['https://inbox', 'https://shared/inbox'],
                            type='update',
                            object_ids=['https://orig'],
+                           labels=['user'],
                            )

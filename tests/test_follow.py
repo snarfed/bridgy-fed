@@ -193,7 +193,7 @@ class FollowTest(testutil.TestCase):
         objects = Object.query().fetch()
         self.assert_entities_equal(
             [Object(id=id, domains=['snarfed.org'], status='complete',
-                    labels=['notification'], source_protocol='ui',
+                    labels=['user'], source_protocol='ui',
                     as1=follow_as1, as2=follow_as2)],
             objects,
             ignore=['created', 'updated'])
@@ -288,7 +288,7 @@ class UnfollowTest(testutil.TestCase):
         self.assert_entities_equal(
             [Object(id='http://localhost/user/snarfed.org/following#undo-2022-01-02T03:04:05-https://bar/id',
                     domains=['snarfed.org'], status='complete',
-                    source_protocol='ui', labels=['notification'],
+                    source_protocol='ui', labels=['user'],
                     as2=json_dumps(UNDO_FOLLOW, sort_keys=True),
                     as1=json_dumps(as2.to_as1(UNDO_FOLLOW), sort_keys=True),
                     )],

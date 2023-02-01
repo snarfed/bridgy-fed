@@ -167,7 +167,7 @@ class FollowCallback(indieauth.Callback):
         follow_json = json_dumps(follow_as2, sort_keys=True)
         Follower.get_or_create(dest=id, src=domain, status='active',
                                 last_follow=follow_json)
-        Object(id=follow_id, domains=[domain], labels=['notification'],
+        Object(id=follow_id, domains=[domain], labels=['user'],
                source_protocol='ui', status='complete', as2=follow_json,
                as1=json_dumps(as2.to_as1(follow_as2), sort_keys=True),
                ).put()
@@ -193,7 +193,7 @@ class UnfollowStart(indieauth.Start):
 
 
 class UnfollowCallback(indieauth.Callback):
-    """IndieAuth callback to add a follower to an existing user."""
+    """IndieAuth callback to remove a follower."""
     def finish(self, auth_entity, state=None):
         if not auth_entity:
             return
@@ -224,7 +224,7 @@ class UnfollowCallback(indieauth.Callback):
 
         follower.status = 'inactive'
         follower.put()
-        Object(id=unfollow_id, domains=[domain], labels=['notification'],
+        Object(id=unfollow_id, domains=[domain], labels=['user'],
                source_protocol='ui', status='complete',
                as2=json_dumps(unfollow_as2, sort_keys=True),
                as1=json_dumps(as2.to_as1(unfollow_as2), sort_keys=True),

@@ -150,7 +150,7 @@ def inbox(domain=None):
         key = Object(id=source, source_protocol='activitypub', domains=domains,
                      status='complete', as2=activity_as2_str, as1=activity_as1_str,
                      type=as1_type, object_ids=as1.get_ids(activity_as1, 'object'),
-                     ).put()
+                     labels=['feed']).put()
         logging.info(f'Wrote Object {key} with {len(domains)} follower domains')
 
     return ''

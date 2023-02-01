@@ -332,6 +332,7 @@ class ActivityPubTest(testutil.TestCase):
                            source_protocol='activitypub',
                            status='complete',
                            as1=as2.to_as1(expected_props['as2']),
+                           labels=['notification'],
                            **expected_props)
 
     def test_inbox_reply_to_self_domain(self, mock_head, mock_get, mock_post):
@@ -379,6 +380,7 @@ class ActivityPubTest(testutil.TestCase):
                            as1=as2.to_as1(expected_as2),
                            domains=['foo.com', 'baz.com'],
                            type='post',
+                           labels=['feed'],
                            object_ids=[NOTE_OBJECT['id']])
 
     def test_inbox_not_public(self, mock_head, mock_get, mock_post):
@@ -440,6 +442,7 @@ class ActivityPubTest(testutil.TestCase):
                                status='complete',
                                as2=expected_as2,
                                as1=as2.to_as1(expected_as2),
+                               labels=['notification'],
                                **expected_props)
 
     def test_inbox_like(self, mock_head, mock_get, mock_post):
@@ -464,7 +467,6 @@ class ActivityPubTest(testutil.TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('http://or.ig/webmention',), args)
         self.assertEqual({
-            # TODO
             'source': 'http://localhost/render?id=http%3A%2F%2Fth.is%2Flike%23ok',
             'target': 'http://or.ig/post',
         }, kwargs['data'])
@@ -476,6 +478,7 @@ class ActivityPubTest(testutil.TestCase):
                            as2=LIKE_WITH_ACTOR,
                            as1=as2.to_as1(LIKE_WITH_ACTOR),
                            type='like',
+                           labels=['notification'],
                            object_ids=[LIKE['object']])
 
     def test_inbox_follow_accept_with_id(self, mock_head, mock_get, mock_post):
@@ -492,6 +495,7 @@ class ActivityPubTest(testutil.TestCase):
                            as2=follow,
                            as1=as2.to_as1(follow),
                            type='follow',
+                           labels=['notification'],
                            object_ids=[FOLLOW['object']])
 
         follower = Follower.query().get()
@@ -534,6 +538,7 @@ class ActivityPubTest(testutil.TestCase):
                            as2=follow,
                            as1=as2.to_as1(follow),
                            type='follow',
+                           labels=['notification'],
                            object_ids=[FOLLOW['object']])
 
     def _test_inbox_follow_accept(self, follow_as2, accept_as2,
@@ -745,6 +750,7 @@ class ActivityPubTest(testutil.TestCase):
                            as2=LIKE_WITH_ACTOR,
                            as1=as2.to_as1(LIKE_WITH_ACTOR),
                            type='like',
+                           labels=['notification'],
                            object_ids=[LIKE['object']])
 
     def test_followers_collection_unknown_user(self, *args):

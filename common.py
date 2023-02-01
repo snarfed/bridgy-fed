@@ -300,7 +300,9 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
             logger.info(f'Skipping same-domain webmention from {source} to {target}')
             continue
 
-        obj = Object(id=source, domains=[domain], **object_props)
+        # TODO: unify across targets
+        obj = Object(id=source, domains=[domain], labels=['notification'],
+                     **object_props)
         obj.put()
         wm_source = (obj.proxy_url()
                      if verb in ('follow', 'like', 'share') or proxy
