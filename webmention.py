@@ -24,7 +24,7 @@ from werkzeug.exceptions import BadGateway, HTTPException
 import activitypub
 from app import app
 import common
-from models import Follower, Object, User
+from models import Follower, Object, Target, User
 
 logger = logging.getLogger(__name__)
 
@@ -141,11 +141,12 @@ class Webmention(View):
         if obj:
             logging.info(f'Resuming existing {obj}')
             obj.failed = []
-            seen = obj.delivered + obj.undelivered + obj.failed
+            seen = [t.uri for t in obj.delivered + obj.undelivered + obj.failed]
             new_inboxes = [i for i in inboxes_to_targets.keys() if i not in seen]
             if new_inboxes:
                 logging.info(f'Adding new inboxes: {new_inboxes}')
-                obj.undelivered += new_inboxes
+                obj.undelivered += [Target(uri=uri, protocol='activitypub')
+                                    for uri in new_inboxes]
             if type in ('note', 'article', 'comment'):
                 changed = as1.activity_changed(json_loads(obj.as1), self.source_as1)
                 if changed:
@@ -154,8 +155,9 @@ class Webmention(View):
                     logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes: {obj.undelivered}')
 
         else:
-            obj = Object(id=self.source_url, undelivered=list(inboxes_to_targets.keys()),
-                         delivered=[], failed=[])
+            obj = Object(id=self.source_url, delivered=[], failed=[],
+                         undelivered=[Target(uri=uri, protocol='activitypub')
+                                      for uri in inboxes_to_targets.keys()])
             logging.info(f'Storing new {obj}')
 
         obj.domains = [self.source_domain]
@@ -172,8 +174,9 @@ class Webmention(View):
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
         #
         # make copy of undelivered because we modify it below
-        logger.info(f'Delivering to inboxes: {sorted(obj.undelivered)}')
-        for inbox in list(obj.undelivered):
+        logger.info(f'Delivering to inboxes: {sorted(t.uri for t in obj.undelivered)}')
+        for target in list(obj.undelivered):
+            inbox = target.uri
             if inbox in inboxes_to_targets:
                 target_as2 = inboxes_to_targets[inbox]
             else:
@@ -208,18 +211,23 @@ class Webmention(View):
             try:
                 last = common.signed_post(inbox, data=self.source_as2,
                                           log_data=log_data, user=self.user)
-                obj.delivered.append(inbox)
+                obj.delivered.append(target)
                 last_success = last
             except BaseException as e:
-                obj.failed.append(inbox)
+                code, body = util.interpret_http_exception(e)
+                if not code and not body:
+                    raise
+                obj.failed.append(target)
                 error = e
             finally:
                 log_data = False
 
-            obj.undelivered.remove(inbox)
+            obj.undelivered.remove(target)
             obj.put()
 
-        obj.status = 'complete' if obj.delivered else 'failed'
+        obj.status = ('complete' if obj.delivered
+                      else 'failed' if obj.failed
+                      else 'ignored')
         obj.put()
 
         # Pass the AP response status code and body through as our response

@@ -23,7 +23,7 @@ import common
 WWW_DOMAINS = frozenset((
     'www.jvt.me',
 ))
-
+PROTOCOLS = ('activitypub', 'bluesky', 'ostatus', 'webmention', 'ui')
 KEY_BITS = 2048
 
 logger = logging.getLogger(__name__)
@@ -227,13 +227,32 @@ class User(StringIdModel):
         return self
 
 
+class Target(ndb.Model):
+    """Delivery destinations. ActivityPub inboxes, webmention targets, etc.
+
+    Used in StructuredPropertys inside Object; not stored directly in the
+    datastore.
+
+    ndb implements this by hoisting each property here into a corresponding
+    property on the parent entity, prefixed by the StructuredProperty name
+    below, eg delivered.uri, delivered.protocol, etc.
+
+    For repeated StructuredPropertys, the hoisted properties are all
+    repeated on the parent entity, and reconstructed into
+    StructuredPropertys based on their order.
+
+    https://googleapis.dev/python/python-ndb/latest/model.html#google.cloud.ndb.model.StructuredProperty
+    """
+    uri = ndb.StringProperty(required=True)
+    protocol = ndb.StringProperty(choices=PROTOCOLS, required=True)
+
+
 class Object(StringIdModel):
     """An activity or other object, eg actor.
 
     Key name is the id. We synthesize ids if necessary.
     """
     STATUSES = ('new', 'in progress', 'complete', 'failed', 'ignored')
-    PROTOCOLS = ('activitypub', 'bluesky', 'ostatus', 'webmention', 'ui')
     LABELS = ('activity', 'feed', 'notification', 'user')
 
     # domains of the Bridgy Fed users this activity is to or from
@@ -254,10 +273,9 @@ class Object(StringIdModel):
     deleted = ndb.BooleanProperty()
     object_ids = ndb.StringProperty(repeated=True)  # id(s) of inner objects
 
-    # URLs we deliver(ed) this to. ActivityPub inboxes, webmention targets, etc.
-    delivered = ndb.StringProperty(repeated=True)
-    undelivered = ndb.StringProperty(repeated=True)
-    failed = ndb.StringProperty(repeated=True)
+    delivered = ndb.StructuredProperty(Target, repeated=True)
+    undelivered = ndb.StructuredProperty(Target, repeated=True)
+    failed = ndb.StructuredProperty(Target, repeated=True)
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)

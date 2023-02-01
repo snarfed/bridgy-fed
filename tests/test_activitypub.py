@@ -1,8 +1,5 @@
 # coding=utf-8
-"""Unit tests for activitypub.py.
-
-TODO: test error handling
-"""
+"""Unit tests for activitypub.py."""
 import copy
 from datetime import datetime, timedelta
 from unittest.mock import ANY, call, patch
@@ -16,7 +13,7 @@ from urllib3.exceptions import ReadTimeoutError
 
 import activitypub
 import common
-from models import Follower, Object, User
+from models import Follower, Object, Target, User
 from . import testutil
 
 REPLY_OBJECT = {

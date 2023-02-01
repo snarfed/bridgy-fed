@@ -14,7 +14,7 @@ import requests
 
 from app import app, cache
 import common
-from models import Object
+from models import Object, Target
 
 
 class TestCase(unittest.TestCase, testutil.Asserts):
@@ -71,6 +71,12 @@ class TestCase(unittest.TestCase, testutil.Asserts):
     def assert_object(self, id, **props):
         got = Object.get_by_id(id)
         assert got, id
+
+        # right now we only do ActivityPub
+        # TODO: revisit as soon as we launch the next protocol, eg bluesky
+        for field in 'delivered', 'undelivered', 'failed':
+            props[field] = [Target(uri=uri, protocol='activitypub')
+                            for uri in props.get(field, [])]
 
         # sort keys in JSON properties
         for prop in 'as1', 'as2', 'bsky', 'mf2':

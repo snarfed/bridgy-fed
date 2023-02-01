@@ -22,7 +22,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadGateway
 
-from models import Follower, Object, User
+from models import Follower, Object, Target, User
 
 logger = logging.getLogger(__name__)
 
@@ -295,6 +295,7 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
     # send webmentions and store Objects
     errors = []  # stores (code, body) tuples
     domains = []
+    targets = [Target(uri=uri, protocol='activitypub') for uri in targets]
 
     obj = Object(id=source, labels=['notification'], undelivered=targets, **object_props)
     if activity.get('objectType') == 'activity':
@@ -302,21 +303,22 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
     obj.put()
 
     for target in targets:
-        domain = util.domain_from_link(target, minimize=False)
-        if (domain == util.domain_from_link(source, minimize=False)):
-            logger.info(f'Skipping same-domain webmention from {source} to {target}')
+        domain = util.domain_from_link(target.uri, minimize=False)
+        if domain == util.domain_from_link(source, minimize=False):
+            logger.info(f'Skipping same-domain webmention from {source} to {target.uri}')
             continue
 
-        domains.append(domain)
+        if domain not in obj.domains:
+          obj.domains.append(domain)
         wm_source = (obj.proxy_url()
                      if verb in ('follow', 'like', 'share') or proxy
                      else source)
-        logger.info(f'Sending webmention from {wm_source} to {target}')
+        logger.info(f'Sending webmention from {wm_source} to {target.uri}')
 
         try:
-            endpoint = webmention.discover(target).endpoint
+            endpoint = webmention.discover(target.uri).endpoint
             if endpoint:
-                webmention.send(endpoint, wm_source, target)
+                webmention.send(endpoint, wm_source, target.uri)
                 logger.info('Success!')
                 obj.delivered.append(target)
             else:
@@ -332,7 +334,6 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
         obj.put()
 
     obj.status = 'complete' if obj.delivered else 'failed' if obj.failed else 'ignored'
-    obj.domains = domains
     obj.put()
 
     if errors:

@@ -1,8 +1,5 @@
 # coding=utf-8
-"""Unit tests for webmention.py.
-
-TODO: test error handling
-"""
+"""Unit tests for webmention.py."""
 import copy
 from unittest import mock
 from urllib.parse import urlencode
@@ -24,7 +21,7 @@ from common import (
     default_signature_user,
     redirect_unwrap,
 )
-from models import Follower, Object, User
+from models import Follower, Object, Target, User
 import webmention
 from webmention import TASKS_LOCATION
 from . import testutil
@@ -537,7 +534,8 @@ class WebmentionTest(testutil.TestCase):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
         Object(id='http://a/reply', status='complete',
                as1=json_dumps(self.reply_as1),
-               delivered=['https://foo.com/inbox']).put()
+               delivered=[Target(uri='https://foo.com/inbox', protocol='activitypub')]
+        ).put()
         mock_get.side_effect = self.activitypub_gets
 
         got = self.client.post('/webmention', data={
@@ -783,9 +781,9 @@ class WebmentionTest(testutil.TestCase):
 
         Object(id='https://orig/post', domains=['orig'], status='in progress',
                as1=json_dumps(self.create_as1),
-               delivered=['https://skipped/inbox'],
-               undelivered=['https://shared/inbox'],
-               failed=['https://public/inbox'],
+               delivered=[Target(uri='https://skipped/inbox', protocol='activitypub')],
+               undelivered=[Target(uri='https://shared/inbox', protocol='activitypub')],
+               failed=[Target(uri='https://public/inbox', protocol='activitypub')],
                ).put()
 
         self.make_followers()
@@ -828,9 +826,9 @@ class WebmentionTest(testutil.TestCase):
 
         Object(id='https://orig/post', domains=['orig'], status='in progress',
                as1=json_dumps(different_create_as1),
-               delivered=['https://delivered/inbox'],
-               undelivered=['https://shared/inbox'],
-               failed=['https://public/inbox'],
+               delivered=[Target(uri='https://delivered/inbox', protocol='activitypub')],
+               undelivered=[Target(uri='https://shared/inbox', protocol='activitypub')],
+               failed=[Target(uri='https://public/inbox', protocol='activitypub')],
                ).put()
 
         self.make_followers()
