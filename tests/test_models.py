@@ -174,6 +174,23 @@ class ObjectTest(testutil.TestCase):
             obj = Object(id='abc', as1='{}')
             self.assertEqual('http://localhost/render?id=abc', obj.proxy_url())
 
+    def test_actor_url(self):
+        for expected, as1 in (
+                ('<a href=""></a>', {}),
+                ('<a href="http://foo">foo</a>', {'actor': 'http://foo'}),
+                ('<a href="">Alice</a>', {'actor': {'displayName': 'Alice'}}),
+                ('<a href="http://foo">Alice</a>', {'actor': {
+                    'displayName': 'Alice',
+                    'url': 'http://foo',
+                }}),
+                ("""\
+        <a href="" title="Alice">
+          <img class="profile" src="http://pic" />
+          Alice
+        </a>""", {'actor': {'displayName': 'Alice', 'image': 'http://pic'}}),
+        ):
+            self.assertEqual(expected, Object(id='x', as1=json_dumps(as1)).actor_link())
+
 
 class FollowerTest(testutil.TestCase):
 

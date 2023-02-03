@@ -20,6 +20,13 @@ indexes:
   - name: updated
     direction: desc
 
+- kind: Object
+  properties:
+  - name: domains
+  - name: labels
+  - name: created
+    direction: desc
+
 - kind: Follower
   properties:
   - name: dest

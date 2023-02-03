@@ -334,15 +334,16 @@ class Object(StringIdModel):
         return common.host_url('render?' +
                                urllib.parse.urlencode({'id': self.key.id()}))
 
-    def actor_link(self, as1=None):
+    def actor_link(self):
         """Returns a pretty actor link with their name and profile picture."""
-        if self.direction == 'out' and self.domains:
+        if self.source_protocol == 'webmention' and self.domains:
+            # TODO: why do we do this?!
             return User.get_by_id(self.domains[0]).user_page_link()
 
-        if not as1:
-           as1 = self.to_as1()
-
-        actor = util.get_first(as1, 'actor') or util.get_first(as1, 'author') or {}
+        activity = json_loads(self.as1)
+        actor = (util.get_first(activity, 'actor')
+                 or util.get_first(activity, 'author')
+                 or {})
         if isinstance(actor, str):
             return util.pretty_link(actor)
 

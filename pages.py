@@ -63,11 +63,6 @@ def check_web_site():
     return redirect(f'/user/{user.key.id()}')
 
 
-@app.get(f'/responses/<regex("{DOMAIN_RE}"):domain>')  # deprecated
-def user_deprecated(domain):
-    return redirect(f'/user/{domain}', code=301)
-
-
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>')
 def user(domain):
     user = User.get_by_id(domain)
@@ -80,7 +75,7 @@ def user(domain):
 
     query = Object.query(
         Object.domains == domain,
-        Object.labels == 'notification',
+        Object.labels.IN(('notification', 'user')),
     )
     objects, before, after = fetch_objects(query)
 
@@ -173,12 +168,11 @@ def fetch_objects(query):
       new_before, new_after: str query param values for `before` and `after`
         to fetch the previous and next pages, respectively
     """
-    orig_objects, new_before, new_after = common.fetch_page(query, Object)
-    objects = []
+    objects, new_before, new_after = common.fetch_page(query, Object)
     seen = set()
 
     # synthesize human-friendly content for objects
-    for i, obj in enumerate(orig_objects):
+    for i, obj in enumerate(objects):
         obj_as1 = json_loads(obj.as1)
 
         # synthesize text snippet
