@@ -297,7 +297,8 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
     domains = []
     targets = [Target(uri=uri, protocol='activitypub') for uri in targets]
 
-    obj = Object(id=source, labels=['notification'], undelivered=targets, **object_props)
+    obj = Object(id=source, labels=['notification'], undelivered=targets,
+                 status='in progress', **object_props)
     if activity.get('objectType') == 'activity':
       obj.labels.append('activity')
     obj.put()

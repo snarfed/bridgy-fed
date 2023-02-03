@@ -157,7 +157,8 @@ class Webmention(View):
         else:
             obj = Object(id=self.source_url, delivered=[], failed=[],
                          undelivered=[Target(uri=uri, protocol='activitypub')
-                                      for uri in inboxes_to_targets.keys()])
+                                      for uri in inboxes_to_targets.keys()],
+                         status='in progress')
             logging.info(f'Storing new {obj}')
 
         obj.domains = [self.source_domain]
