@@ -33,15 +33,15 @@ class PagesTest(testutil.TestCase):
     @staticmethod
     def add_objects():
         # post
-        Object(id='a', domains=['foo.com'], labels=['feed'],
+        Object(id='a', domains=['foo.com'], labels=['feed', 'notification'],
                  as1=json_dumps(NOTE)).put()
         # different domain
-        Object(id='b', domains=['bar.org'], labels=['feed'],
+        Object(id='b', domains=['bar.org'], labels=['feed', 'notification'],
                as1=json_dumps(MENTION)).put()
         # reply
-        Object(id='d', domains=['foo.com'], labels=['feed'],
+        Object(id='d', domains=['foo.com'], labels=['feed', 'notification'],
                as1=json_dumps(COMMENT)).put()
-        # not feed
+        # not feed/notif
         Object(id='e', domains=['foo.com'], as1=json_dumps(NOTE)).put()
 
     def test_user(self):

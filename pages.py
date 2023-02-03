@@ -79,8 +79,8 @@ def user(domain):
     assert not user.use_instead
 
     query = Object.query(
-        Object.status.IN(('new', 'in progress', 'complete')),
         Object.domains == domain,
+        Object.labels == 'notification',
     )
     objects, before, after = fetch_objects(query)
 
@@ -156,20 +156,6 @@ def feed(domain):
         body = rss.from_activities(activities, actor=actor, title=title,
                                    feed_url=request.url)
         return body, {'Content-Type': rss.CONTENT_TYPE}
-
-
-@app.get('/recent')
-def recent():
-    """Renders recent objects, with links to logs."""
-    query = Object.query(Object.status.IN(('new', 'in progress', 'complete')))
-    objects, before, after = fetch_objects(query)
-    return render_template(
-        'recent.html',
-        show_domains=True,
-        logs=logs,
-        util=util,
-        **locals(),
-    )
 
 
 def fetch_objects(query):

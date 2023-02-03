@@ -326,8 +326,8 @@ class Object(StringIdModel):
     undelivered = ndb.StructuredProperty(Target, repeated=True)
     failed = ndb.StructuredProperty(Target, repeated=True)
 
-    created = ndb.DateTimeProperty()#auto_now_add=True)
-    updated = ndb.DateTimeProperty()#auto_now=True)
+    created = ndb.DateTimeProperty(auto_now_add=True)
+    updated = ndb.DateTimeProperty(auto_now=True)
 
     def proxy_url(self):
         """Returns the Bridgy Fed proxy URL to render this post as HTML."""
