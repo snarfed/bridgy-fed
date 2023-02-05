@@ -1,6 +1,7 @@
 # coding=utf-8
 """Unit tests for render.py."""
 import copy
+from unittest import skip
 
 from granary.tests.test_as1 import COMMENT, DELETE_OF_ID, UPDATE
 from oauth_dropins.webutil.util import json_dumps
@@ -64,6 +65,7 @@ class RenderTest(testutil.TestCase):
         self.assert_multiline_equals(expected, resp.get_data(as_text=True),
                                      ignore_blanks=True)
 
+    @skip
     def test_render_update_redirect(self):
         # UPDATE's object field is a full object
         Object(id='abc', as1=json_dumps(UPDATE)).put()
@@ -72,6 +74,7 @@ class RenderTest(testutil.TestCase):
         self.assertEqual(f'/render?id=tag%3Afake.com%3A123456',
                          resp.headers['Location'])
 
+    @skip
     def test_render_delete_redirect(self):
         # DELETE_OF_ID's object field is a bare string id
         Object(id='abc', as1=json_dumps(DELETE_OF_ID)).put()

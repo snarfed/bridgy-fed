@@ -30,16 +30,18 @@ def render():
         error(f'Stored object for {id} has no AS1', status=404)
 
     as1 = json_loads(obj.as1)
-    if (as1.get('objectType') == 'activity' and
-        as1.get('verb') in ('post', 'update', 'delete')):
-        # redirect to inner object
-        obj_id = as1.get('object')
-        if isinstance(obj_id, dict):
-            obj_id = obj_id.get('id')
-        if not obj_id:
-            error(f'Stored {type} activity has no object id!', status=404)
-        logger.info(f'{type} activity, redirecting to object id {obj_id}')
-        return redirect('/render?' + urlencode({'id': obj_id}), code=301)
+
+    # TODO: uncomment once we're storing inner objects separately
+    # if (as1.get('objectType') == 'activity' and
+    #     as1.get('verb') in ('post', 'update', 'delete')):
+    #     # redirect to inner object
+    #     obj_id = as1.get('object')
+    #     if isinstance(obj_id, dict):
+    #         obj_id = obj_id.get('id')
+    #     if not obj_id:
+    #         error(f'Stored {type} activity has no object id!', status=404)
+    #     logger.info(f'{type} activity, redirecting to object id {obj_id}')
+    #     return redirect('/render?' + urlencode({'id': obj_id}), code=301)
 
     # add HTML meta redirect to source page. should trigger for end users in
     # browsers but not for webmention receivers (hopefully).
