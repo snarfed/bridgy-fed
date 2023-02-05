@@ -31,10 +31,19 @@ with open('seen.json') as f:
 
 
 def run():
+    global latest_updated
+
     query = Activity.query().order(Activity.key)
     if len(sys.argv) > 1:
         print(f'Starting at {sys.argv[1]}')
         query = query.filter(Activity.key >= ndb.Key(Activity, sys.argv[1]))
+    elif latest_updated:
+        print(f'Starting at {latest_updated}')
+        query = list(Activity.query(Activity.updated > latest_updated))
+        query.sort(key=lambda a: a.key)
+        # print(query.filter(Activity.updated > latest_updated).count())
+        # print(len(query))
+        # sys.exit()
     else:
         print('Starting at the beginning')
 
@@ -143,7 +152,6 @@ def run():
         if a.updated > obj.updated:
             obj.updated = a.updated
 
-        global latest_updated
         if a.updated > latest_updated:
             latest_updated = a.updated
 
