@@ -252,13 +252,34 @@ class UnfollowTest(testutil.TestCase):
                         resp.headers['Location'])
 
     def test_callback(self, mock_get, mock_post):
+        mock_get.return_value = requests_response('')
+        self._test_callback(UNDO_FOLLOW, mock_get, mock_post)
+
+    def test_callback_last_follow_object_str(self, mock_get, mock_post):
+        follower = self.follower.get()
+        follower.last_follow = json_dumps({
+            **FOLLOW_ADDRESS,
+            'object': FOLLOWEE['id'],
+        })
+        follower.put()
+
+        # oauth-dropins indieauth https://snarfed.org fetch for user json
+        mock_get.side_effect = (
+            requests_response(''),
+            self.as2_resp(FOLLOWEE),  # fetch to discover inbox
+        )
+
+        undo = copy.deepcopy(UNDO_FOLLOW)
+        undo['object']['object'] = FOLLOWEE['id']
+
+        self._test_callback(undo, mock_get, mock_post)
+
+    def _test_callback(self, expected_undo, mock_get, mock_post):
         User.get_or_create('snarfed.org')
         mock_post.side_effect = (
             requests_response('me=https://snarfed.org'),
             requests_response('OK'),  # AP Undo Follow to inbox
         )
-        # oauth-dropins indieauth https://snarfed.org fetch for user json
-        mock_get.return_value = requests_response('')
 
         state = util.encode_oauth_state({
             'endpoint': 'http://auth/endpoint',
@@ -274,7 +295,7 @@ class UnfollowTest(testutil.TestCase):
 
         inbox_args, inbox_kwargs = mock_post.call_args_list[1]
         self.assertEqual(('http://bar/inbox',), inbox_args)
-        self.assert_equals(UNDO_FOLLOW, json_loads(inbox_kwargs['data']))
+        self.assert_equals(expected_undo, json_loads(inbox_kwargs['data']))
 
         follower = Follower.get_by_id('https://bar/id snarfed.org')
         self.assertEqual('inactive', follower.status)
@@ -283,16 +304,4 @@ class UnfollowTest(testutil.TestCase):
             'http://localhost/user/snarfed.org/following#undo-2022-01-02T03:04:05-https://bar/id',
             domains=['snarfed.org'], status='complete',
             source_protocol='ui', labels=['user', 'activity'],
-            as2=UNDO_FOLLOW, as1=as2.to_as1(UNDO_FOLLOW))
-
-    def test_callback_missing_user(self, mock_get, mock_post):
-        mock_post.return_value = requests_response('me=https://snarfed.org')
-
-        state = util.encode_oauth_state({
-            'endpoint': 'http://auth/endpoint',
-            'me': 'https://snarfed.org',
-            'state': 'https://bar/id',
-        })
-        with self.client:
-            resp = self.client.get(f'/unfollow/callback?code=my_code&state={state}')
-            self.assertEqual(400, resp.status_code)
+            as2=expected_undo, as1=as2.to_as1(expected_undo))

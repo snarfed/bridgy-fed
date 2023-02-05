@@ -114,7 +114,10 @@ class FollowStart(indieauth.Start):
 
 
 class FollowCallback(indieauth.Callback):
-    """IndieAuth callback to add a follower to an existing user."""
+    """IndieAuth callback to add a follower to an existing user.
+
+    TODO: unify with UnfollowCallback.
+    """
     def finish(self, auth_entity, state=None):
         if not auth_entity:
             return
@@ -209,7 +212,17 @@ class UnfollowCallback(indieauth.Callback):
         followee_id = follower.dest
         last_follow = json_loads(follower.last_follow)
         followee = last_follow['object']
-        inbox = last_follow['object']['inbox']
+
+        if isinstance(followee, str):
+            # fetch as AS2 to get full followee with inbox
+            followee_id = followee
+            resp = common.get_as2(followee_id)
+            followee = resp.json()
+
+        inbox = followee.get('inbox')
+        if not inbox:
+            flash(f"AS2 profile {followee_id} missing id or inbox")
+            return redirect(f'/user/{domain}/following')
 
         timestamp = NOW.replace(microsecond=0, tzinfo=None).isoformat()
         unfollow_id = common.host_url(f'/user/{domain}/following#undo-{timestamp}-{followee_id}')
