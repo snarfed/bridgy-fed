@@ -206,6 +206,29 @@ class FollowTest(testutil.TestCase):
             resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
             self.assertEqual(400, resp.status_code)
 
+    def test_callback_user_use_instead(self, mock_get, mock_post):
+        user = User.get_or_create('real.snarfed.org')
+        User.get_or_create('snarfed.org', use_instead=user.key)
+
+        mock_get.side_effect = (
+            requests_response(''),
+            self.as2_resp(FOLLOWEE),
+        )
+        mock_post.side_effect = (
+            requests_response('me=https://snarfed.org'),
+            requests_response('OK'),  # AP Follow to inbox
+        )
+
+        state = util.encode_oauth_state({
+            'endpoint': 'http://auth/endpoint',
+            'me': 'https://snarfed.org',
+            'state': 'https://bar/actor',
+        })
+        with self.client:
+            resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+            self.assertEqual(302, resp.status_code)
+            self.assertEqual('/user/real.snarfed.org/following',resp.headers['Location'])
+
 
 @patch('requests.post')
 @patch('requests.get')

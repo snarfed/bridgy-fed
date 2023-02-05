@@ -120,8 +120,10 @@ class FollowCallback(indieauth.Callback):
             return
 
         domain = util.domain_from_link(auth_entity.key.id())
-        if not User.get_by_id(domain):
+        user = User.get_by_id(domain)
+        if not user:
             error(f'No user for domain {domain}')
+        domain = user.key.id()
 
         addr = state
         if not state:

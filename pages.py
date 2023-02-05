@@ -74,8 +74,10 @@ def user(domain):
     user = User.get_by_id(domain)
     if not user:
         return render_template('user_not_found.html', domain=domain), 404
-    elif user.use_instead:
-        return redirect(f'/user/{user.use_instead.id()}', code=301)
+    elif user.key.id() != domain:
+        return redirect(f'/user/{user.key.id()}', code=301)
+
+    assert not user.use_instead
 
     query = Activity.query(
         Activity.status.IN(('new', 'complete', 'error')),

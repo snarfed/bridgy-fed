@@ -72,6 +72,15 @@ class User(StringIdModel):
     def _get_kind(cls):
         return 'MagicKey'
 
+    @classmethod
+    def get_by_id(cls, id):
+        """Override Model.get_by_id to follow the use_instead property."""
+        user = cls._get_by_id(id)
+        if user and user.use_instead:
+            return user.use_instead.get()
+
+        return user
+
     @staticmethod
     @ndb.transactional()
     def get_or_create(domain, **kwargs):
@@ -90,8 +99,6 @@ class User(StringIdModel):
                         private_exponent=long_to_base64(key.d),
                         **kwargs)
             user.put()
-        elif user.use_instead:
-            user = user.use_instead.get()
 
         return user
 

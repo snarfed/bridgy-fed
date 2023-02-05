@@ -542,7 +542,7 @@ class ActivityPubTest(testutil.TestCase):
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
         root = User.get_or_create('realize.be')
-        User.get_or_create('www.realize.be', use_instead=root.key)
+        User.get_or_create('www.realize.be', use_instead=root.key).put()
 
         mock_head.return_value = requests_response(url='https://www.realize.be/')
         mock_get.side_effect = [
