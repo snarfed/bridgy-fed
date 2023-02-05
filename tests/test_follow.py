@@ -123,6 +123,8 @@ class RemoteFollowTest(testutil.TestCase):
 class FollowTest(testutil.TestCase):
 
     def test_start(self, mock_get, _):
+        mock_get.return_value = requests_response('')  # IndieAuth endpoint discovery
+
         resp = self.client.post('/follow/start', data={
             'me': 'https://snarfed.org',
             'address': '@foo@bar',
@@ -242,6 +244,8 @@ class UnfollowTest(testutil.TestCase):
         ).put()
 
     def test_start(self, mock_get, _):
+        mock_get.return_value = requests_response('')  # IndieAuth endpoint discovery
+
         resp = self.client.post('/unfollow/start', data={
             'me': 'https://snarfed.org',
             'key': self.follower.id(),
