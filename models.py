@@ -13,6 +13,7 @@ from Crypto.Util import number
 from flask import request
 from google.cloud import ndb
 from granary import as2, microformats2
+from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.models import StringIdModel
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -24,7 +25,8 @@ WWW_DOMAINS = frozenset((
     'www.jvt.me',
 ))
 PROTOCOLS = ('activitypub', 'bluesky', 'ostatus', 'webmention', 'ui')
-KEY_BITS = 2048
+# 2048 bits makes tests slow, so use 1024 for them
+KEY_BITS = 1024 if DEBUG else 2048
 
 logger = logging.getLogger(__name__)
 
