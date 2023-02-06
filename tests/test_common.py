@@ -181,7 +181,7 @@ class CommonTest(testutil.TestCase):
             self.assertEqual('https://fed.brid.gy/asdf', common.host_url('asdf'))
 
     @mock.patch('requests.get')
-    def test_signed_request_redirects_manually_with_new_sig_headers(self, mock_get):
+    def test_signed_get_redirects_manually_with_new_sig_headers(self, mock_get):
         mock_get.side_effect = [
             requests_response(status=302, redirected_url='http://second',
                               allow_redirects=False),
@@ -195,3 +195,13 @@ class CommonTest(testutil.TestCase):
         self.assertNotEqual(
             first['auth'].header_signer.sign(first['headers'], method='GET', path='/'),
             second['auth'].header_signer.sign(second['headers'], method='GET', path='/'))
+
+    @mock.patch('requests.post')
+    def test_signed_post_ignores_redirect(self, mock_post):
+        mock_post.side_effect = [
+            requests_response(status=302, redirected_url='http://second',
+                              allow_redirects=False),
+        ]
+        resp = common.signed_post('https://first')
+        mock_post.assert_called_once()
+        self.assertEqual(302, resp.status_code)

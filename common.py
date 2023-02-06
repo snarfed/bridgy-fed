@@ -157,8 +157,8 @@ def signed_request(fn, url, data=None, log_data=True, user=None, headers=None, *
     resp = fn(url, auth=auth, headers=headers, allow_redirects=False, **kwargs)
 
     logger.info(f'Got {resp.status_code} headers: {resp.headers}')
-    # handle redirects manually so that we generate a new HTTP signature
-    if resp.is_redirect:
+    # handle GET redirects manually so that we generate a new HTTP signature
+    if resp.is_redirect and fn == util.requests_get:
       return signed_request(fn, resp.headers['Location'], data=data, user=user,
                             headers=headers, **kwargs)
     type = content_type(resp)
