@@ -206,7 +206,7 @@ class FollowTest(testutil.TestCase):
             self.assertEqual(400, resp.status_code)
 
     def test_callback_user_use_instead(self, mock_get, mock_post):
-        user = User.get_or_create('real.snarfed.org')
+        user = User.get_or_create('www.snarfed.org')
         User.get_or_create('snarfed.org', use_instead=user.key)
 
         mock_get.side_effect = (
@@ -226,7 +226,28 @@ class FollowTest(testutil.TestCase):
         with self.client:
             resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
             self.assertEqual(302, resp.status_code)
-            self.assertEqual('/user/real.snarfed.org/following',resp.headers['Location'])
+            self.assertEqual('/user/www.snarfed.org/following', resp.headers['Location'])
+
+        id = 'http://localhost/user/www.snarfed.org/following#2022-01-02T03:04:05-https://bar/actor'
+        expected_follow = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Follow',
+            'id': id,
+            'actor': 'http://localhost/www.snarfed.org',
+            'object': FOLLOWEE,
+            'to': [as2.PUBLIC_AUDIENCE],
+        }
+        followers = Follower.query().fetch()
+        self.assert_entities_equal(
+            Follower(id='https://bar/id www.snarfed.org',
+                     last_follow=json_dumps(expected_follow, sort_keys=True),
+                     src='www.snarfed.org', dest='https://bar/id', status='active'),
+            followers,
+            ignore=['created', 'updated'])
+
+        self.assert_object(id, domains=['www.snarfed.org'], status='complete',
+                           labels=['user', 'activity'], source_protocol='ui',
+                           as2=expected_follow, as1=as2.to_as1(expected_follow))
 
 
 @patch('requests.post')
@@ -305,3 +326,51 @@ class UnfollowTest(testutil.TestCase):
             domains=['snarfed.org'], status='complete',
             source_protocol='ui', labels=['user', 'activity'],
             as2=expected_undo, as1=as2.to_as1(expected_undo))
+
+    def test_callback_user_use_instead(self, mock_get, mock_post):
+        user = User.get_or_create('www.snarfed.org')
+        User.get_or_create('snarfed.org', use_instead=user.key)
+
+        self.follower = Follower(
+            id='https://bar/id www.snarfed.org', last_follow=json_dumps(FOLLOW_ADDRESS),
+            src='www.snarfed.org', dest='https://bar/id', status='active',
+        ).put()
+
+        mock_get.side_effect = (
+            requests_response(''),
+            self.as2_resp(FOLLOWEE),
+        )
+        mock_post.side_effect = (
+            requests_response('me=https://snarfed.org'),
+            requests_response('OK'),  # AP Undo Follow to inbox
+        )
+
+        state = util.encode_oauth_state({
+            'endpoint': 'http://auth/endpoint',
+            'me': 'https://snarfed.org',
+            'state': self.follower.id(),
+        })
+        with self.client:
+            resp = self.client.get(f'/unfollow/callback?code=my_code&state={state}')
+            self.assertEqual(302, resp.status_code)
+            self.assertEqual('/user/www.snarfed.org/following',resp.headers['Location'])
+
+        id = 'http://localhost/user/www.snarfed.org/following#undo-2022-01-02T03:04:05-https://bar/id'
+        expected_undo = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Undo',
+            'id': id,
+            'actor': 'http://localhost/www.snarfed.org',
+            'object': FOLLOW_ADDRESS,
+        }
+
+        inbox_args, inbox_kwargs = mock_post.call_args_list[1]
+        self.assertEqual(('http://bar/inbox',), inbox_args)
+        self.assert_equals(expected_undo, json_loads(inbox_kwargs['data']))
+
+        follower = Follower.get_by_id('https://bar/id www.snarfed.org')
+        self.assertEqual('inactive', follower.status)
+
+        self.assert_object(id, domains=['www.snarfed.org'], status='complete',
+                           source_protocol='ui', labels=['user', 'activity'],
+                           as2=expected_undo, as1=as2.to_as1(expected_undo))

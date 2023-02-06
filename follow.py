@@ -181,7 +181,7 @@ class FollowCallback(indieauth.Callback):
 
 
 class UnfollowStart(indieauth.Start):
-    """Starts the IndieAuth flow to add a follower to an existing user."""
+    """Starts the IndieAuth flow to remove a follower from an existing user."""
     def dispatch_request(self):
         key = request.form['key']
         domain = request.form['me']
@@ -202,8 +202,10 @@ class UnfollowCallback(indieauth.Callback):
             return
 
         domain = util.domain_from_link(auth_entity.key.id())
-        if not User.get_by_id(domain):
+        user = User.get_by_id(domain)
+        if not user:
             error(f'No user for domain {domain}')
+        domain = user.key.id()
 
         follower = Follower.get_by_id(state)
         if not follower:
