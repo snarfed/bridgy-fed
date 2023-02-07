@@ -338,8 +338,8 @@ class Object(StringIdModel):
 
     def actor_link(self):
         """Returns a pretty actor link with their name and profile picture."""
-        if self.source_protocol == 'webmention' and self.domains:
-            # TODO: why do we do this?!
+        if self.source_protocol in ('webmention', 'ui') and self.domains:
+            # outbound; show a nice link to the user
             return User.get_by_id(self.domains[0]).user_page_link()
 
         activity = json_loads(self.as1)
