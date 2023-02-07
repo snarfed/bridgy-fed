@@ -71,6 +71,7 @@ DOMAIN_BLOCKLIST = frozenset((
     'twitter.com',
 ) + DOMAINS)
 
+# currently unused. TODO: remove?
 _DEFAULT_SIGNATURE_USER = None
 
 CACHE_TIME = timedelta(seconds=60)
@@ -87,6 +88,7 @@ def host_url(path_query=None):
   return urllib.parse.urljoin(base, path_query)
 
 
+# currently unused. TODO: remove?
 def default_signature_user():
     global _DEFAULT_SIGNATURE_USER
     if _DEFAULT_SIGNATURE_USER is None:
@@ -94,38 +96,35 @@ def default_signature_user():
     return _DEFAULT_SIGNATURE_USER
 
 
-def signed_get(url, **kwargs):
-    return signed_request(util.requests_get, url, **kwargs)
+def signed_get(url, user, **kwargs):
+    return signed_request(util.requests_get, url, user, **kwargs)
 
 
-def signed_post(url, **kwargs):
-    return signed_request(util.requests_post, url, **kwargs)
+def signed_post(url, user, **kwargs):
+    return signed_request(util.requests_post, url, user, **kwargs)
 
 
-def signed_request(fn, url, data=None, log_data=True, user=None, headers=None, **kwargs):
+def signed_request(fn, url, user, data=None, log_data=True, headers=None, **kwargs):
     """Wraps requests.* and adds HTTP Signature.
 
     Args:
       fn: :func:`util.requests_get` or  :func:`util.requests_get`
       url: str
+      user: :class:`User` to sign request with
       data: optional AS2 object
       log_data: boolean, whether to log full data object
-      user: optional :class:`User` to sign request with
       kwargs: passed through to requests
 
     Returns: :class:`requests.Response`
     """
+    assert user
     if headers is None:
         headers = {}
-
-    # prepare HTTP Signature and headers
-    if not user:
-        user = default_signature_user()
 
     if data:
         if log_data:
             logging.info(f'Sending AS2 object: {json_dumps(data, indent=2)}')
-        data = kwargs['data'] = json_dumps(data).encode()
+        data = json_dumps(data).encode()
 
     headers = copy.deepcopy(headers)
     headers.update({
@@ -154,13 +153,15 @@ def signed_request(fn, url, data=None, log_data=True, user=None, headers=None, *
 
     # make HTTP request
     kwargs.setdefault('gateway', True)
-    resp = fn(url, auth=auth, headers=headers, allow_redirects=False, **kwargs)
-
+    resp = fn(url, data=data, auth=auth, headers=headers, allow_redirects=False,
+              **kwargs)
     logger.info(f'Got {resp.status_code} headers: {resp.headers}')
+
     # handle GET redirects manually so that we generate a new HTTP signature
     if resp.is_redirect and fn == util.requests_get:
       return signed_request(fn, resp.headers['Location'], data=data, user=user,
-                            headers=headers, **kwargs)
+                            headers=headers, log_data=log_data, **kwargs)
+
     type = content_type(resp)
     if (type and type != 'text/html' and
         (type.startswith('text/') or type.endswith('+json') or type.endswith('/json'))):
@@ -199,6 +200,8 @@ def get_as2(url, user=None):
         If we raise a werkzeug HTTPException, it will have an additional
         requests_response attribute with the last requests.Response we received.
     """
+    assert user
+
     def _error(resp):
         msg = f"Couldn't fetch {url} as ActivityStreams 2"
         logger.warning(msg)
@@ -217,7 +220,7 @@ def get_as2(url, user=None):
         _error(resp)
 
     resp = signed_get(urllib.parse.urljoin(resp.url, obj['href']),
-                      headers=as2.CONNEG_HEADERS)
+                      user=user, headers=as2.CONNEG_HEADERS)
     if content_type(resp) in (as2.CONTENT_TYPE, CONTENT_TYPE_LD_PLAIN):
         return resp
 

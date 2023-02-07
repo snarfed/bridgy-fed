@@ -7,7 +7,7 @@ from urllib.parse import urlencode
 import feedparser
 from granary import as2, atom, microformats2
 from httpsig.sign import HeaderSigner
-from oauth_dropins.webutil import util
+from oauth_dropins.webutil import appengine_config, util
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.appengine_info import APP_ID
 from oauth_dropins.webutil.testutil import requests_response
@@ -18,7 +18,6 @@ import activitypub
 from common import (
     CONNEG_HEADERS_AS2_HTML,
     CONTENT_TYPE_HTML,
-    default_signature_user,
     redirect_unwrap,
 )
 from models import Follower, Object, Target, User
@@ -108,8 +107,8 @@ REPOST_AS2 = {
 class WebmentionTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
-        self.user = User.get_or_create('a')
-
+        self.user_orig = User.get_or_create('orig')
+        self.user_a = User.get_or_create('a')
         self.orig_html_as2 = requests_response("""\
 <html>
 <meta>
@@ -484,7 +483,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
+        self.assertEqual(self.user_a.private_pem(), rsa_key.exportKey())
 
         self.assert_object('http://a/reply',
                            domains=['a'],
@@ -603,13 +602,12 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
+        self.assertEqual(self.user_a.private_pem(), rsa_key.exportKey())
 
         for args, kwargs in mock_get.call_args_list[1:]:
             with self.subTest(url=args[0]):
                 rsa_key = kwargs['auth'].header_signer._rsa._key
-                self.assertEqual(default_signature_user().private_pem(),
-                                 rsa_key.exportKey())
+                self.assertEqual(self.user_a.private_pem(), rsa_key.exportKey())
 
         self.assert_object('http://a/repost',
                            domains=['a'],
@@ -909,7 +907,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
+        self.assertEqual(self.user_a.private_pem(), rsa_key.exportKey())
 
         self.assert_object('http://a/follow',
                            domains=['a'],
@@ -931,8 +929,8 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.follow_as2, json_loads(followers[0].last_follow))
 
     def test_follow_no_actor(self, mock_get, mock_post):
-        self.user.actor_as2 = json_dumps(self.follow_as2['actor'])
-        self.user.put()
+        self.user_orig.actor_as2 = json_dumps(self.follow_as2['actor'])
+        self.user_orig.put()
 
         html = self.follow_html.replace(
             '<a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>', '')
@@ -976,7 +974,7 @@ class WebmentionTest(testutil.TestCase):
         self.assert_equals(as2.CONTENT_TYPE, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assert_equals(self.user.private_pem(), rsa_key.exportKey())
+        self.assert_equals(self.user_a.private_pem(), rsa_key.exportKey())
 
         self.assert_object('http://a/follow#2',
                            domains=['a'],
@@ -1033,7 +1031,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
+        self.assertEqual(self.user_a.private_pem(), rsa_key.exportKey())
 
         self.assert_object('http://a/follow',
                            domains=['a'],
@@ -1132,3 +1130,9 @@ class WebmentionTest(testutil.TestCase):
                            object_ids=['https://orig'],
                            labels=['user', 'activity'],
                            )
+
+    def test_no_user(self, mock_get, mock_post):
+        mock_get.side_effect = [requests_response(self.reply_html)]
+        got = self.client.post('/webmention', data={'source': 'https://no-user/post'})
+        self.assertEqual(400, got.status_code)
+        self.assertEqual(0, Object.query().count())

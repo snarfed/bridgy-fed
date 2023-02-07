@@ -3,7 +3,7 @@
 from unittest import mock
 
 from granary import as2
-from oauth_dropins.webutil import util
+from oauth_dropins.webutil import appengine_config, util
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 from werkzeug.exceptions import BadGateway
@@ -31,6 +31,12 @@ NOT_ACCEPTABLE = requests_response(status=406)
 
 
 class CommonTest(testutil.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        with appengine_config.ndb_client.context():
+            # do this in setUpClass since generating RSA keys is slow
+            cls.user = User.get_or_create('site')
+
     def setUp(self):
         super().setUp()
         self.app_context = app.test_request_context('/')
@@ -42,7 +48,7 @@ class CommonTest(testutil.TestCase):
 
     @mock.patch('requests.get', return_value=AS2)
     def test_get_as2_direct(self, mock_get):
-        resp = common.get_as2('http://orig')
+        resp = common.get_as2('http://orig', user=self.user)
         self.assertEqual(AS2, resp)
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
@@ -50,7 +56,7 @@ class CommonTest(testutil.TestCase):
 
     @mock.patch('requests.get', side_effect=[HTML_WITH_AS2, AS2])
     def test_get_as2_via_html(self, mock_get):
-        resp = common.get_as2('http://orig')
+        resp = common.get_as2('http://orig', user=self.user)
         self.assertEqual(AS2, resp)
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
@@ -60,17 +66,17 @@ class CommonTest(testutil.TestCase):
     @mock.patch('requests.get', return_value=HTML)
     def test_get_as2_only_html(self, mock_get):
         with self.assertRaises(BadGateway):
-            resp = common.get_as2('http://orig')
+            resp = common.get_as2('http://orig', user=self.user)
 
     @mock.patch('requests.get', return_value=NOT_ACCEPTABLE)
     def test_get_as2_not_acceptable(self, mock_get):
         with self.assertRaises(BadGateway):
-            resp = common.get_as2('http://orig')
+            resp = common.get_as2('http://orig', user=self.user)
 
     @mock.patch('requests.get', side_effect=requests.exceptions.SSLError)
     def test_get_ssl_error(self, mock_get):
         with self.assertRaises(BadGateway):
-            resp = common.get_as2('http://orig')
+            resp = common.get_as2('http://orig', user=self.user)
 
     def test_redirect_wrap_empty(self):
         self.assertIsNone(common.redirect_wrap(None))
@@ -97,7 +103,7 @@ class CommonTest(testutil.TestCase):
             }, common.postprocess_as2({
                 'id': 'xyz',
                 'inReplyTo': ['foo', 'bar'],
-            }, user=User(id='foo.com')))
+            }, user=User(id='site')))
 
     def test_postprocess_as2_multiple_url(self):
         with app.test_request_context('/'):
@@ -108,7 +114,7 @@ class CommonTest(testutil.TestCase):
             }, common.postprocess_as2({
                 'id': 'xyz',
                 'url': ['foo', 'bar'],
-            }, user=User(id='foo.com')))
+            }, user=User(id='site')))
 
     def test_postprocess_as2_multiple_image(self):
         with app.test_request_context('/'):
@@ -120,30 +126,30 @@ class CommonTest(testutil.TestCase):
             }, common.postprocess_as2({
                 'id': 'xyz',
                 'image': [{'url': 'http://r/foo'}, {'url': 'http://r/bar'}],
-            }, user=User(id='foo.com')))
+            }, user=User(id='site')))
 
     def test_postprocess_as2_actor_attributedTo(self):
         with app.test_request_context('/'):
             self.assert_equals({
                 'actor': {
                     'id': 'baj',
-                    'preferredUsername': 'foo.com',
-                    'url': 'http://localhost/r/https://foo.com/',
+                    'preferredUsername': 'site',
+                    'url': 'http://localhost/r/https://site/',
                 },
                 'attributedTo': [{
                     'id': 'bar',
-                    'preferredUsername': 'foo.com',
-                    'url': 'http://localhost/r/https://foo.com/',
+                    'preferredUsername': 'site',
+                    'url': 'http://localhost/r/https://site/',
                 }, {
                     'id': 'baz',
-                    'preferredUsername': 'foo.com',
-                    'url': 'http://localhost/r/https://foo.com/',
+                    'preferredUsername': 'site',
+                    'url': 'http://localhost/r/https://site/',
                 }],
                 'to': [as2.PUBLIC_AUDIENCE],
             }, common.postprocess_as2({
                 'attributedTo': [{'id': 'bar'}, {'id': 'baz'}],
                 'actor': {'id': 'baj'},
-            }, user=User(id='foo.com')))
+            }, user=User(id='site')))
 
     def test_postprocess_as2_note(self):
         with app.test_request_context('/'):
@@ -152,9 +158,9 @@ class CommonTest(testutil.TestCase):
                 'id': 'http://localhost/r/xyz#bridgy-fed-create',
                 'type': 'Create',
                 'actor': {
-                    'id': 'http://localhost/foo.com',
-                    'url': 'http://localhost/r/https://foo.com/',
-                    'preferredUsername': 'foo.com'
+                    'id': 'http://localhost/site',
+                    'url': 'http://localhost/r/https://site/',
+                    'preferredUsername': 'site'
                 },
                 'object': {
                     'id': 'http://localhost/r/xyz',
@@ -164,7 +170,7 @@ class CommonTest(testutil.TestCase):
             }, common.postprocess_as2({
                 'id': 'xyz',
                 'type': 'Note',
-            }, user=User(id='foo.com')))
+            }, user=User(id='site')))
 
     def test_host_url(self):
         with app.test_request_context():
@@ -187,7 +193,7 @@ class CommonTest(testutil.TestCase):
                               allow_redirects=False),
             requests_response(status=200, allow_redirects=False),
         ]
-        resp = common.signed_get('https://first')
+        resp = common.signed_get('https://first', user=self.user)
 
         first = mock_get.call_args_list[0][1]
         second = mock_get.call_args_list[1][1]
@@ -202,6 +208,6 @@ class CommonTest(testutil.TestCase):
             requests_response(status=302, redirected_url='http://second',
                               allow_redirects=False),
         ]
-        resp = common.signed_post('https://first')
+        resp = common.signed_post('https://first', user=self.user)
         mock_post.assert_called_once()
         self.assertEqual(302, resp.status_code)

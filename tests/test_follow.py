@@ -37,18 +37,18 @@ FOLLOWEE = {
 FOLLOW_ADDRESS = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Follow',
-    'id': f'http://localhost/user/snarfed.org/following#2022-01-02T03:04:05-@foo@bar',
-    'actor': 'http://localhost/snarfed.org',
+    'id': f'http://localhost/user/alice.com/following#2022-01-02T03:04:05-@foo@bar',
+    'actor': 'http://localhost/alice.com',
     'object': FOLLOWEE,
     'to': [as2.PUBLIC_AUDIENCE],
 }
 FOLLOW_URL = copy.deepcopy(FOLLOW_ADDRESS)
-FOLLOW_URL['id'] = f'http://localhost/user/snarfed.org/following#2022-01-02T03:04:05-https://bar/actor'
+FOLLOW_URL['id'] = f'http://localhost/user/alice.com/following#2022-01-02T03:04:05-https://bar/actor'
 UNDO_FOLLOW = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Undo',
-    'id': f'http://localhost/user/snarfed.org/following#undo-2022-01-02T03:04:05-https://bar/id',
-    'actor': 'http://localhost/snarfed.org',
+    'id': f'http://localhost/user/alice.com/following#undo-2022-01-02T03:04:05-https://bar/id',
+    'actor': 'http://localhost/alice.com',
     'object': FOLLOW_ADDRESS,
 }
 
@@ -126,7 +126,7 @@ class FollowTest(testutil.TestCase):
         mock_get.return_value = requests_response('')  # IndieAuth endpoint discovery
 
         resp = self.client.post('/follow/start', data={
-            'me': 'https://snarfed.org',
+            'me': 'https://alice.com',
             'address': '@foo@bar',
         })
         self.assertEqual(302, resp.status_code)
@@ -135,7 +135,7 @@ class FollowTest(testutil.TestCase):
 
     def test_callback_address(self, mock_get, mock_post):
         mock_get.side_effect = (
-            # oauth-dropins indieauth https://snarfed.org fetch for user json
+            # oauth-dropins indieauth https://alice.com fetch for user json
             requests_response(''),
             WEBFINGER,
             self.as2_resp(FOLLOWEE),
@@ -153,22 +153,22 @@ class FollowTest(testutil.TestCase):
         self._test_callback('https://bar/actor', FOLLOW_URL, mock_get, mock_post)
 
     def _test_callback(self, input, expected_follow, mock_get, mock_post):
-        User.get_or_create('snarfed.org')
+        User.get_or_create('alice.com')
 
         mock_post.side_effect = (
-            requests_response('me=https://snarfed.org'),
+            requests_response('me=https://alice.com'),
             requests_response('OK'),  # AP Follow to inbox
         )
 
         state = util.encode_oauth_state({
             'endpoint': 'http://auth/endpoint',
-            'me': 'https://snarfed.org',
+            'me': 'https://alice.com',
             'state': input,
         })
         with self.client:
             resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
             self.assertEqual(302, resp.status_code)
-            self.assertEqual('/user/snarfed.org/following',resp.headers['Location'])
+            self.assertEqual('/user/alice.com/following',resp.headers['Location'])
             self.assertEqual([f'Followed <a href="https://bar/url">{input}</a>.'],
                              get_flashed_messages())
 
@@ -180,25 +180,30 @@ class FollowTest(testutil.TestCase):
         self.assertEqual(('http://bar/inbox',), inbox_args)
         self.assert_equals(expected_follow, json_loads(inbox_kwargs['data']))
 
+        # check that we signed with the follower's key
+        sig_template = inbox_kwargs['auth'].header_signer.signature_template
+        self.assertTrue(sig_template.startswith('keyId="http://localhost/alice.com"'),
+                        sig_template)
+
         followers = Follower.query().fetch()
         self.assert_entities_equal(
-            Follower(id='https://bar/id snarfed.org',
+            Follower(id='https://bar/id alice.com',
                      last_follow=json_dumps(expected_follow, sort_keys=True),
-                     src='snarfed.org', dest='https://bar/id', status='active'),
+                     src='alice.com', dest='https://bar/id', status='active'),
             followers,
             ignore=['created', 'updated'])
 
-        id = f'http://localhost/user/snarfed.org/following#2022-01-02T03:04:05-{input}'
-        self.assert_object(id, domains=['snarfed.org'], status='complete',
+        id = f'http://localhost/user/alice.com/following#2022-01-02T03:04:05-{input}'
+        self.assert_object(id, domains=['alice.com'], status='complete',
                            labels=['user', 'activity'], source_protocol='ui',
                            as2=expected_follow, as1=as2.to_as1(expected_follow))
 
     def test_callback_missing_user(self, mock_get, mock_post):
-        mock_post.return_value = requests_response('me=https://snarfed.org')
+        mock_post.return_value = requests_response('me=https://alice.com')
 
         state = util.encode_oauth_state({
             'endpoint': 'http://auth/endpoint',
-            'me': 'https://snarfed.org',
+            'me': 'https://alice.com',
             'state': '@foo@bar',
         })
         with self.client:
@@ -206,46 +211,46 @@ class FollowTest(testutil.TestCase):
             self.assertEqual(400, resp.status_code)
 
     def test_callback_user_use_instead(self, mock_get, mock_post):
-        user = User.get_or_create('www.snarfed.org')
-        User.get_or_create('snarfed.org', use_instead=user.key)
+        user = User.get_or_create('www.alice.com')
+        User.get_or_create('alice.com', use_instead=user.key)
 
         mock_get.side_effect = (
             requests_response(''),
             self.as2_resp(FOLLOWEE),
         )
         mock_post.side_effect = (
-            requests_response('me=https://snarfed.org'),
+            requests_response('me=https://alice.com'),
             requests_response('OK'),  # AP Follow to inbox
         )
 
         state = util.encode_oauth_state({
             'endpoint': 'http://auth/endpoint',
-            'me': 'https://snarfed.org',
+            'me': 'https://alice.com',
             'state': 'https://bar/actor',
         })
         with self.client:
             resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
             self.assertEqual(302, resp.status_code)
-            self.assertEqual('/user/www.snarfed.org/following', resp.headers['Location'])
+            self.assertEqual('/user/www.alice.com/following', resp.headers['Location'])
 
-        id = 'http://localhost/user/www.snarfed.org/following#2022-01-02T03:04:05-https://bar/actor'
+        id = 'http://localhost/user/www.alice.com/following#2022-01-02T03:04:05-https://bar/actor'
         expected_follow = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Follow',
             'id': id,
-            'actor': 'http://localhost/www.snarfed.org',
+            'actor': 'http://localhost/www.alice.com',
             'object': FOLLOWEE,
             'to': [as2.PUBLIC_AUDIENCE],
         }
         followers = Follower.query().fetch()
         self.assert_entities_equal(
-            Follower(id='https://bar/id www.snarfed.org',
+            Follower(id='https://bar/id www.alice.com',
                      last_follow=json_dumps(expected_follow, sort_keys=True),
-                     src='www.snarfed.org', dest='https://bar/id', status='active'),
+                     src='www.alice.com', dest='https://bar/id', status='active'),
             followers,
             ignore=['created', 'updated'])
 
-        self.assert_object(id, domains=['www.snarfed.org'], status='complete',
+        self.assert_object(id, domains=['www.alice.com'], status='complete',
                            labels=['user', 'activity'], source_protocol='ui',
                            as2=expected_follow, as1=as2.to_as1(expected_follow))
 
@@ -257,15 +262,15 @@ class UnfollowTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
         self.follower = Follower(
-            id='https://bar/id snarfed.org', last_follow=json_dumps(FOLLOW_ADDRESS),
-            src='snarfed.org', dest='https://bar/id', status='active',
+            id='https://bar/id alice.com', last_follow=json_dumps(FOLLOW_ADDRESS),
+            src='alice.com', dest='https://bar/id', status='active',
         ).put()
 
     def test_start(self, mock_get, _):
         mock_get.return_value = requests_response('')  # IndieAuth endpoint discovery
 
         resp = self.client.post('/unfollow/start', data={
-            'me': 'https://snarfed.org',
+            'me': 'https://alice.com',
             'key': self.follower.id(),
         })
         self.assertEqual(302, resp.status_code)
@@ -284,7 +289,7 @@ class UnfollowTest(testutil.TestCase):
         })
         follower.put()
 
-        # oauth-dropins indieauth https://snarfed.org fetch for user json
+        # oauth-dropins indieauth https://alice.com fetch for user json
         mock_get.side_effect = (
             requests_response(''),
             self.as2_resp(FOLLOWEE),  # fetch to discover inbox
@@ -296,21 +301,21 @@ class UnfollowTest(testutil.TestCase):
         self._test_callback(undo, mock_get, mock_post)
 
     def _test_callback(self, expected_undo, mock_get, mock_post):
-        User.get_or_create('snarfed.org')
+        User.get_or_create('alice.com')
         mock_post.side_effect = (
-            requests_response('me=https://snarfed.org'),
+            requests_response('me=https://alice.com'),
             requests_response('OK'),  # AP Undo Follow to inbox
         )
 
         state = util.encode_oauth_state({
             'endpoint': 'http://auth/endpoint',
-            'me': 'https://snarfed.org',
+            'me': 'https://alice.com',
             'state': self.follower.id(),
         })
         with self.client:
             resp = self.client.get(f'/unfollow/callback?code=my_code&state={state}')
             self.assertEqual(302, resp.status_code)
-            self.assertEqual('/user/snarfed.org/following',resp.headers['Location'])
+            self.assertEqual('/user/alice.com/following', resp.headers['Location'])
             self.assertEqual([f'Unfollowed <a href="https://bar/url">bar/url</a>.'],
                              get_flashed_messages())
 
@@ -318,22 +323,27 @@ class UnfollowTest(testutil.TestCase):
         self.assertEqual(('http://bar/inbox',), inbox_args)
         self.assert_equals(expected_undo, json_loads(inbox_kwargs['data']))
 
-        follower = Follower.get_by_id('https://bar/id snarfed.org')
+        # check that we signed with the follower's key
+        sig_template = inbox_kwargs['auth'].header_signer.signature_template
+        self.assertTrue(sig_template.startswith('keyId="http://localhost/alice.com"'),
+                        sig_template)
+
+        follower = Follower.get_by_id('https://bar/id alice.com')
         self.assertEqual('inactive', follower.status)
 
         self.assert_object(
-            'http://localhost/user/snarfed.org/following#undo-2022-01-02T03:04:05-https://bar/id',
-            domains=['snarfed.org'], status='complete',
+            'http://localhost/user/alice.com/following#undo-2022-01-02T03:04:05-https://bar/id',
+            domains=['alice.com'], status='complete',
             source_protocol='ui', labels=['user', 'activity'],
             as2=expected_undo, as1=as2.to_as1(expected_undo))
 
     def test_callback_user_use_instead(self, mock_get, mock_post):
-        user = User.get_or_create('www.snarfed.org')
-        User.get_or_create('snarfed.org', use_instead=user.key)
+        user = User.get_or_create('www.alice.com')
+        User.get_or_create('alice.com', use_instead=user.key)
 
         self.follower = Follower(
-            id='https://bar/id www.snarfed.org', last_follow=json_dumps(FOLLOW_ADDRESS),
-            src='www.snarfed.org', dest='https://bar/id', status='active',
+            id='https://bar/id www.alice.com', last_follow=json_dumps(FOLLOW_ADDRESS),
+            src='www.alice.com', dest='https://bar/id', status='active',
         ).put()
 
         mock_get.side_effect = (
@@ -341,26 +351,26 @@ class UnfollowTest(testutil.TestCase):
             self.as2_resp(FOLLOWEE),
         )
         mock_post.side_effect = (
-            requests_response('me=https://snarfed.org'),
+            requests_response('me=https://alice.com'),
             requests_response('OK'),  # AP Undo Follow to inbox
         )
 
         state = util.encode_oauth_state({
             'endpoint': 'http://auth/endpoint',
-            'me': 'https://snarfed.org',
+            'me': 'https://alice.com',
             'state': self.follower.id(),
         })
         with self.client:
             resp = self.client.get(f'/unfollow/callback?code=my_code&state={state}')
             self.assertEqual(302, resp.status_code)
-            self.assertEqual('/user/www.snarfed.org/following',resp.headers['Location'])
+            self.assertEqual('/user/www.alice.com/following', resp.headers['Location'])
 
-        id = 'http://localhost/user/www.snarfed.org/following#undo-2022-01-02T03:04:05-https://bar/id'
+        id = 'http://localhost/user/www.alice.com/following#undo-2022-01-02T03:04:05-https://bar/id'
         expected_undo = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Undo',
             'id': id,
-            'actor': 'http://localhost/www.snarfed.org',
+            'actor': 'http://localhost/www.alice.com',
             'object': FOLLOW_ADDRESS,
         }
 
@@ -368,9 +378,9 @@ class UnfollowTest(testutil.TestCase):
         self.assertEqual(('http://bar/inbox',), inbox_args)
         self.assert_equals(expected_undo, json_loads(inbox_kwargs['data']))
 
-        follower = Follower.get_by_id('https://bar/id www.snarfed.org')
+        follower = Follower.get_by_id('https://bar/id www.alice.com')
         self.assertEqual('inactive', follower.status)
 
-        self.assert_object(id, domains=['www.snarfed.org'], status='complete',
+        self.assert_object(id, domains=['www.alice.com'], status='complete',
                            source_protocol='ui', labels=['user', 'activity'],
                            as2=expected_undo, as1=as2.to_as1(expected_undo))

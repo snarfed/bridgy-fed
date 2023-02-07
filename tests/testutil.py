@@ -55,8 +55,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             **common.CONNEG_HEADERS_AS2_HTML,
             **kwargs.pop('headers', {}),
         }
-        return self.req(url, auth=ANY, headers=headers, allow_redirects=False,
-                        **kwargs)
+        return self.req(url, data=None, auth=ANY, headers=headers,
+                        allow_redirects=False, **kwargs)
+
     def as2_resp(self, obj):
         return requests_response(obj, content_type=as2.CONTENT_TYPE)
 

@@ -147,7 +147,7 @@ class FollowCallback(indieauth.Callback):
             flash(f"Couldn't find ActivityPub profile link for {addr}")
             return redirect(f'/user/{domain}/following')
 
-        resp = common.get_as2(as2_url)
+        resp = common.get_as2(as2_url, user=user)
         followee = resp.json()
         id = followee.get('id')
         inbox = followee.get('inbox')
@@ -165,7 +165,7 @@ class FollowCallback(indieauth.Callback):
             'actor': common.host_url(domain),
             'to': [as2.PUBLIC_AUDIENCE],
        }
-        common.signed_post(inbox, data=follow_as2)
+        common.signed_post(inbox, user=user, data=follow_as2)
 
         follow_json = json_dumps(follow_as2, sort_keys=True)
         Follower.get_or_create(dest=id, src=domain, status='active',
@@ -218,7 +218,7 @@ class UnfollowCallback(indieauth.Callback):
         if isinstance(followee, str):
             # fetch as AS2 to get full followee with inbox
             followee_id = followee
-            resp = common.get_as2(followee_id)
+            resp = common.get_as2(followee_id, user=user)
             followee = resp.json()
 
         inbox = followee.get('inbox')
@@ -235,7 +235,7 @@ class UnfollowCallback(indieauth.Callback):
             'actor': common.host_url(domain),
             'object': last_follow,
        }
-        common.signed_post(inbox, data=unfollow_as2)
+        common.signed_post(inbox, user=user, data=unfollow_as2)
 
         follower.status = 'inactive'
         follower.put()

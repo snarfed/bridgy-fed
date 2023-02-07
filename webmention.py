@@ -116,7 +116,10 @@ class Webmention(View):
         ))
         logger.info(f'Converted webmention to AS1: {type_label}: {json_dumps(self.source_as1, indent=2)}')
 
-        self.user = User.get_or_create(self.source_domain)
+        self.user = User.get_by_id(self.source_domain)
+        if not self.user:
+            error(f'No user found for domain {self.source_domain}')
+
         ret = self.try_activitypub()
         return ret or 'No ActivityPub targets'
 
@@ -210,8 +213,8 @@ class Webmention(View):
                                        last_follow=json_dumps(self.source_as2))
 
             try:
-                last = common.signed_post(inbox, data=self.source_as2,
-                                          log_data=log_data, user=self.user)
+                last = common.signed_post(inbox, user=self.user, data=self.source_as2,
+                                          log_data=log_data)
                 obj.delivered.append(target)
                 last_success = last
             except BaseException as e:
@@ -299,7 +302,7 @@ class Webmention(View):
         for target in targets:
             # fetch target page as AS2 object
             try:
-                self.target_resp = common.get_as2(target)
+                self.target_resp = common.get_as2(target, user=self.user)
             except (requests.HTTPError, BadGateway) as e:
                 self.target_resp = getattr(e, 'requests_response', None)
                 if self.target_resp and self.target_resp.status_code // 100 == 2:
@@ -327,7 +330,7 @@ class Webmention(View):
 
             if not inbox_url:
                 # fetch actor as AS object
-                actor = common.get_as2(actor).json()
+                actor = common.get_as2(actor, user=self.user).json()
                 inbox_url = actor.get('inbox')
 
             if not inbox_url:
