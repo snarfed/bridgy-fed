@@ -46,6 +46,17 @@ class CommonTest(testutil.TestCase):
         self.app_context.pop()
         super().tearDown()
 
+    def test_pretty_link(self):
+        for expected, url, text in (
+                ('<a href="http://foo">bar</a>', 'http://foo', 'bar'),
+                ('<a href="http://x.y/@z">@z@x.y</a>', 'http://x.y/@z', None),
+                ('<a href="http://x.y/@z">foo</a>', 'http://x.y/@z', 'foo'),
+                ('<a href="http://x.y/users/z">@z@x.y</a>', 'http://x.y/users/z', None),
+                ('<a href="http://x.y/users/z">foo</a>', 'http://x.y/users/z', 'foo'),
+                ('<a href="http://x.y/@z/123">x.y/@z/123</a>', 'http://x.y/@z/123', None),
+        ):
+            self.assertEqual(expected, common.pretty_link(url, text=text))
+
     @mock.patch('requests.get', return_value=AS2)
     def test_get_as2_direct(self, mock_get):
         resp = common.get_as2('http://orig', user=self.user)

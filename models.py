@@ -336,24 +336,29 @@ class Object(StringIdModel):
         return common.host_url('render?' +
                                urllib.parse.urlencode({'id': self.key.id()}))
 
-    def actor_link(self):
-        """Returns a pretty actor link with their name and profile picture."""
-        if self.source_protocol in ('webmention', 'ui') and self.domains:
+    def actor_link(self, user=None):
+        """Returns a pretty actor link with their name and profile picture.
+
+        Args:
+          cur_user: :class:`User`, optional, user for the current request
+        """
+        if (self.source_protocol in ('webmention', 'ui') and user and
+            user.key.id() in self.domains):
             # outbound; show a nice link to the user
-            return User.get_by_id(self.domains[0]).user_page_link()
+            return user.user_page_link()
 
         activity = json_loads(self.as1)
         actor = (util.get_first(activity, 'actor')
                  or util.get_first(activity, 'author')
                  or {})
         if isinstance(actor, str):
-            return util.pretty_link(actor)
+            return common.pretty_link(actor)
 
         url = util.get_first(actor, 'url') or ''
         name = actor.get('displayName') or ''
         image = util.get_url(actor, 'image') or ''
         if not image:
-            return util.pretty_link(url, text=name)
+            return common.pretty_link(url, text=name)
 
         return f"""\
         <a href="{url}" title="{name}">

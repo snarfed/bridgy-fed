@@ -94,6 +94,21 @@ def default_signature_user():
     return _DEFAULT_SIGNATURE_USER
 
 
+def pretty_link(url, text=None):
+  """Wrapper around util.pretty_link() that converts Mastodon user URLs to @-@.
+
+  Eg for URLs like https://mastodon.social/@foo and
+  https://mastodon.social/users/foo, defaults text to @foo@mastodon.social if
+  it's not provided.
+  """
+  if text is None:
+    match = re.match(r'https?://([^/]+)/(@|users/)([^/]+)$', url)
+    if match:
+      text = match.expand(r'@\3@\1')
+
+  return util.pretty_link(url, text=text)
+
+
 def signed_get(url, user, **kwargs):
     return signed_request(util.requests_get, url, user, **kwargs)
 

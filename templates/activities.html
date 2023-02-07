@@ -4,7 +4,7 @@
 {% for obj in objects %}
 <li class="row">
   <div class="col-sm-{{ 7 if show_domains else 10 }}">
-    {{ obj.actor_link()|safe }}
+    {{ obj.actor_link(user=user)|safe }}
     {{ obj.phrase|safe }}
     <a target="_blank" href="{{ obj.url }}">
       {{ obj.content|default('--', true)|striptags|truncate(50) }}

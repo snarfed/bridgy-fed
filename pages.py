@@ -205,7 +205,7 @@ def fetch_objects(query):
         content = inner_obj.get('content') or inner_obj.get('displayName')
         url = util.get_first(inner_obj, 'url') or inner_obj.get('id')
         if url:
-            content = util.pretty_link(url, text=content)
+            content = common.pretty_link(url, text=content)
         elif (obj.domains and
               obj_as1.get('id', '').strip('/') == f'https://{obj.domains[0]}'):
             obj.phrase = 'updated'
@@ -217,7 +217,7 @@ def fetch_objects(query):
         if (type in ('like', 'follow', 'repost', 'share') or
             not obj.content):
             if obj.url:
-                obj.phrase = util.pretty_link(obj.url, text=obj.phrase)
+                obj.phrase = common.pretty_link(obj.url, text=obj.phrase)
             if content:
                 obj.content = content
                 obj.url = url

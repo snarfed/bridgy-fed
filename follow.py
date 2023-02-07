@@ -175,7 +175,7 @@ class FollowCallback(indieauth.Callback):
                as1=json_dumps(as2.to_as1(follow_as2), sort_keys=True),
                ).put()
 
-        link = util.pretty_link(util.get_url(followee) or id, text=addr)
+        link = common.pretty_link(util.get_url(followee) or id, text=addr)
         flash(f'Followed {link}.')
         return redirect(f'/user/{domain}/following')
 
@@ -245,7 +245,7 @@ class UnfollowCallback(indieauth.Callback):
                as1=json_dumps(as2.to_as1(unfollow_as2), sort_keys=True),
                ).put()
 
-        link = util.pretty_link(util.get_url(followee) or followee_id)
+        link = common.pretty_link(util.get_url(followee) or followee_id)
         flash(f'Unfollowed {link}.')
         return redirect(f'/user/{domain}/following')
 
