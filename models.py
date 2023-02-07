@@ -355,7 +355,7 @@ class Object(StringIdModel):
             return common.pretty_link(actor, user=user)
 
         url = util.get_first(actor, 'url') or ''
-        name = actor.get('displayName') or ''
+        name = actor.get('displayName') or actor.get('username') or ''
         image = util.get_url(actor, 'image') or ''
         if not image:
             return common.pretty_link(url, text=name, user=user)
