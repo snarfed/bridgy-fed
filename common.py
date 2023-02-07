@@ -328,6 +328,7 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
     if activity.get('objectType') == 'activity':
       obj.labels.append('activity')
     obj.put()
+    logging.info(f'Created Object {source}')
 
     for target in targets:
         domain = util.domain_from_link(target.uri, minimize=False)
@@ -362,6 +363,7 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
 
     obj.status = 'complete' if obj.delivered else 'failed' if obj.failed else 'ignored'
     obj.put()
+    logging.info(f'Finalized Object {source} as {obj.status}')
 
     if errors:
         msg = 'Errors: ' + ', '.join(f'{code} {body}' for code, body in errors)

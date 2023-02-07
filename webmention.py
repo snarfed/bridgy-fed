@@ -162,7 +162,7 @@ class Webmention(View):
                          undelivered=[Target(uri=uri, protocol='activitypub')
                                       for uri in inboxes_to_targets.keys()],
                          status='in progress')
-            logging.info(f'Storing new {obj}')
+            logging.info(f'Storing new Object {self.source_url}')
 
         obj.domains = [self.source_domain]
         obj.source_protocol = 'webmention'
