@@ -203,7 +203,9 @@ def fetch_objects(query, user):
             if inner_obj:
                 inner_obj = json_loads(inner_obj.as1)
 
-        content = inner_obj.get('content') or inner_obj.get('displayName')
+        content = (inner_obj.get('content')
+                   or inner_obj.get('displayName')
+                   or inner_obj.get('summary'))
         url = util.get_first(inner_obj, 'url') or inner_obj.get('id')
         if url:
             content = common.pretty_link(url, text=content, user=user)
@@ -212,7 +214,9 @@ def fetch_objects(query, user):
             obj.phrase = 'updated'
             obj_as1['content'] = 'their profile'
 
-        obj.content = obj_as1.get('content') or obj_as1.get('displayName')
+        obj.content = (obj_as1.get('content')
+                       or obj_as1.get('displayName')
+                       or obj_as1.get('summary'))
         obj.url = util.get_first(obj_as1, 'url')
 
         if (type in ('like', 'follow', 'repost', 'share') or
