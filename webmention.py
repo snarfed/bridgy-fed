@@ -63,12 +63,14 @@ class Webmention(View):
                 'objectType': 'activity',
                 'verb': 'update',
                 'id': id,
+                'url': id,
                 'object': actor_as1,
             }
             self.source_as2 = common.postprocess_as2({
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 'type': 'Update',
-                'id': common.host_url(f'{source}#update-{util.now().isoformat()}'),
+                'id': id,
+                'url': id,
                 'object': actor_as2,
             }, user=self.user)
             return self.try_activitypub() or 'No ActivityPub targets'

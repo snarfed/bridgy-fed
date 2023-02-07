@@ -1102,10 +1102,12 @@ class WebmentionTest(testutil.TestCase):
         ))
 
         id = 'https://orig/#update-2022-01-02T03:04:05+00:00'
+        wrapped_id = f'http://localhost/r/{id}'
         self.assert_deliveries(mock_post, ('https://shared/inbox', 'https://inbox'), {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Update',
-            'id': f'http://localhost/r/{id}',
+            'id': wrapped_id,
+            'url': wrapped_id,
             'actor': 'http://localhost/orig',
             'object': {
                 **ACTOR_AS2_FULL,
@@ -1116,6 +1118,7 @@ class WebmentionTest(testutil.TestCase):
 
         expected_as1 = {
             'id': id,
+            'url': id,
             'objectType': 'activity',
             'verb': 'update',
             'object': ACTOR_AS1_UNWRAPPED,

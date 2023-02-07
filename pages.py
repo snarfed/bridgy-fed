@@ -207,12 +207,15 @@ def fetch_objects(query, user):
                    or inner_obj.get('displayName')
                    or inner_obj.get('summary'))
         url = util.get_first(inner_obj, 'url') or inner_obj.get('id')
-        if url:
-            content = common.pretty_link(url, text=content, user=user)
-        elif (obj.domains and
-              obj_as1.get('id', '').strip('/') == f'https://{obj.domains[0]}'):
+        if (obj.domains and
+              inner_obj.get('id', '').strip('/') == f'https://{obj.domains[0]}'):
             obj.phrase = 'updated'
-            obj_as1['content'] = 'their profile'
+            obj_as1.update({
+                'content': 'their profile',
+                'url': f'https://{obj.domains[0]}',
+            })
+        elif url:
+            content = common.pretty_link(url, text=content, user=user)
 
         obj.content = (obj_as1.get('content')
                        or obj_as1.get('displayName')
