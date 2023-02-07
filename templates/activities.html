@@ -3,7 +3,7 @@
 
 {% for obj in objects %}
 <li class="row">
-  <div class="col-sm-{{ 7 if show_domains else 10 }}">
+  <div class="col-sm-{{ 5 if show_domains else 8 }}">
     {{ obj.actor_link(user=user)|safe }}
     {{ obj.phrase|safe }}
     <a target="_blank" href="{{ obj.url }}">
@@ -29,12 +29,30 @@
   {% endif %}
 
   <div class="col-sm-2">
-    {% if obj.status == 'failed' %}
-     <span title="Error" class="glyphicon glyphicon-exclamation-sign"></span>
-    {% else %}{% if obj.status == 'new' %}
-     <span title="Processing" class="glyphicon glyphicon-transfer"></span>
-    {% endif %}{% endif %}
     {{ logs.maybe_link(obj.updated, obj.key.id())|safe }}
+  </div>
+
+  <div class="col-sm-2">
+    <ul class="deliveries">
+    {% if obj.delivered %}
+      <li title="Delivered sucessfully">
+        <span class="glyphicon glyphicon-ok-sign"></span>
+        {{ obj.delivered|length }}
+      </li>
+    {% endif %}
+    {% if obj.undelivered %}
+      <li title="Remaining to be delivered">
+        <span class="glyphicon glyphicon-transfer"></span>
+        {{ obj.undelivered|length }}
+      </li>
+    {% endif %}
+    {% if obj.failed %}
+      <li title="Failed delivery">
+        <span class="glyphicon glyphicon-exclamation-sign"></span>
+        {{ obj.failed|length }}
+      </li>
+    {% endif %}
+    <ul>
   </div>
 </li>
 {% else %}

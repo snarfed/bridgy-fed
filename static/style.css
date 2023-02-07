@@ -184,7 +184,11 @@ form input {
   }
 }
 
-.source-buttons, .original-post {
+.deliveries li {
+  list-style: none;
+}
+
+.source-buttons, .original-post, .deliveries li {
   white-space: nowrap;
 }
 
