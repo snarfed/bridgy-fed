@@ -138,7 +138,8 @@ class Webmention(View):
         log_data = True
 
         type = as1.object_type(self.source_as1)
-        obj = Object.get_by_id(self.source_url)
+        obj_id = self.source_as1.get('id') or self.source_url
+        obj = Object.get_by_id(obj_id)
         changed = False
 
         if obj:
@@ -158,7 +159,7 @@ class Webmention(View):
                     logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes: {obj.undelivered}')
 
         else:
-            obj = Object(id=self.source_url, delivered=[], failed=[],
+            obj = Object(id=obj_id, delivered=[], failed=[],
                          undelivered=[Target(uri=uri, protocol='activitypub')
                                       for uri in inboxes_to_targets.keys()],
                          status='in progress')

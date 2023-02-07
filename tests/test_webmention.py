@@ -1101,10 +1101,11 @@ class WebmentionTest(testutil.TestCase):
             self.req('https://orig/'),
         ))
 
+        id = 'https://orig/#update-2022-01-02T03:04:05+00:00'
         self.assert_deliveries(mock_post, ('https://shared/inbox', 'https://inbox'), {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Update',
-            'id': 'http://localhost/r/https://orig/#update-2022-01-02T03:04:05+00:00',
+            'id': f'http://localhost/r/{id}',
             'actor': 'http://localhost/orig',
             'object': {
                 **ACTOR_AS2_FULL,
@@ -1114,12 +1115,12 @@ class WebmentionTest(testutil.TestCase):
         })
 
         expected_as1 = {
-            'id': 'https://orig/#update-2022-01-02T03:04:05+00:00',
+            'id': id,
             'objectType': 'activity',
             'verb': 'update',
             'object': ACTOR_AS1_UNWRAPPED,
         }
-        self.assert_object(f'https://orig/',
+        self.assert_object(id,
                            domains=['orig'],
                            source_protocol='webmention',
                            status='complete',
