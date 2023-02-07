@@ -2,6 +2,7 @@
 import calendar
 import datetime
 import logging
+import os
 import re
 import urllib.parse
 
@@ -245,6 +246,66 @@ def stats():
         objects=count('Object'),
         followers=count('Follower'),
     )
+
+
+@app.get('/.well-known/nodeinfo')
+@flask_util.cached(cache, datetime.timedelta(days=1))
+def nodeinfo_jrd():
+    """
+    https://nodeinfo.diaspora.software/protocol.html
+    """
+    return {
+        'links': [{
+            'rel': 'http://nodeinfo.diaspora.software/ns/schema/2.1',
+            'href': common.host_url('nodeinfo.json'),
+        }],
+    }, {
+        'Content-Type': 'application/jrd+json',
+    }
+
+
+@app.get('/nodeinfo.json')
+@flask_util.cached(cache, datetime.timedelta(days=1))
+def nodeinfo():
+    """
+    https://nodeinfo.diaspora.software/schema.html
+    """
+    return {
+        'version': '2.1',
+        'software': {
+            'name': 'bridgy-fed',
+            'version': os.getenv('GAE_VERSION'),
+            'repository': 'https://github.com/snarfed/bridgy-fed',
+            'homepage': 'https://fed.brid.gy/',
+        },
+        'protocols': [
+            'activitypub',
+            'bluesky',
+            'webmention',
+        ],
+        'services': {
+            'outbound': [],
+            'inbound': [],
+        },
+        'usage': {
+            'users': {
+                'total': KindStat.query(KindStat.kind_name == 'MagicKey').get().count,
+                # 'activeMonth':
+                # 'activeHalfyear':
+            },
+            'localPosts': Object.query(Object.source_protocol == 'webmention',
+                                       Object.type.IN(['note', 'article']),
+                                       ).count(),
+            'localComments': Object.query(Object.source_protocol == 'webmention',
+                                          Object.type == 'comment',
+                                          ).count(),
+        },
+        'openRegistrations': True,
+        'metadata': {},
+    }, {
+        # https://nodeinfo.diaspora.software/protocol.html
+        'Content-Type': 'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.1#"',
+    }
 
 
 @app.get('/log')
