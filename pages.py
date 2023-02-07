@@ -77,7 +77,7 @@ def user(domain):
         Object.domains == domain,
         Object.labels.IN(('notification', 'user')),
     )
-    objects, before, after = fetch_objects(query)
+    objects, before, after = fetch_objects(query, user)
 
     followers = Follower.query(Follower.dest == domain, Follower.status == 'active')\
                         .count(limit=FOLLOWERS_UI_LIMIT)
@@ -153,7 +153,7 @@ def feed(domain):
         return body, {'Content-Type': rss.CONTENT_TYPE}
 
 
-def fetch_objects(query):
+def fetch_objects(query, user):
     """Fetches a page of Object entities from a datastore query.
 
     Wraps :func:`common.fetch_page` and adds attributes to the returned Object
@@ -161,6 +161,7 @@ def fetch_objects(query):
 
     Args:
       query: :class:`ndb.Query`
+      user: :class:`User`
 
     Returns:
       (results, new_before, new_after) tuple with:
@@ -205,7 +206,7 @@ def fetch_objects(query):
         content = inner_obj.get('content') or inner_obj.get('displayName')
         url = util.get_first(inner_obj, 'url') or inner_obj.get('id')
         if url:
-            content = common.pretty_link(url, text=content)
+            content = common.pretty_link(url, text=content, user=user)
         elif (obj.domains and
               obj_as1.get('id', '').strip('/') == f'https://{obj.domains[0]}'):
             obj.phrase = 'updated'
@@ -217,7 +218,7 @@ def fetch_objects(query):
         if (type in ('like', 'follow', 'repost', 'share') or
             not obj.content):
             if obj.url:
-                obj.phrase = common.pretty_link(obj.url, text=obj.phrase)
+                obj.phrase = common.pretty_link(obj.url, text=obj.phrase, user=user)
             if content:
                 obj.content = content
                 obj.url = url

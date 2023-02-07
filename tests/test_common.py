@@ -57,6 +57,10 @@ class CommonTest(testutil.TestCase):
         ):
             self.assertEqual(expected, common.pretty_link(url, text=text))
 
+        self.assertEqual(
+            '<a href="/user/site"><img src="" class="profile"> site</a>',
+            common.pretty_link('https://site/', user=self.user))
+
     @mock.patch('requests.get', return_value=AS2)
     def test_get_as2_direct(self, mock_get):
         resp = common.get_as2('http://orig', user=self.user)
