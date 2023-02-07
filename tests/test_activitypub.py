@@ -357,7 +357,13 @@ class ActivityPubTest(testutil.TestCase):
         mock_get.assert_not_called()
         mock_post.assert_not_called()
 
-    def test_inbox_create_obj(self, mock_head, mock_get, mock_post):
+    def test_personal_inbox_create_obj(self, *mocks):
+        self._test_inbox_create_obj('/foo.com/inbox', *mocks)
+
+    def test_shared_inbox_create_obj(self, *mocks):
+        self._test_inbox_create_obj('/inbox', *mocks)
+
+    def _test_inbox_create_obj(self, path, mock_head, mock_get, mock_post):
         Follower.get_or_create(ACTOR['id'], 'foo.com')
         Follower.get_or_create('http://other/actor', 'bar.com')
         Follower.get_or_create(ACTOR['id'], 'baz.com')
@@ -367,7 +373,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_post.return_value = requests_response()
 
         with self.client:
-            got = self.client.post('/foo.com/inbox', json=NOTE)
+            got = self.client.post(path, json=NOTE)
             self.assertEqual(200, got.status_code, got.get_data(as_text=True))
             expected_as2 = common.redirect_unwrap({
                 **NOTE,

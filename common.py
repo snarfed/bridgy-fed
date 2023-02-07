@@ -71,7 +71,6 @@ DOMAIN_BLOCKLIST = frozenset((
     'twitter.com',
 ) + DOMAINS)
 
-# currently unused. TODO: remove?
 _DEFAULT_SIGNATURE_USER = None
 
 CACHE_TIME = timedelta(seconds=60)
@@ -88,7 +87,6 @@ def host_url(path_query=None):
   return urllib.parse.urljoin(base, path_query)
 
 
-# currently unused. TODO: remove?
 def default_signature_user():
     global _DEFAULT_SIGNATURE_USER
     if _DEFAULT_SIGNATURE_USER is None:
@@ -101,6 +99,7 @@ def signed_get(url, user, **kwargs):
 
 
 def signed_post(url, user, **kwargs):
+    assert user
     return signed_request(util.requests_post, url, user, **kwargs)
 
 
@@ -117,9 +116,12 @@ def signed_request(fn, url, user, data=None, log_data=True, headers=None, **kwar
 
     Returns: :class:`requests.Response`
     """
-    assert user
     if headers is None:
         headers = {}
+
+    # prepare HTTP Signature and headers
+    if not user:
+        user = default_signature_user()
 
     if data:
         if log_data:
@@ -200,8 +202,6 @@ def get_as2(url, user=None):
         If we raise a werkzeug HTTPException, it will have an additional
         requests_response attribute with the last requests.Response we received.
     """
-    assert user
-
     def _error(resp):
         msg = f"Couldn't fetch {url} as ActivityStreams 2"
         logger.warning(msg)
