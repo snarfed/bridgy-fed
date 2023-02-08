@@ -593,7 +593,7 @@ def redirect_unwrap(val):
     return val
 
 
-def actor(domain, user=None):
+def actor(user):
     """Fetches a home page, converts its representative h-card to AS2 actor.
 
     Creates a User for the given domain if one doesn't already exist.
@@ -601,15 +601,13 @@ def actor(domain, user=None):
     TODO: unify with webfinger.Actor
 
     Args:
-      domain: str
-      user: :class:`User`, optional
+      user: :class:`User`
 
-    Returns: (dict mf2 item, dict AS1 actor, dict AS2 actor, User)
+    Returns: (dict mf2 item, dict AS1 actor, dict AS2 actor)
     """
-    tld = domain.split('.')[-1]
-    if tld in TLD_BLOCKLIST:
-        error('', status=404)
+    assert user
 
+    domain = user.key.id()
     url = f'https://{domain}/'
     try:
         mf2 = util.fetch_mf2(url, gateway=True)
@@ -620,9 +618,6 @@ def actor(domain, user=None):
     logger.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')
     if not hcard:
         error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {mf2['url']}")
-
-    if not user:
-        user = User.get_or_create(domain)
 
     actor_as1 = microformats2.json_to_object(hcard, rel_urls=mf2.get('rel-urls'))
     actor_as2 = postprocess_as2(as2.from_as1(actor_as1), user=user)
@@ -644,7 +639,7 @@ def actor(domain, user=None):
     })
 
     logger.info(f'Generated AS2 actor: {json_dumps(actor_as2, indent=2)}')
-    return hcard, actor_as1, actor_as2, user
+    return hcard, actor_as1, actor_as2
 
 
 def fetch_followers(domain, collection):

@@ -106,10 +106,10 @@ FOLLOW = {
     'id': 'https://mastodon.social/6d1a',
     'type': 'Follow',
     'actor': ACTOR['id'],
-    'object': 'https://www.realize.be/',
+    'object': 'https://foo.com/',
 }
 FOLLOW_WRAPPED = copy.deepcopy(FOLLOW)
-FOLLOW_WRAPPED['object'] = 'http://localhost/www.realize.be'
+FOLLOW_WRAPPED['object'] = 'http://localhost/foo.com'
 FOLLOW_WITH_ACTOR = copy.deepcopy(FOLLOW)
 FOLLOW_WITH_ACTOR['actor'] = ACTOR
 FOLLOW_WRAPPED_WITH_ACTOR = copy.deepcopy(FOLLOW_WRAPPED)
@@ -120,12 +120,12 @@ FOLLOW_WITH_OBJECT['object'] = ACTOR
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Accept',
-    'id': 'tag:fed.brid.gy:accept/www.realize.be/https://mastodon.social/6d1a',
-    'actor': 'http://localhost/www.realize.be',
+    'id': 'tag:fed.brid.gy:accept/foo.com/https://mastodon.social/6d1a',
+    'actor': 'http://localhost/foo.com',
     'object': {
         'type': 'Follow',
         'actor': 'https://mastodon.social/users/swentel',
-        'object': 'http://localhost/www.realize.be',
+        'object': 'http://localhost/foo.com',
     }
 }
 
@@ -170,6 +170,10 @@ UPDATE_NOTE = {
 @patch('requests.get')
 @patch('requests.head')
 class ActivityPubTest(testutil.TestCase):
+
+    def setUp(self):
+        super().setUp()
+        User.get_or_create('foo.com')
 
     def test_actor(self, _, mock_get, __):
         mock_get.return_value = requests_response("""
@@ -283,8 +287,16 @@ class ActivityPubTest(testutil.TestCase):
         mock_get.side_effect = [
             ValueError('Invalid IPv6 URL'),
         ]
-        got = self.client.get('/snarfed.org]')
+        got = self.client.get('/foo.com')
         self.assertEqual(400, got.status_code)
+
+    def test_actor_no_user(self, *mocks):
+        got = self.client.get('/nope.com')
+        self.assertEqual(404, got.status_code)
+
+    def test_individual_inbox_no_user(self, *mocks):
+        got = self.client.post('/nope.com/inbox', json=REPLY)
+        self.assertEqual(404, got.status_code)
 
     def test_inbox_reply_object(self, *mocks):
         self._test_inbox_reply(REPLY_OBJECT,
@@ -357,7 +369,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_get.assert_not_called()
         mock_post.assert_not_called()
 
-    def test_personal_inbox_create_obj(self, *mocks):
+    def test_individual_inbox_create_obj(self, *mocks):
         self._test_inbox_create_obj('/foo.com/inbox', *mocks)
 
     def test_shared_inbox_create_obj(self, *mocks):
@@ -498,15 +510,15 @@ class ActivityPubTest(testutil.TestCase):
                                        mock_head, mock_get, mock_post)
 
         follow = copy.deepcopy(FOLLOW_WITH_ACTOR)
-        follow['url'] = 'https://mastodon.social/users/swentel#followed-https://www.realize.be/'
+        follow['url'] = 'https://mastodon.social/users/swentel#followed-https://foo.com/'
 
         self.assert_object('https://mastodon.social/6d1a',
-                           domains=['www.realize.be'],
+                           domains=['foo.com'],
                            source_protocol='activitypub',
                            status='complete',
                            as2=follow,
                            as1=as2.to_as1(follow),
-                           delivered=['https://www.realize.be/'],
+                           delivered=['https://foo.com/'],
                            type='follow',
                            labels=['notification', 'activity'],
                            object_ids=[FOLLOW['object']])
@@ -542,22 +554,22 @@ class ActivityPubTest(testutil.TestCase):
         follow.update({
             'actor': FOLLOW_WITH_ACTOR['actor'],
             'object': unwrapped_user,
-            'url': 'https://mastodon.social/users/swentel#followed-https://www.realize.be/',
+            'url': 'https://mastodon.social/users/swentel#followed-https://foo.com/',
         })
         self.assert_object('https://mastodon.social/6d1a',
-                           domains=['www.realize.be'],
+                           domains=['foo.com'],
                            source_protocol='activitypub',
                            status='complete',
                            as2=follow,
                            as1=as2.to_as1(follow),
-                           delivered=['https://www.realize.be/'],
+                           delivered=['https://foo.com/'],
                            type='follow',
                            labels=['notification', 'activity'],
                            object_ids=[FOLLOW['object']])
 
     def _test_inbox_follow_accept(self, follow_as2, accept_as2,
                                   mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='https://www.realize.be/')
+        mock_head.return_value = requests_response(url='https://foo.com/')
         mock_get.side_effect = [
             # source actor
             self.as2_resp(FOLLOW_WITH_ACTOR['actor']),
@@ -582,21 +594,21 @@ class ActivityPubTest(testutil.TestCase):
 
         # check webmention
         args, kwargs = mock_post.call_args_list[1]
-        self.assertEqual(('https://www.realize.be/webmention',), args)
+        self.assertEqual(('https://foo.com/webmention',), args)
         self.assertEqual({
             'source': 'http://localhost/render?id=https%3A%2F%2Fmastodon.social%2F6d1a',
-            'target': 'https://www.realize.be/',
+            'target': 'https://foo.com/',
         }, kwargs['data'])
 
         # check that we stored a Follower object
-        follower = Follower.get_by_id(f'www.realize.be {FOLLOW["actor"]}')
+        follower = Follower.get_by_id(f'foo.com {FOLLOW["actor"]}')
         self.assertEqual('active', follower.status)
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
-        root = User.get_or_create('realize.be')
-        User.get_or_create('www.realize.be', use_instead=root.key).put()
+        root = User.get_or_create('foo.com')
+        User.get_or_create('www.foo.com', use_instead=root.key).put()
 
-        mock_head.return_value = requests_response(url='https://www.realize.be/')
+        mock_head.return_value = requests_response(url='https://www.foo.com/')
         mock_get.side_effect = [
             # source actor
             self.as2_resp(ACTOR),
@@ -606,32 +618,32 @@ class ActivityPubTest(testutil.TestCase):
         mock_post.return_value = requests_response()
 
         follow = copy.deepcopy(FOLLOW_WRAPPED)
-        follow['object'] = 'http://localhost/realize.be'
+        follow['object'] = 'http://localhost/foo.com'
         got = self.client.post('/foo.com/inbox', json=follow)
         self.assertEqual(200, got.status_code)
 
         # check that the Follower doesn't have www
-        follower = Follower.get_by_id(f'realize.be {ACTOR["id"]}')
+        follower = Follower.get_by_id(f'foo.com {ACTOR["id"]}')
         self.assertEqual('active', follower.status)
 
         follow['actor'] = ACTOR
         self.assertEqual(follow, json_loads(follower.last_follow))
 
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='https://www.realize.be/')
+        mock_head.return_value = requests_response(url='https://foo.com/')
 
-        Follower.get_or_create('www.realize.be', ACTOR['id'])
+        Follower.get_or_create('foo.com', ACTOR['id'])
 
         got = self.client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
-        follower = Follower.get_by_id(f'www.realize.be {FOLLOW["actor"]}')
+        follower = Follower.get_by_id(f'foo.com {FOLLOW["actor"]}')
         self.assertEqual('inactive', follower.status)
 
     def test_inbox_follow_inactive(self, mock_head, mock_get, mock_post):
-        Follower.get_or_create('www.realize.be', ACTOR['id'], status='inactive')
+        Follower.get_or_create('foo.com', ACTOR['id'], status='inactive')
 
-        mock_head.return_value = requests_response(url='https://www.realize.be/')
+        mock_head.return_value = requests_response(url='https://foo.com/')
         mock_get.side_effect = [
             # source actor
             self.as2_resp(FOLLOW_WITH_ACTOR['actor']),
@@ -645,25 +657,25 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(200, got.status_code)
 
         # check that the Follower is now active
-        follower = Follower.get_by_id(f'www.realize.be {FOLLOW["actor"]}')
+        follower = Follower.get_by_id(f'foo.com {FOLLOW["actor"]}')
         self.assertEqual('active', follower.status)
 
     def test_inbox_undo_follow_doesnt_exist(self, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='https://realize.be/')
+        mock_head.return_value = requests_response(url='https://foo.com/')
 
         got = self.client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
     def test_inbox_undo_follow_inactive(self, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='https://realize.be/')
-        Follower.get_or_create('realize.be', ACTOR['id'], status='inactive')
+        mock_head.return_value = requests_response(url='https://foo.com/')
+        Follower.get_or_create('foo.com', ACTOR['id'], status='inactive')
 
         got = self.client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
     def test_inbox_undo_follow_composite_object(self, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='https://realize.be/')
-        Follower.get_or_create('realize.be', ACTOR['id'], status='inactive')
+        mock_head.return_value = requests_response(url='https://foo.com/')
+        Follower.get_or_create('foo.com', ACTOR['id'], status='inactive')
 
         undo_follow = copy.deepcopy(UNDO_FOLLOW_WRAPPED)
         undo_follow['object']['object'] = {'id': undo_follow['object']['object']}
@@ -698,13 +710,13 @@ class ActivityPubTest(testutil.TestCase):
 
     def test_individual_inbox_delete_actor_noop(self, mock_head, mock_get, mock_post):
         """Deletes sent to individual users' inboxes do nothing."""
-        follower = Follower.get_or_create('realize.be', DELETE['actor'])
+        follower = Follower.get_or_create('foo.com', DELETE['actor'])
         followee = Follower.get_or_create(DELETE['actor'], 'snarfed.org')
         # other unrelated follower
-        other = Follower.get_or_create('realize.be', 'https://mas.to/users/other')
+        other = Follower.get_or_create('foo.com', 'https://mas.to/users/other')
         self.assertEqual(3, Follower.query().count())
 
-        got = self.client.post('/realize.be/inbox', json=DELETE)
+        got = self.client.post('/foo.com/inbox', json=DELETE)
         self.assertEqual(200, got.status_code)
         self.assertEqual('active', follower.key.get().status)
         self.assertEqual('active', followee.key.get().status)
@@ -712,10 +724,10 @@ class ActivityPubTest(testutil.TestCase):
 
     def test_shared_inbox_delete_actor(self, mock_head, mock_get, mock_post):
         """Deletes sent to the shared inbox actually deactivate followers."""
-        follower = Follower.get_or_create('realize.be', DELETE['actor'])
+        follower = Follower.get_or_create('foo.com', DELETE['actor'])
         followee = Follower.get_or_create(DELETE['actor'], 'snarfed.org')
         # other unrelated follower
-        other = Follower.get_or_create('realize.be', 'https://mas.to/users/other')
+        other = Follower.get_or_create('foo.com', 'https://mas.to/users/other')
         self.assertEqual(3, Follower.query().count())
 
         got = self.client.post('/inbox', json=DELETE)
@@ -768,7 +780,7 @@ class ActivityPubTest(testutil.TestCase):
                            object_ids=[LIKE['object']])
 
     def test_followers_collection_unknown_user(self, *args):
-        resp = self.client.get('/foo.com/followers')
+        resp = self.client.get('/nope.com/followers')
         self.assertEqual(404, resp.status_code)
 
     def test_followers_collection_empty(self, *args):
@@ -836,7 +848,7 @@ class ActivityPubTest(testutil.TestCase):
         }, resp.json)
 
     def test_following_collection_unknown_user(self, *args):
-        resp = self.client.get('/foo.com/following')
+        resp = self.client.get('/nope.com/following')
         self.assertEqual(404, resp.status_code)
 
     def test_following_collection_empty(self, *args):

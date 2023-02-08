@@ -14,7 +14,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app, cache
 import common
-from common import CACHE_TIME, redirect_unwrap, redirect_wrap
+from common import CACHE_TIME, redirect_unwrap, redirect_wrap, TLD_BLOCKLIST
 from models import Follower, Object, Target, User
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,15 @@ SUPPORTED_TYPES = (
 @flask_util.cached(cache, CACHE_TIME, http_5xx=True)
 def actor(domain):
     """Fetches a domain's h-card and converts to AS2 actor."""
-    _, _, actor, _ = common.actor(domain)
+    tld = domain.split('.')[-1]
+    if tld in TLD_BLOCKLIST:
+        error('', status=404)
+
+    user = User.get_by_id(domain)
+    if not user:
+        return f'User {domain} not found', 404
+
+    _, _, actor = common.actor(user)
     return (actor, {
         'Content-Type': as2.CONTENT_TYPE,
         'Access-Control-Allow-Origin': '*',
@@ -53,6 +61,12 @@ def inbox(domain=None):
     """Handles ActivityPub inbox delivery."""
     body = request.get_data(as_text=True)
     logger.info(f'Got: {body}')
+
+    user = None
+    if domain:
+        user = User.get_by_id(domain)
+        if not user:
+            return f'User {domain} not found', 404
 
     # parse and validate AS2 activity
     try:
@@ -107,8 +121,6 @@ def inbox(domain=None):
             f.status = 'inactive'
         ndb.put_multi(followers)
         return 'OK'
-
-    user = User.get_or_create(domain) if domain else None
 
     # fetch actor if necessary so we have name, profile photo, etc
     if actor and isinstance(actor, str):
@@ -189,10 +201,7 @@ def accept_follow(follow, follow_unwrapped, user):
     follow_unwrapped.setdefault('url', f'{follower_url}#followed-{followee_url}')
 
     # store Follower
-    followee_domain = util.domain_from_link(followee_id, minimize=False)
-    # follow use_instead, if any
-    followee_domain = User.get_or_create(followee_domain).key.id()
-    follower = Follower.get_or_create(dest=followee_domain, src=follower_id,
+    follower = Follower.get_or_create(dest=user.key.id(), src=follower_id,
                                       last_follow=json_dumps(follow))
     follower.status = 'active'
     follower.put()
@@ -201,7 +210,7 @@ def accept_follow(follow, follow_unwrapped, user):
     accept = {
         '@context': 'https://www.w3.org/ns/activitystreams',
         'id': util.tag_uri(common.PRIMARY_DOMAIN,
-                           f'accept/{followee_domain}/{follow.get("id")}'),
+                           f'accept/{user.key.id()}/{follow.get("id")}'),
         'type': 'Accept',
         'actor': followee,
         'object': {

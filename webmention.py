@@ -55,9 +55,12 @@ class Webmention(View):
 
         # if source is home page, send an actor Update to followers' instances
         if source.strip('/') == f'https://{self.source_domain}':
+            self.user = User.get_by_id(self.source_domain)
+            if not self.user:
+                return f'User {self.source_domain} not found', 404
+
             self.source_url = source
-            self.source_mf2, actor_as1, actor_as2, self.user = \
-                common.actor(self.source_domain)
+            self.source_mf2, actor_as1, actor_as2 = common.actor(self.user)
             id = common.host_url(f'{source}#update-{util.now().isoformat()}')
             self.source_as1 = {
                 'objectType': 'activity',
