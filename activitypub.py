@@ -140,7 +140,9 @@ def inbox(domain=None):
                                    as2=activity_as2_str, as1=activity_as1_str,
                                    object_ids=as1.get_ids(activity_as1, 'object'))
 
-    if not sent and type in ('Create', 'Announce'):
+    # deliver original posts and reposts to followers
+    if ((type == 'Create' and not activity.get('inReplyTo') and not obj.get('inReplyTo'))
+        or type == 'Announce'):
         # check that this activity is public. only do this check for Creates,
         # not Like, Follow, or other activity types, since Mastodon doesn't
         # currently mark those as explicitly public.
@@ -148,7 +150,6 @@ def inbox(domain=None):
             logging.info('Dropping non-public activity')
             return ''
 
-        # normal post, deliver to BF followers locally
         source = util.get_first(activity, 'url') or activity.get('id')
         domains = []
         if actor:

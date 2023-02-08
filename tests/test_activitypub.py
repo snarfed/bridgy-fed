@@ -16,6 +16,12 @@ import common
 from models import Follower, Object, Target, User
 from . import testutil
 
+ACTOR = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'id': 'https://mastodon.social/users/swentel',
+    'type': 'Person',
+    'inbox': 'http://follower/inbox',
+}
 REPLY_OBJECT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Note',
@@ -86,6 +92,7 @@ LIKE = {
 LIKE_WRAPPED = copy.deepcopy(LIKE)
 LIKE_WRAPPED['object'] = 'http://localhost/r/http://or.ig/post'
 LIKE_WITH_ACTOR = copy.deepcopy(LIKE)
+# TODO: use ACTOR instead
 LIKE_WITH_ACTOR['actor'] = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'id': 'http://or.ig/actor',
@@ -95,12 +102,19 @@ LIKE_WITH_ACTOR['actor'] = {
     'image': {'type': 'Image', 'url': 'http://or.ig/pic.jpg'},
 }
 
-ACTOR = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
-    'id': 'https://mastodon.social/users/swentel',
-    'type': 'Person',
-    'inbox': 'http://follower/inbox',
+# repost of fediverse post, should be delivered to followers
+REPOST = {
+  '@context': 'https://www.w3.org/ns/activitystreams',
+  'id': 'https://th.is/users/alice/statuses/654/activity',
+  'type': 'Announce',
+  'actor': ACTOR['id'],
+  'object': 'https://mastodon.social/users/bob/statuses/987',
+  'published': '2023-02-08T17:44:16Z',
+  'to': ['https://www.w3.org/ns/activitystreams#Public'],
 }
+REPOST_WITH_ACTOR = copy.deepcopy(REPOST)
+REPOST_WITH_ACTOR['actor'] = ACTOR
+
 FOLLOW = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'id': 'https://mastodon.social/6d1a',
@@ -401,6 +415,27 @@ class ActivityPubTest(testutil.TestCase):
                            type='post',
                            labels=['feed', 'activity'],
                            object_ids=[NOTE_OBJECT['id']])
+
+    def test_shared_inbox_repost(self, mock_head, mock_get, mock_post):
+        Follower.get_or_create(ACTOR['id'], 'foo.com')
+        Follower.get_or_create(ACTOR['id'], 'baz.com')
+
+        mock_head.return_value = requests_response(url='http://target')
+        mock_get.return_value = self.as2_resp(ACTOR)  # source actor
+        mock_post.return_value = requests_response()
+
+        got = self.client.post('/inbox', json=REPOST)
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+
+        self.assert_object(REPOST['id'],
+                           source_protocol='activitypub',
+                           status='complete',
+                           as2=REPOST_WITH_ACTOR,
+                           as1=as2.to_as1(REPOST_WITH_ACTOR),
+                           domains=['foo.com', 'baz.com'],
+                           type='share',
+                           labels=['feed', 'activity'],
+                           object_ids=[REPOST['object']])
 
     def test_inbox_not_public(self, mock_head, mock_get, mock_post):
         Follower.get_or_create(ACTOR['id'], 'foo.com')
