@@ -1,10 +1,7 @@
 """Unit tests for pages.py."""
-from flask import get_flashed_messages
 from unittest.mock import patch
 
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.testutil import requests_response
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from flask import get_flashed_messages
 from granary import as2, atom, microformats2, rss
 from granary.tests.test_bluesky import REPLY_BSKY
 from granary.tests.test_as1 import (
@@ -15,6 +12,9 @@ from granary.tests.test_as1 import (
     LIKE,
     NOTE,
 )
+from oauth_dropins.webutil import util
+from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
 from models import Object, Follower, User
@@ -136,6 +136,16 @@ class PagesTest(testutil.TestCase):
     def test_following_user_not_found(self):
         got = self.client.get('/user/bar.com/following')
         self.assert_equals(404, got.status_code)
+
+    def test_following_before_empty(self):
+        User.get_or_create('bar.com')
+        got = self.client.get(f'/user/bar.com/following?before={util.now().isoformat()}')
+        self.assert_equals(200, got.status_code)
+
+    def test_following_after_empty(self):
+        User.get_or_create('bar.com')
+        got = self.client.get(f'/user/bar.com/following?after={util.now().isoformat()}')
+        self.assert_equals(200, got.status_code)
 
     def test_feed_user_not_found(self):
         got = self.client.get('/user/bar.com/feed')

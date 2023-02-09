@@ -118,7 +118,7 @@ def followers_or_following(domain, collection):
     return render_template(
         f'{collection}.html',
         util=util,
-        **request.values,
+        address=request.args.get('address'),
         **locals()
     )
 
