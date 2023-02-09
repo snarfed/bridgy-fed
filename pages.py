@@ -49,14 +49,16 @@ def check_web_site():
     url = request.values['url']
     domain = util.domain_from_link(url, minimize=False)
     if not domain:
-        error(f'No domain found in {url}')
+        flash(f'No domain found in {url}')
+        return render_template('enter_web_site.html')
 
     user = User.get_or_create(domain)
     try:
         user = user.verify()
     except BaseException as e:
-        if util.is_connection_failure(e):
-            flash(f"Couldn't connect to {url}")
+        code, body = util.interpret_http_exception(e)
+        if code:
+            flash(f"Couldn't connect to {url}: {e}")
             return render_template('enter_web_site.html')
         raise
 

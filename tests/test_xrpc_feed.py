@@ -4,6 +4,7 @@ from unittest import skip
 from unittest.mock import patch
 
 from granary import bluesky
+from granary.tests.test_as1 import COMMENT, NOTE
 from granary.tests.test_bluesky import (
     POST_BSKY,
     POST_HTML,
@@ -17,7 +18,6 @@ from oauth_dropins.webutil.testutil import requests_response
 import requests
 from werkzeug.exceptions import BadGateway
 
-from .test_pages import PagesTest
 from . import testutil
 
 AUTHOR_HTML = """
@@ -169,11 +169,11 @@ class XrpcFeedTest(testutil.TestCase):
         }, got.json)
 
     def test_getTimeline(self, mock_get):
-        PagesTest.add_objects()
+        self.add_objects()
 
         got = self.client.get('/xrpc/app.bsky.feed.getTimeline')
         self.assertEqual({
-            'feed': [bluesky.from_as1(a) for a in PagesTest.EXPECTED_AS1]
+            'feed': [bluesky.from_as1(COMMENT), bluesky.from_as1(NOTE)],
         }, got.json)
 
     def test_getVotes(self, mock_get):

@@ -6,6 +6,11 @@ import unittest
 from unittest.mock import ANY, call
 
 from granary import as2
+from granary.tests.test_as1 import (
+    COMMENT,
+    MENTION,
+    NOTE,
+)
 from oauth_dropins.webutil import testutil, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.testutil import requests_response
@@ -24,7 +29,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         super().setUp()
         app.testing = True
         cache.clear()
+
         self.client = app.test_client()
+        self.client.__enter__()
 
         # clear datastore
         requests.post(f'http://{ndb_client.host}/reset')
@@ -35,7 +42,22 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
     def tearDown(self):
         self.ndb_context.__exit__(None, None, None)
+        self.client.__exit__(None, None, None)
         super().tearDown()
+
+    @staticmethod
+    def add_objects():
+        # post
+        Object(id='a', domains=['foo.com'], labels=['feed', 'notification'],
+                 as1=json_dumps(NOTE)).put()
+        # different domain
+        Object(id='b', domains=['bar.org'], labels=['feed', 'notification'],
+               as1=json_dumps(MENTION)).put()
+        # reply
+        Object(id='d', domains=['foo.com'], labels=['feed', 'notification'],
+               as1=json_dumps(COMMENT)).put()
+        # not feed/notif
+        Object(id='e', domains=['foo.com'], as1=json_dumps(NOTE)).put()
 
     def req(self, url, **kwargs):
         """Returns a mock requests call."""

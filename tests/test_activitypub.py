@@ -398,13 +398,12 @@ class ActivityPubTest(testutil.TestCase):
         mock_get.return_value = self.as2_resp(ACTOR)  # source actor
         mock_post.return_value = requests_response()
 
-        with self.client:
-            got = self.client.post(path, json=NOTE)
-            self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-            expected_as2 = common.redirect_unwrap({
-                **NOTE,
-                'actor': ACTOR,
-            })
+        got = self.client.post(path, json=NOTE)
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        expected_as2 = common.redirect_unwrap({
+            **NOTE,
+            'actor': ACTOR,
+        })
 
         self.assert_object('http://th.is/note/as2',
                            source_protocol='activitypub',
@@ -446,10 +445,9 @@ class ActivityPubTest(testutil.TestCase):
         not_public = copy.deepcopy(NOTE)
         del not_public['object']['to']
 
-        with self.client:
-            got = self.client.post('/foo.com/inbox', json=not_public)
-            self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-            self.assertEqual(0, Object.query().count())
+        got = self.client.post('/foo.com/inbox', json=not_public)
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(0, Object.query().count())
 
     def test_inbox_mention_object(self, *mocks):
         self._test_inbox_mention(
@@ -478,30 +476,29 @@ class ActivityPubTest(testutil.TestCase):
             '<html><head><link rel="webmention" href="/webmention"></html>')
         mock_post.return_value = requests_response()
 
-        with self.client:
-            got = self.client.post('/foo.com/inbox', json=mention)
-            self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-            self.assert_req(mock_get, 'http://tar.get/')
-            self.assert_req(
-                mock_post,
-                'http://tar.get/webmention',
-                headers={'Accept': '*/*'},
-                allow_redirects=False,
-                data={
-                    'source': 'http://localhost/render?id=http%3A%2F%2Fth.is%2Fmention',
-                    'target': 'http://tar.get/',
-                },
-            )
+        got = self.client.post('/foo.com/inbox', json=mention)
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assert_req(mock_get, 'http://tar.get/')
+        self.assert_req(
+            mock_post,
+            'http://tar.get/webmention',
+            headers={'Accept': '*/*'},
+            allow_redirects=False,
+            data={
+                'source': 'http://localhost/render?id=http%3A%2F%2Fth.is%2Fmention',
+                'target': 'http://tar.get/',
+            },
+        )
 
-            expected_as2 = common.redirect_unwrap(mention)
-            self.assert_object('http://th.is/mention',
-                               domains=['tar.get'],
-                               source_protocol='activitypub',
-                               status='complete',
-                               as2=expected_as2,
-                               as1=as2.to_as1(expected_as2),
-                               delivered=['http://tar.get/'],
-                               **expected_props)
+        expected_as2 = common.redirect_unwrap(mention)
+        self.assert_object('http://th.is/mention',
+                           domains=['tar.get'],
+                           source_protocol='activitypub',
+                           status='complete',
+                           as2=expected_as2,
+                           as1=as2.to_as1(expected_as2),
+                           delivered=['http://tar.get/'],
+                           **expected_props)
 
     def test_inbox_like(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='http://or.ig/post')

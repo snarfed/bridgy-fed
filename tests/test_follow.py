@@ -165,12 +165,11 @@ class FollowTest(testutil.TestCase):
             'me': 'https://alice.com',
             'state': input,
         })
-        with self.client:
-            resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
-            self.assertEqual(302, resp.status_code)
-            self.assertEqual('/user/alice.com/following',resp.headers['Location'])
-            self.assertEqual([f'Followed <a href="https://bar/url">{input}</a>.'],
-                             get_flashed_messages())
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/user/alice.com/following',resp.headers['Location'])
+        self.assertEqual([f'Followed <a href="https://bar/url">{input}</a>.'],
+                         get_flashed_messages())
 
         mock_get.assert_has_calls((
             self.as2_req('https://bar/actor'),
@@ -206,9 +205,8 @@ class FollowTest(testutil.TestCase):
             'me': 'https://alice.com',
             'state': '@foo@bar',
         })
-        with self.client:
-            resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
-            self.assertEqual(400, resp.status_code)
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        self.assertEqual(400, resp.status_code)
 
     def test_callback_user_use_instead(self, mock_get, mock_post):
         user = User.get_or_create('www.alice.com')
@@ -228,10 +226,9 @@ class FollowTest(testutil.TestCase):
             'me': 'https://alice.com',
             'state': 'https://bar/actor',
         })
-        with self.client:
-            resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
-            self.assertEqual(302, resp.status_code)
-            self.assertEqual('/user/www.alice.com/following', resp.headers['Location'])
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/user/www.alice.com/following', resp.headers['Location'])
 
         id = 'http://localhost/user/www.alice.com/following#2022-01-02T03:04:05-https://bar/actor'
         expected_follow = {
@@ -312,12 +309,11 @@ class UnfollowTest(testutil.TestCase):
             'me': 'https://alice.com',
             'state': self.follower.id(),
         })
-        with self.client:
-            resp = self.client.get(f'/unfollow/callback?code=my_code&state={state}')
-            self.assertEqual(302, resp.status_code)
-            self.assertEqual('/user/alice.com/following', resp.headers['Location'])
-            self.assertEqual([f'Unfollowed <a href="https://bar/url">bar/url</a>.'],
-                             get_flashed_messages())
+        resp = self.client.get(f'/unfollow/callback?code=my_code&state={state}')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/user/alice.com/following', resp.headers['Location'])
+        self.assertEqual([f'Unfollowed <a href="https://bar/url">bar/url</a>.'],
+                         get_flashed_messages())
 
         inbox_args, inbox_kwargs = mock_post.call_args_list[1]
         self.assertEqual(('http://bar/inbox',), inbox_args)
@@ -360,10 +356,9 @@ class UnfollowTest(testutil.TestCase):
             'me': 'https://alice.com',
             'state': self.follower.id(),
         })
-        with self.client:
-            resp = self.client.get(f'/unfollow/callback?code=my_code&state={state}')
-            self.assertEqual(302, resp.status_code)
-            self.assertEqual('/user/www.alice.com/following', resp.headers['Location'])
+        resp = self.client.get(f'/unfollow/callback?code=my_code&state={state}')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/user/www.alice.com/following', resp.headers['Location'])
 
         id = 'http://localhost/user/www.alice.com/following#undo-2022-01-02T03:04:05-https://bar/id'
         expected_undo = {
