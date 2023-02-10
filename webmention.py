@@ -53,6 +53,10 @@ class Webmention(View):
         self.source_domain = util.domain_from_link(source, minimize=False)
         logger.info(f'webmention from {self.source_domain}')
 
+        self.user = User.get_by_id(self.source_domain)
+        if not self.user:
+            error(f'No user found for domain {self.source_domain}')
+
         # if source is home page, send an actor Update to followers' instances
         if source.strip('/') == f'https://{self.source_domain}':
             self.user = User.get_by_id(self.source_domain)
@@ -120,10 +124,6 @@ class Webmention(View):
             util.get_first(self.source_as1, 'object', {}).get('objectType', ''),
         ))
         logger.info(f'Converted webmention to AS1: {type_label}: {json_dumps(self.source_as1, indent=2)}')
-
-        self.user = User.get_by_id(self.source_domain)
-        if not self.user:
-            error(f'No user found for domain {self.source_domain}')
 
         ret = self.try_activitypub()
         return ret or 'No ActivityPub targets'
