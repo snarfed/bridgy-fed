@@ -9,11 +9,10 @@ import re
 import urllib.parse
 
 from flask import render_template, request
-from granary import as2, atom, microformats2
-import mf2util
+from granary import as2
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
-from oauth_dropins.webutil.util import json_dumps
+from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app, cache
 import common
@@ -25,11 +24,8 @@ logger = logging.getLogger(__name__)
 
 
 class Actor(flask_util.XrdOrJrd):
-    """Fetches a site's home page, converts its mf2 to WebFinger, and serves.
-
-    TODO: unify with common.actor()
-    """
-    @flask_util.cached(cache, common.CACHE_TIME, headers=['Accept'], http_5xx=True)
+    """Fetches a site's home page, converts its mf2 to WebFinger, and serves."""
+    @flask_util.cached(cache, common.CACHE_TIME, headers=['Accept'])
     def dispatch_request(self, *args, **kwargs):
         return super().dispatch_request(*args, **kwargs)
 
@@ -46,52 +42,32 @@ class Actor(flask_util.XrdOrJrd):
         if not user:
             error(f'No user for {domain}', status=404)
 
-        # find representative h-card. try url, then url's home page, then domain
-        urls = [f'https://{domain}/']
-        if url:
-            urls = [url, urllib.parse.urljoin(url, '/')] + urls
-
-        resp = None
-        for candidate in urls:
-            try:
-                resp = util.requests_get(candidate)
-            except ValueError:
-                logger.warning('', exc_info=True)
-                continue
-            parsed = util.parse_html(resp)
-            mf2 = util.parse_mf2(parsed, url=resp.url)
-            # logger.debug(f'Parsed mf2 for {resp.url}: {json_dumps(mf2, indent=2)}')
-            hcard = mf2util.representative_hcard(mf2, resp.url)
-            if hcard:
-                logger.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')
-                user.actor_as2 = json_dumps(common.postprocess_as2(
-                    as2.from_as1(microformats2.json_to_object(hcard)), user=user))
-                user.put()
-                break
-        else:
-            logger.info(f"didn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) in any of {urls}")
-            hcard = {'properties': {
-                'url': [f'https://{domain}/'],
-            }}
-
         logger.info(f'Generating WebFinger data for {domain}')
-        props = hcard.get('properties', {})
-        urls = util.dedupe_urls(props.get('url', []) +
-                                ([resp.url] if resp else []))
+        actor = as2.to_as1(json_loads(user.actor_as2) if user.actor_as2 else {})
+        logger.info(f'AS1 actor: {actor}')
+        urls = util.dedupe_urls(util.get_list(actor, 'urls') +
+                                util.get_list(actor, 'url') +
+                                [f'https://{domain}'])
+        logger.info(f'URLs: {urls}')
         canonical_url = urls[0]
 
         # generate webfinger content
         data = util.trim_nulls({
             'subject': 'acct:' + user.address().lstrip('@'),
             'aliases': urls,
-            'links': sum(([{
+            'links':
+            [{
                 'rel': 'http://webfinger.net/rel/profile-page',
                 'type': 'text/html',
                 'href': url,
-            }] for url in urls if url.startswith("http")), []) + [{
+            } for url in urls if util.is_web(url)] +
+
+            [{
                 'rel': 'http://webfinger.net/rel/avatar',
-                'href': microformats2.get_text(url),
-            } for url in props.get('photo', [])] + [{
+                'href': url,
+            } for url in util.get_urls(actor, 'image')] +
+
+            [{
                 'rel': 'canonical_uri',
                 'type': 'text/html',
                 'href': canonical_url,
