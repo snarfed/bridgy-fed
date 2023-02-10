@@ -53,6 +53,7 @@ Bridgy Fed takes some technical know-how to set up, and there are simpler (but l
 <li><a href="#backfeed">How do fediverse replies, likes, and other interactions show up on my site?</a></li>
 <li><a href="#read">How do I read my fediverse timeline/feed?</a></li>
 <li><a href="#discovery">How can people on the fediverse find and follow me?</a></li>
+<li><a href="#see-posts">How can I see what my posts look like inside the fediverse?</a></li>
 <li><a href="#troubleshooting">I tried it, and it didn't work!</a></li>
 
 <br>
@@ -359,7 +360,17 @@ To receive likes, reposts, replies, @-mentions, and follows from the fediverse, 
 <p>They can search for your web site in any Mastodon instance! Often you can just enter your domain, eg <code>yourdomain.com</code>, in any Mastodon search box. If that doesn't work, try your full fediverse address, eg <code>@yourdomain.com@yourdomain.com</code>. This can be finicky now and then, but it usually works.
 </p>
 
-<p><a href="#user-page">Your user page</a> also has a "remote follow" form that lets people enter their fediverse address and follow you directly.
+<p><a href="#user-page">Your user page</a> has a "Following" link that shows you everyone on the fediverse who's currently following you. It also has a "remote follow" form that lets people enter their fediverse address and follow you directly.
+</p>
+</li>
+
+<li id="see-posts" class="question">How can I see what my posts look like inside the fediverse?</li>
+<li class="answer">
+<p>This <a href="apps">varies by fediverse app</a>. For Mastodon, <a href="#currently+following_you">open your list of followers in Bridgy Fed</a>and click on one to open their profile. Then, inside that Mastodon instance, <a href="discovery">search for your site's address</a>, click on it in the search results, and you'll see your fediverse profile and all of your posts that were delivered to that instance. This may not be all of them, depending on how long and when people on that instance have been following you.</p>
+
+<p>This general process should often work in many other fediverse apps too.</p>
+
+<p>Note: in Mastodon, each of your posts on a given instance will have a permalink inside that instance, eg <a href="https://mastodon.social/@snarfed.org@snarfed.org/109729052169033033">mastodon.social/@snarfed.org@snarfed.org/109729052169033033</a>, but those permalinks <em>only go to Mastodon if you're logged into that instance.</em> If you're not, they redirect to the original post on your site.
 </p>
 </li>
 
