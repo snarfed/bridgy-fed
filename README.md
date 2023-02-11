@@ -36,26 +36,9 @@ Finally, run this in the repo root directory to start the web app locally:
 GAE_ENV=localdev FLASK_ENV=development flask run -p 8080
 ```
 
-
 If you send a pull request, please include (or update) a test for the new functionality!
 
-If you hit an error during setup, check out the [oauth-dropins Troubleshooting/FAQ section](https://github.com/snarfed/oauth-dropins#troubleshootingfaq). For searchability, here are a handful of error messages that [have solutions there](https://github.com/snarfed/oauth-dropins#troubleshootingfaq):
-
-```
-bash: ./bin/easy_install: ...bad interpreter: No such file or directory
-
-ImportError: cannot import name certs
-
-ImportError: No module named dev_appserver
-
-ImportError: cannot import name tweepy
-
-File ".../site-packages/tweepy/auth.py", line 68, in _get_request_token
-  raise TweepError(e)
-TweepError: must be _socket.socket, not socket
-
-error: option --home not recognized
-```
+If you hit an error during setup, check out the [oauth-dropins Troubleshooting/FAQ section](https://github.com/snarfed/oauth-dropins#troubleshootingfaq).
 
 You may need to change [granary](https://github.com/snarfed/granary), [oauth-dropins](https://github.com/snarfed/oauth-dropins), [mf2util](https://github.com/kylewm/mf2util), or other dependencies as well as as Bridgy Fed. To do that, clone their repo locally, then install them in "source" mode with e.g.:
 
