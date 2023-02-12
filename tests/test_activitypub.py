@@ -543,9 +543,8 @@ class ActivityPubTest(testutil.TestCase):
                            labels=['notification', 'activity'],
                            object_ids=[LIKE['object']])
 
-    def test_inbox_follow_accept_with_id(self, mock_head, mock_get, mock_post):
-        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT,
-                                       mock_head, mock_get, mock_post)
+    def test_inbox_follow_accept_with_id(self, *mocks):
+        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, *mocks)
 
         follow = copy.deepcopy(FOLLOW_WITH_ACTOR)
         follow['url'] = 'https://mastodon.social/users/swentel#followed-https://foo.com/'
@@ -564,7 +563,7 @@ class ActivityPubTest(testutil.TestCase):
         follower = Follower.query().get()
         self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, json_loads(follower.last_follow))
 
-    def test_inbox_follow_accept_with_object(self, mock_head, mock_get, mock_post):
+    def test_inbox_follow_accept_with_object(self, *mocks):
         wrapped_user = {
             'id': FOLLOW_WRAPPED['object'],
             'url': FOLLOW_WRAPPED['object'],
@@ -580,7 +579,7 @@ class ActivityPubTest(testutil.TestCase):
         accept = copy.deepcopy(ACCEPT)
         accept['actor'] = accept['object']['object'] = wrapped_user
 
-        self._test_inbox_follow_accept(follow, accept, mock_head, mock_get, mock_post)
+        self._test_inbox_follow_accept(follow, accept, *mocks)
 
         follower = Follower.query().get()
         follow.update({
@@ -746,22 +745,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_post.assert_not_called()
         self.assertEqual(0, Object.query().count())
 
-    def test_individual_inbox_delete_actor_noop(self, mock_head, mock_get, mock_post):
-        """Deletes sent to individual users' inboxes do nothing."""
-        follower = Follower.get_or_create('foo.com', DELETE['actor'])
-        followee = Follower.get_or_create(DELETE['actor'], 'snarfed.org')
-        # other unrelated follower
-        other = Follower.get_or_create('foo.com', 'https://mas.to/users/other')
-        self.assertEqual(3, Follower.query().count())
-
-        got = self.client.post('/foo.com/inbox', json=DELETE)
-        self.assertEqual(200, got.status_code)
-        self.assertEqual('active', follower.key.get().status)
-        self.assertEqual('active', followee.key.get().status)
-        self.assertEqual('active', other.key.get().status)
-
-    def test_shared_inbox_delete_actor(self, mock_head, mock_get, mock_post):
-        """Deletes sent to the shared inbox actually deactivate followers."""
+    def test_delete_actor(self, _, __, ___):
         follower = Follower.get_or_create('foo.com', DELETE['actor'])
         followee = Follower.get_or_create(DELETE['actor'], 'snarfed.org')
         # other unrelated follower
@@ -774,7 +758,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('inactive', followee.key.get().status)
         self.assertEqual('active', other.key.get().status)
 
-    def test_delete_note(self, mock_head, mock_get, mock_post):
+    def test_delete_note(self, _, __, ___):
         key = Object(id='http://an/obj', as1='{}').put()
 
         resp = self.client.post('/inbox', json={
@@ -784,15 +768,23 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertTrue(key.get().deleted)
 
-    def test_update_person_noop(self, _, __, ___):
-        """Updates to Person objects do nothing."""
-        got = self.client.post('/inbox', json=UPDATE_PERSON)
-        self.assertEqual(200, got.status_code)
+    def test_update_note(self, _, __, ___):
+        key = Object(id='https://a/note', as1='{}').put()
 
-    def test_update_note_not_implemented(self, _, __, ___):
-        """Updates to non-Person objects are not implemented."""
-        got = self.client.post('/inbox', json=UPDATE_NOTE)
-        self.assertEqual(501, got.status_code)
+        resp = self.client.post('/inbox', json=UPDATE_NOTE)
+        self.assertEqual(200, resp.status_code)
+
+        obj = UPDATE_NOTE['object']
+        self.assert_object('https://a/note', type='note', as2=obj,
+                           as1=as2.to_as1(obj), source_protocol='activitypub')
+
+    def test_update_unknown(self, _, __, ___):
+        resp = self.client.post('/inbox', json=UPDATE_NOTE)
+        self.assertEqual(200, resp.status_code)
+
+        obj = UPDATE_NOTE['object']
+        self.assert_object('https://a/note', type='note', as2=obj,
+                           as1=as2.to_as1(obj), source_protocol='activitypub')
 
     def test_inbox_webmention_discovery_connection_fails(self, mock_head,
                                                          mock_get, mock_post):

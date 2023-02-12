@@ -83,9 +83,9 @@ def inbox(domain=None):
     actor_id = actor.get('id') if isinstance(actor, dict) else actor
     logger.info(f'Got {type} activity from {actor_id}: {json_dumps(activity, indent=2)}')
 
-    obj = activity.get('object') or {}
-    if isinstance(obj, str):
-        obj = {'id': obj}
+    obj_as2 = activity.get('object') or {}
+    if isinstance(obj_as2, str):
+        obj_as2 = {'id': obj_as2}
 
     if type == 'Accept':  # eg in response to a Follow
         return ''  # noop
@@ -94,25 +94,29 @@ def inbox(domain=None):
 
     # TODO: verify signature if there is one
 
-    if type == 'Undo' and obj.get('type') == 'Follow':
+    if type == 'Undo' and obj_as2.get('type') == 'Follow':
         # skip actor fetch below; we don't need it to undo a follow
         undo_follow(redirect_unwrap(activity))
         return ''
-    elif type == 'Update':
-        if obj.get('type') == 'Person':
-            return ''  # noop
-        else:
-            error(f'Sorry, {type} activities are not supported yet.', status=501)
-    elif type == 'Delete':
-        # we currently only actually delete followers for Deletes that are sent
-        # to the shared inbox, not individual users' inboxes, to help scaling
-        # background: https://github.com/snarfed/bridgy-fed/issues/284
-        if domain:
-            logger.info('Skipping Delete sent to individual user inbox')
-            return 'OK'
 
-        id = obj.get('id') if isinstance(obj, dict) else obj
-        if not isinstance(id, str):
+    elif type == 'Update':
+        id = obj_as2.get('id')
+        if not id:
+            error("Couldn't find id of object to update")
+
+        logger.info(f'updating Object {id}')
+        obj = Object.get_by_id(id) or Object(id=id)
+        obj.as2 = json_dumps(obj_as2)
+        obj_as1 = as2.to_as1(obj_as2)
+        obj.as1 = json_dumps(obj_as1)
+        obj.type = as1.object_type(obj_as1)
+        obj.source_protocol = 'activitypub'
+        obj.put()
+        return 'OK'
+
+    elif type == 'Delete':
+        id = obj_as2.get('id')
+        if not id:
             error("Couldn't find id of object to delete")
 
         obj = Object.get_by_id(id)
@@ -138,7 +142,7 @@ def inbox(domain=None):
 
     # fetch object if necessary so we can render it in feeds
     if type in FETCH_OBJECT_TYPES and isinstance(activity.get('object'), str):
-        obj = activity['object'] = common.get_as2(activity['object'], user=user).json()
+        obj_as2 = activity['object'] = common.get_as2(activity['object'], user=user).json()
 
     activity_unwrapped = redirect_unwrap(activity)
     if type == 'Follow':
@@ -155,7 +159,7 @@ def inbox(domain=None):
                                    object_ids=as1.get_ids(activity_as1, 'object'))
 
     # deliver original posts and reposts to followers
-    if ((type == 'Create' and not activity.get('inReplyTo') and not obj.get('inReplyTo'))
+    if ((type == 'Create' and not activity.get('inReplyTo') and not obj_as2.get('inReplyTo'))
         or type == 'Announce'):
         # check that this activity is public. only do this check for Creates,
         # not Like, Follow, or other activity types, since Mastodon doesn't
