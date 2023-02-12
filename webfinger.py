@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class Actor(flask_util.XrdOrJrd):
-    """Fetches a site's home page, converts its mf2 to WebFinger, and serves."""
+    """Serves a user's WebFinger profile."""
     @flask_util.cached(cache, common.CACHE_TIME, headers=['Accept'])
     def dispatch_request(self, *args, **kwargs):
         return super().dispatch_request(*args, **kwargs)
@@ -32,7 +32,7 @@ class Actor(flask_util.XrdOrJrd):
     def template_prefix(self):
         return 'webfinger_user'
 
-    def template_vars(self, domain=None, url=None):
+    def template_vars(self, domain=None):
         logger.debug(f'Headers: {list(request.headers.items())}')
 
         if domain.split('.')[-1] in NON_TLDS:
@@ -131,11 +131,7 @@ class Webfinger(Actor):
         except ValueError:
             domain = urllib.parse.urlparse(resource).netloc or resource
 
-        url = None
-        if util.is_web(resource):
-            url = resource
-
-        return super().template_vars(domain=domain, url=url)
+        return super().template_vars(domain=domain)
 
 
 class HostMeta(flask_util.XrdOrJrd):
