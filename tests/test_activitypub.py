@@ -315,6 +315,12 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/nope.com/inbox', json=REPLY)
         self.assertEqual(404, got.status_code)
 
+    def test_inbox_activity_without_id(self, *_):
+        note = copy.deepcopy(NOTE)
+        del note['id']
+        resp = self.client.post('/inbox', json=note)
+        self.assertEqual(400, resp.status_code)
+
     def test_inbox_reply_object(self, *mocks):
         self._test_inbox_reply(REPLY_OBJECT,
                                {'as2': REPLY_OBJECT,
@@ -453,7 +459,12 @@ class ActivityPubTest(testutil.TestCase):
 
         got = self.client.post('/foo.com/inbox', json=not_public)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-        self.assertEqual(0, Object.query().count())
+
+        obj = Object.get_by_id(not_public['id'])
+        self.assertEqual([], obj.labels)
+        self.assertEqual([], obj.domains)
+
+        self.assertIsNone(Object.get_by_id(not_public['object']['id']))
 
     def test_inbox_mention_object(self, *mocks):
         self._test_inbox_mention(
@@ -732,18 +743,26 @@ class ActivityPubTest(testutil.TestCase):
     def test_inbox_bad_object_url(self, mock_head, mock_get, mock_post):
         # https://console.cloud.google.com/errors/detail/CMKn7tqbq-GIRA;time=P30D?project=bridgy-federated
         mock_get.return_value = self.as2_resp(ACTOR)  # source actor
+
+        id = 'https://mastodon.social/users/tmichellemoore#likes/56486252'
+        bad_url = 'http://localhost/r/Testing \u2013 Brid.gy \u2013 Post to Mastodon 3'
         got = self.client.post('/foo.com/inbox', json={
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': 'https://mastodon.social/users/tmichellemoore#likes/56486252',
+            'id': id,
             'type': 'Like',
             'actor': ACTOR['id'],
-            'object': 'http://localhost/r/Testing \u2013 Brid.gy \u2013 Post to Mastodon 3',
+            'object': bad_url,
         })
 
         # bad object, should ignore activity
         self.assertEqual(200, got.status_code)
         mock_post.assert_not_called()
-        self.assertEqual(0, Object.query().count())
+
+        obj = Object.get_by_id(id)
+        self.assertEqual([], obj.labels)
+        self.assertEqual([], obj.domains)
+
+        self.assertIsNone(Object.get_by_id(bad_url))
 
     def test_delete_actor(self, _, __, ___):
         follower = Follower.get_or_create('foo.com', DELETE['actor'])
@@ -761,30 +780,34 @@ class ActivityPubTest(testutil.TestCase):
     def test_delete_note(self, _, __, ___):
         key = Object(id='http://an/obj', as1='{}').put()
 
-        resp = self.client.post('/inbox', json={
+        delete = {
             **DELETE,
             'object': 'http://an/obj',
-        })
+        }
+        resp = self.client.post('/inbox', json=delete)
         self.assertEqual(200, resp.status_code)
         self.assertTrue(key.get().deleted)
+        self.assert_object(delete['id'], as2=delete, as1=as2.to_as1(delete),
+                           type='delete', source_protocol='activitypub',
+                           status='complete')
 
-    def test_update_note(self, _, __, ___):
-        key = Object(id='https://a/note', as1='{}').put()
+    def test_update_note(self, *_):
+        Object(id='https://a/note', as1='{}').put()
+        self._test_update()
 
+    def test_update_unknown(self, *_):
+        self._test_update()
+
+    def _test_update(self):
         resp = self.client.post('/inbox', json=UPDATE_NOTE)
         self.assertEqual(200, resp.status_code)
 
         obj = UPDATE_NOTE['object']
         self.assert_object('https://a/note', type='note', as2=obj,
                            as1=as2.to_as1(obj), source_protocol='activitypub')
-
-    def test_update_unknown(self, _, __, ___):
-        resp = self.client.post('/inbox', json=UPDATE_NOTE)
-        self.assertEqual(200, resp.status_code)
-
-        obj = UPDATE_NOTE['object']
-        self.assert_object('https://a/note', type='note', as2=obj,
-                           as1=as2.to_as1(obj), source_protocol='activitypub')
+        self.assert_object(UPDATE_NOTE['id'], source_protocol='activitypub',
+                           type='update', status='complete', as2=UPDATE_NOTE,
+                           as1=as2.to_as1(UPDATE_NOTE))
 
     def test_inbox_webmention_discovery_connection_fails(self, mock_head,
                                                          mock_get, mock_post):

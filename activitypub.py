@@ -87,6 +87,17 @@ def inbox(domain=None):
     if isinstance(obj_as2, str):
         obj_as2 = {'id': obj_as2}
 
+    id = activity.get('id')
+    if not id:
+        error('Activity has no id')
+
+    activity_as1 = as2.to_as1(activity)
+    as1_type = as1.object_type(activity_as1)
+    activity_obj = Object(
+        id=id, as2=json_dumps(activity), as1=json_dumps(activity_as1),
+        type=as1_type, source_protocol='activitypub', status='complete')
+    activity_obj.put()
+
     if type == 'Accept':  # eg in response to a Follow
         return ''  # noop
     if type not in SUPPORTED_TYPES:
@@ -100,12 +111,12 @@ def inbox(domain=None):
         return ''
 
     elif type == 'Update':
-        id = obj_as2.get('id')
-        if not id:
-            error("Couldn't find id of object to update")
+        obj_id = obj_as2.get('id')
+        if not obj_id:
+            error("Couldn't find obj_id of object to update")
 
-        logger.info(f'updating Object {id}')
-        obj = Object.get_by_id(id) or Object(id=id)
+        logger.info(f'updating Object {obj_id}')
+        obj = Object.get_by_id(obj_id) or Object(id=obj_id)
         obj.as2 = json_dumps(obj_as2)
         obj_as1 = as2.to_as1(obj_as2)
         obj.as1 = json_dumps(obj_as1)
@@ -115,21 +126,21 @@ def inbox(domain=None):
         return 'OK'
 
     elif type == 'Delete':
-        id = obj_as2.get('id')
-        if not id:
+        obj_id = obj_as2.get('id')
+        if not obj_id:
             error("Couldn't find id of object to delete")
 
-        obj = Object.get_by_id(id)
+        obj = Object.get_by_id(obj_id)
         if obj:
-            logger.info(f'Marking Object {id} deleted')
+            logger.info(f'Marking Object {obj_id} deleted')
             obj.deleted = True
             obj.put()
 
         # assume this is an actor
         # https://github.com/snarfed/bridgy-fed/issues/63
-        logger.info(f'Deactivating Followers with src or dest = {id}')
-        followers = Follower.query(OR(Follower.src == id,
-                                      Follower.dest == id)
+        logger.info(f'Deactivating Followers with src or dest = {obj_id}')
+        followers = Follower.query(OR(Follower.src == obj_id,
+                                      Follower.dest == obj_id)
                                    ).fetch()
         for f in followers:
             f.status = 'inactive'
@@ -151,7 +162,6 @@ def inbox(domain=None):
     # send webmentions to each target
     activity_as2_str = json_dumps(activity_unwrapped)
     activity_as1 = as2.to_as1(activity_unwrapped)
-    as1_type = as1.object_type(activity_as1)
     activity_as1_str = json_dumps(activity_as1)
     sent = common.send_webmentions(as2.to_as1(activity), proxy=True,
                                    source_protocol='activitypub', type=as1_type,
@@ -168,23 +178,23 @@ def inbox(domain=None):
             logging.info('Dropping non-public activity')
             return ''
 
-        source = util.get_first(activity, 'url') or activity.get('id')
-        domains = []
         if actor:
             actor_id = actor.get('id')
             if actor_id:
                 logging.info(f'Finding followers of {actor_id}')
-                domains = [f.src for f in
-                           Follower.query(Follower.dest == actor_id,
-                                          projection=[Follower.src]).fetch()]
+                activity_obj.domains = [
+                    f.src for f in Follower.query(Follower.dest == actor_id,
+                                                  projection=[Follower.src]).fetch()]
 
-        key = Object(id=source, source_protocol='activitypub', domains=domains,
-                     status='complete', as2=activity_as2_str, as1=activity_as1_str,
-                     type=as1_type, object_ids=as1.get_ids(activity_as1, 'object'),
-                     labels=['feed', 'activity']).put()
-        logging.info(f'Wrote Object {key} with {len(domains)} follower domains')
+        activity_obj.as2 = activity_as2_str
+        activity_obj.as1 = activity_as1_str
+        activity_obj.type = as1_type
+        activity_obj.object_ids = as1.get_ids(activity_as1, 'object')
+        activity_obj.labels = ['feed', 'activity']
+        activity_obj.put()
+        logging.info(f'Wrote Object {id} for {len(activity_obj.domains)} followers')
 
-    return ''
+    return 'OK'
 
 
 def accept_follow(follow, follow_unwrapped, user):
