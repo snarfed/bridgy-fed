@@ -136,7 +136,7 @@ def feed(domain):
         Object.domains == domain, Object.labels == 'feed') \
         .order(-Object.created) \
         .fetch_page(PAGE_SIZE)
-    activities = [json_loads(obj.as1) for obj in objects]
+    activities = [json_loads(obj.as1) for obj in objects if not obj.deleted]
 
     actor = {
       'displayName': domain,

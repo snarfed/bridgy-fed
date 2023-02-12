@@ -83,3 +83,10 @@ class RedirectTest(testutil.TestCase):
         repost_as2 = copy.deepcopy(REPOST_AS2)
         del repost_as2['cc']
         self.assertEqual(repost_as2, resp.json)
+
+    def test_as2_deleted(self):
+        Object(id='https://foo.com/bar', as1='{}', deleted=True).put()
+
+        resp = self.client.get('/r/https://foo.com/bar',
+                              headers={'Accept': as2.CONTENT_TYPE})
+        self.assertEqual(404, resp.status_code)

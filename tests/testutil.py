@@ -58,6 +58,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                as1=json_dumps(COMMENT)).put()
         # not feed/notif
         Object(id='e', domains=['foo.com'], as1=json_dumps(NOTE)).put()
+        # deleted
+        Object(id='f', domains=['foo.com'], labels=['feed', 'notification', 'user'],
+                 as1=json_dumps(NOTE), deleted=True).put()
 
     def req(self, url, **kwargs):
         """Returns a mock requests call."""

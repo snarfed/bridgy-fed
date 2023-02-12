@@ -774,6 +774,16 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('inactive', followee.key.get().status)
         self.assertEqual('active', other.key.get().status)
 
+    def test_delete_note(self, mock_head, mock_get, mock_post):
+        key = Object(id='http://an/obj', as1='{}').put()
+
+        resp = self.client.post('/inbox', json={
+            **DELETE,
+            'object': 'http://an/obj',
+        })
+        self.assertEqual(200, resp.status_code)
+        self.assertTrue(key.get().deleted)
+
     def test_update_person_noop(self, _, __, ___):
         """Updates to Person objects do nothing."""
         got = self.client.post('/inbox', json=UPDATE_PERSON)

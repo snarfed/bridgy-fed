@@ -134,7 +134,8 @@ def getTimeline(input, algorithm=None, limit=50, before=None):
         ).order(-Object.created
         ).fetch_page(limit)
 
-    return {'feed': [bluesky.from_as1(json_loads(obj.as1)) for obj in objects]}
+    return {'feed': [bluesky.from_as1(json_loads(obj.as1))
+                     for obj in objects if not obj.deleted]}
 
 
 # TODO: use likes as votes?

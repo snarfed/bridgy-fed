@@ -114,8 +114,15 @@ def inbox(domain=None):
         id = obj.get('id') if isinstance(obj, dict) else obj
         if not isinstance(id, str):
             error("Couldn't find id of object to delete")
-            # assume this is an actor
-            # https://github.com/snarfed/bridgy-fed/issues/63
+
+        obj = Object.get_by_id(id)
+        if obj:
+            logger.info(f'Marking Object {id} deleted')
+            obj.deleted = True
+            obj.put()
+
+        # assume this is an actor
+        # https://github.com/snarfed/bridgy-fed/issues/63
         logger.info(f'Deactivating Followers with src or dest = {id}')
         followers = Follower.query(OR(Follower.src == id,
                                       Follower.dest == id)
