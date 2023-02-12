@@ -140,7 +140,7 @@ def feed(domain):
 
     actor = {
       'displayName': domain,
-      'url': f'https://{domain}',
+      'url': user.homepage,
     }
     title = f'Bridgy Fed feed for {domain}'
 

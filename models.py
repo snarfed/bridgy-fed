@@ -70,6 +70,10 @@ class User(StringIdModel):
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
+    @property
+    def homepage(self):
+        return f'https://{self.key.id()}/'
+
     @classmethod
     def _get_kind(cls):
         return 'MagicKey'
@@ -126,14 +130,10 @@ class User(StringIdModel):
             return as2.to_as1(json_loads(self.actor_as2))
 
     def username(self):
-        """Returns the user's preferred username from an acct: url, if available.
+        """Returns the user's preferred username.
 
-        If there's no acct: URL, or if we haven't found their representative
-        h-card yet returns their domain.
-
-        Args:
-          domain: str
-          urls: sequence of str
+        Uses stored representative h-card, falls back to domain if that's not
+        available.
 
         Returns: str
         """
@@ -156,6 +156,21 @@ class User(StringIdModel):
         """Returns this user's ActivityPub address, eg '@me@foo.com'."""
         return f'@{self.username()}@{self.key.id()}'
 
+    def is_homepage(self, url):
+        """Returns True if the given URL points to this user's home page."""
+        if not url:
+            return False
+
+        url = url.strip().rstrip('/')
+        if url == self.key.id():
+            return True
+
+        parsed = urllib.parse.urlparse(url)
+        return (parsed.netloc == self.key.id()
+                and parsed.scheme in ('', 'http', 'https')
+                and not parsed.path and not parsed.query
+                and not parsed.params and not parsed.fragment)
+
     def user_page_link(self):
         """Returns a pretty user page link with the user's name and profile picture."""
         domain = self.key.id()
@@ -174,8 +189,7 @@ class User(StringIdModel):
           domain started with www and we switch to the root domain.
         """
         domain = self.key.id()
-        site = f'https://{domain}/'
-        logger.info(f'Verifying {site}')
+        logger.info(f'Verifying {domain}')
 
         if domain.startswith('www.') and domain not in WWW_DOMAINS:
             # if root domain redirects to www, use root domain instead
@@ -184,8 +198,8 @@ class User(StringIdModel):
             root_site = f'https://{root}/'
             try:
                 resp = util.requests_get(root_site, gateway=False)
-                if resp.ok and resp.url == site:
-                    logging.info(f'{root_site} redirects to {site} ; using {root} instead')
+                if resp.ok and self.is_homepage(resp.url):
+                    logging.info(f'{root_site} redirects to {resp.url} ; using {root} instead')
                     root_user = User.get_or_create(root)
                     self.use_instead = root_user.key
                     self.put()
@@ -198,7 +212,7 @@ class User(StringIdModel):
         self.has_redirects = False
         self.redirects_error = None
         try:
-            url = urllib.parse.urljoin(site, path)
+            url = urllib.parse.urljoin(self.homepage, path)
             resp = util.requests_get(url, gateway=False)
             domain_urls = ([f'https://{domain}/' for domain in common.DOMAINS] +
                            [common.host_url()])

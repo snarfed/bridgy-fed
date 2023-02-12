@@ -166,6 +166,16 @@ http://this/404s
         self.assertEqual(root_user.key, www_user.key.get().use_instead)
         self.assertEqual(root_user.key, User.get_or_create('www.y.z').key)
 
+    def test_homepage(self):
+        self.assertEqual('https://y.z/', self.user.homepage)
+
+    def test_is_homepage(self):
+        for url in 'y.z', '//y.z', 'http://y.z', 'https://y.z':
+            self.assertTrue(self.user.is_homepage(url), url)
+
+        for url in None, '', 'y', 'z', 'z.z', 'ftp://y.z', 'http://y', '://y.z':
+            self.assertFalse(self.user.is_homepage(url), url)
+
 
 class ObjectTest(testutil.TestCase):
 

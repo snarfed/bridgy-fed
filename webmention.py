@@ -58,11 +58,7 @@ class Webmention(View):
             error(f'No user found for domain {self.source_domain}')
 
         # if source is home page, send an actor Update to followers' instances
-        if source.strip('/') == f'https://{self.source_domain}':
-            self.user = User.get_by_id(self.source_domain)
-            if not self.user:
-                return f'User {self.source_domain} not found', 404
-
+        if self.user.is_homepage(source):
             self.source_url = source
             self.source_mf2, actor_as1, actor_as2 = common.actor(self.user)
             id = common.host_url(f'{source}#update-{util.now().isoformat()}')
@@ -283,7 +279,7 @@ class Webmention(View):
                 )
                 # not actually an error
                 msg = ("Updating profile on followers' instances..."
-                       if self.source_url.strip('/') == f'https://{self.source_domain}'
+                       if self.user.is_homepage(self.source_url)
                        else 'Delivering to followers...')
                 error(msg, status=202)
 

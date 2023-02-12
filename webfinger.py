@@ -47,7 +47,7 @@ class Actor(flask_util.XrdOrJrd):
         logger.info(f'AS1 actor: {actor}')
         urls = util.dedupe_urls(util.get_list(actor, 'urls') +
                                 util.get_list(actor, 'url') +
-                                [f'https://{domain}'])
+                                [user.homepage])
         logger.info(f'URLs: {urls}')
         canonical_url = urls[0]
 

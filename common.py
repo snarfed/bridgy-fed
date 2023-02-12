@@ -106,7 +106,7 @@ def pretty_link(url, text=None, user=None):
     text: str
     user: :class:`User`, optional, user for the current request
   """
-  if user and re.match(f'https?://{user.key.id()}/?$', url.strip('/')):
+  if user and user.is_homepage(url):
     return user.user_page_link()
 
   if text is None:
@@ -508,7 +508,7 @@ def postprocess_as2_actor(actor, user=None):
     Returns:
       actor dict
     """
-    url = f'https://{user.key.id()}/' if user else None
+    url = user.homepage if user else None
     urls = util.get_list(actor, 'url')
     if not urls and url:
       urls = [url]
@@ -608,11 +608,10 @@ def actor(user):
     assert user
 
     domain = user.key.id()
-    url = f'https://{domain}/'
     try:
-        mf2 = util.fetch_mf2(url, gateway=True)
+        mf2 = util.fetch_mf2(user.homepage, gateway=True)
     except ValueError as e:
-        error(f"Couldn't fetch {url}: {e}")
+        error(f"Couldn't fetch {user.homepage}: {e}")
 
     hcard = mf2util.representative_hcard(mf2, mf2['url'])
     logger.info(f'Representative h-card: {json_dumps(hcard, indent=2)}')
