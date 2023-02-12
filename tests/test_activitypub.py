@@ -108,12 +108,15 @@ REPOST = {
   'id': 'https://th.is/users/alice/statuses/654/activity',
   'type': 'Announce',
   'actor': ACTOR['id'],
-  'object': 'https://mastodon.social/users/bob/statuses/987',
+  'object': NOTE_OBJECT['id'],
   'published': '2023-02-08T17:44:16Z',
   'to': ['https://www.w3.org/ns/activitystreams#Public'],
 }
-REPOST_WITH_ACTOR = copy.deepcopy(REPOST)
-REPOST_WITH_ACTOR['actor'] = ACTOR
+REPOST_FULL = {
+    **REPOST,
+    'actor': ACTOR,
+    'object': NOTE_OBJECT,
+}
 
 FOLLOW = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -420,8 +423,11 @@ class ActivityPubTest(testutil.TestCase):
         Follower.get_or_create(ACTOR['id'], 'baz.com')
 
         mock_head.return_value = requests_response(url='http://target')
-        mock_get.return_value = self.as2_resp(ACTOR)  # source actor
-        mock_post.return_value = requests_response()
+        mock_get.side_effect = [
+            self.as2_resp(ACTOR),  # source actor
+            self.as2_resp(NOTE_OBJECT),  # object of repost
+        ]
+        mock_post.return_value = requests_response()  # webmention
 
         got = self.client.post('/inbox', json=REPOST)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
@@ -429,8 +435,8 @@ class ActivityPubTest(testutil.TestCase):
         self.assert_object(REPOST['id'],
                            source_protocol='activitypub',
                            status='complete',
-                           as2=REPOST_WITH_ACTOR,
-                           as1=as2.to_as1(REPOST_WITH_ACTOR),
+                           as2=REPOST_FULL,
+                           as1=as2.to_as1(REPOST_FULL),
                            domains=['foo.com', 'baz.com'],
                            type='share',
                            labels=['feed', 'activity'],
