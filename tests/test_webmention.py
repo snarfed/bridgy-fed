@@ -100,6 +100,15 @@ REPOST_AS2 = {
     ],
     'actor': ACTOR_AS2,
 }
+REPOST_AS1_UNWRAPPED = {
+    'objectType': 'activity',
+    'verb': 'share',
+    'id': 'http://a/repost',
+    'url': 'http://a/repost',
+    'displayName': 'reposted!',
+    'object': 'tag:orig,2017:as2',
+    'actor': ACTOR_AS1_UNWRAPPED,
+}
 
 
 @mock.patch('requests.post')

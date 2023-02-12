@@ -10,19 +10,16 @@ https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
 The conneg makes these /r/ URLs searchable in Mastodon:
 https://github.com/snarfed/bridgy-fed/issues/352
 """
-import datetime
 import logging
 import re
 import urllib.parse
 
 from flask import redirect, request
-from granary import as2, microformats2
-import mf2util
+from granary import as2
 from negotiator import ContentNegotiator, AcceptParameters, ContentType
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
-from oauth_dropins.webutil.util import json_dumps
-from werkzeug.exceptions import abort
+from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app, cache
 from common import (
@@ -30,7 +27,7 @@ from common import (
     CONTENT_TYPE_HTML,
     postprocess_as2,
 )
-from models import User
+from models import Object, User
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +39,7 @@ _negotiator = ContentNegotiator(acceptable=[
 
 
 @app.get(r'/r/<path:to>')
-@flask_util.cached(cache, CACHE_TIME, headers=['Accept'], http_5xx=True)
+@flask_util.cached(cache, CACHE_TIME, headers=['Accept'])
 def redir(to):
     """301 redirect to the embedded fully qualified URL.
 
@@ -68,8 +65,7 @@ def redir(to):
                 logger.info(f'Found User for domain {domain}')
                 break
     else:
-        logger.info(f'No user found for any of {domains}; returning 404')
-        abort(404)
+        return f'No user found for any of {domains}', 404
 
     # check conneg, serve AS2 if requested
     accept = request.headers.get('Accept')
@@ -82,7 +78,14 @@ def redir(to):
         if negotiated:
             type = str(negotiated.content_type)
             if type in (as2.CONTENT_TYPE, as2.CONTENT_TYPE_LD):
-                return convert_to_as2(to, user), {
+                # load from the datastore
+                obj = Object.get_by_id(to)
+                if not obj:
+                    return f'Object not found: {to}', 404
+                ret = postprocess_as2(as2.from_as1(json_loads(obj.as1)),
+                                      user, create=False)
+                logger.info(f'Returning: {json_dumps(ret, indent=2)}')
+                return ret, {
                     'Content-Type': type,
                     'Access-Control-Allow-Origin': '*',
                 }
@@ -90,23 +93,3 @@ def redir(to):
     # redirect
     logger.info(f'redirecting to {to}')
     return redirect(to, code=301)
-
-
-def convert_to_as2(url, domain):
-    """Fetch a URL as HTML, convert it to AS2, and return it.
-
-    Args:
-      url: str
-      domain: :class:`User`
-
-    Returns:
-      dict: AS2 object
-    """
-    mf2 = util.fetch_mf2(url)
-    entry = mf2util.find_first_entry(mf2, ['h-entry'])
-    logger.info(f"Parsed mf2 for {mf2['url']}: {json_dumps(entry, indent=2)}")
-
-    obj = postprocess_as2(as2.from_as1(microformats2.json_to_object(entry)),
-                          domain, create=False)
-    logger.info(f'Returning: {json_dumps(obj, indent=2)}')
-    return obj

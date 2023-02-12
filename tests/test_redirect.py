@@ -1,15 +1,14 @@
 """Unit tests for redirect.py.
 """
 import copy
-from unittest.mock import patch
 
 from granary import as2
-from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app, cache
-import common
-from models import User
-from .test_webmention import REPOST_HTML, REPOST_AS2
+from common import redirect_unwrap
+from models import Object, User
+from .test_webmention import REPOST_AS1_UNWRAPPED, REPOST_AS2
 from . import testutil
 
 
@@ -56,37 +55,31 @@ class RedirectTest(testutil.TestCase):
         cache.init_app(app)
         self.client = app.test_client()
 
-        got = self.client.get('/r/https://foo.com/bar')
-        self.assertEqual(301, got.status_code)
-        self.assertEqual('https://foo.com/bar', got.headers['Location'])
+        self._test_as2(as2.CONTENT_TYPE)
+
+        resp = self.client.get('/r/https://foo.com/bar')
+        self.assertEqual(301, resp.status_code)
+        self.assertEqual('https://foo.com/bar', resp.headers['Location'])
+
+        # delete stored Object to make sure we're serving from cache
+        self.obj.delete()
 
         self._test_as2(as2.CONTENT_TYPE)
 
-        got = self.client.get('/r/https://foo.com/bar',
+        resp = self.client.get('/r/https://foo.com/bar',
                               headers={'Accept': 'text/html'})
-        self.assertEqual(301, got.status_code)
-        self.assertEqual('https://foo.com/bar', got.headers['Location'])
+        self.assertEqual(301, resp.status_code)
+        self.assertEqual('https://foo.com/bar', resp.headers['Location'])
 
-    @patch('requests.get')
-    def _test_as2(self, accept, mock_get):
-        """Currently mainly for Pixelfed.
+    def _test_as2(self, content_type):
+        self.obj = Object(id='https://foo.com/bar',
+                          as1=json_dumps(REPOST_AS1_UNWRAPPED)).put()
 
-        https://github.com/snarfed/bridgy-fed/issues/39
-        """
-        repost = copy.deepcopy(REPOST_AS2)
-        del repost['cc']
-        repost.update({
-            'to': [as2.PUBLIC_AUDIENCE],
-            'object': 'https://orig/post',
-        })
+        resp = self.client.get('/r/https://foo.com/bar',
+                              headers={'Accept': content_type})
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(content_type, resp.content_type)
 
-        mock_get.return_value = requests_response(
-            REPOST_HTML, content_type=common.CONTENT_TYPE_HTML)
-
-        got = self.client.get('/r/https://foo.com/bar', headers={'Accept': accept})
-
-        args, kwargs = mock_get.call_args
-        self.assertEqual(('https://foo.com/bar',), args)
-
-        self.assertEqual(200, got.status_code)
-        self.assertEqual(repost, got.json)
+        repost_as2 = copy.deepcopy(REPOST_AS2)
+        del repost_as2['cc']
+        self.assertEqual(repost_as2, resp.json)
