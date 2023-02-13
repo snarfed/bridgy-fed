@@ -71,12 +71,6 @@ def inbox(domain=None):
     body = request.get_data(as_text=True)
     logger.info(f'Got: {body}')
 
-    user = None
-    if domain:
-        user = User.get_by_id(domain)
-        if not user:
-            return f'User {domain} not found', 404
-
     # parse and validate AS2 activity
     try:
         activity = request.json
@@ -123,6 +117,12 @@ def inbox(domain=None):
         error(f'Sorry, {type} activities are not supported yet.', status=501)
 
     # TODO: verify signature if there is one
+
+    user = None
+    if domain:
+        user = User.get_by_id(domain)
+        if not user:
+            return f'User {domain} not found', 404
 
     if type == 'Undo' and obj_as2.get('type') == 'Follow':
         # skip actor fetch below; we don't need it to undo a follow
@@ -182,10 +182,10 @@ def inbox(domain=None):
     activity_as2_str = json_dumps(activity_unwrapped)
     activity_as1 = as2.to_as1(activity_unwrapped)
     activity_as1_str = json_dumps(activity_as1)
-    sent = common.send_webmentions(as2.to_as1(activity), proxy=True,
-                                   source_protocol='activitypub', type=as1_type,
-                                   as2=activity_as2_str, as1=activity_as1_str,
-                                   object_ids=as1.get_ids(activity_as1, 'object'))
+    common.send_webmentions(as2.to_as1(activity), proxy=True,
+                            source_protocol='activitypub', type=as1_type,
+                            as2=activity_as2_str, as1=activity_as1_str,
+                            object_ids=as1.get_ids(activity_as1, 'object'))
 
     # deliver original posts and reposts to followers
     if ((type == 'Create' and not activity.get('inReplyTo') and not obj_as2.get('inReplyTo'))
