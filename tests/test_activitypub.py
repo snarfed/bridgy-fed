@@ -190,7 +190,7 @@ class ActivityPubTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        User.get_or_create('foo.com')
+        self.user = User.get_or_create('foo.com')
 
     def test_actor(self, _, mock_get, __):
         mock_get.return_value = requests_response("""
@@ -653,8 +653,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('active', follower.status)
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
-        root = User.get_or_create('foo.com')
-        User.get_or_create('www.foo.com', use_instead=root.key).put()
+        User.get_or_create('www.foo.com', use_instead=self.user.key).put()
 
         mock_head.return_value = requests_response(url='https://www.foo.com/')
         mock_get.side_effect = [
@@ -665,17 +664,13 @@ class ActivityPubTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response()
 
-        follow = copy.deepcopy(FOLLOW_WRAPPED)
-        follow['object'] = 'http://localhost/foo.com'
-        got = self.client.post('/foo.com/inbox', json=follow)
+        got = self.client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
         # check that the Follower doesn't have www
         follower = Follower.get_by_id(f'foo.com {ACTOR["id"]}')
         self.assertEqual('active', follower.status)
-
-        follow['actor'] = ACTOR
-        self.assertEqual(follow, json_loads(follower.last_follow))
+        self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, json_loads(follower.last_follow))
 
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://foo.com/')
@@ -841,6 +836,13 @@ class ActivityPubTest(testutil.TestCase):
                            type='like',
                            labels=['notification', 'activity'],
                            object_ids=[LIKE['object']])
+
+    def test_inbox_id_already_seen(self, *mocks):
+        obj_key = Object(id=FOLLOW_WRAPPED['id'], as1='{}').put()
+
+        got = self.client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
+        self.assertEqual(204, got.status_code)
+        self.assertEqual(0, Follower.query().count())
 
     def test_followers_collection_unknown_user(self, *args):
         resp = self.client.get('/nope.com/followers')

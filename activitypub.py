@@ -91,6 +91,15 @@ def inbox(domain=None):
     if not id:
         error('Activity has no id')
 
+    # short circuit if we've already seen this activity id
+    #
+    # (theoretically querying keys-only with a key == filter should be the same
+    # query plan as get_by_id(), and slightly cheaper, since it doesn't have to
+    # return the properties?)
+    if Object.query(Object.key == ndb.Key(Object, id)).get(keys_only=True):
+        logger.info("Already handled this activity {id}")
+        return '', 204
+
     activity_as1 = as2.to_as1(activity)
     as1_type = as1.object_type(activity_as1)
     activity_obj = Object(
