@@ -844,6 +844,12 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(204, got.status_code)
         self.assertEqual(0, Follower.query().count())
 
+        # second time should use in memory cache
+        obj_key.delete()
+        got = self.client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
+        self.assertEqual(204, got.status_code)
+        self.assertEqual(0, Follower.query().count())
+
     def test_followers_collection_unknown_user(self, *args):
         resp = self.client.get('/nope.com/followers')
         self.assertEqual(404, resp.status_code)

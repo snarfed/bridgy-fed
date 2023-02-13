@@ -3,7 +3,9 @@
 import datetime
 import logging
 import re
+import threading
 
+from cachetools import LRUCache
 from flask import request
 from google.cloud import ndb
 from google.cloud.ndb import OR
@@ -37,6 +39,10 @@ SUPPORTED_TYPES = (
 FETCH_OBJECT_TYPES = (
     'Announce',
 )
+
+# activity ids that we've already handled and can now ignore
+seen_ids = LRUCache(100000)
+seen_ids_lock = threading.Lock()
 
 
 @app.get(f'/<regex("{common.DOMAIN_RE}"):domain>')
@@ -92,13 +98,17 @@ def inbox(domain=None):
         error('Activity has no id')
 
     # short circuit if we've already seen this activity id
-    #
+    with seen_ids_lock:
+        if id in seen_ids:
+            error(f'Already handled this activity {id}', status=204)
+
     # (theoretically querying keys-only with a key == filter should be the same
     # query plan as get_by_id(), and slightly cheaper, since it doesn't have to
     # return the properties?)
     if Object.query(Object.key == ndb.Key(Object, id)).get(keys_only=True):
-        logger.info("Already handled this activity {id}")
-        return '', 204
+        with seen_ids_lock:
+            seen_ids[id] = True
+        error(f'Already handled this activity {id}', status=204)
 
     activity_as1 = as2.to_as1(activity)
     as1_type = as1.object_type(activity_as1)
