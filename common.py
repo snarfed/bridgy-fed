@@ -330,7 +330,8 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
     obj.put()
     logging.info(f'Created Object {source}')
 
-    for target in targets:
+    while obj.undelivered:
+        target = obj.undelivered.pop()
         domain = util.domain_from_link(target.uri, minimize=False)
         if domain == util.domain_from_link(source, minimize=False):
             logger.info(f'Skipping same-domain webmention from {source} to {target.uri}')
@@ -358,7 +359,6 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
           errors.append((code, body))
           obj.failed.append(target)
 
-        obj.undelivered.remove(target)
         obj.put()
 
     obj.status = 'complete' if obj.delivered else 'failed' if obj.failed else 'ignored'
