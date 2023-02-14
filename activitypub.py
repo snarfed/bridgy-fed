@@ -185,12 +185,13 @@ def inbox(domain=None):
 
     # fetch actor if necessary so we have name, profile photo, etc
     if actor and isinstance(actor, str):
-        actor = activity['actor'] = common.get_as2(actor, user=user).json()
+        actor = activity['actor'] = \
+            json_loads(common.get_object(actor, user=user).as2)
 
     # fetch object if necessary so we can render it in feeds
     if type in FETCH_OBJECT_TYPES and isinstance(activity.get('object'), str):
         obj_as2 = activity['object'] = \
-            common.get_as2(activity['object'], user=user).json()
+            json_loads(common.get_object(activity['object'], user=user).as2)
 
     activity_unwrapped = redirect_unwrap(activity)
     if type == 'Follow':

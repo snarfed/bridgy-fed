@@ -147,8 +147,7 @@ class FollowCallback(indieauth.Callback):
             flash(f"Couldn't find ActivityPub profile link for {addr}")
             return redirect(f'/user/{domain}/following')
 
-        resp = common.get_as2(as2_url, user=user)
-        followee = resp.json()
+        followee = json_loads(common.get_object(as2_url, user=user).as2)
         id = followee.get('id')
         inbox = followee.get('inbox')
         if not id or not inbox:
@@ -219,12 +218,11 @@ class UnfollowCallback(indieauth.Callback):
         if isinstance(followee, str):
             # fetch as AS2 to get full followee with inbox
             followee_id = followee
-            resp = common.get_as2(followee_id, user=user)
-            followee = resp.json()
+            followee = json_loads(common.get_object(followee_id, user=user).as2)
 
         inbox = followee.get('inbox')
         if not inbox:
-            flash(f"AS2 profile {followee_id} missing id or inbox")
+            flash(f"AS2 profile {followee_id} missing inbox")
             return redirect(f'/user/{domain}/following')
 
         timestamp = NOW.replace(microsecond=0, tzinfo=None).isoformat()

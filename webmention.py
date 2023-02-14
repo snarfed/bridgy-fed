@@ -43,7 +43,6 @@ class Webmention(View):
     source_mf2 = None     # parsed mf2 dict
     source_as1 = None     # AS1 dict
     source_as2 = None     # AS2 dict
-    target_resp = None    # requests.Response
     user = None           # User
 
     def dispatch_request(self):
@@ -302,20 +301,16 @@ class Webmention(View):
         for target in targets:
             # fetch target page as AS2 object
             try:
-                self.target_resp = common.get_as2(target, user=self.user)
+                target_obj = json_loads(
+                    common.get_object(target, user=self.user).as2)
             except (requests.HTTPError, BadGateway) as e:
-                self.target_resp = getattr(e, 'requests_response', None)
-                if self.target_resp and self.target_resp.status_code // 100 == 2:
-                    content_type = common.content_type(self.target_resp) or ''
-                    if content_type.startswith('text/html'):
+                resp = getattr(e, 'requests_response', None)
+                if resp and resp.ok:
+                    if (common.content_type(resp) or '').startswith('text/html'):
                         continue  # give up
                 raise
-            target_url = self.target_resp.url or target
 
-            # find target's inbox
-            target_obj = self.target_resp.json()
             inbox_url = target_obj.get('inbox')
-
             if not inbox_url:
                 # TODO: test actor/attributedTo and not, with/without inbox
                 actor = (util.get_first(target_obj, 'actor') or
@@ -330,7 +325,7 @@ class Webmention(View):
 
             if not inbox_url:
                 # fetch actor as AS object
-                actor = common.get_as2(actor, user=self.user).json()
+                actor = json_loads(common.get_object(actor, user=self.user).as2)
                 inbox_url = actor.get('inbox')
 
             if not inbox_url:
@@ -338,7 +333,7 @@ class Webmention(View):
                 logging.error('Target actor has no inbox')
                 continue
 
-            inbox_url = urllib.parse.urljoin(target_url, inbox_url)
+            inbox_url = urllib.parse.urljoin(target, inbox_url)
             inboxes_to_targets[inbox_url] = target_obj
 
         logger.info(f"Delivering to targets' inboxes: {inboxes_to_targets.keys()}")

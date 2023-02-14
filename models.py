@@ -304,8 +304,10 @@ class Object(StringIdModel):
 
     def _post_put_hook(self, future):
         """Update :func:`common.get_object` cache."""
+        # TODO: assert that as1 id is same as key id? in pre put hook?
         if self.type != 'activity':
-            common.get_object.cache[self.key.id()] = self
+            key = common.get_object.cache_key(self.key.id())
+            common.get_object.cache[key] = self
 
     def proxy_url(self):
         """Returns the Bridgy Fed proxy URL to render this post as HTML."""

@@ -119,7 +119,7 @@ def pretty_link(url, text=None, user=None):
   return util.pretty_link(url, text=text)
 
 
-@cached(LRUCache(1000), lock=threading.Lock())
+@cached(LRUCache(1000), key=lambda id, user=None: id, lock=threading.Lock())
 def get_object(id, user=None):
     """Loads and returns an Object from memory cache, datastore, or HTTP fetch.
 
