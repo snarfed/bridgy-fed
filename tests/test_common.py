@@ -269,7 +269,7 @@ class CommonTest(testutil.TestCase):
     def test_get_object_datastore_no_as2(self, mock_get):
         """If the stored Object has no as2, we should fall back to HTTP."""
         id = 'http://the/id'
-        stored = Object(id=id, as2=None, as1='{}')
+        stored = Object(id=id, as2=None, as1='{}', status='in progress')
         stored.put()
         common.get_object.cache.clear()
 
@@ -281,4 +281,6 @@ class CommonTest(testutil.TestCase):
         mock_get.assert_has_calls([self.as2_req(id)])
 
         self.assert_object(id, as2=AS2_OBJ, as1=AS2_OBJ,
-                           source_protocol='activitypub')
+                           source_protocol='activitypub',
+                           # check that it reused our original Object
+                           status='in progress')

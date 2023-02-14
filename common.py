@@ -132,14 +132,16 @@ def get_object(id, user=None):
     Returns: Object, or None if it can't be fetched
     """
     obj = Object.get_by_id(id)
-    if obj and obj.as2:
+    if obj:
+      if obj.as2:
         logging.info(f'Got Object from datastore: {id}')
         return obj
+    else:
+      obj = Object(id=id)
 
     logging.info(f'Object not in datastore or has no as2: {id}')
     obj_as2 = get_as2(id, user=user).json()
-    obj = Object(id=id,
-                 as2=json_dumps(obj_as2),
+    obj.populate(as2=json_dumps(obj_as2),
                  as1=json_dumps(as2.to_as1(obj_as2)),
                  source_protocol='activitypub')
     obj.put()
