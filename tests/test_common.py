@@ -252,6 +252,7 @@ class CommonTest(testutil.TestCase):
         id = 'http://the/id'
         stored = Object(id=id, as2=json_dumps(AS2_OBJ), as1='{}')
         stored.put()
+        common.get_object.cache.clear()
 
         # first time loads from datastore
         got = common.get_object(id)
@@ -263,3 +264,21 @@ class CommonTest(testutil.TestCase):
         got = common.get_object(id)
         self.assert_entities_equal(stored, got)
         mock_get.assert_not_called()
+
+    @mock.patch('requests.get', return_value=AS2)
+    def test_get_object_datastore_no_as2(self, mock_get):
+        """If the stored Object has no as2, we should fall back to HTTP."""
+        id = 'http://the/id'
+        stored = Object(id=id, as2=None, as1='{}')
+        stored.put()
+        common.get_object.cache.clear()
+
+        got = common.get_object(id)
+        mock_get.assert_has_calls([self.as2_req(id)])
+
+        self.assert_equals(id, got.key.id())
+        self.assert_equals(AS2_OBJ, json_loads(got.as2))
+        mock_get.assert_has_calls([self.as2_req(id)])
+
+        self.assert_object(id, as2=AS2_OBJ, as1=AS2_OBJ,
+                           source_protocol='activitypub')
