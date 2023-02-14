@@ -596,10 +596,6 @@ def redirect_unwrap(val):
 def actor(user):
     """Fetches a home page, converts its representative h-card to AS2 actor.
 
-    Creates a User for the given domain if one doesn't already exist.
-
-    TODO: unify with webfinger.Actor
-
     Args:
       user: :class:`User`
 
@@ -620,6 +616,7 @@ def actor(user):
 
     actor_as1 = microformats2.json_to_object(hcard, rel_urls=mf2.get('rel-urls'))
     actor_as2 = postprocess_as2(as2.from_as1(actor_as1), user=user)
+    # TODO: unify with activitypub.actor()
     actor_as2.update({
         'id': host_url(domain),
         # This has to be the domain for Mastodon etc interop! It seems like it

@@ -21,6 +21,8 @@ ACTOR = {
     'id': 'https://mastodon.social/users/swentel',
     'type': 'Person',
     'inbox': 'http://follower/inbox',
+    'name': 'Mrs. ☕ Foo',
+    'icon': {'type': 'Image', 'url': 'https://foo.com/me.jpg'},
 }
 REPLY_OBJECT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -190,18 +192,12 @@ class ActivityPubTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = User.get_or_create('foo.com')
+        self.user = User.get_or_create('foo.com', has_hcard=True,
+                                       actor_as2=json_dumps(ACTOR))
         activitypub.seen_ids.clear()
 
-    def test_actor(self, _, mock_get, __):
-        mock_get.return_value = requests_response("""
-<body>
-<a class="h-card u-url" rel="me" href="/about-me">Mrs. ☕ Foo</a>
-</body>
-""", url='https://foo.com/', content_type=common.CONTENT_TYPE_HTML)
-
+    def test_actor(self, *_):
         got = self.client.get('/foo.com')
-        self.assert_req(mock_get, 'https://foo.com/')
         self.assertEqual(200, got.status_code)
         type = got.headers['Content-Type']
         self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
@@ -215,12 +211,8 @@ class ActivityPubTest(testutil.TestCase):
             'summary': '',
             'preferredUsername': 'foo.com',
             'id': 'http://localhost/foo.com',
-            'url': 'http://localhost/r/https://foo.com/about-me',
-            'attachment': [{
-                'type': 'PropertyValue',
-                'name': 'Mrs. ☕ Foo',
-                'value': '<a rel=\"me\" href="https://foo.com/about-me">foo.com/about-me</a>',
-            }],
+            'url': 'http://localhost/r/https://foo.com/',
+            'icon': {'type': 'Image', 'url': 'https://foo.com/me.jpg'},
             'inbox': 'http://localhost/foo.com/inbox',
             'outbox': 'http://localhost/foo.com/outbox',
             'following': 'http://localhost/foo.com/following',
@@ -235,78 +227,9 @@ class ActivityPubTest(testutil.TestCase):
             },
         }, got.json)
 
-    def test_actor_rel_me_links(self, _, mock_get, __):
-        mock_get.return_value = requests_response("""
-<body>
-<div class="h-card">
-<a class="u-url" rel="me" href="/about-me">Mrs. ☕ Foo</a>
-<a class="u-url" rel="me" href="/">should be ignored</a>
-<a class="u-url" rel="me" href="http://one" title="one title">
-  one text
-</a>
-<a class="u-url" rel="me" href="https://two" title=" two title "> </a>
-</div>
-</body>
-""", url='https://foo.com/', content_type=common.CONTENT_TYPE_HTML)
-
-        got = self.client.get('/foo.com')
-        self.assertEqual(200, got.status_code)
-        self.assertEqual([{
-            'type': 'PropertyValue',
-            'name': 'Mrs. ☕ Foo',
-            'value': '<a rel="me" href="https://foo.com/about-me">foo.com/about-me</a>',
-        }, {
-            'type': 'PropertyValue',
-            'name': 'Web site',
-            'value': '<a rel="me" href="https://foo.com/">foo.com</a>',
-        }, {
-            'type': 'PropertyValue',
-            'name': 'one text',
-            'value': '<a rel="me" href="http://one">one</a>',
-        }, {
-            'type': 'PropertyValue',
-            'name': 'two title',
-            'value': '<a rel="me" href="https://two">two</a>',
-        }], got.json['attachment'])
-
-    def test_actor_no_hcard(self, _, mock_get, __):
-        mock_get.return_value = requests_response("""
-<body>
-<div class="h-entry">
-  <p class="e-content">foo bar</p>
-</div>
-</body>
-""")
-
-        got = self.client.get('/foo.com')
-        self.assert_req(mock_get, 'https://foo.com/')
-        self.assertEqual(400, got.status_code)
-        self.assertIn('representative h-card', got.get_data(as_text=True))
-
-    def test_actor_override_preferredUsername(self, _, mock_get, __):
-        mock_get.return_value = requests_response("""
-<body>
-<a class="h-card u-url" rel="me" href="/about-me">
-  <span class="p-nickname">Nick</span>
-</a>
-</body>
-""", url='https://foo.com/', content_type=common.CONTENT_TYPE_HTML)
-
-        got = self.client.get('/foo.com')
-        self.assertEqual(200, got.status_code)
-        self.assertEqual('foo.com', got.json['preferredUsername'])
-
     def test_actor_blocked_tld(self, _, __, ___):
         got = self.client.get('/foo.json')
         self.assertEqual(404, got.status_code)
-
-    def test_actor_bad_domain(self, _, mock_get, ___):
-        # https://console.cloud.google.com/errors/detail/CKGv-b6impW3Jg;time=P30D?project=bridgy-federated
-        mock_get.side_effect = [
-            ValueError('Invalid IPv6 URL'),
-        ]
-        got = self.client.get('/foo.com')
-        self.assertEqual(400, got.status_code)
 
     def test_actor_no_user(self, *mocks):
         got = self.client.get('/nope.com')

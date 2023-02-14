@@ -32,6 +32,8 @@ FOLLOWERS_BSKY = [{
     '$type': 'app.bsky.graph.getFollowers#follower',
     'did': 'did:web:mastodon.social:users:swentel',
     'handle': 'mastodon.social/users/swentel',
+    'displayName': 'Mrs. ☕ Foo',
+    'avatar': 'https://foo.com/me.jpg',
     'declaration': ACTOR_DECLARATION,
     'indexedAt': '2022-01-02T03:04:05+00:00',
 }]

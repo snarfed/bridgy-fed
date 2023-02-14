@@ -2,6 +2,7 @@
 """Unit tests for models.py."""
 from unittest import mock
 
+from flask import get_flashed_messages
 from granary import as2
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -17,6 +18,10 @@ class UserTest(testutil.TestCase):
     def setUp(self):
         super(UserTest, self).setUp()
         self.user = User.get_or_create('y.z')
+
+        self.full_redir = requests_response(
+            status=302,
+            redirected_url='http://localhost/.well-known/webfinger?resource=acct:y.z@y.z')
 
     def test_get_or_create(self):
         assert self.user.mod
@@ -117,22 +122,30 @@ http://this/404s
   returned HTTP 404</pre>""")
 
     @mock.patch('requests.get')
+    def test_verify_no_hcard(self, mock_get):
+        mock_get.side_effect = [
+            self.full_redir,
+            requests_response("""
+<body>
+<div class="h-entry">
+  <p class="e-content">foo bar</p>
+</div>
+</body>
+"""),
+        ]
+        self._test_verify(True, False, None)
+
+    @mock.patch('requests.get')
     def test_verify_non_representative_hcard(self, mock_get):
-        full_redir = requests_response(
-            status=302,
-            redirected_url='http://localhost/.well-known/webfinger?resource=acct:y.z@y.z')
         bad_hcard = requests_response(
             '<html><body><a class="h-card u-url" href="https://a.b/">acct:me@y.z</a></body></html>',
             url='https://y.z/',
         )
-        mock_get.side_effect = [full_redir, bad_hcard]
+        mock_get.side_effect = [self.full_redir, bad_hcard]
         self._test_verify(True, False, None)
 
     @mock.patch('requests.get')
     def test_verify_both_work(self, mock_get):
-        full_redir = requests_response(
-            status=302,
-            redirected_url='http://localhost/.well-known/webfinger?resource=acct:y.z@y.z')
         hcard = requests_response("""
 <html><body class="h-card">
   <a class="u-url p-name" href="/">me</a>
@@ -140,7 +153,7 @@ http://this/404s
 </body></html>""",
             url='https://y.z/',
         )
-        mock_get.side_effect = [full_redir, hcard]
+        mock_get.side_effect = [self.full_redir, hcard]
         self._test_verify(True, True, {
             'type': 'Person',
             'name': 'me',
@@ -165,6 +178,61 @@ http://this/404s
         root_user = User.get_by_id('y.z')
         self.assertEqual(root_user.key, www_user.key.get().use_instead)
         self.assertEqual(root_user.key, User.get_or_create('www.y.z').key)
+
+    @mock.patch('requests.get')
+    def test_verify_actor_rel_me_links(self, mock_get):
+        mock_get.side_effect = [
+            self.full_redir,
+            requests_response("""
+<body>
+<div class="h-card">
+<a class="u-url" rel="me" href="/about-me">Mrs. ☕ Foo</a>
+<a class="u-url" rel="me" href="/">should be ignored</a>
+<a class="u-url" rel="me" href="http://one" title="one title">
+  one text
+</a>
+<a class="u-url" rel="me" href="https://two" title=" two title "> </a>
+</div>
+</body>
+""", url='https://y.z/'),
+        ]
+        self._test_verify(True, True, {
+            'attachment': [{
+            'type': 'PropertyValue',
+            'name': 'Mrs. ☕ Foo',
+            'value': '<a rel="me" href="https://y.z/about-me">y.z/about-me</a>',
+        }, {
+            'type': 'PropertyValue',
+            'name': 'Web site',
+            'value': '<a rel="me" href="https://y.z/">y.z</a>',
+        }, {
+            'type': 'PropertyValue',
+            'name': 'one text',
+            'value': '<a rel="me" href="http://one">one</a>',
+        }, {
+            'type': 'PropertyValue',
+            'name': 'two title',
+            'value': '<a rel="me" href="https://two">two</a>',
+        }]})
+
+    @mock.patch('requests.get')
+    def test_verify_override_preferredUsername(self, mock_get):
+        mock_get.side_effect = [
+            self.full_redir,
+            requests_response("""
+<body>
+<a class="h-card u-url" rel="me" href="/about-me">
+  <span class="p-nickname">Nick</span>
+</a>
+</body>
+""", url='https://y.z/'),
+        ]
+        self._test_verify(True, True, {
+            # stays y.z despite user's username. since Mastodon queries Webfinger
+            # for preferredUsername@fed.brid.gy
+            # https://github.com/snarfed/bridgy-fed/issues/77#issuecomment-949955109
+            'preferredUsername': 'y.z',
+        })
 
     def test_homepage(self):
         self.assertEqual('https://y.z/', self.user.homepage)

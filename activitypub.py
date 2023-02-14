@@ -16,7 +16,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app, cache
 import common
-from common import CACHE_TIME, redirect_unwrap, redirect_wrap, TLD_BLOCKLIST
+from common import CACHE_TIME, host_url, redirect_unwrap, redirect_wrap, TLD_BLOCKLIST
 from models import Follower, Object, Target, User
 
 logger = logging.getLogger(__name__)
@@ -46,9 +46,9 @@ seen_ids_lock = threading.Lock()
 
 
 @app.get(f'/<regex("{common.DOMAIN_RE}"):domain>')
-@flask_util.cached(cache, CACHE_TIME, http_5xx=True)
+@flask_util.cached(cache, CACHE_TIME)
 def actor(domain):
-    """Fetches a domain's h-card and converts to AS2 actor."""
+    """Serves a user's AS2 actor from the datastore."""
     tld = domain.split('.')[-1]
     if tld in TLD_BLOCKLIST:
         error('', status=404)
@@ -56,12 +56,33 @@ def actor(domain):
     user = User.get_by_id(domain)
     if not user:
         return f'User {domain} not found', 404
+    elif not user.actor_as2:
+        return f'User {domain} not fully set up', 404
 
-    _, _, actor = common.actor(user)
-    return (actor, {
+    # TODO: unify with common.actor()
+    actor = {
+        **common.postprocess_as2(json_loads(user.actor_as2), user=user),
+        'id': host_url(domain),
+        # This has to be the domain for Mastodon etc interop! It seems like it
+        # should be the custom username from the acct: u-url in their h-card,
+        # but that breaks Mastodon's Webfinger discovery. Background:
+        # https://github.com/snarfed/bridgy-fed/issues/302#issuecomment-1324305460
+        # https://github.com/snarfed/bridgy-fed/issues/77
+        'preferredUsername': domain,
+        'inbox': host_url(f'{domain}/inbox'),
+        'outbox': host_url(f'{domain}/outbox'),
+        'following': host_url(f'{domain}/following'),
+        'followers': host_url(f'{domain}/followers'),
+        'endpoints': {
+            'sharedInbox': host_url('inbox'),
+        },
+    }
+
+    logger.info(f'Returning: {json_dumps(actor, indent=2)}')
+    return actor, {
         'Content-Type': as2.CONTENT_TYPE,
         'Access-Control-Allow-Origin': '*',
-    })
+    }
 
 
 @app.post('/inbox')
