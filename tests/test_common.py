@@ -4,13 +4,14 @@ from unittest import mock
 
 from granary import as2
 from oauth_dropins.webutil import appengine_config, util
+from oauth_dropins.webutil.util import json_dumps, json_loads
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 from werkzeug.exceptions import BadGateway
 
 from app import app
 import common
-from models import User
+from models import Object, User
 from . import testutil
 
 HTML = requests_response('<html></html>', headers={
@@ -226,3 +227,39 @@ class CommonTest(testutil.TestCase):
         resp = common.signed_post('https://first', user=self.user)
         mock_post.assert_called_once()
         self.assertEqual(302, resp.status_code)
+
+    @mock.patch('requests.get', return_value=AS2)
+    def test_get_object_http(self, mock_get):
+        self.assertEqual(0, Object.query().count())
+
+        # first time fetches over HTTP
+        id = 'http://the/id'
+        got = common.get_object(id)
+        self.assert_equals(id, got.key.id())
+        self.assert_equals(AS2_OBJ, json_loads(got.as2))
+        mock_get.assert_has_calls([self.as2_req(id)])
+
+        # second time is in cache
+        got.key.delete()
+        mock_get.reset_mock()
+        got = common.get_object(id)
+        self.assert_equals(id, got.key.id())
+        self.assert_equals(AS2_OBJ, json_loads(got.as2))
+        mock_get.assert_not_called()
+
+    @mock.patch('requests.get')
+    def test_get_object_datastore(self, mock_get):
+        id = 'http://the/id'
+        stored = Object(id=id, as2=json_dumps(AS2_OBJ), as1='{}')
+        stored.put()
+
+        # first time loads from datastore
+        got = common.get_object(id)
+        self.assert_entities_equal(stored, got)
+        mock_get.assert_not_called()
+
+        # second time is in cache
+        stored.key.delete()
+        got = common.get_object(id)
+        self.assert_entities_equal(stored, got)
+        mock_get.assert_not_called()

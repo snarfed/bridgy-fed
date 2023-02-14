@@ -697,7 +697,8 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('active', other.key.get().status)
 
     def test_delete_note(self, _, __, ___):
-        key = Object(id='http://an/obj', as1='{}').put()
+        obj = Object(id='http://an/obj', as1='{}')
+        obj.put()
 
         delete = {
             **DELETE,
@@ -705,10 +706,13 @@ class ActivityPubTest(testutil.TestCase):
         }
         resp = self.client.post('/inbox', json=delete)
         self.assertEqual(200, resp.status_code)
-        self.assertTrue(key.get().deleted)
+        self.assertTrue(obj.key.get().deleted)
         self.assert_object(delete['id'], as2=delete, as1=as2.to_as1(delete),
                            type='delete', source_protocol='activitypub',
                            status='complete')
+
+        obj.deleted = True
+        self.assert_entities_equal(obj, common.get_object.cache['http://an/obj'])
 
     def test_update_note(self, *_):
         Object(id='https://a/note', as1='{}').put()
@@ -727,6 +731,9 @@ class ActivityPubTest(testutil.TestCase):
         self.assert_object(UPDATE_NOTE['id'], source_protocol='activitypub',
                            type='update', status='complete', as2=UPDATE_NOTE,
                            as1=as2.to_as1(UPDATE_NOTE))
+
+        self.assert_entities_equal(Object.get_by_id('https://a/note'),
+                                   common.get_object.cache['https://a/note'])
 
     def test_inbox_webmention_discovery_connection_fails(self, mock_head,
                                                          mock_get, mock_post):

@@ -9,8 +9,10 @@ import itertools
 import logging
 import os
 import re
+import threading
 import urllib.parse
 
+from cachetools import cached, LRUCache
 from flask import request
 from granary import as1, as2, microformats2
 from httpsig.requests_auth import HTTPSignatureAuth
@@ -115,6 +117,30 @@ def pretty_link(url, text=None, user=None):
       text = match.expand(r'@\3@\1')
 
   return util.pretty_link(url, text=text)
+
+
+@cached(LRUCache(1000), lock=threading.Lock())
+def get_object(id, user=None):
+    """Loads and returns an Object from memory cache, datastore, or HTTP fetch.
+
+    Note that :meth:`Object._post_put_hook` updates the cache.
+
+    Args:
+      id: str
+      user: optional, :class:`User` used to sign HTTP request, if necessary
+
+    Returns: Object, or None if it can't be fetched
+    """
+    if obj := Object.get_by_id(id):
+        return obj
+
+    obj_as2 = get_as2(id, user=user).json()
+    obj = Object(id=id,
+                 as2=json_dumps(obj_as2),
+                 as1=json_dumps(as2.to_as1(obj_as2)),
+                 source_protocol='activitypub')
+    obj.put()
+    return obj
 
 
 def signed_get(url, user, **kwargs):

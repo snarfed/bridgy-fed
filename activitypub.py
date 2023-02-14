@@ -153,10 +153,11 @@ def inbox(domain=None):
 
         logger.info(f'updating Object {obj_id}')
         obj = Object.get_by_id(obj_id) or Object(id=obj_id)
-        obj.as2 = json_dumps(obj_as2)
-        obj_as1 = as2.to_as1(obj_as2)
-        obj.as1 = json_dumps(obj_as1)
-        obj.source_protocol = 'activitypub'
+        obj.populate(
+            as2=json_dumps(obj_as2),
+            as1=json_dumps(as2.to_as1(obj_as2)),
+            source_protocol='activitypub',
+        )
         obj.put()
         return 'OK'
 
@@ -188,7 +189,8 @@ def inbox(domain=None):
 
     # fetch object if necessary so we can render it in feeds
     if type in FETCH_OBJECT_TYPES and isinstance(activity.get('object'), str):
-        obj_as2 = activity['object'] = common.get_as2(activity['object'], user=user).json()
+        obj_as2 = activity['object'] = \
+            common.get_as2(activity['object'], user=user).json()
 
     activity_unwrapped = redirect_unwrap(activity)
     if type == 'Follow':

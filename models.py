@@ -302,6 +302,11 @@ class Object(StringIdModel):
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
+    def _post_put_hook(self, future):
+        """Update :func:`common.get_object` cache."""
+        if self.type != 'activity':
+            common.get_object.cache[self.key.id()] = self
+
     def proxy_url(self):
         """Returns the Bridgy Fed proxy URL to render this post as HTML."""
         return common.host_url('render?' +

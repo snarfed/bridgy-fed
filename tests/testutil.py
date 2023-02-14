@@ -29,6 +29,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         super().setUp()
         app.testing = True
         cache.clear()
+        common.get_object.cache.clear()
 
         self.client = app.test_client()
         self.client.__enter__()
