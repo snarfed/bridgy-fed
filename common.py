@@ -134,12 +134,12 @@ def get_object(id, user=None):
     obj = Object.get_by_id(id)
     if obj:
       if obj.as2:
-        logging.info(f'Got Object from datastore: {id}')
+        logger.info(f'Got Object from datastore: {id}')
         return obj
     else:
       obj = Object(id=id)
 
-    logging.info(f'Object not in datastore or has no as2: {id}')
+    logger.info(f'Object not in datastore or has no as2: {id}')
     obj_as2 = get_as2(id, user=user).json()
     obj.populate(as2=json_dumps(obj_as2),
                  as1=json_dumps(as2.to_as1(obj_as2)),
@@ -179,7 +179,7 @@ def signed_request(fn, url, user, data=None, log_data=True, headers=None, **kwar
 
     if data:
         if log_data:
-            logging.info(f'Sending AS2 object: {json_dumps(data, indent=2)}')
+            logger.info(f'Sending AS2 object: {json_dumps(data, indent=2)}')
         data = json_dumps(data).encode()
 
     headers = copy.deepcopy(headers)
@@ -359,7 +359,6 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
     if activity.get('objectType') == 'activity':
       obj.labels.append('activity')
     obj.put()
-    logging.info(f'Created Object {source}')
 
     while obj.undelivered:
         target = obj.undelivered.pop()
@@ -394,7 +393,6 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
 
     obj.status = 'complete' if obj.delivered else 'failed' if obj.failed else 'ignored'
     obj.put()
-    logging.info(f'Finalized Object {source} as {obj.status}')
 
     if errors:
         msg = 'Errors: ' + ', '.join(f'{code} {body}' for code, body in errors)

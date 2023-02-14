@@ -78,6 +78,9 @@ class User(StringIdModel):
     def _get_kind(cls):
         return 'MagicKey'
 
+    def _post_put_hook(self, future):
+        logger.info(f'Wrote User {self.key.id()}')
+
     @classmethod
     def get_by_id(cls, id):
         """Override Model.get_by_id to follow the use_instead property."""
@@ -199,7 +202,7 @@ class User(StringIdModel):
             try:
                 resp = util.requests_get(root_site, gateway=False)
                 if resp.ok and self.is_homepage(resp.url):
-                    logging.info(f'{root_site} redirects to {resp.url} ; using {root} instead')
+                    logger.info(f'{root_site} redirects to {resp.url} ; using {root} instead')
                     root_user = User.get_or_create(root)
                     self.use_instead = root_user.key
                     self.put()
@@ -305,6 +308,7 @@ class Object(StringIdModel):
     def _post_put_hook(self, future):
         """Update :func:`common.get_object` cache."""
         # TODO: assert that as1 id is same as key id? in pre put hook?
+        logger.info(f'Wrote Object {self.key.id()} {self.type} {self.status or ""} {self.labels} for {len(self.domains)} users')
         if self.type != 'activity':
             key = common.get_object.cache_key(self.key.id())
             common.get_object.cache[key] = self
@@ -365,6 +369,9 @@ class Follower(StringIdModel):
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
+    def _post_put_hook(self, future):
+        logger.info(f'Wrote Follower {self.key.id()} {self.status}')
+
     @classmethod
     def _id(cls, dest, src):
         assert src
@@ -373,7 +380,6 @@ class Follower(StringIdModel):
 
     @classmethod
     def get_or_create(cls, dest, src, **kwargs):
-        logger.info(f'new Follower from {src} to {dest}')
         follower = cls.get_or_insert(cls._id(dest, src), src=src, dest=dest, **kwargs)
         follower.dest = dest
         follower.src = src

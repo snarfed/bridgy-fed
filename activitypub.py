@@ -118,7 +118,7 @@ def inbox(domain=None):
         seen_ids[id] = True
         if already_seen or Object.get_by_id(id):
             msg = f'Already handled this activity {id}'
-            logging.info(msg)
+            logger.info(msg)
             return msg, 200
 
     activity_as1 = as2.to_as1(activity)
@@ -151,7 +151,6 @@ def inbox(domain=None):
         if not obj_id:
             error("Couldn't find obj_id of object to update")
 
-        logger.info(f'updating Object {obj_id}')
         obj = Object.get_by_id(obj_id) or Object(id=obj_id)
         obj.populate(
             as2=json_dumps(obj_as2),
@@ -212,13 +211,13 @@ def inbox(domain=None):
         # not Like, Follow, or other activity types, since Mastodon doesn't
         # currently mark those as explicitly public.
         if not as2.is_public(activity_unwrapped):
-            logging.info('Dropping non-public activity')
+            logger.info('Dropping non-public activity')
             return ''
 
         if actor:
             actor_id = actor.get('id')
             if actor_id:
-                logging.info(f'Finding followers of {actor_id}')
+                logger.info(f'Finding followers of {actor_id}')
                 activity_obj.domains = [
                     f.src for f in Follower.query(Follower.dest == actor_id,
                                                   projection=[Follower.src]).fetch()]
@@ -227,7 +226,6 @@ def inbox(domain=None):
         activity_obj.as1 = activity_as1_str
         activity_obj.labels = ['feed', 'activity']
         activity_obj.put()
-        logging.info(f'Wrote Object {id} for {len(activity_obj.domains)} followers')
 
     return 'OK'
 
@@ -314,7 +312,6 @@ def undo_follow(undo_unwrapped):
     user_domain = util.domain_from_link(followee, minimize=False)
     follower_obj = Follower.get_by_id(Follower._id(dest=user_domain, src=follower))
     if follower_obj:
-        logger.info(f'Marking {follower_obj.key} as inactive')
         follower_obj.status = 'inactive'
         follower_obj.put()
     else:

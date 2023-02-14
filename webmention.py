@@ -143,12 +143,12 @@ class Webmention(View):
         changed = False
 
         if obj:
-            logging.info(f'Resuming existing {obj}')
+            logger.info(f'Resuming existing {obj}')
             obj.failed = []
             seen = [t.uri for t in obj.delivered + obj.undelivered + obj.failed]
             new_inboxes = [i for i in inboxes_to_targets.keys() if i not in seen]
             if new_inboxes:
-                logging.info(f'Adding new inboxes: {new_inboxes}')
+                logger.info(f'Adding new inboxes: {new_inboxes}')
                 obj.undelivered += [Target(uri=uri, protocol='activitypub')
                                     for uri in new_inboxes]
             if type in ('note', 'article', 'comment'):
@@ -163,7 +163,6 @@ class Webmention(View):
                          undelivered=[Target(uri=uri, protocol='activitypub')
                                       for uri in inboxes_to_targets.keys()],
                          status='in progress')
-            logging.info(f'Storing new Object {self.source_url}')
 
         obj.domains = [self.source_domain]
         obj.source_protocol = 'webmention'
@@ -183,7 +182,7 @@ class Webmention(View):
             if inbox in inboxes_to_targets:
                 target_as2 = inboxes_to_targets[inbox]
             else:
-                logging.warning(f'Missing target_as2 for inbox {inbox}!')
+                logger.warning(f'Missing target_as2 for inbox {inbox}!')
                 target_as2 = None
 
             if not self.source_as2:
@@ -330,7 +329,7 @@ class Webmention(View):
 
             if not inbox_url:
                 # TODO: probably need a way to surface errors like this
-                logging.error('Target actor has no inbox')
+                logger.error('Target actor has no inbox')
                 continue
 
             inbox_url = urllib.parse.urljoin(target, inbox_url)

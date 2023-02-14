@@ -173,7 +173,6 @@ class FollowCallback(indieauth.Callback):
                source_protocol='ui', status='complete', as2=follow_json,
                as1=json_dumps(as2.to_as1(follow_as2), sort_keys=True),
                ).put()
-        logging.info(f'Wrote Object {follow_id}')
 
         link = common.pretty_link(util.get_url(followee) or id, text=addr)
         flash(f'Followed {link}.')
@@ -243,7 +242,6 @@ class UnfollowCallback(indieauth.Callback):
                as2=json_dumps(unfollow_as2, sort_keys=True),
                as1=json_dumps(as2.to_as1(unfollow_as2), sort_keys=True),
                ).put()
-        logging.info(f'Wrote Object {unfollow_id}')
 
         link = common.pretty_link(util.get_url(followee) or followee_id)
         flash(f'Unfollowed {link}.')
