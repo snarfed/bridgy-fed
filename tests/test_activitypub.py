@@ -191,6 +191,7 @@ class ActivityPubTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
         self.user = User.get_or_create('foo.com')
+        activitypub.seen_ids.clear()
 
     def test_actor(self, _, mock_get, __):
         mock_get.return_value = requests_response("""
@@ -841,13 +842,13 @@ class ActivityPubTest(testutil.TestCase):
         obj_key = Object(id=FOLLOW_WRAPPED['id'], as1='{}').put()
 
         got = self.client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
-        self.assertEqual(204, got.status_code)
+        self.assertEqual(200, got.status_code)
         self.assertEqual(0, Follower.query().count())
 
         # second time should use in memory cache
         obj_key.delete()
         got = self.client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
-        self.assertEqual(204, got.status_code)
+        self.assertEqual(200, got.status_code)
         self.assertEqual(0, Follower.query().count())
 
     def test_followers_collection_unknown_user(self, *args):

@@ -93,16 +93,12 @@ def inbox(domain=None):
 
     # short circuit if we've already seen this activity id
     with seen_ids_lock:
-        if id in seen_ids:
-            error(f'Already handled this activity {id}', status=204)
-
-    # (theoretically querying keys-only with a key == filter should be the same
-    # query plan as get_by_id(), and slightly cheaper, since it doesn't have to
-    # return the properties?)
-    if Object.query(Object.key == ndb.Key(Object, id)).get(keys_only=True):
-        with seen_ids_lock:
-            seen_ids[id] = True
-        error(f'Already handled this activity {id}', status=204)
+        already_seen = id in seen_ids
+        seen_ids[id] = True
+        if already_seen or Object.get_by_id(id):
+            msg = f'Already handled this activity {id}'
+            logging.info(msg)
+            return msg, 200
 
     activity_as1 = as2.to_as1(activity)
     as1_type = as1.object_type(activity_as1)
