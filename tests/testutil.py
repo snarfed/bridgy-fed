@@ -112,6 +112,11 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             if got_val:
                 setattr(got, prop, json_dumps(json_loads(got_val), sort_keys=True))
 
+        for computed in 'type', 'object_ids':
+            val = props.pop(computed, None)
+            if val is not None:
+                self.assertEqual(val, getattr(got, computed))
+
         self.assert_entities_equal(Object(id=id, **props), got,
                                    ignore=['created', 'updated'])
 

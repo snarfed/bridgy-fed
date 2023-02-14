@@ -170,8 +170,6 @@ class Webmention(View):
         obj.source_protocol = 'webmention'
         obj.mf2 = json_dumps(self.source_mf2)
         obj.as1 = json_dumps(self.source_as1)
-        obj.type = type
-        obj.object_ids = as1.get_ids(self.source_as1, 'object')
         obj.labels = ['user']
         if self.source_as1.get('objectType') == 'activity':
             obj.labels.append('activity')

@@ -12,7 +12,7 @@ from Crypto.PublicKey import RSA
 from Crypto.Util import number
 from flask import request
 from google.cloud import ndb
-from granary import as2, microformats2
+from granary import as1, as2, microformats2
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.models import StringIdModel
 from oauth_dropins.webutil import util
@@ -285,9 +285,15 @@ class Object(StringIdModel):
     bsky = ndb.TextProperty() # Bluesky / AT Protocol
     mf2 = ndb.TextProperty()  # HTML microformats2
 
-    type = ndb.StringProperty()  # AS1 objectType, or verb if it's an activity
+    @ndb.ComputedProperty
+    def type(self):  # AS1 objectType, or verb if it's an activity
+        return as1.object_type(json_loads(self.as1))
+
+    def _object_ids(self):  # id(s) of inner objects
+        return as1.get_ids(json_loads(self.as1), 'object')
+    object_ids = ndb.ComputedProperty(_object_ids, repeated=True)
+
     deleted = ndb.BooleanProperty()
-    object_ids = ndb.StringProperty(repeated=True)  # id(s) of inner objects
 
     delivered = ndb.StructuredProperty(Target, repeated=True)
     undelivered = ndb.StructuredProperty(Target, repeated=True)

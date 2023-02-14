@@ -104,7 +104,7 @@ def inbox(domain=None):
     as1_type = as1.object_type(activity_as1)
     activity_obj = Object(
         id=id, as2=json_dumps(activity), as1=json_dumps(activity_as1),
-        type=as1_type, source_protocol='activitypub', status='complete')
+        source_protocol='activitypub', status='complete')
     activity_obj.put()
 
     if type == 'Accept':  # eg in response to a Follow
@@ -135,7 +135,6 @@ def inbox(domain=None):
         obj.as2 = json_dumps(obj_as2)
         obj_as1 = as2.to_as1(obj_as2)
         obj.as1 = json_dumps(obj_as1)
-        obj.type = as1.object_type(obj_as1)
         obj.source_protocol = 'activitypub'
         obj.put()
         return 'OK'
@@ -179,9 +178,8 @@ def inbox(domain=None):
     activity_as1 = as2.to_as1(activity_unwrapped)
     activity_as1_str = json_dumps(activity_as1)
     common.send_webmentions(as2.to_as1(activity), proxy=True,
-                            source_protocol='activitypub', type=as1_type,
-                            as2=activity_as2_str, as1=activity_as1_str,
-                            object_ids=as1.get_ids(activity_as1, 'object'))
+                            source_protocol='activitypub',
+                            as2=activity_as2_str, as1=activity_as1_str)
 
     # deliver original posts and reposts to followers
     if ((type == 'Create' and not activity.get('inReplyTo') and not obj_as2.get('inReplyTo'))
@@ -203,8 +201,6 @@ def inbox(domain=None):
 
         activity_obj.as2 = activity_as2_str
         activity_obj.as1 = activity_as1_str
-        activity_obj.type = as1_type
-        activity_obj.object_ids = as1.get_ids(activity_as1, 'object')
         activity_obj.labels = ['feed', 'activity']
         activity_obj.put()
         logging.info(f'Wrote Object {id} for {len(activity_obj.domains)} followers')
@@ -268,8 +264,7 @@ def accept_follow(follow, follow_unwrapped, user):
     # send webmention
     common.send_webmentions(as2.to_as1(follow), proxy=True, source_protocol='activitypub',
                             as2=json_dumps(follow_unwrapped),
-                            as1=json_dumps(as2.to_as1(follow_unwrapped)),
-                            type='follow', object_ids=[followee_id])
+                            as1=json_dumps(as2.to_as1(follow_unwrapped)))
 
     return resp.text, resp.status_code
 
