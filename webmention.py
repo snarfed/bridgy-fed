@@ -11,7 +11,7 @@ import feedparser
 from flask import redirect, request
 from flask.views import View
 from google.cloud.ndb import Key
-from granary import as1, as2, atom, microformats2
+from granary import as1, as2, microformats2
 import mf2util
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.appengine_config import tasks_client

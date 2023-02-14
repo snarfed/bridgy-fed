@@ -126,21 +126,6 @@ class WebmentionTest(testutil.TestCase):
 </meta>
 </html>
 """, url='https://orig/post', content_type=CONTENT_TYPE_HTML)
-        self.orig_html_atom = requests_response("""\
-<html>
-<meta>
-<link href='https://orig/atom' rel='alternate' type='application/atom+xml'>
-</meta>
-</html>
-""", url='https://orig/post', content_type=CONTENT_TYPE_HTML)
-        self.orig_atom = requests_response("""\
-<?xml version="1.0"?>
-<entry xmlns="http://www.w3.org/2005/Atom">
-  <id>tag:fed.brid.gy,2017-08-22:orig-post</id>
-  <link rel="salmon" href="https://orig/salmon"/>
-  <content type="html">baz ☕ baj</content>
-</entry>
-""", content_type=atom.CONTENT_TYPE)
         self.orig_as2_data = {
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Article',
