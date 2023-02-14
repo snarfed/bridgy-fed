@@ -21,6 +21,12 @@ from models import Follower, Object, User
 
 FOLLOWERS_UI_LIMIT = 999
 
+# precompute this because we get a ton of requests for non-existing users
+# from weird open redirect referrers:
+# https://github.com/snarfed/bridgy-fed/issues/422
+with app.test_request_context('/'):
+    USER_NOT_FOUND_HTML = render_template('user_not_found.html')
+
 logger = logging.getLogger(__name__)
 
 
@@ -70,7 +76,7 @@ def check_web_site():
 def user(domain):
     user = User.get_by_id(domain)
     if not user:
-        return render_template('user_not_found.html', domain=domain), 404
+        return USER_NOT_FOUND_HTML, 404
     elif user.key.id() != domain:
         return redirect(f'/user/{user.key.id()}', code=301)
 
@@ -103,7 +109,7 @@ def user(domain):
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
 def followers_or_following(domain, collection):
     if not (user := User.get_by_id(domain)):  # user var is used in template
-        return render_template('user_not_found.html', domain=domain), 404
+        return USER_NOT_FOUND_HTML, 404
 
     followers, before, after = common.fetch_followers(domain, collection)
 
