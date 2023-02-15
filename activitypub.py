@@ -93,14 +93,13 @@ def actor(domain):
 def inbox(domain=None):
     """Handles ActivityPub inbox delivery."""
     body = request.get_data(as_text=True)
-    logger.info(f'Got: {body}')
 
     # parse and validate AS2 activity
     try:
         activity = request.json
         assert activity
     except (TypeError, ValueError, AssertionError):
-        error("Couldn't parse body as JSON", exc_info=True)
+        error(f"Couldn't parse body as JSON: {body}", exc_info=True)
 
     type = activity.get('type')
     actor = activity.get('actor')
@@ -152,24 +151,26 @@ def inbox(domain=None):
     # TODO: switch this from erroring to logging lots of detail. need to see
     # which headers, key shapes, etc we get in the wild.
     if request.headers.get('Signature'):
-        digest = request.headers.get('Digest')
+        digest = request.headers.get('Digest') or ''
+        expected = b64encode(sha256(request.data).digest()).decode()
         if not digest:
             logger.warning('Missing Digest header, required for HTTP Signature')
-
-        expected = b64encode(sha256(request.data).digest()).decode()
-        if digest.removeprefix('SHA-256=') != expected:
+        elif digest.removeprefix('SHA-256=') != expected:
             logger.warning('Invalid Digest header, required for HTTP Signature')
-
-        # TODO: check keyId
-        key = actor.get('publicKey', {}).get('publicKeyPem', {})
-        try:
-            if not HeaderVerifier(request.headers, key, method='GET', path=request.path,
+        else:
+            # TODO: check keyId
+            key = actor.get('publicKey', {}).get('publicKeyPem')
+            logger.info(f'publicKey: {json_dumps(actor.get("publicKey"), indent=2)}')
+            logger.info(f'Headers: {json_dumps(dict(request.headers), indent=2)}')
+            try:
+                if HeaderVerifier(request.headers, key, method='GET', path=request.path,
                                   required_headers=common.HTTP_SIG_HEADERS,
                                   sign_header='signature').verify():
-                logger.warning('HTTP Signature verification failed')
-        except BaseException as e:
-            logger.warning(f'HTTP Signature verification failed: {e}')
-        logger.info('HTTP Signature verified!')
+                    logger.info('HTTP Signature verified!')
+                else:
+                    logger.warning('HTTP Signature verification failed')
+            except BaseException as e:
+                logger.warning(f'HTTP Signature verification failed: {e}')
     else:
         logger.info('No HTTP Signature')
 
@@ -250,9 +251,11 @@ def inbox(domain=None):
                     f.src for f in Follower.query(Follower.dest == actor_id,
                                                   projection=[Follower.src]).fetch()]
 
-        activity_obj.as2 = activity_as2_str
-        activity_obj.as1 = activity_as1_str
-        activity_obj.labels = ['feed', 'activity']
+        activity_obj.populate(
+            as2=activity_as2_str,
+            as1=activity_as1_str,
+            labels=['feed', 'activity'],
+        )
         activity_obj.put()
 
     return 'OK'
