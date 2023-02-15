@@ -700,7 +700,9 @@ class ActivityPubTest(testutil.TestCase):
 
         self.assertIsNone(Object.get_by_id(bad_url))
 
-    def test_inbox_verify_http_signature(self, _, mock_get, ___):
+    @patch('activitypub.logger.warning')
+    @patch('activitypub.logger.info')
+    def test_inbox_verify_http_signature(self, mock_info, mock_warning, _, mock_get, ___):
         # actor with a public key
         mock_get.return_value = self.as2_resp({
             **ACTOR,
@@ -726,23 +728,18 @@ class ActivityPubTest(testutil.TestCase):
         headers = hs.sign(headers, method='GET', path='/inbox')
 
         # valid signature
-        with self.assertLogs(activitypub.logger, level='INFO') as logs:
-            resp = self.client.post('/inbox', data=body, headers=headers)
+        resp = self.client.post('/inbox', data=body, headers=headers)
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertIn('INFO:activitypub:HTTP Signature verified!', logs.output)
+        mock_info.assert_any_call('HTTP Signature verified!')
 
         # invalid signature, content changed
         activitypub.seen_ids.clear()
         obj_key = ndb.Key(Object, NOTE['id'])
         obj_key.delete()
 
-        with self.assertLogs(activitypub.logger, level='WARNING') as logs:
-            resp = self.client.post('/inbox', json={**NOTE, 'content': 'z'},
-                                    headers=headers)
+        resp = self.client.post('/inbox', json={**NOTE, 'content': 'z'}, headers=headers)
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertIn(
-            'WARNING:activitypub:Invalid Digest header, required for HTTP Signature',
-            logs.output)
+        mock_warning.assert_any_call('Invalid Digest header, required for HTTP Signature')
 
         # TODO once we start failing on bad sigs
         # self.assertEqual(401, resp.status_code)
@@ -752,11 +749,9 @@ class ActivityPubTest(testutil.TestCase):
         obj_key.delete()
         orig_date = headers['Date']
 
-        with self.assertLogs(activitypub.logger, level='WARNING') as logs:
-            resp = self.client.post('/inbox', data=body, headers={**headers, 'Date': 'X'})
+        resp = self.client.post('/inbox', data=body, headers={**headers, 'Date': 'X'})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertIn('WARNING:activitypub:HTTP Signature verification failed',
-                      logs.output)
+        mock_warning.assert_any_call('HTTP Signature verification failed')
 
         # TODO once we start failing on bad sigs
         # self.assertEqual(401, resp.status_code)
@@ -764,10 +759,9 @@ class ActivityPubTest(testutil.TestCase):
         # no signature
         activitypub.seen_ids.clear()
         obj_key.delete()
-        with self.assertLogs(activitypub.logger, level='INFO') as logs:
-            resp = self.client.post('/inbox', json=NOTE)
+        resp = self.client.post('/inbox', json=NOTE)
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertIn('INFO:activitypub:No HTTP Signature', logs.output)
+        mock_info.assert_any_call('No HTTP Signature')
 
     def test_delete_actor(self, _, mock_get, ___):
         follower = Follower.get_or_create('foo.com', DELETE['actor'])
