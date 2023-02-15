@@ -18,7 +18,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 from app import app, cache
-import common
+import activitypub, common
 from models import Object, Target
 
 
@@ -29,6 +29,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         super().setUp()
         app.testing = True
         cache.clear()
+        activitypub.seen_ids.clear()
         common.get_object.cache.clear()
 
         self.client = app.test_client()

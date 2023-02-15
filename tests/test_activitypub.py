@@ -1,10 +1,14 @@
 # coding=utf-8
 """Unit tests for activitypub.py."""
+from base64 import b64encode
 import copy
 from datetime import datetime, timedelta
+from hashlib import sha256
 from unittest.mock import ANY, call, patch
 
+from google.cloud import ndb
 from granary import as2
+from httpsig import HeaderSigner, HeaderVerifier
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -13,7 +17,7 @@ from urllib3.exceptions import ReadTimeoutError
 
 import activitypub
 import common
-from models import Follower, Object, Target, User
+from models import Follower, Object, User
 from . import testutil
 
 ACTOR = {
@@ -194,7 +198,6 @@ class ActivityPubTest(testutil.TestCase):
         super().setUp()
         self.user = User.get_or_create('foo.com', has_hcard=True,
                                        actor_as2=json_dumps(ACTOR))
-        activitypub.seen_ids.clear()
 
     def test_actor(self, *_):
         got = self.client.get('/foo.com')
@@ -223,7 +226,7 @@ class ActivityPubTest(testutil.TestCase):
             'publicKey': {
                 'id': 'http://localhost/foo.com',
                 'owner': 'http://localhost/foo.com',
-                'publicKeyPem': User.get_by_id('foo.com').public_pem().decode(),
+                'publicKeyPem': self.user.public_pem().decode(),
             },
         }, got.json)
 
@@ -598,6 +601,9 @@ class ActivityPubTest(testutil.TestCase):
 
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://foo.com/')
+        mock_get.side_effect = [
+            self.as2_resp(ACTOR),
+        ]
 
         Follower.get_or_create('foo.com', ACTOR['id'])
 
@@ -629,12 +635,19 @@ class ActivityPubTest(testutil.TestCase):
 
     def test_inbox_undo_follow_doesnt_exist(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://foo.com/')
+        mock_get.side_effect = [
+            self.as2_resp(ACTOR),
+        ]
 
         got = self.client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
     def test_inbox_undo_follow_inactive(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://foo.com/')
+        mock_get.side_effect = [
+            self.as2_resp(ACTOR),
+        ]
+
         Follower.get_or_create('foo.com', ACTOR['id'], status='inactive')
 
         got = self.client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
@@ -642,6 +655,10 @@ class ActivityPubTest(testutil.TestCase):
 
     def test_inbox_undo_follow_composite_object(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://foo.com/')
+        mock_get.side_effect = [
+            self.as2_resp(ACTOR),
+        ]
+
         Follower.get_or_create('foo.com', ACTOR['id'], status='inactive')
 
         undo_follow = copy.deepcopy(UNDO_FOLLOW_WRAPPED)
@@ -683,12 +700,59 @@ class ActivityPubTest(testutil.TestCase):
 
         self.assertIsNone(Object.get_by_id(bad_url))
 
-    def test_delete_actor(self, _, __, ___):
+    def test_inbox_verify_http_signature(self, _, mock_get, ___):
+        # actor with a public key
+        mock_get.return_value = self.as2_resp({
+            **ACTOR,
+            'publicKey': {
+                'id': 'my-key-id',
+                'owner': 'http://sen/der',
+                'publicKeyPem': self.user.public_pem().decode(),
+            },
+        })
+
+        # manually construct signature
+        body = json_dumps(NOTE)
+        digest = b64encode(sha256(body.encode()).digest()).decode()
+        headers = {
+            'Date': 'Sun, 02 Jan 2022 03:04:05 GMT',
+            'Host': 'localhost',
+            'Content-Type': as2.CONTENT_TYPE,
+            'Digest': f'SHA-256={digest}',
+        }
+        hs = HeaderSigner('my-key-id', self.user.private_pem().decode(),
+                          algorithm='rsa-sha256', sign_header='signature',
+                          headers=('Date', 'Host', 'Digest', '(request-target)'))
+        headers = hs.sign(headers, method='GET', path='/inbox')
+
+        # valid signature
+        resp = self.client.post('/inbox', data=body, headers=headers)
+        self.assertEqual(200, resp.status_code)
+
+        # invalid signature, content changed
+        activitypub.seen_ids.clear()
+        obj_key = ndb.Key(Object, NOTE['id'])
+        obj_key.delete()
+        resp = self.client.post('/inbox', json={**NOTE, 'content': 'z'}, headers=headers)
+        self.assertEqual(401, resp.status_code)
+
+        # invalid signature, header changed
+        activitypub.seen_ids.clear()
+        obj_key.delete()
+        orig_date = headers['Date']
+        resp = self.client.post('/inbox', data=body, headers={**headers, 'Date': 'X'})
+        self.assertEqual(401, resp.status_code)
+
+    def test_delete_actor(self, _, mock_get, ___):
         follower = Follower.get_or_create('foo.com', DELETE['actor'])
         followee = Follower.get_or_create(DELETE['actor'], 'snarfed.org')
         # other unrelated follower
         other = Follower.get_or_create('foo.com', 'https://mas.to/users/other')
         self.assertEqual(3, Follower.query().count())
+
+        mock_get.side_effect = [
+            self.as2_resp(ACTOR),
+        ]
 
         got = self.client.post('/inbox', json=DELETE)
         self.assertEqual(200, got.status_code)
@@ -696,9 +760,13 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('inactive', followee.key.get().status)
         self.assertEqual('active', other.key.get().status)
 
-    def test_delete_note(self, _, __, ___):
+    def test_delete_note(self, _, mock_get, ___):
         obj = Object(id='http://an/obj', as1='{}')
         obj.put()
+
+        mock_get.side_effect = [
+            self.as2_resp(ACTOR),
+        ]
 
         delete = {
             **DELETE,
@@ -714,14 +782,18 @@ class ActivityPubTest(testutil.TestCase):
         obj.deleted = True
         self.assert_entities_equal(obj, common.get_object.cache['http://an/obj'])
 
-    def test_update_note(self, *_):
+    def test_update_note(self, *mocks):
         Object(id='https://a/note', as1='{}').put()
-        self._test_update()
+        self._test_update(*mocks)
 
-    def test_update_unknown(self, *_):
-        self._test_update()
+    def test_update_unknown(self, *mocks):
+        self._test_update(*mocks)
 
-    def _test_update(self):
+    def _test_update(self, _, mock_get, ___):
+        mock_get.side_effect = [
+            self.as2_resp(ACTOR),
+        ]
+
         resp = self.client.post('/inbox', json=UPDATE_NOTE)
         self.assertEqual(200, resp.status_code)
 

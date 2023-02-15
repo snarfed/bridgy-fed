@@ -78,6 +78,8 @@ _DEFAULT_SIGNATURE_USER = None
 CACHE_TIME = timedelta(seconds=60)
 PAGE_SIZE = 20
 
+HTTP_SIG_HEADERS = ('Date', 'Host', 'Digest', '(request-target)')
+
 
 def host_url(path_query=None):
   base = request.host_url
@@ -202,10 +204,9 @@ def signed_request(fn, url, user, data=None, log_data=True, headers=None, **kwar
     # implementations require, eg Peertube.
     # https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.3
     # https://github.com/snarfed/bridgy-fed/issues/40
-    auth = HTTPSignatureAuth(
-      secret=user.private_pem(), key_id=key_id, algorithm='rsa-sha256',
-      sign_header='signature',
-      headers=('Date', 'Host', 'Digest', '(request-target)'))
+    auth = HTTPSignatureAuth(secret=user.private_pem(), key_id=key_id,
+                             algorithm='rsa-sha256', sign_header='signature',
+                             headers=HTTP_SIG_HEADERS)
 
     # make HTTP request
     kwargs.setdefault('gateway', True)

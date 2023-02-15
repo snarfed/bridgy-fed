@@ -1,6 +1,8 @@
 """Handles requests for ActivityPub endpoints: actors, inbox, etc.
 """
+from base64 import b64encode
 import datetime
+from hashlib import sha256
 import logging
 import re
 import threading
@@ -10,6 +12,7 @@ from flask import request
 from google.cloud import ndb
 from google.cloud.ndb import OR
 from granary import as1, as2
+from httpsig import HeaderVerifier
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -133,14 +136,41 @@ def inbox(domain=None):
     if type not in SUPPORTED_TYPES:
         error(f'Sorry, {type} activities are not supported yet.', status=501)
 
-    # TODO: verify signature if there is one
-
+    # load user
     user = None
     if domain:
         user = User.get_by_id(domain)
         if not user:
             return f'User {domain} not found', 404
 
+    # load actor
+    if actor and isinstance(actor, str):
+        actor = activity['actor'] = \
+            json_loads(common.get_object(actor, user=user).as2)
+
+    # optionally verify signature
+    # TODO: switch this from erroring to logging lots of detail. need to see
+    # which headers, key shapes, etc we get in the wild.
+    if request.headers.get('Signature'):
+        digest = request.headers.get('Digest')
+        if not digest:
+            error(f'Missing Digest header, required for HTTP Signature', status=401)
+
+        expected = b64encode(sha256(request.data).digest()).decode()
+        if digest.removeprefix('SHA-256=') != expected:
+            error(f'Invalid Digest header, required for HTTP Signature', status=401)
+
+        # TODO: check keyId
+        key = actor.get('publicKey', {}).get('publicKeyPem', {})
+        try:
+            if not HeaderVerifier(request.headers, key, method='GET', path=request.path,
+                                  required_headers=common.HTTP_SIG_HEADERS,
+                                  sign_header='signature').verify():
+                error(f'HTTP Signature verification failed', status=401)
+        except BaseException as e:
+            error(f'HTTP Signature verification failed: {e}', status=401)
+
+    # handle activity!
     if type == 'Undo' and obj_as2.get('type') == 'Follow':
         # skip actor fetch below; we don't need it to undo a follow
         undo_follow(redirect_unwrap(activity))
@@ -181,11 +211,6 @@ def inbox(domain=None):
             f.status = 'inactive'
         ndb.put_multi(followers)
         return 'OK'
-
-    # fetch actor if necessary so we have name, profile photo, etc
-    if actor and isinstance(actor, str):
-        actor = activity['actor'] = \
-            json_loads(common.get_object(actor, user=user).as2)
 
     # fetch object if necessary so we can render it in feeds
     if type in FETCH_OBJECT_TYPES and isinstance(activity.get('object'), str):
