@@ -100,7 +100,7 @@ def inbox(domain=None):
         activity = request.json
         assert activity
     except (TypeError, ValueError, AssertionError):
-        error(f"Couldn't parse body as JSON", exc_info=True)
+        error("Couldn't parse body as JSON", exc_info=True)
 
     type = activity.get('type')
     actor = activity.get('actor')
@@ -154,11 +154,11 @@ def inbox(domain=None):
     if request.headers.get('Signature'):
         digest = request.headers.get('Digest')
         if not digest:
-            error(f'Missing Digest header, required for HTTP Signature', status=401)
+            logger.warning('Missing Digest header, required for HTTP Signature')
 
         expected = b64encode(sha256(request.data).digest()).decode()
         if digest.removeprefix('SHA-256=') != expected:
-            error(f'Invalid Digest header, required for HTTP Signature', status=401)
+            logger.warning('Invalid Digest header, required for HTTP Signature')
 
         # TODO: check keyId
         key = actor.get('publicKey', {}).get('publicKeyPem', {})
@@ -166,9 +166,12 @@ def inbox(domain=None):
             if not HeaderVerifier(request.headers, key, method='GET', path=request.path,
                                   required_headers=common.HTTP_SIG_HEADERS,
                                   sign_header='signature').verify():
-                error(f'HTTP Signature verification failed', status=401)
+                logger.warning('HTTP Signature verification failed')
         except BaseException as e:
-            error(f'HTTP Signature verification failed: {e}', status=401)
+            logger.warning(f'HTTP Signature verification failed: {e}')
+        logger.info('HTTP Signature verified!')
+    else:
+        logger.info('No HTTP Signature')
 
     # handle activity!
     if type == 'Undo' and obj_as2.get('type') == 'Follow':
