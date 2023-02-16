@@ -283,6 +283,13 @@ class ObjectTest(testutil.TestCase):
         key = common.get_object.cache_key('x')
         self.assert_entities_equal(obj, common.get_object.cache[key])
 
+    def test_put_fragment_id_doesnt_update_get_object_cache(self):
+        obj = Object(id='x#y', as1='{}')
+        obj.put()
+
+        self.assertNotIn(common.get_object.cache_key('x#y'), common.get_object.cache)
+        self.assertNotIn(common.get_object.cache_key('x'), common.get_object.cache)
+
 
 class FollowerTest(testutil.TestCase):
 

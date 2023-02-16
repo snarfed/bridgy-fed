@@ -309,7 +309,7 @@ class Object(StringIdModel):
         """Update :func:`common.get_object` cache."""
         # TODO: assert that as1 id is same as key id? in pre put hook?
         logger.info(f'Wrote Object {self.key.id()} {self.type} {self.status or ""} {self.labels} for {len(self.domains)} users')
-        if self.type != 'activity':
+        if self.type != 'activity' and '#' not in self.key.id():
             key = common.get_object.cache_key(self.key.id())
             common.get_object.cache[key] = self
 
