@@ -13,6 +13,7 @@ from google.cloud import ndb
 from google.cloud.ndb import OR
 from granary import as1, as2
 from httpsig import HeaderVerifier
+from httpsig.utils import parse_signature_header
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -142,26 +143,25 @@ def inbox(domain=None):
         if not user:
             return f'User {domain} not found', 404
 
-    # load actor
-    if actor and isinstance(actor, str):
-        actor = activity['actor'] = \
-            json_loads(common.get_object(actor, user=user).as2)
-
     # optionally verify signature
     # TODO: switch this from erroring to logging lots of detail. need to see
     # which headers, key shapes, etc we get in the wild.
-    if request.headers.get('Signature'):
+    sig = request.headers.get('Signature')
+    if sig:
+        logger.info(f'Headers: {json_dumps(dict(request.headers), indent=2)}')
+        # parse_signature_header lower-cases all keys
+        keyId = parse_signature_header(sig).get('keyid')
         digest = request.headers.get('Digest') or ''
         expected = b64encode(sha256(request.data).digest()).decode()
-        if not digest:
+        if not keyId:
+            logger.warning('HTTP Signature missing keyId')
+        elif not digest:
             logger.warning('Missing Digest header, required for HTTP Signature')
         elif digest.removeprefix('SHA-256=') != expected:
             logger.warning('Invalid Digest header, required for HTTP Signature')
         else:
-            # TODO: check keyId
-            key = actor.get('publicKey', {}).get('publicKeyPem')
-            logger.info(f'publicKey: {json_dumps(actor.get("publicKey"), indent=2)}')
-            logger.info(f'Headers: {json_dumps(dict(request.headers), indent=2)}')
+            key_actor = json_loads(common.get_object(keyId, user=user).as2)
+            key = key_actor.get("publicKey", {}).get('publicKeyPem')
             try:
                 if HeaderVerifier(request.headers, key, method='GET', path=request.path,
                                   required_headers=common.HTTP_SIG_HEADERS,
@@ -215,6 +215,11 @@ def inbox(domain=None):
             f.status = 'inactive'
         ndb.put_multi(followers)
         return 'OK'
+
+    # fetch actor if necessary so we have name, profile photo, etc
+    if actor and isinstance(actor, str):
+        actor = activity['actor'] = \
+            json_loads(common.get_object(actor, user=user).as2)
 
     # fetch object if necessary so we can render it in feeds
     if type in FETCH_OBJECT_TYPES and isinstance(activity.get('object'), str):

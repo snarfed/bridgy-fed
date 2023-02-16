@@ -4,6 +4,7 @@ from base64 import b64encode
 import copy
 from datetime import datetime, timedelta
 from hashlib import sha256
+import logging
 from unittest.mock import ANY, call, patch
 
 from google.cloud import ndb
@@ -700,15 +701,15 @@ class ActivityPubTest(testutil.TestCase):
 
         self.assertIsNone(Object.get_by_id(bad_url))
 
-    @patch('activitypub.logger.warning')
-    @patch('activitypub.logger.info')
+    @patch('activitypub.logger.warning', side_effect=logging.warning)
+    @patch('activitypub.logger.info', side_effect=logging.info)
     def test_inbox_verify_http_signature(self, mock_info, mock_warning, _, mock_get, ___):
         # actor with a public key
         mock_get.return_value = self.as2_resp({
             **ACTOR,
             'publicKey': {
-                'id': 'my-key-id',
-                'owner': 'http://sen/der',
+                'id': 'http://my/key/id#unused',
+                'owner': 'http://own/er',
                 'publicKeyPem': self.user.public_pem().decode(),
             },
         })
@@ -722,7 +723,7 @@ class ActivityPubTest(testutil.TestCase):
             'Content-Type': as2.CONTENT_TYPE,
             'Digest': f'SHA-256={digest}',
         }
-        hs = HeaderSigner('my-key-id', self.user.private_pem().decode(),
+        hs = HeaderSigner('http://my/key/id#unused', self.user.private_pem().decode(),
                           algorithm='rsa-sha256', sign_header='signature',
                           headers=('Date', 'Host', 'Digest', '(request-target)'))
         headers = hs.sign(headers, method='GET', path='/inbox')
@@ -730,7 +731,23 @@ class ActivityPubTest(testutil.TestCase):
         # valid signature
         resp = self.client.post('/inbox', data=body, headers=headers)
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        mock_get.assert_has_calls((
+            self.as2_req('http://my/key/id'),
+        ))
         mock_info.assert_any_call('HTTP Signature verified!')
+
+        # invalid signature, missing keyId
+        activitypub.seen_ids.clear()
+        obj_key = ndb.Key(Object, NOTE['id'])
+        obj_key.delete()
+
+        resp = self.client.post('/inbox', data=body, headers={
+            **headers,
+            'signature': headers['signature'].replace(
+                'keyId="http://my/key/id#unused",', ''),
+        })
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        mock_warning.assert_any_call('HTTP Signature missing keyId')
 
         # invalid signature, content changed
         activitypub.seen_ids.clear()
