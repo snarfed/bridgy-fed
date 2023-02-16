@@ -8,6 +8,7 @@ from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app
+import common
 from models import Follower, Object, User
 from . import testutil
 
@@ -275,6 +276,12 @@ class ObjectTest(testutil.TestCase):
         self.assertEqual(
             '<a href="/user/foo.com"><img src="" class="profile"> Alice</a>',
             obj.actor_link(user))
+
+    def test_put_updates_get_object_cache(self):
+        obj = Object(id='x', as1='{}')
+        obj.put()
+        key = common.get_object.cache_key('x')
+        self.assert_entities_equal(obj, common.get_object.cache[key])
 
 
 class FollowerTest(testutil.TestCase):
