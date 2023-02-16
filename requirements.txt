@@ -20,7 +20,7 @@ extras==1.0.0
 feedgen==0.9.0
 feedparser==6.0.10
 fixtures==4.0.1
-Flask==2.2.2
+Flask==2.2.3
 Flask-Caching==2.0.2
 flask-gae-static==1.0
 google-api-core==2.11.0
