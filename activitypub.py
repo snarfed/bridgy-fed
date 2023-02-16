@@ -162,9 +162,10 @@ def inbox(domain=None):
         else:
             key_actor = json_loads(common.get_object(keyId, user=user).as2)
             key = key_actor.get("publicKey", {}).get('publicKeyPem')
+            logger.info(f'Verifying signature for {request.path} with key {key}')
             try:
-                if HeaderVerifier(request.headers, key, method='GET', path=request.path,
-                                  required_headers=common.HTTP_SIG_HEADERS,
+                if HeaderVerifier(request.headers, key, required_headers=['Digest'],
+                                  method=request.method, path=request.path,
                                   sign_header='signature').verify():
                     logger.info('HTTP Signature verified!')
                 else:

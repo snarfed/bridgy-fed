@@ -29,11 +29,8 @@ from models import Follower, Object, Target, User
 logger = logging.getLogger(__name__)
 
 DOMAIN_RE = r'[^/:]+\.[^/:]+'
-ACCT_RE = f'(?:acct:)?([^@]+)@({DOMAIN_RE})'
 TLD_BLOCKLIST = ('7z', 'asp', 'aspx', 'gif', 'html', 'ico', 'jpg', 'jpeg', 'js',
                  'json', 'php', 'png', 'rar', 'txt', 'yaml', 'yml', 'zip')
-XML_UTF8 = "<?xml version='1.0' encoding='UTF-8'?>\n"
-LINK_HEADER_RE = re.compile(r""" *< *([^ >]+) *> *; *rel=['"]([^'"]+)['"] *""")
 
 CONTENT_TYPE_LD_PLAIN = 'application/ld+json'
 CONTENT_TYPE_HTML = 'text/html; charset=utf-8'

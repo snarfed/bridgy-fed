@@ -9,7 +9,7 @@ from unittest.mock import ANY, call, patch
 
 from google.cloud import ndb
 from granary import as2
-from httpsig import HeaderSigner, HeaderVerifier
+from httpsig import HeaderSigner
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -726,7 +726,7 @@ class ActivityPubTest(testutil.TestCase):
         hs = HeaderSigner('http://my/key/id#unused', self.user.private_pem().decode(),
                           algorithm='rsa-sha256', sign_header='signature',
                           headers=('Date', 'Host', 'Digest', '(request-target)'))
-        headers = hs.sign(headers, method='GET', path='/inbox')
+        headers = hs.sign(headers, method='POST', path='/inbox')
 
         # valid signature
         resp = self.client.post('/inbox', data=body, headers=headers)
