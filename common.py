@@ -121,9 +121,20 @@ def pretty_link(url, text=None, user=None):
   return util.pretty_link(url, text=text)
 
 
-@cached(LRUCache(1000), key=lambda id, user=None: id, lock=threading.Lock())
+@cached(LRUCache(1000), key=lambda id, user=None: util.fragmentless(id),
+        lock=threading.Lock())
 def get_object(id, user=None):
     """Loads and returns an Object from memory cache, datastore, or HTTP fetch.
+
+    Assumes id is a URL. Any fragment at the end is stripped before loading.
+    This is currently underspecified and somewhat inconsistent across AP
+    implementations:
+
+    https://socialhub.activitypub.rocks/t/problems-posting-to-mastodon-inbox/801/11
+    https://socialhub.activitypub.rocks/t/problems-posting-to-mastodon-inbox/801/23
+    https://socialhub.activitypub.rocks/t/s2s-create-activity/1647/5
+    https://github.com/mastodon/mastodon/issues/13879 (open!)
+    https://github.com/w3c/activitypub/issues/224
 
     Note that :meth:`Object._post_put_hook` updates the cache.
 
@@ -133,10 +144,12 @@ def get_object(id, user=None):
 
     Returns: Object, or None if it can't be fetched
     """
+    id = util.fragmentless(id)
+    logger.info(f'Loading Object {id}')
     obj = Object.get_by_id(id)
     if obj:
       if obj.as2:
-        logger.info(f'Got Object from datastore: {id}')
+        logger.info('  got from datastore')
         return obj
     else:
       obj = Object(id=id)

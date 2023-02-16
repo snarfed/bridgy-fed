@@ -265,6 +265,16 @@ class CommonTest(testutil.TestCase):
         self.assert_entities_equal(stored, got)
         mock_get.assert_not_called()
 
+    @mock.patch('requests.get')
+    def test_get_object_strips_fragment(self, mock_get):
+        stored = Object(id='http://the/id', as2=json_dumps(AS2_OBJ), as1='{}')
+        stored.put()
+        common.get_object.cache.clear()
+
+        got = common.get_object('http://the/id#ignore')
+        self.assert_entities_equal(stored, got)
+        mock_get.assert_not_called()
+
     @mock.patch('requests.get', return_value=AS2)
     def test_get_object_datastore_no_as2(self, mock_get):
         """If the stored Object has no as2, we should fall back to HTTP."""
