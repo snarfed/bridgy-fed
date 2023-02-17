@@ -43,7 +43,7 @@ class Actor(flask_util.XrdOrJrd):
             error(f'No user for {domain}', status=404)
 
         logger.info(f'Generating WebFinger data for {domain}')
-        actor = as2.to_as1(json_loads(user.actor_as2) if user.actor_as2 else {})
+        actor = user.to_as1() or {}
         logger.info(f'AS1 actor: {actor}')
         urls = util.dedupe_urls(util.get_list(actor, 'urls') +
                                 util.get_list(actor, 'url') +
