@@ -9,7 +9,8 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_loads
 
 from app import xrpc_server
-from models import Object
+from common import PAGE_SIZE
+from models import Object, User
 
 logger = logging.getLogger(__name__)
 
@@ -22,29 +23,18 @@ def getAuthorFeed(input, author=None, limit=None, before=None):
     if not author or not re.match(util.DOMAIN_RE, author):
         raise ValueError(f'{author} is not a domain')
 
-    url = f'https://{author}/'
-    mf2 = util.fetch_mf2(url, gateway=True)
-    logger.info(f'Got mf2: {json.dumps(mf2, indent=2)}')
+    user = User.get_by_id(author)
+    if not user:
+        raise ValueError(f'User {author} not found')
+    elif not user.actor_as2:
+        return ValueError(f'User {author} not fully set up')
 
-    feed_author = mf2util.find_author(mf2, source_url=url, fetch_mf2_func=util.fetch_mf2)
-    if feed_author:
-        logger.info(f'Authorship found: {feed_author}')
-        actor = {
-            'url': feed_author.get('url') or url,
-            'displayName': feed_author.get('name'),
-            'image': {'url': feed_author.get('photo')},
-        }
-    else:
-        logger.info(f'No authorship result on {url} ; generated {feed_author}')
-        actor = {
-            'url': url,
-            'displayName': author,
-        }
-
-    activities = microformats2.json_to_activities(mf2)
-    # default actor to feed author
-    for a in activities:
-        a.setdefault('actor', actor)
+    # TODO: unify with pages.feed?
+    limit = min(limit or PAGE_SIZE, PAGE_SIZE)
+    objects, _, _ = Object.query(Object.domains == author, Object.labels == 'user') \
+        .order(-Object.created) \
+        .fetch_page(limit)
+    activities = [json_loads(obj.as1) for obj in objects if not obj.deleted]
     logger.info(f'AS1 activities: {json.dumps(activities, indent=2)}')
 
     return {'feed': [bluesky.from_as1(a) for a in activities]}
@@ -58,64 +48,48 @@ def getPostThread(input, uri=None, depth=None):
     if not uri:
         raise ValueError('Missing uri')
 
-    mf2 = util.fetch_mf2(uri, gateway=True)
-    logger.info(f'Got mf2: {json.dumps(mf2, indent=2)}')
+    obj = Object.get_by_id(uri)
+    if not obj:
+        raise ValueError(f'{uri} not found')
 
-    entry = mf2util.find_first_entry(mf2, ['h-entry'])
-    logger.info(f'Entry: {json.dumps(entry, indent=2)}')
-    if not entry:
-        raise ValueError(f"No h-entry on {uri}")
-
-    obj = microformats2.json_to_object(entry)
-    logger.info(f'AS1: {json.dumps(obj, indent=2)}')
+    obj_as1 = json_loads(obj.as1)
+    logger.info(f'AS1: {json.dumps(obj_as1, indent=2)}')
 
     return {
         'thread': {
             '$type': 'app.bsky.feed.getPostThread#threadViewPost',
-            'post': bluesky.from_as1(obj)['post'],
+            'post': bluesky.from_as1(obj_as1)['post'],
             'replies': [{
                 '$type': 'app.bsky.feed.getPostThread#threadViewPost',
                 'post': bluesky.from_as1(reply)['post'],
-            } for reply in obj.get('replies', {}).get('items', [])],
+            } for reply in obj_as1.get('replies', {}).get('items', [])],
         },
     }
 
 
-# TODO
-# what's the mf2 for repost children of an h-entry? u-repost, like u-comment?
-# nothing about markup on https://indieweb.org/reposts
-# based on https://indieweb.org/comments-display , it would be u-repost
-# @xrpc_server.method('app.bsky.feed.getRepostedBy')
-# def getRepostedBy(input, uri=None, cid=None, limit=None, before=None):
-#     """
-#     lexicons/app/bsky/feed/getRepostedBy.json
-#     """
-#     mf2 = util.fetch_mf2(uri, gateway=True)
-#     logger.info(f'Got mf2: {json.dumps(mf2, indent=2)}')
+@xrpc_server.method('app.bsky.feed.getRepostedBy')
+def getRepostedBy(input, uri=None, cid=None, limit=None, before=None):
+    """
+    TODO: implement before, as query filter. what's input type? str or datetime?
+    lexicons/app/bsky/feed/getRepostedBy.json
+    """
+    if not uri:
+        raise ValueError('Missing uri')
 
-#     entry = mf2util.find_first_entry(mf2, ['h-entry'])
-#     logger.info(f'Entry: {json.dumps(entry, indent=2)}')
-#     if not entry:
-#         raise ValueError(f"No h-entry on {uri}")
+    limit = min(limit or PAGE_SIZE, PAGE_SIZE)
+    objects, _, _ = Object.query(Object.object_ids == uri) \
+        .order(-Object.created) \
+        .fetch_page(limit)
+    activities = [json_loads(obj.as1) for obj in objects if not obj.deleted]
+    logger.info(f'AS1 activities: {json.dumps(activities, indent=2)}')
 
-#     obj = microformats2.json_to_object(entry)
-#     logger.info(f'AS1: {json.dumps(obj, indent=2)}')
-
-#     return {
-#         'uri': 'http://orig/post',
-#         'repostBy': [{
-#             '$type': 'app.bsky.feed.getRepostedBy#repostedBy',
-#             'did': 'did:web:eve.net',
-#             'declaration': {
-#                 '$type': 'app.bsky.system.declRef',
-#                 'cid': 'TODO',
-#                 'actorType': 'app.bsky.system.actorUser',
-#             },
-#             'handle': 'eve.net',
-#             'displayName': 'Eve',
-#             'indexedAt': '2022-01-02T03:04:05+00:00',
-#         }],
-#     }
+    return {
+        'uri': 'http://orig/post',
+        'repostBy': [{
+            **bluesky.actor_to_ref(a['actor']),
+            '$type': 'app.bsky.feed.getRepostedBy#repostedBy',
+        } for a in activities if a.get('actor')],
+    }
 
 
 # TODO: cursor
@@ -129,10 +103,9 @@ def getTimeline(input, algorithm=None, limit=50, before=None):
 
     # TODO: de-dupe with pages.feed()
     logger.info(f'Fetching {limit} objects for {user}')
-    objects, _, _ = Object.query(
-        Object.domains == user, Object.labels == 'feed'
-        ).order(-Object.created
-        ).fetch_page(limit)
+    objects, _, _ = Object.query(Object.domains == user, Object.labels == 'feed') \
+        .order(-Object.created) \
+        .fetch_page(limit)
 
     return {'feed': [bluesky.from_as1(json_loads(obj.as1))
                      for obj in objects if not obj.deleted]}

@@ -1,45 +1,43 @@
 """Unit tests for feed.py."""
 import copy
 from unittest import skip
-from unittest.mock import patch
 
-from granary import bluesky
+from granary import as2, bluesky
 from granary.tests.test_as1 import COMMENT, NOTE
 from granary.tests.test_bluesky import (
     POST_BSKY,
-    POST_HTML,
+    POST_AS,
     REPLY_BSKY,
-    REPLY_HTML,
+    REPLY_AS,
     REPOST_BSKY,
-    REPOST_HTML,
+    REPOST_AS,
 )
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadGateway
 
+import common
+from models import Object, User
 from . import testutil
+from .test_activitypub import ACTOR
 
-AUTHOR_HTML = """
-<a href="/" class="u-author h-card">
-  <img src="/alice.jpg"> Alice
-</a>
-"""
-
-POST_THREAD_HTML = copy.deepcopy(POST_HTML).replace('</article>', """
-  <div class="u-comment h-cite">
-    <a class="u-author h-card" href="http://bob.org/">Bob</a>
-    <a class="u-url" href="http://bob.org/reply"></a>
-    <p class="p-content">Uh huh</p>
-  </div>
-
-  <div class="u-repost h-cite">
-    <a class="u-author h-card" href="http://eve.net/">Eve</a>
-    <p class="p-content">This</p>
-    <a class="u-repost-of" href="http://orig/post"></a>
-  </div>
-</article>
-""")
+POST_THREAD_AS = {
+    **POST_AS,
+    'replies': {
+        'items': [{
+            'objectType': 'comment',
+            'url': 'http://bob.org/reply',
+            'content': 'Uh huh',
+            'author': {
+                'objectType': 'person',
+                'displayName': 'Bob',
+                'url': 'http://bob.org/',
+            },
+        }],
+    },
+}
 POST_THREAD_BSKY = {
     'thread': {
         '$type': 'app.bsky.feed.getPostThread#threadViewPost',
@@ -78,97 +76,116 @@ POST_THREAD_BSKY = {
 }
 
 
-@patch('requests.get')
 class XrpcFeedTest(testutil.TestCase):
 
-    def test_getAuthorFeed(self, mock_get):
-        mock_get.return_value = requests_response(f"""\
-<body class="h-feed">
-{AUTHOR_HTML}
-{POST_HTML}
-{REPLY_HTML}
-{REPOST_HTML}
-</body>
-""", url='https://alice.com/')
+    def setUp(self):
+        super().setUp()
+        User.get_or_create('foo.com', has_hcard=True,
+                           actor_as2=json_dumps(ACTOR)).put()
+
+    def test_getAuthorFeed(self):
+        Object(id='a', domains=['foo.com'], labels=['user'],
+               as1=json_dumps(POST_AS)).put()
+        Object(id='b', domains=['foo.com'], labels=['user'],
+               as1=json_dumps(REPLY_AS)).put()
+        Object(id='c', domains=['foo.com'], labels=['user'],
+               as1=json_dumps(REPOST_AS)).put()
+        # not outbound from user
+        Object(id='d', domains=['foo.com'], labels=['feed'],
+               as1=json_dumps(POST_AS)).put()
+        # deleted
+        Object(id='e', domains=['foo.com'], labels=['user'],
+                 as1=json_dumps(POST_AS), deleted=True).put()
+        # other user's
+        Object(id='f', domains=['bar.org'], labels=['user'],
+               as1=json_dumps(POST_AS)).put()
 
         resp = self.client.get('/xrpc/app.bsky.feed.getAuthorFeed',
-                               query_string={'author': 'alice.com'})
+                               query_string={'author': 'foo.com'})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual({
-            'feed': [POST_BSKY, REPLY_BSKY, REPOST_BSKY],
+            'feed': [REPOST_BSKY, REPLY_BSKY, POST_BSKY],
         }, resp.json)
 
-    def test_getAuthorFeed_unset(self, _):
+    def test_getAuthorFeed_no_author_param(self):
         resp = self.client.get('/xrpc/app.bsky.feed.getAuthorFeed')
         self.assertEqual(400, resp.status_code)
 
-    def test_getAuthorFeed_not_domain(self, _):
+    def test_getAuthorFeed_not_domain(self):
         resp = self.client.get('/xrpc/app.bsky.feed.getAuthorFeed',
                                query_string={'author': 'not a domain'})
         self.assertEqual(400, resp.status_code)
 
-    def test_getAuthorFeed_fetch_fails(self, mock_get):
-        mock_get.return_value = requests_response(status=500)
+    def test_getAuthorFeed_no_user(self):
         resp = self.client.get('/xrpc/app.bsky.feed.getAuthorFeed',
-                               query_string={'author': 'alice.com'})
-        self.assertEqual(502, resp.status_code)
+                               query_string={'author': 'no.com'})
+        self.assertEqual(400, resp.status_code)
 
-    def test_getAuthorFeed_no_feed(self, mock_get):
-        mock_get.return_value = requests_response(AUTHOR_HTML)
+    def test_getAuthorFeed_no_objects(self):
         resp = self.client.get('/xrpc/app.bsky.feed.getAuthorFeed',
-                               query_string={'author': 'alice.com'})
+                               query_string={'author': 'foo.com'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual({'feed': []}, resp.json)
 
-    def test_getPostThread(self, mock_get):
-        mock_get.return_value = requests_response(
-            POST_THREAD_HTML, url='https://alice.com/')
+    def test_getPostThread(self):
+        Object(id='http://a/post', domains=['foo.com'], labels=['user'],
+               as1=json_dumps(POST_THREAD_AS)).put()
 
         resp = self.client.get('/xrpc/app.bsky.feed.getPostThread',
                                query_string={'uri': 'http://a/post'})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals(POST_THREAD_BSKY, resp.json)
 
-    def test_getPostThread_unset(self, mock_get):
-        mock_get.return_value = requests_response(status=500)
+    def test_getPostThread_no_uri_param(self):
         resp = self.client.get('/xrpc/app.bsky.feed.getPostThread')
         self.assertEqual(400, resp.status_code)
 
-    def test_getPostThread_fetch_fails(self, mock_get):
-        mock_get.return_value = requests_response(status=500)
+    def test_getPostThread_no_post(self):
         resp = self.client.get('/xrpc/app.bsky.feed.getPostThread',
-                               query_string={'uri': 'http://a/post'})
-        self.assertEqual(502, resp.status_code)
-
-    def test_getAuthorFeed_no_post(self, mock_get):
-        mock_get.return_value = requests_response(AUTHOR_HTML)
-        resp = self.client.get('/xrpc/app.bsky.feed.getPostThread',
-                               query_string={'uri': 'http://a/post'})
+                               query_string={'uri': 'http://no/post'})
         self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
 
-    @skip
-    def test_getRepostedBy(self, mock_get):
-        mock_get.return_value = requests_response(POST_THREAD_HTML,
-                                                  url='http://orig/post')
+    def test_getRepostedBy(self):
+        Object(id='repost/1', domains=['foo.com'], as1=json_dumps({
+            **REPOST_AS,
+            'object': 'http://a/post',
+        })).put()
+        Object(id='repost/2', domains=['foo.com'], as1=json_dumps({
+            **REPOST_AS,
+            'object': 'http://a/post',
+            'actor': as2.to_as1(ACTOR),
+        })).put()
+
         got = self.client.get('/xrpc/app.bsky.feed.getRepostedBy',
                                query_string={'uri': 'http://a/post'})
         self.assertEqual({
             'uri': 'http://orig/post',
             'repostBy': [{
                 '$type': 'app.bsky.feed.getRepostedBy#repostedBy',
-                'did': 'did:web:eve.net',
+                'did': 'did:web:mastodon.social:users:swentel',
                 'declaration': {
                     '$type': 'app.bsky.system.declRef',
                     'cid': 'TODO',
                     'actorType': 'app.bsky.system.actorUser',
                 },
-                'handle': 'eve.net',
-                'displayName': 'Eve',
-                'indexedAt': '2022-01-02T03:04:05+00:00',
+                'handle': 'mastodon.social/users/swentel',
+                'displayName': 'Mrs. ☕ Foo',
+                'avatar': 'https://foo.com/me.jpg',
+            }, {
+                '$type': 'app.bsky.feed.getRepostedBy#repostedBy',
+                'did': 'did:web:alice.com',
+                'declaration': {
+                    '$type': 'app.bsky.system.declRef',
+                    'cid': 'TODO',
+                    'actorType': 'app.bsky.system.actorUser',
+                },
+                'handle': 'alice.com',
+                'displayName': 'Alice',
+                'avatar': 'https://alice.com/alice.jpg',
             }],
         }, got.json)
 
-    def test_getTimeline(self, mock_get):
+    def test_getTimeline(self):
         self.add_objects()
 
         got = self.client.get('/xrpc/app.bsky.feed.getTimeline')
@@ -176,7 +193,7 @@ class XrpcFeedTest(testutil.TestCase):
             'feed': [bluesky.from_as1(COMMENT), bluesky.from_as1(NOTE)],
         }, got.json)
 
-    def test_getVotes(self, mock_get):
+    def test_getVotes(self):
         resp = self.client.get('/xrpc/app.bsky.feed.getVotes',
                                query_string={'uri': 'http://a/post'})
         self.assertEqual({
