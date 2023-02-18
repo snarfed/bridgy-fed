@@ -7,7 +7,7 @@ https://www.rfc-editor.org/rfc/rfc7033
 import logging
 import urllib.parse
 
-from flask import redirect, request
+from flask import redirect, request, session
 from granary import as2
 from oauth_dropins import indieauth
 from oauth_dropins.webutil import flask_util, util
@@ -102,27 +102,36 @@ class FollowStart(indieauth.Start):
     """Starts the IndieAuth flow to add a follower to an existing user."""
     def dispatch_request(self):
         address = request.form['address']
-        domain = request.form['me']
+        me = request.form['me']
+
+        session_me = session.get('indieauthed-me')
+        if session_me:
+            logger.info(f'found indieauthed-me: {session_me} in session cookie')
+            if session_me == me:
+                logger.info('  skipping IndieAuth')
+                return FollowCallback('-').finish(indieauth.IndieAuth(id=me), address)
 
         try:
             return redirect(self.redirect_url(state=address))
         except Exception as e:
             if util.is_connection_failure(e) or util.interpret_http_exception(e)[0]:
                 flash(f"Couldn't fetch your web site: {e}")
+                domain = util.domain_from_link(me)
                 return redirect(f'/user/{domain}/following?address={address}')
             raise
 
 
 class FollowCallback(indieauth.Callback):
-    """IndieAuth callback to add a follower to an existing user.
-
-    TODO: unify with UnfollowCallback.
-    """
+    """IndieAuth callback to add a follower to an existing user."""
     def finish(self, auth_entity, state=None):
         if not auth_entity:
             return
 
-        domain = util.domain_from_link(auth_entity.key.id())
+        me = auth_entity.key.id()
+        logging.info(f'Storing indieauthed-me: {me} in session cookie')
+        session['indieauthed-me'] = me
+
+        domain = util.domain_from_link(me)
         user = User.get_by_id(domain)
         if not user:
             error(f'No user for domain {domain}')
@@ -183,7 +192,13 @@ class UnfollowStart(indieauth.Start):
     """Starts the IndieAuth flow to remove a follower from an existing user."""
     def dispatch_request(self):
         key = request.form['key']
-        domain = request.form['me']
+        me = request.form['me']
+
+        session_me = session.get('indieauthed-me')
+        if session_me:
+            logger.info(f'has IndieAuth session for {session_me}')
+            if session_me == me:
+                return UnfollowCallback('-').finish(indieauth.IndieAuth(id=me), key)
 
         try:
             return redirect(self.redirect_url(state=key))
@@ -200,7 +215,11 @@ class UnfollowCallback(indieauth.Callback):
         if not auth_entity:
             return
 
-        domain = util.domain_from_link(auth_entity.key.id())
+        me = auth_entity.key.id()
+        # store login in a session cookie
+        session['indieauthed-me'] = me
+
+        domain = util.domain_from_link(me)
         user = User.get_by_id(domain)
         if not user:
             error(f'No user for domain {domain}')
