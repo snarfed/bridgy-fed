@@ -102,6 +102,7 @@ def inbox(domain=None):
     except (TypeError, ValueError, AssertionError):
         error(f"Couldn't parse body as JSON: {body}", exc_info=True)
 
+
     type = activity.get('type')
     actor = activity.get('actor')
     actor_id = actor.get('id') if isinstance(actor, dict) else actor
@@ -124,11 +125,12 @@ def inbox(domain=None):
             logger.info(msg)
             return msg, 200
 
-    activity_as1 = as2.to_as1(activity)
-    as1_type = as1.object_type(activity_as1)
+    activity_unwrapped = redirect_unwrap(activity)
     activity_obj = Object(
-        id=id, as2=json_dumps(activity), as1=json_dumps(activity_as1),
-        source_protocol='activitypub', status='complete')
+        id=id,
+        as2=json_dumps(activity_unwrapped),
+        as1=json_dumps(as2.to_as1(activity_unwrapped)),
+        source_protocol='activitypub')
     activity_obj.put()
 
     if type == 'Accept':  # eg in response to a Follow
@@ -178,8 +180,10 @@ def inbox(domain=None):
     # handle activity!
     if type == 'Undo' and obj_as2.get('type') == 'Follow':
         # skip actor fetch below; we don't need it to undo a follow
-        undo_follow(redirect_unwrap(activity))
-        return ''
+        undo_follow(activity_unwrapped)
+        activity_obj.status = 'complete'
+        activity_obj.put()
+        return 'OK'
 
     elif type == 'Update':
         obj_id = obj_as2.get('id')
@@ -193,6 +197,9 @@ def inbox(domain=None):
             source_protocol='activitypub',
         )
         obj.put()
+
+        activity_obj.status = 'complete'
+        activity_obj.put()
         return 'OK'
 
     elif type == 'Delete':
@@ -214,32 +221,28 @@ def inbox(domain=None):
                                    ).fetch()
         for f in followers:
             f.status = 'inactive'
-        ndb.put_multi(followers)
+        activity_obj.status = 'complete'
+        ndb.put_multi(followers + [activity_obj])
         return 'OK'
 
     # fetch actor if necessary so we have name, profile photo, etc
     if actor and isinstance(actor, str):
-        actor = activity['actor'] = \
+        actor = activity['actor'] = activity_unwrapped['actor'] = \
             json_loads(common.get_object(actor, user=user).as2)
 
     # fetch object if necessary so we can render it in feeds
-    activity_unwrapped = redirect_unwrap(activity)
-    inner_obj = activity_unwrapped.get('object')
-    if type in FETCH_OBJECT_TYPES and isinstance(inner_obj, str):
-        obj = Object.get_by_id(inner_obj) or common.get_object(inner_obj, user=user)
+    if type in FETCH_OBJECT_TYPES and isinstance(activity.get('object'), str):
         obj_as2 = activity['object'] = activity_unwrapped['object'] = \
-            json_loads(obj.as2) if obj.as2 else as2.from_as1(json_loads(obj.as1))
+            json_loads(common.get_object(activity['object'], user=user).as2)
 
     if type == 'Follow':
-        return accept_follow(activity, activity_unwrapped, user)
+        resp = accept_follow(activity, activity_unwrapped, user)
 
     # send webmentions to each target
-    activity_as2_str = json_dumps(activity_unwrapped)
     activity_as1 = as2.to_as1(activity_unwrapped)
-    activity_as1_str = json_dumps(activity_as1)
-    sent = common.send_webmentions(as2.to_as1(activity), proxy=True,
-                                   source_protocol='activitypub',
-                                   as2=activity_as2_str, as1=activity_as1_str)
+    activity_obj.populate(as2=json_dumps(activity_unwrapped),
+                          as1=json_dumps(activity_as1))
+    common.send_webmentions(as2.to_as1(activity), activity_obj, proxy=True)
 
     # deliver original posts and reposts to followers
     if ((type == 'Create' and not activity.get('inReplyTo') and not obj_as2.get('inReplyTo'))
@@ -260,16 +263,18 @@ def inbox(domain=None):
             actor_id = actor.get('id')
             if actor_id:
                 logger.info(f'Finding followers of {actor_id}')
-                followers = Follower.query(Follower.dest == actor_id,
-                                           projection=[Follower.src]).fetch()
-                if followers:
-                    activity_obj.domains = (set(activity_obj.domains) |
-                                            set(f.src for f in followers))
-                    if 'feed' not in activity_obj.labels:
-                        activity_obj.labels.append('feed')
+                for f in Follower.query(Follower.dest == actor_id,
+                                        projection=[Follower.src]):
+                    if f.src not in activity_obj.domains:
+                        activity_obj.domains.append(f.src)
+                if activity_obj.domains and 'feed' not in activity_obj.labels:
+                    activity_obj.labels.append('feed')
 
-        activity_obj.put()
+    if (activity_as1.get('objectType') == 'activity'
+        and 'activity' not in activity_obj.labels):
 
+        activity_obj.labels.append('activity')
+    activity_obj.put()
     return 'OK'
 
 
@@ -324,14 +329,7 @@ def accept_follow(follow, follow_unwrapped, user):
             'object': followee,
         }
     }
-    resp = common.signed_post(inbox, data=accept, user=user)
-
-    # send webmention
-    common.send_webmentions(as2.to_as1(follow), proxy=True, source_protocol='activitypub',
-                            as2=json_dumps(follow_unwrapped),
-                            as1=json_dumps(as2.to_as1(follow_unwrapped)))
-
-    return resp.text, resp.status_code
+    return common.signed_post(inbox, data=accept, user=user)
 
 
 @ndb.transactional()

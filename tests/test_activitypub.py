@@ -113,7 +113,7 @@ LIKE_WITH_ACTOR['actor'] = {
 # repost of fediverse post, should be delivered to followers
 REPOST = {
   '@context': 'https://www.w3.org/ns/activitystreams',
-  'id': 'https://th.is/users/alice/statuses/654/activity',
+  'id': 'https://mas.to/users/alice/statuses/654/activity',
   'type': 'Announce',
   'actor': ACTOR['id'],
   'object': NOTE_OBJECT['id'],
@@ -190,6 +190,9 @@ UPDATE_NOTE = {
         'id': 'https://a/note',
     },
 }
+WEBMENTION_DISCOVERY = requests_response(
+    '<html><head><link rel="webmention" href="/webmention"></html>')
+
 
 @patch('requests.post')
 @patch('requests.get')
@@ -282,18 +285,19 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/foo.com/inbox', json=reply)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assert_req(mock_get, 'http://or.ig/post')
+        expected_id = urllib.parse.quote_plus(reply['id'])
         self.assert_req(
             mock_post,
             'http://or.ig/webmention',
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
-                'source': 'http://localhost/render?id=http%3A%2F%2Fth.is%2Freply',
+                'source': f'http://localhost/render?id={expected_id}',
                 'target': 'http://or.ig/post',
             },
         )
 
-        self.assert_object('http://th.is/reply',
+        self.assert_object(reply['id'],
                            domains=['or.ig'],
                            source_protocol='activitypub',
                            status='complete',
@@ -345,7 +349,6 @@ class ActivityPubTest(testutil.TestCase):
 
         self.assert_object('http://th.is/note/as2',
                            source_protocol='activitypub',
-                           status='complete',
                            as2=expected_as2,
                            as1=as2.to_as1(expected_as2),
                            domains=['foo.com', 'baz.com'],
@@ -409,21 +412,36 @@ class ActivityPubTest(testutil.TestCase):
         mock_get.side_effect = [
             self.as2_resp(ACTOR),  # source actor
             self.as2_resp(NOTE_OBJECT),  # object of repost
+            WEBMENTION_DISCOVERY,
         ]
         mock_post.return_value = requests_response()  # webmention
 
         got = self.client.post('/inbox', json=REPOST)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
+        # webmention
+        expected_id = urllib.parse.quote_plus(REPOST['id'])
+        self.assert_req(
+            mock_post,
+            'http://th.is/webmention',
+            headers={'Accept': '*/*'},
+            allow_redirects=False,
+            data={
+                'source': f'http://localhost/render?id={expected_id}',
+                'target': NOTE_OBJECT['url'],
+            },
+        )
+
         self.assert_object(REPOST['id'],
                            source_protocol='activitypub',
                            status='ignored',
                            as2=REPOST_FULL,
                            as1=as2.to_as1(REPOST_FULL),
-                           domains=['foo.com', 'baz.com'],
+                           domains=['foo.com', 'baz.com', 'th.is'],
                            type='share',
                            labels=['activity', 'feed', 'notification'],
-                           object_ids=[REPOST['object']])
+                           object_ids=[REPOST['object']],
+                           delivered=[NOTE_OBJECT['url']])
 
     def test_inbox_not_public(self, mock_head, mock_get, mock_post):
         Follower.get_or_create(ACTOR['id'], 'foo.com')
@@ -473,19 +491,20 @@ class ActivityPubTest(testutil.TestCase):
         got = self.client.post('/foo.com/inbox', json=mention)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assert_req(mock_get, 'http://tar.get/')
+        expected_id = urllib.parse.quote_plus(mention['id'])
         self.assert_req(
             mock_post,
             'http://tar.get/webmention',
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
-                'source': 'http://localhost/render?id=http%3A%2F%2Fth.is%2Fmention',
+                'source': f'http://localhost/render?id={expected_id}',
                 'target': 'http://tar.get/',
             },
         )
 
         expected_as2 = common.redirect_unwrap(mention)
-        self.assert_object('http://th.is/mention',
+        self.assert_object(mention['id'],
                            domains=['tar.get'],
                            source_protocol='activitypub',
                            status='complete',
@@ -499,9 +518,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_get.side_effect = [
             # source actor
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
-            # target post webmention discovery
-            requests_response(
-                '<html><head><link rel="webmention" href="/webmention"></html>'),
+            WEBMENTION_DISCOVERY,
         ]
         mock_post.return_value = requests_response()
 
@@ -561,8 +578,10 @@ class ActivityPubTest(testutil.TestCase):
             'url': FOLLOW['object'],
         }
 
-        follow = copy.deepcopy(FOLLOW_WRAPPED)
-        follow['object'] = wrapped_user
+        follow = {
+            **FOLLOW_WRAPPED,
+            'object': wrapped_user,
+        }
 
         accept = copy.deepcopy(ACCEPT)
         accept['actor'] = accept['object']['object'] = wrapped_user
@@ -570,14 +589,10 @@ class ActivityPubTest(testutil.TestCase):
         self._test_inbox_follow_accept(follow, accept, *mocks)
 
         follower = Follower.query().get()
-        follow.update({
-            'actor': ACTOR,
-            'object': wrapped_user,
-        })
+        follow['actor'] = ACTOR
         self.assertEqual(follow, json_loads(follower.last_follow))
 
         follow.update({
-            'actor': FOLLOW_WITH_ACTOR['actor'],
             'object': unwrapped_user,
             'url': 'https://mastodon.social/users/swentel#followed-https://foo.com/',
         })
@@ -598,9 +613,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_get.side_effect = [
             # source actor
             self.as2_resp(FOLLOW_WITH_ACTOR['actor']),
-            # target post webmention discovery
-            requests_response(
-                '<html><head><link rel="webmention" href="/webmention"></html>'),
+            WEBMENTION_DISCOVERY,
         ]
         mock_post.return_value = requests_response()
 
@@ -670,9 +683,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_get.side_effect = [
             # source actor
             self.as2_resp(FOLLOW_WITH_ACTOR['actor']),
-            # target post webmention discovery
-            requests_response(
-                '<html><head><link rel="webmention" href="/webmention"></html>'),
+            WEBMENTION_DISCOVERY,
         ]
         mock_post.return_value = requests_response()
 
@@ -745,7 +756,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_post.assert_not_called()
 
         obj = Object.get_by_id(id)
-        self.assertEqual([], obj.labels)
+        self.assertEqual(['activity'], obj.labels)
         self.assertEqual([], obj.domains)
 
         self.assertIsNone(Object.get_by_id(bad_url))
@@ -919,7 +930,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assert_object('http://th.is/like#ok',
                            domains=['or.ig'],
                            source_protocol='activitypub',
-                           status='ignored',
+                           status='complete',
                            as2=LIKE_WITH_ACTOR,
                            as1=as2.to_as1(LIKE_WITH_ACTOR),
                            type='like',

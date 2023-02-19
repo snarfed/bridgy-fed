@@ -311,30 +311,31 @@ def remove_blocklisted(urls):
               util.domain_from_link(u), DOMAIN_BLOCKLIST)]
 
 
-def send_webmentions(activity_wrapped, proxy=None, **object_props):
+def send_webmentions(activity_wrapped, obj, proxy=None):
     """Sends webmentions for an incoming ActivityPub inbox delivery.
     Args:
       activity_wrapped: dict, AS1 activity
-      object_props: passed through to the newly created Object entities
+      obj: :class:`Object`
+      proxy: boolean, whether to use our proxy URL as the webmention source
 
     Returns: boolean, True if any webmentions were sent, False otherwise
     """
-    activity = redirect_unwrap(activity_wrapped)
+    activity_unwrapped = json_loads(obj.as1)
 
-    verb = activity.get('verb')
+    verb = activity_unwrapped.get('verb')
     if verb and verb not in SUPPORTED_VERBS:
         error(f'{verb} activities are not supported yet.', status=501)
 
     # extract source and targets
-    source = activity.get('url') or activity.get('id')
-    obj = activity.get('object')
-    obj_url = util.get_url(obj)
+    source = activity_unwrapped.get('url') or activity_unwrapped.get('id')
+    inner_obj = activity_unwrapped.get('object')
+    obj_url = util.get_url(inner_obj)
 
-    targets = util.get_list(activity, 'inReplyTo')
-    if isinstance(obj, dict):
+    targets = util.get_list(activity_unwrapped, 'inReplyTo')
+    if isinstance(inner_obj, dict):
         if not source or verb in ('create', 'post', 'update'):
-            source = obj_url or obj.get('id')
-        targets.extend(util.get_list(obj, 'inReplyTo'))
+            source = obj_url or inner_obj.get('id')
+        targets.extend(util.get_list(inner_obj, 'inReplyTo'))
 
     if not source:
         error("Couldn't find original post URL")
@@ -360,16 +361,16 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
 
     logger.info(f'targets: {targets}')
 
-    # send webmentions and store Objects
+    # send webmentions and update Object
     errors = []  # stores (code, body) tuples
-    domains = []
     targets = [Target(uri=uri, protocol='activitypub') for uri in targets]
 
-    obj = Object(id=source, labels=['notification'], undelivered=targets,
-                 status='in progress', **object_props)
-    if activity.get('objectType') == 'activity' and 'activity' not in obj.labels:
-        obj.labels.append('activity')
-    obj.put()
+    obj.populate(
+      undelivered=targets,
+      status='in progress',
+    )
+    if obj.undelivered and 'notification' not in obj.labels:
+      obj.labels.append('notification')
 
     while obj.undelivered:
         target = obj.undelivered.pop()
@@ -402,8 +403,9 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
 
         obj.put()
 
-    obj.status = 'complete' if obj.delivered else 'failed' if obj.failed else 'ignored'
-    obj.put()
+    obj.status = ('complete' if obj.delivered or obj.domains
+                  else 'failed' if obj.failed
+                  else 'ignored')
 
     if errors:
         msg = 'Errors: ' + ', '.join(f'{code} {body}' for code, body in errors)
