@@ -626,11 +626,11 @@ def redirect_unwrap(val):
         if val.startswith(prefix):
             unwrapped = val.removeprefix(prefix)
             if util.is_web(unwrapped):
-                return util.follow_redirects(unwrapped).url
+                return unwrapped
         elif val.startswith(host_url()):
             path = val.removeprefix(host_url())
             if re.match(DOMAIN_RE, path):
-                return util.follow_redirects(path).url
+                return f'https://{path}/'
 
     return val
 

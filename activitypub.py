@@ -254,11 +254,6 @@ def inbox(domain=None):
             logger.info('Dropping non-public activity')
             return ''
 
-        if sent:
-            # send_webmentions overwrote this, so reload it
-            activity_obj = activity_obj.key.get()
-        activity_obj.populate(as2=activity_as2_str, as1=activity_as1_str)
-
         if actor:
             actor_id = actor.get('id')
             if actor_id:

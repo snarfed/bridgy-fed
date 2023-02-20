@@ -308,7 +308,6 @@ class ActivityPubTest(testutil.TestCase):
     def test_inbox_reply_to_self_domain(self, mock_head, mock_get, mock_post):
         self._test_inbox_ignore_reply_to('http://localhost/th.is',
                                          mock_head, mock_get, mock_post)
-        self.assert_req(mock_head, 'http://th.is', allow_redirects=True)
 
     def test_inbox_reply_to_in_blocklist(self, *mocks):
         self._test_inbox_ignore_reply_to('https://twitter.com/foo', *mocks)
@@ -353,7 +352,7 @@ class ActivityPubTest(testutil.TestCase):
                            as1=as2.to_as1(expected_as2),
                            domains=['foo.com', 'baz.com'],
                            type='post',
-                           labels=['feed'],
+                           labels=['activity', 'feed'],
                            object_ids=[NOTE_OBJECT['id']])
 
     def test_repost_of_federated_post(self, mock_head, mock_get, mock_post):
@@ -434,7 +433,7 @@ class ActivityPubTest(testutil.TestCase):
 
         self.assert_object(REPOST['id'],
                            source_protocol='activitypub',
-                           status='ignored',
+                           status='complete',
                            as2=REPOST_FULL,
                            as1=as2.to_as1(REPOST_FULL),
                            domains=['foo.com', 'baz.com', 'th.is'],
@@ -483,23 +482,22 @@ class ActivityPubTest(testutil.TestCase):
         )
 
     def _test_inbox_mention(self, mention, expected_props, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='http://tar.get')
         mock_get.return_value = requests_response(
             '<html><head><link rel="webmention" href="/webmention"></html>')
         mock_post.return_value = requests_response()
 
         got = self.client.post('/foo.com/inbox', json=mention)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-        self.assert_req(mock_get, 'http://tar.get/')
+        self.assert_req(mock_get, 'https://tar.get/')
         expected_id = urllib.parse.quote_plus(mention['id'])
         self.assert_req(
             mock_post,
-            'http://tar.get/webmention',
+            'https://tar.get/webmention',
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
                 'source': f'http://localhost/render?id={expected_id}',
-                'target': 'http://tar.get/',
+                'target': 'https://tar.get/',
             },
         )
 
@@ -510,7 +508,7 @@ class ActivityPubTest(testutil.TestCase):
                            status='complete',
                            as2=expected_as2,
                            as1=as2.to_as1(expected_as2),
-                           delivered=['http://tar.get/'],
+                           delivered=['https://tar.get/'],
                            **expected_props)
 
     def test_inbox_like(self, mock_head, mock_get, mock_post):

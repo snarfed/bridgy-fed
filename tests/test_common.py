@@ -110,6 +110,15 @@ class CommonTest(testutil.TestCase):
         }
         self.assert_equals(bad, common.redirect_unwrap(bad))
 
+    def test_unwrap_local_actor_urls(self):
+        self.assert_equals(
+            {'object': 'https://foo.com/'},
+            common.redirect_unwrap({'object': 'http://localhost/foo.com'}))
+
+        self.assert_equals(
+            {'object': {'id': 'https://foo.com/'}},
+            common.redirect_unwrap({'object': {'id': 'http://localhost/foo.com'}}))
+
     def test_postprocess_as2_multiple_in_reply_tos(self):
         with app.test_request_context('/'):
             self.assert_equals({
