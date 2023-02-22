@@ -367,7 +367,7 @@ class ActivityPubTest(testutil.TestCase):
             **NOTE_OBJECT,
             'url': 'https://foo.com/orig',
         }
-        Object(id=orig_url, as1='{}', as2=json_dumps(note)).put()
+        Object(id=orig_url, mf2='{}', as1=json_dumps(as2.to_as1(note))).put()
 
         repost = {
             **REPOST_FULL,
@@ -388,6 +388,7 @@ class ActivityPubTest(testutil.TestCase):
             },
         )
 
+        note.pop('cc')
         repost['object'] = note
         self.assert_object(REPOST_FULL['id'],
                            source_protocol='activitypub',

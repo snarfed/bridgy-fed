@@ -224,10 +224,11 @@ def inbox(domain=None):
 
     # fetch object if necessary so we can render it in feeds
     activity_unwrapped = redirect_unwrap(activity)
-    if (type in FETCH_OBJECT_TYPES and
-        isinstance(activity_unwrapped.get('object'), str)):
+    inner_obj = activity_unwrapped.get('object')
+    if type in FETCH_OBJECT_TYPES and isinstance(inner_obj, str):
+        obj = Object.get_by_id(inner_obj) or common.get_object(inner_obj, user=user)
         obj_as2 = activity['object'] = activity_unwrapped['object'] = \
-            json_loads(common.get_object(activity_unwrapped['object'], user=user).as2)
+            json_loads(obj.as2) if obj.as2 else as2.from_as1(json_loads(obj.as1))
 
     if type == 'Follow':
         return accept_follow(activity, activity_unwrapped, user)
