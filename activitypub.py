@@ -223,11 +223,12 @@ def inbox(domain=None):
             json_loads(common.get_object(actor, user=user).as2)
 
     # fetch object if necessary so we can render it in feeds
-    if type in FETCH_OBJECT_TYPES and isinstance(activity.get('object'), str):
-        obj_as2 = activity['object'] = \
-            json_loads(common.get_object(activity['object'], user=user).as2)
-
     activity_unwrapped = redirect_unwrap(activity)
+    if (type in FETCH_OBJECT_TYPES and
+        isinstance(activity_unwrapped.get('object'), str)):
+        obj_as2 = activity['object'] = activity_unwrapped['object'] = \
+            json_loads(common.get_object(activity_unwrapped['object'], user=user).as2)
+
     if type == 'Follow':
         return accept_follow(activity, activity_unwrapped, user)
 
@@ -235,9 +236,9 @@ def inbox(domain=None):
     activity_as2_str = json_dumps(activity_unwrapped)
     activity_as1 = as2.to_as1(activity_unwrapped)
     activity_as1_str = json_dumps(activity_as1)
-    common.send_webmentions(as2.to_as1(activity), proxy=True,
-                            source_protocol='activitypub',
-                            as2=activity_as2_str, as1=activity_as1_str)
+    sent = common.send_webmentions(as2.to_as1(activity), proxy=True,
+                                   source_protocol='activitypub',
+                                   as2=activity_as2_str, as1=activity_as1_str)
 
     # deliver original posts and reposts to followers
     if ((type == 'Create' and not activity.get('inReplyTo') and not obj_as2.get('inReplyTo'))
@@ -249,6 +250,10 @@ def inbox(domain=None):
             logger.info('Dropping non-public activity')
             return ''
 
+        if sent:
+            # send_webmentions overwrote this, so reload it
+            activity_obj = activity_obj.key.get()
+
         if actor:
             actor_id = actor.get('id')
             if actor_id:
@@ -257,11 +262,10 @@ def inbox(domain=None):
                     f.src for f in Follower.query(Follower.dest == actor_id,
                                                   projection=[Follower.src]).fetch()]
 
-        activity_obj.populate(
-            as2=activity_as2_str,
-            as1=activity_as1_str,
-            labels=['feed', 'activity'],
-        )
+        activity_obj.populate(as2=activity_as2_str, as1=activity_as1_str)
+        for label in ('feed', 'activity'):
+            if label not in activity_obj.labels:
+                activity_obj.labels.append(label)
         activity_obj.put()
 
     return 'OK'

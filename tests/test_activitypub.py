@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 import logging
 from unittest.mock import ANY, call, patch
+import urllib.parse
 
 from google.cloud import ndb
 from granary import as2
@@ -352,6 +353,53 @@ class ActivityPubTest(testutil.TestCase):
                            labels=['feed', 'activity'],
                            object_ids=[NOTE_OBJECT['id']])
 
+    def test_repost_of_federated_post(self, mock_head, mock_get, mock_post):
+        mock_head.return_value = requests_response(url='https://foo.com/orig')
+        mock_get.side_effect = [
+            # webmention discovery
+            requests_response(
+                '<html><head><link rel="webmention" href="/webmention"></html>'),
+        ]
+        mock_post.return_value = requests_response()  # webmention
+
+        orig_url = 'https://foo.com/orig'
+        note = {
+            **NOTE_OBJECT,
+            'url': 'https://foo.com/orig',
+        }
+        Object(id=orig_url, as1='{}', as2=json_dumps(note)).put()
+
+        repost = {
+            **REPOST_FULL,
+            'object': f'http://localhost/r/{orig_url}',
+        }
+        got = self.client.post('/foo.com/inbox', json=repost)
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+
+        source_url = f'http://localhost/render?id={urllib.parse.quote_plus(REPOST["id"])}'
+        self.assert_req(
+            mock_post,
+            'https://foo.com/webmention',
+            headers={'Accept': '*/*'},
+            allow_redirects=False,
+            data={
+                'source': source_url,
+                'target': orig_url,
+            },
+        )
+
+        repost['object'] = note
+        self.assert_object(REPOST_FULL['id'],
+                           source_protocol='activitypub',
+                           status='complete',
+                           as2=repost,
+                           as1=as2.to_as1(repost),
+                           domains=[],
+                           delivered=['https://foo.com/orig'],
+                           type='share',
+                           labels=['activity', 'feed', 'notification'],
+                           object_ids=[NOTE_OBJECT['id']])
+
     def test_shared_inbox_repost(self, mock_head, mock_get, mock_post):
         Follower.get_or_create(ACTOR['id'], 'foo.com')
         Follower.get_or_create(ACTOR['id'], 'baz.com')
@@ -368,12 +416,12 @@ class ActivityPubTest(testutil.TestCase):
 
         self.assert_object(REPOST['id'],
                            source_protocol='activitypub',
-                           status='complete',
+                           status='ignored',
                            as2=REPOST_FULL,
                            as1=as2.to_as1(REPOST_FULL),
                            domains=['foo.com', 'baz.com'],
                            type='share',
-                           labels=['feed', 'activity'],
+                           labels=['activity', 'feed', 'notification'],
                            object_ids=[REPOST['object']])
 
     def test_inbox_not_public(self, mock_head, mock_get, mock_post):
