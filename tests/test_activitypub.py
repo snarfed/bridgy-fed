@@ -350,7 +350,7 @@ class ActivityPubTest(testutil.TestCase):
                            as1=as2.to_as1(expected_as2),
                            domains=['foo.com', 'baz.com'],
                            type='post',
-                           labels=['feed', 'activity'],
+                           labels=['feed'],
                            object_ids=[NOTE_OBJECT['id']])
 
     def test_repost_of_federated_post(self, mock_head, mock_get, mock_post):
@@ -395,10 +395,10 @@ class ActivityPubTest(testutil.TestCase):
                            status='complete',
                            as2=repost,
                            as1=as2.to_as1(repost),
-                           domains=[],
+                           domains=['foo.com'],
                            delivered=['https://foo.com/orig'],
                            type='share',
-                           labels=['activity', 'feed', 'notification'],
+                           labels=['activity', 'notification'],
                            object_ids=[NOTE_OBJECT['id']])
 
     def test_shared_inbox_repost(self, mock_head, mock_get, mock_post):

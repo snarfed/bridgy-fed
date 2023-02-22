@@ -367,8 +367,8 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
 
     obj = Object(id=source, labels=['notification'], undelivered=targets,
                  status='in progress', **object_props)
-    if activity.get('objectType') == 'activity':
-      obj.labels.append('activity')
+    if activity.get('objectType') == 'activity' and 'activity' not in obj.labels:
+        obj.labels.append('activity')
     obj.put()
 
     while obj.undelivered:
@@ -379,7 +379,7 @@ def send_webmentions(activity_wrapped, proxy=None, **object_props):
             continue
 
         if domain not in obj.domains:
-          obj.domains.append(domain)
+            obj.domains.append(domain)
         wm_source = (obj.proxy_url()
                      if verb in ('follow', 'like', 'share') or proxy
                      else source)

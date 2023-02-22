@@ -254,19 +254,20 @@ def inbox(domain=None):
         if sent:
             # send_webmentions overwrote this, so reload it
             activity_obj = activity_obj.key.get()
+        activity_obj.populate(as2=activity_as2_str, as1=activity_as1_str)
 
         if actor:
             actor_id = actor.get('id')
             if actor_id:
                 logger.info(f'Finding followers of {actor_id}')
-                activity_obj.domains = [
-                    f.src for f in Follower.query(Follower.dest == actor_id,
-                                                  projection=[Follower.src]).fetch()]
+                followers = Follower.query(Follower.dest == actor_id,
+                                           projection=[Follower.src]).fetch()
+                if followers:
+                    activity_obj.domains = (set(activity_obj.domains) |
+                                            set(f.src for f in followers))
+                    if 'feed' not in activity_obj.labels:
+                        activity_obj.labels.append('feed')
 
-        activity_obj.populate(as2=activity_as2_str, as1=activity_as1_str)
-        for label in ('feed', 'activity'):
-            if label not in activity_obj.labels:
-                activity_obj.labels.append(label)
         activity_obj.put()
 
     return 'OK'
