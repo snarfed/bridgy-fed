@@ -289,7 +289,7 @@ class Object(StringIdModel):
         # TODO: switch back to assert
         # assert (self.as2 is not None) ^ (self.bsky is not None) ^ (self.mf2 is not None), \
         #     f'{self.as2} {self.bsky} {self.mf2}'
-        if (self.as2 is not None) ^ (self.bsky is not None) ^ (self.mf2 is not None):
+        if not (self.as2 is not None) ^ (self.bsky is not None) ^ (self.mf2 is not None):
             logging.warning(f'{self.key} has multiple! {self.as2 is not None} {self.bsky is not None} {self.mf2 is not None}')
 
         if self.as2 is not None:
