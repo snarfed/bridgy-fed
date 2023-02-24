@@ -14,7 +14,7 @@ from flask import request
 from google.cloud import ndb
 from granary import as1, as2, bluesky, microformats2
 from oauth_dropins.webutil.appengine_info import DEBUG
-from oauth_dropins.webutil.models import JsonProperty, StringIdModel
+from oauth_dropins.webutil.models import ComputedJsonProperty, JsonProperty, StringIdModel
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
@@ -284,7 +284,7 @@ class Object(StringIdModel):
     bsky = JsonProperty() # Bluesky / AT Protocol
     mf2 = JsonProperty()  # HTML microformats2
 
-    @ndb.ComputedProperty
+    @ComputedJsonProperty
     def as1(self):
         assert (self.as2 is not None) ^ (self.bsky is not None) ^ (self.mf2 is not None), \
             f'{self.as2} {self.bsky} {self.mf2}'
