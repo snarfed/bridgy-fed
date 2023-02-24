@@ -283,6 +283,7 @@ class Webmention(View):
                 msg = ("Updating profile on followers' instances..."
                        if self.user.is_homepage(self.source_url)
                        else 'Delivering to followers...')
+                # TODO: switch this to return so that it doesn't log error
                 error(msg, status=202)
 
             inboxes = set()
