@@ -153,8 +153,12 @@ def get_object(id, user=None):
 
     logger.info(f'Object not in datastore or has no as2: {id}')
     obj_as2 = get_as2(id, user=user).json()
+
+    if obj.mf2:
+      logging.warning(f'Wiping out mf2 property: {obj.mf2}')
+      obj.mf2 = None
+
     obj.populate(as2=json_dumps(obj_as2),
-                 as1=json_dumps(as2.to_as1(obj_as2)),
                  source_protocol='activitypub')
     obj.put()
     return obj
@@ -320,7 +324,7 @@ def send_webmentions(activity_wrapped, obj, proxy=None):
 
     Returns: boolean, True if any webmentions were sent, False otherwise
     """
-    activity_unwrapped = json_loads(obj.as1)
+    activity_unwrapped = obj.as1
 
     verb = activity_unwrapped.get('verb')
     if verb and verb not in SUPPORTED_VERBS:

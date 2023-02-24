@@ -18,6 +18,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadGateway
 
+from app import app
 import common
 from models import Object, User
 from . import testutil
@@ -84,21 +85,20 @@ class XrpcFeedTest(testutil.TestCase):
                            actor_as2=json_dumps(ACTOR)).put()
 
     def test_getAuthorFeed(self):
-        Object(id='a', domains=['foo.com'], labels=['user'],
-               as1=json_dumps(POST_AS)).put()
-        Object(id='b', domains=['foo.com'], labels=['user'],
-               as1=json_dumps(REPLY_AS)).put()
-        Object(id='c', domains=['foo.com'], labels=['user'],
-               as1=json_dumps(REPOST_AS)).put()
-        # not outbound from user
-        Object(id='d', domains=['foo.com'], labels=['feed'],
-               as1=json_dumps(POST_AS)).put()
-        # deleted
-        Object(id='e', domains=['foo.com'], labels=['user'],
-                 as1=json_dumps(POST_AS), deleted=True).put()
-        # other user's
-        Object(id='f', domains=['bar.org'], labels=['user'],
-               as1=json_dumps(POST_AS)).put()
+        post_as2 = json_dumps(as2.from_as1(POST_AS))
+        with app.test_request_context('/'):
+            Object(id='a', domains=['foo.com'], labels=['user'], as2=post_as2).put()
+            Object(id='b', domains=['foo.com'], labels=['user'],
+                   as2=json_dumps(as2.from_as1(REPLY_AS))).put()
+            Object(id='c', domains=['foo.com'], labels=['user'],
+                   as2=json_dumps(as2.from_as1(REPOST_AS))).put()
+            # not outbound from user
+            Object(id='d', domains=['foo.com'], labels=['feed'], as2=post_as2).put()
+            # deleted
+            Object(id='e', domains=['foo.com'], labels=['user'], as2=post_as2,
+                     deleted=True).put()
+            # other user's
+            Object(id='f', domains=['bar.org'], labels=['user'], as2=post_as2).put()
 
         resp = self.client.get('/xrpc/app.bsky.feed.getAuthorFeed',
                                query_string={'author': 'foo.com'})
@@ -128,8 +128,9 @@ class XrpcFeedTest(testutil.TestCase):
         self.assertEqual({'feed': []}, resp.json)
 
     def test_getPostThread(self):
-        Object(id='http://a/post', domains=['foo.com'], labels=['user'],
-               as1=json_dumps(POST_THREAD_AS)).put()
+        with app.test_request_context('/'):
+            Object(id='http://a/post', domains=['foo.com'], labels=['user'],
+                   as2=json_dumps(as2.from_as1(POST_THREAD_AS))).put()
 
         resp = self.client.get('/xrpc/app.bsky.feed.getPostThread',
                                query_string={'uri': 'http://a/post'})
@@ -146,15 +147,16 @@ class XrpcFeedTest(testutil.TestCase):
         self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
 
     def test_getRepostedBy(self):
-        Object(id='repost/1', domains=['foo.com'], as1=json_dumps({
-            **REPOST_AS,
-            'object': 'http://a/post',
-        })).put()
-        Object(id='repost/2', domains=['foo.com'], as1=json_dumps({
-            **REPOST_AS,
-            'object': 'http://a/post',
-            'actor': as2.to_as1(ACTOR),
-        })).put()
+        with app.test_request_context('/'):
+            Object(id='repost/1', domains=['foo.com'], as2=json_dumps(as2.from_as1({
+                **REPOST_AS,
+                'object': 'http://a/post',
+            }))).put()
+            Object(id='repost/2', domains=['foo.com'], as2=json_dumps(as2.from_as1({
+                **REPOST_AS,
+                'object': 'http://a/post',
+                'actor': as2.to_as1(ACTOR),
+            }))).put()
 
         got = self.client.get('/xrpc/app.bsky.feed.getRepostedBy',
                                query_string={'uri': 'http://a/post'})

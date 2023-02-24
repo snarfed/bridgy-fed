@@ -15,6 +15,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 import activitypub
+from app import app
 from common import (
     CONNEG_HEADERS_AS2_HTML,
     CONTENT_TYPE_HTML,
@@ -491,7 +492,15 @@ class WebmentionTest(testutil.TestCase):
                            )
 
     def test_update_reply(self, mock_get, mock_post):
-        Object(id='http://a/reply', status='complete', as1='{"content": "other"}').put()
+        mf2 = {
+            'items': [{
+                'properties': {
+                    'content': ['other'],
+                },
+            }],
+        }
+        with app.test_request_context('/'):
+            Object(id='http://a/reply', status='complete', mf2=json_dumps(mf2)).put()
 
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz')
@@ -508,7 +517,8 @@ class WebmentionTest(testutil.TestCase):
 
     def test_redo_repost_isnt_update(self, mock_get, mock_post):
         """Like and Announce shouldn't use Update, they should just resend as is."""
-        Object(id='http://a/repost', status='complete', as1='{}').put()
+        with app.test_request_context('/'):
+            Object(id='http://a/repost', mf2='{}', status='complete').put()
 
         mock_get.side_effect = [self.repost, self.orig_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz')
@@ -525,10 +535,11 @@ class WebmentionTest(testutil.TestCase):
 
     def test_skip_update_if_content_unchanged(self, mock_get, mock_post):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
-        Object(id='http://a/reply', status='complete',
-               as1=json_dumps(self.reply_as1),
-               delivered=[Target(uri='https://foo.com/inbox', protocol='activitypub')]
-        ).put()
+        with app.test_request_context('/'):
+            Object(id='http://a/reply', status='complete',
+                   mf2=json_dumps(self.reply_mf2['items'][0]),
+                   delivered=[Target(uri='https://foo.com/inbox', protocol='activitypub')]
+                   ).put()
         mock_get.side_effect = self.activitypub_gets
 
         got = self.client.post('/webmention', data={
@@ -771,12 +782,13 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.create, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        Object(id='https://orig/post', domains=['orig'], status='in progress',
-               as1=json_dumps(self.create_as1),
-               delivered=[Target(uri='https://skipped/inbox', protocol='activitypub')],
-               undelivered=[Target(uri='https://shared/inbox', protocol='activitypub')],
-               failed=[Target(uri='https://public/inbox', protocol='activitypub')],
-               ).put()
+        with app.test_request_context('/'):
+            Object(id='https://orig/post', domains=['orig'], status='in progress',
+                   mf2=json_dumps(self.create_mf2['items'][0]),
+                   delivered=[Target(uri='https://skipped/inbox', protocol='activitypub')],
+                   undelivered=[Target(uri='https://shared/inbox', protocol='activitypub')],
+                   failed=[Target(uri='https://public/inbox', protocol='activitypub')],
+                   ).put()
 
         self.make_followers()
         # already sent, should be skipped
@@ -810,18 +822,16 @@ class WebmentionTest(testutil.TestCase):
                            )
 
     def test_create_post_run_task_update(self, mock_get, mock_post):
-        different_create_as1 = copy.deepcopy(self.create_as1)
-        different_create_as1['content'] += ' different'
-
         mock_get.side_effect = [self.create, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        Object(id='https://orig/post', domains=['orig'], status='in progress',
-               as1=json_dumps(different_create_as1),
-               delivered=[Target(uri='https://delivered/inbox', protocol='activitypub')],
-               undelivered=[Target(uri='https://shared/inbox', protocol='activitypub')],
-               failed=[Target(uri='https://public/inbox', protocol='activitypub')],
-               ).put()
+        with app.test_request_context('/'):
+            Object(id='https://orig/post', domains=['orig'], status='in progress',
+                   mf2=json_dumps({**self.create_mf2, 'content': 'different'}),
+                   delivered=[Target(uri='https://delivered/inbox', protocol='activitypub')],
+                   undelivered=[Target(uri='https://shared/inbox', protocol='activitypub')],
+                   failed=[Target(uri='https://public/inbox', protocol='activitypub')],
+                   ).put()
 
         self.make_followers()
 
@@ -1110,24 +1120,30 @@ class WebmentionTest(testutil.TestCase):
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         })
 
-        expected_as1 = {
-            'id': id,
-            'url': id,
-            'objectType': 'activity',
-            'verb': 'update',
-            'object': ACTOR_AS1_UNWRAPPED,
-        }
+        got_as2 = json_loads(Object.get_by_id(id).as2)
         self.assert_object(id,
                            domains=['orig'],
                            source_protocol='webmention',
                            status='complete',
-                           mf2=ACTOR_MF2,
-                           as1=expected_as1,
+                           as2=got_as2,
                            delivered=['https://inbox', 'https://shared/inbox'],
                            type='update',
-                           object_ids=['https://orig'],
+                           object_ids=['http://localhost/orig'],
                            labels=['user', 'activity'],
                            )
+
+        del got_as2['object']['publicKey']
+        del got_as2['to']
+        self.assert_equals({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': id,
+            'url': id,
+            'type': 'Update',
+            'object': {
+                **ACTOR_AS2_FULL,
+                'url': 'https://orig',
+            },
+        }, got_as2)
 
     def test_no_user(self, mock_get, mock_post):
         mock_get.side_effect = [requests_response(self.reply_html)]

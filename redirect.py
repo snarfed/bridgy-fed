@@ -82,7 +82,7 @@ def redir(to):
                 obj = Object.get_by_id(to)
                 if not obj or obj.deleted:
                     return f'Object not found: {to}', 404
-                ret = postprocess_as2(as2.from_as1(json_loads(obj.as1)),
+                ret = postprocess_as2(as2.from_as1(obj.as1),
                                       user, create=False)
                 logger.info(f'Returning: {json_dumps(ret, indent=2)}')
                 return ret, {

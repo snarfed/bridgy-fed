@@ -259,7 +259,7 @@ class CommonTest(testutil.TestCase):
     @mock.patch('requests.get')
     def test_get_object_datastore(self, mock_get):
         id = 'http://the/id'
-        stored = Object(id=id, as2=json_dumps(AS2_OBJ), as1='{}')
+        stored = Object(id=id, as2=json_dumps(AS2_OBJ))
         stored.put()
         common.get_object.cache.clear()
 
@@ -276,7 +276,7 @@ class CommonTest(testutil.TestCase):
 
     @mock.patch('requests.get')
     def test_get_object_strips_fragment(self, mock_get):
-        stored = Object(id='http://the/id', as2=json_dumps(AS2_OBJ), as1='{}')
+        stored = Object(id='http://the/id', as2=json_dumps(AS2_OBJ))
         stored.put()
         common.get_object.cache.clear()
 
@@ -288,7 +288,7 @@ class CommonTest(testutil.TestCase):
     def test_get_object_datastore_no_as2(self, mock_get):
         """If the stored Object has no as2, we should fall back to HTTP."""
         id = 'http://the/id'
-        stored = Object(id=id, as2=None, as1='{}', status='in progress')
+        stored = Object(id=id, mf2='{}', status='in progress')
         stored.put()
         common.get_object.cache.clear()
 

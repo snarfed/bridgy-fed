@@ -250,25 +250,30 @@ class ObjectTest(testutil.TestCase):
 
     def test_proxy_url(self):
         with app.test_request_context('/'):
-            obj = Object(id='abc', as1='{}')
+            obj = Object(id='abc', as2='{}')
             self.assertEqual('http://localhost/render?id=abc', obj.proxy_url())
 
     def test_actor_link(self):
-        for expected, as1 in (
+        for expected, as2 in (
                 ('<a href=""></a>', {}),
                 ('<a href="http://foo">foo</a>', {'actor': 'http://foo'}),
-                ('<a href="">Alice</a>', {'actor': {'displayName': 'Alice'}}),
+                ('<a href="">Alice</a>', {'actor': {'name': 'Alice'}}),
                 ('<a href="http://foo">Alice</a>', {'actor': {
-                    'displayName': 'Alice',
+                    'name': 'Alice',
                     'url': 'http://foo',
                 }}),
                 ("""\
         <a href="" title="Alice">
           <img class="profile" src="http://pic" />
           Alice
-        </a>""", {'actor': {'displayName': 'Alice', 'image': 'http://pic'}}),
+        </a>""", {'actor': {
+            'name': 'Alice',
+            'icon': {'type': 'Image', 'url': 'http://pic'},
+        }}),
         ):
-            self.assertEqual(expected, Object(id='x', as1=json_dumps(as1)).actor_link())
+            with app.test_request_context('/'):
+                obj = Object(id='x', as2=json_dumps(as2))
+                self.assertEqual(expected, obj.actor_link())
 
     def test_actor_link_user(self):
         user = User(id='foo.com', actor_as2='{"name": "Alice"}')
@@ -278,13 +283,13 @@ class ObjectTest(testutil.TestCase):
             obj.actor_link(user))
 
     def test_put_updates_get_object_cache(self):
-        obj = Object(id='x', as1='{}')
+        obj = Object(id='x', as2='{}')
         obj.put()
         key = common.get_object.cache_key('x')
         self.assert_entities_equal(obj, common.get_object.cache[key])
 
     def test_put_fragment_id_doesnt_update_get_object_cache(self):
-        obj = Object(id='x#y', as1='{}')
+        obj = Object(id='x#y', as2='{}')
         obj.put()
 
         self.assertNotIn(common.get_object.cache_key('x#y'), common.get_object.cache)

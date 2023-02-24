@@ -142,7 +142,7 @@ def feed(domain):
         Object.domains == domain, Object.labels == 'feed') \
         .order(-Object.created) \
         .fetch_page(PAGE_SIZE)
-    activities = [json_loads(obj.as1) for obj in objects if not obj.deleted]
+    activities = [obj.as1 for obj in objects if not obj.deleted]
 
     actor = {
       'displayName': domain,
@@ -184,10 +184,8 @@ def fetch_objects(query, user):
 
     # synthesize human-friendly content for objects
     for i, obj in enumerate(objects):
-        obj_as1 = json_loads(obj.as1)
-
         # synthesize text snippet
-        type = as1.object_type(obj_as1)
+        type = as1.object_type(obj.as1)
         phrases = {
             'article': 'posted',
             'comment': 'replied',
@@ -207,7 +205,7 @@ def fetch_objects(query, user):
         obj.phrase = phrases.get(type)
 
         # TODO: unify inner object loading? optionally fetch external?
-        inner_obj = util.get_first(obj_as1, 'object') or {}
+        inner_obj = util.get_first(obj.as1, 'object') or {}
         if isinstance(inner_obj, str):
             inner_obj = Object.get_by_id(inner_obj)
             if inner_obj:
@@ -220,17 +218,17 @@ def fetch_objects(query, user):
         if (obj.domains and
               inner_obj.get('id', '').strip('/') == f'https://{obj.domains[0]}'):
             obj.phrase = 'updated'
-            obj_as1.update({
+            obj.as1.update({
                 'content': 'their profile',
                 'url': f'https://{obj.domains[0]}',
             })
         elif url:
             content = common.pretty_link(url, text=content, user=user)
 
-        obj.content = (obj_as1.get('content')
-                       or obj_as1.get('displayName')
-                       or obj_as1.get('summary'))
-        obj.url = util.get_first(obj_as1, 'url')
+        obj.content = (obj.as1.get('content')
+                       or obj.as1.get('displayName')
+                       or obj.as1.get('summary'))
+        obj.url = util.get_first(obj.as1, 'url')
 
         if (type in ('like', 'follow', 'repost', 'share') or
             not obj.content):

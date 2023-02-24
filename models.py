@@ -12,7 +12,7 @@ from Crypto.PublicKey import RSA
 from Crypto.Util import number
 from flask import request
 from google.cloud import ndb
-from granary import as1, as2, microformats2
+from granary import as1, as2, bluesky, microformats2
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.models import StringIdModel
 from oauth_dropins.webutil import util
@@ -283,17 +283,26 @@ class Object(StringIdModel):
     # these are all JSON. They're TextProperty, and not JsonProperty, so that
     # their plain text is visible in the App Engine admin console. (JsonProperty
     # uses a blob.)
-    as1 = ndb.TextProperty(required=True)  # converted from source data
     as2 = ndb.TextProperty()  # only one of the rest will be populated...
     bsky = ndb.TextProperty() # Bluesky / AT Protocol
     mf2 = ndb.TextProperty()  # HTML microformats2
 
     @ndb.ComputedProperty
+    def as1(self):
+        assert bool(self.as2) ^ bool(self.bsky) ^ bool(self.mf2), \
+            f'{bool(self.as2)} {bool(self.bsky)} {bool(self.mf2)}'
+        return (as2.to_as1(common.redirect_unwrap(json_loads(self.as2))) if self.as2
+                else bluesky.to_as1(json_loads(self.bsky)) if self.bsky
+                else microformats2.json_to_object(json_loads(self.mf2))
+                  if self.mf2
+                else None)
+
+    @ndb.ComputedProperty
     def type(self):  # AS1 objectType, or verb if it's an activity
-        return as1.object_type(json_loads(self.as1))
+        return as1.object_type(self.as1)
 
     def _object_ids(self):  # id(s) of inner objects
-        return as1.get_ids(json_loads(self.as1), 'object')
+        return as1.get_ids(self.as1, 'object')
     object_ids = ndb.ComputedProperty(_object_ids, repeated=True)
 
     deleted = ndb.BooleanProperty()
@@ -329,9 +338,8 @@ class Object(StringIdModel):
             # outbound; show a nice link to the user
             return user.user_page_link()
 
-        activity = json_loads(self.as1)
-        actor = (util.get_first(activity, 'actor')
-                 or util.get_first(activity, 'author')
+        actor = (util.get_first(self.as1, 'actor')
+                 or util.get_first(self.as1, 'author')
                  or {})
         if isinstance(actor, str):
             return common.pretty_link(actor, user=user)

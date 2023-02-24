@@ -8,7 +8,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from app import app, cache
 from common import redirect_unwrap
 from models import Object, User
-from .test_webmention import REPOST_AS1_UNWRAPPED, REPOST_AS2
+from .test_webmention import REPOST_AS2
 from . import testutil
 
 
@@ -72,20 +72,23 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual('https://foo.com/bar', resp.headers['Location'])
 
     def _test_as2(self, content_type):
-        self.obj = Object(id='https://foo.com/bar',
-                          as1=json_dumps(REPOST_AS1_UNWRAPPED)).put()
+        with app.test_request_context('/'):
+            self.obj = Object(id='https://foo.com/bar',
+                              as2=json_dumps(REPOST_AS2)).put()
 
         resp = self.client.get('/r/https://foo.com/bar',
                               headers={'Accept': content_type})
         self.assertEqual(200, resp.status_code)
         self.assertEqual(content_type, resp.content_type)
 
-        repost_as2 = copy.deepcopy(REPOST_AS2)
-        del repost_as2['cc']
-        self.assertEqual(repost_as2, resp.json)
+        self.assertEqual({
+            **REPOST_AS2,
+            'cc': [as2.PUBLIC_AUDIENCE],
+        }, resp.json)
 
     def test_as2_deleted(self):
-        Object(id='https://foo.com/bar', as1='{}', deleted=True).put()
+        with app.test_request_context('/'):
+            Object(id='https://foo.com/bar', as2='{}', deleted=True).put()
 
         resp = self.client.get('/r/https://foo.com/bar',
                               headers={'Accept': as2.CONTENT_TYPE})

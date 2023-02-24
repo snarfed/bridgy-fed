@@ -129,7 +129,6 @@ def inbox(domain=None):
     activity_obj = Object(
         id=id,
         as2=json_dumps(activity_unwrapped),
-        as1=json_dumps(as2.to_as1(activity_unwrapped)),
         source_protocol='activitypub')
     activity_obj.put()
 
@@ -193,7 +192,6 @@ def inbox(domain=None):
         obj = Object.get_by_id(obj_id) or Object(id=obj_id)
         obj.populate(
             as2=json_dumps(obj_as2),
-            as1=json_dumps(as2.to_as1(obj_as2)),
             source_protocol='activitypub',
         )
         obj.put()
@@ -231,17 +229,17 @@ def inbox(domain=None):
             json_loads(common.get_object(actor, user=user).as2)
 
     # fetch object if necessary so we can render it in feeds
-    if type in FETCH_OBJECT_TYPES and isinstance(activity.get('object'), str):
+    inner_obj = activity_unwrapped.get('object')
+    if type in FETCH_OBJECT_TYPES and isinstance(inner_obj, str):
+        obj = Object.get_by_id(inner_obj) or common.get_object(inner_obj, user=user)
         obj_as2 = activity['object'] = activity_unwrapped['object'] = \
-            json_loads(common.get_object(activity['object'], user=user).as2)
+            json_loads(obj.as2) if obj.as2 else as2.from_as1(json_loads(obj.as1))
 
     if type == 'Follow':
         resp = accept_follow(activity, activity_unwrapped, user)
 
     # send webmentions to each target
-    activity_as1 = as2.to_as1(activity_unwrapped)
-    activity_obj.populate(as2=json_dumps(activity_unwrapped),
-                          as1=json_dumps(activity_as1))
+    activity_obj.as2 = json_dumps(activity_unwrapped)
     common.send_webmentions(as2.to_as1(activity), activity_obj, proxy=True)
 
     # deliver original posts and reposts to followers
@@ -265,10 +263,10 @@ def inbox(domain=None):
                 if activity_obj.domains and 'feed' not in activity_obj.labels:
                     activity_obj.labels.append('feed')
 
-    if (activity_as1.get('objectType') == 'activity'
+    if (activity_obj.as1.get('objectType') == 'activity'
         and 'activity' not in activity_obj.labels):
-
         activity_obj.labels.append('activity')
+
     activity_obj.put()
     return 'OK'
 

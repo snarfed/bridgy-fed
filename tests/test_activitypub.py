@@ -9,7 +9,7 @@ from unittest.mock import ANY, call, patch
 import urllib.parse
 
 from google.cloud import ndb
-from granary import as2
+from granary import as2, microformats2
 from httpsig import HeaderSigner
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
@@ -18,6 +18,7 @@ import requests
 from urllib3.exceptions import ReadTimeoutError
 
 import activitypub
+from app import app
 import common
 from models import Follower, Object, User
 from . import testutil
@@ -301,7 +302,6 @@ class ActivityPubTest(testutil.TestCase):
                            domains=['or.ig'],
                            source_protocol='activitypub',
                            status='complete',
-                           as1=as2.to_as1(expected_props['as2']),
                            delivered=['http://or.ig/post'],
                            **expected_props)
 
@@ -349,7 +349,6 @@ class ActivityPubTest(testutil.TestCase):
         self.assert_object('http://th.is/note/as2',
                            source_protocol='activitypub',
                            as2=expected_as2,
-                           as1=as2.to_as1(expected_as2),
                            domains=['foo.com', 'baz.com'],
                            type='post',
                            labels=['activity', 'feed'],
@@ -369,7 +368,8 @@ class ActivityPubTest(testutil.TestCase):
             **NOTE_OBJECT,
             'url': 'https://foo.com/orig',
         }
-        Object(id=orig_url, mf2='{}', as1=json_dumps(as2.to_as1(note))).put()
+        with app.test_request_context('/'):
+            Object(id=orig_url, as2=json_dumps(note)).put()
 
         repost = {
             **REPOST_FULL,
@@ -390,7 +390,6 @@ class ActivityPubTest(testutil.TestCase):
             },
         )
 
-        note.pop('cc')
         repost['object'] = note
         self.assert_object(REPOST_FULL['id'],
                            source_protocol='activitypub',
@@ -400,7 +399,7 @@ class ActivityPubTest(testutil.TestCase):
                            domains=['foo.com'],
                            delivered=['https://foo.com/orig'],
                            type='share',
-                           labels=['activity', 'notification'],
+                           labels=['activity', 'feed', 'notification'],
                            object_ids=[NOTE_OBJECT['id']])
 
     def test_shared_inbox_repost(self, mock_head, mock_get, mock_post):
@@ -435,7 +434,6 @@ class ActivityPubTest(testutil.TestCase):
                            source_protocol='activitypub',
                            status='complete',
                            as2=REPOST_FULL,
-                           as1=as2.to_as1(REPOST_FULL),
                            domains=['foo.com', 'baz.com', 'th.is'],
                            type='share',
                            labels=['activity', 'feed', 'notification'],
@@ -507,7 +505,6 @@ class ActivityPubTest(testutil.TestCase):
                            source_protocol='activitypub',
                            status='complete',
                            as2=expected_as2,
-                           as1=as2.to_as1(expected_as2),
                            delivered=['https://tar.get/'],
                            **expected_props)
 
@@ -540,7 +537,6 @@ class ActivityPubTest(testutil.TestCase):
                            source_protocol='activitypub',
                            status='complete',
                            as2=LIKE_WITH_ACTOR,
-                           as1=as2.to_as1(LIKE_WITH_ACTOR),
                            delivered=['http://or.ig/post'],
                            type='like',
                            labels=['notification', 'activity'],
@@ -557,7 +553,6 @@ class ActivityPubTest(testutil.TestCase):
                            source_protocol='activitypub',
                            status='complete',
                            as2=follow,
-                           as1=as2.to_as1(follow),
                            delivered=['https://foo.com/'],
                            type='follow',
                            labels=['notification', 'activity'],
@@ -599,7 +594,6 @@ class ActivityPubTest(testutil.TestCase):
                            source_protocol='activitypub',
                            status='complete',
                            as2=follow,
-                           as1=as2.to_as1(follow),
                            delivered=['https://foo.com/'],
                            type='follow',
                            labels=['notification', 'activity'],
@@ -856,7 +850,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('active', other.key.get().status)
 
     def test_delete_note(self, _, mock_get, ___):
-        obj = Object(id='http://an/obj', as1='{}')
+        obj = Object(id='http://an/obj', as2='{}')
         obj.put()
 
         mock_get.side_effect = [
@@ -870,7 +864,7 @@ class ActivityPubTest(testutil.TestCase):
         resp = self.client.post('/inbox', json=delete)
         self.assertEqual(200, resp.status_code)
         self.assertTrue(obj.key.get().deleted)
-        self.assert_object(delete['id'], as2=delete, as1=as2.to_as1(delete),
+        self.assert_object(delete['id'], as2=delete,
                            type='delete', source_protocol='activitypub',
                            status='complete')
 
@@ -878,7 +872,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assert_entities_equal(obj, common.get_object.cache['http://an/obj'])
 
     def test_update_note(self, *mocks):
-        Object(id='https://a/note', as1='{}').put()
+        Object(id='https://a/note', as2='{}').put()
         self._test_update(*mocks)
 
     def test_update_unknown(self, *mocks):
@@ -894,10 +888,9 @@ class ActivityPubTest(testutil.TestCase):
 
         obj = UPDATE_NOTE['object']
         self.assert_object('https://a/note', type='note', as2=obj,
-                           as1=as2.to_as1(obj), source_protocol='activitypub')
+                           source_protocol='activitypub')
         self.assert_object(UPDATE_NOTE['id'], source_protocol='activitypub',
-                           type='update', status='complete', as2=UPDATE_NOTE,
-                           as1=as2.to_as1(UPDATE_NOTE))
+                           type='update', status='complete', as2=UPDATE_NOTE)
 
         self.assert_entities_equal(Object.get_by_id('https://a/note'),
                                    common.get_object.cache['https://a/note'])
@@ -930,13 +923,12 @@ class ActivityPubTest(testutil.TestCase):
                            source_protocol='activitypub',
                            status='complete',
                            as2=LIKE_WITH_ACTOR,
-                           as1=as2.to_as1(LIKE_WITH_ACTOR),
                            type='like',
                            labels=['notification', 'activity'],
                            object_ids=[LIKE['object']])
 
     def test_inbox_id_already_seen(self, *mocks):
-        obj_key = Object(id=FOLLOW_WRAPPED['id'], as1='{}').put()
+        obj_key = Object(id=FOLLOW_WRAPPED['id'], as2='{}').put()
 
         got = self.client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)

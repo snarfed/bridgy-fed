@@ -49,20 +49,22 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
     @staticmethod
     def add_objects():
-        # post
-        Object(id='a', domains=['foo.com'], labels=['feed', 'notification'],
-                 as1=json_dumps(NOTE)).put()
-        # different domain
-        Object(id='b', domains=['bar.org'], labels=['feed', 'notification'],
-               as1=json_dumps(MENTION)).put()
-        # reply
-        Object(id='d', domains=['foo.com'], labels=['feed', 'notification'],
-               as1=json_dumps(COMMENT)).put()
-        # not feed/notif
-        Object(id='e', domains=['foo.com'], as1=json_dumps(NOTE)).put()
-        # deleted
-        Object(id='f', domains=['foo.com'], labels=['feed', 'notification', 'user'],
-                 as1=json_dumps(NOTE), deleted=True).put()
+        with app.test_request_context('/'):
+            # post
+            Object(id='a', domains=['foo.com'], labels=['feed', 'notification'],
+                   as2=json_dumps(as2.from_as1(NOTE))).put()
+            # different domain
+            Object(id='b', domains=['bar.org'], labels=['feed', 'notification'],
+                   as2=json_dumps(as2.from_as1(MENTION))).put()
+            # reply
+            Object(id='d', domains=['foo.com'], labels=['feed', 'notification'],
+                   as2=json_dumps(as2.from_as1(COMMENT))).put()
+            # not feed/notif
+            Object(id='e', domains=['foo.com'],
+                   as2=json_dumps(as2.from_as1(NOTE))).put()
+            # deleted
+            Object(id='f', domains=['foo.com'], labels=['feed', 'notification', 'user'],
+                   as2=json_dumps(as2.from_as1(NOTE)), deleted=True).put()
 
     def req(self, url, **kwargs):
         """Returns a mock requests call."""
@@ -106,8 +108,12 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             props[field] = [Target(uri=uri, protocol='activitypub')
                             for uri in props.get(field, [])]
 
+        mf2 = props.get('mf2')
+        if mf2 and 'items' in mf2:
+            props['mf2'] = mf2['items'][0]
+
         # sort keys in JSON properties
-        for prop in 'as1', 'as2', 'bsky', 'mf2':
+        for prop in 'as2', 'bsky', 'mf2':
             if prop in props:
                 props[prop] = json_dumps(props[prop], sort_keys=True)
             got_val = getattr(got, prop, None)
@@ -119,6 +125,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             if val is not None:
                 self.assertEqual(val, getattr(got, computed))
 
+        if expected_as1 := props.pop('as1', None):
+            self.assert_equals(common.redirect_unwrap(expected_as1), got.as1)
+
         self.assert_entities_equal(Object(id=id, **props), got,
                                    ignore=['created', 'updated'])
-

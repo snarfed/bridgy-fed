@@ -12,6 +12,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app
 import common
+from common import redirect_unwrap
 from models import Follower, Object, User
 from . import testutil
 
@@ -379,7 +380,8 @@ class UnfollowTest(testutil.TestCase):
             'http://localhost/user/alice.com/following#undo-2022-01-02T03:04:05-https://bar/id',
             domains=['alice.com'], status='complete',
             source_protocol='ui', labels=['user', 'activity'],
-            as2=expected_undo, as1=as2.to_as1(expected_undo))
+            as2=expected_undo,
+            as1=as2.to_as1(expected_undo))
 
         self.assertEqual('https://alice.com', session['indieauthed-me'])
 

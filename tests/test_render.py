@@ -3,9 +3,11 @@
 import copy
 from unittest import skip
 
+from granary import as2
 from granary.tests.test_as1 import COMMENT, DELETE_OF_ID, UPDATE
 from oauth_dropins.webutil.util import json_dumps
 
+from app import app
 import common
 from models import Object
 import render
@@ -32,9 +34,6 @@ EXPECTED_HTML = """\
 
 class RenderTest(testutil.TestCase):
 
-    def setUp(self):
-        super().setUp()
-
     def test_render_errors(self):
         resp = self.client.get(f'/render?id=')
         self.assertEqual(400, resp.status_code)
@@ -47,7 +46,8 @@ class RenderTest(testutil.TestCase):
         self.assertEqual(404, resp.status_code)
 
     def test_render(self):
-        Object(id='abc', as1=json_dumps(COMMENT)).put()
+        with app.test_request_context('/'):
+            Object(id='abc', as2=json_dumps(as2.from_as1(COMMENT))).put()
         resp = self.client.get('/render?id=abc')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_equals(EXPECTED_HTML, resp.get_data(as_text=True), ignore_blanks=True)
@@ -55,7 +55,8 @@ class RenderTest(testutil.TestCase):
     def test_render_no_url(self):
         comment = copy.deepcopy(COMMENT)
         del comment['url']
-        Object(id='abc', as1=json_dumps(comment)).put()
+        with app.test_request_context('/'):
+            Object(id='abc', as2=json_dumps(as2.from_as1(comment))).put()
 
         resp = self.client.get('/render?id=abc')
         self.assertEqual(200, resp.status_code)
@@ -67,8 +68,10 @@ class RenderTest(testutil.TestCase):
 
     @skip
     def test_render_update_redirect(self):
-        # UPDATE's object field is a full object
-        Object(id='abc', as1=json_dumps(UPDATE)).put()
+        with app.test_request_context('/'):
+            # UPDATE's object field is a full object
+            Object(id='abc', as2=json_dumps(as2.from_as1(UPDATE))).put()
+
         resp = self.client.get('/render?id=abc')
         self.assertEqual(301, resp.status_code)
         self.assertEqual(f'/render?id=tag%3Afake.com%3A123456',
@@ -76,8 +79,10 @@ class RenderTest(testutil.TestCase):
 
     @skip
     def test_render_delete_redirect(self):
-        # DELETE_OF_ID's object field is a bare string id
-        Object(id='abc', as1=json_dumps(DELETE_OF_ID)).put()
+        with app.test_request_context('/'):
+            # DELETE_OF_ID's object field is a bare string id
+            Object(id='abc', as1=json_dumps(as2.from_as1(DELETE_OF_ID))).put()
+
         resp = self.client.get('/render?id=abc')
         self.assertEqual(301, resp.status_code)
         self.assertEqual(f'/render?id=tag%3Afake.com%3A123456',

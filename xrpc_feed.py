@@ -6,7 +6,6 @@ import re
 from granary import bluesky, microformats2
 import mf2util
 from oauth_dropins.webutil import util
-from oauth_dropins.webutil.util import json_loads
 
 from app import xrpc_server
 from common import PAGE_SIZE
@@ -34,7 +33,7 @@ def getAuthorFeed(input, author=None, limit=None, before=None):
     objects, _, _ = Object.query(Object.domains == author, Object.labels == 'user') \
         .order(-Object.created) \
         .fetch_page(limit)
-    activities = [json_loads(obj.as1) for obj in objects if not obj.deleted]
+    activities = [obj.as1 for obj in objects if not obj.deleted]
     logger.info(f'AS1 activities: {json.dumps(activities, indent=2)}')
 
     return {'feed': [bluesky.from_as1(a) for a in activities]}
@@ -52,17 +51,16 @@ def getPostThread(input, uri=None, depth=None):
     if not obj:
         raise ValueError(f'{uri} not found')
 
-    obj_as1 = json_loads(obj.as1)
-    logger.info(f'AS1: {json.dumps(obj_as1, indent=2)}')
+    logger.info(f'AS1: {json.dumps(obj.as1, indent=2)}')
 
     return {
         'thread': {
             '$type': 'app.bsky.feed.getPostThread#threadViewPost',
-            'post': bluesky.from_as1(obj_as1)['post'],
+            'post': bluesky.from_as1(obj.as1)['post'],
             'replies': [{
                 '$type': 'app.bsky.feed.getPostThread#threadViewPost',
                 'post': bluesky.from_as1(reply)['post'],
-            } for reply in obj_as1.get('replies', {}).get('items', [])],
+            } for reply in obj.as1.get('replies', {}).get('items', [])],
         },
     }
 
@@ -80,7 +78,7 @@ def getRepostedBy(input, uri=None, cid=None, limit=None, before=None):
     objects, _, _ = Object.query(Object.object_ids == uri) \
         .order(-Object.created) \
         .fetch_page(limit)
-    activities = [json_loads(obj.as1) for obj in objects if not obj.deleted]
+    activities = [obj.as1 for obj in objects if not obj.deleted]
     logger.info(f'AS1 activities: {json.dumps(activities, indent=2)}')
 
     return {
@@ -107,8 +105,7 @@ def getTimeline(input, algorithm=None, limit=50, before=None):
         .order(-Object.created) \
         .fetch_page(limit)
 
-    return {'feed': [bluesky.from_as1(json_loads(obj.as1))
-                     for obj in objects if not obj.deleted]}
+    return {'feed': [bluesky.from_as1(obj.as1) for obj in objects if not obj.deleted]}
 
 
 # TODO: use likes as votes?

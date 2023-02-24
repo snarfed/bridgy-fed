@@ -101,18 +101,18 @@ class Webmention(View):
             error(f"Couldn't find link to {common.host_url().rstrip('/')}")
 
         # convert source page to ActivityStreams
-        entry = mf2util.find_first_entry(self.source_mf2, ['h-entry'])
-        if not entry:
+        self.source_mf2 = mf2util.find_first_entry(self.source_mf2, ['h-entry'])
+        if not self.source_mf2:
             error(f'No microformats2 found on {self.source_url}')
 
-        logger.info(f'First entry (id={fragment}): {json_dumps(entry, indent=2)}')
+        logger.info(f'First entry (id={fragment}): {json_dumps(self.source_mf2, indent=2)}')
         # make sure it has url, since we use that for AS2 id, which is required
         # for ActivityPub.
-        props = entry.setdefault('properties', {})
+        props = self.source_mf2.setdefault('properties', {})
         if not props.get('url'):
             props['url'] = [self.source_url]
 
-        self.source_as1 = microformats2.json_to_object(entry, fetch_mf2=True)
+        self.source_as1 = microformats2.json_to_object(self.source_mf2, fetch_mf2=True)
         type_label = ' '.join((
             self.source_as1.get('verb', ''),
             self.source_as1.get('objectType', ''),
@@ -152,25 +152,31 @@ class Webmention(View):
                 obj.undelivered += [Target(uri=uri, protocol='activitypub')
                                     for uri in new_inboxes]
             if type in ('note', 'article', 'comment'):
-                changed = as1.activity_changed(json_loads(obj.as1), self.source_as1)
+                changed = as1.activity_changed(obj.as1, self.source_as1)
                 if changed:
                     obj.undelivered += obj.delivered
                     obj.delivered = []
                     logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes: {obj.undelivered}')
 
         else:
+            logger.info(f'New Object {obj_id}')
             obj = Object(id=obj_id, delivered=[], failed=[],
                          undelivered=[Target(uri=uri, protocol='activitypub')
                                       for uri in inboxes_to_targets.keys()],
                          status='in progress')
 
-        obj.domains = [self.source_domain]
-        obj.source_protocol = 'webmention'
-        obj.mf2 = json_dumps(self.source_mf2)
-        obj.as1 = json_dumps(self.source_as1)
-        obj.labels = ['user']
+        obj.populate(
+            domains=[self.source_domain],
+            source_protocol='webmention',
+            labels=['user'],
+        )
+        if self.source_as2:
+            obj.as2 = json_dumps(common.redirect_unwrap(self.source_as2))
+        else:
+            obj.mf2 = json_dumps(self.source_mf2)
         if self.source_as1.get('objectType') == 'activity':
             obj.labels.append('activity')
+
         obj.put()
 
         # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
