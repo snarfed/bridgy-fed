@@ -3,8 +3,6 @@
 import html
 import urllib.parse
 
-from oauth_dropins.webutil.util import json_dumps, json_loads
-
 import common
 from models import User
 from . import testutil
@@ -47,7 +45,7 @@ class WebfingerTest(testutil.TestCase):
             'icon': {'type': 'Image', 'url': 'https://foo.com/me.jpg'},
         }
         self.user = User.get_or_create('foo.com', has_hcard=True,
-                                       actor_as2=json_dumps(self.actor_as2))
+                                       actor_as2=self.actor_as2)
         self.user.put()
         self.expected_webfinger = {
             'subject': 'acct:foo.com@foo.com',
@@ -153,14 +151,14 @@ class WebfingerTest(testutil.TestCase):
                 self.assertEqual(self.expected_webfinger, got.json)
 
     def test_webfinger_custom_username(self):
-        self.user.actor_as2 = json_dumps({
+        self.user.actor_as2 = {
             **self.actor_as2,
             'url': [
                 'https://foo.com/about-me',
                 'acct:notthisuser@boop.org',
                 'acct:customuser@foo.com',
             ],
-        })
+        }
         self.user.put()
 
         self.expected_webfinger.update({

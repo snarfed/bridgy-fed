@@ -5,7 +5,6 @@ from unittest import skip
 
 from granary import as2
 from granary.tests.test_as1 import COMMENT, DELETE_OF_ID, UPDATE
-from oauth_dropins.webutil.util import json_dumps
 
 from app import app
 import common
@@ -47,7 +46,7 @@ class RenderTest(testutil.TestCase):
 
     def test_render(self):
         with app.test_request_context('/'):
-            Object(id='abc', as2=json_dumps(as2.from_as1(COMMENT))).put()
+            Object(id='abc', as2=as2.from_as1(COMMENT)).put()
         resp = self.client.get('/render?id=abc')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_equals(EXPECTED_HTML, resp.get_data(as_text=True), ignore_blanks=True)
@@ -56,7 +55,7 @@ class RenderTest(testutil.TestCase):
         comment = copy.deepcopy(COMMENT)
         del comment['url']
         with app.test_request_context('/'):
-            Object(id='abc', as2=json_dumps(as2.from_as1(comment))).put()
+            Object(id='abc', as2=as2.from_as1(comment)).put()
 
         resp = self.client.get('/render?id=abc')
         self.assertEqual(200, resp.status_code)
@@ -70,7 +69,7 @@ class RenderTest(testutil.TestCase):
     def test_render_update_redirect(self):
         with app.test_request_context('/'):
             # UPDATE's object field is a full object
-            Object(id='abc', as2=json_dumps(as2.from_as1(UPDATE))).put()
+            Object(id='abc', as2=as2.from_as1(UPDATE)).put()
 
         resp = self.client.get('/render?id=abc')
         self.assertEqual(301, resp.status_code)
@@ -81,7 +80,7 @@ class RenderTest(testutil.TestCase):
     def test_render_delete_redirect(self):
         with app.test_request_context('/'):
             # DELETE_OF_ID's object field is a bare string id
-            Object(id='abc', as1=json_dumps(as2.from_as1(DELETE_OF_ID))).put()
+            Object(id='abc', as1=as2.from_as1(DELETE_OF_ID)).put()
 
         resp = self.client.get('/render?id=abc')
         self.assertEqual(301, resp.status_code)

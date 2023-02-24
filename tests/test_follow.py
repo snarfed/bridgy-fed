@@ -198,8 +198,7 @@ class FollowTest(testutil.TestCase):
 
         followers = Follower.query().fetch()
         self.assert_entities_equal(
-            Follower(id='https://bar/id alice.com',
-                     last_follow=json_dumps(expected_follow, sort_keys=True),
+            Follower(id='https://bar/id alice.com', last_follow=expected_follow,
                      src='alice.com', dest='https://bar/id', status='active'),
             followers,
             ignore=['created', 'updated'])
@@ -249,8 +248,7 @@ class FollowTest(testutil.TestCase):
         }
         followers = Follower.query().fetch()
         self.assert_entities_equal(
-            Follower(id='https://bar/id www.alice.com',
-                     last_follow=json_dumps(expected_follow, sort_keys=True),
+            Follower(id='https://bar/id www.alice.com', last_follow=expected_follow,
                      src='www.alice.com', dest='https://bar/id', status='active'),
             followers,
             ignore=['created', 'updated'])
@@ -301,7 +299,7 @@ class UnfollowTest(testutil.TestCase):
         super().setUp()
         self.user = User.get_or_create('alice.com')
         self.follower = Follower(
-            id='https://bar/id alice.com', last_follow=json_dumps(FOLLOW_ADDRESS),
+            id='https://bar/id alice.com', last_follow=FOLLOW_ADDRESS,
             src='alice.com', dest='https://bar/id', status='active',
         ).put()
         self.state = util.encode_oauth_state({
@@ -335,10 +333,10 @@ class UnfollowTest(testutil.TestCase):
 
     def test_callback_last_follow_object_str(self, mock_get, mock_post):
         follower = self.follower.get()
-        follower.last_follow = json_dumps({
+        follower.last_follow = {
             **FOLLOW_ADDRESS,
             'object': FOLLOWEE['id'],
-        })
+        }
         follower.put()
 
         mock_get.side_effect = (
@@ -391,7 +389,7 @@ class UnfollowTest(testutil.TestCase):
         self.user.put()
 
         self.follower = Follower(
-            id='https://bar/id www.alice.com', last_follow=json_dumps(FOLLOW_ADDRESS),
+            id='https://bar/id www.alice.com', last_follow=FOLLOW_ADDRESS,
             src='www.alice.com', dest='https://bar/id', status='active',
         ).put()
 

@@ -14,7 +14,6 @@ from granary.tests.test_as1 import (
 )
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
-from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
 from models import Object, Follower, User
@@ -70,9 +69,8 @@ class PagesTest(testutil.TestCase):
 
         user = User.get_by_id('orig')
         self.assertTrue(user.has_hcard)
-        actor_as2 = json_loads(user.actor_as2)
-        self.assertEqual('Person', actor_as2['type'])
-        self.assertEqual('http://localhost/orig', actor_as2['id'])
+        self.assertEqual('Person', user.actor_as2['type'])
+        self.assertEqual('http://localhost/orig', user.actor_as2['id'])
 
     def test_check_web_site_bad_url(self):
         got = self.client.post('/web-site', data={'url': '!!!'})
@@ -97,7 +95,7 @@ class PagesTest(testutil.TestCase):
         User.get_or_create('bar.com')
         Follower.get_or_create('bar.com', 'https://no/stored/follow')
         Follower.get_or_create('bar.com', 'https://masto/user',
-                               last_follow=json_dumps(FOLLOW_WITH_ACTOR))
+                               last_follow=FOLLOW_WITH_ACTOR)
         got = self.client.get('/user/bar.com/followers')
         self.assert_equals(200, got.status_code)
 
@@ -118,7 +116,7 @@ class PagesTest(testutil.TestCase):
     def test_following(self):
         Follower.get_or_create('https://no/stored/follow', 'bar.com')
         Follower.get_or_create('https://masto/user', 'bar.com',
-                               last_follow=json_dumps(FOLLOW_WITH_OBJECT))
+                               last_follow=FOLLOW_WITH_OBJECT)
         User.get_or_create('bar.com')
         got = self.client.get('/user/bar.com/following')
         self.assert_equals(200, got.status_code)

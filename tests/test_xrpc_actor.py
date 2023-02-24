@@ -1,7 +1,6 @@
 """Unit tests for actor.py."""
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
-from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 from . import testutil
@@ -17,8 +16,7 @@ class XrpcActorTest(testutil.TestCase):
             'summary': "I'm a person",
             'image': [{'type': 'Image', 'url': 'http://foo.com/header.png'}],
         }
-        User.get_or_create('foo.com', has_hcard=True,
-                           actor_as2=json_dumps(actor)).put()
+        User.get_or_create('foo.com', has_hcard=True, actor_as2=actor).put()
 
         resp = self.client.get('/xrpc/app.bsky.actor.getProfile',
                                query_string={'actor': 'foo.com'})

@@ -14,7 +14,6 @@ from granary.tests.test_as1 import (
 from oauth_dropins.webutil import testutil, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.testutil import requests_response
-from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 from app import app, cache
@@ -52,19 +51,19 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         with app.test_request_context('/'):
             # post
             Object(id='a', domains=['foo.com'], labels=['feed', 'notification'],
-                   as2=json_dumps(as2.from_as1(NOTE))).put()
+                   as2=as2.from_as1(NOTE)).put()
             # different domain
             Object(id='b', domains=['bar.org'], labels=['feed', 'notification'],
-                   as2=json_dumps(as2.from_as1(MENTION))).put()
+                   as2=as2.from_as1(MENTION)).put()
             # reply
             Object(id='d', domains=['foo.com'], labels=['feed', 'notification'],
-                   as2=json_dumps(as2.from_as1(COMMENT))).put()
+                   as2=as2.from_as1(COMMENT)).put()
             # not feed/notif
             Object(id='e', domains=['foo.com'],
-                   as2=json_dumps(as2.from_as1(NOTE))).put()
+                   as2=as2.from_as1(NOTE)).put()
             # deleted
             Object(id='f', domains=['foo.com'], labels=['feed', 'notification', 'user'],
-                   as2=json_dumps(as2.from_as1(NOTE)), deleted=True).put()
+                   as2=as2.from_as1(NOTE), deleted=True).put()
 
     def req(self, url, **kwargs):
         """Returns a mock requests call."""
@@ -111,14 +110,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         mf2 = props.get('mf2')
         if mf2 and 'items' in mf2:
             props['mf2'] = mf2['items'][0]
-
-        # sort keys in JSON properties
-        for prop in 'as2', 'bsky', 'mf2':
-            if prop in props:
-                props[prop] = json_dumps(props[prop], sort_keys=True)
-            got_val = getattr(got, prop, None)
-            if got_val:
-                setattr(got, prop, json_dumps(json_loads(got_val), sort_keys=True))
 
         for computed in 'type', 'object_ids':
             val = props.pop(computed, None)

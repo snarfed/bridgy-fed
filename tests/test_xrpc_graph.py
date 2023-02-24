@@ -1,7 +1,6 @@
 """Unit tests for graph.py."""
 from granary import bluesky
 from oauth_dropins.webutil.testutil import requests_response
-from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 from .test_activitypub import ACTOR, FOLLOW, FOLLOW_WITH_ACTOR, FOLLOW_WITH_OBJECT
@@ -77,11 +76,11 @@ class XrpcGraphTest(testutil.TestCase):
 
         Follower.get_or_create('foo.com', 'https://no/stored/follow')
         Follower.get_or_create('foo.com', 'https://masto/user',
-                               last_follow=json_dumps(FOLLOW_WITH_ACTOR))
+                               last_follow=FOLLOW_WITH_ACTOR)
         Follower.get_or_create('foo.com', 'http://other',
-                               last_follow=json_dumps(other_follow))
+                               last_follow=other_follow)
         Follower.get_or_create('nope.com', 'http://nope',
-                               last_follow=json_dumps(other_follow))
+                               last_follow=other_follow)
 
         resp = self.client.get('/xrpc/app.bsky.graph.getFollowers',
                               query_string={'user': 'foo.com'})
@@ -122,11 +121,11 @@ class XrpcGraphTest(testutil.TestCase):
 
         Follower.get_or_create('https://no/stored/follow', 'foo.com')
         Follower.get_or_create('https://masto/user', 'foo.com',
-                               last_follow=json_dumps(FOLLOW_WITH_OBJECT))
+                               last_follow=FOLLOW_WITH_OBJECT)
         Follower.get_or_create( 'http://other', 'foo.com',
-                               last_follow=json_dumps(other_follow))
+                               last_follow=other_follow)
         Follower.get_or_create('http://nope', 'nope.com',
-                               last_follow=json_dumps(other_follow))
+                               last_follow=other_follow)
 
         resp = self.client.get('/xrpc/app.bsky.graph.getFollows',
                               query_string={'user': 'foo.com'})

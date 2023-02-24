@@ -5,7 +5,6 @@ from unittest import mock
 from flask import get_flashed_messages
 from granary import as2
 from oauth_dropins.webutil.testutil import requests_response
-from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app
 import common
@@ -58,13 +57,13 @@ class UserTest(testutil.TestCase):
     def test_address(self):
         self.assertEqual('@y.z@y.z', self.user.address())
 
-        self.user.actor_as2 = '{"type": "Person"}'
+        self.user.actor_as2 = {'type': 'Person'}
         self.assertEqual('@y.z@y.z', self.user.address())
 
-        self.user.actor_as2 = '{"url": "http://foo"}'
+        self.user.actor_as2 = {'url': 'http://foo'}
         self.assertEqual('@y.z@y.z', self.user.address())
 
-        self.user.actor_as2 = '{"url": ["http://foo", "acct:bar@foo", "acct:baz@y.z"]}'
+        self.user.actor_as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@y.z']}
         self.assertEqual('@baz@y.z', self.user.address())
 
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
@@ -79,7 +78,7 @@ class UserTest(testutil.TestCase):
             if actor is None:
                 self.assertIsNone(self.user.actor_as2)
             else:
-                got = {k: v for k, v in json_loads(self.user.actor_as2).items()
+                got = {k: v for k, v in self.user.actor_as2.items()
                        if k in actor}
                 self.assert_equals(actor, got)
             self.assert_equals(redirects_error, self.user.redirects_error)
@@ -250,7 +249,7 @@ class ObjectTest(testutil.TestCase):
 
     def test_proxy_url(self):
         with app.test_request_context('/'):
-            obj = Object(id='abc', as2='{}')
+            obj = Object(id='abc', as2={})
             self.assertEqual('http://localhost/render?id=abc', obj.proxy_url())
 
     def test_actor_link(self):
@@ -272,24 +271,24 @@ class ObjectTest(testutil.TestCase):
         }}),
         ):
             with app.test_request_context('/'):
-                obj = Object(id='x', as2=json_dumps(as2))
+                obj = Object(id='x', as2=as2)
                 self.assertEqual(expected, obj.actor_link())
 
     def test_actor_link_user(self):
-        user = User(id='foo.com', actor_as2='{"name": "Alice"}')
+        user = User(id='foo.com', actor_as2={"name": "Alice"})
         obj = Object(id='x', source_protocol='ui', domains=['foo.com'])
         self.assertEqual(
             '<a href="/user/foo.com"><img src="" class="profile"> Alice</a>',
             obj.actor_link(user))
 
     def test_put_updates_get_object_cache(self):
-        obj = Object(id='x', as2='{}')
+        obj = Object(id='x', as2={})
         obj.put()
         key = common.get_object.cache_key('x')
         self.assert_entities_equal(obj, common.get_object.cache[key])
 
     def test_put_fragment_id_doesnt_update_get_object_cache(self):
-        obj = Object(id='x#y', as2='{}')
+        obj = Object(id='x#y', as2={})
         obj.put()
 
         self.assertNotIn(common.get_object.cache_key('x#y'), common.get_object.cache)
@@ -301,9 +300,9 @@ class FollowerTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
         self.inbound = Follower(dest='foo.com', src='http://bar/@baz',
-                                last_follow=json_dumps({'actor': ACTOR}))
+                                last_follow={'actor': ACTOR})
         self.outbound = Follower(dest='http://bar/@baz', src='foo.com',
-                                 last_follow=json_dumps({'object': ACTOR}))
+                                 last_follow={'object': ACTOR})
 
     def test_to_as1(self):
         self.assertEqual({}, Follower().to_as1())

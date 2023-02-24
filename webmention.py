@@ -171,9 +171,9 @@ class Webmention(View):
             labels=['user'],
         )
         if self.source_as2:
-            obj.as2 = json_dumps(common.redirect_unwrap(self.source_as2))
+            obj.as2 = common.redirect_unwrap(self.source_as2)
         else:
-            obj.mf2 = json_dumps(self.source_mf2)
+            obj.mf2 = self.source_mf2
         if self.source_as1.get('objectType') == 'activity':
             obj.labels.append('activity')
 
@@ -214,7 +214,7 @@ class Webmention(View):
                 dest = ((target_as2.get('id') or util.get_first(target_as2, 'url'))
                         if target_as2 else util.get_url(self.source_as1, 'object'))
                 Follower.get_or_create(dest=dest, src=self.source_domain,
-                                       last_follow=json_dumps(self.source_as2))
+                                       last_follow=self.source_as2)
 
             try:
                 last = common.signed_post(inbox, user=self.user, data=self.source_as2,
@@ -290,7 +290,7 @@ class Webmention(View):
                 Follower.key > Key('Follower', self.source_domain + ' '),
                 Follower.key < Key('Follower', self.source_domain + chr(ord(' ') + 1))):
                 if follower.status != 'inactive' and follower.last_follow:
-                    actor = json_loads(follower.last_follow).get('actor')
+                    actor = follower.last_follow.get('actor')
                     if actor and isinstance(actor, dict):
                         inboxes.add(actor.get('endpoints', {}).get('sharedInbox') or
                                     actor.get('publicInbox') or
@@ -306,8 +306,7 @@ class Webmention(View):
         for target in targets:
             # fetch target page as AS2 object
             try:
-                target_obj = json_loads(
-                    common.get_object(target, user=self.user).as2)
+                target_obj = common.get_object(target, user=self.user).as2
             except (requests.HTTPError, BadGateway) as e:
                 resp = getattr(e, 'requests_response', None)
                 if resp and resp.ok:
@@ -330,7 +329,7 @@ class Webmention(View):
 
             if not inbox_url:
                 # fetch actor as AS object
-                actor = json_loads(common.get_object(actor, user=self.user).as2)
+                actor = common.get_object(actor, user=self.user).as2
                 inbox_url = actor.get('inbox')
 
             if not inbox_url:

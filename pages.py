@@ -209,7 +209,7 @@ def fetch_objects(query, user):
         if isinstance(inner_obj, str):
             inner_obj = Object.get_by_id(inner_obj)
             if inner_obj:
-                inner_obj = json_loads(inner_obj.as1)
+                inner_obj = inner_obj.as1
 
         content = (inner_obj.get('content')
                    or inner_obj.get('displayName')

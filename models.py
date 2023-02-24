@@ -14,7 +14,7 @@ from flask import request
 from google.cloud import ndb
 from granary import as1, as2, bluesky, microformats2
 from oauth_dropins.webutil.appengine_info import DEBUG
-from oauth_dropins.webutil.models import StringIdModel
+from oauth_dropins.webutil.models import JsonProperty, StringIdModel
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
@@ -64,7 +64,7 @@ class User(StringIdModel):
     has_redirects = ndb.BooleanProperty()
     redirects_error = ndb.TextProperty()
     has_hcard = ndb.BooleanProperty()
-    actor_as2 = ndb.TextProperty()
+    actor_as2 = JsonProperty()
     use_instead = ndb.KeyProperty()
 
     created = ndb.DateTimeProperty(auto_now_add=True)
@@ -130,7 +130,7 @@ class User(StringIdModel):
     def to_as1(self):
         """Returns this user as an AS1 actor dict, if possible."""
         if self.actor_as2:
-            return as2.to_as1(json_loads(self.actor_as2))
+            return as2.to_as1(self.actor_as2)
 
     def username(self):
         """Returns the user's preferred username.
@@ -143,9 +143,8 @@ class User(StringIdModel):
         domain = self.key.id()
 
         if self.actor_as2:
-            actor = json_loads(self.actor_as2)
             for url in [u.get('value') if isinstance(u, dict) else u
-                        for u in util.get_list(actor, 'url')]:
+                        for u in util.get_list(self.actor_as2, 'url')]:
                 if url and url.startswith('acct:'):
                     urluser, urldomain = util.parse_acct_uri(url)
                     if urldomain == domain:
@@ -177,7 +176,7 @@ class User(StringIdModel):
     def user_page_link(self):
         """Returns a pretty user page link with the user's name and profile picture."""
         domain = self.key.id()
-        actor = util.json_loads(self.actor_as2) if self.actor_as2 else {}
+        actor = self.actor_as2 or {}
         name = (actor.get('name') or
                 # prettify if domain, noop if username
                 util.domain_from_link(self.username()))
@@ -236,8 +235,7 @@ class User(StringIdModel):
 
         # check home page
         try:
-            _, _, actor_as2 = common.actor(self)
-            self.actor_as2 = json_dumps(actor_as2)
+            _, _, self.actor_as2 = common.actor(self)
             self.has_hcard = True
         except (BadRequest, NotFound):
             self.actor_as2 = None
@@ -280,22 +278,22 @@ class Object(StringIdModel):
     source_protocol = ndb.StringProperty(choices=PROTOCOLS)
     labels = ndb.StringProperty(repeated=True, choices=LABELS)
 
-    # these are all JSON. They're TextProperty, and not JsonProperty, so that
-    # their plain text is visible in the App Engine admin console. (JsonProperty
-    # uses a blob.)
-    as2 = ndb.TextProperty()  # only one of the rest will be populated...
-    bsky = ndb.TextProperty() # Bluesky / AT Protocol
-    mf2 = ndb.TextProperty()  # HTML microformats2
+    # TODO: switch back to ndb.JsonProperty if/when they fix it for the web console
+    # https://github.com/googleapis/python-ndb/issues/874
+    as2 = JsonProperty()  # only one of the rest will be populated...
+    bsky = JsonProperty() # Bluesky / AT Protocol
+    mf2 = JsonProperty()  # HTML microformats2
 
     @ndb.ComputedProperty
     def as1(self):
-        assert bool(self.as2) ^ bool(self.bsky) ^ bool(self.mf2), \
-            f'{bool(self.as2)} {bool(self.bsky)} {bool(self.mf2)}'
-        return (as2.to_as1(common.redirect_unwrap(json_loads(self.as2))) if self.as2
-                else bluesky.to_as1(json_loads(self.bsky)) if self.bsky
-                else microformats2.json_to_object(json_loads(self.mf2))
-                  if self.mf2
-                else None)
+        assert (self.as2 is not None) ^ (self.bsky is not None) ^ (self.mf2 is not None), \
+            f'{self.as2} {self.bsky} {self.mf2}'
+        if self.as2 is not None:
+            return as2.to_as1(common.redirect_unwrap(self.as2))
+        elif self.bsky is not None:
+            return bluesky.to_as1(self.bsky)
+        elif self.mf2 is not None:
+            return microformats2.json_to_object(self.mf2)
 
     @ndb.ComputedProperty
     def type(self):  # AS1 objectType, or verb if it's an activity
@@ -371,7 +369,7 @@ class Follower(StringIdModel):
     dest = ndb.StringProperty()
     # Most recent AP (AS2) JSON Follow activity. If inbound, must have a
     # composite actor object with an inbox, publicInbox, or sharedInbox.
-    last_follow = ndb.TextProperty()
+    last_follow = JsonProperty()
     status = ndb.StringProperty(choices=STATUSES, default='active')
 
     created = ndb.DateTimeProperty(auto_now_add=True)
@@ -403,7 +401,4 @@ class Follower(StringIdModel):
     def to_as2(self):
         """Returns this follower as an AS2 actor dict, if possible."""
         if self.last_follow:
-            last_follow = json_loads(self.last_follow)
-            person = last_follow.get('actor' if util.is_web(self.src) else 'object')
-            if person:
-                return person
+            return self.last_follow.get('actor' if util.is_web(self.src) else 'object')

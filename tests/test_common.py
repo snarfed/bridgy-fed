@@ -4,7 +4,6 @@ from unittest import mock
 
 from granary import as2
 from oauth_dropins.webutil import appengine_config, util
-from oauth_dropins.webutil.util import json_dumps, json_loads
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 from werkzeug.exceptions import BadGateway
@@ -245,7 +244,7 @@ class CommonTest(testutil.TestCase):
         id = 'http://the/id'
         got = common.get_object(id)
         self.assert_equals(id, got.key.id())
-        self.assert_equals(AS2_OBJ, json_loads(got.as2))
+        self.assert_equals(AS2_OBJ, got.as2)
         mock_get.assert_has_calls([self.as2_req(id)])
 
         # second time is in cache
@@ -253,13 +252,13 @@ class CommonTest(testutil.TestCase):
         mock_get.reset_mock()
         got = common.get_object(id)
         self.assert_equals(id, got.key.id())
-        self.assert_equals(AS2_OBJ, json_loads(got.as2))
+        self.assert_equals(AS2_OBJ, got.as2)
         mock_get.assert_not_called()
 
     @mock.patch('requests.get')
     def test_get_object_datastore(self, mock_get):
         id = 'http://the/id'
-        stored = Object(id=id, as2=json_dumps(AS2_OBJ))
+        stored = Object(id=id, as2=AS2_OBJ)
         stored.put()
         common.get_object.cache.clear()
 
@@ -276,7 +275,7 @@ class CommonTest(testutil.TestCase):
 
     @mock.patch('requests.get')
     def test_get_object_strips_fragment(self, mock_get):
-        stored = Object(id='http://the/id', as2=json_dumps(AS2_OBJ))
+        stored = Object(id='http://the/id', as2=AS2_OBJ)
         stored.put()
         common.get_object.cache.clear()
 
@@ -288,7 +287,7 @@ class CommonTest(testutil.TestCase):
     def test_get_object_datastore_no_as2(self, mock_get):
         """If the stored Object has no as2, we should fall back to HTTP."""
         id = 'http://the/id'
-        stored = Object(id=id, mf2='{}', status='in progress')
+        stored = Object(id=id, as2={}, status='in progress')
         stored.put()
         common.get_object.cache.clear()
 
@@ -296,7 +295,7 @@ class CommonTest(testutil.TestCase):
         mock_get.assert_has_calls([self.as2_req(id)])
 
         self.assert_equals(id, got.key.id())
-        self.assert_equals(AS2_OBJ, json_loads(got.as2))
+        self.assert_equals(AS2_OBJ, got.as2)
         mock_get.assert_has_calls([self.as2_req(id)])
 
         self.assert_object(id, as2=AS2_OBJ, as1=AS2_OBJ,

@@ -500,7 +500,7 @@ class WebmentionTest(testutil.TestCase):
             }],
         }
         with app.test_request_context('/'):
-            Object(id='http://a/reply', status='complete', mf2=json_dumps(mf2)).put()
+            Object(id='http://a/reply', status='complete', mf2=mf2).put()
 
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz')
@@ -518,7 +518,7 @@ class WebmentionTest(testutil.TestCase):
     def test_redo_repost_isnt_update(self, mock_get, mock_post):
         """Like and Announce shouldn't use Update, they should just resend as is."""
         with app.test_request_context('/'):
-            Object(id='http://a/repost', mf2='{}', status='complete').put()
+            Object(id='http://a/repost', mf2={}, status='complete').put()
 
         mock_get.side_effect = [self.repost, self.orig_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz')
@@ -536,8 +536,7 @@ class WebmentionTest(testutil.TestCase):
     def test_skip_update_if_content_unchanged(self, mock_get, mock_post):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
         with app.test_request_context('/'):
-            Object(id='http://a/reply', status='complete',
-                   mf2=json_dumps(self.reply_mf2['items'][0]),
+            Object(id='http://a/reply', status='complete', mf2=self.reply_mf2['items'][0],
                    delivered=[Target(uri='https://foo.com/inbox', protocol='activitypub')]
                    ).put()
         mock_get.side_effect = self.activitypub_gets
@@ -725,30 +724,30 @@ class WebmentionTest(testutil.TestCase):
     def make_followers():
         Follower.get_or_create('orig', 'https://mastodon/aaa')
         Follower.get_or_create('orig', 'https://mastodon/bbb',
-                               last_follow=json_dumps({'actor': {
+                               last_follow={'actor': {
                                    'publicInbox': 'https://public/inbox',
                                    'inbox': 'https://unused',
-                               }}))
+                               }})
         Follower.get_or_create('orig', 'https://mastodon/ccc',
-                               last_follow=json_dumps({'actor': {
+                               last_follow={'actor': {
                                    'endpoints': {
                                        'sharedInbox': 'https://shared/inbox',
                                    },
-                               }}))
+                               }})
         Follower.get_or_create('orig', 'https://mastodon/ddd',
-                               last_follow=json_dumps({'actor': {
+                               last_follow={'actor': {
                                    'inbox': 'https://inbox',
-                               }}))
+                               }})
         Follower.get_or_create('orig', 'https://mastodon/ggg',
                                status='inactive',
-                               last_follow=json_dumps({'actor': {
+                               last_follow={'actor': {
                                    'inbox': 'https://unused/2',
-                               }}))
+                               }})
         Follower.get_or_create('orig', 'https://mastodon/hhh',
-                               last_follow=json_dumps({'actor': {
+                               last_follow={'actor': {
                                    # dupe of eee; should be de-duped
                                    'inbox': 'https://inbox',
-                               }}))
+                               }})
 
     def test_create_post_run_task_new(self, mock_get, mock_post):
         mock_get.side_effect = [self.create, self.actor]
@@ -784,7 +783,7 @@ class WebmentionTest(testutil.TestCase):
 
         with app.test_request_context('/'):
             Object(id='https://orig/post', domains=['orig'], status='in progress',
-                   mf2=json_dumps(self.create_mf2['items'][0]),
+                   mf2=self.create_mf2['items'][0],
                    delivered=[Target(uri='https://skipped/inbox', protocol='activitypub')],
                    undelivered=[Target(uri='https://shared/inbox', protocol='activitypub')],
                    failed=[Target(uri='https://public/inbox', protocol='activitypub')],
@@ -793,9 +792,9 @@ class WebmentionTest(testutil.TestCase):
         self.make_followers()
         # already sent, should be skipped
         Follower.get_or_create('orig', 'https://mastodon/eee',
-                               last_follow=json_dumps({'actor': {
+                               last_follow={'actor': {
                                    'inbox': 'https://skipped/inbox',
-                               }}))
+                               }})
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://orig/post',
@@ -827,7 +826,7 @@ class WebmentionTest(testutil.TestCase):
 
         with app.test_request_context('/'):
             Object(id='https://orig/post', domains=['orig'], status='in progress',
-                   mf2=json_dumps({**self.create_mf2, 'content': 'different'}),
+                   mf2={**self.create_mf2, 'content': 'different'},
                    delivered=[Target(uri='https://delivered/inbox', protocol='activitypub')],
                    undelivered=[Target(uri='https://shared/inbox', protocol='activitypub')],
                    failed=[Target(uri='https://public/inbox', protocol='activitypub')],
@@ -872,7 +871,7 @@ class WebmentionTest(testutil.TestCase):
 
         Follower.get_or_create(
             'orig', 'https://mastodon/aaa',
-            last_follow=json_dumps({'actor': {'inbox': 'https://inbox'}}))
+            last_follow={'actor': {'inbox': 'https://inbox'}})
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://orig/post',
@@ -930,10 +929,10 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual('https://foo.com/about-me a', followers[0].key.id())
         self.assertEqual('a', followers[0].src)
         self.assertEqual('https://foo.com/about-me', followers[0].dest)
-        self.assertEqual(self.follow_as2, json_loads(followers[0].last_follow))
+        self.assertEqual(self.follow_as2, followers[0].last_follow)
 
     def test_follow_no_actor(self, mock_get, mock_post):
-        self.user_orig.actor_as2 = json_dumps(self.follow_as2['actor'])
+        self.user_orig.actor_as2 = self.follow_as2['actor']
         self.user_orig.put()
 
         html = self.follow_html.replace(
@@ -1086,15 +1085,15 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.author]
         mock_post.return_value = requests_response('abc xyz')
         Follower.get_or_create('orig', 'https://mastodon/ccc',
-                               last_follow=json_dumps({'actor': {
+                               last_follow={'actor': {
                                    'endpoints': {
                                        'sharedInbox': 'https://shared/inbox',
                                    },
-                               }}))
+                               }})
         Follower.get_or_create('orig', 'https://mastodon/ddd',
-                               last_follow=json_dumps({'actor': {
+                               last_follow={'actor': {
                                    'inbox': 'https://inbox',
-                               }}))
+                               }})
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://orig/',
@@ -1120,7 +1119,7 @@ class WebmentionTest(testutil.TestCase):
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         })
 
-        got_as2 = json_loads(Object.get_by_id(id).as2)
+        got_as2 = Object.get_by_id(id).as2
         self.assert_object(id,
                            domains=['orig'],
                            source_protocol='webmention',

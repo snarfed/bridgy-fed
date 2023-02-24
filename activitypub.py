@@ -65,7 +65,7 @@ def actor(domain):
 
     # TODO: unify with common.actor()
     actor = {
-        **common.postprocess_as2(json_loads(user.actor_as2), user=user),
+        **common.postprocess_as2(user.actor_as2, user=user),
         'id': host_url(domain),
         # This has to be the domain for Mastodon etc interop! It seems like it
         # should be the custom username from the acct: u-url in their h-card,
@@ -126,10 +126,8 @@ def inbox(domain=None):
             return msg, 200
 
     activity_unwrapped = redirect_unwrap(activity)
-    activity_obj = Object(
-        id=id,
-        as2=json_dumps(activity_unwrapped),
-        source_protocol='activitypub')
+    activity_obj = Object(id=id, as2=activity_unwrapped,
+                          source_protocol='activitypub')
     activity_obj.put()
 
     if type == 'Accept':  # eg in response to a Follow
@@ -161,7 +159,7 @@ def inbox(domain=None):
         elif digest.removeprefix('SHA-256=') != expected:
             logger.warning('Invalid Digest header, required for HTTP Signature')
         else:
-            key_actor = json_loads(common.get_object(keyId, user=user).as2)
+            key_actor = common.get_object(keyId, user=user).as2
             key = key_actor.get("publicKey", {}).get('publicKeyPem')
             logger.info(f'Verifying signature for {request.path} with key {key}')
             try:
@@ -190,10 +188,7 @@ def inbox(domain=None):
             error("Couldn't find obj_id of object to update")
 
         obj = Object.get_by_id(obj_id) or Object(id=obj_id)
-        obj.populate(
-            as2=json_dumps(obj_as2),
-            source_protocol='activitypub',
-        )
+        obj.populate(as2=obj_as2, source_protocol='activitypub')
         obj.put()
 
         activity_obj.status = 'complete'
@@ -226,20 +221,20 @@ def inbox(domain=None):
     # fetch actor if necessary so we have name, profile photo, etc
     if actor and isinstance(actor, str):
         actor = activity['actor'] = activity_unwrapped['actor'] = \
-            json_loads(common.get_object(actor, user=user).as2)
+            common.get_object(actor, user=user).as2
 
     # fetch object if necessary so we can render it in feeds
     inner_obj = activity_unwrapped.get('object')
     if type in FETCH_OBJECT_TYPES and isinstance(inner_obj, str):
         obj = Object.get_by_id(inner_obj) or common.get_object(inner_obj, user=user)
         obj_as2 = activity['object'] = activity_unwrapped['object'] = \
-            json_loads(obj.as2) if obj.as2 else as2.from_as1(json_loads(obj.as1))
+            obj.as2 if obj.as2 else as2.from_as1(obj.as1)
 
     if type == 'Follow':
         resp = accept_follow(activity, activity_unwrapped, user)
 
     # send webmentions to each target
-    activity_obj.as2 = json_dumps(activity_unwrapped)
+    activity_obj.as2 = activity_unwrapped
     common.send_webmentions(as2.to_as1(activity), activity_obj, proxy=True)
 
     # deliver original posts and reposts to followers
@@ -305,7 +300,7 @@ def accept_follow(follow, follow_unwrapped, user):
 
     # store Follower
     follower = Follower.get_or_create(dest=user.key.id(), src=follower_id,
-                                      last_follow=json_dumps(follow))
+                                      last_follow=follow)
     follower.status = 'active'
     follower.put()
 

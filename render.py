@@ -9,7 +9,6 @@ from granary import as2, atom, microformats2
 from oauth_dropins.webutil import flask_util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil import util
-from oauth_dropins.webutil.util import json_loads
 
 from app import app, cache
 import common

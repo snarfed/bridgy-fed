@@ -3,7 +3,6 @@
 import copy
 
 from granary import as2
-from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app, cache
 from common import redirect_unwrap
@@ -73,8 +72,7 @@ class RedirectTest(testutil.TestCase):
 
     def _test_as2(self, content_type):
         with app.test_request_context('/'):
-            self.obj = Object(id='https://foo.com/bar',
-                              as2=json_dumps(REPOST_AS2)).put()
+            self.obj = Object(id='https://foo.com/bar', as2=REPOST_AS2).put()
 
         resp = self.client.get('/r/https://foo.com/bar',
                               headers={'Accept': content_type})
@@ -88,7 +86,7 @@ class RedirectTest(testutil.TestCase):
 
     def test_as2_deleted(self):
         with app.test_request_context('/'):
-            Object(id='https://foo.com/bar', as2='{}', deleted=True).put()
+            Object(id='https://foo.com/bar', as2={}, deleted=True).put()
 
         resp = self.client.get('/r/https://foo.com/bar',
                               headers={'Accept': as2.CONTENT_TYPE})

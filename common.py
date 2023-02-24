@@ -158,8 +158,7 @@ def get_object(id, user=None):
       logging.warning(f'Wiping out mf2 property: {obj.mf2}')
       obj.mf2 = None
 
-    obj.populate(as2=json_dumps(obj_as2),
-                 source_protocol='activitypub')
+    obj.populate(as2=obj_as2, source_protocol='activitypub')
     obj.put()
     return obj
 

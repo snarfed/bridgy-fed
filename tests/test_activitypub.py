@@ -202,8 +202,7 @@ class ActivityPubTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = User.get_or_create('foo.com', has_hcard=True,
-                                       actor_as2=json_dumps(ACTOR))
+        self.user = User.get_or_create('foo.com', has_hcard=True, actor_as2=ACTOR)
 
     def test_actor(self, *_):
         got = self.client.get('/foo.com')
@@ -369,7 +368,7 @@ class ActivityPubTest(testutil.TestCase):
             'url': 'https://foo.com/orig',
         }
         with app.test_request_context('/'):
-            Object(id=orig_url, as2=json_dumps(note)).put()
+            Object(id=orig_url, as2=note).put()
 
         repost = {
             **REPOST_FULL,
@@ -559,7 +558,7 @@ class ActivityPubTest(testutil.TestCase):
                            object_ids=[FOLLOW['object']])
 
         follower = Follower.query().get()
-        self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, json_loads(follower.last_follow))
+        self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, follower.last_follow)
 
     def test_inbox_follow_accept_with_object(self, *mocks):
         wrapped_user = {
@@ -583,7 +582,7 @@ class ActivityPubTest(testutil.TestCase):
 
         follower = Follower.query().get()
         follow['actor'] = ACTOR
-        self.assertEqual(follow, json_loads(follower.last_follow))
+        self.assertEqual(follow, follower.last_follow)
 
         follow.update({
             'object': unwrapped_user,
@@ -652,7 +651,7 @@ class ActivityPubTest(testutil.TestCase):
         # check that the Follower doesn't have www
         follower = Follower.get_by_id(f'foo.com {ACTOR["id"]}')
         self.assertEqual('active', follower.status)
-        self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, json_loads(follower.last_follow))
+        self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, follower.last_follow)
 
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://foo.com/')
@@ -850,7 +849,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('active', other.key.get().status)
 
     def test_delete_note(self, _, mock_get, ___):
-        obj = Object(id='http://an/obj', as2='{}')
+        obj = Object(id='http://an/obj', as2={})
         obj.put()
 
         mock_get.side_effect = [
@@ -872,7 +871,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assert_entities_equal(obj, common.get_object.cache['http://an/obj'])
 
     def test_update_note(self, *mocks):
-        Object(id='https://a/note', as2='{}').put()
+        Object(id='https://a/note', as2={}).put()
         self._test_update(*mocks)
 
     def test_update_unknown(self, *mocks):
@@ -928,7 +927,7 @@ class ActivityPubTest(testutil.TestCase):
                            object_ids=[LIKE['object']])
 
     def test_inbox_id_already_seen(self, *mocks):
-        obj_key = Object(id=FOLLOW_WRAPPED['id'], as2='{}').put()
+        obj_key = Object(id=FOLLOW_WRAPPED['id'], as2={}).put()
 
         got = self.client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
@@ -964,10 +963,10 @@ class ActivityPubTest(testutil.TestCase):
 
     def store_followers(self):
         Follower.get_or_create('foo.com', 'https://bar.com',
-                               last_follow=json_dumps(FOLLOW_WITH_ACTOR))
+                               last_follow=FOLLOW_WITH_ACTOR)
         Follower.get_or_create('http://other/actor', 'foo.com')
         Follower.get_or_create('foo.com', 'https://baz.com',
-                               last_follow=json_dumps(FOLLOW_WITH_ACTOR))
+                               last_follow=FOLLOW_WITH_ACTOR)
         Follower.get_or_create('foo.com', 'baj.com', status='inactive')
 
     def test_followers_collection(self, *args):
@@ -1032,10 +1031,10 @@ class ActivityPubTest(testutil.TestCase):
 
     def store_following(self):
         Follower.get_or_create('https://bar.com', 'foo.com',
-                               last_follow=json_dumps(FOLLOW_WITH_OBJECT))
+                               last_follow=FOLLOW_WITH_OBJECT)
         Follower.get_or_create('foo.com', 'http://other/actor')
         Follower.get_or_create('https://baz.com', 'foo.com',
-                               last_follow=json_dumps(FOLLOW_WITH_OBJECT))
+                               last_follow=FOLLOW_WITH_OBJECT)
         Follower.get_or_create('baj.com', 'foo.com', status='inactive')
 
     def test_following_collection(self, *args):

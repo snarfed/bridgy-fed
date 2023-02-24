@@ -156,7 +156,7 @@ class FollowCallback(indieauth.Callback):
             flash(f"Couldn't find ActivityPub profile link for {addr}")
             return redirect(f'/user/{domain}/following')
 
-        followee = json_loads(common.get_object(as2_url, user=user).as2)
+        followee = common.get_object(as2_url, user=user).as2
         id = followee.get('id')
         inbox = followee.get('inbox')
         if not id or not inbox:
@@ -175,11 +175,10 @@ class FollowCallback(indieauth.Callback):
        }
         common.signed_post(inbox, user=user, data=follow_as2)
 
-        follow_json = json_dumps(follow_as2, sort_keys=True)
         Follower.get_or_create(dest=id, src=domain, status='active',
-                                last_follow=follow_json)
+                                last_follow=follow_as2)
         Object(id=follow_id, domains=[domain], labels=['user', 'activity'],
-               source_protocol='ui', status='complete', as2=follow_json,
+               source_protocol='ui', status='complete', as2=follow_as2,
                ).put()
 
         link = common.pretty_link(util.get_url(followee) or id, text=addr)
@@ -229,13 +228,12 @@ class UnfollowCallback(indieauth.Callback):
             error(f'Bad state {state}')
 
         followee_id = follower.dest
-        last_follow = json_loads(follower.last_follow)
-        followee = last_follow['object']
+        followee = follower.last_follow['object']
 
         if isinstance(followee, str):
             # fetch as AS2 to get full followee with inbox
             followee_id = followee
-            followee = json_loads(common.get_object(followee_id, user=user).as2)
+            followee = common.get_object(followee_id, user=user).as2
 
         inbox = followee.get('inbox')
         if not inbox:
@@ -249,15 +247,14 @@ class UnfollowCallback(indieauth.Callback):
             'type': 'Undo',
             'id': unfollow_id,
             'actor': common.host_url(domain),
-            'object': last_follow,
+            'object': follower.last_follow,
        }
         common.signed_post(inbox, user=user, data=unfollow_as2)
 
         follower.status = 'inactive'
         follower.put()
         Object(id=unfollow_id, domains=[domain], labels=['user', 'activity'],
-               source_protocol='ui', status='complete',
-               as2=json_dumps(unfollow_as2, sort_keys=True),
+               source_protocol='ui', status='complete', as2=unfollow_as2,
                ).put()
 
         link = common.pretty_link(util.get_url(followee) or followee_id)
