@@ -301,10 +301,12 @@ class Object(StringIdModel):
 
     @ndb.ComputedProperty
     def type(self):  # AS1 objectType, or verb if it's an activity
-        return as1.object_type(self.as1)
+        if self.as1:
+            return as1.object_type(self.as1)
 
     def _object_ids(self):  # id(s) of inner objects
-        return as1.get_ids(self.as1, 'object')
+        if self.as1:
+            return as1.get_ids(self.as1, 'object')
     object_ids = ndb.ComputedProperty(_object_ids, repeated=True)
 
     deleted = ndb.BooleanProperty()

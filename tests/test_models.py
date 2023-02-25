@@ -294,6 +294,9 @@ class ObjectTest(testutil.TestCase):
         self.assertNotIn(common.get_object.cache_key('x#y'), common.get_object.cache)
         self.assertNotIn(common.get_object.cache_key('x'), common.get_object.cache)
 
+    def test_computed_properties_without_as1(self):
+        Object(id='a').put()
+
 
 class FollowerTest(testutil.TestCase):
 
