@@ -8,14 +8,13 @@ import re
 import threading
 
 from cachetools import LRUCache
-from flask import request
+from flask import abort, make_response, request
 from google.cloud import ndb
 from google.cloud.ndb import OR
 from granary import as1, as2
 from httpsig import HeaderVerifier
 from httpsig.utils import parse_signature_header
 from oauth_dropins.webutil import flask_util, util
-from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app, cache
@@ -47,6 +46,12 @@ FETCH_OBJECT_TYPES = (
 # activity ids that we've already handled and can now ignore
 seen_ids = LRUCache(100000)
 seen_ids_lock = threading.Lock()
+
+
+def error(msg, status=400):
+    """Like flask_util.error, but wraps body in JSON."""
+    logger.info(f'Returning {status}: {msg}')
+    abort(status, response=make_response({'error': msg}, status))
 
 
 @app.get(f'/<regex("{common.DOMAIN_RE}"):domain>')
@@ -153,26 +158,29 @@ def inbox(domain=None):
         digest = request.headers.get('Digest') or ''
         expected = b64encode(sha256(request.data).digest()).decode()
         if not keyId:
-            logger.warning('HTTP Signature missing keyId')
+            error('HTTP Signature missing keyId', status=401)
         elif not digest:
-            logger.warning('Missing Digest header, required for HTTP Signature')
+            error('Missing Digest header, required for HTTP Signature', status=401)
         elif digest.removeprefix('SHA-256=') != expected:
-            logger.warning('Invalid Digest header, required for HTTP Signature')
+            error('Invalid Digest header, required for HTTP Signature', status=401)
         else:
             key_actor = common.get_object(keyId, user=user).as2
             key = key_actor.get("publicKey", {}).get('publicKeyPem')
             logger.info(f'Verifying signature for {request.path} with key {key}')
             try:
-                if HeaderVerifier(request.headers, key, required_headers=['Digest'],
-                                  method=request.method, path=request.path,
-                                  sign_header='signature').verify():
-                    logger.info('HTTP Signature verified!')
-                else:
-                    logger.warning('HTTP Signature verification failed')
+                verified = HeaderVerifier(request.headers, key,
+                                          required_headers=['Digest'],
+                                          method=request.method,
+                                          path=request.path,
+                                          sign_header='signature').verify()
             except BaseException as e:
-                logger.warning(f'HTTP Signature verification failed: {e}')
+                error(f'HTTP Signature verification failed: {e}', status=401)
+            if verified:
+                logger.info('HTTP Signature verified!')
+            else:
+                error('HTTP Signature verification failed', status=401)
     else:
-        logger.info('No HTTP Signature')
+        error('No HTTP Signature', status=401)
 
     # handle activity!
     if type == 'Undo' and obj_as2.get('type') == 'Follow':

@@ -203,6 +203,34 @@ class ActivityPubTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
         self.user = User.get_or_create('foo.com', has_hcard=True, actor_as2=ACTOR)
+        with app.test_request_context('/'):
+            self.key_id_obj = Object(id='http://my/key/id', as2={
+                **ACTOR,
+                'publicKey': {
+                    'id': 'http://my/key/id#unused',
+                    'owner': 'http://own/er',
+                    'publicKeyPem': self.user.public_pem().decode(),
+                },
+            }).put()
+
+    def sign(self, path, body):
+        """Constructs HTTP Signature, returns headers."""
+        digest = b64encode(sha256(body.encode()).digest()).decode()
+        headers = {
+            'Date': 'Sun, 02 Jan 2022 03:04:05 GMT',
+            'Host': 'localhost',
+            'Content-Type': as2.CONTENT_TYPE,
+            'Digest': f'SHA-256={digest}',
+        }
+        hs = HeaderSigner('http://my/key/id#unused', self.user.private_pem().decode(),
+                          algorithm='rsa-sha256', sign_header='signature',
+                          headers=('Date', 'Host', 'Digest', '(request-target)'))
+        return hs.sign(headers, method='POST', path=path)
+
+    def post(self, path, json=None):
+        """Wrapper around self.client.post that adds signature."""
+        body = json_dumps(json)
+        return self.client.post(path, data=body, headers=self.sign(path, body))
 
     def test_actor(self, *_):
         got = self.client.get('/foo.com')
@@ -244,13 +272,13 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(404, got.status_code)
 
     def test_individual_inbox_no_user(self, *mocks):
-        got = self.client.post('/nope.com/inbox', json=REPLY)
+        got = self.post('/nope.com/inbox', json=REPLY)
         self.assertEqual(404, got.status_code)
 
     def test_inbox_activity_without_id(self, *_):
         note = copy.deepcopy(NOTE)
         del note['id']
-        resp = self.client.post('/inbox', json=note)
+        resp = self.post('/inbox', json=note)
         self.assertEqual(400, resp.status_code)
 
     def test_inbox_reply_object(self, *mocks):
@@ -282,7 +310,7 @@ class ActivityPubTest(testutil.TestCase):
             '<html><head><link rel="webmention" href="/webmention"></html>')
         mock_post.return_value = requests_response()
 
-        got = self.client.post('/foo.com/inbox', json=reply)
+        got = self.post('/foo.com/inbox', json=reply)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assert_req(mock_get, 'http://or.ig/post')
         expected_id = urllib.parse.quote_plus(reply['id'])
@@ -317,7 +345,7 @@ class ActivityPubTest(testutil.TestCase):
 
         mock_head.return_value = requests_response(url='http://th.is/')
 
-        got = self.client.post('/foo.com/inbox', json=reply)
+        got = self.post('/foo.com/inbox', json=reply)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
         mock_get.assert_not_called()
@@ -338,7 +366,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_get.return_value = self.as2_resp(ACTOR)  # source actor
         mock_post.return_value = requests_response()
 
-        got = self.client.post(path, json=NOTE)
+        got = self.post(path, json=NOTE)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         expected_as2 = common.redirect_unwrap({
             **NOTE,
@@ -374,7 +402,7 @@ class ActivityPubTest(testutil.TestCase):
             **REPOST_FULL,
             'object': f'http://localhost/r/{orig_url}',
         }
-        got = self.client.post('/foo.com/inbox', json=repost)
+        got = self.post('/foo.com/inbox', json=repost)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
         source_url = f'http://localhost/render?id={urllib.parse.quote_plus(REPOST["id"])}'
@@ -413,7 +441,7 @@ class ActivityPubTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response()  # webmention
 
-        got = self.client.post('/inbox', json=REPOST)
+        got = self.post('/inbox', json=REPOST)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
         # webmention
@@ -448,7 +476,7 @@ class ActivityPubTest(testutil.TestCase):
         not_public = copy.deepcopy(NOTE)
         del not_public['object']['to']
 
-        got = self.client.post('/foo.com/inbox', json=not_public)
+        got = self.post('/foo.com/inbox', json=not_public)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
         obj = Object.get_by_id(not_public['id'])
@@ -483,7 +511,7 @@ class ActivityPubTest(testutil.TestCase):
             '<html><head><link rel="webmention" href="/webmention"></html>')
         mock_post.return_value = requests_response()
 
-        got = self.client.post('/foo.com/inbox', json=mention)
+        got = self.post('/foo.com/inbox', json=mention)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assert_req(mock_get, 'https://tar.get/')
         expected_id = urllib.parse.quote_plus(mention['id'])
@@ -516,7 +544,7 @@ class ActivityPubTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response()
 
-        got = self.client.post('/foo.com/inbox', json=LIKE)
+        got = self.post('/foo.com/inbox', json=LIKE)
         self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
@@ -608,7 +636,7 @@ class ActivityPubTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response()
 
-        got = self.client.post('/foo.com/inbox', json=follow_as2)
+        got = self.post('/foo.com/inbox', json=follow_as2)
         self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
@@ -645,7 +673,7 @@ class ActivityPubTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response()
 
-        got = self.client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
+        got = self.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
         # check that the Follower doesn't have www
@@ -661,7 +689,7 @@ class ActivityPubTest(testutil.TestCase):
 
         Follower.get_or_create('foo.com', ACTOR['id'])
 
-        got = self.client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
+        got = self.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
         follower = Follower.get_by_id(f'foo.com {FOLLOW["actor"]}')
@@ -678,7 +706,7 @@ class ActivityPubTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response()
 
-        got = self.client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
+        got = self.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
         # check that the Follower is now active
@@ -691,7 +719,7 @@ class ActivityPubTest(testutil.TestCase):
             self.as2_resp(ACTOR),
         ]
 
-        got = self.client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
+        got = self.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
     def test_inbox_undo_follow_inactive(self, mock_head, mock_get, mock_post):
@@ -702,7 +730,7 @@ class ActivityPubTest(testutil.TestCase):
 
         Follower.get_or_create('foo.com', ACTOR['id'], status='inactive')
 
-        got = self.client.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
+        got = self.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
     def test_inbox_undo_follow_composite_object(self, mock_head, mock_get, mock_post):
@@ -715,11 +743,11 @@ class ActivityPubTest(testutil.TestCase):
 
         undo_follow = copy.deepcopy(UNDO_FOLLOW_WRAPPED)
         undo_follow['object']['object'] = {'id': undo_follow['object']['object']}
-        got = self.client.post('/foo.com/inbox', json=undo_follow)
+        got = self.post('/foo.com/inbox', json=undo_follow)
         self.assertEqual(200, got.status_code)
 
     def test_inbox_unsupported_type(self, *_):
-        got = self.client.post('/foo.com/inbox', json={
+        got = self.post('/foo.com/inbox', json={
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'https://xoxo.zone/users/aaronpk#follows/40',
             'type': 'Block',
@@ -734,7 +762,7 @@ class ActivityPubTest(testutil.TestCase):
 
         id = 'https://mastodon.social/users/tmichellemoore#likes/56486252'
         bad_url = 'http://localhost/r/Testing \u2013 Brid.gy \u2013 Post to Mastodon 3'
-        got = self.client.post('/foo.com/inbox', json={
+        got = self.post('/foo.com/inbox', json={
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': id,
             'type': 'Like',
@@ -752,10 +780,11 @@ class ActivityPubTest(testutil.TestCase):
 
         self.assertIsNone(Object.get_by_id(bad_url))
 
-    @patch('activitypub.logger.warning', side_effect=logging.warning)
     @patch('activitypub.logger.info', side_effect=logging.info)
-    def test_inbox_verify_http_signature(self, mock_info, mock_warning, _, mock_get, ___):
+    def test_inbox_verify_http_signature(self, mock_info, _, mock_get, ___):
         # actor with a public key
+        self.key_id_obj.delete()
+        common.get_object.cache.clear()
         mock_get.return_value = self.as2_resp({
             **ACTOR,
             'publicKey': {
@@ -765,21 +794,9 @@ class ActivityPubTest(testutil.TestCase):
             },
         })
 
-        # manually construct signature
-        body = json_dumps(NOTE)
-        digest = b64encode(sha256(body.encode()).digest()).decode()
-        headers = {
-            'Date': 'Sun, 02 Jan 2022 03:04:05 GMT',
-            'Host': 'localhost',
-            'Content-Type': as2.CONTENT_TYPE,
-            'Digest': f'SHA-256={digest}',
-        }
-        hs = HeaderSigner('http://my/key/id#unused', self.user.private_pem().decode(),
-                          algorithm='rsa-sha256', sign_header='signature',
-                          headers=('Date', 'Host', 'Digest', '(request-target)'))
-        headers = hs.sign(headers, method='POST', path='/inbox')
-
         # valid signature
+        body = json_dumps(NOTE)
+        headers = self.sign('/inbox', json_dumps(NOTE))
         resp = self.client.post('/inbox', data=body, headers=headers)
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         mock_get.assert_has_calls((
@@ -797,8 +814,9 @@ class ActivityPubTest(testutil.TestCase):
             'signature': headers['signature'].replace(
                 'keyId="http://my/key/id#unused",', ''),
         })
-        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        mock_warning.assert_any_call('HTTP Signature missing keyId')
+        self.assertEqual(401, resp.status_code)
+        self.assertEqual({'error': 'HTTP Signature missing keyId'}, resp.json)
+        mock_info.assert_any_call('Returning 401: HTTP Signature missing keyId')
 
         # invalid signature, content changed
         activitypub.seen_ids.clear()
@@ -806,11 +824,10 @@ class ActivityPubTest(testutil.TestCase):
         obj_key.delete()
 
         resp = self.client.post('/inbox', json={**NOTE, 'content': 'z'}, headers=headers)
-        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        mock_warning.assert_any_call('Invalid Digest header, required for HTTP Signature')
-
-        # TODO once we start failing on bad sigs
-        # self.assertEqual(401, resp.status_code)
+        self.assertEqual(401, resp.status_code)
+        self.assertEqual({'error': 'Invalid Digest header, required for HTTP Signature'},
+                         resp.json)
+        mock_info.assert_any_call('Returning 401: Invalid Digest header, required for HTTP Signature')
 
         # invalid signature, header changed
         activitypub.seen_ids.clear()
@@ -818,18 +835,17 @@ class ActivityPubTest(testutil.TestCase):
         orig_date = headers['Date']
 
         resp = self.client.post('/inbox', data=body, headers={**headers, 'Date': 'X'})
-        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        mock_warning.assert_any_call('HTTP Signature verification failed')
-
-        # TODO once we start failing on bad sigs
-        # self.assertEqual(401, resp.status_code)
+        self.assertEqual(401, resp.status_code)
+        self.assertEqual({'error': 'HTTP Signature verification failed'}, resp.json)
+        mock_info.assert_any_call('Returning 401: HTTP Signature verification failed')
 
         # no signature
         activitypub.seen_ids.clear()
         obj_key.delete()
         resp = self.client.post('/inbox', json=NOTE)
-        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        mock_info.assert_any_call('No HTTP Signature')
+        self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual({'error': 'No HTTP Signature'}, resp.json)
+        mock_info.assert_any_call('Returning 401: No HTTP Signature')
 
     def test_delete_actor(self, _, mock_get, ___):
         follower = Follower.get_or_create('foo.com', DELETE['actor'])
@@ -842,7 +858,7 @@ class ActivityPubTest(testutil.TestCase):
             self.as2_resp(ACTOR),
         ]
 
-        got = self.client.post('/inbox', json=DELETE)
+        got = self.post('/inbox', json=DELETE)
         self.assertEqual(200, got.status_code)
         self.assertEqual('inactive', follower.key.get().status)
         self.assertEqual('inactive', followee.key.get().status)
@@ -860,7 +876,7 @@ class ActivityPubTest(testutil.TestCase):
             **DELETE,
             'object': 'http://an/obj',
         }
-        resp = self.client.post('/inbox', json=delete)
+        resp = self.post('/inbox', json=delete)
         self.assertEqual(200, resp.status_code)
         self.assertTrue(obj.key.get().deleted)
         self.assert_object(delete['id'], as2=delete,
@@ -882,7 +898,7 @@ class ActivityPubTest(testutil.TestCase):
             self.as2_resp(ACTOR),
         ]
 
-        resp = self.client.post('/inbox', json=UPDATE_NOTE)
+        resp = self.post('/inbox', json=UPDATE_NOTE)
         self.assertEqual(200, resp.status_code)
 
         obj = UPDATE_NOTE['object']
@@ -903,7 +919,7 @@ class ActivityPubTest(testutil.TestCase):
             ReadTimeoutError(None, None, None),
         ]
 
-        got = self.client.post('/foo.com/inbox', json=LIKE)
+        got = self.post('/foo.com/inbox', json=LIKE)
         self.assertEqual(504, got.status_code)
 
     def test_inbox_no_webmention_endpoint(self, mock_head, mock_get, mock_post):
@@ -914,7 +930,7 @@ class ActivityPubTest(testutil.TestCase):
             requests_response('<html><body>foo</body></html>'),
         ]
 
-        got = self.client.post('/foo.com/inbox', json=LIKE)
+        got = self.post('/foo.com/inbox', json=LIKE)
         self.assertEqual(200, got.status_code)
 
         self.assert_object('http://th.is/like#ok',
@@ -929,13 +945,13 @@ class ActivityPubTest(testutil.TestCase):
     def test_inbox_id_already_seen(self, *mocks):
         obj_key = Object(id=FOLLOW_WRAPPED['id'], as2={}).put()
 
-        got = self.client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
+        got = self.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
         self.assertEqual(0, Follower.query().count())
 
         # second time should use in memory cache
         obj_key.delete()
-        got = self.client.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
+        got = self.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
         self.assertEqual(0, Follower.query().count())
 
