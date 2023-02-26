@@ -39,7 +39,6 @@ class Webmention(View):
     IS_TASK = False
 
     source_url = None     # string
-    source_domain = None  # string
     source_mf2 = None     # parsed mf2 dict
     source_as1 = None     # AS1 dict
     source_as2 = None     # AS2 dict
@@ -49,12 +48,12 @@ class Webmention(View):
         logger.info(f'Params: {list(request.form.items())}')
 
         source = flask_util.get_required_param('source').strip()
-        self.source_domain = util.domain_from_link(source, minimize=False)
-        logger.info(f'webmention from {self.source_domain}')
+        domain = util.domain_from_link(source, minimize=False)
+        logger.info(f'webmention from {domain}')
 
-        self.user = User.get_by_id(self.source_domain)
+        self.user = User.get_by_id(domain)
         if not self.user:
-            error(f'No user found for domain {self.source_domain}')
+            error(f'No user found for domain {domain}')
 
         # if source is home page, send an actor Update to followers' instances
         if self.user.is_homepage(source):
@@ -83,7 +82,6 @@ class Webmention(View):
         except ValueError as e:
             error(f'Bad source URL: {source}: {e}')
         self.source_url = source_resp.url or source
-        self.source_domain = urllib.parse.urlparse(self.source_url).netloc.split(':')[0]
         fragment = urllib.parse.urlparse(self.source_url).fragment
         self.source_mf2 = util.parse_mf2(source_resp, id=fragment)
 
@@ -166,7 +164,7 @@ class Webmention(View):
                          status='in progress')
 
         obj.populate(
-            domains=[self.source_domain],
+            domains=[self.user.key.id()],
             source_protocol='webmention',
             labels=['user'],
         )
@@ -195,7 +193,7 @@ class Webmention(View):
                 self.source_as2 = common.postprocess_as2(
                     as2.from_as1(self.source_as1), target=target_as2, user=self.user)
             if not self.source_as2.get('actor'):
-                self.source_as2['actor'] = common.host_url(self.source_domain)
+                self.source_as2['actor'] = common.host_url(self.user.key.id())
             if changed:
                 self.source_as2['type'] = 'Update'
 
@@ -213,7 +211,7 @@ class Webmention(View):
                 # https://github.com/snarfed/bridgy-fed/issues/307
                 dest = ((target_as2.get('id') or util.get_first(target_as2, 'url'))
                         if target_as2 else util.get_url(self.source_as1, 'object'))
-                Follower.get_or_create(dest=dest, src=self.source_domain,
+                Follower.get_or_create(dest=dest, src=self.user.key.id(),
                                        last_follow=self.source_as2)
 
             try:
@@ -287,9 +285,10 @@ class Webmention(View):
                 error(msg, status=202)
 
             inboxes = set()
+            domain = self.user.key.id()
             for follower in Follower.query().filter(
-                Follower.key > Key('Follower', self.source_domain + ' '),
-                Follower.key < Key('Follower', self.source_domain + chr(ord(' ') + 1))):
+                Follower.key > Key('Follower', domain + ' '),
+                Follower.key < Key('Follower', domain + chr(ord(' ') + 1))):
                 if follower.status != 'inactive' and follower.last_follow:
                     actor = follower.last_follow.get('actor')
                     if actor and isinstance(actor, dict):
@@ -361,7 +360,8 @@ class WebmentionInteractive(Webmention):
             flash('OK')
         except HTTPException as e:
             flash(util.linkify(str(e.description), pretty=True))
-            return redirect(f'/user/{self.source_domain}', code=302)
+            path = f'/user/{self.user.key.id()}' if self.user else '/'
+            return redirect(path, code=302)
 
 
 app.add_url_rule('/webmention', view_func=Webmention.as_view('webmention'),
