@@ -9,10 +9,6 @@ jobs:
     docker:
       - image: cimg/python:3.9
 
-    environment:
-      # https://github.com/GoogleCloudPlatform/google-cloud-datastore/issues/168#issuecomment-294418422
-      # - APPLICATION_ID: dev~bridgy-federated
-
     steps:
       - checkout
 
@@ -22,11 +18,15 @@ jobs:
       - run:
           name: Base dependencies
           command: |
-            # google-cloud-sdk: https://cloud.google.com/sdk/docs/install#deb
-            echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-            curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+            # https://cloud.google.com/sdk/docs/downloads-versioned-archives
+            # TODO: switch back to apt-get once GCP's repo's GPG key stops 500ing
+            # https://packages.cloud.google.com/apt/doc/apt-key.gpg
+            # https://issuetracker.google.com/issues/160194366
+            wget https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-419.0.0-linux-x86_64.tar.gz
+            tar xzf google-cloud-cli-419.0.0-linux-x86_64.tar.gz
+            ./google-cloud-sdk/bin/gcloud components install beta cloud-datastore-emulator --quiet
             sudo apt-get update
-            sudo apt-get install -y apt-transport-https ca-certificates gnupg google-cloud-sdk google-cloud-sdk-datastore-emulator default-jre
+            sudo apt-get install -y apt-transport-https ca-certificates default-jre
             git clone --depth=1 https://github.com/bluesky-social/atproto.git ../atproto
 
       - run:
@@ -42,7 +42,7 @@ jobs:
       - run:
           name: Build and test
           command: |
-            CLOUDSDK_CORE_PROJECT=bridgy-federated gcloud beta emulators datastore start --no-store-on-disk --consistency=1.0 --host-port=localhost:8089 < /dev/null >& /dev/null &
+            CLOUDSDK_CORE_PROJECT=bridgy-federated ./google-cloud-sdk/bin/gcloud beta emulators datastore start --no-store-on-disk --consistency=1.0 --host-port=localhost:8089 < /dev/null >& /dev/null &
             sleep 5s
             python -m coverage run --source=. --omit=appengine_config.py,logs.py,tests/\* -m unittest discover -v
             python -m coverage html -d /tmp/coverage_html
