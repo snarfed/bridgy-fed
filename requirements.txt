@@ -85,4 +85,4 @@ webencodings==0.5.1
 WebOb==1.8.7
 websocket-client==1.5.1
 Werkzeug==2.2.3
-wrapt==1.14.1
+wrapt==1.15.0
