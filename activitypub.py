@@ -147,40 +147,7 @@ def inbox(domain=None):
         if not user:
             return f'User {domain} not found', 404
 
-    # optionally verify signature
-    # TODO: switch this from erroring to logging lots of detail. need to see
-    # which headers, key shapes, etc we get in the wild.
-    sig = request.headers.get('Signature')
-    if sig:
-        logger.info(f'Headers: {json_dumps(dict(request.headers), indent=2)}')
-        # parse_signature_header lower-cases all keys
-        keyId = parse_signature_header(sig).get('keyid')
-        digest = request.headers.get('Digest') or ''
-        expected = b64encode(sha256(request.data).digest()).decode()
-        if not keyId:
-            error('HTTP Signature missing keyId', status=401)
-        elif not digest:
-            error('Missing Digest header, required for HTTP Signature', status=401)
-        elif digest.removeprefix('SHA-256=') != expected:
-            error('Invalid Digest header, required for HTTP Signature', status=401)
-        else:
-            key_actor = common.get_object(keyId, user=user).as2
-            key = key_actor.get("publicKey", {}).get('publicKeyPem')
-            logger.info(f'Verifying signature for {request.path} with key {key}')
-            try:
-                verified = HeaderVerifier(request.headers, key,
-                                          required_headers=['Digest'],
-                                          method=request.method,
-                                          path=request.path,
-                                          sign_header='signature').verify()
-            except BaseException as e:
-                error(f'HTTP Signature verification failed: {e}', status=401)
-            if verified:
-                logger.info('HTTP Signature verified!')
-            else:
-                error('HTTP Signature verification failed', status=401)
-    else:
-        error('No HTTP Signature', status=401)
+    verify_signature(user)
 
     # handle activity!
     if type == 'Undo' and obj_as2.get('type') == 'Follow':
@@ -272,6 +239,52 @@ def inbox(domain=None):
 
     activity_obj.put()
     return 'OK'
+
+
+def verify_signature(user):
+    """Verifies the current request's HTTP Signature.
+
+    Args:
+      user: :class:`User`
+
+    Logs details of the result. Raises :class:`werkzeug.HTTPSignature` if the
+    signature is missing or invalid, otherwise does nothing and returns None.
+    """
+    sig = request.headers.get('Signature')
+    if not sig:
+        error('No HTTP Signature', status=401)
+
+    logger.info(f'Headers: {json_dumps(dict(request.headers), indent=2)}')
+
+    # parse_signature_header lower-cases all keys
+    keyId = parse_signature_header(sig).get('keyid')
+    if not keyId:
+        error('HTTP Signature missing keyId', status=401)
+
+    digest = request.headers.get('Digest') or ''
+    if not digest:
+        error('Missing Digest header, required for HTTP Signature', status=401)
+
+    expected = b64encode(sha256(request.data).digest()).decode()
+    if digest.removeprefix('SHA-256=') != expected:
+        error('Invalid Digest header, required for HTTP Signature', status=401)
+
+    key_actor = common.get_object(keyId, user=user).as2
+    key = key_actor.get("publicKey", {}).get('publicKeyPem')
+    logger.info(f'Verifying signature for {request.path} with key {key}')
+    try:
+        verified = HeaderVerifier(request.headers, key,
+                                  required_headers=['Digest'],
+                                  method=request.method,
+                                  path=request.path,
+                                  sign_header='signature').verify()
+    except BaseException as e:
+        error(f'HTTP Signature verification failed: {e}', status=401)
+
+    if verified:
+        logger.info('HTTP Signature verified!')
+    else:
+        error('HTTP Signature verification failed', status=401)
 
 
 def accept_follow(follow, follow_unwrapped, user):
