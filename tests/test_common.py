@@ -64,7 +64,7 @@ class CommonTest(testutil.TestCase):
     @mock.patch('requests.get', return_value=AS2)
     def test_get_as2_direct(self, mock_get):
         resp = common.get_as2('http://orig', user=self.user)
-        self.assertEqual(AS2, resp)
+        self.assertEqual(AS2_OBJ, resp)
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
         ))
@@ -72,7 +72,7 @@ class CommonTest(testutil.TestCase):
     @mock.patch('requests.get', side_effect=[HTML_WITH_AS2, AS2])
     def test_get_as2_via_html(self, mock_get):
         resp = common.get_as2('http://orig', user=self.user)
-        self.assertEqual(AS2, resp)
+        self.assertEqual(AS2_OBJ, resp)
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
             self.as2_req('http://as2', headers=common.as2.CONNEG_HEADERS),
@@ -89,9 +89,27 @@ class CommonTest(testutil.TestCase):
             resp = common.get_as2('http://orig', user=self.user)
 
     @mock.patch('requests.get', side_effect=requests.exceptions.SSLError)
-    def test_get_ssl_error(self, mock_get):
+    def test_get_as2_ssl_error(self, mock_get):
         with self.assertRaises(BadGateway):
             resp = common.get_as2('http://orig', user=self.user)
+
+    @mock.patch('requests.get')
+    def test_get_as2_datastore_no_content(self, mock_get):
+        mock_get.return_value = self.as2_resp('')
+
+        with self.assertRaises(BadGateway):
+            got = common.get_as2('http://the/id')
+
+        mock_get.assert_has_calls([self.as2_req('http://the/id')])
+
+    @mock.patch('requests.get')
+    def test_get_as2_datastore_not_json(self, mock_get):
+        mock_get.return_value = self.as2_resp('XYZ not JSON')
+
+        with self.assertRaises(BadGateway):
+            got = common.get_as2('http://the/id')
+
+        mock_get.assert_has_calls([self.as2_req('http://the/id')])
 
     def test_redirect_wrap_empty(self):
         self.assertIsNone(common.redirect_wrap(None))

@@ -152,7 +152,7 @@ def get_object(id, user=None):
       obj = Object(id=id)
 
     logger.info(f'Object not in datastore or has no as2: {id}')
-    obj_as2 = get_as2(id, user=user).json()
+    obj_as2 = get_as2(id, user=user)
 
     if obj.mf2:
       logging.warning(f'Wiping out mf2 property: {obj.mf2}')
@@ -262,7 +262,7 @@ def get_as2(url, user=None):
         user: :class:`User` used to sign request
 
     Returns:
-        :class:`requests.Response`
+        dict, AS2 object
 
     Raises:
         :class:`requests.HTTPError`, :class:`werkzeug.exceptions.HTTPException`
@@ -270,28 +270,43 @@ def get_as2(url, user=None):
         If we raise a werkzeug HTTPException, it will have an additional
         requests_response attribute with the last requests.Response we received.
     """
-    def _error(resp):
+    def _error(resp, extra_msg=None):
         msg = f"Couldn't fetch {url} as ActivityStreams 2"
+        if extra_msg:
+            msg += ': ' + extra_msg
         logger.warning(msg)
         err = BadGateway(msg)
         err.requests_response = resp
         raise err
 
-    resp = signed_get(url, user=user, headers=CONNEG_HEADERS_AS2_HTML)
-    if content_type(resp) in (as2.CONTENT_TYPE, CONTENT_TYPE_LD_PLAIN):
+    def _get(url, headers):
+        resp = signed_get(url, user=user, headers=headers, gateway=True)
+        if not resp.content:
+            _error(resp, 'empty response')
+        elif content_type(resp) in (as2.CONTENT_TYPE, CONTENT_TYPE_LD_PLAIN):
+            try:
+                return resp.json()
+            except requests.JSONDecodeError:
+                _error(resp, "Couldn't decode as JSON")
+
         return resp
 
+    resp = _get(url, CONNEG_HEADERS_AS2_HTML)
+    if not isinstance(resp, requests.Response):
+        return resp
+
+    # look in HTML to find AS2 link
+    if content_type(resp) != 'text/html':
+        _error(resp, 'no AS2 available')
     parsed = util.parse_html(resp)
     obj = parsed.find('link', rel=('alternate', 'self'), type=(
         as2.CONTENT_TYPE, as2.CONTENT_TYPE_LD))
     if not (obj and obj['href']):
-        _error(resp)
+        _error(resp, 'no AS2 available')
 
-    resp = signed_get(urllib.parse.urljoin(resp.url, obj['href']),
-                      user=user, headers=as2.CONNEG_HEADERS)
-    if content_type(resp) in (as2.CONTENT_TYPE, CONTENT_TYPE_LD_PLAIN):
+    resp = _get(obj['href'], as2.CONNEG_HEADERS)
+    if not isinstance(resp, requests.Response):
         return resp
-
     _error(resp)
 
 
