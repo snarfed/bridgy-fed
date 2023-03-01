@@ -120,6 +120,13 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
   status = 302
   </pre>
   </li>
+  
+  <li id="netlify-redirect"><em><a href="https://docs.netlify.com/routing/redirects/">Netlify (_redirects method)</a></em>: add this to your <code>_redirects</code> file.
+    <pre>
+    /.well-known/webfinger*            https://fed.brid.gy/.well-known/webfinger                302
+    /.well-known/host-meta*            https://fed.brid.gy/.well-known/host-meta:splat          302
+    </pre>
+  </li>
 
 
 <!--
