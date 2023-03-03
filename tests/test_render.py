@@ -64,6 +64,20 @@ class RenderTest(testutil.TestCase):
         self.assert_multiline_equals(expected, resp.get_data(as_text=True),
                                      ignore_blanks=True)
 
+    def test_render_deleted_object(self):
+        with app.test_request_context('/'):
+            Object(id='abc', as2={'content': 'foo'}, deleted=True).put()
+
+        resp = self.client.get('/render?id=abc')
+        self.assertEqual(410, resp.status_code)
+
+    def test_render_delete_activity(self):
+        with app.test_request_context('/'):
+            Object(id='abc', as2=as2.from_as1(DELETE_OF_ID)).put()
+
+        resp = self.client.get('/render?id=abc')
+        self.assertEqual(410, resp.status_code)
+
     def test_render_update_inner_obj_exists_redirect(self):
         with app.test_request_context('/'):
             # UPDATE's object field is a full object

@@ -27,8 +27,8 @@ def render():
     elif not obj.as1:
         error(f'Stored object for {id} has no AS1', status=404)
 
-    if (obj.as1.get('objectType') == 'activity' and
-        obj.as1.get('verb') in ('post', 'update', 'delete')):
+    type = as1.object_type(obj.as1)
+    if type in ('post', 'update', 'delete'):
         # redirect to inner object
         obj_id = as1.get_object(obj.as1).get('id')
         if obj_id:
@@ -37,7 +37,9 @@ def render():
                 not obj_obj.as1.keys() <= set(['id', 'url', 'objectType'])):
                 logger.info(f'{type} activity, redirecting to Object {obj_id}')
                 return redirect('/render?' + urlencode({'id': obj_id}), code=301)
-        # error(f'Stored {type} activity has no object id!', status=404)
+
+    if obj.deleted or type == 'delete':
+        return '', 410
 
     # add HTML meta redirect to source page. should trigger for end users in
     # browsers but not for webmention receivers (hopefully).
