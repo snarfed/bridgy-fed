@@ -1,11 +1,10 @@
-# coding=utf-8
 """Renders mf2 proxy pages based on stored Object entities."""
 import datetime
 import logging
 from urllib.parse import urlencode
 
 from flask import redirect, request
-from granary import as2, atom, microformats2
+from granary import as1, as2, atom, microformats2
 from oauth_dropins.webutil import flask_util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil import util
@@ -28,17 +27,17 @@ def render():
     elif not obj.as1:
         error(f'Stored object for {id} has no AS1', status=404)
 
-    # TODO: uncomment once we're storing inner objects separately
-    # if (obj.as1.get('objectType') == 'activity' and
-    #     obj.as1.get('verb') in ('post', 'update', 'delete')):
-    #     # redirect to inner object
-    #     obj_id = obj.as1.get('object')
-    #     if isinstance(obj_id, dict):
-    #         obj_id = obj_id.get('id')
-    #     if not obj_id:
-    #         error(f'Stored {type} activity has no object id!', status=404)
-    #     logger.info(f'{type} activity, redirecting to object id {obj_id}')
-    #     return redirect('/render?' + urlencode({'id': obj_id}), code=301)
+    if (obj.as1.get('objectType') == 'activity' and
+        obj.as1.get('verb') in ('post', 'update', 'delete')):
+        # redirect to inner object
+        obj_id = as1.get_object(obj.as1).get('id')
+        if obj_id:
+            obj_obj = Object.get_by_id(obj_id)
+            if (obj_obj and obj_obj.as1 and
+                not obj_obj.as1.keys() <= set(['id', 'url', 'objectType'])):
+                logger.info(f'{type} activity, redirecting to Object {obj_id}')
+                return redirect('/render?' + urlencode({'id': obj_id}), code=301)
+        # error(f'Stored {type} activity has no object id!', status=404)
 
     # add HTML meta redirect to source page. should trigger for end users in
     # browsers but not for webmention receivers (hopefully).

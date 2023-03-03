@@ -1,4 +1,3 @@
-# coding=utf-8
 """Unit tests for render.py."""
 import copy
 from unittest import skip
@@ -65,24 +64,55 @@ class RenderTest(testutil.TestCase):
         self.assert_multiline_equals(expected, resp.get_data(as_text=True),
                                      ignore_blanks=True)
 
-    @skip
-    def test_render_update_redirect(self):
+    def test_render_update_inner_obj_exists_redirect(self):
+        with app.test_request_context('/'):
+            # UPDATE's object field is a full object
+            Object(id='abc', as2=as2.from_as1(UPDATE)).put()
+            Object(id=UPDATE['object']['id'], as2={'content': 'foo'}).put()
+
+        resp = self.client.get('/render?id=abc')
+        self.assertEqual(301, resp.status_code)
+        self.assertEqual(f'/render?id=tag%3Afake.com%3A123456',
+                         resp.headers['Location'])
+
+    def test_render_delete_inner_obj_exists_redirect(self):
+        with app.test_request_context('/'):
+            # DELETE_OF_ID's object field is a bare string id
+            Object(id='abc', as2=as2.from_as1(DELETE_OF_ID)).put()
+            Object(id=DELETE_OF_ID['object'], as2={'content': 'foo'}).put()
+
+        resp = self.client.get('/render?id=abc')
+        self.assertEqual(301, resp.status_code)
+        self.assertEqual(f'/render?id=tag%3Afake.com%3A123456',
+                         resp.headers['Location'])
+
+    def test_render_update_no_inner_obj_serve_as_is(self):
         with app.test_request_context('/'):
             # UPDATE's object field is a full object
             Object(id='abc', as2=as2.from_as1(UPDATE)).put()
 
         resp = self.client.get('/render?id=abc')
-        self.assertEqual(301, resp.status_code)
-        self.assertEqual(f'/render?id=tag%3Afake.com%3A123456',
-                         resp.headers['Location'])
+        self.assertEqual(200, resp.status_code)
+        self.assert_multiline_in("""\
+<div class="e-content p-name">
+A ☕ reply
+</div>
+<a class="u-in-reply-to" href="https://fake.com/123"></a>
+""", resp.get_data(as_text=True), ignore_blanks=True)
 
-    @skip
-    def test_render_delete_redirect(self):
+
+    def test_render_update_inner_obj_too_minimal_serve_as_is(self):
         with app.test_request_context('/'):
-            # DELETE_OF_ID's object field is a bare string id
-            Object(id='abc', as1=as2.from_as1(DELETE_OF_ID)).put()
+            # UPDATE's object field is a full object
+            Object(id='abc', as2=as2.from_as1(UPDATE)).put()
+            Object(id=UPDATE['object']['id'], as2={'id': 'foo'}).put()
 
         resp = self.client.get('/render?id=abc')
-        self.assertEqual(301, resp.status_code)
-        self.assertEqual(f'/render?id=tag%3Afake.com%3A123456',
-                         resp.headers['Location'])
+        self.assertEqual(200, resp.status_code)
+        self.assert_multiline_in("""\
+<div class="e-content p-name">
+A ☕ reply
+</div>
+<a class="u-in-reply-to" href="https://fake.com/123"></a>
+""", resp.get_data(as_text=True), ignore_blanks=True)
+
