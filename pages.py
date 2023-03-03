@@ -204,19 +204,21 @@ def fetch_objects(query, user):
         }
         obj.phrase = phrases.get(type)
 
-        # TODO: unify inner object loading? optionally fetch external?
         inner_obj = as1.get_object(obj.as1)
-        if inner_obj.keys() == set(['id']):
-            inner_obj_obj = Object.get_by_id(inner_obj['id'])
-            if inner_obj_obj:
-                inner_obj = inner_obj_obj.as1
+
+        # TODO: revisit? we have objects in the datastore, that are basically
+        # empty, eg just as1 {'objectType': 'note'}, which make this show --s
+        # if inner_obj.keys() == set(['id']):
+        #     inner_obj_obj = Object.get_by_id(inner_obj['id'])
+        #     if inner_obj_obj and inner_obj_obj.as1:
+        #         inner_obj = inner_obj_obj.as1
 
         content = (inner_obj.get('content')
                    or inner_obj.get('displayName')
                    or inner_obj.get('summary'))
         url = util.get_first(inner_obj, 'url') or inner_obj.get('id')
-        if (obj.domains and
-              inner_obj.get('id', '').strip('/') == f'https://{obj.domains[0]}'):
+        if (type == 'update' and obj.domains and
+            inner_obj.get('id', '').strip('/') == f'https://{obj.domains[0]}'):
             obj.phrase = 'updated'
             obj.as1.update({
                 'content': 'their profile',
