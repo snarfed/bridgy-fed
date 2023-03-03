@@ -111,10 +111,11 @@ class Webmention(View):
             props['url'] = [self.source_url]
 
         self.source_as1 = microformats2.json_to_object(self.source_mf2, fetch_mf2=True)
+        inner_obj = as1.get_object(self.source_as1, 'object')
         type_label = ' '.join((
             self.source_as1.get('verb', ''),
             self.source_as1.get('objectType', ''),
-            util.get_first(self.source_as1, 'object', {}).get('objectType', ''),
+            inner_obj.get('objectType', '') if isinstance(inner_obj, dict) else inner_obj,
         ))
         logger.info(f'Converted webmention to AS1: {type_label}: {json_dumps(self.source_as1, indent=2)}')
 

@@ -24,23 +24,26 @@ from models import Follower, Object, Target, User
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_TYPES = (
-    'Accept',
-    'Announce',
-    'Article',
-    'Audio',
-    'Create',
-    'Delete',
-    'Follow',
-    'Image',
-    'Like',
-    'Note',
-    'Undo',
-    'Update',
-    'Video',
+SUPPORTED_TYPES = (  # AS1
+    'accept',
+    'article',
+    'audio',
+    'comment',
+    'create',
+    'delete',
+    'follow',
+    'image',
+    'like',
+    'note',
+    'post',
+    'share',
+    'stop-following',
+    'undo',
+    'update',
+    'video',
 )
 FETCH_OBJECT_TYPES = (
-    'Announce',
+    'share',
 )
 
 # activity ids that we've already handled and can now ignore
@@ -103,19 +106,13 @@ def inbox(domain=None):
     # parse and validate AS2 activity
     try:
         activity = request.json
-        assert activity
+        assert activity and isinstance(activity, dict)
     except (TypeError, ValueError, AssertionError):
-        error(f"Couldn't parse body as JSON: {body}", exc_info=True)
+        error(f"Couldn't parse body as non-empty JSON mapping: {body}", exc_info=True)
 
-
-    type = activity.get('type')
     actor = activity.get('actor')
     actor_id = actor.get('id') if isinstance(actor, dict) else actor
-    logger.info(f'Got {type} activity from {actor_id}: {json_dumps(activity, indent=2)}')
-
-    obj_as2 = activity.get('object') or {}
-    if isinstance(obj_as2, str):
-        obj_as2 = {'id': obj_as2}
+    logger.info(f'Got {activity.get("type")} activity from {actor_id}: {json_dumps(activity, indent=2)}')
 
     id = activity.get('id')
     if not id:
@@ -130,114 +127,125 @@ def inbox(domain=None):
             logger.info(msg)
             return msg, 200
 
-    activity_unwrapped = redirect_unwrap(activity)
-    activity_obj = Object(id=id, as2=activity_unwrapped,
-                          source_protocol='activitypub')
-    activity_obj.put()
+    obj = Object(id=id, as2=redirect_unwrap(activity), source_protocol='activitypub')
+    obj.put()
 
-    if type == 'Accept':  # eg in response to a Follow
-        return ''  # noop
-    if type not in SUPPORTED_TYPES:
-        error(f'Sorry, {type} activities are not supported yet.', status=501)
+    if obj.type == 'accept':  # eg in response to a Follow
+        return 'OK'  # noop
+    elif obj.type not in SUPPORTED_TYPES:
+        error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
+
+    inner_obj = obj.as1.get('object') or {}
+    if isinstance(inner_obj, str):
+        inner_obj = {'id': inner_obj}
+    inner_obj_id = inner_obj.get('id')
 
     # load user
     user = None
     if domain:
         user = User.get_by_id(domain)
         if not user:
-            return f'User {domain} not found', 404
+            error(f'User {domain} not found', status=404)
 
     verify_signature(user)
 
     # handle activity!
-    if type == 'Undo' and obj_as2.get('type') == 'Follow':
-        # skip actor fetch below; we don't need it to undo a follow
-        undo_follow(activity_unwrapped)
-        activity_obj.status = 'complete'
-        activity_obj.put()
-        return 'OK'
+    if obj.type == 'stop-following':
+        # granary doesn't yet handle three-actor undo follows, eg Eve undoes
+        # Alice following Bob
+        follower = as1.get_object(as1.get_object(activity, 'object'), 'actor')
+        assert actor_id == follower.get('id')
 
-    elif type == 'Update':
-        obj_id = obj_as2.get('id')
-        if not obj_id:
-            error("Couldn't find obj_id of object to update")
+        if not actor_id or not inner_obj_id:
+            error(f'Undo of Follow requires object with actor and object. Got: {actor_id} {followee} {obj.as1}')
 
-        obj = Object.get_by_id(obj_id) or Object(id=obj_id)
-        obj.populate(as2=obj_as2, source_protocol='activitypub')
+        # deactivate Follower
+        followee_domain = util.domain_from_link(inner_obj_id, minimize=False)
+        follower = Follower.get_by_id(Follower._id(dest=followee_domain, src=actor_id))
+        if follower:
+            logging.info(f'Marking {follower} inactive')
+            follower.status = 'inactive'
+            follower.put()
+        else:
+            logger.warning(f'No Follower found for {followee_domain} {actor_id}')
+
+        # TODO send webmention with 410 of u-follow
+
+        obj.status = 'complete'
         obj.put()
-
-        activity_obj.status = 'complete'
-        activity_obj.put()
         return 'OK'
 
-    elif type == 'Delete':
-        obj_id = obj_as2.get('id')
-        if not obj_id:
+    elif obj.type == 'update':
+        if not inner_obj_id:
+            error("Couldn't find id of object to update")
+
+        to_update = Object.get_by_id(inner_obj_id) or Object(id=inner_obj_id)
+        to_update.populate(as2=obj.as2.get('object'), source_protocol='activitypub')
+        to_update.put()
+
+        obj.status = 'complete'
+        obj.put()
+        return 'OK'
+
+    elif obj.type == 'delete':
+        if not inner_obj_id:
             error("Couldn't find id of object to delete")
 
-        obj = Object.get_by_id(obj_id)
-        if obj:
-            logger.info(f'Marking Object {obj_id} deleted')
-            obj.deleted = True
-            obj.put()
+        to_delete = Object.get_by_id(inner_obj_id)
+        if to_delete:
+            logger.info(f'Marking Object {inner_obj_id} deleted')
+            to_delete.deleted = True
+            to_delete.put()
 
         # assume this is an actor
         # https://github.com/snarfed/bridgy-fed/issues/63
-        logger.info(f'Deactivating Followers with src or dest = {obj_id}')
-        followers = Follower.query(OR(Follower.src == obj_id,
-                                      Follower.dest == obj_id)
+        logger.info(f'Deactivating Followers with src or dest = {inner_obj_id}')
+        followers = Follower.query(OR(Follower.src == inner_obj_id,
+                                      Follower.dest == inner_obj_id)
                                    ).fetch()
         for f in followers:
             f.status = 'inactive'
-        activity_obj.status = 'complete'
-        ndb.put_multi(followers + [activity_obj])
+        obj.status = 'complete'
+        ndb.put_multi(followers + [obj])
         return 'OK'
 
     # fetch actor if necessary so we have name, profile photo, etc
     if actor and isinstance(actor, str):
-        actor = activity['actor'] = activity_unwrapped['actor'] = \
-            common.get_object(actor, user=user).as2
+        actor = obj.as2['actor'] = common.get_object(actor, user=user).as2
 
     # fetch object if necessary so we can render it in feeds
-    inner_obj = activity_unwrapped.get('object')
-    if type in FETCH_OBJECT_TYPES and isinstance(inner_obj, str):
-        obj = Object.get_by_id(inner_obj) or common.get_object(inner_obj, user=user)
-        obj_as2 = activity['object'] = activity_unwrapped['object'] = \
-            obj.as2 if obj.as2 else as2.from_as1(obj.as1)
+    if obj.type in FETCH_OBJECT_TYPES and inner_obj.keys() == set(['id']):
+        inner_obj = obj.as2['object'] = common.get_object(inner_obj_id, user=user).as2
 
-    if type == 'Follow':
-        resp = accept_follow(activity, activity_unwrapped, user)
+    if obj.type == 'follow':
+        resp = accept_follow(obj, user)
 
     # send webmentions to each target
-    activity_obj.as2 = activity_unwrapped
-    common.send_webmentions(as2.to_as1(activity), activity_obj, proxy=True)
+    common.send_webmentions(as2.to_as1(activity), obj, proxy=True)
 
     # deliver original posts and reposts to followers
-    if ((type == 'Create' and not activity.get('inReplyTo') and not obj_as2.get('inReplyTo'))
-        or type == 'Announce'):
+    if obj.type in ('share', 'create', 'post'):
         # check that this activity is public. only do this check for Creates,
         # not Like, Follow, or other activity types, since Mastodon doesn't
         # currently mark those as explicitly public.
-        if not as2.is_public(activity_unwrapped):
+        if not as1.is_public(obj.as1):
             logger.info('Dropping non-public activity')
-            return ''
+            return 'OK'
 
-        if actor:
-            actor_id = actor.get('id')
-            if actor_id:
-                logger.info(f'Finding followers of {actor_id}')
-                for f in Follower.query(Follower.dest == actor_id,
-                                        projection=[Follower.src]):
-                    if f.src not in activity_obj.domains:
-                        activity_obj.domains.append(f.src)
-                if activity_obj.domains and 'feed' not in activity_obj.labels:
-                    activity_obj.labels.append('feed')
+        if actor and actor_id:
+            logger.info(f'Delivering to followers of {actor_id}')
+            for f in Follower.query(Follower.dest == actor_id,
+                                    projection=[Follower.src]):
+                if f.src not in obj.domains:
+                    obj.domains.append(f.src)
+            if obj.domains and 'feed' not in obj.labels:
+                obj.labels.append('feed')
 
-    if (activity_obj.as1.get('objectType') == 'activity'
-        and 'activity' not in activity_obj.labels):
-        activity_obj.labels.append('activity')
+    if (obj.as1.get('objectType') == 'activity'
+        and 'activity' not in obj.labels):
+        obj.labels.append('activity')
 
-    activity_obj.put()
+    obj.put()
     return 'OK'
 
 
@@ -287,21 +295,18 @@ def verify_signature(user):
         error('HTTP Signature verification failed', status=401)
 
 
-def accept_follow(follow, follow_unwrapped, user):
+def accept_follow(obj, user):
     """Replies to an AP Follow request with an Accept request.
 
     Args:
-      follow: dict, AP Follow activity
-      follow_unwrapped: dict, same, except with redirect URLs unwrapped
+      obj: :class:`Object`
       user: :class:`User`
     """
     logger.info('Replying to Follow with Accept')
 
-    followee = follow.get('object')
-    followee_unwrapped = follow_unwrapped.get('object')
-    followee_id = (followee_unwrapped.get('id')
-                   if isinstance(followee_unwrapped, dict) else followee_unwrapped)
-    follower = follow.get('actor')
+    followee = obj.as2.get('object')
+    followee_id = followee.get('id') if isinstance(followee, dict) else followee
+    follower = obj.as2.get('actor')
     if not followee or not followee_id or not follower:
         error(f'Follow activity requires object and actor. Got: {follow}')
 
@@ -316,58 +321,30 @@ def accept_follow(follow, follow_unwrapped, user):
     # so, set a synthetic URL based on the follower's profile.
     # https://github.com/snarfed/bridgy-fed/issues/336
     follower_url = util.get_url(follower) or follower_id
-    followee_url = util.get_url(followee_unwrapped) or followee_id
-    follow_unwrapped.setdefault('url', f'{follower_url}#followed-{followee_url}')
+    followee_url = util.get_url(followee) or followee_id
+    obj.as2.setdefault('url', f'{follower_url}#followed-{followee_url}')
 
     # store Follower
-    follower = Follower.get_or_create(dest=user.key.id(), src=follower_id,
-                                      last_follow=follow)
-    follower.status = 'active'
-    follower.put()
+    follower_obj = Follower.get_or_create(dest=user.key.id(), src=follower_id,
+                                          last_follow=obj.as2)
+    follower_obj.status = 'active'
+    follower_obj.put()
 
     # send AP Accept
+    followee_actor_url = host_url(user.key.id())
     accept = {
         '@context': 'https://www.w3.org/ns/activitystreams',
         'id': util.tag_uri(common.PRIMARY_DOMAIN,
-                           f'accept/{user.key.id()}/{follow.get("id")}'),
+                           f'accept/{user.key.id()}/{obj.key.id()}'),
         'type': 'Accept',
-        'actor': followee,
+        'actor': followee_actor_url,
         'object': {
             'type': 'Follow',
             'actor': follower_id,
-            'object': followee,
+            'object': followee_actor_url,
         }
     }
     return common.signed_post(inbox, data=accept, user=user)
-
-
-@ndb.transactional()
-def undo_follow(undo_unwrapped):
-    """Handles an AP Undo Follow request by deactivating the Follower entity.
-
-    Args:
-      undo_unwrapped: dict, AP Undo activity with redirect URLs unwrapped
-    """
-    logger.info('Undoing Follow')
-
-    follow = undo_unwrapped.get('object', {})
-    follower = follow.get('actor')
-    followee = follow.get('object')
-    if isinstance(followee, dict):
-        followee = followee.get('id') or util.get_url(followee)
-    if not follower or not followee:
-        error(f'Undo of Follow requires object with actor and object. Got: {follow}')
-
-    # deactivate Follower
-    user_domain = util.domain_from_link(followee, minimize=False)
-    follower_obj = Follower.get_by_id(Follower._id(dest=user_domain, src=follower))
-    if follower_obj:
-        follower_obj.status = 'inactive'
-        follower_obj.put()
-    else:
-        logger.warning(f'No Follower found for {user_domain} {follower}')
-
-    # TODO send webmention with 410 of u-follow
 
 
 @app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/<any(followers,following):collection>')

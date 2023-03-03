@@ -358,9 +358,9 @@ class ActivityPubTest(testutil.TestCase):
         self._test_inbox_create_obj('/inbox', *mocks)
 
     def _test_inbox_create_obj(self, path, mock_head, mock_get, mock_post):
-        Follower.get_or_create(ACTOR['id'], 'foo.com')
+        Follower.get_or_create(NOTE['actor'], 'foo.com')
         Follower.get_or_create('http://other/actor', 'bar.com')
-        Follower.get_or_create(ACTOR['id'], 'baz.com')
+        Follower.get_or_create(NOTE['actor'], 'baz.com')
 
         mock_head.return_value = requests_response(url='http://target')
         mock_get.return_value = self.as2_resp(ACTOR)  # source actor
@@ -480,7 +480,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
         obj = Object.get_by_id(not_public['id'])
-        self.assertEqual([], obj.labels)
+        self.assertEqual(['activity'], obj.labels)
         self.assertEqual([], obj.domains)
 
         self.assertIsNone(Object.get_by_id(not_public['object']['id']))
@@ -572,9 +572,10 @@ class ActivityPubTest(testutil.TestCase):
     def test_inbox_follow_accept_with_id(self, *mocks):
         self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, *mocks)
 
-        follow = copy.deepcopy(FOLLOW_WITH_ACTOR)
-        follow['url'] = 'https://mastodon.social/users/swentel#followed-https://foo.com/'
-
+        follow = {
+            **FOLLOW_WITH_ACTOR,
+            'url': 'https://mastodon.social/users/swentel#followed-https://foo.com/',
+        }
         self.assert_object('https://mastodon.social/6d1a',
                            domains=['foo.com'],
                            source_protocol='activitypub',
@@ -586,7 +587,7 @@ class ActivityPubTest(testutil.TestCase):
                            object_ids=[FOLLOW['object']])
 
         follower = Follower.query().get()
-        self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, follower.last_follow)
+        self.assertEqual(follow, follower.last_follow)
 
     def test_inbox_follow_accept_with_object(self, *mocks):
         wrapped_user = {
@@ -599,23 +600,18 @@ class ActivityPubTest(testutil.TestCase):
         }
 
         follow = {
-            **FOLLOW_WRAPPED,
-            'object': wrapped_user,
+            **FOLLOW,
+            'object': unwrapped_user,
         }
 
-        accept = copy.deepcopy(ACCEPT)
-        accept['actor'] = accept['object']['object'] = wrapped_user
-
-        self._test_inbox_follow_accept(follow, accept, *mocks)
+        self._test_inbox_follow_accept(follow, ACCEPT, *mocks)
 
         follower = Follower.query().get()
-        follow['actor'] = ACTOR
-        self.assertEqual(follow, follower.last_follow)
-
         follow.update({
-            'object': unwrapped_user,
+            'actor': ACTOR,
             'url': 'https://mastodon.social/users/swentel#followed-https://foo.com/',
         })
+        self.assertEqual(follow, follower.last_follow)
         self.assert_object('https://mastodon.social/6d1a',
                            domains=['foo.com'],
                            source_protocol='activitypub',
@@ -631,7 +627,7 @@ class ActivityPubTest(testutil.TestCase):
         mock_head.return_value = requests_response(url='https://foo.com/')
         mock_get.side_effect = [
             # source actor
-            self.as2_resp(FOLLOW_WITH_ACTOR['actor']),
+            self.as2_resp(ACTOR),
             WEBMENTION_DISCOVERY,
         ]
         mock_post.return_value = requests_response()
@@ -679,7 +675,10 @@ class ActivityPubTest(testutil.TestCase):
         # check that the Follower doesn't have www
         follower = Follower.get_by_id(f'foo.com {ACTOR["id"]}')
         self.assertEqual('active', follower.status)
-        self.assertEqual(FOLLOW_WRAPPED_WITH_ACTOR, follower.last_follow)
+        self.assertEqual({
+            **FOLLOW_WITH_ACTOR,
+            'url': 'https://mastodon.social/users/swentel#followed-https://foo.com/',
+        }, follower.last_follow)
 
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://foo.com/')
