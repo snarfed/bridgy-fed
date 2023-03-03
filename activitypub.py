@@ -135,9 +135,7 @@ def inbox(domain=None):
     elif obj.type not in SUPPORTED_TYPES:
         error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
 
-    inner_obj = obj.as1.get('object') or {}
-    if isinstance(inner_obj, str):
-        inner_obj = {'id': inner_obj}
+    inner_obj = as1.get_object(obj.as1)
     inner_obj_id = inner_obj.get('id')
 
     # load user
@@ -148,6 +146,20 @@ def inbox(domain=None):
             error(f'User {domain} not found', status=404)
 
     verify_signature(user)
+
+    # check that this activity is public. only do this check for creates, not
+    # like, follow, or other activity types, since Mastodon doesn't currently
+    # mark those as explicitly public. Use as2's is_public instead of as1's
+    # because as1's interprets unlisted as true.
+    if obj.type in ('post', 'create') and not as2.is_public(obj.as2):
+        logger.info('Dropping non-public activity')
+        return 'OK'
+
+    # store inner object
+    if obj.type in ('post', 'create', 'update') and inner_obj.keys() > set(['id']):
+        to_update = Object.get_by_id(inner_obj_id) or Object(id=inner_obj_id)
+        to_update.populate(as2=obj.as2['object'], source_protocol='activitypub')
+        to_update.put()
 
     # handle activity!
     if obj.type == 'stop-following':
@@ -178,10 +190,6 @@ def inbox(domain=None):
     elif obj.type == 'update':
         if not inner_obj_id:
             error("Couldn't find id of object to update")
-
-        to_update = Object.get_by_id(inner_obj_id) or Object(id=inner_obj_id)
-        to_update.populate(as2=obj.as2.get('object'), source_protocol='activitypub')
-        to_update.put()
 
         obj.status = 'complete'
         obj.put()
@@ -224,25 +232,16 @@ def inbox(domain=None):
     common.send_webmentions(as2.to_as1(activity), obj, proxy=True)
 
     # deliver original posts and reposts to followers
-    if obj.type in ('share', 'create', 'post'):
-        # check that this activity is public. only do this check for Creates,
-        # not Like, Follow, or other activity types, since Mastodon doesn't
-        # currently mark those as explicitly public.
-        if not as1.is_public(obj.as1):
-            logger.info('Dropping non-public activity')
-            return 'OK'
+    if obj.type in ('share', 'create', 'post') and actor and actor_id:
+        logger.info(f'Delivering to followers of {actor_id}')
+        for f in Follower.query(Follower.dest == actor_id,
+                                projection=[Follower.src]):
+            if f.src not in obj.domains:
+                obj.domains.append(f.src)
+        if obj.domains and 'feed' not in obj.labels:
+            obj.labels.append('feed')
 
-        if actor and actor_id:
-            logger.info(f'Delivering to followers of {actor_id}')
-            for f in Follower.query(Follower.dest == actor_id,
-                                    projection=[Follower.src]):
-                if f.src not in obj.domains:
-                    obj.domains.append(f.src)
-            if obj.domains and 'feed' not in obj.labels:
-                obj.labels.append('feed')
-
-    if (obj.as1.get('objectType') == 'activity'
-        and 'activity' not in obj.labels):
+    if obj.as1.get('objectType') == 'activity' and 'activity' not in obj.labels:
         obj.labels.append('activity')
 
     obj.put()

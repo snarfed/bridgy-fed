@@ -303,6 +303,10 @@ class ActivityPubTest(testutil.TestCase):
                                 'labels': ['notification', 'activity'],
                                 },
                                *mocks)
+        self.assert_object(REPLY_OBJECT['id'],
+                           source_protocol='activitypub',
+                           as2=REPLY_OBJECT,
+                           type='comment')
 
     def _test_inbox_reply(self, reply, expected_props, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='http://or.ig/post')
@@ -380,6 +384,10 @@ class ActivityPubTest(testutil.TestCase):
                            type='post',
                            labels=['activity', 'feed'],
                            object_ids=[NOTE_OBJECT['id']])
+        self.assert_object(NOTE_OBJECT['id'],
+                           source_protocol='activitypub',
+                           as2=NOTE_OBJECT,
+                           type='note')
 
     def test_repost_of_federated_post(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://foo.com/orig')
@@ -480,7 +488,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
         obj = Object.get_by_id(not_public['id'])
-        self.assertEqual(['activity'], obj.labels)
+        self.assertEqual([], obj.labels)
         self.assertEqual([], obj.domains)
 
         self.assertIsNone(Object.get_by_id(not_public['object']['id']))
@@ -505,6 +513,14 @@ class ActivityPubTest(testutil.TestCase):
             },
             *mocks,
         )
+
+        # redirect unwrap
+        expected_as2 = copy.deepcopy(MENTION_OBJECT)
+        expected_as2['tag'][1]['href'] = 'https://tar.get/'
+        self.assert_object(MENTION_OBJECT['id'],
+                           source_protocol='activitypub',
+                           as2=expected_as2,
+                           type='note')
 
     def _test_inbox_mention(self, mention, expected_props, mock_head, mock_get, mock_post):
         mock_get.return_value = requests_response(
