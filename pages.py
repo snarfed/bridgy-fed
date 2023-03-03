@@ -205,11 +205,11 @@ def fetch_objects(query, user):
         obj.phrase = phrases.get(type)
 
         # TODO: unify inner object loading? optionally fetch external?
-        inner_obj = util.get_first(obj.as1, 'object') or {}
-        if isinstance(inner_obj, str):
-            inner_obj = Object.get_by_id(inner_obj)
-            if inner_obj:
-                inner_obj = inner_obj.as1
+        inner_obj = as1.get_object(obj.as1)
+        if inner_obj.keys() == set(['id']):
+            inner_obj_obj = Object.get_by_id(inner_obj['id'])
+            if inner_obj_obj:
+                inner_obj = inner_obj_obj.as1
 
         content = (inner_obj.get('content')
                    or inner_obj.get('displayName')

@@ -15,10 +15,11 @@ from granary.tests.test_as1 import (
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 
+from app import app
 import common
 from models import Object, Follower, User
 from . import testutil
-from .test_webmention import ACTOR_AS2, ACTOR_HTML, ACTOR_MF2
+from .test_webmention import ACTOR_AS2, ACTOR_HTML, ACTOR_MF2, REPOST_AS2
 
 
 def contents(activities):
@@ -53,6 +54,14 @@ class PagesTest(testutil.TestCase):
         got = self.client.get('/user/bar.com')
         self.assert_equals(301, got.status_code)
         self.assert_equals('/user/foo.com', got.headers['Location'])
+
+    def test_user_object_bare_string_id(self):
+        with app.test_request_context('/'):
+            Object(id='a', domains=['foo.com'], labels=['notification'],
+                   as2=REPOST_AS2).put()
+
+        got = self.client.get('/user/foo.com')
+        self.assert_equals(200, got.status_code)
 
     @patch('requests.get')
     def test_check_web_site(self, mock_get):
