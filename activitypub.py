@@ -235,6 +235,7 @@ def inbox(domain=None):
     if obj.type in ('share', 'create', 'post') and actor and actor_id:
         logger.info(f'Delivering to followers of {actor_id}')
         for f in Follower.query(Follower.dest == actor_id,
+                                Follower.status == 'active',
                                 projection=[Follower.src]):
             if f.src not in obj.domains:
                 obj.domains.append(f.src)

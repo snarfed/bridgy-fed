@@ -365,6 +365,7 @@ class ActivityPubTest(testutil.TestCase):
         Follower.get_or_create(NOTE['actor'], 'foo.com')
         Follower.get_or_create('http://other/actor', 'bar.com')
         Follower.get_or_create(NOTE['actor'], 'baz.com')
+        Follower.get_or_create(NOTE['actor'], 'baj.com', status='inactive')
 
         mock_head.return_value = requests_response(url='http://target')
         mock_get.return_value = self.as2_resp(ACTOR)  # source actor
@@ -440,6 +441,7 @@ class ActivityPubTest(testutil.TestCase):
     def test_shared_inbox_repost(self, mock_head, mock_get, mock_post):
         Follower.get_or_create(ACTOR['id'], 'foo.com')
         Follower.get_or_create(ACTOR['id'], 'baz.com')
+        Follower.get_or_create(ACTOR['id'], 'baj.com', status='inactive')
 
         mock_head.return_value = requests_response(url='http://target')
         mock_get.side_effect = [
