@@ -45,3 +45,8 @@ indexes:
   properties:
   - name: dest
   - name: src
+
+- kind: Follower
+  properties:
+  - name: status
+  - name: src
