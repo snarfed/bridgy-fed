@@ -150,6 +150,9 @@ def feed(domain):
     }
     title = f'Bridgy Fed feed for {domain}'
 
+    # TODO: inject/merge common.pretty_link into microformats2.render_content
+    # (specifically into hcard_to_html) somehow to convert Mastodon URLs to @-@
+    # syntax. maybe a fediverse kwarg down through the call chain?
     if format == 'html':
         entries = [microformats2.object_to_html(a) for a in activities]
         return render_template('feed.html', util=util, **locals())

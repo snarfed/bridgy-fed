@@ -20,7 +20,7 @@ EXPECTED_HTML = """\
 <article class="h-entry">
   <span class="p-uid">tag:fake.com:123456</span>
   <time class="dt-published" datetime="2012-12-05T00:58:26+00:00">2012-12-05T00:58:26+00:00</time>
-  <a class="u-url" href="https://fake.com/123456">https://fake.com/123456</a>
+  <a class="u-url" href="https://fake.com/123456">fake.com/123456</a>
   <div class="e-content p-name">
   A ☕ reply
   </div>
@@ -60,7 +60,7 @@ class RenderTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code)
         expected = EXPECTED_HTML.replace(
             '\n<meta http-equiv="refresh" content="0;url=https://fake.com/123456">', ''
-            ).replace('<a class="u-url" href="https://fake.com/123456">https://fake.com/123456</a>', '')
+            ).replace('<a class="u-url" href="https://fake.com/123456">fake.com/123456</a>', '')
         self.assert_multiline_equals(expected, resp.get_data(as_text=True),
                                      ignore_blanks=True)
 
