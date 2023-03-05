@@ -54,4 +54,4 @@ xrpc_server = Server(lexicons, validate=False)
 init_flask(xrpc_server, app)
 
 # import all modules to register their Flask handlers
-import activitypub, add_webmention, follow, pages, redirect, render, superfeedr, webfinger, webmention, xrpc_actor, xrpc_feed, xrpc_graph
+import activitypub, follow, pages, redirect, render, superfeedr, webfinger, webmention, xrpc_actor, xrpc_feed, xrpc_graph
