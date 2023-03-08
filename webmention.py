@@ -21,6 +21,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadGateway, HTTPException
 
+# import module instead of individual classes/functions to avoid circular import
 import activitypub
 from app import app
 import common
@@ -67,7 +68,7 @@ class Webmention(View):
                 'url': id,
                 'object': actor_as1,
             }
-            self.source_as2 = common.postprocess_as2({
+            self.source_as2 = activitypub.postprocess_as2({
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 'type': 'Update',
                 'id': id,
@@ -191,7 +192,7 @@ class Webmention(View):
                 target_as2 = None
 
             if not self.source_as2:
-                self.source_as2 = common.postprocess_as2(
+                self.source_as2 = activitypub.postprocess_as2(
                     as2.from_as1(self.source_as1), target=target_as2, user=self.user)
             if not self.source_as2.get('actor'):
                 self.source_as2['actor'] = common.host_url(self.user.key.id())
@@ -216,8 +217,9 @@ class Webmention(View):
                                        last_follow=self.source_as2)
 
             try:
-                last = common.signed_post(inbox, user=self.user, data=self.source_as2,
-                                          log_data=log_data)
+                last = activitypub.signed_post(inbox, user=self.user,
+                                               data=self.source_as2,
+                                               log_data=log_data)
                 obj.delivered.append(target)
                 last_success = last
             except BaseException as e:
@@ -307,11 +309,13 @@ class Webmention(View):
         for target in targets:
             # fetch target page as AS2 object
             try:
-                target_obj = common.get_object(target, user=self.user).as2
+                # TODO: make this generic across protocols
+                target_obj = activitypub.ActivityPub.get_object(target, user=self.user).as2
             except (requests.HTTPError, BadGateway) as e:
                 resp = getattr(e, 'requests_response', None)
                 if resp and resp.ok:
-                    if (common.content_type(resp) or '').startswith('text/html'):
+                    type = common.content_type(resp)
+                    if type and type.startswith('text/html'):
                         continue  # give up
                 raise
 
@@ -330,7 +334,8 @@ class Webmention(View):
 
             if not inbox_url:
                 # fetch actor as AS object
-                actor = common.get_object(actor, user=self.user).as2
+                # TODO: make this generic across protocols
+                actor = activitypub.ActivityPub.get_object(actor, user=self.user).as2
                 inbox_url = actor.get('inbox')
 
             if not inbox_url:

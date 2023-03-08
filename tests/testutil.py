@@ -1,5 +1,4 @@
-"""Common test utility code.
-"""
+"""Common test utility code."""
 import copy
 import datetime
 import unittest
@@ -19,7 +18,10 @@ import requests
 from app import app, cache
 import activitypub, common
 from models import Object, Target
+import protocol
 
+
+# TODO: FakeProtocol class
 
 class TestCase(unittest.TestCase, testutil.Asserts):
     maxDiff = None
@@ -28,8 +30,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         super().setUp()
         app.testing = True
         cache.clear()
-        activitypub.seen_ids.clear()
-        common.get_object.cache.clear()
+        protocol.seen_ids.clear()
+        protocol.Protocol.get_object.cache.clear()
 
         self.client = app.test_client()
         self.client.__enter__()
@@ -80,7 +82,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             'Host': util.domain_from_link(url, minimize=False),
             'Content-Type': 'application/activity+json',
             'Digest': ANY,
-            **common.CONNEG_HEADERS_AS2_HTML,
+            **activitypub.CONNEG_HEADERS_AS2_HTML,
             **kwargs.pop('headers', {}),
         }
         return self.req(url, data=None, auth=ANY, headers=headers,

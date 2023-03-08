@@ -1,60 +1,483 @@
 """Handles requests for ActivityPub endpoints: actors, inbox, etc.
 """
 from base64 import b64encode
-import datetime
 from hashlib import sha256
+import itertools
 import logging
-import re
-import threading
 
-from cachetools import LRUCache
-from flask import abort, make_response, request
-from google.cloud import ndb
-from google.cloud.ndb import OR
+from flask import request
 from granary import as1, as2
 from httpsig import HeaderVerifier
+from httpsig.requests_auth import HTTPSignatureAuth
 from httpsig.utils import parse_signature_header
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.util import json_dumps, json_loads
+import requests
+from werkzeug.exceptions import BadGateway
 
 from app import app, cache
 import common
-from common import CACHE_TIME, host_url, redirect_unwrap, redirect_wrap, TLD_BLOCKLIST
+from common import (
+    CACHE_TIME,
+    CONTENT_TYPE_HTML,
+    error,
+    host_url,
+    redirect_unwrap,
+    redirect_wrap,
+    TLD_BLOCKLIST,
+)
 from models import Follower, Object, Target, User
+from protocol import Protocol
 
 logger = logging.getLogger(__name__)
 
-SUPPORTED_TYPES = (  # AS1
-    'accept',
-    'article',
-    'audio',
-    'comment',
-    'create',
-    'delete',
-    'follow',
-    'image',
-    'like',
-    'note',
-    'post',
-    'share',
-    'stop-following',
-    'undo',
-    'update',
-    'video',
-)
-FETCH_OBJECT_TYPES = (
-    'share',
-)
+CONNEG_HEADERS_AS2_HTML = {
+    'Accept': f'{as2.CONNEG_HEADERS["Accept"]}, {CONTENT_TYPE_HTML}; q=0.7'
+}
 
-# activity ids that we've already handled and can now ignore
-seen_ids = LRUCache(100000)
-seen_ids_lock = threading.Lock()
+HTTP_SIG_HEADERS = ('Date', 'Host', 'Digest', '(request-target)')
+
+_DEFAULT_SIGNATURE_USER = None
+
+def default_signature_user():
+    global _DEFAULT_SIGNATURE_USER
+    if _DEFAULT_SIGNATURE_USER is None:
+        _DEFAULT_SIGNATURE_USER = User.get_or_create('snarfed.org')
+    return _DEFAULT_SIGNATURE_USER
 
 
-def error(msg, status=400):
-    """Like flask_util.error, but wraps body in JSON."""
-    logger.info(f'Returning {status}: {msg}')
-    abort(status, response=make_response({'error': msg}, status))
+class ActivityPub(Protocol):
+    """ActivityPub protocol class."""
+    LABEL = 'activitypub'
+
+    @classmethod
+    def send(cls, url, activity, *, user=None):
+        """Sends an outgoing activity.
+
+        To be implemented by subclasses.
+
+        Args:
+            url: str, destination URL to send to
+            activity: dict, AS1 activity to send
+            user: :class:`User` this is on behalf of
+
+        Raises:
+            :class:`werkzeug.HTTPException` if the request fails
+        """
+        raise NotImplementedError()
+
+    @classmethod
+    def fetch(cls, id, obj, *, user=None):
+        """Tries to fetch an AS2 object and populate it into an :class:`Object`.
+
+        Uses HTTP content negotiation via the Content-Type header. If the url is
+        HTML and it has a rel-alternate link with an AS2 content type, fetches and
+        returns that URL.
+
+        Includes an HTTP Signature with the request.
+        https://w3c.github.io/activitypub/#authorization
+        https://tools.ietf.org/html/draft-cavage-http-signatures-07
+        https://github.com/mastodon/mastodon/pull/11269
+
+        Mastodon requires this signature if AUTHORIZED_FETCH aka secure mode is on:
+        https://docs.joinmastodon.org/admin/config/#authorized_fetch
+
+        Signs the request with the given user. If not provided, defaults to
+        using @snarfed.org@snarfed.org's key.
+
+        Args:
+          id: str, object's URL id
+          obj: :class:`Object` to populate the fetched object into
+          user: optional :class:`User` we're fetching on behalf of
+
+        Raises:
+          :class:`requests.HTTPError`, :class:`werkzeug.exceptions.HTTPException`
+
+          If we raise a werkzeug HTTPException, it will have an additional
+          requests_response attribute with the last requests.Response we received.
+        """
+        def _error(resp, extra_msg=None):
+            msg = f"Couldn't fetch {id} as ActivityStreams 2"
+            if extra_msg:
+                msg += ': ' + extra_msg
+            logger.warning(msg)
+            err = BadGateway(msg)
+            err.requests_response = resp
+            raise err
+
+        def _get(url, headers):
+            """Returns None if we fetched and populated, resp otherwise."""
+            resp = signed_get(url, user=user, headers=headers, gateway=True)
+            if not resp.content:
+                _error(resp, 'empty response')
+            elif common.content_type(resp) == as2.CONTENT_TYPE:
+                try:
+                    obj.as2 = resp.json()
+                    return
+                except requests.JSONDecodeError:
+                    _error(resp, "Couldn't decode as JSON")
+
+            return resp
+
+        resp = _get(id, CONNEG_HEADERS_AS2_HTML)
+        if resp is None:
+            return
+
+        # look in HTML to find AS2 link
+        if common.content_type(resp) != 'text/html':
+            _error(resp, 'no AS2 available')
+        parsed = util.parse_html(resp)
+        link = parsed.find('link', rel=('alternate', 'self'), type=(
+            as2.CONTENT_TYPE, as2.CONTENT_TYPE_LD))
+        if not (link and link['href']):
+            _error(resp, 'no AS2 available')
+
+        resp = _get(link['href'], as2.CONNEG_HEADERS)
+        if resp is not None:
+            _error(resp)
+
+    @classmethod
+    def verify_signature(cls, user):
+        """Verifies the current request's HTTP Signature.
+
+        Args:
+          user: :class:`User`
+
+        Logs details of the result. Raises :class:`werkzeug.HTTPSignature` if the
+        signature is missing or invalid, otherwise does nothing and returns None.
+        """
+        sig = request.headers.get('Signature')
+        if not sig:
+            error('No HTTP Signature', status=401)
+
+        logger.info(f'Headers: {json_dumps(dict(request.headers), indent=2)}')
+
+        # parse_signature_header lower-cases all keys
+        keyId = parse_signature_header(sig).get('keyid')
+        if not keyId:
+            error('HTTP Signature missing keyId', status=401)
+
+        digest = request.headers.get('Digest') or ''
+        if not digest:
+            error('Missing Digest header, required for HTTP Signature', status=401)
+
+        expected = b64encode(sha256(request.data).digest()).decode()
+        if digest.removeprefix('SHA-256=') != expected:
+            error('Invalid Digest header, required for HTTP Signature', status=401)
+
+        key_actor = cls.get_object(keyId, user=user).as2
+        key = key_actor.get("publicKey", {}).get('publicKeyPem')
+        logger.info(f'Verifying signature for {request.path} with key {key}')
+        try:
+            verified = HeaderVerifier(request.headers, key,
+                                      required_headers=['Digest'],
+                                      method=request.method,
+                                      path=request.path,
+                                      sign_header='signature').verify()
+        except BaseException as e:
+            error(f'HTTP Signature verification failed: {e}', status=401)
+
+        if verified:
+            logger.info('HTTP Signature verified!')
+        else:
+            error('HTTP Signature verification failed', status=401)
+
+    @classmethod
+    def accept_follow(cls, obj, user):
+        """Replies to an AP Follow request with an Accept request.
+
+        TODO: move to Protocol
+
+        Args:
+          obj: :class:`Object`
+          user: :class:`User`
+        """
+        logger.info('Replying to Follow with Accept')
+
+        followee = obj.as2.get('object')
+        followee_id = followee.get('id') if isinstance(followee, dict) else followee
+        follower = obj.as2.get('actor')
+        if not followee or not followee_id or not follower:
+            error(f'Follow activity requires object and actor. Got: {follow}')
+
+        inbox = follower.get('inbox')
+        follower_id = follower.get('id')
+        if not inbox or not follower_id:
+            error(f'Follow actor requires id and inbox. Got: {follower}')
+
+        # rendered mf2 HTML proxy pages (in render.py) fall back to redirecting to
+        # the follow's AS2 id field, but Mastodon's ids are URLs that don't load in
+        # browsers, eg https://jawns.club/ac33c547-ca6b-4351-80d5-d11a6879a7b0
+        # so, set a synthetic URL based on the follower's profile.
+        # https://github.com/snarfed/bridgy-fed/issues/336
+        follower_url = util.get_url(follower) or follower_id
+        followee_url = util.get_url(followee) or followee_id
+        obj.as2.setdefault('url', f'{follower_url}#followed-{followee_url}')
+
+        # store Follower
+        follower_obj = Follower.get_or_create(
+            dest=user.key.id(), src=follower_id, last_follow=obj.as2)
+        follower_obj.status = 'active'
+        follower_obj.put()
+
+        # send AP Accept
+        followee_actor_url = common.host_url(user.key.id())
+        accept = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': util.tag_uri(common.PRIMARY_DOMAIN,
+                               f'accept/{user.key.id()}/{obj.key.id()}'),
+            'type': 'Accept',
+            'actor': followee_actor_url,
+            'object': {
+                'type': 'Follow',
+                'actor': follower_id,
+                'object': followee_actor_url,
+            }
+        }
+        # TODO: generic send()
+        return signed_post(inbox, data=accept, user=user)
+
+
+def signed_get(url, user, **kwargs):
+    return signed_request(util.requests_get, url, user, **kwargs)
+
+
+def signed_post(url, user, **kwargs):
+    assert user
+    return signed_request(util.requests_post, url, user, **kwargs)
+
+
+def signed_request(fn, url, user, data=None, log_data=True, headers=None, **kwargs):
+    """Wraps requests.* and adds HTTP Signature.
+
+    Args:
+      fn: :func:`util.requests_get` or  :func:`util.requests_get`
+      url: str
+      user: :class:`User` to sign request with
+      data: optional AS2 object
+      log_data: boolean, whether to log full data object
+      kwargs: passed through to requests
+
+    Returns: :class:`requests.Response`
+    """
+    if headers is None:
+        headers = {}
+
+    # prepare HTTP Signature and headers
+    if not user:
+        user = default_signature_user()
+
+    if data:
+        if log_data:
+            logger.info(f'Sending AS2 object: {json_dumps(data, indent=2)}')
+        data = json_dumps(data).encode()
+
+    headers = {
+        **headers,
+        # required for HTTP Signature
+        # https://tools.ietf.org/html/draft-cavage-http-signatures-07#section-2.1.3
+        'Date': util.now().strftime('%a, %d %b %Y %H:%M:%S GMT'),
+        # required by Mastodon
+        # https://github.com/tootsuite/mastodon/pull/14556#issuecomment-674077648
+        'Host': util.domain_from_link(url, minimize=False),
+        'Content-Type': as2.CONTENT_TYPE,
+        # required for HTTP Signature and Mastodon
+        'Digest': f'SHA-256={b64encode(sha256(data or b"").digest()).decode()}',
+    }
+
+    domain = user.key.id()
+    logger.info(f"Signing with {domain}'s key")
+    key_id = host_url(domain)
+    # (request-target) is a special HTTP Signatures header that some fediverse
+    # implementations require, eg Peertube.
+    # https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.3
+    # https://github.com/snarfed/bridgy-fed/issues/40
+    auth = HTTPSignatureAuth(secret=user.private_pem(), key_id=key_id,
+                             algorithm='rsa-sha256', sign_header='signature',
+                             headers=HTTP_SIG_HEADERS)
+
+    # make HTTP request
+    kwargs.setdefault('gateway', True)
+    resp = fn(url, data=data, auth=auth, headers=headers, allow_redirects=False,
+              **kwargs)
+    logger.info(f'Got {resp.status_code} headers: {resp.headers}')
+
+    # handle GET redirects manually so that we generate a new HTTP signature
+    if resp.is_redirect and fn == util.requests_get:
+      return signed_request(fn, resp.headers['Location'], data=data, user=user,
+                            headers=headers, log_data=log_data, **kwargs)
+
+    type = common.content_type(resp)
+    if (type and type != 'text/html' and
+        (type.startswith('text/') or type.endswith('+json') or type.endswith('/json'))):
+        logger.info(resp.text)
+
+    return resp
+
+
+def postprocess_as2(activity, user=None, target=None, create=True):
+    """Prepare an AS2 object to be served or sent via ActivityPub.
+
+    Args:
+      activity: dict, AS2 object or activity
+      user: :class:`User`, required. populated into actor.id and
+        publicKey fields if needed.
+      target: dict, AS2 object, optional. The target of activity's inReplyTo or
+        Like/Announce/etc object, if any.
+      create: boolean, whether to wrap `Note` and `Article` objects in a
+        `Create` activity
+    """
+    assert user
+    type = activity.get('type')
+
+    # actor objects
+    if type == 'Person':
+        postprocess_as2_actor(activity, user)
+        if not activity.get('publicKey'):
+            # underspecified, inferred from this issue and Mastodon's implementation:
+            # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
+            # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
+            actor_url = host_url(activity.get('preferredUsername'))
+            activity.update({
+                'publicKey': {
+                    'id': actor_url,
+                    'owner': actor_url,
+                    'publicKeyPem': user.public_pem().decode(),
+                },
+                '@context': (util.get_list(activity, '@context') +
+                             ['https://w3id.org/security/v1']),
+            })
+        return activity
+
+    for actor in (util.get_list(activity, 'attributedTo') +
+                  util.get_list(activity, 'actor')):
+        postprocess_as2_actor(actor, user)
+
+    # inReplyTo: singly valued, prefer id over url
+    target_id = target.get('id') if target else None
+    in_reply_to = activity.get('inReplyTo')
+    if in_reply_to:
+        if target_id:
+            activity['inReplyTo'] = target_id
+        elif isinstance(in_reply_to, list):
+            if len(in_reply_to) > 1:
+                logger.warning(
+                    "AS2 doesn't support multiple inReplyTo URLs! "
+                    f'Only using the first: {in_reply_to[0]}')
+            activity['inReplyTo'] = in_reply_to[0]
+
+        # Mastodon evidently requires a Mention tag for replies to generate a
+        # notification to the original post's author. not required for likes,
+        # reposts, etc. details:
+        # https://github.com/snarfed/bridgy-fed/issues/34
+        if target:
+            for to in (util.get_list(target, 'attributedTo') +
+                       util.get_list(target, 'actor')):
+                if isinstance(to, dict):
+                    to = util.get_first(to, 'url') or to.get('id')
+                if to:
+                    activity.setdefault('tag', []).append({
+                        'type': 'Mention',
+                        'href': to,
+                    })
+
+    # activity objects (for Like, Announce, etc): prefer id over url
+    obj = activity.get('object')
+    if obj:
+        if isinstance(obj, dict) and not obj.get('id'):
+            obj['id'] = target_id or util.get_first(obj, 'url')
+        elif target_id and obj != target_id:
+            activity['object'] = target_id
+
+    # id is required for most things. default to url if it's not set.
+    if not activity.get('id'):
+        activity['id'] = util.get_first(activity, 'url')
+
+    # TODO: find a better way to check this, sometimes or always?
+    # removed for now since it fires on posts without u-id or u-url, eg
+    # https://chrisbeckstrom.com/2018/12/27/32551/
+    # assert activity.get('id') or (isinstance(obj, dict) and obj.get('id'))
+
+    activity['id'] = redirect_wrap(activity.get('id'))
+    activity['url'] = [redirect_wrap(u) for u in util.get_list(activity, 'url')]
+    if len(activity['url']) == 1:
+        activity['url'] = activity['url'][0]
+
+    # copy image(s) into attachment(s). may be Mastodon-specific.
+    # https://github.com/snarfed/bridgy-fed/issues/33#issuecomment-440965618
+    obj_or_activity = obj if isinstance(obj, dict) else activity
+    img = util.get_list(obj_or_activity, 'image')
+    if img:
+        obj_or_activity.setdefault('attachment', []).extend(img)
+
+    # cc target's author(s) and recipients
+    # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting
+    # https://w3c.github.io/activitypub/#delivery
+    if target and (type in as2.TYPE_TO_VERB or type in ('Article', 'Note')):
+        recips = itertools.chain(*(util.get_list(target, field) for field in
+                                 ('actor', 'attributedTo', 'to', 'cc')))
+        activity['cc'] = util.dedupe_urls(util.get_url(recip) or recip.get('id')
+                                          for recip in recips)
+
+    # to public, since Mastodon interprets to public as public, cc public as unlisted:
+    # https://socialhub.activitypub.rocks/t/visibility-to-cc-mapping/284
+    # https://wordsmith.social/falkreon/securing-activitypub
+    to = activity.setdefault('to', [])
+    if as2.PUBLIC_AUDIENCE not in to:
+        to.append(as2.PUBLIC_AUDIENCE)
+
+    # wrap articles and notes in a Create activity
+    if create and type in ('Article', 'Note'):
+        activity = {
+            '@context': as2.CONTEXT,
+            'type': 'Create',
+            'id': f'{activity["id"]}#bridgy-fed-create',
+            'actor': postprocess_as2_actor({}, user),
+            'object': activity,
+        }
+
+    return util.trim_nulls(activity)
+
+
+def postprocess_as2_actor(actor, user=None):
+    """Prepare an AS2 actor object to be served or sent via ActivityPub.
+
+    Modifies actor in place.
+
+    Args:
+      actor: dict, AS2 actor object
+      user: :class:`User`
+
+    Returns:
+      actor dict
+    """
+    url = user.homepage if user else None
+    urls = util.get_list(actor, 'url')
+    if not urls and url:
+      urls = [url]
+
+    domain = util.domain_from_link(urls[0], minimize=False)
+    urls[0] = redirect_wrap(urls[0])
+
+    actor.setdefault('id', host_url(domain))
+    actor.update({
+        'url': urls if len(urls) > 1 else urls[0],
+        # This has to be the domain for Mastodon interop/Webfinger discovery!
+        # See related comment in actor() below.
+        'preferredUsername': domain,
+    })
+
+    # Override the label for their home page to be "Web site"
+    for att in util.get_list(actor, 'attachment'):
+      if att.get('type') == 'PropertyValue':
+        val = att.get('value', '')
+        link = util.parse_html(val).find('a')
+        if url and (val == url or link.get('href') == url):
+          att['name'] = 'Web site'
+
+    # required by pixelfed. https://github.com/snarfed/bridgy-fed/issues/39
+    actor.setdefault('summary', '')
+    return actor
 
 
 @app.get(f'/<regex("{common.DOMAIN_RE}"):domain>')
@@ -73,7 +496,7 @@ def actor(domain):
 
     # TODO: unify with common.actor()
     actor = {
-        **common.postprocess_as2(user.actor_as2, user=user),
+        **postprocess_as2(user.actor_as2, user=user),
         'id': host_url(domain),
         # This has to be the domain for Mastodon etc interop! It seems like it
         # should be the custom username from the acct: u-url in their h-card,
@@ -110,241 +533,29 @@ def inbox(domain=None):
     except (TypeError, ValueError, AssertionError):
         error(f"Couldn't parse body as non-empty JSON mapping: {body}", exc_info=True)
 
-    actor = activity.get('actor')
-    actor_id = actor.get('id') if isinstance(actor, dict) else actor
+    actor_id = as1.get_object(activity, 'actor').get('id')
     logger.info(f'Got {activity.get("type")} activity from {actor_id}: {json_dumps(activity, indent=2)}')
 
-    id = activity.get('id')
-    if not id:
-        error('Activity has no id')
-
-    # short circuit if we've already seen this activity id
-    with seen_ids_lock:
-        already_seen = id in seen_ids
-        seen_ids[id] = True
-        if already_seen or Object.get_by_id(id):
-            msg = f'Already handled this activity {id}'
-            logger.info(msg)
-            return msg, 200
-
-    obj = Object(id=id, as2=redirect_unwrap(activity), source_protocol='activitypub')
-    obj.put()
-
-    if obj.type == 'accept':  # eg in response to a Follow
-        return 'OK'  # noop
-    elif obj.type not in SUPPORTED_TYPES:
-        error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
-
-    inner_obj = as1.get_object(obj.as1)
-    inner_obj_id = inner_obj.get('id')
-
     # load user
+    # TODO: store in g instead of passing around
     user = None
     if domain:
         user = User.get_by_id(domain)
         if not user:
             error(f'User {domain} not found', status=404)
 
-    verify_signature(user)
+    ActivityPub.verify_signature(user)
 
-    # check that this activity is public. only do this check for creates, not
-    # like, follow, or other activity types, since Mastodon doesn't currently
-    # mark those as explicitly public. Use as2's is_public instead of as1's
-    # because as1's interprets unlisted as true.
-    if obj.type in ('post', 'create') and not as2.is_public(obj.as2):
+    # check that this activity is public. only do this for creates, not likes,
+    # follows, or other activity types, since Mastodon doesn't currently mark
+    # those as explicitly public. Use as2's is_public instead of as1's because
+    # as1's interprets unlisted as true.
+    if activity.get('type') == 'Create' and not as2.is_public(activity):
         logger.info('Dropping non-public activity')
         return 'OK'
 
-    # store inner object
-    if obj.type in ('post', 'create', 'update') and inner_obj.keys() > set(['id']):
-        to_update = Object.get_by_id(inner_obj_id) or Object(id=inner_obj_id)
-        to_update.populate(as2=obj.as2['object'], source_protocol='activitypub')
-        to_update.put()
-
-    # handle activity!
-    if obj.type == 'stop-following':
-        # granary doesn't yet handle three-actor undo follows, eg Eve undoes
-        # Alice following Bob
-        follower = as1.get_object(as1.get_object(activity, 'object'), 'actor')
-        assert actor_id == follower.get('id')
-
-        if not actor_id or not inner_obj_id:
-            error(f'Undo of Follow requires object with actor and object. Got: {actor_id} {followee} {obj.as1}')
-
-        # deactivate Follower
-        followee_domain = util.domain_from_link(inner_obj_id, minimize=False)
-        follower = Follower.get_by_id(Follower._id(dest=followee_domain, src=actor_id))
-        if follower:
-            logging.info(f'Marking {follower} inactive')
-            follower.status = 'inactive'
-            follower.put()
-        else:
-            logger.warning(f'No Follower found for {followee_domain} {actor_id}')
-
-        # TODO send webmention with 410 of u-follow
-
-        obj.status = 'complete'
-        obj.put()
-        return 'OK'
-
-    elif obj.type == 'update':
-        if not inner_obj_id:
-            error("Couldn't find id of object to update")
-
-        obj.status = 'complete'
-        obj.put()
-        return 'OK'
-
-    elif obj.type == 'delete':
-        if not inner_obj_id:
-            error("Couldn't find id of object to delete")
-
-        to_delete = Object.get_by_id(inner_obj_id)
-        if to_delete:
-            logger.info(f'Marking Object {inner_obj_id} deleted')
-            to_delete.deleted = True
-            to_delete.put()
-
-        # assume this is an actor
-        # https://github.com/snarfed/bridgy-fed/issues/63
-        logger.info(f'Deactivating Followers with src or dest = {inner_obj_id}')
-        followers = Follower.query(OR(Follower.src == inner_obj_id,
-                                      Follower.dest == inner_obj_id)
-                                   ).fetch()
-        for f in followers:
-            f.status = 'inactive'
-        obj.status = 'complete'
-        ndb.put_multi(followers + [obj])
-        return 'OK'
-
-    # fetch actor if necessary so we have name, profile photo, etc
-    if actor and isinstance(actor, str):
-        actor = obj.as2['actor'] = common.get_object(actor, user=user).as2
-
-    # fetch object if necessary so we can render it in feeds
-    if obj.type in FETCH_OBJECT_TYPES and inner_obj.keys() == set(['id']):
-        inner_obj = obj.as2['object'] = common.get_object(inner_obj_id, user=user).as2
-
-    if obj.type == 'follow':
-        resp = accept_follow(obj, user)
-
-    # send webmentions to each target
-    common.send_webmentions(as2.to_as1(activity), obj, proxy=True)
-
-    # deliver original posts and reposts to followers
-    if obj.type in ('share', 'create', 'post') and actor and actor_id:
-        logger.info(f'Delivering to followers of {actor_id}')
-        for f in Follower.query(Follower.dest == actor_id,
-                                Follower.status == 'active',
-                                projection=[Follower.src]):
-            if f.src not in obj.domains:
-                obj.domains.append(f.src)
-        if obj.domains and 'feed' not in obj.labels:
-            obj.labels.append('feed')
-
-    if obj.as1.get('objectType') == 'activity' and 'activity' not in obj.labels:
-        obj.labels.append('activity')
-
-    obj.put()
-    return 'OK'
-
-
-def verify_signature(user):
-    """Verifies the current request's HTTP Signature.
-
-    Args:
-      user: :class:`User`
-
-    Logs details of the result. Raises :class:`werkzeug.HTTPSignature` if the
-    signature is missing or invalid, otherwise does nothing and returns None.
-    """
-    sig = request.headers.get('Signature')
-    if not sig:
-        error('No HTTP Signature', status=401)
-
-    logger.info(f'Headers: {json_dumps(dict(request.headers), indent=2)}')
-
-    # parse_signature_header lower-cases all keys
-    keyId = parse_signature_header(sig).get('keyid')
-    if not keyId:
-        error('HTTP Signature missing keyId', status=401)
-
-    digest = request.headers.get('Digest') or ''
-    if not digest:
-        error('Missing Digest header, required for HTTP Signature', status=401)
-
-    expected = b64encode(sha256(request.data).digest()).decode()
-    if digest.removeprefix('SHA-256=') != expected:
-        error('Invalid Digest header, required for HTTP Signature', status=401)
-
-    key_actor = common.get_object(keyId, user=user).as2
-    key = key_actor.get("publicKey", {}).get('publicKeyPem')
-    logger.info(f'Verifying signature for {request.path} with key {key}')
-    try:
-        verified = HeaderVerifier(request.headers, key,
-                                  required_headers=['Digest'],
-                                  method=request.method,
-                                  path=request.path,
-                                  sign_header='signature').verify()
-    except BaseException as e:
-        error(f'HTTP Signature verification failed: {e}', status=401)
-
-    if verified:
-        logger.info('HTTP Signature verified!')
-    else:
-        error('HTTP Signature verification failed', status=401)
-
-
-def accept_follow(obj, user):
-    """Replies to an AP Follow request with an Accept request.
-
-    Args:
-      obj: :class:`Object`
-      user: :class:`User`
-    """
-    logger.info('Replying to Follow with Accept')
-
-    followee = obj.as2.get('object')
-    followee_id = followee.get('id') if isinstance(followee, dict) else followee
-    follower = obj.as2.get('actor')
-    if not followee or not followee_id or not follower:
-        error(f'Follow activity requires object and actor. Got: {follow}')
-
-    inbox = follower.get('inbox')
-    follower_id = follower.get('id')
-    if not inbox or not follower_id:
-        error(f'Follow actor requires id and inbox. Got: {follower}')
-
-    # rendered mf2 HTML proxy pages (in render.py) fall back to redirecting to
-    # the follow's AS2 id field, but Mastodon's ids are URLs that don't load in
-    # browsers, eg https://jawns.club/ac33c547-ca6b-4351-80d5-d11a6879a7b0
-    # so, set a synthetic URL based on the follower's profile.
-    # https://github.com/snarfed/bridgy-fed/issues/336
-    follower_url = util.get_url(follower) or follower_id
-    followee_url = util.get_url(followee) or followee_id
-    obj.as2.setdefault('url', f'{follower_url}#followed-{followee_url}')
-
-    # store Follower
-    follower_obj = Follower.get_or_create(dest=user.key.id(), src=follower_id,
-                                          last_follow=obj.as2)
-    follower_obj.status = 'active'
-    follower_obj.put()
-
-    # send AP Accept
-    followee_actor_url = host_url(user.key.id())
-    accept = {
-        '@context': 'https://www.w3.org/ns/activitystreams',
-        'id': util.tag_uri(common.PRIMARY_DOMAIN,
-                           f'accept/{user.key.id()}/{obj.key.id()}'),
-        'type': 'Accept',
-        'actor': followee_actor_url,
-        'object': {
-            'type': 'Follow',
-            'actor': follower_id,
-            'object': followee_actor_url,
-        }
-    }
-    return common.signed_post(inbox, data=accept, user=user)
+    return ActivityPub.receive(activity.get('id'), user=user,
+                               as2=redirect_unwrap(activity))
 
 
 @app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/<any(followers,following):collection>')
@@ -360,7 +571,7 @@ def follower_collection(domain, collection):
         return f'User {domain} not found', 404
 
     # page
-    followers, new_before, new_after = common.fetch_followers(domain, collection)
+    followers, new_before, new_after = Follower.fetch_page(domain, collection)
     items = []
     for f in followers:
         f_as2 = f.to_as2()

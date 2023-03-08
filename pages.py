@@ -16,8 +16,8 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from app import app, cache
 import common
-from common import DOMAIN_RE, PAGE_SIZE
-from models import Follower, Object, User
+from common import DOMAIN_RE
+from models import fetch_page, Follower, Object, PAGE_SIZE, User
 
 FOLLOWERS_UI_LIMIT = 999
 
@@ -111,7 +111,7 @@ def followers_or_following(domain, collection):
     if not (user := User.get_by_id(domain)):  # user var is used in template
         return USER_NOT_FOUND_HTML, 404
 
-    followers, before, after = common.fetch_followers(domain, collection)
+    followers, before, after = Follower.fetch_page(domain, collection)
 
     for f in followers:
         f.url = f.src if collection == 'followers' else f.dest
@@ -182,7 +182,7 @@ def fetch_objects(query, user):
       new_before, new_after: str query param values for `before` and `after`
         to fetch the previous and next pages, respectively
     """
-    objects, new_before, new_after = common.fetch_page(query, Object)
+    objects, new_before, new_after = fetch_page(query, Object)
     seen = set()
 
     # synthesize human-friendly content for objects

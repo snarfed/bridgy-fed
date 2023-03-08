@@ -17,7 +17,6 @@ import requests
 import activitypub
 from app import app
 from common import (
-    CONNEG_HEADERS_AS2_HTML,
     CONTENT_TYPE_HTML,
     redirect_unwrap,
 )
@@ -626,8 +625,13 @@ class WebmentionTest(testutil.TestCase):
                            )
 
     def test_link_rel_alternate_as2(self, mock_get, mock_post):
-        mock_get.side_effect = [self.reply, self.not_fediverse,
-                                self.orig_html_as2, self.orig_as2, self.actor]
+        mock_get.side_effect = [
+            self.reply,
+            self.not_fediverse,
+            self.orig_html_as2,
+            self.orig_as2,
+            self.actor,
+        ]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/webmention', data={

@@ -8,8 +8,7 @@ import mf2util
 from oauth_dropins.webutil import util
 
 from app import xrpc_server
-from common import PAGE_SIZE
-from models import Object, User
+from models import Object, PAGE_SIZE, User
 
 logger = logging.getLogger(__name__)
 

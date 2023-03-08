@@ -29,7 +29,7 @@ def get_followers(query_prop, output_field, user=None, limit=50, before=None):
         raise ValueError(f'Unknown user {user}')
 
     collection = 'followers' if output_field == 'followers' else 'following'
-    followers, before, after = common.fetch_followers(user, collection)
+    followers, before, after = Follower.fetch_page(user, collection)
 
     actors = []
     for follower in followers:

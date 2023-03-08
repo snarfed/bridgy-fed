@@ -21,12 +21,10 @@ from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
+# import module instead of individual functions to avoid circular import
+import activitypub
 from app import app, cache
-from common import (
-    CACHE_TIME,
-    CONTENT_TYPE_HTML,
-    postprocess_as2,
-)
+from common import CACHE_TIME, CONTENT_TYPE_HTML
 from models import Object, User
 
 logger = logging.getLogger(__name__)
@@ -82,8 +80,8 @@ def redir(to):
                 obj = Object.get_by_id(to)
                 if not obj or obj.deleted:
                     return f'Object not found: {to}', 404
-                ret = postprocess_as2(as2.from_as1(obj.as1),
-                                      user, create=False)
+                ret = activitypub.postprocess_as2(as2.from_as1(obj.as1),
+                                                  user, create=False)
                 logger.info(f'Returning: {json_dumps(ret, indent=2)}')
                 return ret, {
                     'Content-Type': type,

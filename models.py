@@ -1,6 +1,8 @@
 """Datastore model classes."""
 import base64
+from datetime import timezone
 import difflib
+import itertools
 import logging
 import urllib.parse
 
@@ -19,14 +21,18 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
+# import module instead of Protocol class to avoid circular import
+import protocol
 
 # https://github.com/snarfed/bridgy-fed/issues/314
 WWW_DOMAINS = frozenset((
     'www.jvt.me',
 ))
+# TODO: eventually load from Protocol subclasses' IDs instead?
 PROTOCOLS = ('activitypub', 'bluesky', 'ostatus', 'webmention', 'ui')
 # 2048 bits makes tests slow, so use 1024 for them
 KEY_BITS = 1024 if DEBUG else 2048
+PAGE_SIZE = 20
 
 logger = logging.getLogger(__name__)
 
@@ -275,6 +281,7 @@ class Object(StringIdModel):
     # domains of the Bridgy Fed users this activity is to or from
     domains = ndb.StringProperty(repeated=True)
     status = ndb.StringProperty(choices=STATUSES)
+    # TODO: remove? is this redundant with the protocol-specific data fields below?
     source_protocol = ndb.StringProperty(choices=PROTOCOLS)
     labels = ndb.StringProperty(repeated=True, choices=LABELS)
 
@@ -289,8 +296,8 @@ class Object(StringIdModel):
         # TODO: switch back to assert
         # assert (self.as2 is not None) ^ (self.bsky is not None) ^ (self.mf2 is not None), \
         #     f'{self.as2} {self.bsky} {self.mf2}'
-        if not (self.as2 is not None) ^ (self.bsky is not None) ^ (self.mf2 is not None):
-            logging.warning(f'{self.key} has multiple! {self.as2 is not None} {self.bsky is not None} {self.mf2 is not None}')
+        if bool(self.as2) + bool(self.bsky) + bool(self.mf2) > 1:
+            logging.warning(f'{self.key} has multiple! {bool(self.as2)} {bool(self.bsky)} {bool(self.mf2)}')
 
         if self.as2 is not None:
             return as2.to_as1(common.redirect_unwrap(self.as2))
@@ -319,12 +326,21 @@ class Object(StringIdModel):
     updated = ndb.DateTimeProperty(auto_now=True)
 
     def _post_put_hook(self, future):
-        """Update :func:`common.get_object` cache."""
+        """Update :meth:`Protocol.get_object` cache."""
         # TODO: assert that as1 id is same as key id? in pre put hook?
         logger.info(f'Wrote Object {self.key.id()} {self.type} {self.status or ""} {self.labels} for {len(self.domains)} users')
         if self.type != 'activity' and '#' not in self.key.id():
-            key = common.get_object.cache_key(self.key.id())
-            common.get_object.cache[key] = self
+            get_object = protocol.Protocol.get_object
+            key = get_object.cache_key(protocol.Protocol, self.key.id())
+            get_object.cache[key] = self
+
+    def clear(self):
+        """Clears all data properties."""
+        for prop in 'as2', 'bsky', 'mf2':
+            val = getattr(self, prop, None)
+            if val:
+                logging.warning(f'Wiping out {prop}: {json_dumps(val, indent=2)}')
+            setattr(self, prop, None)
 
     def proxy_url(self):
         """Returns the Bridgy Fed proxy URL to render this post as HTML."""
@@ -408,3 +424,96 @@ class Follower(StringIdModel):
         """Returns this follower as an AS2 actor dict, if possible."""
         if self.last_follow:
             return self.last_follow.get('actor' if util.is_web(self.src) else 'object')
+
+    @staticmethod
+    def fetch_page(domain, collection):
+        """Fetches a page of Follower entities.
+
+        Wraps :func:`fetch_page`. Paging uses the `before` and `after` query
+        parameters, if available in the request.
+
+        Args:
+          domain: str, user to fetch entities for
+          collection, str, 'followers' or 'following'
+
+        Returns:
+          (results, new_before, new_after) tuple with:
+          results: list of Follower entities
+          new_before, new_after: str query param values for `before` and `after`
+            to fetch the previous and next pages, respectively
+        """
+        assert collection in ('followers', 'following'), collection
+
+        domain_prop = Follower.dest if collection == 'followers' else Follower.src
+        query = Follower.query(
+            Follower.status == 'active',
+            domain_prop == domain,
+        ).order(-Follower.updated)
+        return fetch_page(query, Follower)
+
+
+def fetch_page(query, model_class):
+    """Fetches a page of results from a datastore query.
+
+    Uses the `before` and `after` query params (if provided; should be ISO8601
+    timestamps) and the queried model class's `updated` property to identify the
+    page to fetch.
+
+    Populates a `log_url_path` property on each result entity that points to a
+    its most recent logged request.
+
+    Args:
+      query: :class:`ndb.Query`
+      model_class: ndb model class
+
+    Returns:
+      (results, new_before, new_after) tuple with:
+      results: list of query result entities
+      new_before, new_after: str query param values for `before` and `after`
+        to fetch the previous and next pages, respectively
+    """
+    # if there's a paging param ('before' or 'after'), update query with it
+    # TODO: unify this with Bridgy's user page
+    def get_paging_param(param):
+        val = request.values.get(param)
+        if val:
+            try:
+                dt = util.parse_iso8601(val.replace(' ', '+'))
+            except BaseException as e:
+                error(f"Couldn't parse {param}, {val!r} as ISO8601: {e}")
+            if dt.tzinfo:
+                dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+            return dt
+
+    before = get_paging_param('before')
+    after = get_paging_param('after')
+    if before and after:
+        error("can't handle both before and after")
+    elif after:
+        query = query.filter(model_class.updated >= after).order(model_class.updated)
+    elif before:
+        query = query.filter(model_class.updated < before).order(-model_class.updated)
+    else:
+        query = query.order(-model_class.updated)
+
+    query_iter = query.iter()
+    results = sorted(itertools.islice(query_iter, 0, PAGE_SIZE),
+                     key=lambda r: r.updated, reverse=True)
+
+    # calculate new paging param(s)
+    has_next = results and query_iter.probably_has_next()
+    new_after = (
+        before if before
+        else results[0].updated if has_next and after
+        else None)
+    if new_after:
+        new_after = new_after.isoformat()
+
+    new_before = (
+        after if after else
+        results[-1].updated if has_next
+        else None)
+    if new_before:
+        new_before = new_before.isoformat()
+
+    return results, new_before, new_after

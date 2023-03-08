@@ -16,6 +16,8 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import NOW
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
+# import module instead of ActivityPub class to avoid circular import
+import activitypub
 from app import app
 import common
 from models import Follower, Object, User
@@ -156,7 +158,8 @@ class FollowCallback(indieauth.Callback):
             flash(f"Couldn't find ActivityPub profile link for {addr}")
             return redirect(f'/user/{domain}/following')
 
-        followee = common.get_object(as2_url, user=user).as2
+        # TODO: make this generic across protocols
+        followee = activitypub.ActivityPub.get_object(as2_url, user=user).as2
         id = followee.get('id')
         inbox = followee.get('inbox')
         if not id or not inbox:
@@ -173,7 +176,7 @@ class FollowCallback(indieauth.Callback):
             'actor': common.host_url(domain),
             'to': [as2.PUBLIC_AUDIENCE],
        }
-        common.signed_post(inbox, user=user, data=follow_as2)
+        activitypub.signed_post(inbox, user=user, data=follow_as2)
 
         Follower.get_or_create(dest=id, src=domain, status='active',
                                 last_follow=follow_as2)
@@ -230,10 +233,11 @@ class UnfollowCallback(indieauth.Callback):
         followee_id = follower.dest
         followee = follower.last_follow['object']
 
+        # TODO: make this generic across protocols
         if isinstance(followee, str):
             # fetch as AS2 to get full followee with inbox
             followee_id = followee
-            followee = common.get_object(followee_id, user=user).as2
+            followee = activitypub.ActivityPub.get_object(followee_id, user=user).as2
 
         inbox = followee.get('inbox')
         if not inbox:
@@ -249,7 +253,7 @@ class UnfollowCallback(indieauth.Callback):
             'actor': common.host_url(domain),
             'object': follower.last_follow,
        }
-        common.signed_post(inbox, user=user, data=unfollow_as2)
+        activitypub.signed_post(inbox, user=user, data=unfollow_as2)
 
         follower.status = 'inactive'
         follower.put()

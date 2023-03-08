@@ -16,11 +16,16 @@ from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 from urllib3.exceptions import ReadTimeoutError
+from werkzeug.exceptions import BadGateway
 
 import activitypub
+from activitypub import ActivityPub
 from app import app
 import common
+import models
 from models import Follower, Object, User
+import protocol
+from protocol import Protocol
 from . import testutil
 
 ACTOR = {
@@ -193,6 +198,22 @@ UPDATE_NOTE = {
 }
 WEBMENTION_DISCOVERY = requests_response(
     '<html><head><link rel="webmention" href="/webmention"></html>')
+
+HTML = requests_response('<html></html>', headers={
+    'Content-Type': common.CONTENT_TYPE_HTML,
+})
+HTML_WITH_AS2 = requests_response("""\
+<html><meta>
+<link href='http://as2' rel='alternate' type='application/activity+json'>
+</meta></html>
+""", headers={
+    'Content-Type': common.CONTENT_TYPE_HTML,
+})
+AS2_OBJ = {'foo': ['bar']}
+AS2 = requests_response(AS2_OBJ, headers={
+    'Content-Type': as2.CONTENT_TYPE,
+})
+NOT_ACCEPTABLE = requests_response(status=406)
 
 
 @patch('requests.post')
@@ -489,10 +510,7 @@ class ActivityPubTest(testutil.TestCase):
         got = self.post('/foo.com/inbox', json=not_public)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
-        obj = Object.get_by_id(not_public['id'])
-        self.assertEqual([], obj.labels)
-        self.assertEqual([], obj.domains)
-
+        self.assertIsNone(Object.get_by_id(not_public['id']))
         self.assertIsNone(Object.get_by_id(not_public['object']['id']))
 
     def test_inbox_mention_object(self, *mocks):
@@ -525,8 +543,10 @@ class ActivityPubTest(testutil.TestCase):
                            type='note')
 
     def _test_inbox_mention(self, mention, expected_props, mock_head, mock_get, mock_post):
-        mock_get.return_value = requests_response(
-            '<html><head><link rel="webmention" href="/webmention"></html>')
+        mock_get.side_effect = [
+            WEBMENTION_DISCOVERY,
+            HTML,
+        ]
         mock_post.return_value = requests_response()
 
         got = self.post('/foo.com/inbox', json=mention)
@@ -546,7 +566,7 @@ class ActivityPubTest(testutil.TestCase):
 
         expected_as2 = common.redirect_unwrap(mention)
         self.assert_object(mention['id'],
-                           domains=['tar.get'],
+                           domains=['tar.get', 'masto.foo'],
                            source_protocol='activitypub',
                            status='complete',
                            as2=expected_as2,
@@ -798,10 +818,12 @@ class ActivityPubTest(testutil.TestCase):
         self.assertIsNone(Object.get_by_id(bad_url))
 
     @patch('activitypub.logger.info', side_effect=logging.info)
-    def test_inbox_verify_http_signature(self, mock_info, _, mock_get, ___):
+    @patch('common.logger.info', side_effect=logging.info)
+    def test_inbox_verify_http_signature(self, mock_common_log, mock_activitypub_log,
+                                         _, mock_get, ___):
         # actor with a public key
         self.key_id_obj.delete()
-        common.get_object.cache.clear()
+        Protocol.get_object.cache.clear()
         mock_get.return_value = self.as2_resp({
             **ACTOR,
             'publicKey': {
@@ -819,10 +841,10 @@ class ActivityPubTest(testutil.TestCase):
         mock_get.assert_has_calls((
             self.as2_req('http://my/key/id'),
         ))
-        mock_info.assert_any_call('HTTP Signature verified!')
+        mock_activitypub_log.assert_any_call('HTTP Signature verified!')
 
         # invalid signature, missing keyId
-        activitypub.seen_ids.clear()
+        protocol.seen_ids.clear()
         obj_key = ndb.Key(Object, NOTE['id'])
         obj_key.delete()
 
@@ -833,10 +855,10 @@ class ActivityPubTest(testutil.TestCase):
         })
         self.assertEqual(401, resp.status_code)
         self.assertEqual({'error': 'HTTP Signature missing keyId'}, resp.json)
-        mock_info.assert_any_call('Returning 401: HTTP Signature missing keyId')
+        mock_common_log.assert_any_call('Returning 401: HTTP Signature missing keyId')
 
         # invalid signature, content changed
-        activitypub.seen_ids.clear()
+        protocol.seen_ids.clear()
         obj_key = ndb.Key(Object, NOTE['id'])
         obj_key.delete()
 
@@ -844,25 +866,25 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(401, resp.status_code)
         self.assertEqual({'error': 'Invalid Digest header, required for HTTP Signature'},
                          resp.json)
-        mock_info.assert_any_call('Returning 401: Invalid Digest header, required for HTTP Signature')
+        mock_common_log.assert_any_call('Returning 401: Invalid Digest header, required for HTTP Signature')
 
         # invalid signature, header changed
-        activitypub.seen_ids.clear()
+        protocol.seen_ids.clear()
         obj_key.delete()
         orig_date = headers['Date']
 
         resp = self.client.post('/inbox', data=body, headers={**headers, 'Date': 'X'})
         self.assertEqual(401, resp.status_code)
         self.assertEqual({'error': 'HTTP Signature verification failed'}, resp.json)
-        mock_info.assert_any_call('Returning 401: HTTP Signature verification failed')
+        mock_common_log.assert_any_call('Returning 401: HTTP Signature verification failed')
 
         # no signature
-        activitypub.seen_ids.clear()
+        protocol.seen_ids.clear()
         obj_key.delete()
         resp = self.client.post('/inbox', json=NOTE)
         self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual({'error': 'No HTTP Signature'}, resp.json)
-        mock_info.assert_any_call('Returning 401: No HTTP Signature')
+        mock_common_log.assert_any_call('Returning 401: No HTTP Signature')
 
     def test_delete_actor(self, _, mock_get, ___):
         follower = Follower.get_or_create('foo.com', DELETE['actor'])
@@ -901,7 +923,7 @@ class ActivityPubTest(testutil.TestCase):
                            status='complete')
 
         obj.deleted = True
-        self.assert_entities_equal(obj, common.get_object.cache['http://an/obj'])
+        self.assert_entities_equal(obj, Protocol.get_object.cache['http://an/obj'])
 
     def test_update_note(self, *mocks):
         Object(id='https://a/note', as2={}).put()
@@ -925,7 +947,7 @@ class ActivityPubTest(testutil.TestCase):
                            type='update', status='complete', as2=UPDATE_NOTE)
 
         self.assert_entities_equal(Object.get_by_id('https://a/note'),
-                                   common.get_object.cache['https://a/note'])
+                                   Protocol.get_object.cache['https://a/note'])
 
     def test_inbox_webmention_discovery_connection_fails(self, mock_head,
                                                          mock_get, mock_post):
@@ -1021,7 +1043,7 @@ class ActivityPubTest(testutil.TestCase):
             },
         }, resp.json)
 
-    @patch('common.PAGE_SIZE', 1)
+    @patch('models.PAGE_SIZE', 1)
     def test_followers_collection_page(self, *args):
         User.get_or_create('foo.com')
         self.store_followers()
@@ -1089,7 +1111,7 @@ class ActivityPubTest(testutil.TestCase):
             },
         }, resp.json)
 
-    @patch('common.PAGE_SIZE', 1)
+    @patch('models.PAGE_SIZE', 1)
     def test_following_collection_page(self, *args):
         User.get_or_create('foo.com')
         self.store_following()
@@ -1123,3 +1145,246 @@ class ActivityPubTest(testutil.TestCase):
                 'items': [],
             },
         }, resp.json)
+
+
+class ActivityPubUtilsTest(testutil.TestCase):
+    def setUp(self):
+        super().setUp()
+        self.user = User.get_or_create('foo.com', has_hcard=True, actor_as2=ACTOR)
+        self.app_context = app.test_request_context('/')
+        self.app_context.__enter__()
+
+    def tearDown(self):
+        self.app_context.__exit__(None, None, None)
+        super().tearDown()
+
+    def test_postprocess_as2_multiple_in_reply_tos(self):
+        self.assert_equals({
+            'id': 'http://localhost/r/xyz',
+            'inReplyTo': 'foo',
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, activitypub.postprocess_as2({
+            'id': 'xyz',
+            'inReplyTo': ['foo', 'bar'],
+        }, user=User(id='site')))
+
+    def test_postprocess_as2_multiple_url(self):
+        self.assert_equals({
+            'id': 'http://localhost/r/xyz',
+            'url': ['http://localhost/r/foo', 'http://localhost/r/bar'],
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, activitypub.postprocess_as2({
+            'id': 'xyz',
+            'url': ['foo', 'bar'],
+        }, user=User(id='site')))
+
+    def test_postprocess_as2_multiple_image(self):
+        self.assert_equals({
+            'id': 'http://localhost/r/xyz',
+            'attachment': [{'url': 'http://r/foo'}, {'url': 'http://r/bar'}],
+            'image': [{'url': 'http://r/foo'}, {'url': 'http://r/bar'}],
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, activitypub.postprocess_as2({
+            'id': 'xyz',
+            'image': [{'url': 'http://r/foo'}, {'url': 'http://r/bar'}],
+        }, user=User(id='site')))
+
+    def test_postprocess_as2_actor_attributedTo(self):
+        self.assert_equals({
+            'actor': {
+                'id': 'baj',
+                'preferredUsername': 'site',
+                'url': 'http://localhost/r/https://site/',
+            },
+            'attributedTo': [{
+                'id': 'bar',
+                'preferredUsername': 'site',
+                'url': 'http://localhost/r/https://site/',
+            }, {
+                'id': 'baz',
+                'preferredUsername': 'site',
+                'url': 'http://localhost/r/https://site/',
+            }],
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, activitypub.postprocess_as2({
+            'attributedTo': [{'id': 'bar'}, {'id': 'baz'}],
+            'actor': {'id': 'baj'},
+        }, user=User(id='site')))
+
+    def test_postprocess_as2_note(self):
+        self.assert_equals({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'http://localhost/r/xyz#bridgy-fed-create',
+            'type': 'Create',
+            'actor': {
+                'id': 'http://localhost/site',
+                'url': 'http://localhost/r/https://site/',
+                'preferredUsername': 'site'
+            },
+            'object': {
+                'id': 'http://localhost/r/xyz',
+                'type': 'Note',
+                'to': [as2.PUBLIC_AUDIENCE],
+            },
+        }, activitypub.postprocess_as2({
+            'id': 'xyz',
+            'type': 'Note',
+        }, user=User(id='site')))
+
+    # TODO: make these generic and use FakeProtocol
+    @patch('requests.get')
+    def test_get_object_http(self, mock_get):
+        mock_get.return_value = AS2
+
+        id = 'http://the/id'
+        self.assertIsNone(Object.get_by_id(id))
+
+        # first time fetches over HTTP
+        got = ActivityPub.get_object(id)
+        self.assert_equals(id, got.key.id())
+        self.assert_equals(AS2_OBJ, got.as2)
+        mock_get.assert_has_calls([self.as2_req(id)])
+
+        # second time is in cache
+        got.key.delete()
+        mock_get.reset_mock()
+
+        got = ActivityPub.get_object(id)
+        self.assert_equals(id, got.key.id())
+        self.assert_equals(AS2_OBJ, got.as2)
+        mock_get.assert_not_called()
+
+    @patch('requests.get')
+    def test_get_object_datastore(self, mock_get):
+        id = 'http://the/id'
+        stored = Object(id=id, as2=AS2_OBJ)
+        stored.put()
+        Protocol.get_object.cache.clear()
+
+        # first time loads from datastore
+        got = ActivityPub.get_object(id)
+        self.assert_entities_equal(stored, got)
+        mock_get.assert_not_called()
+
+        # second time is in cache
+        stored.key.delete()
+        got = ActivityPub.get_object(id)
+        self.assert_entities_equal(stored, got)
+        mock_get.assert_not_called()
+
+    @patch('requests.get')
+    def test_get_object_strips_fragment(self, mock_get):
+        stored = Object(id='http://the/id', as2=AS2_OBJ)
+        stored.put()
+        Protocol.get_object.cache.clear()
+
+        got = ActivityPub.get_object('http://the/id#ignore')
+        self.assert_entities_equal(stored, got)
+        mock_get.assert_not_called()
+
+    @patch('requests.get')
+    def test_get_object_datastore_no_as2(self, mock_get):
+        """If the stored Object has no as2, we should fall back to HTTP."""
+        id = 'http://the/id'
+        stored = Object(id=id, as2={}, status='in progress')
+        stored.put()
+        Protocol.get_object.cache.clear()
+
+        mock_get.return_value = AS2
+        got = ActivityPub.get_object(id)
+        mock_get.assert_has_calls([self.as2_req(id)])
+
+        self.assert_equals(id, got.key.id())
+        self.assert_equals(AS2_OBJ, got.as2)
+        mock_get.assert_has_calls([self.as2_req(id)])
+
+        self.assert_object(id, as2=AS2_OBJ, as1=AS2_OBJ,
+                           source_protocol='activitypub',
+                           # check that it reused our original Object
+                           status='in progress')
+
+    @patch('requests.get')
+    def test_signed_get_redirects_manually_with_new_sig_headers(self, mock_get):
+        mock_get.side_effect = [
+            requests_response(status=302, redirected_url='http://second',
+                              allow_redirects=False),
+            requests_response(status=200, allow_redirects=False),
+        ]
+        resp = activitypub.signed_get('https://first', user=self.user)
+
+        first = mock_get.call_args_list[0][1]
+        second = mock_get.call_args_list[1][1]
+        self.assertNotEqual(first['headers'], second['headers'])
+        self.assertNotEqual(
+            first['auth'].header_signer.sign(first['headers'], method='GET', path='/'),
+            second['auth'].header_signer.sign(second['headers'], method='GET', path='/'))
+
+    @patch('requests.post')
+    def test_signed_post_ignores_redirect(self, mock_post):
+        mock_post.side_effect = [
+            requests_response(status=302, redirected_url='http://second',
+                              allow_redirects=False),
+        ]
+
+        resp = activitypub.signed_post('https://first', user=self.user)
+        mock_post.assert_called_once()
+        self.assertEqual(302, resp.status_code)
+
+    @patch('requests.get')
+    def test_fetch_direct(self, mock_get):
+        mock_get.return_value = AS2
+        obj = Object()
+
+        ActivityPub.fetch('http://orig', obj, user=self.user)
+        self.assertEqual(AS2_OBJ, obj.as2)
+        mock_get.assert_has_calls((
+            self.as2_req('http://orig'),
+        ))
+
+    @patch('requests.get')
+    def test_fetch_via_html(self, mock_get):
+        mock_get.side_effect = [HTML_WITH_AS2, AS2]
+        obj = Object()
+
+        ActivityPub.fetch('http://orig', obj, user=self.user)
+        self.assertEqual(AS2_OBJ, obj.as2)
+        mock_get.assert_has_calls((
+            self.as2_req('http://orig'),
+            self.as2_req('http://as2', headers=common.as2.CONNEG_HEADERS),
+        ))
+
+    @patch('requests.get')
+    def test_fetch_only_html(self, mock_get):
+        mock_get.return_value = HTML
+        with self.assertRaises(BadGateway):
+            ActivityPub.fetch('http://orig', Object(), user=self.user)
+
+    @patch('requests.get')
+    def test_fetch_not_acceptable(self, mock_get):
+        mock_get.return_value=NOT_ACCEPTABLE
+        with self.assertRaises(BadGateway):
+            ActivityPub.fetch('http://orig', Object(), user=self.user)
+
+    @patch('requests.get')
+    def test_fetch_ssl_error(self, mock_get):
+        mock_get.side_effect = requests.exceptions.SSLError
+        with self.assertRaises(BadGateway):
+            ActivityPub.fetch('http://orig', Object(), user=self.user)
+
+    @patch('requests.get')
+    def test_fetch_datastore_no_content(self, mock_get):
+        mock_get.return_value = self.as2_resp('')
+
+        with self.assertRaises(BadGateway):
+            got = ActivityPub.fetch('http://the/id', Object())
+
+        mock_get.assert_has_calls([self.as2_req('http://the/id')])
+
+    @patch('requests.get')
+    def test_fetch_datastore_not_json(self, mock_get):
+        mock_get.return_value = self.as2_resp('XYZ not JSON')
+
+        with self.assertRaises(BadGateway):
+            got = ActivityPub.fetch('http://the/id', Object())
+
+        mock_get.assert_has_calls([self.as2_req('http://the/id')])
