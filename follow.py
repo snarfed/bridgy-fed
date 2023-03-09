@@ -176,7 +176,7 @@ class FollowCallback(indieauth.Callback):
             'actor': common.host_url(domain),
             'to': [as2.PUBLIC_AUDIENCE],
        }
-        activitypub.signed_post(inbox, user=user, data=follow_as2)
+        activitypub.ActivityPub.send(inbox, follow_as2, user=user)
 
         Follower.get_or_create(dest=id, src=domain, status='active',
                                 last_follow=follow_as2)
@@ -253,7 +253,7 @@ class UnfollowCallback(indieauth.Callback):
             'actor': common.host_url(domain),
             'object': follower.last_follow,
        }
-        activitypub.signed_post(inbox, user=user, data=unfollow_as2)
+        activitypub.ActivityPub.send(inbox, unfollow_as2, user=user)
 
         follower.status = 'inactive'
         follower.put()

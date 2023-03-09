@@ -51,7 +51,7 @@ class ActivityPub(Protocol):
     LABEL = 'activitypub'
 
     @classmethod
-    def send(cls, url, activity, *, user=None):
+    def send(cls, url, activity, *, user=None, log_data=True):
         """Sends an outgoing activity.
 
         To be implemented by subclasses.
@@ -60,11 +60,12 @@ class ActivityPub(Protocol):
             url: str, destination URL to send to
             activity: dict, AS1 activity to send
             user: :class:`User` this is on behalf of
+            log_data: boolean, whether to log full data object
 
         Raises:
             :class:`werkzeug.HTTPException` if the request fails
         """
-        raise NotImplementedError()
+        return signed_post(url, user=user, log_data=True, data=activity)
 
     @classmethod
     def fetch(cls, id, obj, *, user=None):
@@ -234,26 +235,27 @@ class ActivityPub(Protocol):
                 'object': followee_actor_url,
             }
         }
-        # TODO: generic send()
-        return signed_post(inbox, data=accept, user=user)
+
+        return cls.send(inbox, accept, user=user)
 
 
-def signed_get(url, user, **kwargs):
-    return signed_request(util.requests_get, url, user, **kwargs)
+def signed_get(url, *, user=None, **kwargs):
+    return signed_request(util.requests_get, url, user=user, **kwargs)
 
 
-def signed_post(url, user, **kwargs):
+def signed_post(url, *, user=None, **kwargs):
     assert user
-    return signed_request(util.requests_post, url, user, **kwargs)
+    return signed_request(util.requests_post, url, user=user, **kwargs)
 
 
-def signed_request(fn, url, user, data=None, log_data=True, headers=None, **kwargs):
+def signed_request(fn, url, *, user=None, data=None, log_data=True,
+                   headers=None, **kwargs):
     """Wraps requests.* and adds HTTP Signature.
 
     Args:
       fn: :func:`util.requests_get` or  :func:`util.requests_get`
       url: str
-      user: :class:`User` to sign request with
+      user: optional :class:`User` to sign request with
       data: optional AS2 object
       log_data: boolean, whether to log full data object
       kwargs: passed through to requests

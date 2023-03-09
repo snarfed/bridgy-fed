@@ -217,9 +217,8 @@ class Webmention(View):
                                        last_follow=self.source_as2)
 
             try:
-                last = activitypub.signed_post(inbox, user=self.user,
-                                               data=self.source_as2,
-                                               log_data=log_data)
+                last = activitypub.ActivityPub.send(
+                    inbox, self.source_as2, user=self.user, log_data=log_data)
                 obj.delivered.append(target)
                 last_success = last
             except BaseException as e:
