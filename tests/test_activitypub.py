@@ -331,8 +331,7 @@ class ActivityPubTest(testutil.TestCase):
 
     def _test_inbox_reply(self, reply, expected_props, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='http://or.ig/post')
-        mock_get.return_value = requests_response(
-            '<html><head><link rel="webmention" href="/webmention"></html>')
+        mock_get.return_value = WEBMENTION_DISCOVERY
         mock_post.return_value = requests_response()
 
         got = self.post('/foo.com/inbox', json=reply)
@@ -413,11 +412,7 @@ class ActivityPubTest(testutil.TestCase):
 
     def test_repost_of_federated_post(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://foo.com/orig')
-        mock_get.side_effect = [
-            # webmention discovery
-            requests_response(
-                '<html><head><link rel="webmention" href="/webmention"></html>'),
-        ]
+        mock_get.return_value = WEBMENTION_DISCOVERY
         mock_post.return_value = requests_response()  # webmention
 
         orig_url = 'https://foo.com/orig'
@@ -886,22 +881,26 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual({'error': 'No HTTP Signature'}, resp.json)
         mock_common_log.assert_any_call('Returning 401: No HTTP Signature')
 
-    def test_delete_actor(self, _, mock_get, ___):
+    def test_delete_actor(self, *mocks):
         follower = Follower.get_or_create('foo.com', DELETE['actor'])
         followee = Follower.get_or_create(DELETE['actor'], 'snarfed.org')
         # other unrelated follower
         other = Follower.get_or_create('foo.com', 'https://mas.to/users/other')
         self.assertEqual(3, Follower.query().count())
 
-        mock_get.side_effect = [
-            self.as2_resp(ACTOR),
-        ]
-
         got = self.post('/inbox', json=DELETE)
         self.assertEqual(200, got.status_code)
         self.assertEqual('inactive', follower.key.get().status)
         self.assertEqual('inactive', followee.key.get().status)
         self.assertEqual('active', other.key.get().status)
+
+    def test_delete_actor_not_stored(self, _, mock_get, ___):
+        self.key_id_obj.delete()
+        Protocol.get_object.cache.clear()
+
+        mock_get.return_value = requests_response(status=410)
+        got = self.post('/inbox', json={**DELETE, 'object': 'http://my/key/id'})
+        self.assertEqual(202, got.status_code)
 
     def test_delete_note(self, _, mock_get, ___):
         obj = Object(id='http://an/obj', as2={})

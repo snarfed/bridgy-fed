@@ -5,13 +5,13 @@ from hashlib import sha256
 import itertools
 import logging
 
-from flask import request
+from flask import abort, request
 from granary import as1, as2
 from httpsig import HeaderVerifier
 from httpsig.requests_auth import HTTPSignatureAuth
 from httpsig.utils import parse_signature_header
 from oauth_dropins.webutil import flask_util, util
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from oauth_dropins.webutil.util import fragmentless, json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadGateway
 
@@ -138,13 +138,14 @@ class ActivityPub(Protocol):
             _error(resp)
 
     @classmethod
-    def verify_signature(cls, user):
+    def verify_signature(cls, activity, *, user=None):
         """Verifies the current request's HTTP Signature.
 
         Args:
-          user: :class:`User`
+          activity: dict, AS2 activity
+          user: optional :class:`User`
 
-        Logs details of the result. Raises :class:`werkzeug.HTTPSignature` if the
+        Logs details of the result. Raises :class:`werkzeug.HTTPError` if the
         signature is missing or invalid, otherwise does nothing and returns None.
         """
         sig = request.headers.get('Signature')
@@ -166,7 +167,15 @@ class ActivityPub(Protocol):
         if digest.removeprefix('SHA-256=') != expected:
             error('Invalid Digest header, required for HTTP Signature', status=401)
 
-        key_actor = cls.get_object(keyId, user=user).as2
+        try:
+            key_actor = cls.get_object(keyId, user=user).as2
+        except BadGateway:
+            if (activity.get('type') == 'Delete' and
+                fragmentless(keyId) == fragmentless(activity.get('object'))):
+                logging.info("Object/actor being deleted is also keyId; ignoring")
+                abort(202, 'OK')
+            raise
+
         key = key_actor.get("publicKey", {}).get('publicKeyPem')
         logger.info(f'Verifying signature for {request.path} with key {key}')
         try:
@@ -546,7 +555,7 @@ def inbox(domain=None):
         if not user:
             error(f'User {domain} not found', status=404)
 
-    ActivityPub.verify_signature(user)
+    ActivityPub.verify_signature(activity, user=user)
 
     # check that this activity is public. only do this for creates, not likes,
     # follows, or other activity types, since Mastodon doesn't currently mark

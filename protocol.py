@@ -96,7 +96,6 @@ class Protocol:
 
         Raises:
           :class:`werkzeug.HTTPException` if the request is invalid
-
         """
         if not id:
             error('Activity has no id')
