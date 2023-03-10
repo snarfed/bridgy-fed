@@ -76,7 +76,7 @@ six==1.16.0
 soupsieve==2.4
 testtools==2.5.0
 tlslite-ng==0.7.6
-tweepy==4.12.1
+tweepy==4.13.0
 ujson==5.7.0
 update-checker==0.18.0
 urllib3==1.26.14
