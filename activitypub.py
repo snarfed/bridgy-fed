@@ -171,8 +171,9 @@ class ActivityPub(Protocol):
         try:
             key_actor = cls.get_object(keyId, user=user).as2
         except BadGateway:
-            if (activity.get('type') == 'Delete' and
-                fragmentless(keyId) == fragmentless(activity.get('object'))):
+            obj_id = as1.get_object(activity).get('id')
+            if (activity.get('type') == 'Delete' and obj_id and
+                fragmentless(keyId) == fragmentless(obj_id)):
                 logging.info("Object/actor being deleted is also keyId; ignoring")
                 abort(202, 'OK')
             raise
