@@ -152,6 +152,7 @@ class ActivityPub(Protocol):
         if not sig:
             error('No HTTP Signature', status=401)
 
+        logging.info('Verifying HTTP Signature')
         logger.info(f'Headers: {json_dumps(dict(request.headers), indent=2)}')
 
         # parse_signature_header lower-cases all keys
@@ -535,13 +536,12 @@ def actor(domain):
 @app.post(f'/<regex("{common.DOMAIN_RE}"):domain>/inbox')
 def inbox(domain=None):
     """Handles ActivityPub inbox delivery."""
-    body = request.get_data(as_text=True)
-
     # parse and validate AS2 activity
     try:
         activity = request.json
         assert activity and isinstance(activity, dict)
     except (TypeError, ValueError, AssertionError):
+        body = request.get_data(as_text=True)
         error(f"Couldn't parse body as non-empty JSON mapping: {body}", exc_info=True)
 
     actor_id = as1.get_object(activity, 'actor').get('id')
