@@ -17,11 +17,15 @@ import requests
 
 from app import app, cache
 import activitypub, common
-from models import Object, Target
+from models import Object, Target, User
 import protocol
 
+# used in TestCase.make_user() to reuse RSA keys across Users
+with ndb_client.context():
+    global_user = User.get_or_create('foo.com')
 
 # TODO: FakeProtocol class
+
 
 class TestCase(unittest.TestCase, testutil.Asserts):
     maxDiff = None
@@ -47,6 +51,17 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.ndb_context.__exit__(None, None, None)
         self.client.__exit__(None, None, None)
         super().tearDown()
+
+    @staticmethod
+    def make_user(domain, **kwargs):
+        """Reuse RSA key across Users because generating it is expensive."""
+        user = User(id=domain,
+                    mod=global_user.mod,
+                    public_exponent=global_user.public_exponent,
+                    private_exponent=global_user.private_exponent,
+                    **kwargs)
+        user.put()
+        return user
 
     @staticmethod
     def add_objects():

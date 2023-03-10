@@ -31,7 +31,7 @@ class PagesTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = User.get_or_create('foo.com')
+        self.user = self.make_user('foo.com')
 
     def test_user(self):
         got = self.client.get('/user/foo.com')
@@ -47,7 +47,7 @@ class PagesTest(testutil.TestCase):
         self.assert_equals(404, got.status_code)
 
     def test_user_use_instead(self):
-        bar = User.get_or_create('bar.com')
+        bar = self.make_user('bar.com')
         bar.use_instead = self.user.key
         bar.put()
 
@@ -101,7 +101,7 @@ class PagesTest(testutil.TestCase):
             "Couldn't connect to https://orig/: "))
 
     def test_followers(self):
-        User.get_or_create('bar.com')
+        self.make_user('bar.com')
         Follower.get_or_create('bar.com', 'https://no/stored/follow')
         Follower.get_or_create('bar.com', 'https://masto/user',
                                last_follow=FOLLOW_WITH_ACTOR)
@@ -113,7 +113,7 @@ class PagesTest(testutil.TestCase):
         self.assertIn('masto/user', body)
 
     def test_followers_empty(self):
-        User.get_or_create('bar.com')
+        self.make_user('bar.com')
         got = self.client.get('/user/bar.com/followers')
         self.assert_equals(200, got.status_code)
         self.assertNotIn('class="follower', got.get_data(as_text=True))
@@ -126,7 +126,7 @@ class PagesTest(testutil.TestCase):
         Follower.get_or_create('https://no/stored/follow', 'bar.com')
         Follower.get_or_create('https://masto/user', 'bar.com',
                                last_follow=FOLLOW_WITH_OBJECT)
-        User.get_or_create('bar.com')
+        self.make_user('bar.com')
         got = self.client.get('/user/bar.com/following')
         self.assert_equals(200, got.status_code)
 
@@ -135,7 +135,7 @@ class PagesTest(testutil.TestCase):
         self.assertIn('masto/user', body)
 
     def test_following_empty(self):
-        User.get_or_create('bar.com')
+        self.make_user('bar.com')
         got = self.client.get('/user/bar.com/following')
         self.assert_equals(200, got.status_code)
         self.assertNotIn('class="follower', got.get_data(as_text=True))
@@ -145,12 +145,12 @@ class PagesTest(testutil.TestCase):
         self.assert_equals(404, got.status_code)
 
     def test_following_before_empty(self):
-        User.get_or_create('bar.com')
+        self.make_user('bar.com')
         got = self.client.get(f'/user/bar.com/following?before={util.now().isoformat()}')
         self.assert_equals(200, got.status_code)
 
     def test_following_after_empty(self):
-        User.get_or_create('bar.com')
+        self.make_user('bar.com')
         got = self.client.get(f'/user/bar.com/following?after={util.now().isoformat()}')
         self.assert_equals(200, got.status_code)
 

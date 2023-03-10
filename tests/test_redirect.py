@@ -15,7 +15,7 @@ class RedirectTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        User.get_or_create('foo.com')
+        self.make_user('foo.com')
 
     def test_redirect(self):
         got = self.client.get('/r/https://foo.com/bar?baz=baj&biff')

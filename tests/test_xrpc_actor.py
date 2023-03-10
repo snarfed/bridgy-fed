@@ -16,7 +16,7 @@ class XrpcActorTest(testutil.TestCase):
             'summary': "I'm a person",
             'image': [{'type': 'Image', 'url': 'http://foo.com/header.png'}],
         }
-        User.get_or_create('foo.com', has_hcard=True, actor_as2=actor).put()
+        self.make_user('foo.com', has_hcard=True, actor_as2=actor)
 
         resp = self.client.get('/xrpc/app.bsky.actor.getProfile',
                                query_string={'actor': 'foo.com'})

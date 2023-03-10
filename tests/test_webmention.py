@@ -116,8 +116,8 @@ REPOST_AS1_UNWRAPPED = {
 class WebmentionTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
-        self.user_orig = User.get_or_create('orig')
-        self.user_a = User.get_or_create('a')
+        self.user_orig = self.make_user('orig')
+        self.user_a = self.make_user('a')
         self.orig_html_as2 = requests_response("""\
 <html>
 <meta>

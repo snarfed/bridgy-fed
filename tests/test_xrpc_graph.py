@@ -52,7 +52,7 @@ class XrpcGraphTest(testutil.TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_getFollowers_empty(self):
-        User.get_or_create('foo.com')
+        self.make_user('foo.com')
 
         resp = self.client.get('/xrpc/app.bsky.graph.getFollowers',
                               query_string={'user': 'foo.com'})
@@ -64,7 +64,7 @@ class XrpcGraphTest(testutil.TestCase):
         }, resp.json)
 
     def test_getFollowers(self):
-        User.get_or_create('foo.com')
+        self.make_user('foo.com')
 
         other_follow = {
             **FOLLOW,
@@ -97,7 +97,7 @@ class XrpcGraphTest(testutil.TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_getFollows_empty(self):
-        User.get_or_create('foo.com')
+        self.make_user('foo.com')
 
         resp = self.client.get('/xrpc/app.bsky.graph.getFollows',
                               query_string={'user': 'foo.com'})
@@ -109,7 +109,7 @@ class XrpcGraphTest(testutil.TestCase):
         }, resp.json)
 
     def test_getFollows(self):
-        User.get_or_create('foo.com')
+        self.make_user('foo.com')
 
         other_follow = {
             **FOLLOW,

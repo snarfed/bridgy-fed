@@ -60,7 +60,7 @@ class RemoteFollowTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        User.get_or_create('me')
+        self.make_user('me')
 
     def test_follow_no_domain(self, mock_get):
         got = self.client.post('/remote-follow?address=@foo@bar')
@@ -126,7 +126,7 @@ class FollowTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = User.get_or_create('alice.com')
+        self.user = self.make_user('alice.com')
         self.state = {
             'endpoint': 'http://auth/endpoint',
             'me': 'https://alice.com',
@@ -218,7 +218,7 @@ class FollowTest(testutil.TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_callback_user_use_instead(self, mock_get, mock_post):
-        user = User.get_or_create('www.alice.com')
+        user = self.make_user('www.alice.com')
         self.user.use_instead = user.key
         user.put()
 
@@ -297,7 +297,7 @@ class UnfollowTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = User.get_or_create('alice.com')
+        self.user = self.make_user('alice.com')
         self.follower = Follower(
             id='https://bar/id alice.com', last_follow=FOLLOW_ADDRESS,
             src='alice.com', dest='https://bar/id', status='active',
@@ -384,7 +384,7 @@ class UnfollowTest(testutil.TestCase):
         self.assertEqual('https://alice.com', session['indieauthed-me'])
 
     def test_callback_user_use_instead(self, mock_get, mock_post):
-        user = User.get_or_create('www.alice.com')
+        user = self.make_user('www.alice.com')
         self.user.use_instead = user.key
         self.user.put()
 

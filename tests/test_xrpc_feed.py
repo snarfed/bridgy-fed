@@ -80,7 +80,7 @@ class XrpcFeedTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        User.get_or_create('foo.com', has_hcard=True, actor_as2=ACTOR).put()
+        self.make_user('foo.com', has_hcard=True, actor_as2=ACTOR)
 
     def test_getAuthorFeed(self):
         post_as2 = as2.from_as1(POST_AS)

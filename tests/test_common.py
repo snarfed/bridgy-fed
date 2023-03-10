@@ -18,7 +18,7 @@ class CommonTest(testutil.TestCase):
     def setUpClass(cls):
         with appengine_config.ndb_client.context():
             # do this in setUpClass since generating RSA keys is slow
-            cls.user = User.get_or_create('site')
+            cls.user = cls.make_user('site')
 
     def setUp(self):
         super().setUp()

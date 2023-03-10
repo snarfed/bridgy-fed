@@ -44,8 +44,7 @@ class WebfingerTest(testutil.TestCase):
             'name': 'Mrs. ☕ Foo',
             'icon': {'type': 'Image', 'url': 'https://foo.com/me.jpg'},
         }
-        self.user = User.get_or_create('foo.com', has_hcard=True,
-                                       actor_as2=self.actor_as2)
+        self.user = self.make_user('foo.com', has_hcard=True, actor_as2=self.actor_as2)
         self.user.put()
         self.expected_webfinger = {
             'subject': 'acct:foo.com@foo.com',

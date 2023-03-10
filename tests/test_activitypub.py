@@ -223,7 +223,7 @@ class ActivityPubTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = User.get_or_create('foo.com', has_hcard=True, actor_as2=ACTOR)
+        self.user = self.make_user('foo.com', has_hcard=True, actor_as2=ACTOR)
         with app.test_request_context('/'):
             self.key_id_obj = Object(id='http://my/key/id', as2={
                 **ACTOR,
@@ -691,7 +691,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('active', follower.status)
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
-        User.get_or_create('www.foo.com', use_instead=self.user.key).put()
+        self.make_user('www.foo.com', use_instead=self.user.key)
 
         mock_head.return_value = requests_response(url='https://www.foo.com/')
         mock_get.side_effect = [
@@ -1009,8 +1009,6 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(404, resp.status_code)
 
     def test_followers_collection_empty(self, *args):
-        User.get_or_create('foo.com')
-
         resp = self.client.get('/foo.com/followers')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
@@ -1035,7 +1033,6 @@ class ActivityPubTest(testutil.TestCase):
         Follower.get_or_create('foo.com', 'baj.com', status='inactive')
 
     def test_followers_collection(self, *args):
-        User.get_or_create('foo.com')
         self.store_followers()
 
         resp = self.client.get('/foo.com/followers')
@@ -1055,7 +1052,6 @@ class ActivityPubTest(testutil.TestCase):
 
     @patch('models.PAGE_SIZE', 1)
     def test_followers_collection_page(self, *args):
-        User.get_or_create('foo.com')
         self.store_followers()
         before = (datetime.utcnow() + timedelta(seconds=1)).isoformat()
         next = Follower.get_by_id('foo.com https://baz.com').updated.isoformat()
@@ -1077,8 +1073,6 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(404, resp.status_code)
 
     def test_following_collection_empty(self, *args):
-        User.get_or_create('foo.com')
-
         resp = self.client.get('/foo.com/following')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
@@ -1103,7 +1097,6 @@ class ActivityPubTest(testutil.TestCase):
         Follower.get_or_create('baj.com', 'foo.com', status='inactive')
 
     def test_following_collection(self, *args):
-        User.get_or_create('foo.com')
         self.store_following()
 
         resp = self.client.get('/foo.com/following')
@@ -1123,7 +1116,6 @@ class ActivityPubTest(testutil.TestCase):
 
     @patch('models.PAGE_SIZE', 1)
     def test_following_collection_page(self, *args):
-        User.get_or_create('foo.com')
         self.store_following()
         after = datetime(1900, 1, 1).isoformat()
         prev = Follower.get_by_id('https://baz.com foo.com').updated.isoformat()
@@ -1160,7 +1152,7 @@ class ActivityPubTest(testutil.TestCase):
 class ActivityPubUtilsTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
-        self.user = User.get_or_create('foo.com', has_hcard=True, actor_as2=ACTOR)
+        self.user = self.make_user('foo.com', has_hcard=True, actor_as2=ACTOR)
         self.app_context = app.test_request_context('/')
         self.app_context.__enter__()
 

@@ -18,7 +18,7 @@ class UserTest(testutil.TestCase):
 
     def setUp(self):
         super(UserTest, self).setUp()
-        self.user = User.get_or_create('y.z')
+        self.user = self.make_user('y.z')
 
         self.full_redir = requests_response(
             status=302,
@@ -164,7 +164,7 @@ http://this/404s
 
     @mock.patch('requests.get')
     def test_verify_www_redirect(self, mock_get):
-        www_user = User.get_or_create('www.y.z')
+        www_user = self.make_user('www.y.z')
 
         empty = requests_response('')
         mock_get.side_effect = [
