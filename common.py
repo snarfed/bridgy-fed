@@ -5,12 +5,14 @@ import copy
 from datetime import timedelta
 import logging
 import re
+import threading
 import urllib.parse
 
+import cachetools
 from flask import abort, make_response, request
 from granary import as1, as2, microformats2
 import mf2util
-from oauth_dropins.webutil import util
+from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
@@ -158,6 +160,13 @@ def redirect_unwrap(val):
                 return f'https://{path}/'
 
     return val
+
+
+@cachetools.cached(cachetools.TTLCache(50000, 60 * 60 * 2),  # 2h expiration
+                   lock=threading.Lock())
+def webmention_discover(url, **kwargs):
+    """Thin caching wrapper around :func:`webmention.discover`."""
+    return webmention.discover(url, **kwargs)
 
 
 def actor(user):

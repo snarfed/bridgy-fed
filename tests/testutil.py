@@ -36,6 +36,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         cache.clear()
         protocol.seen_ids.clear()
         protocol.Protocol.get_object.cache.clear()
+        common.webmention_discover.cache.clear()
 
         self.client = app.test_client()
         self.client.__enter__()

@@ -326,7 +326,7 @@ def send_webmentions(obj, proxy=None):
         logger.info(f'Sending webmention from {wm_source} to {target.uri}')
 
         try:
-            endpoint = webmention.discover(target.uri).endpoint
+            endpoint = common.webmention_discover(target.uri).endpoint
             if endpoint:
                 webmention.send(endpoint, wm_source, target.uri)
                 logger.info('Success!')
