@@ -194,61 +194,6 @@ class ActivityPub(Protocol):
         else:
             error('HTTP Signature verification failed', status=401)
 
-    @classmethod
-    def accept_follow(cls, obj, user):
-        """Replies to an AP Follow request with an Accept request.
-
-        TODO: move to Protocol
-
-        Args:
-          obj: :class:`Object`
-          user: :class:`User`
-        """
-        logger.info('Replying to Follow with Accept')
-
-        followee = obj.as2.get('object')
-        followee_id = followee.get('id') if isinstance(followee, dict) else followee
-        follower = obj.as2.get('actor')
-        if not followee or not followee_id or not follower:
-            error(f'Follow activity requires object and actor. Got: {follow}')
-
-        inbox = follower.get('inbox')
-        follower_id = follower.get('id')
-        if not inbox or not follower_id:
-            error(f'Follow actor requires id and inbox. Got: {follower}')
-
-        # rendered mf2 HTML proxy pages (in render.py) fall back to redirecting to
-        # the follow's AS2 id field, but Mastodon's ids are URLs that don't load in
-        # browsers, eg https://jawns.club/ac33c547-ca6b-4351-80d5-d11a6879a7b0
-        # so, set a synthetic URL based on the follower's profile.
-        # https://github.com/snarfed/bridgy-fed/issues/336
-        follower_url = util.get_url(follower) or follower_id
-        followee_url = util.get_url(followee) or followee_id
-        obj.as2.setdefault('url', f'{follower_url}#followed-{followee_url}')
-
-        # store Follower
-        follower_obj = Follower.get_or_create(
-            dest=user.key.id(), src=follower_id, last_follow=obj.as2)
-        follower_obj.status = 'active'
-        follower_obj.put()
-
-        # send AP Accept
-        followee_actor_url = common.host_url(user.key.id())
-        accept = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': util.tag_uri(common.PRIMARY_DOMAIN,
-                               f'accept/{user.key.id()}/{obj.key.id()}'),
-            'type': 'Accept',
-            'actor': followee_actor_url,
-            'object': {
-                'type': 'Follow',
-                'actor': follower_id,
-                'object': followee_actor_url,
-            }
-        }
-
-        return cls.send(inbox, accept, user=user)
-
 
 def signed_get(url, *, user=None, **kwargs):
     return signed_request(util.requests_get, url, user=user, **kwargs)
@@ -545,8 +490,9 @@ def inbox(domain=None):
         body = request.get_data(as_text=True)
         error(f"Couldn't parse body as non-empty JSON mapping: {body}", exc_info=True)
 
+    type = activity.get('type')
     actor_id = as1.get_object(activity, 'actor').get('id')
-    logger.info(f'Got {activity.get("type")} activity from {actor_id}: {json_dumps(activity, indent=2)}')
+    logger.info(f'Got {type} from {actor_id}: {json_dumps(activity, indent=2)}')
 
     # load user
     # TODO: store in g instead of passing around
@@ -562,9 +508,21 @@ def inbox(domain=None):
     # follows, or other activity types, since Mastodon doesn't currently mark
     # those as explicitly public. Use as2's is_public instead of as1's because
     # as1's interprets unlisted as true.
-    if activity.get('type') == 'Create' and not as2.is_public(activity):
+    if type == 'Create' and not as2.is_public(activity):
         logger.info('Dropping non-public activity')
         return 'OK'
+
+    if type == 'Follow':
+        # rendered mf2 HTML proxy pages (in render.py) fall back to redirecting
+        # to the follow's AS2 id field, but Mastodon's Accept ids are URLs that
+        # don't load in browsers, eg:
+        # https://jawns.club/ac33c547-ca6b-4351-80d5-d11a6879a7b0
+        #
+        # so, set a synthetic URL based on the follower's profile.
+        # https://github.com/snarfed/bridgy-fed/issues/336
+        follower_url = redirect_unwrap(util.get_url(activity, 'actor'))
+        followee_url = redirect_unwrap(util.get_url(activity, 'object'))
+        activity.setdefault('url', f'{follower_url}#followed-{followee_url}')
 
     return ActivityPub.receive(activity.get('id'), user=user,
                                as2=redirect_unwrap(activity))

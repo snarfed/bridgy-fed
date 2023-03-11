@@ -12,6 +12,7 @@ from common import error
 # import module instead of individual classes to avoid circular import
 import models
 from oauth_dropins.webutil import util, webmention
+from oauth_dropins.webutil.util import json_dumps, json_loads
 
 SUPPORTED_TYPES = (
     'accept',
@@ -114,6 +115,8 @@ class Protocol:
         obj.populate(source_protocol=cls.LABEL, **props)
         obj.put()
 
+        logging.info(f'Got AS1: {json_dumps(obj.as1, indent=2)}')
+
         if obj.type not in SUPPORTED_TYPES:
             error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
 
@@ -193,7 +196,7 @@ class Protocol:
             inner_obj = obj.as2['object'] = cls.get_object(inner_obj_id, user=user).as2
 
         if obj.type == 'follow':
-            resp = cls.accept_follow(obj, user)
+            cls.accept_follow(obj, user=user)
 
         # send webmentions to each target
         send_webmentions(obj, proxy=True)
@@ -214,6 +217,52 @@ class Protocol:
 
         obj.put()
         return 'OK'
+
+    @classmethod
+    def accept_follow(cls, obj, *, user=None):
+        """Replies to an AP Follow request with an Accept request.
+
+        TODO: move to Protocol
+
+        Args:
+          obj: :class:`Object`
+          user: :class:`User`
+        """
+        logger.info('Replying to Follow with Accept')
+
+        followee = as1.get_object(obj.as1)
+        followee_id = followee.get('id')
+        follower = as1.get_object(obj.as1, 'actor')
+        if not followee or not followee_id or not follower:
+            error(f'Follow activity requires object and actor. Got: {follow}')
+
+        inbox = follower.get('inbox')
+        follower_id = follower.get('id')
+        if not inbox or not follower_id:
+            error(f'Follow actor requires id and inbox. Got: {follower}')
+
+        # store Follower
+        follower_obj = models.Follower.get_or_create(
+            dest=user.key.id(), src=follower_id, last_follow=obj.as2)
+        follower_obj.status = 'active'
+        follower_obj.put()
+
+        # send AP Accept
+        followee_actor_url = common.host_url(user.key.id())
+        accept = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': util.tag_uri(common.PRIMARY_DOMAIN,
+                               f'accept/{user.key.id()}/{obj.key.id()}'),
+            'type': 'Accept',
+            'actor': followee_actor_url,
+            'object': {
+                'type': 'Follow',
+                'actor': follower_id,
+                'object': followee_actor_url,
+            }
+        }
+
+        return cls.send(inbox, accept, user=user)
 
     @classmethod
     @cached(LRUCache(1000), key=lambda cls, id, user=None: util.fragmentless(id),
