@@ -327,6 +327,7 @@ def send_webmentions(obj, proxy=None):
 
         try:
             endpoint = common.webmention_discover(target.uri).endpoint
+            # logger.debug(f'wm cache info {common.webmention_discover.cache_info()}')
             if endpoint:
                 webmention.send(endpoint, wm_source, target.uri)
                 logger.info('Success!')

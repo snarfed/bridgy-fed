@@ -162,8 +162,32 @@ def redirect_unwrap(val):
     return val
 
 
+def webmention_endpoint_cache_key(url):
+  """Returns cache key for a cached webmention endpoint for a given URL.
+
+  Just the domain by default. If the URL is the home page, ie path is / , the
+  key includes a / at the end, so that we cache webmention endpoints for home
+  pages separate from other pages. https://github.com/snarfed/bridgy/issues/701
+
+  Example: 'snarfed.org /'
+
+  https://github.com/snarfed/bridgy-fed/issues/423
+
+  Adapted from bridgy/util.py.
+  """
+  parsed = urllib.parse.urlparse(url)
+  key = parsed.netloc
+  if parsed.path in ('', '/'):
+    key += ' /'
+
+  # logger.debug(f'wm cache key {key}')
+  return key
+
+
 @cachetools.cached(cachetools.TTLCache(50000, 60 * 60 * 2),  # 2h expiration
-                   lock=threading.Lock())
+                   key=webmention_endpoint_cache_key,
+                   lock=threading.Lock(),
+                   info=True)
 def webmention_discover(url, **kwargs):
     """Thin caching wrapper around :func:`webmention.discover`."""
     return webmention.discover(url, **kwargs)
