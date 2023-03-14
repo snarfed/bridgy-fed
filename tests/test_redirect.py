@@ -79,10 +79,7 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertEqual(content_type, resp.content_type)
 
-        self.assertEqual({
-            **REPOST_AS2,
-            'cc': [as2.PUBLIC_AUDIENCE],
-        }, resp.json)
+        self.assert_equals(REPOST_AS2, resp.json)
 
     def test_as2_deleted(self):
         with app.test_request_context('/'):
