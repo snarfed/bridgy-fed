@@ -202,7 +202,10 @@ class Protocol:
         send_webmentions(obj, proxy=True)
 
         # deliver original posts and reposts to followers
-        if obj.type in ('share', 'create', 'post') and actor and actor_id:
+        is_reply = (obj.type == 'comment' or
+                    (inner_obj and inner_obj.get('inReplyTo')))
+        if (actor and actor_id and
+            (obj.type == 'share' or obj.type in ('create', 'post') and not is_reply)):
             logger.info(f'Delivering to followers of {actor_id}')
             for f in models.Follower.query(models.Follower.dest == actor_id,
                                     models.Follower.status == 'active',
