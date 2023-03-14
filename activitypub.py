@@ -4,6 +4,7 @@ from base64 import b64encode
 from hashlib import sha256
 import itertools
 import logging
+from urllib.parse import quote_plus
 
 from flask import abort, request
 from granary import as1, as2
@@ -273,7 +274,7 @@ def signed_request(fn, url, *, user=None, data=None, log_data=True,
     return resp
 
 
-def postprocess_as2(activity, user=None, target=None, create=True):
+def postprocess_as2(activity, *, user=None, target=None, create=True):
     """Prepare an AS2 object to be served or sent via ActivityPub.
 
     Args:
@@ -290,7 +291,7 @@ def postprocess_as2(activity, user=None, target=None, create=True):
 
     # actor objects
     if type == 'Person':
-        postprocess_as2_actor(activity, user)
+        postprocess_as2_actor(activity, user=user)
         if not activity.get('publicKey'):
             # underspecified, inferred from this issue and Mastodon's implementation:
             # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
@@ -309,7 +310,7 @@ def postprocess_as2(activity, user=None, target=None, create=True):
 
     for actor in (util.get_list(activity, 'attributedTo') +
                   util.get_list(activity, 'actor')):
-        postprocess_as2_actor(actor, user)
+        postprocess_as2_actor(actor, user=user)
 
     # inReplyTo: singly valued, prefer id over url
     target_id = target.get('id') if target else None
@@ -340,12 +341,12 @@ def postprocess_as2(activity, user=None, target=None, create=True):
                     })
 
     # activity objects (for Like, Announce, etc): prefer id over url
-    obj = activity.get('object')
-    if obj:
-        if isinstance(obj, dict) and not obj.get('id'):
-            obj['id'] = target_id or util.get_first(obj, 'url')
-        elif target_id and obj != target_id:
-            activity['object'] = target_id
+    obj = as1.get_object(activity)
+    id = obj.get('id')
+    if not id:
+        obj['id'] = target_id or util.get_first(obj, 'url')
+    elif target_id and id != target_id:
+        activity['object'] = target_id
 
     # id is required for most things. default to url if it's not set.
     if not activity.get('id'):
@@ -363,7 +364,7 @@ def postprocess_as2(activity, user=None, target=None, create=True):
 
     # copy image(s) into attachment(s). may be Mastodon-specific.
     # https://github.com/snarfed/bridgy-fed/issues/33#issuecomment-440965618
-    obj_or_activity = obj if isinstance(obj, dict) else activity
+    obj_or_activity = obj if obj.keys() > set(['id']) else activity
     img = util.get_list(obj_or_activity, 'image')
     if img:
         obj_or_activity.setdefault('attachment', []).extend(img)
@@ -384,20 +385,41 @@ def postprocess_as2(activity, user=None, target=None, create=True):
     if as2.PUBLIC_AUDIENCE not in to:
         to.append(as2.PUBLIC_AUDIENCE)
 
+    # hashtags. Mastodon requires:
+    # * type: Hashtag
+    # * name starts with #
+    # * href is set to a valid URL (doesn't matter which)
+    #
+    # If content has an <a> tag with the hashtag name as its text, Mastodon will
+    # rewrite its href to the local instance's search for that hashtag. If
+    # content doesn't have a link for a hashtag, Mastodon won't add one, but the
+    # hashtag will still be indexed in search.
+    #
+    # https://docs.joinmastodon.org/spec/activitypub/#properties-used
+    # https://github.com/snarfed/bridgy-fed/issues/45
+    for tag in util.get_list(activity, 'tag') + util.get_list(obj, 'tag'):
+        name = tag.get('name')
+        if name and tag.get('type', 'Tag') == 'Tag':
+            tag['type'] = 'Hashtag'
+            tag.setdefault('href', common.host_url(
+                f'hashtag/{quote_plus(name.removeprefix("#"))}'))
+            if not name.startswith('#'):
+                tag['name'] = f'#{name}'
+
     # wrap articles and notes in a Create activity
     if create and type in ('Article', 'Note'):
         activity = {
             '@context': as2.CONTEXT,
             'type': 'Create',
             'id': f'{activity["id"]}#bridgy-fed-create',
-            'actor': postprocess_as2_actor({}, user),
+            'actor': postprocess_as2_actor({}, user=user),
             'object': activity,
         }
 
     return util.trim_nulls(activity)
 
 
-def postprocess_as2_actor(actor, user=None):
+def postprocess_as2_actor(actor, *, user=None):
     """Prepare an AS2 actor object to be served or sent via ActivityPub.
 
     Modifies actor in place.

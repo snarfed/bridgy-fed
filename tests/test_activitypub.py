@@ -1233,6 +1233,24 @@ class ActivityPubUtilsTest(testutil.TestCase):
             'type': 'Note',
         }, user=User(id='site')))
 
+    def test_postprocess_as2_hashtag(self):
+        """https://github.com/snarfed/bridgy-fed/issues/45"""
+        self.assert_equals({
+            'tag': [
+                {'type': 'Hashtag', 'name': '#bar', 'href': 'bar'},
+                {'type': 'Hashtag', 'name': '#baz', 'href': 'http://localhost/hashtag/baz'},
+                {'type': 'Mention', 'href': 'foo'},
+            ],
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        }, activitypub.postprocess_as2({
+            'tag': [
+                {'name': 'bar', 'href': 'bar'},
+                {'type': 'Tag','name': '#baz'},
+                # should leave alone
+                {'type': 'Mention', 'href': 'foo'},
+            ],
+        }, user=User(id='site')))
+
     # TODO: make these generic and use FakeProtocol
     @patch('requests.get')
     def test_get_object_http(self, mock_get):

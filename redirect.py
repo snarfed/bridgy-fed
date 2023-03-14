@@ -81,7 +81,7 @@ def redir(to):
                 if not obj or obj.deleted:
                     return f'Object not found: {to}', 404
                 ret = activitypub.postprocess_as2(as2.from_as1(obj.as1),
-                                                  user, create=False)
+                                                  user=user, create=False)
                 logger.info(f'Returning: {json_dumps(ret, indent=2)}')
                 return ret, {
                     'Content-Type': type,
