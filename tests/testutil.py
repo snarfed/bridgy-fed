@@ -24,7 +24,17 @@ import protocol
 with ndb_client.context():
     global_user = User.get_or_create('foo.com')
 
-# TODO: FakeProtocol class
+
+class FakeProtocol(protocol.Protocol):
+    LABEL = 'fake'
+
+    @classmethod
+    def send(cls, url, activity, *, user=None, log_data=True):
+        raise NotImplementedError()
+
+    @classmethod
+    def fetch(cls, id, obj, *, user=None):
+        raise NotImplementedError()
 
 
 class TestCase(unittest.TestCase, testutil.Asserts):
