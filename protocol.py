@@ -199,7 +199,7 @@ class Protocol:
             cls.accept_follow(obj, user=user)
 
         # send webmentions to each target
-        send_webmentions(obj, proxy=True)
+        send_webmentions(obj, user=user, proxy=True)
 
         # deliver original posts and reposts to followers
         is_reply = (obj.type == 'comment' or
@@ -312,10 +312,12 @@ class Protocol:
         return obj
 
 
-def send_webmentions(obj, proxy=None):
+def send_webmentions(obj, *, user=None, proxy=None):
     """Sends webmentions for an incoming ActivityPub inbox delivery.
+
     Args:
       obj: :class:`Object`
+      user: :class:`User`
       proxy: boolean, whether to use our proxy URL as the webmention source
 
     Returns: boolean, True if any webmentions were sent, False otherwise
@@ -360,12 +362,14 @@ def send_webmentions(obj, proxy=None):
       undelivered=targets,
       status='in progress',
     )
-    if obj.undelivered and 'notification' not in obj.labels:
-      obj.labels.append('notification')
 
     while obj.undelivered:
         target = obj.undelivered.pop()
         domain = util.domain_from_link(target.uri, minimize=False)
+        if user and domain == user.key.id():
+            if 'notification' not in obj.labels:
+                obj.labels.append('notification')
+
         if domain == util.domain_from_link(source, minimize=False):
             logger.info(f'Skipping same-domain webmention from {source} to {target.uri}')
             continue
@@ -384,6 +388,8 @@ def send_webmentions(obj, proxy=None):
                 webmention.send(endpoint, wm_source, target.uri)
                 logger.info('Success!')
                 obj.delivered.append(target)
+                if 'notification' not in obj.labels:
+                    obj.labels.append('notification')
             else:
                 logger.info('No webmention endpoint')
         except BaseException as e:

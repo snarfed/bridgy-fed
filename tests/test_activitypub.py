@@ -988,7 +988,7 @@ class ActivityPubTest(testutil.TestCase):
                            status='complete',
                            as2=LIKE_WITH_ACTOR,
                            type='like',
-                           labels=['notification', 'activity'],
+                           labels=['activity'],
                            object_ids=[LIKE['object']])
 
     def test_inbox_id_already_seen(self, *mocks):
