@@ -388,12 +388,13 @@ def postprocess_as2(activity, *, user=None, target=None, create=True):
     # hashtags. Mastodon requires:
     # * type: Hashtag
     # * name starts with #
-    # * href is set to a valid URL (doesn't matter which)
+    # * href is set to a valid, fully qualified URL
     #
-    # If content has an <a> tag with the hashtag name as its text, Mastodon will
-    # rewrite its href to the local instance's search for that hashtag. If
-    # content doesn't have a link for a hashtag, Mastodon won't add one, but the
-    # hashtag will still be indexed in search.
+    # If content has an <a> tag with a fully qualified URL and the hashtag name
+    # (with leading #) as its text, Mastodon will rewrite its href to the local
+    # instance's search for that hashtag. If content doesn't have a link for a
+    # given hashtag, Mastodon won't add one, but that hashtag will still be
+    # indexed in search.
     #
     # https://docs.joinmastodon.org/spec/activitypub/#properties-used
     # https://github.com/snarfed/bridgy-fed/issues/45

@@ -48,6 +48,7 @@ Bridgy Fed takes some technical know-how to set up, and there are simpler (but l
 <li><a href="#follow">How do I follow someone?</a></li>
 <li><a href="#unfollow">How do I unfollow someone?</a></li>
 <li><a href="#image">How do I include an image in a post?</a></li>
+<li><a href="#hashtags">How do I use hashtags?</a></li>
 <li><a href="#update">How do I edit an existing post?</a></li>
 <li><a href="#fragment">Can I publish just one part of a page?</a></li>
 <li><a href="#backfeed">How do fediverse replies, likes, and other interactions show up on my site?</a></li>
@@ -324,6 +325,23 @@ Use <code>&lt;img class="<span class='keyword'>u-photo</span>"&gt;</code> for th
 &lt;img class="<span class='keyword'>u-photo</span>" src="<span class='value'>/full_glass.jpg</span>" /&gt;
 I love scotch. Scotchy scotchy scotch.
 </pre>
+</p>
+</li>
+
+<li id="hashtags" class="question">How do I use hashtags?</li>
+<li class="answer">
+<p>Use <code><span class='keyword'>p-category</span></code> and link the hashtag to a fully qualified URL. (Any URL you want!) Fediverse sites like Mastodon will generally rewrite the link to point to a search for that hashtag on the local instance. For example:
+
+<pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
+  &lt;p class="<span class='keyword'>e-content</span>"&gt;
+    just setting up my feddr
+    &lt;a href="<span class='value'>https://mysite.com/tag/throwback</span>" class="<span class='keyword'>p-category</span>"&gt;<span class='value'>#throwback</span>&lt;/a&gt;
+  &lt;/p&gt;
+&lt;/div&gt;
+</pre>
+</p>
+
+<p>The leading <code>#</code> character on the hashtag text is optional. If you don't include the hashtag in <code>e-content</code>, or include it but not inside an <code>&lt;a&gt;</code> link, fediverse sites won't add the hashtag text or link themselves, but your post will still be indexed in searches for that hashtag.
 </p>
 </li>
 
