@@ -254,32 +254,31 @@ class ObjectTest(testutil.TestCase):
             self.assertEqual('http://localhost/render?id=abc', obj.proxy_url())
 
     def test_actor_link(self):
-        for expected, as2 in (
-                ('<a href=""></a>', {}),
-                ('<a href="http://foo">foo</a>', {'actor': 'http://foo'}),
-                ('<a href="">Alice</a>', {'actor': {'name': 'Alice'}}),
-                ('<a href="http://foo">Alice</a>', {'actor': {
-                    'name': 'Alice',
-                    'url': 'http://foo',
-                }}),
-                ("""\
-        <a href="" title="Alice">
-          <img class="profile" src="http://pic" />
-          Alice
-        </a>""", {'actor': {
-            'name': 'Alice',
-            'icon': {'type': 'Image', 'url': 'http://pic'},
-        }}),
-        ):
-            with app.test_request_context('/'):
+        with app.test_request_context('/'):
+            for expected, as2 in (
+                    ('href="">', {}),
+                    ('href="http://foo">foo', {'actor': 'http://foo'}),
+                    ('href="">Alice', {'actor': {'name': 'Alice'}}),
+                    ('href="http://foo">Alice', {'actor': {
+                        'name': 'Alice',
+                        'url': 'http://foo',
+                    }}),
+                    ("""\
+            title="Alice">
+              <img class="profile" src="http://pic" />
+              Alice""", {'actor': {
+                'name': 'Alice',
+                'icon': {'type': 'Image', 'url': 'http://pic'},
+            }}),
+            ):
                 obj = Object(id='x', as2=as2)
-                self.assertEqual(expected, obj.actor_link())
+                self.assert_multiline_in(expected, obj.actor_link())
 
     def test_actor_link_user(self):
         user = User(id='foo.com', actor_as2={"name": "Alice"})
         obj = Object(id='x', source_protocol='ui', domains=['foo.com'])
-        self.assertEqual(
-            '<a href="/user/foo.com"><img src="" class="profile"> Alice</a>',
+        self.assertIn(
+            'href="/user/foo.com"><img src="" class="profile"> Alice</a>',
             obj.actor_link(user))
 
     def test_put_updates_get_object_cache(self):

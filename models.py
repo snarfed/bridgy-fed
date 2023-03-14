@@ -188,7 +188,7 @@ class User(StringIdModel):
                 util.domain_from_link(self.username()))
         img = util.get_url(actor, 'icon') or ''
 
-        return f'<a href="/user/{domain}"><img src="{img}" class="profile"> {name}</a>'
+        return f'<a class="h-card u-author" href="/user/{domain}"><img src="{img}" class="profile"> {name}</a>'
 
     def verify(self):
         """Fetches site a couple ways to check for redirects and h-card.
@@ -353,6 +353,8 @@ class Object(StringIdModel):
         Args:
           cur_user: :class:`User`, optional, user for the current request
         """
+        attrs = {'class': 'h-card u-author'}
+
         if (self.source_protocol in ('webmention', 'ui') and user and
             user.key.id() in self.domains):
             # outbound; show a nice link to the user
@@ -362,16 +364,16 @@ class Object(StringIdModel):
                  or util.get_first(self.as1, 'author')
                  or {})
         if isinstance(actor, str):
-            return common.pretty_link(actor, user=user)
+            return common.pretty_link(actor, user=user, attrs=attrs)
 
         url = util.get_first(actor, 'url') or ''
         name = actor.get('displayName') or actor.get('username') or ''
-        image = util.get_url(actor, 'image') or ''
+        image = util.get_url(actor, 'image')
         if not image:
-            return common.pretty_link(url, text=name, user=user)
+            return common.pretty_link(url, text=name, user=user, attrs=attrs)
 
         return f"""\
-        <a href="{url}" title="{name}">
+        <a class="h-card u-author" href="{url}" title="{name}">
           <img class="profile" src="{image}" />
           {util.ellipsize(name, chars=40)}
         </a>"""

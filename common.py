@@ -64,7 +64,7 @@ def error(msg, status=400):
     abort(status, response=make_response({'error': msg}, status))
 
 
-def pretty_link(url, text=None, user=None):
+def pretty_link(url, text=None, user=None, **kwargs):
   """Wrapper around util.pretty_link() that converts Mastodon user URLs to @-@.
 
   Eg for URLs like https://mastodon.social/@foo and
@@ -75,6 +75,7 @@ def pretty_link(url, text=None, user=None):
     url: str
     text: str
     user: :class:`User`, optional, user for the current request
+    kwargs: passed through to :func:`webutil.util.pretty_link`
   """
   if user and user.is_homepage(url):
     return user.user_page_link()
@@ -84,7 +85,7 @@ def pretty_link(url, text=None, user=None):
     if match:
       text = match.expand(r'@\3@\1')
 
-  return util.pretty_link(url, text=text)
+  return util.pretty_link(url, text=text, **kwargs)
 
 
 def content_type(resp):

@@ -1,12 +1,12 @@
 <div class="row">
-<ul class="user-items">
+<ul class="user-items h-feed">
 
 {% for obj in objects %}
-<li class="row">
-  <div class="col-sm-{{ 5 if show_domains else 8 }}">
+<li class="row h-entry">
+  <div class="e-content col-sm-{{ 5 if show_domains else 8 }}">
     {{ obj.actor_link(user=user)|safe }}
     {{ obj.phrase|safe }}
-    <a target="_blank" href="{{ obj.url }}">
+    <a target="_blank" href="{{ obj.url }}" class="u-url">
       {{ obj.content|default('--', true)|striptags|truncate(50) }}
     </a>
   </div>

@@ -31,17 +31,21 @@ class CommonTest(testutil.TestCase):
 
     def test_pretty_link(self):
         for expected, url, text in (
-                ('<a href="http://foo">bar</a>', 'http://foo', 'bar'),
-                ('<a href="http://x.y/@z">@z@x.y</a>', 'http://x.y/@z', None),
-                ('<a href="http://x.y/@z">foo</a>', 'http://x.y/@z', 'foo'),
-                ('<a href="http://x.y/users/z">@z@x.y</a>', 'http://x.y/users/z', None),
-                ('<a href="http://x.y/users/z">foo</a>', 'http://x.y/users/z', 'foo'),
-                ('<a href="http://x.y/@z/123">x.y/@z/123</a>', 'http://x.y/@z/123', None),
+                ('href="http://foo">bar</a>', 'http://foo', 'bar'),
+                ('href="http://x.y/@z">@z@x.y</a>', 'http://x.y/@z', None),
+                ('href="http://x.y/@z">foo</a>', 'http://x.y/@z', 'foo'),
+                ('href="http://x.y/users/z">@z@x.y</a>', 'http://x.y/users/z', None),
+                ('href="http://x.y/users/z">foo</a>', 'http://x.y/users/z', 'foo'),
+                ('href="http://x.y/@z/123">x.y/@z/123</a>', 'http://x.y/@z/123', None),
         ):
-            self.assertEqual(expected, common.pretty_link(url, text=text))
+            self.assertIn(expected, common.pretty_link(url, text=text))
+
+        self.assertEqual('<a href="http://foo">foo</a>',
+
+                         common.pretty_link('http://foo'))
 
         self.assertEqual(
-            '<a href="/user/site"><img src="" class="profile"> site</a>',
+            '<a class="h-card u-author" href="/user/site"><img src="" class="profile"> site</a>',
             common.pretty_link('https://site/', user=self.user))
 
     def test_redirect_wrap_empty(self):
