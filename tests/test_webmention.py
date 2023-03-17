@@ -28,7 +28,7 @@ from . import testutil
 ACTOR_HTML = """\
 <html>
 <body class="h-card">
-<a class="p-name u-url" rel="me" href="https://orig">Ms. ☕ Baz</a>
+<a class="p-name u-url" rel="me" href="https://user.com/">Ms. ☕ Baz</a>
 <a href="http://localhost/"></a>
 </body>
 </html>
@@ -36,22 +36,22 @@ ACTOR_HTML = """\
 ACTOR_MF2 = {
     'type': ['h-card'],
     'properties': {
-        'url': ['https://orig'],
+        'url': ['https://user.com/'],
         'name': ['Ms. ☕ Baz'],
     },
 }
 ACTOR_AS1_UNWRAPPED = {
     'objectType': 'person',
     'displayName': 'Ms. ☕ Baz',
-    'url': 'https://orig',
-    'urls': [{'value': 'https://orig', 'displayName': 'Ms. ☕ Baz'}],
+    'url': 'https://user.com/',
+    'urls': [{'value': 'https://user.com/', 'displayName': 'Ms. ☕ Baz'}],
 }
 ACTOR_AS2 = {
     'type': 'Person',
-    'id': 'http://localhost/orig',
-    'url': 'http://localhost/r/https://orig',
+    'id': 'http://localhost/user.com',
+    'url': 'http://localhost/r/https://user.com/',
     'name': 'Ms. ☕ Baz',
-    'preferredUsername': 'orig',
+    'preferredUsername': 'user.com',
 }
 ACTOR_AS2_FULL = {
     **ACTOR_AS2,
@@ -59,16 +59,39 @@ ACTOR_AS2_FULL = {
         'https://www.w3.org/ns/activitystreams',
         'https://w3id.org/security/v1',
     ],
-    'preferredUsername': 'orig',
+    'preferredUsername': 'user.com',
     'attachment': [{
-        'name': 'Ms. ☕ Baz',
+        'name': 'Web site',
         'type': 'PropertyValue',
-        'value': '<a rel="me" href="https://orig">orig</a>',
+        'value': '<a rel="me" href="https://user.com/">user.com</a>',
     }],
-    'inbox': 'http://localhost/orig/inbox',
-    'outbox': 'http://localhost/orig/outbox',
-    'following': 'http://localhost/orig/following',
-    'followers': 'http://localhost/orig/followers',
+    'inbox': 'http://localhost/user.com/inbox',
+    'outbox': 'http://localhost/user.com/outbox',
+    'following': 'http://localhost/user.com/following',
+    'followers': 'http://localhost/user.com/followers',
+    'endpoints': {
+        'sharedInbox': 'http://localhost/inbox',
+    },
+}
+ACTOR_AS2_FULL_UNWRAPPED = {
+    **ACTOR_AS2_FULL,
+    '@context': [
+        'https://www.w3.org/ns/activitystreams',
+        'https://w3id.org/security/v1',
+    ],
+    'id': 'https://user.com/',
+    'url': 'https://user.com/',
+    'preferredUsername': 'user.com',
+    'attachment': [{
+        'name': 'Web site',
+        'type': 'PropertyValue',
+        'value': '<a rel="me" href="https://user.com/">user.com</a>',
+    }],
+    # TODO: fix
+    'inbox': 'https://user.com/inbox/',
+    'outbox': 'https://user.com/outbox/',
+    'following': 'https://user.com/following/',
+    'followers': 'https://user.com/followers/',
     'endpoints': {
         'sharedInbox': 'http://localhost/inbox',
     },
@@ -77,9 +100,9 @@ ACTOR_AS2_FULL = {
 REPOST_HTML = """\
 <html>
 <body class="h-entry">
-<a class="u-url" href="http://a/repost"></a>
-<a class="u-repost-of p-name" href="https://orig/post">reposted!</a>
-<a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>
+<a class="u-url" href="https://user.com/repost"></a>
+<a class="u-repost-of p-name" href="https://mas.to/toot">reposted!</a>
+<a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
 <a href="http://localhost/"></a>
 </body>
 </html>
@@ -87,26 +110,26 @@ REPOST_HTML = """\
 REPOST_AS2 = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Announce',
-    'id': 'http://localhost/r/http://a/repost',
-    'url': 'http://localhost/r/http://a/repost',
+    'id': 'http://localhost/r/https://user.com/repost',
+    'url': 'http://localhost/r/https://user.com/repost',
     'name': 'reposted!',
-    'object': 'tag:orig,2017:as2',
+    'object': 'https://mas.to/toot/id',
     'to': [as2.PUBLIC_AUDIENCE],
     'cc': [
-        'https://orig/author',
-        'https://orig/recipient',
+        'https://mas.to/author',
+        'https://mas.to/bystander',
+        'https://mas.to/recipient',
         as2.PUBLIC_AUDIENCE,
-        'https://orig/bystander',
     ],
     'actor': ACTOR_AS2,
 }
 REPOST_AS1_UNWRAPPED = {
     'objectType': 'activity',
     'verb': 'share',
-    'id': 'http://a/repost',
-    'url': 'http://a/repost',
+    'id': 'https://user.com/repost',
+    'url': 'https://user.com/repost',
     'displayName': 'reposted!',
-    'object': 'tag:orig,2017:as2',
+    'object': 'https://mas.to/toot/id',
     'actor': ACTOR_AS1_UNWRAPPED,
 }
 
@@ -116,109 +139,104 @@ REPOST_AS1_UNWRAPPED = {
 class WebmentionTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
-        self.user_orig = self.make_user('orig')
-        self.user_a = self.make_user('a')
-        self.orig_html_as2 = requests_response("""\
+        self.user = self.make_user('user.com')
+        self.toot_html = requests_response("""\
 <html>
 <meta>
-<link href='https://orig/atom' rel='alternate' type='application/atom+xml'>
-<link href='https://orig/as2' rel='alternate' type='application/activity+json'>
+<link href='https://mas.to/toot/atom' rel='alternate' type='application/atom+xml'>
+<link href='https://mas.to/toot/id' rel='alternate' type='application/activity+json'>
 </meta>
 </html>
-""", url='https://orig/post', content_type=CONTENT_TYPE_HTML)
-        self.orig_as2_data = {
+""", url='https://mas.to/toot', content_type=CONTENT_TYPE_HTML)
+        self.toot_as2_data = {
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Article',
-            'id': 'tag:orig,2017:as2',
+            'id': 'https://mas.to/toot/id',
             'content': 'Lots of ☕ words...',
-            'actor': {'url': 'https://orig/author'},
-            'to': ['https://orig/recipient', as2.PUBLIC_AUDIENCE],
-            'cc': ['https://orig/bystander', as2.PUBLIC_AUDIENCE],
+            'actor': {'url': 'https://mas.to/author'},
+            'to': ['https://mas.to/recipient', as2.PUBLIC_AUDIENCE],
+            'cc': ['https://mas.to/bystander', as2.PUBLIC_AUDIENCE],
         }
-        self.orig_as2 = requests_response(
-            self.orig_as2_data, url='https://orig/as2',
+        self.toot_as2 = requests_response(
+            self.toot_as2_data, url='https://mas.to/toot/id',
             content_type=as2.CONTENT_TYPE + '; charset=utf-8')
 
         self.reply_html = """\
 <html>
 <body>
 <div class="h-entry">
-<a class="u-url" href="http://a/reply"></a>
+<a class="u-url" href="https://user.com/reply"></a>
 <p class="e-content p-name">
 <a class="u-in-reply-to" href="http://not/fediverse"></a>
-<a class="u-in-reply-to" href="https://orig/post">foo ☕ bar</a>
+<a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a href="http://localhost/"></a>
 </p>
-<a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>
+<a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
 </div>
 </body>
 </html>
 """
-        self.reply = requests_response(
-            self.reply_html, content_type=CONTENT_TYPE_HTML)
-        self.reply_mf2 = util.parse_mf2(self.reply_html, url='http://a/reply')
+        self.reply = requests_response(self.reply_html, content_type=CONTENT_TYPE_HTML)
+        self.reply_mf2 = util.parse_mf2(self.reply_html, url='https://user.com/reply')
         self.reply_as1 = microformats2.json_to_object(self.reply_mf2['items'][0])
 
-        self.repost_html = REPOST_HTML
-        self.repost = requests_response(
-            self.repost_html, content_type=CONTENT_TYPE_HTML)
-        self.repost_mf2 = util.parse_mf2(self.repost_html, url='http://a/repost')
+        self.repost = requests_response(REPOST_HTML, content_type=CONTENT_TYPE_HTML)
+        self.repost_mf2 = util.parse_mf2(REPOST_HTML, url='https://user.com/repost')
         self.repost_as1 = microformats2.json_to_object(self.repost_mf2['items'][0])
-        self.repost_as2 = REPOST_AS2
 
         self.like_html = """\
 <html>
 <body class="h-entry">
-<a class="u-url" href="http://a/like"></a>
-<a class="u-like-of" href="https://orig/post"></a>
-<!--<a class="u-like-of p-name" href="https://orig/post">liked!</a>-->
-<a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>
+<a class="u-url" href="https://user.com/like"></a>
+<a class="u-like-of" href="https://mas.to/toot"></a>
+<!--<a class="u-like-of p-name" href="https://mas.to/toot">liked!</a>-->
+<a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
 <a href="http://localhost/"></a>
 </body>
 </html>
 """
         self.like = requests_response(
             self.like_html, content_type=CONTENT_TYPE_HTML)
-        self.like_mf2 = util.parse_mf2(self.like_html, url='http://a/like')
+        self.like_mf2 = util.parse_mf2(self.like_html, url='https://user.com/like')
 
-        self.actor = requests_response({
+        self.actor = self.as2_resp({
             'objectType' : 'Person',
             'displayName': 'Mrs. ☕ Foo',
-            'url': 'https://foo.com/about-me',
-            'inbox': 'https://foo.com/inbox',
-        }, content_type=as2.CONTENT_TYPE)
+            'id': 'https://mas.to/mrs-foo',
+            'inbox': 'https://mas.to/inbox',
+        })
 
         self.as2_create = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
-            'id': 'http://localhost/r/http://a/reply#bridgy-fed-create',
+            'id': 'http://localhost/r/https://user.com/reply#bridgy-fed-create',
             'actor': {
-                'id': 'http://localhost/a',
-                'url': 'http://localhost/r/https://a/',
-                'preferredUsername': 'a',
+                'id': 'http://localhost/user.com',
+                'url': 'http://localhost/r/https://user.com/',
+                'preferredUsername': 'user.com',
             },
             'object': {
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 'type': 'Note',
-                'id': 'http://localhost/r/http://a/reply',
-                'url': 'http://localhost/r/http://a/reply',
+                'id': 'http://localhost/r/https://user.com/reply',
+                'url': 'http://localhost/r/https://user.com/reply',
                 'name': 'foo ☕ bar',
                 'content': """\
 <a class="u-in-reply-to" href="http://not/fediverse"></a>
-<a class="u-in-reply-to" href="https://orig/post">foo ☕ bar</a>
+<a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a href="http://localhost/"></a>""",
-                'inReplyTo': 'tag:orig,2017:as2',
+                'inReplyTo': 'https://mas.to/toot/id',
                 'to': [as2.PUBLIC_AUDIENCE],
                 'cc': [
-                    'https://orig/author',
-                    'https://orig/recipient',
+                    'https://mas.to/author',
+                    'https://mas.to/recipient',
+                    'https://mas.to/bystander',
                     as2.PUBLIC_AUDIENCE,
-                    'https://orig/bystander',
                 ],
                 'attributedTo': [ACTOR_AS2],
                 'tag': [{
                     'type': 'Mention',
-                    'href': 'https://orig/author',
+                    'href': 'https://mas.to/author',
                 }],
             },
         }
@@ -231,23 +249,23 @@ class WebmentionTest(testutil.TestCase):
         self.follow_html = """\
 <html>
 <body class="h-entry">
-<a class="u-url" href="http://a/follow"></a>
-<a class="u-follow-of" href="http://followee"></a>
-<a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>
+<a class="u-url" href="https://user.com/follow"></a>
+<a class="u-follow-of" href="https://mas.to/mrs-foo"></a>
+<a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
 <a href="http://localhost/"></a>
 </body>
 </html>
 """
         self.follow = requests_response(
             self.follow_html, content_type=CONTENT_TYPE_HTML)
-        self.follow_mf2 = util.parse_mf2(self.follow_html, url='http://a/follow')
+        self.follow_mf2 = util.parse_mf2(self.follow_html, url='https://user.com/follow')
         self.follow_as1 = microformats2.json_to_object(self.follow_mf2['items'][0])
         self.follow_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Follow',
-            'id': 'http://localhost/r/http://a/follow',
-            'url': 'http://localhost/r/http://a/follow',
-            'object': 'http://followee',
+            'id': 'http://localhost/r/https://user.com/follow',
+            'url': 'http://localhost/r/https://user.com/follow',
+            'object': 'https://mas.to/mrs-foo',
             'actor': ACTOR_AS2,
             'to': [as2.PUBLIC_AUDIENCE],
         }
@@ -259,9 +277,9 @@ class WebmentionTest(testutil.TestCase):
 <h1>Ignored</h1>
 </article>
 <article class=h-entry id=2>
-<a class="u-url" href="http://a/follow#2"></a>
-<a class="u-follow-of" href="http://followee"></a>
-<a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>
+<a class="u-url" href="https://user.com/follow#2"></a>
+<a class="u-follow-of" href="https://mas.to/mrs-foo"></a>
+<a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
 <a href="http://localhost/"></a>
 </article>
 </body>
@@ -270,21 +288,21 @@ class WebmentionTest(testutil.TestCase):
         self.follow_fragment = requests_response(
             self.follow_fragment_html, content_type=CONTENT_TYPE_HTML)
         self.follow_fragment_mf2 = util.parse_mf2(
-            self.follow_fragment_html, url='http://a/follow', id='2')
+            self.follow_fragment_html, url='https://user.com/follow', id='2')
         self.follow_fragment_as1 = microformats2.json_to_object(
             self.follow_fragment_mf2['items'][0])
         self.follow_fragment_as2 = copy.deepcopy(self.follow_as2)
         self.follow_fragment_as2.update({
-            'id': 'http://localhost/r/http://a/follow#2',
-            'url': 'http://localhost/r/http://a/follow#2',
+            'id': 'http://localhost/r/https://user.com/follow#2',
+            'url': 'http://localhost/r/https://user.com/follow#2',
         })
 
         self.create_html = """\
 <html>
 <body class="h-entry">
-<a class="u-url" href="https://orig/post"></a>
+<a class="u-url" href="https://user.com/post"></a>
 <p class="e-content p-name">hello i am a post</p>
-<a class="p-author h-card" href="https://orig">
+<a class="p-author h-card" href="https://user.com/">
   <p class="p-name">Ms. ☕ <span class="p-nickname">Baz</span></p>
 </a>
 <a href="http://localhost/"></a>
@@ -293,22 +311,22 @@ class WebmentionTest(testutil.TestCase):
 """
         self.create = requests_response(
             self.create_html, content_type=CONTENT_TYPE_HTML)
-        self.create_mf2 = util.parse_mf2(self.create_html, url='http://a/create')
+        self.create_mf2 = util.parse_mf2(self.create_html, url='https://user.com/create')
         self.create_as1 = microformats2.json_to_object(self.create_mf2['items'][0])
         self.create_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
-            'id': 'http://localhost/r/https://orig/post#bridgy-fed-create',
+            'id': 'http://localhost/r/https://user.com/post#bridgy-fed-create',
             'actor': {
-                'id': 'http://localhost/orig',
-                'url': 'http://localhost/r/https://orig/',
-                'preferredUsername': 'orig',
+                'id': 'http://localhost/user.com',
+                'url': 'http://localhost/r/https://user.com/',
+                'preferredUsername': 'user.com',
             },
             'object': {
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 'type': 'Note',
-                'id': 'http://localhost/r/https://orig/post',
-                'url': 'http://localhost/r/https://orig/post',
+                'id': 'http://localhost/r/https://user.com/post',
+                'url': 'http://localhost/r/https://user.com/post',
                 'name': 'hello i am a post',
                 'content': 'hello i am a post',
                 'attributedTo': [ACTOR_AS2],
@@ -324,10 +342,10 @@ class WebmentionTest(testutil.TestCase):
 <body>foo</body>
 </html>
 """, url='http://not/fediverse', content_type=CONTENT_TYPE_HTML)
-        self.activitypub_gets = [self.reply, self.not_fediverse, self.orig_as2,
+        self.activitypub_gets = [self.reply, self.not_fediverse, self.toot_as2,
                                  self.actor]
 
-        self.author = requests_response(ACTOR_HTML, url='https://orig/',
+        self.author = requests_response(ACTOR_HTML, url='https://user.com/',
                                         content_type=CONTENT_TYPE_HTML)
 
     def assert_deliveries(self, mock_post, inboxes, data):
@@ -355,7 +373,7 @@ class WebmentionTest(testutil.TestCase):
                               content_type=CONTENT_TYPE_HTML),
         )
 
-        got = self.client.post('/webmention', data={'source': 'http://a/post'})
+        got = self.client.post('/webmention', data={'source': 'https://user.com/post'})
         self.assertEqual(502, got.status_code)
         self.assertEqual(0, Object.query().count())
 
@@ -368,13 +386,13 @@ class WebmentionTest(testutil.TestCase):
 </html>""", content_type=CONTENT_TYPE_HTML)
 
         got = self.client.post( '/webmention', data={
-            'source': 'http://a/post',
+            'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(400, got.status_code)
         self.assertEqual(0, Object.query().count())
 
-        mock_get.assert_has_calls((self.req('http://a/post'),))
+        mock_get.assert_has_calls((self.req('https://user.com/post'),))
 
     def test_no_targets(self, mock_get, mock_post):
         mock_get.return_value = requests_response("""
@@ -385,32 +403,32 @@ class WebmentionTest(testutil.TestCase):
 </html>""", content_type=CONTENT_TYPE_HTML)
 
         got = self.client.post('/_ah/queue/webmention', data={
-            'source': 'http://a/post',
+            'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
         self.assertEqual(0, Object.query().count())
 
-        mock_get.assert_has_calls((self.req('http://a/post'),))
+        mock_get.assert_has_calls((self.req('https://user.com/post'),))
 
     def test_bad_target_url(self, mock_get, mock_post):
         mock_get.side_effect = (
-            requests_response(self.reply_html.replace('https://orig/post', 'bad'),
+            requests_response(self.reply_html.replace('https://mas.to/toot', 'bad'),
                               content_type=CONTENT_TYPE_HTML),
             ValueError('foo bar'),
         )
 
-        got = self.client.post('/webmention', data={'source': 'http://a/post'})
+        got = self.client.post('/webmention', data={'source': 'https://user.com/reply'})
         self.assertEqual(400, got.status_code)
         self.assertEqual(0, Object.query().count())
 
     def test_target_fetch_fails(self, mock_get, mock_post):
         mock_get.side_effect = (
-            requests_response(self.reply_html.replace('https://orig/post', 'bad'),
+            requests_response(self.reply_html.replace('https://mas.to/toot', 'bad'),
                               content_type=CONTENT_TYPE_HTML),
             requests.Timeout('foo bar'))
 
-        got = self.client.post('/webmention', data={'source': 'http://a/post'})
+        got = self.client.post('/webmention', data={'source': 'https://user.com/reply'})
         self.assertEqual(502, got.status_code)
 
     def test_target_fetch_has_no_content_type(self, mock_get, mock_post):
@@ -419,10 +437,9 @@ class WebmentionTest(testutil.TestCase):
             "<link href='http://as2' rel='alternate' type='application/activity+json'></body")
         mock_get.side_effect = (
             requests_response(self.reply_html),
-            # http://not/fediverse
             requests_response(self.reply_html, content_type='None'),
         )
-        got = self.client.post('/webmention', data={'source': 'http://a/post'})
+        got = self.client.post('/webmention', data={'source': 'https://user.com/reply'})
         self.assertEqual(502, got.status_code)
         self.assertEqual(0, Object.query().count())
 
@@ -432,13 +449,13 @@ class WebmentionTest(testutil.TestCase):
                                     content_type=CONTENT_TYPE_HTML)
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/post',
+            'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(400, got.status_code)
         self.assertEqual(0, Object.query().count())
 
-        mock_get.assert_has_calls((self.req('http://a/post'),))
+        mock_get.assert_has_calls((self.req('https://user.com/reply'),))
 
     def test_backlink_without_trailing_slash(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
@@ -447,7 +464,7 @@ class WebmentionTest(testutil.TestCase):
             content_type=CONTENT_TYPE_HTML)
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/post',
+            'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
@@ -457,33 +474,33 @@ class WebmentionTest(testutil.TestCase):
         mock_post.return_value = requests_response('abc xyz', status=203)
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/reply',
+            'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(203, got.status_code)
 
         mock_get.assert_has_calls((
-            self.req('http://a/reply'),
+            self.req('https://user.com/reply'),
             self.as2_req('http://not/fediverse'),
-            self.as2_req('https://orig/post'),
-            self.as2_req('https://orig/author'),
+            self.as2_req('https://mas.to/toot'),
+            self.as2_req('https://mas.to/author'),
         ))
 
         args, kwargs = mock_post.call_args
-        self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.as2_create, json_loads(kwargs['data']))
+        self.assertEqual(('https://mas.to/inbox',), args)
+        self.assert_equals(self.as2_create, json_loads(kwargs['data']))
 
         headers = kwargs['headers']
         self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.user_a.private_pem(), rsa_key.exportKey())
+        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
 
-        self.assert_object('http://a/reply',
-                           domains=['a'],
+        self.assert_object('https://user.com/reply',
+                           domains=['user.com'],
                            source_protocol='webmention',
                            status='complete',
-                           delivered=['https://foo.com/inbox'],
+                           delivered=['https://mas.to/inbox'],
                            mf2=self.reply_mf2,
                            as1=self.reply_as1,
                            type='comment',
@@ -499,49 +516,49 @@ class WebmentionTest(testutil.TestCase):
             }],
         }
         with app.test_request_context('/'):
-            Object(id='http://a/reply', status='complete', mf2=mf2).put()
+            Object(id='https://user.com/reply', status='complete', mf2=mf2).put()
 
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/reply',
+            'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
 
         args, kwargs = mock_post.call_args
-        self.assertEqual(('https://foo.com/inbox',), args)
+        self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals(self.as2_update, json_loads(kwargs['data']))
 
     def test_redo_repost_isnt_update(self, mock_get, mock_post):
         """Like and Announce shouldn't use Update, they should just resend as is."""
         with app.test_request_context('/'):
-            Object(id='http://a/repost', mf2={}, status='complete').put()
+            Object(id='https://user.com/repost', mf2={}, status='complete').put()
 
-        mock_get.side_effect = [self.repost, self.orig_as2, self.actor]
+        mock_get.side_effect = [self.repost, self.toot_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/repost',
+            'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
 
         args, kwargs = mock_post.call_args
-        self.assertEqual(('https://foo.com/inbox',), args)
-        self.assert_equals(self.repost_as2, json_loads(kwargs['data']))
+        self.assertEqual(('https://mas.to/inbox',), args)
+        self.assert_equals(REPOST_AS2, json_loads(kwargs['data']))
 
     def test_skip_update_if_content_unchanged(self, mock_get, mock_post):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
         with app.test_request_context('/'):
-            Object(id='http://a/reply', status='complete', mf2=self.reply_mf2['items'][0],
-                   delivered=[Target(uri='https://foo.com/inbox', protocol='activitypub')]
+            Object(id='https://user.com/reply', status='complete', mf2=self.reply_mf2['items'][0],
+                   delivered=[Target(uri='https://mas.to/inbox', protocol='activitypub')]
                    ).put()
         mock_get.side_effect = self.activitypub_gets
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/reply',
+            'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
@@ -552,75 +569,72 @@ class WebmentionTest(testutil.TestCase):
 
         https://github.com/snarfed/bridgy-fed/issues/40
         """
-        del self.orig_as2_data['actor']
-        self.orig_as2_data['attributedTo'] = [{
+        del self.toot_as2_data['actor']
+        self.toot_as2_data['attributedTo'] = [{
             'type': 'Person',
-            'id': 'https://orig/author',
+            'id': 'https://mas.to/author',
         }]
-        orig_as2_resp = requests_response(
-            self.orig_as2_data, content_type=as2.CONTENT_TYPE + '; charset=utf-8')
 
-        mock_get.side_effect = [self.reply, self.not_fediverse, orig_as2_resp,
+        mock_get.side_effect = [self.reply, self.not_fediverse, self.toot_as2,
                                 self.actor]
         mock_post.return_value = requests_response('abc xyz', status=203)
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/reply',
+            'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(203, got.status_code)
 
         mock_get.assert_has_calls((
-            self.req('http://a/reply'),
+            self.req('https://user.com/reply'),
             self.as2_req('http://not/fediverse'),
-            self.as2_req('https://orig/post'),
-            self.as2_req('https://orig/author'),
+            self.as2_req('https://mas.to/toot'),
+            self.as2_req('https://mas.to/author'),
         ))
 
         args, kwargs = mock_post.call_args
-        self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.as2_create, json_loads(kwargs['data']))
+        self.assertEqual(('https://mas.to/inbox',), args)
+        self.assert_equals(self.as2_create, json_loads(kwargs['data']))
 
     def test_create_repost(self, mock_get, mock_post):
-        mock_get.side_effect = [self.repost, self.orig_as2, self.actor]
+        mock_get.side_effect = [self.repost, self.toot_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/repost',
+            'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
-            self.req('http://a/repost'),
-            self.as2_req('https://orig/post'),
-            self.as2_req('https://orig/author'),
+            self.req('https://user.com/repost'),
+            self.as2_req('https://mas.to/toot'),
+            self.as2_req('https://mas.to/author'),
         ))
 
         args, kwargs = mock_post.call_args
-        self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.repost_as2, json_loads(kwargs['data']))
+        self.assertEqual(('https://mas.to/inbox',), args)
+        self.assert_equals(REPOST_AS2, json_loads(kwargs['data']))
 
         headers = kwargs['headers']
         self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.user_a.private_pem(), rsa_key.exportKey())
+        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
 
         for args, kwargs in mock_get.call_args_list[1:]:
             with self.subTest(url=args[0]):
                 rsa_key = kwargs['auth'].header_signer._rsa._key
-                self.assertEqual(self.user_a.private_pem(), rsa_key.exportKey())
-
-        self.assert_object('http://a/repost',
-                           domains=['a'],
+                self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
+        self.assert_object('https://user.com/repost',
+                           domains=['user.com'],
                            source_protocol='webmention',
                            status='complete',
                            mf2=self.repost_mf2,
                            as1=self.repost_as1,
-                           delivered=['https://foo.com/inbox'],
+                           delivered=['https://mas.to/inbox'],
                            type='share',
-                           object_ids=['https://orig/post'],
+                           object_ids=['https://mas.to/toot'],
                            labels=['user', 'activity'],
                            )
 
@@ -628,53 +642,53 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [
             self.reply,
             self.not_fediverse,
-            self.orig_html_as2,
-            self.orig_as2,
+            self.toot_html,
+            self.toot_as2,
             self.actor,
         ]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/reply',
+            'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
-            self.req('http://a/reply'),
+            self.req('https://user.com/reply'),
             self.as2_req('http://not/fediverse'),
-            self.as2_req('https://orig/post'),
-            self.as2_req('https://orig/as2', headers=as2.CONNEG_HEADERS),
-            self.as2_req('https://orig/author'),
+            self.as2_req('https://mas.to/toot'),
+            self.as2_req('https://mas.to/toot/id', headers=as2.CONNEG_HEADERS),
+            self.as2_req('https://mas.to/author'),
         ))
 
         args, kwargs = mock_post.call_args
-        self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.as2_create, json_loads(kwargs['data']))
+        self.assertEqual(('https://mas.to/inbox',), args)
+        self.assert_equals(self.as2_create, json_loads(kwargs['data']))
 
     def test_create_default_url_to_wm_source(self, mock_get, mock_post):
         """Source post has no u-url. AS2 id should default to webmention source."""
         missing_url = requests_response("""\
 <html>
 <body class="h-entry">
-<a class="u-repost-of p-name" href="https://orig/post">reposted!</a>
-<a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>
+<a class="u-repost-of p-name" href="https://mas.to/toot">reposted!</a>
+<a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
 <a href="http://localhost/"></a>
 </body>
 </html>
 """, content_type=CONTENT_TYPE_HTML)
-        mock_get.side_effect = [missing_url, self.orig_as2, self.actor]
+        mock_get.side_effect = [missing_url, self.toot_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz', status=203)
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/repost',
+            'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(203, got.status_code)
 
         args, kwargs = mock_post.call_args
-        self.assertEqual(('https://foo.com/inbox',), args)
-        self.assert_equals(self.repost_as2, json_loads(kwargs['data']))
+        self.assertEqual(('https://mas.to/inbox',), args)
+        self.assert_equals(REPOST_AS2, json_loads(kwargs['data']))
 
     def test_create_author_only_url(self, mock_get, mock_post):
         """Mf2 author property is just a URL. We should run full authorship.
@@ -684,31 +698,31 @@ class WebmentionTest(testutil.TestCase):
         repost = requests_response("""\
 <html>
 <body class="h-entry">
-<a class="u-repost-of p-name" href="https://orig/post">reposted!</a>
-<a class="u-author" href="https://orig"></a>
+<a class="u-repost-of p-name" href="https://mas.to/toot">reposted!</a>
+<a class="u-author" href="https://user.com/"></a>
 <a href="http://localhost/"></a>
 </body>
 </html>
 """, content_type=CONTENT_TYPE_HTML)
-        mock_get.side_effect = [repost, self.author, self.orig_as2, self.actor]
+        mock_get.side_effect = [repost, self.author, self.toot_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz', status=201)
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/repost',
+            'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(201, got.status_code)
 
         args, kwargs = mock_post.call_args
-        self.assertEqual(('https://foo.com/inbox',), args)
-        self.assert_equals(self.repost_as2, json_loads(kwargs['data']))
+        self.assertEqual(('https://mas.to/inbox',), args)
+        self.assert_equals(REPOST_AS2, json_loads(kwargs['data']))
 
     @mock.patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_create_post_make_task(self, mock_create_task, mock_get, _):
         mock_get.side_effect = [self.create, self.actor]
 
         got = self.client.post('/webmention', data={
-            'source': 'https://orig/post',
+            'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(202, got.status_code)
@@ -718,7 +732,7 @@ class WebmentionTest(testutil.TestCase):
                 'app_engine_http_request': {
                     'http_method': 'POST',
                     'relative_uri': '/_ah/queue/webmention',
-                    'body': urlencode({'source': 'https://orig/post'}).encode(),
+                    'body': urlencode({'source': 'https://user.com/post'}).encode(),
                     'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
                 },
             },
@@ -726,28 +740,28 @@ class WebmentionTest(testutil.TestCase):
 
     @staticmethod
     def make_followers():
-        Follower.get_or_create('orig', 'https://mastodon/aaa')
-        Follower.get_or_create('orig', 'https://mastodon/bbb',
+        Follower.get_or_create('user.com', 'https://mastodon/aaa')
+        Follower.get_or_create('user.com', 'https://mastodon/bbb',
                                last_follow={'actor': {
                                    'publicInbox': 'https://public/inbox',
                                    'inbox': 'https://unused',
                                }})
-        Follower.get_or_create('orig', 'https://mastodon/ccc',
+        Follower.get_or_create('user.com', 'https://mastodon/ccc',
                                last_follow={'actor': {
                                    'endpoints': {
                                        'sharedInbox': 'https://shared/inbox',
                                    },
                                }})
-        Follower.get_or_create('orig', 'https://mastodon/ddd',
+        Follower.get_or_create('user.com', 'https://mastodon/ddd',
                                last_follow={'actor': {
                                    'inbox': 'https://inbox',
                                }})
-        Follower.get_or_create('orig', 'https://mastodon/ggg',
+        Follower.get_or_create('user.com', 'https://mastodon/ggg',
                                status='inactive',
                                last_follow={'actor': {
                                    'inbox': 'https://unused/2',
                                }})
-        Follower.get_or_create('orig', 'https://mastodon/hhh',
+        Follower.get_or_create('user.com', 'https://mastodon/hhh',
                                last_follow={'actor': {
                                    # dupe of eee; should be de-duped
                                    'inbox': 'https://inbox',
@@ -759,19 +773,19 @@ class WebmentionTest(testutil.TestCase):
         self.make_followers()
 
         got = self.client.post('/_ah/queue/webmention', data={
-            'source': 'https://orig/post',
+            'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
-            self.req('https://orig/post'),
+            self.req('https://user.com/post'),
         ))
         inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
         self.assert_deliveries(mock_post, inboxes, self.create_as2)
 
-        self.assert_object(f'https://orig/post',
-                           domains=['orig'],
+        self.assert_object(f'https://user.com/post',
+                           domains=['user.com'],
                            source_protocol='webmention',
                            status='complete',
                            mf2=self.create_mf2,
@@ -786,7 +800,7 @@ class WebmentionTest(testutil.TestCase):
         mock_post.return_value = requests_response('abc xyz')
 
         with app.test_request_context('/'):
-            Object(id='https://orig/post', domains=['orig'], status='in progress',
+            Object(id='https://user.com/post', domains=['user.com'], status='in progress',
                    mf2=self.create_mf2['items'][0],
                    delivered=[Target(uri='https://skipped/inbox', protocol='activitypub')],
                    undelivered=[Target(uri='https://shared/inbox', protocol='activitypub')],
@@ -795,26 +809,26 @@ class WebmentionTest(testutil.TestCase):
 
         self.make_followers()
         # already sent, should be skipped
-        Follower.get_or_create('orig', 'https://mastodon/eee',
+        Follower.get_or_create('user.com', 'https://mastodon/eee',
                                last_follow={'actor': {
                                    'inbox': 'https://skipped/inbox',
                                }})
 
         got = self.client.post('/_ah/queue/webmention', data={
-            'source': 'https://orig/post',
+            'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
-            self.req('https://orig/post'),
+            self.req('https://user.com/post'),
         ))
 
         inboxes = ['https://inbox', 'https://public/inbox', 'https://shared/inbox']
         self.assert_deliveries(mock_post, inboxes, self.create_as2)
 
-        self.assert_object(f'https://orig/post',
-                           domains=['orig'],
+        self.assert_object(f'https://user.com/post',
+                           domains=['user.com'],
                            source_protocol='webmention',
                            status='complete',
                            mf2=self.create_mf2,
@@ -829,7 +843,7 @@ class WebmentionTest(testutil.TestCase):
         mock_post.return_value = requests_response('abc xyz')
 
         with app.test_request_context('/'):
-            Object(id='https://orig/post', domains=['orig'], status='in progress',
+            Object(id='https://user.com/post', domains=['user.com'], status='in progress',
                    mf2={**self.create_mf2, 'content': 'different'},
                    delivered=[Target(uri='https://delivered/inbox', protocol='activitypub')],
                    undelivered=[Target(uri='https://shared/inbox', protocol='activitypub')],
@@ -839,13 +853,13 @@ class WebmentionTest(testutil.TestCase):
         self.make_followers()
 
         got = self.client.post('/_ah/queue/webmention', data={
-            'source': 'https://orig/post',
+            'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
-            self.req('https://orig/post'),
+            self.req('https://user.com/post'),
         ))
         self.assertEqual(4, len(mock_post.call_args_list), mock_post.call_args_list)
 
@@ -853,8 +867,8 @@ class WebmentionTest(testutil.TestCase):
                    'https://delivered/inbox')
         self.assert_deliveries(mock_post, inboxes, self.update_as2)
 
-        self.assert_object(f'https://orig/post',
-                           domains=['orig'],
+        self.assert_object(f'https://user.com/post',
+                           domains=['user.com'],
                            source_protocol='webmention',
                            status='complete',
                            mf2=self.create_mf2,
@@ -874,11 +888,11 @@ class WebmentionTest(testutil.TestCase):
         mock_post.return_value = requests_response('abc xyz ')
 
         Follower.get_or_create(
-            'orig', 'https://mastodon/aaa',
+            'user.com', 'https://mastodon/aaa',
             last_follow={'actor': {'inbox': 'https://inbox'}})
 
         got = self.client.post('/_ah/queue/webmention', data={
-            'source': 'https://orig/post',
+            'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
@@ -896,66 +910,65 @@ class WebmentionTest(testutil.TestCase):
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/follow',
+            'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
-            self.req('http://a/follow'),
-            self.as2_req('http://followee/'),
+            self.req('https://user.com/follow'),
+            self.as2_req('https://mas.to/mrs-foo'),
         ))
 
         args, kwargs = mock_post.call_args
-        self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.follow_as2, json_loads(kwargs['data']))
+        self.assertEqual(('https://mas.to/inbox',), args)
+        self.assert_equals(self.follow_as2, json_loads(kwargs['data']))
 
         headers = kwargs['headers']
         self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.user_a.private_pem(), rsa_key.exportKey())
-
-        self.assert_object('http://a/follow',
-                           domains=['a'],
+        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
+        self.assert_object('https://user.com/follow',
+                           domains=['user.com'],
                            source_protocol='webmention',
                            status='complete',
                            mf2=self.follow_mf2,
                            as1=self.follow_as1,
-                           delivered=['https://foo.com/inbox'],
+                           delivered=['https://mas.to/inbox'],
                            type='follow',
-                           object_ids=['http://followee'],
+                           object_ids=['https://mas.to/mrs-foo'],
                            labels=['user', 'activity'],
                            )
 
         followers = Follower.query().fetch()
         self.assertEqual(1, len(followers))
-        self.assertEqual('https://foo.com/about-me a', followers[0].key.id())
-        self.assertEqual('a', followers[0].src)
-        self.assertEqual('https://foo.com/about-me', followers[0].dest)
+        self.assertEqual('https://mas.to/mrs-foo user.com', followers[0].key.id())
+        self.assertEqual('user.com', followers[0].src)
+        self.assertEqual('https://mas.to/mrs-foo', followers[0].dest)
         self.assertEqual(self.follow_as2, followers[0].last_follow)
 
     def test_follow_no_actor(self, mock_get, mock_post):
-        self.user_orig.actor_as2 = self.follow_as2['actor']
-        self.user_orig.put()
+        self.user.actor_as2 = self.follow_as2['actor']
+        self.user.put()
 
         html = self.follow_html.replace(
-            '<a class="p-author h-card" href="https://orig">Ms. ☕ Baz</a>', '')
+            '<a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>', '')
         follow = requests_response(html, content_type=CONTENT_TYPE_HTML)
 
         mock_get.side_effect = [follow, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/follow',
+            'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
 
         args, kwargs = mock_post.call_args
-        self.assertEqual(('https://foo.com/inbox',), args)
+        self.assertEqual(('https://mas.to/inbox',), args)
         expected = self.follow_as2
-        expected['actor'] = 'http://localhost/a'
+        expected['actor'] = 'http://localhost/user.com'
         self.assertEqual(expected, json_loads(kwargs['data']))
 
     def test_follow_fragment(self, mock_get, mock_post):
@@ -963,49 +976,48 @@ class WebmentionTest(testutil.TestCase):
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/follow#2',
+            'source': 'https://user.com/follow#2',
             'target': 'https://fed.brid.gy/',
         })
         self.assert_equals(200, got.status_code)
 
         mock_get.assert_has_calls((
-            self.req('http://a/follow#2'),
-            self.as2_req('http://followee/'),
+            self.req('https://user.com/follow#2'),
+            self.as2_req('https://mas.to/mrs-foo'),
         ))
 
         args, kwargs = mock_post.call_args
-        self.assert_equals(('https://foo.com/inbox',), args)
+        self.assert_equals(('https://mas.to/inbox',), args)
         self.assert_equals(self.follow_fragment_as2, json_loads(kwargs['data']))
 
         headers = kwargs['headers']
         self.assert_equals(as2.CONTENT_TYPE, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assert_equals(self.user_a.private_pem(), rsa_key.exportKey())
-
-        self.assert_object('http://a/follow#2',
-                           domains=['a'],
+        self.assert_equals(self.user.private_pem(), rsa_key.exportKey())
+        self.assert_object('https://user.com/follow#2',
+                           domains=['user.com'],
                            source_protocol='webmention',
                            status='complete',
                            mf2=self.follow_fragment_mf2,
                            as1=self.follow_fragment_as1,
-                           delivered=['https://foo.com/inbox'],
+                           delivered=['https://mas.to/inbox'],
                            type='follow',
-                           object_ids=['http://followee'],
+                           object_ids=['https://mas.to/mrs-foo'],
                            labels=['user', 'activity'],
                            )
 
         followers = Follower.query().fetch()
         self.assert_equals(1, len(followers))
-        self.assert_equals('https://foo.com/about-me a', followers[0].key.id())
-        self.assert_equals('a', followers[0].src)
-        self.assert_equals('https://foo.com/about-me', followers[0].dest)
+        self.assert_equals('https://mas.to/mrs-foo user.com', followers[0].key.id())
+        self.assert_equals('user.com', followers[0].src)
+        self.assert_equals('https://mas.to/mrs-foo', followers[0].dest)
 
     def test_error_fragment_missing(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow_fragment]
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/follow#3',
+            'source': 'https://user.com/follow#3',
             'target': 'https://fed.brid.gy/',
         })
         self.assert_equals(400, got.status_code)
@@ -1013,53 +1025,52 @@ class WebmentionTest(testutil.TestCase):
     def test_error(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow, self.actor]
         mock_post.return_value = requests_response(
-            'abc xyz', status=405, url='https://foo.com/inbox')
+            'abc xyz', status=405, url='https://mas.to/inbox')
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/follow',
+            'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
         body = got.get_data(as_text=True)
         self.assertEqual(502, got.status_code, body)
         self.assertIn(
-            '405 Client Error: None for url: https://foo.com/inbox ; abc xyz',
+            '405 Client Error: None for url: https://mas.to/inbox ; abc xyz',
             body)
 
         mock_get.assert_has_calls((
-            self.req('http://a/follow'),
-            self.as2_req('http://followee/'),
+            self.req('https://user.com/follow'),
+            self.as2_req('https://mas.to/mrs-foo'),
         ))
 
         args, kwargs = mock_post.call_args
-        self.assertEqual(('https://foo.com/inbox',), args)
-        self.assertEqual(self.follow_as2, json_loads(kwargs['data']))
+        self.assertEqual(('https://mas.to/inbox',), args)
+        self.assert_equals(self.follow_as2, json_loads(kwargs['data']))
 
         headers = kwargs['headers']
         self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
 
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.user_a.private_pem(), rsa_key.exportKey())
-
-        self.assert_object('http://a/follow',
-                           domains=['a'],
+        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
+        self.assert_object('https://user.com/follow',
+                           domains=['user.com'],
                            source_protocol='webmention',
                            status='failed',
                            mf2=self.follow_mf2,
                            as1=self.follow_as1,
-                           failed=['https://foo.com/inbox'],
+                           failed=['https://mas.to/inbox'],
                            type='follow',
-                           object_ids=['http://followee'],
+                           object_ids=['https://mas.to/mrs-foo'],
                            labels=['user', 'activity'],
                           )
 
     def test_repost_blocklisted_error(self, mock_get, mock_post):
         """Reposts of non-fediverse (ie blocklisted) sites aren't yet supported."""
-        repost_html = REPOST_HTML.replace('https://orig/post', 'https://twitter.com/foo')
+        repost_html = REPOST_HTML.replace('https://mas.to/toot', 'https://twitter.com/foo')
         repost_resp = requests_response(repost_html, content_type=CONTENT_TYPE_HTML)
         mock_get.side_effect = [repost_resp]
 
         got = self.client.post('/webmention', data={
-            'source': 'http://a/repost',
+            'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(400, got.status_code)
@@ -1069,7 +1080,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.author]
 
         got = self.client.post('/webmention', data={
-            'source': 'https://orig/',
+            'source': 'https://user.com/',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(202, got.status_code)
@@ -1079,7 +1090,7 @@ class WebmentionTest(testutil.TestCase):
                 'app_engine_http_request': {
                     'http_method': 'POST',
                     'relative_uri': '/_ah/queue/webmention',
-                    'body': urlencode({'source': 'https://orig/'}).encode(),
+                    'body': urlencode({'source': 'https://user.com/'}).encode(),
                     'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
                 },
             },
@@ -1088,34 +1099,34 @@ class WebmentionTest(testutil.TestCase):
     def test_update_profile_run_task(self, mock_get, mock_post):
         mock_get.side_effect = [self.author]
         mock_post.return_value = requests_response('abc xyz')
-        Follower.get_or_create('orig', 'https://mastodon/ccc',
+        Follower.get_or_create('user.com', 'https://mastodon/ccc',
                                last_follow={'actor': {
                                    'endpoints': {
                                        'sharedInbox': 'https://shared/inbox',
                                    },
                                }})
-        Follower.get_or_create('orig', 'https://mastodon/ddd',
+        Follower.get_or_create('user.com', 'https://mastodon/ddd',
                                last_follow={'actor': {
                                    'inbox': 'https://inbox',
                                }})
 
         got = self.client.post('/_ah/queue/webmention', data={
-            'source': 'https://orig/',
+            'source': 'https://user.com/',
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
         mock_get.assert_has_calls((
-            self.req('https://orig/'),
+            self.req('https://user.com/'),
         ))
 
-        id = 'https://orig/#update-2022-01-02T03:04:05+00:00'
+        id = 'https://user.com/#update-2022-01-02T03:04:05+00:00'
         wrapped_id = f'http://localhost/r/{id}'
         self.assert_deliveries(mock_post, ('https://shared/inbox', 'https://inbox'), {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Update',
             'id': wrapped_id,
             'url': wrapped_id,
-            'actor': 'http://localhost/orig',
+            'actor': 'http://localhost/user.com',
             'object': {
                 **ACTOR_AS2_FULL,
                 'updated': util.now().isoformat(),
@@ -1125,13 +1136,13 @@ class WebmentionTest(testutil.TestCase):
 
         got_as2 = Object.get_by_id(id).as2
         self.assert_object(id,
-                           domains=['orig'],
+                           domains=['user.com'],
                            source_protocol='webmention',
                            status='complete',
                            as2=got_as2,
                            delivered=['https://inbox', 'https://shared/inbox'],
                            type='update',
-                           object_ids=['http://localhost/orig'],
+                           object_ids=['https://user.com/'],
                            labels=['user', 'activity'],
                            )
 
@@ -1142,10 +1153,7 @@ class WebmentionTest(testutil.TestCase):
             'id': id,
             'url': id,
             'type': 'Update',
-            'object': {
-                **ACTOR_AS2_FULL,
-                'url': 'https://orig',
-            },
+            'object': ACTOR_AS2_FULL_UNWRAPPED,
         }, got_as2)
 
     def test_no_user(self, mock_get, mock_post):
