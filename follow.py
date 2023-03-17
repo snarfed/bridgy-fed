@@ -173,7 +173,7 @@ class FollowCallback(indieauth.Callback):
             'type': 'Follow',
             'id': follow_id,
             'object': followee,
-            'actor': common.host_url(domain),
+            'actor': user.actor_id(),
             'to': [as2.PUBLIC_AUDIENCE],
        }
         activitypub.ActivityPub.send(inbox, follow_as2, user=user)
@@ -250,7 +250,7 @@ class UnfollowCallback(indieauth.Callback):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Undo',
             'id': unfollow_id,
-            'actor': common.host_url(domain),
+            'actor': user.actor_id(),
             'object': follower.last_follow,
        }
         activitypub.ActivityPub.send(inbox, unfollow_as2, user=user)

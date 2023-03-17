@@ -221,7 +221,7 @@ def actor(user):
     actor_as2 = activitypub.postprocess_as2(as2.from_as1(actor_as1), user=user)
     # TODO: unify with activitypub.actor()
     actor_as2.update({
-        'id': host_url(domain),
+        'id': user.actor_id(),
         # This has to be the domain for Mastodon etc interop! It seems like it
         # should be the custom username from the acct: u-url in their h-card,
         # but that breaks Mastodon's Webfinger discovery. Background:

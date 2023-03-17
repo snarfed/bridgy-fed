@@ -67,6 +67,10 @@ class UserTest(testutil.TestCase):
         self.user.actor_as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@y.z']}
         self.assertEqual('@baz@y.z', self.user.address())
 
+    def test_actor_id(self):
+        with app.test_request_context('/'):
+            self.assertEqual('http://localhost/y.z', self.user.actor_id())
+
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
         with app.test_request_context('/'):
             got = self.user.verify()

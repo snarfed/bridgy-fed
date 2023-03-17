@@ -80,7 +80,7 @@ class Actor(flask_util.XrdOrJrd):
                 # WARNING: in python 2 sometimes request.host_url lost port,
                 # http://localhost:8080 would become just http://localhost. no
                 # clue how or why. pay attention here if that happens again.
-                'href': common.host_url(domain),
+                'href': user.actor_id(),
             }, {
                 # AP reads this and sharedInbox from the AS2 actor, not
                 # webfinger, so strictly speaking, it's probably not needed here.

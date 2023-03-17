@@ -251,7 +251,7 @@ class Protocol:
         follower_obj.put()
 
         # send AP Accept
-        followee_actor_url = common.host_url(user.key.id())
+        followee_actor_url = user.actor_id()
         accept = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': util.tag_uri(common.PRIMARY_DOMAIN,

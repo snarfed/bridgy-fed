@@ -164,6 +164,10 @@ class User(StringIdModel):
         """Returns this user's ActivityPub address, eg '@me@foo.com'."""
         return f'@{self.username()}@{self.key.id()}'
 
+    def actor_id(self):
+        """Returns this user's AS2 actor id, eg 'https://fed.brid.gy/foo.com'."""
+        return common.host_url(self.key.id())
+
     def is_homepage(self, url):
         """Returns True if the given URL points to this user's home page."""
         if not url:
