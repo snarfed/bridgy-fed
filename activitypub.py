@@ -306,9 +306,11 @@ def postprocess_as2(activity, *, user=None, target=None, create=True):
             })
         return activity
 
-    for actor in (util.get_list(activity, 'attributedTo') +
-                  util.get_list(activity, 'actor')):
-        postprocess_as2_actor(actor, user=user)
+    for field in 'actor', 'attributedTo':
+        activity[field] = [postprocess_as2_actor(actor, user=user)
+                           for actor in util.get_list(activity, field)]
+        if len(activity[field]) == 1:
+            activity[field] = activity[field][0]
 
     # inReplyTo: singly valued, prefer id over url
     target_id = target.get('id') if target else None
@@ -430,6 +432,9 @@ def postprocess_as2_actor(actor, *, user=None):
     Returns:
       actor dict
     """
+    if not actor or isinstance(actor, str):
+        return user.actor_id() if user.is_homepage(actor) else actor
+
     url = user.homepage if user else None
     urls = util.get_list(actor, 'url')
     if not urls and url:

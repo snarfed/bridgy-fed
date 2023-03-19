@@ -79,10 +79,7 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(content_type, resp.content_type)
 
-        expected = copy.deepcopy(REPOST_AS2)
-        # TODO: fix
-        expected['actor']['id'] = 'https://user.com/'
-        self.assert_equals(expected, resp.json)
+        self.assert_equals(REPOST_AS2, resp.json)
 
     def test_as2_deleted(self):
         with app.test_request_context('/'):

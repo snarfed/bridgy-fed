@@ -192,8 +192,12 @@ class Webmention(View):
             if not self.source_as2:
                 self.source_as2 = activitypub.postprocess_as2(
                     as2.from_as1(self.source_as1), target=target_as2, user=self.user)
-            if not self.source_as2.get('actor'):
-                self.source_as2['actor'] = self.user.actor_id()
+
+            orig_actor = self.source_as2.get('actor')
+            if orig_actor:
+                logging.info(f'Overriding actor with {self.user.actor_id()}; was {orig_actor}')
+            self.source_as2['actor'] = self.user.actor_id()
+
             if changed:
                 self.source_as2['type'] = 'Update'
 

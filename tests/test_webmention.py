@@ -121,7 +121,7 @@ REPOST_AS2 = {
         'https://mas.to/recipient',
         as2.PUBLIC_AUDIENCE,
     ],
-    'actor': ACTOR_AS2,
+    'actor': 'http://localhost/user.com',
 }
 REPOST_AS1_UNWRAPPED = {
     'objectType': 'activity',
@@ -210,11 +210,7 @@ class WebmentionTest(testutil.TestCase):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
             'id': 'http://localhost/r/https://user.com/reply#bridgy-fed-create',
-            'actor': {
-                'id': 'http://localhost/user.com',
-                'url': 'http://localhost/r/https://user.com/',
-                'preferredUsername': 'user.com',
-            },
+            'actor': 'http://localhost/user.com',
             'object': {
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 'type': 'Note',
@@ -233,7 +229,7 @@ class WebmentionTest(testutil.TestCase):
                     'https://mas.to/bystander',
                     as2.PUBLIC_AUDIENCE,
                 ],
-                'attributedTo': [ACTOR_AS2],
+                'attributedTo': ACTOR_AS2,
                 'tag': [{
                     'type': 'Mention',
                     'href': 'https://mas.to/author',
@@ -266,7 +262,7 @@ class WebmentionTest(testutil.TestCase):
             'id': 'http://localhost/r/https://user.com/follow',
             'url': 'http://localhost/r/https://user.com/follow',
             'object': 'https://mas.to/mrs-foo',
-            'actor': ACTOR_AS2,
+            'actor': 'http://localhost/user.com',
             'to': [as2.PUBLIC_AUDIENCE],
         }
 
@@ -317,11 +313,7 @@ class WebmentionTest(testutil.TestCase):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
             'id': 'http://localhost/r/https://user.com/post#bridgy-fed-create',
-            'actor': {
-                'id': 'http://localhost/user.com',
-                'url': 'http://localhost/r/https://user.com/',
-                'preferredUsername': 'user.com',
-            },
+            'actor': 'http://localhost/user.com',
             'object': {
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 'type': 'Note',
@@ -329,7 +321,7 @@ class WebmentionTest(testutil.TestCase):
                 'url': 'http://localhost/r/https://user.com/post',
                 'name': 'hello i am a post',
                 'content': 'hello i am a post',
-                'attributedTo': [ACTOR_AS2],
+                'attributedTo': ACTOR_AS2,
                 'to': [as2.PUBLIC_AUDIENCE],
             },
         }
@@ -569,10 +561,10 @@ class WebmentionTest(testutil.TestCase):
         https://github.com/snarfed/bridgy-fed/issues/40
         """
         del self.toot_as2_data['actor']
-        self.toot_as2_data['attributedTo'] = [{
+        self.toot_as2_data['attributedTo'] = {
             'type': 'Person',
             'id': 'https://mas.to/author',
-        }]
+        }
 
         mock_get.side_effect = [self.reply, self.not_fediverse, self.toot_as2,
                                 self.actor]
@@ -948,7 +940,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(self.follow_as2, followers[0].last_follow)
 
     def test_follow_no_actor(self, mock_get, mock_post):
-        self.user.actor_as2 = self.follow_as2['actor']
+        self.user.actor_as2 = ACTOR_AS2
         self.user.put()
 
         html = self.follow_html.replace(
@@ -966,9 +958,7 @@ class WebmentionTest(testutil.TestCase):
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
-        expected = self.follow_as2
-        expected['actor'] = 'http://localhost/user.com'
-        self.assert_equals(expected, json_loads(kwargs['data']))
+        self.assert_equals(self.follow_as2, json_loads(kwargs['data']))
 
     def test_follow_fragment(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow_fragment, self.actor]

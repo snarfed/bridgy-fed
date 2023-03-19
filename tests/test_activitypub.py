@@ -1218,11 +1218,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': 'http://localhost/r/xyz#bridgy-fed-create',
             'type': 'Create',
-            'actor': {
-                'id': 'http://localhost/site',
-                'url': 'http://localhost/r/https://site/',
-                'preferredUsername': 'site'
-            },
+
             'object': {
                 'id': 'http://localhost/r/xyz',
                 'type': 'Note',
