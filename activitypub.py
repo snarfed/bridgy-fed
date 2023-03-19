@@ -474,12 +474,14 @@ def actor(domain):
         return f'User {domain} not fully set up', 404
 
     # TODO: unify with common.actor()
-    actor = {
-        **postprocess_as2(user.actor_as2, user=user),
+    actor = postprocess_as2(user.actor_as2, user=user)
+    actor.update({
         'id': user.actor_id(),
         # This has to be the domain for Mastodon etc interop! It seems like it
         # should be the custom username from the acct: u-url in their h-card,
         # but that breaks Mastodon's Webfinger discovery. Background:
+        # https://docs.joinmastodon.org/spec/activitypub/#properties-used-1
+        # https://docs.joinmastodon.org/spec/webfinger/#mastodons-requirements-for-webfinger
         # https://github.com/snarfed/bridgy-fed/issues/302#issuecomment-1324305460
         # https://github.com/snarfed/bridgy-fed/issues/77
         'preferredUsername': domain,
@@ -490,7 +492,7 @@ def actor(domain):
         'endpoints': {
             'sharedInbox': host_url('inbox'),
         },
-    }
+    })
 
     logger.info(f'Returning: {json_dumps(actor, indent=2)}')
     return actor, {

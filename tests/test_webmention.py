@@ -353,10 +353,9 @@ class WebmentionTest(testutil.TestCase):
         calls = {call[0][0]: call for call in mock_post.call_args_list}
 
         for inbox in inboxes:
-            with self.subTest(inbox=inbox):
-                got = json_loads(calls[inbox][1]['data'])
-                got.get('object', {}).pop('publicKey', None)
-                self.assertEqual(data, got)
+            got = json_loads(calls[inbox][1]['data'])
+            got.get('object', {}).pop('publicKey', None)
+            self.assert_equals(data, got, inbox)
 
     def test_bad_source_url(self, mock_get, mock_post):
         got = self.client.post('/webmention', data=b'')
@@ -903,7 +902,7 @@ class WebmentionTest(testutil.TestCase):
             'image': {'url': 'http://im/age', 'type': 'Image'},
             'attachment': [{'url': 'http://im/age', 'type': 'Image'}],
         })
-        self.assertEqual(create, json_loads(mock_post.call_args[1]['data']))
+        self.assert_equals(create, json_loads(mock_post.call_args[1]['data']))
 
     def test_follow(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow, self.actor]
@@ -969,7 +968,7 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(('https://mas.to/inbox',), args)
         expected = self.follow_as2
         expected['actor'] = 'http://localhost/user.com'
-        self.assertEqual(expected, json_loads(kwargs['data']))
+        self.assert_equals(expected, json_loads(kwargs['data']))
 
     def test_follow_fragment(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow_fragment, self.actor]

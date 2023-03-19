@@ -123,7 +123,7 @@ class XrpcFeedTest(testutil.TestCase):
         resp = self.client.get('/xrpc/app.bsky.feed.getAuthorFeed',
                                query_string={'author': 'foo.com'})
         self.assertEqual(200, resp.status_code)
-        self.assertEqual({'feed': []}, resp.json)
+        self.assert_equals({'feed': []}, resp.json)
 
     def test_getPostThread(self):
         with app.test_request_context('/'):

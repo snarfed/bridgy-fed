@@ -29,8 +29,6 @@ from models import Follower, Object, Target, User
 
 logger = logging.getLogger(__name__)
 
-SKIP_EMAIL_DOMAINS = frozenset(('localhost', 'snarfed.org'))
-
 # https://cloud.google.com/appengine/docs/locations
 TASKS_LOCATION = 'us-central1'
 

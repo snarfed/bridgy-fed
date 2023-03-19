@@ -89,7 +89,7 @@ class WebfingerTest(testutil.TestCase):
         got = self.client.get('/acct:foo.com', headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
-        self.assertEqual(self.expected_webfinger, got.json)
+        self.assert_equals(self.expected_webfinger, got.json)
 
     def test_user_no_hcard(self):
         self.user.has_hcard = False
@@ -147,7 +147,7 @@ class WebfingerTest(testutil.TestCase):
                 got = self.client.get(url, headers={'Accept': 'application/json'})
                 self.assertEqual(200, got.status_code, got.get_data(as_text=True))
                 self.assertEqual('application/jrd+json', got.headers['Content-Type'])
-                self.assertEqual(self.expected_webfinger, got.json)
+                self.assert_equals(self.expected_webfinger, got.json)
 
     def test_webfinger_custom_username(self):
         self.user.actor_as2 = {
@@ -188,7 +188,7 @@ class WebfingerTest(testutil.TestCase):
                 got = self.client.get(url, headers={'Accept': 'application/json'})
                 self.assertEqual(200, got.status_code, got.get_data(as_text=True))
                 self.assertEqual('application/jrd+json', got.headers['Content-Type'])
-                self.assertEqual(self.expected_webfinger, got.json)
+                self.assert_equals(self.expected_webfinger, got.json)
 
     def test_webfinger_fed_brid_gy(self):
         got = self.client.get('/.well-known/webfinger?resource=http://localhost/')
