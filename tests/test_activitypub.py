@@ -116,7 +116,8 @@ LIKE_WITH_ACTOR['actor'] = {
     'image': {'type': 'Image', 'url': 'https://user.com/pic.jpg'},
 }
 
-# repost of fediverse post, should be delivered to followers
+# repost, should be delivered to followers if object is a fediverse post,
+# translated to webmention if object is an indieweb post
 REPOST = {
   '@context': 'https://www.w3.org/ns/activitystreams',
   'id': 'https://mas.to/users/alice/statuses/654/activity',
@@ -410,7 +411,7 @@ class ActivityPubTest(testutil.TestCase):
                            as2=NOTE_OBJECT,
                            type='note')
 
-    def test_repost_of_federated_post(self, mock_head, mock_get, mock_post):
+    def test_repost_of_indieweb(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/orig')
         mock_get.return_value = WEBMENTION_DISCOVERY
         mock_post.return_value = requests_response()  # webmention
@@ -418,15 +419,14 @@ class ActivityPubTest(testutil.TestCase):
         orig_url = 'https://user.com/orig'
         note = {
             **NOTE_OBJECT,
-            'url': 'https://user.com/orig',
+            'id': 'https://user.com/orig',
         }
+        del note['url']
         with app.test_request_context('/'):
-            Object(id=orig_url, as2=note).put()
+            Object(id=orig_url, mf2=microformats2.object_to_json(as2.to_as1(note))).put()
 
-        repost = {
-            **REPOST_FULL,
-            'object': f'http://localhost/r/{orig_url}',
-        }
+        repost = copy.deepcopy(REPOST_FULL)
+        repost['object'] = f'http://localhost/r/{orig_url}'
         got = self.post('/user.com/inbox', json=repost)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
@@ -443,18 +443,19 @@ class ActivityPubTest(testutil.TestCase):
         )
 
         repost['object'] = note
+        del repost['object']['to']
+        del repost['object']['cc']
         self.assert_object(REPOST_FULL['id'],
                            source_protocol='activitypub',
                            status='complete',
                            as2=repost,
-                           as1=as2.to_as1(repost),
                            domains=['user.com'],
                            delivered=['https://user.com/orig'],
                            type='share',
                            labels=['activity', 'feed', 'notification'],
-                           object_ids=[NOTE_OBJECT['id']])
+                           object_ids=['https://user.com/orig'])
 
-    def test_shared_inbox_repost(self, mock_head, mock_get, mock_post):
+    def test_shared_inbox_repost_of_fediverse(self, mock_head, mock_get, mock_post):
         Follower.get_or_create(ACTOR['id'], 'user.com')
         Follower.get_or_create(ACTOR['id'], 'baz.com')
         Follower.get_or_create(ACTOR['id'], 'baj.com', status='inactive')
@@ -463,13 +464,14 @@ class ActivityPubTest(testutil.TestCase):
         mock_get.side_effect = [
             self.as2_resp(ACTOR),  # source actor
             self.as2_resp(NOTE_OBJECT),  # object of repost
-            WEBMENTION_DISCOVERY,
+            HTML,  # no webmention endpoint
         ]
 
         got = self.post('/inbox', json=REPOST)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
-        mock_post.assert_not_called()  # no same-domain webmention
+        mock_post.assert_not_called()  # no webmention
+
         self.assert_object(REPOST['id'],
                            source_protocol='activitypub',
                            status='ignored',
@@ -477,8 +479,27 @@ class ActivityPubTest(testutil.TestCase):
                            domains=['user.com', 'baz.com'],
                            type='share',
                            labels=['activity', 'feed'],
-                           object_ids=[REPOST['object']],
-                           delivered=[])
+                           object_ids=[REPOST['object']])
+
+    def test_inbox_no_user(self, mock_head, mock_get, mock_post):
+        mock_get.side_effect = [
+            # source actor
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            # target post webmention discovery
+            HTML,
+        ]
+
+        got = self.post('/inbox', json={**LIKE, 'object': 'http://nope.com/post'})
+        self.assertEqual(200, got.status_code)
+
+        self.assert_object('http://mas.to/like#ok',
+                           domains=['nope.com'],
+                           source_protocol='activitypub',
+                           status='complete',
+                           as2={**LIKE_WITH_ACTOR, 'object': 'http://nope.com/post'},
+                           type='like',
+                           labels=['activity'],
+                           object_ids=['http://nope.com/post'])
 
     def test_inbox_not_public(self, mock_head, mock_get, mock_post):
         Follower.get_or_create(ACTOR['id'], 'user.com')

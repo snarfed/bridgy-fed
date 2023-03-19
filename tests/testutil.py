@@ -142,7 +142,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         for computed in 'type', 'object_ids':
             val = props.pop(computed, None)
             if val is not None:
-                self.assertEqual(val, getattr(got, computed))
+                self.assertEqual(val, getattr(got, computed), computed)
 
         if expected_as1 := props.pop('as1', None):
             self.assert_equals(common.redirect_unwrap(expected_as1), got.as1)

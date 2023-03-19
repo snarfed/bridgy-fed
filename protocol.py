@@ -193,7 +193,8 @@ class Protocol:
 
         # fetch object if necessary so we can render it in feeds
         if obj.type == 'share' and inner_obj.keys() == set(['id']):
-            inner_obj = obj.as2['object'] = cls.get_object(inner_obj_id, user=user).as2
+            inner_obj = obj.as2['object'] = as2.from_as1(
+                cls.get_object(inner_obj_id, user=user).as1)
 
         if obj.type == 'follow':
             cls.accept_follow(obj, user=user)
@@ -324,17 +325,16 @@ def send_webmentions(obj, *, user=None, proxy=None):
     """
     # extract source and targets
     source = obj.as1.get('url') or obj.as1.get('id')
-    inner_obj = obj.as1.get('object')
-    obj_url = util.get_url(inner_obj)
+    inner_obj = as1.get_object(obj.as1)
+    obj_url = util.get_url(inner_obj) or inner_obj.get('id')
+
+    if not source or obj.type in ('create', 'post', 'update'):
+        source = obj_url
+    if not source:
+        error("Couldn't find source post URL")
 
     targets = util.get_list(obj.as1, 'inReplyTo')
-    if isinstance(inner_obj, dict):
-        if not source or obj.type in ('create', 'post', 'update'):
-            source = obj_url or inner_obj.get('id')
-        targets.extend(util.get_list(inner_obj, 'inReplyTo'))
-
-    if not source:
-        error("Couldn't find original post URL")
+    targets.extend(util.get_list(inner_obj, 'inReplyTo'))
 
     for tag in (util.get_list(obj.as1, 'tags') +
                 util.get_list(as1.get_object(obj.as1), 'tags')):
