@@ -279,10 +279,10 @@ class ObjectTest(testutil.TestCase):
                 self.assert_multiline_in(expected, obj.actor_link())
 
     def test_actor_link_user(self):
-        user = User(id='foo.com', actor_as2={"name": "Alice"})
-        obj = Object(id='x', source_protocol='ui', domains=['foo.com'])
+        user = User(id='user.com', actor_as2={"name": "Alice"})
+        obj = Object(id='x', source_protocol='ui', domains=['user.com'])
         self.assertIn(
-            'href="/user/foo.com"><img src="" class="profile"> Alice</a>',
+            'href="/user/user.com"><img src="" class="profile"> Alice</a>',
             obj.actor_link(user))
 
     def test_put_updates_get_object_cache(self):
@@ -308,9 +308,9 @@ class FollowerTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.inbound = Follower(dest='foo.com', src='http://bar/@baz',
+        self.inbound = Follower(dest='user.com', src='http://mas.to/@baz',
                                 last_follow={'actor': ACTOR})
-        self.outbound = Follower(dest='http://bar/@baz', src='foo.com',
+        self.outbound = Follower(dest='http://mas.to/@baz', src='user.com',
                                  last_follow={'object': ACTOR})
 
     def test_to_as1(self):

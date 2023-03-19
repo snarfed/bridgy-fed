@@ -14,8 +14,8 @@ ACTOR_DECLARATION = {
 }
 SUBJECT = {
     '$type': 'app.bsky.actor.ref#withInfo',
-    'did': 'did:web:foo.com',
-    'handle': 'foo.com',
+    'did': 'did:web:user.com',
+    'handle': 'user.com',
     'declaration': ACTOR_DECLARATION,
 }
 FOLLOWERS_BSKY = [{
@@ -26,10 +26,10 @@ FOLLOWERS_BSKY = [{
     'indexedAt': '2022-01-02T03:04:05+00:00',
 }, {
     '$type': 'app.bsky.graph.getFollowers#follower',
-    'did': 'did:web:mastodon.social:users:swentel',
-    'handle': 'mastodon.social/users/swentel',
+    'did': 'did:web:mas.to:users:swentel',
+    'handle': 'mas.to/users/swentel',
     'displayName': 'Mrs. ☕ Foo',
-    'avatar': 'https://foo.com/me.jpg',
+    'avatar': 'https://user.com/me.jpg',
     'declaration': ACTOR_DECLARATION,
     'indexedAt': '2022-01-02T03:04:05+00:00',
 }]
@@ -52,10 +52,10 @@ class XrpcGraphTest(testutil.TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_getFollowers_empty(self):
-        self.make_user('foo.com')
+        self.make_user('user.com')
 
         resp = self.client.get('/xrpc/app.bsky.graph.getFollowers',
-                              query_string={'user': 'foo.com'})
+                              query_string={'user': 'user.com'})
         self.assertEqual(200, resp.status_code)
         self.assert_equals({
             'subject': SUBJECT,
@@ -64,7 +64,7 @@ class XrpcGraphTest(testutil.TestCase):
         }, resp.json)
 
     def test_getFollowers(self):
-        self.make_user('foo.com')
+        self.make_user('user.com')
 
         other_follow = {
             **FOLLOW,
@@ -74,16 +74,16 @@ class XrpcGraphTest(testutil.TestCase):
             },
         }
 
-        Follower.get_or_create('foo.com', 'https://no/stored/follow')
-        Follower.get_or_create('foo.com', 'https://masto/user',
+        Follower.get_or_create('user.com', 'https://no/stored/follow')
+        Follower.get_or_create('user.com', 'https://masto/user',
                                last_follow=FOLLOW_WITH_ACTOR)
-        Follower.get_or_create('foo.com', 'http://other',
+        Follower.get_or_create('user.com', 'http://other',
                                last_follow=other_follow)
         Follower.get_or_create('nope.com', 'http://nope',
                                last_follow=other_follow)
 
         resp = self.client.get('/xrpc/app.bsky.graph.getFollowers',
-                              query_string={'user': 'foo.com'})
+                              query_string={'user': 'user.com'})
         self.assertEqual(200, resp.status_code)
         self.assert_equals({
             'subject': SUBJECT,
@@ -97,10 +97,10 @@ class XrpcGraphTest(testutil.TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_getFollows_empty(self):
-        self.make_user('foo.com')
+        self.make_user('user.com')
 
         resp = self.client.get('/xrpc/app.bsky.graph.getFollows',
-                              query_string={'user': 'foo.com'})
+                              query_string={'user': 'user.com'})
         self.assertEqual(200, resp.status_code)
         self.assert_equals({
             'subject': SUBJECT,
@@ -109,7 +109,7 @@ class XrpcGraphTest(testutil.TestCase):
         }, resp.json)
 
     def test_getFollows(self):
-        self.make_user('foo.com')
+        self.make_user('user.com')
 
         other_follow = {
             **FOLLOW,
@@ -119,16 +119,16 @@ class XrpcGraphTest(testutil.TestCase):
             },
         }
 
-        Follower.get_or_create('https://no/stored/follow', 'foo.com')
-        Follower.get_or_create('https://masto/user', 'foo.com',
+        Follower.get_or_create('https://no/stored/follow', 'user.com')
+        Follower.get_or_create('https://masto/user', 'user.com',
                                last_follow=FOLLOW_WITH_OBJECT)
-        Follower.get_or_create( 'http://other', 'foo.com',
+        Follower.get_or_create( 'http://other', 'user.com',
                                last_follow=other_follow)
         Follower.get_or_create('http://nope', 'nope.com',
                                last_follow=other_follow)
 
         resp = self.client.get('/xrpc/app.bsky.graph.getFollows',
-                              query_string={'user': 'foo.com'})
+                              query_string={'user': 'user.com'})
         self.assertEqual(200, resp.status_code)
         self.assert_equals({
             'subject': SUBJECT,

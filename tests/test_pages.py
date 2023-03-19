@@ -31,15 +31,15 @@ class PagesTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('foo.com')
+        self.user = self.make_user('user.com')
 
     def test_user(self):
-        got = self.client.get('/user/foo.com')
+        got = self.client.get('/user/user.com')
         self.assert_equals(200, got.status_code)
 
     def test_user_objects(self):
         self.add_objects()
-        got = self.client.get('/user/foo.com')
+        got = self.client.get('/user/user.com')
         self.assert_equals(200, got.status_code)
 
     def test_user_not_found(self):
@@ -53,14 +53,14 @@ class PagesTest(testutil.TestCase):
 
         got = self.client.get('/user/bar.com')
         self.assert_equals(301, got.status_code)
-        self.assert_equals('/user/foo.com', got.headers['Location'])
+        self.assert_equals('/user/user.com', got.headers['Location'])
 
     def test_user_object_bare_string_id(self):
         with app.test_request_context('/'):
-            Object(id='a', domains=['foo.com'], labels=['notification'],
+            Object(id='a', domains=['user.com'], labels=['notification'],
                    as2=REPOST_AS2).put()
 
-        got = self.client.get('/user/foo.com')
+        got = self.client.get('/user/user.com')
         self.assert_equals(200, got.status_code)
 
     @patch('requests.get')
@@ -159,35 +159,35 @@ class PagesTest(testutil.TestCase):
         self.assert_equals(404, got.status_code)
 
     def test_feed_html_empty(self):
-        got = self.client.get('/user/foo.com/feed')
+        got = self.client.get('/user/user.com/feed')
         self.assert_equals(200, got.status_code)
         self.assert_equals([], microformats2.html_to_activities(got.text))
 
     def test_feed_html(self):
         self.add_objects()
-        got = self.client.get('/user/foo.com/feed')
+        got = self.client.get('/user/user.com/feed')
         self.assert_equals(200, got.status_code)
         self.assert_equals(self.EXPECTED,
                            contents(microformats2.html_to_activities(got.text)))
 
     def test_feed_atom_empty(self):
-        got = self.client.get('/user/foo.com/feed?format=atom')
+        got = self.client.get('/user/user.com/feed?format=atom')
         self.assert_equals(200, got.status_code)
         self.assert_equals([], atom.atom_to_activities(got.text))
 
     def test_feed_atom(self):
         self.add_objects()
-        got = self.client.get('/user/foo.com/feed?format=atom')
+        got = self.client.get('/user/user.com/feed?format=atom')
         self.assert_equals(200, got.status_code)
         self.assert_equals(self.EXPECTED, contents(atom.atom_to_activities(got.text)))
 
     def test_feed_rss_empty(self):
-        got = self.client.get('/user/foo.com/feed?format=rss')
+        got = self.client.get('/user/user.com/feed?format=rss')
         self.assert_equals(200, got.status_code)
         self.assert_equals([], rss.to_activities(got.text))
 
     def test_feed_rss(self):
         self.add_objects()
-        got = self.client.get('/user/foo.com/feed?format=rss')
+        got = self.client.get('/user/user.com/feed?format=rss')
         self.assert_equals(200, got.status_code)
         self.assert_equals(self.EXPECTED, contents(rss.to_activities(got.text)))

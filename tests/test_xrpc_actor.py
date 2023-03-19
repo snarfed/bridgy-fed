@@ -14,18 +14,18 @@ class XrpcActorTest(testutil.TestCase):
         actor = {
             **ACTOR,
             'summary': "I'm a person",
-            'image': [{'type': 'Image', 'url': 'http://foo.com/header.png'}],
+            'image': [{'type': 'Image', 'url': 'http://user.com/header.png'}],
         }
-        self.make_user('foo.com', has_hcard=True, actor_as2=actor)
+        self.make_user('user.com', has_hcard=True, actor_as2=actor)
 
         resp = self.client.get('/xrpc/app.bsky.actor.getProfile',
-                               query_string={'actor': 'foo.com'})
+                               query_string={'actor': 'user.com'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
-            'handle': 'mastodon.social/users/swentel',
-            'did': 'did:web:mastodon.social:users:swentel',
-            'creator': 'did:web:mastodon.social:users:swentel',
+            'handle': 'mas.to/users/swentel',
+            'did': 'did:web:mas.to:users:swentel',
+            'creator': 'did:web:mas.to:users:swentel',
             'displayName': 'Mrs. ☕ Foo',
             'declaration': {
                 '$type': 'app.bsky.system.declRef',
@@ -33,8 +33,8 @@ class XrpcActorTest(testutil.TestCase):
                 'actorType': 'app.bsky.system.actorUser',
             },
             'description': "I'm a person",
-            'avatar': 'https://foo.com/me.jpg',
-            'banner': 'http://foo.com/header.png',
+            'avatar': 'https://user.com/me.jpg',
+            'banner': 'http://user.com/header.png',
             'followersCount': 0,
             'followsCount': 0,
             'membersCount': 0,
@@ -56,7 +56,7 @@ class XrpcActorTest(testutil.TestCase):
 
     def test_getProfile_no_user(self):
         resp = self.client.get('/xrpc/app.bsky.actor.getProfile',
-                               query_string={'actor': 'foo.com'})
+                               query_string={'actor': 'user.com'})
         self.assertEqual(400, resp.status_code)
 
     def test_getSuggestions(self):

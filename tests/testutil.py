@@ -22,7 +22,7 @@ import protocol
 
 # used in TestCase.make_user() to reuse RSA keys across Users
 with ndb_client.context():
-    global_user = User.get_or_create('foo.com')
+    global_user = User.get_or_create('user.com')
 
 
 class FakeProtocol(protocol.Protocol):
@@ -78,19 +78,19 @@ class TestCase(unittest.TestCase, testutil.Asserts):
     def add_objects():
         with app.test_request_context('/'):
             # post
-            Object(id='a', domains=['foo.com'], labels=['feed', 'notification'],
+            Object(id='a', domains=['user.com'], labels=['feed', 'notification'],
                    as2=as2.from_as1(NOTE)).put()
             # different domain
-            Object(id='b', domains=['bar.org'], labels=['feed', 'notification'],
+            Object(id='b', domains=['nope.org'], labels=['feed', 'notification'],
                    as2=as2.from_as1(MENTION)).put()
             # reply
-            Object(id='d', domains=['foo.com'], labels=['feed', 'notification'],
+            Object(id='d', domains=['user.com'], labels=['feed', 'notification'],
                    as2=as2.from_as1(COMMENT)).put()
             # not feed/notif
-            Object(id='e', domains=['foo.com'],
+            Object(id='e', domains=['user.com'],
                    as2=as2.from_as1(NOTE)).put()
             # deleted
-            Object(id='f', domains=['foo.com'], labels=['feed', 'notification', 'user'],
+            Object(id='f', domains=['user.com'], labels=['feed', 'notification', 'user'],
                    as2=as2.from_as1(NOTE), deleted=True).put()
 
     def req(self, url, **kwargs):

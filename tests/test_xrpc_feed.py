@@ -80,26 +80,26 @@ class XrpcFeedTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.make_user('foo.com', has_hcard=True, actor_as2=ACTOR)
+        self.make_user('user.com', has_hcard=True, actor_as2=ACTOR)
 
     def test_getAuthorFeed(self):
         post_as2 = as2.from_as1(POST_AS)
         with app.test_request_context('/'):
-            Object(id='a', domains=['foo.com'], labels=['user'], as2=post_as2).put()
-            Object(id='b', domains=['foo.com'], labels=['user'],
+            Object(id='a', domains=['user.com'], labels=['user'], as2=post_as2).put()
+            Object(id='b', domains=['user.com'], labels=['user'],
                    as2=as2.from_as1(REPLY_AS)).put()
-            Object(id='c', domains=['foo.com'], labels=['user'],
+            Object(id='c', domains=['user.com'], labels=['user'],
                    as2=as2.from_as1(REPOST_AS)).put()
             # not outbound from user
-            Object(id='d', domains=['foo.com'], labels=['feed'], as2=post_as2).put()
+            Object(id='d', domains=['user.com'], labels=['feed'], as2=post_as2).put()
             # deleted
-            Object(id='e', domains=['foo.com'], labels=['user'], as2=post_as2,
+            Object(id='e', domains=['user.com'], labels=['user'], as2=post_as2,
                      deleted=True).put()
             # other user's
             Object(id='f', domains=['bar.org'], labels=['user'], as2=post_as2).put()
 
         resp = self.client.get('/xrpc/app.bsky.feed.getAuthorFeed',
-                               query_string={'author': 'foo.com'})
+                               query_string={'author': 'user.com'})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual({
             'feed': [REPOST_BSKY, REPLY_BSKY, POST_BSKY],
@@ -121,13 +121,13 @@ class XrpcFeedTest(testutil.TestCase):
 
     def test_getAuthorFeed_no_objects(self):
         resp = self.client.get('/xrpc/app.bsky.feed.getAuthorFeed',
-                               query_string={'author': 'foo.com'})
+                               query_string={'author': 'user.com'})
         self.assertEqual(200, resp.status_code)
         self.assert_equals({'feed': []}, resp.json)
 
     def test_getPostThread(self):
         with app.test_request_context('/'):
-            Object(id='http://a/post', domains=['foo.com'], labels=['user'],
+            Object(id='http://a/post', domains=['user.com'], labels=['user'],
                    as2=as2.from_as1(POST_THREAD_AS)).put()
 
         resp = self.client.get('/xrpc/app.bsky.feed.getPostThread',
@@ -146,11 +146,11 @@ class XrpcFeedTest(testutil.TestCase):
 
     def test_getRepostedBy(self):
         with app.test_request_context('/'):
-            Object(id='repost/1', domains=['foo.com'], as2=as2.from_as1({
+            Object(id='repost/1', domains=['user.com'], as2=as2.from_as1({
                 **REPOST_AS,
                 'object': 'http://a/post',
             })).put()
-            Object(id='repost/2', domains=['foo.com'], as2=as2.from_as1({
+            Object(id='repost/2', domains=['user.com'], as2=as2.from_as1({
                 **REPOST_AS,
                 'object': 'http://a/post',
                 'actor': as2.to_as1(ACTOR),
@@ -162,15 +162,15 @@ class XrpcFeedTest(testutil.TestCase):
             'uri': 'http://orig/post',
             'repostBy': [{
                 '$type': 'app.bsky.feed.getRepostedBy#repostedBy',
-                'did': 'did:web:mastodon.social:users:swentel',
+                'did': 'did:web:mas.to:users:swentel',
                 'declaration': {
                     '$type': 'app.bsky.system.declRef',
                     'cid': 'TODO',
                     'actorType': 'app.bsky.system.actorUser',
                 },
-                'handle': 'mastodon.social/users/swentel',
+                'handle': 'mas.to/users/swentel',
                 'displayName': 'Mrs. ☕ Foo',
-                'avatar': 'https://foo.com/me.jpg',
+                'avatar': 'https://user.com/me.jpg',
             }, {
                 '$type': 'app.bsky.feed.getRepostedBy#repostedBy',
                 'did': 'did:web:alice.com',

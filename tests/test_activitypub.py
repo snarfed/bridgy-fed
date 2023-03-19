@@ -30,38 +30,38 @@ from . import testutil
 
 ACTOR = {
     '@context': 'https://www.w3.org/ns/activitystreams',
-    'id': 'https://mastodon.social/users/swentel',
+    'id': 'https://mas.to/users/swentel',
     'type': 'Person',
-    'inbox': 'http://follower/inbox',
+    'inbox': 'http://mas.to/inbox',
     'name': 'Mrs. ☕ Foo',
-    'icon': {'type': 'Image', 'url': 'https://foo.com/me.jpg'},
+    'icon': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
 }
 REPLY_OBJECT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Note',
     'content': 'A ☕ reply',
-    'id': 'http://th.is/reply/id',
-    'url': 'http://th.is/reply',
-    'inReplyTo': 'http://or.ig/post',
+    'id': 'http://mas.to/reply/id',
+    'url': 'http://mas.to/reply',
+    'inReplyTo': 'https://user.com/post',
     'to': [as2.PUBLIC_AUDIENCE],
 }
 REPLY_OBJECT_WRAPPED = copy.deepcopy(REPLY_OBJECT)
-REPLY_OBJECT_WRAPPED['inReplyTo'] = 'http://localhost/r/http://or.ig/post'
+REPLY_OBJECT_WRAPPED['inReplyTo'] = 'http://localhost/r/https://user.com/post'
 REPLY = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Create',
-    'id': 'http://th.is/reply/as2',
+    'id': 'http://mas.to/reply/as2',
     'object': REPLY_OBJECT,
 }
 NOTE_OBJECT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Note',
     'content': '☕ just a normal post',
-    'id': 'http://th.is/note/id',
-    'url': 'http://th.is/note',
+    'id': 'http://mas.to/note/id',
+    'url': 'http://mas.to/note',
     'to': [as2.PUBLIC_AUDIENCE],
     'cc': [
-        'https://th.is/author/followers',
+        'https://mas.to/author/followers',
         'https://masto.foo/@other',
         'http://localhost/target',  # redirect-wrapped
     ],
@@ -69,14 +69,14 @@ NOTE_OBJECT = {
 NOTE = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Create',
-    'id': 'http://th.is/note/as2',
+    'id': 'http://mas.to/note/as2',
     'actor': 'https://masto.foo/@author',
     'object': NOTE_OBJECT,
 }
 MENTION_OBJECT = copy.deepcopy(NOTE_OBJECT)
 MENTION_OBJECT.update({
-    'id': 'http://th.is/mention/id',
-    'url': 'http://th.is/mention',
+    'id': 'http://mas.to/mention/id',
+    'url': 'http://mas.to/mention',
     'tag': [{
         'type': 'Mention',
         'href': 'https://masto.foo/@other',
@@ -90,7 +90,7 @@ MENTION_OBJECT.update({
 MENTION = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Create',
-    'id': 'http://th.is/mention/as2',
+    'id': 'http://mas.to/mention/as2',
     'object': MENTION_OBJECT,
 }
 # based on example Mastodon like:
@@ -98,22 +98,22 @@ MENTION = {
 # (reposts are very similar)
 LIKE = {
     '@context': 'https://www.w3.org/ns/activitystreams',
-    'id': 'http://th.is/like#ok',
+    'id': 'http://mas.to/like#ok',
     'type': 'Like',
-    'object': 'http://or.ig/post',
-    'actor': 'http://or.ig/actor',
+    'object': 'https://user.com/post',
+    'actor': 'https://user.com/actor',
 }
 LIKE_WRAPPED = copy.deepcopy(LIKE)
-LIKE_WRAPPED['object'] = 'http://localhost/r/http://or.ig/post'
+LIKE_WRAPPED['object'] = 'http://localhost/r/https://user.com/post'
 LIKE_WITH_ACTOR = copy.deepcopy(LIKE)
 # TODO: use ACTOR instead
 LIKE_WITH_ACTOR['actor'] = {
     '@context': 'https://www.w3.org/ns/activitystreams',
-    'id': 'http://or.ig/actor',
+    'id': 'https://user.com/actor',
     'type': 'Person',
     'name': 'Ms. Actor',
     'preferredUsername': 'msactor',
-    'image': {'type': 'Image', 'url': 'http://or.ig/pic.jpg'},
+    'image': {'type': 'Image', 'url': 'https://user.com/pic.jpg'},
 }
 
 # repost of fediverse post, should be delivered to followers
@@ -134,13 +134,13 @@ REPOST_FULL = {
 
 FOLLOW = {
     '@context': 'https://www.w3.org/ns/activitystreams',
-    'id': 'https://mastodon.social/6d1a',
+    'id': 'https://mas.to/6d1a',
     'type': 'Follow',
     'actor': ACTOR['id'],
-    'object': 'https://foo.com/',
+    'object': 'https://user.com/',
 }
 FOLLOW_WRAPPED = copy.deepcopy(FOLLOW)
-FOLLOW_WRAPPED['object'] = 'http://localhost/foo.com'
+FOLLOW_WRAPPED['object'] = 'http://localhost/user.com'
 FOLLOW_WITH_ACTOR = copy.deepcopy(FOLLOW)
 FOLLOW_WITH_ACTOR['actor'] = ACTOR
 FOLLOW_WRAPPED_WITH_ACTOR = copy.deepcopy(FOLLOW_WRAPPED)
@@ -151,36 +151,36 @@ FOLLOW_WITH_OBJECT['object'] = ACTOR
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Accept',
-    'id': 'tag:fed.brid.gy:accept/foo.com/https://mastodon.social/6d1a',
-    'actor': 'http://localhost/foo.com',
+    'id': 'tag:fed.brid.gy:accept/user.com/https://mas.to/6d1a',
+    'actor': 'http://localhost/user.com',
     'object': {
         'type': 'Follow',
-        'actor': 'https://mastodon.social/users/swentel',
-        'object': 'http://localhost/foo.com',
+        'actor': 'https://mas.to/users/swentel',
+        'object': 'http://localhost/user.com',
     }
 }
 
 UNDO_FOLLOW_WRAPPED = {
   '@context': 'https://www.w3.org/ns/activitystreams',
-  'id': 'https://mastodon.social/6d1b',
+  'id': 'https://mas.to/6d1b',
   'type': 'Undo',
-  'actor': 'https://mastodon.social/users/swentel',
+  'actor': 'https://mas.to/users/swentel',
   'object': FOLLOW_WRAPPED,
 }
 
 DELETE = {
     '@context': 'https://www.w3.org/ns/activitystreams',
-    'id': 'https://mastodon.social/users/swentel#delete',
+    'id': 'https://mas.to/users/swentel#delete',
     'type': 'Delete',
-    'actor': 'https://mastodon.social/users/swentel',
-    'object': 'https://mastodon.social/users/swentel',
+    'actor': 'https://mas.to/users/swentel',
+    'object': 'https://mas.to/users/swentel',
 }
 
 UPDATE_PERSON = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'id': 'https://a/person#update',
     'type': 'Update',
-    'actor': 'https://mastodon.social/users/swentel',
+    'actor': 'https://mas.to/users/swentel',
     'object': {
         'type': 'Person',
         'id': 'https://a/person',
@@ -190,7 +190,7 @@ UPDATE_NOTE = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'id': 'https://a/note#update',
     'type': 'Update',
-    'actor': 'https://mastodon.social/users/swentel',
+    'actor': 'https://mas.to/users/swentel',
     'object': {
         'type': 'Note',
         'id': 'https://a/note',
@@ -223,7 +223,7 @@ class ActivityPubTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('foo.com', has_hcard=True, actor_as2=ACTOR)
+        self.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR)
         with app.test_request_context('/'):
             self.key_id_obj = Object(id='http://my/key/id', as2={
                 **ACTOR,
@@ -254,7 +254,7 @@ class ActivityPubTest(testutil.TestCase):
         return self.client.post(path, data=body, headers=self.sign(path, body))
 
     def test_actor(self, *_):
-        got = self.client.get('/foo.com')
+        got = self.client.get('/user.com')
         self.assertEqual(200, got.status_code)
         type = got.headers['Content-Type']
         self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
@@ -266,20 +266,20 @@ class ActivityPubTest(testutil.TestCase):
             'type' : 'Person',
             'name': 'Mrs. ☕ Foo',
             'summary': '',
-            'preferredUsername': 'foo.com',
-            'id': 'http://localhost/foo.com',
-            'url': 'http://localhost/r/https://foo.com/',
-            'icon': {'type': 'Image', 'url': 'https://foo.com/me.jpg'},
-            'inbox': 'http://localhost/foo.com/inbox',
-            'outbox': 'http://localhost/foo.com/outbox',
-            'following': 'http://localhost/foo.com/following',
-            'followers': 'http://localhost/foo.com/followers',
+            'preferredUsername': 'user.com',
+            'id': 'http://localhost/user.com',
+            'url': 'http://localhost/r/https://user.com/',
+            'icon': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
+            'inbox': 'http://localhost/user.com/inbox',
+            'outbox': 'http://localhost/user.com/outbox',
+            'following': 'http://localhost/user.com/following',
+            'followers': 'http://localhost/user.com/followers',
             'endpoints': {
                 'sharedInbox': 'http://localhost/inbox',
             },
             'publicKey': {
-                'id': 'http://localhost/foo.com',
-                'owner': 'http://localhost/foo.com',
+                'id': 'http://localhost/user.com',
+                'owner': 'http://localhost/user.com',
                 'publicKeyPem': self.user.public_pem().decode(),
             },
         }, got.json)
@@ -330,34 +330,34 @@ class ActivityPubTest(testutil.TestCase):
                            type='comment')
 
     def _test_inbox_reply(self, reply, expected_props, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='http://or.ig/post')
+        mock_head.return_value = requests_response(url='https://user.com/post')
         mock_get.return_value = WEBMENTION_DISCOVERY
         mock_post.return_value = requests_response()
 
-        got = self.post('/foo.com/inbox', json=reply)
+        got = self.post('/user.com/inbox', json=reply)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-        self.assert_req(mock_get, 'http://or.ig/post')
+        self.assert_req(mock_get, 'https://user.com/post')
         expected_id = urllib.parse.quote_plus(reply['id'])
         self.assert_req(
             mock_post,
-            'http://or.ig/webmention',
+            'https://user.com/webmention',
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
                 'source': f'http://localhost/render?id={expected_id}',
-                'target': 'http://or.ig/post',
+                'target': 'https://user.com/post',
             },
         )
 
         self.assert_object(reply['id'],
-                           domains=['or.ig'],
+                           domains=['user.com'],
                            source_protocol='activitypub',
                            status='complete',
-                           delivered=['http://or.ig/post'],
+                           delivered=['https://user.com/post'],
                            **expected_props)
 
     def test_inbox_reply_to_self_domain(self, mock_head, mock_get, mock_post):
-        self._test_inbox_ignore_reply_to('http://localhost/th.is',
+        self._test_inbox_ignore_reply_to('http://localhost/mas.to',
                                          mock_head, mock_get, mock_post)
 
     def test_inbox_reply_to_in_blocklist(self, *mocks):
@@ -367,22 +367,22 @@ class ActivityPubTest(testutil.TestCase):
         reply = copy.deepcopy(REPLY_OBJECT)
         reply['inReplyTo'] = reply_to
 
-        mock_head.return_value = requests_response(url='http://th.is/')
+        mock_head.return_value = requests_response(url='http://mas.to/')
 
-        got = self.post('/foo.com/inbox', json=reply)
+        got = self.post('/user.com/inbox', json=reply)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
         mock_get.assert_not_called()
         mock_post.assert_not_called()
 
     def test_individual_inbox_create_obj(self, *mocks):
-        self._test_inbox_create_obj('/foo.com/inbox', *mocks)
+        self._test_inbox_create_obj('/user.com/inbox', *mocks)
 
     def test_shared_inbox_create_obj(self, *mocks):
         self._test_inbox_create_obj('/inbox', *mocks)
 
     def _test_inbox_create_obj(self, path, mock_head, mock_get, mock_post):
-        Follower.get_or_create(NOTE['actor'], 'foo.com')
+        Follower.get_or_create(NOTE['actor'], 'user.com')
         Follower.get_or_create('http://other/actor', 'bar.com')
         Follower.get_or_create(NOTE['actor'], 'baz.com')
         Follower.get_or_create(NOTE['actor'], 'baj.com', status='inactive')
@@ -398,10 +398,10 @@ class ActivityPubTest(testutil.TestCase):
             'actor': ACTOR,
         })
 
-        self.assert_object('http://th.is/note/as2',
+        self.assert_object('http://mas.to/note/as2',
                            source_protocol='activitypub',
                            as2=expected_as2,
-                           domains=['foo.com', 'baz.com'],
+                           domains=['user.com', 'baz.com'],
                            type='post',
                            labels=['activity', 'feed'],
                            object_ids=[NOTE_OBJECT['id']])
@@ -411,14 +411,14 @@ class ActivityPubTest(testutil.TestCase):
                            type='note')
 
     def test_repost_of_federated_post(self, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='https://foo.com/orig')
+        mock_head.return_value = requests_response(url='https://user.com/orig')
         mock_get.return_value = WEBMENTION_DISCOVERY
         mock_post.return_value = requests_response()  # webmention
 
-        orig_url = 'https://foo.com/orig'
+        orig_url = 'https://user.com/orig'
         note = {
             **NOTE_OBJECT,
-            'url': 'https://foo.com/orig',
+            'url': 'https://user.com/orig',
         }
         with app.test_request_context('/'):
             Object(id=orig_url, as2=note).put()
@@ -427,13 +427,13 @@ class ActivityPubTest(testutil.TestCase):
             **REPOST_FULL,
             'object': f'http://localhost/r/{orig_url}',
         }
-        got = self.post('/foo.com/inbox', json=repost)
+        got = self.post('/user.com/inbox', json=repost)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
         source_url = f'http://localhost/render?id={urllib.parse.quote_plus(REPOST["id"])}'
         self.assert_req(
             mock_post,
-            'https://foo.com/webmention',
+            'https://user.com/webmention',
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
@@ -448,14 +448,14 @@ class ActivityPubTest(testutil.TestCase):
                            status='complete',
                            as2=repost,
                            as1=as2.to_as1(repost),
-                           domains=['foo.com'],
-                           delivered=['https://foo.com/orig'],
+                           domains=['user.com'],
+                           delivered=['https://user.com/orig'],
                            type='share',
                            labels=['activity', 'feed', 'notification'],
                            object_ids=[NOTE_OBJECT['id']])
 
     def test_shared_inbox_repost(self, mock_head, mock_get, mock_post):
-        Follower.get_or_create(ACTOR['id'], 'foo.com')
+        Follower.get_or_create(ACTOR['id'], 'user.com')
         Follower.get_or_create(ACTOR['id'], 'baz.com')
         Follower.get_or_create(ACTOR['id'], 'baj.com', status='inactive')
 
@@ -465,36 +465,23 @@ class ActivityPubTest(testutil.TestCase):
             self.as2_resp(NOTE_OBJECT),  # object of repost
             WEBMENTION_DISCOVERY,
         ]
-        mock_post.return_value = requests_response()  # webmention
 
         got = self.post('/inbox', json=REPOST)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
-        # webmention
-        expected_id = urllib.parse.quote_plus(REPOST['id'])
-        self.assert_req(
-            mock_post,
-            'http://th.is/webmention',
-            headers={'Accept': '*/*'},
-            allow_redirects=False,
-            data={
-                'source': f'http://localhost/render?id={expected_id}',
-                'target': NOTE_OBJECT['url'],
-            },
-        )
-
+        mock_post.assert_not_called()  # no same-domain webmention
         self.assert_object(REPOST['id'],
                            source_protocol='activitypub',
-                           status='complete',
+                           status='ignored',
                            as2=REPOST_FULL,
-                           domains=['foo.com', 'baz.com', 'th.is'],
+                           domains=['user.com', 'baz.com'],
                            type='share',
-                           labels=['activity', 'feed', 'notification'],
+                           labels=['activity', 'feed'],
                            object_ids=[REPOST['object']],
-                           delivered=[NOTE_OBJECT['url']])
+                           delivered=[])
 
     def test_inbox_not_public(self, mock_head, mock_get, mock_post):
-        Follower.get_or_create(ACTOR['id'], 'foo.com')
+        Follower.get_or_create(ACTOR['id'], 'user.com')
 
         mock_head.return_value = requests_response(url='http://target')
         mock_get.return_value = self.as2_resp(ACTOR)  # source actor
@@ -502,7 +489,7 @@ class ActivityPubTest(testutil.TestCase):
         not_public = copy.deepcopy(NOTE)
         del not_public['object']['to']
 
-        got = self.post('/foo.com/inbox', json=not_public)
+        got = self.post('/user.com/inbox', json=not_public)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
         self.assertIsNone(Object.get_by_id(not_public['id']))
@@ -544,7 +531,7 @@ class ActivityPubTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response()
 
-        got = self.post('/foo.com/inbox', json=mention)
+        got = self.post('/user.com/inbox', json=mention)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assert_req(mock_get, 'https://tar.get/')
         expected_id = urllib.parse.quote_plus(mention['id'])
@@ -569,7 +556,7 @@ class ActivityPubTest(testutil.TestCase):
                            **expected_props)
 
     def test_inbox_like(self, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='http://or.ig/post')
+        mock_head.return_value = requests_response(url='https://user.com/post')
         mock_get.side_effect = [
             # source actor
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
@@ -577,27 +564,27 @@ class ActivityPubTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response()
 
-        got = self.post('/foo.com/inbox', json=LIKE)
+        got = self.post('/user.com/inbox', json=LIKE)
         self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
-            self.as2_req('http://or.ig/actor'),
-            self.req('http://or.ig/post'),
+            self.as2_req('https://user.com/actor'),
+            self.req('https://user.com/post'),
         )),
 
         args, kwargs = mock_post.call_args
-        self.assertEqual(('http://or.ig/webmention',), args)
+        self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'http://localhost/render?id=http%3A%2F%2Fth.is%2Flike%23ok',
-            'target': 'http://or.ig/post',
+            'source': 'http://localhost/render?id=http%3A%2F%2Fmas.to%2Flike%23ok',
+            'target': 'https://user.com/post',
         }, kwargs['data'])
 
-        self.assert_object('http://th.is/like#ok',
-                           domains=['or.ig'],
+        self.assert_object('http://mas.to/like#ok',
+                           domains=['user.com'],
                            source_protocol='activitypub',
                            status='complete',
                            as2=LIKE_WITH_ACTOR,
-                           delivered=['http://or.ig/post'],
+                           delivered=['https://user.com/post'],
                            type='like',
                            labels=['notification', 'activity'],
                            object_ids=[LIKE['object']])
@@ -607,14 +594,14 @@ class ActivityPubTest(testutil.TestCase):
 
         follow = {
             **FOLLOW_WITH_ACTOR,
-            'url': 'https://mastodon.social/users/swentel#followed-https://foo.com/',
+            'url': 'https://mas.to/users/swentel#followed-https://user.com/',
         }
-        self.assert_object('https://mastodon.social/6d1a',
-                           domains=['foo.com'],
+        self.assert_object('https://mas.to/6d1a',
+                           domains=['user.com'],
                            source_protocol='activitypub',
                            status='complete',
                            as2=follow,
-                           delivered=['https://foo.com/'],
+                           delivered=['https://user.com/'],
                            type='follow',
                            labels=['notification', 'activity'],
                            object_ids=[FOLLOW['object']])
@@ -642,22 +629,22 @@ class ActivityPubTest(testutil.TestCase):
         follower = Follower.query().get()
         follow.update({
             'actor': ACTOR,
-            'url': 'https://mastodon.social/users/swentel#followed-https://foo.com/',
+            'url': 'https://mas.to/users/swentel#followed-https://user.com/',
         })
         self.assertEqual(follow, follower.last_follow)
-        self.assert_object('https://mastodon.social/6d1a',
-                           domains=['foo.com'],
+        self.assert_object('https://mas.to/6d1a',
+                           domains=['user.com'],
                            source_protocol='activitypub',
                            status='complete',
                            as2=follow,
-                           delivered=['https://foo.com/'],
+                           delivered=['https://user.com/'],
                            type='follow',
                            labels=['notification', 'activity'],
                            object_ids=[FOLLOW['object']])
 
     def _test_inbox_follow_accept(self, follow_as2, accept_as2,
                                   mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='https://foo.com/')
+        mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             # source actor
             self.as2_resp(ACTOR),
@@ -665,7 +652,7 @@ class ActivityPubTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response()
 
-        got = self.post('/foo.com/inbox', json=follow_as2)
+        got = self.post('/user.com/inbox', json=follow_as2)
         self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
@@ -675,25 +662,25 @@ class ActivityPubTest(testutil.TestCase):
         # check AP Accept
         self.assertEqual(2, len(mock_post.call_args_list))
         args, kwargs = mock_post.call_args_list[0]
-        self.assertEqual(('http://follower/inbox',), args)
+        self.assertEqual(('http://mas.to/inbox',), args)
         self.assertEqual(accept_as2, json_loads(kwargs['data']))
 
         # check webmention
         args, kwargs = mock_post.call_args_list[1]
-        self.assertEqual(('https://foo.com/webmention',), args)
+        self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'http://localhost/render?id=https%3A%2F%2Fmastodon.social%2F6d1a',
-            'target': 'https://foo.com/',
+            'source': 'http://localhost/render?id=https%3A%2F%2Fmas.to%2F6d1a',
+            'target': 'https://user.com/',
         }, kwargs['data'])
 
         # check that we stored a Follower object
-        follower = Follower.get_by_id(f'foo.com {FOLLOW["actor"]}')
+        follower = Follower.get_by_id(f'user.com {FOLLOW["actor"]}')
         self.assertEqual('active', follower.status)
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
-        self.make_user('www.foo.com', use_instead=self.user.key)
+        self.make_user('www.user.com', use_instead=self.user.key)
 
-        mock_head.return_value = requests_response(url='https://www.foo.com/')
+        mock_head.return_value = requests_response(url='https://www.user.com/')
         mock_get.side_effect = [
             # source actor
             self.as2_resp(ACTOR),
@@ -702,35 +689,35 @@ class ActivityPubTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response()
 
-        got = self.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
+        got = self.post('/user.com/inbox', json=FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
         # check that the Follower doesn't have www
-        follower = Follower.get_by_id(f'foo.com {ACTOR["id"]}')
+        follower = Follower.get_by_id(f'user.com {ACTOR["id"]}')
         self.assertEqual('active', follower.status)
         self.assertEqual({
             **FOLLOW_WITH_ACTOR,
-            'url': 'https://mastodon.social/users/swentel#followed-https://foo.com/',
+            'url': 'https://mas.to/users/swentel#followed-https://user.com/',
         }, follower.last_follow)
 
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='https://foo.com/')
+        mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
         ]
 
-        Follower.get_or_create('foo.com', ACTOR['id'])
+        Follower.get_or_create('user.com', ACTOR['id'])
 
-        got = self.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
+        got = self.post('/user.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
-        follower = Follower.get_by_id(f'foo.com {FOLLOW["actor"]}')
+        follower = Follower.get_by_id(f'user.com {FOLLOW["actor"]}')
         self.assertEqual('inactive', follower.status)
 
     def test_inbox_follow_inactive(self, mock_head, mock_get, mock_post):
-        Follower.get_or_create('foo.com', ACTOR['id'], status='inactive')
+        Follower.get_or_create('user.com', ACTOR['id'], status='inactive')
 
-        mock_head.return_value = requests_response(url='https://foo.com/')
+        mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             # source actor
             self.as2_resp(FOLLOW_WITH_ACTOR['actor']),
@@ -738,48 +725,48 @@ class ActivityPubTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response()
 
-        got = self.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
+        got = self.post('/user.com/inbox', json=FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
         # check that the Follower is now active
-        follower = Follower.get_by_id(f'foo.com {FOLLOW["actor"]}')
+        follower = Follower.get_by_id(f'user.com {FOLLOW["actor"]}')
         self.assertEqual('active', follower.status)
 
     def test_inbox_undo_follow_doesnt_exist(self, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='https://foo.com/')
+        mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
         ]
 
-        got = self.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
+        got = self.post('/user.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
     def test_inbox_undo_follow_inactive(self, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='https://foo.com/')
+        mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
         ]
 
-        Follower.get_or_create('foo.com', ACTOR['id'], status='inactive')
+        Follower.get_or_create('user.com', ACTOR['id'], status='inactive')
 
-        got = self.post('/foo.com/inbox', json=UNDO_FOLLOW_WRAPPED)
+        got = self.post('/user.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
     def test_inbox_undo_follow_composite_object(self, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='https://foo.com/')
+        mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
         ]
 
-        Follower.get_or_create('foo.com', ACTOR['id'], status='inactive')
+        Follower.get_or_create('user.com', ACTOR['id'], status='inactive')
 
         undo_follow = copy.deepcopy(UNDO_FOLLOW_WRAPPED)
         undo_follow['object']['object'] = {'id': undo_follow['object']['object']}
-        got = self.post('/foo.com/inbox', json=undo_follow)
+        got = self.post('/user.com/inbox', json=undo_follow)
         self.assertEqual(200, got.status_code)
 
     def test_inbox_unsupported_type(self, *_):
-        got = self.post('/foo.com/inbox', json={
+        got = self.post('/user.com/inbox', json={
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'https://xoxo.zone/users/aaronpk#follows/40',
             'type': 'Block',
@@ -792,9 +779,9 @@ class ActivityPubTest(testutil.TestCase):
         # https://console.cloud.google.com/errors/detail/CMKn7tqbq-GIRA;time=P30D?project=bridgy-federated
         mock_get.return_value = self.as2_resp(ACTOR)  # source actor
 
-        id = 'https://mastodon.social/users/tmichellemoore#likes/56486252'
+        id = 'https://mas.to/users/tmichellemoore#likes/56486252'
         bad_url = 'http://localhost/r/Testing \u2013 Brid.gy \u2013 Post to Mastodon 3'
-        got = self.post('/foo.com/inbox', json={
+        got = self.post('/user.com/inbox', json={
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': id,
             'type': 'Like',
@@ -882,10 +869,10 @@ class ActivityPubTest(testutil.TestCase):
         mock_common_log.assert_any_call('Returning 401: No HTTP Signature')
 
     def test_delete_actor(self, *mocks):
-        follower = Follower.get_or_create('foo.com', DELETE['actor'])
+        follower = Follower.get_or_create('user.com', DELETE['actor'])
         followee = Follower.get_or_create(DELETE['actor'], 'snarfed.org')
         # other unrelated follower
-        other = Follower.get_or_create('foo.com', 'https://mas.to/users/other')
+        other = Follower.get_or_create('user.com', 'https://mas.to/users/other')
         self.assertEqual(3, Follower.query().count())
 
         got = self.post('/inbox', json=DELETE)
@@ -968,7 +955,7 @@ class ActivityPubTest(testutil.TestCase):
             ReadTimeoutError(None, None, None),
         ]
 
-        got = self.post('/foo.com/inbox', json=LIKE)
+        got = self.post('/user.com/inbox', json=LIKE)
         self.assertEqual(504, got.status_code)
 
     def test_inbox_no_webmention_endpoint(self, mock_head, mock_get, mock_post):
@@ -976,31 +963,31 @@ class ActivityPubTest(testutil.TestCase):
             # source actor
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
             # target post webmention discovery
-            requests_response('<html><body>foo</body></html>'),
+            HTML,
         ]
 
-        got = self.post('/foo.com/inbox', json=LIKE)
+        got = self.post('/user.com/inbox', json=LIKE)
         self.assertEqual(200, got.status_code)
 
-        self.assert_object('http://th.is/like#ok',
-                           domains=['or.ig'],
+        self.assert_object('http://mas.to/like#ok',
+                           domains=['user.com'],
                            source_protocol='activitypub',
                            status='complete',
                            as2=LIKE_WITH_ACTOR,
                            type='like',
-                           labels=['activity'],
+                           labels=['activity', 'notification'],
                            object_ids=[LIKE['object']])
 
     def test_inbox_id_already_seen(self, *mocks):
         obj_key = Object(id=FOLLOW_WRAPPED['id'], as2={}).put()
 
-        got = self.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
+        got = self.post('/user.com/inbox', json=FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
         self.assertEqual(0, Follower.query().count())
 
         # second time should use in memory cache
         obj_key.delete()
-        got = self.post('/foo.com/inbox', json=FOLLOW_WRAPPED)
+        got = self.post('/user.com/inbox', json=FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
         self.assertEqual(0, Follower.query().count())
 
@@ -1009,43 +996,43 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(404, resp.status_code)
 
     def test_followers_collection_empty(self, *args):
-        resp = self.client.get('/foo.com/followers')
+        resp = self.client.get('/user.com/followers')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': 'http://localhost/foo.com/followers',
+            'id': 'http://localhost/user.com/followers',
             'type': 'Collection',
-            'summary': "foo.com's followers",
+            'summary': "user.com's followers",
             'totalItems': 0,
             'first': {
                 'type': 'CollectionPage',
-                'partOf': 'http://localhost/foo.com/followers',
+                'partOf': 'http://localhost/user.com/followers',
                 'items': [],
             },
         }, resp.json)
 
     def store_followers(self):
-        Follower.get_or_create('foo.com', 'https://bar.com',
+        Follower.get_or_create('user.com', 'https://bar.com',
                                last_follow=FOLLOW_WITH_ACTOR)
-        Follower.get_or_create('http://other/actor', 'foo.com')
-        Follower.get_or_create('foo.com', 'https://baz.com',
+        Follower.get_or_create('http://other/actor', 'user.com')
+        Follower.get_or_create('user.com', 'https://baz.com',
                                last_follow=FOLLOW_WITH_ACTOR)
-        Follower.get_or_create('foo.com', 'baj.com', status='inactive')
+        Follower.get_or_create('user.com', 'baj.com', status='inactive')
 
     def test_followers_collection(self, *args):
         self.store_followers()
 
-        resp = self.client.get('/foo.com/followers')
+        resp = self.client.get('/user.com/followers')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': 'http://localhost/foo.com/followers',
+            'id': 'http://localhost/user.com/followers',
             'type': 'Collection',
-            'summary': "foo.com's followers",
+            'summary': "user.com's followers",
             'totalItems': 2,
             'first': {
                 'type': 'CollectionPage',
-                'partOf': 'http://localhost/foo.com/followers',
+                'partOf': 'http://localhost/user.com/followers',
                 'items': [ACTOR, ACTOR],
             },
         }, resp.json)
@@ -1054,17 +1041,17 @@ class ActivityPubTest(testutil.TestCase):
     def test_followers_collection_page(self, *args):
         self.store_followers()
         before = (datetime.utcnow() + timedelta(seconds=1)).isoformat()
-        next = Follower.get_by_id('foo.com https://baz.com').updated.isoformat()
+        next = Follower.get_by_id('user.com https://baz.com').updated.isoformat()
 
-        resp = self.client.get(f'/foo.com/followers?before={before}')
+        resp = self.client.get(f'/user.com/followers?before={before}')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': f'http://localhost/foo.com/followers?before={before}',
+            'id': f'http://localhost/user.com/followers?before={before}',
             'type': 'CollectionPage',
-            'partOf': 'http://localhost/foo.com/followers',
-            'next': f'http://localhost/foo.com/followers?before={next}',
-            'prev': f'http://localhost/foo.com/followers?after={before}',
+            'partOf': 'http://localhost/user.com/followers',
+            'next': f'http://localhost/user.com/followers?before={next}',
+            'prev': f'http://localhost/user.com/followers?after={before}',
             'items': [ACTOR],
         }, resp.json)
 
@@ -1073,43 +1060,43 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(404, resp.status_code)
 
     def test_following_collection_empty(self, *args):
-        resp = self.client.get('/foo.com/following')
+        resp = self.client.get('/user.com/following')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': 'http://localhost/foo.com/following',
-            'summary': "foo.com's following",
+            'id': 'http://localhost/user.com/following',
+            'summary': "user.com's following",
             'type': 'Collection',
             'totalItems': 0,
             'first': {
                 'type': 'CollectionPage',
-                'partOf': 'http://localhost/foo.com/following',
+                'partOf': 'http://localhost/user.com/following',
                 'items': [],
             },
         }, resp.json)
 
     def store_following(self):
-        Follower.get_or_create('https://bar.com', 'foo.com',
+        Follower.get_or_create('https://bar.com', 'user.com',
                                last_follow=FOLLOW_WITH_OBJECT)
-        Follower.get_or_create('foo.com', 'http://other/actor')
-        Follower.get_or_create('https://baz.com', 'foo.com',
+        Follower.get_or_create('user.com', 'http://other/actor')
+        Follower.get_or_create('https://baz.com', 'user.com',
                                last_follow=FOLLOW_WITH_OBJECT)
-        Follower.get_or_create('baj.com', 'foo.com', status='inactive')
+        Follower.get_or_create('baj.com', 'user.com', status='inactive')
 
     def test_following_collection(self, *args):
         self.store_following()
 
-        resp = self.client.get('/foo.com/following')
+        resp = self.client.get('/user.com/following')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': 'http://localhost/foo.com/following',
-            'summary': "foo.com's following",
+            'id': 'http://localhost/user.com/following',
+            'summary': "user.com's following",
             'type': 'Collection',
             'totalItems': 2,
             'first': {
                 'type': 'CollectionPage',
-                'partOf': 'http://localhost/foo.com/following',
+                'partOf': 'http://localhost/user.com/following',
                 'items': [ACTOR, ACTOR],
             },
         }, resp.json)
@@ -1118,32 +1105,32 @@ class ActivityPubTest(testutil.TestCase):
     def test_following_collection_page(self, *args):
         self.store_following()
         after = datetime(1900, 1, 1).isoformat()
-        prev = Follower.get_by_id('https://baz.com foo.com').updated.isoformat()
+        prev = Follower.get_by_id('https://baz.com user.com').updated.isoformat()
 
-        resp = self.client.get(f'/foo.com/following?after={after}')
+        resp = self.client.get(f'/user.com/following?after={after}')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': f'http://localhost/foo.com/following?after={after}',
+            'id': f'http://localhost/user.com/following?after={after}',
             'type': 'CollectionPage',
-            'partOf': 'http://localhost/foo.com/following',
-            'prev': f'http://localhost/foo.com/following?after={prev}',
-            'next': f'http://localhost/foo.com/following?before={after}',
+            'partOf': 'http://localhost/user.com/following',
+            'prev': f'http://localhost/user.com/following?after={prev}',
+            'next': f'http://localhost/user.com/following?before={after}',
             'items': [ACTOR],
         }, resp.json)
 
     def test_outbox_empty(self, _, mock_get, __):
-        resp = self.client.get(f'/foo.com/outbox')
+        resp = self.client.get(f'/user.com/outbox')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': 'http://localhost/foo.com/outbox',
-            'summary': "foo.com's outbox",
+            'id': 'http://localhost/user.com/outbox',
+            'summary': "user.com's outbox",
             'type': 'OrderedCollection',
             'totalItems': 0,
             'first': {
                 'type': 'CollectionPage',
-                'partOf': 'http://localhost/foo.com/outbox',
+                'partOf': 'http://localhost/user.com/outbox',
                 'items': [],
             },
         }, resp.json)
@@ -1152,7 +1139,7 @@ class ActivityPubTest(testutil.TestCase):
 class ActivityPubUtilsTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('foo.com', has_hcard=True, actor_as2=ACTOR)
+        self.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR)
         self.app_context = app.test_request_context('/')
         self.app_context.__enter__()
 

@@ -96,7 +96,7 @@ def getTimeline(input, algorithm=None, limit=50, before=None):
     lexicons/app/bsky/feed/getTimeline.json
     """
     # TODO: how to get authed user?
-    user = 'foo.com'
+    user = 'user.com'
 
     # TODO: de-dupe with pages.feed()
     logger.info(f'Fetching {limit} objects for {user}')
