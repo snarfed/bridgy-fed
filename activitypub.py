@@ -52,21 +52,10 @@ class ActivityPub(Protocol):
     LABEL = 'activitypub'
 
     @classmethod
-    def send(cls, url, activity, *, user=None, log_data=True):
-        """Sends an outgoing activity.
-
-        To be implemented by subclasses.
-
-        Args:
-            url: str, destination URL to send to
-            activity: dict, AS1 activity to send
-            user: :class:`User` this is on behalf of
-            log_data: boolean, whether to log full data object
-
-        Raises:
-            :class:`werkzeug.HTTPException` if the request fails
-        """
-        return signed_post(url, user=user, log_data=True, data=activity)
+    def send(cls, obj, url, *, user=None, log_data=True):
+        """Delivers an AS2 activity to an inbox URL."""
+        return signed_post(url, user=user, log_data=True, data=obj.as2)
+        # TODO: return bool or otherwise unify return value with others
 
     @classmethod
     def fetch(cls, id, obj, *, user=None):

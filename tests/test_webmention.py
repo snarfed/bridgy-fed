@@ -23,6 +23,7 @@ from common import (
 )
 from models import Follower, Object, Target, User
 from webmention import TASKS_LOCATION, Webmention
+from .test_activitypub import LIKE
 from . import testutil
 
 ACTOR_HTML = """\
@@ -132,6 +133,9 @@ REPOST_AS1_UNWRAPPED = {
     'object': 'https://mas.to/toot/id',
     'actor': ACTOR_AS1_UNWRAPPED,
 }
+WEBMENTION_REL_LINK = requests_response(
+    '<html><head><link rel="webmention" href="/webmention"></html>')
+WEBMENTION_NO_REL_LINK = requests_response('<html></html>')
 
 
 @mock.patch('requests.post')
@@ -354,7 +358,7 @@ class WebmentionTest(testutil.TestCase):
     def test_fetch(self, mock_get, mock_post):
         obj = Object()
         mock_get.return_value = self.reply
-        Webmention.fetch(obj, 'https://foo')
+        Webmention.fetch(obj, 'https://user.com/post')
         self.assert_equals(self.reply_as1, obj.as1)
 
     @skip
@@ -367,7 +371,38 @@ class WebmentionTest(testutil.TestCase):
         with self.assertRaises(BadGateway) as e:
             Webmention.fetch(Object(), 'https://foo')
 
-    def test_bad_source_url(self, mock_get, mock_post):
+    def test_send(self, mock_get, mock_post):
+        mock_get.return_value = WEBMENTION_REL_LINK
+        mock_post.return_value = requests_response()
+
+        obj = Object(id='http://mas.to/like#ok', as2=LIKE)
+        with app.test_request_context('/'):
+            self.assertTrue(Webmention.send(obj, 'https://user.com/post'))
+
+        self.assert_req(mock_get, 'https://user.com/post')
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://user.com/webmention',), args)
+        self.assertEqual({
+            'source': 'http://localhost/render?id=http%3A%2F%2Fmas.to%2Flike%23ok',
+            'target': 'https://user.com/post',
+        }, kwargs['data'])
+
+    def test_send_no_endpoint(self, mock_get, mock_post):
+        mock_get.return_value = WEBMENTION_NO_REL_LINK
+        obj = Object(id='http://mas.to/like#ok', as2=LIKE)
+
+        with app.test_request_context('/'):
+            self.assertFalse(Webmention.send(obj, 'https://user.com/post'))
+
+        self.assert_req(mock_get, 'https://user.com/post')
+        mock_post.assert_not_called()
+
+    @skip
+    def test_send_bad_source_url(self, mock_get, mock_post):
+        with self.assertRaises(ValueError):
+            Webmention.send(Object(), 'bad')
+
+    def test_send_bad_source_url(self, mock_get, mock_post):
         got = self.client.post('/webmention', data=b'')
         self.assertEqual(400, got.status_code)
 

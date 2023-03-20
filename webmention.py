@@ -18,6 +18,7 @@ from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.appengine_info import APP_ID
 from oauth_dropins.webutil.flask_util import error, flash
 from oauth_dropins.webutil.util import json_dumps, json_loads
+from oauth_dropins.webutil import webmention
 import requests
 from werkzeug.exceptions import BadGateway, HTTPException
 
@@ -38,8 +39,19 @@ class Webmention(View):
     LABEL = 'webmention'
 
     @classmethod
-    def send(cls, activity, url):
+    def send(cls, obj, url, *, user=None):
         """Sends a webmention to a given target URL."""
+        source_url = obj.proxy_url()
+        logger.info(f'Sending webmention from {source_url} to {url}')
+
+        endpoint = common.webmention_discover(url).endpoint
+        if endpoint:
+            webmention.send(endpoint, source_url, url)
+            logger.info('Success!')
+            return True
+        else:
+            logger.info('No webmention endpoint')
+            return False
 
     @classmethod
     def fetch(cls, obj, id, *, user=None):
@@ -238,7 +250,9 @@ class WebmentionView(View):
 
             try:
                 last = activitypub.ActivityPub.send(
-                    inbox, self.source_as2, user=self.user, log_data=log_data)
+                    # TODO: use obj
+                    Object(as2=self.source_as2),
+                    inbox, user=self.user, log_data=log_data)
                 obj.delivered.append(target)
                 last_success = last
             except BaseException as e:

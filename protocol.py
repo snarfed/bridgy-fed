@@ -53,14 +53,20 @@ class Protocol:
         assert False
 
     @classmethod
-    def send(cls, activity, url):
+    def send(cls, obj, url, *, user=None, log_data=True):
         """Sends an outgoing activity.
 
         To be implemented by subclasses.
 
         Args:
-          activity: obj: :class:`Object` with incoming activity
+          obj: :class:`Object` with activity to send
           url: str, destination URL to send to
+          user: :class:`User` this is on behalf of
+          log_data: boolean, whether to log full data object
+
+        Returns:
+          True if the activity is sent successfully, False if it is ignored due
+          to protocol logic. (Failures are raised as exceptions.)
 
         Raises:
           :class:`werkzeug.HTTPException` if the request fails
@@ -266,7 +272,7 @@ class Protocol:
             }
         }
 
-        return cls.send(inbox, accept, user=user)
+        return cls.send(models.Object(as2=accept), inbox, user=user)
 
     @classmethod
     @cached(LRUCache(1000), key=lambda cls, id, user=None: util.fragmentless(id),

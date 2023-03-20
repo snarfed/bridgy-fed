@@ -175,14 +175,14 @@ class FollowCallback(indieauth.Callback):
             'object': followee,
             'actor': user.actor_id(),
             'to': [as2.PUBLIC_AUDIENCE],
-       }
-        activitypub.ActivityPub.send(inbox, follow_as2, user=user)
+        }
+        obj = Object(id=follow_id, domains=[domain], labels=['user', 'activity'],
+               source_protocol='ui', status='complete', as2=follow_as2)
+        activitypub.ActivityPub.send(obj, inbox, user=user)
 
         Follower.get_or_create(dest=id, src=domain, status='active',
                                 last_follow=follow_as2)
-        Object(id=follow_id, domains=[domain], labels=['user', 'activity'],
-               source_protocol='ui', status='complete', as2=follow_as2,
-               ).put()
+        obj.put()
 
         link = common.pretty_link(util.get_url(followee) or id, text=addr)
         flash(f'Followed {link}.')
@@ -252,14 +252,15 @@ class UnfollowCallback(indieauth.Callback):
             'id': unfollow_id,
             'actor': user.actor_id(),
             'object': follower.last_follow,
-       }
-        activitypub.ActivityPub.send(inbox, unfollow_as2, user=user)
+        }
+
+        obj = Object(id=unfollow_id, domains=[domain], labels=['user', 'activity'],
+                     source_protocol='ui', status='complete', as2=unfollow_as2)
+        activitypub.ActivityPub.send(obj, inbox, user=user)
 
         follower.status = 'inactive'
         follower.put()
-        Object(id=unfollow_id, domains=[domain], labels=['user', 'activity'],
-               source_protocol='ui', status='complete', as2=unfollow_as2,
-               ).put()
+        obj.put()
 
         link = common.pretty_link(util.get_url(followee) or followee_id)
         flash(f'Unfollowed {link}.')
