@@ -1,7 +1,7 @@
 # coding=utf-8
 """Unit tests for webmention.py."""
 import copy
-from unittest import mock
+from unittest import mock, skip
 from urllib.parse import urlencode
 
 import feedparser
@@ -13,6 +13,7 @@ from oauth_dropins.webutil.appengine_info import APP_ID
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
+from werkzeug.exceptions import BadGateway
 
 import activitypub
 from app import app
@@ -21,8 +22,7 @@ from common import (
     redirect_unwrap,
 )
 from models import Follower, Object, Target, User
-import webmention
-from webmention import TASKS_LOCATION
+from webmention import TASKS_LOCATION, Webmention
 from . import testutil
 
 ACTOR_HTML = """\
@@ -176,11 +176,13 @@ class WebmentionTest(testutil.TestCase):
 </body>
 </html>
 """
-        self.reply = requests_response(self.reply_html, content_type=CONTENT_TYPE_HTML)
+        self.reply = requests_response(self.reply_html, content_type=CONTENT_TYPE_HTML,
+                                       url='https://user.com/reply')
         self.reply_mf2 = util.parse_mf2(self.reply_html, url='https://user.com/reply')
         self.reply_as1 = microformats2.json_to_object(self.reply_mf2['items'][0])
 
-        self.repost = requests_response(REPOST_HTML, content_type=CONTENT_TYPE_HTML)
+        self.repost = requests_response(REPOST_HTML, content_type=CONTENT_TYPE_HTML,
+                                        url='https://user.com/repost')
         self.repost_mf2 = util.parse_mf2(REPOST_HTML, url='https://user.com/repost')
         self.repost_as1 = microformats2.json_to_object(self.repost_mf2['items'][0])
 
@@ -195,8 +197,8 @@ class WebmentionTest(testutil.TestCase):
 </body>
 </html>
 """
-        self.like = requests_response(
-            self.like_html, content_type=CONTENT_TYPE_HTML)
+        self.like = requests_response(self.like_html, content_type=CONTENT_TYPE_HTML,
+                                      url='https://user.com/like')
         self.like_mf2 = util.parse_mf2(self.like_html, url='https://user.com/like')
 
         self.actor = self.as2_resp({
@@ -348,6 +350,22 @@ class WebmentionTest(testutil.TestCase):
             got = json_loads(calls[inbox][1]['data'])
             got.get('object', {}).pop('publicKey', None)
             self.assert_equals(data, got, inbox)
+
+    def test_fetch(self, mock_get, mock_post):
+        obj = Object()
+        mock_get.return_value = self.reply
+        Webmention.fetch(obj, 'https://foo')
+        self.assert_equals(self.reply_as1, obj.as1)
+
+    @skip
+    def test_fetch_bad_source_url(self, mock_get, mock_post):
+        with self.assertRaises(ValueError):
+            Webmention.fetch(Object(), 'bad')
+
+    def test_fetch_error(self, mock_get, mock_post):
+        mock_get.return_value = requests_response(self.reply_html, status=405)
+        with self.assertRaises(BadGateway) as e:
+            Webmention.fetch(Object(), 'https://foo')
 
     def test_bad_source_url(self, mock_get, mock_post):
         got = self.client.post('/webmention', data=b'')

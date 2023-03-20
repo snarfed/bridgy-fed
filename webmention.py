@@ -34,6 +34,24 @@ TASKS_LOCATION = 'us-central1'
 
 
 class Webmention(View):
+    """Webmention protocol implementation."""
+    LABEL = 'webmention'
+
+    @classmethod
+    def send(cls, activity, url):
+        """Sends a webmention to a given target URL."""
+
+    @classmethod
+    def fetch(cls, obj, id, *, user=None):
+        """Fetches a URL over HTTP."""
+        parsed = util.fetch_mf2(id, gateway=True)
+        obj.mf2 = mf2util.find_first_entry(parsed, ['h-entry'])
+        if not obj.mf2:
+            error(f'No microformats2 found in {id}')
+        logger.info(f'Parsed HTML entry: {json_dumps(obj.mf2, indent=2)}')
+
+
+class WebmentionView(View):
     """Handles inbound webmention, converts to ActivityPub."""
     IS_TASK = False
 
@@ -351,12 +369,12 @@ class Webmention(View):
         return inboxes_to_targets
 
 
-class WebmentionTask(Webmention):
+class WebmentionTask(WebmentionView):
     """Handler that runs tasks, not external HTTP requests."""
     IS_TASK = True
 
 
-class WebmentionInteractive(Webmention):
+class WebmentionInteractive(WebmentionView):
     """Handler that runs interactive webmention-based requests from the web UI.
 
     ...eg the update profile button on user pages.
@@ -371,7 +389,7 @@ class WebmentionInteractive(Webmention):
             return redirect(path, code=302)
 
 
-app.add_url_rule('/webmention', view_func=Webmention.as_view('webmention'),
+app.add_url_rule('/webmention', view_func=WebmentionView.as_view('webmention'),
                  methods=['POST'])
 app.add_url_rule('/webmention-interactive',
                  view_func=WebmentionInteractive.as_view('webmention-interactive'),
