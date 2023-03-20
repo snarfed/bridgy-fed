@@ -1,6 +1,7 @@
 """Unit tests for common.py."""
 from unittest import mock
 
+from flask import g
 from granary import as2
 from oauth_dropins.webutil import appengine_config, util
 from oauth_dropins.webutil.testutil import requests_response
@@ -24,6 +25,7 @@ class CommonTest(testutil.TestCase):
         super().setUp()
         self.app_context = app.test_request_context('/')
         self.app_context.push()
+        g.user = User(id='site')
 
     def tearDown(self):
         self.app_context.pop()
@@ -46,7 +48,7 @@ class CommonTest(testutil.TestCase):
 
         self.assertEqual(
             '<a class="h-card u-author" href="/user/site"><img src="" class="profile"> site</a>',
-            common.pretty_link('https://site/', user=self.user))
+            common.pretty_link('https://site/'))
 
     def test_redirect_wrap_empty(self):
         self.assertIsNone(common.redirect_wrap(None))

@@ -3,7 +3,7 @@ import json
 import logging
 from pathlib import Path
 
-from flask import Flask
+from flask import Flask, g
 from flask_caching import Cache
 import flask_gae_static
 from lexrpc.server import Server
@@ -33,6 +33,10 @@ app.after_request(flask_util.default_modern_headers)
 app.register_error_handler(Exception, flask_util.handle_exception)
 if appengine_info.LOCAL:
     flask_gae_static.init_app(app)
+
+@app.before_request
+def init_globals():
+    g.user = None
 
 # don't redirect API requests with blank path elements
 app.url_map.redirect_defaults = True

@@ -6,7 +6,7 @@ import os
 import re
 import urllib.parse
 
-from flask import redirect, render_template, request
+from flask import g, redirect, render_template, request
 from google.cloud.ndb.stats import KindStat
 from granary import as1, as2, atom, microformats2, rss
 import humanize
@@ -58,9 +58,9 @@ def check_web_site():
         flash(f'No domain found in {url}')
         return render_template('enter_web_site.html')
 
-    user = User.get_or_create(domain)
+    g.user = User.get_or_create(domain)
     try:
-        user = user.verify()
+        g.user = g.user.verify()
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if code:
@@ -68,25 +68,25 @@ def check_web_site():
             return render_template('enter_web_site.html')
         raise
 
-    user.put()
-    return redirect(f'/user/{user.key.id()}')
+    g.user.put()
+    return redirect(f'/user/{g.user.key.id()}')
 
 
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>')
 def user(domain):
-    user = User.get_by_id(domain)
-    if not user:
+    g.user = User.get_by_id(domain)
+    if not g.user:
         return USER_NOT_FOUND_HTML, 404
-    elif user.key.id() != domain:
-        return redirect(f'/user/{user.key.id()}', code=301)
+    elif g.user.key.id() != domain:
+        return redirect(f'/user/{g.user.key.id()}', code=301)
 
-    assert not user.use_instead
+    assert not g.user.use_instead
 
     query = Object.query(
         Object.domains == domain,
         Object.labels.IN(('notification', 'user')),
     )
-    objects, before, after = fetch_objects(query, user)
+    objects, before, after = fetch_objects(query)
 
     followers = Follower.query(Follower.dest == domain, Follower.status == 'active')\
                         .count(limit=FOLLOWERS_UI_LIMIT)
@@ -102,13 +102,15 @@ def user(domain):
         logs=logs,
         util=util,
         address=request.args.get('address'),
+        g=g,
         **locals(),
     )
 
 
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
 def followers_or_following(domain, collection):
-    if not (user := User.get_by_id(domain)):  # user var is used in template
+    g.user = User.get_by_id(domain)  # g.user is used in template
+    if not g.user:
         return USER_NOT_FOUND_HTML, 404
 
     followers, before, after = Follower.fetch_page(domain, collection)
@@ -125,6 +127,7 @@ def followers_or_following(domain, collection):
         f'{collection}.html',
         util=util,
         address=request.args.get('address'),
+        g=g,
         **locals()
     )
 
@@ -135,8 +138,9 @@ def feed(domain):
     if format not in ('html', 'atom', 'rss'):
         error(f'format {format} not supported; expected html, atom, or rss')
 
-    if not (user := User.get_by_id(domain)):
-      return render_template('user_not_found.html', domain=domain), 404
+    g.user = User.get_by_id(domain)
+    if not g.user:
+        return render_template('user_not_found.html', domain=domain), 404
 
     objects, _, _ = Object.query(
         Object.domains == domain, Object.labels == 'feed') \
@@ -146,7 +150,7 @@ def feed(domain):
 
     actor = {
       'displayName': domain,
-      'url': user.homepage,
+      'url': g.user.homepage,
     }
     title = f'Bridgy Fed feed for {domain}'
 
@@ -155,7 +159,7 @@ def feed(domain):
     # syntax. maybe a fediverse kwarg down through the call chain?
     if format == 'html':
         entries = [microformats2.object_to_html(a) for a in activities]
-        return render_template('feed.html', util=util, **locals())
+        return render_template('feed.html', util=util, g=g, **locals())
     elif format == 'atom':
         body = atom.activities_to_atom(activities, actor=actor, title=title,
                                        request_url=request.url)
@@ -166,7 +170,7 @@ def feed(domain):
         return body, {'Content-Type': rss.CONTENT_TYPE}
 
 
-def fetch_objects(query, user):
+def fetch_objects(query):
     """Fetches a page of Object entities from a datastore query.
 
     Wraps :func:`common.fetch_page` and adds attributes to the returned Object
@@ -174,7 +178,6 @@ def fetch_objects(query, user):
 
     Args:
       query: :class:`ndb.Query`
-      user: :class:`User`
 
     Returns:
       (results, new_before, new_after) tuple with:
@@ -228,7 +231,7 @@ def fetch_objects(query, user):
                 'url': f'https://{obj.domains[0]}',
             })
         elif url:
-            content = common.pretty_link(url, text=content, user=user)
+            content = common.pretty_link(url, text=content)
 
         obj.content = (obj.as1.get('content')
                        or obj.as1.get('displayName')
@@ -238,7 +241,7 @@ def fetch_objects(query, user):
         if (type in ('like', 'follow', 'repost', 'share') or
             not obj.content):
             if obj.url:
-                obj.phrase = common.pretty_link(obj.url, text=obj.phrase, user=user,
+                obj.phrase = common.pretty_link(obj.url, text=obj.phrase,
                                                 attrs={'class': 'u-url'})
             if content:
                 obj.content = content

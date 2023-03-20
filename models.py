@@ -12,7 +12,7 @@ from werkzeug.exceptions import BadRequest, NotFound
 from Crypto import Random
 from Crypto.PublicKey import RSA
 from Crypto.Util import number
-from flask import request
+from flask import g, request
 from google.cloud import ndb
 from granary import as1, as2, bluesky, microformats2
 from oauth_dropins.webutil.appengine_info import DEBUG
@@ -351,30 +351,26 @@ class Object(StringIdModel):
         return common.host_url('render?' +
                                urllib.parse.urlencode({'id': self.key.id()}))
 
-    def actor_link(self, user=None):
-        """Returns a pretty actor link with their name and profile picture.
-
-        Args:
-          cur_user: :class:`User`, optional, user for the current request
-        """
+    def actor_link(self):
+        """Returns a pretty actor link with their name and profile picture."""
         attrs = {'class': 'h-card u-author'}
 
-        if (self.source_protocol in ('webmention', 'ui') and user and
-            user.key.id() in self.domains):
+        if (self.source_protocol in ('webmention', 'ui') and g.user and
+            g.user.key.id() in self.domains):
             # outbound; show a nice link to the user
-            return user.user_page_link()
+            return g.user.user_page_link()
 
         actor = (util.get_first(self.as1, 'actor')
                  or util.get_first(self.as1, 'author')
                  or {})
         if isinstance(actor, str):
-            return common.pretty_link(actor, user=user, attrs=attrs)
+            return common.pretty_link(actor, attrs=attrs)
 
         url = util.get_first(actor, 'url') or ''
         name = actor.get('displayName') or actor.get('username') or ''
         image = util.get_url(actor, 'image')
         if not image:
-            return common.pretty_link(url, text=name, user=user, attrs=attrs)
+            return common.pretty_link(url, text=name, attrs=attrs)
 
         return f"""\
         <a class="h-card u-author" href="{url}" title="{name}">

@@ -1,14 +1,10 @@
-"""Handles inbound webmentions.
-
-TODO tests:
-* actor/attributedTo could be string URL
-"""
+"""Handles inbound webmentions."""
 import logging
 import urllib.parse
 from urllib.parse import urlencode
 
 import feedparser
-from flask import redirect, request
+from flask import g, redirect, request
 from flask.views import View
 from google.cloud.ndb import Key
 from granary import as1, as2, microformats2
@@ -39,7 +35,7 @@ class Webmention(View):
     LABEL = 'webmention'
 
     @classmethod
-    def send(cls, obj, url, *, user=None):
+    def send(cls, obj, url):
         """Sends a webmention to a given target URL."""
         source_url = obj.proxy_url()
         logger.info(f'Sending webmention from {source_url} to {url}')
@@ -54,7 +50,7 @@ class Webmention(View):
             return False
 
     @classmethod
-    def fetch(cls, obj, id, *, user=None):
+    def fetch(cls, obj, id):
         """Fetches a URL over HTTP."""
         parsed = util.fetch_mf2(id, gateway=True)
         obj.mf2 = mf2util.find_first_entry(parsed, ['h-entry'])
@@ -71,7 +67,6 @@ class WebmentionView(View):
     source_mf2 = None     # parsed mf2 dict
     source_as1 = None     # AS1 dict
     source_as2 = None     # AS2 dict
-    user = None           # User
 
     def dispatch_request(self):
         logger.info(f'Params: {list(request.form.items())}')
@@ -80,14 +75,14 @@ class WebmentionView(View):
         domain = util.domain_from_link(source, minimize=False)
         logger.info(f'webmention from {domain}')
 
-        self.user = User.get_by_id(domain)
-        if not self.user:
+        g.user = User.get_by_id(domain)
+        if not g.user:
             error(f'No user found for domain {domain}')
 
         # if source is home page, send an actor Update to followers' instances
-        if self.user.is_homepage(source):
+        if g.user.is_homepage(source):
             self.source_url = source
-            self.source_mf2, actor_as1, actor_as2 = common.actor(self.user)
+            self.source_mf2, actor_as1, actor_as2 = common.actor(g.user)
             id = common.host_url(f'{source}#update-{util.now().isoformat()}')
             self.source_as1 = {
                 'objectType': 'activity',
@@ -102,7 +97,7 @@ class WebmentionView(View):
                 'id': id,
                 'url': id,
                 'object': actor_as2,
-            }, user=self.user)
+            })
             return self.try_activitypub() or 'No ActivityPub targets'
 
         # fetch source page
@@ -194,7 +189,7 @@ class WebmentionView(View):
                          status='in progress')
 
         obj.populate(
-            domains=[self.user.key.id()],
+            domains=[g.user.key.id()],
             source_protocol='webmention',
             labels=['user'],
         )
@@ -221,12 +216,12 @@ class WebmentionView(View):
 
             if not self.source_as2:
                 self.source_as2 = activitypub.postprocess_as2(
-                    as2.from_as1(self.source_as1), target=target_as2, user=self.user)
+                    as2.from_as1(self.source_as1), target=target_as2)
 
             orig_actor = self.source_as2.get('actor')
             if orig_actor:
-                logging.info(f'Overriding actor with {self.user.actor_id()}; was {orig_actor}')
-            self.source_as2['actor'] = self.user.actor_id()
+                logging.info(f'Overriding actor with {g.user.actor_id()}; was {orig_actor}')
+            self.source_as2['actor'] = g.user.actor_id()
 
             if changed:
                 self.source_as2['type'] = 'Update'
@@ -245,14 +240,14 @@ class WebmentionView(View):
                 # https://github.com/snarfed/bridgy-fed/issues/307
                 dest = ((target_as2.get('id') or util.get_first(target_as2, 'url'))
                         if target_as2 else util.get_url(self.source_as1, 'object'))
-                Follower.get_or_create(dest=dest, src=self.user.key.id(),
+                Follower.get_or_create(dest=dest, src=g.user.key.id(),
                                        last_follow=self.source_as2)
 
             try:
                 last = activitypub.ActivityPub.send(
                     # TODO: use obj
                     Object(as2=self.source_as2),
-                    inbox, user=self.user, log_data=log_data)
+                    inbox, log_data=log_data)
                 obj.delivered.append(target)
                 last_success = last
             except BaseException as e:
@@ -315,13 +310,13 @@ class WebmentionView(View):
                 )
                 # not actually an error
                 msg = ("Updating profile on followers' instances..."
-                       if self.user.is_homepage(self.source_url)
+                       if g.user.is_homepage(self.source_url)
                        else 'Delivering to followers...')
                 # TODO: switch this to return so that it doesn't log error
                 error(msg, status=202)
 
             inboxes = set()
-            domain = self.user.key.id()
+            domain = g.user.key.id()
             for follower in Follower.query().filter(
                 Follower.key > Key('Follower', domain + ' '),
                 Follower.key < Key('Follower', domain + chr(ord(' ') + 1))):
@@ -343,7 +338,7 @@ class WebmentionView(View):
             # fetch target page as AS2 object
             try:
                 # TODO: make this generic across protocols
-                target_obj = activitypub.ActivityPub.get_object(target, user=self.user).as2
+                target_obj = activitypub.ActivityPub.get_object(target).as2
             except (requests.HTTPError, BadGateway) as e:
                 resp = getattr(e, 'requests_response', None)
                 if resp and resp.ok:
@@ -368,7 +363,7 @@ class WebmentionView(View):
             if not inbox_url:
                 # fetch actor as AS object
                 # TODO: make this generic across protocols
-                actor = activitypub.ActivityPub.get_object(actor, user=self.user).as2
+                actor = activitypub.ActivityPub.get_object(actor).as2
                 inbox_url = actor.get('inbox')
 
             if not inbox_url:
@@ -399,7 +394,7 @@ class WebmentionInteractive(WebmentionView):
             flash('OK')
         except HTTPException as e:
             flash(util.linkify(str(e.description), pretty=True))
-            path = f'/user/{self.user.key.id()}' if self.user else '/'
+            path = f'/user/{g.user.key.id()}' if g.user else '/'
             return redirect(path, code=302)
 
 

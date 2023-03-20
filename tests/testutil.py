@@ -4,6 +4,7 @@ import datetime
 import unittest
 from unittest.mock import ANY, call
 
+from flask import g
 from granary import as2
 from granary.tests.test_as1 import (
     COMMENT,
@@ -29,11 +30,11 @@ class FakeProtocol(protocol.Protocol):
     LABEL = 'fake'
 
     @classmethod
-    def send(cls, url, activity, *, user=None, log_data=True):
+    def send(cls, url, activity, log_data=True):
         raise NotImplementedError()
 
     @classmethod
-    def fetch(cls, id, obj, *, user=None):
+    def fetch(cls, id, obj):
         raise NotImplementedError()
 
 

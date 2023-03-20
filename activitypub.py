@@ -6,7 +6,7 @@ import itertools
 import logging
 from urllib.parse import quote_plus
 
-from flask import abort, request
+from flask import abort, g, request
 from granary import as1, as2
 from httpsig import HeaderVerifier
 from httpsig.requests_auth import HTTPSignatureAuth
@@ -52,13 +52,13 @@ class ActivityPub(Protocol):
     LABEL = 'activitypub'
 
     @classmethod
-    def send(cls, obj, url, *, user=None, log_data=True):
+    def send(cls, obj, url, log_data=True):
         """Delivers an AS2 activity to an inbox URL."""
-        return signed_post(url, user=user, log_data=True, data=obj.as2)
+        return signed_post(url, log_data=True, data=obj.as2)
         # TODO: return bool or otherwise unify return value with others
 
     @classmethod
-    def fetch(cls, id, obj, *, user=None):
+    def fetch(cls, id, obj):
         """Tries to fetch an AS2 object and populate it into an :class:`Object`.
 
         Uses HTTP content negotiation via the Content-Type header. If the url is
@@ -79,7 +79,6 @@ class ActivityPub(Protocol):
         Args:
           id: str, object's URL id
           obj: :class:`Object` to populate the fetched object into
-          user: optional :class:`User` we're fetching on behalf of
 
         Raises:
           :class:`requests.HTTPError`, :class:`werkzeug.exceptions.HTTPException`
@@ -98,7 +97,7 @@ class ActivityPub(Protocol):
 
         def _get(url, headers):
             """Returns None if we fetched and populated, resp otherwise."""
-            resp = signed_get(url, user=user, headers=headers, gateway=True)
+            resp = signed_get(url, headers=headers, gateway=True)
             if not resp.content:
                 _error(resp, 'empty response')
             elif common.content_type(resp) == as2.CONTENT_TYPE:
@@ -128,12 +127,11 @@ class ActivityPub(Protocol):
             _error(resp)
 
     @classmethod
-    def verify_signature(cls, activity, *, user=None):
+    def verify_signature(cls, activity):
         """Verifies the current request's HTTP Signature.
 
         Args:
           activity: dict, AS2 activity
-          user: optional :class:`User`
 
         Logs details of the result. Raises :class:`werkzeug.HTTPError` if the
         signature is missing or invalid, otherwise does nothing and returns None.
@@ -159,7 +157,7 @@ class ActivityPub(Protocol):
             error('Invalid Digest header, required for HTTP Signature', status=401)
 
         try:
-            key_actor = cls.get_object(keyId, user=user).as2
+            key_actor = cls.get_object(keyId).as2
         except BadGateway:
             obj_id = as1.get_object(activity).get('id')
             if (activity.get('type') == 'Delete' and obj_id and
@@ -185,23 +183,25 @@ class ActivityPub(Protocol):
             error('HTTP Signature verification failed', status=401)
 
 
-def signed_get(url, *, user=None, **kwargs):
-    return signed_request(util.requests_get, url, user=user, **kwargs)
+def signed_get(url, **kwargs):
+    return signed_request(util.requests_get, url, **kwargs)
 
 
-def signed_post(url, *, user=None, **kwargs):
-    assert user
-    return signed_request(util.requests_post, url, user=user, **kwargs)
+def signed_post(url, **kwargs):
+    assert g.user
+    return signed_request(util.requests_post, url, **kwargs)
 
 
-def signed_request(fn, url, *, user=None, data=None, log_data=True,
+def signed_request(fn, url, data=None, log_data=True,
                    headers=None, **kwargs):
     """Wraps requests.* and adds HTTP Signature.
+
+    If the current session has a user (ie in g.user), signs with that user's
+    key. Otherwise, uses the default user snarfed.org.
 
     Args:
       fn: :func:`util.requests_get` or  :func:`util.requests_get`
       url: str
-      user: optional :class:`User` to sign request with
       data: optional AS2 object
       log_data: boolean, whether to log full data object
       kwargs: passed through to requests
@@ -212,8 +212,7 @@ def signed_request(fn, url, *, user=None, data=None, log_data=True,
         headers = {}
 
     # prepare HTTP Signature and headers
-    if not user:
-        user = default_signature_user()
+    user = g.user or default_signature_user()
 
     if data:
         if log_data:
@@ -250,7 +249,7 @@ def signed_request(fn, url, *, user=None, data=None, log_data=True,
 
     # handle GET redirects manually so that we generate a new HTTP signature
     if resp.is_redirect and fn == util.requests_get:
-      return signed_request(fn, resp.headers['Location'], data=data, user=user,
+      return signed_request(fn, resp.headers['Location'], data=data,
                             headers=headers, log_data=log_data, **kwargs)
 
     type = common.content_type(resp)
@@ -261,24 +260,24 @@ def signed_request(fn, url, *, user=None, data=None, log_data=True,
     return resp
 
 
-def postprocess_as2(activity, *, user=None, target=None, create=True):
+def postprocess_as2(activity, target=None, create=True):
     """Prepare an AS2 object to be served or sent via ActivityPub.
+
+    g.user is required. Populates it into the actor.id and publicKey fields.
 
     Args:
       activity: dict, AS2 object or activity
-      user: :class:`User`, required. populated into actor.id and
-        publicKey fields if needed.
       target: dict, AS2 object, optional. The target of activity's inReplyTo or
         Like/Announce/etc object, if any.
       create: boolean, whether to wrap `Note` and `Article` objects in a
         `Create` activity
     """
-    assert user
+    assert g.user
     type = activity.get('type')
 
     # actor objects
     if type == 'Person':
-        postprocess_as2_actor(activity, user=user)
+        postprocess_as2_actor(activity)
         if not activity.get('publicKey'):
             # underspecified, inferred from this issue and Mastodon's implementation:
             # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
@@ -288,7 +287,7 @@ def postprocess_as2(activity, *, user=None, target=None, create=True):
                 'publicKey': {
                     'id': actor_url,
                     'owner': actor_url,
-                    'publicKeyPem': user.public_pem().decode(),
+                    'publicKeyPem': g.user.public_pem().decode(),
                 },
                 '@context': (util.get_list(activity, '@context') +
                              ['https://w3id.org/security/v1']),
@@ -296,7 +295,7 @@ def postprocess_as2(activity, *, user=None, target=None, create=True):
         return activity
 
     for field in 'actor', 'attributedTo':
-        activity[field] = [postprocess_as2_actor(actor, user=user)
+        activity[field] = [postprocess_as2_actor(actor)
                            for actor in util.get_list(activity, field)]
         if len(activity[field]) == 1:
             activity[field] = activity[field][0]
@@ -402,29 +401,28 @@ def postprocess_as2(activity, *, user=None, target=None, create=True):
             '@context': as2.CONTEXT,
             'type': 'Create',
             'id': f'{activity["id"]}#bridgy-fed-create',
-            'actor': postprocess_as2_actor({}, user=user),
+            'actor': postprocess_as2_actor({}),
             'object': activity,
         }
 
     return util.trim_nulls(activity)
 
 
-def postprocess_as2_actor(actor, *, user=None):
+def postprocess_as2_actor(actor):
     """Prepare an AS2 actor object to be served or sent via ActivityPub.
 
     Modifies actor in place.
 
     Args:
       actor: dict, AS2 actor object
-      user: :class:`User`
 
     Returns:
       actor dict
     """
     if not actor or isinstance(actor, str):
-        return user.actor_id() if user.is_homepage(actor) else actor
+        return g.user.actor_id() if g.user.is_homepage(actor) else actor
 
-    url = user.homepage if user else None
+    url = g.user.homepage if g.user else None
     urls = util.get_list(actor, 'url')
     if not urls and url:
       urls = [url]
@@ -461,16 +459,16 @@ def actor(domain):
     if tld in TLD_BLOCKLIST:
         error('', status=404)
 
-    user = User.get_by_id(domain)
-    if not user:
+    g.user = User.get_by_id(domain)
+    if not g.user:
         return f'User {domain} not found', 404
-    elif not user.actor_as2:
+    elif not g.user.actor_as2:
         return f'User {domain} not fully set up', 404
 
     # TODO: unify with common.actor()
-    actor = postprocess_as2(user.actor_as2, user=user)
+    actor = postprocess_as2(g.user.actor_as2)
     actor.update({
-        'id': user.actor_id(),
+        'id': g.user.actor_id(),
         # This has to be the domain for Mastodon etc interop! It seems like it
         # should be the custom username from the acct: u-url in their h-card,
         # but that breaks Mastodon's Webfinger discovery. Background:
@@ -512,14 +510,12 @@ def inbox(domain=None):
     logger.info(f'Got {type} from {actor_id}: {json_dumps(activity, indent=2)}')
 
     # load user
-    # TODO: store in g instead of passing around
-    user = None
     if domain:
-        user = User.get_by_id(domain)
-        if not user:
+        g.user = User.get_by_id(domain)
+        if not g.user:
             error(f'User {domain} not found', status=404)
 
-    ActivityPub.verify_signature(activity, user=user)
+    ActivityPub.verify_signature(activity)
 
     # check that this activity is public. only do this for creates, not likes,
     # follows, or other activity types, since Mastodon doesn't currently mark
@@ -541,7 +537,7 @@ def inbox(domain=None):
         followee_url = redirect_unwrap(util.get_url(activity, 'object'))
         activity.setdefault('url', f'{follower_url}#followed-{followee_url}')
 
-    return ActivityPub.receive(activity.get('id'), user=user,
+    return ActivityPub.receive(activity.get('id'),
                                as2=redirect_unwrap(activity))
 
 

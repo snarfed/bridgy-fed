@@ -1,6 +1,7 @@
 """Unit tests for protocol.py."""
 from unittest.mock import patch
 
+from flask import g
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
@@ -29,6 +30,7 @@ class ProtocolTest(testutil.TestCase):
         self.user = self.make_user('foo.com', has_hcard=True)
         self.app_context = app.test_request_context('/')
         self.app_context.__enter__()
+        g.user = None
 
     def tearDown(self):
         self.app_context.__exit__(None, None, None)
@@ -41,7 +43,7 @@ class ProtocolTest(testutil.TestCase):
         # user.com webmention discovery
         mock_get.return_value = requests_response('<html></html>')
 
-        Protocol.receive(REPLY['id'], user=self.user, as2=REPLY)
+        Protocol.receive(REPLY['id'], as2=REPLY)
 
         self.assert_object(REPLY['id'],
                            as2=REPLY,

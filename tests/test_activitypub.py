@@ -8,6 +8,7 @@ import logging
 from unittest.mock import ANY, call, patch
 import urllib.parse
 
+from flask import g
 from google.cloud import ndb
 from granary import as2, microformats2
 from httpsig import HeaderSigner
@@ -1160,9 +1161,9 @@ class ActivityPubTest(testutil.TestCase):
 class ActivityPubUtilsTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR)
         self.app_context = app.test_request_context('/')
         self.app_context.__enter__()
+        g.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR)
 
     def tearDown(self):
         self.app_context.__exit__(None, None, None)
@@ -1176,7 +1177,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
         }, activitypub.postprocess_as2({
             'id': 'xyz',
             'inReplyTo': ['foo', 'bar'],
-        }, user=User(id='site')))
+        }))
 
     def test_postprocess_as2_multiple_url(self):
         self.assert_equals({
@@ -1186,7 +1187,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
         }, activitypub.postprocess_as2({
             'id': 'xyz',
             'url': ['foo', 'bar'],
-        }, user=User(id='site')))
+        }))
 
     def test_postprocess_as2_multiple_image(self):
         self.assert_equals({
@@ -1197,9 +1198,10 @@ class ActivityPubUtilsTest(testutil.TestCase):
         }, activitypub.postprocess_as2({
             'id': 'xyz',
             'image': [{'url': 'http://r/foo'}, {'url': 'http://r/bar'}],
-        }, user=User(id='site')))
+        }))
 
     def test_postprocess_as2_actor_attributedTo(self):
+        g.user = User(id='site')
         self.assert_equals({
             'actor': {
                 'id': 'baj',
@@ -1219,7 +1221,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
         }, activitypub.postprocess_as2({
             'attributedTo': [{'id': 'bar'}, {'id': 'baz'}],
             'actor': {'id': 'baj'},
-        }, user=User(id='site')))
+        }))
 
     def test_postprocess_as2_note(self):
         self.assert_equals({
@@ -1235,7 +1237,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
         }, activitypub.postprocess_as2({
             'id': 'xyz',
             'type': 'Note',
-        }, user=User(id='site')))
+        }))
 
     def test_postprocess_as2_hashtag(self):
         """https://github.com/snarfed/bridgy-fed/issues/45"""
@@ -1253,7 +1255,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
                 # should leave alone
                 {'type': 'Mention', 'href': 'foo'},
             ],
-        }, user=User(id='site')))
+        }))
 
     # TODO: make these generic and use FakeProtocol
     @patch('requests.get')
@@ -1334,7 +1336,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
                               allow_redirects=False),
             requests_response(status=200, allow_redirects=False),
         ]
-        resp = activitypub.signed_get('https://first', user=self.user)
+        resp = activitypub.signed_get('https://first')
 
         first = mock_get.call_args_list[0][1]
         second = mock_get.call_args_list[1][1]
@@ -1350,7 +1352,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
                               allow_redirects=False),
         ]
 
-        resp = activitypub.signed_post('https://first', user=self.user)
+        resp = activitypub.signed_post('https://first')
         mock_post.assert_called_once()
         self.assertEqual(302, resp.status_code)
 
@@ -1359,7 +1361,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
         mock_get.return_value = AS2
         obj = Object()
 
-        ActivityPub.fetch('http://orig', obj, user=self.user)
+        ActivityPub.fetch('http://orig', obj)
         self.assertEqual(AS2_OBJ, obj.as2)
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
@@ -1370,7 +1372,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
         mock_get.side_effect = [HTML_WITH_AS2, AS2]
         obj = Object()
 
-        ActivityPub.fetch('http://orig', obj, user=self.user)
+        ActivityPub.fetch('http://orig', obj)
         self.assertEqual(AS2_OBJ, obj.as2)
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
@@ -1381,19 +1383,19 @@ class ActivityPubUtilsTest(testutil.TestCase):
     def test_fetch_only_html(self, mock_get):
         mock_get.return_value = HTML
         with self.assertRaises(BadGateway):
-            ActivityPub.fetch('http://orig', Object(), user=self.user)
+            ActivityPub.fetch('http://orig', Object())
 
     @patch('requests.get')
     def test_fetch_not_acceptable(self, mock_get):
         mock_get.return_value=NOT_ACCEPTABLE
         with self.assertRaises(BadGateway):
-            ActivityPub.fetch('http://orig', Object(), user=self.user)
+            ActivityPub.fetch('http://orig', Object())
 
     @patch('requests.get')
     def test_fetch_ssl_error(self, mock_get):
         mock_get.side_effect = requests.exceptions.SSLError
         with self.assertRaises(BadGateway):
-            ActivityPub.fetch('http://orig', Object(), user=self.user)
+            ActivityPub.fetch('http://orig', Object())
 
     @patch('requests.get')
     def test_fetch_datastore_no_content(self, mock_get):

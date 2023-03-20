@@ -3,6 +3,7 @@ import json
 import logging
 import re
 
+from flask import g
 from granary import bluesky, microformats2
 import mf2util
 from oauth_dropins.webutil import util
@@ -21,10 +22,10 @@ def getAuthorFeed(input, author=None, limit=None, before=None):
     if not author or not re.match(util.DOMAIN_RE, author):
         raise ValueError(f'{author} is not a domain')
 
-    user = User.get_by_id(author)
-    if not user:
+    g.user = User.get_by_id(author)
+    if not g.user:
         raise ValueError(f'User {author} not found')
-    elif not user.actor_as2:
+    elif not g.user.actor_as2:
         return ValueError(f'User {author} not fully set up')
 
     # TODO: unify with pages.feed?
@@ -96,11 +97,11 @@ def getTimeline(input, algorithm=None, limit=50, before=None):
     lexicons/app/bsky/feed/getTimeline.json
     """
     # TODO: how to get authed user?
-    user = 'user.com'
+    domain = 'user.com'
 
     # TODO: de-dupe with pages.feed()
-    logger.info(f'Fetching {limit} objects for {user}')
-    objects, _, _ = Object.query(Object.domains == user, Object.labels == 'feed') \
+    logger.info(f'Fetching {limit} objects for {domain}')
+    objects, _, _ = Object.query(Object.domains == domain, Object.labels == 'feed') \
         .order(-Object.created) \
         .fetch_page(limit)
 

@@ -7,7 +7,7 @@ https://www.rfc-editor.org/rfc/rfc7033
 import logging
 import urllib.parse
 
-from flask import redirect, request, session
+from flask import g, redirect, request, session
 from granary import as2
 from oauth_dropins import indieauth
 from oauth_dropins.webutil import flask_util, util
@@ -81,8 +81,8 @@ def remote_follow():
     logger.info(f'Got: {request.values}')
 
     domain = request.values['domain']
-    user = User.get_by_id(domain)
-    if not user:
+    g.user = User.get_by_id(domain)
+    if not g.user:
         error(f'No Bridgy Fed user found for domain {domain}')
 
     addr = request.values['address']
@@ -94,7 +94,7 @@ def remote_follow():
         if link.get('rel') == SUBSCRIBE_LINK_REL:
             template = link.get('template')
             if template and '{uri}' in template:
-                return redirect(template.replace('{uri}', user.address()))
+                return redirect(template.replace('{uri}', g.user.address()))
 
     flash(f"Couldn't find remote follow link for {addr}")
     return redirect(f'/user/{domain}')
@@ -134,10 +134,10 @@ class FollowCallback(indieauth.Callback):
         session['indieauthed-me'] = me
 
         domain = util.domain_from_link(me)
-        user = User.get_by_id(domain)
-        if not user:
+        g.user = User.get_by_id(domain)
+        if not g.user:
             error(f'No user for domain {domain}')
-        domain = user.key.id()
+        domain = g.user.key.id()
 
         addr = state
         if not state:
@@ -159,7 +159,7 @@ class FollowCallback(indieauth.Callback):
             return redirect(f'/user/{domain}/following')
 
         # TODO: make this generic across protocols
-        followee = activitypub.ActivityPub.get_object(as2_url, user=user).as2
+        followee = activitypub.ActivityPub.get_object(as2_url).as2
         id = followee.get('id')
         inbox = followee.get('inbox')
         if not id or not inbox:
@@ -173,12 +173,12 @@ class FollowCallback(indieauth.Callback):
             'type': 'Follow',
             'id': follow_id,
             'object': followee,
-            'actor': user.actor_id(),
+            'actor': g.user.actor_id(),
             'to': [as2.PUBLIC_AUDIENCE],
         }
         obj = Object(id=follow_id, domains=[domain], labels=['user', 'activity'],
                source_protocol='ui', status='complete', as2=follow_as2)
-        activitypub.ActivityPub.send(obj, inbox, user=user)
+        activitypub.ActivityPub.send(obj, inbox)
 
         Follower.get_or_create(dest=id, src=domain, status='active',
                                 last_follow=follow_as2)
@@ -221,10 +221,10 @@ class UnfollowCallback(indieauth.Callback):
         session['indieauthed-me'] = me
 
         domain = util.domain_from_link(me)
-        user = User.get_by_id(domain)
-        if not user:
+        g.user = User.get_by_id(domain)
+        if not g.user:
             error(f'No user for domain {domain}')
-        domain = user.key.id()
+        domain = g.user.key.id()
 
         follower = Follower.get_by_id(state)
         if not follower:
@@ -237,7 +237,7 @@ class UnfollowCallback(indieauth.Callback):
         if isinstance(followee, str):
             # fetch as AS2 to get full followee with inbox
             followee_id = followee
-            followee = activitypub.ActivityPub.get_object(followee_id, user=user).as2
+            followee = activitypub.ActivityPub.get_object(followee_id).as2
 
         inbox = followee.get('inbox')
         if not inbox:
@@ -250,13 +250,13 @@ class UnfollowCallback(indieauth.Callback):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Undo',
             'id': unfollow_id,
-            'actor': user.actor_id(),
+            'actor': g.user.actor_id(),
             'object': follower.last_follow,
         }
 
         obj = Object(id=unfollow_id, domains=[domain], labels=['user', 'activity'],
                      source_protocol='ui', status='complete', as2=unfollow_as2)
-        activitypub.ActivityPub.send(obj, inbox, user=user)
+        activitypub.ActivityPub.send(obj, inbox)
 
         follower.status = 'inactive'
         follower.put()

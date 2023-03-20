@@ -14,7 +14,7 @@ import logging
 import re
 import urllib.parse
 
-from flask import redirect, request
+from flask import g, redirect, request
 from granary import as2
 from negotiator import ContentNegotiator, AcceptParameters, ContentType
 from oauth_dropins.webutil import flask_util, util
@@ -58,8 +58,8 @@ def redir(to):
                    urllib.parse.urlparse(to).hostname))
     for domain in domains:
         if domain:
-            user = User.get_by_id(domain)
-            if user:
+            g.user = User.get_by_id(domain)
+            if g.user:
                 logger.info(f'Found User for domain {domain}')
                 break
     else:
@@ -80,8 +80,7 @@ def redir(to):
                 obj = Object.get_by_id(to)
                 if not obj or obj.deleted:
                     return f'Object not found: {to}', 404
-                ret = activitypub.postprocess_as2(as2.from_as1(obj.as1),
-                                                  user=user, create=False)
+                ret = activitypub.postprocess_as2(as2.from_as1(obj.as1), create=False)
                 logger.info(f'Returning: {json_dumps(ret, indent=2)}')
                 return ret, {
                     'Content-Type': type,

@@ -3,6 +3,7 @@ import logging
 import threading
 
 from cachetools import cached, LRUCache
+from flask import g
 from google.cloud import ndb
 from google.cloud.ndb import OR
 from granary import as1, as2
@@ -53,7 +54,7 @@ class Protocol:
         assert False
 
     @classmethod
-    def send(cls, obj, url, *, user=None, log_data=True):
+    def send(cls, obj, url, log_data=True):
         """Sends an outgoing activity.
 
         To be implemented by subclasses.
@@ -61,7 +62,6 @@ class Protocol:
         Args:
           obj: :class:`Object` with activity to send
           url: str, destination URL to send to
-          user: :class:`User` this is on behalf of
           log_data: boolean, whether to log full data object
 
         Returns:
@@ -74,7 +74,7 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def fetch(cls, obj, id, *, user=None):
+    def fetch(cls, obj, id):
         """Fetches a protocol-specific object and populates it into an :class:`Object`.
 
         To be implemented by subclasses.
@@ -82,7 +82,6 @@ class Protocol:
         Args:
           obj: :class:`Object` to populate the fetched object into
           id: str, object's URL id
-          user: optional :class:`User` we're fetching on behalf of
 
         Raises:
           :class:`werkzeug.HTTPException` if the fetch fails
@@ -90,12 +89,11 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def receive(cls, id, *, user=None, **props):
+    def receive(cls, id, **props):
         """Handles an incoming activity.
 
         Args:
           id: str, activity id
-          user: :class:`User`, optional receiving Bridgy Fed user
           props: property values to populate into the :class:`Object`
 
         Returns:
@@ -195,18 +193,18 @@ class Protocol:
 
         # fetch actor if necessary so we have name, profile photo, etc
         if actor and actor.keys() == set(['id']):
-            actor = obj.as2['actor'] = cls.get_object(actor['id'], user=user).as2
+            actor = obj.as2['actor'] = cls.get_object(actor['id']).as2
 
         # fetch object if necessary so we can render it in feeds
         if obj.type == 'share' and inner_obj.keys() == set(['id']):
             inner_obj = obj.as2['object'] = as2.from_as1(
-                cls.get_object(inner_obj_id, user=user).as1)
+                cls.get_object(inner_obj_id).as1)
 
         if obj.type == 'follow':
-            cls.accept_follow(obj, user=user)
+            cls.accept_follow(obj)
 
         # send webmentions to each target
-        send_webmentions(obj, user=user, proxy=True)
+        send_webmentions(obj, proxy=True)
 
         # deliver original posts and reposts to followers
         is_reply = (obj.type == 'comment' or
@@ -229,14 +227,13 @@ class Protocol:
         return 'OK'
 
     @classmethod
-    def accept_follow(cls, obj, *, user=None):
+    def accept_follow(cls, obj):
         """Replies to an AP Follow request with an Accept request.
 
         TODO: move to Protocol
 
         Args:
           obj: :class:`Object`
-          user: :class:`User`
         """
         logger.info('Replying to Follow with Accept')
 
@@ -253,16 +250,16 @@ class Protocol:
 
         # store Follower
         follower_obj = models.Follower.get_or_create(
-            dest=user.key.id(), src=follower_id, last_follow=obj.as2)
+            dest=g.user.key.id(), src=follower_id, last_follow=obj.as2)
         follower_obj.status = 'active'
         follower_obj.put()
 
         # send AP Accept
-        followee_actor_url = user.actor_id()
+        followee_actor_url = g.user.actor_id()
         accept = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': util.tag_uri(common.PRIMARY_DOMAIN,
-                               f'accept/{user.key.id()}/{obj.key.id()}'),
+                               f'accept/{g.user.key.id()}/{obj.key.id()}'),
             'type': 'Accept',
             'actor': followee_actor_url,
             'object': {
@@ -272,12 +269,12 @@ class Protocol:
             }
         }
 
-        return cls.send(models.Object(as2=accept), inbox, user=user)
+        return cls.send(models.Object(as2=accept), inbox)
 
     @classmethod
-    @cached(LRUCache(1000), key=lambda cls, id, user=None: util.fragmentless(id),
+    @cached(LRUCache(1000), key=lambda cls, id: util.fragmentless(id),
             lock=threading.Lock())
-    def get_object(cls, id, *, user=None):
+    def get_object(cls, id):
         """Loads and returns an Object from memory cache, datastore, or HTTP fetch.
 
         Assumes id is a URL. Any fragment at the end is stripped before loading.
@@ -294,7 +291,6 @@ class Protocol:
 
         Args:
           id: str
-          user: optional, :class:`User` used to sign HTTP request, if necessary
 
         Returns: Object
 
@@ -313,18 +309,17 @@ class Protocol:
 
         logger.info(f'Object not in datastore or has no data: {id}')
         obj.clear()
-        cls.fetch(id, obj, user=user)
+        cls.fetch(id, obj)
         obj.source_protocol = cls.LABEL
         obj.put()
         return obj
 
 
-def send_webmentions(obj, *, user=None, proxy=None):
+def send_webmentions(obj, proxy=None):
     """Sends webmentions for an incoming ActivityPub inbox delivery.
 
     Args:
       obj: :class:`Object`
-      user: :class:`User`
       proxy: boolean, whether to use our proxy URL as the webmention source
 
     Returns: boolean, True if any webmentions were sent, False otherwise
@@ -372,7 +367,7 @@ def send_webmentions(obj, *, user=None, proxy=None):
     while obj.undelivered:
         target = obj.undelivered.pop()
         domain = util.domain_from_link(target.uri, minimize=False)
-        if user and domain == user.key.id():
+        if g.user and domain == g.user.key.id():
             if 'notification' not in obj.labels:
                 obj.labels.append('notification')
 

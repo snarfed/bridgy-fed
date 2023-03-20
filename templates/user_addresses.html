@@ -1,11 +1,11 @@
 <div class="row">
   <div class="big" style="display: inline">
-    {{ user.user_page_link()|safe }}
+    {{ g.user.user_page_link()|safe }}
     &middot;
     <span title="Fediverse address">
       <nobr>
         <img class="logo" src="/static/fediverse_logo.svg">
-        {{ user.address() }}
+        {{ g.user.address() }}
       </nobr>
     </span>
     &middot;

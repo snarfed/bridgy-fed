@@ -8,7 +8,7 @@ import logging
 import re
 import urllib.parse
 
-from flask import render_template, request
+from flask import g, render_template, request
 from granary import as2
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
@@ -38,22 +38,22 @@ class Actor(flask_util.XrdOrJrd):
         if domain.split('.')[-1] in NON_TLDS:
             error(f"{domain} doesn't look like a domain", status=404)
 
-        user = User.get_by_id(domain)
-        if not user:
+        g.user = User.get_by_id(domain)
+        if not g.user:
             error(f'No user for {domain}', status=404)
 
         logger.info(f'Generating WebFinger data for {domain}')
-        actor = user.to_as1() or {}
+        actor = g.user.to_as1() or {}
         logger.info(f'AS1 actor: {actor}')
         urls = util.dedupe_urls(util.get_list(actor, 'urls') +
                                 util.get_list(actor, 'url') +
-                                [user.homepage])
+                                [g.user.homepage])
         logger.info(f'URLs: {urls}')
         canonical_url = urls[0]
 
         # generate webfinger content
         data = util.trim_nulls({
-            'subject': 'acct:' + user.address().lstrip('@'),
+            'subject': 'acct:' + g.user.address().lstrip('@'),
             'aliases': urls,
             'links':
             [{
@@ -80,7 +80,7 @@ class Actor(flask_util.XrdOrJrd):
                 # WARNING: in python 2 sometimes request.host_url lost port,
                 # http://localhost:8080 would become just http://localhost. no
                 # clue how or why. pay attention here if that happens again.
-                'href': user.actor_id(),
+                'href': g.user.actor_id(),
             }, {
                 # AP reads this and sharedInbox from the AS2 actor, not
                 # webfinger, so strictly speaking, it's probably not needed here.

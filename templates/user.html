@@ -4,7 +4,7 @@
 
 {% block content %}
 
-{% if user.has_redirects == False %}
+{% if g.user.has_redirects == False %}
 <div class="row promo warning">
 <form method="post" action="/web-site">
   Next step:
@@ -15,15 +15,15 @@
   <input type="submit" class="btn btn-default" value="Check now" />
 </form>
 
-{% if user.redirects_error %}
+{% if g.user.redirects_error %}
 <details class="small">
-  {{ user.redirects_error|safe }}
+  {{ g.user.redirects_error|safe }}
 </details>
 {% endif %}
 </div>
 {% endif %}
 
-{% if user.has_hcard == False %}
+{% if g.user.has_hcard == False %}
 <div class="row promo warning">
 <form method="post" action="/web-site">
   Next step:

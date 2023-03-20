@@ -2,7 +2,7 @@
 """Unit tests for models.py."""
 from unittest import mock
 
-from flask import get_flashed_messages
+from flask import g, get_flashed_messages
 from granary import as2
 from oauth_dropins.webutil.testutil import requests_response
 
@@ -17,76 +17,80 @@ from .test_activitypub import ACTOR
 class UserTest(testutil.TestCase):
 
     def setUp(self):
-        super(UserTest, self).setUp()
-        self.user = self.make_user('y.z')
+        super().setUp()
+        self.app_context = app.test_request_context('/')
+        self.app_context.push()
+        g.user = self.make_user('y.z')
 
         self.full_redir = requests_response(
             status=302,
             redirected_url='http://localhost/.well-known/webfinger?resource=acct:y.z@y.z')
 
+    def tearDown(self):
+        self.app_context.pop()
+        super().tearDown()
+
     def test_get_or_create(self):
-        assert self.user.mod
-        assert self.user.public_exponent
-        assert self.user.private_exponent
+        assert g.user.mod
+        assert g.user.public_exponent
+        assert g.user.private_exponent
 
         same = User.get_or_create('y.z')
-        self.assertEqual(same, self.user)
+        self.assertEqual(same, g.user)
 
     def test_get_or_create_use_instead(self):
         user = User.get_or_create('a.b')
-        user.use_instead = self.user.key
+        user.use_instead = g.user.key
         user.put()
 
         self.assertEqual('y.z', User.get_or_create('a.b').key.id())
 
     def test_href(self):
-        href = self.user.href()
+        href = g.user.href()
         self.assertTrue(href.startswith('data:application/magic-public-key,RSA.'), href)
-        self.assertIn(self.user.mod, href)
-        self.assertIn(self.user.public_exponent, href)
+        self.assertIn(g.user.mod, href)
+        self.assertIn(g.user.public_exponent, href)
 
     def test_public_pem(self):
-        pem = self.user.public_pem()
+        pem = g.user.public_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN PUBLIC KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END PUBLIC KEY-----'), pem)
 
     def test_private_pem(self):
-        pem = self.user.private_pem()
+        pem = g.user.private_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END RSA PRIVATE KEY-----'), pem)
 
     def test_address(self):
-        self.assertEqual('@y.z@y.z', self.user.address())
+        self.assertEqual('@y.z@y.z', g.user.address())
 
-        self.user.actor_as2 = {'type': 'Person'}
-        self.assertEqual('@y.z@y.z', self.user.address())
+        g.user.actor_as2 = {'type': 'Person'}
+        self.assertEqual('@y.z@y.z', g.user.address())
 
-        self.user.actor_as2 = {'url': 'http://foo'}
-        self.assertEqual('@y.z@y.z', self.user.address())
+        g.user.actor_as2 = {'url': 'http://foo'}
+        self.assertEqual('@y.z@y.z', g.user.address())
 
-        self.user.actor_as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@y.z']}
-        self.assertEqual('@baz@y.z', self.user.address())
+        g.user.actor_as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@y.z']}
+        self.assertEqual('@baz@y.z', g.user.address())
 
     def test_actor_id(self):
-        with app.test_request_context('/'):
-            self.assertEqual('http://localhost/y.z', self.user.actor_id())
+        self.assertEqual('http://localhost/y.z', g.user.actor_id())
 
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
-        with app.test_request_context('/'):
-            got = self.user.verify()
-            self.assertEqual(self.user.key, got.key)
+        got = g.user.verify()
+        self.assertEqual(g.user.key, got.key)
 
         with self.subTest(redirects=redirects, hcard=hcard, actor=actor,
                           redirects_error=redirects_error):
-            self.assert_equals(redirects, bool(self.user.has_redirects))
-            self.assert_equals(hcard, bool(self.user.has_hcard))
+            self.assert_equals(redirects, bool(g.user.has_redirects))
+            self.assert_equals(hcard, bool(g.user.has_hcard))
             if actor is None:
-                self.assertIsNone(self.user.actor_as2)
+                self.assertIsNone(g.user.actor_as2)
             else:
-                got = {k: v for k, v in self.user.actor_as2.items()
+                got = {k: v for k, v in g.user.actor_as2.items()
                        if k in actor}
                 self.assert_equals(actor, got)
-            self.assert_equals(redirects_error, self.user.redirects_error)
+            self.assert_equals(redirects_error, g.user.redirects_error)
 
     @mock.patch('requests.get')
     def test_verify_neither(self, mock_get):
@@ -176,9 +180,8 @@ http://this/404s
             empty, empty,
         ]
 
-        with app.test_request_context('/'):
-            got = www_user.verify()
-            self.assertEqual('y.z', got.key.id())
+        got = www_user.verify()
+        self.assertEqual('y.z', got.key.id())
 
         root_user = User.get_by_id('y.z')
         self.assertEqual(root_user.key, www_user.key.get().use_instead)
@@ -240,50 +243,57 @@ http://this/404s
         })
 
     def test_homepage(self):
-        self.assertEqual('https://y.z/', self.user.homepage)
+        self.assertEqual('https://y.z/', g.user.homepage)
 
     def test_is_homepage(self):
         for url in 'y.z', '//y.z', 'http://y.z', 'https://y.z':
-            self.assertTrue(self.user.is_homepage(url), url)
+            self.assertTrue(g.user.is_homepage(url), url)
 
         for url in None, '', 'y', 'z', 'z.z', 'ftp://y.z', 'http://y', '://y.z':
-            self.assertFalse(self.user.is_homepage(url), url)
+            self.assertFalse(g.user.is_homepage(url), url)
 
 
 class ObjectTest(testutil.TestCase):
+    def setUp(self):
+        super().setUp()
+        self.app_context = app.test_request_context('/')
+        self.app_context.push()
+        g.user = None
+
+    def tearDown(self):
+        self.app_context.pop()
+        super().tearDown()
 
     def test_proxy_url(self):
-        with app.test_request_context('/'):
-            obj = Object(id='abc', as2={})
-            self.assertEqual('http://localhost/render?id=abc', obj.proxy_url())
+        obj = Object(id='abc', as2={})
+        self.assertEqual('http://localhost/render?id=abc', obj.proxy_url())
 
     def test_actor_link(self):
-        with app.test_request_context('/'):
-            for expected, as2 in (
-                    ('href="">', {}),
-                    ('href="http://foo">foo', {'actor': 'http://foo'}),
-                    ('href="">Alice', {'actor': {'name': 'Alice'}}),
-                    ('href="http://foo">Alice', {'actor': {
-                        'name': 'Alice',
-                        'url': 'http://foo',
-                    }}),
-                    ("""\
-            title="Alice">
-              <img class="profile" src="http://pic" />
-              Alice""", {'actor': {
-                'name': 'Alice',
-                'icon': {'type': 'Image', 'url': 'http://pic'},
-            }}),
-            ):
-                obj = Object(id='x', as2=as2)
-                self.assert_multiline_in(expected, obj.actor_link())
+        for expected, as2 in (
+                ('href="">', {}),
+                ('href="http://foo">foo', {'actor': 'http://foo'}),
+                ('href="">Alice', {'actor': {'name': 'Alice'}}),
+                ('href="http://foo">Alice', {'actor': {
+                    'name': 'Alice',
+                    'url': 'http://foo',
+                }}),
+                ("""\
+        title="Alice">
+          <img class="profile" src="http://pic" />
+          Alice""", {'actor': {
+            'name': 'Alice',
+            'icon': {'type': 'Image', 'url': 'http://pic'},
+        }}),
+        ):
+            obj = Object(id='x', as2=as2)
+            self.assert_multiline_in(expected, obj.actor_link())
 
     def test_actor_link_user(self):
-        user = User(id='user.com', actor_as2={"name": "Alice"})
+        g.user = User(id='user.com', actor_as2={"name": "Alice"})
         obj = Object(id='x', source_protocol='ui', domains=['user.com'])
         self.assertIn(
             'href="/user/user.com"><img src="" class="profile"> Alice</a>',
-            obj.actor_link(user))
+            obj.actor_link())
 
     def test_put_updates_get_object_cache(self):
         obj = Object(id='x', as2={})

@@ -9,7 +9,7 @@ import threading
 import urllib.parse
 
 import cachetools
-from flask import abort, make_response, request
+from flask import abort, g, make_response, request
 from granary import as1, as2, microformats2
 import mf2util
 from oauth_dropins.webutil import util, webmention
@@ -64,7 +64,7 @@ def error(msg, status=400):
     abort(status, response=make_response({'error': msg}, status))
 
 
-def pretty_link(url, text=None, user=None, **kwargs):
+def pretty_link(url, text=None, **kwargs):
   """Wrapper around util.pretty_link() that converts Mastodon user URLs to @-@.
 
   Eg for URLs like https://mastodon.social/@foo and
@@ -74,11 +74,10 @@ def pretty_link(url, text=None, user=None, **kwargs):
   Args:
     url: str
     text: str
-    user: :class:`User`, optional, user for the current request
     kwargs: passed through to :func:`webutil.util.pretty_link`
   """
-  if user and user.is_homepage(url):
-    return user.user_page_link()
+  if g.user and g.user.is_homepage(url):
+    return g.user.user_page_link()
 
   if text is None:
     match = re.match(r'https?://([^/]+)/(@|users/)([^/]+)$', url)
@@ -218,7 +217,7 @@ def actor(user):
     actor_as1 = microformats2.json_to_object(hcard, rel_urls=mf2.get('rel-urls'))
     # TODO: fix circular dependency
     import activitypub
-    actor_as2 = activitypub.postprocess_as2(as2.from_as1(actor_as1), user=user)
+    actor_as2 = activitypub.postprocess_as2(as2.from_as1(actor_as1))
     # TODO: unify with activitypub.actor()
     actor_as2.update({
         'id': user.actor_id(),
