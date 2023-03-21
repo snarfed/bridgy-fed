@@ -119,14 +119,10 @@ def redirect_wrap(url):
 
     Returns: string, redirect url
     """
-    if not url:
+    if not url or url.startswith(host_url()):
         return url
 
-    prefix = host_url('/r/')
-    if url.startswith(prefix):
-        return url
-
-    return prefix + url
+    return host_url('/r/') + url
 
 
 def redirect_unwrap(val):

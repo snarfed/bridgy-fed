@@ -355,6 +355,9 @@ class WebmentionTest(testutil.TestCase):
             got.get('object', {}).pop('publicKey', None)
             self.assert_equals(data, got, inbox)
 
+    def assert_object(self, id, **props):
+        return super().assert_object(id, delivered_protocol='activitypub', **props)
+
     def test_fetch(self, mock_get, mock_post):
         obj = Object()
         mock_get.return_value = self.reply

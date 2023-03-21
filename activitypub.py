@@ -53,7 +53,8 @@ class ActivityPub(Protocol):
 
     @classmethod
     def send(cls, obj, url, log_data=True):
-        """Delivers an AS2 activity to an inbox URL."""
+        """Delivers an activity to an inbox URL."""
+        activity = obj.as2 or postprocess_as2(as2.from_as1(obj.as1))
         return signed_post(url, log_data=True, data=obj.as2)
         # TODO: return bool or otherwise unify return value with others
 
@@ -192,8 +193,7 @@ def signed_post(url, **kwargs):
     return signed_request(util.requests_post, url, **kwargs)
 
 
-def signed_request(fn, url, data=None, log_data=True,
-                   headers=None, **kwargs):
+def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
     """Wraps requests.* and adds HTTP Signature.
 
     If the current session has a user (ie in g.user), signs with that user's
@@ -335,6 +335,10 @@ def postprocess_as2(activity, target=None, create=True):
         obj['id'] = target_id or util.get_first(obj, 'url')
     elif target_id and id != target_id:
         activity['object'] = target_id
+
+    # for Accepts
+    if g.user.is_homepage(obj.get('object')):
+        obj['object'] = g.user.actor_id()
 
     # id is required for most things. default to url if it's not set.
     if not activity.get('id'):
@@ -537,8 +541,7 @@ def inbox(domain=None):
         followee_url = redirect_unwrap(util.get_url(activity, 'object'))
         activity.setdefault('url', f'{follower_url}#followed-{followee_url}')
 
-    return ActivityPub.receive(activity.get('id'),
-                               as2=redirect_unwrap(activity))
+    return ActivityPub.receive(activity.get('id'), as2=redirect_unwrap(activity))
 
 
 @app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/<any(followers,following):collection>')

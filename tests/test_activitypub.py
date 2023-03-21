@@ -153,13 +153,13 @@ FOLLOW_WITH_OBJECT['object'] = ACTOR
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Accept',
-    'id': 'tag:fed.brid.gy:accept/user.com/https://mas.to/6d1a',
+    'id': 'http://localhost/user/user.com/followers#accept-https://mas.to/6d1a',
     'actor': 'http://localhost/user.com',
     'object': {
         'type': 'Follow',
         'actor': 'https://mas.to/users/swentel',
         'object': 'http://localhost/user.com',
-    }
+    },
 }
 
 UNDO_FOLLOW_WRAPPED = {
@@ -235,6 +235,9 @@ class ActivityPubTest(testutil.TestCase):
                     'publicKeyPem': self.user.public_pem().decode(),
                 },
             }).put()
+
+    def assert_object(self, id, **props):
+        return super().assert_object(id, delivered_protocol='webmention', **props)
 
     def sign(self, path, body):
         """Constructs HTTP Signature, returns headers."""
@@ -1324,7 +1327,8 @@ class ActivityPubUtilsTest(testutil.TestCase):
         self.assert_equals(AS2_OBJ, got.as2)
         mock_get.assert_has_calls([self.as2_req(id)])
 
-        self.assert_object(id, as2=AS2_OBJ, as1=AS2_OBJ,
+        self.assert_object(id, delivered_protocol='webmention',
+                           as2=AS2_OBJ, as1=AS2_OBJ,
                            source_protocol='activitypub',
                            # check that it reused our original Object
                            status='in progress')

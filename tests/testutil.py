@@ -126,14 +126,13 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         kwargs.setdefault('timeout', util.HTTP_TIMEOUT)
         mock.assert_any_call(url, **kwargs)
 
-    def assert_object(self, id, **props):
+    def assert_object(self, id, delivered_protocol=None, **props):
         got = Object.get_by_id(id)
         assert got, id
 
         # right now we only do ActivityPub
-        # TODO: revisit as soon as we launch the next protocol, eg bluesky
         for field in 'delivered', 'undelivered', 'failed':
-            props[field] = [Target(uri=uri, protocol='activitypub')
+            props[field] = [Target(uri=uri, protocol=delivered_protocol)
                             for uri in props.get(field, [])]
 
         mf2 = props.get('mf2')

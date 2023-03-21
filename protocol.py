@@ -68,6 +68,10 @@ class Protocol:
           True if the activity is sent successfully, False if it is ignored due
           to protocol logic. (Failures are raised as exceptions.)
 
+        Returns:
+          True if the activity was sent successfully, False if it was discarded
+          or ignored due to protocol logic, ie not network or other failures
+
         Raises:
           :class:`werkzeug.HTTPException` if the request fails
         """
@@ -203,8 +207,8 @@ class Protocol:
         if obj.type == 'follow':
             cls.accept_follow(obj)
 
-        # send webmentions to each target
-        send_webmentions(obj, proxy=True)
+        # deliver to each target
+        cls.deliver(obj)
 
         # deliver original posts and reposts to followers
         is_reply = (obj.type == 'comment' or
@@ -230,10 +234,8 @@ class Protocol:
     def accept_follow(cls, obj):
         """Replies to an AP Follow request with an Accept request.
 
-        TODO: move to Protocol
-
         Args:
-          obj: :class:`Object`
+          obj: :class:`Object`, follow activity
         """
         logger.info('Replying to Follow with Accept')
 
@@ -258,8 +260,7 @@ class Protocol:
         followee_actor_url = g.user.actor_id()
         accept = {
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': util.tag_uri(common.PRIMARY_DOMAIN,
-                               f'accept/{g.user.key.id()}/{obj.key.id()}'),
+            'id': common.host_url(f'/user/{g.user.key.id()}/followers#accept-{obj.key.id()}'),
             'type': 'Accept',
             'actor': followee_actor_url,
             'object': {
@@ -268,8 +269,92 @@ class Protocol:
                 'object': followee_actor_url,
             }
         }
-
         return cls.send(models.Object(as2=accept), inbox)
+
+    @classmethod
+    def deliver(cls, obj):
+        """Delivers an activity to its external recipients.
+
+        Args:
+          obj: :class:`Object`, activity to deliver
+        """
+        # extract source and targets
+        source = obj.as1.get('url') or obj.as1.get('id')
+        inner_obj = as1.get_object(obj.as1)
+        obj_url = util.get_url(inner_obj) or inner_obj.get('id')
+
+        if not source or obj.type in ('create', 'post', 'update'):
+            source = obj_url
+        if not source:
+            error("Couldn't find source post URL")
+
+        targets = util.get_list(obj.as1, 'inReplyTo')
+        targets.extend(util.get_list(inner_obj, 'inReplyTo'))
+
+        for tag in (util.get_list(obj.as1, 'tags') +
+                    util.get_list(as1.get_object(obj.as1), 'tags')):
+            if tag.get('objectType') == 'mention':
+                url = tag.get('url')
+                if url:
+                    targets.append(url)
+
+        if obj.type in ('follow', 'like', 'share'):
+            targets.append(obj_url)
+
+        targets = util.dedupe_urls(util.get_url(t) for t in targets)
+        targets = common.remove_blocklisted(t.lower() for t in targets)
+        if not targets:
+            logger.info("Couldn't find any IndieWeb target URLs in inReplyTo, object, or mention tags")
+            return
+
+        logger.info(f'targets: {targets}')
+
+        # send webmentions and update Object
+        errors = []  # stores (code, body) tuples
+        targets = [models.Target(uri=uri, protocol='webmention') for uri in targets]
+
+        obj.populate(
+          undelivered=targets,
+          status='in progress',
+        )
+
+        while obj.undelivered:
+            target = obj.undelivered.pop()
+            domain = util.domain_from_link(target.uri, minimize=False)
+            if g.user and domain == g.user.key.id():
+                if 'notification' not in obj.labels:
+                    obj.labels.append('notification')
+
+            if domain == util.domain_from_link(source, minimize=False):
+                logger.info(f'Skipping same-domain webmention from {source} to {target.uri}')
+                continue
+
+            if domain not in obj.domains:
+                obj.domains.append(domain)
+
+            try:
+                # TODO: fix
+                from webmention import Webmention
+                if Webmention.send(obj, target.uri):
+                    obj.delivered.append(target)
+                    if 'notification' not in obj.labels:
+                        obj.labels.append('notification')
+            except BaseException as e:
+              code, body = util.interpret_http_exception(e)
+              if not code and not body:
+                raise
+              errors.append((code, body))
+              obj.failed.append(target)
+
+            obj.put()
+
+        obj.status = ('complete' if obj.delivered or obj.domains
+                      else 'failed' if obj.failed
+                      else 'ignored')
+
+        if errors:
+            msg = 'Errors: ' + ', '.join(f'{code} {body}' for code, body in errors)
+            error(msg, status=int(errors[0][0] or 502))
 
     @classmethod
     @cached(LRUCache(1000), key=lambda cls, id: util.fragmentless(id),
@@ -313,101 +398,3 @@ class Protocol:
         obj.source_protocol = cls.LABEL
         obj.put()
         return obj
-
-
-def send_webmentions(obj, proxy=None):
-    """Sends webmentions for an incoming ActivityPub inbox delivery.
-
-    Args:
-      obj: :class:`Object`
-      proxy: boolean, whether to use our proxy URL as the webmention source
-
-    Returns: boolean, True if any webmentions were sent, False otherwise
-    """
-    # extract source and targets
-    source = obj.as1.get('url') or obj.as1.get('id')
-    inner_obj = as1.get_object(obj.as1)
-    obj_url = util.get_url(inner_obj) or inner_obj.get('id')
-
-    if not source or obj.type in ('create', 'post', 'update'):
-        source = obj_url
-    if not source:
-        error("Couldn't find source post URL")
-
-    targets = util.get_list(obj.as1, 'inReplyTo')
-    targets.extend(util.get_list(inner_obj, 'inReplyTo'))
-
-    for tag in (util.get_list(obj.as1, 'tags') +
-                util.get_list(as1.get_object(obj.as1), 'tags')):
-        if tag.get('objectType') == 'mention':
-            url = tag.get('url')
-            if url:
-                targets.append(url)
-
-    if obj.type in ('follow', 'like', 'share'):
-        targets.append(obj_url)
-
-    targets = util.dedupe_urls(util.get_url(t) for t in targets)
-    targets = common.remove_blocklisted(t.lower() for t in targets)
-    if not targets:
-        logger.info("Couldn't find any IndieWeb target URLs in inReplyTo, object, or mention tags")
-        return False
-
-    logger.info(f'targets: {targets}')
-
-    # send webmentions and update Object
-    errors = []  # stores (code, body) tuples
-    targets = [models.Target(uri=uri, protocol='activitypub') for uri in targets]
-
-    obj.populate(
-      undelivered=targets,
-      status='in progress',
-    )
-
-    while obj.undelivered:
-        target = obj.undelivered.pop()
-        domain = util.domain_from_link(target.uri, minimize=False)
-        if g.user and domain == g.user.key.id():
-            if 'notification' not in obj.labels:
-                obj.labels.append('notification')
-
-        if domain == util.domain_from_link(source, minimize=False):
-            logger.info(f'Skipping same-domain webmention from {source} to {target.uri}')
-            continue
-
-        if domain not in obj.domains:
-            obj.domains.append(domain)
-        wm_source = (obj.proxy_url()
-                     if obj.type in ('follow', 'like', 'share') or proxy
-                     else source)
-        logger.info(f'Sending webmention from {wm_source} to {target.uri}')
-
-        try:
-            endpoint = common.webmention_discover(target.uri).endpoint
-            # logger.debug(f'wm cache info {common.webmention_discover.cache_info()}')
-            if endpoint:
-                webmention.send(endpoint, wm_source, target.uri)
-                logger.info('Success!')
-                obj.delivered.append(target)
-                if 'notification' not in obj.labels:
-                    obj.labels.append('notification')
-            else:
-                logger.info('No webmention endpoint')
-        except BaseException as e:
-          code, body = util.interpret_http_exception(e)
-          if not code and not body:
-            raise
-          errors.append((code, body))
-          obj.failed.append(target)
-
-        obj.put()
-
-    obj.status = ('complete' if obj.delivered or obj.domains
-                  else 'failed' if obj.failed
-                  else 'ignored')
-
-    if errors:
-        msg = 'Errors: ' + ', '.join(f'{code} {body}' for code, body in errors)
-        error(msg, status=int(errors[0][0] or 502))
-
-    return True
