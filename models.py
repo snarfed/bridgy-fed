@@ -291,19 +291,22 @@ class Object(StringIdModel):
 
     # TODO: switch back to ndb.JsonProperty if/when they fix it for the web console
     # https://github.com/googleapis/python-ndb/issues/874
-    as2 = JsonProperty()  # only one of the rest will be populated...
-    bsky = JsonProperty() # Bluesky / AT Protocol
-    mf2 = JsonProperty()  # HTML microformats2
+    as2 = JsonProperty()      # only one of the rest will be populated...
+    bsky = JsonProperty()     # Bluesky / AT Protocol
+    mf2 = JsonProperty()      # HTML microformats2
+    our_as1 = JsonProperty()  # AS1 for activities that we generate or modify ourselves
 
     @ComputedJsonProperty
     def as1(self):
-        # TODO: switch back to assert
+        # TODO: switch back to assert?
         # assert (self.as2 is not None) ^ (self.bsky is not None) ^ (self.mf2 is not None), \
         #     f'{self.as2} {self.bsky} {self.mf2}'
         if bool(self.as2) + bool(self.bsky) + bool(self.mf2) > 1:
             logging.warning(f'{self.key} has multiple! {bool(self.as2)} {bool(self.bsky)} {bool(self.mf2)}')
 
-        if self.as2 is not None:
+        if self.our_as1 is not None:
+            return self.our_as1
+        elif self.as2 is not None:
             return as2.to_as1(common.redirect_unwrap(self.as2))
         elif self.bsky is not None:
             return bluesky.to_as1(self.bsky)
