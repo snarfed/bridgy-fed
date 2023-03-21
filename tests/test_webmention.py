@@ -361,18 +361,18 @@ class WebmentionTest(testutil.TestCase):
     def test_fetch(self, mock_get, mock_post):
         obj = Object()
         mock_get.return_value = self.reply
-        Webmention.fetch(obj, 'https://user.com/post')
+        Webmention.fetch('https://user.com/post', obj)
         self.assert_equals(self.reply_as1, obj.as1)
 
     @skip
     def test_fetch_bad_source_url(self, mock_get, mock_post):
         with self.assertRaises(ValueError):
-            Webmention.fetch(Object(), 'bad')
+            Webmention.fetch('bad', Object())
 
     def test_fetch_error(self, mock_get, mock_post):
         mock_get.return_value = requests_response(self.reply_html, status=405)
         with self.assertRaises(BadGateway) as e:
-            Webmention.fetch(Object(), 'https://foo')
+            Webmention.fetch('https://foo', Object())
 
     def test_send(self, mock_get, mock_post):
         mock_get.return_value = WEBMENTION_REL_LINK

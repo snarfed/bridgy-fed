@@ -30,7 +30,7 @@ class FakeProtocol(protocol.Protocol):
     LABEL = 'fake'
 
     @classmethod
-    def send(cls, url, activity, log_data=True):
+    def send(cls, obj, url, log_data=True):
         raise NotImplementedError()
 
     @classmethod

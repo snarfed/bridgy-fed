@@ -50,7 +50,7 @@ class Webmention(View):
             return False
 
     @classmethod
-    def fetch(cls, obj, id):
+    def fetch(cls, id, obj):
         """Fetches a URL over HTTP."""
         parsed = util.fetch_mf2(id, gateway=True)
         obj.mf2 = mf2util.find_first_entry(parsed, ['h-entry'])
