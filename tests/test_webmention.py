@@ -182,13 +182,13 @@ class WebmentionTest(testutil.TestCase):
 """
         self.reply = requests_response(self.reply_html, content_type=CONTENT_TYPE_HTML,
                                        url='https://user.com/reply')
-        self.reply_mf2 = util.parse_mf2(self.reply_html, url='https://user.com/reply')
-        self.reply_as1 = microformats2.json_to_object(self.reply_mf2['items'][0])
+        self.reply_mf2 = util.parse_mf2(self.reply_html)['items'][0]
+        self.reply_as1 = microformats2.json_to_object(self.reply_mf2)
 
         self.repost = requests_response(REPOST_HTML, content_type=CONTENT_TYPE_HTML,
                                         url='https://user.com/repost')
-        self.repost_mf2 = util.parse_mf2(REPOST_HTML, url='https://user.com/repost')
-        self.repost_as1 = microformats2.json_to_object(self.repost_mf2['items'][0])
+        self.repost_mf2 = util.parse_mf2(REPOST_HTML)['items'][0]
+        self.repost_as1 = microformats2.json_to_object(self.repost_mf2)
 
         self.like_html = """\
 <html>
@@ -203,7 +203,7 @@ class WebmentionTest(testutil.TestCase):
 """
         self.like = requests_response(self.like_html, content_type=CONTENT_TYPE_HTML,
                                       url='https://user.com/like')
-        self.like_mf2 = util.parse_mf2(self.like_html, url='https://user.com/like')
+        self.like_mf2 = util.parse_mf2(self.like_html)['items'][0]
 
         self.actor = self.as2_resp({
             'objectType' : 'Person',
@@ -260,8 +260,8 @@ class WebmentionTest(testutil.TestCase):
 """
         self.follow = requests_response(
             self.follow_html, content_type=CONTENT_TYPE_HTML)
-        self.follow_mf2 = util.parse_mf2(self.follow_html, url='https://user.com/follow')
-        self.follow_as1 = microformats2.json_to_object(self.follow_mf2['items'][0])
+        self.follow_mf2 = util.parse_mf2(self.follow_html)['items'][0]
+        self.follow_as1 = microformats2.json_to_object(self.follow_mf2)
         self.follow_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Follow',
@@ -290,9 +290,8 @@ class WebmentionTest(testutil.TestCase):
         self.follow_fragment = requests_response(
             self.follow_fragment_html, content_type=CONTENT_TYPE_HTML)
         self.follow_fragment_mf2 = util.parse_mf2(
-            self.follow_fragment_html, url='https://user.com/follow', id='2')
-        self.follow_fragment_as1 = microformats2.json_to_object(
-            self.follow_fragment_mf2['items'][0])
+            self.follow_fragment_html, id='2')['items'][0]
+        self.follow_fragment_as1 = microformats2.json_to_object(self.follow_fragment_mf2)
         self.follow_fragment_as2 = copy.deepcopy(self.follow_as2)
         self.follow_fragment_as2.update({
             'id': 'http://localhost/r/https://user.com/follow#2',
@@ -311,10 +310,9 @@ class WebmentionTest(testutil.TestCase):
 </body>
 </html>
 """
-        self.create = requests_response(
-            self.create_html, content_type=CONTENT_TYPE_HTML)
-        self.create_mf2 = util.parse_mf2(self.create_html, url='https://user.com/create')
-        self.create_as1 = microformats2.json_to_object(self.create_mf2['items'][0])
+        self.create = requests_response(self.create_html, content_type=CONTENT_TYPE_HTML)
+        self.create_mf2 = util.parse_mf2(self.create_html)['items'][0]
+        self.create_as1 = microformats2.json_to_object(self.create_mf2)
         self.create_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
@@ -556,11 +554,9 @@ class WebmentionTest(testutil.TestCase):
 
     def test_update_reply(self, mock_get, mock_post):
         mf2 = {
-            'items': [{
-                'properties': {
-                    'content': ['other'],
-                },
-            }],
+            'properties': {
+                'content': ['other'],
+            },
         }
         with app.test_request_context('/'):
             Object(id='https://user.com/reply', status='complete', mf2=mf2).put()
@@ -599,7 +595,7 @@ class WebmentionTest(testutil.TestCase):
     def test_skip_update_if_content_unchanged(self, mock_get, mock_post):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
         with app.test_request_context('/'):
-            Object(id='https://user.com/reply', status='complete', mf2=self.reply_mf2['items'][0],
+            Object(id='https://user.com/reply', status='complete', mf2=self.reply_mf2,
                    delivered=[Target(uri='https://mas.to/inbox', protocol='activitypub')]
                    ).put()
         mock_get.side_effect = self.activitypub_gets
@@ -712,6 +708,27 @@ class WebmentionTest(testutil.TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals(self.as2_create, json_loads(kwargs['data']))
+
+    def test_like_stored_object_without_as2(self, mock_get, mock_post):
+        Object(id='https://mas.to/toot', mf2=self.create_mf2).put()
+        Object(id='https://user.com/', mf2=ACTOR_MF2).put()
+        mock_get.side_effect = [
+            self.like,
+        ]
+
+        got = self.client.post('/webmention', data={
+            'source': 'https://user.com/like',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
+
+        mock_get.assert_has_calls((
+            self.req('https://user.com/like'),
+        ))
+        mock_post.assert_not_called()
+
+        # TODO: we should eventually store this as ignored instead
+        self.assertIsNone(Object.get_by_id('https://user.com/like'))
 
     def test_create_default_url_to_wm_source(self, mock_get, mock_post):
         """Source post has no u-url. AS2 id should default to webmention source."""
@@ -848,7 +865,7 @@ class WebmentionTest(testutil.TestCase):
 
         with app.test_request_context('/'):
             Object(id='https://user.com/post', domains=['user.com'], status='in progress',
-                   mf2=self.create_mf2['items'][0],
+                   mf2=self.create_mf2,
                    delivered=[Target(uri='https://skipped/inbox', protocol='activitypub')],
                    undelivered=[Target(uri='https://shared/inbox', protocol='activitypub')],
                    failed=[Target(uri='https://public/inbox', protocol='activitypub')],
@@ -890,8 +907,10 @@ class WebmentionTest(testutil.TestCase):
         mock_post.return_value = requests_response('abc xyz')
 
         with app.test_request_context('/'):
+            mf2 = copy.deepcopy(self.create_mf2)
+            mf2['properties']['content'] = 'different'
             Object(id='https://user.com/post', domains=['user.com'], status='in progress',
-                   mf2={**self.create_mf2, 'content': 'different'},
+                   mf2=mf2,
                    delivered=[Target(uri='https://delivered/inbox', protocol='activitypub')],
                    undelivered=[Target(uri='https://shared/inbox', protocol='activitypub')],
                    failed=[Target(uri='https://public/inbox', protocol='activitypub')],

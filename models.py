@@ -293,7 +293,8 @@ class Object(StringIdModel):
     # https://github.com/googleapis/python-ndb/issues/874
     as2 = JsonProperty()      # only one of the rest will be populated...
     bsky = JsonProperty()     # Bluesky / AT Protocol
-    mf2 = JsonProperty()      # HTML microformats2
+    mf2 = JsonProperty()      # HTML microformats2 item (ie _not_ the top level
+                              # parse object with items inside an 'items' field)
     our_as1 = JsonProperty()  # AS1 for activities that we generate or modify ourselves
 
     @ComputedJsonProperty

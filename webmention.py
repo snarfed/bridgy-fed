@@ -107,12 +107,12 @@ class WebmentionView(View):
             error(f'Bad source URL: {source}: {e}')
         self.source_url = source_resp.url or source
         fragment = urllib.parse.urlparse(self.source_url).fragment
-        self.source_mf2 = util.parse_mf2(source_resp, id=fragment)
+        parsed_mf2 = util.parse_mf2(source_resp, id=fragment)
 
-        if fragment and self.source_mf2 is None:
+        if fragment and parsed_mf2 is None:
             error(f'#{fragment} not found in {self.source_url}')
 
-        # logger.debug(f'Parsed mf2 for {source_resp.url} : {json_dumps(self.source_mf2 indent=2)}')
+        # logger.debug(f'Parsed mf2 for {source_resp.url} : {json_dumps(parsed_mf2 indent=2)}')
 
         # check for backlink for webmention spec and to confirm source's intent
         # to federate
@@ -123,7 +123,7 @@ class WebmentionView(View):
             error(f"Couldn't find link to {common.host_url().rstrip('/')}")
 
         # convert source page to ActivityStreams
-        self.source_mf2 = mf2util.find_first_entry(self.source_mf2, ['h-entry'])
+        self.source_mf2 = mf2util.find_first_entry(parsed_mf2, ['h-entry'])
         if not self.source_mf2:
             error(f'No microformats2 found on {self.source_url}')
 
@@ -338,7 +338,8 @@ class WebmentionView(View):
             # fetch target page as AS2 object
             try:
                 # TODO: make this generic across protocols
-                target_obj = activitypub.ActivityPub.get_object(target).as2
+                target_stored = activitypub.ActivityPub.get_object(target)
+                target_obj = target_stored.as2 or as2.from_as1(target_stored.as1)
             except (requests.HTTPError, BadGateway) as e:
                 resp = getattr(e, 'requests_response', None)
                 if resp and resp.ok:
@@ -363,7 +364,8 @@ class WebmentionView(View):
             if not inbox_url:
                 # fetch actor as AS object
                 # TODO: make this generic across protocols
-                actor = activitypub.ActivityPub.get_object(actor).as2
+                actor_obj = activitypub.ActivityPub.get_object(actor)
+                actor = actor_obj.as2 or as2.from_as1(actor_obj.as1)
                 inbox_url = actor.get('inbox')
 
             if not inbox_url:
