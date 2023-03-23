@@ -357,20 +357,28 @@ class WebmentionTest(testutil.TestCase):
         return super().assert_object(id, delivered_protocol='activitypub', **props)
 
     def test_fetch(self, mock_get, mock_post):
-        obj = Object()
         mock_get.return_value = self.reply
-        Webmention.fetch('https://user.com/post', obj)
+        obj = Webmention.fetch('https://user.com/post')
         self.assert_equals(self.reply_as1, obj.as1)
+
+    def test_fetch_redirect(self, mock_get, mock_post):
+        mock_get.return_value = requests_response(
+            REPOST_HTML, url='https://orig/url', redirected_url='http://new/url')
+        obj = Webmention.fetch('https://orig/url')
+
+        self.assert_equals(self.repost_mf2, obj.mf2)
+        self.assert_equals(self.repost_as1, obj.as1)
+        self.assertIsNone(Object.get_by_id('http://orig/url'))
 
     @skip
     def test_fetch_bad_source_url(self, mock_get, mock_post):
         with self.assertRaises(ValueError):
-            Webmention.fetch('bad', Object())
+            Webmention.fetch('bad')
 
     def test_fetch_error(self, mock_get, mock_post):
         mock_get.return_value = requests_response(self.reply_html, status=405)
         with self.assertRaises(BadGateway) as e:
-            Webmention.fetch('https://foo', Object())
+            Webmention.fetch('https://foo')
 
     def test_send(self, mock_get, mock_post):
         mock_get.return_value = WEBMENTION_REL_LINK

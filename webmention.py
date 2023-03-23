@@ -36,7 +36,10 @@ class Webmention(View):
 
     @classmethod
     def send(cls, obj, url):
-        """Sends a webmention to a given target URL."""
+        """Sends a webmention to a given target URL.
+
+        See :meth:`Protocol.send` for details.
+        """
         source_url = obj.proxy_url()
         logger.info(f'Sending webmention from {source_url} to {url}')
 
@@ -50,13 +53,20 @@ class Webmention(View):
             return False
 
     @classmethod
-    def fetch(cls, id, obj):
-        """Fetches a URL over HTTP."""
-        parsed = util.fetch_mf2(id, gateway=True)
-        obj.mf2 = mf2util.find_first_entry(parsed, ['h-entry'])
-        if not obj.mf2:
-            error(f'No microformats2 found in {id}')
-        logger.info(f'Parsed HTML entry: {json_dumps(obj.mf2, indent=2)}')
+    def fetch(cls, url):
+        """Fetches a URL over HTTP and extracts its microformats2.
+
+        See :meth:`Protocol.fetch` for details.
+        """
+        parsed = util.fetch_mf2(url, gateway=True)
+        entry = mf2util.find_first_entry(parsed, ['h-entry'])
+        if not entry:
+            error(f'No microformats2 found in {url}')
+
+        logger.info(f'Extracted entry: {json_dumps(entry, indent=2)}')
+        obj = Object.get_or_insert(parsed['url'])
+        obj.mf2 = entry
+        return obj
 
 
 class WebmentionView(View):

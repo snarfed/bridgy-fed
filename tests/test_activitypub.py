@@ -1363,10 +1363,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
     @patch('requests.get')
     def test_fetch_direct(self, mock_get):
         mock_get.return_value = AS2
-        obj = Object()
-
-        ActivityPub.fetch('http://orig', obj)
-        self.assertEqual(AS2_OBJ, obj.as2)
+        self.assertEqual(AS2_OBJ, ActivityPub.fetch('http://orig').as2)
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
         ))
@@ -1374,10 +1371,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
     @patch('requests.get')
     def test_fetch_via_html(self, mock_get):
         mock_get.side_effect = [HTML_WITH_AS2, AS2]
-        obj = Object()
-
-        ActivityPub.fetch('http://orig', obj)
-        self.assertEqual(AS2_OBJ, obj.as2)
+        self.assertEqual(AS2_OBJ, ActivityPub.fetch('http://orig').as2)
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
             self.as2_req('http://as2', headers=common.as2.CONNEG_HEADERS),
@@ -1387,34 +1381,34 @@ class ActivityPubUtilsTest(testutil.TestCase):
     def test_fetch_only_html(self, mock_get):
         mock_get.return_value = HTML
         with self.assertRaises(BadGateway):
-            ActivityPub.fetch('http://orig', Object())
+            ActivityPub.fetch('http://orig')
 
     @patch('requests.get')
     def test_fetch_not_acceptable(self, mock_get):
         mock_get.return_value=NOT_ACCEPTABLE
         with self.assertRaises(BadGateway):
-            ActivityPub.fetch('http://orig', Object())
+            ActivityPub.fetch('http://orig')
 
     @patch('requests.get')
     def test_fetch_ssl_error(self, mock_get):
         mock_get.side_effect = requests.exceptions.SSLError
         with self.assertRaises(BadGateway):
-            ActivityPub.fetch('http://orig', Object())
+            ActivityPub.fetch('http://orig')
 
     @patch('requests.get')
-    def test_fetch_datastore_no_content(self, mock_get):
+    def test_fetch_no_content(self, mock_get):
         mock_get.return_value = self.as2_resp('')
 
         with self.assertRaises(BadGateway):
-            got = ActivityPub.fetch('http://the/id', Object())
+            got = ActivityPub.fetch('http://the/id')
 
         mock_get.assert_has_calls([self.as2_req('http://the/id')])
 
     @patch('requests.get')
-    def test_fetch_datastore_not_json(self, mock_get):
+    def test_fetch_not_json(self, mock_get):
         mock_get.return_value = self.as2_resp('XYZ not JSON')
 
         with self.assertRaises(BadGateway):
-            got = ActivityPub.fetch('http://the/id', Object())
+            got = ActivityPub.fetch('http://the/id')
 
         mock_get.assert_has_calls([self.as2_req('http://the/id')])

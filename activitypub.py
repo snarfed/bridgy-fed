@@ -59,8 +59,8 @@ class ActivityPub(Protocol):
         # TODO: return bool or otherwise unify return value with others
 
     @classmethod
-    def fetch(cls, id, obj):
-        """Tries to fetch an AS2 object and populate it into an :class:`Object`.
+    def fetch(cls, id):
+        """Tries to fetch an AS2 object.
 
         Uses HTTP content negotiation via the Content-Type header. If the url is
         HTML and it has a rel-alternate link with an AS2 content type, fetches and
@@ -79,7 +79,9 @@ class ActivityPub(Protocol):
 
         Args:
           id: str, object's URL id
-          obj: :class:`Object` to populate the fetched object into
+
+        Returns:
+          obj: :class:`Object` with the fetched object
 
         Raises:
           :class:`requests.HTTPError`, :class:`werkzeug.exceptions.HTTPException`
@@ -87,7 +89,9 @@ class ActivityPub(Protocol):
           If we raise a werkzeug HTTPException, it will have an additional
           requests_response attribute with the last requests.Response we received.
         """
-        def _error(resp, extra_msg=None):
+        resp = None
+
+        def _error(extra_msg=None):
             msg = f"Couldn't fetch {id} as ActivityStreams 2"
             if extra_msg:
                 msg += ': ' + extra_msg
@@ -98,34 +102,37 @@ class ActivityPub(Protocol):
 
         def _get(url, headers):
             """Returns None if we fetched and populated, resp otherwise."""
+            nonlocal resp
             resp = signed_get(url, headers=headers, gateway=True)
             if not resp.content:
-                _error(resp, 'empty response')
+                _error('empty response')
             elif common.content_type(resp) == as2.CONTENT_TYPE:
                 try:
-                    obj.as2 = resp.json()
-                    return
+                    as2_json = resp.json()
                 except requests.JSONDecodeError:
-                    _error(resp, "Couldn't decode as JSON")
+                    _error("Couldn't decode as JSON")
+                obj = Object.get_or_insert(id)
+                obj.as2 = as2_json
+                return obj
 
-            return resp
-
-        resp = _get(id, CONNEG_HEADERS_AS2_HTML)
-        if resp is None:
-            return
+        obj = _get(id, CONNEG_HEADERS_AS2_HTML)
+        if obj:
+            return obj
 
         # look in HTML to find AS2 link
         if common.content_type(resp) != 'text/html':
-            _error(resp, 'no AS2 available')
+            _error('no AS2 available')
         parsed = util.parse_html(resp)
         link = parsed.find('link', rel=('alternate', 'self'), type=(
             as2.CONTENT_TYPE, as2.CONTENT_TYPE_LD))
         if not (link and link['href']):
-            _error(resp, 'no AS2 available')
+            _error('no AS2 available')
 
-        resp = _get(link['href'], as2.CONNEG_HEADERS)
-        if resp is not None:
-            _error(resp)
+        obj = _get(link['href'], as2.CONNEG_HEADERS)
+        if obj:
+            return obj
+
+        _error()
 
     @classmethod
     def verify_signature(cls, activity):

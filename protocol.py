@@ -78,14 +78,18 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def fetch(cls, id, obj):
-        """Fetches a protocol-specific object and populates it into an :class:`Object`.
+    def fetch(cls, id):
+        """Fetches a protocol-specific object and returns it in an :class:`Object`.
 
-        To be implemented by subclasses.
+        To be implemented by subclasses. The returned :class:`Object` is loaded
+        from the datastore, if it exists there, then updated in memory but not
+        yet written back to the datastore.
 
         Args:
           id: str, object's URL id
-          obj: :class:`Object` to populate the fetched object into
+
+        Returns:
+          obj: :class:`Object` with the fetched object
 
         Raises:
           :class:`werkzeug.HTTPException` if the fetch fails
@@ -187,8 +191,8 @@ class Protocol:
             # https://github.com/snarfed/bridgy-fed/issues/63
             logger.info(f'Deactivating Followers with src or dest = {inner_obj_id}')
             followers = models.Follower.query(OR(models.Follower.src == inner_obj_id,
-                                          models.Follower.dest == inner_obj_id)
-                                       ).fetch()
+                                                 models.Follower.dest == inner_obj_id)
+                                              ).fetch()
             for f in followers:
                 f.status = 'inactive'
             obj.status = 'complete'
@@ -243,7 +247,7 @@ class Protocol:
         followee_id = followee.get('id')
         follower = as1.get_object(obj.as1, 'actor')
         if not followee or not followee_id or not follower:
-            error(f'Follow activity requires object and actor. Got: {follow}')
+            error(f'Follow activity requires object and actor. Got: {obj.as1}')
 
         inbox = follower.get('inbox')
         follower_id = follower.get('id')
@@ -385,16 +389,11 @@ class Protocol:
         id = util.fragmentless(id)
         logger.info(f'Loading Object {id}')
         obj = models.Object.get_by_id(id)
-        if obj:
-          if obj.as1:
+        if obj and obj.as1:
             logger.info('  got from datastore')
             return obj
-        else:
-          obj = models.Object(id=id)
 
         logger.info(f'Object not in datastore or has no data: {id}')
-        obj.clear()
-        cls.fetch(id, obj)
+        obj = cls.fetch(id)
         obj.source_protocol = cls.LABEL
-        obj.put()
         return obj

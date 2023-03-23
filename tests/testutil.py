@@ -34,7 +34,7 @@ class FakeProtocol(protocol.Protocol):
         raise NotImplementedError()
 
     @classmethod
-    def fetch(cls, id, obj):
+    def fetch(cls, id):
         raise NotImplementedError()
 
 
