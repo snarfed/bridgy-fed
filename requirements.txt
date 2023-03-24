@@ -79,7 +79,7 @@ tlslite-ng==0.7.6
 tweepy==4.13.0
 ujson==5.7.0
 update-checker==0.18.0
-urllib3==1.26.14
+urllib3==1.26.15
 webencodings==0.5.1
 websocket-client==1.5.1
 Werkzeug==2.2.3
