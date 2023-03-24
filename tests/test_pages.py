@@ -63,6 +63,19 @@ class PagesTest(testutil.TestCase):
         got = self.client.get('/user/user.com')
         self.assert_equals(200, got.status_code)
 
+    def test_user_object_url_object(self):
+        with app.test_request_context('/'):
+            Object(id='a', domains=['user.com'], labels=['notification'], our_as1={
+                **REPOST_AS2,
+                'object': {
+                    'id': 'https://mas.to/toot/id',
+                    'url': {'value': 'http://foo', 'displayName': 'bar'},
+                },
+            }).put()
+
+        got = self.client.get('/user/user.com')
+        self.assert_equals(200, got.status_code)
+
     @patch('requests.get')
     def test_check_web_site(self, mock_get):
         redir = 'http://localhost/.well-known/webfinger?resource=acct:orig@orig'

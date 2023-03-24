@@ -222,9 +222,11 @@ def fetch_objects(query):
         content = (inner_obj.get('content')
                    or inner_obj.get('displayName')
                    or inner_obj.get('summary'))
-        url = util.get_first(inner_obj, 'url') or inner_obj.get('id')
+        urls = as1.object_urls(inner_obj)
+        id = common.redirect_unwrap(inner_obj.get('id', ''))
+        url = urls[0] if urls else id
         if (type == 'update' and obj.domains and
-            inner_obj.get('id', '').strip('/') == f'https://{obj.domains[0]}'):
+            id.strip('/') == f'https://{obj.domains[0]}'):
             obj.phrase = 'updated'
             obj.as1.update({
                 'content': 'their profile',
