@@ -64,6 +64,24 @@ class Webmention(View):
             error(f'No microformats2 found in {url}')
 
         logger.info(f'Extracted entry: {json_dumps(entry, indent=2)}')
+
+        # run full authorship algorithm if necessary: https://indieweb.org/authorship
+        # duplicated in microformats2.json_to_object
+        props = entry.setdefault('properties', {})
+        author = util.get_first(props, 'author')
+        if not isinstance(author, dict):
+            logging.info(f'Fetching full authorship for author {author}')
+            author = mf2util.find_author({'items': [entry]}, hentry=entry,
+                                         fetch_mf2_func=util.fetch_mf2)
+            logging.info(f'Got: {author}')
+            props['author'] = [{
+                "type": ["h-card"],
+                'properties': {
+                    field: [author[field]] if author.get(field) else []
+                    for field in ('name', 'photo', 'url')
+                },
+            }]
+
         obj = Object.get_or_insert(parsed['url'])
         obj.mf2 = entry
         return obj

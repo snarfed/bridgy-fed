@@ -380,6 +380,22 @@ class WebmentionTest(testutil.TestCase):
         with self.assertRaises(BadGateway) as e:
             Webmention.fetch('https://foo')
 
+    def test_fetch_run_authorship(self, mock_get, mock_post):
+        mock_get.side_effect = [
+            # post
+            requests_response(
+                self.reply_html.replace(
+                    '<a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>',
+                    '<a class="u-author" href="https://user.com/"></a>'),
+                content_type=CONTENT_TYPE_HTML, url='https://user.com/reply'),
+            # author URL
+            self.author,
+        ]
+
+        return_value = self.reply
+        obj = Webmention.fetch('https://user.com/reply')
+        self.assert_equals(self.reply_as1, obj.as1)
+
     def test_send(self, mock_get, mock_post):
         mock_get.return_value = WEBMENTION_REL_LINK
         mock_post.return_value = requests_response()
