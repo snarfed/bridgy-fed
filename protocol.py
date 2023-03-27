@@ -396,4 +396,5 @@ class Protocol:
         logger.info(f'Object not in datastore or has no data: {id}')
         obj = cls.fetch(id)
         obj.source_protocol = cls.LABEL
+        obj.put()
         return obj

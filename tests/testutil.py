@@ -5,12 +5,14 @@ import unittest
 from unittest.mock import ANY, call
 
 from flask import g
+from google.cloud import ndb
 from granary import as2
 from granary.tests.test_as1 import (
     COMMENT,
     MENTION,
     NOTE,
 )
+import logging
 from oauth_dropins.webutil import testutil, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.testutil import requests_response
@@ -18,24 +20,46 @@ import requests
 
 from app import app, cache
 import activitypub, common
-from models import Object, Target, User
+from models import Object, PROTOCOLS, Target, User
 import protocol
+
+logger = logging.getLogger(__name__)
 
 # used in TestCase.make_user() to reuse RSA keys across Users
 with ndb_client.context():
     global_user = User.get_or_create('user.com')
 
 
+Object.source_protocol = ndb.StringProperty(choices=PROTOCOLS + ('fake',))
+
 class FakeProtocol(protocol.Protocol):
     LABEL = 'fake'
 
+    # maps string ids to dict AS1 objects. send adds objects here, fetch
+    # returns them
+    objects = {}
+
+    # in-order list of (Object, str URL)
+    sent = []
+
+    # in-order list of ids
+    fetched = []
+
     @classmethod
     def send(cls, obj, url, log_data=True):
-        raise NotImplementedError()
+        logger.info(f'FakeProtocol.send {url}')
+        sent.append((obj, url))
+        cls.objects[obj.key.id()] = obj
 
     @classmethod
     def fetch(cls, id):
-        raise NotImplementedError()
+        logger.info(f'FakeProtocol.send {id}')
+        cls.fetched.append(id)
+
+        if id in cls.objects:
+            return cls.objects[id]
+
+        raise requests.HTTPError(response=util.Struct(status_code='410'))
 
 
 class TestCase(unittest.TestCase, testutil.Asserts):
@@ -43,11 +67,16 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
     def setUp(self):
         super().setUp()
+
         app.testing = True
         cache.clear()
         protocol.seen_ids.clear()
         protocol.Protocol.get_object.cache.clear()
         common.webmention_discover.cache.clear()
+
+        FakeProtocol.objects = {}
+        FakeProtocol.sent = []
+        FakeProtocol.fetched = []
 
         self.client = app.test_client()
         self.client.__enter__()

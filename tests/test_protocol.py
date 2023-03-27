@@ -11,6 +11,7 @@ from models import Follower, Object, User
 
 from .test_activitypub import ACTOR, REPLY
 from . import testutil
+from .testutil import FakeProtocol
 
 REPLY = {
     **REPLY,
@@ -18,7 +19,6 @@ REPLY = {
     'object': {
         **REPLY['object'],
         'author': ACTOR,
-        # 'inReplyTo': 'http://th.is/orig/post',
     },
 }
 
@@ -58,3 +58,16 @@ class ProtocolTest(testutil.TestCase):
                            as2=REPLY['object'],
                            type='comment',
                            )
+
+    def test_get_object(self):
+        obj = Object(id='foo', our_as1={'x': 'y'})
+        FakeProtocol.objects = {'foo': obj}
+        self.assert_entities_equal(obj, FakeProtocol.get_object('foo'))
+        self.assertIsNotNone(Object.get_by_id('foo'))
+        self.assertEqual(['foo'], FakeProtocol.fetched)
+
+    def test_get_object_already_stored(self):
+        stored = Object(id='foo', our_as1={'x': 'y'})
+        stored.put()
+        self.assert_entities_equal(stored, FakeProtocol.get_object('foo'))
+        self.assertEqual([], FakeProtocol.fetched)
