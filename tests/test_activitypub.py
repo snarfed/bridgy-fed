@@ -906,23 +906,12 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('inactive', followee.key.get().status)
         self.assertEqual('active', other.key.get().status)
 
-    def test_delete_actor_not_stored(self, _, mock_get, ___):
+    def test_delete_actor_not_fetchable(self, _, mock_get, ___):
         self.key_id_obj.delete()
         Protocol.get_object.cache.clear()
 
         mock_get.return_value = requests_response(status=410)
         got = self.post('/inbox', json={**DELETE, 'object': 'http://my/key/id'})
-        self.assertEqual(202, got.status_code)
-
-    def test_delete_actor_object_not_stored(self, _, mock_get, ___):
-        self.key_id_obj.delete()
-        Protocol.get_object.cache.clear()
-
-        mock_get.return_value = requests_response(status=410)
-        got = self.post('/inbox', json={
-            **DELETE,
-            'object': {'id': 'http://my/key/id'},
-        })
         self.assertEqual(202, got.status_code)
 
     def test_delete_note(self, _, mock_get, ___):

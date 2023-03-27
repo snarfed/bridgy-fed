@@ -74,7 +74,7 @@ class ActivityPub(Protocol):
         Mastodon requires this signature if AUTHORIZED_FETCH aka secure mode is on:
         https://docs.joinmastodon.org/admin/config/#authorized_fetch
 
-        Signs the request with the given user. If not provided, defaults to
+        Signs the request with the current user's key. If not provided, defaults to
         using @snarfed.org@snarfed.org's key.
 
         Args:
