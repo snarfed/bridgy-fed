@@ -228,9 +228,6 @@ class Protocol:
             if obj.domains and 'feed' not in obj.labels:
                 obj.labels.append('feed')
 
-        if obj.as1.get('objectType') == 'activity' and 'activity' not in obj.labels:
-            obj.labels.append('activity')
-
         obj.put()
         return 'OK'
 

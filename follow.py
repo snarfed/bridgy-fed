@@ -176,7 +176,7 @@ class FollowCallback(indieauth.Callback):
             'actor': g.user.actor_id(),
             'to': [as2.PUBLIC_AUDIENCE],
         }
-        obj = Object(id=follow_id, domains=[domain], labels=['user', 'activity'],
+        obj = Object(id=follow_id, domains=[domain], labels=['user'],
                source_protocol='ui', status='complete', as2=follow_as2)
         activitypub.ActivityPub.send(obj, inbox)
 
@@ -254,7 +254,7 @@ class UnfollowCallback(indieauth.Callback):
             'object': follower.last_follow,
         }
 
-        obj = Object(id=unfollow_id, domains=[domain], labels=['user', 'activity'],
+        obj = Object(id=unfollow_id, domains=[domain], labels=['user'],
                      source_protocol='ui', status='complete', as2=unfollow_as2)
         activitypub.ActivityPub.send(obj, inbox)
 

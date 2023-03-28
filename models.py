@@ -333,11 +333,19 @@ class Object(StringIdModel):
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
+    def _pre_put_hook(self):
+        if self.as1 and self.as1.get('objectType') == 'activity':
+            if 'activity' not in self.labels:
+                self.labels.append('activity')
+        else:
+            if 'activity' in self.labels:
+                self.labels.remove('activity')
+
     def _post_put_hook(self, future):
         """Update :meth:`Protocol.get_object` cache."""
         # TODO: assert that as1 id is same as key id? in pre put hook?
         logger.info(f'Wrote Object {self.key.id()} {self.type} {self.status or ""} {self.labels} for {len(self.domains)} users')
-        if self.type != 'activity' and '#' not in self.key.id():
+        if '#' not in self.key.id():
             get_object = protocol.Protocol.get_object
             key = get_object.cache_key(protocol.Protocol, self.key.id())
             get_object.cache[key] = self

@@ -313,6 +313,27 @@ class ObjectTest(testutil.TestCase):
     def test_computed_properties_without_as1(self):
         Object(id='a').put()
 
+    def test_put_adds_removes_activity_label(self):
+        obj = Object(id='x#y', our_as1={})
+        obj.put()
+        self.assertEqual([], obj.labels)
+
+        obj.our_as1 = {'objectType': 'activity'}
+        obj.put()
+        self.assertEqual(['activity'], obj.labels)
+
+        obj.labels = ['user']
+        obj.put()
+        self.assertEqual(['user', 'activity'], obj.labels)
+
+        obj.labels = ['activity', 'user']
+        obj.put()
+        self.assertEqual(['activity', 'user'], obj.labels)
+
+        obj.our_as1 = {'foo': 'bar'}
+        obj.put()
+        self.assertEqual(['user'], obj.labels)
+
 
 class FollowerTest(testutil.TestCase):
 

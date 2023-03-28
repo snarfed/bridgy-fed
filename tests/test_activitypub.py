@@ -929,9 +929,9 @@ class ActivityPubTest(testutil.TestCase):
         resp = self.post('/inbox', json=delete)
         self.assertEqual(200, resp.status_code)
         self.assertTrue(obj.key.get().deleted)
-        self.assert_object(delete['id'], as2=delete,
-                           type='delete', source_protocol='activitypub',
-                           status='complete')
+        self.assert_object(delete['id'], as2=delete, type='delete',
+                           source_protocol='activitypub', status='complete',
+                           labels=['activity'])
 
         obj.deleted = True
         self.assert_entities_equal(obj, Protocol.get_object.cache['http://an/obj'])
@@ -955,7 +955,8 @@ class ActivityPubTest(testutil.TestCase):
         self.assert_object('https://a/note', type='note', as2=obj,
                            source_protocol='activitypub')
         self.assert_object(UPDATE_NOTE['id'], source_protocol='activitypub',
-                           type='update', status='complete', as2=UPDATE_NOTE)
+                           type='update', status='complete', as2=UPDATE_NOTE,
+                           labels=['activity'])
 
         self.assert_entities_equal(Object.get_by_id('https://a/note'),
                                    Protocol.get_object.cache['https://a/note'])
