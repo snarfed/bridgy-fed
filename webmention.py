@@ -366,7 +366,7 @@ class WebmentionView(View):
             # fetch target page as AS2 object
             try:
                 # TODO: make this generic across protocols
-                target_stored = activitypub.ActivityPub.get_object(target)
+                target_stored = activitypub.ActivityPub.load(target)
                 target_obj = target_stored.as2 or as2.from_as1(target_stored.as1)
             except (requests.HTTPError, BadGateway) as e:
                 resp = getattr(e, 'requests_response', None)
@@ -392,7 +392,7 @@ class WebmentionView(View):
             if not inbox_url:
                 # fetch actor as AS object
                 # TODO: make this generic across protocols
-                actor_obj = activitypub.ActivityPub.get_object(actor)
+                actor_obj = activitypub.ActivityPub.load(actor)
                 actor = actor_obj.as2 or as2.from_as1(actor_obj.as1)
                 inbox_url = actor.get('inbox')
 

@@ -201,12 +201,12 @@ class Protocol:
 
         # fetch actor if necessary so we have name, profile photo, etc
         if actor and actor.keys() == set(['id']):
-            actor = obj.as2['actor'] = cls.get_object(actor['id']).as2
+            actor = obj.as2['actor'] = cls.load(actor['id']).as2
 
         # fetch object if necessary so we can render it in feeds
         if obj.type == 'share' and inner_obj.keys() == set(['id']):
             inner_obj = obj.as2['object'] = as2.from_as1(
-                cls.get_object(inner_obj_id).as1)
+                cls.load(inner_obj_id).as1)
 
         if obj.type == 'follow':
             cls.accept_follow(obj)
@@ -360,7 +360,7 @@ class Protocol:
     @classmethod
     @cached(LRUCache(1000), key=lambda cls, id: util.fragmentless(id),
             lock=threading.Lock())
-    def get_object(cls, id):
+    def load(cls, id):
         """Loads and returns an Object from memory cache, datastore, or HTTP fetch.
 
         Assumes id is a URL. Any fragment at the end is stripped before loading.

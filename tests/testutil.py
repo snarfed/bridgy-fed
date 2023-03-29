@@ -71,7 +71,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         app.testing = True
         cache.clear()
         protocol.seen_ids.clear()
-        protocol.Protocol.get_object.cache.clear()
+        protocol.Protocol.load.cache.clear()
         common.webmention_discover.cache.clear()
 
         FakeProtocol.objects = {}

@@ -295,20 +295,20 @@ class ObjectTest(testutil.TestCase):
             'href="/user/user.com"><img src="" class="profile"> Alice</a>',
             obj.actor_link())
 
-    def test_put_updates_get_object_cache(self):
+    def test_put_updates_load_cache(self):
         obj = Object(id='x', as2={})
         obj.put()
-        key = Protocol.get_object.cache_key(Protocol, 'x')
-        self.assert_entities_equal(obj, Protocol.get_object.cache[key])
+        key = Protocol.load.cache_key(Protocol, 'x')
+        self.assert_entities_equal(obj, Protocol.load.cache[key])
 
-    def test_put_fragment_id_doesnt_update_get_object_cache(self):
+    def test_put_fragment_id_doesnt_update_load_cache(self):
         obj = Object(id='x#y', as2={})
         obj.put()
 
-        self.assertNotIn(Protocol.get_object.cache_key(Protocol, 'x#y'),
-                         Protocol.get_object.cache)
-        self.assertNotIn(Protocol.get_object.cache_key(Protocol, 'x'),
-                         Protocol.get_object.cache)
+        self.assertNotIn(Protocol.load.cache_key(Protocol, 'x#y'),
+                         Protocol.load.cache)
+        self.assertNotIn(Protocol.load.cache_key(Protocol, 'x'),
+                         Protocol.load.cache)
 
     def test_computed_properties_without_as1(self):
         Object(id='a').put()

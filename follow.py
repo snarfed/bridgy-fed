@@ -159,7 +159,7 @@ class FollowCallback(indieauth.Callback):
             return redirect(f'/user/{domain}/following')
 
         # TODO: make this generic across protocols
-        followee = activitypub.ActivityPub.get_object(as2_url).as2
+        followee = activitypub.ActivityPub.load(as2_url).as2
         id = followee.get('id')
         inbox = followee.get('inbox')
         if not id or not inbox:
@@ -237,7 +237,7 @@ class UnfollowCallback(indieauth.Callback):
         if isinstance(followee, str):
             # fetch as AS2 to get full followee with inbox
             followee_id = followee
-            followee = activitypub.ActivityPub.get_object(followee_id).as2
+            followee = activitypub.ActivityPub.load(followee_id).as2
 
         inbox = followee.get('inbox')
         if not inbox:

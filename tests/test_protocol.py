@@ -59,23 +59,23 @@ class ProtocolTest(testutil.TestCase):
                            type='comment',
                            )
 
-    def test_get_object(self):
+    def test_load(self):
         obj = Object(id='foo', our_as1={'x': 'y'})
         FakeProtocol.objects = {'foo': obj}
-        self.assert_entities_equal(obj, FakeProtocol.get_object('foo'))
+        self.assert_entities_equal(obj, FakeProtocol.load('foo'))
         self.assertIsNotNone(Object.get_by_id('foo'))
         self.assertEqual(['foo'], FakeProtocol.fetched)
 
-    def test_get_object_already_stored(self):
+    def test_load_already_stored(self):
         stored = Object(id='foo', our_as1={'x': 'y'})
         stored.put()
-        self.assert_entities_equal(stored, FakeProtocol.get_object('foo'))
+        self.assert_entities_equal(stored, FakeProtocol.load('foo'))
         self.assertEqual([], FakeProtocol.fetched)
 
     @patch('requests.get')
-    def test_get_object_empty_deleted(self, mock_get):
+    def test_load_empty_deleted(self, mock_get):
         stored = Object(id='foo', deleted=True)
         stored.put()
 
-        self.assert_entities_equal(stored, FakeProtocol.get_object('foo'))
+        self.assert_entities_equal(stored, FakeProtocol.load('foo'))
         mock_get.assert_not_called()

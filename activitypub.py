@@ -165,7 +165,7 @@ class ActivityPub(Protocol):
             error('Invalid Digest header, required for HTTP Signature', status=401)
 
         try:
-            key_actor = cls.get_object(keyId)
+            key_actor = cls.load(keyId)
         except BadGateway:
             obj_id = as1.get_object(activity).get('id')
             if (activity.get('type') == 'Delete' and obj_id and

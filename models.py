@@ -342,13 +342,12 @@ class Object(StringIdModel):
                 self.labels.remove('activity')
 
     def _post_put_hook(self, future):
-        """Update :meth:`Protocol.get_object` cache."""
+        """Update :meth:`Protocol.load` cache."""
         # TODO: assert that as1 id is same as key id? in pre put hook?
         logger.info(f'Wrote Object {self.key.id()} {self.type} {self.status or ""} {self.labels} for {len(self.domains)} users')
         if '#' not in self.key.id():
-            get_object = protocol.Protocol.get_object
-            key = get_object.cache_key(protocol.Protocol, self.key.id())
-            get_object.cache[key] = self
+            key = protocol.Protocol.load.cache_key(protocol.Protocol, self.key.id())
+            protocol.Protocol.load.cache[key] = self
 
     def clear(self):
         """Clears all data properties."""
