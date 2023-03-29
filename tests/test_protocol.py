@@ -71,3 +71,11 @@ class ProtocolTest(testutil.TestCase):
         stored.put()
         self.assert_entities_equal(stored, FakeProtocol.get_object('foo'))
         self.assertEqual([], FakeProtocol.fetched)
+
+    @patch('requests.get')
+    def test_get_object_empty_deleted(self, mock_get):
+        stored = Object(id='foo', deleted=True)
+        stored.put()
+
+        self.assert_entities_equal(stored, FakeProtocol.get_object('foo'))
+        mock_get.assert_not_called()

@@ -386,7 +386,7 @@ class Protocol:
         id = util.fragmentless(id)
         logger.info(f'Loading Object {id}')
         obj = models.Object.get_by_id(id)
-        if obj and obj.as1:
+        if obj and (obj.as1 or obj.deleted):
             logger.info('  got from datastore')
             return obj
 

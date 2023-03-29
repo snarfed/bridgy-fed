@@ -234,7 +234,8 @@ class ActivityPubTest(testutil.TestCase):
                     'owner': 'http://own/er',
                     'publicKeyPem': self.user.public_pem().decode(),
                 },
-            }).put()
+            })
+            self.key_id_obj.put()
 
     def assert_object(self, id, **props):
         return super().assert_object(id, delivered_protocol='webmention', **props)
@@ -829,7 +830,7 @@ class ActivityPubTest(testutil.TestCase):
     def test_inbox_verify_http_signature(self, mock_common_log, mock_activitypub_log,
                                          _, mock_get, ___):
         # actor with a public key
-        self.key_id_obj.delete()
+        self.key_id_obj.key.delete()
         Protocol.get_object.cache.clear()
         mock_get.return_value = self.as2_resp({
             **ACTOR,
@@ -907,12 +908,22 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual('active', other.key.get().status)
 
     def test_delete_actor_not_fetchable(self, _, mock_get, ___):
-        self.key_id_obj.delete()
+        self.key_id_obj.key.delete()
         Protocol.get_object.cache.clear()
 
         mock_get.return_value = requests_response(status=410)
         got = self.post('/inbox', json={**DELETE, 'object': 'http://my/key/id'})
         self.assertEqual(202, got.status_code)
+
+    def test_delete_actor_empty_deleted_object(self, _, mock_get, ___):
+        self.key_id_obj.as2 = None
+        self.key_id_obj.deleted = True
+        self.key_id_obj.put()
+        Protocol.get_object.cache.clear()
+
+        got = self.post('/inbox', json={**DELETE, 'object': 'http://my/key/id'})
+        self.assertEqual(202, got.status_code)
+        mock_get.assert_not_called()
 
     def test_delete_note(self, _, mock_get, ___):
         obj = Object(id='http://an/obj', as2={})

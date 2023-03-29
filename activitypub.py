@@ -152,7 +152,7 @@ class ActivityPub(Protocol):
         logger.info(f'Headers: {json_dumps(dict(request.headers), indent=2)}')
 
         # parse_signature_header lower-cases all keys
-        keyId = parse_signature_header(sig).get('keyid')
+        keyId = fragmentless(parse_signature_header(sig).get('keyid'))
         if not keyId:
             error('HTTP Signature missing keyId', status=401)
 
@@ -165,16 +165,21 @@ class ActivityPub(Protocol):
             error('Invalid Digest header, required for HTTP Signature', status=401)
 
         try:
-            key_actor = cls.get_object(keyId).as2
+            key_actor = cls.get_object(keyId)
         except BadGateway:
             obj_id = as1.get_object(activity).get('id')
             if (activity.get('type') == 'Delete' and obj_id and
-                fragmentless(keyId) == fragmentless(obj_id)):
-                logging.info("Object/actor being deleted is also keyId; ignoring")
-                abort(202, 'OK')
-            raise
+                keyId == fragmentless(obj_id)):
+                logging.info('Object/actor being deleted is also keyId')
+                key_actor = Object(id=keyId, source_protocol='activitypub', deleted=True)
+                key_actor.put()
+            else:
+                raise
 
-        key = key_actor.get("publicKey", {}).get('publicKeyPem')
+        if key_actor.deleted:
+            abort(202, f'Ignoring, signer {keyId} is already deleted')
+
+        key = key_actor.as2.get("publicKey", {}).get('publicKeyPem')
         logger.info(f'Verifying signature for {request.path} with key {key}')
         try:
             verified = HeaderVerifier(request.headers, key,
