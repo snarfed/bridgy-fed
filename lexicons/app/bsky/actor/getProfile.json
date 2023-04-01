@@ -1,0 +1,20 @@
+{
+  "lexicon": 1,
+  "id": "app.bsky.actor.getProfile",
+  "defs": {
+    "main": {
+      "type": "query",
+      "parameters": {
+        "type": "params",
+        "required": ["actor"],
+        "properties": {
+          "actor": {"type": "string"}
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {"type": "ref", "ref": "app.bsky.actor.profile#view"}
+      }
+    }
+  }
+}

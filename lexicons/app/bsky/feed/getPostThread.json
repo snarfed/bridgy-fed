@@ -1,0 +1,53 @@
+{
+  "lexicon": 1,
+  "id": "app.bsky.feed.getPostThread",
+  "defs": {
+    "main": {
+      "type": "query",
+      "parameters": {
+        "type": "params",
+        "required": ["uri"],
+        "properties": {
+          "uri": {"type": "string"},
+          "depth": {"type": "integer"}
+        }
+      },
+      "output": {
+        "encoding": "application/json",
+        "schema": {
+          "type": "object",
+          "required": ["thread"],
+          "properties": {
+            "thread": {
+              "type": "union",
+              "refs": ["#threadViewPost", "#notFoundPost"]
+            }
+          }
+        }
+      },
+      "errors": [
+        {"name": "NotFound"}
+      ]
+    },
+    "threadViewPost": {
+      "type": "object",
+      "required": ["post"],
+      "properties": {
+        "post": {"type": "ref", "ref": "app.bsky.feed.post#view"},
+        "parent": {"type": "union", "refs": ["#threadViewPost", "#notFoundPost"]},
+        "replies": {
+          "type": "array",
+          "items": {"type": "union", "refs": ["#threadViewPost", "#notFoundPost"]}
+        }
+      }
+    },
+    "notFoundPost": {
+      "type": "object",
+      "required": ["uri", "notFound"],
+      "properties": {
+        "uri": {"type": "string"},
+        "notFound": {"type": "boolean", "const": true}
+      }
+    }
+  }
+}
