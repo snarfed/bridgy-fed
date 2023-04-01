@@ -273,13 +273,13 @@ class ObjectTest(testutil.TestCase):
                 ('href="">', {}),
                 ('href="http://foo">foo', {'actor': 'http://foo'}),
                 ('href="">Alice', {'actor': {'name': 'Alice'}}),
-                ('href="http://foo">Alice', {'actor': {
+                ('href="http://foo/">Alice', {'actor': {
                     'name': 'Alice',
                     'url': 'http://foo',
                 }}),
                 ("""\
         title="Alice">
-          <img class="profile" src="http://pic" />
+          <img class="profile" src="http://pic/" />
           Alice""", {'actor': {
             'name': 'Alice',
             'icon': {'type': 'Image', 'url': 'http://pic'},
