@@ -1413,3 +1413,23 @@ class ActivityPubUtilsTest(testutil.TestCase):
             got = ActivityPub.fetch('http://the/id')
 
         mock_get.assert_has_calls([self.as2_req('http://the/id')])
+
+    def test_postprocess_as2_idempotent(self):
+        g.user = self.make_user('foo.com')
+
+        for obj in (ACTOR, REPLY_OBJECT, REPLY_OBJECT_WRAPPED, REPLY,
+                    NOTE_OBJECT, NOTE, MENTION_OBJECT, MENTION, LIKE,
+                    LIKE_WRAPPED, REPOST,
+                    FOLLOW, FOLLOW_WITH_OBJECT,
+                    FOLLOW_WRAPPED, ACCEPT,
+                    UNDO_FOLLOW_WRAPPED, DELETE, UPDATE_PERSON, UPDATE_NOTE,
+                    # TODO: these currently fail
+                    # LIKE_WITH_ACTOR, REPOST_FULL, FOLLOW_WITH_ACTOR,
+                    # FOLLOW_WRAPPED_WITH_ACTOR,
+                    ):
+            with self.subTest(obj=obj):
+                obj = copy.deepcopy(obj)
+                self.assert_equals(
+                    activitypub.postprocess_as2(obj),
+                    activitypub.postprocess_as2(activitypub.postprocess_as2(obj)),
+                    ignore=['to'])
