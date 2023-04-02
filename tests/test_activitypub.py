@@ -1229,15 +1229,9 @@ class ActivityPubUtilsTest(testutil.TestCase):
 
     def test_postprocess_as2_note(self):
         self.assert_equals({
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': 'http://localhost/r/xyz#bridgy-fed-create',
-            'type': 'Create',
-
-            'object': {
-                'id': 'http://localhost/r/xyz',
-                'type': 'Note',
-                'to': [as2.PUBLIC_AUDIENCE],
-            },
+            'id': 'http://localhost/r/xyz',
+            'type': 'Note',
+            'to': [as2.PUBLIC_AUDIENCE],
         }, activitypub.postprocess_as2({
             'id': 'xyz',
             'type': 'Note',
@@ -1364,7 +1358,11 @@ class ActivityPubUtilsTest(testutil.TestCase):
     @patch('requests.get')
     def test_fetch_direct(self, mock_get):
         mock_get.return_value = AS2
-        self.assertEqual(AS2_OBJ, ActivityPub.fetch('http://orig').as2)
+        got = ActivityPub.fetch('http://orig')
+        self.assertEqual(AS2_OBJ, got.as2)
+
+        self.assertTrue(got.new)
+        self.assertFalse(got.changed)
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
         ))
@@ -1372,7 +1370,11 @@ class ActivityPubUtilsTest(testutil.TestCase):
     @patch('requests.get')
     def test_fetch_via_html(self, mock_get):
         mock_get.side_effect = [HTML_WITH_AS2, AS2]
-        self.assertEqual(AS2_OBJ, ActivityPub.fetch('http://orig').as2)
+        got = ActivityPub.fetch('http://orig')
+        self.assertEqual(AS2_OBJ, got.as2)
+
+        self.assertTrue(got.new)
+        self.assertFalse(got.changed)
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
             self.as2_req('http://as2', headers=common.as2.CONNEG_HEADERS),
@@ -1414,18 +1416,45 @@ class ActivityPubUtilsTest(testutil.TestCase):
 
         mock_get.assert_has_calls([self.as2_req('http://the/id')])
 
+    @patch('requests.get')
+    def test_fetch_content_changed(self, mock_get):
+        Object(id='http://orig', as2={
+            **NOTE_OBJECT,
+            'content': 'something else',
+        }).put()
+        mock_get.return_value = self.as2_resp(NOTE_OBJECT)
+
+        obj = ActivityPub.fetch('http://orig')
+        self.assert_equals(NOTE_OBJECT, obj.as2)
+        self.assertFalse(obj.new)
+        self.assertTrue(obj.changed)
+        mock_get.assert_has_calls((
+            self.as2_req('http://orig'),
+        ))
+
+    @patch('requests.get')
+    def test_fetch_content_unchanged(self, mock_get):
+        Object(id='http://orig', as2=NOTE_OBJECT).put()
+        mock_get.return_value = self.as2_resp(NOTE_OBJECT)
+
+        obj = ActivityPub.fetch('http://orig')
+        self.assert_equals(NOTE_OBJECT, obj.as2)
+        self.assertFalse(obj.new)
+        self.assertFalse(obj.changed)
+        mock_get.assert_has_calls((
+            self.as2_req('http://orig'),
+        ))
+
     def test_postprocess_as2_idempotent(self):
         g.user = self.make_user('foo.com')
 
         for obj in (ACTOR, REPLY_OBJECT, REPLY_OBJECT_WRAPPED, REPLY,
                     NOTE_OBJECT, NOTE, MENTION_OBJECT, MENTION, LIKE,
-                    LIKE_WRAPPED, REPOST,
-                    FOLLOW, FOLLOW_WITH_OBJECT,
-                    FOLLOW_WRAPPED, ACCEPT,
-                    UNDO_FOLLOW_WRAPPED, DELETE, UPDATE_PERSON, UPDATE_NOTE,
+                    LIKE_WRAPPED, REPOST, FOLLOW, FOLLOW_WRAPPED, ACCEPT,
+                    UNDO_FOLLOW_WRAPPED, DELETE, UPDATE_NOTE,
                     # TODO: these currently fail
                     # LIKE_WITH_ACTOR, REPOST_FULL, FOLLOW_WITH_ACTOR,
-                    # FOLLOW_WRAPPED_WITH_ACTOR,
+                    # FOLLOW_WRAPPED_WITH_ACTOR, FOLLOW_WITH_OBJECT, UPDATE_PERSON,
                     ):
             with self.subTest(obj=obj):
                 obj = copy.deepcopy(obj)

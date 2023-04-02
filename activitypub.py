@@ -54,8 +54,12 @@ class ActivityPub(Protocol):
     @classmethod
     def send(cls, obj, url, log_data=True):
         """Delivers an activity to an inbox URL."""
-        activity = obj.as2 or postprocess_as2(as2.from_as1(obj.as1))
-        return signed_post(url, log_data=True, data=obj.as2)
+        # this is set in WebmentionView.try_activitypub()
+        target = getattr(obj, 'target_as2', None)
+
+        activity = obj.as2 or postprocess_as2(as2.from_as1(obj.as1), target=target)
+        activity['actor'] = g.user.actor_id()
+        return signed_post(url, log_data=True, data=activity)
         # TODO: return bool or otherwise unify return value with others
 
     @classmethod
@@ -111,8 +115,16 @@ class ActivityPub(Protocol):
                     as2_json = resp.json()
                 except requests.JSONDecodeError:
                     _error("Couldn't decode as JSON")
-                obj = Object.get_or_insert(id)
-                obj.as2 = as2_json
+                obj = Object.get_by_id(id)
+                if obj:
+                    orig_as1 = obj.as1
+                    obj.clear()
+                    obj.as2 = as2_json
+                    obj.changed = as1.activity_changed(orig_as1, obj.as1)
+                    obj.new = False
+                else:
+                    obj = Object(id=id, as2=as2_json)
+                    obj.new = True
                 return obj
 
         obj = _get(id, CONNEG_HEADERS_AS2_HTML)
@@ -272,7 +284,7 @@ def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
     return resp
 
 
-def postprocess_as2(activity, target=None, create=True):
+def postprocess_as2(activity, target=None):
     """Prepare an AS2 object to be served or sent via ActivityPub.
 
     g.user is required. Populates it into the actor.id and publicKey fields.
@@ -281,9 +293,10 @@ def postprocess_as2(activity, target=None, create=True):
       activity: dict, AS2 object or activity
       target: dict, AS2 object, optional. The target of activity's inReplyTo or
         Like/Announce/etc object, if any.
-      create: boolean, whether to wrap `Note` and `Article` objects in a
-        `Create` activity
     """
+    if not activity or isinstance(activity, str):
+        return activity
+
     assert g.user
     type = activity.get('type')
 
@@ -313,6 +326,7 @@ def postprocess_as2(activity, target=None, create=True):
             activity[field] = activity[field][0]
 
     # inReplyTo: singly valued, prefer id over url
+    # TODO: ignore target, do for all inReplyTo
     target_id = target.get('id') if target else None
     in_reply_to = activity.get('inReplyTo')
     if in_reply_to:
@@ -344,9 +358,11 @@ def postprocess_as2(activity, target=None, create=True):
     obj = as1.get_object(activity)
     id = obj.get('id')
     if not id:
-        obj['id'] = target_id or util.get_first(obj, 'url')
+        obj['id'] = util.get_first(obj, 'url') or target_id
     elif target_id and id != target_id:
         activity['object'] = target_id
+    elif g.user.is_homepage(id):
+        obj['id'] = g.user.actor_id()
 
     # for Accepts
     if g.user.is_homepage(obj.get('object')):
@@ -369,18 +385,19 @@ def postprocess_as2(activity, target=None, create=True):
     # copy image(s) into attachment(s). may be Mastodon-specific.
     # https://github.com/snarfed/bridgy-fed/issues/33#issuecomment-440965618
     obj_or_activity = obj if obj.keys() > set(['id']) else activity
-    img = util.get_list(obj_or_activity, 'image')
-    if img:
-        obj_or_activity.setdefault('attachment', []).extend(img)
+    imgs = util.get_list(obj_or_activity, 'image')
+    atts = obj_or_activity.setdefault('attachment', [])
+    if imgs:
+        atts.extend(img for img in imgs if img not in atts)
 
     # cc target's author(s) and recipients
     # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting
     # https://w3c.github.io/activitypub/#delivery
-    if target and (type in as2.TYPE_TO_VERB or type in ('Article', 'Note')):
+    if target and type in as2.TYPE_TO_VERB:
         recips = itertools.chain(*(util.get_list(target, field) for field in
                                  ('actor', 'attributedTo', 'to', 'cc')))
-        activity['cc'] = util.dedupe_urls(util.get_url(recip) or recip.get('id')
-                                          for recip in recips)
+        obj_or_activity['cc'] = sorted(util.dedupe_urls(
+            util.get_url(recip) or recip.get('id') for recip in recips))
 
     # to public, since Mastodon interprets to public as public, cc public as unlisted:
     # https://socialhub.activitypub.rocks/t/visibility-to-cc-mapping/284
@@ -411,15 +428,7 @@ def postprocess_as2(activity, target=None, create=True):
             if not name.startswith('#'):
                 tag['name'] = f'#{name}'
 
-    # wrap articles and notes in a Create activity
-    if create and type in ('Article', 'Note'):
-        activity = {
-            '@context': as2.CONTEXT,
-            'type': 'Create',
-            'id': f'{activity["id"]}#bridgy-fed-create',
-            'actor': postprocess_as2_actor({}),
-            'object': activity,
-        }
+    activity['object'] = postprocess_as2(activity.get('object'), target=target)
 
     return util.trim_nulls(activity)
 

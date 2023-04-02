@@ -297,6 +297,11 @@ class Object(StringIdModel):
                               # parse object with items inside an 'items' field)
     our_as1 = JsonProperty()  # AS1 for activities that we generate or modify ourselves
 
+    # Protocol and subclasses set these in fetch if this Object is new or if its
+    # contents have changed from what was originally loaded from the datastore.
+    new = None
+    changed = None
+
     @ComputedJsonProperty
     def as1(self):
         # TODO: switch back to assert?
@@ -306,7 +311,7 @@ class Object(StringIdModel):
             logging.warning(f'{self.key} has multiple! {bool(self.as2)} {bool(self.bsky)} {bool(self.mf2)}')
 
         if self.our_as1 is not None:
-            return self.our_as1
+            return common.redirect_unwrap(self.our_as1)
         elif self.as2 is not None:
             return as2.to_as1(common.redirect_unwrap(self.as2))
         elif self.bsky is not None:
@@ -321,7 +326,8 @@ class Object(StringIdModel):
 
     def _object_ids(self):  # id(s) of inner objects
         if self.as1:
-            return as1.get_ids(self.as1, 'object')
+            return common.redirect_unwrap(as1.get_ids(self.as1, 'object'))
+
     object_ids = ndb.ComputedProperty(_object_ids, repeated=True)
 
     deleted = ndb.BooleanProperty()

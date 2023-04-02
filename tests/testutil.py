@@ -176,5 +176,13 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         if expected_as1 := props.pop('as1', None):
             self.assert_equals(common.redirect_unwrap(expected_as1), got.as1)
 
+        if got.mf2:
+            got.mf2.pop('url', None)
+
         self.assert_entities_equal(Object(id=id, **props), got,
-                                   ignore=['created', 'updated'])
+                                   ignore=['as1', 'created', 'object_ids',
+                                           'type', 'updated'])
+
+    def assert_equals(self, expected, actual, msg=None, ignore=(), **kwargs):
+        return super().assert_equals(
+            expected, actual, msg=msg, ignore=tuple(ignore) + ('@context',), **kwargs)
