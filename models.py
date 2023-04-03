@@ -308,7 +308,7 @@ class Object(StringIdModel):
         # assert (self.as2 is not None) ^ (self.bsky is not None) ^ (self.mf2 is not None), \
         #     f'{self.as2} {self.bsky} {self.mf2}'
         if bool(self.as2) + bool(self.bsky) + bool(self.mf2) > 1:
-            logging.warning(f'{self.key} has multiple! {bool(self.as2)} {bool(self.bsky)} {bool(self.mf2)}')
+            logger.warning(f'{self.key} has multiple! {bool(self.as2)} {bool(self.bsky)} {bool(self.mf2)}')
 
         if self.our_as1 is not None:
             return common.redirect_unwrap(self.our_as1)
@@ -359,7 +359,7 @@ class Object(StringIdModel):
         for prop in 'as2', 'bsky', 'mf2':
             val = getattr(self, prop, None)
             if val:
-                logging.warning(f'Wiping out {prop}: {json_dumps(val, indent=2)}')
+                logger.warning(f'Wiping out {prop}: {json_dumps(val, indent=2)}')
             setattr(self, prop, None)
 
     def proxy_url(self):

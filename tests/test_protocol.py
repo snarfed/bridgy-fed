@@ -60,16 +60,25 @@ class ProtocolTest(testutil.TestCase):
                            )
 
     def test_load(self):
-        obj = Object(id='foo', our_as1={'x': 'y'})
-        FakeProtocol.objects = {'foo': obj}
-        self.assert_entities_equal(obj, FakeProtocol.load('foo'))
+        FakeProtocol.objects['foo'] = {'x': 'y'}
+
+        loaded = FakeProtocol.load('foo')
+        self.assert_equals({'x': 'y'}, loaded.our_as1)
+        self.assertFalse(loaded.changed)
+        self.assertTrue(loaded.new)
+
         self.assertIsNotNone(Object.get_by_id('foo'))
         self.assertEqual(['foo'], FakeProtocol.fetched)
 
     def test_load_already_stored(self):
         stored = Object(id='foo', our_as1={'x': 'y'})
         stored.put()
-        self.assert_entities_equal(stored, FakeProtocol.load('foo'))
+
+        loaded = FakeProtocol.load('foo')
+        self.assert_equals({'x': 'y'}, loaded.our_as1)
+        self.assertFalse(loaded.changed)
+        self.assertFalse(loaded.new)
+
         self.assertEqual([], FakeProtocol.fetched)
 
     @patch('requests.get')
@@ -77,5 +86,32 @@ class ProtocolTest(testutil.TestCase):
         stored = Object(id='foo', deleted=True)
         stored.put()
 
-        self.assert_entities_equal(stored, FakeProtocol.load('foo'))
-        mock_get.assert_not_called()
+        loaded = FakeProtocol.load('foo')
+        self.assert_entities_equal(stored, loaded)
+        self.assertFalse(loaded.changed)
+        self.assertFalse(loaded.new)
+
+        self.assertEqual([], FakeProtocol.fetched)
+
+    @patch('requests.get')
+    def test_load_refresh_unchanged(self, mock_get):
+        obj = Object(id='foo', our_as1={'x': 'stored'})
+        obj.put()
+        FakeProtocol.objects['foo'] = {'x': 'stored'}
+
+        loaded = FakeProtocol.load('foo', refresh=True)
+        self.assert_entities_equal(obj, loaded)
+        self.assertFalse(obj.changed)
+        self.assertFalse(obj.new)
+        self.assertEqual(['foo'], FakeProtocol.fetched)
+
+    @patch('requests.get')
+    def test_load_refresh_changed(self, mock_get):
+        Object(id='foo', our_as1={'content': 'stored'}).put()
+        FakeProtocol.objects['foo'] = {'content': 'new'}
+
+        loaded = FakeProtocol.load('foo', refresh=True)
+        self.assert_equals({'content': 'new'}, loaded.our_as1)
+        self.assertTrue(loaded.changed)
+        self.assertFalse(loaded.new)
+        self.assertEqual(['foo'], FakeProtocol.fetched)

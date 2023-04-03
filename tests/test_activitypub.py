@@ -1297,12 +1297,12 @@ class ActivityPubUtilsTest(testutil.TestCase):
         mock_get.assert_not_called()
 
     @patch('requests.get')
-    def test_load_strips_fragment(self, mock_get):
-        stored = Object(id='http://the/id', as2=AS2_OBJ)
+    def test_load_preserves_fragment(self, mock_get):
+        stored = Object(id='http://the/id#frag', as2=AS2_OBJ)
         stored.put()
         protocol.objects_cache.clear()
 
-        got = ActivityPub.load('http://the/id#ignore')
+        got = ActivityPub.load('http://the/id#frag')
         self.assert_entities_equal(stored, got)
         mock_get.assert_not_called()
 
@@ -1358,11 +1358,10 @@ class ActivityPubUtilsTest(testutil.TestCase):
     @patch('requests.get')
     def test_fetch_direct(self, mock_get):
         mock_get.return_value = AS2
-        got = ActivityPub.fetch('http://orig')
-        self.assertEqual(AS2_OBJ, got.as2)
+        obj = Object(id='http://orig')
+        ActivityPub.fetch(obj)
+        self.assertEqual(AS2_OBJ, obj.as2)
 
-        self.assertTrue(got.new)
-        self.assertFalse(got.changed)
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
         ))
@@ -1370,11 +1369,10 @@ class ActivityPubUtilsTest(testutil.TestCase):
     @patch('requests.get')
     def test_fetch_via_html(self, mock_get):
         mock_get.side_effect = [HTML_WITH_AS2, AS2]
-        got = ActivityPub.fetch('http://orig')
-        self.assertEqual(AS2_OBJ, got.as2)
+        obj = Object(id='http://orig')
+        ActivityPub.fetch(obj)
+        self.assertEqual(AS2_OBJ, obj.as2)
 
-        self.assertTrue(got.new)
-        self.assertFalse(got.changed)
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
             self.as2_req('http://as2', headers=common.as2.CONNEG_HEADERS),
@@ -1384,26 +1382,26 @@ class ActivityPubUtilsTest(testutil.TestCase):
     def test_fetch_only_html(self, mock_get):
         mock_get.return_value = HTML
         with self.assertRaises(BadGateway):
-            ActivityPub.fetch('http://orig')
+            ActivityPub.fetch(Object(id='http://orig'))
 
     @patch('requests.get')
     def test_fetch_not_acceptable(self, mock_get):
         mock_get.return_value=NOT_ACCEPTABLE
         with self.assertRaises(BadGateway):
-            ActivityPub.fetch('http://orig')
+            ActivityPub.fetch(Object(id='http://orig'))
 
     @patch('requests.get')
     def test_fetch_ssl_error(self, mock_get):
         mock_get.side_effect = requests.exceptions.SSLError
         with self.assertRaises(BadGateway):
-            ActivityPub.fetch('http://orig')
+            ActivityPub.fetch(Object(id='http://orig'))
 
     @patch('requests.get')
     def test_fetch_no_content(self, mock_get):
         mock_get.return_value = self.as2_resp('')
 
         with self.assertRaises(BadGateway):
-            got = ActivityPub.fetch('http://the/id')
+            ActivityPub.fetch(Object(id='http://the/id'))
 
         mock_get.assert_has_calls([self.as2_req('http://the/id')])
 
@@ -1412,38 +1410,9 @@ class ActivityPubUtilsTest(testutil.TestCase):
         mock_get.return_value = self.as2_resp('XYZ not JSON')
 
         with self.assertRaises(BadGateway):
-            got = ActivityPub.fetch('http://the/id')
+            ActivityPub.fetch(Object(id='http://the/id'))
 
         mock_get.assert_has_calls([self.as2_req('http://the/id')])
-
-    @patch('requests.get')
-    def test_fetch_content_changed(self, mock_get):
-        Object(id='http://orig', as2={
-            **NOTE_OBJECT,
-            'content': 'something else',
-        }).put()
-        mock_get.return_value = self.as2_resp(NOTE_OBJECT)
-
-        obj = ActivityPub.fetch('http://orig')
-        self.assert_equals(NOTE_OBJECT, obj.as2)
-        self.assertFalse(obj.new)
-        self.assertTrue(obj.changed)
-        mock_get.assert_has_calls((
-            self.as2_req('http://orig'),
-        ))
-
-    @patch('requests.get')
-    def test_fetch_content_unchanged(self, mock_get):
-        Object(id='http://orig', as2=NOTE_OBJECT).put()
-        mock_get.return_value = self.as2_resp(NOTE_OBJECT)
-
-        obj = ActivityPub.fetch('http://orig')
-        self.assert_equals(NOTE_OBJECT, obj.as2)
-        self.assertFalse(obj.new)
-        self.assertFalse(obj.changed)
-        mock_get.assert_has_calls((
-            self.as2_req('http://orig'),
-        ))
 
     def test_postprocess_as2_idempotent(self):
         g.user = self.make_user('foo.com')

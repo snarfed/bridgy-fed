@@ -130,7 +130,7 @@ class FollowCallback(indieauth.Callback):
             return
 
         me = auth_entity.key.id()
-        logging.info(f'Storing indieauthed-me: {me} in session cookie')
+        logger.info(f'Storing indieauthed-me: {me} in session cookie')
         session['indieauthed-me'] = me
 
         domain = util.domain_from_link(me)

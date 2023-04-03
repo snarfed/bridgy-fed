@@ -277,7 +277,7 @@ class WebmentionTest(testutil.TestCase):
 </html>
 """
         self.follow_fragment = requests_response(
-            self.follow_fragment_html, url='https://user.com/follow#2',
+            self.follow_fragment_html, url='https://user.com/follow',
             content_type=CONTENT_TYPE_HTML)
         self.follow_fragment_mf2 = \
             util.parse_mf2(self.follow_fragment_html, id='2')['items'][0]
@@ -361,36 +361,34 @@ class WebmentionTest(testutil.TestCase):
     def test_fetch(self, mock_get, mock_post):
         mock_get.return_value = self.reply
 
+        obj = Object(id='https://user.com/post')
         with app.test_request_context('/'):
-            obj = Webmention.fetch('https://user.com/post')
+            Webmention.fetch(obj)
 
         self.assert_equals(self.reply_as1, obj.as1)
-        self.assertFalse(obj.changed)
-        self.assertTrue(obj.new)
 
     def test_fetch_redirect(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
             REPOST_HTML, url='https://orig/url', redirected_url='http://new/url')
 
+        obj = Object(id='https://orig/url')
         with app.test_request_context('/'):
-            obj = Webmention.fetch('https://orig/url')
+            Webmention.fetch(obj)
 
         self.assert_equals({**self.repost_mf2, 'url': 'http://new/url'}, obj.mf2)
         self.assert_equals(self.repost_as1, obj.as1)
-        self.assertFalse(obj.changed)
-        self.assertTrue(obj.new)
-        self.assertIsNone(Object.get_by_id('http://orig/url'))
+        self.assertIsNone(Object.get_by_id('http://new/url'))
 
     # TODO
     @skip
     def test_fetch_bad_source_url(self, mock_get, mock_post):
         with app.test_request_context('/'), self.assertRaises(ValueError):
-            Webmention.fetch('bad')
+            Webmention.fetch(Object(id='bad'))
 
     def test_fetch_error(self, mock_get, mock_post):
         mock_get.return_value = requests_response(self.reply_html, status=405)
         with app.test_request_context('/'), self.assertRaises(BadGateway) as e:
-            Webmention.fetch('https://foo')
+            Webmention.fetch(Object(id='https://foo'))
 
     def test_fetch_run_authorship(self, mock_get, mock_post):
         mock_get.side_effect = [
@@ -405,33 +403,10 @@ class WebmentionTest(testutil.TestCase):
         ]
 
         return_value = self.reply
+        obj = Object(id='https://user.com/reply')
         with app.test_request_context('/'):
-            obj = Webmention.fetch('https://user.com/reply')
+            Webmention.fetch(obj)
         self.assert_equals(self.reply_as1, obj.as1)
-
-    def test_fetch_content_changed(self, mock_get, mock_post):
-        orig_mf2 = copy.deepcopy(self.note_mf2)
-        orig_mf2['properties']['content'] = ['something else']
-        Object(id='https://user.com/post', mf2=orig_mf2).put()
-
-        mock_get.return_value = self.note
-        with app.test_request_context('/'):
-            obj = Webmention.fetch('https://user.com/post')
-
-        self.assert_equals({**self.note_mf2, 'url': 'https://user.com/post'}, obj.mf2)
-        self.assert_equals(self.note_as1, obj.as1)
-        self.assertTrue(obj.changed)
-        self.assertFalse(obj.new)
-
-    def test_fetch_content_unchanged(self, mock_get, mock_post):
-        Object(id='https://user.com/post', mf2=self.note_mf2).put()
-
-        mock_get.return_value = self.note
-        with app.test_request_context('/'):
-            obj = Webmention.fetch('https://user.com/post')
-
-        self.assertFalse(obj.changed)
-        self.assertFalse(obj.new)
 
     def test_send(self, mock_get, mock_post):
         mock_get.return_value = WEBMENTION_REL_LINK
@@ -1087,7 +1062,7 @@ class WebmentionTest(testutil.TestCase):
         self.assert_equals(200, got.status_code)
 
         mock_get.assert_has_calls((
-            self.req('https://user.com/follow#2'),
+            self.req('https://user.com/follow'),
             self.as2_req('https://mas.to/mrs-foo'),
         ))
 
@@ -1120,7 +1095,7 @@ class WebmentionTest(testutil.TestCase):
 
     def test_error_fragment_missing(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
-            self.follow_fragment_html, url='https://user.com/follow#a',
+            self.follow_fragment_html, url='https://user.com/follow',
             content_type=CONTENT_TYPE_HTML)
 
         got = self.client.post('/webmention', data={
@@ -1128,6 +1103,9 @@ class WebmentionTest(testutil.TestCase):
             'target': 'https://fed.brid.gy/',
         })
         self.assert_equals(400, got.status_code)
+        mock_get.assert_has_calls((
+            self.req('https://user.com/follow'),
+        ))
 
     def test_error(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow, self.actor]

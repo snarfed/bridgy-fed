@@ -82,7 +82,7 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def fetch(cls, id):
+    def fetch(cls, obj):
         """Fetches a protocol-specific object and returns it in an :class:`Object`.
 
         To be implemented by subclasses. The returned :class:`Object` is loaded
@@ -90,10 +90,8 @@ class Protocol:
         yet written back to the datastore.
 
         Args:
-          id: str, object's URL id
-
-        Returns:
-          obj: :class:`Object` with the fetched object
+          obj: :class:`Object` with the id to fetch. Data is filled into one of
+            the protocol-specific properties, eg as2, mf2, bsky.
 
         Raises:
           :class:`werkzeug.HTTPException` if the fetch fails
@@ -131,7 +129,7 @@ class Protocol:
         obj.populate(source_protocol=cls.LABEL, **props)
         obj.put()
 
-        logging.info(f'Got AS1: {json_dumps(obj.as1, indent=2)}')
+        logger.info(f'Got AS1: {json_dumps(obj.as1, indent=2)}')
 
         if obj.type not in SUPPORTED_TYPES:
             error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
@@ -161,7 +159,7 @@ class Protocol:
             follower = models.Follower.get_by_id(
                 models.Follower._id(dest=followee_domain, src=actor_id))
             if follower:
-                logging.info(f'Marking {follower} inactive')
+                logger.info(f'Marking {follower} inactive')
                 follower.status = 'inactive'
                 follower.put()
             else:
@@ -362,7 +360,7 @@ class Protocol:
             error(msg, status=int(errors[0][0] or 502))
 
     @classmethod
-    def load(cls, id):
+    def load(cls, id, refresh=False):
         """Loads and returns an Object from memory cache, datastore, or HTTP fetch.
 
         Assumes id is a URL. Any fragment at the end is stripped before loading.
@@ -379,29 +377,48 @@ class Protocol:
 
         Args:
           id: str
+          refresh: boolean, whether to fetch the object remotely even if we have
+            it stored
 
         Returns: :class:`Object`
 
         Raises:
           :class:`requests.HTTPError`, anything else that :meth:`fetch` raises
         """
-        id = util.fragmentless(id)
-
-        with objects_cache_lock:
-            cached = objects_cache.get(id)
-            if cached:
-                return cached
+        if not refresh:
+            with objects_cache_lock:
+                cached = objects_cache.get(id)
+                if cached:
+                    return cached
 
         logger.info(f'Loading Object {id}')
+        orig_as1 = None
         obj = models.Object.get_by_id(id)
         if obj and (obj.as1 or obj.deleted):
             logger.info('  got from datastore')
-            with objects_cache_lock:
-                objects_cache[id] = obj
-            return obj
+            obj.new = False
+            orig_as1 = obj.as1
+            if not refresh:
+                with objects_cache_lock:
+                    objects_cache[id] = obj
+                return obj
 
-        logger.info(f'Object not in datastore or has no data: {id}')
-        obj = cls.fetch(id)
+        if refresh:
+            logger.info('  forced refresh requested')
+
+        if obj:
+            obj.clear()
+        else:
+            logger.info(f'  not in datastore')
+            obj = models.Object(id=id)
+            obj.new = True
+            obj.changed = False
+
+        cls.fetch(obj)
+        if orig_as1:
+            obj.new = False
+            obj.changed = as1.activity_changed(orig_as1, obj.as1)
+
         obj.source_protocol = cls.LABEL
         obj.put()
 

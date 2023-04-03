@@ -63,7 +63,7 @@ class ActivityPub(Protocol):
         # TODO: return bool or otherwise unify return value with others
 
     @classmethod
-    def fetch(cls, id):
+    def fetch(cls, obj):
         """Tries to fetch an AS2 object.
 
         Uses HTTP content negotiation via the Content-Type header. If the url is
@@ -82,10 +82,8 @@ class ActivityPub(Protocol):
         using @snarfed.org@snarfed.org's key.
 
         Args:
-          id: str, object's URL id
-
-        Returns:
-          obj: :class:`Object` with the fetched object
+          obj: :class:`Object` with the id to fetch. Fills data into the as2
+            property.
 
         Raises:
           :class:`requests.HTTPError`, :class:`werkzeug.exceptions.HTTPException`
@@ -96,7 +94,7 @@ class ActivityPub(Protocol):
         resp = None
 
         def _error(extra_msg=None):
-            msg = f"Couldn't fetch {id} as ActivityStreams 2"
+            msg = f"Couldn't fetch {obj.key.id()} as ActivityStreams 2"
             if extra_msg:
                 msg += ': ' + extra_msg
             logger.warning(msg)
@@ -112,23 +110,12 @@ class ActivityPub(Protocol):
                 _error('empty response')
             elif common.content_type(resp) == as2.CONTENT_TYPE:
                 try:
-                    as2_json = resp.json()
+                    return resp.json()
                 except requests.JSONDecodeError:
                     _error("Couldn't decode as JSON")
-                obj = Object.get_by_id(id)
-                if obj:
-                    orig_as1 = obj.as1
-                    obj.clear()
-                    obj.as2 = as2_json
-                    obj.changed = as1.activity_changed(orig_as1, obj.as1)
-                    obj.new = False
-                else:
-                    obj = Object(id=id, as2=as2_json)
-                    obj.new = True
-                return obj
 
-        obj = _get(id, CONNEG_HEADERS_AS2_HTML)
-        if obj:
+        obj.as2 = _get(obj.key.id(), CONNEG_HEADERS_AS2_HTML)
+        if obj.as2:
             return obj
 
         # look in HTML to find AS2 link
@@ -140,8 +127,8 @@ class ActivityPub(Protocol):
         if not (link and link['href']):
             _error('no AS2 available')
 
-        obj = _get(link['href'], as2.CONNEG_HEADERS)
-        if obj:
+        obj.as2 = _get(link['href'], as2.CONNEG_HEADERS)
+        if obj.as2:
             return obj
 
         _error()
@@ -160,7 +147,7 @@ class ActivityPub(Protocol):
         if not sig:
             error('No HTTP Signature', status=401)
 
-        logging.info('Verifying HTTP Signature')
+        logger.info('Verifying HTTP Signature')
         logger.info(f'Headers: {json_dumps(dict(request.headers), indent=2)}')
 
         # parse_signature_header lower-cases all keys
@@ -182,7 +169,7 @@ class ActivityPub(Protocol):
             obj_id = as1.get_object(activity).get('id')
             if (activity.get('type') == 'Delete' and obj_id and
                 keyId == fragmentless(obj_id)):
-                logging.info('Object/actor being deleted is also keyId')
+                logger.info('Object/actor being deleted is also keyId')
                 key_actor = Object(id=keyId, source_protocol='activitypub', deleted=True)
                 key_actor.put()
             else:

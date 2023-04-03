@@ -23,6 +23,7 @@ import activitypub
 from app import app
 import common
 from models import Follower, Object, Target, User
+from protocol import Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,7 @@ logger = logging.getLogger(__name__)
 TASKS_LOCATION = 'us-central1'
 
 
-class Webmention(View):
+class Webmention(Protocol):
     """Webmention protocol implementation."""
     LABEL = 'webmention'
 
@@ -49,16 +50,22 @@ class Webmention(View):
             return True
 
     @classmethod
-    def fetch(cls, url):
+    def fetch(cls, obj):
         """Fetches a URL over HTTP and extracts its microformats2.
 
-        See :meth:`Protocol.fetch` for details.
+        Follows redirects, but doesn't change the original URL in obj's id! The
+        :class:`Model` class doesn't allow that anyway, but more importantly, we
+        want to preserve that original URL becase other objects may refer to it
+        instead of the final redirect destination URL.
+
+        See :meth:`Protocol.fetch` for other background.
         """
+        url = obj.key.id()
         try:
             parsed = util.fetch_mf2(url, gateway=True,
                                     require_backlink=common.host_url().rstrip('/'))
         except ValueError as e:
-            logging.info(str(e))
+            logger.info(str(e))
             error(str(e))
 
         if parsed is None:
@@ -80,10 +87,10 @@ class Webmention(View):
         # duplicated in microformats2.json_to_object
         author = util.get_first(props, 'author')
         if not isinstance(author, dict):
-            logging.info(f'Fetching full authorship for author {author}')
+            logger.info(f'Fetching full authorship for author {author}')
             author = mf2util.find_author({'items': [entry]}, hentry=entry,
                                          fetch_mf2_func=util.fetch_mf2)
-            logging.info(f'Got: {author}')
+            logger.info(f'Got: {author}')
             if author:
                 props['author'] = [{
                     "type": ["h-card"],
@@ -93,18 +100,7 @@ class Webmention(View):
                     },
                 }]
 
-        obj = Object.get_by_id(parsed['url'])
-        if obj:
-            orig_as1 = obj.as1
-            obj.clear()
-            obj.mf2 = entry
-            obj.changed = as1.activity_changed(orig_as1, obj.as1)
-            obj.new = False
-        else:
-            obj = Object(id=parsed['url'], mf2=entry)
-            obj.new = True
-            obj.changed = False
-
+        obj.mf2 = entry
         return obj
 
 
@@ -145,7 +141,7 @@ class WebmentionView(View):
 
         # fetch source page
         try:
-            obj = Webmention.fetch(source)
+            obj = Webmention.load(source, refresh=True)
         except ValueError as e:
             error(f'Bad source URL: {source}: {e}')
 
@@ -153,7 +149,7 @@ class WebmentionView(View):
         props = obj.mf2['properties']
         author_urls = microformats2.get_string_urls(props.get('author', []))
         if author_urls and not g.user.is_homepage(author_urls[0]):
-            logging.info(f'Overriding author {author_urls[0]} with {g.user.actor_id()}')
+            logger.info(f'Overriding author {author_urls[0]} with {g.user.actor_id()}')
             props['author'] = [g.user.actor_id()]
 
         logger.info(f'Converted to AS1: {obj.type}: {json_dumps(obj.as1, indent=2)}')
@@ -187,7 +183,7 @@ class WebmentionView(View):
                 },
             )
             msg = f'Enqueued task {task.name} to deliver to followers...'
-            logging.info(msg)
+            logger.info(msg)
             return msg, 202
 
         inboxes_to_targets = self._activitypub_targets(obj)

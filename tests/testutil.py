@@ -48,16 +48,18 @@ class FakeProtocol(protocol.Protocol):
     @classmethod
     def send(cls, obj, url, log_data=True):
         logger.info(f'FakeProtocol.send {url}')
-        sent.append((obj, url))
+        cls.sent.append((obj, url))
         cls.objects[obj.key.id()] = obj
 
     @classmethod
-    def fetch(cls, id):
-        logger.info(f'FakeProtocol.send {id}')
+    def fetch(cls, obj):
+        id = obj.key.id()
+        logger.info(f'FakeProtocol.load {id}')
         cls.fetched.append(id)
 
         if id in cls.objects:
-            return cls.objects[id]
+            obj.our_as1 = cls.objects[id]
+            return obj
 
         raise requests.HTTPError(response=util.Struct(status_code='410'))
 
