@@ -39,6 +39,10 @@ SUPPORTED_TYPES = (
 seen_ids = LRUCache(100000)
 seen_ids_lock = threading.Lock()
 
+# objects that have been loaded in Protocol.load
+objects_cache = LRUCache(5000)
+objects_cache_lock = threading.Lock()
+
 logger = logging.getLogger(__name__)
 
 
@@ -358,8 +362,6 @@ class Protocol:
             error(msg, status=int(errors[0][0] or 502))
 
     @classmethod
-    @cached(LRUCache(1000), key=lambda cls, id: util.fragmentless(id),
-            lock=threading.Lock())
     def load(cls, id):
         """Loads and returns an Object from memory cache, datastore, or HTTP fetch.
 
@@ -378,20 +380,31 @@ class Protocol:
         Args:
           id: str
 
-        Returns: Object
+        Returns: :class:`Object`
 
         Raises:
           :class:`requests.HTTPError`, anything else that :meth:`fetch` raises
         """
         id = util.fragmentless(id)
+
+        with objects_cache_lock:
+            cached = objects_cache.get(id)
+            if cached:
+                return cached
+
         logger.info(f'Loading Object {id}')
         obj = models.Object.get_by_id(id)
         if obj and (obj.as1 or obj.deleted):
             logger.info('  got from datastore')
+            with objects_cache_lock:
+                objects_cache[id] = obj
             return obj
 
         logger.info(f'Object not in datastore or has no data: {id}')
         obj = cls.fetch(id)
         obj.source_protocol = cls.LABEL
         obj.put()
+
+        with objects_cache_lock:
+            objects_cache[id] = obj
         return obj

@@ -831,7 +831,7 @@ class ActivityPubTest(testutil.TestCase):
                                          _, mock_get, ___):
         # actor with a public key
         self.key_id_obj.key.delete()
-        Protocol.load.cache.clear()
+        protocol.objects_cache.clear()
         mock_get.return_value = self.as2_resp({
             **ACTOR,
             'publicKey': {
@@ -909,7 +909,7 @@ class ActivityPubTest(testutil.TestCase):
 
     def test_delete_actor_not_fetchable(self, _, mock_get, ___):
         self.key_id_obj.key.delete()
-        Protocol.load.cache.clear()
+        protocol.objects_cache.clear()
 
         mock_get.return_value = requests_response(status=410)
         got = self.post('/inbox', json={**DELETE, 'object': 'http://my/key/id'})
@@ -919,7 +919,7 @@ class ActivityPubTest(testutil.TestCase):
         self.key_id_obj.as2 = None
         self.key_id_obj.deleted = True
         self.key_id_obj.put()
-        Protocol.load.cache.clear()
+        protocol.objects_cache.clear()
 
         got = self.post('/inbox', json={**DELETE, 'object': 'http://my/key/id'})
         self.assertEqual(202, got.status_code)
@@ -945,7 +945,7 @@ class ActivityPubTest(testutil.TestCase):
                            labels=['activity'])
 
         obj.deleted = True
-        self.assert_entities_equal(obj, Protocol.load.cache['http://an/obj'])
+        self.assert_entities_equal(obj, protocol.objects_cache['http://an/obj'])
 
     def test_update_note(self, *mocks):
         Object(id='https://a/note', as2={}).put()
@@ -970,7 +970,7 @@ class ActivityPubTest(testutil.TestCase):
                            labels=['activity'])
 
         self.assert_entities_equal(Object.get_by_id('https://a/note'),
-                                   Protocol.load.cache['https://a/note'])
+                                   protocol.objects_cache['https://a/note'])
 
     def test_inbox_webmention_discovery_connection_fails(self, mock_head,
                                                          mock_get, mock_post):
@@ -1283,7 +1283,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
         id = 'http://the/id'
         stored = Object(id=id, as2=AS2_OBJ)
         stored.put()
-        Protocol.load.cache.clear()
+        protocol.objects_cache.clear()
 
         # first time loads from datastore
         got = ActivityPub.load(id)
@@ -1300,7 +1300,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
     def test_load_strips_fragment(self, mock_get):
         stored = Object(id='http://the/id', as2=AS2_OBJ)
         stored.put()
-        Protocol.load.cache.clear()
+        protocol.objects_cache.clear()
 
         got = ActivityPub.load('http://the/id#ignore')
         self.assert_entities_equal(stored, got)
@@ -1312,7 +1312,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
         id = 'http://the/id'
         stored = Object(id=id, as2={}, status='in progress')
         stored.put()
-        Protocol.load.cache.clear()
+        protocol.objects_cache.clear()
 
         mock_get.return_value = AS2
         got = ActivityPub.load(id)

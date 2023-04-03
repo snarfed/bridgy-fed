@@ -9,6 +9,7 @@ from oauth_dropins.webutil.testutil import requests_response
 from app import app
 import common
 from models import Follower, Object, User
+import protocol
 from protocol import Protocol
 from . import testutil
 
@@ -298,17 +299,13 @@ class ObjectTest(testutil.TestCase):
     def test_put_updates_load_cache(self):
         obj = Object(id='x', as2={})
         obj.put()
-        key = Protocol.load.cache_key(Protocol, 'x')
-        self.assert_entities_equal(obj, Protocol.load.cache[key])
+        self.assert_entities_equal(obj, protocol.objects_cache['x'])
 
     def test_put_fragment_id_doesnt_update_load_cache(self):
         obj = Object(id='x#y', as2={})
         obj.put()
-
-        self.assertNotIn(Protocol.load.cache_key(Protocol, 'x#y'),
-                         Protocol.load.cache)
-        self.assertNotIn(Protocol.load.cache_key(Protocol, 'x'),
-                         Protocol.load.cache)
+        self.assertNotIn('x#y', protocol.objects_cache)
+        self.assertNotIn('x', protocol.objects_cache)
 
     def test_computed_properties_without_as1(self):
         Object(id='a').put()

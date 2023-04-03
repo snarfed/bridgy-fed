@@ -352,8 +352,7 @@ class Object(StringIdModel):
         # TODO: assert that as1 id is same as key id? in pre put hook?
         logger.info(f'Wrote Object {self.key.id()} {self.type} {self.status or ""} {self.labels} for {len(self.domains)} users')
         if '#' not in self.key.id():
-            key = protocol.Protocol.load.cache_key(protocol.Protocol, self.key.id())
-            protocol.Protocol.load.cache[key] = self
+            protocol.objects_cache[self.key.id()] = self
 
     def clear(self):
         """Clears all data properties."""
