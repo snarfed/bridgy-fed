@@ -863,7 +863,7 @@ class ActivityPubTest(testutil.TestCase):
         })
         self.assertEqual(401, resp.status_code)
         self.assertEqual({'error': 'HTTP Signature missing keyId'}, resp.json)
-        mock_common_log.assert_any_call('Returning 401: HTTP Signature missing keyId')
+        mock_common_log.assert_any_call('Returning 401: HTTP Signature missing keyId', exc_info=None)
 
         # invalid signature, content changed
         protocol.seen_ids.clear()
@@ -874,7 +874,7 @@ class ActivityPubTest(testutil.TestCase):
         self.assertEqual(401, resp.status_code)
         self.assertEqual({'error': 'Invalid Digest header, required for HTTP Signature'},
                          resp.json)
-        mock_common_log.assert_any_call('Returning 401: Invalid Digest header, required for HTTP Signature')
+        mock_common_log.assert_any_call('Returning 401: Invalid Digest header, required for HTTP Signature', exc_info=None)
 
         # invalid signature, header changed
         protocol.seen_ids.clear()
@@ -884,7 +884,7 @@ class ActivityPubTest(testutil.TestCase):
         resp = self.client.post('/inbox', data=body, headers={**headers, 'Date': 'X'})
         self.assertEqual(401, resp.status_code)
         self.assertEqual({'error': 'HTTP Signature verification failed'}, resp.json)
-        mock_common_log.assert_any_call('Returning 401: HTTP Signature verification failed')
+        mock_common_log.assert_any_call('Returning 401: HTTP Signature verification failed', exc_info=None)
 
         # no signature
         protocol.seen_ids.clear()
@@ -892,7 +892,7 @@ class ActivityPubTest(testutil.TestCase):
         resp = self.client.post('/inbox', json=NOTE)
         self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual({'error': 'No HTTP Signature'}, resp.json)
-        mock_common_log.assert_any_call('Returning 401: No HTTP Signature')
+        mock_common_log.assert_any_call('Returning 401: No HTTP Signature', exc_info=None)
 
     def test_delete_actor(self, *mocks):
         follower = Follower.get_or_create('user.com', DELETE['actor'])

@@ -58,10 +58,10 @@ def host_url(path_query=None):
   return urllib.parse.urljoin(base, path_query)
 
 
-def error(msg, status=400):
+def error(msg, status=400, exc_info=None, **kwargs):
     """Like flask_util.error, but wraps body in JSON."""
-    logger.info(f'Returning {status}: {msg}')
-    abort(status, response=make_response({'error': msg}, status))
+    logger.info(f'Returning {status}: {msg}', exc_info=exc_info)
+    abort(status, response=make_response({'error': msg}, status), **kwargs)
 
 
 def pretty_link(url, text=None, **kwargs):
