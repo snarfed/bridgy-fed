@@ -408,11 +408,12 @@ class WebmentionInteractive(WebmentionView):
     def dispatch_request(self):
         try:
             super().dispatch_request()
-            flash('OK')
+            flash(f'Updating fediverse profile from <a href="{g.user.homepage()}">{g.user.key.id()}</a>...')
         except HTTPException as e:
             flash(util.linkify(str(e.description), pretty=True))
-            path = f'/user/{g.user.key.id()}' if g.user else '/'
-            return redirect(path, code=302)
+
+        path = f'/user/{g.user.key.id()}' if g.user else '/'
+        return redirect(path, code=302)
 
 
 app.add_url_rule('/webmention', view_func=WebmentionView.as_view('webmention'),
