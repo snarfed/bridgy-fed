@@ -344,6 +344,8 @@ class Object(StringIdModel):
     updated = ndb.DateTimeProperty(auto_now=True)
 
     def _pre_put_hook(self):
+        assert '^^' not in self.key.id()
+
         if self.as1 and self.as1.get('objectType') == 'activity':
             if 'activity' not in self.labels:
                 self.labels.append('activity')
@@ -358,6 +360,16 @@ class Object(StringIdModel):
         if '#' not in self.key.id():
             protocol.objects_cache[self.key.id()] = self
 
+    @classmethod
+    def get_by_id(cls, id):
+        """Override Model.get_by_id to un-escape ^^ to #.
+
+        https://github.com/snarfed/bridgy-fed/issues/469
+
+        See "meth:`proxy_url()` for the inverse.
+        """
+        return super().get_by_id(id.replace('^^', '#'))
+
     def clear(self):
         """Clears all data properties."""
         for prop in 'as2', 'bsky', 'mf2':
@@ -367,9 +379,16 @@ class Object(StringIdModel):
             setattr(self, prop, None)
 
     def proxy_url(self):
-        """Returns the Bridgy Fed proxy URL to render this post as HTML."""
-        return common.host_url('render?' +
-                               urllib.parse.urlencode({'id': self.key.id()}))
+        """Returns the Bridgy Fed proxy URL to render this post as HTML.
+
+        Escapes # characters to ^^.
+        https://github.com/snarfed/bridgy-fed/issues/469
+
+        See "meth:`get_by_id()` for the inverse.
+        """
+        assert '^^' not in self.key.id()
+        id = self.key.id().replace('#', '^^')
+        return common.host_url('render?' + urllib.parse.urlencode({'id': id}))
 
     def actor_link(self):
         """Returns a pretty actor link with their name and profile picture."""

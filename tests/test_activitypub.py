@@ -601,7 +601,7 @@ class ActivityPubTest(testutil.TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'http://localhost/render?id=http%3A%2F%2Fmas.to%2Flike%23ok',
+            'source': 'http://localhost/render?id=http%3A%2F%2Fmas.to%2Flike%5E%5Eok',
             'target': 'https://user.com/post',
         }, kwargs['data'])
 

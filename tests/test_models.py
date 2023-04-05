@@ -269,6 +269,25 @@ class ObjectTest(testutil.TestCase):
         obj = Object(id='abc', as2={})
         self.assertEqual('http://localhost/render?id=abc', obj.proxy_url())
 
+        obj = Object(id='ab#c', as2={})
+        self.assertEqual('http://localhost/render?id=ab%5E%5Ec', obj.proxy_url())
+
+    def test_put(self):
+        with self.assertRaises(AssertionError):
+            Object(id='x^^y').put()
+
+    def test_get_by_id(self):
+        self.assertIsNone(Object.get_by_id('abc'))
+        self.assertIsNone(Object.get_by_id('ab^^c'))
+
+        obj = Object(id='abc')
+        obj.put()
+        self.assertIsNotNone(obj, Object.get_by_id('abc'))
+
+        obj = Object(id='ab#c')
+        obj.put()
+        self.assert_entities_equal(obj, Object.get_by_id('ab^^c'))
+
     def test_actor_link(self):
         for expected, as2 in (
                 ('href="">', {}),
