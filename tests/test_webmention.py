@@ -1,7 +1,7 @@
 # coding=utf-8
 """Unit tests for webmention.py."""
 import copy
-from unittest import mock, skip
+from unittest import mock
 from urllib.parse import urlencode
 
 import feedparser
@@ -1218,12 +1218,6 @@ class WebmentionUtilTest(testutil.TestCase):
         self.assert_equals({**REPOST_MF2, 'url': 'http://new/url'}, obj.mf2)
         self.assertIsNone(Object.get_by_id('http://new/url'))
 
-    # TODO
-    @skip
-    def test_fetch_bad_source_url(self, mock_get, __):
-        with self.assertRaises(ValueError):
-            Webmention.fetch(Object(id='bad'))
-
     def test_fetch_error(self, mock_get, __):
         mock_get.return_value = requests_response(REPOST_HTML, status=405)
         with self.assertRaises(BadGateway) as e:
@@ -1297,8 +1291,3 @@ class WebmentionUtilTest(testutil.TestCase):
 
         self.assert_req(mock_get, 'https://user.com/post')
         mock_post.assert_not_called()
-
-    @skip
-    def test_send_bad_source_url(self, mock_get, mock_post):
-        with self.assertRaises(ValueError):
-            Webmention.send(Object(), 'bad')

@@ -1,6 +1,5 @@
 """Unit tests for render.py."""
 import copy
-from unittest import skip
 
 from granary import as2
 from granary.tests.test_as1 import COMMENT, DELETE_OF_ID, UPDATE
