@@ -22,7 +22,7 @@ from werkzeug.exceptions import BadGateway, HTTPException
 import activitypub
 from app import app
 import common
-from models import Follower, Object, Target, User
+import models
 from protocol import Protocol
 
 logger = logging.getLogger(__name__)
@@ -126,7 +126,7 @@ class WebmentionView(View):
         domain = util.domain_from_link(source, minimize=False)
         logger.info(f'webmention from {domain}')
 
-        g.user = User.get_by_id(domain)
+        g.user = models.User.get_by_id(domain)
         if not g.user:
             error(f'No user found for domain {domain}')
 
@@ -162,7 +162,7 @@ class WebmentionView(View):
                 'updated': util.now().isoformat(),
             }
             id = common.host_url(f'{obj.key.id()}#update-{util.now().isoformat()}')
-            obj = Object(id=id, our_as1={
+            obj = models.Object(id=id, our_as1={
                 'objectType': 'activity',
                 'verb': 'update',
                 'id': id,
@@ -233,8 +233,9 @@ class WebmentionView(View):
                         **obj.as1,
                     },
                 }
-                obj = Object(id=id, mf2=obj.mf2, our_as1=update_as1, labels=['user'],
-                             domains=[g.user.key.id()], source_protocol='webmention')
+                obj = models.Object(
+                    id=id, mf2=obj.mf2, our_as1=update_as1, labels=['user'],
+                    domains=[g.user.key.id()], source_protocol='webmention')
 
             elif obj.new:
                 logger.info(f'New Object {obj.key.id()}')
@@ -248,9 +249,9 @@ class WebmentionView(View):
                     'actor': g.user.actor_id(),
                     'object': obj.as1,
                 }
-                obj = Object(id=id, mf2=obj.mf2, our_as1=create_as1,
-                             domains=[g.user.key.id()], labels=['user'],
-                             source_protocol='webmention')
+                obj = models.Object(id=id, mf2=obj.mf2, our_as1=create_as1,
+                                    domains=[g.user.key.id()], labels=['user'],
+                                    source_protocol='webmention')
 
             else:
                 msg = f'{obj.key.id()} is unchanged, nothing to do'
@@ -265,7 +266,7 @@ class WebmentionView(View):
             labels=['user'],
             delivered=[],
             failed=[],
-            undelivered=[Target(uri=uri, protocol='activitypub')
+            undelivered=[models.Target(uri=uri, protocol='activitypub')
                          for uri in inboxes_to_targets.keys()],
         )
 
@@ -282,9 +283,9 @@ class WebmentionView(View):
                 # prefer AS2 id or url, if available
                 # https://github.com/snarfed/bridgy-fed/issues/307
                 dest = target_as2 or as1.get_object(obj.as1)
-                Follower.get_or_create(dest=dest.get('id') or dest.get('url'),
-                                       src=g.user.key.id(),
-                                       last_follow=as2.from_as1(obj.as1))
+                models.Follower.get_or_create(dest=dest.get('id') or dest.get('url'),
+                                              src=g.user.key.id(),
+                                              last_follow=as2.from_as1(obj.as1))
 
             # this is reused later in ActivityPub.send()
             # TODO: find a better way
@@ -324,7 +325,7 @@ class WebmentionView(View):
     def _activitypub_targets(self, obj):
         """
         Args:
-          obj: :class:`Object`
+          obj: :class:`models.Object`
 
         Returns: dict of {str inbox URL: dict target AS2 object}
         """
@@ -340,9 +341,9 @@ class WebmentionView(View):
         if not targets:
             inboxes = set()
             domain = g.user.key.id()
-            for follower in Follower.query().filter(
-                Follower.key > Key('Follower', domain + ' '),
-                Follower.key < Key('Follower', domain + chr(ord(' ') + 1))):
+            for follower in models.Follower.query().filter(
+                models.Follower.key > Key('Follower', domain + ' '),
+                models.Follower.key < Key('Follower', domain + chr(ord(' ') + 1))):
                 if follower.status != 'inactive' and follower.last_follow:
                     actor = follower.last_follow.get('actor')
                     if actor and isinstance(actor, dict):

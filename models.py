@@ -20,9 +20,11 @@ from oauth_dropins.webutil.models import ComputedJsonProperty, JsonProperty, Str
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
+# import top level modules to avoid circular imports
+import activitypub
 import common
-# import module instead of Protocol class to avoid circular import
 import protocol
+import webmention
 
 # https://github.com/snarfed/bridgy-fed/issues/314
 WWW_DOMAINS = frozenset((
@@ -245,7 +247,8 @@ class User(StringIdModel):
 
         # check home page
         try:
-            _, _, self.actor_as2 = common.actor(self)
+            obj = webmention.Webmention.load(self.homepage)
+            self.actor_as2 = activitypub.postprocess_as2(as2.from_as1(obj.as1))
             self.has_hcard = True
         except (BadRequest, NotFound):
             self.actor_as2 = None

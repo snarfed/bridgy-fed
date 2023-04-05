@@ -78,21 +78,21 @@ class PagesTest(testutil.TestCase):
 
     @patch('requests.get')
     def test_check_web_site(self, mock_get):
-        redir = 'http://localhost/.well-known/webfinger?resource=acct:orig@orig'
+        redir = 'http://localhost/.well-known/webfinger?resource=acct:user.com@user.com'
         mock_get.side_effect = (
             requests_response('', status=302, redirected_url=redir),
-            requests_response(ACTOR_HTML, url='https://orig/',
+            requests_response(ACTOR_HTML, url='https://user.com/',
                               content_type=common.CONTENT_TYPE_HTML),
         )
 
-        got = self.client.post('/web-site', data={'url': 'https://orig/'})
+        got = self.client.post('/web-site', data={'url': 'https://user.com/'})
         self.assert_equals(302, got.status_code)
-        self.assert_equals('/user/orig', got.headers['Location'])
+        self.assert_equals('/user/user.com', got.headers['Location'])
 
-        user = User.get_by_id('orig')
+        user = User.get_by_id('user.com')
         self.assertTrue(user.has_hcard)
         self.assertEqual('Person', user.actor_as2['type'])
-        self.assertEqual('http://localhost/orig', user.actor_as2['id'])
+        self.assertEqual('http://localhost/user.com', user.actor_as2['id'])
 
     def test_check_web_site_bad_url(self):
         got = self.client.post('/web-site', data={'url': '!!!'})
@@ -109,7 +109,7 @@ class PagesTest(testutil.TestCase):
         )
 
         got = self.client.post('/web-site', data={'url': 'https://orig/'})
-        self.assert_equals(200, got.status_code)
+        self.assert_equals(200, got.status_code, got.headers)
         self.assertTrue(get_flashed_messages()[0].startswith(
             "Couldn't connect to https://orig/: "))
 
