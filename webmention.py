@@ -61,9 +61,11 @@ class Webmention(Protocol):
         See :meth:`Protocol.fetch` for other background.
         """
         url = obj.key.id()
+        is_homepage = g.user and g.user.is_homepage(url)
+        require_backlink = common.host_url().rstrip('/') if not is_homepage else None
+
         try:
-            parsed = util.fetch_mf2(url, gateway=True,
-                                    require_backlink=common.host_url().rstrip('/'))
+            parsed = util.fetch_mf2(url, gateway=True, require_backlink=require_backlink)
         except ValueError as e:
             logger.info(str(e))
             error(str(e))
@@ -72,13 +74,22 @@ class Webmention(Protocol):
             error(f'id {urlparse(url).fragment} not found in {url}')
 
         # find mf2 item
-        entry = mf2util.find_first_entry(parsed, ['h-entry'])
-        if not entry:
-            error(f'No microformats2 found in {url}')
+        if is_homepage:
+            logger.info(f"{url} is user's homepage")
+            entry = mf2util.representative_hcard(parsed, parsed['url'])
+            logger.info(f'Representative h-card: {json_dumps(entry, indent=2)}')
+            if not entry:
+                error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {parsed['url']}")
+        else:
+            entry = mf2util.find_first_entry(parsed, ['h-entry'])
+            if not entry:
+                error(f'No microformats2 found in {url}')
 
         # store final URL in mf2 object, and also default url property to it,
         # since that's the fallback for AS1/AS2 id
         entry['url'] = parsed['url']
+        if is_homepage:
+            entry.setdefault('rel-urls', {}).update(parsed.get('rel-urls', {}))
         props = entry.setdefault('properties', {})
         props.setdefault('url', [parsed['url']])
         logger.info(f'Extracted microformats2 entry: {json_dumps(entry, indent=2)}')
@@ -86,19 +97,19 @@ class Webmention(Protocol):
         # run full authorship algorithm if necessary: https://indieweb.org/authorship
         # duplicated in microformats2.json_to_object
         author = util.get_first(props, 'author')
-        if not isinstance(author, dict):
+        if not isinstance(author, dict) and not is_homepage:
             logger.info(f'Fetching full authorship for author {author}')
             author = mf2util.find_author({'items': [entry]}, hentry=entry,
                                          fetch_mf2_func=util.fetch_mf2)
             logger.info(f'Got: {author}')
             if author:
-                props['author'] = [{
+                props['author'] = util.trim_nulls([{
                     "type": ["h-card"],
                     'properties': {
                         field: [author[field]] if author.get(field) else []
                         for field in ('name', 'photo', 'url')
                     },
-                }]
+                }])
 
         obj.mf2 = entry
         return obj
@@ -118,26 +129,6 @@ class WebmentionView(View):
         g.user = User.get_by_id(domain)
         if not g.user:
             error(f'No user found for domain {domain}')
-
-        # if source is home page, send an actor Update to followers' instances
-        if g.user.is_homepage(source):
-            # TODO: switch to obj.mf2['url'] after we drop common.actor() below
-            actor_mf2, actor_as1, _ = common.actor(g.user)
-            id = common.host_url(f'{source}#update-{util.now().isoformat()}')
-            update_as1 = {
-                'objectType': 'activity',
-                'verb': 'update',
-                'id': id,
-                'url': id,
-                'actor': g.user.actor_id(),
-                'object': {
-                    **actor_as1,
-                    'id': g.user.actor_id(),
-                    'updated': util.now().isoformat(),
-                },
-            }
-            obj = Object(id=id, mf2=actor_mf2, our_as1=update_as1)
-            return self.try_activitypub(obj)
 
         # fetch source page
         try:
@@ -162,6 +153,23 @@ class WebmentionView(View):
         Returns Flask response (string body or tuple) if we succeeded or failed,
         None if ActivityPub was not available.
         """
+        # if source is home page, send an actor Update to followers' instances
+        if g.user.is_homepage(obj.key.id()):
+            obj.put()
+            actor_as1 = {
+                **obj.as1,
+                'id': g.user.actor_id(),
+                'updated': util.now().isoformat(),
+            }
+            id = common.host_url(f'{obj.key.id()}#update-{util.now().isoformat()}')
+            obj = Object(id=id, our_as1={
+                'objectType': 'activity',
+                'verb': 'update',
+                'id': id,
+                'actor': g.user.actor_id(),
+                'object': actor_as1,
+            })
+
         # use a task queue to deliver to followers because we send to each inbox
         # in serial, which can take a long time with many followers/instances.
         #

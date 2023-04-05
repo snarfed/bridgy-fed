@@ -317,7 +317,8 @@ class Object(StringIdModel):
         elif self.bsky is not None:
             return bluesky.to_as1(self.bsky)
         elif self.mf2 is not None:
-            return microformats2.json_to_object(self.mf2)
+            return microformats2.json_to_object(self.mf2,
+                                                rel_urls=self.mf2.get('rel-urls'))
 
     @ndb.ComputedProperty
     def type(self):  # AS1 objectType, or verb if it's an activity

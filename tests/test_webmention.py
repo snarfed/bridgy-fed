@@ -5,6 +5,7 @@ from unittest import mock, skip
 from urllib.parse import urlencode
 
 import feedparser
+from flask import g
 from granary import as2, atom, microformats2
 from httpsig.sign import HeaderSigner
 from oauth_dropins.webutil import appengine_config, util
@@ -13,7 +14,7 @@ from oauth_dropins.webutil.appengine_info import APP_ID
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
-from werkzeug.exceptions import BadGateway
+from werkzeug.exceptions import BadGateway, BadRequest
 
 import activitypub
 from app import app
@@ -34,12 +35,18 @@ ACTOR_HTML = """\
 </body>
 </html>
 """
+ACTOR = requests_response(ACTOR_HTML, url='https://user.com/',
+                          content_type=CONTENT_TYPE_HTML)
 ACTOR_MF2 = {
     'type': ['h-card'],
     'properties': {
         'url': ['https://user.com/'],
         'name': ['Ms. ☕ Baz'],
     },
+}
+ACTOR_MF2_REL_URLS = {
+    **ACTOR_MF2,
+    'rel-urls': {'https://user.com/': {'rels': ['me'], 'text': 'Ms. ☕ Baz'}}
 }
 ACTOR_AS1_UNWRAPPED = {
     'objectType': 'person',
@@ -80,11 +87,14 @@ REPOST_HTML = """\
 <body class="h-entry">
 <a class="u-url" href="https://user.com/repost"></a>
 <a class="u-repost-of p-name" href="https://mas.to/toot">reposted!</a>
-<a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
+<a class="u-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
 <a href="http://localhost/"></a>
 </body>
 </html>
 """
+REPOST = requests_response(REPOST_HTML, content_type=CONTENT_TYPE_HTML,
+                           url='https://user.com/repost')
+REPOST_MF2 = util.parse_mf2(REPOST_HTML)['items'][0]
 REPOST_AS2 = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Announce',
@@ -169,11 +179,6 @@ class WebmentionTest(testutil.TestCase):
             'object': self.reply_as1,
         }
         self.reply_as2 = as2.from_as1(self.reply_as1)
-
-        self.repost = requests_response(REPOST_HTML, content_type=CONTENT_TYPE_HTML,
-                                        url='https://user.com/repost')
-        self.repost_mf2 = util.parse_mf2(REPOST_HTML)['items'][0]
-        self.repost_as1 = microformats2.json_to_object(self.repost_mf2)
 
         self.like_html = """\
 <html>
@@ -343,9 +348,6 @@ class WebmentionTest(testutil.TestCase):
         self.activitypub_gets = [self.reply, self.not_fediverse, self.toot_as2,
                                  self.actor]
 
-        self.author = requests_response(ACTOR_HTML, url='https://user.com/',
-                                        content_type=CONTENT_TYPE_HTML)
-
     def assert_deliveries(self, mock_post, inboxes, data):
         self.assertEqual(len(inboxes), len(mock_post.call_args_list))
         calls = {call[0][0]: call for call in mock_post.call_args_list}
@@ -357,87 +359,6 @@ class WebmentionTest(testutil.TestCase):
 
     def assert_object(self, id, **props):
         return super().assert_object(id, delivered_protocol='activitypub', **props)
-
-    def test_fetch(self, mock_get, mock_post):
-        mock_get.return_value = self.reply
-
-        obj = Object(id='https://user.com/post')
-        with app.test_request_context('/'):
-            Webmention.fetch(obj)
-
-        self.assert_equals(self.reply_as1, obj.as1)
-
-    def test_fetch_redirect(self, mock_get, mock_post):
-        mock_get.return_value = requests_response(
-            REPOST_HTML, url='https://orig/url', redirected_url='http://new/url')
-
-        obj = Object(id='https://orig/url')
-        with app.test_request_context('/'):
-            Webmention.fetch(obj)
-
-        self.assert_equals({**self.repost_mf2, 'url': 'http://new/url'}, obj.mf2)
-        self.assert_equals(self.repost_as1, obj.as1)
-        self.assertIsNone(Object.get_by_id('http://new/url'))
-
-    # TODO
-    @skip
-    def test_fetch_bad_source_url(self, mock_get, mock_post):
-        with app.test_request_context('/'), self.assertRaises(ValueError):
-            Webmention.fetch(Object(id='bad'))
-
-    def test_fetch_error(self, mock_get, mock_post):
-        mock_get.return_value = requests_response(self.reply_html, status=405)
-        with app.test_request_context('/'), self.assertRaises(BadGateway) as e:
-            Webmention.fetch(Object(id='https://foo'))
-
-    def test_fetch_run_authorship(self, mock_get, mock_post):
-        mock_get.side_effect = [
-            # post
-            requests_response(
-                self.reply_html.replace(
-                    '<a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>',
-                    '<a class="u-author" href="https://user.com/"></a>'),
-                content_type=CONTENT_TYPE_HTML, url='https://user.com/reply'),
-            # author URL
-            self.author,
-        ]
-
-        return_value = self.reply
-        obj = Object(id='https://user.com/reply')
-        with app.test_request_context('/'):
-            Webmention.fetch(obj)
-        self.assert_equals(self.reply_as1, obj.as1)
-
-    def test_send(self, mock_get, mock_post):
-        mock_get.return_value = WEBMENTION_REL_LINK
-        mock_post.return_value = requests_response()
-
-        obj = Object(id='http://mas.to/like#ok', as2=LIKE)
-        with app.test_request_context('/'):
-            self.assertTrue(Webmention.send(obj, 'https://user.com/post'))
-
-        self.assert_req(mock_get, 'https://user.com/post')
-        args, kwargs = mock_post.call_args
-        self.assertEqual(('https://user.com/webmention',), args)
-        self.assertEqual({
-            'source': 'http://localhost/render?id=http%3A%2F%2Fmas.to%2Flike%23ok',
-            'target': 'https://user.com/post',
-        }, kwargs['data'])
-
-    def test_send_no_endpoint(self, mock_get, mock_post):
-        mock_get.return_value = WEBMENTION_NO_REL_LINK
-        obj = Object(id='http://mas.to/like#ok', as2=LIKE)
-
-        with app.test_request_context('/'):
-            self.assertFalse(Webmention.send(obj, 'https://user.com/post'))
-
-        self.assert_req(mock_get, 'https://user.com/post')
-        mock_post.assert_not_called()
-
-    @skip
-    def test_send_bad_source_url(self, mock_get, mock_post):
-        with self.assertRaises(ValueError):
-            Webmention.send(Object(), 'bad')
 
     def test_send_bad_source_url(self, mock_get, mock_post):
         got = self.client.post('/webmention', data=b'')
@@ -622,7 +543,7 @@ class WebmentionTest(testutil.TestCase):
         with app.test_request_context('/'):
             Object(id='https://user.com/repost', mf2={}, status='complete').put()
 
-        mock_get.side_effect = [self.repost, self.toot_as2, self.actor]
+        mock_get.side_effect = [REPOST, self.toot_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/webmention', data={
@@ -682,7 +603,7 @@ class WebmentionTest(testutil.TestCase):
         self.assert_equals(self.as2_create, json_loads(kwargs['data']))
 
     def test_create_repost(self, mock_get, mock_post):
-        mock_get.side_effect = [self.repost, self.toot_as2, self.actor]
+        mock_get.side_effect = [REPOST, self.toot_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/webmention', data={
@@ -715,8 +636,8 @@ class WebmentionTest(testutil.TestCase):
                            domains=['user.com'],
                            source_protocol='webmention',
                            status='complete',
-                           mf2=self.repost_mf2,
-                           as1=self.repost_as1,
+                           mf2=REPOST_MF2,
+                           as1=microformats2.json_to_object(REPOST_MF2),
                            delivered=['https://mas.to/inbox'],
                            type='share',
                            object_ids=['https://mas.to/toot'],
@@ -817,7 +738,7 @@ class WebmentionTest(testutil.TestCase):
 </body>
 </html>
 """, url='https://user.com/repost', content_type=CONTENT_TYPE_HTML)
-        mock_get.side_effect = [repost, self.author, self.toot_as2, self.actor]
+        mock_get.side_effect = [repost, ACTOR, self.toot_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz', status=201)
 
         got = self.client.post('/webmention', data={
@@ -1163,7 +1084,7 @@ class WebmentionTest(testutil.TestCase):
 
     @mock.patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_update_profile_make_task(self, mock_create_task, mock_get, _):
-        mock_get.side_effect = [self.author]
+        mock_get.side_effect = [ACTOR]
 
         got = self.client.post('/webmention', data={
             'source': 'https://user.com/',
@@ -1183,7 +1104,7 @@ class WebmentionTest(testutil.TestCase):
         )
 
     def test_update_profile_run_task(self, mock_get, mock_post):
-        mock_get.side_effect = [self.author]
+        mock_get.side_effect = [ACTOR]
         mock_post.return_value = requests_response('abc xyz')
         Follower.get_or_create('user.com', 'https://mastodon/ccc',
                                last_follow={'actor': {
@@ -1211,7 +1132,6 @@ class WebmentionTest(testutil.TestCase):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Update',
             'id': wrapped_id,
-            'url': wrapped_id,
             'actor': 'http://localhost/user.com',
             'object': {
                 **ACTOR_AS2,
@@ -1223,11 +1143,18 @@ class WebmentionTest(testutil.TestCase):
         self.assert_deliveries(mock_post, ('https://shared/inbox', 'https://inbox'),
                                expected_as2)
 
+        # homepage object
+        self.assert_object('https://user.com/',
+                           source_protocol='webmention',
+                           mf2=ACTOR_MF2_REL_URLS,
+                           type='person',
+                           )
+
+        # update activity
         expected_as1 = {
             'objectType': 'activity',
             'verb': 'update',
             'id': id,
-            'url': id,
             'actor': 'http://localhost/user.com',
             'object': {
                 'objectType': 'person',
@@ -1245,7 +1172,6 @@ class WebmentionTest(testutil.TestCase):
                            source_protocol='webmention',
                            status='complete',
                            our_as1=expected_as1,
-                           mf2=ACTOR_MF2,
                            delivered=['https://inbox', 'https://shared/inbox'],
                            type='update',
                            object_ids=['https://user.com/'],
@@ -1257,3 +1183,122 @@ class WebmentionTest(testutil.TestCase):
         got = self.client.post('/webmention', data={'source': 'https://no-user/post'})
         self.assertEqual(400, got.status_code)
         self.assertEqual(0, Object.query().count())
+
+
+@mock.patch('requests.post')
+@mock.patch('requests.get')
+class WebmentionUtilTest(testutil.TestCase):
+
+    def setUp(self):
+        super().setUp()
+        self.request_context = app.test_request_context('/')
+        self.request_context.__enter__()
+        g.user = self.make_user('user.com')
+
+    def tearDown(self):
+        self.request_context.__enter__()
+        super().tearDown()
+
+    def test_fetch(self, mock_get, __):
+        mock_get.return_value = REPOST
+
+        obj = Object(id='https://user.com/post')
+        Webmention.fetch(obj)
+
+        self.assert_equals({**REPOST_MF2, 'url': 'https://user.com/repost'}, obj.mf2)
+
+    def test_fetch_redirect(self, mock_get, __):
+        mock_get.return_value =requests_response(
+            REPOST_HTML, content_type=CONTENT_TYPE_HTML,
+            redirected_url='http://new/url')
+        obj = Object(id='https://orig/url')
+        Webmention.fetch(obj)
+
+        self.assert_equals('http://new/url', obj.mf2['url'])
+        self.assert_equals({**REPOST_MF2, 'url': 'http://new/url'}, obj.mf2)
+        self.assertIsNone(Object.get_by_id('http://new/url'))
+
+    # TODO
+    @skip
+    def test_fetch_bad_source_url(self, mock_get, __):
+        with self.assertRaises(ValueError):
+            Webmention.fetch(Object(id='bad'))
+
+    def test_fetch_error(self, mock_get, __):
+        mock_get.return_value = requests_response(REPOST_HTML, status=405)
+        with self.assertRaises(BadGateway) as e:
+            Webmention.fetch(Object(id='https://foo'))
+
+    def test_fetch_run_authorship(self, mock_get, __):
+        mock_get.side_effect = [
+            # post
+            requests_response(
+                REPOST_HTML.replace(
+                    '<a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>',
+                    '<a class="u-author" href="https://user.com/"></a>'),
+                content_type=CONTENT_TYPE_HTML, url='https://user.com/repost'),
+            # author URL
+            ACTOR,
+        ]
+
+        obj = Object(id='https://user.com/repost')
+        Webmention.fetch(obj)
+        self.assert_equals({**REPOST_MF2, 'url': 'https://user.com/repost'}, obj.mf2)
+
+    def test_fetch_user_homepage(self, mock_get, __):
+        mock_get.return_value = ACTOR
+
+        obj = Object(id='https://user.com/')
+        Webmention.fetch(obj)
+
+        self.assert_equals({
+            **ACTOR_MF2_REL_URLS,
+            'url': 'https://user.com/',
+        }, obj.mf2)
+        self.assert_equals({**ACTOR_AS1_UNWRAPPED, 'url': 'https://user.com/'},
+                           obj.as1)
+
+    def test_fetch_user_homepage_no_hcard(self, mock_get, __):
+        mock_get.return_value = REPOST
+
+        obj = Object(id='https://user.com/')
+        with self.assertRaises(BadRequest):
+            Webmention.fetch(obj)
+
+    def test_fetch_user_homepage_non_representative_hcard(self, mock_get, __):
+        mock_get.return_value = requests_response(
+            '<html><body><a class="h-card u-url" href="https://a.b/">acct:me@y.z</a></body></html>',
+            content_type=CONTENT_TYPE_HTML)
+
+        obj = Object(id='https://user.com/')
+        with self.assertRaises(BadRequest):
+            Webmention.fetch(obj)
+
+    def test_send(self, mock_get, mock_post):
+        mock_get.return_value = WEBMENTION_REL_LINK
+        mock_post.return_value = requests_response()
+
+        obj = Object(id='http://mas.to/like#ok', as2=LIKE)
+        self.assertTrue(Webmention.send(obj, 'https://user.com/post'))
+
+        self.assert_req(mock_get, 'https://user.com/post')
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://user.com/webmention',), args)
+        self.assertEqual({
+            'source': 'http://localhost/render?id=http%3A%2F%2Fmas.to%2Flike%23ok',
+            'target': 'https://user.com/post',
+        }, kwargs['data'])
+
+    def test_send_no_endpoint(self, mock_get, mock_post):
+        mock_get.return_value = WEBMENTION_NO_REL_LINK
+        obj = Object(id='http://mas.to/like#ok', as2=LIKE)
+
+        self.assertFalse(Webmention.send(obj, 'https://user.com/post'))
+
+        self.assert_req(mock_get, 'https://user.com/post')
+        mock_post.assert_not_called()
+
+    @skip
+    def test_send_bad_source_url(self, mock_get, mock_post):
+        with self.assertRaises(ValueError):
+            Webmention.send(Object(), 'bad')
