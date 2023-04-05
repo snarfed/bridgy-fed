@@ -2,7 +2,7 @@
 import copy
 
 from granary import as2
-from granary.tests.test_as1 import COMMENT, DELETE_OF_ID, UPDATE
+from granary.tests.test_as1 import ACTOR, COMMENT, DELETE_OF_ID, UPDATE
 
 from app import app
 import common
@@ -19,6 +19,29 @@ EXPECTED_HTML = """\
 <article class="h-entry">
   <span class="p-uid">tag:fake.com:123456</span>
   <time class="dt-published" datetime="2012-12-05T00:58:26+00:00">2012-12-05T00:58:26+00:00</time>
+  <a class="u-url" href="https://fake.com/123456">fake.com/123456</a>
+  <div class="e-content p-name">
+  A ☕ reply
+  </div>
+  <a class="u-in-reply-to" href="https://fake.com/123"></a>
+</article>
+</body>
+</html>
+"""
+EXPECTED_AUTHOR_HTML = """\
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8">
+<meta http-equiv="refresh" content="0;url=https://fake.com/123456"></head>
+<body class="">
+<article class="h-entry">
+  <span class="p-uid">tag:fake.com:123456</span>
+  <time class="dt-published" datetime="2012-12-05T00:58:26+00:00">2012-12-05T00:58:26+00:00</time>
+  <span class="p-author h-card">
+    <data class="p-uid" value="tag:fake.com:444"></data>
+    <a class="p-name u-url" href="https://plus.google.com/bob">Bob</a>
+    <img class="u-photo" src="https://bob/picture" alt="" />
+  </span>
   <a class="u-url" href="https://fake.com/123456">fake.com/123456</a>
   <div class="e-content p-name">
   A ☕ reply
@@ -48,6 +71,15 @@ class RenderTest(testutil.TestCase):
         resp = self.client.get('/render?id=abc')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_equals(EXPECTED_HTML, resp.get_data(as_text=True), ignore_blanks=True)
+
+    def test_render_with_author(self):
+        with app.test_request_context('/'):
+            Object(id='abc', as2=as2.from_as1({**COMMENT, 'author': 'def'})).put()
+            Object(id='def', as2=as2.from_as1(ACTOR)).put()
+        resp = self.client.get('/render?id=abc')
+        self.assertEqual(200, resp.status_code)
+        self.assert_multiline_equals(
+            EXPECTED_AUTHOR_HTML, resp.get_data(as_text=True), ignore_blanks=True)
 
     def test_render_no_url(self):
         comment = copy.deepcopy(COMMENT)
@@ -112,7 +144,6 @@ A ☕ reply
 </div>
 <a class="u-in-reply-to" href="https://fake.com/123"></a>
 """, resp.get_data(as_text=True), ignore_blanks=True)
-
 
     def test_render_update_inner_obj_too_minimal_serve_as_is(self):
         with app.test_request_context('/'):
