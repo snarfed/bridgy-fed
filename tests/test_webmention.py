@@ -360,12 +360,39 @@ class WebmentionTest(testutil.TestCase):
     def assert_object(self, id, **props):
         return super().assert_object(id, delivered_protocol='activitypub', **props)
 
-    def test_send_bad_source_url(self, mock_get, mock_post):
+    def test_bad_source_url(self, mock_get, mock_post):
         got = self.client.post('/webmention', data=b'')
         self.assertEqual(400, got.status_code)
 
-        mock_get.side_effect = ValueError('foo bar')
         got = self.client.post('/webmention', data={'source': 'bad'})
+        self.assertEqual(400, got.status_code)
+        self.assertEqual(0, Object.query().count())
+
+    @mock.patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_make_task(self, mock_create_task, mock_get, mock_post):
+        mock_get.side_effect = [self.note, self.actor]
+
+        params = {
+            'source': 'https://user.com/post',
+            'target': 'https://fed.brid.gy/',
+        }
+        got = self.client.post('/webmention', data=params)
+
+        self.assertEqual(202, got.status_code)
+        mock_create_task.assert_called_with(
+            parent=f'projects/{APP_ID}/locations/{TASKS_LOCATION}/queues/webmention',
+            task={
+                'app_engine_http_request': {
+                    'http_method': 'POST',
+                    'relative_uri': '/_ah/queue/webmention',
+                    'body': urlencode(params).encode(),
+                    'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
+                },
+            },
+        )
+
+    def test_no_user(self, mock_get, mock_post):
+        got = self.client.post('/webmention', data={'source': 'https://nope.com/post'})
         self.assertEqual(400, got.status_code)
         self.assertEqual(0, Object.query().count())
 
@@ -375,7 +402,8 @@ class WebmentionTest(testutil.TestCase):
                               content_type=CONTENT_TYPE_HTML),
         )
 
-        got = self.client.post('/webmention', data={'source': 'https://user.com/post'})
+        got = self.client.post('/_ah/queue/webmention',
+                               data={'source': 'https://user.com/post'})
         self.assertEqual(502, got.status_code)
         self.assertEqual(0, Object.query().count())
 
@@ -387,11 +415,11 @@ class WebmentionTest(testutil.TestCase):
 </body>
 </html>""", url='https://user.com/post', content_type=CONTENT_TYPE_HTML)
 
-        got = self.client.post( '/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(400, got.status_code)
+        self.assertEqual(304, got.status_code)
         self.assertEqual(0, Object.query().count())
 
         mock_get.assert_has_calls((self.req('https://user.com/post'),))
@@ -420,7 +448,8 @@ class WebmentionTest(testutil.TestCase):
             ValueError('foo bar'),
         )
 
-        got = self.client.post('/webmention', data={'source': 'https://user.com/reply'})
+        got = self.client.post('/_ah/queue/webmention',
+                               data={'source': 'https://user.com/reply'})
         self.assertEqual(400, got.status_code)
 
     def test_target_fetch_fails(self, mock_get, mock_post):
@@ -430,7 +459,8 @@ class WebmentionTest(testutil.TestCase):
                 url='https://user.com/post', content_type=CONTENT_TYPE_HTML),
             requests.Timeout('foo bar'))
 
-        got = self.client.post('/webmention', data={'source': 'https://user.com/reply'})
+        got = self.client.post('/_ah/queue/webmention',
+                               data={'source': 'https://user.com/reply'})
         self.assertEqual(502, got.status_code)
 
     def test_target_fetch_has_no_content_type(self, mock_get, mock_post):
@@ -442,7 +472,8 @@ class WebmentionTest(testutil.TestCase):
             requests_response(self.reply_html, url='https://user.com/reply',
                               content_type='None'),
         )
-        got = self.client.post('/webmention', data={'source': 'https://user.com/reply'})
+        got = self.client.post('/_ah/queue/webmention',
+                               data={'source': 'https://user.com/reply'})
         self.assertEqual(502, got.status_code)
 
     def test_no_backlink(self, mock_get, mock_post):
@@ -450,11 +481,11 @@ class WebmentionTest(testutil.TestCase):
             self.reply_html.replace('<a href="http://localhost/"></a>', ''),
             url='https://user.com/reply', content_type=CONTENT_TYPE_HTML)
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(400, got.status_code)
+        self.assertEqual(304, got.status_code)
         self.assertEqual(0, Object.query().count())
 
         mock_get.assert_has_calls((self.req('https://user.com/reply'),))
@@ -465,7 +496,7 @@ class WebmentionTest(testutil.TestCase):
                                     '<a href="http://localhost"></a>'),
             content_type=CONTENT_TYPE_HTML, url='https://user.com/reply')
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -475,7 +506,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz', status=203)
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -528,7 +559,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = self.activitypub_gets
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -546,7 +577,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [REPOST, self.toot_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
@@ -563,7 +594,7 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.side_effect = self.activitypub_gets
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -585,7 +616,7 @@ class WebmentionTest(testutil.TestCase):
                                 self.actor]
         mock_post.return_value = requests_response('abc xyz', status=203)
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -606,7 +637,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [REPOST, self.toot_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
@@ -654,7 +685,7 @@ class WebmentionTest(testutil.TestCase):
         ]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -679,7 +710,7 @@ class WebmentionTest(testutil.TestCase):
             self.like,
         ]
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/like',
             'target': 'https://fed.brid.gy/',
         })
@@ -714,7 +745,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [missing_url, self.toot_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz', status=203)
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
@@ -741,7 +772,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [repost, ACTOR, self.toot_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz', status=201)
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
@@ -750,27 +781,6 @@ class WebmentionTest(testutil.TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals(REPOST_AS2, json_loads(kwargs['data']))
-
-    @mock.patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_create_post_make_task(self, mock_create_task, mock_get, _):
-        mock_get.side_effect = [self.note, self.actor]
-
-        got = self.client.post('/webmention', data={
-            'source': 'https://user.com/post',
-            'target': 'https://fed.brid.gy/',
-        })
-        self.assertEqual(202, got.status_code)
-        mock_create_task.assert_called_with(
-            parent=f'projects/{APP_ID}/locations/{TASKS_LOCATION}/queues/webmention',
-            task={
-                'app_engine_http_request': {
-                    'http_method': 'POST',
-                    'relative_uri': '/_ah/queue/webmention',
-                    'body': urlencode({'source': 'https://user.com/post'}).encode(),
-                    'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
-                },
-            },
-        )
 
     @staticmethod
     def make_followers():
@@ -801,7 +811,7 @@ class WebmentionTest(testutil.TestCase):
                                    'inbox': 'https://inbox',
                                }})
 
-    def test_create_post_run_task_new(self, mock_get, mock_post):
+    def test_create_post(self, mock_get, mock_post):
         mock_get.side_effect = [self.note, self.actor]
         mock_post.return_value = requests_response('abc xyz')
         self.make_followers()
@@ -834,7 +844,7 @@ class WebmentionTest(testutil.TestCase):
                            labels=['user', 'activity'],
                            )
 
-    def test_create_post_run_task_update(self, mock_get, mock_post):
+    def test_update_post(self, mock_get, mock_post):
         mock_get.side_effect = [self.note, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
@@ -911,7 +921,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.follow, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
@@ -962,7 +972,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [follow, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
@@ -976,7 +986,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.follow_fragment, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/follow#2',
             'target': 'https://fed.brid.gy/',
         })
@@ -1019,11 +1029,11 @@ class WebmentionTest(testutil.TestCase):
             self.follow_fragment_html, url='https://user.com/follow',
             content_type=CONTENT_TYPE_HTML)
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/follow#3',
             'target': 'https://fed.brid.gy/',
         })
-        self.assert_equals(400, got.status_code)
+        self.assert_equals(304, got.status_code)
         mock_get.assert_has_calls((
             self.req('https://user.com/follow'),
         ))
@@ -1033,7 +1043,7 @@ class WebmentionTest(testutil.TestCase):
         mock_post.return_value = requests_response(
             'abc xyz', status=405, url='https://mas.to/inbox')
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
@@ -1076,34 +1086,13 @@ class WebmentionTest(testutil.TestCase):
                                         url='https://user.com/repost')
         mock_get.side_effect = [repost_resp]
 
-        got = self.client.post('/webmention', data={
+        got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(400, got.status_code)
+        self.assertEqual(304, got.status_code)
 
-    @mock.patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_update_profile_make_task(self, mock_create_task, mock_get, _):
-        mock_get.side_effect = [ACTOR]
-
-        got = self.client.post('/webmention', data={
-            'source': 'https://user.com/',
-            'target': 'https://fed.brid.gy/',
-        })
-        self.assertEqual(202, got.status_code)
-        mock_create_task.assert_called_with(
-            parent=f'projects/{APP_ID}/locations/{TASKS_LOCATION}/queues/webmention',
-            task={
-                'app_engine_http_request': {
-                    'http_method': 'POST',
-                    'relative_uri': '/_ah/queue/webmention',
-                    'body': urlencode({'source': 'https://user.com/'}).encode(),
-                    'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
-                },
-            },
-        )
-
-    def test_update_profile_run_task(self, mock_get, mock_post):
+    def test_update_profile(self, mock_get, mock_post):
         mock_get.side_effect = [ACTOR]
         mock_post.return_value = requests_response('abc xyz')
         Follower.get_or_create('user.com', 'https://mastodon/ccc',
@@ -1177,12 +1166,6 @@ class WebmentionTest(testutil.TestCase):
                            object_ids=['https://user.com/'],
                            labels=['user', 'activity'],
                            )
-
-    def test_no_user(self, mock_get, mock_post):
-        mock_get.side_effect = [requests_response(self.reply_html)]
-        got = self.client.post('/webmention', data={'source': 'https://no-user/post'})
-        self.assertEqual(400, got.status_code)
-        self.assertEqual(0, Object.query().count())
 
 
 @mock.patch('requests.post')

@@ -16,7 +16,7 @@ from oauth_dropins.webutil.flask_util import error, flash
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from oauth_dropins.webutil import webmention
 import requests
-from werkzeug.exceptions import BadGateway, HTTPException
+from werkzeug.exceptions import BadGateway, BadRequest, HTTPException
 
 # import module instead of individual classes/functions to avoid circular import
 import activitypub
@@ -115,321 +115,306 @@ class Webmention(Protocol):
         return obj
 
 
-class WebmentionView(View):
-    """Handles inbound webmention, converts to ActivityPub."""
-    IS_TASK = False
+@app.post('/webmention')
+def webmention_external():
+    """Handles inbound webmention, enqueue task to process.
 
-    def dispatch_request(self):
-        logger.info(f'Params: {list(request.form.items())}')
+    Use a task queue to deliver to followers because we send to each inbox in
+    serial, which can take a long time with many followers/instances.
+    """
+    source = flask_util.get_required_param('source').strip()
+    if not util.is_web(source):
+        error(f'Bad URL {source}')
 
-        source = flask_util.get_required_param('source').strip()
-        domain = util.domain_from_link(source, minimize=False)
-        logger.info(f'webmention from {domain}')
+    domain = util.domain_from_link(source, minimize=False)
+    g.user = models.User.get_by_id(domain)
+    if not g.user:
+        error(f'No user found for domain {domain}')
 
-        g.user = models.User.get_by_id(domain)
-        if not g.user:
-            error(f'No user found for domain {domain}')
+    queue_path = tasks_client.queue_path(APP_ID, TASKS_LOCATION, 'webmention')
+    task = tasks_client.create_task(
+        parent=queue_path,
+        task={
+            'app_engine_http_request': {
+                'http_method': 'POST',
+                'relative_uri': '/_ah/queue/webmention',
+                'body': urlencode(request.form).encode(),
+                # https://googleapis.dev/python/cloudtasks/latest/gapic/v2/types.html#google.cloud.tasks_v2.types.AppEngineHttpRequest.headers
+                'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
+            },
+        },
+    )
+    msg = f'Enqueued task {task.name}.'
+    logger.info(msg)
+    return msg, 202
 
-        # fetch source page
-        try:
-            obj = Webmention.load(source, refresh=True)
-        except ValueError as e:
-            error(f'Bad source URL: {source}: {e}')
 
-        # set actor to user
-        props = obj.mf2['properties']
-        author_urls = microformats2.get_string_urls(props.get('author', []))
-        if author_urls and not g.user.is_homepage(author_urls[0]):
-            logger.info(f'Overriding author {author_urls[0]} with {g.user.actor_id()}')
-            props['author'] = [g.user.actor_id()]
+@app.post('/_ah/queue/webmention')
+def webmention_task():
+    """Handles webmention task, converts to ActivityPub and delivers."""
+    logger.info(f'Params: {list(request.form.items())}')
 
-        logger.info(f'Converted to AS1: {obj.type}: {json_dumps(obj.as1, indent=2)}')
+    # load user
+    source = flask_util.get_required_param('source').strip()
+    domain = util.domain_from_link(source, minimize=False)
+    g.user = models.User.get_by_id(domain)
+    if not g.user:
+        error(f'No user found for domain {domain}', status=304)
 
-        return self.try_activitypub(obj)
+    # fetch source page
+    try:
+        obj = Webmention.load(source, refresh=True)
+    except BadRequest as e:
+        error(str(e.description), status=304)
 
-    def try_activitypub(self, obj):
-        """Attempts ActivityPub delivery.
+    # set actor to user
+    props = obj.mf2['properties']
+    author_urls = microformats2.get_string_urls(props.get('author', []))
+    if author_urls and not g.user.is_homepage(author_urls[0]):
+        logger.info(f'Overriding author {author_urls[0]} with {g.user.actor_id()}')
+        props['author'] = [g.user.actor_id()]
 
-        Returns Flask response (string body or tuple) if we succeeded or failed,
-        None if ActivityPub was not available.
-        """
-        # if source is home page, send an actor Update to followers' instances
-        if g.user.is_homepage(obj.key.id()):
+    logger.info(f'Converted to AS1: {obj.type}: {json_dumps(obj.as1, indent=2)}')
+
+    # if source is home page, send an actor Update to followers' instances
+    if g.user.is_homepage(obj.key.id()):
+        obj.put()
+        actor_as1 = {
+            **obj.as1,
+            'id': g.user.actor_id(),
+            'updated': util.now().isoformat(),
+        }
+        id = common.host_url(f'{obj.key.id()}#update-{util.now().isoformat()}')
+        obj = models.Object(id=id, our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': id,
+            'actor': g.user.actor_id(),
+            'object': actor_as1,
+        })
+
+    inboxes_to_targets = _activitypub_targets(obj)
+
+    obj.populate(
+        domains=[g.user.key.id()],
+        source_protocol='webmention',
+    )
+    if not inboxes_to_targets:
+        obj.labels.append('user')
+        obj.status = 'ignored'
+        obj.put()
+        return 'No ActivityPub targets'
+
+    err = None
+    last_success = None
+    log_data = True
+
+    if obj.type in ('note', 'article', 'comment'):
+        # have we already seen this object? has it changed? or is it new?
+        if obj.changed:
+            logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes')
+            updated = util.now().isoformat()
+            id = f'{obj.key.id()}#bridgy-fed-update-{updated}'
+            logger.info(f'Wrapping in update activity {id}')
             obj.put()
-            actor_as1 = {
-                **obj.as1,
-                'id': g.user.actor_id(),
-                'updated': util.now().isoformat(),
-            }
-            id = common.host_url(f'{obj.key.id()}#update-{util.now().isoformat()}')
-            obj = models.Object(id=id, our_as1={
+            update_as1 = {
                 'objectType': 'activity',
                 'verb': 'update',
                 'id': id,
                 'actor': g.user.actor_id(),
-                'object': actor_as1,
-            })
-
-        # use a task queue to deliver to followers because we send to each inbox
-        # in serial, which can take a long time with many followers/instances.
-        #
-        # WARNING: this currently depends on fetch *not* storing obj if it's
-        # new! since if it does, we'll think it's unchanged below and skip it.
-        if not self.IS_TASK and obj.type in ('article', 'note', 'post', 'update'):
-            # and as1.get_object(obj.as1).get('objectType') != 'comment':
-            queue_path = tasks_client.queue_path(APP_ID, TASKS_LOCATION, 'webmention')
-            task = tasks_client.create_task(
-                parent=queue_path,
-                task={
-                    'app_engine_http_request': {
-                        'http_method': 'POST',
-                        'relative_uri': '/_ah/queue/webmention',
-                        'body': urlencode({'source': request.values['source']}).encode(),
-                        # https://googleapis.dev/python/cloudtasks/latest/gapic/v2/types.html#google.cloud.tasks_v2.types.AppEngineHttpRequest.headers
-                        'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
-                    },
+                'object': {
+                    # Mastodon requires the updated field for Updates, so
+                    # add a default value.
+                    # https://docs.joinmastodon.org/spec/activitypub/#supported-activities-for-statuses
+                    # https://socialhub.activitypub.rocks/t/what-could-be-the-reason-that-my-update-activity-does-not-work/2893/4
+                    # https://github.com/mastodon/documentation/pull/1150
+                    'updated': updated,
+                    **obj.as1,
                 },
-            )
-            msg = f'Enqueued task {task.name} to deliver to followers...'
+            }
+            obj = models.Object(
+                id=id, mf2=obj.mf2, our_as1=update_as1, labels=['user'],
+                domains=[g.user.key.id()], source_protocol='webmention')
+
+        elif obj.new:
+            logger.info(f'New Object {obj.key.id()}')
+            id = f'{obj.key.id()}#bridgy-fed-create'
+            logger.info(f'Wrapping in post activity {id}')
+            obj.put()
+            create_as1 = {
+                'objectType': 'activity',
+                'verb': 'post',
+                'id': id,
+                'actor': g.user.actor_id(),
+                'object': obj.as1,
+            }
+            obj = models.Object(id=id, mf2=obj.mf2, our_as1=create_as1,
+                                domains=[g.user.key.id()], labels=['user'],
+                                source_protocol='webmention')
+
+        else:
+            msg = f'{obj.key.id()} is unchanged, nothing to do'
             logger.info(msg)
-            return msg, 202
+            return msg, 204
 
-        inboxes_to_targets = self._activitypub_targets(obj)
+    # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
+    #
+    # make copy of undelivered because we modify it below
+    obj.populate(
+        status='in progress',
+        labels=['user'],
+        delivered=[],
+        failed=[],
+        undelivered=[models.Target(uri=uri, protocol='activitypub')
+                     for uri in inboxes_to_targets.keys()],
+    )
 
-        obj.populate(
-            domains=[g.user.key.id()],
-            source_protocol='webmention',
-        )
-        if not inboxes_to_targets:
-            obj.labels.append('user')
-            obj.status = 'ignored'
-            obj.put()
-            return 'No ActivityPub targets'
+    logger.info(f'Delivering to inboxes: {sorted(t.uri for t in obj.undelivered)}')
+    for target in list(obj.undelivered):
+        inbox = target.uri
+        if inbox in inboxes_to_targets:
+            target_as2 = inboxes_to_targets[inbox]
+        else:
+            logger.warning(f'Missing target_as2 for inbox {inbox}!')
+            target_as2 = None
 
-        err = None
-        last_success = None
-        log_data = True
+        if obj.type == 'follow':
+            # prefer AS2 id or url, if available
+            # https://github.com/snarfed/bridgy-fed/issues/307
+            dest = target_as2 or as1.get_object(obj.as1)
+            models.Follower.get_or_create(dest=dest.get('id') or dest.get('url'),
+                                          src=g.user.key.id(),
+                                          last_follow=as2.from_as1(obj.as1))
 
-        if obj.type in ('note', 'article', 'comment'):
-            # have we already seen this object? has it changed? or is it new?
-            if obj.changed:
-                logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes')
-                updated = util.now().isoformat()
-                id = f'{obj.key.id()}#bridgy-fed-update-{updated}'
-                logger.info(f'Wrapping in update activity {id}')
-                obj.put()
-                update_as1 = {
-                    'objectType': 'activity',
-                    'verb': 'update',
-                    'id': id,
-                    'actor': g.user.actor_id(),
-                    'object': {
-                        # Mastodon requires the updated field for Updates, so
-                        # add a default value.
-                        # https://docs.joinmastodon.org/spec/activitypub/#supported-activities-for-statuses
-                        # https://socialhub.activitypub.rocks/t/what-could-be-the-reason-that-my-update-activity-does-not-work/2893/4
-                        # https://github.com/mastodon/documentation/pull/1150
-                        'updated': updated,
-                        **obj.as1,
-                    },
-                }
-                obj = models.Object(
-                    id=id, mf2=obj.mf2, our_as1=update_as1, labels=['user'],
-                    domains=[g.user.key.id()], source_protocol='webmention')
+        # this is reused later in ActivityPub.send()
+        # TODO: find a better way
+        obj.target_as2 = target_as2
 
-            elif obj.new:
-                logger.info(f'New Object {obj.key.id()}')
-                id = f'{obj.key.id()}#bridgy-fed-create'
-                logger.info(f'Wrapping in post activity {id}')
-                obj.put()
-                create_as1 = {
-                    'objectType': 'activity',
-                    'verb': 'post',
-                    'id': id,
-                    'actor': g.user.actor_id(),
-                    'object': obj.as1,
-                }
-                obj = models.Object(id=id, mf2=obj.mf2, our_as1=create_as1,
-                                    domains=[g.user.key.id()], labels=['user'],
-                                    source_protocol='webmention')
+        try:
+            last = activitypub.ActivityPub.send(obj, inbox, log_data=log_data)
+            obj.delivered.append(target)
+            last_success = last
+        except BaseException as e:
+            code, body = util.interpret_http_exception(e)
+            if not code and not body:
+                raise
+            obj.failed.append(target)
+            err = e
+        finally:
+            log_data = False
 
-            else:
-                msg = f'{obj.key.id()} is unchanged, nothing to do'
-                logger.info(msg)
-                return msg, 204
-
-        # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
-        #
-        # make copy of undelivered because we modify it below
-        obj.populate(
-            status='in progress',
-            labels=['user'],
-            delivered=[],
-            failed=[],
-            undelivered=[models.Target(uri=uri, protocol='activitypub')
-                         for uri in inboxes_to_targets.keys()],
-        )
-
-        logger.info(f'Delivering to inboxes: {sorted(t.uri for t in obj.undelivered)}')
-        for target in list(obj.undelivered):
-            inbox = target.uri
-            if inbox in inboxes_to_targets:
-                target_as2 = inboxes_to_targets[inbox]
-            else:
-                logger.warning(f'Missing target_as2 for inbox {inbox}!')
-                target_as2 = None
-
-            if obj.type == 'follow':
-                # prefer AS2 id or url, if available
-                # https://github.com/snarfed/bridgy-fed/issues/307
-                dest = target_as2 or as1.get_object(obj.as1)
-                models.Follower.get_or_create(dest=dest.get('id') or dest.get('url'),
-                                              src=g.user.key.id(),
-                                              last_follow=as2.from_as1(obj.as1))
-
-            # this is reused later in ActivityPub.send()
-            # TODO: find a better way
-            obj.target_as2 = target_as2
-
-            try:
-                last = activitypub.ActivityPub.send(obj, inbox, log_data=log_data)
-                obj.delivered.append(target)
-                last_success = last
-            except BaseException as e:
-                code, body = util.interpret_http_exception(e)
-                if not code and not body:
-                    raise
-                obj.failed.append(target)
-                err = e
-            finally:
-                log_data = False
-
-            obj.undelivered.remove(target)
-            obj.put()
-
-        obj.status = ('complete' if obj.delivered
-                      else 'failed' if obj.failed
-                      else 'ignored')
+        obj.undelivered.remove(target)
         obj.put()
 
-        # Pass the AP response status code and body through as our response
-        if last_success:
-            return last_success.text or 'Sent!', last_success.status_code
-        elif isinstance(err, BadGateway):
-            raise err
-        elif isinstance(err, requests.HTTPError):
-            return str(err), err.status_code
-        else:
-            return str(err)
+    obj.status = ('complete' if obj.delivered
+                  else 'failed' if obj.failed
+                  else 'ignored')
+    obj.put()
 
-    def _activitypub_targets(self, obj):
-        """
-        Args:
-          obj: :class:`models.Object`
+    # Pass the AP response status code and body through as our response
+    if last_success:
+        return last_success.text or 'Sent!', last_success.status_code
+    elif isinstance(err, BadGateway):
+        raise err
+    elif isinstance(err, requests.HTTPError):
+        return str(err), err.status_code
+    else:
+        return str(err)
 
-        Returns: dict of {str inbox URL: dict target AS2 object}
-        """
-        # if there's in-reply-to, like-of, or repost-of, they're the targets.
-        # otherwise, it's all followers' inboxes.
-        targets = util.get_urls(obj.as1, 'inReplyTo')
-        if targets:
-            logger.info(f'targets from inReplyTo: {targets}')
-        elif obj.as1.get('verb') in as1.VERBS_WITH_OBJECT:
-            targets = util.get_urls(obj.as1, 'object')
-            logger.info(f'targets from object: {targets}')
 
-        if not targets:
-            inboxes = set()
-            domain = g.user.key.id()
-            for follower in models.Follower.query().filter(
-                models.Follower.key > Key('Follower', domain + ' '),
-                models.Follower.key < Key('Follower', domain + chr(ord(' ') + 1))):
-                if follower.status != 'inactive' and follower.last_follow:
-                    actor = follower.last_follow.get('actor')
-                    if actor and isinstance(actor, dict):
-                        inboxes.add(actor.get('endpoints', {}).get('sharedInbox') or
-                                    actor.get('publicInbox') or
-                                    actor.get('inbox'))
-            logger.info('Delivering to followers')
-            return {inbox: None for inbox in inboxes}
+def _activitypub_targets(obj):
+    """
+    Args:
+      obj: :class:`models.Object`
 
-        targets = common.remove_blocklisted(targets)
-        if not targets:
-            error(f"Silo responses are not yet supported.")
+    Returns: dict of {str inbox URL: dict target AS2 object}
+    """
+    # if there's in-reply-to, like-of, or repost-of, they're the targets.
+    # otherwise, it's all followers' inboxes.
+    targets = util.get_urls(obj.as1, 'inReplyTo')
+    if targets:
+        logger.info(f'targets from inReplyTo: {targets}')
+    elif obj.as1.get('verb') in as1.VERBS_WITH_OBJECT:
+        targets = util.get_urls(obj.as1, 'object')
+        logger.info(f'targets from object: {targets}')
 
-        inboxes_to_targets = {}
-        for target in targets:
-            # fetch target page as AS2 object
-            try:
-                # TODO: make this generic across protocols
-                target_stored = activitypub.ActivityPub.load(target)
-                target_obj = target_stored.as2 or as2.from_as1(target_stored.as1)
-            except (requests.HTTPError, BadGateway) as e:
-                resp = getattr(e, 'requests_response', None)
-                if resp and resp.ok:
-                    type = common.content_type(resp)
-                    if type and type.startswith('text/html'):
-                        continue  # give up
-                raise
+    if not targets:
+        inboxes = set()
+        domain = g.user.key.id()
+        for follower in models.Follower.query().filter(
+            models.Follower.key > Key('Follower', domain + ' '),
+            models.Follower.key < Key('Follower', domain + chr(ord(' ') + 1))):
+            if follower.status != 'inactive' and follower.last_follow:
+                actor = follower.last_follow.get('actor')
+                if actor and isinstance(actor, dict):
+                    inboxes.add(actor.get('endpoints', {}).get('sharedInbox') or
+                                actor.get('publicInbox') or
+                                actor.get('inbox'))
+        logger.info('Delivering to followers')
+        return {inbox: None for inbox in inboxes}
 
-            inbox_url = target_obj.get('inbox')
-            if not inbox_url:
-                # TODO: test actor/attributedTo and not, with/without inbox
-                actor = (util.get_first(target_obj, 'actor') or
-                         util.get_first(target_obj, 'attributedTo'))
-                if isinstance(actor, dict):
-                    inbox_url = actor.get('inbox')
-                    actor = util.get_first(actor, 'url') or actor.get('id')
-                if not inbox_url and not actor:
-                    error('Target object has no actor or attributedTo with URL or id.')
-                elif not isinstance(actor, str):
-                    error(f'Target actor or attributedTo has unexpected url or id object: {actor}')
+    targets = common.remove_blocklisted(targets)
+    if not targets:
+        error(f"Silo responses are not yet supported.", status=304)
 
-            if not inbox_url:
-                # fetch actor as AS object
-                # TODO: make this generic across protocols
-                actor_obj = activitypub.ActivityPub.load(actor)
-                actor = actor_obj.as2 or as2.from_as1(actor_obj.as1)
+    inboxes_to_targets = {}
+    for target in targets:
+        # fetch target page as AS2 object
+        try:
+            # TODO: make this generic across protocols
+            target_stored = activitypub.ActivityPub.load(target)
+            target_obj = target_stored.as2 or as2.from_as1(target_stored.as1)
+        except (requests.HTTPError, BadGateway) as e:
+            resp = getattr(e, 'requests_response', None)
+            if resp and resp.ok:
+                type = common.content_type(resp)
+                if type and type.startswith('text/html'):
+                    continue  # give up
+            raise
+
+        inbox_url = target_obj.get('inbox')
+        if not inbox_url:
+            # TODO: test actor/attributedTo and not, with/without inbox
+            actor = (util.get_first(target_obj, 'actor') or
+                     util.get_first(target_obj, 'attributedTo'))
+            if isinstance(actor, dict):
                 inbox_url = actor.get('inbox')
+                actor = util.get_first(actor, 'url') or actor.get('id')
+            if not inbox_url and not actor:
+                error('Target object has no actor or attributedTo with URL or id.', status=304)
+            elif not isinstance(actor, str):
+                error(f'Target actor or attributedTo has unexpected url or id object: {actor}', status=304)
 
-            if not inbox_url:
-                # TODO: probably need a way to surface errors like this
-                logger.error('Target actor has no inbox')
-                continue
+        if not inbox_url:
+            # fetch actor as AS object
+            # TODO: make this generic across protocols
+            actor_obj = activitypub.ActivityPub.load(actor)
+            actor = actor_obj.as2 or as2.from_as1(actor_obj.as1)
+            inbox_url = actor.get('inbox')
 
-            inbox_url = urllib.parse.urljoin(target, inbox_url)
-            inboxes_to_targets[inbox_url] = target_obj
+        if not inbox_url:
+            # TODO: probably need a way to surface errors like this
+            logger.error('Target actor has no inbox')
+            continue
 
-        logger.info(f"Delivering to targets' inboxes: {inboxes_to_targets.keys()}")
-        return inboxes_to_targets
+        inbox_url = urllib.parse.urljoin(target, inbox_url)
+        inboxes_to_targets[inbox_url] = target_obj
+
+    logger.info(f"Delivering to targets' inboxes: {inboxes_to_targets.keys()}")
+    return inboxes_to_targets
 
 
-class WebmentionTask(WebmentionView):
-    """Handler that runs tasks, not external HTTP requests."""
-    IS_TASK = True
-
-
-class WebmentionInteractive(WebmentionView):
+@app.post('/webmention-interactive')
+def webmention_interactive():
     """Handler that runs interactive webmention-based requests from the web UI.
 
     ...eg the update profile button on user pages.
     """
-    def dispatch_request(self):
-        try:
-            super().dispatch_request()
-            flash(f'Updating fediverse profile from <a href="{g.user.homepage()}">{g.user.key.id()}</a>...')
-        except HTTPException as e:
-            flash(util.linkify(str(e.description), pretty=True))
+    try:
+        webmention_external()
+        flash(f'Updating fediverse profile from <a href="{g.user.homepage}">{g.user.key.id()}</a>...')
+    except HTTPException as e:
+        flash(util.linkify(str(e.description), pretty=True))
 
-        path = f'/user/{g.user.key.id()}' if g.user else '/'
-        return redirect(path, code=302)
-
-
-app.add_url_rule('/webmention', view_func=WebmentionView.as_view('webmention'),
-                 methods=['POST'])
-app.add_url_rule('/webmention-interactive',
-                 view_func=WebmentionInteractive.as_view('webmention-interactive'),
-                 methods=['POST'])
-app.add_url_rule('/_ah/queue/webmention',
-                 view_func=WebmentionTask.as_view('webmention-task'),
-                 methods=['POST'])
+    path = f'/user/{g.user.key.id()}' if g.user else '/'
+    return redirect(path, code=302)
