@@ -190,8 +190,10 @@ def fetch_objects(query):
 
     # synthesize human-friendly content for objects
     for i, obj in enumerate(objects):
+        obj_as1 = obj.as1
+
         # synthesize text snippet
-        type = as1.object_type(obj.as1)
+        type = as1.object_type(obj_as1)
         phrases = {
             'article': 'posted',
             'comment': 'replied',
@@ -207,18 +209,11 @@ def fetch_objects(query):
             'rsvp-yes': 'is attending',
             'share': 'reposted',
             'stop-following': 'unfollowed',
+            'update': 'updated',
         }
         obj.phrase = phrases.get(type)
 
-        inner_obj = as1.get_object(obj.as1)
-
-        # TODO: revisit? we have objects in the datastore, that are basically
-        # empty, eg just as1 {'objectType': 'note'}, which make this show --s
-        # if inner_obj.keys() == set(['id']):
-        #     inner_obj_obj = Object.get_by_id(inner_obj['id'])
-        #     if inner_obj_obj and inner_obj_obj.as1:
-        #         inner_obj = inner_obj_obj.as1
-
+        inner_obj = as1.get_object(obj_as1)
         content = (inner_obj.get('content')
                    or inner_obj.get('displayName')
                    or inner_obj.get('summary'))
@@ -228,17 +223,17 @@ def fetch_objects(query):
         if (type == 'update' and obj.domains and
             id.strip('/') == f'https://{obj.domains[0]}'):
             obj.phrase = 'updated'
-            obj.as1.update({
+            obj_as1.update({
                 'content': 'their profile',
                 'url': f'https://{obj.domains[0]}',
             })
         elif url:
             content = common.pretty_link(url, text=content)
 
-        obj.content = (obj.as1.get('content')
-                       or obj.as1.get('displayName')
-                       or obj.as1.get('summary'))
-        obj.url = util.get_first(obj.as1, 'url')
+        obj.content = (obj_as1.get('content')
+                       or obj_as1.get('displayName')
+                       or obj_as1.get('summary'))
+        obj.url = util.get_first(obj_as1, 'url')
 
         if (type in ('like', 'follow', 'repost', 'share') or
             not obj.content):
