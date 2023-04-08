@@ -22,27 +22,14 @@ class XrpcActorTest(testutil.TestCase):
                                query_string={'actor': 'user.com'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
-            '$type': 'app.bsky.actor.profile',
+            '$type': 'app.bsky.actor.defs#profileView',
             'handle': 'mas.to/users/swentel',
             'did': 'did:web:mas.to:users:swentel',
-            'creator': 'did:web:mas.to:users:swentel',
             'displayName': 'Mrs. ☕ Foo',
-            'declaration': {
-                '$type': 'app.bsky.system.declRef',
-                'cid': 'TODO',
-                'actorType': 'app.bsky.system.actorUser',
-            },
+            'description': None,
             'description': "I'm a person",
             'avatar': 'https://user.com/me.jpg',
             'banner': 'http://user.com/header.png',
-            'followersCount': 0,
-            'followsCount': 0,
-            'membersCount': 0,
-            'postsCount': 0,
-            'myState': {
-                'follow': 'TODO',
-                'member': 'TODO',
-            },
         }, resp.json)
 
     def test_getProfile_unset(self):
@@ -67,17 +54,17 @@ class XrpcActorTest(testutil.TestCase):
         }, resp.json)
 
     def test_search(self):
-        resp = self.client.get('/xrpc/app.bsky.actor.search',
+        resp = self.client.get('/xrpc/app.bsky.actor.searchActors',
                               query_string={'term': 'foo'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
-            'users': [],
+            'actors': [],
         }, resp.json)
 
     def test_searchTypeahead(self):
-        resp = self.client.get('/xrpc/app.bsky.actor.searchTypeahead',
+        resp = self.client.get('/xrpc/app.bsky.actor.searchActorsTypeahead',
                               query_string={'term': 'foo'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
-            'users': [],
+            'actors': [],
         }, resp.json)

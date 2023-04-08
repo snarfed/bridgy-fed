@@ -7,31 +7,26 @@ from .test_activitypub import ACTOR, FOLLOW, FOLLOW_WITH_ACTOR, FOLLOW_WITH_OBJE
 from . import testutil
 from models import Follower, User
 
-ACTOR_DECLARATION = {
-    '$type': 'app.bsky.system.declRef',
-    'actorType': 'app.bsky.system.actorUser',
-    'cid': 'TODO',
-}
 SUBJECT = {
-    '$type': 'app.bsky.actor.ref#withInfo',
+    '$type': 'app.bsky.actor.defs#profileView',
     'did': 'did:web:user.com',
     'handle': 'user.com',
-    'declaration': ACTOR_DECLARATION,
+    'description': None,
 }
 FOLLOWERS_BSKY = [{
     '$type': 'app.bsky.graph.getFollowers#follower',
     'did': 'did:web:other',
     'handle': 'yoozer@other',
-    'declaration': ACTOR_DECLARATION,
     'indexedAt': '2022-01-02T03:04:05+00:00',
+    'description': None,
 }, {
     '$type': 'app.bsky.graph.getFollowers#follower',
     'did': 'did:web:mas.to:users:swentel',
     'handle': 'mas.to/users/swentel',
     'displayName': 'Mrs. ☕ Foo',
     'avatar': 'https://user.com/me.jpg',
-    'declaration': ACTOR_DECLARATION,
     'indexedAt': '2022-01-02T03:04:05+00:00',
+    'description': None,
 }]
 
 
@@ -57,7 +52,7 @@ class XrpcGraphTest(testutil.TestCase):
         resp = self.client.get('/xrpc/app.bsky.graph.getFollowers',
                               query_string={'user': 'user.com'})
         self.assertEqual(200, resp.status_code)
-        self.assert_equals({
+        self.assertEqual({
             'subject': SUBJECT,
             'cursor': '',
             'followers': [],
@@ -69,6 +64,7 @@ class XrpcGraphTest(testutil.TestCase):
         other_follow = {
             **FOLLOW,
             'actor': {
+                'type': 'Person',
                 'url': 'http://other',
                 'preferredUsername': 'yoozer',
             },
@@ -85,7 +81,7 @@ class XrpcGraphTest(testutil.TestCase):
         resp = self.client.get('/xrpc/app.bsky.graph.getFollowers',
                               query_string={'user': 'user.com'})
         self.assertEqual(200, resp.status_code)
-        self.assert_equals({
+        self.assertEqual({
             'subject': SUBJECT,
             'cursor': '',
             'followers': FOLLOWERS_BSKY,
@@ -102,7 +98,7 @@ class XrpcGraphTest(testutil.TestCase):
         resp = self.client.get('/xrpc/app.bsky.graph.getFollows',
                               query_string={'user': 'user.com'})
         self.assertEqual(200, resp.status_code)
-        self.assert_equals({
+        self.assertEqual({
             'subject': SUBJECT,
             'cursor': '',
             'follows': [],
@@ -114,6 +110,7 @@ class XrpcGraphTest(testutil.TestCase):
         other_follow = {
             **FOLLOW,
             'object': {
+                'type': 'Person',
                 'url': 'http://other',
                 'preferredUsername': 'yoozer',
             },
@@ -130,7 +127,7 @@ class XrpcGraphTest(testutil.TestCase):
         resp = self.client.get('/xrpc/app.bsky.graph.getFollows',
                               query_string={'user': 'user.com'})
         self.assertEqual(200, resp.status_code)
-        self.assert_equals({
+        self.assertEqual({
             'subject': SUBJECT,
             'cursor': '',
             'follows': FOLLOWERS_BSKY,

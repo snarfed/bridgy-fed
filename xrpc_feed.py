@@ -55,10 +55,10 @@ def getPostThread(input, uri=None, depth=None):
 
     return {
         'thread': {
-            '$type': 'app.bsky.feed.getPostThread#threadViewPost',
+            '$type': 'app.bsky.feed.defs#threadViewPost',
             'post': bluesky.from_as1(obj.as1)['post'],
             'replies': [{
-                '$type': 'app.bsky.feed.getPostThread#threadViewPost',
+                '$type': 'app.bsky.feed.defs#threadViewPost',
                 'post': bluesky.from_as1(reply)['post'],
             } for reply in obj.as1.get('replies', {}).get('items', [])],
         },
@@ -84,7 +84,7 @@ def getRepostedBy(input, uri=None, cid=None, limit=None, before=None):
     return {
         'uri': 'http://orig/post',
         'repostBy': [{
-            **bluesky.actor_to_ref(a['actor']),
+            **bluesky.from_as1(a['actor']),
             '$type': 'app.bsky.feed.getRepostedBy#repostedBy',
         } for a in activities if a.get('actor')],
     }
@@ -108,13 +108,13 @@ def getTimeline(input, algorithm=None, limit=50, before=None):
     return {'feed': [bluesky.from_as1(obj.as1) for obj in objects if not obj.deleted]}
 
 
-# TODO: use likes as votes?
-@xrpc_server.method('app.bsky.feed.getVotes')
-def getVotes(input, uri=None, direction=None, cid=None, limit=None, before=None):
+# TODO
+@xrpc_server.method('app.bsky.feed.getLikes')
+def getLikes(input, uri=None, direction=None, cid=None, limit=None, before=None):
     """
-    lexicons/app/bsky/feed/getVotes.json
+    lexicons/app/bsky/feed/getLikes.json
     """
     return {
         'uri': uri,
-        'votes': [],
+        'likes': [],
     }

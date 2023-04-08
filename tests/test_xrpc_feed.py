@@ -40,12 +40,12 @@ POST_THREAD_AS = {
 }
 POST_THREAD_BSKY = {
     'thread': {
-        '$type': 'app.bsky.feed.getPostThread#threadViewPost',
+        '$type': 'app.bsky.feed.defs#threadViewPost',
         'post': POST_BSKY['post'],
         'replies': [{
-            '$type': 'app.bsky.feed.getPostThread#threadViewPost',
+            '$type': 'app.bsky.feed.defs#threadViewPost',
             'post': {
-                '$type': 'app.bsky.feed.post#view',
+                '$type': 'app.bsky.feed.defs#postView',
                 'uri': 'http://bob.org/reply',
                 'cid': 'TODO',
                 'record': {
@@ -54,22 +54,17 @@ POST_THREAD_BSKY = {
                     'createdAt': '',
                 },
                 'author': {
-                    '$type': 'app.bsky.actor.ref#withInfo',
+                    '$type': 'app.bsky.actor.defs#profileViewBasic',
                     'did': 'did:web:bob.org',
                     'displayName': 'Bob',
                     'handle': 'bob.org',
-                    'declaration': {
-                        '$type': 'app.bsky.system.declRef',
-                        'actorType': 'app.bsky.system.actorUser',
-                        'cid': 'TODO',
-                    },
+                    'description': None,
                 },
                 'replyCount': 0,
                 'repostCount': 0,
                 'upvoteCount': 0,
                 'downvoteCount': 0,
                 'indexedAt': '2022-01-02T03:04:05+00:00',
-                'viewer': {},
             },
         }],
     },
@@ -101,7 +96,7 @@ class XrpcFeedTest(testutil.TestCase):
         resp = self.client.get('/xrpc/app.bsky.feed.getAuthorFeed',
                                query_string={'author': 'user.com'})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assertEqual({
+        self.assert_equals({
             'feed': [REPOST_BSKY, REPLY_BSKY, POST_BSKY],
         }, resp.json)
 
@@ -133,7 +128,7 @@ class XrpcFeedTest(testutil.TestCase):
         resp = self.client.get('/xrpc/app.bsky.feed.getPostThread',
                                query_string={'uri': 'http://a/post'})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assert_equals(POST_THREAD_BSKY, resp.json)
+        self.assertEqual(POST_THREAD_BSKY, resp.json)
 
     def test_getPostThread_no_uri_param(self):
         resp = self.client.get('/xrpc/app.bsky.feed.getPostThread')
@@ -162,23 +157,15 @@ class XrpcFeedTest(testutil.TestCase):
             'uri': 'http://orig/post',
             'repostBy': [{
                 '$type': 'app.bsky.feed.getRepostedBy#repostedBy',
+                'description': None,
                 'did': 'did:web:mas.to:users:swentel',
-                'declaration': {
-                    '$type': 'app.bsky.system.declRef',
-                    'cid': 'TODO',
-                    'actorType': 'app.bsky.system.actorUser',
-                },
                 'handle': 'mas.to/users/swentel',
                 'displayName': 'Mrs. ☕ Foo',
                 'avatar': 'https://user.com/me.jpg',
             }, {
                 '$type': 'app.bsky.feed.getRepostedBy#repostedBy',
+                'description': None,
                 'did': 'did:web:alice.com',
-                'declaration': {
-                    '$type': 'app.bsky.system.declRef',
-                    'cid': 'TODO',
-                    'actorType': 'app.bsky.system.actorUser',
-                },
                 'handle': 'alice.com',
                 'displayName': 'Alice',
                 'avatar': 'https://alice.com/alice.jpg',
@@ -193,10 +180,10 @@ class XrpcFeedTest(testutil.TestCase):
             'feed': [bluesky.from_as1(COMMENT), bluesky.from_as1(NOTE)],
         }, got.json)
 
-    def test_getVotes(self):
-        resp = self.client.get('/xrpc/app.bsky.feed.getVotes',
+    def test_getLikes(self):
+        resp = self.client.get('/xrpc/app.bsky.feed.getLikes',
                                query_string={'uri': 'http://a/post'})
         self.assertEqual({
             'uri': 'http://a/post',
-            'votes': [],
+            'likes': [],
         }, resp.json)

@@ -33,14 +33,7 @@ def getProfile(input, actor=None):
     actor_as1 = g.user.to_as1()
     logger.info(f'AS1 actor: {json.dumps(actor_as1, indent=2)}')
 
-    profile = {
-        **bluesky.from_as1(actor_as1),
-        'myState': {
-            # ?
-            'follow': 'TODO',
-            'member': 'TODO',
-        },
-    }
+    profile = bluesky.from_as1(actor_as1)
     logger.info(f'Bluesky profile: {json.dumps(profile, indent=2)}')
     return profile
 
@@ -54,19 +47,19 @@ def getSuggestions(input):
     return {'actors': []}
 
 
-@xrpc_server.method('app.bsky.actor.search')
-def search(input, term=None, limit=None, before=None):
+@xrpc_server.method('app.bsky.actor.searchActors')
+def searchActors(input, term=None, limit=None, before=None):
     """
-    lexicons/app/bsky/actor/search.json
-    """
-    # TODO based on stored users
-    return {'users': []}
-
-
-@xrpc_server.method('app.bsky.actor.searchTypeahead')
-def searchTypeahead(input, term=None, limit=None):
-    """
-    lexicons/app/bsky/actor/searchTypeahead.json
+    lexicons/app/bsky/actor/searchActors.json
     """
     # TODO based on stored users
-    return {'users': []}
+    return {'actors': []}
+
+
+@xrpc_server.method('app.bsky.actor.searchActorsTypeahead')
+def searchActorsTypeahead(input, term=None, limit=None):
+    """
+    lexicons/app/bsky/actor/searchActorsTypeahead.json
+    """
+    # TODO based on stored users
+    return {'actors': []}

@@ -36,13 +36,16 @@ def get_followers(query_prop, output_field, user=None, limit=50, before=None):
         actor = follower.to_as1()
         if actor:
             actors.append({
-                **bluesky.actor_to_ref(actor),
+                **bluesky.from_as1(actor),
                 '$type': 'app.bsky.graph.getFollowers#follower',
                 'indexedAt': util.now().isoformat(),
             })
 
     return {
-        'subject': bluesky.actor_to_ref({'url': f'https://{user}/'}),
+        'subject': bluesky.from_as1({
+            'objectType': 'person',
+            'url': f'https://{user}/',
+        }),
         output_field: actors,
         'cursor': '',
     }
