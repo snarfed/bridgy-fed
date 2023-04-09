@@ -157,6 +157,8 @@ def webmention_task():
     # load user
     source = flask_util.get_required_param('source').strip()
     domain = util.domain_from_link(source, minimize=False)
+    logger.info(f'webmention from {domain}')
+
     g.user = models.User.get_by_id(domain)
     if not g.user:
         error(f'No user found for domain {domain}', status=304)
