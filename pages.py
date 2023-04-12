@@ -199,6 +199,7 @@ def fetch_objects(query):
             'comment': 'replied',
             'follow': 'followed',
             'invite': 'is invited to',
+            'issue': 'filed issue',
             'like': 'liked',
             'note': 'posted',
             'post': 'posted',
