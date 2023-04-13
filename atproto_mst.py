@@ -12,7 +12,6 @@ Daniel Holmgren and Devin Ivy for this code specifically!
 
 Notable differences:
 * All in memory, no block storage (yet)
-X * MST class is mutable, not immutable
 
 From that file:
 
@@ -53,6 +52,9 @@ from hashlib import sha256
 from os.path import commonprefix
 import re
 
+import dag_cbor.encoding
+from multiformats import CID, multicodec, multihash
+
 
 Entry = namedtuple('Entry', [
     'p',  # int, length of prefix that this key shares with the prev key
@@ -79,93 +81,79 @@ class MST:
       entries: sequence of :class:`MST` and :class:`Leaf`
       layer: int, this MST's layer in the root MST
       pointer: :class:`CID`
-      outdated_pointer: boolean, ???
+      outdated_pointer: boolean, whether pointer needs to be recalculated
     """
     entries = None
     layer = None
     pointer = None
     outdated_pointer = False
 
-#     def __init__(
-#         pointer: CID,
-#         entries: NodeEntry[],
-#         layer: number,
-#     ):
-#         assert pointer
-#         self.entries = entries
-#         self.layer = layer
-#         self.pointer = pointer
+    def __init__(self, entries=None, pointer=None, layer=None):
+        """Constructor.
+        Args:
+            entries: sequence of :class:`MST` and :class:`Leaf`
+            pointer: :class:`CID`
+            layer: int
 
-    def __init__(self):
-        """Constructor."""
-        # self.pointer = cid_for_entries(entries)
-        # { layer = None } = opts or {}
-        # return MST(pointer, entries, layer)
+        Returns:
+            :class:`MST`
+        """
+        self.entries = entries or []
+        self.pointer = pointer or cid_for_entries(self.entries)
+        self.layer = layer
 
-#     def from_data(
-#         data: NodeData,
-#         opts?: Partial<MstOpts>,
-#     ):
-#     """
-#     Returns:
-#       MST
-#     """
+#     def from_data(data: NodeData, opts?: Partial<MstOpts>):
+#         """
+#         Returns:
+#           MST
+#         """
 #         { layer = None } = opts or {}
 #         entries = deserialize_node_data(data, opts)
 #         pointer = cid_for_cbor(data)
-#         return new MST(pointer, entries, layer)
+#         return MST(pointer, entries)
 
     def __eq__(self, other):
         if isinstance(other, MST):
             return self.get_pointer() == other.get_pointer()
 
-#     # Getters (lazy load)
-#     # -------------------
+    # Immutability
+    # -------------------
+    def new_tree(self, entries):
+        """We never mutate an MST, we just return a new MST with updated values.
 
-    # We don't want to load entries of every subtree, just the ones we need
-    def get_entries(self):
-        """
+        Args:
+            entries: sequence of :class:`MST` and :class:`Leaf`
+
         Returns:
-          sequence of :class:`MST` and :class:`Leaf`
+            :class:`MST`
         """
-#         if self.entries:
-#             return [...self.entries]
+        mst = MST(self.pointer, entries, self.layer)
+        mst.outdatedPointer = true
+        return mst
 
-#         if self.pointer:
-#             data = self.storage.read_obj(self.pointer, node_data_def)
-#             first_leaf = data.e[0]
-#             layer =
-#                 first_leaf != undefined
-#                     ? leading_zeros_on_hash(first_leaf.k)
-#                     : undefined
-#             self.entries = deserialize_node_data(self.storage, data, {
-#                 layer,
-#             })
 
-#             return self.entries
-#         throw new Error('No entries or CID provided')
+#     Getters (lazy load)
+#     -------------------
 
     def get_pointer(self):
-       """Returns this MST's root CID ??? pointer. Calculates it if needed.
+        """Returns this MST's root CID ??? pointer. Calculates it if needed.
 
-       We don't hash the node on every mutation for performance reasons. Instead
-       we keep track of whether the pointer is outdated and only (recursively)
-       calculate when needed.
+        We don't hash the node on every mutation for performance reasons.
+        Instead we keep track of whether the pointer is outdated and only
+        (recursively) calculate when needed.
 
-       Returns:
-         :class:`CID`
-       """
+        Returns:
+          :class:`CID`
+        """
 #         if not self.outdated_pointer:
 #             return self.pointer
-#         entries = self.get_entries()
-#         outdated = entries.filter(
-#             (e) => e.is_tree() and e.outdated_pointer,
+#         outdated = self.entries.filter(
+#             (e) => isinstance(e, MST) and e.outdated_pointer,
 #         ) as MST[]
-#         if outdated.length > 0:
+#         if outdated > 0:
 #             Promise.all(outdated.map((e) => e.get_pointer()))
-#             entries = self.get_entries()
-#         self.pointer = cid_for_entries(entries)
-#         self.outdated_pointer = false
+#         self.pointer = cid_for_entries(self.entries)
+#         self.outdated_pointer = False
 #         return self.pointer
 
     def get_layer(self):
@@ -180,10 +168,11 @@ class MST:
         Returns:
           int
         """
-        # self.layer = self.attempt_get_layer()
-        # if self.layer == None:
-        #     self.layer = 0
-        # return self.layer
+        self.layer = self.attempt_get_layer()
+        if self.layer is None:
+            self.layer = 0
+
+        return self.layer
 
     def attempt_get_layer(self):
         """Returns this MST's layer, and sets self.layer.
@@ -191,20 +180,23 @@ class MST:
         Returns:
           int or None
         """
-#         if self.layer != None:
-#             return self.layer
-#         entries = self.get_entries()
-#         layer = layer_for_entries(entries)
-#         if layer == None:
-#             for entry in entries:
-#                 if entry.is_tree():
-#                     child_layer = entry.attempt_get_layer()
-#                     if child_layer != None:
-#                         layer = child_layer + 1
-#                         break
-#         if layer != None:
-#             self.layer = layer
-#         return layer
+        if self.layer is not None:
+            return self.layer
+
+        layer = layer_for_entries(self.entries)
+        if layer is None:
+            for entry in self.entries:
+                if isinstance(entry, MST):
+                    child_layer = entry.attempt_get_layer()
+                    if child_layer is not None:
+                        layer = child_layer + 1
+                        break
+
+        if layer is not None:
+            self.layer = layer
+
+        return layer
+
 
     # Core functionality
     # -------------------
@@ -217,70 +209,69 @@ class MST:
           value: :class:`CID`
           known_zeros: int
 
+        Returns:
+          :class:`MST`
+
         Raises:
           ValueError if a leaf with that key already exists
         """
         ensure_valid_key(key)
-#         key_zeros = known_zeros ?? (leading_zeros_on_hash(key))
-#         layer = self.get_layer()
-#         new_leaf = new Leaf(key, value)
-#         if key_zeros == layer:
-#             # it belongs in self layer
-#             index = self.find_gt_or_equal_leaf_index(key)
-#             found = self.at_index(index)
-#             if found.is_leaf() and found.key == key:
-#                 throw new Error(`There is already a value at key: ${key}`)
-#             prev_node = self.at_index(index - 1)
-#             if not prev_node or prev_node.is_leaf():
-#                 # if entry before is a leaf, (or we're on far left) we can just splice in
-#                 return self.splice_in(new_leaf, index)
-#             else:
-#                 # else we try to split the subtree around the key
-#                 split_sub_tree = prev_node.split_around(key)
-#                 return self.replace_with_split(
-#                     index - 1,
-#                     split_sub_tree[0],
-#                     new_leaf,
-#                     split_sub_tree[1],
-#                 )
-#         else if key_zeros < layer:
-#             # it belongs on a lower layer
-#             index = self.find_gt_or_equal_leaf_index(key)
-#             prev_node = self.at_index(index - 1)
-#             if prev_node and prev_node.is_tree():
-#                 # if entry before is a tree, we add it to that tree
-#                 new_subtree = prev_node.add(key, value, key_zeros)
-#                 return self.update_entry(index - 1, new_subtree)
-#             else:
-#                 sub_tree = self.create_child()
-#                 new_sub_tree = sub_tree.add(key, value, key_zeros)
-#                 return self.splice_in(new_sub_tree, index)
-#         else:
-#             # it belongs on a higher layer & we must push the rest of the tree down
-#             split = self.split_around(key)
-#             # if the newly added key has >=2 more leading zeros than the current highest layer
-#             # then we need to add in structural nodes in between as well
-#             left: MST | None = split[0]
-#             right: MST | None = split[1]
-#             layer = self.get_layer()
-#             extra_layers_to_add = key_zeros - layer
-#             # intentionally starting at 1, since first layer is taken care of by split
-#             for i in range(1, extra_layers_to_add):
-#                 if left != None:
-#                     left = left.create_parent()
-#                 if right != None:
-#                     right = right.create_parent()
-#             updated: NodeEntry[] = []
-#             if left:
-#                 updated.push(left)
-#             updated.push(new Leaf(key, value))
-#             if right:
-#                 updated.push(right)
-#             new_root = MST.create(updated, {
-#                 layer: key_zeros,
-#             })
-#             new_root.outdated_pointer = true
-#             return new_root
+        key_zeros = known_zeros or leading_zeros_on_hash(key)
+        layer = self.get_layer()
+        new_leaf = Leaf(key=key, value=value)
+
+        if key_zeros == layer:
+            # it belongs in self layer
+            index = self.find_gt_or_equal_leaf_index(key)
+            found = self.at_index(index)
+            if isinstance(found, Leaf) and found.key == key:
+                raise ValueError(f'There is already a value at key: {key}')
+            prev_node = self.at_index(index - 1)
+            if not prev_node or isinstance(prev_node, Leaf):
+                # if entry before is a leaf, (or we're on far left) we can just splice in
+                return self.splice_in(new_leaf, index)
+            else:
+                # else we try to split the subtree around the key
+                left, right = prev_node.split_around(key)
+                return self.replace_with_split(index - 1, left, new_leaf, right)
+
+        elif key_zeros < layer:
+            # it belongs on a lower layer
+            index = self.find_gt_or_equal_leaf_index(key)
+            prev_node = self.at_index(index - 1)
+            if prev_node and isinstance(prev_node, MST):
+                # if entry before is a tree, we add it to that tree
+                new_subtree = prev_node.add(key, value, key_zeros)
+                return self.update_entry(index - 1, new_subtree)
+            else:
+                sub_tree = self.create_child()
+                new_sub_tree = sub_tree.add(key, value, key_zeros)
+                return self.splice_in(new_sub_tree, index)
+
+        else:
+            # it belongs on a higher layer, push the rest of the tree down
+            left, right = self.split_around(key)
+            # if the newly added key has >=2 more leading zeros than the current
+            # highest layer then we need to add structural nodes between as well
+            layer = self.get_layer()
+            extra_layers_to_add = key_zeros - layer
+            # intentionally starting at 1, first layer is taken care of by split
+            for i in range(1, extra_layers_to_add):
+                if left:
+                    left = left.create_parent()
+                if right:
+                    right = right.create_parent()
+
+            updated = []
+            if left:
+                updated.append(left)
+            updated.append(Leaf(key=key, value=value))
+            if right:
+                updated.append(right)
+
+            new_root = MST(entries=updated, layer=key_zeros)
+            new_root.outdated_pointer = True
+            return new_root
 
     def get(self, key):
         """Gets the value at the given key.
@@ -293,10 +284,10 @@ class MST:
         """
 #         index = self.find_gt_or_equal_leaf_index(key)
 #         found = self.at_index(index)
-#         if found and found.is_leaf() and found.key == key:
+#         if found and isinstance(found, Leaf) and found.key == key:
 #             return found.value
 #         prev = self.at_index(index - 1)
-#         if prev and prev.is_tree():
+#         if prev and isinstance(prev, MST):
 #             return prev.get(key)
 #         return None
 
@@ -316,13 +307,13 @@ class MST:
 #         ensure_valid_key(key)
 #         index = self.find_gt_or_equal_leaf_index(key)
 #         found = self.at_index(index)
-#         if found and found.is_leaf() and found.key == key:
-#             return self.update_entry(index, new Leaf(key, value))
+#         if found and isinstance(found, Leaf) and found.key == key:
+#             return self.update_entry(index, Leaf(key=key, value=value))
 #         prev = self.at_index(index - 1)
-#         if prev and prev.is_tree():
+#         if prev and isinstance(prev, MST):
 #             updated_tree = prev.update(key, value)
 #             return self.update_entry(index - 1, updated_tree)
-#         throw new Error(`Could not find a record with key: ${key}`)
+#         raise KeyError(f'Could not find a record with key: {key}')
 
     def delete(self, key):
         """Deletes the value at the given key.
@@ -351,32 +342,32 @@ class MST:
 #         index = self.find_gt_or_equal_leaf_index(key)
 #         found = self.at_index(index)
 #         # if found, remove it on self level
-#         if found.is_leaf() and found.key == key:
+#         if isinstance(found, Leaf) and found.key == key:
 #             prev = self.at_index(index - 1)
 #             next = self.at_index(index + 1)
-#             if prev.is_tree() and next.is_tree():
+#             if isinstance(prev, MST) and isinstance(next, MST):
 #                 merged = prev.append_merge(next)
-#                 return self.new_tree([
-#                     ...(self.slice(0, index - 1)),
-#                     merged,
-#                     ...(self.slice(index + 2)),
-#                 ])
+#                 return self.new_tree(
+#                     self.slice(0, index - 1)] +
+#                     merged +
+#                     self.slice(index + 2)
+#                 )
 #             else:
 #                 return self.remove_entry(index)
 #         # else recurse down to find it
 #         prev = self.at_index(index - 1)
-#         if prev.is_tree():
+#         if isinstance(prev, MST):
 #             subtree = prev.delete_recurse(key)
-#             sub_tree_entries = subtree.get_entries()
-#             if sub_tree_entries.length == 0:
+#             if subtree.entries == 0:
 #                 return self.remove_entry(index - 1)
 #             else:
 #                 return self.update_entry(index - 1, subtree)
 #         else:
-#             throw new Error(`Could not find a record with key: ${key}`)
+#             raise KeyError(f'Could not find a record with key: {key}')
 
-#     # Simple Operations
-#     # -------------------
+
+#     Simple Operations
+#     -------------------
 
     def update_entry(self, index, entry):
         """Updates an entry in place.
@@ -388,12 +379,8 @@ class MST:
         Returns:
           MST
         """
-#         update = [
-#             ...(self.slice(0, index)),
-#             entry,
-#             ...(self.slice(index + 1)),
-#         ]
-#         return self.new_tree(update)
+        return self.new_tree(
+            entries=self.slice(0, index) + [entry] + self.slice(index + 1))
 
     def remove_entry(self, index):
         """Removes the entry at a given index.
@@ -404,11 +391,7 @@ class MST:
         Returns:
           MST
         """
-#         updated = [
-#             ...(self.slice(0, index)),
-#             ...(self.slice(index + 1)),
-#         ]
-#         return self.new_tree(updated)
+        return self.new_tree(entries=self.slice(0, index) + self.slice(index + 1))
 
     def append(self, entry):
         """Appends an entry to the end of the node.
@@ -419,8 +402,7 @@ class MST:
         Returns:
           MST
         """
-#         entries = self.get_entries()
-#         return self.new_tree([...entries, entry])
+        return self.new_tree(self.entries + [entry])
 
     def prepend(self, entry):
         """Prepends an entry to the start of the node.
@@ -431,8 +413,7 @@ class MST:
         Returns:
           MST
         """
-#         entries = self.get_entries()
-#         return self.new_tree([entry, ...entries])
+        return self.new_tree([entry] + self.entries)
 
     def at_index(self, index):
         """Returns the entry at a given index.
@@ -443,21 +424,20 @@ class MST:
         Returns:
           :class:`MST` or :class:`Leaf` or None
         """
-#         entries = self.get_entries()
-#         return entries[index] ?? None
+        if index < len(self.entries):
+            return self.entries[index]
 
     def slice(self, start=None, end=None):
         """Returns a slice of this node.
 
         Args:
-          start: int, optional
-          end: int, optional
+          start: int, optional, inclusive
+          end: int, optional, exclusive
 
         Returns:
           sequence of :class:`MST` and :class:`Leaf`
         """
-#         entries = self.get_entries()
-#         return entries.slice(start, end)
+        return self.entries[start:end]
 
     def splice_in(self, entry, index):
         """Inserts an entry at a given index.
@@ -469,12 +449,7 @@ class MST:
         Returns:
           MST
         """
-#         update = [
-#             ...(self.slice(0, index)),
-#             entry,
-#             ...(self.slice(index)),
-#         ]
-#         return self.new_tree(update)
+        return self.new_tree(self.slice(0, index) + [entry] + self.slice(index))
 
     def replace_with_split(self, index, left=None, leaf=None, right=None):
         """Replaces an entry with [ Maybe(tree), Leaf, Maybe(tree) ].
@@ -488,14 +463,14 @@ class MST:
         Returns:
           MST
         """
-#         update = self.slice(0, index)
-#         if left:
-#             update.push(left)
-#         update.push(leaf)
-#         if right:
-#             update.push(right)
-#         update.push(...(self.slice(index + 1)))
-#         return self.new_tree(update)
+        updated = self.slice(0, index)
+        if left:
+            updated.append(left)
+        updated.append(leaf)
+        if right:
+            updated.append(right)
+        updated.extend(self.slice(index + 1))
+        return self.new_tree(update)
 
     def trim_top(self):
         """Trims the top and return its subtree, if necessary.
@@ -506,14 +481,14 @@ class MST:
         Returns:
           MST
         """
-#         entries = self.get_entries()
-#         if entries.length == 1 and entries[0].is_tree():
-#             return entries[0].trim_top()
+#         if len(self.entries) == 1 and isinstance(self.entries[0], MST):
+#             return self.entries[0].trim_top()
 #         else:
 #             return self
 
-#     # Subtree & Splits
-#     # -------------------
+
+#     Subtree & Splits
+#     -------------------
 
     def split_around(self, key):
         """Recursively splits a subtree around a given key.
@@ -533,9 +508,9 @@ class MST:
 
 #         # if the far right of the left side is a subtree,
 #         # we need to split it on the key as well
-#         last_in_left = left_data[left_data.length - 1]
-#         if last_in_left.is_tree():
-#             left = left.remove_entry(left_data.length - 1)
+#         last_in_left = left_data[-1]
+#         if isinstance(last_in_left, MST):
+#             left = left.remove_entry(-1)
 #             split = last_in_left.split_around(key)
 #             if split[0]:
 #                 left = left.append(split[0])
@@ -543,14 +518,14 @@ class MST:
 #                 right = right.prepend(split[1])
 
 #         return [
-#             (left.get_entries()).length > 0 ? left : None,
-#             (right.get_entries()).length > 0 ? right : None,
+#             left if left.entries else None,
+#             right if right.entries else None,
 #         ]
 
     def append_merge(self, to_merge):
         """Merges another tree with this one.
-#     # The simple merge case where every key in the right tree is greater than every key in the left tree
-#     # (used primarily for deletes)
+#     The simple merge case where every key in the right tree is greater than every key in the left tree
+#     (used primarily for deletes)
 
         Args:
           to_merge: :class:`MST`
@@ -558,24 +533,23 @@ class MST:
         Returns:
           MST
         """
-#         assert self.get_layer() == to_merge.get_layer(), \
-#             'Trying to merge two nodes from different layers of the MST'
-#         self_entries = self.get_entries()
-#         to_merge_entries = to_merge.get_entries()
-#         last_in_left = self_entries[self_entries.length - 1]
-#         first_in_right = to_merge_entries[0]
-#         if last_in_left.is_tree() and first_in_right.is_tree():
-#             merged = last_in_left.append_merge(first_in_right)
-#             return self.new_tree([
-#                 ...self_entries.slice(0, self_entries.length - 1),
-#                 merged,
-#                 ...to_merge_entries.slice(1),
-#             ])
-#         else:
-#             return self.new_tree([...self_entries, ...to_merge_entries])
+        assert self.get_layer() == to_merge.get_layer(), \
+            'Trying to merge two nodes from different layers of the MST'
 
-#     # Create relatives
-#     # -------------------
+        to_merge_entries = to_merge.entries
+        last_in_left = self.entries[-1]
+        first_in_right = to_merge_entries[0]
+
+        if isinstance(last_in_left, MST) and isinstance(first_in_right, MST):
+            merged = last_in_left.append_merge(first_in_right)
+            return self.new_tree(
+                list(self.entries) + merged + to_merge_entries.slice(1))
+        else:
+            return self.new_tree(self.entries + to_merge_entries)
+
+
+    # Create relatives
+    # -------------------
 
     def create_child(self):
         """
@@ -596,14 +570,15 @@ class MST:
 #         parent = MST.create([self], {
 #             layer: layer + 1,
 #         })
-#         parent.outdated_pointer = true
+#         parent.outdated_pointer = True
 #         return parent
 
-#     # Finding insertion points
-#     # -------------------
+
+#     Finding insertion points
+#     -------------------
 
     def find_gt_or_equal_leaf_index(self, key):
-        """Finds the index of the first leaf node greater than or equal to the value.
+        """Finds the index of the first leaf node greater than or equal to value.
 
         Args:
           key: str
@@ -611,28 +586,28 @@ class MST:
         Returns:
           int
         """
-#         entries = self.get_entries()
-#         maybe_index = entries.find_index(
-#             (entry) => entry.is_leaf() and entry.key >= key,
-#         )
-#         # if we can't find, we're on the end
-#         return maybe_index >= 0 ? maybe_index : entries.length
+        for i, entry in enumerate(self.entries):
+            if isinstance(entry, Leaf) and entry.key >= key:
+                return i
 
-#     # List operations (partial tree traversal)
-#     # -------------------
+        # if we can't find it, we're on the end
+        return len(self.entries)
 
-#     # @TODO write tests for these
 
-#     # Walk tree starting at key
+#     List operations (partial tree traversal)
+#     -------------------
+
+#     @TODO write tests for these
+
+#     Walk tree starting at key
 #     def walk_leaves_from(key: string): AsyncIterable<Leaf>:
 #         index = self.find_gt_or_equal_leaf_index(key)
-#         entries = self.get_entries()
-#         prev = entries[index - 1]
-#         if prev and prev.is_tree():
+#         prev = self.entries[index - 1]
+#         if prev and isinstance(prev, MST):
 #             for e in prev.walk_leaves_from(key):
 #                 yield e
-#         for entry in entries[index:]:
-#             if entry.is_leaf():
+#         for entry in self.entries[index:]:
+#             if isinstance(entry, Leaf):
 #                 yield entry
 #             else:
 #                 for e in entry.walk_leaves_from(key):
@@ -651,11 +626,11 @@ class MST:
 #         for leaf in self.walk_leaves_from(after or ''):
 #             if leaf.key == after:
 #                 continue
-#             if vals.length >= count:
+#             if len(vals) >= count:
 #                 break
 #             if before and leaf.key >= before:
 #                 break
-#             vals.push(leaf)
+#             vals.append(leaf)
 #         return vals
 
 #     def list_with_prefix(
@@ -668,39 +643,38 @@ class MST:
 #     """
 #         vals: Leaf[] = []
 #         for leaf in self.walk_leaves_from(prefix):
-#             if vals.length >= count or !leaf.key.starts_with(prefix):
+#             if len(vals) >= count or not leaf.key.startswith(prefix):
 #                 break
-#             vals.push(leaf)
+#             vals.append(leaf)
 #         return vals
 
-#     # Full tree traversal
-#     # -------------------
 
-#     # Walk full tree & emit nodes, consumer can bail at any point by returning false
+#     Full tree traversal
+#     -------------------
+
+#     Walk full tree & emit nodes, consumer can bail at any point by returning False
 #     def walk(): AsyncIterable<NodeEntry>:
 #         yield self
-#         entries = self.get_entries()
-#         for entry in entries:
-#             if entry.is_tree():
+#         for entry in self.entries:
+#             if isinstance(entry, MST):
 #                 for e in entry.walk():
 #                     yield e
 #             else:
 #                 yield entry
 
-#     # Walk full tree & emit nodes, consumer can bail at any point by returning false
+#     Walk full tree & emit nodes, consumer can bail at any point by returning False
 #     def paths():
 #     """
 #     Returns:
 #       sequence of :class:`MST` and :class:`Leaf`
 #     """
-#         entries = self.get_entries()
 #         paths: NodeEntry[][] = []
-#         for entry in entries:
-#             if entry.is_leaf():
-#                 paths.push([entry])
-#             if entry.is_tree():
+#         for entry in self.entries:
+#             if isinstance(entry, Leaf):
+#                 paths.append([entry])
+#             if isinstance(entry, MST):
 #                 sub_paths = entry.paths()
-#                 paths = [...paths, ...sub_paths.map((p) => [entry, ...p])]
+#                 paths = paths + sub_paths.map((p) => ([entry] + p))
 #         return paths
 
     def all_nodes(self):
@@ -711,19 +685,18 @@ class MST:
         """
 #         nodes: NodeEntry[] = []
 #         for entry in self.walk():
-#             nodes.push(entry)
+#             nodes.append(entry)
 #         return nodes
 
-#     # Walks tree & returns all cids
+#     Walks tree & returns all cids
 #     def all_cids():
 #     """
 #     Returns:
 #       CidSet
 #     """
-#         cids = new CidSet()
-#         entries = self.get_entries()
-#         for entry in entries:
-#             if entry.is_leaf():
+#         cids = CidSet()
+#         for entry in self.entries:
+#             if isinstance(entry, Leaf):
 #                 cids.add(entry.value)
 #             else:
 #                 subtree_cids = entry.all_cids()
@@ -731,12 +704,12 @@ class MST:
 #         cids.add(self.get_pointer())
 #         return cids
 
-#     # Walks tree & returns all leaves
+#     Walks tree & returns all leaves
 #     def leaves():
 #         leaves: Leaf[] = []
 #         for entry in self.walk():
-#             if entry.is_leaf():
-#                 leaves.push(entry)
+#             if isinstance(entry, Leaf):
+#                 leaves.append(entry)
 #         return leaves
 
     def leaf_count(self):
@@ -745,17 +718,19 @@ class MST:
         Returns:
           int
         """
-        return self.leaves().length
+        return len(self.leaves())
 
-#     # Reachable tree traversal
-#     # -------------------
 
-#     # Walk reachable branches of tree & emit nodes, consumer can bail at any point by returning false
+#     Reachable tree traversal
+#     -------------------
+
+    # Walk reachable branches of tree & emit nodes, consumer can bail at any
+    # point by returning False
+
 #     def walk_reachable(): AsyncIterable<NodeEntry>:
 #         yield self
-#         entries = self.get_entries()
-#         for entry in entries:
-#             if entry.is_tree():
+#         for entry in self.entries:
+#             if isinstance(entry, MST):
 #                 try:
 #                     for e in entry.walk_reachable():
 #                         yield e
@@ -763,7 +738,7 @@ class MST:
 #                     if err instanceof MissingBlockError:
 #                         continue
 #                     else:
-#                         throw err
+#                         raise err
 #             else:
 #                 yield entry
 
@@ -774,31 +749,30 @@ class MST:
 #     """
 #         leaves: Leaf[] = []
 #         for entry in self.walk_reachable():
-#             if entry.is_leaf():
-#                 leaves.push(entry)
+#             if isinstance(entry, Leaf):
+#                 leaves.append(entry)
 #         return leaves
 
-#     # Sync Protocol
+#     Sync Protocol
 
 #     def write_to_car_stream(car: BlockWriter):
 #     """
 #     Returns:
 #       void
 #     """
-#         entries = self.get_entries()
-#         leaves = new CidSet()
-#         to_fetch = new CidSet()
+#         leaves = CidSet()
+#         to_fetch = CidSet()
 #         to_fetch.add(self.get_pointer())
-#         for entry in entries:
-#             if entry.is_leaf():
+#         for entry in self.entries:
+#             if isinstance(entry, Leaf):
 #                 leaves.add(entry.value)
 #             else:
 #                 to_fetch.add(entry.get_pointer())
 #         while (to_fetch.size() > 0):
-#             next_layer = new CidSet()
+#             next_layer = CidSet()
 #             fetched = self.storage.get_blocks(to_fetch.to_list())
-#             if fetched.missing.length > 0:
-#                 throw new MissingBlocksError('mst node', fetched.missing)
+#             if fetched.missing:
+#                 raise MissingBlocksError('mst node', fetched.missing)
 #             for cid in to_fetch.to_list():
 #                 found = parse.get_and_parse_by_def(
 #                     fetched.blocks,
@@ -809,14 +783,14 @@ class MST:
 #                 entries = deserialize_node_data(self.storage, found.obj)
 
 #                 for entry in entries:
-#                     if entry.is_leaf():
+#                     if isinstance(entry, Leaf):
 #                         leaves.add(entry.value)
 #                     else:
 #                         next_layer.add(entry.get_pointer())
 #             to_fetch = next_layer
 #         leaf_data = self.storage.get_blocks(leaves.to_list())
-#         if leaf_data.missing.length > 0:
-#             throw new MissingBlocksError('mst leaf', leaf_data.missing)
+#         if leaf_data.missing:
+#             raise MissingBlocksError('mst leaf', leaf_data.missing)
 
 #         for leaf in leaf_data.blocks.entries():
 #             car.put(leaf)
@@ -833,15 +807,15 @@ class MST:
 #         cids: CID[] = [self.get_pointer()]
 #         index = self.find_gt_or_equal_leaf_index(key)
 #         found = self.at_index(index)
-#         if found and found.is_leaf() and found.key == key:
-#             return [...cids, found.value]
+#         if found and isinstance(found, Leaf) and found.key == key:
+#             return cids + [found.value]
 #         prev = self.at_index(index - 1)
-#         if prev and prev.is_tree():
-#             return [...cids, ...(prev.cids_for_path(key))]
+#         if prev and isinstance(prev, MST):
+#             return cids + prev.cids_for_path(key)
 #         return cids
 
 
-def leading_zeros_on_hash(self, key):
+def leading_zeros_on_hash(key):
     """Returns the number of leading zeros in a key's hash.
 
     Args:
@@ -850,9 +824,11 @@ def leading_zeros_on_hash(self, key):
     Returns:
       int
     """
-    hash = sha256(key).hexdigest()
+    if not isinstance(key, bytes):
+        key = key.encode()  # ensure_valid_key enforces that this is ASCII only
+
     leading_zeros = 0
-    for byte in hash:
+    for byte in sha256(key).digest():
         if byte < 64:
              leading_zeros += 1
         if byte < 16:
@@ -873,8 +849,8 @@ def layer_for_entries(entries):
     Returns:
       number | None
     """
-    # first_leaf = entries.find((entry) => entry.is_leaf())
-    # if not first_leaf or first_leaf.is_tree():
+    # first_leaf = entries.find((entry) => isinstance(entry, Leaf))
+    # if not first_leaf or isinstance(first_leaf, MST):
     #      return None
     # return leading_zeros_on_hash(first_leaf.key)
 
@@ -889,9 +865,9 @@ def layer_for_entries(entries):
 #       sequence of :class:`MST` and :class:`Leaf`
 #     """
 #     { layer } = opts or {}
-#     entries: NodeEntry[] = []
-#     if (data.l != None):
-#         entries.push(
+#     entries = []
+#     if (data.l is not None):
+#         entries.append(
 #             MST.load(storage, data.l,:
 #                 layer: layer ? layer - 1 : undefined,
 #             )
@@ -901,10 +877,10 @@ def layer_for_entries(entries):
 #         key_str = uint8arrays.to_string(entry.k, 'ascii')
 #         key = last_key.slice(0, entry.p) + key_str
 #         ensure_valid_key(key)
-#         entries.push(new Leaf(key, entry.v))
+#         entries.append(Leaf(key, entry.v))
 #         last_key = key
-#         if entry.t != None:
-#             entries.push(
+#         if entry.t is not None:
+#             entries.append(
 #                 MST.load(storage, entry.t,:
 #                     layer: layer ? layer - 1 : undefined,
 #                 )
@@ -920,31 +896,30 @@ def serialize_node_data(entries):
     Returns:
       :class:`Data`
     """
-#     data: NodeData =:
-#         l: None,
-#         e: [],
+    assert entries == []
+    data = Data(l=None, e=[])
 
 #     i = 0
-#     if entries[0].is_tree():
+#     if isinstance(entries[0], MST):
 #         i += 1
 #         data.l = entries[0].pointer
 
 #     last_key = ''
-#     while i < entries.length:
+#     while i < len(entries):
 #         leaf = entries[i]
 #         next = entries[i + 1]
-#         if not leaf.is_leaf():
-#             throw new Error('Not a valid node: two subtrees next to each other')
+#         if not isinstance(leaf, Leaf):
+#             raise ValueError('Not a valid node: two subtrees next to each other')
 #         i += 1
 
 #         subtree: CID | None = None
-#         if next.is_tree():
+#         if isinstance(next, MST):
 #             subtree = next.pointer
 #             i += 1
 
 #         ensure_valid_key(leaf.key)
 #         prefix_len = count_prefix_len(last_key, leaf.key)
-#         data.e.push({
+#         data.e.append({
 #             'p': prefix_len,
 #             'k': uint8arrays.from_string(leaf.key.slice(prefix_len), 'ascii'),
 #             'v': leaf.value,
@@ -953,7 +928,7 @@ def serialize_node_data(entries):
 
 #         last_key = leaf.key
 
-#     return data
+    return data
 
 
 def common_prefix_len(a, b):
@@ -973,14 +948,13 @@ def cid_for_entries(entries):
       entries: sequence of :class:`MST` and :class:`Leaf`
 
     Returns:
-      CID
+      :class:`CID`
     """
     data = serialize_node_data(entries)
-    return cid_for_cbor(data)
-    NodeData = {
-        l: null,
-        e: [],
-    }
+    cbor = dag_cbor.encoding.encode(data._asdict())
+    digest = multihash.digest(cbor, 'sha2-256')
+    return CID('base58btc', 1, multicodec.get('dag-cbor'), digest)
+
 
 def ensure_valid_key(key):
     """

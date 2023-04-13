@@ -33,15 +33,14 @@ class MstTest(testutil.TestCase):
         super().setUp()
         self.mst = MST()
 
-        self.shuffled = random.shuffle(
-            list(generate_bulk_data_keys(1000).items()))
+        self.shuffled = list(generate_bulk_data_keys(1000).items())
+        random.shuffle(self.shuffled)
 
-    @skip
     def test_add(self):
-        for entry in shuffled:
-            self.mst.add(entry[0], entry[1])
+        for entry in self.shuffled:
+            self.mst = self.mst.add(entry[0], entry[1])
 
-        for entry in shuffled:
+        for entry in self.shuffled:
             got = self.mst.get(entry[0])
             self.assertEqual(entry[1], got)
 
@@ -49,7 +48,7 @@ class MstTest(testutil.TestCase):
 
     # def test_edits_records(self):
     #     edited_mst = self.mst
-    #     to_edit = shuffled.slice(0, 100)
+    #     to_edit = self.shuffled.slice(0, 100)
 
     #     edited = []
     #     for entry in to_edit:
@@ -65,8 +64,8 @@ class MstTest(testutil.TestCase):
 
     # def test_deletes_records(self):
     #     deleted_mst = self.mst
-    #     to_delete = shuffled[0:100]
-    #     the_rest = shuffled[100:]
+    #     to_delete = self.shuffled[0:100]
+    #     the_rest = self.shuffled[100:]
     #     for entry in to_delete:
     #         deleted_mst.delete(entry[0])
 
@@ -93,8 +92,8 @@ class MstTest(testutil.TestCase):
     #     to_diff = self.mst
 
     #     to_add = Object.entries(util.generate_bulk_data_keys(100))
-    #     to_edit = shuffled[500:600]
-    #     to_del = shuffled[400:500]
+    #     to_edit = self.shuffled[500:600]
+    #     to_del = self.shuffled[400:500]
 
     #     expected_updates = {}
     #     expected_dels = {}
