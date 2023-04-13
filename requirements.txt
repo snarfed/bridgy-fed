@@ -50,7 +50,7 @@ mf2py==1.1.2
 mf2util==0.5.2
 mox3==1.1.0
 oauthlib==3.2.2
-packaging==23.0
+packaging==23.1
 pbr==5.11.1
 pkce==1.0.3
 praw==7.7.0
