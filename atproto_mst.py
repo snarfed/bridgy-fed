@@ -5,7 +5,7 @@
 * https://hal.inria.fr/hal-02303490/document
 
 Heavily based on:
-https://github.com/snarfed/atproto/blob/main/packages/repo/src/mst/mst.ts
+https://github.com/bluesky/atproto/blob/main/packages/repo/src/mst/mst.ts
 
 Huge thanks to the Bluesky team for working in the public, in open source, and to
 Daniel Holmgren and Devin Ivy for this code specifically!
