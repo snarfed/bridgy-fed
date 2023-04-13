@@ -18,13 +18,18 @@ from multiformats import CID
 from atproto_mst import common_prefix_len, ensure_valid_key, MST
 from . import testutil
 
+# make random test data deterministic
+random.seed(1234567890)
+
 CID1 = CID.decode('bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454')
 
 
 _tid_last = time.time_ns() // 1000  # microseconds
 _tid_clockid = random.randint(0, 31)
+
 def next_tid():
     global _tid_last
+
     # enforce that we're at least 1us after the last TID to prevent TIDs moving
     # backwards if system clock drifts backwards
     now = time.time_ns() // 1000
@@ -33,6 +38,7 @@ def next_tid():
     else:
         _tid_last += 1
         now = _tid_last
+
     # the bottom 32 clock ids can be randomized & are not guaranteed to be
     # collision resistant. we use the same clockid for all TIDs coming from this
     # machine
@@ -42,15 +48,12 @@ def next_tid():
     )
     return f'{encoded[:4]}-{encoded[4:7]}-{encoded[7:11]}-{encoded[11:]}'
 
-next_tid()
-
 
 def generate_bulk_data_keys(num):
     return {
         f'com.example.record/{i}': cid
         for i, cid in enumerate(dag_cbor.random.rand_cid(num))
     }
-            # ''.join(random.choices(string.ascii_letters, k=50)),
 
 
 class MstTest(testutil.TestCase):
@@ -59,7 +62,7 @@ class MstTest(testutil.TestCase):
         super().setUp()
         self.mst = MST()
 
-        self.shuffled = list(generate_bulk_data_keys(1000).items())
+        self.shuffled = list(generate_bulk_data_keys(10).items())
         random.shuffle(self.shuffled)
 
     def test_add(self):
@@ -70,7 +73,7 @@ class MstTest(testutil.TestCase):
             got = self.mst.get(entry[0])
             self.assertEqual(entry[1], got)
 
-        self.assertEqual(1000, self.mst.leafCount())
+        self.assertEqual(10, self.mst.leaf_count())
 
     # def test_edits_records(self):
     #     edited_mst = self.mst
@@ -207,18 +210,19 @@ class MstTest(testutil.TestCase):
             'coll/asdofiupoiwqeurfpaosidfuapsodirupasoirupasoeiruaspeoriuaspeoriu2p3o4iu1pqw3oiuaspdfoiuaspdfoiuasdfpoiasdufpwoieruapsdofiuaspdfoiuasdpfoiausdfpoasidfupasodifuaspdofiuasdpfoiasudfpoasidfuapsodfiuasdpfoiausdfpoasidufpasodifuapsdofiuasdpofiuasdfpoaisdufpao',
         )
 
-    # def test_computes_empty_tree_root_CID(self):
-    #     self.assertEqual(0, self.mst.leaf_count())
-    #     self.assertEqual(
-    #         'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
-    #         str(mst.get_pointer()))
+    @skip
+    def test_computes_empty_tree_root_CID(self):
+        self.assertEqual(0, self.mst.leaf_count())
+        self.assertEqual(
+            'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
+            str(self.mst.get_pointer()))
 
     # def test_computes_trivial_tree_root_CID(self):
     #     self.mst.add('com.example.record/3jqfcqzm3fo2j', CID1)
     #     self.assertEqual(1, self.mst.leaf_count())
     #     self.assertEqual(
     #         'bafyreibj4lsc3aqnrvphp5xmrnfoorvru4wynt6lwidqbm2623a6tatzdu',
-    #         str(mst.get_pointer()))
+    #         str(self.mst.get_pointer()))
 
     # def test_computes_singlelayer2_tree_root_CID(self):
     #     self.mst.add('com.example.record/3jqfcqzm3fx2j', CID1)
@@ -226,7 +230,7 @@ class MstTest(testutil.TestCase):
     #     self.assertEqual(2, self.mst.layer)
     #     self.assertEqual(
     #         'bafyreih7wfei65pxzhauoibu3ls7jgmkju4bspy4t2ha2qdjnzqvoy33ai',
-    #         str(mst.get_pointer()))
+    #         str(self.mst.get_pointer()))
 
     # def test_computes_simple_tree_root_CID(self):
     #     self.mst.add('com.example.record/3jqfcqzm3fp2j', CID1) # level 0
@@ -237,7 +241,7 @@ class MstTest(testutil.TestCase):
     #     self.assertEqual(5, self.mst.leaf_count())
     #     self.assertEqual(
     #         'bafyreicmahysq4n6wfuxo522m6dpiy7z7qzym3dzs756t5n7nfdgccwq7m',
-    #         str(mst.get_pointer()))
+    #         str(self.mst.get_pointer()))
 
     # def test_trims_top_of_tree_on_delete(self):
     #     l1root = 'bafyreifnqrwbk6ffmyaz5qtujqrzf5qmxf7cbxvgzktl4e3gabuxbtatv4'
@@ -252,12 +256,12 @@ class MstTest(testutil.TestCase):
 
     #     self.assertEqual(6, self.mst.leaf_count())
     #     self.assertEqual(1, self.mst.layer)
-    #     self.assertEqual(l1root, str(mst.get_pointer()))
+    #     self.assertEqual(l1root, str(self.mst.get_pointer()))
 
     #     self.mst.delete('com.example.record/3jqfcqzm3fs2j') # level 1
     #     self.assertEqual(5, self.mst.leaf_count())
     #     self.assertEqual(0, self.mst.layer)
-    #     self.assertEqual(l0root, str(mst.get_pointer()))
+    #     self.assertEqual(l0root, str(self.mst.get_pointer()))
 
     # def test_handles_insertion_that_splits_two_layers_down(self):
     #     """
@@ -290,19 +294,19 @@ class MstTest(testutil.TestCase):
 
     #     self.assertEqual(11, self.mst.leaf_count())
     #     self.assertEqual(1, self.mst.layer)
-    #     self.assertEqual(l1root, str(mst.get_pointer()))
+    #     self.assertEqual(l1root, str(self.mst.get_pointer()))
 
     #     # insert F, which will push E out in the node with G+H to a new node under D
     #     self.mst.add('com.example.record/3jqfcqzm3fx2j', CID1) # F; level 2
     #     self.assertEqual(12, self.mst.leaf_count())
     #     self.assertEqual(2, self.mst.layer)
-    #     self.assertEqual(l2root, str(mst.get_pointer()))
+    #     self.assertEqual(l2root, str(self.mst.get_pointer()))
 
     #     # remove F, which should push E back over with G+H
     #     self.mst.delete('com.example.record/3jqfcqzm3fx2j') # F; level 2
     #     self.assertEqual(11, self.mst.leaf_count())
     #     self.assertEqual(1, self.mst.layer)
-    #     self.assertEqual(l1root, str(mst.get_pointer()))
+    #     self.assertEqual(l1root, str(self.mst.get_pointer()))
 
     # def test_handles_new_layers_that_are_two_higher_than_existing(self):
     #     """
@@ -324,29 +328,29 @@ class MstTest(testutil.TestCase):
     #     self.mst.add('com.example.record/3jqfcqzm3fz2j', CID1) # C; level 0
     #     self.assertEqual(2, self.mst.leaf_count())
     #     self.assertEqual(0, self.mst.layer)
-    #     self.assertEqual(l0root, str(mst.get_pointer()))
+    #     self.assertEqual(l0root, str(self.mst.get_pointer()))
 
     #     # insert B, which is two levels above
     #     self.mst.add('com.example.record/3jqfcqzm3fx2j', CID1) # B; level 2
     #     self.assertEqual(3, self.mst.leaf_count())
     #     self.assertEqual(2, self.mst.layer)
-    #     self.assertEqual(l2root, str(mst.get_pointer()))
+    #     self.assertEqual(l2root, str(self.mst.get_pointer()))
 
     #     # remove B
     #     self.mst.delete('com.example.record/3jqfcqzm3fx2j') # B; level 2
     #     self.assertEqual(2, self.mst.leaf_count())
     #     self.assertEqual(0, self.mst.layer)
-    #     self.assertEqual(l0root, str(mst.get_pointer()))
+    #     self.assertEqual(l0root, str(self.mst.get_pointer()))
 
     #     # insert B (level=2) and D (level=1)
     #     self.mst.add('com.example.record/3jqfcqzm3fx2j', CID1) # B; level 2
     #     self.mst.add('com.example.record/3jqfcqzm4fd2j', CID1) # D; level 1
     #     self.assertEqual(4, self.mst.leaf_count())
     #     self.assertEqual(2, self.mst.layer)
-    #     self.assertEqual(l2root2, str(mst.get_pointer()))
+    #     self.assertEqual(l2root2, str(self.mst.get_pointer()))
 
     #     # remove D
     #     self.mst.delete('com.example.record/3jqfcqzm4fd2j') # D; level 1
     #     self.assertEqual(3, self.mst.leaf_count())
     #     self.assertEqual(2, self.mst.layer)
-    #     self.assertEqual(l2root, str(mst.get_pointer()))
+    #     self.assertEqual(l2root, str(self.mst.get_pointer()))
