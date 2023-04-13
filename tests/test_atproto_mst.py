@@ -6,8 +6,11 @@ https://github.com/snarfed/atproto/blob/main/packages/repo/tests/mst.test.ts
 Huge thanks to the Bluesky team for working in the public, in open source, and to
 Daniel Holmgren and Devin Ivy for this code specifically!
 """
-from unittest import mock, skip
+import random
+import string
+from unittest import skip
 
+import dag_cbor.random
 from multiformats import CID
 
 from atproto_mst import common_prefix_len, ensure_valid_key, MST
@@ -16,114 +19,119 @@ from . import testutil
 CID1 = CID.decode('bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454')
 
 
+def generate_bulk_data_keys(num):
+    return {
+        f'com.example.record/{i}': cid
+        for i, cid in enumerate(dag_cbor.random.rand_cid(num))
+    }
+            # ''.join(random.choices(string.ascii_letters, k=50)),
+
+
 class MstTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
         self.mst = MST()
 
-    # def test_add(self):
-    #     for entry in shuffled:
-    #         self.mst.add(entry[0], entry[1])
+        self.shuffled = random.shuffle(
+            list(generate_bulk_data_keys(1000).items()))
 
-    #     for entry in shuffled:
-    #         got = self.mst.get(entry[0])
-    #         self.assertEqual(entry[1], got)
+    @skip
+    def test_add(self):
+        for entry in shuffled:
+            self.mst.add(entry[0], entry[1])
 
-    #     self.assertEqual(1000, self.mst.leafCount())
+        for entry in shuffled:
+            got = self.mst.get(entry[0])
+            self.assertEqual(entry[1], got)
+
+        self.assertEqual(1000, self.mst.leafCount())
 
     # def test_edits_records(self):
-    #     editedMst = self.mst
-    #     toEdit = shuffled.slice(0, 100)
+    #     edited_mst = self.mst
+    #     to_edit = shuffled.slice(0, 100)
 
     #     edited = []
-    #     for entry in toEdit:
-    #         newCid = util.randomCid()
-    #         editedMst = editedMst.update(entry[0], newCid)
-    #         edited.append([entry[0], newCid])
+    #     for entry in to_edit:
+    #         new_cid = util.random_cid()
+    #         edited_mst = edited_mst.update(entry[0], new_cid)
+    #         edited.append([entry[0], new_cid])
 
     #     for entry in edited:
-    #         got = editedMst.get(entry[0])
+    #         got = edited_mst.get(entry[0])
     #         self.assertEqual(entry[1], got)
 
-    #     self.assertEqual(1000, editedMst.leafCount())
+    #     self.assertEqual(1000, edited_mst.leaf_count())
 
     # def test_deletes_records(self):
-    #     deletedMst = self.mst
-    #     toDelete = shuffled[0:100]
-    #     theRest = shuffled[100:]
-    #     for entry in toDelete:
-    #         deletedMst.delete(entry[0])
+    #     deleted_mst = self.mst
+    #     to_delete = shuffled[0:100]
+    #     the_rest = shuffled[100:]
+    #     for entry in to_delete:
+    #         deleted_mst.delete(entry[0])
 
-    #     self.assertEqual(900, deletedMst.leafCount())
+    #     self.assertEqual(900, deleted_mst.leaf_count())
 
-    #     for entry in toDelete:
-    #         self.assertIsNone(deletedMst.get(entry[0]))
+    #     for entry in to_delete:
+    #         self.assert_is_none(deleted_mst.get(entry[0]))
 
-    #     for entry in theRest:
-    #         self.assertEqual(entry[1], deletedMst.get(entry[0]))
+    #     for entry in the_rest:
+    #         self.assertEqual(entry[1], deleted_mst.get(entry[0]))
 
-    # def test_is_order_independent(self):
-    #     allNodes = self.mst.allNodes()
+    @skip
+    def test_is_order_independent(self):
+        all_nodes = self.mst.all_nodes()
 
-    #     recreated = MST.create(blockstore)
-    #     reshuffled = util.shuffle(Object.entries(mapping))
-    #     for entry in reshuffled:
-    #         recreated.add(entry[0], entry[1])
+        recreated = MST()
+        reshuffled = random.shuffle(Object.entries(mapping))
+        for entry in reshuffled:
+            recreated.add(entry[0], entry[1])
 
-    #     self.assertEqual(allNodes, recreated.allNodes())
-
-    # @skip
-    # def test_saves_and_loads_from_blockstore(self):
-    #     root = util.saveMst(blockstore, self.mst)
-    #     loaded = MST.load(blockstore, root)
-    #     self.assertEqual(self.mst.allNodes(), loaded.allNodes())
+        self.assertEqual(all_nodes, recreated.all_nodes())
 
     # def test_diffs(self):
-    #     toDiff = self.mst
+    #     to_diff = self.mst
 
-    #     toAdd = Object.entries(
-    #         util.generateBulkDataKeys(100, blockstore),
-    #     )
-    #     toEdit = shuffled[500:600]
-    #     toDel = shuffled[400:500]
+    #     to_add = Object.entries(util.generate_bulk_data_keys(100))
+    #     to_edit = shuffled[500:600]
+    #     to_del = shuffled[400:500]
 
-    #     expectedUpdates = {}
-    #     expectedDels = {}
-    #     expectedAdds = {entry[0]: {'key': entry[0], 'cid': entry[1]}
-    #                     for entry in toAdd.items()}
+    #     expected_updates = {}
+    #     expected_dels = {}
+    #     expected_adds = {entry[0]: {'key': entry[0], 'cid': entry[1]}
+    #                     for entry in to_add.items()}
 
-    #     for entry in toAdd:
-    #         toDiff.add(entry[0], entry[1])
-    #         expectedAdds[entry[0]] = x
+    #     for entry in to_add:
+    #         to_diff.add(entry[0], entry[1])
+    #         expected_adds[entry[0]] = x
 
-    #     for entry in toEdit:
-    #         updated = util.randomCid()
-    #         toDiff.update(entry[0], updated)
-    #         expectedUpdates[entry[0]] = {
+    #     for entry in to_edit:
+    #         updated = util.random_cid()
+    #         to_diff.update(entry[0], updated)
+    #         expected_updates[entry[0]] = {
     #             'key': entry[0],
     #             'prev': entry[1],
     #             'cid': updated,
     #         }
 
-    #     for entry in toDel:
-    #         toDiff.delete(entry[0])
-    #         expectedDels[entry[0]] = {'key': entry[0], 'cid': entry[1]}
+    #     for entry in to_del:
+    #         to_diff.delete(entry[0])
+    #         expected_dels[entry[0]] = {'key': entry[0], 'cid': entry[1]}
 
-    #     diff = DataDiff.of(toDiff, self.mst)
+    #     diff = DataDiff.of(to_diff, self.mst)
 
-    #     self.assertEqual(100, len(diff.addList()))
-    #     self.assertEqual(100, len(diff.updateList()))
-    #     self.assertEqual(100, len(diff.deleteList()))
+    #     self.assertEqual(100, len(diff.add_list()))
+    #     self.assertEqual(100, len(diff.update_list()))
+    #     self.assertEqual(100, len(diff.delete_list()))
 
-    #     self.assertEqual(expectedAdds, diff.adds)
-    #     self.assertEqual(expectedUpdates, diff.updates)
-    #     self.assertEqual(expectedDels, diff.deletes)
+    #     self.assertEqual(expected_adds, diff.adds)
+    #     self.assertEqual(expected_updates, diff.updates)
+    #     self.assertEqual(expected_dels, diff.deletes)
 
     #     # ensure we correctly report all added CIDs
-    #     for entry in toDiff.walk():
-    #         cid = entry.getPointer() if entry.isTree() else entry.value
-    #         self.assertTrue(blockstore.has(cid) or diff.newCids.has(cid))
+    #     for entry in to_diff.walk():
+    #         cid = entry.get_pointer() if entry.is_tree() else entry.value
+    #         self.assert_true(blockstore.has(cid) or diff.new_cids.has(cid))
 
     def test_common_prefix_length(self):
         self.assertEqual(3, common_prefix_len('abc', 'abc'))
@@ -175,25 +183,25 @@ class MstTest(testutil.TestCase):
         )
 
     # def test_computes_empty_tree_root_CID(self):
-    #     self.assertEqual(0, self.mst.leafCount())
+    #     self.assertEqual(0, self.mst.leaf_count())
     #     self.assertEqual(
     #         'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm',
-    #         str(mst.getPointer()))
+    #         str(mst.get_pointer()))
 
     # def test_computes_trivial_tree_root_CID(self):
     #     self.mst.add('com.example.record/3jqfcqzm3fo2j', CID1)
-    #     self.assertEqual(1, self.mst.leafCount())
+    #     self.assertEqual(1, self.mst.leaf_count())
     #     self.assertEqual(
     #         'bafyreibj4lsc3aqnrvphp5xmrnfoorvru4wynt6lwidqbm2623a6tatzdu',
-    #         str(mst.getPointer()))
+    #         str(mst.get_pointer()))
 
     # def test_computes_singlelayer2_tree_root_CID(self):
     #     self.mst.add('com.example.record/3jqfcqzm3fx2j', CID1)
-    #     self.assertEqual(1, self.mst.leafCount())
+    #     self.assertEqual(1, self.mst.leaf_count())
     #     self.assertEqual(2, self.mst.layer)
     #     self.assertEqual(
     #         'bafyreih7wfei65pxzhauoibu3ls7jgmkju4bspy4t2ha2qdjnzqvoy33ai',
-    #         str(mst.getPointer()))
+    #         str(mst.get_pointer()))
 
     # def test_computes_simple_tree_root_CID(self):
     #     self.mst.add('com.example.record/3jqfcqzm3fp2j', CID1) # level 0
@@ -201,10 +209,10 @@ class MstTest(testutil.TestCase):
     #     self.mst.add('com.example.record/3jqfcqzm3fs2j', CID1) # level 1
     #     self.mst.add('com.example.record/3jqfcqzm3ft2j', CID1) # level 0
     #     self.mst.add('com.example.record/3jqfcqzm4fc2j', CID1) # level 0
-    #     self.assertEqual(5, self.mst.leafCount())
+    #     self.assertEqual(5, self.mst.leaf_count())
     #     self.assertEqual(
     #         'bafyreicmahysq4n6wfuxo522m6dpiy7z7qzym3dzs756t5n7nfdgccwq7m',
-    #         str(mst.getPointer()))
+    #         str(mst.get_pointer()))
 
     # def test_trims_top_of_tree_on_delete(self):
     #     l1root = 'bafyreifnqrwbk6ffmyaz5qtujqrzf5qmxf7cbxvgzktl4e3gabuxbtatv4'
@@ -217,14 +225,14 @@ class MstTest(testutil.TestCase):
     #     self.mst.add('com.example.record/3jqfcqzm3ft2j', CID1) # level 0
     #     self.mst.add('com.example.record/3jqfcqzm3fu2j', CID1) # level 0
 
-    #     self.assertEqual(6, self.mst.leafCount())
+    #     self.assertEqual(6, self.mst.leaf_count())
     #     self.assertEqual(1, self.mst.layer)
-    #     self.assertEqual(l1root, str(mst.getPointer()))
+    #     self.assertEqual(l1root, str(mst.get_pointer()))
 
     #     self.mst.delete('com.example.record/3jqfcqzm3fs2j') # level 1
-    #     self.assertEqual(5, self.mst.leafCount())
+    #     self.assertEqual(5, self.mst.leaf_count())
     #     self.assertEqual(0, self.mst.layer)
-    #     self.assertEqual(l0root, str(mst.getPointer()))
+    #     self.assertEqual(l0root, str(mst.get_pointer()))
 
     # def test_handles_insertion_that_splits_two_layers_down(self):
     #     """
@@ -255,21 +263,21 @@ class MstTest(testutil.TestCase):
     #     self.mst.add('com.example.record/3jqfcqzm4fg2j', CID1) # K; level 0
     #     self.mst.add('com.example.record/3jqfcqzm4fh2j', CID1) # L; level 0
 
-    #     self.assertEqual(11, self.mst.leafCount())
+    #     self.assertEqual(11, self.mst.leaf_count())
     #     self.assertEqual(1, self.mst.layer)
-    #     self.assertEqual(l1root, str(mst.getPointer()))
+    #     self.assertEqual(l1root, str(mst.get_pointer()))
 
     #     # insert F, which will push E out in the node with G+H to a new node under D
     #     self.mst.add('com.example.record/3jqfcqzm3fx2j', CID1) # F; level 2
-    #     self.assertEqual(12, self.mst.leafCount())
+    #     self.assertEqual(12, self.mst.leaf_count())
     #     self.assertEqual(2, self.mst.layer)
-    #     self.assertEqual(l2root, str(mst.getPointer()))
+    #     self.assertEqual(l2root, str(mst.get_pointer()))
 
     #     # remove F, which should push E back over with G+H
     #     self.mst.delete('com.example.record/3jqfcqzm3fx2j') # F; level 2
-    #     self.assertEqual(11, self.mst.leafCount())
+    #     self.assertEqual(11, self.mst.leaf_count())
     #     self.assertEqual(1, self.mst.layer)
-    #     self.assertEqual(l1root, str(mst.getPointer()))
+    #     self.assertEqual(l1root, str(mst.get_pointer()))
 
     # def test_handles_new_layers_that_are_two_higher_than_existing(self):
     #     """
@@ -289,31 +297,31 @@ class MstTest(testutil.TestCase):
 
     #     self.mst.add('com.example.record/3jqfcqzm3ft2j', CID1) # A; level 0
     #     self.mst.add('com.example.record/3jqfcqzm3fz2j', CID1) # C; level 0
-    #     self.assertEqual(2, self.mst.leafCount())
+    #     self.assertEqual(2, self.mst.leaf_count())
     #     self.assertEqual(0, self.mst.layer)
-    #     self.assertEqual(l0root, str(mst.getPointer()))
+    #     self.assertEqual(l0root, str(mst.get_pointer()))
 
     #     # insert B, which is two levels above
     #     self.mst.add('com.example.record/3jqfcqzm3fx2j', CID1) # B; level 2
-    #     self.assertEqual(3, self.mst.leafCount())
+    #     self.assertEqual(3, self.mst.leaf_count())
     #     self.assertEqual(2, self.mst.layer)
-    #     self.assertEqual(l2root, str(mst.getPointer()))
+    #     self.assertEqual(l2root, str(mst.get_pointer()))
 
     #     # remove B
     #     self.mst.delete('com.example.record/3jqfcqzm3fx2j') # B; level 2
-    #     self.assertEqual(2, self.mst.leafCount())
+    #     self.assertEqual(2, self.mst.leaf_count())
     #     self.assertEqual(0, self.mst.layer)
-    #     self.assertEqual(l0root, str(mst.getPointer()))
+    #     self.assertEqual(l0root, str(mst.get_pointer()))
 
     #     # insert B (level=2) and D (level=1)
     #     self.mst.add('com.example.record/3jqfcqzm3fx2j', CID1) # B; level 2
     #     self.mst.add('com.example.record/3jqfcqzm4fd2j', CID1) # D; level 1
-    #     self.assertEqual(4, self.mst.leafCount())
+    #     self.assertEqual(4, self.mst.leaf_count())
     #     self.assertEqual(2, self.mst.layer)
-    #     self.assertEqual(l2root2, str(mst.getPointer()))
+    #     self.assertEqual(l2root2, str(mst.get_pointer()))
 
     #     # remove D
     #     self.mst.delete('com.example.record/3jqfcqzm4fd2j') # D; level 1
-    #     self.assertEqual(3, self.mst.leafCount())
+    #     self.assertEqual(3, self.mst.leaf_count())
     #     self.assertEqual(2, self.mst.layer)
-    #     self.assertEqual(l2root, str(mst.getPointer()))
+    #     self.assertEqual(l2root, str(mst.get_pointer()))
