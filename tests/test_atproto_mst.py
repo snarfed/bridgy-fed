@@ -6,6 +6,8 @@ https://github.com/snarfed/atproto/blob/main/packages/repo/tests/mst.test.ts
 Huge thanks to the Bluesky team for working in the public, in open source, and to
 Daniel Holmgren and Devin Ivy for this code specifically!
 """
+from base64 import b32encode
+import time
 import random
 import string
 from unittest import skip
@@ -17,6 +19,30 @@ from atproto_mst import common_prefix_len, ensure_valid_key, MST
 from . import testutil
 
 CID1 = CID.decode('bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454')
+
+
+_tid_last = time.time_ns() // 1000  # microseconds
+_tid_clockid = random.randint(0, 31)
+def next_tid():
+    global _tid_last
+    # enforce that we're at least 1us after the last TID to prevent TIDs moving
+    # backwards if system clock drifts backwards
+    now = time.time_ns() // 1000
+    if now > _tid_last:
+        _tid_last = now
+    else:
+        _tid_last += 1
+        now = _tid_last
+    # the bottom 32 clock ids can be randomized & are not guaranteed to be
+    # collision resistant. we use the same clockid for all TIDs coming from this
+    # machine
+    encoded = (
+        b32encode(now.to_bytes((now.bit_length() + 7) // 8, byteorder='big')).decode() +
+        b32encode(_tid_clockid.to_bytes((_tid_clockid.bit_length() + 7) // 8, byteorder='big')).ljust(2, b'2').decode()
+    )
+    return f'{encoded[:4]}-{encoded[4:7]}-{encoded[7:11]}-{encoded[11:]}'
+
+next_tid()
 
 
 def generate_bulk_data_keys(num):
