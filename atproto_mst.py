@@ -56,6 +56,7 @@ import dag_cbor.encoding
 from multiformats import CID, multicodec, multihash
 
 
+# this is treeEntry in mst.ts
 Entry = namedtuple('Entry', [
     'p',  # int, length of prefix that this key shares with the prev key
     'k',  # bytes, the rest of the key outside the shared prefix
@@ -128,7 +129,7 @@ class MST:
             :class:`MST`
         """
         mst = MST(entries=entries, pointer=self.pointer, layer=self.layer)
-        mst.outdatedPointer = True
+        mst.outdated_pointer = True
         return mst
 
 
@@ -248,7 +249,7 @@ class MST:
                 new_sub_tree = sub_tree.add(key, value, key_zeros)
                 return self.splice_in(new_sub_tree, index)
 
-        else:
+        else:  # key_zeros > layer
             # it belongs on a higher layer, push the rest of the tree down
             left, right = self.split_around(key)
             # if the newly added key has >=2 more leading zeros than the current
@@ -903,23 +904,25 @@ def serialize_node_data(entries):
     last_key = ''
     while i < len(entries):
         leaf = entries[i]
+        next = entries[i + 1] if i < len(entries) - 1 else None
+
         if not isinstance(leaf, Leaf):
             raise ValueError('Not a valid node: two subtrees next to each other')
         i += 1
 
         subtree = None
-        if i < len(entries) - 1 and isinstance(entries[i + 1], MST):
-            subtree = entries[i + 1].pointer
+        if next and isinstance(next, MST):
+            subtree = next.pointer
             i += 1
 
         ensure_valid_key(leaf.key)
         prefix_len = common_prefix_len(last_key, leaf.key)
-        data.e.append({
-            'p': prefix_len,
-            'k': leaf.key[prefix_len:],
-            'v': leaf.value,
-            't': subtree,
-        })
+        data.e.append(Entry(
+            p=prefix_len,
+            k=leaf.key[prefix_len:].encode('ascii'),
+            v=leaf.value,
+            t=subtree,
+        )._asdict())
 
         last_key = leaf.key
 
