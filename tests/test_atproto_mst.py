@@ -70,7 +70,11 @@ class MstTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
 
-        self.entries = generate_bulk_data_keys(10).items()
+        # make random test data deterministic
+        random.seed(1234567890)
+        dag_cbor.random.set_options(seed=1234567890)
+
+        self.entries = generate_bulk_data_keys(1000).items()
         self.shuffled = list(self.entries)
         random.shuffle(self.shuffled)
 
@@ -83,7 +87,7 @@ class MstTest(testutil.TestCase):
             got = mst.get(key)
             self.assertEqual(cid, got)
 
-        self.assertEqual(10, mst.leaf_count())
+        self.assertEqual(1000, mst.leaf_count())
 
     # def test_edits_records(self):
     #     mst = MST()

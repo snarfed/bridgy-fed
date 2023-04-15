@@ -246,8 +246,8 @@ class MST:
                 return self.update_entry(index - 1, new_subtree)
             else:
                 sub_tree = self.create_child()
-                new_sub_tree = sub_tree.add(key, value, key_zeros)
-                return self.splice_in(new_sub_tree, index)
+                new_subtree = sub_tree.add(key, value, key_zeros)
+                return self.splice_in(new_subtree, index)
 
         else:  # key_zeros > layer
             # it belongs on a higher layer, push the rest of the tree down
@@ -513,7 +513,7 @@ class MST:
         # we need to split it on the key as well
         last_in_left = left_data[-1] if left_data else None
         if isinstance(last_in_left, MST):
-            left = left.remove_entry(-1)
+            left = left.remove_entry(len(left_data) -1)
             split = last_in_left.split_around(key)
             if split[0]:
                 left = left.append(split[0])
