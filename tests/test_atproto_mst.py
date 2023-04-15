@@ -126,6 +126,7 @@ class MstTest(testutil.TestCase):
 
     # def test_is_order_independent(self):
     #     mst = MST()
+    #     self.shuffled = self.shuffled[:200]
     #     for key, cid in self.shuffled:
     #         mst = mst.add(key, cid)
 
@@ -331,50 +332,50 @@ class MstTest(testutil.TestCase):
         self.assertEqual(1, mst.layer)
         self.assertEqual(l1root, mst.get_pointer().encode('base32'))
 
-    # def test_handles_new_layers_that_are_two_higher_than_existing(self):
-    #     """
-    #          *        ->            *
-    #        __|__                  __|__
-    #       |     |                |  |  |
-    #       a     c                *  b  *
-    #                              |     |
-    #                              *     *
-    #                              |     |
-    #                              a     c
-    #     """
+    def test_handles_new_layers_that_are_two_higher_than_existing(self):
+        """
+             *        ->            *
+           __|__                  __|__
+          |     |                |  |  |
+          a     c                *  b  *
+                                 |     |
+                                 *     *
+                                 |     |
+                                 a     c
+        """
 
-    #     l0root = 'bafyreidfcktqnfmykz2ps3dbul35pepleq7kvv526g47xahuz3rqtptmky'
-    #     l2root = 'bafyreiavxaxdz7o7rbvr3zg2liox2yww46t7g6hkehx4i4h3lwudly7dhy'
-    #     l2root2 = 'bafyreig4jv3vuajbsybhyvb7gggvpwh2zszwfyttjrj6qwvcsp24h6popu'
+        l0root = 'bafyreidfcktqnfmykz2ps3dbul35pepleq7kvv526g47xahuz3rqtptmky'
+        l2root = 'bafyreiavxaxdz7o7rbvr3zg2liox2yww46t7g6hkehx4i4h3lwudly7dhy'
+        l2root2 = 'bafyreig4jv3vuajbsybhyvb7gggvpwh2zszwfyttjrj6qwvcsp24h6popu'
 
-    #     mst = MST()
-    #     mst = mst.add('com.example.record/3jqfcqzm3ft2j', CID1) # A; level 0
-    #     mst = mst.add('com.example.record/3jqfcqzm3fz2j', CID1) # C; level 0
-    #     self.assertEqual(2, mst.leaf_count())
-    #     self.assertEqual(0, mst.layer)
-    #     self.assertEqual(l0root, mst.get_pointer().encode('base32'))
+        mst = MST()
+        mst = mst.add('com.example.record/3jqfcqzm3ft2j', CID1) # A; level 0
+        mst = mst.add('com.example.record/3jqfcqzm3fz2j', CID1) # C; level 0
+        self.assertEqual(2, mst.leaf_count())
+        self.assertEqual(0, mst.layer)
+        self.assertEqual(l0root, mst.get_pointer().encode('base32'))
 
-    #     # insert B, which is two levels above
-    #     mst = mst.add('com.example.record/3jqfcqzm3fx2j', CID1) # B; level 2
-    #     self.assertEqual(3, mst.leaf_count())
-    #     self.assertEqual(2, mst.layer)
-    #     self.assertEqual(l2root, mst.get_pointer().encode('base32'))
+        # insert B, which is two levels above
+        mst = mst.add('com.example.record/3jqfcqzm3fx2j', CID1) # B; level 2
+        self.assertEqual(3, mst.leaf_count())
+        self.assertEqual(2, mst.layer)
+        self.assertEqual(l2root, mst.get_pointer().encode('base32'))
 
-    #     # remove B
-    #     mst = mst.delete('com.example.record/3jqfcqzm3fx2j') # B; level 2
-    #     self.assertEqual(2, mst.leaf_count())
-    #     self.assertEqual(0, mst.layer)
-    #     self.assertEqual(l0root, mst.get_pointer().encode('base32'))
+        # remove B
+        mst = mst.delete('com.example.record/3jqfcqzm3fx2j') # B; level 2
+        self.assertEqual(2, mst.leaf_count())
+        self.assertEqual(0, mst.layer)
+        self.assertEqual(l0root, mst.get_pointer().encode('base32'))
 
-    #     # insert B (level=2) and D (level=1)
-    #     mst = mst.add('com.example.record/3jqfcqzm3fx2j', CID1) # B; level 2
-    #     mst = mst.add('com.example.record/3jqfcqzm4fd2j', CID1) # D; level 1
-    #     self.assertEqual(4, mst.leaf_count())
-    #     self.assertEqual(2, mst.layer)
-    #     self.assertEqual(l2root2, mst.get_pointer().encode('base32'))
+        # insert B (level=2) and D (level=1)
+        mst = mst.add('com.example.record/3jqfcqzm3fx2j', CID1) # B; level 2
+        mst = mst.add('com.example.record/3jqfcqzm4fd2j', CID1) # D; level 1
+        self.assertEqual(4, mst.leaf_count())
+        self.assertEqual(2, mst.layer)
+        self.assertEqual(l2root2, mst.get_pointer().encode('base32'))
 
-    #     # remove D
-    #     mst = mst.delete('com.example.record/3jqfcqzm4fd2j') # D; level 1
-    #     self.assertEqual(3, mst.leaf_count())
-    #     self.assertEqual(2, mst.layer)
-    #     self.assertEqual(l2root, mst.get_pointer().encode('base32'))
+        # remove D
+        mst = mst.delete('com.example.record/3jqfcqzm4fd2j') # D; level 1
+        self.assertEqual(3, mst.leaf_count())
+        self.assertEqual(2, mst.layer)
+        self.assertEqual(l2root, mst.get_pointer().encode('base32'))

@@ -117,6 +117,12 @@ class MST:
         if isinstance(other, MST):
             return self.get_pointer() == other.get_pointer()
 
+    def __unicode__(self):
+        return f'MST with pointer {self.get_pointer()}'
+
+    def __repr__(self):
+        return f'MST(entries=..., pointer={self.get_pointer()}, layer={self.get_layer()})'
+
     # Immutability
     # -------------------
     def new_tree(self, entries):
@@ -566,7 +572,7 @@ class MST:
         Returns:
           :class:`MST`
         """
-        parent = MST(entries=[self], layer=self.get_layer())
+        parent = MST(entries=[self], layer=self.get_layer() + 1)
         parent.outdated_pointer = True
         return parent
 
@@ -650,10 +656,10 @@ class MST:
 #     -------------------
 
     def walk(self):
-        """Walk full tree and emit nodes.
+        """Walk full tree, depth first, and emit nodes.
 
         Returns:
-          generator of :class:`Entry`
+          generator of :class:`MST` and :class:`Leaf`
         """
         yield self
 
