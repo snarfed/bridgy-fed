@@ -7,6 +7,7 @@ Huge thanks to the Bluesky team for working in the public, in open source, and t
 Daniel Holmgren and Devin Ivy for this code specifically!
 """
 from base64 import b32encode
+from datetime import datetime
 import time
 import random
 import string
@@ -20,25 +21,30 @@ from . import testutil
 
 # make random test data deterministic
 random.seed(1234567890)
+dag_cbor.random.set_options(seed=1234567890)
 
 CID1 = CID.decode(multibase.decode(
     'bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454'))
 
 
-_tid_last = time.time_ns() // 1000  # microseconds
+# _tid_last = time.time_ns() // 1000  # microseconds
 _tid_clockid = random.randint(0, 31)
 
-def next_tid():
-    global _tid_last
+# def next_tid():
+#     global _tid_last
 
-    # enforce that we're at least 1us after the last TID to prevent TIDs moving
-    # backwards if system clock drifts backwards
-    now = time.time_ns() // 1000
-    if now > _tid_last:
-        _tid_last = now
-    else:
-        _tid_last += 1
-        now = _tid_last
+#     # enforce that we're at least 1us after the last TID to prevent TIDs moving
+#     # backwards if system clock drifts backwards
+#     now = time.time_ns() // 1000
+#     if now > _tid_last:
+#         _tid_last = now
+#     else:
+#         _tid_last += 1
+#         now = _tid_last
+
+def next_tid():
+    ms = random.randint(datetime(2020, 1, 1).timestamp() * 1000,
+                        datetime(2024, 1, 1).timestamp() * 1000)
 
     # the bottom 32 clock ids can be randomized & are not guaranteed to be
     # collision resistant. we use the same clockid for all TIDs coming from this
@@ -47,7 +53,7 @@ def next_tid():
     def base32_int_bytes(val):
         return base32.encode(val.to_bytes((val.bit_length() + 7) // 8, byteorder='big'))
 
-    encoded = base32_int_bytes(now) + base32_int_bytes(_tid_clockid).ljust(2, '2')
+    encoded = base32_int_bytes(ms) + base32_int_bytes(_tid_clockid).ljust(2, '2')
 
     return f'{encoded[:4]}-{encoded[4:7]}-{encoded[7:11]}-{encoded[11:]}'
 
@@ -70,56 +76,60 @@ class MstTest(testutil.TestCase):
 
     def test_add(self):
         mst = MST()
-        for entry in self.shuffled:
-            mst = mst.add(entry[0], entry[1])
+        for key, cid in self.shuffled:
+            mst = mst.add(key, cid)
 
-        for entry in self.shuffled:
-            got = mst.get(entry[0])
-            self.assertEqual(entry[1], got)
+        for key, cid in self.shuffled:
+            got = mst.get(key)
+            self.assertEqual(cid, got)
 
         self.assertEqual(10, mst.leaf_count())
 
     # def test_edits_records(self):
-    #     edited_mst = MST()
-    #     to_edit = self.shuffled.slice(0, 100)
+    #     mst = MST()
+    #     to_edit = self.shuffled[:100]
+
+    #     for key, cid in to_edit:
+    #         mst = mst.add(key, cid)
 
     #     edited = []
-    #     for entry in to_edit:
-    #         new_cid = util.random_cid()
-    #         edited_mst = edited_mst.update(entry[0], new_cid)
-    #         edited.append([entry[0], new_cid])
+    #     for (key, _), cid in zip(to_edit, dag_cbor.random.rand_cid()):
+    #         mst = mst.update(key, cid)
+    #         edited.append([key, cid])
 
-    #     for entry in edited:
-    #         got = edited_mst.get(entry[0])
-    #         self.assertEqual(entry[1], got)
+    #     for key, cid in edited:
+    #         self.assertEqual(cid, mst.get(key))
 
-    #     self.assertEqual(1000, edited_mst.leaf_count())
+    #     self.assertEqual(10, mst.leaf_count())
 
     # def test_deletes_records(self):
     #     deleted_mst = MST()
-    #     to_delete = self.shuffled[0:100]
+    #     to_delete = self.shuffled[:100]
     #     the_rest = self.shuffled[100:]
-    #     for entry in to_delete:
-    #         deleted_mst.delete(entry[0])
+    #     for key, _ in to_delete:
+    #         deleted_mst.delete(key)
 
     #     self.assertEqual(900, deleted_mst.leaf_count())
 
-    #     for entry in to_delete:
-    #         self.assert_is_none(deleted_mst.get(entry[0]))
+    #     for key, _ in to_delete:
+    #         self.assert_is_none(deleted_mst.get(key))
 
-    #     for entry in the_rest:
-    #         self.assertEqual(entry[1], deleted_mst.get(entry[0]))
+    #     for key, cid in the_rest:
+    #         self.assertEqual(cid, deleted_mst.get(key))
 
-    def test_is_order_independent(self):
-        all_nodes = MST().all_nodes()
+    # def test_is_order_independent(self):
+    #     mst = MST()
+    #     for key, cid in self.shuffled:
+    #         mst = mst.add(key, cid)
 
-        recreated = MST()
-        reshuffled = list(self.shuffled)
-        random.shuffle(self.shuffled)
-        for entry in reshuffled:
-            recreated.add(entry[0], entry[1])
+    #     all_nodes = mst.all_nodes()
 
-        self.assertEqual(all_nodes, recreated.all_nodes())
+    #     recreated = MST()
+    #     random.shuffle(self.shuffled)
+    #     for key, cid in self.shuffled:
+    #         recreated = recreated.add(key, cid)
+
+    #     self.assertEqual(all_nodes, recreated.all_nodes())
 
     # def test_diffs(self):
     #     to_diff = MST()
@@ -137,8 +147,8 @@ class MstTest(testutil.TestCase):
     #         to_diff.add(entry[0], entry[1])
     #         expected_adds[entry[0]] = x
 
-    #     for entry in to_edit:
-    #         updated = util.random_cid()
+    #     for entry, cid in zip(to_edit, dag_cbor.random.rand_cid()):
+    #         updated = random_cid()
     #         to_diff.update(entry[0], updated)
     #         expected_updates[entry[0]] = {
     #             'key': entry[0],
@@ -227,46 +237,46 @@ class MstTest(testutil.TestCase):
             'bafyreibj4lsc3aqnrvphp5xmrnfoorvru4wynt6lwidqbm2623a6tatzdu',
             mst.get_pointer().encode('base32'))
 
-    # def test_computes_single_layer_2_tree_root_CID(self):
-    #     mst = MST().add('com.example.record/3jqfcqzm3fx2j', CID1)
-    #     self.assertEqual(1, mst.leaf_count())
-    #     self.assertEqual(2, mst.layer)
-    #     self.assertEqual(
-    #         'bafyreih7wfei65pxzhauoibu3ls7jgmkju4bspy4t2ha2qdjnzqvoy33ai',
-    #         mst.get_pointer().encode('base32'))
+    def test_computes_single_layer_2_tree_root_CID(self):
+        mst = MST().add('com.example.record/3jqfcqzm3fx2j', CID1)
+        self.assertEqual(1, mst.leaf_count())
+        self.assertEqual(2, mst.layer)
+        self.assertEqual(
+            'bafyreih7wfei65pxzhauoibu3ls7jgmkju4bspy4t2ha2qdjnzqvoy33ai',
+            mst.get_pointer().encode('base32'))
 
-    # def test_computes_simple_tree_root_CID(self):
-    #     mst = MST()
-    #     mst = mst.add('com.example.record/3jqfcqzm3fp2j', CID1) # level 0
-    #     mst = mst.add('com.example.record/3jqfcqzm3fr2j', CID1) # level 0
-    #     mst = mst.add('com.example.record/3jqfcqzm3fs2j', CID1) # level 1
-    #     mst = mst.add('com.example.record/3jqfcqzm3ft2j', CID1) # level 0
-    #     mst = mst.add('com.example.record/3jqfcqzm4fc2j', CID1) # level 0
-    #     self.assertEqual(5, mst.leaf_count())
-    #     self.assertEqual(
-    #         'bafyreicmahysq4n6wfuxo522m6dpiy7z7qzym3dzs756t5n7nfdgccwq7m',
-    #         mst.get_pointer().encode('base32'))
+    def test_computes_simple_tree_root_CID(self):
+        mst = MST()
+        mst = mst.add('com.example.record/3jqfcqzm3fp2j', CID1) # level 0
+        mst = mst.add('com.example.record/3jqfcqzm3fr2j', CID1) # level 0
+        mst = mst.add('com.example.record/3jqfcqzm3fs2j', CID1) # level 1
+        mst = mst.add('com.example.record/3jqfcqzm3ft2j', CID1) # level 0
+        mst = mst.add('com.example.record/3jqfcqzm4fc2j', CID1) # level 0
+        self.assertEqual(5, mst.leaf_count())
+        self.assertEqual(
+            'bafyreicmahysq4n6wfuxo522m6dpiy7z7qzym3dzs756t5n7nfdgccwq7m',
+            mst.get_pointer().encode('base32'))
 
-    # def test_trims_top_of_tree_on_delete(self):
-    #     l1root = 'bafyreifnqrwbk6ffmyaz5qtujqrzf5qmxf7cbxvgzktl4e3gabuxbtatv4'
-    #     l0root = 'bafyreie4kjuxbwkhzg2i5dljaswcroeih4dgiqq6pazcmunwt2byd725vi'
+    def test_trims_top_of_tree_on_delete(self):
+        l1root = 'bafyreifnqrwbk6ffmyaz5qtujqrzf5qmxf7cbxvgzktl4e3gabuxbtatv4'
+        l0root = 'bafyreie4kjuxbwkhzg2i5dljaswcroeih4dgiqq6pazcmunwt2byd725vi'
 
-    #     mst = MST()
-    #     mst = mst.add('com.example.record/3jqfcqzm3fn2j', CID1) # level 0
-    #     mst = mst.add('com.example.record/3jqfcqzm3fo2j', CID1) # level 0
-    #     mst = mst.add('com.example.record/3jqfcqzm3fp2j', CID1) # level 0
-    #     mst = mst.add('com.example.record/3jqfcqzm3fs2j', CID1) # level 1
-    #     mst = mst.add('com.example.record/3jqfcqzm3ft2j', CID1) # level 0
-    #     mst = mst.add('com.example.record/3jqfcqzm3fu2j', CID1) # level 0
+        mst = MST()
+        mst = mst.add('com.example.record/3jqfcqzm3fn2j', CID1) # level 0
+        mst = mst.add('com.example.record/3jqfcqzm3fo2j', CID1) # level 0
+        mst = mst.add('com.example.record/3jqfcqzm3fp2j', CID1) # level 0
+        mst = mst.add('com.example.record/3jqfcqzm3fs2j', CID1) # level 1
+        mst = mst.add('com.example.record/3jqfcqzm3ft2j', CID1) # level 0
+        mst = mst.add('com.example.record/3jqfcqzm3fu2j', CID1) # level 0
 
-    #     self.assertEqual(6, mst.leaf_count())
-    #     self.assertEqual(1, mst.layer)
-    #     self.assertEqual(l1root, mst.get_pointer().encode('base32'))
+        self.assertEqual(6, mst.leaf_count())
+        self.assertEqual(1, mst.layer)
+        self.assertEqual(l1root, mst.get_pointer().encode('base32'))
 
-    #     mst.delete('com.example.record/3jqfcqzm3fs2j') # level 1
-    #     self.assertEqual(5, mst.leaf_count())
-    #     self.assertEqual(0, mst.layer)
-    #     self.assertEqual(l0root, mst.get_pointer().encode('base32'))
+        mst = mst.delete('com.example.record/3jqfcqzm3fs2j') # level 1
+        self.assertEqual(5, mst.leaf_count())
+        self.assertEqual(0, mst.layer)
+        self.assertEqual(l0root, mst.get_pointer().encode('base32'))
 
     # def test_handles_insertion_that_splits_two_layers_down(self):
     #     """

@@ -305,16 +305,19 @@ class MST:
         Raises:
           KeyError if key doesn't exist
         """
-#         ensure_valid_key(key)
-#         index = self.find_gt_or_equal_leaf_index(key)
-#         found = self.at_index(index)
-#         if found and isinstance(found, Leaf) and found.key == key:
-#             return self.update_entry(index, Leaf(key=key, value=value))
-#         prev = self.at_index(index - 1)
-#         if prev and isinstance(prev, MST):
-#             updated_tree = prev.update(key, value)
-#             return self.update_entry(index - 1, updated_tree)
-#         raise KeyError(f'Could not find a record with key: {key}')
+        ensure_valid_key(key)
+
+        index = self.find_gt_or_equal_leaf_index(key)
+        found = self.at_index(index)
+        if found and isinstance(found, Leaf) and found.key == key:
+            return self.update_entry(index, Leaf(key=key, value=value))
+
+        prev = self.at_index(index - 1)
+        if prev and isinstance(prev, MST):
+            updated_tree = prev.update(key, value)
+            return self.update_entry(index - 1, updated_tree)
+
+        raise KeyError(f'Could not find a record with key: {key}')
 
     def delete(self, key):
         """Deletes the value at the given key.
@@ -328,8 +331,7 @@ class MST:
         Raises:
           KeyError if key doesn't exist
         """
-#         altered = self.delete_recurse(key)
-#         return altered.trim_top()
+        return self.delete_recurse(key).trim_top()
 
     def delete_recurse(self, key):
         """Deletes the value and subtree, if any, at the given key.
@@ -340,31 +342,31 @@ class MST:
         Returns:
           :class:`MST`
         """
-#         index = self.find_gt_or_equal_leaf_index(key)
-#         found = self.at_index(index)
-#         # if found, remove it on self level
-#         if isinstance(found, Leaf) and found.key == key:
-#             prev = self.at_index(index - 1)
-#             next = self.at_index(index + 1)
-#             if isinstance(prev, MST) and isinstance(next, MST):
-#                 merged = prev.append_merge(next)
-#                 return self.new_tree(
-#                     self.slice(0, index - 1)] +
-#                     merged +
-#                     self.slice(index + 2)
-#                 )
-#             else:
-#                 return self.remove_entry(index)
-#         # else recurse down to find it
-#         prev = self.at_index(index - 1)
-#         if isinstance(prev, MST):
-#             subtree = prev.delete_recurse(key)
-#             if subtree.entries == 0:
-#                 return self.remove_entry(index - 1)
-#             else:
-#                 return self.update_entry(index - 1, subtree)
-#         else:
-#             raise KeyError(f'Could not find a record with key: {key}')
+        index = self.find_gt_or_equal_leaf_index(key)
+        found = self.at_index(index)
+
+        # if found, remove it on self level
+        if isinstance(found, Leaf) and found.key == key:
+            prev = self.at_index(index - 1)
+            next = self.at_index(index + 1)
+            if isinstance(prev, MST) and isinstance(next, MST):
+                merged = prev.append_merge(next)
+                return self.new_tree(
+                    self.slice(0, index - 1) + [merged] + self.slice(index + 2)
+                )
+            else:
+                return self.remove_entry(index)
+
+        # else recurse down to find it
+        prev = self.at_index(index - 1)
+        if isinstance(prev, MST):
+            subtree = prev.delete_recurse(key)
+            if subtree.entries == 0:
+                return self.remove_entry(index - 1)
+            else:
+                return self.update_entry(index - 1, subtree)
+
+        raise KeyError(f'Could not find a record with key: {key}')
 
 
 #     Simple Operations
@@ -482,10 +484,10 @@ class MST:
         Returns:
           :class:`MST`
         """
-#         if len(self.entries) == 1 and isinstance(self.entries[0], MST):
-#             return self.entries[0].trim_top()
-#         else:
-#             return self
+        if len(self.entries) == 1 and isinstance(self.entries[0], MST):
+            return self.entries[0].trim_top()
+        else:
+            return self
 
 
 #     Subtree & Splits
