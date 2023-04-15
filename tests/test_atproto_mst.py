@@ -124,20 +124,19 @@ class MstTest(testutil.TestCase):
         for key, cid in the_rest:
             self.assertEqual(cid, mst.get(key))
 
-    # def test_is_order_independent(self):
-    #     mst = MST()
-    #     self.shuffled = self.shuffled[:200]
-    #     for key, cid in self.shuffled:
-    #         mst = mst.add(key, cid)
+    def test_is_order_independent(self):
+        mst = MST()
+        for key, cid in self.shuffled:
+            mst = mst.add(key, cid)
 
-    #     all_nodes = mst.all_nodes()
+        all_nodes = mst.all_nodes()
 
-    #     recreated = MST()
-    #     random.shuffle(self.shuffled)
-    #     for key, cid in self.shuffled:
-    #         recreated = recreated.add(key, cid)
+        recreated = MST()
+        random.shuffle(self.shuffled)
+        for key, cid in self.shuffled:
+            recreated = recreated.add(key, cid)
 
-    #     self.assertEqual(all_nodes, recreated.all_nodes())
+        self.assertEqual(all_nodes, recreated.all_nodes())
 
     # def test_diffs(self):
     #     to_diff = MST()

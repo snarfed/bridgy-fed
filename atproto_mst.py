@@ -70,8 +70,8 @@ Data = namedtuple('Data', [
 ])
 
 Leaf = namedtuple('Leaf', [
-    'key',    # str, record key ??? or bytes?
-    'value',  # CID ???
+    'key',    # str, record key
+    'value',  # CID
 ])
 
 
@@ -143,7 +143,7 @@ class MST:
 #     -------------------
 
     def get_pointer(self):
-        """Returns this MST's root CID ??? pointer. Calculates it if needed.
+        """Returns this MST's root CID pointer. Calculates it if necessary.
 
         We don't hash the node on every mutation for performance reasons.
         Instead we keep track of whether the pointer is outdated and only
