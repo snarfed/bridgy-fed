@@ -540,16 +540,15 @@ class MST:
         assert self.get_layer() == to_merge.get_layer(), \
             'Trying to merge two nodes from different layers of the MST'
 
-        to_merge_entries = to_merge.entries
         last_in_left = self.entries[-1]
-        first_in_right = to_merge_entries[0]
+        first_in_right = to_merge.entries[0]
 
         if isinstance(last_in_left, MST) and isinstance(first_in_right, MST):
             merged = last_in_left.append_merge(first_in_right)
             return self.new_tree(
-                list(self.entries) + merged + to_merge_entries.slice(1))
+                list(self.entries[:-1]) + [merged] + to_merge.entries[1:])
         else:
-            return self.new_tree(self.entries + to_merge_entries)
+            return self.new_tree(self.entries + to_merge.entries)
 
 
     # Create relatives
