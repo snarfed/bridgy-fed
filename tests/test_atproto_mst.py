@@ -58,11 +58,9 @@ def next_tid():
     return f'{encoded[:4]}-{encoded[4:7]}-{encoded[7:11]}-{encoded[11:]}'
 
 
-def generate_bulk_data_keys(num):
-    return {
-        f'com.example.record/{next_tid()}': cid
-        for cid in dag_cbor.random.rand_cid(num)
-    }
+def make_data(num):
+    return [(f'com.example.record/{next_tid()}', cid)
+            for cid in dag_cbor.random.rand_cid(num)]
 
 
 class MstTest(testutil.TestCase):
@@ -74,16 +72,13 @@ class MstTest(testutil.TestCase):
         random.seed(1234567890)
         dag_cbor.random.set_options(seed=1234567890)
 
-        self.entries = generate_bulk_data_keys(1000).items()
-        self.shuffled = list(self.entries)
-        random.shuffle(self.shuffled)
-
     def test_add(self):
         mst = MST()
-        for key, cid in self.shuffled:
+        data = make_data(1000)
+        for key, cid in data:
             mst = mst.add(key, cid)
 
-        for key, cid in self.shuffled:
+        for key, cid in data:
             got = mst.get(key)
             self.assertEqual(cid, got)
 
@@ -91,13 +86,13 @@ class MstTest(testutil.TestCase):
 
     def test_edits_records(self):
         mst = MST()
-        to_edit = self.shuffled[:100]
+        data = make_data(100)
 
-        for key, cid in to_edit:
+        for key, cid in data:
             mst = mst.add(key, cid)
 
         edited = []
-        for (key, _), cid in zip(to_edit, dag_cbor.random.rand_cid()):
+        for (key, _), cid in zip(data, dag_cbor.random.rand_cid()):
             mst = mst.update(key, cid)
             edited.append([key, cid])
 
@@ -108,11 +103,12 @@ class MstTest(testutil.TestCase):
 
     def test_deletes_records(self):
         mst = MST()
-        for key, cid in self.shuffled:
+        data = make_data(1000)
+        for key, cid in data:
             mst = mst.add(key, cid)
 
-        to_delete = self.shuffled[:100]
-        the_rest = self.shuffled[100:]
+        to_delete = data[:100]
+        the_rest = data[100:]
         for key, _ in to_delete:
             mst = mst.delete(key)
 
@@ -126,14 +122,15 @@ class MstTest(testutil.TestCase):
 
     def test_is_order_independent(self):
         mst = MST()
-        for key, cid in self.shuffled:
+        data = make_data(1000)
+        for key, cid in data:
             mst = mst.add(key, cid)
 
         all_nodes = mst.all_nodes()
 
         recreated = MST()
-        random.shuffle(self.shuffled)
-        for key, cid in self.shuffled:
+        random.shuffle(data)
+        for key, cid in data:
             recreated = recreated.add(key, cid)
 
         self.assertEqual(all_nodes, recreated.all_nodes())
@@ -141,7 +138,7 @@ class MstTest(testutil.TestCase):
     # def test_diffs(self):
     #     to_diff = MST()
 
-    #     to_add = Object.entries(util.generate_bulk_data_keys(100))
+    #     to_add = Object.entries(make_data(100))
     #     to_edit = self.shuffled[500:600]
     #     to_del = self.shuffled[400:500]
 
