@@ -151,9 +151,16 @@ class ActivityPub(Protocol):
         logger.info(f'Headers: {json_dumps(dict(request.headers), indent=2)}')
 
         # parse_signature_header lower-cases all keys
-        keyId = fragmentless(parse_signature_header(sig).get('keyid'))
+        sig_fields = parse_signature_header(sig)
+        keyId = fragmentless(sig_fields.get('keyid'))
         if not keyId:
             error('HTTP Signature missing keyId', status=401)
+
+        # TODO: right now, assume hs2019 is rsa-sha256 🤷
+        # https://github.com/snarfed/bridgy-fed/issues/430#issuecomment-1510462267
+        # https://arewehs2019yet.vpzom.click/
+        if sig_fields.get('algorithm') == 'hs2019':
+            sig_fields['algorithm'] = 'rsa-sha256'
 
         digest = request.headers.get('Digest') or ''
         if not digest:
