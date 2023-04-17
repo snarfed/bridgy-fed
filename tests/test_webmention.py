@@ -365,10 +365,16 @@ class WebmentionTest(testutil.TestCase):
 
     def assert_deliveries(self, mock_post, inboxes, data):
         self.assertEqual(len(inboxes), len(mock_post.call_args_list))
-        calls = {call[0][0]: call for call in mock_post.call_args_list}
+
+        calls = {}  # maps inbox URL to JSON data
+        for args, kwargs in mock_post.call_args_list:
+            self.assertEqual(as2.CONTENT_TYPE, kwargs['headers']['Content-Type'])
+            rsa_key = kwargs['auth'].header_signer._rsa._key
+            self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
+            calls[args[0]] = json_loads(kwargs['data'])
 
         for inbox in inboxes:
-            got = json_loads(calls[inbox][1]['data'])
+            got = calls[inbox]
             as1.get_object(got).pop('publicKey', None)
             self.assert_equals(data, got, inbox)
 
@@ -534,15 +540,7 @@ class WebmentionTest(testutil.TestCase):
             self.as2_req('https://mas.to/author'),
         ))
 
-        args, kwargs = mock_post.call_args
-        self.assertEqual(('https://mas.to/inbox',), args)
-        self.assert_equals(self.as2_create, json_loads(kwargs['data']))
-
-        headers = kwargs['headers']
-        self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
-
-        rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
+        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], self.as2_create)
 
         self.assert_object('https://user.com/reply',
                            domains=['user.com'],
@@ -649,6 +647,8 @@ class WebmentionTest(testutil.TestCase):
         self.assert_equals(self.as2_create, json_loads(kwargs['data']))
 
     def test_create_repost(self, mock_get, mock_post):
+        # self.make_followers()
+
         mock_get.side_effect = [REPOST, self.toot_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
@@ -664,20 +664,16 @@ class WebmentionTest(testutil.TestCase):
             self.as2_req('https://mas.to/author'),
         ))
 
-        args, kwargs = mock_post.call_args
-        self.assertEqual(('https://mas.to/inbox',), args)
-        self.assert_equals(REPOST_AS2, json_loads(kwargs['data']))
+        # inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
+        # self.assert_deliveries(mock_post, inboxes, DELETE_AS2)
 
-        headers = kwargs['headers']
-        self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
-
-        rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
+        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], REPOST_AS2)
 
         for args, kwargs in mock_get.call_args_list[1:]:
             with self.subTest(url=args[0]):
                 rsa_key = kwargs['auth'].header_signer._rsa._key
                 self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
+
         self.assert_object('https://user.com/repost',
                            domains=['user.com'],
                            source_protocol='webmention',
@@ -947,15 +943,8 @@ class WebmentionTest(testutil.TestCase):
             self.as2_req('https://mas.to/mrs-foo'),
         ))
 
-        args, kwargs = mock_post.call_args
-        self.assertEqual(('https://mas.to/inbox',), args)
-        self.assert_equals(self.follow_as2, json_loads(kwargs['data']))
+        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], self.follow_as2)
 
-        headers = kwargs['headers']
-        self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
-
-        rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
         self.assert_object('https://user.com/follow',
                            domains=['user.com'],
                            source_protocol='webmention',
@@ -1012,15 +1001,9 @@ class WebmentionTest(testutil.TestCase):
             self.as2_req('https://mas.to/mrs-foo'),
         ))
 
-        args, kwargs = mock_post.call_args
-        self.assert_equals(('https://mas.to/inbox',), args)
-        self.assert_equals(self.follow_fragment_as2, json_loads(kwargs['data']))
+        self.assert_deliveries(mock_post, ['https://mas.to/inbox'],
+                               self.follow_fragment_as2)
 
-        headers = kwargs['headers']
-        self.assert_equals(as2.CONTENT_TYPE, headers['Content-Type'])
-
-        rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assert_equals(self.user.private_pem(), rsa_key.exportKey())
         self.assert_object('https://user.com/follow#2',
                            domains=['user.com'],
                            source_protocol='webmention',
@@ -1128,15 +1111,8 @@ class WebmentionTest(testutil.TestCase):
             self.as2_req('https://mas.to/mrs-foo'),
         ))
 
-        args, kwargs = mock_post.call_args
-        self.assertEqual(('https://mas.to/inbox',), args)
-        self.assert_equals(self.follow_as2, json_loads(kwargs['data']))
+        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], self.follow_as2)
 
-        headers = kwargs['headers']
-        self.assertEqual(as2.CONTENT_TYPE, headers['Content-Type'])
-
-        rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
         self.assert_object('https://user.com/follow',
                            domains=['user.com'],
                            source_protocol='webmention',
