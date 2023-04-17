@@ -5,7 +5,7 @@ git+https://github.com/snarfed/lexrpc.git#egg=lexrpc
 git+https://github.com/snarfed/negotiator.git@py3#egg=negotiator
 git+https://github.com/dvska/gdata-python3.git#egg=gdata
 
-attrs==22.2.0
+attrs==23.1.0
 bases==0.2.1
 beautifulsoup4==4.12.2
 brevity==0.2.17
