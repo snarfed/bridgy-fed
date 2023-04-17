@@ -15,7 +15,7 @@ from oauth_dropins.webutil.appengine_info import APP_ID
 from oauth_dropins.webutil.flask_util import error, flash
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from oauth_dropins.webutil import webmention
-import requests
+from requests import HTTPError, RequestException, URLRequired
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException
 
 # import module instead of individual classes/functions to avoid circular import
@@ -29,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 # https://cloud.google.com/appengine/docs/locations
 TASKS_LOCATION = 'us-central1'
+
+CHAR_AFTER_SPACE = chr(ord(' ') + 1)
 
 
 class Webmention(Protocol):
@@ -50,7 +52,7 @@ class Webmention(Protocol):
             return True
 
     @classmethod
-    def fetch(cls, obj):
+    def fetch(cls, obj, gateway=False):
         """Fetches a URL over HTTP and extracts its microformats2.
 
         Follows redirects, but doesn't change the original URL in obj's id! The
@@ -59,15 +61,18 @@ class Webmention(Protocol):
         instead of the final redirect destination URL.
 
         See :meth:`Protocol.fetch` for other background.
+
+        Args:
+          gateway: passed through to :func:`webutil.util.fetch_mf2`
         """
         url = obj.key.id()
         is_homepage = g.user and g.user.is_homepage(url)
         require_backlink = common.host_url().rstrip('/') if not is_homepage else None
 
         try:
-            parsed = util.fetch_mf2(url, gateway=True, require_backlink=require_backlink)
-        except ValueError as e:
-            logger.info(str(e))
+            parsed = util.fetch_mf2(url, gateway=gateway,
+                                    require_backlink=require_backlink)
+        except (ValueError, URLRequired) as e:
             error(str(e))
 
         if parsed is None:
@@ -184,13 +189,32 @@ def webmention_task():
         obj = Webmention.load(source, refresh=True)
     except BadRequest as e:
         error(str(e.description), status=304)
+    except HTTPError as e:
+        if e.response.status_code not in (410, 404):
+            error(f'{e} ; {e.response.text if e.response else ""}', status=502)
 
-    # set actor to user
-    props = obj.mf2['properties']
-    author_urls = microformats2.get_string_urls(props.get('author', []))
-    if author_urls and not g.user.is_homepage(author_urls[0]):
-        logger.info(f'Overriding author {author_urls[0]} with {g.user.actor_id()}')
-        props['author'] = [g.user.actor_id()]
+        create_id = f'{source}#bridgy-fed-create'
+        logger.info(f'Interpreting as Delete. Looking for {create_id}')
+        create = models.Object.get_by_id(create_id)
+        if not create or create.status != 'complete':
+            error(f"Bridgy Fed hasn't successfully published {source}", status=304)
+
+        id = f'{source}#bridgy-fed-delete'
+        obj = models.Object(id=id, our_as1={
+            'id': id,
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': g.user.actor_id(),
+            'object': source,
+        })
+
+    if obj.mf2:
+        # set actor to user
+        props = obj.mf2['properties']
+        author_urls = microformats2.get_string_urls(props.get('author', []))
+        if author_urls and not g.user.is_homepage(author_urls[0]):
+            logger.info(f'Overriding author {author_urls[0]} with {g.user.actor_id()}')
+            props['author'] = [g.user.actor_id()]
 
     logger.info(f'Converted to AS1: {obj.type}: {json_dumps(obj.as1, indent=2)}')
 
@@ -334,7 +358,7 @@ def webmention_task():
         return last_success.text or 'Sent!', last_success.status_code
     elif isinstance(err, BadGateway):
         raise err
-    elif isinstance(err, requests.HTTPError):
+    elif isinstance(err, HTTPError):
         return str(err), err.status_code
     else:
         return str(err)
@@ -361,7 +385,7 @@ def _activitypub_targets(obj):
         domain = g.user.key.id()
         for follower in models.Follower.query().filter(
             models.Follower.key > Key('Follower', domain + ' '),
-            models.Follower.key < Key('Follower', domain + chr(ord(' ') + 1))):
+            models.Follower.key < Key('Follower', domain + CHAR_AFTER_SPACE)):
             if follower.status != 'inactive' and follower.last_follow:
                 actor = follower.last_follow.get('actor')
                 if actor and isinstance(actor, dict):
@@ -382,7 +406,7 @@ def _activitypub_targets(obj):
             # TODO: make this generic across protocols
             target_stored = activitypub.ActivityPub.load(target)
             target_obj = target_stored.as2 or as2.from_as1(target_stored.as1)
-        except (requests.HTTPError, BadGateway) as e:
+        except (HTTPError, BadGateway) as e:
             resp = getattr(e, 'requests_response', None)
             if resp and resp.ok:
                 type = common.content_type(resp)

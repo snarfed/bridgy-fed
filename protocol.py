@@ -360,7 +360,7 @@ class Protocol:
             error(msg, status=int(errors[0][0] or 502))
 
     @classmethod
-    def load(cls, id, refresh=False):
+    def load(cls, id, refresh=False, **kwargs):
         """Loads and returns an Object from memory cache, datastore, or HTTP fetch.
 
         Assumes id is a URL. Any fragment at the end is stripped before loading.
@@ -379,6 +379,7 @@ class Protocol:
           id: str
           refresh: boolean, whether to fetch the object remotely even if we have
             it stored
+          kwargs: passed through to fetch()
 
         Returns: :class:`Object`
 
@@ -414,7 +415,7 @@ class Protocol:
             obj.new = True
             obj.changed = False
 
-        cls.fetch(obj)
+        cls.fetch(obj, **kwargs)
         if orig_as1:
             obj.new = False
             obj.changed = as1.activity_changed(orig_as1, obj.as1)

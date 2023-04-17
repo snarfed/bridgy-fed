@@ -50,6 +50,7 @@ Bridgy Fed takes some technical know-how to set up, and there are simpler (but l
 <li><a href="#image">How do I include an image in a post?</a></li>
 <li><a href="#hashtags">How do I use hashtags?</a></li>
 <li><a href="#update">How do I edit an existing post?</a></li>
+<li><a href="#delete">How do I delete a post?</a></li>
 <li><a href="#fragment">Can I publish just one part of a page?</a></li>
 <li><a href="#backfeed">How do fediverse replies, likes, and other interactions show up on my site?</a></li>
 <li><a href="#read">How do I read my fediverse timeline/feed?</a></li>
@@ -348,6 +349,12 @@ I love scotch. Scotchy scotchy scotch.
 <li id="update" class="question">How do I edit an existing post?</li>
 <li class="answer">
 <p>Edit the post on your web site, then send another webmention to Bridgy Fed for it. Bridgy Fed will refetch the post and send an <a href="https://www.w3.org/TR/activitypub/#update-activity-outbox"><code>Update</code> activity</a> for it to the fediverse.
+</p>
+</li>
+
+<li id="delete" class="question">How do I delete a post?</li>
+<li class="answer">
+<p>First, delete the post on your web site, so that HTTP requests for it return 410 Gone or 404 Not Found. Then, send another webmention to Bridgy Fed for it. Bridgy Fed will refetch the post, see that it's gone, and send an <a href="https://www.w3.org/TR/activitypub/#delete-activity-outbox"><code>Delete</code> activity</a> for it to the fediverse.
 </p>
 </li>
 

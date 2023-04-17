@@ -6,7 +6,7 @@ from urllib.parse import urlencode
 
 import feedparser
 from flask import g
-from granary import as2, atom, microformats2
+from granary import as1, as2, atom, microformats2
 from httpsig.sign import HeaderSigner
 from oauth_dropins.webutil import appengine_config, util
 from oauth_dropins.webutil.appengine_config import tasks_client
@@ -124,6 +124,21 @@ WEBMENTION_REL_LINK = requests_response(
     '<html><head><link rel="webmention" href="/webmention"></html>')
 WEBMENTION_NO_REL_LINK = requests_response('<html></html>')
 
+DELETE_AS1 = {
+    'objectType': 'activity',
+    'verb': 'delete',
+    'id': 'https://user.com/post#bridgy-fed-delete',
+    'actor': 'http://localhost/user.com',
+    'object': 'https://user.com/post',
+}
+DELETE_AS2 = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'type': 'Delete',
+    'id': 'http://localhost/r/https://user.com/post#bridgy-fed-delete',
+    'actor': 'http://localhost/user.com',
+    'object': 'http://localhost/r/https://user.com/post',
+    'to': [as2.PUBLIC_AUDIENCE],
+}
 
 @mock.patch('requests.post')
 @mock.patch('requests.get')
@@ -354,7 +369,7 @@ class WebmentionTest(testutil.TestCase):
 
         for inbox in inboxes:
             got = json_loads(calls[inbox][1]['data'])
-            got.get('object', {}).pop('publicKey', None)
+            as1.get_object(got).pop('publicKey', None)
             self.assert_equals(data, got, inbox)
 
     def assert_object(self, id, **props):
@@ -1038,6 +1053,61 @@ class WebmentionTest(testutil.TestCase):
             self.req('https://user.com/follow'),
         ))
 
+    def test_delete(self, mock_get, mock_post):
+        mock_get.return_value = requests_response('"unused"', status=410,
+                                                  url='http://final/delete')
+        mock_post.return_value = requests_response('unused', status=200)
+        Object(id='https://user.com/post#bridgy-fed-create',
+               mf2=self.note_mf2, status='complete').put()
+
+        self.make_followers()
+
+        got = self.client.post('/_ah/queue/webmention', data={
+            'source': 'https://user.com/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code, got.text)
+
+        inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
+        self.assert_deliveries(mock_post, inboxes, DELETE_AS2)
+
+        self.assert_object('https://user.com/post#bridgy-fed-delete',
+                           domains=['user.com'],
+                           source_protocol='webmention',
+                           status='complete',
+                           our_as1=DELETE_AS1,
+                           delivered=inboxes,
+                           type='delete',
+                           object_ids=['https://user.com/post'],
+                           labels=['user', 'activity'],
+                          )
+
+    def test_delete_no_object(self, mock_get, mock_post):
+        mock_get.side_effect = [
+            requests_response('"unused"', status=410, url='http://final/delete'),
+        ]
+        got = self.client.post('/_ah/queue/webmention', data={
+            'source': 'https://user.com/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(304, got.status_code, got.text)
+        mock_post.assert_not_called()
+
+    def test_delete_incomplete_response(self, mock_get, mock_post):
+        mock_get.return_value = requests_response('"unused"', status=410,
+                                                  url='http://final/delete')
+
+        with app.test_request_context('/'):
+            Object(id='https://user.com/post#bridgy-fed-create',
+                   mf2=self.note_mf2, status='in progress')
+
+        got = self.client.post('/_ah/queue/webmention', data={
+            'source': 'https://user.com/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(304, got.status_code, got.text)
+        mock_post.assert_not_called()
+
     def test_error(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow, self.actor]
         mock_post.return_value = requests_response(
@@ -1204,7 +1274,7 @@ class WebmentionUtilTest(testutil.TestCase):
     def test_fetch_error(self, mock_get, __):
         mock_get.return_value = requests_response(REPOST_HTML, status=405)
         with self.assertRaises(BadGateway) as e:
-            Webmention.fetch(Object(id='https://foo'))
+            Webmention.fetch(Object(id='https://foo'), gateway=True)
 
     def test_fetch_run_authorship(self, mock_get, __):
         mock_get.side_effect = [

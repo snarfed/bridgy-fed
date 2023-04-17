@@ -247,7 +247,7 @@ class User(StringIdModel):
 
         # check home page
         try:
-            obj = webmention.Webmention.load(self.homepage)
+            obj = webmention.Webmention.load(self.homepage, gateway=True)
             self.actor_as2 = activitypub.postprocess_as2(as2.from_as1(obj.as1))
             self.has_hcard = True
         except (BadRequest, NotFound):

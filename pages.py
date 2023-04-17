@@ -197,6 +197,7 @@ def fetch_objects(query):
         phrases = {
             'article': 'posted',
             'comment': 'replied',
+            'delete': 'deleted',
             'follow': 'followed',
             'invite': 'is invited to',
             'issue': 'filed issue',

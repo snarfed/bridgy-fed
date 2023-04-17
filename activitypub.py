@@ -372,6 +372,10 @@ def postprocess_as2(activity, target=None):
     if not activity.get('id'):
         activity['id'] = util.get_first(activity, 'url')
 
+    # Deletes' object is our own id
+    if type == 'Delete':
+        activity['object'] = redirect_wrap(activity['object'])
+
     # TODO: find a better way to check this, sometimes or always?
     # removed for now since it fires on posts without u-id or u-url, eg
     # https://chrisbeckstrom.com/2018/12/27/32551/
