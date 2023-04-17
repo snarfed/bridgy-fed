@@ -57,6 +57,7 @@ Bridgy Fed takes some technical know-how to set up, and there are simpler (but l
 <li><a href="#notifications">Are there notifications?</a></li>
 <li><a href="#discovery">How can people on the fediverse find and follow me?</a></li>
 <li><a href="#see-posts">How can I see what my posts look like inside the fediverse?</a></li>
+<li><a href="#searchable">Can I make my posts show up when people search for them in the fediverse?</a></li>
 <li><a href="#troubleshooting">I tried it, and it didn't work!</a></li>
 
 <br>
@@ -404,6 +405,16 @@ To receive likes, reposts, replies, @-mentions, and follows from the fediverse, 
 
 <p>Note: in Mastodon, each of your posts on a given instance will have a permalink inside that instance, eg <a href="https://mastodon.social/@snarfed.org@snarfed.org/109729052169033033">mastodon.social/@snarfed.org@snarfed.org/109729052169033033</a>, but those permalinks <em>only go to Mastodon if you're logged into that instance.</em> If you're not, they redirect to the original post on your site.
 </p>
+</li>
+
+<li id="searchable" class="question">Can I make my posts show up when people search for them in the fediverse?</li>
+<li class="answer">
+<p>Yes! Add this line of HTML to each post that you publish with Bridgy Fed and want to be searchable, replacing <code>[URL]</code> with that post's URL:</p>
+
+<pre>&lt;link rel="<span class='keyword'>alternate</span>" type="<span class='keyword'>application/activity+json</span>" href="<span class='value'>https://fed.brid.gy/r/[URL]</span>"&gt;
+</pre>
+
+<p><a href="https://docs.joinmastodon.org/user/network/#search">Search is intentionally limited in Mastodon and much of the overall fediverse</a>, so this won't index the full text of your posts, but it will make them show up in search results when you search for your post's full URL, which people commonly do in the fediverse to find and interact with posts.</p>
 </li>
 
 <li id="troubleshooting" class="question">I tried it, and it didn't work!</li>
