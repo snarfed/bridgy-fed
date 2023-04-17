@@ -149,6 +149,22 @@ def webmention_external():
     return msg, 202
 
 
+@app.post('/webmention-interactive')
+def webmention_interactive():
+    """Handler that runs interactive webmention-based requests from the web UI.
+
+    ...eg the update profile button on user pages.
+    """
+    try:
+        webmention_external()
+        flash(f'Updating fediverse profile from <a href="{g.user.homepage}">{g.user.key.id()}</a>...')
+    except HTTPException as e:
+        flash(util.linkify(str(e.description), pretty=True))
+
+    path = f'/user/{g.user.key.id()}' if g.user else '/'
+    return redirect(path, code=302)
+
+
 @app.post('/_ah/queue/webmention')
 def webmention_task():
     """Handles webmention task, converts to ActivityPub and delivers."""
@@ -404,19 +420,3 @@ def _activitypub_targets(obj):
 
     logger.info(f"Delivering to targets' inboxes: {inboxes_to_targets.keys()}")
     return inboxes_to_targets
-
-
-@app.post('/webmention-interactive')
-def webmention_interactive():
-    """Handler that runs interactive webmention-based requests from the web UI.
-
-    ...eg the update profile button on user pages.
-    """
-    try:
-        webmention_external()
-        flash(f'Updating fediverse profile from <a href="{g.user.homepage}">{g.user.key.id()}</a>...')
-    except HTTPException as e:
-        flash(util.linkify(str(e.description), pretty=True))
-
-    path = f'/user/{g.user.key.id()}' if g.user else '/'
-    return redirect(path, code=302)
