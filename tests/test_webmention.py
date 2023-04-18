@@ -561,6 +561,8 @@ class WebmentionTest(testutil.TestCase):
                            )
 
     def test_update_reply(self, mock_get, mock_post):
+        self.make_followers()
+
         mf2 = {
             'properties': {
                 'content': ['other'],
@@ -578,6 +580,7 @@ class WebmentionTest(testutil.TestCase):
         })
         self.assertEqual(200, got.status_code)
 
+        self.assertEqual(1, mock_post.call_count)
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals(self.as2_update, json_loads(kwargs['data']))
