@@ -2,6 +2,9 @@
 
 Replaced by Object.
 """
+from google.cloud import ndb
+from oauth_dropins.webutil.models import StringIdModel
+
 
 class Activity(StringIdModel):
     """A reply, like, repost, or other interaction that we've relayed.
