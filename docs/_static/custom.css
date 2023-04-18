@@ -1,0 +1,23 @@
+/* Duplicated in oauth-dropins and granary! */
+.icon-home {
+  font-size: larger !important;
+}
+
+.wy-nav-side, .wy-side-nav-search > div.version {
+  color:#fcfcfc;
+}
+
+.rst-content code, .rst-content tt, code {
+  border: none;
+  padding: 0;
+}
+
+/* The first link in the reference doc TOC is the page title/header. Hide that.  */
+#contents #id1 {
+  display: none;
+}
+
+/* The first link in the sidebar TOC is the page title/header. Hide that.  */
+.local-toc ul:nth-child(3) li:first-child {
+  display: none;
+}
