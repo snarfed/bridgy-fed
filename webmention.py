@@ -374,13 +374,18 @@ def _activitypub_targets(obj):
     # if there's in-reply-to, like-of, or repost-of, they're the targets.
     # otherwise, it's all followers' inboxes.
     targets = util.get_urls(obj.as1, 'inReplyTo')
+    verb = obj.as1.get('verb')
     if targets:
         logger.info(f'targets from inReplyTo: {targets}')
-    elif obj.as1.get('verb') in as1.VERBS_WITH_OBJECT:
+    elif verb in as1.VERBS_WITH_OBJECT:
         targets = util.get_urls(obj.as1, 'object')
         logger.info(f'targets from object: {targets}')
 
-    if not targets:
+    targets = common.remove_blocklisted(targets)
+
+    inboxes_to_targets = {}
+    if not targets or verb == 'share':
+        logger.info('Delivering to followers')
         inboxes = set()
         domain = g.user.key.id()
         for follower in models.Follower.query().filter(
@@ -392,14 +397,14 @@ def _activitypub_targets(obj):
                     inboxes.add(actor.get('endpoints', {}).get('sharedInbox') or
                                 actor.get('publicInbox') or
                                 actor.get('inbox'))
-        logger.info('Delivering to followers')
-        return {inbox: None for inbox in inboxes}
 
-    targets = common.remove_blocklisted(targets)
+        inboxes_to_targets = {inbox: None for inbox in inboxes}
+        if verb != 'share':
+            return inboxes_to_targets
+
     if not targets:
         error(f"Silo responses are not yet supported.", status=304)
 
-    inboxes_to_targets = {}
     for target in targets:
         # fetch target page as AS2 object
         try:
@@ -442,5 +447,4 @@ def _activitypub_targets(obj):
         inbox_url = urllib.parse.urljoin(target, inbox_url)
         inboxes_to_targets[inbox_url] = target_obj
 
-    logger.info(f"Delivering to targets' inboxes: {inboxes_to_targets.keys()}")
     return inboxes_to_targets

@@ -86,7 +86,7 @@ REPOST_HTML = """\
 <html>
 <body class="h-entry">
 <a class="u-url" href="https://user.com/repost"></a>
-<a class="u-repost-of p-name" href="https://mas.to/toot">reposted!</a>
+<a class="u-repost-of p-name" href="https://mas.to/toot/id">reposted!</a>
 <a class="u-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
 <a href="http://localhost/"></a>
 </body>
@@ -363,7 +363,7 @@ class WebmentionTest(testutil.TestCase):
         self.activitypub_gets = [self.reply, self.not_fediverse, self.toot_as2,
                                  self.actor]
 
-    def assert_deliveries(self, mock_post, inboxes, data):
+    def assert_deliveries(self, mock_post, inboxes, data, ignore=()):
         self.assertEqual(len(inboxes), len(mock_post.call_args_list))
 
         calls = {}  # maps inbox URL to JSON data
@@ -376,7 +376,7 @@ class WebmentionTest(testutil.TestCase):
         for inbox in inboxes:
             got = calls[inbox]
             as1.get_object(got).pop('publicKey', None)
-            self.assert_equals(data, got, inbox)
+            self.assert_equals(data, got, inbox, ignore=ignore)
 
     def assert_object(self, id, **props):
         return super().assert_object(id, delivered_protocol='activitypub', **props)
@@ -647,7 +647,7 @@ class WebmentionTest(testutil.TestCase):
         self.assert_equals(self.as2_create, json_loads(kwargs['data']))
 
     def test_create_repost(self, mock_get, mock_post):
-        # self.make_followers()
+        self.make_followers()
 
         mock_get.side_effect = [REPOST, self.toot_as2, self.actor]
         mock_post.return_value = requests_response('abc xyz')
@@ -660,14 +660,13 @@ class WebmentionTest(testutil.TestCase):
 
         mock_get.assert_has_calls((
             self.req('https://user.com/repost'),
-            self.as2_req('https://mas.to/toot'),
+            self.as2_req('https://mas.to/toot/id'),
             self.as2_req('https://mas.to/author'),
         ))
 
-        # inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
-        # self.assert_deliveries(mock_post, inboxes, DELETE_AS2)
-
-        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], REPOST_AS2)
+        inboxes = ('https://inbox', 'https://public/inbox',
+                   'https://shared/inbox', 'https://mas.to/inbox')
+        self.assert_deliveries(mock_post, inboxes, REPOST_AS2, ignore=['cc'])
 
         for args, kwargs in mock_get.call_args_list[1:]:
             with self.subTest(url=args[0]):
@@ -680,9 +679,9 @@ class WebmentionTest(testutil.TestCase):
                            status='complete',
                            mf2=REPOST_MF2,
                            as1=microformats2.json_to_object(REPOST_MF2),
-                           delivered=['https://mas.to/inbox'],
+                           delivered=inboxes,
                            type='share',
-                           object_ids=['https://mas.to/toot'],
+                           object_ids=['https://mas.to/toot/id'],
                            labels=['user', 'activity'],
                            )
 
