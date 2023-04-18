@@ -1,6 +1,6 @@
 """Datastore model classes."""
 import base64
-from datetime import timezone
+from datetime import timedelta, timezone
 import difflib
 import itertools
 import logging
@@ -35,6 +35,19 @@ PROTOCOLS = ('activitypub', 'bluesky', 'ostatus', 'webmention', 'ui')
 # 2048 bits makes tests slow, so use 1024 for them
 KEY_BITS = 1024 if DEBUG else 2048
 PAGE_SIZE = 20
+
+# auto delete old objects of these types via the Object.expire property
+# https://cloud.google.com/datastore/docs/ttl
+OBJECT_EXPIRE_TYPES = (
+    'post',
+    'update',
+    'delete',
+    'accept',
+    'reject',
+    'undo',
+    None
+)
+OBJECT_EXPIRE_AGE = timedelta(days=90)
 
 logger = logging.getLogger(__name__)
 
@@ -331,7 +344,6 @@ class Object(StringIdModel):
     def _object_ids(self):  # id(s) of inner objects
         if self.as1:
             return common.redirect_unwrap(as1.get_ids(self.as1, 'object'))
-
     object_ids = ndb.ComputedProperty(_object_ids, repeated=True)
 
     deleted = ndb.BooleanProperty()
@@ -342,6 +354,16 @@ class Object(StringIdModel):
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
+
+    # For certain types, automatically delete this Object after 90d using a
+    # TTL policy:
+    # https://cloud.google.com/datastore/docs/ttl#ttl_properties_and_indexes
+    # They recommend not indexing TTL properties:
+    # https://cloud.google.com/datastore/docs/ttl#ttl_properties_and_indexes
+    def _expire(self):
+        if self.type in OBJECT_EXPIRE_TYPES:
+            return (self.updated or util.now()) + OBJECT_EXPIRE_AGE
+    expire = ndb.ComputedProperty(_expire, indexed=False)
 
     def _pre_put_hook(self):
         assert '^^' not in self.key.id()

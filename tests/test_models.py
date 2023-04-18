@@ -4,11 +4,11 @@ from unittest import mock
 
 from flask import g, get_flashed_messages
 from granary import as2
-from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.testutil import NOW, requests_response
 
 from app import app
 import common
-from models import Follower, Object, User
+from models import Follower, Object, OBJECT_EXPIRE_AGE, User
 import protocol
 from protocol import Protocol
 from . import testutil
@@ -328,6 +328,10 @@ class ObjectTest(testutil.TestCase):
 
     def test_computed_properties_without_as1(self):
         Object(id='a').put()
+
+    def test_expire(self):
+        obj = Object(id='a', our_as1={'objectType': 'activity', 'verb': 'update'})
+        self.assertEqual(NOW + OBJECT_EXPIRE_AGE, obj.expire)
 
     def test_put_adds_removes_activity_label(self):
         obj = Object(id='x#y', our_as1={})

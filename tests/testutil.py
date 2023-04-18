@@ -182,8 +182,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             got.mf2.pop('url', None)
 
         self.assert_entities_equal(Object(id=id, **props), got,
-                                   ignore=['as1', 'created', 'object_ids',
-                                           'type', 'updated'])
+                                   ignore=['as1', 'created', 'expire',
+                                           'object_ids', 'type', 'updated'])
 
     def assert_equals(self, expected, actual, msg=None, ignore=(), **kwargs):
         return super().assert_equals(
