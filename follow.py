@@ -20,7 +20,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import activitypub
 from app import app
 import common
-from models import Follower, Object, User
+import models
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ def remote_follow():
     logger.info(f'Got: {request.values}')
 
     domain = request.values['domain']
-    g.user = User.get_by_id(domain)
+    g.user = models.User.get_by_id(domain)
     if not g.user:
         error(f'No Bridgy Fed user found for domain {domain}')
 
@@ -134,7 +134,7 @@ class FollowCallback(indieauth.Callback):
         session['indieauthed-me'] = me
 
         domain = util.domain_from_link(me)
-        g.user = User.get_by_id(domain)
+        g.user = models.User.get_by_id(domain)
         if not g.user:
             error(f'No user for domain {domain}')
         domain = g.user.key.id()
@@ -176,12 +176,12 @@ class FollowCallback(indieauth.Callback):
             'actor': g.user.actor_id(),
             'to': [as2.PUBLIC_AUDIENCE],
         }
-        obj = Object(id=follow_id, domains=[domain], labels=['user'],
-               source_protocol='ui', status='complete', as2=follow_as2)
+        obj = models.Object(id=follow_id, domains=[domain], labels=['user'],
+                            source_protocol='ui', status='complete', as2=follow_as2)
         activitypub.ActivityPub.send(obj, inbox)
 
-        Follower.get_or_create(dest=id, src=domain, status='active',
-                                last_follow=follow_as2)
+        models.Follower.get_or_create(dest=id, src=domain, status='active',
+                                      last_follow=follow_as2)
         obj.put()
 
         link = common.pretty_link(util.get_url(followee) or id, text=addr)
@@ -221,12 +221,12 @@ class UnfollowCallback(indieauth.Callback):
         session['indieauthed-me'] = me
 
         domain = util.domain_from_link(me)
-        g.user = User.get_by_id(domain)
+        g.user = models.User.get_by_id(domain)
         if not g.user:
             error(f'No user for domain {domain}')
         domain = g.user.key.id()
 
-        follower = Follower.get_by_id(state)
+        follower = models.Follower.get_by_id(state)
         if not follower:
             error(f'Bad state {state}')
 
@@ -254,8 +254,8 @@ class UnfollowCallback(indieauth.Callback):
             'object': follower.last_follow,
         }
 
-        obj = Object(id=unfollow_id, domains=[domain], labels=['user'],
-                     source_protocol='ui', status='complete', as2=unfollow_as2)
+        obj = models.Object(id=unfollow_id, domains=[domain], labels=['user'],
+                            source_protocol='ui', status='complete', as2=unfollow_as2)
         activitypub.ActivityPub.send(obj, inbox)
 
         follower.status = 'inactive'
