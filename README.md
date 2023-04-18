@@ -1,7 +1,7 @@
 <img src="https://raw.github.com/snarfed/bridgy-fed/main/static/bridgy_fed_logo.png" width="120" /> [Bridgy Fed](https://fed.brid.gy/) [![Circle CI](https://circleci.com/gh/snarfed/bridgy-fed.svg?style=svg)](https://circleci.com/gh/snarfed/bridgy-fed) [![Coverage Status](https://coveralls.io/repos/github/snarfed/bridgy-fed/badge.svg?branch=main)](https://coveralls.io/github/snarfed/bridgy-fed?branch=main)
 ===
 
-Bridgy Fed connects your web site to [Mastodon](https://joinmastodon.org) and the [fediverse](https://en.wikipedia.org/wiki/Fediverse) via [ActivityPub](https://activitypub.rocks/), [webmentions](https://webmention.net/), and [microformats2](https://microformats.org/wiki/microformats2). Your site gets its own fediverse profile, posts and avatar and header and all. Bridgy Fed translates likes, reposts, mentions, follows, and more back and forth. [See the user docs](https://fed.brid.gy/docs) for more details.
+Bridgy Fed connects your web site to [Mastodon](https://joinmastodon.org) and the [fediverse](https://en.wikipedia.org/wiki/Fediverse) via [ActivityPub](https://activitypub.rocks/), [webmentions](https://webmention.net/), and [microformats2](https://microformats.org/wiki/microformats2). Your site gets its own fediverse profile, posts and avatar and header and all. Bridgy Fed translates likes, reposts, mentions, follows, and more back and forth. [See the user docs](https://fed.brid.gy/docs) and [developer docs](https://bridgy-fed.readthedocs.io/) for more details.
 
 https://fed.brid.gy/
 
@@ -12,7 +12,7 @@ License: This project is placed in the public domain.
 
 Development
 ---
-Pull requests are welcome! Feel free to [ping me in #indieweb-dev](https://indieweb.org/discuss) with any questions.
+Development reference docs are at [bridgy-fed.readthedocs.io](https://bridgy-fed.readthedocs.io/). Pull requests are welcome! Feel free to [ping me in #indieweb-dev](https://indieweb.org/discuss) with any questions.
 
 First, fork and clone this repo. Then, install the [Google Cloud SDK](https://cloud.google.com/sdk/) and run `gcloud components install beta cloud-datastore-emulator` to install the [datastore emulator](https://cloud.google.com/datastore/docs/tools/datastore-emulator). Once you have them, set up your environment by running these commands in the repo root directory:
 
