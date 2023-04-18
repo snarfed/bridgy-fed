@@ -14,8 +14,12 @@ body {
 }
 
 .u-photo {
-  max-width: 50px;
+  max-width: 500px;
   border-radius: 4px;
+}
+
+.h-card .u-photo {
+  max-width: 50px;
 }
 
 .e-content {
