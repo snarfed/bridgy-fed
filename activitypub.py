@@ -359,10 +359,11 @@ def postprocess_as2(activity, target=None, wrap=True):
     # activity objects (for Like, Announce, etc): prefer id over url
     obj = as1.get_object(activity)
     id = obj.get('id')
-    if not id:
-        obj['id'] = util.get_first(obj, 'url') or target_id
-    elif target_id and id != target_id:
+    if target_id and type in as2.TYPES_WITH_OBJECT:
+        # inline most objects as bare string ids, not composite objects, for interop
         activity['object'] = target_id
+    elif not id:
+        obj['id'] = util.get_first(obj, 'url') or target_id
     elif g.user.is_homepage(id):
         obj['id'] = g.user.actor_id()
 

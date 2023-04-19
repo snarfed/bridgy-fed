@@ -383,27 +383,7 @@ def _activitypub_targets(obj):
     targets = common.remove_blocklisted(targets)
 
     inboxes_to_targets = {}
-    if not targets or verb == 'share':
-        logger.info('Delivering to followers')
-        inboxes = set()
-        domain = g.user.key.id()
-        for follower in Follower.query().filter(
-            Follower.key > Key('Follower', domain + ' '),
-            Follower.key < Key('Follower', domain + CHAR_AFTER_SPACE)):
-            if follower.status != 'inactive' and follower.last_follow:
-                actor = follower.last_follow.get('actor')
-                if actor and isinstance(actor, dict):
-                    inboxes.add(actor.get('endpoints', {}).get('sharedInbox') or
-                                actor.get('publicInbox') or
-                                actor.get('inbox'))
-
-        inboxes_to_targets = {inbox: None for inbox in inboxes}
-        if verb != 'share':
-            return inboxes_to_targets
-
-    if not targets:
-        error(f"Silo responses are not yet supported.", status=304)
-
+    target_obj = None
     for target in targets:
         # fetch target page as AS2 object
         try:
@@ -445,5 +425,21 @@ def _activitypub_targets(obj):
 
         inbox_url = urllib.parse.urljoin(target, inbox_url)
         inboxes_to_targets[inbox_url] = target_obj
+
+    if not targets or verb == 'share':
+        logger.info('Delivering to followers')
+        domain = g.user.key.id()
+        for follower in Follower.query().filter(
+            Follower.key > Key('Follower', domain + ' '),
+            Follower.key < Key('Follower', domain + CHAR_AFTER_SPACE)):
+            if follower.status != 'inactive' and follower.last_follow:
+                actor = follower.last_follow.get('actor')
+                if actor and isinstance(actor, dict):
+                    inbox = (actor.get('endpoints', {}).get('sharedInbox') or
+                             actor.get('publicInbox') or
+                             actor.get('inbox'))
+                    # HACK: use last target object from above for reposts, which
+                    # has its resolved id
+                    inboxes_to_targets[inbox] = (target_obj if verb == 'share' else None)
 
     return inboxes_to_targets

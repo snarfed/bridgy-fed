@@ -124,9 +124,9 @@ REPOST_AS1_UNWRAPPED = {
 REPOST_HCITE_HTML = """\
 <html>
 <body class="h-entry">
-<a class="u-url" href="https://user.com/repost"></a>
+<a class="u-url p-name" href="https://user.com/repost">reposted!</a>
 <div class="u-repost-of h-cite">
-  <p>Reposted <a class="p-author h-card" href="https://mas.to/@foo">Mr. Foo</a>:</p>
+  <a class="p-author h-card" href="https://mas.to/@foo">Mr. Foo</a>:</p>
   <a class="u-url" href="https://mas.to/toot/id">a post</a>
 </div>
 <a class="u-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
@@ -136,25 +136,6 @@ REPOST_HCITE_HTML = """\
 """
 REPOST_HCITE = requests_response(REPOST_HTML, content_type=CONTENT_TYPE_HTML,
                                  url='https://user.com/repost')
-REPOST_HCITE_AS2 = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
-    'type': 'Announce',
-    'id': 'http://localhost/r/https://user.com/repost',
-    'url': 'http://localhost/r/https://user.com/repost',
-    'object': {
-        'type': 'Note',
-        'id': 'https://mas.to/toot/id',
-        'url': 'https://mas.to/toot/id',
-        'attributedTo': [{
-            'type': 'Person',
-            'url': 'https://mas.to/@foo',
-            'name': 'Mr. Foo',
-        }],
-        'to': [as2.PUBLIC_AUDIENCE],
-    },
-    'to': [as2.PUBLIC_AUDIENCE],
-    'actor': 'http://localhost/user.com',
-}
 
 WEBMENTION_REL_LINK = requests_response(
     '<html><head><link rel="webmention" href="/webmention"></html>')
@@ -687,7 +668,7 @@ class WebmentionTest(testutil.TestCase):
         self._test_announce(REPOST_HTML, REPOST_AS2, mock_get, mock_post)
 
     def test_announce_repost_composite_hcite(self, mock_get, mock_post):
-        self._test_announce(REPOST_HCITE_HTML, REPOST_HCITE_AS2, mock_get, mock_post)
+        self._test_announce(REPOST_HCITE_HTML, REPOST_AS2, mock_get, mock_post)
 
     def _test_announce(self, html, expected_as2, mock_get, mock_post):
         self.make_followers()
@@ -1184,7 +1165,8 @@ class WebmentionTest(testutil.TestCase):
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(304, got.status_code)
+        self.assertEqual(200, got.status_code)
+        mock_post.assert_not_called()
 
     def test_update_profile(self, mock_get, mock_post):
         mock_get.side_effect = [ACTOR]
