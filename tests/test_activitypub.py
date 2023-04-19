@@ -21,7 +21,7 @@ from werkzeug.exceptions import BadGateway
 
 import activitypub
 from activitypub import ActivityPub
-from app import app
+from flask_app import app
 import common
 import models
 from models import Follower, Object, User

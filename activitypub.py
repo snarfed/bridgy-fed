@@ -16,7 +16,7 @@ from oauth_dropins.webutil.util import fragmentless, json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadGateway
 
-from app import app, cache
+from flask_app import app, cache
 import common
 from common import (
     CACHE_TIME,

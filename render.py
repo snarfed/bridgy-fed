@@ -10,7 +10,7 @@ from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil import util
 
 import activitypub
-from app import app, cache
+from flask_app import app, cache
 import common
 from models import Object
 

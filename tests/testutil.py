@@ -18,10 +18,13 @@ from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
-from app import app, cache
+# load all Flask handlers
+import app
+from flask_app import app, cache
 import activitypub, common
 from models import Object, PROTOCOLS, Target, User
 import protocol
+
 
 logger = logging.getLogger(__name__)
 

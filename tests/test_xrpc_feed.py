@@ -17,7 +17,7 @@ from oauth_dropins.webutil.testutil import requests_response
 import requests
 from werkzeug.exceptions import BadGateway
 
-from app import app
+from flask_app import app
 import common
 from models import Object, User
 from . import testutil

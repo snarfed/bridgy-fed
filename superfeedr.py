@@ -8,7 +8,7 @@ import logging
 
 from flask import request
 
-from app import app
+from flask_app import app
 
 logger = logging.getLogger(__name__)
 

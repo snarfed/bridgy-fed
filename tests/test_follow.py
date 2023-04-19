@@ -10,7 +10,7 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
-from app import app
+from flask_app import app
 import common
 from common import redirect_unwrap
 from models import Follower, Object, User

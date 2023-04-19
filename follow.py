@@ -16,9 +16,8 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import NOW
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
-# import module instead of ActivityPub class to avoid circular import
-import activitypub
-from app import app
+from activitypub import ActivityPub
+from flask_app import app
 import common
 import models
 
@@ -159,7 +158,7 @@ class FollowCallback(indieauth.Callback):
             return redirect(f'/user/{domain}/following')
 
         # TODO: make this generic across protocols
-        followee = activitypub.ActivityPub.load(as2_url).as2
+        followee = ActivityPub.load(as2_url).as2
         id = followee.get('id')
         inbox = followee.get('inbox')
         if not id or not inbox:
@@ -178,7 +177,7 @@ class FollowCallback(indieauth.Callback):
         }
         obj = models.Object(id=follow_id, domains=[domain], labels=['user'],
                             source_protocol='ui', status='complete', as2=follow_as2)
-        activitypub.ActivityPub.send(obj, inbox)
+        ActivityPub.send(obj, inbox)
 
         models.Follower.get_or_create(dest=id, src=domain, status='active',
                                       last_follow=follow_as2)
@@ -237,7 +236,7 @@ class UnfollowCallback(indieauth.Callback):
         if isinstance(followee, str):
             # fetch as AS2 to get full followee with inbox
             followee_id = followee
-            followee = activitypub.ActivityPub.load(followee_id).as2
+            followee = ActivityPub.load(followee_id).as2
 
         inbox = followee.get('inbox')
         if not inbox:
@@ -256,7 +255,7 @@ class UnfollowCallback(indieauth.Callback):
 
         obj = models.Object(id=unfollow_id, domains=[domain], labels=['user'],
                             source_protocol='ui', status='complete', as2=unfollow_as2)
-        activitypub.ActivityPub.send(obj, inbox)
+        ActivityPub.send(obj, inbox)
 
         follower.status = 'inactive'
         follower.put()

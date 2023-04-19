@@ -4,7 +4,7 @@ import copy
 from granary import as2
 from granary.tests.test_as1 import ACTOR, COMMENT, DELETE_OF_ID, UPDATE
 
-from app import app
+from flask_app import app
 import common
 from models import Object
 import render

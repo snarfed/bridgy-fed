@@ -6,7 +6,7 @@ from oauth_dropins.webutil.testutil import requests_response
 import requests
 
 from protocol import Protocol
-from app import app
+from flask_app import app
 from models import Follower, Object, User
 
 from .test_activitypub import ACTOR, REPLY

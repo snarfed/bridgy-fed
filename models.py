@@ -20,11 +20,7 @@ from oauth_dropins.webutil.models import ComputedJsonProperty, JsonProperty, Str
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
-# import top level modules to avoid circular imports
-import activitypub
 import common
-import protocol
-import webmention
 
 # https://github.com/snarfed/bridgy-fed/issues/314
 WWW_DOMAINS = frozenset((
@@ -260,6 +256,7 @@ class User(StringIdModel):
 
         # check home page
         try:
+            import activitypub, webmention  # TODO: actually fix these circular imports
             obj = webmention.Webmention.load(self.homepage, gateway=True)
             self.actor_as2 = activitypub.postprocess_as2(as2.from_as1(obj.as1))
             self.has_hcard = True
@@ -380,6 +377,7 @@ class Object(StringIdModel):
         # TODO: assert that as1 id is same as key id? in pre put hook?
         logger.info(f'Wrote Object {self.key.id()} {self.type} {self.status or ""} {self.labels} for {len(self.domains)} users')
         if '#' not in self.key.id():
+            import protocol  # TODO: actually fix this circular import
             protocol.objects_cache[self.key.id()] = self
 
     @classmethod

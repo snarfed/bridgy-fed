@@ -14,7 +14,7 @@ from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import error, flash, redirect
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
-from app import app, cache
+from flask_app import app, cache
 import common
 from common import DOMAIN_RE
 from models import fetch_page, Follower, Object, PAGE_SIZE, User

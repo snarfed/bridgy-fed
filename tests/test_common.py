@@ -7,7 +7,7 @@ from oauth_dropins.webutil import appengine_config, util
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
-from app import app
+from flask_app import app
 import common
 from models import Object, User
 import protocol

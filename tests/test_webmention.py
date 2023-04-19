@@ -17,7 +17,7 @@ import requests
 from werkzeug.exceptions import BadGateway, BadRequest
 
 import activitypub
-from app import app
+from flask_app import app
 from common import (
     CONTENT_TYPE_HTML,
     redirect_unwrap,

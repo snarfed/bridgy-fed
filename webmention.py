@@ -18,10 +18,10 @@ from oauth_dropins.webutil import webmention
 from requests import HTTPError, RequestException, URLRequired
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException
 
-# import module instead of individual classes/functions to avoid circular import
-import activitypub
-from app import app
+from activitypub import ActivityPub
+from flask_app import app
 import common
+from models import Follower, Object, Target, User
 import models
 from protocol import Protocol
 
@@ -132,7 +132,7 @@ def webmention_external():
         error(f'Bad URL {source}')
 
     domain = util.domain_from_link(source, minimize=False)
-    g.user = models.User.get_by_id(domain)
+    g.user = User.get_by_id(domain)
     if not g.user:
         error(f'No user found for domain {domain}')
 
@@ -180,7 +180,7 @@ def webmention_task():
     domain = util.domain_from_link(source, minimize=False)
     logger.info(f'webmention from {domain}')
 
-    g.user = models.User.get_by_id(domain)
+    g.user = User.get_by_id(domain)
     if not g.user:
         error(f'No user found for domain {domain}', status=304)
 
@@ -195,12 +195,12 @@ def webmention_task():
 
         create_id = f'{source}#bridgy-fed-create'
         logger.info(f'Interpreting as Delete. Looking for {create_id}')
-        create = models.Object.get_by_id(create_id)
+        create = Object.get_by_id(create_id)
         if not create or create.status != 'complete':
             error(f"Bridgy Fed hasn't successfully published {source}", status=304)
 
         id = f'{source}#bridgy-fed-delete'
-        obj = models.Object(id=id, our_as1={
+        obj = Object(id=id, our_as1={
             'id': id,
             'objectType': 'activity',
             'verb': 'delete',
@@ -227,7 +227,7 @@ def webmention_task():
             'updated': util.now().isoformat(),
         }
         id = common.host_url(f'{obj.key.id()}#update-{util.now().isoformat()}')
-        obj = models.Object(id=id, our_as1={
+        obj = Object(id=id, our_as1={
             'objectType': 'activity',
             'verb': 'update',
             'id': id,
@@ -274,9 +274,8 @@ def webmention_task():
                     **obj.as1,
                 },
             }
-            obj = models.Object(
-                id=id, mf2=obj.mf2, our_as1=update_as1, labels=['user'],
-                domains=[g.user.key.id()], source_protocol='webmention')
+            obj = Object(id=id, mf2=obj.mf2, our_as1=update_as1, labels=['user'],
+                         domains=[g.user.key.id()], source_protocol='webmention')
 
         elif obj.new:
             logger.info(f'New Object {obj.key.id()}')
@@ -290,9 +289,9 @@ def webmention_task():
                 'actor': g.user.actor_id(),
                 'object': obj.as1,
             }
-            obj = models.Object(id=id, mf2=obj.mf2, our_as1=create_as1,
-                                domains=[g.user.key.id()], labels=['user'],
-                                source_protocol='webmention')
+            obj = Object(id=id, mf2=obj.mf2, our_as1=create_as1,
+                         domains=[g.user.key.id()], labels=['user'],
+                         source_protocol='webmention')
 
         else:
             msg = f'{obj.key.id()} is unchanged, nothing to do'
@@ -307,7 +306,7 @@ def webmention_task():
         labels=['user'],
         delivered=[],
         failed=[],
-        undelivered=[models.Target(uri=uri, protocol='activitypub')
+        undelivered=[Target(uri=uri, protocol='activitypub')
                      for uri in inboxes_to_targets.keys()],
     )
 
@@ -324,16 +323,16 @@ def webmention_task():
             # prefer AS2 id or url, if available
             # https://github.com/snarfed/bridgy-fed/issues/307
             dest = target_as2 or as1.get_object(obj.as1)
-            models.Follower.get_or_create(dest=dest.get('id') or dest.get('url'),
-                                          src=g.user.key.id(),
-                                          last_follow=as2.from_as1(obj.as1))
+            Follower.get_or_create(dest=dest.get('id') or dest.get('url'),
+                                   src=g.user.key.id(),
+                                   last_follow=as2.from_as1(obj.as1))
 
         # this is reused later in ActivityPub.send()
         # TODO: find a better way
         obj.target_as2 = target_as2
 
         try:
-            last = activitypub.ActivityPub.send(obj, inbox, log_data=log_data)
+            last = ActivityPub.send(obj, inbox, log_data=log_data)
             obj.delivered.append(target)
             last_success = last
         except BaseException as e:
@@ -388,9 +387,9 @@ def _activitypub_targets(obj):
         logger.info('Delivering to followers')
         inboxes = set()
         domain = g.user.key.id()
-        for follower in models.Follower.query().filter(
-            models.Follower.key > Key('Follower', domain + ' '),
-            models.Follower.key < Key('Follower', domain + CHAR_AFTER_SPACE)):
+        for follower in Follower.query().filter(
+            Follower.key > Key('Follower', domain + ' '),
+            Follower.key < Key('Follower', domain + CHAR_AFTER_SPACE)):
             if follower.status != 'inactive' and follower.last_follow:
                 actor = follower.last_follow.get('actor')
                 if actor and isinstance(actor, dict):
@@ -409,7 +408,7 @@ def _activitypub_targets(obj):
         # fetch target page as AS2 object
         try:
             # TODO: make this generic across protocols
-            target_stored = activitypub.ActivityPub.load(target)
+            target_stored = ActivityPub.load(target)
             target_obj = target_stored.as2 or as2.from_as1(target_stored.as1)
         except (HTTPError, BadGateway) as e:
             resp = getattr(e, 'requests_response', None)
@@ -435,7 +434,7 @@ def _activitypub_targets(obj):
         if not inbox_url:
             # fetch actor as AS object
             # TODO: make this generic across protocols
-            actor_obj = activitypub.ActivityPub.load(actor)
+            actor_obj = ActivityPub.load(actor)
             actor = actor_obj.as2 or as2.from_as1(actor_obj.as1)
             inbox_url = actor.get('inbox')
 

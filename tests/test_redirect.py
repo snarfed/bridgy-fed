@@ -4,7 +4,7 @@ import copy
 
 from granary import as2
 
-from app import app, cache
+from flask_app import app, cache
 from common import redirect_unwrap
 from models import Object, User
 from .test_webmention import REPOST_AS2

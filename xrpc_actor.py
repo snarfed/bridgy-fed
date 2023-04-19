@@ -8,7 +8,7 @@ from granary import microformats2, bluesky
 import mf2util
 from oauth_dropins.webutil import util
 
-from app import xrpc_server
+from flask_app import xrpc_server
 from models import User
 
 logger = logging.getLogger(__name__)

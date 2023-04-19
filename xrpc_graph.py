@@ -5,7 +5,7 @@ import re
 from granary import bluesky
 from oauth_dropins.webutil import util
 
-from app import xrpc_server
+from flask_app import xrpc_server
 import common
 from models import Follower, User
 

@@ -8,7 +8,7 @@ from granary import bluesky, microformats2
 import mf2util
 from oauth_dropins.webutil import util
 
-from app import xrpc_server
+from flask_app import xrpc_server
 from models import Object, PAGE_SIZE, User
 
 logger = logging.getLogger(__name__)

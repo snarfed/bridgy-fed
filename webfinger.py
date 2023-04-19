@@ -14,7 +14,7 @@ from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
-from app import app, cache
+from flask_app import app, cache
 import common
 from models import User
 

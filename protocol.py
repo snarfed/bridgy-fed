@@ -10,8 +10,7 @@ from granary import as1, as2
 
 import common
 from common import error
-# import module instead of individual classes to avoid circular import
-import models
+from models import Follower, Object, Target, User
 from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
@@ -119,12 +118,12 @@ class Protocol:
         with seen_ids_lock:
             already_seen = id in seen_ids
             seen_ids[id] = True
-            if already_seen or models.Object.get_by_id(id):
+            if already_seen or Object.get_by_id(id):
                 msg = f'Already handled this activity {id}'
                 logger.info(msg)
                 return msg, 200
 
-        obj = models.Object.get_or_insert(id)
+        obj = Object.get_or_insert(id)
         obj.clear()
         obj.populate(source_protocol=cls.LABEL, **props)
         obj.put()
@@ -138,8 +137,8 @@ class Protocol:
         inner_obj = as1.get_object(obj.as1)
         inner_obj_id = inner_obj.get('id')
         if obj.type in ('post', 'create', 'update') and inner_obj.keys() > set(['id']):
-            to_update = (models.Object.get_by_id(inner_obj_id)
-                         or models.Object(id=inner_obj_id))
+            to_update = (Object.get_by_id(inner_obj_id)
+                         or Object(id=inner_obj_id))
             to_update.populate(as2=obj.as2['object'], source_protocol=cls.LABEL)
             to_update.put()
 
@@ -156,8 +155,8 @@ class Protocol:
 
             # deactivate Follower
             followee_domain = util.domain_from_link(inner_obj_id, minimize=False)
-            follower = models.Follower.get_by_id(
-                models.Follower._id(dest=followee_domain, src=actor_id))
+            follower = Follower.get_by_id(
+                Follower._id(dest=followee_domain, src=actor_id))
             if follower:
                 logger.info(f'Marking {follower} inactive')
                 follower.status = 'inactive'
@@ -183,7 +182,7 @@ class Protocol:
             if not inner_obj_id:
                 error("Couldn't find id of object to delete")
 
-            to_delete = models.Object.get_by_id(inner_obj_id)
+            to_delete = Object.get_by_id(inner_obj_id)
             if to_delete:
                 logger.info(f'Marking Object {inner_obj_id} deleted')
                 to_delete.deleted = True
@@ -192,9 +191,9 @@ class Protocol:
             # assume this is an actor
             # https://github.com/snarfed/bridgy-fed/issues/63
             logger.info(f'Deactivating Followers with src or dest = {inner_obj_id}')
-            followers = models.Follower.query(OR(models.Follower.src == inner_obj_id,
-                                                 models.Follower.dest == inner_obj_id)
-                                              ).fetch()
+            followers = Follower.query(OR(Follower.src == inner_obj_id,
+                                          Follower.dest == inner_obj_id)
+                                       ).fetch()
             for f in followers:
                 f.status = 'inactive'
             obj.status = 'complete'
@@ -222,9 +221,9 @@ class Protocol:
         if (actor and actor_id and
             (obj.type == 'share' or obj.type in ('create', 'post') and not is_reply)):
             logger.info(f'Delivering to followers of {actor_id}')
-            for f in models.Follower.query(models.Follower.dest == actor_id,
-                                    models.Follower.status == 'active',
-                                    projection=[models.Follower.src]):
+            for f in Follower.query(Follower.dest == actor_id,
+                                    Follower.status == 'active',
+                                    projection=[Follower.src]):
                 if f.src not in obj.domains:
                     obj.domains.append(f.src)
             if obj.domains and 'feed' not in obj.labels:
@@ -254,7 +253,7 @@ class Protocol:
             error(f'Follow actor requires id and inbox. Got: {follower}')
 
         # store Follower
-        follower_obj = models.Follower.get_or_create(
+        follower_obj = Follower.get_or_create(
             dest=g.user.key.id(), src=follower_id, last_follow=obj.as2)
         follower_obj.status = 'active'
         follower_obj.put()
@@ -272,7 +271,7 @@ class Protocol:
                 'object': followee_actor_url,
             }
         }
-        return cls.send(models.Object(as2=accept), inbox)
+        return cls.send(Object(as2=accept), inbox)
 
     @classmethod
     def deliver(cls, obj):
@@ -314,7 +313,7 @@ class Protocol:
 
         # send webmentions and update Object
         errors = []  # stores (code, body) tuples
-        targets = [models.Target(uri=uri, protocol='webmention') for uri in targets]
+        targets = [Target(uri=uri, protocol='webmention') for uri in targets]
 
         obj.populate(
           undelivered=targets,
@@ -394,7 +393,7 @@ class Protocol:
 
         logger.info(f'Loading Object {id}')
         orig_as1 = None
-        obj = models.Object.get_by_id(id)
+        obj = Object.get_by_id(id)
         if obj and (obj.as1 or obj.deleted):
             logger.info('  got from datastore')
             obj.new = False
@@ -411,7 +410,7 @@ class Protocol:
             obj.clear()
         else:
             logger.info(f'  not in datastore')
-            obj = models.Object(id=id)
+            obj = Object(id=id)
             obj.new = True
             obj.changed = False
 

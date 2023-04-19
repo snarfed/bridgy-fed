@@ -21,9 +21,8 @@ from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
-# import module instead of individual functions to avoid circular import
 import activitypub
-from app import app, cache
+from flask_app import app, cache
 from common import CACHE_TIME, CONTENT_TYPE_HTML
 from models import Object, User
 

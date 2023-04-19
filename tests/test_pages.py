@@ -15,7 +15,7 @@ from granary.tests.test_as1 import (
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 
-from app import app
+from flask_app import app
 import common
 from models import Object, Follower, User
 from . import testutil
