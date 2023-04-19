@@ -120,6 +120,42 @@ REPOST_AS1_UNWRAPPED = {
     'object': 'https://mas.to/toot/id',
     'actor': ACTOR_AS1_UNWRAPPED,
 }
+
+REPOST_HCITE_HTML = """\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://user.com/repost"></a>
+<div class="u-repost-of h-cite">
+  <p>Reposted <a class="p-author h-card" href="https://mas.to/@foo">Mr. Foo</a>:</p>
+  <a class="u-url" href="https://mas.to/toot/id">a post</a>
+</div>
+<a class="u-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+"""
+REPOST_HCITE = requests_response(REPOST_HTML, content_type=CONTENT_TYPE_HTML,
+                                 url='https://user.com/repost')
+REPOST_HCITE_AS2 = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'type': 'Announce',
+    'id': 'http://localhost/r/https://user.com/repost',
+    'url': 'http://localhost/r/https://user.com/repost',
+    'object': {
+        'type': 'Note',
+        'id': 'https://mas.to/toot/id',
+        'url': 'https://mas.to/toot/id',
+        'attributedTo': [{
+            'type': 'Person',
+            'url': 'https://mas.to/@foo',
+            'name': 'Mr. Foo',
+        }],
+        'to': [as2.PUBLIC_AUDIENCE],
+    },
+    'to': [as2.PUBLIC_AUDIENCE],
+    'actor': 'http://localhost/user.com',
+}
+
 WEBMENTION_REL_LINK = requests_response(
     '<html><head><link rel="webmention" href="/webmention"></html>')
 WEBMENTION_NO_REL_LINK = requests_response('<html></html>')
@@ -598,10 +634,8 @@ class WebmentionTest(testutil.TestCase):
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(200, got.status_code)
-
-        args, kwargs = mock_post.call_args
-        self.assertEqual(('https://mas.to/inbox',), args)
-        self.assert_equals(REPOST_AS2, json_loads(kwargs['data']))
+        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], REPOST_AS2,
+                               ignore=['cc'])
 
     def test_skip_update_if_content_unchanged(self, mock_get, mock_post):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
@@ -649,10 +683,21 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals(self.as2_create, json_loads(kwargs['data']))
 
-    def test_create_repost(self, mock_get, mock_post):
+    def test_announce_repost(self, mock_get, mock_post):
+        self._test_announce(REPOST_HTML, REPOST_AS2, mock_get, mock_post)
+
+    def test_announce_repost_composite_hcite(self, mock_get, mock_post):
+        self._test_announce(REPOST_HCITE_HTML, REPOST_HCITE_AS2, mock_get, mock_post)
+
+    def _test_announce(self, html, expected_as2, mock_get, mock_post):
         self.make_followers()
 
-        mock_get.side_effect = [REPOST, self.toot_as2, self.actor]
+        mock_get.side_effect = [
+            requests_response(html, content_type=CONTENT_TYPE_HTML,
+                              url='https://user.com/repost'),
+            self.toot_as2,
+            self.actor,
+        ]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -669,19 +714,20 @@ class WebmentionTest(testutil.TestCase):
 
         inboxes = ('https://inbox', 'https://public/inbox',
                    'https://shared/inbox', 'https://mas.to/inbox')
-        self.assert_deliveries(mock_post, inboxes, REPOST_AS2, ignore=['cc'])
+        self.assert_deliveries(mock_post, inboxes, expected_as2, ignore=['cc'])
 
         for args, kwargs in mock_get.call_args_list[1:]:
             with self.subTest(url=args[0]):
                 rsa_key = kwargs['auth'].header_signer._rsa._key
                 self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
 
+        mf2 = util.parse_mf2(html)['items'][0]
         self.assert_object('https://user.com/repost',
                            domains=['user.com'],
                            source_protocol='webmention',
                            status='complete',
-                           mf2=REPOST_MF2,
-                           as1=microformats2.json_to_object(REPOST_MF2),
+                           mf2=mf2,
+                           as1=microformats2.json_to_object(mf2),
                            delivered=inboxes,
                            type='share',
                            object_ids=['https://mas.to/toot/id'],

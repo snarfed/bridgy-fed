@@ -284,7 +284,7 @@ def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
     return resp
 
 
-def postprocess_as2(activity, target=None):
+def postprocess_as2(activity, target=None, wrap=True):
     """Prepare an AS2 object to be served or sent via ActivityPub.
 
     g.user is required. Populates it into the actor.id and publicKey fields.
@@ -293,6 +293,7 @@ def postprocess_as2(activity, target=None):
       activity: dict, AS2 object or activity
       target: dict, AS2 object, optional. The target of activity's inReplyTo or
         Like/Announce/etc object, if any.
+      wrap: boolean, whether to wrap id, url, object, actor, and attributedTo
     """
     if not activity or isinstance(activity, str):
         return activity
@@ -319,11 +320,12 @@ def postprocess_as2(activity, target=None):
             })
         return activity
 
-    for field in 'actor', 'attributedTo':
-        activity[field] = [postprocess_as2_actor(actor)
-                           for actor in util.get_list(activity, field)]
-        if len(activity[field]) == 1:
-            activity[field] = activity[field][0]
+    if wrap:
+        for field in 'actor', 'attributedTo':
+            activity[field] = [postprocess_as2_actor(actor, wrap=wrap)
+                               for actor in util.get_list(activity, field)]
+            if len(activity[field]) == 1:
+                activity[field] = activity[field][0]
 
     # inReplyTo: singly valued, prefer id over url
     # TODO: ignore target, do for all inReplyTo
@@ -372,19 +374,19 @@ def postprocess_as2(activity, target=None):
     if not activity.get('id'):
         activity['id'] = util.get_first(activity, 'url')
 
-    # Deletes' object is our own id
-    if type == 'Delete':
-        activity['object'] = redirect_wrap(activity['object'])
+    if wrap:
+        # Deletes' object is our own id
+        if type == 'Delete':
+            activity['object'] = redirect_wrap(activity['object'])
+        activity['id'] = redirect_wrap(activity.get('id'))
+        activity['url'] = [redirect_wrap(u) for u in util.get_list(activity, 'url')]
+        if len(activity['url']) == 1:
+            activity['url'] = activity['url'][0]
 
     # TODO: find a better way to check this, sometimes or always?
     # removed for now since it fires on posts without u-id or u-url, eg
     # https://chrisbeckstrom.com/2018/12/27/32551/
     # assert activity.get('id') or (isinstance(obj, dict) and obj.get('id'))
-
-    activity['id'] = redirect_wrap(activity.get('id'))
-    activity['url'] = [redirect_wrap(u) for u in util.get_list(activity, 'url')]
-    if len(activity['url']) == 1:
-        activity['url'] = activity['url'][0]
 
     # copy image(s) into attachment(s). may be Mastodon-specific.
     # https://github.com/snarfed/bridgy-fed/issues/33#issuecomment-440965618
@@ -432,18 +434,20 @@ def postprocess_as2(activity, target=None):
             if not name.startswith('#'):
                 tag['name'] = f'#{name}'
 
-    activity['object'] = postprocess_as2(activity.get('object'), target=target)
+    activity['object'] = postprocess_as2(activity.get('object'), target=target,
+                                         wrap=type in ('Create', 'Update', 'Delete'))
 
     return util.trim_nulls(activity)
 
 
-def postprocess_as2_actor(actor):
+def postprocess_as2_actor(actor, wrap=True):
     """Prepare an AS2 actor object to be served or sent via ActivityPub.
 
     Modifies actor in place.
 
     Args:
       actor: dict, AS2 actor object
+      wrap: boolean, whether to wrap url
 
     Returns:
       actor dict
@@ -457,7 +461,8 @@ def postprocess_as2_actor(actor):
       urls = [url]
 
     domain = util.domain_from_link(urls[0], minimize=False)
-    urls[0] = redirect_wrap(urls[0])
+    if wrap:
+        urls[0] = redirect_wrap(urls[0])
 
     actor.setdefault('id', host_url(domain))
     actor.update({
