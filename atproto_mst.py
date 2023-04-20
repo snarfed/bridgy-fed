@@ -854,10 +854,9 @@ def layer_for_entries(entries):
     Returns:
       number | None
     """
-    # first_leaf = entries.find((entry) => isinstance(entry, Leaf))
-    # if not first_leaf or isinstance(first_leaf, MST):
-    #      return None
-    # return leading_zeros_on_hash(first_leaf.key)
+    for entry in entries:
+        if isinstance(entry, Leaf):
+            return leading_zeros_on_hash(first_leaf.key)
 
 
 # def deserialize_node_data = (

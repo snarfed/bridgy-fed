@@ -16,50 +16,21 @@ from unittest import skip
 import dag_cbor.random
 from multiformats import CID, multibase
 
+from atproto import datetime_to_tid
 from atproto_mst import common_prefix_len, ensure_valid_key, MST
 from . import testutil
-
-# make random test data deterministic
-random.seed(1234567890)
-dag_cbor.random.set_options(seed=1234567890)
 
 CID1 = CID.decode(multibase.decode(
     'bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454'))
 
 
-# _tid_last = time.time_ns() // 1000  # microseconds
-_tid_clockid = random.randint(0, 31)
-
-# def next_tid():
-#     global _tid_last
-
-#     # enforce that we're at least 1us after the last TID to prevent TIDs moving
-#     # backwards if system clock drifts backwards
-#     now = time.time_ns() // 1000
-#     if now > _tid_last:
-#         _tid_last = now
-#     else:
-#         _tid_last += 1
-#         now = _tid_last
-
-def next_tid():
-    ms = random.randint(datetime(2020, 1, 1).timestamp() * 1000,
-                        datetime(2024, 1, 1).timestamp() * 1000)
-
-    # the bottom 32 clock ids can be randomized & are not guaranteed to be
-    # collision resistant. we use the same clockid for all TIDs coming from this
-    # machine
-    base32 = multibase.get('base32')
-    def base32_int_bytes(val):
-        return base32.encode(val.to_bytes((val.bit_length() + 7) // 8, byteorder='big'))
-
-    encoded = base32_int_bytes(ms) + base32_int_bytes(_tid_clockid).ljust(2, '2')
-
-    return f'{encoded[:4]}-{encoded[4:7]}-{encoded[7:11]}-{encoded[11:]}'
-
-
 def make_data(num):
-    return [(f'com.example.record/{next_tid()}', cid)
+    def tid():
+        ms = random.randint(datetime(2020, 1, 1).timestamp() * 1000,
+                            datetime(2024, 1, 1).timestamp() * 1000)
+        return datetime_to_tid(datetime.fromtimestamp(float(ms) / 1000))
+
+    return [(f'com.example.record/{tid()}', cid)
             for cid in dag_cbor.random.rand_cid(num)]
 
 

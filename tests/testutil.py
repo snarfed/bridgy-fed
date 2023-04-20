@@ -1,9 +1,11 @@
 """Common test utility code."""
 import copy
 import datetime
+import random
 import unittest
 from unittest.mock import ANY, call
 
+import dag_cbor.random
 from flask import g
 from google.cloud import ndb
 from granary import as2
@@ -17,6 +19,10 @@ from oauth_dropins.webutil import testutil, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.testutil import requests_response
 import requests
+
+# make random test data deterministic
+random.seed(1234567890)
+dag_cbor.random.set_options(seed=1234567890)
 
 # load all Flask handlers
 import app

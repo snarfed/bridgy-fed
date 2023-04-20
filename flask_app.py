@@ -50,7 +50,7 @@ util.set_user_agent('Bridgy Fed (https://fed.brid.gy/)')
 
 # XRPC server
 lexicons = []
-for filename in (app_dir / 'lexicons/app/bsky').glob('**/*.json'):
+for filename in (app_dir / 'lexicons').glob('**/*.json'):
     with open(filename) as f:
         lexicons.append(json.load(f))
 
