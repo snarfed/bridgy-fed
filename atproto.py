@@ -135,6 +135,8 @@ def get_record(input, ):
     """
 
 
+
+# TODO: implement earliest, latest
 @xrpc_server.method('com.atproto.sync.getRepo')
 def get_repo(input, did, earliest=None, latest=None):
     """
@@ -157,6 +159,12 @@ def get_repo(input, did, earliest=None, latest=None):
     blocks = {}   # maps CID to DAG-CBOR block bytes
     mst = MST()
 
+    if earliest:
+        earliest = CID.decode(multibase.decode(earliest))
+    if latest:
+        latest = CID.decode(multibase.decode(latest))
+
+    inside = (earliest is None)
     for obj in Object.query(Object.domains == domain, Object.labels == 'user'):
         if not obj.as1:
             continue
@@ -171,8 +179,13 @@ def get_repo(input, did, earliest=None, latest=None):
         tid = datetime_to_tid(obj.created)
         rkey = f'{bs["$type"]}/{tid}'
 
-        logger.debug(f'Adding to MST: {rkey} {cid}')
-        mst = mst.add(rkey, cid)
+        if inside:
+            logger.debug(f'Adding to MST: {rkey} {cid}')
+            mst = mst.add(rkey, cid)
+            if cid == latest:
+                inside = False
+        elif cid == earliest:
+            inside = True
 
     return dag_cbor.encoding.encode(serialize_node_data(mst.all_nodes())._asdict())
 
