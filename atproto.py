@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 # the bottom 32 clock ids can be randomized & are not guaranteed to be collision
 # resistant. we use the same clockid for all TIDs coming from this runtime.
 _clockid = random.randint(0, 31)
-
 # _tid_last = time.time_ns() // 1000  # microseconds
 
 # def next_tid():
@@ -114,7 +113,6 @@ def build_pds(did, earliest=None, latest=None):
         elif cid == earliest:
             inside = True
 
-
     return blocks, mst
 
 
@@ -178,7 +176,7 @@ def get_commit_path(input, ):
 
 
 @xrpc_server.method('com.atproto.sync.getHead')
-def get_head(input, ):
+def get_head(input, did=None):
     """
 
     Args:
@@ -187,6 +185,8 @@ def get_head(input, ):
     Returns:
       
     """
+    _, mst = build_pds(did)
+    return {'root': mst.get_pointer().encode('base32')}
 
 
 @xrpc_server.method('com.atproto.sync.getRecord')

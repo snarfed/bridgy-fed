@@ -16,6 +16,7 @@ from multiformats import CID, multibase
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import NOW
 
+import atproto
 from flask_app import app
 from models import Object, User
 from . import testutil
@@ -24,9 +25,10 @@ from . import testutil
 POST_CID = 'bafyreic5xwex7jxqvliumozkoli3qy2hzxrmui6odl7ujrcybqaypacfiy'
 REPLY_CID = 'bafyreib55ro37wasiflouvlfenhzllorcthm7flr2nj4fnk7yjo54cagvm'
 REPOST_CID = 'bafyreiek3jnp6e4sussy4c7pwtbkkf3kepekzycylowwuepmnvq7aeng44'
+HEAD_CID = 'bafyreiagk7qmor3gckkm6dts7c32frtnyn4reznclojgjraqwoumecenx4'
+HEAD_CID_EMPTY = 'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm'
 REPO_ENTRIES = {
-    'l': CID.decode(multibase.decode(
-        'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm')),
+    'l': CID.decode(multibase.decode(HEAD_CID)),
     'e': [{
         'k': b'app.bsky.feed.feedViewPost/baxkjoxgdgnaqbbi',
         'v': CID.decode(multibase.decode(POST_CID)),
@@ -51,6 +53,8 @@ class AtProtoTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
 
+        atproto._clockid = 17  # need this to be deterministic
+
         # used in now(), injected into Object.created so that TIDs are deterministic
         self.last_now = NOW.replace(tzinfo=None)
 
@@ -58,7 +62,10 @@ class AtProtoTest(testutil.TestCase):
         self.last_now = self.last_now.replace(microsecond=self.last_now.microsecond + 1)
         return self.last_now
 
-    def make_objects(self):
+    @patch('models.Object.created._now')
+    def make_objects(self, mock_now):
+        mock_now.side_effect = self.now
+
         with app.test_request_context('/'):
             Object(id='a', domains=['user.com'], labels=['user'], as2=POST_AS).put()
             Object(id='b', domains=['user.com'], labels=['user'], our_as1=REPLY_AS).put()
@@ -119,15 +126,44 @@ class AtProtoTest(testutil.TestCase):
     # def test_get_commit_path(self):
 
 
-    # def test_get_head(self):
+    def test_get_head_empty(self):
+        self.make_user('user.com')
 
+        resp = self.client.get('/xrpc/com.atproto.sync.getHead', query_string={
+            'did': 'did:web:user.com',
+        })
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({'root': HEAD_CID_EMPTY}, resp.json)
+
+    def test_get_head(self):
+        self.make_user('user.com')
+        self.make_objects()
+
+        resp = self.client.get('/xrpc/com.atproto.sync.getHead', query_string={
+            'did': 'did:web:user.com',
+        })
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({'root': HEAD_CID}, resp.json)
+
+        # alone: bafyreidk5xw2dqskokvhioznjhnha5am4nstrrmd2in7w7bmbuzpwnxlhq
+        # with test_get_repo: bafyreif754hxy2df3hkhzqbwccvd53imxex35zrx4gou3dvjql6mavxo6a
 
     # def test_get_record(self):
 
-    @patch('models.Object.created._now')
-    def test_get_repo(self, mock_now):
-        mock_now.side_effect = self.now
+    def test_get_repo_empty(self):
+        self.make_user('user.com')
 
+        resp = self.client.get('/xrpc/com.atproto.sync.getRepo',
+                               query_string={'did': 'did:web:user.com'})
+        self.assertEqual(200, resp.status_code)
+
+        decoded = dag_cbor.decoding.decode(resp.get_data())
+        self.assertEqual({
+            'l': CID.decode(multibase.decode(HEAD_CID_EMPTY)),
+            'e': [],
+        }, decoded)
+
+    def test_get_repo(self):
         self.make_user('user.com')
         self.make_objects()
 
@@ -138,10 +174,7 @@ class AtProtoTest(testutil.TestCase):
         decoded = dag_cbor.decoding.decode(resp.get_data())
         self.assertEqual(REPO_ENTRIES, decoded)
 
-    @patch('models.Object.created._now')
-    def test_get_repo_latest_earliest(self, mock_now):
-        mock_now.side_effect = self.now
-
+    def test_get_repo_latest_earliest(self):
         self.make_user('user.com')
         self.make_objects()
 
@@ -153,13 +186,17 @@ class AtProtoTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code)
 
         decoded = dag_cbor.decoding.decode(resp.get_data())
-        expected = copy.copy(REPO_ENTRIES)
-        expected['e'] = [copy.copy(expected['e'][1])]
-        expected['e'][0].update({
-            'k': b'app.bsky.feed.feedViewPost/baxkjoxgdgnbabbi',
-            'p': 0,
-        })
-        self.assertEqual(expected, decoded)
+        self.assertEqual({
+            'l': CID.decode(multibase.decode(
+                'bafyreieohwgp723mmvfsrg3mxle3azuf2u5ly6h3azlslubalqh5thwrxq')),
+            'e': [{
+                'k': b'app.bsky.feed.feedViewPost/baxkjoxgdgnbabce',
+                'v': CID.decode(multibase.decode(
+                    'bafyreib55ro37wasiflouvlfenhzllorcthm7flr2nj4fnk7yjo54cagvm')),
+                'p': 0,
+                't': None,
+            }],
+        }, decoded)
 
     def test_get_repo_error_not_did_web(self):
         resp = self.client.get('/xrpc/com.atproto.sync.getRepo',
