@@ -21,25 +21,25 @@ from models import Object, User
 from . import testutil
 
 # atproto_mst.Data entry for MST with POST_AS, REPLY_AS, and REPOST_AS
+POST_CID = 'bafyreic5xwex7jxqvliumozkoli3qy2hzxrmui6odl7ujrcybqaypacfiy'
+REPLY_CID = 'bafyreib55ro37wasiflouvlfenhzllorcthm7flr2nj4fnk7yjo54cagvm'
+REPOST_CID = 'bafyreiek3jnp6e4sussy4c7pwtbkkf3kepekzycylowwuepmnvq7aeng44'
 REPO_ENTRIES = {
     'l': CID.decode(multibase.decode(
         'bafyreie5737gdxlw5i64vzichcalba3z2v5n6icifvx5xytvske7mr3hpm')),
     'e': [{
         'k': b'app.bsky.feed.feedViewPost/baxkjoxgdgnaqbbi',
-        'v': CID.decode(multibase.decode(
-            'bafyreic5xwex7jxqvliumozkoli3qy2hzxrmui6odl7ujrcybqaypacfiy')),
+        'v': CID.decode(multibase.decode(POST_CID)),
         'p': 0,
         't': None,
     }, {
         'k': b'babbi',
-        'v': CID.decode(multibase.decode(
-            'bafyreib55ro37wasiflouvlfenhzllorcthm7flr2nj4fnk7yjo54cagvm')),
+        'v': CID.decode(multibase.decode(REPLY_CID)),
         'p': 38,
         't': None,
     }, {
         'k': b'qbbi',
-        'v': CID.decode(multibase.decode(
-            'bafyreiek3jnp6e4sussy4c7pwtbkkf3kepekzycylowwuepmnvq7aeng44')),
+        'v': CID.decode(multibase.decode(REPOST_CID)),
         'p': 39,
         't': None,
     }],
@@ -70,9 +70,48 @@ class AtProtoTest(testutil.TestCase):
 
     # def test_get_blob(input, ):
 
+    def test_get_blocks_empty(self):
+        self.make_user('user.com')
 
-    # def test_get_blocks(self):
+        resp = self.client.get('/xrpc/com.atproto.sync.getBlocks', query_string={
+            'did': 'did:web:user.com',
+            'cids': [],
+        })
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual([], dag_cbor.decoding.decode(resp.get_data()))
 
+    def test_get_blocks(self):
+        self.make_user('user.com')
+        self.make_objects()
+
+        resp = self.client.get('/xrpc/com.atproto.sync.getBlocks', query_string={
+            'did': 'did:web:user.com',
+            'cids': [REPLY_CID, REPOST_CID],
+        })
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual([REPLY_BSKY, REPOST_BSKY],
+                         dag_cbor.decoding.decode(resp.get_data()))
+
+    def test_get_blocks_error_not_did_web(self):
+        resp = self.client.get('/xrpc/com.atproto.sync.getBlocks', query_string={
+            'did': 'did:plc:foo',
+            'cids': [],
+        })
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+
+    def test_get_blocks_error_no_domain_in_did(self):
+        resp = self.client.get('/xrpc/com.atproto.sync.getBlocks', query_string={
+            'did': 'did:web:',
+            'cids': [],
+        })
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
+
+    def test_get_blocks_error_no_user(self):
+        resp = self.client.get('/xrpc/com.atproto.sync.getBlocks', query_string={
+            'did': 'did:web:nope.com',
+            'cids': [],
+        })
+        self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
 
     # def test_get_checkout(self):
 

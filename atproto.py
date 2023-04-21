@@ -63,6 +63,61 @@ def datetime_to_tid(dt):
     # return f'{encoded[:4]}-{encoded[4:7]}-{encoded[7:11]}-{encoded[11:]}'
 
 
+def build_pds(did, earliest=None, latest=None):
+    """Builds a single user's PDS, including DAG-CBOR blocks and MST.
+
+    Raises ValueError if did is not did:web or no user exists with that domain.
+
+    Args:
+      did: str did:web DID
+      earliest: str, base32-encoded CID
+      latest: str, base32-encoded CID
+
+    Returns:
+      ({:class:`CID`: Bluesky object}, :class:`MST`) tuple
+    """
+    domain = util.domain_from_link(bluesky.did_web_to_url(did), minimize=False)
+    if not domain:
+        raise ValueError(f'No domain found in {did}')
+
+    g.user = User.get_by_id(domain)
+    if not g.user:
+        raise ValueError(f'No user found for domain {domain}')
+
+    blocks = {}   # maps CID to Bluesky object
+    mst = MST()
+
+    if earliest:
+        earliest = CID.decode(multibase.decode(earliest))
+    if latest:
+        latest = CID.decode(multibase.decode(latest))
+
+    inside = (earliest is None)
+    for obj in Object.query(Object.domains == g.user.key.id(), Object.labels == 'user'):
+        if not obj.as1:
+            continue
+
+        logger.debug(f'Generating block for {obj.as1}')
+        bs = bluesky.from_as1(obj.as1)
+        digest = multihash.digest(dag_cbor.encoding.encode(bs), 'sha2-256')
+        cid = CID('base58btc', 1, multicodec.get('dag-cbor'), digest)
+        blocks[cid] = bs
+
+        tid = datetime_to_tid(obj.created)
+        rkey = f'{bs["$type"]}/{tid}'
+
+        if inside:
+            logger.debug(f'Adding to MST: {rkey} {cid}')
+            mst = mst.add(rkey, cid)
+            if cid == latest:
+                inside = False
+        elif cid == earliest:
+            inside = True
+
+
+    return blocks, mst
+
+
 @xrpc_server.method('com.atproto.sync.getBlob')
 def get_blob(input, ):
     """
@@ -76,15 +131,26 @@ def get_blob(input, ):
 
 
 @xrpc_server.method('com.atproto.sync.getBlocks')
-def get_blocks(input, ):
-    """
+def get_blocks(input, did=None, cids=None):
+    """Gets blocks from a given repo by their CIDs.
+
+    Ignores any unknown CIDs.
 
     Args:
-      
+      did: str
+      cids: list of str base32-encoded :class:`CID`s
 
     Returns:
-      
+      bytes, binary DAG-CBOR, application/vnd.ipld.car
     """
+    if cids is None:
+        cids = []
+
+    cids = [CID.decode(multibase.decode(cid)) for cid in cids]
+    blocks, _ = build_pds(did)
+
+    return dag_cbor.encoding.encode([blocks[cid] for cid in cids
+                                     if cid in blocks])
 
 
 @xrpc_server.method('com.atproto.sync.getCheckout')
@@ -139,7 +205,8 @@ def get_record(input, ):
 # TODO: implement earliest, latest
 @xrpc_server.method('com.atproto.sync.getRepo')
 def get_repo(input, did, earliest=None, latest=None):
-    """
+    """Gets a repo's current MST.
+
     Args:
       did: str
       earliest: optional str, :class:`CID`, exclusive
@@ -148,45 +215,7 @@ def get_repo(input, did, earliest=None, latest=None):
     Returns:
       bytes, binary DAG-CBOR, application/vnd.ipld.car
     """
-    domain = util.domain_from_link(bluesky.did_web_to_url(did), minimize=False)
-    if not domain:
-        raise ValueError(f'No domain found in {did}')
-
-    g.user = User.get_by_id(domain)
-    if not g.user:
-        raise ValueError(f'No user found for domain {domain}')
-
-    blocks = {}   # maps CID to DAG-CBOR block bytes
-    mst = MST()
-
-    if earliest:
-        earliest = CID.decode(multibase.decode(earliest))
-    if latest:
-        latest = CID.decode(multibase.decode(latest))
-
-    inside = (earliest is None)
-    for obj in Object.query(Object.domains == domain, Object.labels == 'user'):
-        if not obj.as1:
-            continue
-
-        logger.debug(f'Generating block for {obj.as1}')
-        bs = bluesky.from_as1(obj.as1)
-        cbor_bytes = dag_cbor.encoding.encode(bs)
-        digest = multihash.digest(cbor_bytes, 'sha2-256')
-        cid = CID('base58btc', 1, multicodec.get('dag-cbor'), digest)
-        blocks[cid] = cbor_bytes
-
-        tid = datetime_to_tid(obj.created)
-        rkey = f'{bs["$type"]}/{tid}'
-
-        if inside:
-            logger.debug(f'Adding to MST: {rkey} {cid}')
-            mst = mst.add(rkey, cid)
-            if cid == latest:
-                inside = False
-        elif cid == earliest:
-            inside = True
-
+    _, mst = build_pds(did, earliest=earliest, latest=latest)
     return dag_cbor.encoding.encode(serialize_node_data(mst.all_nodes())._asdict())
 
 
