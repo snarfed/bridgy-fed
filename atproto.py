@@ -62,10 +62,10 @@ def datetime_to_tid(dt):
     # return f'{encoded[:4]}-{encoded[4:7]}-{encoded[7:11]}-{encoded[11:]}'
 
 
-def build_pds(did, earliest=None, latest=None):
+def build_pds(did=None, user=None, earliest=None, latest=None):
     """Builds a single user's PDS, including DAG-CBOR blocks and MST.
 
-    Raises ValueError if did is not did:web or no user exists with that domain.
+    Either did or user must be provided.
 
     Args:
       did: str did:web DID
@@ -74,14 +74,19 @@ def build_pds(did, earliest=None, latest=None):
 
     Returns:
       ({:class:`CID`: Bluesky object}, :class:`MST`) tuple
-    """
-    domain = util.domain_from_link(bluesky.did_web_to_url(did), minimize=False)
-    if not domain:
-        raise ValueError(f'No domain found in {did}')
 
-    g.user = User.get_by_id(domain)
-    if not g.user:
-        raise ValueError(f'No user found for domain {domain}')
+    Raises ValueError if did is not did:web or no user exists with that domain.
+    """
+    assert (did is None) ^ (user is None)
+
+    if did:
+        domain = util.domain_from_link(bluesky.did_web_to_url(did), minimize=False)
+        if not domain:
+            raise ValueError(f'No domain found in {did}')
+
+        user = User.get_by_id(domain)
+        if not user:
+            raise ValueError(f'No user found for domain {domain}')
 
     blocks = {}   # maps CID to Bluesky object
     mst = MST()
@@ -92,7 +97,7 @@ def build_pds(did, earliest=None, latest=None):
         latest = CID.decode(multibase.decode(latest))
 
     inside = (earliest is None)
-    for obj in Object.query(Object.domains == g.user.key.id(), Object.labels == 'user'):
+    for obj in Object.query(Object.domains == user.key.id(), Object.labels == 'user'):
         if not obj.as1:
             continue
 
@@ -145,7 +150,7 @@ def get_blocks(input, did=None, cids=None):
         cids = []
 
     cids = [CID.decode(multibase.decode(cid)) for cid in cids]
-    blocks, _ = build_pds(did)
+    blocks, _ = build_pds(did=did)
 
     return dag_cbor.encoding.encode([blocks[cid] for cid in cids
                                      if cid in blocks])
@@ -180,12 +185,12 @@ def get_head(input, did=None):
     """
 
     Args:
-      
+      did: str
 
     Returns:
-      
+      str, :class:`CID`
     """
-    _, mst = build_pds(did)
+    _, mst = build_pds(did=did)
     return {'root': mst.get_pointer().encode('base32')}
 
 
@@ -201,8 +206,6 @@ def get_record(input, ):
     """
 
 
-
-# TODO: implement earliest, latest
 @xrpc_server.method('com.atproto.sync.getRepo')
 def get_repo(input, did, earliest=None, latest=None):
     """Gets a repo's current MST.
@@ -215,7 +218,7 @@ def get_repo(input, did, earliest=None, latest=None):
     Returns:
       bytes, binary DAG-CBOR, application/vnd.ipld.car
     """
-    _, mst = build_pds(did, earliest=earliest, latest=latest)
+    _, mst = build_pds(did=did, earliest=earliest, latest=latest)
     return dag_cbor.encoding.encode(serialize_node_data(mst.all_nodes())._asdict())
 
 
@@ -233,23 +236,22 @@ def list_blobs(input, ):
 
 @xrpc_server.method('com.atproto.sync.listRepos')
 def list_repos(input, ):
-    """
+    """List dids and root cids of hosted repos.
 
     Args:
-    
+      limit: int
+      cursor: str, not yet supported. TODO
 
     Returns:
-      
+      list of repos (DID + head CID)
     """
-# {
-#    "cursor" : "1677477924875::did:plc:ipj7dlzp3tjj2sypftxoalht",
-#    "repos" : [
-#       {
-#          "did" : "did:plc:ragtjsm2j2vknwkz3zp4oxrd",
-#          "head" : "bafyreiegluhfow7tb4jjlxwfjwtzeu6ho53uwrwcxrspt5ejt44a6ydqcy"
-#       },
-#   ...
-# }
+    return {
+        # TODO: cursor
+        'repos': [{
+            'did': f'did:web:{user.key.id()}',
+            'head': build_pds(user=user)[1].get_pointer().encode('base32')
+        } for user in User.query() if not user.use_instead]
+    }
 
 
 @xrpc_server.method('com.atproto.sync.notifyOfUpdate')

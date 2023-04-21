@@ -215,7 +215,26 @@ class AtProtoTest(testutil.TestCase):
 
     # def test_list_blobs(self):
 
-    # def test_list_repos(self):
+    def test_list_repos_empty(self):
+        resp = self.client.get('/xrpc/com.atproto.sync.listRepos')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual({'repos': []}, resp.json)
+
+    def test_list_repos(self):
+        self.make_user('user.com')
+        self.make_objects()
+        self.make_user('other.com')
+
+        resp = self.client.get('/xrpc/com.atproto.sync.listRepos')
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual({'repos': [{
+            'did': 'did:web:other.com',
+            'head': HEAD_CID_EMPTY,
+        }, {
+            'did': 'did:web:user.com',
+            'head': HEAD_CID,
+        }]}, resp.json)
+
     #     # /Users/ryan/src/atproto/packages/pds/tests/sync/list.test.ts
 
     # def test_notify_of_update(self):
