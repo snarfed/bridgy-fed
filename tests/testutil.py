@@ -179,10 +179,13 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         if mf2 and 'items' in mf2:
             props['mf2'] = mf2['items'][0]
 
-        for computed in 'type', 'object_ids':
-            val = props.pop(computed, None)
-            if val is not None:
-                self.assertEqual(val, getattr(got, computed), computed)
+        type = props.pop('type', None)
+        if type is not None:
+            self.assertEqual(type, got.type)
+
+        object_ids = props.pop('object_ids', None)
+        if object_ids is not None:
+            self.assertSetEqual(set(object_ids), set(got.object_ids))
 
         if expected_as1 := props.pop('as1', None):
             self.assert_equals(common.redirect_unwrap(expected_as1), got.as1)

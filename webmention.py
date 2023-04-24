@@ -323,9 +323,13 @@ def webmention_task():
             # prefer AS2 id or url, if available
             # https://github.com/snarfed/bridgy-fed/issues/307
             dest = target_as2 or as1.get_object(obj.as1)
-            Follower.get_or_create(dest=dest.get('id') or dest.get('url'),
+            dest_id = dest.get('id') or dest.get('url')
+            Follower.get_or_create(dest=dest_id,
                                    src=g.user.key.id(),
-                                   last_follow=as2.from_as1(obj.as1))
+                                   last_follow=as2.from_as1({
+                                       **obj.as1,
+                                       'object': dest_id,
+                                   }))
 
         # this is reused later in ActivityPub.send()
         # TODO: find a better way

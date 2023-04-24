@@ -1051,6 +1051,82 @@ class WebmentionTest(testutil.TestCase):
         self.assert_equals('user.com', followers[0].src)
         self.assert_equals('https://mas.to/mrs-foo', followers[0].dest)
 
+    def test_follow_multiple(self, mock_get, mock_post):
+        html = self.follow_html.replace(
+            '<a class="u-follow-of" href="https://mas.to/mrs-foo"></a>',
+            '<a class="u-follow-of" href="https://mas.to/mrs-foo"></a> '
+            '<a class="u-follow-of" href="https://mas.to/mr-biff"></a>')
+
+        mock_get.side_effect = [
+            requests_response(
+                html, url='https://user.com/follow',
+                content_type=CONTENT_TYPE_HTML),
+            self.actor,
+            self.as2_resp({
+                'objectType' : 'Person',
+                'displayName': 'Mr. ☕ Biff',
+                'id': 'https://mas.to/mr-biff',
+                'inbox': 'https://mas.to/inbox/biff',
+            }),
+        ]
+        mock_post.return_value = requests_response('unused')
+
+        got = self.client.post('/_ah/queue/webmention', data={
+            'source': 'https://user.com/follow',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
+
+        mock_get.assert_has_calls((
+            self.req('https://user.com/follow'),
+            self.as2_req('https://mas.to/mrs-foo'),
+            self.as2_req('https://mas.to/mr-biff'),
+        ))
+
+        calls = mock_post.call_args_list
+        self.assertEqual('https://mas.to/inbox', calls[0][0][0])
+        self.assertEqual(self.follow_as2, json_loads(calls[0][1]['data']))
+        self.assertEqual('https://mas.to/inbox/biff', calls[1][0][0])
+        self.assertEqual({
+            **self.follow_as2,
+            'object': 'https://mas.to/mr-biff',
+        }, json_loads(calls[1][1]['data']))
+
+        mf2 = util.parse_mf2(html)['items'][0]
+        as1 = microformats2.json_to_object(mf2)
+        self.assert_object('https://user.com/follow',
+                           domains=['user.com'],
+                           source_protocol='webmention',
+                           status='complete',
+                           mf2=mf2,
+                           as1=as1,
+                           delivered=['https://mas.to/inbox',
+                                      'https://mas.to/inbox/biff'],
+                           type='follow',
+                           object_ids=['https://mas.to/mrs-foo',
+                                       'https://mas.to/mr-biff'],
+                           labels=['user', 'activity'],
+                           )
+
+        followers = Follower.query().fetch()
+        self.assertEqual(2, len(followers))
+
+        self.assertEqual('https://mas.to/mr-biff user.com', followers[0].key.id())
+        self.assertEqual('user.com', followers[0].src)
+        self.assertEqual('https://mas.to/mr-biff', followers[0].dest)
+        self.assert_equals(as2.from_as1({
+            **self.follow_as1,
+            'object': 'https://mas.to/mr-biff',
+        }), followers[0].last_follow)
+
+        self.assertEqual('https://mas.to/mrs-foo user.com', followers[1].key.id())
+        self.assertEqual('user.com', followers[1].src)
+        self.assertEqual('https://mas.to/mrs-foo', followers[1].dest)
+        self.assert_equals(as2.from_as1({
+            **self.follow_as1,
+            'object': 'https://mas.to/mrs-foo',
+        }), followers[1].last_follow)
+
     def test_error_fragment_missing(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
             self.follow_fragment_html, url='https://user.com/follow',
