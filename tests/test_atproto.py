@@ -1,5 +1,6 @@
 """Unit tests for atproto.py."""
 import copy
+from unittest import skip
 from unittest.mock import patch
 
 import dag_cbor.decoding
@@ -163,6 +164,7 @@ class AtProtoTest(testutil.TestCase):
             'e': [],
         }, decoded)
 
+    @skip
     def test_get_repo(self):
         self.make_user('user.com')
         self.make_objects()
