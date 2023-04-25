@@ -8,6 +8,7 @@ from oauth_dropins.webutil.testutil import NOW, requests_response
 
 from app import app
 import common
+from Crypto.PublicKey import ECC
 from models import Follower, Object, OBJECT_EXPIRE_AGE, User
 import protocol
 from protocol import Protocol
@@ -32,12 +33,23 @@ class UserTest(testutil.TestCase):
         super().tearDown()
 
     def test_get_or_create(self):
-        assert g.user.mod
-        assert g.user.public_exponent
-        assert g.user.private_exponent
+        user = User.get_or_create('a.b')
 
-        same = User.get_or_create('y.z')
-        self.assertEqual(same, g.user)
+        assert user.mod
+        assert user.public_exponent
+        assert user.private_exponent
+        assert user.p256_key
+
+        # check that we can load the keys
+        assert user.public_pem()
+        assert user.private_pem()
+
+        p256_key = ECC.import_key(user.p256_key)
+        assert isinstance(p256_key, ECC.EccKey)
+        self.assertEqual('NIST P-256', p256_key.curve)
+
+        same = User.get_or_create('a.b')
+        self.assertEqual(same, user)
 
     def test_get_or_create_use_instead(self):
         user = User.get_or_create('a.b')
