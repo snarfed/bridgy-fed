@@ -173,7 +173,7 @@ def feed(domain):
 def fetch_objects(query):
     """Fetches a page of Object entities from a datastore query.
 
-    Wraps :func:`common.fetch_page` and adds attributes to the returned Object
+    Wraps :func:`models.fetch_page` and adds attributes to the returned Object
     entities for rendering in objects.html.
 
     Args:
