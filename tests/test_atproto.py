@@ -63,6 +63,12 @@ class AtProtoTest(testutil.TestCase):
         self.last_now = self.last_now.replace(microsecond=self.last_now.microsecond + 1)
         return self.last_now
 
+    def test_datetime_to_tid(self):
+        self.assertEqual('3iom4o4g6u2l2', atproto.datetime_to_tid(NOW))
+
+    def test_tid_to_datetime(self):
+        self.assertEqual(NOW, atproto.tid_to_datetime('3iom4o4g6u2l2'))
+
     @patch('models.Object.created._now')
     def make_objects(self, mock_now):
         mock_now.side_effect = self.now

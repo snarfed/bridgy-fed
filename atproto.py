@@ -1,6 +1,8 @@
 """com.atproto.sync XRPC methods."""
+from datetime import datetime, timezone
 import json
 import logging
+from numbers import Integral
 import random
 import re
 
@@ -34,6 +36,44 @@ _clockid = random.randint(0, 31)
 #         _tid_last += 1
 #         now = _tid_last
 
+# based on atproto/packages/common-web/src/tid.ts
+S32_CHARS = '234567abcdefghijklmnopqrstuvwxyz'
+
+def s32encode(num):
+    """Base32 encode with encoding variant sort.
+
+    Args:
+      num: int or Integral
+
+    Returns:
+      str
+    """
+    assert isinstance(num, Integral)
+
+    encoded = []
+    while num:
+        c = num % 32
+        num = num // 32
+        encoded.insert(0, S32_CHARS[c])
+
+    return ''.join(encoded)
+
+
+def s32decode(val):
+    """Base32 decode with encoding variant sort.
+
+    Args:
+      val: str
+
+    Returns:
+      int or Integral
+    """
+    i = 0
+    for c in val:
+        i = i * 32 + S32_CHARS.index(c)
+
+    return i
+
 
 def datetime_to_tid(dt):
     """Converts a datetime to an ATProto TID.
@@ -46,20 +86,23 @@ def datetime_to_tid(dt):
     Returns:
       str, base32-encoded TID
     """
-    base32 = multibase.get('base32')
+    return (s32encode(int(dt.timestamp() * 1000 * 1000)) +
+            s32encode(_clockid).ljust(2, '2'))
 
-    def base32_int_bytes(val):
-        return base32.encode(val.to_bytes((val.bit_length() + 7) // 8, byteorder='big'))
 
-    # util.d(base32_int_bytes(int(dt.timestamp() * 1000)),
-    #        base32_int_bytes(_clockid).ljust(2, '2'))
-    tid = (base32_int_bytes(int(dt.timestamp() * 1000 * 1000)) +
-           base32_int_bytes(_clockid).ljust(2, '2'))
-    # TODO
-    # assert len(tid) == 13, tid
-    return tid
+def tid_to_datetime(tid):
+    """Converts an ATProto TID to a datetime.
 
-    # return f'{encoded[:4]}-{encoded[4:7]}-{encoded[7:11]}-{encoded[11:]}'
+    https://atproto.com/guides/data-repos#identifier-types
+
+    Args:
+      tid: bytes, base32-encoded TID
+
+    Returns:
+      :class:`datetime.datetime`
+    """
+    encoded = tid.replace('-', '')[:-2]  # strip clock id
+    return datetime.fromtimestamp(s32decode(encoded) / 1000 / 1000, timezone.utc)
 
 
 def build_pds(did=None, user=None, earliest=None, latest=None):
