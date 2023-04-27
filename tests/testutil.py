@@ -34,7 +34,9 @@ import protocol
 
 logger = logging.getLogger(__name__)
 
-# used in TestCase.make_user() to reuse RSA keys across Users
+# used in TestCase.make_user() to reuse keys across Users since they're
+# expensive to generate
+requests.post(f'http://{ndb_client.host}/reset')
 with ndb_client.context():
     global_user = User.get_or_create('user.com')
 
@@ -111,6 +113,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                     mod=global_user.mod,
                     public_exponent=global_user.public_exponent,
                     private_exponent=global_user.private_exponent,
+                    p256_key=global_user.p256_key,
                     **kwargs)
         user.put()
         return user

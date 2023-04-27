@@ -14,14 +14,13 @@ import string
 from unittest import skip
 
 import dag_cbor.random
-from multiformats import CID, multibase
+from multiformats import CID
 
 from atproto import datetime_to_tid
 from atproto_mst import common_prefix_len, ensure_valid_key, MST
 from . import testutil
 
-CID1 = CID.decode(multibase.decode(
-    'bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454'))
+CID1 = CID.decode('bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454')
 
 
 def make_data(num):

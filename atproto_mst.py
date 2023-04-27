@@ -904,7 +904,7 @@ def serialize_node_data(entries):
     i = 0
     if entries and isinstance(entries[0], MST):
         i += 1
-        l = entries[0].pointer
+        l = entries[0].get_pointer()
 
     data = Data(l=l, e=[])
     last_key = ''
@@ -918,7 +918,7 @@ def serialize_node_data(entries):
 
         subtree = None
         if next and isinstance(next, MST):
-            subtree = next.pointer
+            subtree = next.get_pointer()
             i += 1
 
         ensure_valid_key(leaf.key)
@@ -954,10 +954,7 @@ def cid_for_entries(entries):
     Returns:
       :class:`CID`
     """
-    data = serialize_node_data(entries)
-    cbor = dag_cbor.encoding.encode(data._asdict())
-    digest = multihash.digest(cbor, 'sha2-256')
-    return CID('base58btc', 1, multicodec.get('dag-cbor'), digest)
+    return dag_cbor_cid(serialize_node_data(entries)._asdict())
 
 
 def ensure_valid_key(key):
@@ -978,3 +975,17 @@ def ensure_valid_key(key):
             valid.match(split[1])
             ):
         raise ValueError(f'Invalid MST key: {key}')
+
+
+def dag_cbor_cid(obj):
+    """Returns the DAG-CBOR CID for a given object.
+
+    Args:
+      obj: CBOR-compatible native object or value
+
+    Returns:
+      :class:`CID`
+    """
+    encoded = dag_cbor.encoding.encode(obj)
+    digest = multihash.digest(encoded, 'sha2-256')
+    return CID('base58btc', 1, multicodec.get('dag-cbor'), digest)
