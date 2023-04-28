@@ -52,9 +52,9 @@ from hashlib import sha256
 from os.path import commonprefix
 import re
 
-import dag_cbor.encoding
-from multiformats import CID, multicodec, multihash
+from multiformats import CID
 
+from atproto_util import dag_cbor_cid
 
 # this is treeEntry in mst.ts
 Entry = namedtuple('Entry', [
@@ -975,17 +975,3 @@ def ensure_valid_key(key):
             valid.match(split[1])
             ):
         raise ValueError(f'Invalid MST key: {key}')
-
-
-def dag_cbor_cid(obj):
-    """Returns the DAG-CBOR CID for a given object.
-
-    Args:
-      obj: CBOR-compatible native object or value
-
-    Returns:
-      :class:`CID`
-    """
-    encoded = dag_cbor.encoding.encode(obj)
-    digest = multihash.digest(encoded, 'sha2-256')
-    return CID('base58btc', 1, multicodec.get('dag-cbor'), digest)

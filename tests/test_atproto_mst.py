@@ -16,8 +16,9 @@ from unittest import skip
 import dag_cbor.random
 from multiformats import CID
 
-from atproto import datetime_to_tid
 from atproto_mst import common_prefix_len, ensure_valid_key, MST
+import atproto_util
+from atproto_util import datetime_to_tid
 from . import testutil
 
 CID1 = CID.decode('bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454')
@@ -39,6 +40,7 @@ class MstTest(testutil.TestCase):
         super().setUp()
 
         # make random test data deterministic
+        atproto_util._clockid = 17
         random.seed(1234567890)
         dag_cbor.random.set_options(seed=1234567890)
 
