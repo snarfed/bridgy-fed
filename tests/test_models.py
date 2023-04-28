@@ -2,16 +2,18 @@
 """Unit tests for models.py."""
 from unittest import mock
 
+from Crypto.PublicKey import ECC
 from flask import g, get_flashed_messages
 from granary import as2
+from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
+from multiformats import CID
 from oauth_dropins.webutil.testutil import NOW, requests_response
 
 from app import app
+from atproto_mst import dag_cbor_cid
 import common
-from Crypto.PublicKey import ECC
-from models import Follower, Object, OBJECT_EXPIRE_AGE, User
+from models import AtpNode, Follower, Object, OBJECT_EXPIRE_AGE, User
 import protocol
-from protocol import Protocol
 from . import testutil
 
 from .test_activitypub import ACTOR
@@ -387,3 +389,11 @@ class FollowerTest(testutil.TestCase):
         self.assertIsNone(Follower().to_as2())
         self.assertEqual(ACTOR, self.inbound.to_as2())
         self.assertEqual(ACTOR, self.outbound.to_as2())
+
+
+class AtpNodeTest(testutil.TestCase):
+
+    def test_create(self):
+        AtpNode.create(ACTOR_PROFILE_BSKY)
+        stored = AtpNode.get_by_id(dag_cbor_cid(ACTOR_PROFILE_BSKY).encode('base32'))
+        self.assertEqual(ACTOR_PROFILE_BSKY, stored.data)

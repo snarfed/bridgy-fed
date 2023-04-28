@@ -3,16 +3,15 @@ import base64
 from datetime import timedelta, timezone
 import difflib
 import itertools
+import json
 import logging
 import random
 import urllib.parse
 
-import requests
-from werkzeug.exceptions import BadRequest, NotFound
-
 from Crypto import Random
 from Crypto.PublicKey import ECC, RSA
 from Crypto.Util import number
+import dag_json
 from flask import g, request
 from google.cloud import ndb
 from granary import as1, as2, bluesky, microformats2
@@ -20,7 +19,10 @@ from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.models import ComputedJsonProperty, JsonProperty, StringIdModel
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
+import requests
+from werkzeug.exceptions import BadRequest, NotFound
 
+from atproto_mst import dag_cbor_cid
 import common
 
 # https://github.com/snarfed/bridgy-fed/issues/314
@@ -449,6 +451,37 @@ class Object(StringIdModel):
           <img class="profile" src="{image}" />
           {util.ellipsize(name, chars=40)}
         </a>"""
+
+class AtpNode(StringIdModel):
+    """An AT Protocol (Bluesky) node.
+
+    May be a data record, an MST node, or a commit.
+
+    Key name is the DAG-CBOR base32 CID of the data.
+
+    Properties:
+    * data: JSON-decoded DAG-JSON value of this node
+    * obj: optional, Key of the corresponding :class:`Object`, only populated
+      for records
+    """
+    data = JsonProperty(required=True)
+    obj = ndb.KeyProperty(Object)
+
+    @staticmethod
+    def create(data):
+        """Writes a new AtpNode to the datastore.
+
+        Args:
+          data: dict value
+
+        Returns:
+          :class:`AtpNode`
+        """
+        data = json.loads(dag_json.encode(data))
+        cid = dag_cbor_cid(data)
+        node = AtpNode(id=cid.encode('base32'), data=data)
+        node.put()
+        return node
 
 
 class Follower(StringIdModel):
