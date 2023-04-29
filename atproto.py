@@ -5,22 +5,19 @@ import logging
 import random
 import re
 
-from Crypto.Hash import SHA256
 from Crypto.PublicKey import ECC
-from Crypto.Signature import DSS
 import dag_cbor.encoding
 from flask import g
 from google.cloud.ndb.query import OR
 from granary import bluesky
 from multiformats import CID, multibase, multicodec, multihash
 from oauth_dropins.webutil import util
-from oauth_dropins.webutil.appengine_info import DEBUG
 
 from atproto_mst import (
     MST,
     serialize_node_data,
 )
-from atproto_util import dag_cbor_cid
+from atproto_util import dag_cbor_cid, sign_commit
 from flask_app import xrpc_server
 from models import Follower, Object, PAGE_SIZE, User
 
@@ -130,24 +127,7 @@ def build_repo(did=None, user=None, earliest=None, latest=None):
             'data': dag_cbor_cid(serialized_mst),
         }
 
-        # signing isn't yet in atproto.com docs, this is from the TS code and
-        # conversations with @why on Matrix:
-        # * https://matrix.to/#/!vpdMrhHjzaPbBUSgOs:matrix.org/$Xaf4ugYks-iYg7Pguh3dN8hlsvVMUOuCQo3fMiYPXTY?via=matrix.org&via=minds.com&via=envs.net
-        # * https://github.com/bluesky-social/atproto/blob/384e739a3b7d34f7a95d6ba6f08e7223a7398995/packages/repo/src/util.ts#L238-L248
-        # * https://github.com/bluesky-social/atproto/blob/384e739a3b7d34f7a95d6ba6f08e7223a7398995/packages/crypto/src/p256/keypair.ts#L66-L73
-        # * https://github.com/bluesky-social/indigo/blob/f1f2480888ab5d0ac1e03bd9b7de090a3d26cd13/repo/repo.go#L64-L70
-        # * https://github.com/whyrusleeping/go-did/blob/2146016fc220aa1e08ccf26aaa762f5a11a81404/key.go#L67-L91
-        #
-        # which cipher? we currently use P-256, signature is ECDSA around SHA-256.
-        # * Go supports P-256, ED25519, SECP256K1 keys
-        # * TS supports P-256, SECP256K1 keys
-        # * this recommends ED25519, then P-256:
-        #   https://soatok.blog/2022/05/19/guidance-for-choosing-an-elliptic-curve-signature-algorithm-in-2022/
-        key = ECC.import_key(user.p256_key)
-        signer = DSS.new(key, 'fips-186-3',
-                         randfunc=random.randbytes if DEBUG else None)
-        commit['sig'] = signer.sign(SHA256.new(dag_cbor.encoding.encode(commit)))
-
+        sign_commit(commit, ECC.import_key(user.p256_key))
         nodes.append(commit)
 
     return nodes, mst

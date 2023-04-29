@@ -5,9 +5,7 @@ import random
 from unittest import skip
 from unittest.mock import patch
 
-from Crypto.Hash import SHA256
 from Crypto.PublicKey import ECC
-from Crypto.Signature import DSS
 import dag_cbor.decoding, dag_cbor.encoding
 from granary import as2, bluesky
 from granary.tests.test_bluesky import (
@@ -26,7 +24,7 @@ from oauth_dropins.webutil.testutil import NOW
 
 import atproto
 import atproto_util
-from atproto_util import dag_cbor_cid
+from atproto_util import dag_cbor_cid, verify_commit_sig
 from flask_app import app
 from models import Follower, Object, User
 from . import testutil
@@ -196,10 +194,9 @@ class AtProtoTest(testutil.TestCase):
         got = dag_cbor.decoding.decode(resp.get_data())
 
         # extract and verify signature
-        sig = got[2].pop('sig')
-        key = ECC.import_key(user.p256_key)
-        verifier = DSS.new(key.public_key(), 'fips-186-3', randfunc=random.randbytes)
-        verifier.verify(SHA256.new(dag_cbor.encoding.encode(commit)), sig)
+        commit = got[2]
+        assert verify_commit_sig(commit, ECC.import_key(user.p256_key))
+        del commit['sig']
 
         self.assertEqual([
             ACTOR_PROFILE_BSKY,

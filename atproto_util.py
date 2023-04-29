@@ -1,10 +1,17 @@
 """Misc AT Protocol utils. TIDs, CIDs, etc."""
+import copy
 from datetime import datetime, timezone
+import logging
 from numbers import Integral
 import random
 
+from Crypto.Hash import SHA256
+from Crypto.Signature import DSS
 import dag_cbor.encoding
 from multiformats import CID, multicodec, multihash
+from oauth_dropins.webutil.appengine_info import DEBUG
+
+logger = logging.getLogger(__name__)
 
 # the bottom 32 clock ids can be randomized & are not guaranteed to be collision
 # resistant. we use the same clockid for all TIDs coming from this runtime.
@@ -118,3 +125,58 @@ def tid_to_datetime(tid):
 #     else:
 #         _tid_last += 1
 #         now = _tid_last
+
+
+def sign_commit(commit, key):
+    """Signs a repo commit.
+
+    Adds the signature in the `sig` field.
+
+    Signing isn't yet in the atproto.com docs, this setup is taken from the TS
+    code and conversations with @why on #bluesky-dev:matrix.org.
+
+    * https://matrix.to/#/!vpdMrhHjzaPbBUSgOs:matrix.org/$Xaf4ugYks-iYg7Pguh3dN8hlsvVMUOuCQo3fMiYPXTY?via=matrix.org&via=minds.com&via=envs.net
+    * https://github.com/bluesky-social/atproto/blob/384e739a3b7d34f7a95d6ba6f08e7223a7398995/packages/repo/src/util.ts#L238-L248
+    * https://github.com/bluesky-social/atproto/blob/384e739a3b7d34f7a95d6ba6f08e7223a7398995/packages/crypto/src/p256/keypair.ts#L66-L73
+    * https://github.com/bluesky-social/indigo/blob/f1f2480888ab5d0ac1e03bd9b7de090a3d26cd13/repo/repo.go#L64-L70
+    * https://github.com/whyrusleeping/go-did/blob/2146016fc220aa1e08ccf26aaa762f5a11a81404/key.go#L67-L91
+
+    The signature is ECDSA around SHA-256 of the input. We currently use P-256
+    keypairs. Context:
+    * Go supports P-256, ED25519, SECP256K1 keys
+    * TS supports P-256, SECP256K1 keys
+    * this recommends ED25519, then P-256:
+      https://soatok.blog/2022/05/19/guidance-for-choosing-an-elliptic-curve-signature-algorithm-in-2022/
+
+    Args:
+      commit: dict repo commit
+      key: :class:`Crypto.PublicKey.ECC.EccKey`
+    """
+    signer = DSS.new(key, 'fips-186-3', randfunc=random.randbytes if DEBUG else None)
+    commit['sig'] = signer.sign(SHA256.new(dag_cbor.encoding.encode(commit)))
+
+
+def verify_commit_sig(commit, key):
+    """Returns true if the commit's signature is valid, False otherwise.
+
+    See :func:`sign_commit` for more background.
+
+    Args:
+      commit: dict repo commit
+      key: :class:`Crypto.PublicKey.ECC.EccKey`
+
+    Raises:
+      KeyError if the commit isn't signed, ie doesn't have a `sig` field
+    """
+    commit = copy.copy(commit)
+    sig = commit.pop('sig')
+
+    verifier = DSS.new(key.public_key(), 'fips-186-3',
+                       randfunc=random.randbytes if DEBUG else None)
+    try:
+        verifier.verify(SHA256.new(dag_cbor.encoding.encode(commit)), sig)
+        return True
+    except ValueError:
+        logger.debug("Couldn't verify signature", exc_info=True)
+        return False
+
