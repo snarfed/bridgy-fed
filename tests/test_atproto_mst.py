@@ -18,35 +18,16 @@ from multiformats import CID
 
 from atproto_mst import common_prefix_len, ensure_valid_key, MST
 import atproto_util
-from atproto_util import datetime_to_tid
 from . import testutil
 
 CID1 = CID.decode('bafyreie5cvv4h45feadgeuwhbcutmh6t2ceseocckahdoe6uat64zmz454')
 
 
-def make_data(num):
-    def tid():
-        ms = random.randint(datetime(2020, 1, 1).timestamp() * 1000,
-                            datetime(2024, 1, 1).timestamp() * 1000)
-        return datetime_to_tid(datetime.fromtimestamp(float(ms) / 1000))
-
-    return [(f'com.example.record/{tid()}', cid)
-            for cid in dag_cbor.random.rand_cid(num)]
-
-
 class MstTest(testutil.TestCase):
-
-    def setUp(self):
-        super().setUp()
-
-        # make random test data deterministic
-        atproto_util._clockid = 17
-        random.seed(1234567890)
-        dag_cbor.random.set_options(seed=1234567890)
 
     def test_add(self):
         mst = MST()
-        data = make_data(1000)
+        data = self.random_keys_and_cids(1000)
         for key, cid in data:
             mst = mst.add(key, cid)
 
@@ -58,7 +39,7 @@ class MstTest(testutil.TestCase):
 
     def test_edits_records(self):
         mst = MST()
-        data = make_data(100)
+        data = self.random_keys_and_cids(100)
 
         for key, cid in data:
             mst = mst.add(key, cid)
@@ -75,7 +56,7 @@ class MstTest(testutil.TestCase):
 
     def test_deletes_records(self):
         mst = MST()
-        data = make_data(1000)
+        data = self.random_keys_and_cids(1000)
         for key, cid in data:
             mst = mst.add(key, cid)
 
@@ -94,7 +75,7 @@ class MstTest(testutil.TestCase):
 
     def test_is_order_independent(self):
         mst = MST()
-        data = make_data(1000)
+        data = self.random_keys_and_cids(1000)
         for key, cid in data:
             mst = mst.add(key, cid)
 
@@ -106,50 +87,6 @@ class MstTest(testutil.TestCase):
             recreated = recreated.add(key, cid)
 
         self.assertEqual(all_nodes, recreated.all_nodes())
-
-    # def test_diffs(self):
-    #     to_diff = MST()
-
-    #     to_add = Object.entries(make_data(100))
-    #     to_edit = self.shuffled[500:600]
-    #     to_del = self.shuffled[400:500]
-
-    #     expected_updates = {}
-    #     expected_dels = {}
-    #     expected_adds = {entry[0]: {'key': entry[0], 'cid': entry[1]}
-    #                     for entry in to_add.items()}
-
-    #     for entry in to_add:
-    #         to_diff.add(entry[0], entry[1])
-    #         expected_adds[entry[0]] = x
-
-    #     for entry, cid in zip(to_edit, dag_cbor.random.rand_cid()):
-    #         updated = random_cid()
-    #         to_diff.update(entry[0], updated)
-    #         expected_updates[entry[0]] = {
-    #             'key': entry[0],
-    #             'prev': entry[1],
-    #             'cid': updated,
-    #         }
-
-    #     for entry in to_del:
-    #         to_diff.delete(entry[0])
-    #         expected_dels[entry[0]] = {'key': entry[0], 'cid': entry[1]}
-
-    #     diff = DataDiff.of(to_diff, self.mst)
-
-    #     self.assertEqual(100, len(diff.add_list()))
-    #     self.assertEqual(100, len(diff.update_list()))
-    #     self.assertEqual(100, len(diff.delete_list()))
-
-    #     self.assertEqual(expected_adds, diff.adds)
-    #     self.assertEqual(expected_updates, diff.updates)
-    #     self.assertEqual(expected_dels, diff.deletes)
-
-    #     # ensure we correctly report all added CIDs
-    #     for entry in to_diff.walk():
-    #         cid = entry.get_pointer() if entry.is_tree() else entry.value
-    #         self.assert_true(blockstore.has(cid) or diff.new_cids.has(cid))
 
     def test_common_prefix_length(self):
         self.assertEqual(3, common_prefix_len('abc', 'abc'))

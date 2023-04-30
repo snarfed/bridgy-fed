@@ -17,10 +17,6 @@ from . import testutil
 
 class AtProtoUtilTest(testutil.TestCase):
 
-    def setUp(self):
-        super().setUp()
-        atproto_util._clockid = 17
-
     def test_dag_cbor_cid(self):
         self.assertEqual(
             CID.decode('bafyreiblaotetvwobe7cu2uqvnddr6ew2q3cu75qsoweulzku2egca4dxq'),

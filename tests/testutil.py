@@ -1,10 +1,13 @@
 """Common test utility code."""
 import copy
-import datetime
+from datetime import datetime
+import logging
 import random
 import unittest
 from unittest.mock import ANY, call
 
+import atproto_util
+from atproto_util import datetime_to_tid
 import dag_cbor.random
 from flask import g
 from google.cloud import ndb
@@ -14,15 +17,10 @@ from granary.tests.test_as1 import (
     MENTION,
     NOTE,
 )
-import logging
 from oauth_dropins.webutil import testutil, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.testutil import requests_response
 import requests
-
-# make random test data deterministic
-random.seed(1234567890)
-dag_cbor.random.set_options(seed=1234567890)
 
 # load all Flask handlers
 import app
@@ -91,6 +89,11 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         FakeProtocol.sent = []
         FakeProtocol.fetched = []
 
+        # make random test data deterministic
+        atproto_util._clockid = 17
+        random.seed(1234567890)
+        dag_cbor.random.set_options(seed=1234567890)
+
         self.client = app.test_client()
         self.client.__enter__()
 
@@ -136,6 +139,22 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             # deleted
             Object(id='f', domains=['user.com'], labels=['feed', 'notification', 'user'],
                    as2=as2.from_as1(NOTE), deleted=True).put()
+
+    @staticmethod
+    def random_keys_and_cids(num):
+        def tid():
+            ms = random.randint(datetime(2020, 1, 1).timestamp() * 1000,
+                                datetime(2024, 1, 1).timestamp() * 1000)
+            return datetime_to_tid(datetime.fromtimestamp(float(ms) / 1000))
+
+        return [(f'com.example.record/{tid()}', cid)
+                for cid in dag_cbor.random.rand_cid(num)]
+
+    def random_tid(num):
+        ms = random.randint(datetime(2020, 1, 1).timestamp() * 1000,
+                            datetime(2024, 1, 1).timestamp() * 1000)
+        tid = datetime_to_tid(datetime.fromtimestamp(float(ms) / 1000))
+        return f'com.example.record/{tid}'
 
     def req(self, url, **kwargs):
         """Returns a mock requests call."""

@@ -62,8 +62,6 @@ class AtProtoTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
 
-        atproto._clockid = 17  # need this to be deterministic
-
         # used in now(), injected into Object.created so that TIDs are deterministic
         self.last_now = NOW.replace(tzinfo=None)
 
