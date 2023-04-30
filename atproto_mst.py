@@ -48,6 +48,7 @@ If the first leaf in a tree is `bsky/posts/abcdefg` and the second is
 'hi'.`
 """
 from collections import namedtuple
+import copy
 from hashlib import sha256
 from os.path import commonprefix
 import re
@@ -141,6 +142,26 @@ class MST:
 
 #     Getters (lazy load)
 #     -------------------
+
+    def get_entries(self):
+        """
+
+        We don't want to load entries of every subtree, just the ones we need.
+
+        Returns:
+          sequence of :class:`MST` and :class:`Leaf`
+        """
+        if self.entries:
+            return copy.copy(self.entries)
+
+        if self.pointer:
+            data = self.storage.read_obj(self.pointer, node_data_def)
+            first_leaf = data.e[0]
+            layer = leading_zeros_on_hash(first_leaf.k) if first_leaf else None
+            self.entries = deserialize_node_data(self.storage, data, {layer})
+            return self.entries
+
+        raise RuntimeError('No entries or CID provided')
 
     def get_pointer(self):
         """Returns this MST's root CID pointer. Calculates it if necessary.
@@ -800,15 +821,15 @@ class MST:
 #         for leaf in leaf_data.blocks.entries():
 #             car.put(leaf)
 
-    def cids_for_path(self, key):
-        """Returns the CIDs in a given key path. ???
-
-        Args:
-          key: str
-
-        Returns:
-          sequence of :class:`CID`
-        """
+#     def cids_for_path(self, key):
+#         """Returns the CIDs in a given key path. ???
+#
+#         Args:
+#           key: str
+#
+#         Returns:
+#           sequence of :class:`CID`
+#         """
 #         cids: CID[] = [self.get_pointer()]
 #         index = self.find_gt_or_equal_leaf_index(key)
 #         found = self.at_index(index)
@@ -975,3 +996,124 @@ def ensure_valid_key(key):
             valid.match(split[1])
             ):
         raise ValueError(f'Invalid MST key: {key}')
+
+
+WalkStatus = namedtuple('WalkStatus', [
+    'done',     # boolean
+    'cur',      # MST or Leaf
+    'walking',  # MST or None if cur is the root of the tree
+    'index',    # int
+], defaults=[None, None, None, None])
+
+
+class Walker:
+    """Allows walking an MST manually.
+
+    Attributes:
+      stack: sequence of WalkStatus
+      status: WalkStatus, current
+    """
+    stack = None
+    status = None
+
+    def __init__(self, tree):
+        """Constructor.
+
+        Args:
+          tree: :class:`MST`
+        """
+        self.stack = []
+        self.status = WalkStatus(
+            done=False,
+            cur=tree,
+            walking=None,
+            index=0,
+        )
+
+    def layer(self):
+        """Returns the curent layer of the node we're on."""
+        assert not self.status.done, 'Walk is done'
+
+        if self.status.walking:
+            return self.status.walking.layer or 0
+
+        # if cur is the root of the tree, add 1
+        if isinstance(self.status.cur, MST):
+            return (self.status.cur.layer or 0) + 1
+
+        raise RuntimeError('Could not identify layer of walk')
+
+
+    def step_over(self):
+        """Moves to the next node in the subtree, skipping over the subtree."""
+        if self.status.done:
+            return
+
+        # if stepping over the root of the node, we're done
+        if not self.status.walking:
+            self.status = WalkStatus(done=True)
+            return
+
+        entries = self.status.walking.get_entries()
+        self.status = self.status._replace(index=self.status.index + 1)
+
+        if self.status.index >= len(entries):
+            if not self.stack:
+                self.status = WalkStatus(done=True)
+            else:
+                self.status = self.stack.pop()
+                self.step_over()
+        else:
+            self.status = self.status._replace(cur=entries[self.status.index])
+
+    def step_into(self):
+        """Steps into a subtree.
+
+        Raises:
+          RuntimeError, if curently on a leaf
+        """
+        if self.status.done:
+            return
+
+        # edge case for very start of walk
+        if not self.status.walking:
+            assert isinstance(self.status.cur, MST), \
+                'The root of the tree cannot be a leaf'
+            next = self.status.cur.at_index(0)
+            if not next:
+                self.status = WalkStatus(done=True)
+            else:
+                self.status = WalkStatus(
+                    done=False,
+                    walking=self.status.cur,
+                    cur=next,
+                    index=0,
+                )
+            return
+
+        if not isinstance(self.status.cur, MST):
+            raise RuntimeError('No tree at pointer, cannot step into')
+
+        next = self.status.cur.at_index(0)
+        assert next, 'Tried to step into a node with 0 entries which is invalid'
+
+        self.stack.append(self.status)
+        self.status = WalkStatus(
+            walking=self.status.cur,
+            cur=next,
+            index=0,
+            done=False,
+        )
+
+    def advance(self):
+        """Advances to the next node in the tree.
+
+        Steps into the curent node if necessary.
+        """
+        if self.status.done:
+            return
+
+        if isinstance(self.status.cur, Leaf):
+            self.step_over()
+        else:
+            self.step_into()
