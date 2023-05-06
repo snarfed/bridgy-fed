@@ -8,6 +8,7 @@ import logging
 import random
 import urllib.parse
 
+from arroba.mst import dag_cbor_cid
 from Crypto import Random
 from Crypto.PublicKey import ECC, RSA
 from Crypto.Util import number
@@ -22,7 +23,6 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadRequest, NotFound
 
-from atproto_mst import dag_cbor_cid
 import common
 
 # https://github.com/snarfed/bridgy-fed/issues/314

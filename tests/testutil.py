@@ -6,8 +6,8 @@ import random
 import unittest
 from unittest.mock import ANY, call
 
-import atproto_util
-from atproto_util import datetime_to_tid
+import arroba.util
+from arroba.util import datetime_to_tid
 import dag_cbor.random
 from flask import g
 from google.cloud import ndb
@@ -90,7 +90,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         FakeProtocol.fetched = []
 
         # make random test data deterministic
-        atproto_util._clockid = 17
+        arroba.util._clockid = 17
         random.seed(1234567890)
         dag_cbor.random.set_options(seed=1234567890)
 

@@ -9,10 +9,6 @@ activitypub
 -----------
 .. automodule:: activitypub
 
-atproto_mst
------------
-.. automodule:: atproto
-
 common
 ------
 .. automodule:: common

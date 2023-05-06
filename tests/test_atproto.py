@@ -5,6 +5,9 @@ import random
 from unittest import skip
 from unittest.mock import patch
 
+import atproto
+import arroba.util
+from arroba.util import dag_cbor_cid, verify_commit_sig
 from Crypto.PublicKey import ECC
 import dag_cbor.decoding, dag_cbor.encoding
 from granary import as2, bluesky
@@ -22,14 +25,11 @@ from multiformats import CID
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import NOW
 
-import atproto
-import atproto_util
-from atproto_util import dag_cbor_cid, verify_commit_sig
 from flask_app import app
 from models import Follower, Object, User
 from . import testutil
 
-# # atproto_mst.Data entry for MST with POST_AS, REPLY_AS, and REPOST_AS
+# # arroba.mst.Data entry for MST with POST_AS, REPLY_AS, and REPOST_AS
 # POST_CID = 'bafyreic5xwex7jxqvliumozkoli3qy2hzxrmui6odl7ujrcybqaypacfiy'
 # REPLY_CID = 'bafyreib55ro37wasiflouvlfenhzllorcthm7flr2nj4fnk7yjo54cagvm'
 # REPOST_CID = 'bafyreiek3jnp6e4sussy4c7pwtbkkf3kepekzycylowwuepmnvq7aeng44'

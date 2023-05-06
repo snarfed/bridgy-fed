@@ -341,6 +341,7 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
+  'arroba': ('https://arroba.readthedocs.io/en/latest', None),
   'dag_cbor': ('https://dag-cbor.readthedocs.io/en/latest', None),
   'flask': ('https://flask.palletsprojects.com/en/latest', None),
   'flask_caching': ('https://flask-caching.readthedocs.io/en/latest', None),

@@ -2,6 +2,7 @@
 """Unit tests for models.py."""
 from unittest import mock
 
+from arroba.mst import dag_cbor_cid
 from Crypto.PublicKey import ECC
 from flask import g, get_flashed_messages
 from granary import as2
@@ -10,7 +11,6 @@ from multiformats import CID
 from oauth_dropins.webutil.testutil import NOW, requests_response
 
 from app import app
-from atproto_mst import dag_cbor_cid
 import common
 from models import AtpNode, Follower, Object, OBJECT_EXPIRE_AGE, User
 import protocol
