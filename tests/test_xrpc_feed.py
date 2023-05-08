@@ -28,7 +28,7 @@ POST_THREAD_AS = {
     'replies': {
         'items': [{
             'objectType': 'comment',
-            'url': 'http://bob.org/reply',
+            'id': 'http://bob.org/reply',
             'content': 'Uh huh',
             'author': {
                 'objectType': 'person',
