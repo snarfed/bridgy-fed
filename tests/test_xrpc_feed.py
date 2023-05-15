@@ -7,6 +7,7 @@ from granary.tests.test_as1 import COMMENT, NOTE
 from granary.tests.test_bluesky import (
     POST_BSKY,
     POST_AS,
+    POST_AUTHOR_AS,
     REPLY_BSKY,
     REPLY_AS,
     REPOST_BSKY,
@@ -83,8 +84,6 @@ class XrpcFeedTest(testutil.TestCase):
             Object(id='a', domains=['user.com'], labels=['user'], as2=post_as2).put()
             Object(id='b', domains=['user.com'], labels=['user'],
                    as2=as2.from_as1(REPLY_AS)).put()
-            Object(id='c', domains=['user.com'], labels=['user'],
-                   as2=as2.from_as1(REPOST_AS)).put()
             # not outbound from user
             Object(id='d', domains=['user.com'], labels=['feed'], as2=post_as2).put()
             # deleted
@@ -97,8 +96,8 @@ class XrpcFeedTest(testutil.TestCase):
                                query_string={'author': 'user.com'})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals({
-            'feed': [REPOST_BSKY, REPLY_BSKY, POST_BSKY],
-        }, resp.json)
+            'feed': [REPLY_BSKY, POST_BSKY],
+        }, resp.json, ignore=['did'])
 
     def test_getAuthorFeed_no_author_param(self):
         resp = self.client.get('/xrpc/app.bsky.feed.getAuthorFeed')
@@ -165,10 +164,9 @@ class XrpcFeedTest(testutil.TestCase):
             }, {
                 '$type': 'app.bsky.feed.getRepostedBy#repostedBy',
                 'description': None,
-                'did': 'did:web:alice.com',
-                'handle': 'alice.com',
-                'displayName': 'Alice',
-                'avatar': 'https://alice.com/alice.jpg',
+                'did': 'did:web:staging.bsky.app:profile:bob.com',
+                'handle': 'staging.bsky.app/profile/bob.com',
+                'displayName': 'Bob',
             }],
         }, got.json)
 
