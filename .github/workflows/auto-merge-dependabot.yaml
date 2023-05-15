@@ -29,9 +29,13 @@ jobs:
       - name: Enable auto-merge for Dependabot PRs
         if: >
           ! contains(steps.metadata.outputs.dependency-names, 'tlslite-ng') &&
-          steps.metadata.outputs.update-type != 'version-update:semver-major'
+          (steps.metadata.outputs.update-type != 'version-update:semver-major' ||
+           contains(steps.metadata.outputs.dependency-names, 'certifi'))
+        # certifi uses calver, not semver
         run: gh pr merge --auto --rebase "$PR_URL"
 
       - name: "Warn that we won't auto-merge major version updates"
-        if: steps.metadata.outputs.update-type == 'version-update:semver-major'
+        if: >
+          ! contains(steps.metadata.outputs.dependency-names, 'certifi') &&
+          steps.metadata.outputs.update-type == 'version-update:semver-major'
         run: gh pr comment "$PR_URL" -b "Looks like a major version upgrade! Skipping auto-merge."
