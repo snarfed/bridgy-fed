@@ -324,6 +324,8 @@ def webmention_task():
             # https://github.com/snarfed/bridgy-fed/issues/307
             dest = target_as2 or as1.get_object(obj.as1)
             dest_id = dest.get('id') or dest.get('url')
+            if not dest_id:
+                error('follow missing target ')
             Follower.get_or_create(dest=dest_id,
                                    src=g.user.key.id(),
                                    last_follow=as2.from_as1({

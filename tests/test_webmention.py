@@ -1015,6 +1015,24 @@ class WebmentionTest(testutil.TestCase):
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals(self.follow_as2, json_loads(kwargs['data']))
 
+    def test_follow_no_target(self, mock_get, mock_post):
+        self.make_followers()
+
+        html = self.follow_html.replace(
+            '<a class="u-follow-of" href="https://mas.to/mrs-foo"></a>',
+            '<a class="u-follow-of"></a>')
+        follow = requests_response(html, url='https://user.com/follow',
+                                   content_type=CONTENT_TYPE_HTML)
+
+        mock_get.side_effect = [follow, self.actor]
+
+        got = self.client.post('/_ah/queue/webmention', data={
+            'source': 'https://user.com/follow',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(400, got.status_code)
+        mock_post.assert_not_called()
+
     def test_follow_fragment(self, mock_get, mock_post):
         mock_get.side_effect = [self.follow_fragment, self.actor]
         mock_post.return_value = requests_response('abc xyz')
