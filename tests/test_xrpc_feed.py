@@ -164,8 +164,8 @@ class XrpcFeedTest(testutil.TestCase):
             }, {
                 '$type': 'app.bsky.feed.getRepostedBy#repostedBy',
                 'description': None,
-                'did': 'did:web:staging.bsky.app:profile:bob.com',
-                'handle': 'staging.bsky.app/profile/bob.com',
+                'did': 'did:web:bsky.app:profile:bob.com',
+                'handle': 'bsky.app/profile/bob.com',
                 'displayName': 'Bob',
             }],
         }, got.json)
