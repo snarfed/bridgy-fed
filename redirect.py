@@ -25,6 +25,7 @@ import activitypub
 from flask_app import app, cache
 from common import CACHE_TIME, CONTENT_TYPE_HTML
 from models import Object, User
+from webmention import Webmention
 
 logger = logging.getLogger(__name__)
 
@@ -38,9 +39,11 @@ _negotiator = ContentNegotiator(acceptable=[
 @app.get(r'/r/<path:to>')
 @flask_util.cached(cache, CACHE_TIME, headers=['Accept'])
 def redir(to):
-    """301 redirect to the embedded fully qualified URL.
+    """Either redirect to a given URL or convert it to another format.
 
-    e.g. redirects /r/https://foo.com/bar?baz to https://foo.com/bar?baz
+    E.g. redirects /r/https://foo.com/bar?baz to https://foo.com/bar?baz, or if
+    it's requested with AS2 conneg in the Accept header, fetches and converts
+    and serves it as AS2.
     """
     if request.args:
         to += '?' + urllib.parse.urlencode(request.args)
@@ -51,20 +54,10 @@ def redir(to):
     if not util.is_web(to):
         error(f'Expected fully qualified URL; got {to}')
 
-    # check that we've seen this domain before so we're not an open redirect
-    domains = set((util.domain_from_link(to, minimize=True),
-                   util.domain_from_link(to, minimize=False),
-                   urllib.parse.urlparse(to).hostname))
-    for domain in domains:
-        if domain:
-            g.user = User.get_by_id(domain)
-            if g.user:
-                logger.info(f'Found User for domain {domain}')
-                break
-    else:
-        return f'No user found for any of {domains}', 404
+    to_domain = urllib.parse.urlparse(to).hostname
 
-    # check conneg, serve AS2 if requested
+    # check conneg
+    accept_as2 = False
     accept = request.headers.get('Accept')
     if accept:
         try:
@@ -73,18 +66,38 @@ def redir(to):
             # work around https://github.com/CottageLabs/negotiator/issues/6
             negotiated = None
         if negotiated:
-            type = str(negotiated.content_type)
-            if type in (as2.CONTENT_TYPE, as2.CONTENT_TYPE_LD):
-                # load from the datastore
-                obj = Object.get_by_id(to)
-                if not obj or obj.deleted:
-                    return f'Object not found: {to}', 404
-                ret = activitypub.postprocess_as2(as2.from_as1(obj.as1))
-                logger.info(f'Returning: {json_dumps(ret, indent=2)}')
-                return ret, {
-                    'Content-Type': type,
-                    'Access-Control-Allow-Origin': '*',
-                }
+            accept_type = str(negotiated.content_type)
+            if accept_type in (as2.CONTENT_TYPE, as2.CONTENT_TYPE_LD):
+                accept_as2 = True
+
+    # check that we've seen this domain before so we're not an open redirect
+    domains = set((util.domain_from_link(to, minimize=True),
+                   util.domain_from_link(to, minimize=False),
+                   to_domain))
+    for domain in domains:
+        if domain:
+            g.user = User.get_by_id(domain)
+            if g.user:
+                logger.info(f'Found User for domain {domain}')
+                break
+    else:
+        if accept_as2:
+            # TODO: this is a kind of gross hack, should we do it differently?
+            g.user = User(id=to_domain)
+        else:
+            return f'No user found for any of {domains}', 404
+
+    if accept_as2:
+        # AS2 requested, fetch and convert and serve
+        obj = Webmention.load(to)
+        if not obj or obj.deleted:
+            return f'Object not found: {to}', 404
+        ret = activitypub.postprocess_as2(as2.from_as1(obj.as1))
+        logger.info(f'Returning: {json_dumps(ret, indent=2)}')
+        return ret, {
+            'Content-Type': accept_type,
+            'Access-Control-Allow-Origin': '*',
+        }
 
     # redirect
     logger.info(f'redirecting to {to}')
