@@ -23,6 +23,7 @@ jobs:
             curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
             sudo apt-get update
             sudo apt-get install -y apt-transport-https ca-certificates gnupg google-cloud-sdk google-cloud-sdk-datastore-emulator default-jre
+            git clone --depth=1 https://github.com/bluesky-social/atproto.git ../atproto
 
       - run:
           name: Python dependencies
