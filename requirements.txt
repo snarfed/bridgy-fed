@@ -38,7 +38,7 @@ google-cloud-ndb==2.1.1
 google-cloud-tasks==2.13.1
 googleapis-common-protos==1.59.0
 grpc-google-iam-v1==0.12.6
-grpcio==1.54.0
+grpcio==1.54.2
 gunicorn==20.1.0
 html2text==2020.1.16
 html5lib==1.1
