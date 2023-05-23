@@ -5,9 +5,11 @@ from flask import g
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
+import protocol
 from protocol import Protocol
 from flask_app import app
 from models import Follower, Object, User
+from webmention import Webmention
 
 from .test_activitypub import ACTOR, REPLY
 from . import testutil
@@ -34,6 +36,10 @@ class ProtocolTest(testutil.TestCase):
     def tearDown(self):
         self.request_context.pop()
         super().tearDown()
+
+    def test_protocols_global(self):
+        self.assertEqual(FakeProtocol, protocol.protocols['fake'])
+        self.assertEqual(Webmention, protocol.protocols['webmention'])
 
     @patch('requests.get')
     def test_receive_reply_not_feed_not_notification(self, mock_get):

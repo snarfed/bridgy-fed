@@ -45,7 +45,19 @@ objects_cache_lock = threading.Lock()
 logger = logging.getLogger(__name__)
 
 
-class Protocol:
+# maps string label to Protocol subclass. populated by ProtocolMeta.
+protocols = {}
+
+class ProtocolMeta(type):
+    """:class:`Protocol` metaclass. Registers all subclasses in the protocols global."""
+    def __new__(meta, name, bases, class_dict):
+        cls = super().__new__(meta, name, bases, class_dict)
+        if cls.LABEL:
+            protocols[cls.LABEL] = cls
+        return cls
+
+
+class Protocol(metaclass=ProtocolMeta):
     """Base protocol class. Not to be instantiated; classmethods only.
 
     Attributes:
