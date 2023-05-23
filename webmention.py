@@ -66,7 +66,8 @@ class Webmention(Protocol):
           gateway: passed through to :func:`webutil.util.fetch_mf2`
         """
         url = obj.key.id()
-        is_homepage = g.user and g.user.is_homepage(url)
+        is_homepage = ((g.user and g.user.is_homepage(url)) or
+                       (g.external_user and g.external_user == url))
         require_backlink = common.host_url().rstrip('/') if not is_homepage else None
 
         try:

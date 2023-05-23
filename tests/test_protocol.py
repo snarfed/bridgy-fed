@@ -28,12 +28,11 @@ class ProtocolTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
         self.user = self.make_user('foo.com', has_hcard=True)
-        self.app_context = app.test_request_context('/')
-        self.app_context.__enter__()
+        self.request_context.push()
         g.user = None
 
     def tearDown(self):
-        self.app_context.__exit__(None, None, None)
+        self.request_context.pop()
         super().tearDown()
 
     @patch('requests.get')

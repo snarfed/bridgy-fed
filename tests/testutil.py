@@ -24,7 +24,7 @@ import requests
 
 # load all Flask handlers
 import app
-from flask_app import app, cache
+from flask_app import app, cache, init_globals
 import activitypub, common
 from models import Object, PROTOCOLS, Target, User
 import protocol
@@ -104,7 +104,14 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         util.now = lambda **kwargs: testutil.NOW
 
+        self.app_context = app.app_context()
+        self.app_context.push()
+        init_globals()
+
+        self.request_context = app.test_request_context('/')
+
     def tearDown(self):
+        self.app_context.pop()
         self.ndb_context.__exit__(None, None, None)
         self.client.__exit__(None, None, None)
         super().tearDown()
@@ -121,9 +128,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         user.put()
         return user
 
-    @staticmethod
-    def add_objects():
-        with app.test_request_context('/'):
+    def add_objects(self):
+        with self.request_context:
             # post
             Object(id='a', domains=['user.com'], labels=['feed', 'notification'],
                    as2=as2.from_as1(NOTE)).put()

@@ -56,7 +56,7 @@ class PagesTest(testutil.TestCase):
         self.assert_equals('/user/user.com', got.headers['Location'])
 
     def test_user_object_bare_string_id(self):
-        with app.test_request_context('/'):
+        with self.request_context:
             Object(id='a', domains=['user.com'], labels=['notification'],
                    as2=REPOST_AS2).put()
 
@@ -64,7 +64,7 @@ class PagesTest(testutil.TestCase):
         self.assert_equals(200, got.status_code)
 
     def test_user_object_url_object(self):
-        with app.test_request_context('/'):
+        with self.request_context:
             Object(id='a', domains=['user.com'], labels=['notification'], our_as1={
                 **REPOST_AS2,
                 'object': {

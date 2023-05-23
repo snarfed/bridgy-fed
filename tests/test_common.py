@@ -23,12 +23,11 @@ class CommonTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.app_context = app.test_request_context('/')
-        self.app_context.push()
+        self.request_context.push()
         g.user = User(id='site')
 
     def tearDown(self):
-        self.app_context.pop()
+        self.request_context.pop()
         super().tearDown()
 
     def test_pretty_link(self):

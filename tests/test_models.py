@@ -22,8 +22,7 @@ class UserTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.app_context = app.test_request_context('/')
-        self.app_context.push()
+        self.request_context.push()
         g.user = self.make_user('y.z')
 
         self.full_redir = requests_response(
@@ -31,7 +30,7 @@ class UserTest(testutil.TestCase):
             redirected_url='http://localhost/.well-known/webfinger?resource=acct:y.z@y.z')
 
     def tearDown(self):
-        self.app_context.pop()
+        self.request_context.pop()
         super().tearDown()
 
     def test_get_or_create(self):
@@ -271,12 +270,11 @@ http://this/404s
 class ObjectTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
-        self.app_context = app.test_request_context('/')
-        self.app_context.push()
+        self.request_context.push()
         g.user = None
 
     def tearDown(self):
-        self.app_context.pop()
+        self.request_context.pop()
         super().tearDown()
 
     def test_proxy_url(self):

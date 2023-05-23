@@ -226,7 +226,7 @@ class ActivityPubTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
         self.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR)
-        with app.test_request_context('/'):
+        with self.request_context:
             self.key_id_obj = Object(id='http://my/key/id', as2={
                 **ACTOR,
                 'publicKey': {
@@ -427,7 +427,7 @@ class ActivityPubTest(testutil.TestCase):
             'id': 'https://user.com/orig',
         }
         del note['url']
-        with app.test_request_context('/'):
+        with self.request_context:
             Object(id=orig_url, mf2=microformats2.object_to_json(as2.to_as1(note))).put()
 
         repost = copy.deepcopy(REPOST_FULL)
@@ -1165,12 +1165,11 @@ class ActivityPubTest(testutil.TestCase):
 class ActivityPubUtilsTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
-        self.app_context = app.test_request_context('/')
-        self.app_context.__enter__()
+        self.request_context.push()
         g.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR)
 
     def tearDown(self):
-        self.app_context.__exit__(None, None, None)
+        self.request_context.pop()
         super().tearDown()
 
     def test_postprocess_as2_multiple_in_reply_tos(self):

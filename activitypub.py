@@ -298,13 +298,13 @@ def postprocess_as2(activity, target=None, wrap=True):
     if not activity or isinstance(activity, str):
         return activity
 
-    assert g.user
+    assert bool(g.user) ^ bool(g.external_user)  # should have one but not both
     type = activity.get('type')
 
     # actor objects
     if type == 'Person':
         postprocess_as2_actor(activity)
-        if not activity.get('publicKey'):
+        if g.user and not activity.get('publicKey'):
             # underspecified, inferred from this issue and Mastodon's implementation:
             # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
             # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
@@ -364,12 +364,16 @@ def postprocess_as2(activity, target=None, wrap=True):
         activity['object'] = target_id
     elif not id:
         obj['id'] = util.get_first(obj, 'url') or target_id
-    elif g.user.is_homepage(id):
+    elif g.user and g.user.is_homepage(id):
         obj['id'] = g.user.actor_id()
+    elif g.external_user:
+        obj['id'] = redirect_wrap(g.external_user)
 
     # for Accepts
-    if g.user.is_homepage(obj.get('object')):
+    if g.user and g.user.is_homepage(obj.get('object')):
         obj['object'] = g.user.actor_id()
+    elif g.external_user and g.external_user == obj.get('object'):
+        obj['object'] = redirect_wrap(g.external_user)
 
     # id is required for most things. default to url if it's not set.
     if not activity.get('id'):
@@ -453,8 +457,12 @@ def postprocess_as2_actor(actor, wrap=True):
     Returns:
       actor dict
     """
-    if not actor or isinstance(actor, str):
-        return g.user.actor_id() if g.user.is_homepage(actor) else actor
+    if not actor:
+        return actor
+    elif isinstance(actor, str):
+        if g.user and g.user.is_homepage(actor):
+            return g.user.actor_id()
+        return redirect_wrap(actor)
 
     url = g.user.homepage if g.user else None
     urls = util.get_list(actor, 'url')
@@ -465,7 +473,12 @@ def postprocess_as2_actor(actor, wrap=True):
     if wrap:
         urls[0] = redirect_wrap(urls[0])
 
-    actor.setdefault('id', host_url(domain))
+    id = actor.get('id')
+    if g.user and (not id or g.user.is_homepage(id)):
+        actor['id'] = g.user.actor_id()
+    elif g.external_user and (not id or id == g.external_user):
+        actor['id'] = redirect_wrap(g.external_user)
+
     actor.update({
         'url': urls if len(urls) > 1 else urls[0],
         # This has to be the domain for Mastodon interop/Webfinger discovery!

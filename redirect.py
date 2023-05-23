@@ -82,8 +82,8 @@ def redir(to):
                 break
     else:
         if accept_as2:
-            # TODO: this is a kind of gross hack, should we do it differently?
-            g.user = User(id=to_domain)
+            g.external_user = urllib.parse.urljoin(to, '/')
+            logging.info(f'No User for {g.external_user}')
         else:
             return f'No user found for any of {domains}', 404
 

@@ -66,14 +66,14 @@ class RenderTest(testutil.TestCase):
         self.assertEqual(404, resp.status_code)
 
     def test_render(self):
-        with app.test_request_context('/'):
+        with self.request_context:
             Object(id='abc', as2=as2.from_as1(COMMENT)).put()
         resp = self.client.get('/render?id=abc')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_equals(EXPECTED_HTML, resp.get_data(as_text=True), ignore_blanks=True)
 
     def test_render_with_author(self):
-        with app.test_request_context('/'):
+        with self.request_context:
             Object(id='abc', as2=as2.from_as1({**COMMENT, 'author': 'def'})).put()
             Object(id='def', as2=as2.from_as1(ACTOR)).put()
         resp = self.client.get('/render?id=abc')
@@ -84,7 +84,7 @@ class RenderTest(testutil.TestCase):
     def test_render_no_url(self):
         comment = copy.deepcopy(COMMENT)
         del comment['url']
-        with app.test_request_context('/'):
+        with self.request_context:
             Object(id='abc', as2=as2.from_as1(comment)).put()
 
         resp = self.client.get('/render?id=abc')
@@ -96,21 +96,21 @@ class RenderTest(testutil.TestCase):
                                      ignore_blanks=True)
 
     def test_render_deleted_object(self):
-        with app.test_request_context('/'):
+        with self.request_context:
             Object(id='abc', as2={'content': 'foo'}, deleted=True).put()
 
         resp = self.client.get('/render?id=abc')
         self.assertEqual(410, resp.status_code)
 
     def test_render_delete_activity(self):
-        with app.test_request_context('/'):
+        with self.request_context:
             Object(id='abc', as2=as2.from_as1(DELETE_OF_ID)).put()
 
         resp = self.client.get('/render?id=abc')
         self.assertEqual(410, resp.status_code)
 
     def test_render_update_inner_obj_exists_redirect(self):
-        with app.test_request_context('/'):
+        with self.request_context:
             # UPDATE's object field is a full object
             Object(id='abc', as2=as2.from_as1(UPDATE)).put()
             Object(id=UPDATE['object']['id'], as2={'content': 'foo'}).put()
@@ -121,7 +121,7 @@ class RenderTest(testutil.TestCase):
                          resp.headers['Location'])
 
     def test_render_delete_inner_obj_exists_redirect(self):
-        with app.test_request_context('/'):
+        with self.request_context:
             # DELETE_OF_ID's object field is a bare string id
             Object(id='abc', as2=as2.from_as1(DELETE_OF_ID)).put()
             Object(id=DELETE_OF_ID['object'], as2={'content': 'foo'}).put()
@@ -132,7 +132,7 @@ class RenderTest(testutil.TestCase):
                          resp.headers['Location'])
 
     def test_render_update_no_inner_obj_serve_as_is(self):
-        with app.test_request_context('/'):
+        with self.request_context:
             # UPDATE's object field is a full object
             Object(id='abc', as2=as2.from_as1(UPDATE)).put()
 
@@ -146,7 +146,7 @@ A ☕ reply
 """, resp.get_data(as_text=True), ignore_blanks=True)
 
     def test_render_update_inner_obj_too_minimal_serve_as_is(self):
-        with app.test_request_context('/'):
+        with self.request_context:
             # UPDATE's object field is a full object
             Object(id='abc', as2=as2.from_as1(UPDATE)).put()
             Object(id=UPDATE['object']['id'], as2={'id': 'foo'}).put()

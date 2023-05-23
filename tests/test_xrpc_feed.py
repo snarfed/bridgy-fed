@@ -80,7 +80,7 @@ class XrpcFeedTest(testutil.TestCase):
 
     def test_getAuthorFeed(self):
         post_as2 = as2.from_as1(POST_AS)
-        with app.test_request_context('/'):
+        with self.request_context:
             Object(id='a', domains=['user.com'], labels=['user'], as2=post_as2).put()
             Object(id='b', domains=['user.com'], labels=['user'],
                    as2=as2.from_as1(REPLY_AS)).put()
@@ -120,7 +120,7 @@ class XrpcFeedTest(testutil.TestCase):
         self.assert_equals({'feed': []}, resp.json)
 
     def test_getPostThread(self):
-        with app.test_request_context('/'):
+        with self.request_context:
             Object(id='http://a/post', domains=['user.com'], labels=['user'],
                    as2=as2.from_as1(POST_THREAD_AS)).put()
 
@@ -139,7 +139,7 @@ class XrpcFeedTest(testutil.TestCase):
         self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
 
     def test_getRepostedBy(self):
-        with app.test_request_context('/'):
+        with self.request_context:
             Object(id='repost/1', domains=['user.com'], as2=as2.from_as1({
                 **REPOST_AS,
                 'object': 'http://a/post',

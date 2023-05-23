@@ -36,7 +36,12 @@ if appengine_info.LOCAL:
 
 @app.before_request
 def init_globals():
-    g.user = None
+    """Set request globals.
+
+    * g.user: Current internal user we're operating on behalf of.
+    * g.external_user: Current external user we're operating on behalf of.
+    """
+    g.user = g.external_user = None
 
 # don't redirect API requests with blank path elements
 app.url_map.redirect_defaults = True

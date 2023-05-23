@@ -585,7 +585,7 @@ class WebmentionTest(testutil.TestCase):
                 'content': ['other'],
             },
         }
-        with app.test_request_context('/'):
+        with self.request_context:
             Object(id='https://user.com/reply', status='complete', mf2=mf2).put()
 
         mock_get.side_effect = self.activitypub_gets
@@ -604,7 +604,7 @@ class WebmentionTest(testutil.TestCase):
 
     def test_redo_repost_isnt_update(self, mock_get, mock_post):
         """Like and Announce shouldn't use Update, they should just resend as is."""
-        with app.test_request_context('/'):
+        with self.request_context:
             Object(id='https://user.com/repost', mf2={}, status='complete').put()
 
         mock_get.side_effect = [REPOST, self.toot_as2, self.actor]
@@ -620,7 +620,7 @@ class WebmentionTest(testutil.TestCase):
 
     def test_skip_update_if_content_unchanged(self, mock_get, mock_post):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
-        with app.test_request_context('/'):
+        with self.request_context:
             Object(id='https://user.com/reply', mf2=self.reply_mf2).put()
 
         mock_get.side_effect = self.activitypub_gets
@@ -888,7 +888,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.side_effect = [self.note, self.actor]
         mock_post.return_value = requests_response('abc xyz')
 
-        with app.test_request_context('/'):
+        with self.request_context:
             mf2 = copy.deepcopy(self.note_mf2)
             mf2['properties']['content'] = 'different'
             Object(id='https://user.com/post', domains=['user.com'], mf2=mf2).put()
@@ -1203,7 +1203,7 @@ class WebmentionTest(testutil.TestCase):
         mock_get.return_value = requests_response('"unused"', status=410,
                                                   url='http://final/delete')
 
-        with app.test_request_context('/'):
+        with self.request_context:
             Object(id='https://user.com/post#bridgy-fed-create',
                    mf2=self.note_mf2, status='in progress')
 
@@ -1344,7 +1344,6 @@ class WebmentionUtilTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.request_context = app.test_request_context('/')
         self.request_context.__enter__()
         g.user = self.make_user('user.com')
 
