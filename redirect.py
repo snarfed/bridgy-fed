@@ -89,7 +89,7 @@ def redir(to):
 
     if accept_as2:
         # AS2 requested, fetch and convert and serve
-        obj = Webmention.load(to)
+        obj = Webmention.load(to, check_backlink=False)
         if not obj or obj.deleted:
             return f'Object not found: {to}', 404
         ret = activitypub.postprocess_as2(as2.from_as1(obj.as1))

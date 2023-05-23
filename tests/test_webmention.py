@@ -514,7 +514,7 @@ class WebmentionTest(testutil.TestCase):
                                data={'source': 'https://user.com/reply'})
         self.assertEqual(502, got.status_code)
 
-    def test_no_backlink(self, mock_get, mock_post):
+    def test_missing_backlink(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
             self.reply_html.replace('<a href="http://localhost/"></a>', ''),
             url='https://user.com/reply', content_type=CONTENT_TYPE_HTML)
@@ -1374,6 +1374,15 @@ class WebmentionUtilTest(testutil.TestCase):
         mock_get.return_value = requests_response(REPOST_HTML, status=405)
         with self.assertRaises(BadGateway) as e:
             Webmention.fetch(Object(id='https://foo'), gateway=True)
+
+    def test_fetch_check_backlink_false(self, mock_get, mock_post):
+        mock_get.return_value = requests_response(
+            REPOST_HTML.replace('<a href="http://localhost/"></a>', ''))
+
+        obj = Object(id='https://foo')
+        Webmention.fetch(obj, check_backlink=False)
+        self.assert_equals(REPOST_MF2, obj.mf2)
+        mock_get.assert_has_calls((self.req('https://foo'),))
 
     def test_fetch_run_authorship(self, mock_get, __):
         mock_get.side_effect = [

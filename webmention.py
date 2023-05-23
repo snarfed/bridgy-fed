@@ -52,7 +52,7 @@ class Webmention(Protocol):
             return True
 
     @classmethod
-    def fetch(cls, obj, gateway=False):
+    def fetch(cls, obj, gateway=False, check_backlink=None):
         """Fetches a URL over HTTP and extracts its microformats2.
 
         Follows redirects, but doesn't change the original URL in obj's id! The
@@ -64,11 +64,16 @@ class Webmention(Protocol):
 
         Args:
           gateway: passed through to :func:`webutil.util.fetch_mf2`
+          check_backlink: bool, optional, whether to require a link to Bridgy Fed
         """
         url = obj.key.id()
         is_homepage = ((g.user and g.user.is_homepage(url)) or
                        (g.external_user and g.external_user == url))
-        require_backlink = common.host_url().rstrip('/') if not is_homepage else None
+
+
+        require_backlink = None
+        if check_backlink or (check_backlink is None and not is_homepage):
+            require_backlink = common.host_url().rstrip('/')
 
         try:
             parsed = util.fetch_mf2(url, gateway=gateway,

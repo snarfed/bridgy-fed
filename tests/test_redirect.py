@@ -69,11 +69,11 @@ class RedirectTest(testutil.TestCase):
 
     def test_as2_no_user(self):
         with self.request_context:
-            Object(id='https://user.com/post', as2=EXTERNAL_REPOST_AS2).put()
+            Object(id='https://user.com/repost', as2=EXTERNAL_REPOST_AS2).put()
 
         self.user.key.delete()
 
-        resp = self.client.get('/r/https://user.com/post',
+        resp = self.client.get('/r/https://user.com/repost',
                                headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals(EXTERNAL_REPOST_AS2, resp.json)
@@ -82,7 +82,20 @@ class RedirectTest(testutil.TestCase):
     def test_as2_fetch_post(self, mock_get):
         mock_get.return_value = requests_response(REPOST_HTML)
 
-        resp = self.client.get('/r/https://user.com/post',
+        resp = self.client.get('/r/https://user.com/repost',
+                               headers={'Accept': as2.CONTENT_TYPE})
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assert_equals({
+            **REPOST_AS2,
+            'actor': ACTOR_AS2,
+        }, resp.json)
+
+    @patch('requests.get')
+    def test_as2_fetch_post_no_backlink(self, mock_get):
+        mock_get.return_value = requests_response(
+            REPOST_HTML.replace('<a href="http://localhost/"></a>', ''))
+
+        resp = self.client.get('/r/https://user.com/repost',
                                headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals({
