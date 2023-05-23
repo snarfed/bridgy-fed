@@ -17,6 +17,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from flask_app import app, cache
 import common
 from models import User
+from webmention import Webmention
 
 NON_TLDS = frozenset(('html', 'json', 'php', 'xml'))
 
@@ -32,28 +33,44 @@ class Actor(flask_util.XrdOrJrd):
     def template_prefix(self):
         return 'webfinger_user'
 
-    def template_vars(self, domain=None):
+    def template_vars(self, domain=None, external=False):
+        """
+        Args:
+          domain: str, user domain
+          external: bool, whether this may be an external user, ie without a
+            stored :class:`User`
+        """
         logger.debug(f'Headers: {list(request.headers.items())}')
 
         if domain.split('.')[-1] in NON_TLDS:
             error(f"{domain} doesn't look like a domain", status=404)
 
         g.user = User.get_by_id(domain)
-        if not g.user:
-            error(f'No user for {domain}', status=404)
+        if g.user:
+            actor = g.user.to_as1() or {}
+            homepage = g.user.homepage
+            handle = g.user.address()
+            actor_id = g.user.actor_id()
+        elif external:
+            g.external_user = homepage = f'https://{domain}/'
+            obj = Webmention.load(g.external_user)
+            actor = obj.as1
+            handle = f'@{domain}@{request.host}'
+            actor_id = common.redirect_wrap(homepage)
+        else:
+            error(f'No user or web site found for {domain}', status=404)
 
         logger.info(f'Generating WebFinger data for {domain}')
-        actor = g.user.to_as1() or {}
         logger.info(f'AS1 actor: {actor}')
         urls = util.dedupe_urls(util.get_list(actor, 'urls') +
                                 util.get_list(actor, 'url') +
-                                [g.user.homepage])
+                                [homepage])
         logger.info(f'URLs: {urls}')
         canonical_url = urls[0]
 
         # generate webfinger content
         data = util.trim_nulls({
-            'subject': 'acct:' + g.user.address().lstrip('@'),
+            'subject': 'acct:' + handle.lstrip('@'),
             'aliases': urls,
             'links':
             [{
@@ -80,7 +97,7 @@ class Actor(flask_util.XrdOrJrd):
                 # WARNING: in python 2 sometimes request.host_url lost port,
                 # http://localhost:8080 would become just http://localhost. no
                 # clue how or why. pay attention here if that happens again.
-                'href': g.user.actor_id(),
+                'href': actor_id,
             }, {
                 # AP reads this and sharedInbox from the AS2 actor, not
                 # webfinger, so strictly speaking, it's probably not needed here.
@@ -124,14 +141,16 @@ class Webfinger(Actor):
         if resource in ('', '/', f'acct:{host}', f'acct:@{host}'):
             error('Expected other domain, not fed.brid.gy')
 
+        external = False
         try:
             user, domain = util.parse_acct_uri(resource)
             if domain in common.DOMAINS:
                 domain = user
+                external = True
         except ValueError:
             domain = urllib.parse.urlparse(resource).netloc or resource
 
-        return super().template_vars(domain=domain)
+        return super().template_vars(domain=domain, external=external)
 
 
 class HostMeta(flask_util.XrdOrJrd):
