@@ -21,7 +21,7 @@ from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
-import activitypub
+from activitypub import ActivityPub
 from flask_app import app, cache
 from common import CACHE_TIME, CONTENT_TYPE_HTML
 from models import Object, User
@@ -92,7 +92,7 @@ def redir(to):
         obj = Webmention.load(to, check_backlink=False)
         if not obj or obj.deleted:
             return f'Object not found: {to}', 404
-        ret = activitypub.postprocess_as2(as2.from_as1(obj.as1))
+        ret, _ = ActivityPub.serve(obj)
         logger.info(f'Returning: {json_dumps(ret, indent=2)}')
         return ret, {
             'Content-Type': accept_type,

@@ -29,7 +29,8 @@ import common
 WWW_DOMAINS = frozenset((
     'www.jvt.me',
 ))
-# TODO: eventually load from Protocol subclasses' IDs instead?
+# TODO: eventually load from protocol.protocols instead, if/when we can get
+# around the circular import
 PROTOCOLS = ('activitypub', 'bluesky', 'ostatus', 'webmention', 'ui')
 # 2048 bits makes tests slow, so use 1024 for them
 KEY_BITS = 1024 if DEBUG else 2048

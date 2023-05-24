@@ -5,6 +5,7 @@ import copy
 from datetime import datetime, timedelta
 from hashlib import sha256
 import logging
+from unittest import skip
 from unittest.mock import ANY, call, patch
 import urllib.parse
 
@@ -1412,6 +1413,12 @@ class ActivityPubUtilsTest(testutil.TestCase):
             ActivityPub.fetch(Object(id='http://the/id'))
 
         mock_get.assert_has_calls([self.as2_req('http://the/id')])
+
+    @skip
+    def test_serve(self):
+        obj = Object(id='http://orig', as2=LIKE)
+        self.assertEqual((LIKE_WRAPPED, {'Content-Type': 'application/activity+json'}),
+                         ActivityPub.serve(obj))
 
     def test_postprocess_as2_idempotent(self):
         g.user = self.make_user('foo.com')

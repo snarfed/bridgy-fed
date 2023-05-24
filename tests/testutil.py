@@ -72,6 +72,12 @@ class FakeProtocol(protocol.Protocol):
 
         raise requests.HTTPError(response=util.Struct(status_code='410'))
 
+    @classmethod
+    def serve(cls, obj):
+        logger.info(f'FakeProtocol.load {obj.key.id()}')
+        return (f'FakeProtocol object {obj.key.id()}',
+                {'Accept': 'fake/protocol'})
+
 
 class TestCase(unittest.TestCase, testutil.Asserts):
     maxDiff = None

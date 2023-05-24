@@ -74,8 +74,11 @@ class RenderTest(testutil.TestCase):
 
     def test_render_with_author(self):
         with self.request_context:
-            Object(id='abc', as2=as2.from_as1({**COMMENT, 'author': 'def'})).put()
-            Object(id='def', as2=as2.from_as1(ACTOR)).put()
+            Object(id='abc', as2=as2.from_as1({**COMMENT, 'author': 'def'}),
+                   source_protocol='activitypub').put()
+            Object(id='def', as2=as2.from_as1(ACTOR),
+                   source_protocol='activitypub').put()
+
         resp = self.client.get('/render?id=abc')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_equals(

@@ -110,6 +110,25 @@ class Protocol(metaclass=ProtocolMeta):
         raise NotImplementedError()
 
     @classmethod
+    def serve(cls, obj):
+        """Returns this protocol's Flask response for a given :class:`Object`.
+
+        For example, an HTML string and `'text/html'` for :class:`Webmention`,
+        or a dict with AS2 JSON and `'application/activity+json'` for
+        :class:`ActivityPub.
+
+        To be implemented by subclasses.
+
+        Args:
+          obj: :class:`Object`
+
+        Returns:
+          (response body, dict with HTTP headers) tuple appropriate to be
+          returned from a Flask handler
+        """
+        raise NotImplementedError()
+
+    @classmethod
     def receive(cls, id, **props):
         """Handles an incoming activity.
 

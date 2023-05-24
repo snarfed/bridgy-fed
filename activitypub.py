@@ -134,6 +134,12 @@ class ActivityPub(Protocol):
         _error()
 
     @classmethod
+    def serve(cls, obj):
+        """Serves an :class:`Object` as AS2."""
+        return (postprocess_as2(as2.from_as1(obj.as1)),
+                {'Content-Type': as2.CONTENT_TYPE})
+
+    @classmethod
     def verify_signature(cls, activity):
         """Verifies the current request's HTTP Signature.
 

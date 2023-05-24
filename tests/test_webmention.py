@@ -1452,3 +1452,20 @@ class WebmentionUtilTest(testutil.TestCase):
 
         self.assert_req(mock_get, 'https://user.com/post')
         mock_post.assert_not_called()
+
+    def test_serve(self, _, __):
+        obj = Object(id='http://orig', mf2=ACTOR_MF2)
+        html, headers = Webmention.serve(obj)
+        self.assert_multiline_equals("""\
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8">
+<meta http-equiv="refresh" content="0;url=https://user.com/"></head>
+<body class="">
+  <span class="h-card">
+    <a class="p-name u-url" href="https://user.com/">Ms. ☕ Baz</a>
+  </span>
+</body>
+</html>
+""", html, ignore_blanks=True)
+        self.assertEqual({'Content-Type': 'text/html; charset=utf-8'}, headers)

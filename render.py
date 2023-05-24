@@ -13,6 +13,7 @@ import activitypub
 from flask_app import app, cache
 import common
 from models import Object
+from webmention import Webmention
 
 logger = logging.getLogger(__name__)
 
@@ -42,23 +43,4 @@ def render():
     if obj.deleted or type == 'delete':
         return '', 410
 
-    # fill in author/actor if available
-    obj_as1 = obj.as1
-    for field in 'author', 'actor':
-        val = as1.get_object(obj.as1, field)
-        if val.keys() == set(['id']) and val['id']:
-            # TODO: abstract on obj.source_protocol
-            loaded = activitypub.ActivityPub.load(val['id'])
-            if loaded and loaded.as1:
-                obj_as1 = {**obj_as1, field: loaded.as1}
-
-    # add HTML meta redirect to source page. should trigger for end users in
-    # browsers but not for webmention receivers (hopefully).
-    html = microformats2.activities_to_html([obj_as1])
-    utf8 = '<meta charset="utf-8">'
-    url = util.get_url(obj_as1)
-    if url:
-        refresh = f'<meta http-equiv="refresh" content="0;url={url}">'
-        html = html.replace(utf8, utf8 + '\n' + refresh)
-
-    return html
+    return Webmention.serve(obj)

@@ -23,7 +23,7 @@ from flask_app import app
 import common
 from models import Follower, Object, Target, User
 import models
-from protocol import Protocol
+from protocol import Protocol, protocols
 
 logger = logging.getLogger(__name__)
 
@@ -124,6 +124,35 @@ class Webmention(Protocol):
 
         obj.mf2 = entry
         return obj
+
+    @classmethod
+    def serve(cls, obj):
+        """Serves an :class:`Object` as HTML."""
+        obj_as1 = obj.as1
+
+        from_proto = protocols.get(obj.source_protocol)
+        if from_proto:
+            # fill in author/actor if available
+            for field in 'author', 'actor':
+                val = as1.get_object(obj.as1, field)
+                if val.keys() == set(['id']) and val['id']:
+                    loaded = from_proto.load(val['id'])
+                    if loaded and loaded.as1:
+                        obj_as1 = {**obj_as1, field: loaded.as1}
+        else:
+            logger.debug(f'Not hydrating actor or author due to source_protocol {obj.source_protocol}')
+
+        html = microformats2.activities_to_html([obj_as1])
+
+        # add HTML meta redirect to source page. should trigger for end users in
+        # browsers but not for webmention receivers (hopefully).
+        url = util.get_url(obj_as1)
+        if url:
+            utf8 = '<meta charset="utf-8">'
+            refresh = f'<meta http-equiv="refresh" content="0;url={url}">'
+            html = html.replace(utf8, utf8 + '\n' + refresh)
+
+        return html, {'Content-Type': common.CONTENT_TYPE_HTML}
 
 
 @app.post('/webmention')
