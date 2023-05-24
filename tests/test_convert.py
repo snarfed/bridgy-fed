@@ -206,3 +206,9 @@ A ☕ reply
 </div>
 <a class="u-in-reply-to" href="https://fake.com/123"></a>
 """, resp.get_data(as_text=True), ignore_blanks=True)
+
+    def test_render_endpoint_redirect(self):
+        resp = self.client.get('/render?id=http://foo%3Fbar')
+        self.assertEqual(301, resp.status_code)
+        self.assertEqual(f'/convert/activitypub/webmention/http://foo?bar',
+                         resp.headers['Location'])

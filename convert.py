@@ -73,3 +73,10 @@ def convert(src, dest, _):
 
     # convert and serve
     return protocols[dest].serve(obj)
+
+
+@app.get('/render')
+def render_redirect():
+    """Redirect from old /render?id=... endpoint to /convert/..."""
+    id = flask_util.get_required_param('id')
+    return redirect(f'/convert/activitypub/webmention/{id}', code=301)
