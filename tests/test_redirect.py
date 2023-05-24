@@ -19,14 +19,14 @@ from .test_webmention import (
 )
 from . import testutil
 
-REPOST_AS2 = copy.deepcopy(REPOST_AS2)
+REPOST_AS2 = {
+    **REPOST_AS2,
+    'actor': ACTOR_AS2,
+}
 del REPOST_AS2['cc']
 
 EXTERNAL_REPOST_AS2 = copy.deepcopy(REPOST_AS2)
-EXTERNAL_REPOST_AS2['actor'] = {
-    **ACTOR_AS2,
-    'id': 'http://localhost/r/https://user.com/',
-}
+EXTERNAL_REPOST_AS2['actor']['id'] = 'http://localhost/r/https://user.com/'
 
 
 class RedirectTest(testutil.TestCase):
@@ -85,10 +85,7 @@ class RedirectTest(testutil.TestCase):
         resp = self.client.get('/r/https://user.com/repost',
                                headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assert_equals({
-            **REPOST_AS2,
-            'actor': ACTOR_AS2,
-        }, resp.json)
+        self.assert_equals(REPOST_AS2, resp.json)
 
     @patch('requests.get')
     def test_as2_fetch_post_no_backlink(self, mock_get):
@@ -98,10 +95,7 @@ class RedirectTest(testutil.TestCase):
         resp = self.client.get('/r/https://user.com/repost',
                                headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assert_equals({
-            **REPOST_AS2,
-            'actor': ACTOR_AS2,
-        }, resp.json)
+        self.assert_equals(REPOST_AS2, resp.json)
 
     @patch('requests.get')
     def test_as2_no_user_fetch_homepage(self, mock_get):
