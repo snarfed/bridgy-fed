@@ -10,7 +10,7 @@ from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
 from multiformats import CID
 from oauth_dropins.webutil.testutil import NOW, requests_response
 
-from app import app
+from flask_app import app
 import common
 from models import AtpNode, Follower, Object, OBJECT_EXPIRE_AGE, User
 import protocol
@@ -278,11 +278,13 @@ class ObjectTest(testutil.TestCase):
         super().tearDown()
 
     def test_proxy_url(self):
-        obj = Object(id='abc', as2={})
-        self.assertEqual('http://localhost/render?id=abc', obj.proxy_url())
+        obj = Object(id='abc', source_protocol='bluesky')
+        self.assertEqual('http://localhost/convert/bluesky/webmention/abc',
+                         obj.proxy_url())
 
-        obj = Object(id='ab#c', as2={})
-        self.assertEqual('http://localhost/render?id=ab%5E%5Ec', obj.proxy_url())
+        obj = Object(id='ab#c', source_protocol='ui')
+        self.assertEqual('http://localhost/convert/ui/webmention/ab^^c',
+                         obj.proxy_url())
 
     def test_put(self):
         with self.assertRaises(AssertionError):

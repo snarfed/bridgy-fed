@@ -44,8 +44,8 @@ def convert(src, dest, _):
     path_prefix = f'convert/{src}/{dest}/'
     url = request.url.removeprefix(request.root_url).removeprefix(path_prefix)
 
-    # some browsers collapse repeated /s in the path down to a single slash.
-    # if that happened to this URL, expand it back to two /s.
+    # our redirects evidently collapse :// down to :/ , maybe to prevent URL
+    # parsing bugs? if that happened to this URL, expand it back to ://
     url = re.sub(r'^(https?:/)([^/])', r'\1/\2', url)
 
     if not util.is_web(url):

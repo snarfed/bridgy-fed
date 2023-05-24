@@ -425,7 +425,7 @@ class Object(StringIdModel):
         """
         assert '^^' not in self.key.id()
         id = self.key.id().replace('#', '^^')
-        return common.host_url('render?' + urllib.parse.urlencode({'id': id}))
+        return common.host_url(f'convert/{self.source_protocol}/webmention/{id}')
 
     def actor_link(self):
         """Returns a pretty actor link with their name and profile picture."""

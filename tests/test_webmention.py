@@ -1433,14 +1433,14 @@ class WebmentionUtilTest(testutil.TestCase):
         mock_get.return_value = WEBMENTION_REL_LINK
         mock_post.return_value = requests_response()
 
-        obj = Object(id='http://mas.to/like#ok', as2=LIKE)
+        obj = Object(id='http://mas.to/like#ok', as2=LIKE, source_protocol='ui')
         self.assertTrue(Webmention.send(obj, 'https://user.com/post'))
 
         self.assert_req(mock_get, 'https://user.com/post')
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'http://localhost/render?id=http%3A%2F%2Fmas.to%2Flike%5E%5Eok',
+            'source': 'http://localhost/convert/ui/webmention/http:/mas.to/like^^ok',
             'target': 'https://user.com/post',
         }, kwargs['data'])
 

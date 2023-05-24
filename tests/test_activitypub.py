@@ -344,14 +344,14 @@ class ActivityPubTest(testutil.TestCase):
         got = self.post('/user.com/inbox', json=reply)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assert_req(mock_get, 'https://user.com/post')
-        expected_id = urllib.parse.quote_plus(reply['id'])
+        convert_id = reply['id'].replace('://', ':/')
         self.assert_req(
             mock_post,
             'https://user.com/webmention',
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
-                'source': f'http://localhost/render?id={expected_id}',
+                'source': f'http://localhost/convert/activitypub/webmention/{convert_id}',
                 'target': 'https://user.com/post',
             },
         )
@@ -436,14 +436,14 @@ class ActivityPubTest(testutil.TestCase):
         got = self.post('/user.com/inbox', json=repost)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
-        source_url = f'http://localhost/render?id={urllib.parse.quote_plus(REPOST["id"])}'
+        convert_id = REPOST['id'].replace('://', ':/')
         self.assert_req(
             mock_post,
             'https://user.com/webmention',
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
-                'source': source_url,
+                'source': f'http://localhost/convert/activitypub/webmention/{convert_id}',
                 'target': orig_url,
             },
         )
@@ -561,14 +561,14 @@ class ActivityPubTest(testutil.TestCase):
         got = self.post('/user.com/inbox', json=mention)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assert_req(mock_get, 'https://tar.get/')
-        expected_id = urllib.parse.quote_plus(mention['id'])
+        convert_id = mention['id'].replace('://', ':/')
         self.assert_req(
             mock_post,
             'https://tar.get/webmention',
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
-                'source': f'http://localhost/render?id={expected_id}',
+                'source': f'http://localhost/convert/activitypub/webmention/{convert_id}',
                 'target': 'https://tar.get/',
             },
         )
@@ -602,7 +602,7 @@ class ActivityPubTest(testutil.TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'http://localhost/render?id=http%3A%2F%2Fmas.to%2Flike%5E%5Eok',
+            'source': 'http://localhost/convert/activitypub/webmention/http:/mas.to/like^^ok',
             'target': 'https://user.com/post',
         }, kwargs['data'])
 
@@ -696,7 +696,7 @@ class ActivityPubTest(testutil.TestCase):
         args, kwargs = mock_post.call_args_list[1]
         self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'http://localhost/render?id=https%3A%2F%2Fmas.to%2F6d1a',
+            'source': 'http://localhost/convert/activitypub/webmention/https:/mas.to/6d1a',
             'target': 'https://user.com/',
         }, kwargs['data'])
 
