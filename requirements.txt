@@ -83,7 +83,7 @@ soupsieve==2.4.1
 testtools==2.6.0
 tlslite-ng==0.7.6
 tweepy==4.14.0
-typing-extensions==4.5.0
+typing-extensions==4.6.1
 typing-validation==1.0.0.post2
 ujson==5.7.0
 update-checker==0.18.0
