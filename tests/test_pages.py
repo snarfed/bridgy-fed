@@ -76,6 +76,26 @@ class PagesTest(testutil.TestCase):
         got = self.client.get('/user/user.com')
         self.assert_equals(200, got.status_code)
 
+    def test_user_before(self):
+        self.add_objects()
+        got = self.client.get(f'/user/user.com?before={util.now().isoformat()}')
+        self.assert_equals(200, got.status_code)
+
+    def test_user_after(self):
+        self.add_objects()
+        got = self.client.get(f'/user/user.com?after={util.now().isoformat()}')
+        self.assert_equals(200, got.status_code)
+
+    def test_user_before_bad(self):
+        self.add_objects()
+        got = self.client.get('/user/user.com?before=nope')
+        self.assert_equals(400, got.status_code)
+
+    def test_user_before_and_after(self):
+        self.add_objects()
+        got = self.client.get('/user/user.com?before=2024-01-01+01:01:01&after=2023-01-01+01:01:01')
+        self.assert_equals(400, got.status_code)
+
     @patch('requests.get')
     def test_check_web_site(self, mock_get):
         redir = 'http://localhost/.well-known/webfinger?resource=acct:user.com@user.com'
