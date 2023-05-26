@@ -83,6 +83,8 @@ soupsieve==2.4.1
 testtools==2.6.0
 tlslite-ng==0.7.6
 tweepy==4.14.0
+# v4.6.0 breaks bases (which multiformats etc use)
+# https://github.com/hashberg-io/bases/issues/3
 typing-extensions==4.5.0
 typing-validation==1.0.0.post2
 ujson==5.7.0
