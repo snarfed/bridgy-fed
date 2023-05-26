@@ -445,6 +445,42 @@ a img.shadow:hover
   list-style: none;
 }
 
+.docs table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: .8em;
+  border: 1px solid steelblue;
+  margin-left: 0.25em;
+  margin-right: 0.25em;
+  margin-top: 2em;
+  margin-bottom: 2em;
+}
+
+.docs th, .docs td {
+  padding: .5em;
+}
+
+.docs tbody th {
+  text-align: right;
+}
+
+.docs thead th {
+  text-align: center;
+}
+
+.docs table code {
+  white-space: nowrap;
+  background-color: transparent !important;
+}
+
+.docs th {
+  background-color: #ebecf6;
+}
+
+.docs tr:nth-child(even) {
+  background-color: #f6f6f6;
+}
+
 .question {
   margin-top: 2em;
   margin-bottom: .5em;
