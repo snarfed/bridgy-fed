@@ -390,11 +390,6 @@ input[type="submit"] {
   display: inline-block;
 }
 
-/* Override the inline display:block which makes it align left instead of center. */
-iframe#twitter-widget-0 {
-  display: inline !important;
-}
-
 #footer {
   margin-top: 2em;
   margin-bottom: 1em;
@@ -481,6 +476,18 @@ a img.shadow:hover
   background-color: #f6f6f6;
 }
 
+.docs .done {
+  background-color: #ebf6eb;
+}
+
+.docs tr:nth-child(even) .done {
+  background-color: #e2f6e2;
+}
+
+.docs .not-done {
+  background-color: white;
+}
+
 .question {
   margin-top: 2em;
   margin-bottom: .5em;
@@ -489,13 +496,6 @@ a img.shadow:hover
 
 .answer ul li, .answer ol {
   margin-bottom: .5em;
-}
-
-/* confirm_instagram.html */
-iframe {
-  width: 50%;
-  border: 1px solid gray;
-  height: 300px;
 }
 
 .right {
