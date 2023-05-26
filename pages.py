@@ -286,6 +286,11 @@ def nodeinfo():
     """
     https://nodeinfo.diaspora.software/schema.html
     """
+    user_total = None
+    stat = KindStat.query(KindStat.kind_name == 'MagicKey').get()
+    if stat:
+        user_total = stat.count
+
     return {
         'version': '2.1',
         'software': {
@@ -305,7 +310,7 @@ def nodeinfo():
         },
         'usage': {
             'users': {
-                'total': KindStat.query(KindStat.kind_name == 'MagicKey').get().count,
+                'total': user_total,
                 # 'activeMonth':
                 # 'activeHalfyear':
             },

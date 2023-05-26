@@ -226,3 +226,7 @@ class PagesTest(TestCase):
         got = self.client.get('/user/user.com/feed?format=rss')
         self.assert_equals(200, got.status_code)
         self.assert_equals(self.EXPECTED, contents(rss.to_activities(got.text)))
+
+    def test_nodeinfo(self):
+        # just check that it doesn't crash
+        self.client.get('/nodeinfo.json')

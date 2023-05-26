@@ -59,8 +59,10 @@ class ProtocolUserMeta(type(ndb.Model)):
 
 def reset_protocol_properties():
     """Recreates various protocol properties to include choices PROTOCOLS."""
-    Target.protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()), required=True)
-    Object.source_protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()))
+    Target.protocol = ndb.StringProperty(
+        'protocol', choices=list(PROTOCOLS.keys()), required=True)
+    Object.source_protocol = ndb.StringProperty(
+        'source_protocol', choices=list(PROTOCOLS.keys()))
 
 
 def base64_to_long(x):
