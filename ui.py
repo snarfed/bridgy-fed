@@ -2,8 +2,9 @@
 
 Needed for serving /convert/ui/webmention/... requests.
 """
+from models import User
 from protocol import Protocol
 
 
-class UIProtocol(Protocol):
+class UIProtocol(User, Protocol):
     LABEL = 'ui'

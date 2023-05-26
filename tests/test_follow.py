@@ -14,6 +14,8 @@ from flask_app import app
 import common
 from common import redirect_unwrap
 from models import Follower, Object, User
+from webmention import Webmention
+
 from . import testutil
 
 WEBFINGER = requests_response({

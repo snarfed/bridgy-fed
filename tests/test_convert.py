@@ -9,6 +9,7 @@ from models import Object
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
+import app
 from common import CONTENT_TYPE_HTML
 
 from .test_redirect import (

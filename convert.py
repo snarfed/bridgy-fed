@@ -17,8 +17,7 @@ from oauth_dropins.webutil.flask_util import error
 from activitypub import ActivityPub
 from common import CACHE_TIME
 from flask_app import app, cache
-from models import Object
-from protocol import protocols
+from models import Object, PROTOCOLS
 from webmention import Webmention
 
 logger = logging.getLogger(__name__)
@@ -52,7 +51,7 @@ def convert(src, dest, _):
         error(f'Expected fully qualified URL; got {url}')
 
     # load, and maybe fetch. if it's a post/update, redirect to inner object.
-    obj = protocols[src].load(url)
+    obj = PROTOCOLS[src].load(url)
     if not obj.as1:
         error(f'Stored object for {id} has no data', status=404)
 
@@ -60,7 +59,7 @@ def convert(src, dest, _):
     if type in ('post', 'update', 'delete'):
         obj_id = as1.get_object(obj.as1).get('id')
         if obj_id:
-            # TODO: protocols[src].load() this instead?
+            # TODO: PROTOCOLS[src].load() this instead?
             obj_obj = Object.get_by_id(obj_id)
             if (obj_obj and obj_obj.as1 and
                 not obj_obj.as1.keys() <= set(['id', 'url', 'objectType'])):
@@ -72,7 +71,7 @@ def convert(src, dest, _):
         return '', 410
 
     # convert and serve
-    return protocols[dest].serve(obj)
+    return PROTOCOLS[dest].serve(obj)
 
 
 @app.get('/render')

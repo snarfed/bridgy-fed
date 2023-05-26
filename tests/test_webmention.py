@@ -162,7 +162,13 @@ DELETE_AS2 = {
 class WebmentionTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('user.com')
+        g.user = self.user = self.make_user('user.com')
+
+        self.request_context.push()
+        self.full_redir = requests_response(
+            status=302,
+            redirected_url='http://localhost/.well-known/webfinger?resource=acct:user.com@user.com')
+
         self.toot_html = requests_response("""\
 <html>
 <meta>
@@ -1337,10 +1343,177 @@ class WebmentionTest(testutil.TestCase):
                            labels=['user', 'activity'],
                            )
 
+    def _test_verify(self, redirects, hcard, actor, redirects_error=None):
+        got = self.user.verify()
+        self.assertEqual(self.user.key, got.key)
+
+        with self.subTest(redirects=redirects, hcard=hcard, actor=actor,
+                          redirects_error=redirects_error):
+            self.assert_equals(redirects, bool(self.user.has_redirects))
+            self.assert_equals(hcard, bool(self.user.has_hcard))
+            if actor is None:
+                self.assertIsNone(self.user.actor_as2)
+            else:
+                got = {k: v for k, v in self.user.actor_as2.items()
+                       if k in actor}
+                self.assert_equals(actor, got)
+            self.assert_equals(redirects_error, self.user.redirects_error)
+
+    def test_verify_neither(self, mock_get, _):
+        empty = requests_response('')
+        mock_get.side_effect = [empty, empty]
+        self._test_verify(False, False, None)
+
+    def test_verify_redirect_strips_query_params(self, mock_get, _):
+        half_redir = requests_response(
+            status=302, redirected_url='http://localhost/.well-known/webfinger')
+        no_hcard = requests_response('<html><body></body></html>')
+        mock_get.side_effect = [half_redir, no_hcard]
+        self._test_verify(False, False, None, """\
+Current vs expected:<pre>- http://localhost/.well-known/webfinger
++ https://fed.brid.gy/.well-known/webfinger?resource=acct:user.com@user.com</pre>""")
+
+    def test_verify_multiple_redirects(self, mock_get, _):
+        two_redirs = requests_response(
+            status=302, redirected_url=[
+                'https://www.user.com/.well-known/webfinger?resource=acct:user.com@user.com',
+                'http://localhost/.well-known/webfinger?resource=acct:user.com@user.com',
+            ])
+        no_hcard = requests_response('<html><body></body></html>')
+        mock_get.side_effect = [two_redirs, no_hcard]
+        self._test_verify(True, False, None)
+
+    def test_verify_redirect_404(self, mock_get, _):
+        redir_404 = requests_response(status=404, redirected_url='http://this/404s')
+        no_hcard = requests_response('<html><body></body></html>')
+        mock_get.side_effect = [redir_404, no_hcard]
+        self._test_verify(False, False, None, """\
+<pre>https://user.com/.well-known/webfinger?resource=acct:user.com@user.com
+  redirected to:
+http://this/404s
+  returned HTTP 404</pre>""")
+
+    def test_verify_no_hcard(self, mock_get, _):
+        mock_get.side_effect = [
+            self.full_redir,
+            requests_response("""
+<body>
+<div class="h-entry">
+  <p class="e-content">foo bar</p>
+</div>
+</body>
+"""),
+        ]
+        self._test_verify(True, False, None)
+
+    def test_verify_non_representative_hcard(self, mock_get, _):
+        bad_hcard = requests_response(
+            '<html><body><a class="h-card u-url" href="https://a.b/">acct:me@user.com</a></body></html>',
+            url='https://user.com/',
+        )
+        mock_get.side_effect = [self.full_redir, bad_hcard]
+        self._test_verify(True, False, None)
+
+    def test_verify_both_work(self, mock_get, _):
+        hcard = requests_response("""
+<html><body class="h-card">
+  <a class="u-url p-name" href="/">me</a>
+  <a class="u-url" href="acct:myself@user.com">Masto</a>
+</body></html>""",
+            url='https://user.com/',
+        )
+        mock_get.side_effect = [self.full_redir, hcard]
+        self._test_verify(True, True, {
+            'type': 'Person',
+            'name': 'me',
+            'url': ['http://localhost/r/https://user.com/', 'acct:myself@user.com'],
+            'preferredUsername': 'user.com',
+        })
+
+    def test_verify_www_redirect(self, mock_get, _):
+        www_user = self.make_user('www.user.com')
+
+        empty = requests_response('')
+        mock_get.side_effect = [
+            requests_response(status=302, redirected_url='https://www.user.com/'),
+            empty, empty,
+        ]
+
+        got = www_user.verify()
+        self.assertEqual('user.com', got.key.id())
+
+        root_user = Webmention.get_by_id('user.com')
+        self.assertEqual(root_user.key, www_user.key.get().use_instead)
+        self.assertEqual(root_user.key, Webmention.get_or_create('www.user.com').key)
+
+    def test_verify_actor_rel_me_links(self, mock_get, _):
+        mock_get.side_effect = [
+            self.full_redir,
+            requests_response("""
+<body>
+<div class="h-card">
+<a class="u-url" rel="me" href="/about-me">Mrs. ☕ Foo</a>
+<a class="u-url" rel="me" href="/">should be ignored</a>
+<a class="u-url" rel="me" href="http://one" title="one title">
+  one text
+</a>
+<a class="u-url" rel="me" href="https://two" title=" two title "> </a>
+</div>
+</body>
+""", url='https://user.com/'),
+        ]
+        self._test_verify(True, True, {
+            'attachment': [{
+            'type': 'PropertyValue',
+            'name': 'Mrs. ☕ Foo',
+            'value': '<a rel="me" href="https://user.com/about-me">user.com/about-me</a>',
+        }, {
+            'type': 'PropertyValue',
+            'name': 'Web site',
+            'value': '<a rel="me" href="https://user.com/">user.com</a>',
+        }, {
+            'type': 'PropertyValue',
+            'name': 'one text',
+            'value': '<a rel="me" href="http://one">one</a>',
+        }, {
+            'type': 'PropertyValue',
+            'name': 'two title',
+            'value': '<a rel="me" href="https://two">two</a>',
+        }]})
+
+    def test_verify_override_preferredUsername(self, mock_get, _):
+        mock_get.side_effect = [
+            self.full_redir,
+            requests_response("""
+<body>
+<a class="h-card u-url" rel="me" href="/about-me">
+  <span class="p-nickname">Nick</span>
+</a>
+</body>
+""", url='https://user.com/'),
+        ]
+        self._test_verify(True, True, {
+            # stays y.z despite user's username. since Mastodon queries Webfinger
+            # for preferredUsername@fed.brid.gy
+            # https://github.com/snarfed/bridgy-fed/issues/77#issuecomment-949955109
+            'preferredUsername': 'user.com',
+        })
+
+    def test_homepage(self, _, __):
+        self.assertEqual('https://user.com/', self.user.homepage)
+
+    def test_is_homepage(self, _, __):
+        for url in 'user.com', '//user.com', 'http://user.com', 'https://user.com':
+            self.assertTrue(self.user.is_homepage(url), url)
+
+        for url in (None, '', 'user', 'com', 'com.user', 'ftp://user.com',
+                    'https://user', '://user.com'):
+            self.assertFalse(self.user.is_homepage(url), url)
+
 
 @mock.patch('requests.post')
 @mock.patch('requests.get')
-class WebmentionUtilTest(testutil.TestCase):
+class WebmentionProtocolTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()

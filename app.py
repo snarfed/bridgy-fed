@@ -6,4 +6,7 @@ registered.
 from flask_app import app
 
 # import all modules to register their Flask handlers
-import activitypub, convert, follow, pages, redirect, superfeedr, webfinger, webmention, xrpc_actor, xrpc_feed, xrpc_graph
+import activitypub, convert, follow, pages, redirect, superfeedr, ui, webfinger, webmention, xrpc_actor, xrpc_feed, xrpc_graph
+
+import models
+models.reset_protocol_properties()

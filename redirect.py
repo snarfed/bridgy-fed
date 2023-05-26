@@ -76,16 +76,18 @@ def redir(to):
                    to_domain))
     for domain in domains:
         if domain:
-            g.user = User.get_by_id(domain)
+            # TODO(#512): do we need to parameterize this by protocol? or is it
+            # only for web?
+            g.user = Webmention.get_by_id(domain)
             if g.user:
-                logger.info(f'Found User for domain {domain}')
+                logger.info(f'Found web user for domain {domain}')
                 break
     else:
         if accept_as2:
             g.external_user = urllib.parse.urljoin(to, '/')
-            logging.info(f'No User for {g.external_user}')
+            logging.info(f'No web user for {g.external_user}')
         else:
-            return f'No user found for any of {domains}', 404
+            return f'No web user found for any of {domains}', 404
 
     if accept_as2:
         # AS2 requested, fetch and convert and serve

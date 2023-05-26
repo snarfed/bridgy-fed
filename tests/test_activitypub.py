@@ -25,10 +25,12 @@ from activitypub import ActivityPub
 from flask_app import app
 import common
 import models
-from models import Follower, Object, User
+from models import Follower, Object
 import protocol
 from protocol import Protocol
-from . import testutil
+from webmention import Webmention
+
+from .testutil import Fake, TestCase
 
 ACTOR = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -222,11 +224,12 @@ NOT_ACCEPTABLE = requests_response(status=406)
 @patch('requests.post')
 @patch('requests.get')
 @patch('requests.head')
-class ActivityPubTest(testutil.TestCase):
+class ActivityPubTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR)
+        self.user = self.make_user('user.com',
+                                   has_hcard=True, actor_as2=ACTOR)
         with self.request_context:
             self.key_id_obj = Object(id='http://my/key/id', as2={
                 **ACTOR,
@@ -1163,12 +1166,12 @@ class ActivityPubTest(testutil.TestCase):
         }, resp.json)
 
 
-class ActivityPubUtilsTest(testutil.TestCase):
+class ActivityPubUtilsTest(TestCase):
     def setUp(self):
         super().setUp()
         self.request_context.push()
-        g.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR)
-
+        g.user = self.make_user('user.com', has_hcard=True,
+                                actor_as2=ACTOR)
     def tearDown(self):
         self.request_context.pop()
         super().tearDown()
@@ -1205,7 +1208,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
         }))
 
     def test_postprocess_as2_actor_attributedTo(self):
-        g.user = User(id='site')
+        g.user = Fake(id='site')
         self.assert_equals({
             'actor': {
                 'id': 'baj',
@@ -1255,7 +1258,7 @@ class ActivityPubUtilsTest(testutil.TestCase):
             ],
         }))
 
-    # TODO: make these generic and use FakeProtocol
+    # TODO: make these generic and use Fake
     @patch('requests.get')
     def test_load_http(self, mock_get):
         mock_get.return_value = AS2

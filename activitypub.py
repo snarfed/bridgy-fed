@@ -1,5 +1,4 @@
-"""Handles requests for ActivityPub endpoints: actors, inbox, etc.
-"""
+"""ActivityPub protocol implementation."""
 from base64 import b64encode
 from hashlib import sha256
 import itertools
@@ -29,6 +28,7 @@ from common import (
 )
 from models import Follower, Object, Target, User
 from protocol import Protocol
+import webmention
 
 logger = logging.getLogger(__name__)
 
@@ -43,11 +43,11 @@ _DEFAULT_SIGNATURE_USER = None
 def default_signature_user():
     global _DEFAULT_SIGNATURE_USER
     if _DEFAULT_SIGNATURE_USER is None:
-        _DEFAULT_SIGNATURE_USER = User.get_or_create('snarfed.org')
+        _DEFAULT_SIGNATURE_USER = webmention.Webmention.get_or_create('snarfed.org')
     return _DEFAULT_SIGNATURE_USER
 
 
-class ActivityPub(Protocol):
+class ActivityPub(User, Protocol):
     """ActivityPub protocol class."""
     LABEL = 'activitypub'
 
@@ -513,11 +513,12 @@ def actor(domain):
     if tld in TLD_BLOCKLIST:
         error('', status=404)
 
-    g.user = User.get_by_id(domain)
+    # TODO(#512): parameterize by protocol
+    g.user = webmention.Webmention.get_by_id(domain)
     if not g.user:
-        return f'User {domain} not found', 404
+        return f'Web user {domain} not found', 404
     elif not g.user.actor_as2:
-        return f'User {domain} not fully set up', 404
+        return f'Web user {domain} not fully set up', 404
 
     # TODO: unify with common.actor()
     actor = postprocess_as2(g.user.actor_as2)
@@ -565,9 +566,10 @@ def inbox(domain=None):
 
     # load user
     if domain:
-        g.user = User.get_by_id(domain)
+        # TODO(#512): parameterize by protocol
+        g.user = webmention.Webmention.get_by_id(domain)
         if not g.user:
-            error(f'User {domain} not found', status=404)
+            error(f'Web user {domain} not found', status=404)
 
     ActivityPub.verify_signature(activity)
 
@@ -603,8 +605,9 @@ def follower_collection(domain, collection):
     https://www.w3.org/TR/activitypub/#collections
     https://www.w3.org/TR/activitystreams-core/#paging
     """
-    if not User.get_by_id(domain):
-        return f'User {domain} not found', 404
+    # TODO(#512): parameterize by protocol
+    if not webmention.Webmention.get_by_id(domain):
+        return f'Web user {domain} not found', 404
 
     # page
     followers, new_before, new_after = Follower.fetch_page(domain, collection)

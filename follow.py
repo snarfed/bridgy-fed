@@ -20,6 +20,7 @@ from activitypub import ActivityPub
 from flask_app import app
 import common
 import models
+from webmention import Webmention
 
 logger = logging.getLogger(__name__)
 
@@ -80,9 +81,10 @@ def remote_follow():
     logger.info(f'Got: {request.values}')
 
     domain = request.values['domain']
-    g.user = models.User.get_by_id(domain)
+    # TODO(#512): parameterize by protocol
+    g.user = Webmention.get_by_id(domain)
     if not g.user:
-        error(f'No Bridgy Fed user found for domain {domain}')
+        error(f'No web user found for domain {domain}')
 
     addr = request.values['address']
     webfinger = fetch_webfinger(addr)
@@ -133,9 +135,10 @@ class FollowCallback(indieauth.Callback):
         session['indieauthed-me'] = me
 
         domain = util.domain_from_link(me)
-        g.user = models.User.get_by_id(domain)
+        # TODO(#512): parameterize by protocol
+        g.user = Webmention.get_by_id(domain)
         if not g.user:
-            error(f'No user for domain {domain}')
+            error(f'No web user for domain {domain}')
         domain = g.user.key.id()
 
         addr = state
@@ -220,9 +223,10 @@ class UnfollowCallback(indieauth.Callback):
         session['indieauthed-me'] = me
 
         domain = util.domain_from_link(me)
-        g.user = models.User.get_by_id(domain)
+        # TODO(#512): parameterize by protocol
+        g.user = Webmention.get_by_id(domain)
         if not g.user:
-            error(f'No user for domain {domain}')
+            error(f'No web user for domain {domain}')
         domain = g.user.key.id()
 
         follower = models.Follower.get_by_id(state)

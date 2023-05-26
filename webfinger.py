@@ -45,7 +45,7 @@ class Actor(flask_util.XrdOrJrd):
         if domain.split('.')[-1] in NON_TLDS:
             error(f"{domain} doesn't look like a domain", status=404)
 
-        g.user = User.get_by_id(domain)
+        g.user = Webmention.get_by_id(domain)
         if g.user:
             actor = g.user.to_as1() or {}
             homepage = g.user.homepage

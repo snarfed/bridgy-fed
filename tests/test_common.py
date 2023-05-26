@@ -11,10 +11,10 @@ from flask_app import app
 import common
 from models import Object, User
 import protocol
-from . import testutil
+from .testutil import Fake, TestCase
 
 
-class CommonTest(testutil.TestCase):
+class CommonTest(TestCase):
     @classmethod
     def setUpClass(cls):
         with appengine_config.ndb_client.context():
@@ -24,7 +24,7 @@ class CommonTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
         self.request_context.push()
-        g.user = User(id='site')
+        g.user = Fake(id='site')
 
     def tearDown(self):
         self.request_context.pop()

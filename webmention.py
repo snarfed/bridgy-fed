@@ -1,7 +1,7 @@
 """Handles inbound webmentions."""
+import difflib
 import logging
-import urllib.parse
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode, urljoin, urlparse
 
 import feedparser
 from flask import g, redirect, request
@@ -14,16 +14,15 @@ from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.appengine_info import APP_ID
 from oauth_dropins.webutil.flask_util import error, flash
 from oauth_dropins.webutil.util import json_dumps, json_loads
-from oauth_dropins.webutil import webmention
+import oauth_dropins.webutil.webmention as webutil_webmention
 from requests import HTTPError, RequestException, URLRequired
-from werkzeug.exceptions import BadGateway, BadRequest, HTTPException
+from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 
-from activitypub import ActivityPub
+import activitypub
 from flask_app import app
 import common
-from models import Follower, Object, Target, User
-import models
-from protocol import Protocol, protocols
+from models import Follower, Object, PROTOCOLS, Target, User
+from protocol import Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -32,10 +31,84 @@ TASKS_LOCATION = 'us-central1'
 
 CHAR_AFTER_SPACE = chr(ord(' ') + 1)
 
+# https://github.com/snarfed/bridgy-fed/issues/314
+WWW_DOMAINS = frozenset((
+    'www.jvt.me',
+))
 
-class Webmention(Protocol):
-    """Webmention protocol implementation."""
+
+class Webmention(User, Protocol):
+    """Webmention user and protocol implementation.
+
+    The key name is the domain.
+    """
     LABEL = 'webmention'
+
+    @classmethod
+    def _get_kind(cls):
+        return 'MagicKey'
+
+    def verify(self):
+        """Fetches site a couple ways to check for redirects and h-card.
+
+
+        Returns: :class:`Webmention` that was verified. May be different than
+          self! eg if self's domain started with www and we switch to the root
+          domain.
+        """
+        domain = self.key.id()
+        logger.info(f'Verifying {domain}')
+
+        if domain.startswith('www.') and domain not in WWW_DOMAINS:
+            # if root domain redirects to www, use root domain instead
+            # https://github.com/snarfed/bridgy-fed/issues/314
+            root = domain.removeprefix("www.")
+            root_site = f'https://{root}/'
+            try:
+                resp = util.requests_get(root_site, gateway=False)
+                if resp.ok and self.is_homepage(resp.url):
+                    logger.info(f'{root_site} redirects to {resp.url} ; using {root} instead')
+                    root_user = Webmention.get_or_create(root)
+                    self.use_instead = root_user.key
+                    self.put()
+                    return root_user.verify()
+            except RequestException:
+                pass
+
+        # check webfinger redirect
+        path = f'/.well-known/webfinger?resource=acct:{domain}@{domain}'
+        self.has_redirects = False
+        self.redirects_error = None
+        try:
+            url = urljoin(self.homepage, path)
+            resp = util.requests_get(url, gateway=False)
+            domain_urls = ([f'https://{domain}/' for domain in common.DOMAINS] +
+                           [common.host_url()])
+            expected = [urljoin(url, path) for url in domain_urls]
+            if resp.ok:
+                if resp.url in expected:
+                    self.has_redirects = True
+                elif resp.url:
+                    diff = '\n'.join(difflib.Differ().compare([resp.url], [expected[0]]))
+                    self.redirects_error = f'Current vs expected:<pre>{diff}</pre>'
+            else:
+                lines = [url, f'  returned HTTP {resp.status_code}']
+                if resp.url != url:
+                    lines[1:1] = ['  redirected to:', resp.url]
+                self.redirects_error = '<pre>' + '\n'.join(lines) + '</pre>'
+        except RequestException:
+            pass
+
+        # check home page
+        try:
+            obj = Webmention.load(self.homepage, gateway=True)
+            self.actor_as2 = activitypub.postprocess_as2(as2.from_as1(obj.as1))
+            self.has_hcard = True
+        except (BadRequest, NotFound):
+            self.actor_as2 = None
+            self.has_hcard = False
+
+        return self
 
     @classmethod
     def send(cls, obj, url):
@@ -48,7 +121,7 @@ class Webmention(Protocol):
 
         endpoint = common.webmention_discover(url).endpoint
         if endpoint:
-            webmention.send(endpoint, source_url, url)
+            webutil_webmention.send(endpoint, source_url, url)
             return True
 
     @classmethod
@@ -130,7 +203,7 @@ class Webmention(Protocol):
         """Serves an :class:`Object` as HTML."""
         obj_as1 = obj.as1
 
-        from_proto = protocols.get(obj.source_protocol)
+        from_proto = PROTOCOLS.get(obj.source_protocol)
         if from_proto:
             # fill in author/actor if available
             for field in 'author', 'actor':
@@ -167,7 +240,7 @@ def webmention_external():
         error(f'Bad URL {source}')
 
     domain = util.domain_from_link(source, minimize=False)
-    g.user = User.get_by_id(domain)
+    g.user = Webmention.get_by_id(domain)
     if not g.user:
         error(f'No user found for domain {domain}')
 
@@ -215,7 +288,7 @@ def webmention_task():
     domain = util.domain_from_link(source, minimize=False)
     logger.info(f'webmention from {domain}')
 
-    g.user = User.get_by_id(domain)
+    g.user = Webmention.get_by_id(domain)
     if not g.user:
         error(f'No user found for domain {domain}', status=304)
 
@@ -373,7 +446,7 @@ def webmention_task():
         obj.target_as2 = target_as2
 
         try:
-            last = ActivityPub.send(obj, inbox, log_data=log_data)
+            last = activitypub.ActivityPub.send(obj, inbox, log_data=log_data)
             obj.delivered.append(target)
             last_success = last
         except BaseException as e:
@@ -429,7 +502,7 @@ def _activitypub_targets(obj):
         # fetch target page as AS2 object
         try:
             # TODO: make this generic across protocols
-            target_stored = ActivityPub.load(target)
+            target_stored = activitypub.ActivityPub.load(target)
             target_obj = target_stored.as2 or as2.from_as1(target_stored.as1)
         except (HTTPError, BadGateway) as e:
             resp = getattr(e, 'requests_response', None)
@@ -455,7 +528,7 @@ def _activitypub_targets(obj):
         if not inbox_url:
             # fetch actor as AS object
             # TODO: make this generic across protocols
-            actor_obj = ActivityPub.load(actor)
+            actor_obj = activitypub.ActivityPub.load(actor)
             actor = actor_obj.as2 or as2.from_as1(actor_obj.as1)
             inbox_url = actor.get('inbox')
 
@@ -464,7 +537,7 @@ def _activitypub_targets(obj):
             logger.error('Target actor has no inbox')
             continue
 
-        inbox_url = urllib.parse.urljoin(target, inbox_url)
+        inbox_url = urljoin(target, inbox_url)
         inboxes_to_targets[inbox_url] = target_obj
 
     if not targets or verb == 'share':

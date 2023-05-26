@@ -10,7 +10,7 @@ from granary import as1, as2
 
 import common
 from common import error
-from models import Follower, Object, Target, User
+from models import Follower, Object, Target
 from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
@@ -45,19 +45,7 @@ objects_cache_lock = threading.Lock()
 logger = logging.getLogger(__name__)
 
 
-# maps string label to Protocol subclass. populated by ProtocolMeta.
-protocols = {}
-
-class ProtocolMeta(type):
-    """:class:`Protocol` metaclass. Registers all subclasses in the protocols global."""
-    def __new__(meta, name, bases, class_dict):
-        cls = super().__new__(meta, name, bases, class_dict)
-        if cls.LABEL:
-            protocols[cls.LABEL] = cls
-        return cls
-
-
-class Protocol(metaclass=ProtocolMeta):
+class Protocol:
     """Base protocol class. Not to be instantiated; classmethods only.
 
     Attributes:

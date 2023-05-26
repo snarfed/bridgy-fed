@@ -8,12 +8,11 @@ import requests
 import protocol
 from protocol import Protocol
 from flask_app import app
-from models import Follower, Object, User
+from models import Follower, Object, PROTOCOLS, User
 from webmention import Webmention
 
 from .test_activitypub import ACTOR, REPLY
-from . import testutil
-from .testutil import FakeProtocol
+from .testutil import Fake, TestCase
 
 REPLY = {
     **REPLY,
@@ -25,7 +24,7 @@ REPLY = {
 }
 
 
-class ProtocolTest(testutil.TestCase):
+class ProtocolTest(TestCase):
 
     def setUp(self):
         super().setUp()
@@ -38,8 +37,8 @@ class ProtocolTest(testutil.TestCase):
         super().tearDown()
 
     def test_protocols_global(self):
-        self.assertEqual(FakeProtocol, protocol.protocols['fake'])
-        self.assertEqual(Webmention, protocol.protocols['webmention'])
+        self.assertEqual(Fake, PROTOCOLS['fake'])
+        self.assertEqual(Webmention, PROTOCOLS['webmention'])
 
     @patch('requests.get')
     def test_receive_reply_not_feed_not_notification(self, mock_get):
@@ -65,58 +64,58 @@ class ProtocolTest(testutil.TestCase):
                            )
 
     def test_load(self):
-        FakeProtocol.objects['foo'] = {'x': 'y'}
+        Fake.objects['foo'] = {'x': 'y'}
 
-        loaded = FakeProtocol.load('foo')
+        loaded = Fake.load('foo')
         self.assert_equals({'x': 'y'}, loaded.our_as1)
         self.assertFalse(loaded.changed)
         self.assertTrue(loaded.new)
 
         self.assertIsNotNone(Object.get_by_id('foo'))
-        self.assertEqual(['foo'], FakeProtocol.fetched)
+        self.assertEqual(['foo'], Fake.fetched)
 
     def test_load_already_stored(self):
         stored = Object(id='foo', our_as1={'x': 'y'})
         stored.put()
 
-        loaded = FakeProtocol.load('foo')
+        loaded = Fake.load('foo')
         self.assert_equals({'x': 'y'}, loaded.our_as1)
         self.assertFalse(loaded.changed)
         self.assertFalse(loaded.new)
 
-        self.assertEqual([], FakeProtocol.fetched)
+        self.assertEqual([], Fake.fetched)
 
     @patch('requests.get')
     def test_load_empty_deleted(self, mock_get):
         stored = Object(id='foo', deleted=True)
         stored.put()
 
-        loaded = FakeProtocol.load('foo')
+        loaded = Fake.load('foo')
         self.assert_entities_equal(stored, loaded)
         self.assertFalse(loaded.changed)
         self.assertFalse(loaded.new)
 
-        self.assertEqual([], FakeProtocol.fetched)
+        self.assertEqual([], Fake.fetched)
 
     @patch('requests.get')
     def test_load_refresh_unchanged(self, mock_get):
         obj = Object(id='foo', our_as1={'x': 'stored'})
         obj.put()
-        FakeProtocol.objects['foo'] = {'x': 'stored'}
+        Fake.objects['foo'] = {'x': 'stored'}
 
-        loaded = FakeProtocol.load('foo', refresh=True)
+        loaded = Fake.load('foo', refresh=True)
         self.assert_entities_equal(obj, loaded)
         self.assertFalse(obj.changed)
         self.assertFalse(obj.new)
-        self.assertEqual(['foo'], FakeProtocol.fetched)
+        self.assertEqual(['foo'], Fake.fetched)
 
     @patch('requests.get')
     def test_load_refresh_changed(self, mock_get):
         Object(id='foo', our_as1={'content': 'stored'}).put()
-        FakeProtocol.objects['foo'] = {'content': 'new'}
+        Fake.objects['foo'] = {'content': 'new'}
 
-        loaded = FakeProtocol.load('foo', refresh=True)
+        loaded = Fake.load('foo', refresh=True)
         self.assert_equals({'content': 'new'}, loaded.our_as1)
         self.assertTrue(loaded.changed)
         self.assertFalse(loaded.new)
-        self.assertEqual(['foo'], FakeProtocol.fetched)
+        self.assertEqual(['foo'], Fake.fetched)

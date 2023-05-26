@@ -25,23 +25,17 @@ import requests
 # load all Flask handlers
 import app
 from flask_app import app, cache, init_globals
-import activitypub, common
+import activitypub
+import common
+import models
 from models import Object, PROTOCOLS, Target, User
 import protocol
-
+from webmention import Webmention
 
 logger = logging.getLogger(__name__)
 
-# used in TestCase.make_user() to reuse keys across Users since they're
-# expensive to generate
-requests.post(f'http://{ndb_client.host}/reset')
-with ndb_client.context():
-    global_user = User.get_or_create('user.com')
 
-
-Object.source_protocol = ndb.StringProperty(choices=PROTOCOLS + ('fake',))
-
-class FakeProtocol(protocol.Protocol):
+class Fake(User, protocol.Protocol):
     LABEL = 'fake'
 
     # maps string ids to dict AS1 objects. send adds objects here, fetch
@@ -56,14 +50,14 @@ class FakeProtocol(protocol.Protocol):
 
     @classmethod
     def send(cls, obj, url, log_data=True):
-        logger.info(f'FakeProtocol.send {url}')
+        logger.info(f'Fake.send {url}')
         cls.sent.append((obj, url))
         cls.objects[obj.key.id()] = obj
 
     @classmethod
     def fetch(cls, obj):
         id = obj.key.id()
-        logger.info(f'FakeProtocol.load {id}')
+        logger.info(f'Fake.load {id}')
         cls.fetched.append(id)
 
         if id in cls.objects:
@@ -74,9 +68,19 @@ class FakeProtocol(protocol.Protocol):
 
     @classmethod
     def serve(cls, obj):
-        logger.info(f'FakeProtocol.load {obj.key.id()}')
-        return (f'FakeProtocol object {obj.key.id()}',
+        logger.info(f'Fake.load {obj.key.id()}')
+        return (f'Fake object {obj.key.id()}',
                 {'Accept': 'fake/protocol'})
+
+
+# used in TestCase.make_user() to reuse keys across Users since they're
+# expensive to generate
+requests.post(f'http://{ndb_client.host}/reset')
+with ndb_client.context():
+    global_user = Fake.get_or_create('user.com')
+
+
+models.reset_protocol_properties()
 
 
 class TestCase(unittest.TestCase, testutil.Asserts):
@@ -91,9 +95,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         protocol.objects_cache.clear()
         common.webmention_discover.cache.clear()
 
-        FakeProtocol.objects = {}
-        FakeProtocol.sent = []
-        FakeProtocol.fetched = []
+        Fake.objects = {}
+        Fake.sent = []
+        Fake.fetched = []
 
         # make random test data deterministic
         arroba.util._clockid = 17
@@ -122,15 +126,16 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.client.__exit__(None, None, None)
         super().tearDown()
 
+    # TODO(#512): switch default to Fake, start using that more
     @staticmethod
-    def make_user(domain, **kwargs):
+    def make_user(domain, cls=Webmention, **kwargs):
         """Reuse RSA key across Users because generating it is expensive."""
-        user = User(id=domain,
-                    mod=global_user.mod,
-                    public_exponent=global_user.public_exponent,
-                    private_exponent=global_user.private_exponent,
-                    p256_key=global_user.p256_key,
-                    **kwargs)
+        user = cls(id=domain,
+                   mod=global_user.mod,
+                   public_exponent=global_user.public_exponent,
+                   private_exponent=global_user.private_exponent,
+                   p256_key=global_user.p256_key,
+                   **kwargs)
         user.put()
         return user
 

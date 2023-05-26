@@ -1,7 +1,6 @@
 """Datastore model classes."""
 import base64
 from datetime import timedelta, timezone
-import difflib
 import itertools
 import json
 import logging
@@ -22,17 +21,13 @@ from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.models import ComputedJsonProperty, JsonProperty, StringIdModel
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
-from werkzeug.exceptions import BadRequest, NotFound
 
 import common
 
-# https://github.com/snarfed/bridgy-fed/issues/314
-WWW_DOMAINS = frozenset((
-    'www.jvt.me',
-))
-# TODO: eventually load from protocol.protocols instead, if/when we can get
-# around the circular import
-PROTOCOLS = ('activitypub', 'bluesky', 'ostatus', 'webmention', 'ui')
+# maps string label to Protocol subclass. populated by ProtocolUserMeta.
+# seed with old and upcoming protocols that don't have their own classes (yet).
+PROTOCOLS = {'bluesky': None, 'ostatus': None}
+
 # 2048 bits makes tests slow, so use 1024 for them
 KEY_BITS = 1024 if DEBUG else 2048
 PAGE_SIZE = 20
@@ -53,6 +48,21 @@ OBJECT_EXPIRE_AGE = timedelta(days=90)
 logger = logging.getLogger(__name__)
 
 
+class ProtocolUserMeta(type(ndb.Model)):
+    """:class:`User` metaclass. Registers all subclasses in the PROTOCOLS global."""
+    def __new__(meta, name, bases, class_dict):
+        cls = super().__new__(meta, name, bases, class_dict)
+        if hasattr(cls, 'LABEL'):
+            PROTOCOLS[cls.LABEL] = cls
+        return cls
+
+
+def reset_protocol_properties():
+    """Recreates various protocol properties to include choices PROTOCOLS."""
+    Target.protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()), required=True)
+    Object.source_protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()))
+
+
 def base64_to_long(x):
     """Converts x from URL safe base64 encoding to a long integer.
 
@@ -69,24 +79,20 @@ def long_to_base64(x):
     return base64.urlsafe_b64encode(number.long_to_bytes(x))
 
 
-class User(StringIdModel):
-    """Stores a Bridgy Fed user.
-
-    The key name is the domain.
+class User(StringIdModel, metaclass=ProtocolUserMeta):
+    """Abstract base class for a Bridgy Fed user.
 
     Stores multiple keypairs needed for the supported protocols. Currently:
 
     * RSA keypair for ActivityPub HTTP Signatures
-      properties: mod, public_exponent, private_exponent
+      properties: mod, public_exponent, private_exponent, all encoded as
+        base64url (ie URL-safe base64) strings as described in RFC 4648 and
+        section 5.1 of the Magic Signatures spec
       https://tools.ietf.org/html/draft-cavage-http-signatures-12
 
     * P-256 keypair for AT Protocol's signing key
       property: p256_key, PEM encoded
       https://atproto.com/guides/overview#account-portability
-
-    The key pair's modulus and exponent properties are all encoded as base64url
-    (ie URL-safe base64) strings as described in RFC 4648 and section 5.1 of the
-    Magic Signatures spec.
     """
     mod = ndb.StringProperty(required=True)
     public_exponent = ndb.StringProperty(required=True)
@@ -101,16 +107,18 @@ class User(StringIdModel):
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
+    @classmethod
+    def new(cls, **kwargs):
+        """Try to prevent instantiation. Use subclasses instead."""
+        raise NotImplementedError()
+
+    # TODO(#512): move this and is_homepage to webmention.py?
     @property
     def homepage(self):
         return f'https://{self.key.id()}/'
 
-    @classmethod
-    def _get_kind(cls):
-        return 'MagicKey'
-
     def _post_put_hook(self, future):
-        logger.info(f'Wrote User {self.key.id()}')
+        logger.info(f'Wrote {self.key}')
 
     @classmethod
     def get_by_id(cls, id):
@@ -121,27 +129,34 @@ class User(StringIdModel):
 
         return user
 
-    @staticmethod
+    @classmethod
     @ndb.transactional()
-    def get_or_create(domain, **kwargs):
+    def get_or_create(cls, domain, **kwargs):
         """Loads and returns a User. Creates it if necessary."""
-        user = User.get_by_id(domain)
+        assert cls != User
+        user = cls.get_by_id(domain)
         if user:
             return user
 
-        # originally from django_salmon.magicsigs
-        # this uses urandom(), and does nontrivial math, so it can take a
-        # while depending on the amount of randomness available.
-        rng = Random.new().read
-        rsa_key = RSA.generate(KEY_BITS, rng)
-        p256_key = ECC.generate(curve='P-256',
-                                randfunc=random.randbytes if DEBUG else None)
-        user = User(id=domain,
-                    mod=long_to_base64(rsa_key.n),
-                    public_exponent=long_to_base64(rsa_key.e),
-                    private_exponent=long_to_base64(rsa_key.d),
-                    p256_key=p256_key.export_key(format='PEM'),
-                    **kwargs)
+        # generate keys for all protocols _except_ our own
+        #
+        # these can use urandom() and do nontrivial math, so they can take time
+        # depending on the amount of randomness available and compute needed.
+        if cls.LABEL != 'activitypub':
+            # originally from django_salmon.magicsigs
+            key = RSA.generate(KEY_BITS, randfunc=random.randbytes if DEBUG else None)
+            kwargs.update({
+                    'mod': long_to_base64(key.n),
+                    'public_exponent': long_to_base64(key.e),
+                    'private_exponent': long_to_base64(key.d),
+            })
+
+        if cls.LABEL != 'atprotocol':
+            key = ECC.generate(
+                curve='P-256', randfunc=random.randbytes if DEBUG else None)
+            kwargs['p256_key'] = key.export_key(format='PEM')
+
+        user = cls(id=domain, **kwargs)
         user.put()
         return user
 
@@ -222,67 +237,6 @@ class User(StringIdModel):
 
         return f'<a class="h-card u-author" href="/user/{domain}"><img src="{img}" class="profile"> {name}</a>'
 
-    def verify(self):
-        """Fetches site a couple ways to check for redirects and h-card.
-
-        Returns: User that was verified. May be different than self! eg if self's
-          domain started with www and we switch to the root domain.
-        """
-        domain = self.key.id()
-        logger.info(f'Verifying {domain}')
-
-        if domain.startswith('www.') and domain not in WWW_DOMAINS:
-            # if root domain redirects to www, use root domain instead
-            # https://github.com/snarfed/bridgy-fed/issues/314
-            root = domain.removeprefix("www.")
-            root_site = f'https://{root}/'
-            try:
-                resp = util.requests_get(root_site, gateway=False)
-                if resp.ok and self.is_homepage(resp.url):
-                    logger.info(f'{root_site} redirects to {resp.url} ; using {root} instead')
-                    root_user = User.get_or_create(root)
-                    self.use_instead = root_user.key
-                    self.put()
-                    return root_user.verify()
-            except requests.RequestException:
-                pass
-
-        # check webfinger redirect
-        path = f'/.well-known/webfinger?resource=acct:{domain}@{domain}'
-        self.has_redirects = False
-        self.redirects_error = None
-        try:
-            url = urllib.parse.urljoin(self.homepage, path)
-            resp = util.requests_get(url, gateway=False)
-            domain_urls = ([f'https://{domain}/' for domain in common.DOMAINS] +
-                           [common.host_url()])
-            expected = [urllib.parse.urljoin(url, path) for url in domain_urls]
-            if resp.ok:
-                if resp.url in expected:
-                    self.has_redirects = True
-                elif resp.url:
-                    diff = '\n'.join(difflib.Differ().compare([resp.url], [expected[0]]))
-                    self.redirects_error = f'Current vs expected:<pre>{diff}</pre>'
-            else:
-                lines = [url, f'  returned HTTP {resp.status_code}']
-                if resp.url != url:
-                    lines[1:1] = ['  redirected to:', resp.url]
-                self.redirects_error = '<pre>' + '\n'.join(lines) + '</pre>'
-        except requests.RequestException:
-            pass
-
-        # check home page
-        try:
-            import activitypub, webmention  # TODO: actually fix these circular imports
-            obj = webmention.Webmention.load(self.homepage, gateway=True)
-            self.actor_as2 = activitypub.postprocess_as2(as2.from_as1(obj.as1))
-            self.has_hcard = True
-        except (BadRequest, NotFound):
-            self.actor_as2 = None
-            self.has_hcard = False
-
-        return self
-
 
 class Target(ndb.Model):
     """Delivery destinations. ActivityPub inboxes, webmention targets, etc.
@@ -301,7 +255,9 @@ class Target(ndb.Model):
     https://googleapis.dev/python/python-ndb/latest/model.html#google.cloud.ndb.model.StructuredProperty
     """
     uri = ndb.StringProperty(required=True)
-    protocol = ndb.StringProperty(choices=PROTOCOLS, required=True)
+    # choices is populated in flask_app, after all User subclasses are created,
+    # so that PROTOCOLS is fully populated
+    protocol = ndb.StringProperty(choices=[], required=True)
 
 
 class Object(StringIdModel):
@@ -315,8 +271,10 @@ class Object(StringIdModel):
     # domains of the Bridgy Fed users this activity is to or from
     domains = ndb.StringProperty(repeated=True)
     status = ndb.StringProperty(choices=STATUSES)
+    # choices is populated in flask_app, after all User subclasses are created,
+    # so that PROTOCOLS is fully populated
     # TODO: remove? is this redundant with the protocol-specific data fields below?
-    source_protocol = ndb.StringProperty(choices=PROTOCOLS)
+    source_protocol = ndb.StringProperty(choices=[])
     labels = ndb.StringProperty(repeated=True, choices=LABELS)
 
     # TODO: switch back to ndb.JsonProperty if/when they fix it for the web console
