@@ -878,6 +878,7 @@ class WebmentionTest(testutil.TestCase):
                            domains=['user.com'],
                            mf2=self.note_mf2,
                            type='note',
+                           source_protocol='webmention',
                            )
         self.assert_object('https://user.com/post#bridgy-fed-create',
                            domains=['user.com'],
