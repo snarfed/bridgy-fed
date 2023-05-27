@@ -20,7 +20,7 @@ from activitypub import ActivityPub
 from flask_app import app
 import common
 import models
-from webmention import Webmention
+from web import Web
 
 logger = logging.getLogger(__name__)
 
@@ -82,7 +82,7 @@ def remote_follow():
 
     domain = request.values['domain']
     # TODO(#512): parameterize by protocol
-    g.user = Webmention.get_by_id(domain)
+    g.user = Web.get_by_id(domain)
     if not g.user:
         error(f'No web user found for domain {domain}')
 
@@ -136,7 +136,7 @@ class FollowCallback(indieauth.Callback):
 
         domain = util.domain_from_link(me)
         # TODO(#512): parameterize by protocol
-        g.user = Webmention.get_by_id(domain)
+        g.user = Web.get_by_id(domain)
         if not g.user:
             error(f'No web user for domain {domain}')
         domain = g.user.key.id()
@@ -224,7 +224,7 @@ class UnfollowCallback(indieauth.Callback):
 
         domain = util.domain_from_link(me)
         # TODO(#512): parameterize by protocol
-        g.user = Webmention.get_by_id(domain)
+        g.user = Web.get_by_id(domain)
         if not g.user:
             error(f'No web user for domain {domain}')
         domain = g.user.key.id()

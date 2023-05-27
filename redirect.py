@@ -25,7 +25,7 @@ from activitypub import ActivityPub
 from flask_app import app, cache
 from common import CACHE_TIME, CONTENT_TYPE_HTML
 from models import Object, User
-from webmention import Webmention
+from web import Web
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ def redir(to):
         if domain:
             # TODO(#512): do we need to parameterize this by protocol? or is it
             # only for web?
-            g.user = Webmention.get_by_id(domain)
+            g.user = Web.get_by_id(domain)
             if g.user:
                 logger.info(f'Found web user for domain {domain}')
                 break
@@ -91,7 +91,7 @@ def redir(to):
 
     if accept_as2:
         # AS2 requested, fetch and convert and serve
-        obj = Webmention.load(to, check_backlink=False)
+        obj = Web.load(to, check_backlink=False)
         if not obj or obj.deleted:
             return f'Object not found: {to}', 404
         ret, _ = ActivityPub.serve(obj)

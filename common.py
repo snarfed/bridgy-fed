@@ -185,5 +185,5 @@ def webmention_endpoint_cache_key(url):
                    lock=threading.Lock(),
                    info=True)
 def webmention_discover(url, **kwargs):
-    """Thin caching wrapper around :func:`webmention.discover`."""
+    """Thin caching wrapper around :func:`web.discover`."""
     return webmention.discover(url, **kwargs)

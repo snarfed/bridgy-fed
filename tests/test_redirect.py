@@ -10,7 +10,7 @@ import requests
 from flask_app import app, cache
 from common import redirect_unwrap
 from models import Object, User
-from .test_webmention import (
+from .test_web import (
     ACTOR_AS2,
     ACTOR_AS2_FULL,
     ACTOR_HTML,

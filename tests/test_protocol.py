@@ -9,7 +9,7 @@ import protocol
 from protocol import Protocol
 from flask_app import app
 from models import Follower, Object, PROTOCOLS, User
-from webmention import Webmention
+from web import Web
 
 from .test_activitypub import ACTOR, REPLY
 from .testutil import Fake, TestCase
@@ -38,7 +38,7 @@ class ProtocolTest(TestCase):
 
     def test_protocols_global(self):
         self.assertEqual(Fake, PROTOCOLS['fake'])
-        self.assertEqual(Webmention, PROTOCOLS['webmention'])
+        self.assertEqual(Web, PROTOCOLS['webmention'])
 
     @patch('requests.get')
     def test_receive_reply_not_feed_not_notification(self, mock_get):

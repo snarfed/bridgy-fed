@@ -8,7 +8,7 @@ from oauth_dropins.webutil import util
 from flask_app import xrpc_server
 import common
 from models import Follower, User
-from webmention import Webmention
+from web import Web
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ def get_followers(query_prop, output_field, user=None, limit=50, before=None):
     # TODO: what is user?
     if not user or not re.match(util.DOMAIN_RE, user):
         raise ValueError(f'{user} is not a domain')
-    elif not Webmention.get_by_id(user):
+    elif not Web.get_by_id(user):
         raise ValueError(f'Unknown user {user}')
 
     collection = 'followers' if output_field == 'followers' else 'following'

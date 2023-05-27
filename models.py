@@ -114,7 +114,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """Try to prevent instantiation. Use subclasses instead."""
         raise NotImplementedError()
 
-    # TODO(#512): move this and is_homepage to webmention.py?
+    # TODO(#512): move this and is_homepage to web.py?
     @property
     def homepage(self):
         return f'https://{self.key.id()}/'

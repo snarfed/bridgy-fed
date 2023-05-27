@@ -18,9 +18,9 @@ from oauth_dropins.webutil.testutil import requests_response
 from flask_app import app
 import common
 from models import Object, Follower, User
-from webmention import Webmention
+from web import Web
 
-from .test_webmention import ACTOR_AS2, ACTOR_HTML, ACTOR_MF2, REPOST_AS2
+from .test_web import ACTOR_AS2, ACTOR_HTML, ACTOR_MF2, REPOST_AS2
 from .testutil import Fake, TestCase
 
 
@@ -111,7 +111,7 @@ class PagesTest(TestCase):
         self.assert_equals(302, got.status_code)
         self.assert_equals('/user/user.com', got.headers['Location'])
 
-        user = Webmention.get_by_id('user.com')
+        user = Web.get_by_id('user.com')
         self.assertTrue(user.has_hcard)
         self.assertEqual('Person', user.actor_as2['type'])
         self.assertEqual('http://localhost/user.com', user.actor_as2['id'])
@@ -120,7 +120,7 @@ class PagesTest(TestCase):
         got = self.client.post('/web-site', data={'url': '!!!'})
         self.assert_equals(200, got.status_code)
         self.assertEqual(['No domain found in !!!'], get_flashed_messages())
-        self.assertEqual(1, Webmention.query().count())
+        self.assertEqual(1, Web.query().count())
 
     @patch('requests.get')
     def test_check_web_site_fetch_fails(self, mock_get):

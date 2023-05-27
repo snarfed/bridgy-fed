@@ -18,7 +18,7 @@ from activitypub import ActivityPub
 from common import CACHE_TIME
 from flask_app import app, cache
 from models import Object, PROTOCOLS
-from webmention import Webmention
+from web import Web
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,7 @@ SOURCES = frozenset((
     ActivityPub.LABEL,
 ))
 DESTS = frozenset((
-    Webmention.LABEL,
+    Web.LABEL,
 ))
 
 

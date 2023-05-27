@@ -14,7 +14,7 @@ from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.appengine_info import APP_ID
 from oauth_dropins.webutil.flask_util import error, flash
 from oauth_dropins.webutil.util import json_dumps, json_loads
-import oauth_dropins.webutil.webmention as webutil_webmention
+from oauth_dropins.webutil import webmention
 from requests import HTTPError, RequestException, URLRequired
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 
@@ -37,8 +37,8 @@ WWW_DOMAINS = frozenset((
 ))
 
 
-class Webmention(User, Protocol):
-    """Webmention user and protocol implementation.
+class Web(User, Protocol):
+    """Web user and webmention protocol implementation.
 
     The key name is the domain.
     """
@@ -52,7 +52,7 @@ class Webmention(User, Protocol):
         """Fetches site a couple ways to check for redirects and h-card.
 
 
-        Returns: :class:`Webmention` that was verified. May be different than
+        Returns: :class:`Web` that was verified. May be different than
           self! eg if self's domain started with www and we switch to the root
           domain.
         """
@@ -68,7 +68,7 @@ class Webmention(User, Protocol):
                 resp = util.requests_get(root_site, gateway=False)
                 if resp.ok and self.is_homepage(resp.url):
                     logger.info(f'{root_site} redirects to {resp.url} ; using {root} instead')
-                    root_user = Webmention.get_or_create(root)
+                    root_user = Web.get_or_create(root)
                     self.use_instead = root_user.key
                     self.put()
                     return root_user.verify()
@@ -101,7 +101,7 @@ class Webmention(User, Protocol):
 
         # check home page
         try:
-            obj = Webmention.load(self.homepage, gateway=True)
+            obj = Web.load(self.homepage, gateway=True)
             self.actor_as2 = activitypub.postprocess_as2(as2.from_as1(obj.as1))
             self.has_hcard = True
         except (BadRequest, NotFound):
@@ -121,7 +121,7 @@ class Webmention(User, Protocol):
 
         endpoint = common.webmention_discover(url).endpoint
         if endpoint:
-            webutil_webmention.send(endpoint, source_url, url)
+            webmention.send(endpoint, source_url, url)
             return True
 
     @classmethod
@@ -240,7 +240,7 @@ def webmention_external():
         error(f'Bad URL {source}')
 
     domain = util.domain_from_link(source, minimize=False)
-    g.user = Webmention.get_by_id(domain)
+    g.user = Web.get_by_id(domain)
     if not g.user:
         error(f'No user found for domain {domain}')
 
@@ -288,13 +288,13 @@ def webmention_task():
     domain = util.domain_from_link(source, minimize=False)
     logger.info(f'webmention from {domain}')
 
-    g.user = Webmention.get_by_id(domain)
+    g.user = Web.get_by_id(domain)
     if not g.user:
         error(f'No user found for domain {domain}', status=304)
 
     # fetch source page
     try:
-        obj = Webmention.load(source, refresh=True)
+        obj = Web.load(source, refresh=True)
     except BadRequest as e:
         error(str(e.description), status=304)
     except HTTPError as e:

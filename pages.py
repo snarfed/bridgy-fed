@@ -18,7 +18,7 @@ from flask_app import app, cache
 import common
 from common import DOMAIN_RE
 from models import fetch_page, Follower, Object, PAGE_SIZE, User
-from webmention import Webmention
+from web import Web
 
 FOLLOWERS_UI_LIMIT = 999
 
@@ -59,7 +59,7 @@ def check_web_site():
         flash(f'No domain found in {url}')
         return render_template('enter_web_site.html')
 
-    g.user = Webmention.get_or_create(domain)
+    g.user = Web.get_or_create(domain)
     try:
         g.user = g.user.verify()
     except BaseException as e:
@@ -75,7 +75,7 @@ def check_web_site():
 
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>')
 def user(domain):
-    g.user = Webmention.get_by_id(domain)
+    g.user = Web.get_by_id(domain)
     if not g.user:
         return USER_NOT_FOUND_HTML, 404
     elif g.user.key.id() != domain:
@@ -110,7 +110,7 @@ def user(domain):
 
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
 def followers_or_following(domain, collection):
-    g.user = Webmention.get_by_id(domain)  # g.user is used in template
+    g.user = Web.get_by_id(domain)  # g.user is used in template
     if not g.user:
         return USER_NOT_FOUND_HTML, 404
 
@@ -139,7 +139,7 @@ def feed(domain):
     if format not in ('html', 'atom', 'rss'):
         error(f'format {format} not supported; expected html, atom, or rss')
 
-    g.user = Webmention.get_by_id(domain)
+    g.user = Web.get_by_id(domain)
     if not g.user:
         return render_template('user_not_found.html', domain=domain), 404
 

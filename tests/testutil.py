@@ -30,7 +30,7 @@ import common
 import models
 from models import Object, PROTOCOLS, Target, User
 import protocol
-from webmention import Webmention
+from web import Web
 
 logger = logging.getLogger(__name__)
 
@@ -128,7 +128,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
     # TODO(#512): switch default to Fake, start using that more
     @staticmethod
-    def make_user(domain, cls=Webmention, **kwargs):
+    def make_user(domain, cls=Web, **kwargs):
         """Reuse RSA key across Users because generating it is expensive."""
         user = cls(id=domain,
                    mod=global_user.mod,

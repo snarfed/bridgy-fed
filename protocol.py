@@ -101,7 +101,7 @@ class Protocol:
     def serve(cls, obj):
         """Returns this protocol's Flask response for a given :class:`Object`.
 
-        For example, an HTML string and `'text/html'` for :class:`Webmention`,
+        For example, an HTML string and `'text/html'` for :class:`Web`,
         or a dict with AS2 JSON and `'application/activity+json'` for
         :class:`ActivityPub.
 
@@ -355,8 +355,8 @@ class Protocol:
 
             try:
                 # TODO: fix
-                from webmention import Webmention
-                if Webmention.send(obj, target.uri):
+                from web import Web
+                if Web.send(obj, target.uri):
                     obj.delivered.append(target)
                     if 'notification' not in obj.labels:
                         obj.labels.append('notification')

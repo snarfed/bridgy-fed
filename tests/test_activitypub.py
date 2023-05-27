@@ -28,7 +28,7 @@ import models
 from models import Follower, Object
 import protocol
 from protocol import Protocol
-from webmention import Webmention
+from web import Web
 
 from .testutil import Fake, TestCase
 

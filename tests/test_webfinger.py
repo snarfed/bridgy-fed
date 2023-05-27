@@ -10,7 +10,7 @@ from oauth_dropins.webutil.testutil import requests_response
 import common
 from models import User
 from . import testutil
-from .test_webmention import ACTOR_HTML
+from .test_web import ACTOR_HTML
 
 WEBFINGER = {
     'subject': 'acct:user.com@user.com',

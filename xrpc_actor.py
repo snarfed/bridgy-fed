@@ -10,7 +10,7 @@ from oauth_dropins.webutil import util
 
 from flask_app import xrpc_server
 from models import User
-from webmention import Webmention
+from web import Web
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,7 @@ def getProfile(input, actor=None):
     if not actor or not re.match(util.DOMAIN_RE, actor):
         raise ValueError(f'{actor} is not a domain')
 
-    g.user = Webmention.get_by_id(actor)
+    g.user = Web.get_by_id(actor)
     if not g.user:
         raise ValueError(f'User {actor} not found')
     elif not g.user.actor_as2:

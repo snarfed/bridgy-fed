@@ -10,7 +10,7 @@ from oauth_dropins.webutil import util
 
 from flask_app import xrpc_server
 from models import Object, PAGE_SIZE, User
-from webmention import Webmention
+from web import Web
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ def getAuthorFeed(input, author=None, limit=None, before=None):
     if not author or not re.match(util.DOMAIN_RE, author):
         raise ValueError(f'{author} is not a domain')
 
-    g.user = Webmention.get_by_id(author)
+    g.user = Web.get_by_id(author)
     if not g.user:
         raise ValueError(f'User {author} not found')
     elif not g.user.actor_as2:

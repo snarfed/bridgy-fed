@@ -17,7 +17,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from flask_app import app, cache
 import common
 from models import User
-from webmention import Webmention
+from web import Web
 
 NON_TLDS = frozenset(('html', 'json', 'php', 'xml'))
 
@@ -45,7 +45,7 @@ class Actor(flask_util.XrdOrJrd):
         if domain.split('.')[-1] in NON_TLDS:
             error(f"{domain} doesn't look like a domain", status=404)
 
-        g.user = Webmention.get_by_id(domain)
+        g.user = Web.get_by_id(domain)
         if g.user:
             actor = g.user.to_as1() or {}
             homepage = g.user.homepage
@@ -53,7 +53,7 @@ class Actor(flask_util.XrdOrJrd):
             actor_id = g.user.actor_id()
         elif external:
             g.external_user = homepage = f'https://{domain}/'
-            obj = Webmention.load(g.external_user)
+            obj = Web.load(g.external_user)
             actor = obj.as1
             handle = f'@{domain}@{request.host}'
             actor_id = common.redirect_wrap(homepage)

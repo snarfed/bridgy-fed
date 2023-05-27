@@ -28,7 +28,7 @@ from common import (
 )
 from models import Follower, Object, Target, User
 from protocol import Protocol
-import webmention
+import web
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +43,7 @@ _DEFAULT_SIGNATURE_USER = None
 def default_signature_user():
     global _DEFAULT_SIGNATURE_USER
     if _DEFAULT_SIGNATURE_USER is None:
-        _DEFAULT_SIGNATURE_USER = webmention.Webmention.get_or_create('snarfed.org')
+        _DEFAULT_SIGNATURE_USER = web.Web.get_or_create('snarfed.org')
     return _DEFAULT_SIGNATURE_USER
 
 
@@ -54,7 +54,7 @@ class ActivityPub(User, Protocol):
     @classmethod
     def send(cls, obj, url, log_data=True):
         """Delivers an activity to an inbox URL."""
-        # this is set in WebmentionView.try_activitypub()
+        # this is set in web.webmention_task()
         target = getattr(obj, 'target_as2', None)
 
         activity = obj.as2 or postprocess_as2(as2.from_as1(obj.as1), target=target)
@@ -514,7 +514,7 @@ def actor(domain):
         error('', status=404)
 
     # TODO(#512): parameterize by protocol
-    g.user = webmention.Webmention.get_by_id(domain)
+    g.user = web.Web.get_by_id(domain)
     if not g.user:
         return f'Web user {domain} not found', 404
     elif not g.user.actor_as2:
@@ -567,7 +567,7 @@ def inbox(domain=None):
     # load user
     if domain:
         # TODO(#512): parameterize by protocol
-        g.user = webmention.Webmention.get_by_id(domain)
+        g.user = web.Web.get_by_id(domain)
         if not g.user:
             error(f'Web user {domain} not found', status=404)
 
@@ -606,7 +606,7 @@ def follower_collection(domain, collection):
     https://www.w3.org/TR/activitystreams-core/#paging
     """
     # TODO(#512): parameterize by protocol
-    if not webmention.Webmention.get_by_id(domain):
+    if not web.Web.get_by_id(domain):
         return f'Web user {domain} not found', 404
 
     # page

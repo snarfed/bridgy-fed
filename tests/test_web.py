@@ -23,7 +23,7 @@ from common import (
     redirect_unwrap,
 )
 from models import Follower, Object, Target, User
-from webmention import TASKS_LOCATION, Webmention
+from web import TASKS_LOCATION, Web
 from .test_activitypub import LIKE
 from . import testutil
 
@@ -159,7 +159,7 @@ DELETE_AS2 = {
 
 @mock.patch('requests.post')
 @mock.patch('requests.get')
-class WebmentionTest(testutil.TestCase):
+class WebTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
         g.user = self.user = self.make_user('user.com')
@@ -1443,9 +1443,9 @@ http://this/404s
         got = www_user.verify()
         self.assertEqual('user.com', got.key.id())
 
-        root_user = Webmention.get_by_id('user.com')
+        root_user = Web.get_by_id('user.com')
         self.assertEqual(root_user.key, www_user.key.get().use_instead)
-        self.assertEqual(root_user.key, Webmention.get_or_create('www.user.com').key)
+        self.assertEqual(root_user.key, Web.get_or_create('www.user.com').key)
 
     def test_verify_actor_rel_me_links(self, mock_get, _):
         mock_get.side_effect = [
@@ -1514,7 +1514,7 @@ http://this/404s
 
 @mock.patch('requests.post')
 @mock.patch('requests.get')
-class WebmentionProtocolTest(testutil.TestCase):
+class WebProtocolTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
@@ -1529,7 +1529,7 @@ class WebmentionProtocolTest(testutil.TestCase):
         mock_get.return_value = REPOST
 
         obj = Object(id='https://user.com/post')
-        Webmention.fetch(obj)
+        Web.fetch(obj)
 
         self.assert_equals({**REPOST_MF2, 'url': 'https://user.com/repost'}, obj.mf2)
 
@@ -1538,7 +1538,7 @@ class WebmentionProtocolTest(testutil.TestCase):
             REPOST_HTML, content_type=CONTENT_TYPE_HTML,
             redirected_url='http://new/url')
         obj = Object(id='https://orig/url')
-        Webmention.fetch(obj)
+        Web.fetch(obj)
 
         self.assert_equals('http://new/url', obj.mf2['url'])
         self.assert_equals({**REPOST_MF2, 'url': 'http://new/url'}, obj.mf2)
@@ -1547,14 +1547,14 @@ class WebmentionProtocolTest(testutil.TestCase):
     def test_fetch_error(self, mock_get, __):
         mock_get.return_value = requests_response(REPOST_HTML, status=405)
         with self.assertRaises(BadGateway) as e:
-            Webmention.fetch(Object(id='https://foo'), gateway=True)
+            Web.fetch(Object(id='https://foo'), gateway=True)
 
     def test_fetch_check_backlink_false(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
             REPOST_HTML.replace('<a href="http://localhost/"></a>', ''))
 
         obj = Object(id='https://foo')
-        Webmention.fetch(obj, check_backlink=False)
+        Web.fetch(obj, check_backlink=False)
         self.assert_equals(REPOST_MF2, obj.mf2)
         mock_get.assert_has_calls((self.req('https://foo'),))
 
@@ -1571,14 +1571,14 @@ class WebmentionProtocolTest(testutil.TestCase):
         ]
 
         obj = Object(id='https://user.com/repost')
-        Webmention.fetch(obj)
+        Web.fetch(obj)
         self.assert_equals({**REPOST_MF2, 'url': 'https://user.com/repost'}, obj.mf2)
 
     def test_fetch_user_homepage(self, mock_get, __):
         mock_get.return_value = ACTOR
 
         obj = Object(id='https://user.com/')
-        Webmention.fetch(obj)
+        Web.fetch(obj)
 
         self.assert_equals({
             **ACTOR_MF2_REL_URLS,
@@ -1592,7 +1592,7 @@ class WebmentionProtocolTest(testutil.TestCase):
 
         obj = Object(id='https://user.com/')
         with self.assertRaises(BadRequest):
-            Webmention.fetch(obj)
+            Web.fetch(obj)
 
     def test_fetch_user_homepage_non_representative_hcard(self, mock_get, __):
         mock_get.return_value = requests_response(
@@ -1601,14 +1601,14 @@ class WebmentionProtocolTest(testutil.TestCase):
 
         obj = Object(id='https://user.com/')
         with self.assertRaises(BadRequest):
-            Webmention.fetch(obj)
+            Web.fetch(obj)
 
     def test_send(self, mock_get, mock_post):
         mock_get.return_value = WEBMENTION_REL_LINK
         mock_post.return_value = requests_response()
 
         obj = Object(id='http://mas.to/like#ok', as2=LIKE, source_protocol='ui')
-        self.assertTrue(Webmention.send(obj, 'https://user.com/post'))
+        self.assertTrue(Web.send(obj, 'https://user.com/post'))
 
         self.assert_req(mock_get, 'https://user.com/post')
         args, kwargs = mock_post.call_args
@@ -1622,14 +1622,14 @@ class WebmentionProtocolTest(testutil.TestCase):
         mock_get.return_value = WEBMENTION_NO_REL_LINK
         obj = Object(id='http://mas.to/like#ok', as2=LIKE)
 
-        self.assertFalse(Webmention.send(obj, 'https://user.com/post'))
+        self.assertFalse(Web.send(obj, 'https://user.com/post'))
 
         self.assert_req(mock_get, 'https://user.com/post')
         mock_post.assert_not_called()
 
     def test_serve(self, _, __):
         obj = Object(id='http://orig', mf2=ACTOR_MF2)
-        html, headers = Webmention.serve(obj)
+        html, headers = Web.serve(obj)
         self.assert_multiline_equals("""\
 <!DOCTYPE html>
 <html>
