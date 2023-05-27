@@ -1,6 +1,7 @@
 # coding=utf-8
 """Misc common utilities.
 """
+import base64
 import copy
 from datetime import timedelta
 import logging
@@ -9,6 +10,7 @@ import threading
 import urllib.parse
 
 import cachetools
+from Crypto.Util import number
 from flask import abort, g, make_response, request
 from granary import as1, as2, microformats2
 import mf2util
@@ -46,6 +48,23 @@ DOMAIN_BLOCKLIST = frozenset((
 ) + DOMAINS)
 
 CACHE_TIME = timedelta(seconds=60)
+
+
+def base64_to_long(x):
+    """Converts x from URL safe base64 encoding to a long integer.
+
+    Originally from django_salmon.magicsigs. Used in :meth:`User.public_pem`
+    and :meth:`User.private_pem`.
+    """
+    return number.bytes_to_long(base64.urlsafe_b64decode(x))
+
+
+def long_to_base64(x):
+    """Converts x from a long integer to base64 URL safe encoding.
+
+    Originally from django_salmon.magicsigs. Used in :meth:`User.get_or_create`.
+    """
+    return base64.urlsafe_b64encode(number.long_to_bytes(x))
 
 
 def host_url(path_query=None):

@@ -1,5 +1,4 @@
 """Datastore model classes."""
-import base64
 from datetime import timedelta, timezone
 import itertools
 import json
@@ -10,7 +9,6 @@ import urllib.parse
 from arroba.mst import dag_cbor_cid
 from Crypto import Random
 from Crypto.PublicKey import ECC, RSA
-from Crypto.Util import number
 import dag_json
 from flask import g, request
 from google.cloud import ndb
@@ -23,6 +21,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 import common
+from common import base64_to_long, long_to_base64
 
 # maps string label to Protocol subclass. populated by ProtocolUserMeta.
 # seed with old and upcoming protocols that don't have their own classes (yet).
@@ -63,22 +62,6 @@ def reset_protocol_properties():
         'protocol', choices=list(PROTOCOLS.keys()), required=True)
     Object.source_protocol = ndb.StringProperty(
         'source_protocol', choices=list(PROTOCOLS.keys()))
-
-
-def base64_to_long(x):
-    """Converts x from URL safe base64 encoding to a long integer.
-
-    Originally from django_salmon.magicsigs.
-    """
-    return number.bytes_to_long(base64.urlsafe_b64decode(x))
-
-
-def long_to_base64(x):
-    """Converts x from a long integer to base64 URL safe encoding.
-
-    Originally from django_salmon.magicsigs.
-    """
-    return base64.urlsafe_b64encode(number.long_to_bytes(x))
 
 
 class User(StringIdModel, metaclass=ProtocolUserMeta):
