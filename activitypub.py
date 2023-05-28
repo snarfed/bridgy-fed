@@ -108,7 +108,7 @@ class ActivityPub(User, Protocol):
             resp = signed_get(url, headers=headers, gateway=True)
             if not resp.content:
                 _error('empty response')
-            elif common.content_type(resp) == as2.CONTENT_TYPE:
+            elif common.content_type(resp) in as2.CONTENT_TYPES:
                 try:
                     return resp.json()
                 except requests.JSONDecodeError:

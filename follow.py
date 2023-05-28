@@ -153,7 +153,8 @@ class FollowCallback(indieauth.Callback):
 
             as2_url = None
             for link in webfinger.get('links', []):
-                if link.get('rel') == 'self' and link.get('type') == as2.CONTENT_TYPE:
+                type = link.get('type', '').split(';')[0]
+                if link.get('rel') == 'self' and type in as2.CONTENT_TYPES:
                     as2_url = link.get('href')
 
         if not as2_url:

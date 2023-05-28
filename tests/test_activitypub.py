@@ -1370,6 +1370,19 @@ class ActivityPubUtilsTest(TestCase):
         ))
 
     @patch('requests.get')
+    def test_fetch_direct_ld_content_type(self, mock_get):
+        mock_get.return_value = requests_response(AS2_OBJ, headers={
+            'Content-Type': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
+        })
+        obj = Object(id='http://orig')
+        ActivityPub.fetch(obj)
+        self.assertEqual(AS2_OBJ, obj.as2)
+
+        mock_get.assert_has_calls((
+            self.as2_req('http://orig'),
+        ))
+
+    @patch('requests.get')
     def test_fetch_via_html(self, mock_get):
         mock_get.side_effect = [HTML_WITH_AS2, AS2]
         obj = Object(id='http://orig')
