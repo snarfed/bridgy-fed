@@ -23,7 +23,7 @@ ecdsa==0.18.0
 extras==1.0.0
 feedgen==0.9.0
 feedparser==6.0.10
-fixtures==4.0.1
+fixtures==4.1.0
 Flask==2.3.2
 Flask-Caching==2.0.2
 flask-gae-static==1.0
