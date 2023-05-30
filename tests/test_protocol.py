@@ -38,6 +38,7 @@ class ProtocolTest(TestCase):
 
     def test_protocols_global(self):
         self.assertEqual(Fake, PROTOCOLS['fake'])
+        self.assertEqual(Web, PROTOCOLS['web'])
         self.assertEqual(Web, PROTOCOLS['webmention'])
 
     @patch('requests.get')

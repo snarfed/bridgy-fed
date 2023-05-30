@@ -314,10 +314,10 @@ def nodeinfo():
                 # 'activeMonth':
                 # 'activeHalfyear':
             },
-            'localPosts': Object.query(Object.source_protocol == 'webmention',
+            'localPosts': Object.query(Object.source_protocol.IN(('web', 'webmention')),
                                        Object.type.IN(['note', 'article']),
                                        ).count(),
-            'localComments': Object.query(Object.source_protocol == 'webmention',
+            'localComments': Object.query(Object.source_protocol.IN(('web', 'webmention')),
                                           Object.type == 'comment',
                                           ).count(),
         },

@@ -3,7 +3,7 @@
 URL pattern is /convert/SOURCE/DEST , where SOURCE and DEST are the LABEL
 constants from the :class:`Protocol` subclasses.
 
-Currently only supports /convert/activitypub/webmention/...
+Currently only supports /convert/activitypub/web/...
 """
 import logging
 import re
@@ -78,4 +78,4 @@ def convert(src, dest, _):
 def render_redirect():
     """Redirect from old /render?id=... endpoint to /convert/..."""
     id = flask_util.get_required_param('id')
-    return redirect(f'/convert/activitypub/webmention/{id}', code=301)
+    return redirect(f'/convert/activitypub/web/{id}', code=301)

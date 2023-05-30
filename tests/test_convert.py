@@ -64,7 +64,7 @@ EXPECTED_AUTHOR_HTML = """\
 class ConvertTest(testutil.TestCase):
 
     def test_unknown_source(self):
-        resp = self.client.get('/convert/nope/webmention/http://foo')
+        resp = self.client.get('/convert/nope/web/http://foo')
         self.assertEqual(404, resp.status_code)
 
     def test_unknown_dest(self):
@@ -72,11 +72,11 @@ class ConvertTest(testutil.TestCase):
         self.assertEqual(404, resp.status_code)
 
     def test_missing_url(self):
-        resp = self.client.get('/convert/activitypub/webmention/')
+        resp = self.client.get('/convert/activitypub/web/')
         self.assertEqual(404, resp.status_code)
 
     def test_url_not_web(self):
-        resp = self.client.get('/convert/activitypub/webmention/git+ssh://foo/bar')
+        resp = self.client.get('/convert/activitypub/web/git+ssh://foo/bar')
         self.assertEqual(400, resp.status_code)
 
     def test_activitypub_to_web_object(self):
@@ -84,7 +84,7 @@ class ConvertTest(testutil.TestCase):
         with self.request_context:
             Object(id=url, our_as1=COMMENT).put()
 
-        resp = self.client.get('/convert/activitypub/webmention/https://user.com/bar?baz=baj&biff')
+        resp = self.client.get('/convert/activitypub/web/https://user.com/bar?baz=baj&biff')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_equals(EXPECTED_HTML, resp.get_data(as_text=True),
                                      ignore_blanks=True)
@@ -93,7 +93,7 @@ class ConvertTest(testutil.TestCase):
         with self.request_context:
             Object(id='http://foo').put()
 
-        resp = self.client.get('/convert/activitypub/webmention/http://foo')
+        resp = self.client.get('/convert/activitypub/web/http://foo')
         self.assertEqual(404, resp.status_code)
 
     @patch('requests.get')
@@ -101,7 +101,7 @@ class ConvertTest(testutil.TestCase):
         mock_get.return_value = self.as2_resp(as2.from_as1(COMMENT))
         url = 'https://user.com/bar?baz=baj&biff'
 
-        resp = self.client.get(f'/convert/activitypub/webmention/{url}')
+        resp = self.client.get(f'/convert/activitypub/web/{url}')
         self.assertEqual(200, resp.status_code)
         self.assertEqual(CONTENT_TYPE_HTML, resp.content_type)
         self.assert_multiline_equals(EXPECTED_HTML, resp.get_data(as_text=True),
@@ -113,7 +113,7 @@ class ConvertTest(testutil.TestCase):
     def test_activitypub_to_web_fetch_fails(self, mock_get):
         mock_get.side_effect = [requests_response('', status=405)]
 
-        resp = self.client.get('/convert/activitypub/webmention/http://foo')
+        resp = self.client.get('/convert/activitypub/web/http://foo')
         self.assertEqual(502, resp.status_code)
         mock_get.assert_has_calls((self.as2_req('http://foo'),))
 
@@ -124,7 +124,7 @@ class ConvertTest(testutil.TestCase):
             Object(id='http://bar', our_as1=ACTOR,
                    source_protocol='activitypub').put()
 
-        resp = self.client.get('/convert/activitypub/webmention/http://foo')
+        resp = self.client.get('/convert/activitypub/web/http://foo')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_equals(EXPECTED_AUTHOR_HTML, resp.get_data(as_text=True),
                                      ignore_blanks=True)
@@ -135,7 +135,7 @@ class ConvertTest(testutil.TestCase):
         with self.request_context:
             Object(id='http://foo', our_as1=comment).put()
 
-        resp = self.client.get('/convert/activitypub/webmention/http://foo')
+        resp = self.client.get('/convert/activitypub/web/http://foo')
         self.assertEqual(200, resp.status_code)
         expected = EXPECTED_HTML.replace(
             '\n<meta http-equiv="refresh" content="0;url=https://fake.com/123456">', ''
@@ -147,14 +147,14 @@ class ConvertTest(testutil.TestCase):
         with self.request_context:
             Object(id='http://foo', as2={'content': 'foo'}, deleted=True).put()
 
-        resp = self.client.get('/convert/activitypub/webmention/http://foo')
+        resp = self.client.get('/convert/activitypub/web/http://foo')
         self.assertEqual(410, resp.status_code)
 
     def test_activitypub_to_web_delete_activity(self):
         with self.request_context:
             Object(id='http://foo', our_as1=DELETE_OF_ID).put()
 
-        resp = self.client.get('/convert/activitypub/webmention/http://foo')
+        resp = self.client.get('/convert/activitypub/web/http://foo')
         self.assertEqual(410, resp.status_code)
 
     def test_activitypub_to_web_update_inner_obj_exists_redirect(self):
@@ -163,9 +163,9 @@ class ConvertTest(testutil.TestCase):
             Object(id='http://foo', our_as1=UPDATE).put()
             Object(id=UPDATE['object']['id'], as2={'content': 'foo'}).put()
 
-        resp = self.client.get('/convert/activitypub/webmention/http://foo')
+        resp = self.client.get('/convert/activitypub/web/http://foo')
         self.assertEqual(301, resp.status_code)
-        self.assertEqual(f'/convert/activitypub/webmention/tag:fake.com:123456',
+        self.assertEqual(f'/convert/activitypub/web/tag:fake.com:123456',
                          resp.headers['Location'])
 
     def test_activitypub_to_web_delete_inner_obj_exists_redirect(self):
@@ -174,9 +174,9 @@ class ConvertTest(testutil.TestCase):
             Object(id='http://foo', our_as1=DELETE_OF_ID).put()
             Object(id=DELETE_OF_ID['object'], as2={'content': 'foo'}).put()
 
-        resp = self.client.get('/convert/activitypub/webmention/http://foo')
+        resp = self.client.get('/convert/activitypub/web/http://foo')
         self.assertEqual(301, resp.status_code)
-        self.assertEqual(f'/convert/activitypub/webmention/tag:fake.com:123456',
+        self.assertEqual(f'/convert/activitypub/web/tag:fake.com:123456',
                          resp.headers['Location'])
 
     def test_activitypub_to_web_update_no_inner_obj_serve_as_is(self):
@@ -184,7 +184,7 @@ class ConvertTest(testutil.TestCase):
             # UPDATE's object field is a full object
             Object(id='http://foo', our_as1=UPDATE).put()
 
-        resp = self.client.get('/convert/activitypub/webmention/http://foo')
+        resp = self.client.get('/convert/activitypub/web/http://foo')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_in("""\
 <div class="e-content p-name">
@@ -199,7 +199,7 @@ A ☕ reply
             Object(id='http://foo', our_as1=UPDATE).put()
             Object(id=UPDATE['object']['id'], as2={'id': 'foo'}).put()
 
-        resp = self.client.get('/convert/activitypub/webmention/http://foo')
+        resp = self.client.get('/convert/activitypub/web/http://foo')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_in("""\
 <div class="e-content p-name">
@@ -211,5 +211,5 @@ A ☕ reply
     def test_render_endpoint_redirect(self):
         resp = self.client.get('/render?id=http://foo%3Fbar')
         self.assertEqual(301, resp.status_code)
-        self.assertEqual(f'/convert/activitypub/webmention/http://foo?bar',
+        self.assertEqual(f'/convert/activitypub/web/http://foo?bar',
                          resp.headers['Location'])

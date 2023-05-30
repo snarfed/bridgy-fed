@@ -244,7 +244,7 @@ class ActivityPubTest(TestCase):
             self.key_id_obj.put()
 
     def assert_object(self, id, **props):
-        return super().assert_object(id, delivered_protocol='webmention', **props)
+        return super().assert_object(id, delivered_protocol='web', **props)
 
     def sign(self, path, body):
         """Constructs HTTP Signature, returns headers."""
@@ -356,7 +356,7 @@ class ActivityPubTest(TestCase):
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
-                'source': f'http://localhost/convert/activitypub/webmention/{convert_id}',
+                'source': f'http://localhost/convert/activitypub/web/{convert_id}',
                 'target': 'https://user.com/post',
             },
         )
@@ -448,7 +448,7 @@ class ActivityPubTest(TestCase):
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
-                'source': f'http://localhost/convert/activitypub/webmention/{convert_id}',
+                'source': f'http://localhost/convert/activitypub/web/{convert_id}',
                 'target': orig_url,
             },
         )
@@ -573,7 +573,7 @@ class ActivityPubTest(TestCase):
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
-                'source': f'http://localhost/convert/activitypub/webmention/{convert_id}',
+                'source': f'http://localhost/convert/activitypub/web/{convert_id}',
                 'target': 'https://tar.get/',
             },
         )
@@ -607,7 +607,7 @@ class ActivityPubTest(TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'http://localhost/convert/activitypub/webmention/http:/mas.to/like^^ok',
+            'source': 'http://localhost/convert/activitypub/web/http:/mas.to/like^^ok',
             'target': 'https://user.com/post',
         }, kwargs['data'])
 
@@ -702,7 +702,7 @@ class ActivityPubTest(TestCase):
         args, kwargs = mock_post.call_args_list[1]
         self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'http://localhost/convert/activitypub/webmention/https:/mas.to/6d1a',
+            'source': 'http://localhost/convert/activitypub/web/https:/mas.to/6d1a',
             'target': 'https://user.com/',
         }, kwargs['data'])
 
@@ -1328,7 +1328,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals(AS2_OBJ, got.as2)
         mock_get.assert_has_calls([self.as2_req(id)])
 
-        self.assert_object(id, delivered_protocol='webmention',
+        self.assert_object(id, delivered_protocol='web',
                            as2=AS2_OBJ, as1=AS2_OBJ,
                            source_protocol='activitypub',
                            # check that it reused our original Object

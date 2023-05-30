@@ -567,14 +567,14 @@ class WebTest(testutil.TestCase):
 
         self.assert_object('https://user.com/reply',
                            domains=['user.com'],
-                           source_protocol='webmention',
+                           source_protocol='web',
                            mf2=self.reply_mf2,
                            as1=self.reply_as1,
                            type='comment',
                            )
         self.assert_object('https://user.com/reply#bridgy-fed-create',
                            domains=['user.com'],
-                           source_protocol='webmention',
+                           source_protocol='web',
                            status='complete',
                            mf2=self.reply_mf2,
                            our_as1=self.create_reply_as1,
@@ -711,7 +711,7 @@ class WebTest(testutil.TestCase):
         mf2 = util.parse_mf2(html)['items'][0]
         self.assert_object('https://user.com/repost',
                            domains=['user.com'],
-                           source_protocol='webmention',
+                           source_protocol='web',
                            status='complete',
                            mf2=mf2,
                            as1=microformats2.json_to_object(mf2),
@@ -769,7 +769,7 @@ class WebTest(testutil.TestCase):
 
         self.assert_object('https://user.com/like',
                            domains=['user.com'],
-                           source_protocol='webmention',
+                           source_protocol='web',
                            mf2=self.like_mf2,
                            as1=microformats2.json_to_object(self.like_mf2),
                            type='like',
@@ -878,11 +878,11 @@ class WebTest(testutil.TestCase):
                            domains=['user.com'],
                            mf2=self.note_mf2,
                            type='note',
-                           source_protocol='webmention',
+                           source_protocol='web',
                            )
         self.assert_object('https://user.com/post#bridgy-fed-create',
                            domains=['user.com'],
-                           source_protocol='webmention',
+                           source_protocol='web',
                            status='complete',
                            mf2=self.note_mf2,
                            our_as1=self.create_as1,
@@ -927,7 +927,7 @@ class WebTest(testutil.TestCase):
         self.assert_object(
             f'https://user.com/post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
             domains=['user.com'],
-            source_protocol='webmention',
+            source_protocol='web',
             status='complete',
             mf2=self.note_mf2,
             our_as1=update_as1,
@@ -983,7 +983,7 @@ class WebTest(testutil.TestCase):
 
         self.assert_object('https://user.com/follow',
                            domains=['user.com'],
-                           source_protocol='webmention',
+                           source_protocol='web',
                            status='complete',
                            mf2=self.follow_mf2,
                            as1=self.follow_as1,
@@ -1060,7 +1060,7 @@ class WebTest(testutil.TestCase):
 
         self.assert_object('https://user.com/follow#2',
                            domains=['user.com'],
-                           source_protocol='webmention',
+                           source_protocol='web',
                            status='complete',
                            mf2=self.follow_fragment_mf2,
                            as1=self.follow_fragment_as1,
@@ -1121,7 +1121,7 @@ class WebTest(testutil.TestCase):
         as1 = microformats2.json_to_object(mf2)
         self.assert_object('https://user.com/follow',
                            domains=['user.com'],
-                           source_protocol='webmention',
+                           source_protocol='web',
                            status='complete',
                            mf2=mf2,
                            as1=as1,
@@ -1186,7 +1186,7 @@ class WebTest(testutil.TestCase):
 
         self.assert_object('https://user.com/post#bridgy-fed-delete',
                            domains=['user.com'],
-                           source_protocol='webmention',
+                           source_protocol='web',
                            status='complete',
                            our_as1=DELETE_AS1,
                            delivered=inboxes,
@@ -1245,7 +1245,7 @@ class WebTest(testutil.TestCase):
 
         self.assert_object('https://user.com/follow',
                            domains=['user.com'],
-                           source_protocol='webmention',
+                           source_protocol='web',
                            status='failed',
                            mf2=self.follow_mf2,
                            as1=self.follow_as1,
@@ -1311,7 +1311,7 @@ class WebTest(testutil.TestCase):
 
         # homepage object
         self.assert_object('https://user.com/',
-                           source_protocol='webmention',
+                           source_protocol='web',
                            mf2=ACTOR_MF2_REL_URLS,
                            type='person',
                            )
@@ -1335,7 +1335,7 @@ class WebTest(testutil.TestCase):
         }
         self.assert_object(id,
                            domains=['user.com'],
-                           source_protocol='webmention',
+                           source_protocol='web',
                            status='complete',
                            our_as1=expected_as1,
                            delivered=['https://inbox', 'https://shared/inbox'],
@@ -1614,7 +1614,7 @@ class WebProtocolTest(testutil.TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'http://localhost/convert/ui/webmention/http:/mas.to/like^^ok',
+            'source': 'http://localhost/convert/ui/web/http:/mas.to/like^^ok',
             'target': 'https://user.com/post',
         }, kwargs['data'])
 

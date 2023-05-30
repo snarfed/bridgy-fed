@@ -109,11 +109,11 @@ class ObjectTest(TestCase):
 
     def test_proxy_url(self):
         obj = Object(id='abc', source_protocol='bluesky')
-        self.assertEqual('http://localhost/convert/bluesky/webmention/abc',
+        self.assertEqual('http://localhost/convert/bluesky/web/abc',
                          obj.proxy_url())
 
         obj = Object(id='ab#c', source_protocol='ui')
-        self.assertEqual('http://localhost/convert/ui/webmention/ab^^c',
+        self.assertEqual('http://localhost/convert/ui/web/ab^^c',
                          obj.proxy_url())
 
     def test_put(self):

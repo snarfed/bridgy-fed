@@ -42,7 +42,7 @@ class Web(User, Protocol):
 
     The key name is the domain.
     """
-    LABEL = 'webmention'
+    LABEL = 'web'
 
     @classmethod
     def _get_kind(cls):
@@ -227,6 +227,9 @@ class Web(User, Protocol):
 
         return html, {'Content-Type': common.CONTENT_TYPE_HTML}
 
+# 'webmention' is an old LABEL alias for 'web'
+PROTOCOLS['webmention'] = Web
+
 
 @app.post('/webmention')
 def webmention_external():
@@ -347,7 +350,7 @@ def webmention_task():
 
     obj.populate(
         domains=[g.user.key.id()],
-        source_protocol='webmention',
+        source_protocol='web',
     )
     if not inboxes_to_targets:
         obj.labels.append('user')
@@ -383,7 +386,7 @@ def webmention_task():
                 },
             }
             obj = Object(id=id, mf2=obj.mf2, our_as1=update_as1, labels=['user'],
-                         domains=[g.user.key.id()], source_protocol='webmention')
+                         domains=[g.user.key.id()], source_protocol='web')
 
         elif obj.new:
             logger.info(f'New Object {obj.key.id()}')
@@ -399,7 +402,7 @@ def webmention_task():
             }
             obj = Object(id=id, mf2=obj.mf2, our_as1=create_as1,
                          domains=[g.user.key.id()], labels=['user'],
-                         source_protocol='webmention')
+                         source_protocol='web')
 
         else:
             msg = f'{obj.key.id()} is unchanged, nothing to do'

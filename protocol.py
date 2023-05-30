@@ -328,7 +328,7 @@ class Protocol:
 
         # send webmentions and update Object
         errors = []  # stores (code, body) tuples
-        targets = [Target(uri=uri, protocol='webmention') for uri in targets]
+        targets = [Target(uri=uri, protocol='web') for uri in targets]
 
         obj.populate(
           undelivered=targets,

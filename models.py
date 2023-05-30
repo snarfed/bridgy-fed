@@ -387,13 +387,13 @@ class Object(StringIdModel):
         """
         assert '^^' not in self.key.id()
         id = self.key.id().replace('#', '^^')
-        return common.host_url(f'convert/{self.source_protocol}/webmention/{id}')
+        return common.host_url(f'convert/{self.source_protocol}/web/{id}')
 
     def actor_link(self):
         """Returns a pretty actor link with their name and profile picture."""
         attrs = {'class': 'h-card u-author'}
 
-        if (self.source_protocol in ('webmention', 'ui') and g.user and
+        if (self.source_protocol in ('web', 'webmention', 'ui') and g.user and
             g.user.key.id() in self.domains):
             # outbound; show a nice link to the user
             return g.user.user_page_link()
