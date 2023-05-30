@@ -1,5 +1,11 @@
 User-agent: *
 Disallow: /*?*
-Disallow: /user/*
+Disallow: /ap/*
+Disallow: /atp/*
+Disallow: /bluesky/*
+Disallow: /convert/*
+Disallow: /nostr/*
 Disallow: /recent*
 Disallow: /r/*
+Disallow: /user/*
+Disallow: /web/*
