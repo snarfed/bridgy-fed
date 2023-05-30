@@ -8,7 +8,6 @@ import urllib.parse
 from oauth_dropins.webutil.testutil import requests_response
 
 import common
-from models import User
 from . import testutil
 from .test_web import ACTOR_HTML
 
@@ -204,7 +203,7 @@ class WebfingerTest(testutil.TestCase):
         self.assertEqual(404, got.status_code)
 
     @patch('requests.get')
-    def test_webfinger_external_user_fetch(self, mock_get):
+    def test_webfinger_external_user_fetch_creates_user(self, mock_get):
         self.user.key.delete()
         mock_get.return_value = requests_response(ACTOR_HTML)
 

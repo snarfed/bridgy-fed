@@ -59,7 +59,7 @@ def check_web_site():
         flash(f'No domain found in {url}')
         return render_template('enter_web_site.html')
 
-    g.user = Web.get_or_create(domain)
+    g.user = Web.get_or_create(domain, direct=True)
     try:
         g.user = g.user.verify()
     except BaseException as e:

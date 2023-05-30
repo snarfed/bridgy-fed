@@ -33,6 +33,7 @@ class UserTest(TestCase):
     def test_get_or_create(self):
         user = Fake.get_or_create('a.b')
 
+        assert not user.direct
         assert user.mod
         assert user.public_exponent
         assert user.private_exponent
@@ -46,8 +47,10 @@ class UserTest(TestCase):
         assert isinstance(p256_key, ECC.EccKey)
         self.assertEqual('NIST P-256', p256_key.curve)
 
-        same = Fake.get_or_create('a.b')
-        self.assertEqual(same, user)
+        # direct should get set even if the user exists
+        same = Fake.get_or_create('a.b', direct=True)
+        user.direct = True
+        self.assert_entities_equal(same, user, ignore=['updated'])
 
     def test_get_or_create_use_instead(self):
         user = Fake.get_or_create('a.b')

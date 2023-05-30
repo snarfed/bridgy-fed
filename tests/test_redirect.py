@@ -67,7 +67,7 @@ class RedirectTest(testutil.TestCase):
     def test_as2_ld(self):
         self._test_as2(as2.CONTENT_TYPE_LD)
 
-    def test_as2_no_user(self):
+    def test_as2_creates_user(self):
         with self.request_context:
             Object(id='https://user.com/repost', as2=EXTERNAL_REPOST_AS2).put()
 

@@ -89,6 +89,12 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     actor_as2 = JsonProperty()
     use_instead = ndb.KeyProperty()
 
+    # whether this user signed up or otherwise explicitly, deliberately
+    # interacted with Bridgy Fed. For example, if fediverse user @a@b.com looks
+    # up @foo.com@fed.brid.gy via WebFinger, we'll create Users for both,
+    # @a@b.com will be direct, foo.com will not.
+    direct = ndb.BooleanProperty(default=False)
+
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
@@ -121,6 +127,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         assert cls != User
         user = cls.get_by_id(domain)
         if user:
+            # override direct if it's set
+            direct = kwargs.get('direct')
+            if direct is not None:
+                user.direct = direct
+                user.put()
             return user
 
         # generate keys for all protocols _except_ our own
