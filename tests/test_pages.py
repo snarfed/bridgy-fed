@@ -36,39 +36,44 @@ class PagesTest(TestCase):
         self.user = self.make_user('user.com')
 
     def test_user(self):
-        got = self.client.get('/user/user.com')
+        got = self.client.get('/web/user.com')
         self.assert_equals(200, got.status_code)
 
     def test_user_objects(self):
         self.add_objects()
-        got = self.client.get('/user/user.com')
+        got = self.client.get('/web/user.com')
         self.assert_equals(200, got.status_code)
 
     def test_user_not_found(self):
-        got = self.client.get('/user/bar.com')
+        got = self.client.get('/web/bar.com')
         self.assert_equals(404, got.status_code)
 
     def test_user_not_direct(self):
         self.user.direct = False
         self.user.put()
-        got = self.client.get('/user/user.com')
+        got = self.client.get('/web/user.com')
         self.assert_equals(404, got.status_code)
+
+    def test_user_redirect(self):
+        got = self.client.get('/user/user.com')
+        self.assert_equals(301, got.status_code)
+        self.assert_equals('/web/user.com', got.headers['Location'])
 
     def test_user_use_instead(self):
         bar = self.make_user('bar.com')
         bar.use_instead = self.user.key
         bar.put()
 
-        got = self.client.get('/user/bar.com')
+        got = self.client.get('/web/bar.com')
         self.assert_equals(301, got.status_code)
-        self.assert_equals('/user/user.com', got.headers['Location'])
+        self.assert_equals('/web/user.com', got.headers['Location'])
 
     def test_user_object_bare_string_id(self):
         with self.request_context:
             Object(id='a', domains=['user.com'], labels=['notification'],
                    as2=REPOST_AS2).put()
 
-        got = self.client.get('/user/user.com')
+        got = self.client.get('/web/user.com')
         self.assert_equals(200, got.status_code)
 
     def test_user_object_url_object(self):
@@ -81,27 +86,27 @@ class PagesTest(TestCase):
                 },
             }).put()
 
-        got = self.client.get('/user/user.com')
+        got = self.client.get('/web/user.com')
         self.assert_equals(200, got.status_code)
 
     def test_user_before(self):
         self.add_objects()
-        got = self.client.get(f'/user/user.com?before={util.now().isoformat()}')
+        got = self.client.get(f'/web/user.com?before={util.now().isoformat()}')
         self.assert_equals(200, got.status_code)
 
     def test_user_after(self):
         self.add_objects()
-        got = self.client.get(f'/user/user.com?after={util.now().isoformat()}')
+        got = self.client.get(f'/web/user.com?after={util.now().isoformat()}')
         self.assert_equals(200, got.status_code)
 
     def test_user_before_bad(self):
         self.add_objects()
-        got = self.client.get('/user/user.com?before=nope')
+        got = self.client.get('/web/user.com?before=nope')
         self.assert_equals(400, got.status_code)
 
     def test_user_before_and_after(self):
         self.add_objects()
-        got = self.client.get('/user/user.com?before=2024-01-01+01:01:01&after=2023-01-01+01:01:01')
+        got = self.client.get('/web/user.com?before=2024-01-01+01:01:01&after=2023-01-01+01:01:01')
         self.assert_equals(400, got.status_code)
 
     @patch('requests.get')
@@ -115,12 +120,12 @@ class PagesTest(TestCase):
 
         got = self.client.post('/web-site', data={'url': 'https://user.com/'})
         self.assert_equals(302, got.status_code)
-        self.assert_equals('/user/user.com', got.headers['Location'])
+        self.assert_equals('/web/user.com', got.headers['Location'])
 
         user = Web.get_by_id('user.com')
         self.assertTrue(user.has_hcard)
         self.assertEqual('Person', user.actor_as2['type'])
-        self.assertEqual('http://localhost/user.com', user.actor_as2['id'])
+        self.assertEqual('http://localhost/web/user.com', user.actor_as2['id'])
 
     def test_check_web_site_bad_url(self):
         got = self.client.post('/web-site', data={'url': '!!!'})
@@ -146,7 +151,7 @@ class PagesTest(TestCase):
         Follower.get_or_create('bar.com', 'https://no/stored/follow')
         Follower.get_or_create('bar.com', 'https://masto/user',
                                last_follow=FOLLOW_WITH_ACTOR)
-        got = self.client.get('/user/bar.com/followers')
+        got = self.client.get('/web/bar.com/followers')
         self.assert_equals(200, got.status_code)
 
         body = got.get_data(as_text=True)
@@ -155,20 +160,25 @@ class PagesTest(TestCase):
 
     def test_followers_empty(self):
         self.make_user('bar.com')
-        got = self.client.get('/user/bar.com/followers')
+        got = self.client.get('/web/bar.com/followers')
         self.assert_equals(200, got.status_code)
         self.assertNotIn('class="follower', got.get_data(as_text=True))
 
     def test_followers_user_not_found(self):
-        got = self.client.get('/user/bar.com/followers')
+        got = self.client.get('/web/bar.com/followers')
         self.assert_equals(404, got.status_code)
+
+    def test_followers_redirect(self):
+        got = self.client.get('/user/user.com/followers')
+        self.assert_equals(301, got.status_code)
+        self.assert_equals('/web/user.com/followers', got.headers['Location'])
 
     def test_following(self):
         Follower.get_or_create('https://no/stored/follow', 'bar.com')
         Follower.get_or_create('https://masto/user', 'bar.com',
                                last_follow=FOLLOW_WITH_OBJECT)
         self.make_user('bar.com')
-        got = self.client.get('/user/bar.com/following')
+        got = self.client.get('/web/bar.com/following')
         self.assert_equals(200, got.status_code)
 
         body = got.get_data(as_text=True)
@@ -177,59 +187,69 @@ class PagesTest(TestCase):
 
     def test_following_empty(self):
         self.make_user('bar.com')
-        got = self.client.get('/user/bar.com/following')
+        got = self.client.get('/web/bar.com/following')
         self.assert_equals(200, got.status_code)
         self.assertNotIn('class="follower', got.get_data(as_text=True))
 
     def test_following_user_not_found(self):
-        got = self.client.get('/user/bar.com/following')
+        got = self.client.get('/web/bar.com/following')
         self.assert_equals(404, got.status_code)
+
+    def test_following_redirect(self):
+        got = self.client.get('/user/user.com/following')
+        self.assert_equals(301, got.status_code)
+        self.assert_equals('/web/user.com/following', got.headers['Location'])
 
     def test_following_before_empty(self):
         self.make_user('bar.com')
-        got = self.client.get(f'/user/bar.com/following?before={util.now().isoformat()}')
+        got = self.client.get(f'/web/bar.com/following?before={util.now().isoformat()}')
         self.assert_equals(200, got.status_code)
 
     def test_following_after_empty(self):
         self.make_user('bar.com')
-        got = self.client.get(f'/user/bar.com/following?after={util.now().isoformat()}')
+        got = self.client.get(f'/web/bar.com/following?after={util.now().isoformat()}')
         self.assert_equals(200, got.status_code)
 
     def test_feed_user_not_found(self):
-        got = self.client.get('/user/bar.com/feed')
+        got = self.client.get('/web/bar.com/feed')
         self.assert_equals(404, got.status_code)
 
-    def test_feed_html_empty(self):
+    def test_feed_redirect(self):
         got = self.client.get('/user/user.com/feed')
+        self.assert_equals(301, got.status_code)
+        self.assert_equals('/web/user.com/feed', got.headers['Location'])
+
+    def test_feed_html_empty(self):
+        got = self.client.get('/web/user.com/feed')
         self.assert_equals(200, got.status_code)
         self.assert_equals([], microformats2.html_to_activities(got.text))
 
     def test_feed_html(self):
         self.add_objects()
-        got = self.client.get('/user/user.com/feed')
+        got = self.client.get('/web/user.com/feed')
         self.assert_equals(200, got.status_code)
         self.assert_equals(self.EXPECTED,
                            contents(microformats2.html_to_activities(got.text)))
 
     def test_feed_atom_empty(self):
-        got = self.client.get('/user/user.com/feed?format=atom')
+        got = self.client.get('/web/user.com/feed?format=atom')
         self.assert_equals(200, got.status_code)
         self.assert_equals([], atom.atom_to_activities(got.text))
 
     def test_feed_atom(self):
         self.add_objects()
-        got = self.client.get('/user/user.com/feed?format=atom')
+        got = self.client.get('/web/user.com/feed?format=atom')
         self.assert_equals(200, got.status_code)
         self.assert_equals(self.EXPECTED, contents(atom.atom_to_activities(got.text)))
 
     def test_feed_rss_empty(self):
-        got = self.client.get('/user/user.com/feed?format=rss')
+        got = self.client.get('/web/user.com/feed?format=rss')
         self.assert_equals(200, got.status_code)
         self.assert_equals([], rss.to_activities(got.text))
 
     def test_feed_rss(self):
         self.add_objects()
-        got = self.client.get('/user/user.com/feed?format=rss')
+        got = self.client.get('/web/user.com/feed?format=rss')
         self.assert_equals(200, got.status_code)
         self.assert_equals(self.EXPECTED, contents(rss.to_activities(got.text)))
 

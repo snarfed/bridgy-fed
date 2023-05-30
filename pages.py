@@ -17,7 +17,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from flask_app import app, cache
 import common
 from common import DOMAIN_RE
-from models import fetch_page, Follower, Object, PAGE_SIZE, User
+from models import fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS, User
 from web import Web
 
 FOLLOWERS_UI_LIMIT = 999
@@ -70,16 +70,24 @@ def check_web_site():
         raise
 
     g.user.put()
-    return redirect(f'/user/{g.user.key.id()}')
+    return redirect(f'/web/{g.user.key.id()}')
 
 
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>')
-def user(domain):
+@app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/feed')
+@app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
+def web_user_redirects(**kwargs):
+    path = request.url.removeprefix(request.root_url).removeprefix('user/')
+    return redirect(f'/web/{path}', code=301)
+
+
+@app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<regex("{DOMAIN_RE}"):domain>')
+def user(protocol, domain):
     g.user = Web.get_by_id(domain)
     if not g.user or not g.user.direct:
         return USER_NOT_FOUND_HTML, 404
     elif g.user.key.id() != domain:
-        return redirect(f'/user/{g.user.key.id()}', code=301)
+        return redirect(f'/{protocol}/{g.user.key.id()}', code=301)
 
     assert not g.user.use_instead
 
@@ -108,7 +116,7 @@ def user(domain):
     )
 
 
-@app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
+@app.get(f'/web/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
 def followers_or_following(domain, collection):
     g.user = Web.get_by_id(domain)  # g.user is used in template
     if not g.user:
@@ -133,7 +141,7 @@ def followers_or_following(domain, collection):
     )
 
 
-@app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/feed')
+@app.get(f'/web/<regex("{DOMAIN_RE}"):domain>/feed')
 def feed(domain):
     format = request.args.get('format', 'html')
     if format not in ('html', 'atom', 'rss'):

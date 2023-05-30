@@ -41,17 +41,17 @@ FOLLOWEE = {
 FOLLOW_ADDRESS = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Follow',
-    'id': f'http://localhost/user/alice.com/following#2022-01-02T03:04:05-@foo@bar',
+    'id': f'http://localhost/web/alice.com/following#2022-01-02T03:04:05-@foo@bar',
     'actor': 'http://localhost/alice.com',
     'object': FOLLOWEE,
     'to': [as2.PUBLIC_AUDIENCE],
 }
 FOLLOW_URL = copy.deepcopy(FOLLOW_ADDRESS)
-FOLLOW_URL['id'] = f'http://localhost/user/alice.com/following#2022-01-02T03:04:05-https://bar/actor'
+FOLLOW_URL['id'] = f'http://localhost/web/alice.com/following#2022-01-02T03:04:05-https://bar/actor'
 UNDO_FOLLOW = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Undo',
-    'id': f'http://localhost/user/alice.com/following#undo-2022-01-02T03:04:05-https://bar/id',
+    'id': f'http://localhost/web/alice.com/following#undo-2022-01-02T03:04:05-https://bar/id',
     'actor': 'http://localhost/alice.com',
     'object': FOLLOW_ADDRESS,
 }
@@ -105,21 +105,21 @@ class RemoteFollowTest(testutil.TestCase):
 
         got = self.client.post('/remote-follow?address=https://bar/foo&domain=me')
         self.assertEqual(302, got.status_code)
-        self.assertEqual('/user/me', got.headers['Location'])
+        self.assertEqual('/web/me', got.headers['Location'])
 
     def test_follow_no_webfinger_subscribe_link(self, mock_get):
         mock_get.return_value = requests_response(status_code=500)
 
         got = self.client.post('/remote-follow?address=https://bar/foo&domain=me')
         self.assertEqual(302, got.status_code)
-        self.assertEqual('/user/me', got.headers['Location'])
+        self.assertEqual('/web/me', got.headers['Location'])
 
     def test_follow_no_webfinger_subscribe_link(self, mock_get):
         mock_get.return_value = requests_response('<html>not json</html>')
 
         got = self.client.post('/remote-follow?address=https://bar/foo&domain=me')
         self.assertEqual(302, got.status_code)
-        self.assertEqual('/user/me', got.headers['Location'])
+        self.assertEqual('/web/me', got.headers['Location'])
 
 
 @patch('requests.post')
@@ -182,7 +182,7 @@ class FollowTest(testutil.TestCase):
 
     def check(self, input, resp, expected_follow, mock_get, mock_post):
         self.assertEqual(302, resp.status_code)
-        self.assertEqual('/user/alice.com/following',resp.headers['Location'])
+        self.assertEqual('/web/alice.com/following',resp.headers['Location'])
         self.assertEqual([f'Followed <a href="https://bar/url">{input}</a>.'],
                          get_flashed_messages())
 
@@ -205,7 +205,7 @@ class FollowTest(testutil.TestCase):
             followers,
             ignore=['created', 'updated'])
 
-        id = f'http://localhost/user/alice.com/following#2022-01-02T03:04:05-{input}'
+        id = f'http://localhost/web/alice.com/following#2022-01-02T03:04:05-{input}'
         self.assert_object(id, domains=['alice.com'], status='complete',
                            labels=['user', 'activity'], source_protocol='ui',
                            as2=expected_follow, as1=as2.to_as1(expected_follow))
@@ -237,9 +237,9 @@ class FollowTest(testutil.TestCase):
         state = util.encode_oauth_state(self.state)
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
         self.assertEqual(302, resp.status_code)
-        self.assertEqual('/user/www.alice.com/following', resp.headers['Location'])
+        self.assertEqual('/web/www.alice.com/following', resp.headers['Location'])
 
-        id = 'http://localhost/user/www.alice.com/following#2022-01-02T03:04:05-https://bar/actor'
+        id = 'http://localhost/web/www.alice.com/following#2022-01-02T03:04:05-https://bar/actor'
         expected_follow = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Follow',
@@ -360,7 +360,7 @@ class UnfollowTest(testutil.TestCase):
 
     def check(self, resp, expected_undo, mock_get, mock_post):
         self.assertEqual(302, resp.status_code)
-        self.assertEqual('/user/alice.com/following', resp.headers['Location'])
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
         self.assertEqual([f'Unfollowed <a href="https://bar/url">bar/url</a>.'],
                          get_flashed_messages())
 
@@ -377,7 +377,7 @@ class UnfollowTest(testutil.TestCase):
         self.assertEqual('inactive', follower.status)
 
         self.assert_object(
-            'http://localhost/user/alice.com/following#undo-2022-01-02T03:04:05-https://bar/id',
+            'http://localhost/web/alice.com/following#undo-2022-01-02T03:04:05-https://bar/id',
             domains=['alice.com'], status='complete',
             source_protocol='ui', labels=['user', 'activity'],
             as2=expected_undo,
@@ -411,9 +411,9 @@ class UnfollowTest(testutil.TestCase):
         })
         resp = self.client.get(f'/unfollow/callback?code=my_code&state={state}')
         self.assertEqual(302, resp.status_code)
-        self.assertEqual('/user/www.alice.com/following', resp.headers['Location'])
+        self.assertEqual('/web/www.alice.com/following', resp.headers['Location'])
 
-        id = 'http://localhost/user/www.alice.com/following#undo-2022-01-02T03:04:05-https://bar/id'
+        id = 'http://localhost/web/www.alice.com/following#undo-2022-01-02T03:04:05-https://bar/id'
         expected_undo = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Undo',

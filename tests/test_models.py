@@ -75,6 +75,16 @@ class UserTest(TestCase):
         self.assertTrue(pem.decode().startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END RSA PRIVATE KEY-----'), pem)
 
+    def test_user_page_path(self):
+        self.assertEqual('/web/y.z', g.user.user_page_path())
+        self.assertEqual('/web/y.z/followers', g.user.user_page_path('followers'))
+        self.assertEqual('/fake/foo', self.make_user('foo', cls=Fake).user_page_path())
+
+    def test_user_page_link(self):
+        self.assertEqual('<a class="h-card u-author" href="/web/y.z"><img src="" class="profile"> y.z</a>', g.user.user_page_link())
+        g.user.actor_as2 = ACTOR
+        self.assertEqual('<a class="h-card u-author" href="/web/y.z"><img src="https://user.com/me.jpg" class="profile"> Mrs. ☕ Foo</a>', g.user.user_page_link())
+
     def test_address(self):
         self.assertEqual('@y.z@y.z', g.user.address())
 
@@ -156,7 +166,7 @@ class ObjectTest(TestCase):
         g.user = Fake(id='user.com', actor_as2={"name": "Alice"})
         obj = Object(id='x', source_protocol='ui', domains=['user.com'])
         self.assertIn(
-            'href="/user/user.com"><img src="" class="profile"> Alice</a>',
+            'href="/fake/user.com"><img src="" class="profile"> Alice</a>',
             obj.actor_link())
 
     def test_put_updates_load_cache(self):

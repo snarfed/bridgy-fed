@@ -89,7 +89,7 @@ def remote_follow():
     addr = request.values['address']
     webfinger = fetch_webfinger(addr)
     if webfinger is None:
-        return redirect(f'/user/{domain}')
+        return redirect(g.user.user_page_path())
 
     for link in webfinger.get('links', []):
         if link.get('rel') == SUBSCRIBE_LINK_REL:
@@ -98,7 +98,7 @@ def remote_follow():
                 return redirect(template.replace('{uri}', g.user.address()))
 
     flash(f"Couldn't find remote follow link for {addr}")
-    return redirect(f'/user/{domain}')
+    return redirect(g.user.user_page_path())
 
 
 class FollowStart(indieauth.Start):
@@ -120,7 +120,7 @@ class FollowStart(indieauth.Start):
             if util.is_connection_failure(e) or util.interpret_http_exception(e)[0]:
                 flash(f"Couldn't fetch your web site: {e}")
                 domain = util.domain_from_link(me)
-                return redirect(f'/user/{domain}/following?address={address}')
+                return redirect(f'/web/{domain}/following?address={address}')
             raise
 
 
@@ -149,7 +149,7 @@ class FollowCallback(indieauth.Callback):
         else:
             webfinger = fetch_webfinger(addr)
             if webfinger is None:
-                return redirect(f'/user/{domain}/following')
+                return redirect(g.user.user_page_path('following'))
 
             as2_url = None
             for link in webfinger.get('links', []):
@@ -159,7 +159,7 @@ class FollowCallback(indieauth.Callback):
 
         if not as2_url:
             flash(f"Couldn't find ActivityPub profile link for {addr}")
-            return redirect(f'/user/{domain}/following')
+            return redirect(g.user.user_page_path('following'))
 
         # TODO: make this generic across protocols
         followee = ActivityPub.load(as2_url).as2
@@ -167,10 +167,10 @@ class FollowCallback(indieauth.Callback):
         inbox = followee.get('inbox')
         if not id or not inbox:
             flash(f"AS2 profile {as2_url} missing id or inbox")
-            return redirect(f'/user/{domain}/following')
+            return redirect(g.user.user_page_path('following'))
 
         timestamp = NOW.replace(microsecond=0, tzinfo=None).isoformat()
-        follow_id = common.host_url(f'/user/{domain}/following#{timestamp}-{addr}')
+        follow_id = common.host_url(g.user.user_page_path(f'following#{timestamp}-{addr}'))
         follow_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Follow',
@@ -189,7 +189,7 @@ class FollowCallback(indieauth.Callback):
 
         link = common.pretty_link(util.get_url(followee) or id, text=addr)
         flash(f'Followed {link}.')
-        return redirect(f'/user/{domain}/following')
+        return redirect(g.user.user_page_path('following'))
 
 
 class UnfollowStart(indieauth.Start):
@@ -209,7 +209,7 @@ class UnfollowStart(indieauth.Start):
         except Exception as e:
             if util.is_connection_failure(e) or util.interpret_http_exception(e)[0]:
                 flash(f"Couldn't fetch your web site: {e}")
-                return redirect(f'/user/{domain}/following')
+                return redirect(g.user.user_page_path('following'))
             raise
 
 
@@ -246,10 +246,10 @@ class UnfollowCallback(indieauth.Callback):
         inbox = followee.get('inbox')
         if not inbox:
             flash(f"AS2 profile {followee_id} missing inbox")
-            return redirect(f'/user/{domain}/following')
+            return redirect(g.user.user_page_path('following'))
 
         timestamp = NOW.replace(microsecond=0, tzinfo=None).isoformat()
-        unfollow_id = common.host_url(f'/user/{domain}/following#undo-{timestamp}-{followee_id}')
+        unfollow_id = common.host_url(g.user.user_page_path(f'following#undo-{timestamp}-{followee_id}'))
         unfollow_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Undo',
@@ -268,7 +268,7 @@ class UnfollowCallback(indieauth.Callback):
 
         link = common.pretty_link(util.get_url(followee) or followee_id)
         flash(f'Unfollowed {link}.')
-        return redirect(f'/user/{domain}/following')
+        return redirect(g.user.user_page_path('following'))
 
 
 app.add_url_rule('/follow/start',

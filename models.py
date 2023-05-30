@@ -230,6 +230,13 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                 and not parsed.path and not parsed.query
                 and not parsed.params and not parsed.fragment)
 
+    def user_page_path(self, rest=None):
+        """Returns the user's Bridgy Fed user page path."""
+        path = f'/{self.LABEL}/{self.key.id()}'
+        if rest:
+            path += f'/{rest}'
+        return path
+
     def user_page_link(self):
         """Returns a pretty user page link with the user's name and profile picture."""
         domain = self.key.id()
@@ -239,7 +246,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                 util.domain_from_link(self.username()))
         img = util.get_url(actor, 'icon') or ''
 
-        return f'<a class="h-card u-author" href="/user/{domain}"><img src="{img}" class="profile"> {name}</a>'
+        return f'<a class="h-card u-author" href="{self.user_page_path()}"><img src="{img}" class="profile"> {name}</a>'
 
 
 class Target(ndb.Model):
