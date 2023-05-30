@@ -153,15 +153,17 @@ FOLLOW_WRAPPED_WITH_ACTOR['actor'] = ACTOR
 FOLLOW_WITH_OBJECT = copy.deepcopy(FOLLOW)
 FOLLOW_WITH_OBJECT['object'] = ACTOR
 
+ACCEPT_FOLLOW = copy.deepcopy(FOLLOW_WITH_ACTOR)
+del ACCEPT_FOLLOW['actor']['@context']
+ACCEPT_FOLLOW['actor']['image'] = {'type': 'Image', 'url': 'https://user.com/me.jpg'}
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Accept',
     'id': 'http://localhost/user/user.com/followers#accept-https://mas.to/6d1a',
     'actor': 'http://localhost/user.com',
     'object': {
-        'type': 'Follow',
-        'actor': 'https://mas.to/users/swentel',
-        'object': 'http://localhost/user.com',
+        **ACCEPT_FOLLOW,
+        'url': 'https://mas.to/users/swentel#followed-https://user.com/',
     },
 }
 
@@ -648,13 +650,14 @@ class ActivityPubTest(TestCase):
             'id': FOLLOW['object'],
             'url': FOLLOW['object'],
         }
-
         follow = {
             **FOLLOW,
             'object': unwrapped_user,
         }
+        accept = copy.deepcopy(ACCEPT)
+        accept['object']['object'] = unwrapped_user
 
-        self._test_inbox_follow_accept(follow, ACCEPT, *mocks)
+        self._test_inbox_follow_accept(follow, accept, *mocks)
 
         follower = Follower.query().get()
         follow.update({

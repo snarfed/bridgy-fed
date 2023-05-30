@@ -284,11 +284,7 @@ class Protocol:
             'id': common.host_url(f'/user/{g.user.key.id()}/followers#accept-{obj.key.id()}'),
             'type': 'Accept',
             'actor': followee_actor_url,
-            'object': {
-                'type': 'Follow',
-                'actor': follower_id,
-                'object': followee_actor_url,
-            }
+            'object': as2.from_as1(obj.as1),
         }
         return cls.send(Object(as2=accept), inbox)
 
