@@ -76,7 +76,7 @@ def check_web_site():
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>')
 def user(domain):
     g.user = Web.get_by_id(domain)
-    if not g.user:
+    if not g.user or not g.user.direct:
         return USER_NOT_FOUND_HTML, 404
     elif g.user.key.id() != domain:
         return redirect(f'/user/{g.user.key.id()}', code=301)

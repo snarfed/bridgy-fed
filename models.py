@@ -21,7 +21,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 import common
-from common import base64_to_long, long_to_base64
+from common import base64_to_long, long_to_base64, redirect_wrap
 
 # maps string label to Protocol subclass. populated by ProtocolUserMeta.
 # seed with old and upcoming protocols that don't have their own classes (yet).
@@ -187,7 +187,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """
         domain = self.key.id()
 
-        if self.actor_as2:
+        if self.actor_as2 and self.direct:
             for url in [u.get('value') if isinstance(u, dict) else u
                         for u in util.get_list(self.actor_as2, 'url')]:
                 if url and url.startswith('acct:'):
@@ -199,13 +199,21 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         logger.info(f'Defaulting username to domain {domain}')
         return domain
 
+    # TODO(#512): move to activitypub.py?
     def address(self):
         """Returns this user's ActivityPub address, eg '@me@foo.com'."""
-        return f'@{self.username()}@{self.key.id()}'
+        if self.direct:
+            return f'@{self.username()}@{self.key.id()}'
+        else:
+            return f'@{self.key.id()}@{request.host}'
 
+    # TODO(#512): move to activitypub.py?
     def actor_id(self):
         """Returns this user's AS2 actor id, eg 'https://fed.brid.gy/foo.com'."""
-        return common.host_url(self.key.id())
+        if self.direct:
+            return common.host_url(self.key.id())
+        else:
+            return redirect_wrap(self.homepage)
 
     def is_homepage(self, url):
         """Returns True if the given URL points to this user's home page."""

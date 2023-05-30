@@ -48,6 +48,12 @@ class PagesTest(TestCase):
         got = self.client.get('/user/bar.com')
         self.assert_equals(404, got.status_code)
 
+    def test_user_not_direct(self):
+        self.user.direct = False
+        self.user.put()
+        got = self.client.get('/user/user.com')
+        self.assert_equals(404, got.status_code)
+
     def test_user_use_instead(self):
         bar = self.make_user('bar.com')
         bar.use_instead = self.user.key

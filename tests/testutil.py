@@ -131,6 +131,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
     def make_user(domain, cls=Web, **kwargs):
         """Reuse RSA key across Users because generating it is expensive."""
         user = cls(id=domain,
+                   direct=True,
                    mod=global_user.mod,
                    public_exponent=global_user.public_exponent,
                    private_exponent=global_user.private_exponent,

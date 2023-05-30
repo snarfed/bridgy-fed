@@ -87,8 +87,14 @@ class UserTest(TestCase):
         g.user.actor_as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@y.z']}
         self.assertEqual('@baz@y.z', g.user.address())
 
+        g.user.direct = False
+        self.assertEqual('@y.z@localhost', g.user.address())
+
     def test_actor_id(self):
         self.assertEqual('http://localhost/y.z', g.user.actor_id())
+
+        g.user.direct = False
+        self.assertEqual('http://localhost/r/https://y.z/', g.user.actor_id())
 
 
 class ObjectTest(TestCase):

@@ -9,6 +9,8 @@ from oauth_dropins.webutil.testutil import requests_response
 
 import common
 from . import testutil
+from web import Web
+
 from .test_web import ACTOR_HTML
 
 WEBFINGER = {
@@ -203,7 +205,7 @@ class WebfingerTest(testutil.TestCase):
         self.assertEqual(404, got.status_code)
 
     @patch('requests.get')
-    def test_webfinger_external_user_fetch_creates_user(self, mock_get):
+    def test_webfinger_external_user_fetch_create_user(self, mock_get):
         self.user.key.delete()
         mock_get.return_value = requests_response(ACTOR_HTML)
 
@@ -215,6 +217,9 @@ class WebfingerTest(testutil.TestCase):
                               headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code)
         self.assertEqual(expected, got.json)
+
+        user = Web.get_by_id('user.com')
+        assert not user.direct
 
     def test_webfinger_fed_brid_gy(self):
         got = self.client.get('/.well-known/webfinger?resource=http://localhost/')

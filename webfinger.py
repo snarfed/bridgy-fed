@@ -33,32 +33,30 @@ class Actor(flask_util.XrdOrJrd):
     def template_prefix(self):
         return 'webfinger_user'
 
-    def template_vars(self, domain=None, external=False):
+    def template_vars(self, domain=None, allow_indirect=False):
         """
         Args:
           domain: str, user domain
-          external: bool, whether this may be an external user, ie without a
-            stored :class:`User`
+          allow_indirect: bool, whether this may be an indirect user, ie without
+            an existing :class:`User`
         """
         logger.debug(f'Headers: {list(request.headers.items())}')
 
         if domain.split('.')[-1] in NON_TLDS:
             error(f"{domain} doesn't look like a domain", status=404)
 
-        g.user = Web.get_by_id(domain)
-        if g.user:
-            actor = g.user.to_as1() or {}
-            homepage = g.user.homepage
-            handle = g.user.address()
-            actor_id = g.user.actor_id()
-        elif external:
-            g.external_user = homepage = f'https://{domain}/'
-            obj = Web.load(g.external_user)
-            actor = obj.as1
-            handle = f'@{domain}@{request.host}'
-            actor_id = common.redirect_wrap(homepage)
+        if allow_indirect:
+            g.user = Web.get_or_create(domain)
         else:
+            g.user = Web.get_by_id(domain)
+
+        if not g.user:
             error(f'No user or web site found for {domain}', status=404)
+
+        actor = g.user.to_as1() or {}
+        homepage = g.user.homepage
+        handle = g.user.address()
+        actor_id = g.user.actor_id()
 
         logger.info(f'Generating WebFinger data for {domain}')
         logger.info(f'AS1 actor: {actor}')
@@ -141,16 +139,16 @@ class Webfinger(Actor):
         if resource in ('', '/', f'acct:{host}', f'acct:@{host}'):
             error('Expected other domain, not fed.brid.gy')
 
-        external = False
+        allow_indirect = False
         try:
             user, domain = util.parse_acct_uri(resource)
             if domain in common.DOMAINS:
                 domain = user
-                external = True
+                allow_indirect=True
         except ValueError:
             domain = urllib.parse.urlparse(resource).netloc or resource
 
-        return super().template_vars(domain=domain, external=external)
+        return super().template_vars(domain=domain, allow_indirect=allow_indirect)
 
 
 class HostMeta(flask_util.XrdOrJrd):
