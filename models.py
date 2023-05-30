@@ -208,10 +208,19 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             return f'@{self.key.id()}@{request.host}'
 
     # TODO(#512): move to activitypub.py?
-    def actor_id(self):
-        """Returns this user's AS2 actor id, eg 'https://fed.brid.gy/foo.com'."""
-        if self.direct:
-            return common.host_url(self.key.id())
+    def actor_id(self, rest=None):
+        """Returns this user's AS2 actor id.
+
+        Example: 'https://fed.brid.gy/ap/bluesky/foo.com'
+        """
+        if self.direct or rest:
+            # special case Web users to skip /ap/web/ prefix, for backward compatibility
+            url = common.host_url(self.key.id() if self.LABEL == 'web'
+                                  else f'/ap{self.user_page_path()}')
+            if rest:
+                url += f'/{rest}'
+            return url
+        # TODO(#512): drop once we fetch site if web user doesn't already exist
         else:
             return redirect_wrap(self.homepage)
 

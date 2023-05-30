@@ -7,8 +7,10 @@ import urllib.parse
 
 from oauth_dropins.webutil.testutil import requests_response
 
-import common
+# import first so that Fake is defined before URL routes are registered
 from . import testutil
+
+import common
 from web import Web
 
 from .test_web import ACTOR_HTML
@@ -45,7 +47,7 @@ WEBFINGER = {
     }, {
         'rel': 'sharedInbox',
         'type': 'application/activity+json',
-        'href': 'http://localhost/inbox',
+        'href': 'http://localhost/ap/sharedInbox',
     }, {
         'rel': 'http://ostatus.org/schema/1.0/subscribe',
         'template': 'http://localhost/user/user.com?url={uri}',
@@ -73,7 +75,7 @@ WEBFINGER_NO_HCARD = {
     }, {
         'rel': 'sharedInbox',
         'type': 'application/activity+json',
-        'href': 'http://localhost/inbox',
+        'href': 'http://localhost/ap/sharedInbox',
     }, {
         'rel': 'http://ostatus.org/schema/1.0/subscribe',
         'template': 'http://localhost/user/user.com?url={uri}',

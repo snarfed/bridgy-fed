@@ -7,11 +7,13 @@ from oauth_dropins.webutil import appengine_config, util
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
-from flask_app import app
+# import first so that Fake is defined before URL routes are registered
+from .testutil import Fake, TestCase
+
 import common
+from flask_app import app
 from models import Object, User
 import protocol
-from .testutil import Fake, TestCase
 
 
 class CommonTest(TestCase):
@@ -46,7 +48,7 @@ class CommonTest(TestCase):
                          common.pretty_link('http://foo'))
 
         self.assertEqual(
-            '<a class="h-card u-author" href="/user/site"><img src="" class="profile"> site</a>',
+            '<a class="h-card u-author" href="/fake/site"><img src="" class="profile"> site</a>',
             common.pretty_link('https://site/'))
 
     def test_redirect_wrap_empty(self):

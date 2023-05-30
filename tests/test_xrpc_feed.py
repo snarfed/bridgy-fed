@@ -18,10 +18,11 @@ from oauth_dropins.webutil.testutil import requests_response
 import requests
 from werkzeug.exceptions import BadGateway
 
-from flask_app import app
+# import first so that Fake is defined before URL routes are registered
+from . import testutil
+
 import common
 from models import Object, User
-from . import testutil
 from .test_activitypub import ACTOR
 
 POST_THREAD_AS = {

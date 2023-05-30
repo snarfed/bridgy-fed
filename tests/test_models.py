@@ -10,13 +10,14 @@ from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
 from multiformats import CID
 from oauth_dropins.webutil.testutil import NOW, requests_response
 
-from flask_app import app
+# import first so that Fake is defined before URL routes are registered
+from .testutil import Fake, TestCase
+
 import common
 from models import AtpNode, Follower, Object, OBJECT_EXPIRE_AGE, User
 import protocol
 
 from .test_activitypub import ACTOR
-from .testutil import Fake, TestCase
 
 
 class UserTest(TestCase):
@@ -101,10 +102,15 @@ class UserTest(TestCase):
         self.assertEqual('@y.z@localhost', g.user.address())
 
     def test_actor_id(self):
+        self.assertEqual('http://localhost/ap/fake/foo',
+                         self.make_user('foo', cls=Fake).actor_id())
+
         self.assertEqual('http://localhost/y.z', g.user.actor_id())
 
         g.user.direct = False
         self.assertEqual('http://localhost/r/https://y.z/', g.user.actor_id())
+
+        self.assertEqual('http://localhost/y.z/inbox', g.user.actor_id('inbox'))
 
 
 class ObjectTest(TestCase):

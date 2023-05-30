@@ -26,7 +26,7 @@ from common import (
     redirect_wrap,
     TLD_BLOCKLIST,
 )
-from models import Follower, Object, Target, User
+from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
 import web
 
@@ -505,23 +505,23 @@ def postprocess_as2_actor(actor, wrap=True):
     return actor
 
 
-@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>')
+@app.get(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{common.DOMAIN_RE}"):domain>')
+# special case Web users without /ap/web/ prefix, for backward compatibility
+@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>', defaults={'protocol': 'web'})
 @flask_util.cached(cache, CACHE_TIME)
-def actor(domain):
+def actor(protocol, domain):
     """Serves a user's AS2 actor from the datastore."""
+    # TODO(#512): fetch from web site if we don't already have a User
     tld = domain.split('.')[-1]
     if tld in TLD_BLOCKLIST:
         error('', status=404)
 
-    # TODO(#512): parameterize by protocol
-    g.user = web.Web.get_by_id(domain)
+    g.user = PROTOCOLS[protocol].get_by_id(domain)
     if not g.user:
-        return f'Web user {domain} not found', 404
-    elif not g.user.actor_as2:
-        return f'Web user {domain} not fully set up', 404
+        return f'{protocol} user {domain} not found', 404
 
     # TODO: unify with common.actor()
-    actor = postprocess_as2(g.user.actor_as2)
+    actor = postprocess_as2(g.user.actor_as2 or {})
     actor.update({
         'id': g.user.actor_id(),
         # This has to be the domain for Mastodon etc interop! It seems like it
@@ -532,13 +532,15 @@ def actor(domain):
         # https://github.com/snarfed/bridgy-fed/issues/302#issuecomment-1324305460
         # https://github.com/snarfed/bridgy-fed/issues/77
         'preferredUsername': domain,
-        'inbox': host_url(f'{domain}/inbox'),
-        'outbox': host_url(f'{domain}/outbox'),
-        'following': host_url(f'{domain}/following'),
-        'followers': host_url(f'{domain}/followers'),
+        'inbox': g.user.actor_id('inbox'),
+        'outbox': g.user.actor_id('outbox'),
+        'following': g.user.actor_id('following'),
+        'followers': g.user.actor_id('followers'),
         'endpoints': {
-            'sharedInbox': host_url('inbox'),
+            'sharedInbox': host_url('/ap/sharedInbox'),
         },
+        # add this if we ever change the Web actor ids to be /web/[domain]
+        # 'alsoKnownAs': [host_url(domain)],
     })
 
     logger.info(f'Returning: {json_dumps(actor, indent=2)}')
@@ -548,9 +550,12 @@ def actor(domain):
     }
 
 
+@app.post('/ap/sharedInbox')
+@app.post(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{common.DOMAIN_RE}"):domain>/inbox')
+# special case Web users without /ap/web/ prefix, for backward compatibility
 @app.post('/inbox')
-@app.post(f'/<regex("{common.DOMAIN_RE}"):domain>/inbox')
-def inbox(domain=None):
+@app.post(f'/<regex("{common.DOMAIN_RE}"):domain>/inbox', defaults={'protocol': 'web'})
+def inbox(protocol=None, domain=None):
     """Handles ActivityPub inbox delivery."""
     # parse and validate AS2 activity
     try:
@@ -565,11 +570,10 @@ def inbox(domain=None):
     logger.info(f'Got {type} from {actor_id}: {json_dumps(activity, indent=2)}')
 
     # load user
-    if domain:
-        # TODO(#512): parameterize by protocol
-        g.user = web.Web.get_by_id(domain)
+    if protocol and domain:
+        g.user = PROTOCOLS[protocol].get_by_id(domain)
         if not g.user:
-            error(f'Web user {domain} not found', status=404)
+            error(f'{protocol} user {domain} not found', status=404)
 
     ActivityPub.verify_signature(activity)
 
@@ -596,18 +600,20 @@ def inbox(domain=None):
     return ActivityPub.receive(activity.get('id'), as2=redirect_unwrap(activity))
 
 
-@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/<any(followers,following):collection>')
+@app.get(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{common.DOMAIN_RE}"):domain>/<any(followers,following):collection>')
+# special case Web users without /ap/web/ prefix, for backward compatibility
+@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/<any(followers,following):collection>',
+         defaults={'protocol': 'web'})
 @flask_util.cached(cache, CACHE_TIME)
-def follower_collection(domain, collection):
+def follower_collection(protocol, domain, collection):
     """ActivityPub Followers and Following collections.
 
     https://www.w3.org/TR/activitypub/#followers
     https://www.w3.org/TR/activitypub/#collections
     https://www.w3.org/TR/activitystreams-core/#paging
     """
-    # TODO(#512): parameterize by protocol
-    if not web.Web.get_by_id(domain):
-        return f'Web user {domain} not found', 404
+    if not PROTOCOLS[protocol].get_by_id(domain):
+        return f'{protocol} user {domain} not found', 404
 
     # page
     followers, new_before, new_after = Follower.fetch_page(domain, collection)
@@ -654,18 +660,19 @@ def follower_collection(domain, collection):
     return collection, {'Content-Type': as2.CONTENT_TYPE}
 
 
-@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/outbox')
-def outbox(domain):
-    url = common.host_url(f"{domain}/outbox")
+@app.get(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{common.DOMAIN_RE}"):domain>/outbox')
+# special case Web users without /ap/web/ prefix, for backward compatibility
+@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/outbox', defaults={'protocol': 'web'})
+def outbox(protocol, domain):
     return {
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': url,
+            'id': request.url,
             'summary': f"{domain}'s outbox",
             'type': 'OrderedCollection',
             'totalItems': 0,
             'first': {
                 'type': 'CollectionPage',
-                'partOf': url,
+                'partOf': request.base_url,
                 'items': [],
             },
         }, {'Content-Type': as2.CONTENT_TYPE}

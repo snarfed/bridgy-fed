@@ -7,8 +7,11 @@ from granary import as2
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
-from flask_app import app, cache
+# import first so that Fake is defined before URL routes are registered
+from . import testutil
+
 from common import redirect_unwrap
+from flask_app import app, cache
 from models import Object, User
 from .test_web import (
     ACTOR_AS2,
@@ -17,7 +20,6 @@ from .test_web import (
     REPOST_AS2,
     REPOST_HTML,
 )
-from . import testutil
 
 REPOST_AS2 = {
     **REPOST_AS2,

@@ -44,7 +44,8 @@ def init_globals():
     g.user = g.external_user = None
 
 # don't redirect API requests with blank path elements
-app.url_map.redirect_defaults = True
+app.url_map.merge_slashes = False
+app.url_map.redirect_defaults = False
 
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client)

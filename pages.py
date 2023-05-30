@@ -70,7 +70,7 @@ def check_web_site():
         raise
 
     g.user.put()
-    return redirect(f'/web/{g.user.key.id()}')
+    return redirect(g.user.user_page_path())
 
 
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>')
@@ -83,7 +83,7 @@ def web_user_redirects(**kwargs):
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<regex("{DOMAIN_RE}"):domain>')
 def user(protocol, domain):
-    g.user = Web.get_by_id(domain)
+    g.user = PROTOCOLS[protocol].get_by_id(domain)
     if not g.user or not g.user.direct:
         return USER_NOT_FOUND_HTML, 404
     elif g.user.key.id() != domain:
@@ -116,9 +116,9 @@ def user(protocol, domain):
     )
 
 
-@app.get(f'/web/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
-def followers_or_following(domain, collection):
-    g.user = Web.get_by_id(domain)  # g.user is used in template
+@app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
+def followers_or_following(protocol, domain, collection):
+    g.user = PROTOCOLS[protocol].get_by_id(domain)  # g.user is used in template
     if not g.user:
         return USER_NOT_FOUND_HTML, 404
 
@@ -141,13 +141,13 @@ def followers_or_following(domain, collection):
     )
 
 
-@app.get(f'/web/<regex("{DOMAIN_RE}"):domain>/feed')
-def feed(domain):
+@app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<regex("{DOMAIN_RE}"):domain>/feed')
+def feed(protocol, domain):
     format = request.args.get('format', 'html')
     if format not in ('html', 'atom', 'rss'):
         error(f'format {format} not supported; expected html, atom, or rss')
 
-    g.user = Web.get_by_id(domain)
+    g.user = PROTOCOLS[protocol].get_by_id(domain)
     if not g.user:
         return render_template('user_not_found.html', domain=domain), 404
 

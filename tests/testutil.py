@@ -22,15 +22,11 @@ from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
-# load all Flask handlers
-import app
-from flask_app import app, cache, init_globals
-import activitypub
-import common
+# other modules are imported _after_ Fake class is defined so that it's in
+# PROTOCOLS when URL routes are registered.
 import models
 from models import Object, PROTOCOLS, Target, User
 import protocol
-from web import Web
 
 logger = logging.getLogger(__name__)
 
@@ -80,7 +76,14 @@ with ndb_client.context():
     global_user = Fake.get_or_create('user.com')
 
 
+# import other modules that register Flask handlers *after* Fake is defined
 models.reset_protocol_properties()
+
+import app
+import activitypub
+import common
+from web import Web
+from flask_app import app, cache, init_globals
 
 
 class TestCase(unittest.TestCase, testutil.Asserts):
@@ -128,9 +131,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
     # TODO(#512): switch default to Fake, start using that more
     @staticmethod
-    def make_user(domain, cls=Web, **kwargs):
+    def make_user(id, cls=Web, **kwargs):
         """Reuse RSA key across Users because generating it is expensive."""
-        user = cls(id=domain,
+        user = cls(id=id,
                    direct=True,
                    mod=global_user.mod,
                    public_exponent=global_user.public_exponent,
@@ -173,6 +176,10 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                             datetime(2024, 1, 1).timestamp() * 1000)
         tid = datetime_to_tid(datetime.fromtimestamp(float(ms) / 1000))
         return f'com.example.record/{tid}'
+
+    def get_as2(self, *args, **kwargs):
+        kwargs.setdefault('headers', {})['Accept'] = activitypub.CONNEG_HEADERS_AS2_HTML
+        return self.client.get(*args, **kwargs)
 
     def req(self, url, **kwargs):
         """Returns a mock requests call."""

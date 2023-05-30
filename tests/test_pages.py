@@ -15,13 +15,14 @@ from granary.tests.test_as1 import (
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 
-from flask_app import app
+# import first so that Fake is defined before URL routes are registered
+from .testutil import Fake, TestCase
+
 import common
 from models import Object, Follower, User
 from web import Web
 
 from .test_web import ACTOR_AS2, ACTOR_HTML, ACTOR_MF2, REPOST_AS2
-from .testutil import Fake, TestCase
 
 
 def contents(activities):
@@ -37,6 +38,11 @@ class PagesTest(TestCase):
 
     def test_user(self):
         got = self.client.get('/web/user.com')
+        self.assert_equals(200, got.status_code)
+
+    def test_user_fake(self):
+        self.make_user('foo.com', cls=Fake)
+        got = self.client.get('/fake/foo.com')
         self.assert_equals(200, got.status_code)
 
     def test_user_objects(self):
@@ -125,7 +131,7 @@ class PagesTest(TestCase):
         user = Web.get_by_id('user.com')
         self.assertTrue(user.has_hcard)
         self.assertEqual('Person', user.actor_as2['type'])
-        self.assertEqual('http://localhost/web/user.com', user.actor_as2['id'])
+        self.assertEqual('http://localhost/user.com', user.actor_as2['id'])
 
     def test_check_web_site_bad_url(self):
         got = self.client.post('/web-site', data={'url': '!!!'})
@@ -157,6 +163,11 @@ class PagesTest(TestCase):
         body = got.get_data(as_text=True)
         self.assertIn('no/stored/follow', body)
         self.assertIn('masto/user', body)
+
+    def test_followers_fake(self):
+        self.make_user('foo.com', cls=Fake)
+        got = self.client.get('/fake/foo.com/followers')
+        self.assert_equals(200, got.status_code)
 
     def test_followers_empty(self):
         self.make_user('bar.com')
@@ -191,6 +202,11 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code)
         self.assertNotIn('class="follower', got.get_data(as_text=True))
 
+    def test_following_fake(self):
+        self.make_user('foo.com', cls=Fake)
+        got = self.client.get('/fake/foo.com/following')
+        self.assert_equals(200, got.status_code)
+
     def test_following_user_not_found(self):
         got = self.client.get('/web/bar.com/following')
         self.assert_equals(404, got.status_code)
@@ -214,10 +230,15 @@ class PagesTest(TestCase):
         got = self.client.get('/web/bar.com/feed')
         self.assert_equals(404, got.status_code)
 
-    def test_feed_redirect(self):
+    def test_feed_web_redirect(self):
         got = self.client.get('/user/user.com/feed')
         self.assert_equals(301, got.status_code)
         self.assert_equals('/web/user.com/feed', got.headers['Location'])
+
+    def test_feed_fake(self):
+        self.make_user('foo.com', cls=Fake)
+        got = self.client.get('/fake/foo.com/feed')
+        self.assert_equals(200, got.status_code)
 
     def test_feed_html_empty(self):
         got = self.client.get('/web/user.com/feed')

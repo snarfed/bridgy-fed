@@ -3,8 +3,10 @@ from granary import bluesky
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
-from .test_activitypub import ACTOR, FOLLOW, FOLLOW_WITH_ACTOR, FOLLOW_WITH_OBJECT
+# import first so that Fake is defined before URL routes are registered
 from . import testutil
+
+from .test_activitypub import ACTOR, FOLLOW, FOLLOW_WITH_ACTOR, FOLLOW_WITH_OBJECT
 from models import Follower, User
 
 SUBJECT = {

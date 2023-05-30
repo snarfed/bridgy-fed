@@ -10,13 +10,13 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
-from flask_app import app
+# import first so that Fake is defined before URL routes are registered
+from . import testutil
+
 import common
 from common import redirect_unwrap
 from models import Follower, Object, User
 from web import Web
-
-from . import testutil
 
 WEBFINGER = requests_response({
     'subject': 'acct:foo@bar',

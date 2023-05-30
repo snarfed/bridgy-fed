@@ -16,8 +16,10 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadGateway, BadRequest
 
+# import first so that Fake is defined before URL routes are registered
+from . import testutil
+
 import activitypub
-from flask_app import app
 from common import (
     CONTENT_TYPE_HTML,
     redirect_unwrap,
@@ -25,7 +27,6 @@ from common import (
 from models import Follower, Object, Target, User
 from web import TASKS_LOCATION, Web
 from .test_activitypub import LIKE
-from . import testutil
 
 ACTOR_HTML = """\
 <html>

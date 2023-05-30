@@ -56,7 +56,6 @@ class Actor(flask_util.XrdOrJrd):
         actor = g.user.to_as1() or {}
         homepage = g.user.homepage
         handle = g.user.address()
-        actor_id = g.user.actor_id()
 
         logger.info(f'Generating WebFinger data for {domain}')
         logger.info(f'AS1 actor: {actor}')
@@ -95,18 +94,18 @@ class Actor(flask_util.XrdOrJrd):
                 # WARNING: in python 2 sometimes request.host_url lost port,
                 # http://localhost:8080 would become just http://localhost. no
                 # clue how or why. pay attention here if that happens again.
-                'href': actor_id,
+                'href': g.user.actor_id(),
             }, {
                 # AP reads this and sharedInbox from the AS2 actor, not
                 # webfinger, so strictly speaking, it's probably not needed here.
                 'rel': 'inbox',
                 'type': as2.CONTENT_TYPE,
-                'href': common.host_url(f'{domain}/inbox'),
+                'href': g.user.actor_id('inbox'),
             }, {
                 # https://www.w3.org/TR/activitypub/#sharedInbox
                 'rel': 'sharedInbox',
                 'type': as2.CONTENT_TYPE,
-                'href': common.host_url('inbox'),
+                'href': common.host_url('/ap/sharedInbox'),
             },
 
             # remote follow

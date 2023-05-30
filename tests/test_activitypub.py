@@ -20,17 +20,17 @@ import requests
 from urllib3.exceptions import ReadTimeoutError
 from werkzeug.exceptions import BadGateway
 
+# import first so that Fake is defined before URL routes are registered
+from .testutil import Fake, TestCase
+
 import activitypub
 from activitypub import ActivityPub
-from flask_app import app
 import common
 import models
 from models import Follower, Object
 import protocol
 from protocol import Protocol
 from web import Web
-
-from .testutil import Fake, TestCase
 
 ACTOR = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -265,7 +265,26 @@ class ActivityPubTest(TestCase):
         body = json_dumps(json)
         return self.client.post(path, data=body, headers=self.sign(path, body))
 
-    def test_actor(self, *_):
+    def test_actor_fake(self, *_):
+        self.make_user('fake.com', cls=Fake)
+        got = self.client.get('/ap/fake/fake.com')
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        type = got.headers['Content-Type']
+        self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
+        self.assertEqual({
+            'preferredUsername': 'fake.com',
+            'id': 'http://localhost/ap/fake/fake.com',
+            'inbox': 'http://localhost/ap/fake/fake.com/inbox',
+            'outbox': 'http://localhost/ap/fake/fake.com/outbox',
+            'following': 'http://localhost/ap/fake/fake.com/following',
+            'followers': 'http://localhost/ap/fake/fake.com/followers',
+            'endpoints': {
+                'sharedInbox': 'http://localhost/ap/sharedInbox',
+            },
+        }, got.json)
+
+    def test_actor_web(self, *_):
+        """Web users are special cased to drop the /web/ prefix."""
         got = self.client.get('/user.com')
         self.assertEqual(200, got.status_code)
         type = got.headers['Content-Type']
@@ -287,7 +306,7 @@ class ActivityPubTest(TestCase):
             'following': 'http://localhost/user.com/following',
             'followers': 'http://localhost/user.com/followers',
             'endpoints': {
-                'sharedInbox': 'http://localhost/inbox',
+                'sharedInbox': 'http://localhost/ap/sharedInbox',
             },
             'publicKey': {
                 'id': 'http://localhost/user.com',
@@ -311,7 +330,7 @@ class ActivityPubTest(TestCase):
     def test_inbox_activity_without_id(self, *_):
         note = copy.deepcopy(NOTE)
         del note['id']
-        resp = self.post('/inbox', json=note)
+        resp = self.post('/ap/sharedInbox', json=note)
         self.assertEqual(400, resp.status_code)
 
     def test_inbox_reply_object(self, *mocks):
@@ -478,7 +497,7 @@ class ActivityPubTest(TestCase):
             HTML,  # no webmention endpoint
         ]
 
-        got = self.post('/inbox', json=REPOST)
+        got = self.post('/ap/sharedInbox', json=REPOST)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
         mock_post.assert_not_called()  # no webmention
@@ -500,7 +519,7 @@ class ActivityPubTest(TestCase):
             HTML,
         ]
 
-        got = self.post('/inbox', json={**LIKE, 'object': 'http://nope.com/post'})
+        got = self.post('/ap/sharedInbox', json={**LIKE, 'object': 'http://nope.com/post'})
         self.assertEqual(200, got.status_code)
 
         self.assert_object('http://mas.to/like#ok',
@@ -850,8 +869,8 @@ class ActivityPubTest(TestCase):
 
         # valid signature
         body = json_dumps(NOTE)
-        headers = self.sign('/inbox', json_dumps(NOTE))
-        resp = self.client.post('/inbox', data=body, headers=headers)
+        headers = self.sign('/ap/sharedInbox', json_dumps(NOTE))
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         mock_get.assert_has_calls((
             self.as2_req('http://my/key/id'),
@@ -863,7 +882,7 @@ class ActivityPubTest(TestCase):
         obj_key = ndb.Key(Object, NOTE['id'])
         obj_key.delete()
 
-        resp = self.client.post('/inbox', data=body, headers={
+        resp = self.client.post('/ap/sharedInbox', data=body, headers={
             **headers,
             'signature': headers['signature'].replace(
                 'keyId="http://my/key/id#unused",', ''),
@@ -877,7 +896,7 @@ class ActivityPubTest(TestCase):
         obj_key = ndb.Key(Object, NOTE['id'])
         obj_key.delete()
 
-        resp = self.client.post('/inbox', json={**NOTE, 'content': 'z'}, headers=headers)
+        resp = self.client.post('/ap/sharedInbox', json={**NOTE, 'content': 'z'}, headers=headers)
         self.assertEqual(401, resp.status_code)
         self.assertEqual({'error': 'Invalid Digest header, required for HTTP Signature'},
                          resp.json)
@@ -888,7 +907,7 @@ class ActivityPubTest(TestCase):
         obj_key.delete()
         orig_date = headers['Date']
 
-        resp = self.client.post('/inbox', data=body, headers={**headers, 'Date': 'X'})
+        resp = self.client.post('/ap/sharedInbox', data=body, headers={**headers, 'Date': 'X'})
         self.assertEqual(401, resp.status_code)
         self.assertEqual({'error': 'HTTP Signature verification failed'}, resp.json)
         mock_common_log.assert_any_call('Returning 401: HTTP Signature verification failed', exc_info=None)
@@ -896,7 +915,7 @@ class ActivityPubTest(TestCase):
         # no signature
         protocol.seen_ids.clear()
         obj_key.delete()
-        resp = self.client.post('/inbox', json=NOTE)
+        resp = self.client.post('/ap/sharedInbox', json=NOTE)
         self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual({'error': 'No HTTP Signature'}, resp.json)
         mock_common_log.assert_any_call('Returning 401: No HTTP Signature', exc_info=None)
@@ -908,7 +927,7 @@ class ActivityPubTest(TestCase):
         other = Follower.get_or_create('user.com', 'https://mas.to/users/other')
         self.assertEqual(3, Follower.query().count())
 
-        got = self.post('/inbox', json=DELETE)
+        got = self.post('/ap/sharedInbox', json=DELETE)
         self.assertEqual(200, got.status_code)
         self.assertEqual('inactive', follower.key.get().status)
         self.assertEqual('inactive', followee.key.get().status)
@@ -919,7 +938,7 @@ class ActivityPubTest(TestCase):
         protocol.objects_cache.clear()
 
         mock_get.return_value = requests_response(status=410)
-        got = self.post('/inbox', json={**DELETE, 'object': 'http://my/key/id'})
+        got = self.post('/ap/sharedInbox', json={**DELETE, 'object': 'http://my/key/id'})
         self.assertEqual(202, got.status_code)
 
     def test_delete_actor_empty_deleted_object(self, _, mock_get, ___):
@@ -928,7 +947,7 @@ class ActivityPubTest(TestCase):
         self.key_id_obj.put()
         protocol.objects_cache.clear()
 
-        got = self.post('/inbox', json={**DELETE, 'object': 'http://my/key/id'})
+        got = self.post('/ap/sharedInbox', json={**DELETE, 'object': 'http://my/key/id'})
         self.assertEqual(202, got.status_code)
         mock_get.assert_not_called()
 
@@ -944,7 +963,7 @@ class ActivityPubTest(TestCase):
             **DELETE,
             'object': 'http://an/obj',
         }
-        resp = self.post('/inbox', json=delete)
+        resp = self.post('/ap/sharedInbox', json=delete)
         self.assertEqual(200, resp.status_code)
         self.assertTrue(obj.key.get().deleted)
         self.assert_object(delete['id'], as2=delete, type='delete',
@@ -966,7 +985,7 @@ class ActivityPubTest(TestCase):
             self.as2_resp(ACTOR),
         ]
 
-        resp = self.post('/inbox', json=UPDATE_NOTE)
+        resp = self.post('/ap/sharedInbox', json=UPDATE_NOTE)
         self.assertEqual(200, resp.status_code)
 
         obj = UPDATE_NOTE['object']
@@ -1024,11 +1043,11 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, got.status_code)
         self.assertEqual(0, Follower.query().count())
 
-    def test_followers_collection_unknown_user(self, *args):
+    def test_followers_collection_unknown_user(self, *_):
         resp = self.client.get('/nope.com/followers')
         self.assertEqual(404, resp.status_code)
 
-    def test_followers_collection_empty(self, *args):
+    def test_followers_collection_empty(self, *_):
         resp = self.client.get('/user.com/followers')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
@@ -1052,7 +1071,25 @@ class ActivityPubTest(TestCase):
                                last_follow=FOLLOW_WITH_ACTOR)
         Follower.get_or_create('user.com', 'baj.com', status='inactive')
 
-    def test_followers_collection(self, *args):
+    def test_followers_collection_fake(self, *_):
+        self.make_user('foo.com', cls=Fake)
+
+        resp = self.client.get('/ap/fake/foo.com/followers')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'http://localhost/ap/fake/foo.com/followers',
+            'type': 'Collection',
+            'summary': "foo.com's followers",
+            'totalItems': 0,
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': 'http://localhost/ap/fake/foo.com/followers',
+                'items': [],
+            },
+        }, resp.json)
+
+    def test_followers_collection(self, *_):
         self.store_followers()
 
         resp = self.client.get('/user.com/followers')
@@ -1071,7 +1108,7 @@ class ActivityPubTest(TestCase):
         }, resp.json)
 
     @patch('models.PAGE_SIZE', 1)
-    def test_followers_collection_page(self, *args):
+    def test_followers_collection_page(self, *_):
         self.store_followers()
         before = (datetime.utcnow() + timedelta(seconds=1)).isoformat()
         next = Follower.get_by_id('user.com https://baz.com').updated.isoformat()
@@ -1088,11 +1125,11 @@ class ActivityPubTest(TestCase):
             'items': [ACTOR],
         }, resp.json)
 
-    def test_following_collection_unknown_user(self, *args):
+    def test_following_collection_unknown_user(self, *_):
         resp = self.client.get('/nope.com/following')
         self.assertEqual(404, resp.status_code)
 
-    def test_following_collection_empty(self, *args):
+    def test_following_collection_empty(self, *_):
         resp = self.client.get('/user.com/following')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
@@ -1116,7 +1153,7 @@ class ActivityPubTest(TestCase):
                                last_follow=FOLLOW_WITH_OBJECT)
         Follower.get_or_create('baj.com', 'user.com', status='inactive')
 
-    def test_following_collection(self, *args):
+    def test_following_collection(self, *_):
         self.store_following()
 
         resp = self.client.get('/user.com/following')
@@ -1135,7 +1172,7 @@ class ActivityPubTest(TestCase):
         }, resp.json)
 
     @patch('models.PAGE_SIZE', 1)
-    def test_following_collection_page(self, *args):
+    def test_following_collection_page(self, *_):
         self.store_following()
         after = datetime(1900, 1, 1).isoformat()
         prev = Follower.get_by_id('https://baz.com user.com').updated.isoformat()
@@ -1152,7 +1189,24 @@ class ActivityPubTest(TestCase):
             'items': [ACTOR],
         }, resp.json)
 
-    def test_outbox_empty(self, _, mock_get, __):
+    def test_outbox_fake(self, *_):
+        self.make_user('foo.com', cls=Fake)
+        resp = self.client.get(f'/ap/fake/foo.com/outbox')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'http://localhost/ap/fake/foo.com/outbox',
+            'summary': "foo.com's outbox",
+            'type': 'OrderedCollection',
+            'totalItems': 0,
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': 'http://localhost/ap/fake/foo.com/outbox',
+                'items': [],
+            },
+        }, resp.json)
+
+    def test_outbox_web(self, *_):
         resp = self.client.get(f'/user.com/outbox')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({

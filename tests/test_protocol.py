@@ -5,14 +5,15 @@ from flask import g
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
+# import first so that Fake is defined before URL routes are registered
+from .testutil import Fake, TestCase
+
 import protocol
 from protocol import Protocol
-from flask_app import app
 from models import Follower, Object, PROTOCOLS, User
 from web import Web
 
 from .test_activitypub import ACTOR, REPLY
-from .testutil import Fake, TestCase
 
 REPLY = {
     **REPLY,

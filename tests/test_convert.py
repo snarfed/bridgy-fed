@@ -9,14 +9,15 @@ from models import Object
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
-import app
+# import first so that Fake is defined before URL routes are registered
+from . import testutil
+
 from common import CONTENT_TYPE_HTML
 
 from .test_redirect import (
     REPOST_AS2,
     REPOST_HTML,
 )
-from . import testutil
 
 EXPECTED_HTML = """\
 <!DOCTYPE html>
