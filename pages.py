@@ -14,7 +14,6 @@ from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import error, flash, redirect
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
-import activitypub
 import common
 from common import DOMAIN_RE
 from flask_app import app, cache
@@ -85,7 +84,6 @@ def user(protocol, domain):
         util=util,
         address=request.args.get('address'),
         g=g,
-        activitypub=activitypub,
         **locals(),
     )
 
@@ -111,7 +109,6 @@ def followers_or_following(protocol, domain, collection):
         util=util,
         address=request.args.get('address'),
         g=g,
-        activitypub=activitypub,
         **locals()
     )
 
@@ -143,8 +140,7 @@ def feed(protocol, domain):
     # syntax. maybe a fediverse kwarg down through the call chain?
     if format == 'html':
         entries = [microformats2.object_to_html(a) for a in activities]
-        return render_template('feed.html', util=util, g=g,
-                               activitypub=activitypub, **locals())
+        return render_template('feed.html', util=util, g=g, **locals())
     elif format == 'atom':
         body = atom.activities_to_atom(activities, actor=actor, title=title,
                                        request_url=request.url)

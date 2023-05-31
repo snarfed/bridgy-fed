@@ -5,7 +5,7 @@
     <span title="Fediverse address">
       <nobr>
         <img class="logo" src="/static/fediverse_logo.svg">
-        {{ activitypub.address(g.user) }}
+        {{ g.user.ap_address() }}
       </nobr>
     </span>
     &middot;
@@ -19,6 +19,5 @@
                 class="btn btn-default glyphicon glyphicon-refresh"></button>
       </form>
     </nobr>
-
   </div>
 </div>

@@ -344,7 +344,7 @@ def webmention_task():
             'id': id,
             'objectType': 'activity',
             'verb': 'delete',
-            'actor': activitypub.actor_id(g.user),
+            'actor': g.user.ap_actor(),
             'object': source,
         })
 
@@ -353,8 +353,8 @@ def webmention_task():
         props = obj.mf2['properties']
         author_urls = microformats2.get_string_urls(props.get('author', []))
         if author_urls and not g.user.is_homepage(author_urls[0]):
-            logger.info(f'Overriding author {author_urls[0]} with {activitypub.actor_id(g.user)}')
-            props['author'] = [activitypub.actor_id(g.user)]
+            logger.info(f'Overriding author {author_urls[0]} with {g.user.ap_actor()}')
+            props['author'] = [g.user.ap_actor()]
 
     logger.info(f'Converted to AS1: {obj.type}: {json_dumps(obj.as1, indent=2)}')
 
@@ -363,7 +363,7 @@ def webmention_task():
         obj.put()
         actor_as1 = {
             **obj.as1,
-            'id': activitypub.actor_id(g.user),
+            'id': g.user.ap_actor(),
             'updated': util.now().isoformat(),
         }
         id = common.host_url(f'{obj.key.id()}#update-{util.now().isoformat()}')
@@ -371,7 +371,7 @@ def webmention_task():
             'objectType': 'activity',
             'verb': 'update',
             'id': id,
-            'actor': activitypub.actor_id(g.user),
+            'actor': g.user.ap_actor(),
             'object': actor_as1,
         })
 
@@ -403,7 +403,7 @@ def webmention_task():
                 'objectType': 'activity',
                 'verb': 'update',
                 'id': id,
-                'actor': activitypub.actor_id(g.user),
+                'actor': g.user.ap_actor(),
                 'object': {
                     # Mastodon requires the updated field for Updates, so
                     # add a default value.
@@ -426,7 +426,7 @@ def webmention_task():
                 'objectType': 'activity',
                 'verb': 'post',
                 'id': id,
-                'actor': activitypub.actor_id(g.user),
+                'actor': g.user.ap_actor(),
                 'object': obj.as1,
             }
             obj = Object(id=id, mf2=obj.mf2, our_as1=create_as1,

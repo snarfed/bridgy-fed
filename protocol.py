@@ -278,10 +278,7 @@ class Protocol:
         follower_obj.put()
 
         # send AP Accept
-        # TODO: switch back to activitypub.actor_id() once this is moved into
-        # activitypub.py
-        followee_actor_url = common.host_url(g.user.key.id() if g.user.LABEL == 'web'
-                                             else f'/ap{g.user.user_page_path()}')
+        followee_actor_url = g.user.ap_actor()
         accept = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': common.host_url(f'/user/{g.user.key.id()}/followers#accept-{obj.key.id()}'),

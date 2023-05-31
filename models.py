@@ -199,6 +199,29 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         logger.info(f'Defaulting username to domain {domain}')
         return domain
 
+    def ap_address(self):
+        """Returns this user's ActivityPub address, eg '@me@foo.com'."""
+        if self.direct:
+            return f'@{self.username()}@{self.key.id()}'
+        else:
+            return f'@{self.key.id()}@{request.host}'
+
+    def ap_actor(self, rest=None):
+        """Returns this user's AS2 actor id.
+
+        Example: 'https://fed.brid.gy/ap/bluesky/foo.com'
+        """
+        if self.direct or rest:
+            # special case Web users to skip /ap/web/ prefix, for backward compatibility
+            url = common.host_url(self.key.id() if self.LABEL == 'web'
+                                  else f'/ap{self.user_page_path()}')
+            if rest:
+                url += f'/{rest}'
+            return url
+        # TODO(#512): drop once we fetch site if web user doesn't already exist
+        else:
+            return redirect_wrap(self.homepage)
+
     def is_homepage(self, url):
         """Returns True if the given URL points to this user's home page."""
         if not url:

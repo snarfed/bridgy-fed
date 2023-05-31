@@ -14,7 +14,6 @@ from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
-from activitypub import actor_id, address
 import common
 from flask_app import app, cache
 from models import User
@@ -56,7 +55,7 @@ class Actor(flask_util.XrdOrJrd):
 
         actor = g.user.to_as1() or {}
         homepage = g.user.homepage
-        handle = address(g.user)
+        handle = g.user.ap_address()
 
         logger.info(f'Generating WebFinger data for {domain}')
         logger.info(f'AS1 actor: {actor}')
@@ -95,13 +94,13 @@ class Actor(flask_util.XrdOrJrd):
                 # WARNING: in python 2 sometimes request.host_url lost port,
                 # http://localhost:8080 would become just http://localhost. no
                 # clue how or why. pay attention here if that happens again.
-                'href': actor_id(g.user),
+                'href': g.user.ap_actor(),
             }, {
                 # AP reads this and sharedInbox from the AS2 actor, not
                 # webfinger, so strictly speaking, it's probably not needed here.
                 'rel': 'inbox',
                 'type': as2.CONTENT_TYPE,
-                'href': actor_id(g.user, 'inbox'),
+                'href': g.user.ap_actor('inbox'),
             }, {
                 # https://www.w3.org/TR/activitypub/#sharedInbox
                 'rel': 'sharedInbox',
