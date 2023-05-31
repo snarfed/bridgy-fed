@@ -122,10 +122,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     @classmethod
     @ndb.transactional()
-    def get_or_create(cls, domain, **kwargs):
+    def get_or_create(cls, id, **kwargs):
         """Loads and returns a User. Creates it if necessary."""
         assert cls != User
-        user = cls.get_by_id(domain)
+        user = cls.get_by_id(id)
         if user:
             # override direct if it's set
             direct = kwargs.get('direct')
@@ -152,7 +152,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                 curve='P-256', randfunc=random.randbytes if DEBUG else None)
             kwargs['p256_key'] = key.export_key(format='PEM')
 
-        user = cls(id=domain, **kwargs)
+        user = cls(id=id, **kwargs)
         user.put()
         return user
 
@@ -180,24 +180,23 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     def username(self):
         """Returns the user's preferred username.
 
-        Uses stored representative h-card, falls back to domain if that's not
-        available.
+        Uses stored representative h-card if available, falls back to id.
 
         Returns: str
         """
-        domain = self.key.id()
+        id = self.key.id()
 
         if self.actor_as2 and self.direct:
             for url in [u.get('value') if isinstance(u, dict) else u
                         for u in util.get_list(self.actor_as2, 'url')]:
                 if url and url.startswith('acct:'):
                     urluser, urldomain = util.parse_acct_uri(url)
-                    if urldomain == domain:
+                    if urldomain == id:
                         logger.info(f'Found custom username: {urluser}')
                         return urluser
 
-        logger.info(f'Defaulting username to domain {domain}')
-        return domain
+        logger.info(f'Defaulting username to key id {id}')
+        return id
 
     def ap_address(self):
         """Returns this user's ActivityPub address, eg '@me@foo.com'.
@@ -253,7 +252,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     def user_page_link(self):
         """Returns a pretty user page link with the user's name and profile picture."""
-        domain = self.key.id()
         actor = self.actor_as2 or {}
         name = (actor.get('name') or
                 # prettify if domain, noop if username
