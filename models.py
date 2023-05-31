@@ -79,9 +79,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
       property: p256_key, PEM encoded
       https://atproto.com/guides/overview#account-portability
     """
-    mod = ndb.StringProperty(required=True)
-    public_exponent = ndb.StringProperty(required=True)
-    private_exponent = ndb.StringProperty(required=True)
+    mod = ndb.StringProperty()
+    public_exponent = ndb.StringProperty()
+    private_exponent = ndb.StringProperty()
     p256_key = ndb.StringProperty()
     has_redirects = ndb.BooleanProperty()
     redirects_error = ndb.TextProperty()
@@ -129,7 +129,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if user:
             # override direct if it's set
             direct = kwargs.get('direct')
-            if direct is not None:
+            if direct is not None and direct != user.direct:
+                logger.info(f'Setting {user.key} direct={direct}')
                 user.direct = direct
                 user.put()
             return user
@@ -153,6 +154,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             kwargs['p256_key'] = key.export_key(format='PEM')
 
         user = cls(id=id, **kwargs)
+        logger.info(f'Created new {user}')
         user.put()
         return user
 

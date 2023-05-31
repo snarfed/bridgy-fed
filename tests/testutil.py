@@ -86,7 +86,7 @@ with ndb_client.context():
 models.reset_protocol_properties()
 
 import app
-import activitypub
+from activitypub import ActivityPub, CONNEG_HEADERS_AS2_HTML
 import common
 from web import Web
 from flask_app import app, cache, init_globals
@@ -184,7 +184,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         return f'com.example.record/{tid}'
 
     def get_as2(self, *args, **kwargs):
-        kwargs.setdefault('headers', {})['Accept'] = activitypub.CONNEG_HEADERS_AS2_HTML
+        kwargs.setdefault('headers', {})['Accept'] = CONNEG_HEADERS_AS2_HTML
         return self.client.get(*args, **kwargs)
 
     def req(self, url, **kwargs):
@@ -202,7 +202,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             'Host': util.domain_from_link(url, minimize=False),
             'Content-Type': 'application/activity+json',
             'Digest': ANY,
-            **activitypub.CONNEG_HEADERS_AS2_HTML,
+            **CONNEG_HEADERS_AS2_HTML,
             **kwargs.pop('headers', {}),
         }
         return self.req(url, data=None, auth=ANY, headers=headers,
@@ -249,6 +249,23 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.assert_entities_equal(Object(id=id, **props), got,
                                    ignore=['as1', 'created', 'expire',
                                            'object_ids', 'type', 'updated'])
+
+    def assert_user(self, cls, id, **props):
+        got = cls.get_by_id(id)
+        assert got, id
+
+        self.assert_entities_equal(
+            cls(id=id, **props), got,
+            ignore=['created', 'mod', 'p256_key', 'private_exponent',
+                    'public_exponent', 'updated'])
+
+        if cls != ActivityPub:
+            assert got.mod
+            assert got.private_exponent
+            assert got.public_exponent
+
+        # if cls != ATProto:
+        #     assert got.p256_key
 
     def assert_equals(self, expected, actual, msg=None, ignore=(), **kwargs):
         return super().assert_equals(

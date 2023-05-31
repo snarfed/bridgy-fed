@@ -48,7 +48,10 @@ def default_signature_user():
 
 
 class ActivityPub(User, Protocol):
-    """ActivityPub protocol class."""
+    """ActivityPub protocol class.
+
+    Key id is AP/AS2 actor id URL. (*Not* fediverse/WebFinger @-@ handle!)
+    """
     LABEL = 'activitypub'
 
     @classmethod
@@ -566,14 +569,20 @@ def inbox(protocol=None, domain=None):
         error(f"Couldn't parse body as non-empty JSON mapping: {body}", exc_info=True)
 
     type = activity.get('type')
-    actor_id = as1.get_object(activity, 'actor').get('id')
+    actor = as1.get_object(activity, 'actor')
+    actor_id = actor.get('id')
     logger.info(f'Got {type} from {actor_id}: {json_dumps(activity, indent=2)}')
 
     # load user
+    # TODO(#512) parameterize on protocol, move to Protocol
     if protocol and domain:
-        g.user = PROTOCOLS[protocol].get_by_id(domain)
-        if not g.user:
-            error(f'{protocol} user {domain} not found', status=404)
+        g.user = PROTOCOLS[protocol].get_by_id(domain)  # receiving user
+        if (not g.user or not g.user.direct) and actor_id:
+            # this is a deliberate interaction with an indirect receiving user;
+            # create a local AP User for the sending user
+            actor_obj = ActivityPub.load(actor_id)
+            ActivityPub.get_or_create(actor_id, direct=True,
+                                      actor_as2=as2.from_as1(actor_obj.as1))
 
     ActivityPub.verify_signature(activity)
 

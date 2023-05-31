@@ -109,15 +109,21 @@ LIKE = {
 }
 LIKE_WRAPPED = copy.deepcopy(LIKE)
 LIKE_WRAPPED['object'] = 'http://localhost/r/https://user.com/post'
-LIKE_WITH_ACTOR = copy.deepcopy(LIKE)
-# TODO: use ACTOR instead
-LIKE_WITH_ACTOR['actor'] = {
+LIKE_ACTOR = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'id': 'https://user.com/actor',
     'type': 'Person',
     'name': 'Ms. Actor',
     'preferredUsername': 'msactor',
-    'image': {'type': 'Image', 'url': 'https://user.com/pic.jpg'},
+    'icon': {'type': 'Image', 'url': 'https://user.com/pic.jpg'},
+    'image': [
+        {'type': 'Image', 'url': 'https://user.com/thumb.jpg'},
+        {'type': 'Image', 'url': 'https://user.com/pic.jpg'},
+    ],
+}
+LIKE_WITH_ACTOR = {
+    **LIKE,
+    'actor': LIKE_ACTOR,
 }
 
 # repost, should be delivered to followers if object is a fediverse post,
@@ -230,8 +236,7 @@ class ActivityPubTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('user.com',
-                                   has_hcard=True, actor_as2=ACTOR)
+        self.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR)
         with self.request_context:
             self.key_id_obj = Object(id='http://my/key/id', as2={
                 **ACTOR,
@@ -323,9 +328,23 @@ class ActivityPubTest(TestCase):
         got = self.client.get('/nope.com')
         self.assertEqual(404, got.status_code)
 
-    def test_individual_inbox_no_user(self, *mocks):
-        got = self.post('/nope.com/inbox', json=REPLY)
-        self.assertEqual(404, got.status_code)
+    def test_individual_inbox_no_user(self, mock_head, mock_get, mock_post):
+        self.user.key.delete()
+
+        mock_get.side_effect = [self.as2_resp(LIKE_ACTOR)]
+
+        reply = {
+            **REPLY,
+            'actor': LIKE_ACTOR,
+        }
+        got = self._test_inbox_reply(reply, {
+            'as2': reply,
+            'type': 'post',
+            'labels': ['activity', 'notification'],
+        }, mock_head, mock_get, mock_post)
+
+        self.assert_user(ActivityPub, 'https://user.com/actor',
+                         actor_as2=LIKE_ACTOR, direct=True)
 
     def test_inbox_activity_without_id(self, *_):
         note = copy.deepcopy(NOTE)
@@ -362,7 +381,9 @@ class ActivityPubTest(TestCase):
 
     def _test_inbox_reply(self, reply, expected_props, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/post')
-        mock_get.return_value = WEBMENTION_DISCOVERY
+        mock_get.side_effect = (
+            (list(mock_get.side_effect) if mock_get.side_effect else [])
+            + [WEBMENTION_DISCOVERY])
         mock_post.return_value = requests_response()
 
         got = self.post('/user.com/inbox', json=reply)
@@ -639,6 +660,17 @@ class ActivityPubTest(TestCase):
                            type='like',
                            labels=['notification', 'activity'],
                            object_ids=[LIKE['object']])
+
+    def test_inbox_like_indirect_user_creates_User(self, mock_get, *_):
+        self.user.direct = False
+        self.user.put()
+
+        mock_get.return_value = self.as2_resp(LIKE_ACTOR)
+
+        self.test_inbox_like()
+        self.assert_user(ActivityPub, 'https://user.com/actor',
+                         actor_as2=LIKE_ACTOR, direct=True)
+
 
     def test_inbox_follow_accept_with_id(self, *mocks):
         self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, *mocks)
