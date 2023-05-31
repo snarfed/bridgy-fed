@@ -273,11 +273,11 @@ class ActivityPubTest(TestCase):
         self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
         self.assertEqual({
             'preferredUsername': 'fake.com',
-            'id': 'http://localhost/ap/fake/fake.com',
-            'inbox': 'http://localhost/ap/fake/fake.com/inbox',
-            'outbox': 'http://localhost/ap/fake/fake.com/outbox',
-            'following': 'http://localhost/ap/fake/fake.com/following',
-            'followers': 'http://localhost/ap/fake/fake.com/followers',
+            'id': 'http://bf/fake/ap',
+            'inbox': 'http://bf/fake/ap/inbox',
+            'outbox': 'http://bf/fake/ap/outbox',
+            'following': 'http://bf/fake/ap/following',
+            'followers': 'http://bf/fake/ap/followers',
             'endpoints': {
                 'sharedInbox': 'http://localhost/ap/sharedInbox',
             },

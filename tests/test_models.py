@@ -86,32 +86,6 @@ class UserTest(TestCase):
         g.user.actor_as2 = ACTOR
         self.assertEqual('<a class="h-card u-author" href="/web/y.z"><img src="https://user.com/me.jpg" class="profile"> Mrs. ☕ Foo</a>', g.user.user_page_link())
 
-    def test_address(self):
-        self.assertEqual('@y.z@y.z', g.user.ap_address())
-
-        g.user.actor_as2 = {'type': 'Person'}
-        self.assertEqual('@y.z@y.z', g.user.ap_address())
-
-        g.user.actor_as2 = {'url': 'http://foo'}
-        self.assertEqual('@y.z@y.z', g.user.ap_address())
-
-        g.user.actor_as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@y.z']}
-        self.assertEqual('@baz@y.z', g.user.ap_address())
-
-        g.user.direct = False
-        self.assertEqual('@y.z@localhost', g.user.ap_address())
-
-    def test_ap_actor(self):
-        self.assertEqual('http://localhost/ap/fake/foo',
-                         self.make_user('foo', cls=Fake).ap_actor())
-
-        self.assertEqual('http://localhost/y.z', g.user.ap_actor())
-
-        g.user.direct = False
-        self.assertEqual('http://localhost/r/https://y.z/', g.user.ap_actor())
-
-        self.assertEqual('http://localhost/y.z/inbox', g.user.ap_actor('inbox'))
-
 
 class ObjectTest(TestCase):
     def setUp(self):

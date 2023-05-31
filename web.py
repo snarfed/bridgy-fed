@@ -49,6 +49,33 @@ class Web(User, Protocol):
     def _get_kind(cls):
         return 'MagicKey'
 
+    def ap_address(self):
+        """Returns this user's ActivityPub address, eg '@foo.com@foo.com'.
+
+        Uses the user's domain if they're direct, fed.brid.gy if they're not.
+        """
+        if self.direct:
+            return f'@{self.username()}@{self.key.id()}'
+        else:
+            return f'@{self.key.id()}@{request.host}'
+
+    def ap_actor(self, rest=None):
+        """Returns this user's ActivityPub/AS2 actor id.
+
+        Eg 'https://fed.brid.gy/foo.com'
+
+        Web users are special cased to not have an /ap/web/ prefix, for backward
+        compatibility.
+        """
+        if self.direct or rest:
+            url = common.host_url(self.key.id())
+            if rest:
+                url += f'/{rest}'
+            return url
+
+        # TODO(#512): drop once we fetch site if web user doesn't already exist
+        return common.redirect_wrap(self.homepage)
+
     def verify(self):
         """Fetches site a couple ways to check for redirects and h-card.
 

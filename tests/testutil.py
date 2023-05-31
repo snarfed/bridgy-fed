@@ -44,6 +44,12 @@ class Fake(User, protocol.Protocol):
     # in-order list of ids
     fetched = []
 
+    def ap_address(self):
+        return '@fake@fake'
+
+    def ap_actor(self, rest=None):
+        return 'http://bf/fake/ap' + (f'/{rest}' if rest else '')
+
     @classmethod
     def send(cls, obj, url, log_data=True):
         logger.info(f'Fake.send {url}')

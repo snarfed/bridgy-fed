@@ -21,7 +21,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 import common
-from common import base64_to_long, long_to_base64, redirect_wrap
+from common import base64_to_long, long_to_base64, redirect_unwrap, redirect_wrap
 
 # maps string label to Protocol subclass. populated by ProtocolUserMeta.
 # seed with old and upcoming protocols that don't have their own classes (yet).
@@ -200,17 +200,24 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return domain
 
     def ap_address(self):
-        """Returns this user's ActivityPub address, eg '@me@foo.com'."""
+        """Returns this user's ActivityPub address, eg '@me@foo.com'.
+
+        To be implemented by subclasses.
+        """
+        raise NotImplementedError()
         if self.direct:
             return f'@{self.username()}@{self.key.id()}'
         else:
             return f'@{self.key.id()}@{request.host}'
 
     def ap_actor(self, rest=None):
-        """Returns this user's AS2 actor id.
+        """Returns this user's ActivityPub/AS2 actor id.
 
-        Example: 'https://fed.brid.gy/ap/bluesky/foo.com'
+        Eg 'https://fed.brid.gy/ap/bluesky/foo.com'
+
+        To be implemented by subclasses.
         """
+        raise NotImplementedError()
         if self.direct or rest:
             # special case Web users to skip /ap/web/ prefix, for backward compatibility
             url = common.host_url(self.key.id() if self.LABEL == 'web'
@@ -317,9 +324,9 @@ class Object(StringIdModel):
             logger.warning(f'{self.key} has multiple! {bool(self.as2)} {bool(self.bsky)} {bool(self.mf2)}')
 
         if self.our_as1 is not None:
-            return common.redirect_unwrap(self.our_as1)
+            return redirect_unwrap(self.our_as1)
         elif self.as2 is not None:
-            return as2.to_as1(common.redirect_unwrap(self.as2))
+            return as2.to_as1(redirect_unwrap(self.as2))
         elif self.bsky is not None:
             return bluesky.to_as1(self.bsky)
         elif self.mf2 is not None:
@@ -333,7 +340,7 @@ class Object(StringIdModel):
 
     def _object_ids(self):  # id(s) of inner objects
         if self.as1:
-            return common.redirect_unwrap(as1.get_ids(self.as1, 'object'))
+            return redirect_unwrap(as1.get_ids(self.as1, 'object'))
     object_ids = ndb.ComputedProperty(_object_ids, repeated=True)
 
     deleted = ndb.BooleanProperty()

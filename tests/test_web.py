@@ -1547,6 +1547,29 @@ http://this/404s
         self.assertTrue(get_flashed_messages()[0].startswith(
             "Couldn't connect to https://orig/: "))
 
+    def test_ap_address(self, *_):
+        self.assertEqual('@user.com@user.com', g.user.ap_address())
+
+        g.user.actor_as2 = {'type': 'Person'}
+        self.assertEqual('@user.com@user.com', g.user.ap_address())
+
+        g.user.actor_as2 = {'url': 'http://foo'}
+        self.assertEqual('@user.com@user.com', g.user.ap_address())
+
+        g.user.actor_as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@user.com']}
+        self.assertEqual('@baz@user.com', g.user.ap_address())
+
+        g.user.direct = False
+        self.assertEqual('@user.com@localhost', g.user.ap_address())
+
+    def test_ap_actor(self, *_):
+        self.assertEqual('http://localhost/user.com', g.user.ap_actor())
+
+        g.user.direct = False
+        self.assertEqual('http://localhost/r/https://user.com/', g.user.ap_actor())
+
+        self.assertEqual('http://localhost/user.com/inbox', g.user.ap_actor('inbox'))
+
 
 @patch('requests.post')
 @patch('requests.get')
