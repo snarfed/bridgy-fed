@@ -27,7 +27,7 @@ from common import (
     TLD_BLOCKLIST,
 )
 from models import Follower, Object, PROTOCOLS, Target, User
-from protocol import Protocol
+import protocol
 import web
 
 logger = logging.getLogger(__name__)
@@ -47,7 +47,7 @@ def default_signature_user():
     return _DEFAULT_SIGNATURE_USER
 
 
-class ActivityPub(User, Protocol):
+class ActivityPub(User, protocol.Protocol):
     """ActivityPub protocol class."""
     LABEL = 'activitypub'
 
@@ -58,7 +58,7 @@ class ActivityPub(User, Protocol):
         target = getattr(obj, 'target_as2', None)
 
         activity = obj.as2 or postprocess_as2(as2.from_as1(obj.as1), target=target)
-        activity['actor'] = g.user.actor_id()
+        activity['actor'] = actor_id(g.user)
         return signed_post(url, log_data=True, data=activity)
         # TODO: return bool or otherwise unify return value with others
 
@@ -214,6 +214,45 @@ class ActivityPub(User, Protocol):
             error('HTTP Signature verification failed', status=401)
 
 
+def address(user):
+    """Returns a user's ActivityPub address, eg '@me@foo.com'.
+
+    Args:
+      user: :class:`User`
+
+    Returns:
+      str
+    """
+    if user.direct:
+        return f'@{user.username()}@{user.key.id()}'
+    else:
+        return f'@{user.key.id()}@{request.host}'
+
+
+def actor_id(user, rest=None):
+    """Returns a user's AS2 actor id.
+
+    Example: 'https://fed.brid.gy/ap/bluesky/foo.com'
+
+    Args:
+      user: :class:`User`
+      rest: str, optional, added as path suffix
+
+    Returns:
+      str
+    """
+    if user.direct or rest:
+        # special case Web users to skip /ap/web/ prefix, for backward compatibility
+        url = common.host_url(user.key.id() if user.LABEL == 'web'
+                              else f'/ap{user.user_page_path()}')
+        if rest:
+            url += f'/{rest}'
+        return url
+    # TODO(#512): drop once we fetch site if web user doesn't already exist
+    else:
+        return redirect_wrap(user.homepage)
+
+
 def signed_get(url, **kwargs):
     return signed_request(util.requests_get, url, **kwargs)
 
@@ -267,7 +306,7 @@ def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
     # implementations require, eg Peertube.
     # https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.3
     # https://github.com/snarfed/bridgy-fed/issues/40
-    auth = HTTPSignatureAuth(secret=user.private_pem(), key_id=user.actor_id(),
+    auth = HTTPSignatureAuth(secret=user.private_pem(), key_id=actor_id(user),
                              algorithm='rsa-sha256', sign_header='signature',
                              headers=HTTP_SIG_HEADERS)
 
@@ -371,13 +410,13 @@ def postprocess_as2(activity, target=None, wrap=True):
     elif not id:
         obj['id'] = util.get_first(obj, 'url') or target_id
     elif g.user and g.user.is_homepage(id):
-        obj['id'] = g.user.actor_id()
+        obj['id'] = actor_id(g.user)
     elif g.external_user:
         obj['id'] = redirect_wrap(g.external_user)
 
     # for Accepts
     if g.user and g.user.is_homepage(obj.get('object')):
-        obj['object'] = g.user.actor_id()
+        obj['object'] = actor_id(g.user)
     elif g.external_user and g.external_user == obj.get('object'):
         obj['object'] = redirect_wrap(g.external_user)
 
@@ -467,7 +506,7 @@ def postprocess_as2_actor(actor, wrap=True):
         return actor
     elif isinstance(actor, str):
         if g.user and g.user.is_homepage(actor):
-            return g.user.actor_id()
+            return actor_id(g.user)
         return redirect_wrap(actor)
 
     url = g.user.homepage if g.user else None
@@ -481,7 +520,7 @@ def postprocess_as2_actor(actor, wrap=True):
 
     id = actor.get('id')
     if g.user and (not id or g.user.is_homepage(id)):
-        actor['id'] = g.user.actor_id()
+        actor['id'] = actor_id(g.user)
     elif g.external_user and (not id or id == g.external_user):
         actor['id'] = redirect_wrap(g.external_user)
 
@@ -523,7 +562,7 @@ def actor(protocol, domain):
     # TODO: unify with common.actor()
     actor = postprocess_as2(g.user.actor_as2 or {})
     actor.update({
-        'id': g.user.actor_id(),
+        'id': actor_id(g.user),
         # This has to be the domain for Mastodon etc interop! It seems like it
         # should be the custom username from the acct: u-url in their h-card,
         # but that breaks Mastodon's Webfinger discovery. Background:
@@ -532,10 +571,10 @@ def actor(protocol, domain):
         # https://github.com/snarfed/bridgy-fed/issues/302#issuecomment-1324305460
         # https://github.com/snarfed/bridgy-fed/issues/77
         'preferredUsername': domain,
-        'inbox': g.user.actor_id('inbox'),
-        'outbox': g.user.actor_id('outbox'),
-        'following': g.user.actor_id('following'),
-        'followers': g.user.actor_id('followers'),
+        'inbox': actor_id(g.user, 'inbox'),
+        'outbox': actor_id(g.user, 'outbox'),
+        'following': actor_id(g.user, 'following'),
+        'followers': actor_id(g.user, 'followers'),
         'endpoints': {
             'sharedInbox': host_url('/ap/sharedInbox'),
         },

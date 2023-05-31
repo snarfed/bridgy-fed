@@ -1,11 +1,11 @@
 # coding=utf-8
 """Unit tests for webmention.py."""
 import copy
-from unittest import mock
+from unittest.mock import patch
 from urllib.parse import urlencode
 
 import feedparser
-from flask import g
+from flask import g, get_flashed_messages
 from granary import as1, as2, atom, microformats2
 from httpsig.sign import HeaderSigner
 from oauth_dropins.webutil import appengine_config, util
@@ -158,8 +158,8 @@ DELETE_AS2 = {
     'to': [as2.PUBLIC_AUDIENCE],
 }
 
-@mock.patch('requests.post')
-@mock.patch('requests.get')
+@patch('requests.post')
+@patch('requests.get')
 class WebTest(testutil.TestCase):
     def setUp(self):
         super().setUp()
@@ -413,7 +413,7 @@ class WebTest(testutil.TestCase):
         self.assertEqual(400, got.status_code)
         self.assertEqual(0, Object.query().count())
 
-    @mock.patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_make_task(self, mock_create_task, mock_get, mock_post):
         mock_get.side_effect = [self.note, self.actor]
 
@@ -1512,9 +1512,44 @@ http://this/404s
                     'https://user', '://user.com'):
             self.assertFalse(self.user.is_homepage(url), url)
 
+    def test_check_web_site(self, mock_get, _):
+        redir = 'http://localhost/.well-known/webfinger?resource=acct:user.com@user.com'
+        mock_get.side_effect = (
+            requests_response('', status=302, redirected_url=redir),
+            requests_response(ACTOR_HTML, url='https://user.com/',
+                              content_type=CONTENT_TYPE_HTML),
+        )
 
-@mock.patch('requests.post')
-@mock.patch('requests.get')
+        got = self.client.post('/web-site', data={'url': 'https://user.com/'})
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/web/user.com', got.headers['Location'])
+
+        user = Web.get_by_id('user.com')
+        self.assertTrue(user.has_hcard)
+        self.assertEqual('Person', user.actor_as2['type'])
+        self.assertEqual('http://localhost/user.com', user.actor_as2['id'])
+
+    def test_check_web_site_bad_url(self, _, __):
+        got = self.client.post('/web-site', data={'url': '!!!'})
+        self.assert_equals(200, got.status_code)
+        self.assertEqual(['No domain found in !!!'], get_flashed_messages())
+        self.assertEqual(1, Web.query().count())
+
+    def test_check_web_site_fetch_fails(self, mock_get, _):
+        redir = 'http://localhost/.well-known/webfinger?resource=acct:orig@orig'
+        mock_get.side_effect = (
+            requests_response('', status=302, redirected_url=redir),
+            requests_response('', status=503),
+        )
+
+        got = self.client.post('/web-site', data={'url': 'https://orig/'})
+        self.assert_equals(200, got.status_code, got.headers)
+        self.assertTrue(get_flashed_messages()[0].startswith(
+            "Couldn't connect to https://orig/: "))
+
+
+@patch('requests.post')
+@patch('requests.get')
 class WebProtocolTest(testutil.TestCase):
 
     def setUp(self):

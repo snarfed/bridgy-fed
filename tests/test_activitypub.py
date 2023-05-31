@@ -24,7 +24,7 @@ from werkzeug.exceptions import BadGateway
 from .testutil import Fake, TestCase
 
 import activitypub
-from activitypub import ActivityPub
+from activitypub import ActivityPub, actor_id, address
 import common
 import models
 from models import Follower, Object
@@ -1510,3 +1510,29 @@ class ActivityPubUtilsTest(TestCase):
                     activitypub.postprocess_as2(obj),
                     activitypub.postprocess_as2(activitypub.postprocess_as2(obj)),
                     ignore=['to'])
+
+    def test_address(self):
+        self.assertEqual('@user.com@user.com', address(g.user))
+
+        g.user.actor_as2 = {'type': 'Person'}
+        self.assertEqual('@user.com@user.com', address(g.user))
+
+        g.user.actor_as2 = {'url': 'http://foo'}
+        self.assertEqual('@user.com@user.com', address(g.user))
+
+        g.user.actor_as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@user.com']}
+        self.assertEqual('@baz@user.com', address(g.user))
+
+        g.user.direct = False
+        self.assertEqual('@user.com@localhost', address(g.user))
+
+    def test_actor_id(self):
+        self.assertEqual('http://localhost/ap/fake/foo',
+                         actor_id(self.make_user('foo', cls=Fake)))
+
+        self.assertEqual('http://localhost/user.com', actor_id(g.user))
+
+        g.user.direct = False
+        self.assertEqual('http://localhost/r/https://user.com/', actor_id(g.user))
+
+        self.assertEqual('http://localhost/user.com/inbox', actor_id(g.user, 'inbox'))

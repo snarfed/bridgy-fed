@@ -14,9 +14,10 @@ from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import error, flash, redirect
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
-from flask_app import app, cache
+import activitypub
 import common
 from common import DOMAIN_RE
+from flask_app import app, cache
 from models import fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS, User
 from web import Web
 
@@ -43,34 +44,6 @@ def front_page():
 def docs():
     """View for the docs page."""
     return render_template('docs.html')
-
-
-@app.get('/web-site')
-@flask_util.cached(cache, datetime.timedelta(days=1))
-def enter_web_site():
-    return render_template('enter_web_site.html')
-
-# TODO(#512): move to webmention.py?
-@app.post('/web-site')
-def check_web_site():
-    url = request.values['url']
-    domain = util.domain_from_link(url, minimize=False)
-    if not domain:
-        flash(f'No domain found in {url}')
-        return render_template('enter_web_site.html')
-
-    g.user = Web.get_or_create(domain, direct=True)
-    try:
-        g.user = g.user.verify()
-    except BaseException as e:
-        code, body = util.interpret_http_exception(e)
-        if code:
-            flash(f"Couldn't connect to {url}: {e}")
-            return render_template('enter_web_site.html')
-        raise
-
-    g.user.put()
-    return redirect(g.user.user_page_path())
 
 
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>')
@@ -112,6 +85,7 @@ def user(protocol, domain):
         util=util,
         address=request.args.get('address'),
         g=g,
+        activitypub=activitypub,
         **locals(),
     )
 
@@ -137,6 +111,7 @@ def followers_or_following(protocol, domain, collection):
         util=util,
         address=request.args.get('address'),
         g=g,
+        activitypub=activitypub,
         **locals()
     )
 
@@ -168,7 +143,8 @@ def feed(protocol, domain):
     # syntax. maybe a fediverse kwarg down through the call chain?
     if format == 'html':
         entries = [microformats2.object_to_html(a) for a in activities]
-        return render_template('feed.html', util=util, g=g, **locals())
+        return render_template('feed.html', util=util, g=g,
+                               activitypub=activitypub, **locals())
     elif format == 'atom':
         body = atom.activities_to_atom(activities, actor=actor, title=title,
                                        request_url=request.url)

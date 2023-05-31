@@ -1,10 +1,11 @@
 """Handles inbound webmentions."""
+import datetime
 import difflib
 import logging
 from urllib.parse import urlencode, urljoin, urlparse
 
 import feedparser
-from flask import g, redirect, request
+from flask import g, redirect, render_template, request
 from flask.views import View
 from google.cloud.ndb import Key
 from granary import as1, as2, microformats2
@@ -19,8 +20,8 @@ from requests import HTTPError, RequestException, URLRequired
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 
 import activitypub
-from flask_app import app
 import common
+from flask_app import app, cache
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
 
@@ -231,6 +232,34 @@ class Web(User, Protocol):
 PROTOCOLS['webmention'] = Web
 
 
+@app.get('/web-site')
+@flask_util.cached(cache, datetime.timedelta(days=1))
+def enter_web_site():
+    return render_template('enter_web_site.html')
+
+
+@app.post('/web-site')
+def check_web_site():
+    url = request.values['url']
+    domain = util.domain_from_link(url, minimize=False)
+    if not domain:
+        flash(f'No domain found in {url}')
+        return render_template('enter_web_site.html')
+
+    g.user = Web.get_or_create(domain, direct=True)
+    try:
+        g.user = g.user.verify()
+    except BaseException as e:
+        code, body = util.interpret_http_exception(e)
+        if code:
+            flash(f"Couldn't connect to {url}: {e}")
+            return render_template('enter_web_site.html')
+        raise
+
+    g.user.put()
+    return redirect(g.user.user_page_path())
+
+
 @app.post('/webmention')
 def webmention_external():
     """Handles inbound webmention, enqueue task to process.
@@ -315,7 +344,7 @@ def webmention_task():
             'id': id,
             'objectType': 'activity',
             'verb': 'delete',
-            'actor': g.user.actor_id(),
+            'actor': activitypub.actor_id(g.user),
             'object': source,
         })
 
@@ -324,8 +353,8 @@ def webmention_task():
         props = obj.mf2['properties']
         author_urls = microformats2.get_string_urls(props.get('author', []))
         if author_urls and not g.user.is_homepage(author_urls[0]):
-            logger.info(f'Overriding author {author_urls[0]} with {g.user.actor_id()}')
-            props['author'] = [g.user.actor_id()]
+            logger.info(f'Overriding author {author_urls[0]} with {activitypub.actor_id(g.user)}')
+            props['author'] = [activitypub.actor_id(g.user)]
 
     logger.info(f'Converted to AS1: {obj.type}: {json_dumps(obj.as1, indent=2)}')
 
@@ -334,7 +363,7 @@ def webmention_task():
         obj.put()
         actor_as1 = {
             **obj.as1,
-            'id': g.user.actor_id(),
+            'id': activitypub.actor_id(g.user),
             'updated': util.now().isoformat(),
         }
         id = common.host_url(f'{obj.key.id()}#update-{util.now().isoformat()}')
@@ -342,7 +371,7 @@ def webmention_task():
             'objectType': 'activity',
             'verb': 'update',
             'id': id,
-            'actor': g.user.actor_id(),
+            'actor': activitypub.actor_id(g.user),
             'object': actor_as1,
         })
 
@@ -374,7 +403,7 @@ def webmention_task():
                 'objectType': 'activity',
                 'verb': 'update',
                 'id': id,
-                'actor': g.user.actor_id(),
+                'actor': activitypub.actor_id(g.user),
                 'object': {
                     # Mastodon requires the updated field for Updates, so
                     # add a default value.
@@ -397,7 +426,7 @@ def webmention_task():
                 'objectType': 'activity',
                 'verb': 'post',
                 'id': id,
-                'actor': g.user.actor_id(),
+                'actor': activitypub.actor_id(g.user),
                 'object': obj.as1,
             }
             obj = Object(id=id, mf2=obj.mf2, our_as1=create_as1,

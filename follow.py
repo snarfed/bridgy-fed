@@ -16,7 +16,7 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import NOW
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
-from activitypub import ActivityPub
+from activitypub import ActivityPub, actor_id, address
 from flask_app import app
 import common
 from models import Follower, Object, PROTOCOLS
@@ -98,7 +98,7 @@ def remote_follow():
         if link.get('rel') == SUBSCRIBE_LINK_REL:
             template = link.get('template')
             if template and '{uri}' in template:
-                return redirect(template.replace('{uri}', g.user.address()))
+                return redirect(template.replace('{uri}', address(g.user)))
 
     flash(f"Couldn't find remote follow link for {addr}")
     return redirect(g.user.user_page_path())
@@ -179,7 +179,7 @@ class FollowCallback(indieauth.Callback):
             'type': 'Follow',
             'id': follow_id,
             'object': followee,
-            'actor': g.user.actor_id(),
+            'actor': actor_id(g.user),
             'to': [as2.PUBLIC_AUDIENCE],
         }
         obj = Object(id=follow_id, domains=[domain], labels=['user'],
@@ -257,7 +257,7 @@ class UnfollowCallback(indieauth.Callback):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Undo',
             'id': unfollow_id,
-            'actor': g.user.actor_id(),
+            'actor': actor_id(g.user),
             'object': follower.last_follow,
         }
 
