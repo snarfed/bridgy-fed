@@ -49,6 +49,10 @@ class Web(User, Protocol):
     def _get_kind(cls):
         return 'MagicKey'
 
+    def web_url(self):
+        """Returns this user's web URL aka web_url, eg 'https://foo.com/'."""
+        return f'https://{self.key.id()}/'
+
     def ap_address(self):
         """Returns this user's ActivityPub address, eg '@foo.com@foo.com'.
 
@@ -74,7 +78,7 @@ class Web(User, Protocol):
             return url
 
         # TODO(#512): drop once we fetch site if web user doesn't already exist
-        return common.redirect_wrap(self.homepage)
+        return common.redirect_wrap(self.web_url())
 
     def verify(self):
         """Fetches site a couple ways to check for redirects and h-card.
@@ -94,7 +98,7 @@ class Web(User, Protocol):
             root_site = f'https://{root}/'
             try:
                 resp = util.requests_get(root_site, gateway=False)
-                if resp.ok and self.is_homepage(resp.url):
+                if resp.ok and self.is_web_url(resp.url):
                     logger.info(f'{root_site} redirects to {resp.url} ; using {root} instead')
                     root_user = Web.get_or_create(root)
                     self.use_instead = root_user.key
@@ -108,7 +112,7 @@ class Web(User, Protocol):
         self.has_redirects = False
         self.redirects_error = None
         try:
-            url = urljoin(self.homepage, path)
+            url = urljoin(self.web_url(), path)
             resp = util.requests_get(url, gateway=False)
             domain_urls = ([f'https://{domain}/' for domain in common.DOMAINS] +
                            [common.host_url()])
@@ -129,7 +133,7 @@ class Web(User, Protocol):
 
         # check home page
         try:
-            obj = Web.load(self.homepage, gateway=True)
+            obj = Web.load(self.web_url(), gateway=True)
             self.actor_as2 = activitypub.postprocess_as2(as2.from_as1(obj.as1))
             self.has_hcard = True
         except (BadRequest, NotFound):
@@ -168,12 +172,12 @@ class Web(User, Protocol):
           check_backlink: bool, optional, whether to require a link to Bridgy Fed
         """
         url = obj.key.id()
-        is_homepage = ((g.user and g.user.is_homepage(url)) or
+        is_web_url = ((g.user and g.user.is_web_url(url)) or
                        (g.external_user and g.external_user == url))
 
 
         require_backlink = None
-        if check_backlink or (check_backlink is None and not is_homepage):
+        if check_backlink or (check_backlink is None and not is_web_url):
             require_backlink = common.host_url().rstrip('/')
 
         try:
@@ -186,8 +190,8 @@ class Web(User, Protocol):
             error(f'id {urlparse(url).fragment} not found in {url}')
 
         # find mf2 item
-        if is_homepage:
-            logger.info(f"{url} is user's homepage")
+        if is_web_url:
+            logger.info(f"{url} is user's web url")
             entry = mf2util.representative_hcard(parsed, parsed['url'])
             logger.info(f'Representative h-card: {json_dumps(entry, indent=2)}')
             if not entry:
@@ -200,7 +204,7 @@ class Web(User, Protocol):
         # store final URL in mf2 object, and also default url property to it,
         # since that's the fallback for AS1/AS2 id
         entry['url'] = parsed['url']
-        if is_homepage:
+        if is_web_url:
             entry.setdefault('rel-urls', {}).update(parsed.get('rel-urls', {}))
         props = entry.setdefault('properties', {})
         props.setdefault('url', [parsed['url']])
@@ -209,7 +213,7 @@ class Web(User, Protocol):
         # run full authorship algorithm if necessary: https://indieweb.org/authorship
         # duplicated in microformats2.json_to_object
         author = util.get_first(props, 'author')
-        if not isinstance(author, dict) and not is_homepage:
+        if not isinstance(author, dict) and not is_web_url:
             logger.info(f'Fetching full authorship for author {author}')
             author = mf2util.find_author({'items': [entry]}, hentry=entry,
                                          fetch_mf2_func=util.fetch_mf2)
@@ -329,7 +333,7 @@ def webmention_interactive():
     """
     try:
         webmention_external()
-        flash(f'Updating fediverse profile from <a href="{g.user.homepage}">{g.user.key.id()}</a>...')
+        flash(f'Updating fediverse profile from <a href="{g.user.web_url()}">{g.user.key.id()}</a>...')
     except HTTPException as e:
         flash(util.linkify(str(e.description), pretty=True))
 
@@ -379,14 +383,14 @@ def webmention_task():
         # set actor to user
         props = obj.mf2['properties']
         author_urls = microformats2.get_string_urls(props.get('author', []))
-        if author_urls and not g.user.is_homepage(author_urls[0]):
+        if author_urls and not g.user.is_web_url(author_urls[0]):
             logger.info(f'Overriding author {author_urls[0]} with {g.user.ap_actor()}')
             props['author'] = [g.user.ap_actor()]
 
     logger.info(f'Converted to AS1: {obj.type}: {json_dumps(obj.as1, indent=2)}')
 
     # if source is home page, send an actor Update to followers' instances
-    if g.user.is_homepage(obj.key.id()):
+    if g.user.is_web_url(obj.key.id()):
         obj.put()
         actor_as1 = {
             **obj.as1,

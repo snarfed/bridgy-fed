@@ -1501,16 +1501,31 @@ http://this/404s
             'preferredUsername': 'user.com',
         })
 
-    def test_homepage(self, _, __):
-        self.assertEqual('https://user.com/', self.user.homepage)
+    def test_web_url(self, _, __):
+        self.assertEqual('https://user.com/', self.user.web_url())
 
-    def test_is_homepage(self, _, __):
-        for url in 'user.com', '//user.com', 'http://user.com', 'https://user.com':
-            self.assertTrue(self.user.is_homepage(url), url)
+    def test_ap_address(self, *_):
+        self.assertEqual('@user.com@user.com', g.user.ap_address())
 
-        for url in (None, '', 'user', 'com', 'com.user', 'ftp://user.com',
-                    'https://user', '://user.com'):
-            self.assertFalse(self.user.is_homepage(url), url)
+        g.user.actor_as2 = {'type': 'Person'}
+        self.assertEqual('@user.com@user.com', g.user.ap_address())
+
+        g.user.actor_as2 = {'url': 'http://foo'}
+        self.assertEqual('@user.com@user.com', g.user.ap_address())
+
+        g.user.actor_as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@user.com']}
+        self.assertEqual('@baz@user.com', g.user.ap_address())
+
+        g.user.direct = False
+        self.assertEqual('@user.com@localhost', g.user.ap_address())
+
+    def test_ap_actor(self, *_):
+        self.assertEqual('http://localhost/user.com', g.user.ap_actor())
+
+        g.user.direct = False
+        self.assertEqual('http://localhost/r/https://user.com/', g.user.ap_actor())
+
+        self.assertEqual('http://localhost/user.com/inbox', g.user.ap_actor('inbox'))
 
     def test_check_web_site(self, mock_get, _):
         redir = 'http://localhost/.well-known/webfinger?resource=acct:user.com@user.com'
@@ -1546,29 +1561,6 @@ http://this/404s
         self.assert_equals(200, got.status_code, got.headers)
         self.assertTrue(get_flashed_messages()[0].startswith(
             "Couldn't connect to https://orig/: "))
-
-    def test_ap_address(self, *_):
-        self.assertEqual('@user.com@user.com', g.user.ap_address())
-
-        g.user.actor_as2 = {'type': 'Person'}
-        self.assertEqual('@user.com@user.com', g.user.ap_address())
-
-        g.user.actor_as2 = {'url': 'http://foo'}
-        self.assertEqual('@user.com@user.com', g.user.ap_address())
-
-        g.user.actor_as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@user.com']}
-        self.assertEqual('@baz@user.com', g.user.ap_address())
-
-        g.user.direct = False
-        self.assertEqual('@user.com@localhost', g.user.ap_address())
-
-    def test_ap_actor(self, *_):
-        self.assertEqual('http://localhost/user.com', g.user.ap_actor())
-
-        g.user.direct = False
-        self.assertEqual('http://localhost/r/https://user.com/', g.user.ap_actor())
-
-        self.assertEqual('http://localhost/user.com/inbox', g.user.ap_actor('inbox'))
 
 
 @patch('requests.post')

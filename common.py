@@ -95,7 +95,7 @@ def pretty_link(url, text=None, **kwargs):
     text: str
     kwargs: passed through to :func:`webutil.util.pretty_link`
   """
-  if g.user and g.user.is_homepage(url):
+  if g.user and g.user.is_web_url(url):
     return g.user.user_page_link()
 
   if text is None:

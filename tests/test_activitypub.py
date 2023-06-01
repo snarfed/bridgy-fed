@@ -278,11 +278,11 @@ class ActivityPubTest(TestCase):
         self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
         self.assertEqual({
             'preferredUsername': 'fake.com',
-            'id': 'http://bf/fake/ap',
-            'inbox': 'http://bf/fake/ap/inbox',
-            'outbox': 'http://bf/fake/ap/outbox',
-            'following': 'http://bf/fake/ap/following',
-            'followers': 'http://bf/fake/ap/followers',
+            'id': 'http://bf/fake.com/ap',
+            'inbox': 'http://bf/fake.com/ap/inbox',
+            'outbox': 'http://bf/fake.com/ap/outbox',
+            'following': 'http://bf/fake.com/ap/following',
+            'followers': 'http://bf/fake.com/ap/followers',
             'endpoints': {
                 'sharedInbox': 'http://localhost/ap/sharedInbox',
             },
@@ -1259,8 +1259,8 @@ class ActivityPubUtilsTest(TestCase):
     def setUp(self):
         super().setUp()
         self.request_context.push()
-        g.user = self.make_user('user.com', has_hcard=True,
-                                actor_as2=ACTOR)
+        g.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR)
+
     def tearDown(self):
         self.request_context.pop()
         super().tearDown()
@@ -1302,16 +1302,16 @@ class ActivityPubUtilsTest(TestCase):
             'actor': {
                 'id': 'baj',
                 'preferredUsername': 'site',
-                'url': 'http://localhost/r/https://site/',
+                'url': 'http://localhost/r/https://site',
             },
             'attributedTo': [{
                 'id': 'bar',
                 'preferredUsername': 'site',
-                'url': 'http://localhost/r/https://site/',
+                'url': 'http://localhost/r/https://site',
             }, {
                 'id': 'baz',
                 'preferredUsername': 'site',
-                'url': 'http://localhost/r/https://site/',
+                'url': 'http://localhost/r/https://site',
             }],
             'to': [as2.PUBLIC_AUDIENCE],
         }, activitypub.postprocess_as2({
@@ -1542,3 +1542,21 @@ class ActivityPubUtilsTest(TestCase):
                     activitypub.postprocess_as2(obj),
                     activitypub.postprocess_as2(activitypub.postprocess_as2(obj)),
                     ignore=['to'])
+
+    def test_ap_actor(self):
+        user = self.make_user('http://foo/actor', cls=ActivityPub)
+        self.assertEqual('http://foo/actor', user.ap_actor())
+
+    def test_ap_address(self):
+        user = self.make_user('http://foo/actor', cls=ActivityPub)
+        self.assertEqual('http://foo/actor', user.ap_actor())
+
+    def test_web_url(self):
+        user = self.make_user('http://foo/actor', cls=ActivityPub)
+        self.assertEqual('http://foo/actor', user.web_url())
+
+        user.actor_as2 = copy.deepcopy(ACTOR)  # no url
+        self.assertEqual('http://foo/actor', user.web_url())
+
+        user.actor_as2['url'] = ['http://my/url']
+        self.assertEqual('http://my/url', user.web_url())

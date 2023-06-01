@@ -131,7 +131,7 @@ def feed(protocol, domain):
 
     actor = {
       'displayName': domain,
-      'url': g.user.homepage,
+      'url': g.user.web_url(),
     }
     title = f'Bridgy Fed feed for {domain}'
 
@@ -277,7 +277,7 @@ def nodeinfo():
             'name': 'bridgy-fed',
             'version': os.getenv('GAE_VERSION'),
             'repository': 'https://github.com/snarfed/bridgy-fed',
-            'homepage': 'https://fed.brid.gy/',
+            'web_url': 'https://fed.brid.gy/',
         },
         'protocols': [
             'activitypub',

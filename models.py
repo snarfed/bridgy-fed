@@ -103,11 +103,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """Try to prevent instantiation. Use subclasses instead."""
         raise NotImplementedError()
 
-    # TODO(#512): move this and is_homepage to web.py?
-    @property
-    def homepage(self):
-        return f'https://{self.key.id()}/'
-
     def _post_put_hook(self, future):
         logger.info(f'Wrote {self.key}')
 
@@ -200,16 +195,48 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         logger.info(f'Defaulting username to key id {id}')
         return id
 
+    def web_url(self):
+        """Returns this user's web URL aka web_url, eg 'https://foo.com/'.
+
+        To be implemented by subclasses.
+
+        Returns:
+          str
+        """
+        raise NotImplementedError()
+
+    def is_web_url(self, url):
+        """Returns True if the given URL is this user's web URL (web_url).
+
+        Args:
+          url: str
+
+        Returns:
+          boolean
+        """
+        if not url:
+            return False
+
+        url = url.strip().rstrip('/')
+        parsed_url = urllib.parse.urlparse(url)
+        if parsed_url.scheme not in ('http', 'https', ''):
+            return False
+
+        this = self.web_url().rstrip('/')
+        parsed_this = urllib.parse.urlparse(this)
+
+        return (url == this or url == parsed_this.netloc or
+                parsed_url[1:] == parsed_this[1:])  # ignore http vs https
+
     def ap_address(self):
         """Returns this user's ActivityPub address, eg '@me@foo.com'.
 
         To be implemented by subclasses.
+
+        Returns:
+          str
         """
         raise NotImplementedError()
-        if self.direct:
-            return f'@{self.username()}@{self.key.id()}'
-        else:
-            return f'@{self.key.id()}@{request.host}'
 
     def ap_actor(self, rest=None):
         """Returns this user's ActivityPub/AS2 actor id.
@@ -217,33 +244,14 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Eg 'https://fed.brid.gy/ap/bluesky/foo.com'
 
         To be implemented by subclasses.
+
+        Args:
+          rest: str, optional, appended to URL path
+
+        Returns:
+          str
         """
         raise NotImplementedError()
-        if self.direct or rest:
-            # special case Web users to skip /ap/web/ prefix, for backward compatibility
-            url = common.host_url(self.key.id() if self.LABEL == 'web'
-                                  else f'/ap{self.user_page_path()}')
-            if rest:
-                url += f'/{rest}'
-            return url
-        # TODO(#512): drop once we fetch site if web user doesn't already exist
-        else:
-            return redirect_wrap(self.homepage)
-
-    def is_homepage(self, url):
-        """Returns True if the given URL points to this user's home page."""
-        if not url:
-            return False
-
-        url = url.strip().rstrip('/')
-        if url == self.key.id():
-            return True
-
-        parsed = urllib.parse.urlparse(url)
-        return (parsed.netloc == self.key.id()
-                and parsed.scheme in ('', 'http', 'https')
-                and not parsed.path and not parsed.query
-                and not parsed.params and not parsed.fragment)
 
     def user_page_path(self, rest=None):
         """Returns the user's Bridgy Fed user page path."""

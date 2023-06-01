@@ -54,6 +54,24 @@ class ActivityPub(User, Protocol):
     """
     LABEL = 'activitypub'
 
+    def web_url(self):
+        """Returns this user's web URL aka web_url, eg 'https://foo.com/'."""
+        return util.get_url(self.actor_as2) or self.ap_actor()
+
+    def ap_address(self):
+        """Returns this user's ActivityPub address, eg '@foo.com@foo.com'."""
+        if self.direct:
+            return f'@{self.username()}@{self.key.id()}'
+        else:
+            return f'@{self.key.id()}@{request.host}'
+
+    def ap_actor(self, rest=None):
+        """Returns this user's ActivityPub/AS2 actor id URL.
+
+        Eg 'https://fed.brid.gy/foo.com'
+        """
+        return self.key.id()
+
     @classmethod
     def send(cls, obj, url, log_data=True):
         """Delivers an activity to an inbox URL."""
@@ -373,13 +391,13 @@ def postprocess_as2(activity, target=None, wrap=True):
         activity['object'] = target_id
     elif not id:
         obj['id'] = util.get_first(obj, 'url') or target_id
-    elif g.user and g.user.is_homepage(id):
+    elif g.user and g.user.is_web_url(id):
         obj['id'] = g.user.ap_actor()
     elif g.external_user:
         obj['id'] = redirect_wrap(g.external_user)
 
     # for Accepts
-    if g.user and g.user.is_homepage(obj.get('object')):
+    if g.user and g.user.is_web_url(obj.get('object')):
         obj['object'] = g.user.ap_actor()
     elif g.external_user and g.external_user == obj.get('object'):
         obj['object'] = redirect_wrap(g.external_user)
@@ -469,11 +487,11 @@ def postprocess_as2_actor(actor, wrap=True):
     if not actor:
         return actor
     elif isinstance(actor, str):
-        if g.user and g.user.is_homepage(actor):
+        if g.user and g.user.is_web_url(actor):
             return g.user.ap_actor()
         return redirect_wrap(actor)
 
-    url = g.user.homepage if g.user else None
+    url = g.user.web_url() if g.user else None
     urls = util.get_list(actor, 'url')
     if not urls and url:
       urls = [url]
@@ -483,7 +501,7 @@ def postprocess_as2_actor(actor, wrap=True):
         urls[0] = redirect_wrap(urls[0])
 
     id = actor.get('id')
-    if g.user and (not id or g.user.is_homepage(id)):
+    if g.user and (not id or g.user.is_web_url(id)):
         actor['id'] = g.user.ap_actor()
     elif g.external_user and (not id or id == g.external_user):
         actor['id'] = redirect_wrap(g.external_user)

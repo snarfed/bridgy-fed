@@ -54,20 +54,17 @@ class Actor(flask_util.XrdOrJrd):
             error(f'No user or web site found for {domain}', status=404)
 
         actor = g.user.to_as1() or {}
-        homepage = g.user.homepage
-        handle = g.user.ap_address()
-
         logger.info(f'Generating WebFinger data for {domain}')
         logger.info(f'AS1 actor: {actor}')
         urls = util.dedupe_urls(util.get_list(actor, 'urls') +
                                 util.get_list(actor, 'url') +
-                                [homepage])
+                                [g.user.web_url()])
         logger.info(f'URLs: {urls}')
         canonical_url = urls[0]
 
         # generate webfinger content
         data = util.trim_nulls({
-            'subject': 'acct:' + handle.lstrip('@'),
+            'subject': 'acct:' + g.user.ap_address().lstrip('@'),
             'aliases': urls,
             'links':
             [{

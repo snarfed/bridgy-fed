@@ -44,11 +44,14 @@ class Fake(User, protocol.Protocol):
     # in-order list of ids
     fetched = []
 
+    def web_url(self):
+        return f'https://{self.key.id()}'
+
     def ap_address(self):
-        return '@fake@fake'
+        return f'@{self.key.id()}@fake'
 
     def ap_actor(self, rest=None):
-        return 'http://bf/fake/ap' + (f'/{rest}' if rest else '')
+        return f'http://bf/{self.key.id()}/ap' + (f'/{rest}' if rest else '')
 
     @classmethod
     def send(cls, obj, url, log_data=True):

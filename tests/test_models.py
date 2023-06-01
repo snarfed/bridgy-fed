@@ -86,6 +86,14 @@ class UserTest(TestCase):
         g.user.actor_as2 = ACTOR
         self.assertEqual('<a class="h-card u-author" href="/web/y.z"><img src="https://user.com/me.jpg" class="profile"> Mrs. ☕ Foo</a>', g.user.user_page_link())
 
+    def test_is_web_url(self):
+        for url in 'y.z', '//y.z', 'http://y.z', 'https://y.z':
+            self.assertTrue(g.user.is_web_url(url), url)
+
+        for url in (None, '', 'user', 'com', 'com.user', 'ftp://y.z',
+                    'https://user', '://y.z'):
+            self.assertFalse(g.user.is_web_url(url), url)
+
 
 class ObjectTest(TestCase):
     def setUp(self):
