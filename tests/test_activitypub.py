@@ -1576,3 +1576,13 @@ class ActivityPubUtilsTest(TestCase):
 
         user.actor_as2 = ACTOR
         self.assertEqual('@swentel@mas.to', user.label_id())
+
+    def test_get_by_id(self):
+        user = self.make_user('http://foo', cls=ActivityPub)
+        self.assert_entities_equal(user, ActivityPub.get_by_id('http://foo'))
+        self.assertIsNone(ActivityPub.get_by_id('@swentel@mas.to'))
+
+        user.actor_as2 = ACTOR
+        user.put()
+        self.assert_entities_equal(user, ActivityPub.get_by_id('http://foo'))
+        self.assert_entities_equal(user, ActivityPub.get_by_id('@swentel@mas.to'))

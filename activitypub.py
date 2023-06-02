@@ -61,6 +61,12 @@ class ActivityPub(User, Protocol):
     def address(self):
         return self.ap_address()
 
+    @classmethod
+    def get_by_id(cls, id):
+        """Override User.get_by_id to fall back to querying by address."""
+        return (super(User, ActivityPub).get_by_id(id)
+                or ActivityPub.query(ActivityPub.address == id).get())
+
     def label_id(self):
         """Returns this user's human-readable unique id, eg '@me@snarfed.org'."""
         return self.address or self.key.id()

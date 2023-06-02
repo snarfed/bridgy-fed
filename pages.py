@@ -53,27 +53,27 @@ def web_user_redirects(**kwargs):
     return redirect(f'/web/{path}', code=301)
 
 
-@app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<regex("{DOMAIN_RE}"):domain>')
-def user(protocol, domain):
-    g.user = PROTOCOLS[protocol].get_by_id(domain)
+@app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>')
+def user(protocol, id):
+    g.user = PROTOCOLS[protocol].get_by_id(id)
     if not g.user or not g.user.direct:
         return USER_NOT_FOUND_HTML, 404
-    elif g.user.key.id() != domain:
-        return redirect(f'/{protocol}/{g.user.key.id()}', code=301)
+    elif id != g.user.label_id():
+        return redirect(g.user.user_page_path(), code=301)
 
     assert not g.user.use_instead
 
     query = Object.query(
-        Object.domains == domain,
+        Object.domains == id,
         Object.labels.IN(('notification', 'user')),
     )
     objects, before, after = fetch_objects(query)
 
-    followers = Follower.query(Follower.dest == domain, Follower.status == 'active')\
+    followers = Follower.query(Follower.dest == id, Follower.status == 'active')\
                         .count(limit=FOLLOWERS_UI_LIMIT)
     followers = f'{followers}{"+" if followers == FOLLOWERS_UI_LIMIT else ""}'
 
-    following = Follower.query(Follower.src == domain, Follower.status == 'active')\
+    following = Follower.query(Follower.src == id, Follower.status == 'active')\
                         .count(limit=FOLLOWERS_UI_LIMIT)
     following = f'{following}{"+" if following == FOLLOWERS_UI_LIMIT else ""}'
 
@@ -88,13 +88,13 @@ def user(protocol, domain):
     )
 
 
-@app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
-def followers_or_following(protocol, domain, collection):
-    g.user = PROTOCOLS[protocol].get_by_id(domain)  # g.user is used in template
+@app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/<any(followers,following):collection>')
+def followers_or_following(protocol, id, collection):
+    g.user = PROTOCOLS[protocol].get_by_id(id)  # g.user is used in template
     if not g.user:
         return USER_NOT_FOUND_HTML, 404
 
-    followers, before, after = Follower.fetch_page(domain, collection)
+    followers, before, after = Follower.fetch_page(id, collection)
 
     for f in followers:
         f.url = f.src if collection == 'followers' else f.dest
@@ -113,27 +113,27 @@ def followers_or_following(protocol, domain, collection):
     )
 
 
-@app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<regex("{DOMAIN_RE}"):domain>/feed')
-def feed(protocol, domain):
+@app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/feed')
+def feed(protocol, id):
     format = request.args.get('format', 'html')
     if format not in ('html', 'atom', 'rss'):
         error(f'format {format} not supported; expected html, atom, or rss')
 
-    g.user = PROTOCOLS[protocol].get_by_id(domain)
+    g.user = PROTOCOLS[protocol].get_by_id(id)
     if not g.user:
-        return render_template('user_not_found.html', domain=domain), 404
+        return render_template('user_not_found.html', domain=id), 404
 
     objects, _, _ = Object.query(
-        Object.domains == domain, Object.labels == 'feed') \
+        Object.domains == id, Object.labels == 'feed') \
         .order(-Object.created) \
         .fetch_page(PAGE_SIZE)
     activities = [obj.as1 for obj in objects if not obj.deleted]
 
     actor = {
-      'displayName': domain,
+      'displayName': id,
       'url': g.user.web_url(),
     }
-    title = f'Bridgy Fed feed for {domain}'
+    title = f'Bridgy Fed feed for {id}'
 
     # TODO: inject/merge common.pretty_link into microformats2.render_content
     # (specifically into hcard_to_html) somehow to convert Mastodon URLs to @-@

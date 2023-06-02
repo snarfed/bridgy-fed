@@ -15,12 +15,17 @@ from oauth_dropins.webutil.testutil import requests_response
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
 
+from activitypub import ActivityPub
 import common
 from models import Object, Follower, User
 from web import Web
 
 from .test_web import ACTOR_AS2, ACTOR_HTML, ACTOR_MF2, REPOST_AS2
 
+ACTOR_WITH_PREFERRED_USERNAME = {
+    **ACTOR,
+    'preferredUsername': 'me',
+}
 
 def contents(activities):
     return [(a.get('object') or a)['content'] for a in activities]
@@ -41,6 +46,18 @@ class PagesTest(TestCase):
         self.make_user('foo.com', cls=Fake)
         got = self.client.get('/fake/foo.com')
         self.assert_equals(200, got.status_code)
+
+    def test_user_activitypub_address(self):
+        user = self.make_user('foo', cls=ActivityPub,
+                              actor_as2=ACTOR_WITH_PREFERRED_USERNAME)
+        self.assertEqual('@me@plus.google.com', user.address)
+
+        got = self.client.get('/activitypub/@me@plus.google.com')
+        self.assert_equals(200, got.status_code)
+
+        got = self.client.get('/activitypub/foo')
+        self.assert_equals(301, got.status_code)
+        self.assert_equals('/activitypub/@me@plus.google.com', got.headers['Location'])
 
     def test_user_objects(self):
         self.add_objects()
@@ -117,10 +134,7 @@ class PagesTest(TestCase):
         Follower.get_or_create('bar.com', 'https://no.stored/users/follow')
         Follower.get_or_create('bar.com', 'https://masto/user', last_follow={
             **FOLLOW_WITH_ACTOR,
-            'actor': {
-                **ACTOR,
-                'preferredUsername': 'me',
-            },
+            'actor': ACTOR_WITH_PREFERRED_USERNAME,
         })
         got = self.client.get('/web/bar.com/followers')
         self.assert_equals(200, got.status_code)
