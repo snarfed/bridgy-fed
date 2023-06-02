@@ -1543,17 +1543,20 @@ class ActivityPubUtilsTest(TestCase):
                     activitypub.postprocess_as2(activitypub.postprocess_as2(obj)),
                     ignore=['to'])
 
-    def test_ap_actor(self):
+    def test_ap_address(self):
         user = ActivityPub(actor_as2={**ACTOR, 'preferredUsername': 'me'})
         self.assertEqual('@me@mas.to', user.ap_address())
+        self.assertEqual('@me@mas.to', user.address)
 
         user = ActivityPub(actor_as2=ACTOR)
         self.assertEqual('@swentel@mas.to', user.ap_address())
+        self.assertEqual('@swentel@mas.to', user.address)
 
         user = ActivityPub(id='https://mas.to/users/alice')
         self.assertEqual('@alice@mas.to', user.ap_address())
+        self.assertEqual('@alice@mas.to', user.address)
 
-    def test_ap_address(self):
+    def test_ap_actor(self):
         user = self.make_user('http://foo/actor', cls=ActivityPub)
         self.assertEqual('http://foo/actor', user.ap_actor())
 
@@ -1566,3 +1569,10 @@ class ActivityPubUtilsTest(TestCase):
 
         user.actor_as2['url'] = ['http://my/url']
         self.assertEqual('http://my/url', user.web_url())
+
+    def test_label_id(self):
+        user = self.make_user('http://foo', cls=ActivityPub)
+        self.assertEqual('http://foo', user.label_id())
+
+        user.actor_as2 = ACTOR
+        self.assertEqual('@swentel@mas.to', user.label_id())

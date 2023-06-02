@@ -230,7 +230,7 @@ class FollowTest(testutil.TestCase):
     def test_callback_user_use_instead(self, mock_get, mock_post):
         user = self.make_user('www.alice.com')
         self.user.use_instead = user.key
-        user.put()
+        self.user.put()
 
         mock_get.side_effect = (
             requests_response(''),

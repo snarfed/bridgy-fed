@@ -174,10 +174,25 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if self.actor_as2:
             return as2.to_as1(self.actor_as2)
 
+    def name(self):
+        """Returns this user's human-readable name, eg 'Ryan Barrett'."""
+        if self.actor_as2:
+            name = self.actor_as2.get('name')
+            if name:
+                return name
+
+        return self.label_id()
+
+    def label_id(self):
+        """Returns this user's human-readable unique id, eg '@me@snarfed.org'."""
+        return self.key.id()
+
     def username(self):
         """Returns the user's preferred username.
 
         Uses stored representative h-card if available, falls back to id.
+
+        TODO(#512): move to Web
 
         Returns: str
         """
@@ -255,7 +270,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     def user_page_path(self, rest=None):
         """Returns the user's Bridgy Fed user page path."""
-        path = f'/{self.LABEL}/{self.key.id()}'
+        path = f'/{self.LABEL}/{self.label_id()}'
         if rest:
             path += f'/{rest}'
         return path
@@ -263,12 +278,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     def user_page_link(self):
         """Returns a pretty user page link with the user's name and profile picture."""
         actor = self.actor_as2 or {}
-        name = (actor.get('name') or
-                # prettify if domain, noop if username
-                util.domain_from_link(self.username()))
         img = util.get_url(actor, 'icon') or ''
-
-        return f'<a class="h-card u-author" href="{self.user_page_path()}"><img src="{img}" class="profile"> {name}</a>'
+        return f'<a class="h-card u-author" href="{self.user_page_path()}"><img src="{img}" class="profile"> {self.name()}</a>'
 
 
 class Target(ndb.Model):

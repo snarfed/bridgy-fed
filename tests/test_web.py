@@ -1501,6 +1501,9 @@ http://this/404s
             'preferredUsername': 'user.com',
         })
 
+    def test_label_id(self, _, __):
+        self.assertEqual('user.com', self.user.label_id())
+
     def test_web_url(self, _, __):
         self.assertEqual('https://user.com/', self.user.web_url())
 

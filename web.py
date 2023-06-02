@@ -49,6 +49,10 @@ class Web(User, Protocol):
     def _get_kind(cls):
         return 'MagicKey'
 
+    def label_id(self):
+        # prettify if domain, noop if username
+        return util.domain_from_link(self.username(), minimize=False)
+
     def web_url(self):
         """Returns this user's web URL aka web_url, eg 'https://foo.com/'."""
         return f'https://{self.key.id()}/'

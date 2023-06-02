@@ -94,6 +94,18 @@ class UserTest(TestCase):
                     'https://user', '://y.z'):
             self.assertFalse(g.user.is_web_url(url), url)
 
+    def test_name(self):
+        self.assertEqual('y.z', g.user.name())
+
+        g.user.actor_as2 = {'id': 'abc'}
+        self.assertEqual('y.z', g.user.name())
+
+        g.user.actor_as2 = {'name': 'alice'}
+        self.assertEqual('alice', g.user.name())
+
+    def test_label_id(self):
+        self.assertEqual('y.z', g.user.label_id())
+
 
 class ObjectTest(TestCase):
     def setUp(self):

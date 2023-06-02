@@ -6,6 +6,7 @@ import logging
 from urllib.parse import quote_plus
 
 from flask import abort, g, request
+from google.cloud import ndb
 from granary import as1, as2
 from httpsig import HeaderVerifier
 from httpsig.requests_auth import HTTPSignatureAuth
@@ -51,8 +52,18 @@ class ActivityPub(User, Protocol):
     """ActivityPub protocol class.
 
     Key id is AP/AS2 actor id URL. (*Not* fediverse/WebFinger @-@ handle!)
+
+    Includes extra `address` computed property for querying entities by handle.
     """
     LABEL = 'activitypub'
+
+    @ndb.ComputedProperty
+    def address(self):
+        return self.ap_address()
+
+    def label_id(self):
+        """Returns this user's human-readable unique id, eg '@me@snarfed.org'."""
+        return self.address or self.key.id()
 
     def web_url(self):
         """Returns this user's web URL aka web_url, eg 'https://foo.com/'."""
