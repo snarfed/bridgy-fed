@@ -297,7 +297,7 @@ def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
         'Digest': f'SHA-256={b64encode(sha256(data or b"").digest()).decode()}',
     }
 
-    logger.info(f"Signing with {user}'s key")
+    logger.info(f"Signing with {user.key}'s key")
     # (request-target) is a special HTTP Signatures header that some fediverse
     # implementations require, eg Peertube.
     # https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.3
@@ -551,9 +551,11 @@ def actor(protocol, domain):
     if tld in TLD_BLOCKLIST:
         error('', status=404)
 
-    g.user = PROTOCOLS[protocol].get_by_id(domain)
+    cls = PROTOCOLS[protocol]
+    g.user = cls.get_by_id(domain)
     if not g.user:
-        return f'{protocol} user {domain} not found', 404
+        obj = cls.load(f'https://{domain}/', gateway=True)
+        g.user = cls.get_or_create(id=domain, actor_as2=as2.from_as1(obj.as1))
 
     # TODO: unify with common.actor()
     actor = postprocess_as2(g.user.actor_as2 or {})

@@ -26,7 +26,7 @@ from common import (
 )
 from models import Follower, Object, Target, User
 from web import TASKS_LOCATION, Web
-from .test_activitypub import LIKE
+from . import test_activitypub
 
 ACTOR_HTML = """\
 <html>
@@ -1524,8 +1524,7 @@ http://this/404s
         self.assertEqual('http://localhost/user.com', g.user.ap_actor())
 
         g.user.direct = False
-        self.assertEqual('http://localhost/r/https://user.com/', g.user.ap_actor())
-
+        self.assertEqual('http://localhost/user.com', g.user.ap_actor())
         self.assertEqual('http://localhost/user.com/inbox', g.user.ap_actor('inbox'))
 
     def test_check_web_site(self, mock_get, _):
@@ -1605,10 +1604,10 @@ class WebProtocolTest(testutil.TestCase):
         mock_get.return_value = requests_response(
             REPOST_HTML.replace('<a href="http://localhost/"></a>', ''))
 
-        obj = Object(id='https://foo')
+        obj = Object(id='https://foo/post')
         Web.fetch(obj, check_backlink=False)
         self.assert_equals(REPOST_MF2, obj.mf2)
-        mock_get.assert_has_calls((self.req('https://foo'),))
+        mock_get.assert_has_calls((self.req('https://foo/post'),))
 
     def test_fetch_run_authorship(self, mock_get, __):
         mock_get.side_effect = [
@@ -1643,8 +1642,8 @@ class WebProtocolTest(testutil.TestCase):
         mock_get.return_value = REPOST
 
         obj = Object(id='https://user.com/')
-        with self.assertRaises(BadRequest):
-            Web.fetch(obj)
+        Web.fetch(obj)
+        self.assertIsNone(obj.mf2)
 
     def test_fetch_user_homepage_non_representative_hcard(self, mock_get, __):
         mock_get.return_value = requests_response(
@@ -1652,14 +1651,23 @@ class WebProtocolTest(testutil.TestCase):
             content_type=CONTENT_TYPE_HTML)
 
         obj = Object(id='https://user.com/')
-        with self.assertRaises(BadRequest):
+        Web.fetch(obj)
+        self.assertIsNone(obj.mf2)
+
+    def test_fetch_user_homepage_fail(self, mock_get, __):
+        mock_get.return_value = requests_response('', status=500)
+
+        obj = Object(id='https://user.com/')
+        with self.assertRaises(requests.HTTPError) as e:
             Web.fetch(obj)
+            self.assertEqual(500, e.status_code)
 
     def test_send(self, mock_get, mock_post):
         mock_get.return_value = WEBMENTION_REL_LINK
         mock_post.return_value = requests_response()
 
-        obj = Object(id='http://mas.to/like#ok', as2=LIKE, source_protocol='ui')
+        obj = Object(id='http://mas.to/like#ok', as2=test_activitypub.LIKE,
+                     source_protocol='ui')
         self.assertTrue(Web.send(obj, 'https://user.com/post'))
 
         self.assert_req(mock_get, 'https://user.com/post')
@@ -1672,7 +1680,7 @@ class WebProtocolTest(testutil.TestCase):
 
     def test_send_no_endpoint(self, mock_get, mock_post):
         mock_get.return_value = WEBMENTION_NO_REL_LINK
-        obj = Object(id='http://mas.to/like#ok', as2=LIKE)
+        obj = Object(id='http://mas.to/like#ok', as2=test_activitypub.LIKE)
 
         self.assertFalse(Web.send(obj, 'https://user.com/post'))
 

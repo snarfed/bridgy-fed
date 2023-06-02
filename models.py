@@ -124,7 +124,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if user:
             # override direct if it's set
             direct = kwargs.get('direct')
-            if direct is not None and direct != user.direct:
+            if direct and not user.direct:
                 logger.info(f'Setting {user.key} direct={direct}')
                 user.direct = direct
                 user.put()

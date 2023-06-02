@@ -32,6 +32,8 @@ import protocol
 from protocol import Protocol
 from web import Web
 
+from . import test_web
+
 ACTOR = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'id': 'https://mas.to/users/swentel',
@@ -39,6 +41,32 @@ ACTOR = {
     'inbox': 'http://mas.to/inbox',
     'name': 'Mrs. ☕ Foo',
     'icon': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
+}
+ACTOR_EMPTY = {
+    'id': 'http://localhost/user.com',
+    'preferredUsername': 'user.com',
+    'inbox': 'http://localhost/user.com/inbox',
+    'outbox': 'http://localhost/user.com/outbox',
+    'following': 'http://localhost/user.com/following',
+    'followers': 'http://localhost/user.com/followers',
+    'endpoints': {
+        'sharedInbox': 'http://localhost/ap/sharedInbox',
+    },
+}
+ACTOR_BASE = {
+    **ACTOR_EMPTY,
+    '@context': [
+        'https://www.w3.org/ns/activitystreams',
+        'https://w3id.org/security/v1',
+    ],
+    'type' : 'Person',
+    'summary': '',
+    'url': 'http://localhost/r/https://user.com/',
+    'publicKey': {
+        'id': 'http://localhost/user.com',
+        'owner': 'http://localhost/user.com',
+        'publicKeyPem': 'populated in setUp()',
+    },
 }
 REPLY_OBJECT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -237,6 +265,8 @@ class ActivityPubTest(TestCase):
     def setUp(self):
         super().setUp()
         self.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR)
+        ACTOR_BASE['publicKey']['publicKeyPem'] = self.user.public_pem().decode()
+
         with self.request_context:
             self.key_id_obj = Object(id='http://my/key/id', as2={
                 **ACTOR,
@@ -295,38 +325,43 @@ class ActivityPubTest(TestCase):
         type = got.headers['Content-Type']
         self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
         self.assertEqual({
-            '@context': [
-                'https://www.w3.org/ns/activitystreams',
-                'https://w3id.org/security/v1',
-            ],
-            'type' : 'Person',
+            **ACTOR_BASE,
             'name': 'Mrs. ☕ Foo',
-            'summary': '',
-            'preferredUsername': 'user.com',
-            'id': 'http://localhost/user.com',
-            'url': 'http://localhost/r/https://user.com/',
             'icon': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
-            'inbox': 'http://localhost/user.com/inbox',
-            'outbox': 'http://localhost/user.com/outbox',
-            'following': 'http://localhost/user.com/following',
-            'followers': 'http://localhost/user.com/followers',
-            'endpoints': {
-                'sharedInbox': 'http://localhost/ap/sharedInbox',
-            },
-            'publicKey': {
-                'id': 'http://localhost/user.com',
-                'owner': 'http://localhost/user.com',
-                'publicKeyPem': self.user.public_pem().decode(),
-            },
         }, got.json)
 
     def test_actor_blocked_tld(self, _, __, ___):
         got = self.client.get('/foo.json')
         self.assertEqual(404, got.status_code)
 
-    def test_actor_no_user(self, *mocks):
+    def test_actor_new_user_fetch(self, _, mock_get, __):
+        self.user.key.delete()
+        mock_get.return_value = requests_response(test_web.ACTOR_HTML)
+
+        got = self.client.get('/user.com')
+        self.assertEqual(200, got.status_code)
+        self.assert_equals({
+            **ACTOR_BASE,
+            'name': 'Ms. ☕ Baz',
+            'attachment': [{
+                'name': 'Web site',
+                'type': 'PropertyValue',
+                'value': '<a rel="me" href="https://user.com/">user.com</a>',
+            }],
+        }, got.json, ignore=['publicKeyPem'])
+
+    def test_actor_new_user_fetch_no_mf2(self, _, mock_get, __):
+        self.user.key.delete()
+        mock_get.return_value = requests_response('<html></html>')
+
+        got = self.client.get('/user.com')
+        self.assertEqual(200, got.status_code)
+        self.assert_equals(ACTOR_EMPTY, got.json, ignore=['publicKeyPem'])
+
+    def test_actor_new_user_fetch_fails(self, _, mock_get, __):
+        mock_get.side_effect = ReadTimeoutError(None, None, None)
         got = self.client.get('/nope.com')
-        self.assertEqual(404, got.status_code)
+        self.assertEqual(504, got.status_code)
 
     def test_individual_inbox_no_user(self, mock_head, mock_get, mock_post):
         self.user.key.delete()

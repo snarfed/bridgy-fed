@@ -213,7 +213,6 @@ class WebfingerTest(testutil.TestCase):
 
         expected = copy.deepcopy(WEBFINGER_NO_HCARD)
         expected['subject'] = 'acct:user.com@localhost'
-        expected['links'][2]['href'] = 'http://localhost/r/https://user.com/'
 
         got = self.client.get('/.well-known/webfinger?resource=acct:user.com@fed.brid.gy',
                               headers={'Accept': 'application/json'})

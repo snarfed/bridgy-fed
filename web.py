@@ -75,14 +75,10 @@ class Web(User, Protocol):
         Web users are special cased to not have an /ap/web/ prefix, for backward
         compatibility.
         """
-        if self.direct or rest:
-            url = common.host_url(self.key.id())
-            if rest:
-                url += f'/{rest}'
-            return url
-
-        # TODO(#512): drop once we fetch site if web user doesn't already exist
-        return common.redirect_wrap(self.web_url())
+        url = common.host_url(self.key.id())
+        if rest:
+            url += f'/{rest}'
+        return url
 
     def verify(self):
         """Fetches site a couple ways to check for redirects and h-card.
@@ -136,11 +132,11 @@ class Web(User, Protocol):
             pass
 
         # check home page
-        try:
-            obj = Web.load(self.web_url(), gateway=True)
+        obj = Web.load(self.web_url(), gateway=True)
+        if obj.mf2:
             self.actor_as2 = activitypub.postprocess_as2(as2.from_as1(obj.as1))
             self.has_hcard = True
-        except (BadRequest, NotFound):
+        else:
             self.actor_as2 = None
             self.has_hcard = False
 
@@ -176,12 +172,10 @@ class Web(User, Protocol):
           check_backlink: bool, optional, whether to require a link to Bridgy Fed
         """
         url = obj.key.id()
-        is_web_url = ((g.user and g.user.is_web_url(url)) or
-                       (g.external_user and g.external_user == url))
-
+        is_homepage = urlparse(url).path.strip('/') == ''
 
         require_backlink = None
-        if check_backlink or (check_backlink is None and not is_web_url):
+        if check_backlink or (check_backlink is None and not is_homepage):
             require_backlink = common.host_url().rstrip('/')
 
         try:
@@ -194,12 +188,12 @@ class Web(User, Protocol):
             error(f'id {urlparse(url).fragment} not found in {url}')
 
         # find mf2 item
-        if is_web_url:
+        if is_homepage:
             logger.info(f"{url} is user's web url")
             entry = mf2util.representative_hcard(parsed, parsed['url'])
             logger.info(f'Representative h-card: {json_dumps(entry, indent=2)}')
             if not entry:
-                error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {parsed['url']}")
+                return obj
         else:
             entry = mf2util.find_first_entry(parsed, ['h-entry'])
             if not entry:
@@ -207,17 +201,19 @@ class Web(User, Protocol):
 
         # store final URL in mf2 object, and also default url property to it,
         # since that's the fallback for AS1/AS2 id
-        entry['url'] = parsed['url']
-        if is_web_url:
+        if is_homepage:
             entry.setdefault('rel-urls', {}).update(parsed.get('rel-urls', {}))
+            entry.setdefault('type', ['h-card'])
         props = entry.setdefault('properties', {})
-        props.setdefault('url', [parsed['url']])
+        if parsed['url']:
+            entry['url'] = parsed['url']
+            props.setdefault('url', [parsed['url']])
         logger.info(f'Extracted microformats2 entry: {json_dumps(entry, indent=2)}')
 
         # run full authorship algorithm if necessary: https://indieweb.org/authorship
         # duplicated in microformats2.json_to_object
         author = util.get_first(props, 'author')
-        if not isinstance(author, dict) and not is_web_url:
+        if not isinstance(author, dict) and not is_homepage:
             logger.info(f'Fetching full authorship for author {author}')
             author = mf2util.find_author({'items': [entry]}, hentry=entry,
                                          fetch_mf2_func=util.fetch_mf2)
