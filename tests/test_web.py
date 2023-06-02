@@ -406,12 +406,10 @@ class WebTest(testutil.TestCase):
         return super().assert_object(id, delivered_protocol='activitypub', **props)
 
     def test_bad_source_url(self, mock_get, mock_post):
-        got = self.client.post('/webmention', data=b'')
-        self.assertEqual(400, got.status_code)
-
-        got = self.client.post('/webmention', data={'source': 'bad'})
-        self.assertEqual(400, got.status_code)
-        self.assertEqual(0, Object.query().count())
+        for data in b'', {'source': 'bad'}, {'source': 'https://'}:
+            got = self.client.post('/webmention', data=data)
+            self.assertEqual(400, got.status_code)
+            self.assertEqual(0, Object.query().count())
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_make_task(self, mock_create_task, mock_get, mock_post):

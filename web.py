@@ -302,11 +302,16 @@ def webmention_external():
     Use a task queue to deliver to followers because we send to each inbox in
     serial, which can take a long time with many followers/instances.
     """
+    logger.info(f'Params: {list(request.form.items())}')
+
     source = flask_util.get_required_param('source').strip()
     if not util.is_web(source):
         error(f'Bad URL {source}')
 
     domain = util.domain_from_link(source, minimize=False)
+    if not domain:
+        error(f'Bad source URL {source}')
+
     g.user = Web.get_by_id(domain)
     if not g.user:
         error(f'No user found for domain {domain}')
