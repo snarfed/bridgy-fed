@@ -60,10 +60,7 @@ class ActivityPub(User, Protocol):
 
     def ap_address(self):
         """Returns this user's ActivityPub address, eg '@foo.com@foo.com'."""
-        if self.direct:
-            return f'@{self.username()}@{self.key.id()}'
-        else:
-            return f'@{self.key.id()}@{request.host}'
+        return as2.address(self.actor_as2) or as2.address(self.key.id())
 
     def ap_actor(self, rest=None):
         """Returns this user's ActivityPub/AS2 actor id URL.

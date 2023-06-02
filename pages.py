@@ -98,8 +98,8 @@ def followers_or_following(protocol, domain, collection):
 
     for f in followers:
         f.url = f.src if collection == 'followers' else f.dest
-        f.handle = re.sub(r'^https?://(.+)/(users/|@)(.+)$', r'@\3@\1', f.url)
         person = f.to_as1()
+        f.handle = as2.address(as2.from_as1(person) or f.url) or f.url
         if person and isinstance(person, dict):
             f.name = person.get('name') or ''
             f.picture = util.get_url(person, 'icon') or util.get_url(person, 'image')

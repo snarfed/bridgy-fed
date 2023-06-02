@@ -114,15 +114,20 @@ class PagesTest(TestCase):
 
     def test_followers(self):
         self.make_user('bar.com')
-        Follower.get_or_create('bar.com', 'https://no/stored/follow')
-        Follower.get_or_create('bar.com', 'https://masto/user',
-                               last_follow=FOLLOW_WITH_ACTOR)
+        Follower.get_or_create('bar.com', 'https://no.stored/users/follow')
+        Follower.get_or_create('bar.com', 'https://masto/user', last_follow={
+            **FOLLOW_WITH_ACTOR,
+            'actor': {
+                **ACTOR,
+                'preferredUsername': 'me',
+            },
+        })
         got = self.client.get('/web/bar.com/followers')
         self.assert_equals(200, got.status_code)
 
         body = got.get_data(as_text=True)
-        self.assertIn('no/stored/follow', body)
-        self.assertIn('masto/user', body)
+        self.assertIn('@follow@no.stored', body)
+        self.assertIn('@me@plus.google.com', body)
 
     def test_followers_fake(self):
         self.make_user('foo.com', cls=Fake)
