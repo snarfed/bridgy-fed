@@ -11,9 +11,9 @@
     &middot;
 
     <nobr>
-      <a title="Web site" href="https://{{ domain }}/">🌐 {{ domain }}</a>
+      {{ util.pretty_link(g.user.web_url(), text_prefix='🌐', attrs={'title': 'Web site'})|safe }}
       <form method="post" action="/webmention-interactive">
-        <input name="source" type="hidden" value="https://{{ domain }}/" />
+        <input name="source" type="hidden" value="{{ g.user.web_url() }}/" />
         <button id="update-profile-button" type="submit"
                 title="Update profile from web site"
                 class="btn btn-default glyphicon glyphicon-refresh"></button>

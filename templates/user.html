@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ domain }} - Bridgy Fed{% endblock %}
+{% block title %}{{ id }} - Bridgy Fed{% endblock %}
 
 {% block content %}
 
@@ -11,7 +11,7 @@
   <a href="/docs#redirect+these+URL+paths">
     add the .well-known redirects.
   </a>
-  <input type="hidden" name="url" value="https://{{ domain }}" />
+  <input type="hidden" name="url" value="{{ g.user.web_url() }}" />
   <input type="submit" class="btn btn-default" value="Check now" />
 </form>
 
@@ -27,10 +27,10 @@
 <div class="row promo warning">
 <form method="post" action="/web-site">
   Next step:
-  <a href="https://indiewebify.me/validate-h-card/?url=https://{{ domain }}">
+  <a href="https://indiewebify.me/validate-h-card/?url={{ g.user.web_url() }}">
     add a representative h-card.
   </a>
-  <input type="hidden" name="url" value="https://{{ domain }}" />
+  <input type="hidden" name="url" value="{{ g.user.web_url() }}" />
   <input type="submit" class="btn btn-default" value="Check now" />
 </form>
 </div>
@@ -39,23 +39,23 @@
 {% include "user_addresses.html" %}
 
 <div class="row">
-    <a href="/user/{{ domain }}/followers">{{ followers }} follower{% if followers != '1' %}s{% endif %}</a>
-  &middot; <a href="/user/{{ domain }}/following">following {{ following }}</a>
-  &middot; <a href="/user/{{ domain }}/feed">HTML</a>
-  &middot; <a href="/user/{{ domain }}/feed?format=atom">Atom</a>
-  &middot; <a href="/user/{{ domain }}/feed?format=rss">RSS</a>
-  &middot; <a href="/.well-known/webfinger?resource=acct:{{ domain }}@{{ domain }}">Webfinger</a>
-  &middot; <a href="/{{ domain }}">ActivityPub</a>
+    <a href="{{ g.user.user_page_path('followers') }}">{{ followers }} follower{% if followers != '1' %}s{% endif %}</a>
+  &middot; <a href="{{ g.user.user_page_path('following') }}">following {{ following }}</a>
+  &middot; <a href="{{ g.user.user_page_path('feed') }}">HTML</a>
+  &middot; <a href="{{ g.user.user_page_path('feed?format=atom') }}">Atom</a>
+  &middot; <a href="{{ g.user.user_page_path('feed?format=rss') }}">RSS</a>
+  &middot; <a href="/.well-known/webfinger?resource=acct:{{ g.user.ap_address() }}">Webfinger</a>
+  &middot; <a href="{{ g.user.ap_actor() }}">ActivityPub</a>
 </div>
 
 <div class="row">
 <form method="post" action="/remote-follow">
 <p>
- <label for="follow-address">Follow @{{ domain }} with your fediverse address:</label>
+ <label for="follow-address">Follow @{{ id }} with your fediverse address:</label>
  <input id="follow-address" name="address" type="text" required
         placeholder="@user@domain.social" alt="fediverse address"
         value="{{ follow_url or '' }}"></input>
- <input name="domain" type="hidden" value="{{ domain }}"></input>
+ <input name="domain" type="hidden" value="{{ id }}"></input>
  <button type="submit" class="btn btn-default">Follow</button>
 </p>
 </form>
