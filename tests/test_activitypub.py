@@ -42,9 +42,16 @@ ACTOR = {
     'name': 'Mrs. ☕ Foo',
     'icon': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
 }
-ACTOR_EMPTY = {
+ACTOR_BASE = {
+    '@context': [
+        'https://www.w3.org/ns/activitystreams',
+        'https://w3id.org/security/v1',
+    ],
+    'type' : 'Person',
     'id': 'http://localhost/user.com',
+    'url': 'http://localhost/r/https://user.com/',
     'preferredUsername': 'user.com',
+    'summary': '',
     'inbox': 'http://localhost/user.com/inbox',
     'outbox': 'http://localhost/user.com/outbox',
     'following': 'http://localhost/user.com/following',
@@ -52,16 +59,6 @@ ACTOR_EMPTY = {
     'endpoints': {
         'sharedInbox': 'http://localhost/ap/sharedInbox',
     },
-}
-ACTOR_BASE = {
-    **ACTOR_EMPTY,
-    '@context': [
-        'https://www.w3.org/ns/activitystreams',
-        'https://w3id.org/security/v1',
-    ],
-    'type' : 'Person',
-    'summary': '',
-    'url': 'http://localhost/r/https://user.com/',
     'publicKey': {
         'id': 'http://localhost/user.com',
         'owner': 'http://localhost/user.com',
@@ -307,14 +304,21 @@ class ActivityPubTest(TestCase):
         type = got.headers['Content-Type']
         self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
         self.assertEqual({
-            'preferredUsername': 'fake.com',
+            '@context': ['https://w3id.org/security/v1'],
+            'type': 'Person',
             'id': 'http://bf/fake.com/ap',
+            'preferredUsername': 'fake.com',
+            'url': 'http://localhost/r/https://fake.com',
+            'summary': '',
             'inbox': 'http://bf/fake.com/ap/inbox',
             'outbox': 'http://bf/fake.com/ap/outbox',
             'following': 'http://bf/fake.com/ap/following',
             'followers': 'http://bf/fake.com/ap/followers',
-            'endpoints': {
-                'sharedInbox': 'http://localhost/ap/sharedInbox',
+            'endpoints': {'sharedInbox': 'http://localhost/ap/sharedInbox'},
+            'publicKey': {
+                'id': 'http://localhost/fake.com',
+                'owner': 'http://localhost/fake.com',
+                'publicKeyPem': self.user.public_pem().decode(),
             },
         }, got.json)
 
@@ -356,7 +360,7 @@ class ActivityPubTest(TestCase):
 
         got = self.client.get('/user.com')
         self.assertEqual(200, got.status_code)
-        self.assert_equals(ACTOR_EMPTY, got.json, ignore=['publicKeyPem'])
+        self.assert_equals(ACTOR_BASE, got.json, ignore=['publicKeyPem'])
 
     def test_actor_new_user_fetch_fails(self, _, mock_get, __):
         mock_get.side_effect = ReadTimeoutError(None, None, None)

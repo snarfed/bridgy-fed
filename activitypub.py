@@ -561,7 +561,7 @@ def actor(protocol, domain):
         g.user = cls.get_or_create(id=domain, actor_as2=actor_as2)
 
     # TODO: unify with common.actor()
-    actor = postprocess_as2(g.user.actor_as2 or {})
+    actor = postprocess_as2(g.user.actor_as2 or {'type': 'Person'})
     actor.update({
         'id': g.user.ap_actor(),
         # This has to be the domain for Mastodon etc interop! It seems like it
