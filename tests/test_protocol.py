@@ -76,7 +76,7 @@ class ProtocolTest(TestCase):
         self.assertIsNotNone(Object.get_by_id('foo'))
         self.assertEqual(['foo'], Fake.fetched)
 
-    def test_load_already_stored(self):
+    def test_load_existing(self):
         stored = Object(id='foo', our_as1={'x': 'y'})
         stored.put()
 
@@ -87,8 +87,7 @@ class ProtocolTest(TestCase):
 
         self.assertEqual([], Fake.fetched)
 
-    @patch('requests.get')
-    def test_load_empty_deleted(self, mock_get):
+    def test_load_existing_empty_deleted(self):
         stored = Object(id='foo', deleted=True)
         stored.put()
 
@@ -99,8 +98,27 @@ class ProtocolTest(TestCase):
 
         self.assertEqual([], Fake.fetched)
 
-    @patch('requests.get')
-    def test_load_refresh_unchanged(self, mock_get):
+    def test_load_refresh_existing_empty(self):
+        Fake.objects['foo'] = {'x': 'y'}
+        Object(id='foo').put()
+
+        loaded = Fake.load('foo', refresh=True)
+        self.assertEqual({'x': 'y'}, loaded.as1)
+        self.assertTrue(loaded.changed)
+        self.assertFalse(loaded.new)
+        self.assertEqual(['foo'], Fake.fetched)
+
+    def test_load_refresh_new_empty(self):
+        Fake.objects['foo'] = None
+        Object(id='foo', our_as1={'x': 'y'}).put()
+
+        loaded = Fake.load('foo', refresh=True)
+        self.assertIsNone(loaded.as1)
+        self.assertTrue(loaded.changed)
+        self.assertFalse(loaded.new)
+        self.assertEqual(['foo'], Fake.fetched)
+
+    def test_load_refresh_unchanged(self):
         obj = Object(id='foo', our_as1={'x': 'stored'})
         obj.put()
         Fake.objects['foo'] = {'x': 'stored'}
@@ -111,8 +129,7 @@ class ProtocolTest(TestCase):
         self.assertFalse(obj.new)
         self.assertEqual(['foo'], Fake.fetched)
 
-    @patch('requests.get')
-    def test_load_refresh_changed(self, mock_get):
+    def test_load_refresh_changed(self):
         Object(id='foo', our_as1={'content': 'stored'}).put()
         Fake.objects['foo'] = {'content': 'new'}
 

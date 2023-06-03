@@ -423,6 +423,7 @@ class Protocol:
 
         if obj:
             obj.clear()
+            obj.new = False
         else:
             logger.info(f'  not in datastore')
             obj = Object(id=id)
@@ -430,9 +431,11 @@ class Protocol:
             obj.changed = False
 
         cls.fetch(obj, **kwargs)
-        if orig_as1:
-            obj.new = False
-            obj.changed = as1.activity_changed(orig_as1, obj.as1)
+        if not obj.new:
+            if orig_as1 and obj.as1:
+                obj.changed = as1.activity_changed(orig_as1, obj.as1)
+            else:
+                obj.changed = bool(orig_as1) != bool(obj.as1)
 
         obj.source_protocol = cls.LABEL
         obj.put()
