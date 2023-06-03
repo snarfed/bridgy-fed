@@ -281,7 +281,7 @@ class Protocol:
         followee_actor_url = g.user.ap_actor()
         accept = {
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': common.host_url(f'/user/{g.user.key.id()}/followers#accept-{obj.key.id()}'),
+            'id': common.host_url(f'/web/{g.user.key.id()}/followers#accept-{obj.key.id()}'),
             'type': 'Accept',
             'actor': followee_actor_url,
             'object': as2.from_as1(obj.as1),

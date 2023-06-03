@@ -349,7 +349,7 @@ def webmention_interactive():
     except HTTPException as e:
         flash(util.linkify(str(e.description), pretty=True))
 
-    path = f'/user/{g.user.key.id()}' if g.user else '/'
+    path = g.user.user_page_path() if g.user else '/'
     return redirect(path, code=302)
 
 

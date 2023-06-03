@@ -110,7 +110,11 @@ class Actor(flask_util.XrdOrJrd):
             # https://github.com/snarfed/bridgy-fed/issues/60#issuecomment-1325589750
             {
                 'rel': 'http://ostatus.org/schema/1.0/subscribe',
-                'template': common.host_url(f'user/{domain}?url={{uri}}'),
+                # TODO(#512) switch to:
+                # 'template': common.host_url(g.user.user_page_path('?url={uri}')),
+                # the problem is that user_page_path() uses label_id(), which uses
+                # custom username instead of domain, which may not be unique
+                'template': common.host_url(f'web/{domain}?url={{uri}}'),
             }]
         })
 

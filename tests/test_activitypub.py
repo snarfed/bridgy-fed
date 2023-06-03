@@ -193,7 +193,7 @@ ACCEPT_FOLLOW['actor']['image'] = {'type': 'Image', 'url': 'https://user.com/me.
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Accept',
-    'id': 'http://localhost/user/user.com/followers#accept-https://mas.to/6d1a',
+    'id': 'http://localhost/web/user.com/followers#accept-https://mas.to/6d1a',
     'actor': 'http://localhost/user.com',
     'object': {
         **ACCEPT_FOLLOW,

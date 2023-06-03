@@ -50,7 +50,7 @@ WEBFINGER = {
         'href': 'http://localhost/ap/sharedInbox',
     }, {
         'rel': 'http://ostatus.org/schema/1.0/subscribe',
-        'template': 'http://localhost/user/user.com?url={uri}',
+        'template': 'http://localhost/web/user.com?url={uri}',
     }],
 }
 WEBFINGER_NO_HCARD = {
@@ -78,7 +78,7 @@ WEBFINGER_NO_HCARD = {
         'href': 'http://localhost/ap/sharedInbox',
     }, {
         'rel': 'http://ostatus.org/schema/1.0/subscribe',
-        'template': 'http://localhost/user/user.com?url={uri}',
+        'template': 'http://localhost/web/user.com?url={uri}',
     }],
 }
 

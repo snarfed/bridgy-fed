@@ -271,8 +271,12 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     def user_page_path(self, rest=None):
         """Returns the user's Bridgy Fed user page path."""
         path = f'/{self.LABEL}/{self.label_id()}'
+
         if rest:
-            path += f'/{rest}'
+            if not rest.startswith('?'):
+                path += '/'
+            path += rest
+
         return path
 
     def user_page_link(self):
