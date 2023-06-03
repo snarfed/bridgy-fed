@@ -384,15 +384,16 @@ def webmention_task():
             'object': source,
         })
 
-    if obj.mf2:
+    if not obj.mf2 and obj.type != 'delete':
+        error(f'No microformats2 found in {source}', status=304)
+    elif obj.mf2:
         # set actor to user
         props = obj.mf2['properties']
         author_urls = microformats2.get_string_urls(props.get('author', []))
         if author_urls and not g.user.is_web_url(author_urls[0]):
             logger.info(f'Overriding author {author_urls[0]} with {g.user.ap_actor()}')
             props['author'] = [g.user.ap_actor()]
-
-    logger.info(f'Converted to AS1: {obj.type}: {json_dumps(obj.as1, indent=2)}')
+        logger.info(f'Converted to AS1: {obj.type}: {json_dumps(obj.as1, indent=2)}')
 
     # if source is home page, send an actor Update to followers' instances
     if g.user.is_web_url(obj.key.id()):

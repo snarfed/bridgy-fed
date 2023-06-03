@@ -467,6 +467,21 @@ class WebTest(testutil.TestCase):
 
         mock_get.assert_has_calls((self.req('https://user.com/post'),))
 
+    def test_source_homepage_no_mf2(self, mock_get, mock_post):
+        mock_get.return_value = requests_response("""
+<html>
+<body>
+<p>nothing to see here except <a href="http://localhost/">link</a></p>
+</body>
+</html>""", url='https://user.com/', content_type=CONTENT_TYPE_HTML)
+
+        got = self.client.post('/_ah/queue/webmention', data={
+            'source': 'https://user.com/',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(304, got.status_code)
+        mock_get.assert_has_calls((self.req('https://user.com/'),))
+
     def test_no_targets(self, mock_get, mock_post):
         mock_get.return_value = requests_response("""
 <html>
