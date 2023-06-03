@@ -38,6 +38,11 @@ WWW_DOMAINS = frozenset((
 ))
 
 
+class NoMicroformats(BadRequest):
+    """Raised by :meth:`Web.fetch` when a page has no microformats2."""
+    pass
+
+
 class Web(User, Protocol):
     """Web user and webmention protocol implementation.
 
@@ -132,11 +137,11 @@ class Web(User, Protocol):
             pass
 
         # check home page
-        obj = Web.load(self.web_url(), gateway=True)
-        if obj.mf2:
+        try:
+            obj = Web.load(self.web_url(), gateway=True)
             self.actor_as2 = activitypub.postprocess_as2(as2.from_as1(obj.as1))
             self.has_hcard = True
-        else:
+        except (BadRequest, NotFound, NoMicroformats):
             self.actor_as2 = None
             self.has_hcard = False
 
@@ -193,7 +198,9 @@ class Web(User, Protocol):
             entry = mf2util.representative_hcard(parsed, parsed['url'])
             logger.info(f'Representative h-card: {json_dumps(entry, indent=2)}')
             if not entry:
-                return obj
+                msg = f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {parsed['url']}"
+                logging.info(msg)
+                raise NoMicroformats(msg)
         else:
             entry = mf2util.find_first_entry(parsed, ['h-entry'])
             if not entry:

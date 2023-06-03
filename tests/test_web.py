@@ -1657,8 +1657,8 @@ class WebProtocolTest(testutil.TestCase):
         mock_get.return_value = REPOST
 
         obj = Object(id='https://user.com/')
-        Web.fetch(obj)
-        self.assertIsNone(obj.mf2)
+        with self.assertRaises(BadRequest):
+            Web.fetch(obj)
 
     def test_fetch_user_homepage_non_representative_hcard(self, mock_get, __):
         mock_get.return_value = requests_response(
@@ -1666,8 +1666,8 @@ class WebProtocolTest(testutil.TestCase):
             content_type=CONTENT_TYPE_HTML)
 
         obj = Object(id='https://user.com/')
-        Web.fetch(obj)
-        self.assertIsNone(obj.mf2)
+        with self.assertRaises(BadRequest):
+            Web.fetch(obj)
 
     def test_fetch_user_homepage_fail(self, mock_get, __):
         mock_get.return_value = requests_response('', status=500)

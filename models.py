@@ -122,7 +122,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         assert cls != User
         user = cls.get_by_id(id)
         if user:
-            # override direct if it's set
+            # override direct from False => True if set
             direct = kwargs.get('direct')
             if direct and not user.direct:
                 logger.info(f'Setting {user.key} direct={direct}')

@@ -546,7 +546,6 @@ def postprocess_as2_actor(actor, wrap=True):
 @flask_util.cached(cache, CACHE_TIME)
 def actor(protocol, domain):
     """Serves a user's AS2 actor from the datastore."""
-    # TODO(#512): fetch from web site if we don't already have a User
     tld = domain.split('.')[-1]
     if tld in TLD_BLOCKLIST:
         error('', status=404)
@@ -554,8 +553,12 @@ def actor(protocol, domain):
     cls = PROTOCOLS[protocol]
     g.user = cls.get_by_id(domain)
     if not g.user:
-        obj = cls.load(f'https://{domain}/', gateway=True)
-        g.user = cls.get_or_create(id=domain, actor_as2=as2.from_as1(obj.as1))
+        try:
+            obj = cls.load(f'https://{domain}/', gateway=True)
+            actor_as2 = as2.from_as1(obj.as1)
+        except web.NoMicroformats as e:
+            actor_as2 = {}
+        g.user = cls.get_or_create(id=domain, actor_as2=actor_as2)
 
     # TODO: unify with common.actor()
     actor = postprocess_as2(g.user.actor_as2 or {})
