@@ -7,7 +7,7 @@ from urllib.parse import urlencode, urljoin, urlparse
 import feedparser
 from flask import g, redirect, render_template, request
 from flask.views import View
-from google.cloud.ndb import Key
+from google.cloud.ndb import ComputedProperty, Key
 from granary import as1, as2, microformats2
 import mf2util
 from oauth_dropins.webutil import flask_util, util
@@ -54,9 +54,12 @@ class Web(User, Protocol):
     def _get_kind(cls):
         return 'MagicKey'
 
-    def label_id(self):
+    @ComputedProperty
+    def readable_id(self):
         # prettify if domain, noop if username
-        return util.domain_from_link(self.username(), minimize=False)
+        username = self.username()
+        if username != self.key.id():
+            return util.domain_from_link(username, minimize=False)
 
     def web_url(self):
         """Returns this user's web URL aka web_url, eg 'https://foo.com/'."""

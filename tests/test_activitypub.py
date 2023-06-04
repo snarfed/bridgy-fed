@@ -1585,15 +1585,15 @@ class ActivityPubUtilsTest(TestCase):
     def test_ap_address(self):
         user = ActivityPub(actor_as2={**ACTOR, 'preferredUsername': 'me'})
         self.assertEqual('@me@mas.to', user.ap_address())
-        self.assertEqual('@me@mas.to', user.address)
+        self.assertEqual('@me@mas.to', user.readable_id)
 
         user = ActivityPub(actor_as2=ACTOR)
         self.assertEqual('@swentel@mas.to', user.ap_address())
-        self.assertEqual('@swentel@mas.to', user.address)
+        self.assertEqual('@swentel@mas.to', user.readable_id)
 
         user = ActivityPub(id='https://mas.to/users/alice')
         self.assertEqual('@alice@mas.to', user.ap_address())
-        self.assertEqual('@alice@mas.to', user.address)
+        self.assertEqual('@alice@mas.to', user.readable_id)
 
     def test_ap_actor(self):
         user = self.make_user('http://foo/actor', cls=ActivityPub)
@@ -1609,19 +1609,11 @@ class ActivityPubUtilsTest(TestCase):
         user.actor_as2['url'] = ['http://my/url']
         self.assertEqual('http://my/url', user.web_url())
 
-    def test_label_id(self):
+    def test_readable_id(self):
         user = self.make_user('http://foo', cls=ActivityPub)
-        self.assertEqual('http://foo', user.label_id())
+        self.assertIsNone(user.readable_id)
+        self.assertEqual('http://foo', user.readable_or_key_id())
 
         user.actor_as2 = ACTOR
-        self.assertEqual('@swentel@mas.to', user.label_id())
-
-    def test_get_by_id(self):
-        user = self.make_user('http://foo', cls=ActivityPub)
-        self.assert_entities_equal(user, ActivityPub.get_by_id('http://foo'))
-        self.assertIsNone(ActivityPub.get_by_id('@swentel@mas.to'))
-
-        user.actor_as2 = ACTOR
-        user.put()
-        self.assert_entities_equal(user, ActivityPub.get_by_id('http://foo'))
-        self.assert_entities_equal(user, ActivityPub.get_by_id('@swentel@mas.to'))
+        self.assertEqual('@swentel@mas.to', user.readable_id)
+        self.assertEqual('@swentel@mas.to', user.readable_or_key_id())

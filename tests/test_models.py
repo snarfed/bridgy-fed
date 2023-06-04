@@ -103,8 +103,8 @@ class UserTest(TestCase):
         g.user.actor_as2 = {'name': 'alice'}
         self.assertEqual('alice', g.user.name())
 
-    def test_label_id(self):
-        self.assertEqual('y.z', g.user.label_id())
+    def test_readable_id(self):
+        self.assertIsNone(g.user.readable_id)
 
 
 class ObjectTest(TestCase):

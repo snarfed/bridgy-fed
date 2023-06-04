@@ -98,6 +98,18 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
+    @ndb.ComputedProperty
+    def readable_id(self):
+        """This user's human-readable unique id, eg '@me@snarfed.org'.
+
+        To be implemented by subclasses.
+        """
+        return None
+
+    def readable_or_key_id(self):
+        """Returns readable_id if set, otherwise key id."""
+        return self.readable_id or self.key.id()
+
     @classmethod
     def new(cls, **kwargs):
         """Try to prevent instantiation. Use subclasses instead."""
@@ -181,11 +193,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             if name:
                 return name
 
-        return self.label_id()
-
-    def label_id(self):
-        """Returns this user's human-readable unique id, eg '@me@snarfed.org'."""
-        return self.key.id()
+        return self.readable_or_key_id()
 
     def username(self):
         """Returns the user's preferred username.
@@ -270,7 +278,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     def user_page_path(self, rest=None):
         """Returns the user's Bridgy Fed user page path."""
-        path = f'/{self.LABEL}/{self.label_id()}'
+        path = f'/{self.LABEL}/{self.readable_or_key_id()}'
 
         if rest:
             if not rest.startswith('?'):

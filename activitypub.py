@@ -52,24 +52,13 @@ class ActivityPub(User, Protocol):
     """ActivityPub protocol class.
 
     Key id is AP/AS2 actor id URL. (*Not* fediverse/WebFinger @-@ handle!)
-
-    Includes extra `address` computed property for querying entities by handle.
     """
     LABEL = 'activitypub'
 
     @ndb.ComputedProperty
-    def address(self):
+    def readable_id(self):
+        """Returns fediverse handle ie WebFinger address, eg '@me@snarfed.org'."""
         return self.ap_address()
-
-    @classmethod
-    def get_by_id(cls, id):
-        """Override User.get_by_id to fall back to querying by address."""
-        return (super(User, ActivityPub).get_by_id(id)
-                or ActivityPub.query(ActivityPub.address == id).get())
-
-    def label_id(self):
-        """Returns this user's human-readable unique id, eg '@me@snarfed.org'."""
-        return self.address or self.key.id()
 
     def web_url(self):
         """Returns this user's web URL aka web_url, eg 'https://foo.com/'."""

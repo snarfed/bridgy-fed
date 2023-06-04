@@ -55,10 +55,14 @@ def web_user_redirects(**kwargs):
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>')
 def user(protocol, id):
-    g.user = PROTOCOLS[protocol].get_by_id(id)
+    cls = PROTOCOLS[protocol]
+    g.user = cls.get_by_id(id)
+    if not g.user:
+        g.user = cls.query(cls.readable_id == id).get()
+
     if not g.user or not g.user.direct:
         return USER_NOT_FOUND_HTML, 404
-    elif id != g.user.label_id():
+    elif id != g.user.readable_or_key_id():  # this also handles  use_instead
         return redirect(g.user.user_page_path(), code=301)
 
     assert not g.user.use_instead

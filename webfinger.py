@@ -112,7 +112,7 @@ class Actor(flask_util.XrdOrJrd):
                 'rel': 'http://ostatus.org/schema/1.0/subscribe',
                 # TODO(#512) switch to:
                 # 'template': common.host_url(g.user.user_page_path('?url={uri}')),
-                # the problem is that user_page_path() uses label_id(), which uses
+                # the problem is that user_page_path() uses readable_id, which uses
                 # custom username instead of domain, which may not be unique
                 'template': common.host_url(f'web/{domain}?url={{uri}}'),
             }]

@@ -47,10 +47,10 @@ class PagesTest(TestCase):
         got = self.client.get('/fake/foo.com')
         self.assert_equals(200, got.status_code)
 
-    def test_user_activitypub_address(self):
+    def test_user_readable_id_activitypub_address(self):
         user = self.make_user('foo', cls=ActivityPub,
                               actor_as2=ACTOR_WITH_PREFERRED_USERNAME)
-        self.assertEqual('@me@plus.google.com', user.address)
+        self.assertEqual('@me@plus.google.com', user.ap_address())
 
         got = self.client.get('/activitypub/@me@plus.google.com')
         self.assert_equals(200, got.status_code)
@@ -74,7 +74,7 @@ class PagesTest(TestCase):
         got = self.client.get('/web/user.com')
         self.assert_equals(404, got.status_code)
 
-    def test_user_redirect(self):
+    def test_user_web_redirect(self):
         got = self.client.get('/user/user.com')
         self.assert_equals(301, got.status_code)
         self.assert_equals('/web/user.com', got.headers['Location'])
