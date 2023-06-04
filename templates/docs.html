@@ -73,6 +73,7 @@ Bridgy Fed takes some technical know-how to set up, and there are simpler (but l
 <br>
 <p><em>Development</em></p>
 <li><a href="#translate">How are the different protocols translated?</a></li>
+<li><a href="#error-handling">How are errors handled?</a></li>
 </ul>
 
 <ul class="docs">
@@ -626,6 +627,23 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 </tbody>
 </table>
 
+</li>
+
+<li id="error-handling" class="question">How are errors handled?</li>
+<li class="answer">
+<p>"It's complicated." ...well, at least a bit. There are different philosophies on how to architect request handling and error propagation in these kinds of server-to-server protocols.
+</p>
+<p>One common bit of received wisdom is to handle all requests asynchronously, in the background. Do minimal request validation synchronously, if necessary, then return HTTP 202 (or 201) and enqueue the request in a background task queue to be processed offline. This is widespread in ActivityPub implementations, for example. Webmention even <a href="https://webmention.net/draft/#receiving-webmentions">recommends it as a SHOULD</a>!
+</p>
+<blockquote>
+Upon receipt of a POST request containing the source and target parameters, the receiver SHOULD verify the parameters (see Request Verification below) and then SHOULD queue and process the request asynchronously, to prevent DoS attacks.
+</blockquote>
+<p>It's a good idea, but it has drawbacks. Most importantly, it hides errors. Sending side implementations always receive HTTP 202 responses, even when their requests fail in the background, and there's no standard or widely implemented way to get more information or debug. Webmention nods to this and says <a href="https://webmention.net/draft/#receiving-webmentions">receivers can return a per-request status URL in the <code>Location</code> response header</a>, but that's not widely implemented, and ActivityPub has no corresponding mechanism. This makes development and interop materially harder, especially in these protocols' loosely connected ecosystems. <a href="https://github.com/mastodon/mastodon/issues">Mastodon's issue tracker</a>, for example, is full of issues complaining "Mastodon isn't working with my code, but I can't tell why!"
+</p>
+<p>Bridgy Fed currently takes a compromise position. It handles most requests synchronously, blocks on delivering them to the destination protocol, and propagates any errors back to the sender with the appropriate HTTP response status code and body (often JSON). Delivering posts to ActivityPub followers is one exception; it currently delivers to inboxes serially, so it often takes many minutes, which is uncomfortably long for many HTTP clients.
+</p>
+<p>Converting to webmention is another exception. Bridgy Fed uses webmentions and microformats2 to provide social interactions for web sites, but unlike with other protocols, it doesn't require web sites to support them. So, Bridgy Fed doesn't currently convert webmention failures (or lack of support) to errors in other protocols. It records those failures, and shows them in the UI on your user page, but returns success to the sending side in its own protocol.
+</p>
 </li>
 
 </ul>
