@@ -14,6 +14,7 @@ from oauth_dropins.webutil.appengine_info import APP_ID
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
+from requests import HTTPError
 from werkzeug.exceptions import BadGateway, BadRequest
 
 # import first so that Fake is defined before URL routes are registered
@@ -1698,6 +1699,26 @@ class WebProtocolTest(testutil.TestCase):
 
         self.assert_req(mock_get, 'https://user.com/post')
         mock_post.assert_not_called()
+
+    def test_send_errors(self, mock_get, mock_post):
+        for err in [
+                requests.HTTPError(response=util.Struct(status_code='429', text='')),
+                requests.ConnectionError(),
+        ]:
+            mock_get.return_value = WEBMENTION_REL_LINK
+            mock_post.side_effect = err
+
+            obj = Object(id='http://mas.to/like#ok', as2=test_activitypub.LIKE,
+                         source_protocol='ui')
+            self.assertFalse(Web.send(obj, 'https://user.com/post'))
+
+            self.assert_req(mock_get, 'https://user.com/post')
+            args, kwargs = mock_post.call_args
+            self.assertEqual(('https://user.com/webmention',), args)
+            self.assertEqual({
+                'source': 'http://localhost/convert/ui/web/http:/mas.to/like^^ok',
+                'target': 'https://user.com/post',
+            }, kwargs['data'])
 
     def test_serve(self, _, __):
         obj = Object(id='http://orig', mf2=ACTOR_MF2)

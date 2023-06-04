@@ -768,6 +768,31 @@ class ActivityPubTest(TestCase):
                            labels=['notification', 'activity'],
                            object_ids=[FOLLOW['object']])
 
+    def test_inbox_follow_accept_webmention_fails(self, mock_head, mock_get, mock_post):
+        mock_post.side_effect = [
+            requests_response(),         # AP Accept
+            requests.ConnectionError(),  # webmention
+        ]
+        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT,
+                                       mock_head, mock_get, mock_post)
+
+        follow = {
+            **FOLLOW_WITH_ACTOR,
+            'url': 'https://mas.to/users/swentel#followed-https://user.com/',
+        }
+        self.assert_object('https://mas.to/6d1a',
+                           domains=['user.com'],
+                           source_protocol='activitypub',
+                           status='complete',
+                           as2=follow,
+                           delivered=[],
+                           type='follow',
+                           labels=['notification', 'activity'],
+                           object_ids=[FOLLOW['object']])
+
+        follower = Follower.query().get()
+        self.assertEqual(follow, follower.last_follow)
+
     def _test_inbox_follow_accept(self, follow_as2, accept_as2,
                                   mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/')
@@ -776,7 +801,8 @@ class ActivityPubTest(TestCase):
             self.as2_resp(ACTOR),
             WEBMENTION_DISCOVERY,
         ]
-        mock_post.return_value = requests_response()
+        if not mock_post.return_value and not mock_post.side_effect:
+            mock_post.return_value = requests_response()
 
         got = self.post('/user.com/inbox', json=follow_as2)
         self.assertEqual(200, got.status_code)

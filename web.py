@@ -155,14 +155,23 @@ class Web(User, Protocol):
         """Sends a webmention to a given target URL.
 
         See :meth:`Protocol.send` for details.
+
+        *Does not* propagate HTTP errors, DNS or connection failures, or other
+        exceptions, since webmention support is optional for web recipients.
+        https://fed.brid.gy/docs#error-handling
         """
         source_url = obj.proxy_url()
         logger.info(f'Sending webmention from {source_url} to {url}')
 
         endpoint = common.webmention_discover(url).endpoint
-        if endpoint:
-            webmention.send(endpoint, source_url, url)
-            return True
+        try:
+            if endpoint:
+                webmention.send(endpoint, source_url, url)
+                return True
+        except RequestException as e:
+            # log exception, then ignore it
+            util.interpret_http_exception(e)
+            return False
 
     @classmethod
     def fetch(cls, obj, gateway=False, check_backlink=None):

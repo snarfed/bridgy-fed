@@ -277,7 +277,7 @@ class Protocol:
         follower_obj.status = 'active'
         follower_obj.put()
 
-        # send AP Accept
+        # send Accept
         followee_actor_url = g.user.ap_actor()
         accept = {
             '@context': 'https://www.w3.org/ns/activitystreams',
