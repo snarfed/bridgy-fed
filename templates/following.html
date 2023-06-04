@@ -8,6 +8,7 @@
 
 <div class="row big">Following</div>
 
+{% if g.user.LABEL != 'activitypub' %}
 <div class="row">
 <form method="post" action="/follow/start">
 <p>
@@ -20,6 +21,7 @@
 </p>
 </form>
 </div>
+{% endif %}
 
 {% with page_name="following" %}
   {% include "_followers.html" %}

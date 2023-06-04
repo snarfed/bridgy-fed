@@ -4,6 +4,7 @@
 
 {% block content %}
 
+{% if g.user.LABEL == 'web' %}
 {% if g.user.has_redirects == False %}
 <div class="row promo warning">
 <form method="post" action="/web-site">
@@ -35,6 +36,7 @@
 </form>
 </div>
 {% endif %}
+{% endif %}
 
 {% include "user_addresses.html" %}
 
@@ -48,6 +50,7 @@
   &middot; <a href="{{ g.user.ap_actor() }}">ActivityPub</a>
 </div>
 
+{% if g.user.LABEL != 'activitypub' %}
 <div class="row">
 <form method="post" action="/remote-follow">
 <p>
@@ -60,6 +63,7 @@
 </p>
 </form>
 </div>
+{% endif %}
 
 {% include "activities.html" %}
 

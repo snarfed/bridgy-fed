@@ -12,12 +12,15 @@
 
     <nobr>
       {{ util.pretty_link(g.user.web_url(), text_prefix='🌐', attrs={'title': 'Web site'})|safe }}
+
+      {% if g.user.LABEL != 'activitypub' %}
       <form method="post" action="/webmention-interactive">
         <input name="source" type="hidden" value="{{ g.user.web_url() }}/" />
         <button id="update-profile-button" type="submit"
                 title="Update profile from web site"
                 class="btn btn-default glyphicon glyphicon-refresh"></button>
       </form>
+      {% endif %}
     </nobr>
   </div>
 </div>

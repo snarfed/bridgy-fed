@@ -55,14 +55,14 @@ def web_user_redirects(**kwargs):
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>')
 def user(protocol, id):
+    # TODO: unify this with followers_or_following, others
     cls = PROTOCOLS[protocol]
     g.user = cls.get_by_id(id)
     if not g.user:
         g.user = cls.query(cls.readable_id == id).get()
-
     if not g.user or not g.user.direct:
         return USER_NOT_FOUND_HTML, 404
-    elif id != g.user.readable_or_key_id():  # this also handles  use_instead
+    elif id != g.user.readable_or_key_id():  # this also handles use_instead
         return redirect(g.user.user_page_path(), code=301)
 
     assert not g.user.use_instead
@@ -94,9 +94,17 @@ def user(protocol, id):
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/<any(followers,following):collection>')
 def followers_or_following(protocol, id, collection):
-    g.user = PROTOCOLS[protocol].get_by_id(id)  # g.user is used in template
+    # TODO: unify this with user, feed
+    cls = PROTOCOLS[protocol]
+    g.user = cls.get_by_id(id)
     if not g.user:
+        g.user = cls.query(cls.readable_id == id).get()
+    if not g.user or not g.user.direct:
         return USER_NOT_FOUND_HTML, 404
+    elif id != g.user.readable_or_key_id():  # this also handles use_instead
+        return redirect(g.user.user_page_path(), code=301)
+
+    assert not g.user.use_instead
 
     followers, before, after = Follower.fetch_page(id, collection)
 
@@ -123,9 +131,17 @@ def feed(protocol, id):
     if format not in ('html', 'atom', 'rss'):
         error(f'format {format} not supported; expected html, atom, or rss')
 
-    g.user = PROTOCOLS[protocol].get_by_id(id)
+    # TODO: unify this with user, followers_or_following
+    cls = PROTOCOLS[protocol]
+    g.user = cls.get_by_id(id)
     if not g.user:
-        return render_template('user_not_found.html', domain=id), 404
+        g.user = cls.query(cls.readable_id == id).get()
+    if not g.user or not g.user.direct:
+        return USER_NOT_FOUND_HTML, 404
+    elif id != g.user.readable_or_key_id():  # this also handles use_instead
+        return redirect(g.user.user_page_path(), code=301)
+
+    assert not g.user.use_instead
 
     objects, _, _ = Object.query(
         Object.domains == id, Object.labels == 'feed') \
