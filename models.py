@@ -195,29 +195,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         return self.readable_or_key_id()
 
-    def username(self):
-        """Returns the user's preferred username.
-
-        Uses stored representative h-card if available, falls back to id.
-
-        TODO(#512): move to Web
-
-        Returns: str
-        """
-        id = self.key.id()
-
-        if self.actor_as2 and self.direct:
-            for url in [u.get('value') if isinstance(u, dict) else u
-                        for u in util.get_list(self.actor_as2, 'url')]:
-                if url and url.startswith('acct:'):
-                    urluser, urldomain = util.parse_acct_uri(url)
-                    if urldomain == id:
-                        logger.info(f'Found custom username: {urluser}')
-                        return urluser
-
-        logger.info(f'Defaulting username to key id {id}')
-        return id
-
     def web_url(self):
         """Returns this user's web URL aka web_url, eg 'https://foo.com/'.
 

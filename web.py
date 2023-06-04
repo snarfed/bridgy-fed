@@ -88,6 +88,27 @@ class Web(User, Protocol):
             url += f'/{rest}'
         return url
 
+    def username(self):
+        """Returns the user's preferred username.
+
+        Uses stored representative h-card if available, falls back to id.
+
+        Returns: str
+        """
+        id = self.key.id()
+
+        if self.actor_as2 and self.direct:
+            for url in [u.get('value') if isinstance(u, dict) else u
+                        for u in util.get_list(self.actor_as2, 'url')]:
+                if url and url.startswith('acct:'):
+                    urluser, urldomain = util.parse_acct_uri(url)
+                    if urldomain == id:
+                        logger.info(f'Found custom username: {urluser}')
+                        return urluser
+
+        logger.info(f'Defaulting username to key id {id}')
+        return id
+
     def verify(self):
         """Fetches site a couple ways to check for redirects and h-card.
 
