@@ -11,7 +11,7 @@ from httpsig.sign import HeaderSigner
 from oauth_dropins.webutil import appengine_config, util
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.appengine_info import APP_ID
-from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.testutil import NOW, requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 from requests import HTTPError
@@ -28,6 +28,12 @@ from common import (
 from models import Follower, Object, Target, User
 from web import TASKS_LOCATION, Web
 from . import test_activitypub
+from .testutil import TestCase
+
+
+FULL_REDIR = requests_response(
+    status=302,
+    redirected_url='http://localhost/.well-known/webfinger?resource=acct:user.com@user.com')
 
 ACTOR_HTML = """\
 <html>
@@ -37,8 +43,8 @@ ACTOR_HTML = """\
 </body>
 </html>
 """
-ACTOR = requests_response(ACTOR_HTML, url='https://user.com/',
-                          content_type=CONTENT_TYPE_HTML)
+ACTOR_HTML_RESP = requests_response(ACTOR_HTML, url='https://user.com/',
+                                    content_type=CONTENT_TYPE_HTML)
 ACTOR_MF2 = {
     'type': ['h-card'],
     'properties': {
@@ -158,19 +164,7 @@ DELETE_AS2 = {
     'to': [as2.PUBLIC_AUDIENCE],
 }
 
-@patch('requests.post')
-@patch('requests.get')
-class WebTest(testutil.TestCase):
-    def setUp(self):
-        super().setUp()
-        g.user = self.user = self.make_user('user.com')
-
-        self.request_context.push()
-        self.full_redir = requests_response(
-            status=302,
-            redirected_url='http://localhost/.well-known/webfinger?resource=acct:user.com@user.com')
-
-        self.toot_html = requests_response("""\
+TOOT_HTML = requests_response("""\
 <html>
 <meta>
 <link href='https://mas.to/toot/atom' rel='alternate' type='application/atom+xml'>
@@ -178,20 +172,19 @@ class WebTest(testutil.TestCase):
 </meta>
 </html>
 """, url='https://mas.to/toot', content_type=CONTENT_TYPE_HTML)
-        self.toot_as2_data = {
-            '@context': ['https://www.w3.org/ns/activitystreams'],
-            'type': 'Article',
-            'id': 'https://mas.to/toot/id',
-            'content': 'Lots of ☕ words...',
-            'actor': {'url': 'https://mas.to/author'},
-            'to': ['https://mas.to/recipient', as2.PUBLIC_AUDIENCE],
-            'cc': ['https://mas.to/bystander', as2.PUBLIC_AUDIENCE],
-        }
-        self.toot_as2 = requests_response(
-            self.toot_as2_data, url='https://mas.to/toot/id',
-            content_type=as2.CONTENT_TYPE + '; charset=utf-8')
-
-        self.reply_html = """\
+TOOT_AS2_DATA = {
+    '@context': ['https://www.w3.org/ns/activitystreams'],
+    'type': 'Article',
+    'id': 'https://mas.to/toot/id',
+    'content': 'Lots of ☕ words...',
+    'actor': {'url': 'https://mas.to/author'},
+    'to': ['https://mas.to/recipient', as2.PUBLIC_AUDIENCE],
+    'cc': ['https://mas.to/bystander', as2.PUBLIC_AUDIENCE],
+}
+TOOT_AS2 = requests_response(
+    TOOT_AS2_DATA, url='https://mas.to/toot/id',
+    content_type=as2.CONTENT_TYPE + '; charset=utf-8')
+REPLY_HTML = """\
 <html>
 <body>
 <div class="h-entry">
@@ -206,20 +199,20 @@ class WebTest(testutil.TestCase):
 </body>
 </html>
 """
-        self.reply = requests_response(self.reply_html, content_type=CONTENT_TYPE_HTML,
-                                       url='https://user.com/reply')
-        self.reply_mf2 = util.parse_mf2(self.reply_html)['items'][0]
-        self.reply_as1 = microformats2.json_to_object(self.reply_mf2)
-        self.create_reply_as1 = {
-            'objectType': 'activity',
-            'verb': 'post',
-            'id': 'https://user.com/reply#bridgy-fed-create',
-            'actor': 'http://localhost/user.com',
-            'object': self.reply_as1,
-        }
-        self.reply_as2 = as2.from_as1(self.reply_as1)
+REPLY = requests_response(REPLY_HTML, content_type=CONTENT_TYPE_HTML,
+                               url='https://user.com/reply')
+REPLY_MF2 = util.parse_mf2(REPLY_HTML)['items'][0]
+REPLY_AS1 = microformats2.json_to_object(REPLY_MF2)
+CREATE_REPLY_AS1 = {
+    'objectType': 'activity',
+    'verb': 'post',
+    'id': 'https://user.com/reply#bridgy-fed-create',
+    'actor': 'http://localhost/user.com',
+    'object': REPLY_AS1,
+}
+REPLY_AS2 = as2.from_as1(REPLY_AS1)
 
-        self.like_html = """\
+LIKE_HTML = """\
 <html>
 <body class="h-entry">
 <a class="u-url" href="https://user.com/like"></a>
@@ -230,57 +223,57 @@ class WebTest(testutil.TestCase):
 </body>
 </html>
 """
-        self.like = requests_response(self.like_html, content_type=CONTENT_TYPE_HTML,
-                                      url='https://user.com/like')
-        self.like_mf2 = util.parse_mf2(self.like_html)['items'][0]
+LIKE = requests_response(LIKE_HTML, content_type=CONTENT_TYPE_HTML,
+                         url='https://user.com/like')
+LIKE_MF2 = util.parse_mf2(LIKE_HTML)['items'][0]
 
-        self.actor = self.as2_resp({
-            'objectType' : 'Person',
-            'displayName': 'Mrs. ☕ Foo',
-            'id': 'https://mas.to/mrs-foo',
-            'inbox': 'https://mas.to/inbox',
-        })
+ACTOR = TestCase.as2_resp({
+    'objectType' : 'Person',
+    'displayName': 'Mrs. ☕ Foo',
+    'id': 'https://mas.to/mrs-foo',
+    'inbox': 'https://mas.to/inbox',
+})
 
-        self.as2_create = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'type': 'Create',
-            'id': 'http://localhost/r/https://user.com/reply#bridgy-fed-create',
-            'actor': 'http://localhost/user.com',
-            'object': {
-                'type': 'Note',
-                'id': 'http://localhost/r/https://user.com/reply',
-                'url': 'http://localhost/r/https://user.com/reply',
-                'name': 'foo ☕ bar',
-                'content': """\
+AS2_CREATE = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'type': 'Create',
+    'id': 'http://localhost/r/https://user.com/reply#bridgy-fed-create',
+    'actor': 'http://localhost/user.com',
+    'object': {
+        'type': 'Note',
+        'id': 'http://localhost/r/https://user.com/reply',
+        'url': 'http://localhost/r/https://user.com/reply',
+        'name': 'foo ☕ bar',
+        'content': """\
 <a class="u-in-reply-to" href="http://not/fediverse"></a>
 <a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a href="http://localhost/"></a>""",
-                'inReplyTo': 'https://mas.to/toot/id',
-                'to': [as2.PUBLIC_AUDIENCE],
-                'cc': [
-                    'https://mas.to/author',
-                    'https://mas.to/bystander',
-                    'https://mas.to/recipient',
-                    as2.PUBLIC_AUDIENCE,
-                ],
-                'attributedTo': ACTOR_AS2,
-                'tag': [{
-                    'type': 'Mention',
-                    'href': 'https://mas.to/author',
-                }],
-            },
-            'to': [as2.PUBLIC_AUDIENCE],
-        }
-        self.as2_update = copy.deepcopy(self.as2_create)
-        self.as2_update.update({
-            'id': 'http://localhost/r/https://user.com/reply#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-            'type': 'Update',
-        })
-        # we should generate this if it's not already in mf2 because Mastodon
-        # requires it for updates
-        self.as2_update['object']['updated'] = util.now().isoformat()
+        'inReplyTo': 'https://mas.to/toot/id',
+        'to': [as2.PUBLIC_AUDIENCE],
+        'cc': [
+            'https://mas.to/author',
+            'https://mas.to/bystander',
+            'https://mas.to/recipient',
+            as2.PUBLIC_AUDIENCE,
+        ],
+        'attributedTo': ACTOR_AS2,
+        'tag': [{
+            'type': 'Mention',
+            'href': 'https://mas.to/author',
+        }],
+    },
+    'to': [as2.PUBLIC_AUDIENCE],
+}
+AS2_UPDATE = copy.deepcopy(AS2_CREATE)
+AS2_UPDATE.update({
+    'id': 'http://localhost/r/https://user.com/reply#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+    'type': 'Update',
+})
+# we should generate this if it's not already in mf2 because Mastodon
+# requires it for updates
+AS2_UPDATE['object']['updated'] = NOW.isoformat()
 
-        self.follow_html = """\
+FOLLOW_HTML = """\
 <html>
 <body class="h-entry">
 <a class="u-url" href="https://user.com/follow"></a>
@@ -290,22 +283,23 @@ class WebTest(testutil.TestCase):
 </body>
 </html>
 """
-        self.follow = requests_response(
-            self.follow_html, url='https://user.com/follow',
-            content_type=CONTENT_TYPE_HTML)
-        self.follow_mf2 = util.parse_mf2(self.follow_html)['items'][0]
-        self.follow_as1 = microformats2.json_to_object(self.follow_mf2)
-        self.follow_as2 = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'type': 'Follow',
-            'id': 'http://localhost/r/https://user.com/follow',
-            'url': 'http://localhost/r/https://user.com/follow',
-            'object': 'https://mas.to/mrs-foo',
-            'actor': 'http://localhost/user.com',
-            'to': [as2.PUBLIC_AUDIENCE],
-        }
 
-        self.follow_fragment_html = """\
+FOLLOW = requests_response(
+    FOLLOW_HTML, url='https://user.com/follow',
+    content_type=CONTENT_TYPE_HTML)
+FOLLOW_MF2 = util.parse_mf2(FOLLOW_HTML)['items'][0]
+FOLLOW_AS1 = microformats2.json_to_object(FOLLOW_MF2)
+FOLLOW_AS2 = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'type': 'Follow',
+    'id': 'http://localhost/r/https://user.com/follow',
+    'url': 'http://localhost/r/https://user.com/follow',
+    'object': 'https://mas.to/mrs-foo',
+    'actor': 'http://localhost/user.com',
+    'to': [as2.PUBLIC_AUDIENCE],
+}
+
+FOLLOW_FRAGMENT_HTML = """\
 <html>
 <body>
 <article class=h-entry id=1>
@@ -320,19 +314,19 @@ class WebTest(testutil.TestCase):
 </body>
 </html>
 """
-        self.follow_fragment = requests_response(
-            self.follow_fragment_html, url='https://user.com/follow',
-            content_type=CONTENT_TYPE_HTML)
-        self.follow_fragment_mf2 = \
-            util.parse_mf2(self.follow_fragment_html, id='2')['items'][0]
-        self.follow_fragment_as1 = microformats2.json_to_object(self.follow_fragment_mf2)
-        self.follow_fragment_as2 = {
-            **self.follow_as2,
-            'id': 'http://localhost/r/https://user.com/follow#2',
-            'url': 'http://localhost/r/https://user.com/follow#2',
-        }
+FOLLOW_FRAGMENT = requests_response(
+    FOLLOW_FRAGMENT_HTML, url='https://user.com/follow',
+    content_type=CONTENT_TYPE_HTML)
+FOLLOW_FRAGMENT_MF2 = \
+    util.parse_mf2(FOLLOW_FRAGMENT_HTML, id='2')['items'][0]
+FOLLOW_FRAGMENT_AS1 = microformats2.json_to_object(FOLLOW_FRAGMENT_MF2)
+FOLLOW_FRAGMENT_AS2 = {
+    **FOLLOW_AS2,
+    'id': 'http://localhost/r/https://user.com/follow#2',
+    'url': 'http://localhost/r/https://user.com/follow#2',
+}
 
-        self.note_html = """\
+NOTE_HTML = """\
 <html>
 <body class="h-entry">
 <a class="u-url" href="https://user.com/post"></a>
@@ -344,48 +338,56 @@ class WebTest(testutil.TestCase):
 </body>
 </html>
 """
-        self.note = requests_response(self.note_html, url='https://user.com/post',
-                                        content_type=CONTENT_TYPE_HTML)
-        self.note_mf2 = util.parse_mf2(self.note_html)['items'][0]
-        self.note_as1 = microformats2.json_to_object(self.note_mf2)
-        self.note_as2 = {
-            'type': 'Note',
-            'id': 'http://localhost/r/https://user.com/post',
-            'url': 'http://localhost/r/https://user.com/post',
-            'attributedTo': ACTOR_AS2,
-            'name': 'hello i am a post',
-            'content': 'hello i am a post',
-            'to': [as2.PUBLIC_AUDIENCE],
-        }
-        self.create_as1 = {
-            'objectType': 'activity',
-            'verb': 'post',
-            'id': 'https://user.com/post#bridgy-fed-create',
-            'actor': 'http://localhost/user.com',
-            'object': self.note_as1,
-        }
-        self.create_as2 = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'type': 'Create',
-            'id': 'http://localhost/r/https://user.com/post#bridgy-fed-create',
-            'actor': 'http://localhost/user.com',
-            'object': self.note_as2,
-            'to': [as2.PUBLIC_AUDIENCE],
-        }
-        self.update_as2 = copy.deepcopy(self.create_as2)
-        self.update_as2.update({
-            'type': 'Update',
-            'id': 'http://localhost/r/https://user.com/post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-        })
-        self.update_as2['object']['updated'] = util.now().isoformat()
+NOTE = requests_response(NOTE_HTML, url='https://user.com/post',
+                         content_type=CONTENT_TYPE_HTML)
+NOTE_MF2 = util.parse_mf2(NOTE_HTML)['items'][0]
+NOTE_AS1 = microformats2.json_to_object(NOTE_MF2)
+NOTE_AS2 = {
+    'type': 'Note',
+    'id': 'http://localhost/r/https://user.com/post',
+    'url': 'http://localhost/r/https://user.com/post',
+    'attributedTo': ACTOR_AS2,
+    'name': 'hello i am a post',
+    'content': 'hello i am a post',
+    'to': [as2.PUBLIC_AUDIENCE],
+}
+CREATE_AS1 = {
+    'objectType': 'activity',
+    'verb': 'post',
+    'id': 'https://user.com/post#bridgy-fed-create',
+    'actor': 'http://localhost/user.com',
+    'object': NOTE_AS1,
+}
+CREATE_AS2 = {
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'type': 'Create',
+    'id': 'http://localhost/r/https://user.com/post#bridgy-fed-create',
+    'actor': 'http://localhost/user.com',
+    'object': NOTE_AS2,
+    'to': [as2.PUBLIC_AUDIENCE],
+}
+UPDATE_AS2 = copy.deepcopy(CREATE_AS2)
+UPDATE_AS2.update({
+    'type': 'Update',
+    'id': 'http://localhost/r/https://user.com/post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+})
+UPDATE_AS2['object']['updated'] = NOW.isoformat()
 
-        self.not_fediverse = requests_response("""\
+NOT_FEDIVERSE = requests_response("""\
 <html>
 <body>foo</body>
 </html>
 """, url='http://not/fediverse', content_type=CONTENT_TYPE_HTML)
-        self.activitypub_gets = [self.reply, self.not_fediverse, self.toot_as2,
-                                 self.actor]
+ACTIVITYPUB_GETS = [REPLY, NOT_FEDIVERSE, TOOT_AS2, ACTOR]
+
+
+@patch('requests.post')
+@patch('requests.get')
+class WebTest(TestCase):
+    def setUp(self):
+        super().setUp()
+        g.user = self.make_user('user.com')
+        self.request_context.push()
 
     def assert_deliveries(self, mock_post, inboxes, data, ignore=()):
         self.assertEqual(len(inboxes), len(mock_post.call_args_list))
@@ -394,7 +396,7 @@ class WebTest(testutil.TestCase):
         for args, kwargs in mock_post.call_args_list:
             self.assertEqual(as2.CONTENT_TYPE, kwargs['headers']['Content-Type'])
             rsa_key = kwargs['auth'].header_signer._rsa._key
-            self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
+            self.assertEqual(g.user.private_pem(), rsa_key.exportKey())
             calls[args[0]] = json_loads(kwargs['data'])
 
         for inbox in inboxes:
@@ -413,7 +415,7 @@ class WebTest(testutil.TestCase):
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_make_task(self, mock_create_task, mock_get, mock_post):
-        mock_get.side_effect = [self.note, self.actor]
+        mock_get.side_effect = [NOTE, ACTOR]
 
         params = {
             'source': 'https://user.com/post',
@@ -441,7 +443,7 @@ class WebTest(testutil.TestCase):
 
     def test_source_fetch_fails(self, mock_get, mock_post):
         mock_get.side_effect = (
-            requests_response(self.reply_html, status=405,
+            requests_response(REPLY_HTML, status=405,
                               content_type=CONTENT_TYPE_HTML),
         )
 
@@ -501,7 +503,7 @@ class WebTest(testutil.TestCase):
     def test_bad_target_url(self, mock_get, mock_post):
         mock_get.side_effect = (
             requests_response(
-                self.reply_html.replace('https://mas.to/toot', 'bad'),
+                REPLY_HTML.replace('https://mas.to/toot', 'bad'),
                 content_type=CONTENT_TYPE_HTML, url='https://user.com/reply'),
             ValueError('foo bar'),
         )
@@ -513,7 +515,7 @@ class WebTest(testutil.TestCase):
     def test_target_fetch_fails(self, mock_get, mock_post):
         mock_get.side_effect = (
             requests_response(
-                self.reply_html.replace('https://mas.to/toot', 'bad'),
+                REPLY_HTML.replace('https://mas.to/toot', 'bad'),
                 url='https://user.com/post', content_type=CONTENT_TYPE_HTML),
             requests.Timeout('foo bar'))
 
@@ -522,12 +524,12 @@ class WebTest(testutil.TestCase):
         self.assertEqual(502, got.status_code)
 
     def test_target_fetch_has_no_content_type(self, mock_get, mock_post):
-        html = self.reply_html.replace(
+        html = REPLY_HTML.replace(
             '</body>',
             "<link href='http://as2' rel='alternate' type='application/activity+json'></body")
         mock_get.side_effect = (
-            requests_response(self.reply_html, url='https://user.com/reply'),
-            requests_response(self.reply_html, url='https://user.com/reply',
+            requests_response(REPLY_HTML, url='https://user.com/reply'),
+            requests_response(REPLY_HTML, url='https://user.com/reply',
                               content_type='None'),
         )
         got = self.client.post('/_ah/queue/webmention',
@@ -536,7 +538,7 @@ class WebTest(testutil.TestCase):
 
     def test_missing_backlink(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
-            self.reply_html.replace('<a href="http://localhost/"></a>', ''),
+            REPLY_HTML.replace('<a href="http://localhost/"></a>', ''),
             url='https://user.com/reply', content_type=CONTENT_TYPE_HTML)
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -550,7 +552,7 @@ class WebTest(testutil.TestCase):
 
     def test_backlink_without_trailing_slash(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
-            self.reply_html.replace('<a href="http://localhost/"></a>',
+            REPLY_HTML.replace('<a href="http://localhost/"></a>',
                                     '<a href="http://localhost"></a>'),
             content_type=CONTENT_TYPE_HTML, url='https://user.com/reply')
 
@@ -561,7 +563,7 @@ class WebTest(testutil.TestCase):
         self.assertEqual(200, got.status_code)
 
     def test_create_reply(self, mock_get, mock_post):
-        mock_get.side_effect = self.activitypub_gets
+        mock_get.side_effect = ACTIVITYPUB_GETS
         mock_post.return_value = requests_response('abc xyz', status=203)
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -577,21 +579,21 @@ class WebTest(testutil.TestCase):
             self.as2_req('https://mas.to/author'),
         ))
 
-        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], self.as2_create)
+        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], AS2_CREATE)
 
         self.assert_object('https://user.com/reply',
                            domains=['user.com'],
                            source_protocol='web',
-                           mf2=self.reply_mf2,
-                           as1=self.reply_as1,
+                           mf2=REPLY_MF2,
+                           as1=REPLY_AS1,
                            type='comment',
                            )
         self.assert_object('https://user.com/reply#bridgy-fed-create',
                            domains=['user.com'],
                            source_protocol='web',
                            status='complete',
-                           mf2=self.reply_mf2,
-                           our_as1=self.create_reply_as1,
+                           mf2=REPLY_MF2,
+                           our_as1=CREATE_REPLY_AS1,
                            delivered=['https://mas.to/inbox'],
                            type='post',
                            labels=['user', 'activity'],
@@ -608,7 +610,7 @@ class WebTest(testutil.TestCase):
         with self.request_context:
             Object(id='https://user.com/reply', status='complete', mf2=mf2).put()
 
-        mock_get.side_effect = self.activitypub_gets
+        mock_get.side_effect = ACTIVITYPUB_GETS
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -620,14 +622,14 @@ class WebTest(testutil.TestCase):
         self.assertEqual(1, mock_post.call_count)
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
-        self.assert_equals(self.as2_update, json_loads(kwargs['data']))
+        self.assert_equals(AS2_UPDATE, json_loads(kwargs['data']))
 
     def test_redo_repost_isnt_update(self, mock_get, mock_post):
         """Like and Announce shouldn't use Update, they should just resend as is."""
         with self.request_context:
             Object(id='https://user.com/repost', mf2={}, status='complete').put()
 
-        mock_get.side_effect = [REPOST, self.toot_as2, self.actor]
+        mock_get.side_effect = [REPOST, TOOT_AS2, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -641,9 +643,9 @@ class WebTest(testutil.TestCase):
     def test_skip_update_if_content_unchanged(self, mock_get, mock_post):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
         with self.request_context:
-            Object(id='https://user.com/reply', mf2=self.reply_mf2).put()
+            Object(id='https://user.com/reply', mf2=REPLY_MF2).put()
 
-        mock_get.side_effect = self.activitypub_gets
+        mock_get.side_effect = ACTIVITYPUB_GETS
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/reply',
@@ -657,14 +659,13 @@ class WebTest(testutil.TestCase):
 
         https://github.com/snarfed/bridgy-fed/issues/40
         """
-        del self.toot_as2_data['actor']
-        self.toot_as2_data['attributedTo'] = {
+        del TOOT_AS2_DATA['actor']
+        TOOT_AS2_DATA['attributedTo'] = {
             'type': 'Person',
             'id': 'https://mas.to/author',
         }
 
-        mock_get.side_effect = [self.reply, self.not_fediverse, self.toot_as2,
-                                self.actor]
+        mock_get.side_effect = [REPLY, NOT_FEDIVERSE, TOOT_AS2, ACTOR]
         mock_post.return_value = requests_response('abc xyz', status=203)
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -682,7 +683,7 @@ class WebTest(testutil.TestCase):
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
-        self.assert_equals(self.as2_create, json_loads(kwargs['data']))
+        self.assert_equals(AS2_CREATE, json_loads(kwargs['data']))
 
     def test_announce_repost(self, mock_get, mock_post):
         self._test_announce(REPOST_HTML, REPOST_AS2, mock_get, mock_post)
@@ -696,8 +697,8 @@ class WebTest(testutil.TestCase):
         mock_get.side_effect = [
             requests_response(html, content_type=CONTENT_TYPE_HTML,
                               url='https://user.com/repost'),
-            self.toot_as2,
-            self.actor,
+            TOOT_AS2,
+            ACTOR,
         ]
         mock_post.return_value = requests_response('abc xyz')
 
@@ -720,7 +721,7 @@ class WebTest(testutil.TestCase):
         for args, kwargs in mock_get.call_args_list[1:]:
             with self.subTest(url=args[0]):
                 rsa_key = kwargs['auth'].header_signer._rsa._key
-                self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
+                self.assertEqual(g.user.private_pem(), rsa_key.exportKey())
 
         mf2 = util.parse_mf2(html)['items'][0]
         self.assert_object('https://user.com/repost',
@@ -737,11 +738,11 @@ class WebTest(testutil.TestCase):
 
     def test_link_rel_alternate_as2(self, mock_get, mock_post):
         mock_get.side_effect = [
-            self.reply,
-            self.not_fediverse,
-            self.toot_html,
-            self.toot_as2,
-            self.actor,
+            REPLY,
+            NOT_FEDIVERSE,
+            TOOT_HTML,
+            TOOT_AS2,
+            ACTOR,
         ]
         mock_post.return_value = requests_response('abc xyz')
 
@@ -761,13 +762,13 @@ class WebTest(testutil.TestCase):
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
-        self.assert_equals(self.as2_create, json_loads(kwargs['data']))
+        self.assert_equals(AS2_CREATE, json_loads(kwargs['data']))
 
     def test_like_stored_object_without_as2(self, mock_get, mock_post):
-        Object(id='https://mas.to/toot', mf2=self.note_mf2).put()
+        Object(id='https://mas.to/toot', mf2=NOTE_MF2).put()
         Object(id='https://user.com/', mf2=ACTOR_MF2).put()
         mock_get.side_effect = [
-            self.like,
+            LIKE,
         ]
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -784,8 +785,8 @@ class WebTest(testutil.TestCase):
         self.assert_object('https://user.com/like',
                            domains=['user.com'],
                            source_protocol='web',
-                           mf2=self.like_mf2,
-                           as1=microformats2.json_to_object(self.like_mf2),
+                           mf2=LIKE_MF2,
+                           as1=microformats2.json_to_object(LIKE_MF2),
                            type='like',
                            labels=['user', 'activity'],
                            status='ignored',
@@ -802,7 +803,7 @@ class WebTest(testutil.TestCase):
 </body>
 </html>
 """, url='https://user.com/repost', content_type=CONTENT_TYPE_HTML)
-        mock_get.side_effect = [missing_url, self.toot_as2, self.actor]
+        mock_get.side_effect = [missing_url, TOOT_AS2, ACTOR]
         mock_post.return_value = requests_response('abc xyz', status=203)
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -829,7 +830,7 @@ class WebTest(testutil.TestCase):
 </body>
 </html>
 """, url='https://user.com/repost', content_type=CONTENT_TYPE_HTML)
-        mock_get.side_effect = [repost, ACTOR, self.toot_as2, self.actor]
+        mock_get.side_effect = [repost, ACTOR, TOOT_AS2, ACTOR]
         mock_post.return_value = requests_response('abc xyz', status=201)
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -872,7 +873,7 @@ class WebTest(testutil.TestCase):
                                }})
 
     def test_create_post(self, mock_get, mock_post):
-        mock_get.side_effect = [self.note, self.actor]
+        mock_get.side_effect = [NOTE, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
         self.make_followers()
 
@@ -886,11 +887,11 @@ class WebTest(testutil.TestCase):
             self.req('https://user.com/post'),
         ))
         inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
-        self.assert_deliveries(mock_post, inboxes, self.create_as2)
+        self.assert_deliveries(mock_post, inboxes, CREATE_AS2)
 
         self.assert_object('https://user.com/post',
                            domains=['user.com'],
-                           mf2=self.note_mf2,
+                           mf2=NOTE_MF2,
                            type='note',
                            source_protocol='web',
                            )
@@ -898,19 +899,19 @@ class WebTest(testutil.TestCase):
                            domains=['user.com'],
                            source_protocol='web',
                            status='complete',
-                           mf2=self.note_mf2,
-                           our_as1=self.create_as1,
+                           mf2=NOTE_MF2,
+                           our_as1=CREATE_AS1,
                            delivered=inboxes,
                            type='post',
                            labels=['user', 'activity'],
                            )
 
     def test_update_post(self, mock_get, mock_post):
-        mock_get.side_effect = [self.note, self.actor]
+        mock_get.side_effect = [NOTE, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
         with self.request_context:
-            mf2 = copy.deepcopy(self.note_mf2)
+            mf2 = copy.deepcopy(NOTE_MF2)
             mf2['properties']['content'] = 'different'
             Object(id='https://user.com/post', domains=['user.com'], mf2=mf2).put()
 
@@ -926,7 +927,7 @@ class WebTest(testutil.TestCase):
             self.req('https://user.com/post'),
         ))
         inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
-        self.assert_deliveries(mock_post, inboxes, self.update_as2)
+        self.assert_deliveries(mock_post, inboxes, UPDATE_AS2)
 
         update_as1 = {
             'objectType': 'activity',
@@ -934,7 +935,7 @@ class WebTest(testutil.TestCase):
             'id': 'https://user.com/post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
             'actor': 'http://localhost/user.com',
             'object': {
-                **self.note_as1,
+                **NOTE_AS1,
                 'updated': '2022-01-02T03:04:05+00:00',
             },
         }
@@ -943,7 +944,7 @@ class WebTest(testutil.TestCase):
             domains=['user.com'],
             source_protocol='web',
             status='complete',
-            mf2=self.note_mf2,
+            mf2=NOTE_MF2,
             our_as1=update_as1,
             delivered=inboxes,
             type='update',
@@ -951,12 +952,12 @@ class WebTest(testutil.TestCase):
         )
 
     def test_create_with_image(self, mock_get, mock_post):
-        create_html = self.note_html.replace(
+        create_html = NOTE_HTML.replace(
             '</body>', '<img class="u-photo" src="http://im/age" />\n</body>')
         mock_get.side_effect = [
             requests_response(create_html, url='https://user.com/post',
                               content_type=CONTENT_TYPE_HTML),
-            self.actor,
+            ACTOR,
         ]
         mock_post.return_value = requests_response('abc xyz ')
 
@@ -971,7 +972,7 @@ class WebTest(testutil.TestCase):
         self.assertEqual(200, got.status_code)
 
         self.assertEqual(('https://inbox',), mock_post.call_args[0])
-        create = copy.deepcopy(self.create_as2)
+        create = copy.deepcopy(CREATE_AS2)
         create['object'].update({
             'image': {'url': 'http://im/age', 'type': 'Image'},
             'attachment': [{'url': 'http://im/age', 'type': 'Image'}],
@@ -979,7 +980,7 @@ class WebTest(testutil.TestCase):
         self.assert_equals(create, json_loads(mock_post.call_args[1]['data']))
 
     def test_follow(self, mock_get, mock_post):
-        mock_get.side_effect = [self.follow, self.actor]
+        mock_get.side_effect = [FOLLOW, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -993,14 +994,14 @@ class WebTest(testutil.TestCase):
             self.as2_req('https://mas.to/mrs-foo'),
         ))
 
-        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], self.follow_as2)
+        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
 
         self.assert_object('https://user.com/follow',
                            domains=['user.com'],
                            source_protocol='web',
                            status='complete',
-                           mf2=self.follow_mf2,
-                           as1=self.follow_as1,
+                           mf2=FOLLOW_MF2,
+                           as1=FOLLOW_AS1,
                            delivered=['https://mas.to/inbox'],
                            type='follow',
                            object_ids=['https://mas.to/mrs-foo'],
@@ -1012,18 +1013,18 @@ class WebTest(testutil.TestCase):
         self.assertEqual('https://mas.to/mrs-foo user.com', followers[0].key.id())
         self.assertEqual('user.com', followers[0].src)
         self.assertEqual('https://mas.to/mrs-foo', followers[0].dest)
-        self.assert_equals(as2.from_as1(self.follow_as1), followers[0].last_follow)
+        self.assert_equals(as2.from_as1(FOLLOW_AS1), followers[0].last_follow)
 
     def test_follow_no_actor(self, mock_get, mock_post):
-        self.user.actor_as2 = ACTOR_AS2
-        self.user.put()
+        g.user.actor_as2 = ACTOR_AS2
+        g.user.put()
 
-        html = self.follow_html.replace(
+        html = FOLLOW_HTML.replace(
             '<a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>', '')
         follow = requests_response(html, url='https://user.com/follow',
                                    content_type=CONTENT_TYPE_HTML)
 
-        mock_get.side_effect = [follow, self.actor]
+        mock_get.side_effect = [follow, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -1034,18 +1035,18 @@ class WebTest(testutil.TestCase):
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
-        self.assert_equals(self.follow_as2, json_loads(kwargs['data']))
+        self.assert_equals(FOLLOW_AS2, json_loads(kwargs['data']))
 
     def test_follow_no_target(self, mock_get, mock_post):
         self.make_followers()
 
-        html = self.follow_html.replace(
+        html = FOLLOW_HTML.replace(
             '<a class="u-follow-of" href="https://mas.to/mrs-foo"></a>',
             '<a class="u-follow-of"></a>')
         follow = requests_response(html, url='https://user.com/follow',
                                    content_type=CONTENT_TYPE_HTML)
 
-        mock_get.side_effect = [follow, self.actor]
+        mock_get.side_effect = [follow, ACTOR]
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/follow',
@@ -1055,7 +1056,7 @@ class WebTest(testutil.TestCase):
         mock_post.assert_not_called()
 
     def test_follow_fragment(self, mock_get, mock_post):
-        mock_get.side_effect = [self.follow_fragment, self.actor]
+        mock_get.side_effect = [FOLLOW_FRAGMENT, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -1070,14 +1071,14 @@ class WebTest(testutil.TestCase):
         ))
 
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'],
-                               self.follow_fragment_as2)
+                               FOLLOW_FRAGMENT_AS2)
 
         self.assert_object('https://user.com/follow#2',
                            domains=['user.com'],
                            source_protocol='web',
                            status='complete',
-                           mf2=self.follow_fragment_mf2,
-                           as1=self.follow_fragment_as1,
+                           mf2=FOLLOW_FRAGMENT_MF2,
+                           as1=FOLLOW_FRAGMENT_AS1,
                            delivered=['https://mas.to/inbox'],
                            type='follow',
                            object_ids=['https://mas.to/mrs-foo'],
@@ -1091,7 +1092,7 @@ class WebTest(testutil.TestCase):
         self.assert_equals('https://mas.to/mrs-foo', followers[0].dest)
 
     def test_follow_multiple(self, mock_get, mock_post):
-        html = self.follow_html.replace(
+        html = FOLLOW_HTML.replace(
             '<a class="u-follow-of" href="https://mas.to/mrs-foo"></a>',
             '<a class="u-follow-of" href="https://mas.to/mrs-foo"></a> '
             '<a class="u-follow-of" href="https://mas.to/mr-biff"></a>')
@@ -1100,7 +1101,7 @@ class WebTest(testutil.TestCase):
             requests_response(
                 html, url='https://user.com/follow',
                 content_type=CONTENT_TYPE_HTML),
-            self.actor,
+            ACTOR,
             self.as2_resp({
                 'objectType' : 'Person',
                 'displayName': 'Mr. ☕ Biff',
@@ -1124,10 +1125,10 @@ class WebTest(testutil.TestCase):
 
         calls = mock_post.call_args_list
         self.assertEqual('https://mas.to/inbox', calls[0][0][0])
-        self.assertEqual(self.follow_as2, json_loads(calls[0][1]['data']))
+        self.assertEqual(FOLLOW_AS2, json_loads(calls[0][1]['data']))
         self.assertEqual('https://mas.to/inbox/biff', calls[1][0][0])
         self.assertEqual({
-            **self.follow_as2,
+            **FOLLOW_AS2,
             'object': 'https://mas.to/mr-biff',
         }, json_loads(calls[1][1]['data']))
 
@@ -1154,7 +1155,7 @@ class WebTest(testutil.TestCase):
         self.assertEqual('user.com', followers[0].src)
         self.assertEqual('https://mas.to/mr-biff', followers[0].dest)
         self.assert_equals(as2.from_as1({
-            **self.follow_as1,
+            **FOLLOW_AS1,
             'object': 'https://mas.to/mr-biff',
         }), followers[0].last_follow)
 
@@ -1162,13 +1163,13 @@ class WebTest(testutil.TestCase):
         self.assertEqual('user.com', followers[1].src)
         self.assertEqual('https://mas.to/mrs-foo', followers[1].dest)
         self.assert_equals(as2.from_as1({
-            **self.follow_as1,
+            **FOLLOW_AS1,
             'object': 'https://mas.to/mrs-foo',
         }), followers[1].last_follow)
 
     def test_error_fragment_missing(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
-            self.follow_fragment_html, url='https://user.com/follow',
+            FOLLOW_FRAGMENT_HTML, url='https://user.com/follow',
             content_type=CONTENT_TYPE_HTML)
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -1185,7 +1186,7 @@ class WebTest(testutil.TestCase):
                                                   url='http://final/delete')
         mock_post.return_value = requests_response('unused', status=200)
         Object(id='https://user.com/post#bridgy-fed-create',
-               mf2=self.note_mf2, status='complete').put()
+               mf2=NOTE_MF2, status='complete').put()
 
         self.make_followers()
 
@@ -1226,7 +1227,7 @@ class WebTest(testutil.TestCase):
 
         with self.request_context:
             Object(id='https://user.com/post#bridgy-fed-create',
-                   mf2=self.note_mf2, status='in progress')
+                   mf2=NOTE_MF2, status='in progress')
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/post',
@@ -1236,7 +1237,7 @@ class WebTest(testutil.TestCase):
         mock_post.assert_not_called()
 
     def test_error(self, mock_get, mock_post):
-        mock_get.side_effect = [self.follow, self.actor]
+        mock_get.side_effect = [FOLLOW, ACTOR]
         mock_post.return_value = requests_response(
             'abc xyz', status=405, url='https://mas.to/inbox')
 
@@ -1255,14 +1256,14 @@ class WebTest(testutil.TestCase):
             self.as2_req('https://mas.to/mrs-foo'),
         ))
 
-        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], self.follow_as2)
+        self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
 
         self.assert_object('https://user.com/follow',
                            domains=['user.com'],
                            source_protocol='web',
                            status='failed',
-                           mf2=self.follow_mf2,
-                           as1=self.follow_as1,
+                           mf2=FOLLOW_MF2,
+                           as1=FOLLOW_AS1,
                            failed=['https://mas.to/inbox'],
                            type='follow',
                            object_ids=['https://mas.to/mrs-foo'],
@@ -1284,7 +1285,7 @@ class WebTest(testutil.TestCase):
         mock_post.assert_not_called()
 
     def test_update_profile(self, mock_get, mock_post):
-        mock_get.side_effect = [ACTOR]
+        mock_get.side_effect = [ACTOR_HTML_RESP]
         mock_post.return_value = requests_response('abc xyz')
         Follower.get_or_create('user.com', 'https://mastodon/ccc',
                                last_follow={'actor': {
@@ -1316,7 +1317,7 @@ class WebTest(testutil.TestCase):
             'object': {
                 **ACTOR_AS2,
                 'attachment': ACTOR_AS2_FULL['attachment'],
-                'updated': util.now().isoformat(),
+                'updated': NOW.isoformat(),
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         }
@@ -1359,20 +1360,20 @@ class WebTest(testutil.TestCase):
                            )
 
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
-        got = self.user.verify()
-        self.assertEqual(self.user.key, got.key)
+        got = g.user.verify()
+        self.assertEqual(g.user.key, got.key)
 
         with self.subTest(redirects=redirects, hcard=hcard, actor=actor,
                           redirects_error=redirects_error):
-            self.assert_equals(redirects, bool(self.user.has_redirects))
-            self.assert_equals(hcard, bool(self.user.has_hcard))
+            self.assert_equals(redirects, bool(g.user.has_redirects))
+            self.assert_equals(hcard, bool(g.user.has_hcard))
             if actor is None:
-                self.assertIsNone(self.user.actor_as2)
+                self.assertIsNone(g.user.actor_as2)
             else:
-                got = {k: v for k, v in self.user.actor_as2.items()
+                got = {k: v for k, v in g.user.actor_as2.items()
                        if k in actor}
                 self.assert_equals(actor, got)
-            self.assert_equals(redirects_error, self.user.redirects_error)
+            self.assert_equals(redirects_error, g.user.redirects_error)
 
     def test_verify_neither(self, mock_get, _):
         empty = requests_response('')
@@ -1410,7 +1411,7 @@ http://this/404s
 
     def test_verify_no_hcard(self, mock_get, _):
         mock_get.side_effect = [
-            self.full_redir,
+            FULL_REDIR,
             requests_response("""
 <body>
 <div class="h-entry">
@@ -1426,7 +1427,7 @@ http://this/404s
             '<html><body><a class="h-card u-url" href="https://a.b/">acct:me@user.com</a></body></html>',
             url='https://user.com/',
         )
-        mock_get.side_effect = [self.full_redir, bad_hcard]
+        mock_get.side_effect = [FULL_REDIR, bad_hcard]
         self._test_verify(True, False, None)
 
     def test_verify_both_work(self, mock_get, _):
@@ -1437,7 +1438,7 @@ http://this/404s
 </body></html>""",
             url='https://user.com/',
         )
-        mock_get.side_effect = [self.full_redir, hcard]
+        mock_get.side_effect = [FULL_REDIR, hcard]
         self._test_verify(True, True, {
             'type': 'Person',
             'name': 'me',
@@ -1463,7 +1464,7 @@ http://this/404s
 
     def test_verify_actor_rel_me_links(self, mock_get, _):
         mock_get.side_effect = [
-            self.full_redir,
+            FULL_REDIR,
             requests_response("""
 <body>
 <div class="h-card">
@@ -1498,7 +1499,7 @@ http://this/404s
 
     def test_verify_override_preferredUsername(self, mock_get, _):
         mock_get.side_effect = [
-            self.full_redir,
+            FULL_REDIR,
             requests_response("""
 <body>
 <a class="h-card u-url" rel="me" href="/about-me">
@@ -1515,7 +1516,7 @@ http://this/404s
         })
 
     def test_web_url(self, _, __):
-        self.assertEqual('https://user.com/', self.user.web_url())
+        self.assertEqual('https://user.com/', g.user.web_url())
 
     def test_ap_address(self, *_):
         self.assertEqual('@user.com@user.com', g.user.ap_address())
@@ -1577,7 +1578,7 @@ http://this/404s
 
 @patch('requests.post')
 @patch('requests.get')
-class WebProtocolTest(testutil.TestCase):
+class WebProtocolTest(TestCase):
 
     def setUp(self):
         super().setUp()
@@ -1638,7 +1639,7 @@ class WebProtocolTest(testutil.TestCase):
         self.assert_equals({**REPOST_MF2, 'url': 'https://user.com/repost'}, obj.mf2)
 
     def test_fetch_user_homepage(self, mock_get, __):
-        mock_get.return_value = ACTOR
+        mock_get.return_value = ACTOR_HTML_RESP
 
         obj = Object(id='https://user.com/')
         Web.fetch(obj)

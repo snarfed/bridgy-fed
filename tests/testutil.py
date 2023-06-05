@@ -190,7 +190,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         kwargs.setdefault('headers', {})['Accept'] = CONNEG_HEADERS_AS2_HTML
         return self.client.get(*args, **kwargs)
 
-    def req(self, url, **kwargs):
+    @classmethod
+    def req(cls, url, **kwargs):
         """Returns a mock requests call."""
         kwargs.setdefault('headers', {}).update({
             'User-Agent': util.user_agent,
@@ -199,7 +200,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         kwargs.setdefault('stream', True)
         return call(url, **kwargs)
 
-    def as2_req(self, url, **kwargs):
+    @classmethod
+    def as2_req(cls, url, **kwargs):
         headers = {
             'Date': 'Sun, 02 Jan 2022 03:04:05 GMT',
             'Host': util.domain_from_link(url, minimize=False),
@@ -208,10 +210,11 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             **CONNEG_HEADERS_AS2_HTML,
             **kwargs.pop('headers', {}),
         }
-        return self.req(url, data=None, auth=ANY, headers=headers,
-                        allow_redirects=False, **kwargs)
+        return cls.req(url, data=None, auth=ANY, headers=headers,
+                       allow_redirects=False, **kwargs)
 
-    def as2_resp(self, obj):
+    @classmethod
+    def as2_resp(cls, obj):
         return requests_response(obj, content_type=as2.CONTENT_TYPE)
 
     def assert_req(self, mock, url, **kwargs):
