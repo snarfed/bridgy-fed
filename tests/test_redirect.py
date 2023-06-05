@@ -13,6 +13,9 @@ from . import testutil
 from common import redirect_unwrap
 from flask_app import app, cache
 from models import Object, User
+from web import Web
+
+from .test_activitypub import ACTOR_BASE_FULL
 from .test_web import (
     ACTOR_AS2,
     ACTOR_AS2_FULL,
@@ -26,9 +29,6 @@ REPOST_AS2 = {
     'actor': ACTOR_AS2,
 }
 del REPOST_AS2['cc']
-
-EXTERNAL_REPOST_AS2 = copy.deepcopy(REPOST_AS2)
-EXTERNAL_REPOST_AS2['actor']['id'] = 'http://localhost/r/https://user.com/'
 
 
 class RedirectTest(testutil.TestCase):
@@ -71,14 +71,16 @@ class RedirectTest(testutil.TestCase):
 
     def test_as2_creates_user(self):
         with self.request_context:
-            Object(id='https://user.com/repost', as2=EXTERNAL_REPOST_AS2).put()
+            Object(id='https://user.com/repost', as2=REPOST_AS2).put()
 
         self.user.key.delete()
 
         resp = self.client.get('/r/https://user.com/repost',
                                headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assert_equals(EXTERNAL_REPOST_AS2, resp.json)
+        self.assert_equals(REPOST_AS2, resp.json)
+
+        self.assert_user(Web, 'user.com', direct=False)
 
     @patch('requests.get')
     def test_as2_fetch_post(self, mock_get):
@@ -107,16 +109,26 @@ class RedirectTest(testutil.TestCase):
         resp = self.client.get('/r/https://user.com/',
                                headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assert_equals({
-            **ACTOR_AS2,
-            'id': 'http://localhost/r/https://user.com/',
-            'summary': '',
+
+        expected = copy.deepcopy(ACTOR_BASE_FULL)
+        del expected['endpoints']
+        del expected['followers']
+        del expected['following']
+        del expected['inbox']
+        del expected['outbox']
+        self.assert_equals(expected, resp.json, ignore=['publicKeyPem'])
+
+        self.assert_user(Web, 'user.com', direct=False, actor_as2={
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Person',
+            'url': 'https://user.com/',
+            'name': 'Ms. ☕ Baz',
             'attachment': [{
-                'name': 'Ms. ☕ Baz',
                 'type': 'PropertyValue',
+                'name': 'Ms. ☕ Baz',
                 'value': '<a rel="me" href="https://user.com/">user.com</a>',
             }],
-        }, resp.json)
+        })
 
     def test_accept_header_cache_key(self):
         app.config['CACHE_TYPE'] = 'SimpleCache'

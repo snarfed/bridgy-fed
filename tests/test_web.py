@@ -69,7 +69,6 @@ ACTOR_AS2_FULL = {
         'https://www.w3.org/ns/activitystreams',
         'https://w3id.org/security/v1',
     ],
-    'preferredUsername': 'user.com',
     'attachment': [{
         'name': 'Web site',
         'type': 'PropertyValue',

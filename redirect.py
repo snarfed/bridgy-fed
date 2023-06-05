@@ -83,10 +83,7 @@ def redir(to):
                 logger.info(f'Found web user for domain {domain}')
                 break
     else:
-        if accept_as2:
-            g.external_user = urllib.parse.urljoin(to, '/')
-            logging.info(f'No web user for {g.external_user}')
-        else:
+        if not accept_as2:
             return f'No web user found for any of {domains}', 404
 
     if accept_as2:
@@ -94,6 +91,12 @@ def redir(to):
         obj = Web.load(to, check_backlink=False)
         if not obj or obj.deleted:
             return f'Object not found: {to}', 404
+
+        g.user = Web.get_or_create(util.domain_from_link(to), direct=False)
+        if g.user.is_web_url(to):
+            g.user.actor_as2 = as2.from_as1(obj.as1)
+            g.user.put()
+
         ret, _ = ActivityPub.serve(obj)
         logger.info(f'Returning: {json_dumps(ret, indent=2)}')
         return ret, {

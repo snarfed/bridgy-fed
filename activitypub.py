@@ -328,7 +328,7 @@ def postprocess_as2(activity, target=None, wrap=True):
     if not activity or isinstance(activity, str):
         return activity
 
-    assert bool(g.user) ^ bool(g.external_user)  # should have one but not both
+    assert g.user
     type = activity.get('type')
 
     # actor objects
@@ -396,14 +396,10 @@ def postprocess_as2(activity, target=None, wrap=True):
         obj['id'] = util.get_first(obj, 'url') or target_id
     elif g.user and g.user.is_web_url(id):
         obj['id'] = g.user.ap_actor()
-    elif g.external_user:
-        obj['id'] = redirect_wrap(g.external_user)
 
     # for Accepts
     if g.user and g.user.is_web_url(obj.get('object')):
         obj['object'] = g.user.ap_actor()
-    elif g.external_user and g.external_user == obj.get('object'):
-        obj['object'] = redirect_wrap(g.external_user)
 
     # id is required for most things. default to url if it's not set.
     if not activity.get('id'):
@@ -506,8 +502,6 @@ def postprocess_as2_actor(actor, wrap=True):
     id = actor.get('id')
     if g.user and (not id or g.user.is_web_url(id)):
         actor['id'] = g.user.ap_actor()
-    elif g.external_user and (not id or id == g.external_user):
-        actor['id'] = redirect_wrap(g.external_user)
 
     actor.update({
         'url': urls if len(urls) > 1 else urls[0],

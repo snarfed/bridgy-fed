@@ -207,7 +207,7 @@ class WebfingerTest(testutil.TestCase):
         self.assertEqual(404, got.status_code)
 
     @patch('requests.get')
-    def test_webfinger_external_user_fetch_create_user(self, mock_get):
+    def test_webfinger_fetch_create_user(self, mock_get):
         self.user.key.delete()
         mock_get.return_value = requests_response(ACTOR_HTML)
 

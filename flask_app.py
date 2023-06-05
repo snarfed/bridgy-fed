@@ -39,9 +39,8 @@ def init_globals():
     """Set request globals.
 
     * g.user: Current internal user we're operating on behalf of.
-    * g.external_user: Current external user we're operating on behalf of.
     """
-    g.user = g.external_user = None
+    g.user = None
 
 # don't redirect API requests with blank path elements
 app.url_map.merge_slashes = False

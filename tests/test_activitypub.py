@@ -65,6 +65,15 @@ ACTOR_BASE = {
         'publicKeyPem': 'populated in setUp()',
     },
 }
+ACTOR_BASE_FULL = {
+    **ACTOR_BASE,
+    'name': 'Ms. ☕ Baz',
+    'attachment': [{
+        'name': 'Web site',
+        'type': 'PropertyValue',
+        'value': '<a rel="me" href="https://user.com/">user.com</a>',
+    }],
+}
 REPLY_OBJECT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Note',
@@ -347,15 +356,7 @@ class ActivityPubTest(TestCase):
 
         got = self.client.get('/user.com')
         self.assertEqual(200, got.status_code)
-        self.assert_equals({
-            **ACTOR_BASE,
-            'name': 'Ms. ☕ Baz',
-            'attachment': [{
-                'name': 'Web site',
-                'type': 'PropertyValue',
-                'value': '<a rel="me" href="https://user.com/">user.com</a>',
-            }],
-        }, got.json, ignore=['publicKeyPem'])
+        self.assert_equals(ACTOR_BASE_FULL, got.json, ignore=['publicKeyPem'])
 
     def test_actor_new_user_fetch_no_mf2(self, _, mock_get, __):
         self.user.key.delete()
