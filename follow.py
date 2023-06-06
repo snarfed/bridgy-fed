@@ -21,58 +21,9 @@ from flask_app import app
 import common
 from models import Follower, Object, PROTOCOLS
 from web import Web
+import webfinger
 
 logger = logging.getLogger(__name__)
-
-SUBSCRIBE_LINK_REL = 'http://ostatus.org/schema/1.0/subscribe'
-
-
-def fetch_webfinger(addr):
-    """Fetches and returns an address's Webfinger data.
-
-    On failure, flashes a message and returns None.
-
-    Args:
-      addr: str, a Webfinger-compatible address, eg @x@y, acct:x@y, or
-        https://x/y
-
-    Returns:
-      dict, fetched Webfinger data
-    """
-    addr = addr.strip().strip('@')
-    split = addr.split('@')
-    if len(split) == 2:
-        addr_domain = split[1]
-        resource = f'acct:{addr}'
-    elif util.is_web(addr):
-        addr_domain = util.domain_from_link(addr, minimize=False)
-        resource = addr
-    else:
-        flash('Enter a fediverse address in @user@domain.social format')
-        return None
-
-    try:
-        resp = util.requests_get(
-            f'https://{addr_domain}/.well-known/webfinger?resource={resource}')
-    except BaseException as e:
-        if util.is_connection_failure(e):
-            flash(f"Couldn't connect to {addr_domain}")
-            return None
-        raise
-
-    if not resp.ok:
-        flash(f'WebFinger on {addr_domain} returned HTTP {resp.status_code}')
-        return None
-
-    try:
-        data = resp.json()
-    except ValueError as e:
-        logger.warning(f'Got {e}', exc_info=True)
-        flash(f'WebFinger on {addr_domain} returned non-JSON')
-        return None
-
-    logger.info(f'Got: {json_dumps(data, indent=2)}')
-    return data
 
 
 @app.post('/remote-follow')
@@ -90,12 +41,12 @@ def remote_follow():
         error(f'No web user found for domain {domain}')
 
     addr = request.values['address']
-    webfinger = fetch_webfinger(addr)
-    if webfinger is None:
+    resp = webfinger.fetch(addr)
+    if resp is None:
         return redirect(g.user.user_page_path())
 
-    for link in webfinger.get('links', []):
-        if link.get('rel') == SUBSCRIBE_LINK_REL:
+    for link in resp.get('links', []):
+        if link.get('rel') == webfinger.SUBSCRIBE_LINK_REL:
             template = link.get('template')
             if template and '{uri}' in template:
                 return redirect(template.replace('{uri}', g.user.ap_address()))
@@ -150,12 +101,12 @@ class FollowCallback(indieauth.Callback):
         elif util.is_web(state):
             as2_url = state
         else:
-            webfinger = fetch_webfinger(addr)
-            if webfinger is None:
+            resp = webfinger.fetch(addr)
+            if resp is None:
                 return redirect(g.user.user_page_path('following'))
 
             as2_url = None
-            for link in webfinger.get('links', []):
+            for link in resp.get('links', []):
                 type = link.get('type', '').split(';')[0]
                 if link.get('rel') == 'self' and type in as2.CONTENT_TYPES:
                     as2_url = link.get('href')

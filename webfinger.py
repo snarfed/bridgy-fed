@@ -11,7 +11,7 @@ import urllib.parse
 from flask import g, render_template, request
 from granary import as2
 from oauth_dropins.webutil import flask_util, util
-from oauth_dropins.webutil.flask_util import error
+from oauth_dropins.webutil.flask_util import error, flash
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
@@ -20,6 +20,8 @@ from models import User
 from web import Web
 
 NON_TLDS = frozenset(('html', 'json', 'php', 'xml'))
+
+SUBSCRIBE_LINK_REL = 'http://ostatus.org/schema/1.0/subscribe'
 
 logger = logging.getLogger(__name__)
 
@@ -171,6 +173,59 @@ def host_meta_xrds():
     """Renders and serves the /.well-known/host-meta.xrds XRDS-Simple file."""
     return (render_template('host-meta.xrds', host_uri=common.host_url()),
             {'Content-Type': 'application/xrds+xml'})
+
+
+def fetch(addr):
+    """Fetches and returns an address's Webfinger data.
+
+    On failure, flashes a message and returns None.
+
+    TODO: unit tests. right now it's only tested indirectly, in test_follow.
+    TODO: switch to raising exceptions instead of flashing messages and
+    returning None
+
+    Args:
+      addr: str, a Webfinger-compatible address, eg @x@y, acct:x@y, or
+        https://x/y
+
+    Returns:
+      dict, fetched Webfinger data, or None on error
+
+    """
+    addr = addr.strip().strip('@')
+    split = addr.split('@')
+    if len(split) == 2:
+        addr_domain = split[1]
+        resource = f'acct:{addr}'
+    elif util.is_web(addr):
+        addr_domain = util.domain_from_link(addr, minimize=False)
+        resource = addr
+    else:
+        flash('Enter a fediverse address in @user@domain.social format')
+        return None
+
+    try:
+        resp = util.requests_get(
+            f'https://{addr_domain}/.well-known/webfinger?resource={resource}')
+    except BaseException as e:
+        if util.is_connection_failure(e):
+            flash(f"Couldn't connect to {addr_domain}")
+            return None
+        raise
+
+    if not resp.ok:
+        flash(f'WebFinger on {addr_domain} returned HTTP {resp.status_code}')
+        return None
+
+    try:
+        data = resp.json()
+    except ValueError as e:
+        logger.warning(f'Got {e}', exc_info=True)
+        flash(f'WebFinger on {addr_domain} returned non-JSON')
+        return None
+
+    logger.info(f'Got: {json_dumps(data, indent=2)}')
+    return data
 
 
 app.add_url_rule(f'/acct:<regex("{common.DOMAIN_RE}"):domain>',
