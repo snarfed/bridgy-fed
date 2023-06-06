@@ -7,6 +7,7 @@ import re
 import urllib.parse
 
 from flask import g, redirect, render_template, request
+from google.cloud.ndb.model import get_multi
 from google.cloud.ndb.stats import KindStat
 from granary import as1, as2, atom, microformats2, rss
 import humanize
@@ -118,15 +119,18 @@ def user(protocol, id):
 def followers_or_following(protocol, id, collection):
     load_user(protocol, id)
 
-    followers, before, after = Follower.fetch_page(id, collection)
+    followers, before, after = Follower.fetch_page(collection)
+    users = {
+        u.key: u for u in get_multi(f.from_ if collection == 'followers' else f.to
+                                    for f in followers)
+    }
 
     for f in followers:
-        f.url = f.src if collection == 'followers' else f.dest
-        person = f.to_as1()
-        f.handle = as2.address(as2.from_as1(person) or f.url) or f.url
-        if person and isinstance(person, dict):
-            f.name = person.get('name') or ''
-            f.picture = util.get_url(person, 'icon') or util.get_url(person, 'image')
+        user = users[f.from_ if collection == 'followers' else f.to]
+        f.url = user.web_url()
+        f.as1 = as2.to_as1(user.actor_as2)
+        f.handle = as2.address(user.actor_as2 or f.url) or f.url
+        f.picture = util.get_url(f.as1, 'icon') or util.get_url(f.as1, 'image')
 
     return render_template(
         f'{collection}.html',

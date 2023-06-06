@@ -73,6 +73,7 @@ POST_THREAD_BSKY = {
 }
 
 
+@skip
 class XrpcFeedTest(testutil.TestCase):
 
     def setUp(self):

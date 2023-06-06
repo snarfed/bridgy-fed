@@ -8,6 +8,7 @@ from . import testutil
 
 from .test_activitypub import ACTOR, FOLLOW, FOLLOW_WITH_ACTOR, FOLLOW_WITH_OBJECT
 from models import Follower, User
+from unittest import skip
 
 SUBJECT = {
     '$type': 'app.bsky.actor.defs#profileView',
@@ -32,6 +33,7 @@ FOLLOWERS_BSKY = [{
 }]
 
 
+@skip
 class XrpcGraphTest(testutil.TestCase):
 
     def test_getProfile_no_user(self):

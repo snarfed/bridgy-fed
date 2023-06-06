@@ -196,7 +196,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return self.readable_or_key_id()
 
     def web_url(self):
-        """Returns this user's web URL aka web_url, eg 'https://foo.com/'.
+        """Returns this user's web URL (homepage), eg 'https://foo.com/'.
 
         To be implemented by subclasses.
 
@@ -206,7 +206,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         raise NotImplementedError()
 
     def is_web_url(self, url):
-        """Returns True if the given URL is this user's web URL (web_url).
+        """Returns True if the given URL is this user's web URL (homepage).
 
         Args:
           url: str
@@ -477,77 +477,82 @@ class AtpNode(StringIdModel):
         return node
 
 
-class Follower(StringIdModel):
-    """A follower of a Bridgy Fed user.
-
-    Key name is 'TO FROM', where each part is either a domain or an AP id, eg:
-    'snarfed.org https://mastodon.social/@swentel'.
-
-    Both parts are duplicated in the src and dest properties.
-    """
+class Follower(ndb.Model):
+    """A follower of a Bridgy Fed user."""
     STATUSES = ('active', 'inactive')
 
-    src = ndb.StringProperty()
-    dest = ndb.StringProperty()
-    # Most recent AP (AS2) JSON Follow activity. If inbound, must have a
-    # composite actor object with an inbox, publicInbox, or sharedInbox.
-    last_follow = JsonProperty()
+    # these are both subclasses of User
+    from_ = ndb.KeyProperty(name='from')
+    to = ndb.KeyProperty()
+
+    follow = ndb.KeyProperty(Object)  # last follow activity
     status = ndb.StringProperty(choices=STATUSES, default='active')
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
+    # DEPRECATED
+    src = ndb.StringProperty()
+    dest = ndb.StringProperty()
+    last_follow = JsonProperty()
+
     def _post_put_hook(self, future):
-        logger.info(f'Wrote Follower {self.key.id()} {self.status}')
+        logger.info(f'Wrote {self}')
 
     @classmethod
-    def _id(cls, dest, src):
-        assert src
-        assert dest
-        return f'{dest} {src}'
+    @ndb.transactional()
+    def get_or_create(cls, *, from_, to, **kwargs):
+        """Returns a Follower with the given from_ and to users.
 
-    @classmethod
-    def get_or_create(cls, dest, src, **kwargs):
-        follower = cls.get_or_insert(cls._id(dest, src), src=src, dest=dest, **kwargs)
-        follower.dest = dest
-        follower.src = src
-        for prop, val in kwargs.items():
-            setattr(follower, prop, val)
-        follower.put()
+        If a matching Follower doesn't exist in the datastore, creates it first.
+
+        Args:
+          from_: :class:`User`
+          to: :class:`User`
+
+        Returns:
+          :class:`Follower`
+        """
+        assert from_
+        assert to
+
+        follower = Follower.query(Follower.from_ == from_.key,
+                                  Follower.to == to.key,
+                                  ).get()
+        if not follower:
+            follower = Follower(from_=from_.key, to=to.key, **kwargs)
+            follower.put()
+        elif kwargs:
+            # update existing entity with new property values, eg to make an
+            # inactive Follower active again
+            for prop, val in kwargs.items():
+                setattr(follower, prop, val)
+            follower.put()
+
         return follower
 
-    def to_as1(self):
-        """Returns this follower as an AS1 actor dict, if possible."""
-        return as2.to_as1(self.to_as2())
-
-    def to_as2(self):
-        """Returns this follower as an AS2 actor dict, if possible."""
-        if self.last_follow:
-            return self.last_follow.get('actor' if util.is_web(self.src) else 'object')
-
     @staticmethod
-    def fetch_page(domain, collection):
-        """Fetches a page of Follower entities.
+    def fetch_page(collection):
+        """Fetches a page of Follower entities for the current user.
 
         Wraps :func:`fetch_page`. Paging uses the `before` and `after` query
         parameters, if available in the request.
 
         Args:
-          domain: str, user to fetch entities for
           collection, str, 'followers' or 'following'
 
         Returns:
           (results, new_before, new_after) tuple with:
-          results: list of Follower entities
+          results: list of :class:`Follower` entities
           new_before, new_after: str query param values for `before` and `after`
             to fetch the previous and next pages, respectively
         """
         assert collection in ('followers', 'following'), collection
 
-        domain_prop = Follower.dest if collection == 'followers' else Follower.src
+        prop = Follower.to if collection == 'followers' else Follower.from_
         query = Follower.query(
             Follower.status == 'active',
-            domain_prop == domain,
+            prop == g.user.key,
         ).order(-Follower.updated)
         return fetch_page(query, Follower)
 

@@ -213,22 +213,29 @@ class FollowerTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.inbound = Follower(dest='user.com', src='http://mas.to/@baz',
-                                last_follow={'actor': ACTOR})
-        self.outbound = Follower(dest='http://mas.to/@baz', src='user.com',
-                                 last_follow={'object': ACTOR})
+        g.user = self.make_user('foo', cls=Fake)
+        self.other_user = self.make_user('bar', cls=Fake)
 
-    def test_to_as1(self):
-        self.assertEqual({}, Follower().to_as1())
+    def test_get_or_create(self):
+        follower = Follower.get_or_create(from_=g.user, to=self.other_user)
 
-        as1_actor = as2.to_as1(ACTOR)
-        self.assertEqual(as1_actor, self.inbound.to_as1())
-        self.assertEqual(as1_actor, self.outbound.to_as1())
+        self.assertEqual(g.user.key, follower.from_)
+        self.assertEqual(self.other_user.key, follower.to)
+        self.assertEqual(1, Follower.query().count())
 
-    def test_to_as2(self):
-        self.assertIsNone(Follower().to_as2())
-        self.assertEqual(ACTOR, self.inbound.to_as2())
-        self.assertEqual(ACTOR, self.outbound.to_as2())
+        follower2 = Follower.get_or_create(from_=g.user, to=self.other_user)
+        self.assert_entities_equal(follower, follower2)
+        self.assertEqual(1, Follower.query().count())
+
+        Follower.get_or_create(to=g.user, from_=self.other_user)
+        Follower.get_or_create(from_=g.user, to=self.make_user('baz', cls=Fake))
+        self.assertEqual(3, Follower.query().count())
+
+        # check that kwargs get set on existing entity
+        follower = Follower.get_or_create(from_=g.user, to=self.other_user,
+                                          status='inactive')
+        got = follower.key.get()
+        self.assertEqual('inactive', got.status)
 
 
 class AtpNodeTest(TestCase):

@@ -7,7 +7,7 @@
     {% if f.picture %}
       <img class="profile u-photo" src="{{ f.picture }}" width="48px">
     {% endif %}
-    {{ f.name or '' }}
+    {{ f.as1.get('displayName') or '' }}
     {{ f.handle }}
   </a>
   {% if page_name == 'following' %}

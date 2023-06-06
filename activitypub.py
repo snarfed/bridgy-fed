@@ -652,9 +652,8 @@ def follower_collection(protocol, domain, collection):
     followers, new_before, new_after = Follower.fetch_page(domain, collection)
     items = []
     for f in followers:
-        f_as2 = f.to_as2()
-        if f_as2:
-            items.append(f_as2)
+        if f.obj.as1:
+            items.append(as2.from_as1(f.obj.as1))
 
     page = {
         'type': 'CollectionPage',

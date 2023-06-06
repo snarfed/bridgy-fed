@@ -20,7 +20,7 @@ from werkzeug.exceptions import BadGateway, BadRequest
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
 
-import activitypub
+from activitypub import ActivityPub
 from common import (
     CONTENT_TYPE_HTML,
     redirect_unwrap,
@@ -863,32 +863,30 @@ class WebTest(TestCase):
 
     @staticmethod
     def make_followers():
-        Follower.get_or_create('user.com', 'https://mastodon/aaa')
-        Follower.get_or_create('user.com', 'https://mastodon/bbb',
-                               last_follow={'actor': {
-                                   'publicInbox': 'https://public/inbox',
-                                   'inbox': 'https://unused',
-                               }})
-        Follower.get_or_create('user.com', 'https://mastodon/ccc',
-                               last_follow={'actor': {
-                                   'endpoints': {
-                                       'sharedInbox': 'https://shared/inbox',
-                                   },
-                               }})
-        Follower.get_or_create('user.com', 'https://mastodon/ddd',
-                               last_follow={'actor': {
-                                   'inbox': 'https://inbox',
-                               }})
-        Follower.get_or_create('user.com', 'https://mastodon/ggg',
-                               status='inactive',
-                               last_follow={'actor': {
-                                   'inbox': 'https://unused/2',
-                               }})
-        Follower.get_or_create('user.com', 'https://mastodon/hhh',
-                               last_follow={'actor': {
-                                   # dupe of eee; should be de-duped
-                                   'inbox': 'https://inbox',
-                               }})
+        for id, kwargs, actor in [
+            ('https://mastodon/aaa', {}, None),
+            ('https://mastodon/bbb', {}, {
+                'publicInbox': 'https://public/inbox',
+                'inbox': 'https://unused',
+            }),
+            ('https://mastodon/ccc', {}, {
+                'endpoints': {
+                    'sharedInbox': 'https://shared/inbox',
+                },
+            }),
+            ('https://mastodon/ddd', {}, {
+               'inbox': 'https://inbox',
+            }),
+            ('https://mastodon/ggg', {'status': 'inactive'}, {
+                'inbox': 'https://unused/2',
+            }),
+            ('https://mastodon/hhh', {}, {
+                # dupe of ddd; should be de-duped
+                'inbox': 'https://inbox',
+            }),
+        ]:
+            from_ = ActivityPub.get_or_create(id=id, actor_as2=actor)
+            Follower.get_or_create(to=g.user, from_=from_, **kwargs)
 
     def test_create_post(self, mock_get, mock_post):
         mock_get.side_effect = [NOTE, ACTOR]
@@ -979,9 +977,8 @@ class WebTest(TestCase):
         ]
         mock_post.return_value = requests_response('abc xyz ')
 
-        Follower.get_or_create(
-            'user.com', 'https://mastodon/aaa',
-            last_follow={'actor': {'inbox': 'https://inbox'}})
+        Follower.get_or_create(to=g.user, from_=ActivityPub.get_or_create(
+            id='aaa', actor_as2={'inbox': 'https://inbox'}))
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/post',
@@ -1014,24 +1011,25 @@ class WebTest(TestCase):
 
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
 
-        self.assert_object('https://user.com/follow',
-                           domains=['user.com'],
-                           source_protocol='web',
-                           status='complete',
-                           mf2=FOLLOW_MF2,
-                           as1=FOLLOW_AS1,
-                           delivered=['https://mas.to/inbox'],
-                           type='follow',
-                           object_ids=['https://mas.to/mrs-foo'],
-                           labels=['user', 'activity'],
-                           )
+        obj = self.assert_object('https://user.com/follow',
+                                 domains=['user.com'],
+                                 source_protocol='web',
+                                 status='complete',
+                                 mf2=FOLLOW_MF2,
+                                 as1=FOLLOW_AS1,
+                                 delivered=['https://mas.to/inbox'],
+                                 type='follow',
+                                 object_ids=['https://mas.to/mrs-foo'],
+                                 labels=['user', 'activity'],
+                                 )
+
+        to = self.assert_user(ActivityPub, 'https://mas.to/mrs-foo')
 
         followers = Follower.query().fetch()
         self.assertEqual(1, len(followers))
-        self.assertEqual('https://mas.to/mrs-foo user.com', followers[0].key.id())
-        self.assertEqual('user.com', followers[0].src)
-        self.assertEqual('https://mas.to/mrs-foo', followers[0].dest)
-        self.assert_equals(as2.from_as1(FOLLOW_AS1), followers[0].last_follow)
+        self.assertEqual(g.user.key, followers[0].from_)
+        self.assertEqual(to.key, followers[0].to)
+        self.assert_equals(obj.key, followers[0].follow)
 
     def test_follow_no_actor(self, mock_get, mock_post):
         g.user.actor_as2 = ACTOR_AS2
@@ -1091,23 +1089,23 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'],
                                FOLLOW_FRAGMENT_AS2)
 
-        self.assert_object('https://user.com/follow#2',
-                           domains=['user.com'],
-                           source_protocol='web',
-                           status='complete',
-                           mf2=FOLLOW_FRAGMENT_MF2,
-                           as1=FOLLOW_FRAGMENT_AS1,
-                           delivered=['https://mas.to/inbox'],
-                           type='follow',
-                           object_ids=['https://mas.to/mrs-foo'],
-                           labels=['user', 'activity'],
-                           )
+        obj = self.assert_object('https://user.com/follow#2',
+                                 domains=['user.com'],
+                                 source_protocol='web',
+                                 status='complete',
+                                 mf2=FOLLOW_FRAGMENT_MF2,
+                                 as1=FOLLOW_FRAGMENT_AS1,
+                                 delivered=['https://mas.to/inbox'],
+                                 type='follow',
+                                 object_ids=['https://mas.to/mrs-foo'],
+                                 labels=['user', 'activity'],
+                                 )
 
         followers = Follower.query().fetch()
         self.assert_equals(1, len(followers))
-        self.assert_equals('https://mas.to/mrs-foo user.com', followers[0].key.id())
-        self.assert_equals('user.com', followers[0].src)
-        self.assert_equals('https://mas.to/mrs-foo', followers[0].dest)
+        self.assert_equals(g.user.key, followers[0].from_)
+        self.assert_equals(ActivityPub(id='https://mas.to/mrs-foo').key,
+                           followers[0].to)
 
     def test_follow_multiple(self, mock_get, mock_post):
         html = FOLLOW_HTML.replace(
@@ -1152,38 +1150,32 @@ class WebTest(TestCase):
 
         mf2 = util.parse_mf2(html)['items'][0]
         as1 = microformats2.json_to_object(mf2)
-        self.assert_object('https://user.com/follow',
-                           domains=['user.com'],
-                           source_protocol='web',
-                           status='complete',
-                           mf2=mf2,
-                           as1=as1,
-                           delivered=['https://mas.to/inbox',
-                                      'https://mas.to/inbox/biff'],
-                           type='follow',
-                           object_ids=['https://mas.to/mrs-foo',
-                                       'https://mas.to/mr-biff'],
-                           labels=['user', 'activity'],
-                           )
+        obj = self.assert_object('https://user.com/follow',
+                                 domains=['user.com'],
+                                 source_protocol='web',
+                                 status='complete',
+                                 mf2=mf2,
+                                 as1=as1,
+                                 delivered=['https://mas.to/inbox',
+                                            'https://mas.to/inbox/biff'],
+                                 type='follow',
+                                 object_ids=['https://mas.to/mrs-foo',
+                                             'https://mas.to/mr-biff'],
+                                 labels=['user', 'activity'],
+                                 )
 
         followers = Follower.query().fetch()
         self.assertEqual(2, len(followers))
 
-        self.assertEqual('https://mas.to/mr-biff user.com', followers[0].key.id())
-        self.assertEqual('user.com', followers[0].src)
-        self.assertEqual('https://mas.to/mr-biff', followers[0].dest)
-        self.assert_equals(as2.from_as1({
-            **FOLLOW_AS1,
-            'object': 'https://mas.to/mr-biff',
-        }), followers[0].last_follow)
+        self.assertEqual(g.user.key, followers[0].from_)
+        self.assertEqual(ActivityPub(id='https://mas.to/mr-biff').key,
+                         followers[0].to)
+        self.assert_equals(obj.key, followers[0].follow)
 
-        self.assertEqual('https://mas.to/mrs-foo user.com', followers[1].key.id())
-        self.assertEqual('user.com', followers[1].src)
-        self.assertEqual('https://mas.to/mrs-foo', followers[1].dest)
-        self.assert_equals(as2.from_as1({
-            **FOLLOW_AS1,
-            'object': 'https://mas.to/mrs-foo',
-        }), followers[1].last_follow)
+        self.assertEqual(g.user.key, followers[1].from_)
+        self.assertEqual(ActivityPub(id='https://mas.to/mrs-foo').key,
+                         followers[1].to)
+        self.assert_equals(obj.key, followers[1].follow)
 
     def test_error_fragment_missing(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
@@ -1305,16 +1297,14 @@ class WebTest(TestCase):
     def test_update_profile(self, mock_get, mock_post):
         mock_get.side_effect = [ACTOR_HTML_RESP]
         mock_post.return_value = requests_response('abc xyz')
-        Follower.get_or_create('user.com', 'https://mastodon/ccc',
-                               last_follow={'actor': {
-                                   'endpoints': {
-                                       'sharedInbox': 'https://shared/inbox',
-                                   },
-                               }})
-        Follower.get_or_create('user.com', 'https://mastodon/ddd',
-                               last_follow={'actor': {
-                                   'inbox': 'https://inbox',
-                               }})
+        Follower.get_or_create(to=g.user, from_=ActivityPub.get_or_create(
+            id='ccc', actor_as2={
+                'endpoints': {
+                    'sharedInbox': 'https://shared/inbox',
+                },
+            }))
+        Follower.get_or_create(to=g.user, from_=ActivityPub.get_or_create(
+            id='ddd', actor_as2={'inbox': 'https://inbox'}))
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/',

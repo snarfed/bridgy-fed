@@ -11,8 +11,9 @@ from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 # import first so that Fake is defined before URL routes are registered
-from . import testutil
+from .testutil import Fake, TestCase
 
+from activitypub import ActivityPub
 import common
 from common import redirect_unwrap
 from models import Follower, Object, User
@@ -58,7 +59,7 @@ UNDO_FOLLOW = {
 
 
 @patch('requests.get')
-class RemoteFollowTest(testutil.TestCase):
+class RemoteFollowTest(TestCase):
 
     def setUp(self):
         super().setUp()
@@ -132,7 +133,7 @@ class RemoteFollowTest(testutil.TestCase):
 
 @patch('requests.post')
 @patch('requests.get')
-class FollowTest(testutil.TestCase):
+class FollowTest(TestCase):
 
     def setUp(self):
         super().setUp()
@@ -206,15 +207,16 @@ class FollowTest(testutil.TestCase):
         self.assertTrue(sig_template.startswith('keyId="http://localhost/alice.com"'),
                         sig_template)
 
+        follow_id = f'http://localhost/web/alice.com/following#2022-01-02T03:04:05-{input}'
+
         followers = Follower.query().fetch()
         self.assert_entities_equal(
-            Follower(id='https://bar/id alice.com', last_follow=expected_follow,
-                     src='alice.com', dest='https://bar/id', status='active'),
+            Follower(from_=self.user.key, to=ActivityPub(id='https://bar/id').key,
+                     follow=Object(id=follow_id).key, status='active'),
             followers,
             ignore=['created', 'updated'])
 
-        id = f'http://localhost/web/alice.com/following#2022-01-02T03:04:05-{input}'
-        self.assert_object(id, domains=['alice.com'], status='complete',
+        self.assert_object(follow_id, domains=['alice.com'], status='complete',
                            labels=['user', 'activity'], source_protocol='ui',
                            as2=expected_follow, as1=as2.to_as1(expected_follow))
 
@@ -256,16 +258,17 @@ class FollowTest(testutil.TestCase):
             'object': FOLLOWEE,
             'to': [as2.PUBLIC_AUDIENCE],
         }
+        follow_obj = self.assert_object(
+            id, domains=['www.alice.com'], status='complete',
+            labels=['user', 'activity'], source_protocol='ui', as2=expected_follow,
+            as1=as2.to_as1(expected_follow))
+
         followers = Follower.query().fetch()
         self.assert_entities_equal(
-            Follower(id='https://bar/id www.alice.com', last_follow=expected_follow,
-                     src='www.alice.com', dest='https://bar/id', status='active'),
+            Follower(from_=user.key, to=ActivityPub(id='https://bar/id').key,
+                     follow=follow_obj.key, status='active'),
             followers,
             ignore=['created', 'updated'])
-
-        self.assert_object(id, domains=['www.alice.com'], status='complete',
-                           labels=['user', 'activity'], source_protocol='ui',
-                           as2=expected_follow, as1=as2.to_as1(expected_follow))
 
     def test_indieauthed_session(self, mock_get, mock_post):
         mock_get.side_effect = (
@@ -303,7 +306,7 @@ class FollowTest(testutil.TestCase):
 
 @patch('requests.post')
 @patch('requests.get')
-class UnfollowTest(testutil.TestCase):
+class UnfollowTest(TestCase):
 
     def setUp(self):
         super().setUp()

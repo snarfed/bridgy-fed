@@ -36,7 +36,12 @@ class PagesTest(TestCase):
 
     def setUp(self):
         super().setUp()
+        # self.request_context.push()
         self.user = self.make_user('user.com')
+
+    # def tearDown(self):
+    #     self.request_context.pop()
+    #     super().tearDown()
 
     def test_user(self):
         got = self.client.get('/web/user.com')
@@ -150,13 +155,15 @@ class PagesTest(TestCase):
         self.assert_equals(400, got.status_code)
 
     def test_followers(self):
-        self.make_user('bar.com')
-        Follower.get_or_create('bar.com', 'https://no.stored/users/follow')
-        Follower.get_or_create('bar.com', 'https://masto/user', last_follow={
-            **FOLLOW_WITH_ACTOR,
-            'actor': ACTOR_WITH_PREFERRED_USERNAME,
-        })
-        got = self.client.get('/web/bar.com/followers')
+        Follower.get_or_create(
+            to=self.user,
+            from_=self.make_user('no.stored/users/follow', cls=Fake))
+        Follower.get_or_create(
+            to=self.user,
+            from_=self.make_user('masto/user', cls=Fake,
+                                 actor_as2=ACTOR_WITH_PREFERRED_USERNAME))
+
+        got = self.client.get('/web/user.com/followers')
         self.assert_equals(200, got.status_code)
 
         body = got.get_data(as_text=True)
@@ -169,13 +176,12 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code)
 
     def test_followers_empty(self):
-        self.make_user('bar.com')
-        got = self.client.get('/web/bar.com/followers')
+        got = self.client.get('/web/user.com/followers')
         self.assert_equals(200, got.status_code)
         self.assertNotIn('class="follower', got.get_data(as_text=True))
 
     def test_followers_user_not_found(self):
-        got = self.client.get('/web/bar.com/followers')
+        got = self.client.get('/web/nope.com/followers')
         self.assert_equals(404, got.status_code)
 
     def test_followers_redirect(self):
@@ -184,20 +190,23 @@ class PagesTest(TestCase):
         self.assert_equals('/web/user.com/followers', got.headers['Location'])
 
     def test_following(self):
-        Follower.get_or_create('https://no/stored/follow', 'bar.com')
-        Follower.get_or_create('https://masto/user', 'bar.com',
-                               last_follow=FOLLOW_WITH_OBJECT)
-        self.make_user('bar.com')
-        got = self.client.get('/web/bar.com/following')
+        Follower.get_or_create(
+            from_=self.user,
+            to=self.make_user('no.stored/users/follow', cls=Fake))
+        Follower.get_or_create(
+            from_=self.user,
+            to=self.make_user('masto/user', cls=Fake,
+                              actor_as2=ACTOR_WITH_PREFERRED_USERNAME))
+
+        got = self.client.get('/web/user.com/following')
         self.assert_equals(200, got.status_code)
 
         body = got.get_data(as_text=True)
-        self.assertIn('no/stored/follow', body)
+        self.assertIn('@follow@no.stored', body)
         self.assertIn('masto/user', body)
 
     def test_following_empty(self):
-        self.make_user('bar.com')
-        got = self.client.get('/web/bar.com/following')
+        got = self.client.get('/web/user.com/following')
         self.assert_equals(200, got.status_code)
         self.assertNotIn('class="follower', got.get_data(as_text=True))
 
@@ -207,7 +216,7 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code)
 
     def test_following_user_not_found(self):
-        got = self.client.get('/web/bar.com/following')
+        got = self.client.get('/web/nope.com/following')
         self.assert_equals(404, got.status_code)
 
     def test_following_redirect(self):
@@ -216,17 +225,15 @@ class PagesTest(TestCase):
         self.assert_equals('/web/user.com/following', got.headers['Location'])
 
     def test_following_before_empty(self):
-        self.make_user('bar.com')
-        got = self.client.get(f'/web/bar.com/following?before={util.now().isoformat()}')
+        got = self.client.get(f'/web/user.com/following?before={util.now().isoformat()}')
         self.assert_equals(200, got.status_code)
 
     def test_following_after_empty(self):
-        self.make_user('bar.com')
-        got = self.client.get(f'/web/bar.com/following?after={util.now().isoformat()}')
+        got = self.client.get(f'/web/user.com/following?after={util.now().isoformat()}')
         self.assert_equals(200, got.status_code)
 
     def test_feed_user_not_found(self):
-        got = self.client.get('/web/bar.com/feed')
+        got = self.client.get('/web/nope.com/feed')
         self.assert_equals(404, got.status_code)
 
     def test_feed_web_redirect(self):

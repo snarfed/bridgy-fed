@@ -255,6 +255,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.assert_entities_equal(Object(id=id, **props), got,
                                    ignore=['as1', 'created', 'expire',
                                            'object_ids', 'type', 'updated'])
+        return got
 
     def assert_user(self, cls, id, **props):
         got = cls.get_by_id(id)
@@ -272,6 +273,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         # if cls != ATProto:
         #     assert got.p256_key
+
+        return got
 
     def assert_equals(self, expected, actual, msg=None, ignore=(), **kwargs):
         return super().assert_equals(

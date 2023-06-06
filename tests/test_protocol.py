@@ -44,7 +44,8 @@ class ProtocolTest(TestCase):
 
     @patch('requests.get')
     def test_receive_reply_not_feed_not_notification(self, mock_get):
-        Follower.get_or_create(ACTOR['id'], 'foo.com')
+        Follower.get_or_create(to=Fake.get_or_create(id=ACTOR['id']),
+                               from_=Fake.get_or_create(id='foo.com'))
 
         # user.com webmention discovery
         mock_get.return_value = requests_response('<html></html>')

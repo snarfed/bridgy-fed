@@ -140,7 +140,7 @@ class Web(User, Protocol):
                 resp = util.requests_get(root_site, gateway=False)
                 if resp.ok and self.is_web_url(resp.url):
                     logger.info(f'{root_site} redirects to {resp.url} ; using {root} instead')
-                    root_user = Web.get_or_create(root)
+                    root_user = Web.get_or_create(root, direct=True)
                     self.use_instead = root_user.key
                     self.put()
                     return root_user.verify()
@@ -553,13 +553,9 @@ def webmention_task():
             dest = target_as2 or as1.get_object(obj.as1)
             dest_id = dest.get('id') or dest.get('url')
             if not dest_id:
-                error('follow missing target ')
-            Follower.get_or_create(dest=dest_id,
-                                   src=g.user.key.id(),
-                                   last_follow=as2.from_as1({
-                                       **obj.as1,
-                                       'object': dest_id,
-                                   }))
+                error('follow missing target')
+            to = activitypub.ActivityPub.get_or_create(id=dest_id, direct=False)
+            Follower.get_or_create(to=to, from_=g.user, follow=obj.key)
 
         # this is reused later in ActivityPub.send()
         # TODO: find a better way
@@ -662,18 +658,17 @@ def _activitypub_targets(obj):
 
     if not targets or verb == 'share':
         logger.info('Delivering to followers')
-        domain = g.user.key.id()
-        for follower in Follower.query().filter(
-            Follower.key > Key('Follower', domain + ' '),
-            Follower.key < Key('Follower', domain + CHAR_AFTER_SPACE)):
-            if follower.status != 'inactive' and follower.last_follow:
-                actor = follower.last_follow.get('actor')
-                if actor and isinstance(actor, dict):
-                    inbox = (actor.get('endpoints', {}).get('sharedInbox') or
-                             actor.get('publicInbox') or
-                             actor.get('inbox'))
-                    # HACK: use last target object from above for reposts, which
-                    # has its resolved id
-                    inboxes_to_targets[inbox] = (target_obj if verb == 'share' else None)
+        for follower in Follower.query(Follower.to == g.user.key,
+                                       Follower.status == 'active'):
+            assert follower.from_
+            # TODO(#512): generic load user mechanism
+            from_user = follower.from_.get()
+            if from_user.actor_as2 and isinstance(from_user.actor_as2, dict):
+                inbox = (from_user.actor_as2.get('endpoints', {}).get('sharedInbox') or
+                         from_user.actor_as2.get('publicInbox') or
+                         from_user.actor_as2.get('inbox'))
+                # HACK: use last target object from above for reposts, which
+                # has its resolved id
+                inboxes_to_targets[inbox] = (target_obj if verb == 'share' else None)
 
     return inboxes_to_targets

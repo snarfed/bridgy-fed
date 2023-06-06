@@ -115,11 +115,11 @@ class FollowCallback(indieauth.Callback):
             flash(f"Couldn't find ActivityPub profile link for {addr}")
             return redirect(g.user.user_page_path('following'))
 
-        # TODO: make this generic across protocols
-        followee = ActivityPub.load(as2_url).as2
-        id = followee.get('id')
-        inbox = followee.get('inbox')
-        if not id or not inbox:
+        # TODO(#512): generalize all this across protocols
+        followee = ActivityPub.load(as2_url)
+        followee_id = followee.as1.get('id')
+        inbox = followee.as2.get('inbox')
+        if not followee_id or not inbox:
             flash(f"AS2 profile {as2_url} missing id or inbox")
             return redirect(g.user.user_page_path('following'))
 
@@ -129,19 +129,21 @@ class FollowCallback(indieauth.Callback):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Follow',
             'id': follow_id,
-            'object': followee,
+            'object': followee.as2,
             'actor': g.user.ap_actor(),
             'to': [as2.PUBLIC_AUDIENCE],
         }
-        obj = Object(id=follow_id, domains=[domain], labels=['user'],
-                     source_protocol='ui', status='complete', as2=follow_as2)
-        ActivityPub.send(obj, inbox)
+        follow_obj = Object(id=follow_id, domains=[domain], labels=['user'],
+                            source_protocol='ui', status='complete', as2=follow_as2)
+        ActivityPub.send(follow_obj, inbox)
 
-        Follower.get_or_create(dest=id, src=domain, status='active',
-                               last_follow=follow_as2)
-        obj.put()
+        followee_user = ActivityPub.get_or_create(followee_id, actor_as2=followee.as2)
+        Follower.get_or_create(from_=g.user, to=followee_user, status='active',
+                               follow=follow_obj.key)
+        follow_obj.put()
 
-        link = common.pretty_link(util.get_url(followee) or id, text=addr)
+        link = common.pretty_link(util.get_url(followee.as1) or followee_id,
+                                  text=addr)
         flash(f'Followed {link}.')
         return redirect(g.user.user_page_path('following'))
 
