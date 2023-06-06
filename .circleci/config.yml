@@ -38,7 +38,7 @@ jobs:
       - run:
           name: Build and test
           command: |
-            CLOUDSDK_CORE_PROJECT=bridgy-federated gcloud beta emulators datastore start --no-store-on-disk --consistency=1.0 --host-port=localhost:8089 < /dev/null >& /dev/null &
+            CLOUDSDK_CORE_PROJECT=bridgy-federated gcloud beta emulators datastore start --no-store-on-disk --use-firestore-in-datastore-mode --host-port=localhost:8089 < /dev/null >& /dev/null &
             sleep 5s
             python -m coverage run --source=. --omit=appengine_config.py,logs.py,tests/\* -m unittest discover -v
             python -m coverage html -d /tmp/coverage_html
