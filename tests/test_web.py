@@ -654,6 +654,24 @@ class WebTest(TestCase):
         self.assertEqual(204, got.status_code)
         mock_post.assert_not_called()
 
+    def test_force_with_content_unchanged_sends_create(self, mock_get, mock_post):
+        with self.request_context:
+            Object(id='https://user.com/reply', mf2=REPLY_MF2).put()
+
+        mock_get.side_effect = ACTIVITYPUB_GETS
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = self.client.post('/_ah/queue/webmention', data={
+            'source': 'https://user.com/reply',
+            'target': 'https://fed.brid.gy/',
+            'force': '',
+        })
+        self.assertEqual(200, got.status_code)
+
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://mas.to/inbox',), args)
+        self.assert_equals(AS2_CREATE, json_loads(kwargs['data']))
+
     def test_create_reply_attributed_to_id_only(self, mock_get, mock_post):
         """Based on PeerTube's AS2.
 

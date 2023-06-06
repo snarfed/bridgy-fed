@@ -494,7 +494,7 @@ def webmention_task():
             obj = Object(id=id, mf2=obj.mf2, our_as1=update_as1, labels=['user'],
                          domains=[g.user.key.id()], source_protocol='web')
 
-        elif obj.new:
+        elif obj.new or 'force' in request.form:
             logger.info(f'New Object {obj.key.id()}')
             id = f'{obj.key.id()}#bridgy-fed-create'
             logger.info(f'Wrapping in post activity {id}')
