@@ -140,7 +140,7 @@ class Web(User, Protocol):
                 resp = util.requests_get(root_site, gateway=False)
                 if resp.ok and self.is_web_url(resp.url):
                     logger.info(f'{root_site} redirects to {resp.url} ; using {root} instead')
-                    root_user = Web.get_or_create(root, direct=True)
+                    root_user = Web.get_or_create(root)
                     self.use_instead = root_user.key
                     self.put()
                     return root_user.verify()
@@ -554,8 +554,9 @@ def webmention_task():
             dest_id = dest.get('id') or dest.get('url')
             if not dest_id:
                 error('follow missing target')
-            to = activitypub.ActivityPub.get_or_create(id=dest_id, direct=False)
-            Follower.get_or_create(to=to, from_=g.user, follow=obj.key)
+            # TODO(#512): generalize across protocols
+            to_ = activitypub.ActivityPub.get_or_create(id=dest_id, actor_as2=dest)
+            Follower.get_or_create(to=to_, from_=g.user, follow=obj.key)
 
         # this is reused later in ActivityPub.send()
         # TODO: find a better way
@@ -660,13 +661,11 @@ def _activitypub_targets(obj):
         logger.info('Delivering to followers')
         for follower in Follower.query(Follower.to == g.user.key,
                                        Follower.status == 'active'):
-            assert follower.from_
-            # TODO(#512): generic load user mechanism
-            from_user = follower.from_.get()
-            if from_user.actor_as2 and isinstance(from_user.actor_as2, dict):
-                inbox = (from_user.actor_as2.get('endpoints', {}).get('sharedInbox') or
-                         from_user.actor_as2.get('publicInbox') or
-                         from_user.actor_as2.get('inbox'))
+            recip = follower.from_.get()
+            if recip and recip.actor_as2:
+                inbox = (recip.actor_as2.get('endpoints', {}).get('sharedInbox') or
+                         recip.actor_as2.get('publicInbox') or
+                         recip.actor_as2.get('inbox'))
                 # HACK: use last target object from above for reposts, which
                 # has its resolved id
                 inboxes_to_targets[inbox] = (target_obj if verb == 'share' else None)

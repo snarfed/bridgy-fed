@@ -59,7 +59,11 @@ def load_user(protocol, id):
         error('', status=302, location=g.user.user_page_path())
 
     if not g.user or not g.user.direct:
-        error(USER_NOT_FOUND_HTML, status=404)
+        # TODO: switch back to USER_NOT_FOUND_HTML
+        # not easy via exception/abort because this uses Werkzeug's built in
+        # NotFound exception subclass, and we'd need to make it implement
+        # get_body to return arbitrary HTML.
+        error(f'{protocol} user {id} not found', status=404)
 
     assert not g.user.use_instead
 
@@ -120,23 +124,12 @@ def followers_or_following(protocol, id, collection):
     load_user(protocol, id)
 
     followers, before, after = Follower.fetch_page(collection)
-    users = {
-        u.key: u for u in get_multi(f.from_ if collection == 'followers' else f.to
-                                    for f in followers)
-    }
-
-    for f in followers:
-        user = users[f.from_ if collection == 'followers' else f.to]
-        f.url = user.web_url()
-        f.as1 = as2.to_as1(user.actor_as2)
-        f.handle = as2.address(user.actor_as2 or f.url) or f.url
-        f.picture = util.get_url(f.as1, 'icon') or util.get_url(f.as1, 'image')
-
     return render_template(
         f'{collection}.html',
-        util=util,
         address=request.args.get('address'),
+        as2=as2,
         g=g,
+        util=util,
         **locals()
     )
 

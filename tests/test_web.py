@@ -1023,7 +1023,12 @@ class WebTest(TestCase):
                                  labels=['user', 'activity'],
                                  )
 
-        to = self.assert_user(ActivityPub, 'https://mas.to/mrs-foo')
+        to = self.assert_user(ActivityPub, 'https://mas.to/mrs-foo', actor_as2={
+            'displayName': 'Mrs. ☕ Foo',
+            'id': 'https://mas.to/mrs-foo',
+            'inbox': 'https://mas.to/inbox',
+            'objectType': 'Person',
+        })
 
         followers = Follower.query().fetch()
         self.assertEqual(1, len(followers))

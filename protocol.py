@@ -173,9 +173,14 @@ class Protocol:
                 error(f'Undo of Follow requires actor id and object id. Got: {actor_id} {inner_obj_id} {obj.as1}')
 
             # deactivate Follower
+            # TODO(#512): generalize across protocols
+            # TODO(#512): merge Protocol and User
             followee_domain = util.domain_from_link(inner_obj_id, minimize=False)
-            follower = Follower.get_by_id(
-                Follower._id(dest=followee_domain, src=actor_id))
+            from web import Web
+            follower = Follower.query(
+                Follower.to == Web(id=followee_domain).key,
+                Follower.from_ == cls(id=actor_id).key,
+                Follower.status == 'active').get()
             if follower:
                 logger.info(f'Marking {follower} inactive')
                 follower.status = 'inactive'
@@ -209,9 +214,12 @@ class Protocol:
 
             # assume this is an actor
             # https://github.com/snarfed/bridgy-fed/issues/63
+            # TODO(#512): generalize across protocols
             logger.info(f'Deactivating Followers with src or dest = {inner_obj_id}')
-            followers = Follower.query(OR(Follower.src == inner_obj_id,
-                                          Follower.dest == inner_obj_id)
+            from activitypub import ActivityPub
+            deleted_user = ActivityPub(id=inner_obj_id).key
+            followers = Follower.query(OR(Follower.to == deleted_user,
+                                          Follower.from_ == deleted_user)
                                        ).fetch()
             for f in followers:
                 f.status = 'inactive'
@@ -240,11 +248,11 @@ class Protocol:
         if (actor and actor_id and
             (obj.type == 'share' or obj.type in ('create', 'post') and not is_reply)):
             logger.info(f'Delivering to followers of {actor_id}')
-            for f in Follower.query(Follower.dest == actor_id,
-                                    Follower.status == 'active',
-                                    projection=[Follower.src]):
-                if f.src not in obj.domains:
-                    obj.domains.append(f.src)
+            from activitypub import ActivityPub
+            for f in Follower.query(Follower.to == ActivityPub(id=actor_id).key,
+                                    Follower.status == 'active'):
+                if f.from_.id() not in obj.domains:
+                    obj.domains.append(f.from_.id())
             if obj.domains and 'feed' not in obj.labels:
                 obj.labels.append('feed')
 
@@ -272,10 +280,11 @@ class Protocol:
             error(f'Follow actor requires id and inbox. Got: {follower}')
 
         # store Follower
-        follower_obj = Follower.get_or_create(
-            dest=g.user.key.id(), src=follower_id, last_follow=obj.as2)
-        follower_obj.status = 'active'
-        follower_obj.put()
+        # TODO(#512): generalize across protocols
+        from activitypub import ActivityPub
+        from_ = ActivityPub.get_or_create(id=follower_id, actor_as2=obj.as2)
+        follower_obj = Follower.get_or_create(to=g.user, from_=from_, follow=obj.key,
+                                              status='active')
 
         # send Accept
         followee_actor_url = g.user.ap_actor()

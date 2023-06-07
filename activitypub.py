@@ -645,20 +645,16 @@ def follower_collection(protocol, domain, collection):
     https://www.w3.org/TR/activitypub/#collections
     https://www.w3.org/TR/activitystreams-core/#paging
     """
-    if not PROTOCOLS[protocol].get_by_id(domain):
+    g.user = PROTOCOLS[protocol].get_by_id(domain)
+    if not g.user:
         return f'{protocol} user {domain} not found', 404
 
     # page
-    followers, new_before, new_after = Follower.fetch_page(domain, collection)
-    items = []
-    for f in followers:
-        if f.obj.as1:
-            items.append(as2.from_as1(f.obj.as1))
-
+    followers, new_before, new_after = Follower.fetch_page(collection)
     page = {
         'type': 'CollectionPage',
         'partOf': request.base_url,
-        'items': items,
+        'items': [f.user.actor_as2 for f in followers if f.user.actor_as2],
     }
     if new_before:
         page['next'] = f'{request.base_url}?before={new_before}'
@@ -674,10 +670,10 @@ def follower_collection(protocol, domain, collection):
         return page, {'Content-Type': as2.CONTENT_TYPE}
 
     # collection
-    domain_prop = Follower.dest if collection == 'followers' else Follower.src
+    prop = Follower.to if collection == 'followers' else Follower.from_
     count = Follower.query(
         Follower.status == 'active',
-        domain_prop == domain,
+        prop == g.user.key,
     ).count()
 
     collection = {

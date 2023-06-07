@@ -8,7 +8,6 @@ import requests
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
 
-import protocol
 from protocol import Protocol
 from models import Follower, Object, PROTOCOLS, User
 from web import Web

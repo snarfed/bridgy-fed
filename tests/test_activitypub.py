@@ -477,10 +477,15 @@ class ActivityPubTest(TestCase):
         self._test_inbox_create_obj('/inbox', *mocks)
 
     def _test_inbox_create_obj(self, path, mock_head, mock_get, mock_post):
-        Follower.get_or_create(NOTE['actor'], 'user.com')
-        Follower.get_or_create('http://other/actor', 'bar.com')
-        Follower.get_or_create(NOTE['actor'], 'baz.com')
-        Follower.get_or_create(NOTE['actor'], 'baj.com', status='inactive')
+        Follower.get_or_create(to=ActivityPub.get_or_create(NOTE['actor']),
+                               from_=self.user)
+        Follower.get_or_create(to=ActivityPub.get_or_create('http://other/actor'),
+                               from_=Fake.get_or_create('bar.com'))
+        Follower.get_or_create(to=ActivityPub.get_or_create(NOTE['actor']),
+                               from_=Fake.get_or_create('baz.com'))
+        Follower.get_or_create(to=ActivityPub.get_or_create(NOTE['actor']),
+                               from_=Fake.get_or_create('baj.com'),
+                               status='inactive')
 
         mock_head.return_value = requests_response(url='http://target')
         mock_get.return_value = self.as2_resp(ACTOR)  # source actor
@@ -550,9 +555,13 @@ class ActivityPubTest(TestCase):
                            object_ids=['https://user.com/orig'])
 
     def test_shared_inbox_repost_of_fediverse(self, mock_head, mock_get, mock_post):
-        Follower.get_or_create(ACTOR['id'], 'user.com')
-        Follower.get_or_create(ACTOR['id'], 'baz.com')
-        Follower.get_or_create(ACTOR['id'], 'baj.com', status='inactive')
+        Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']),
+                               from_=self.user)
+        Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']),
+                               from_=Fake.get_or_create('baz.com'))
+        Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']),
+                               from_=Fake.get_or_create('baj.com'),
+                               status='inactive')
 
         mock_head.return_value = requests_response(url='http://target')
         mock_get.side_effect = [
@@ -596,7 +605,8 @@ class ActivityPubTest(TestCase):
                            object_ids=['http://nope.com/post'])
 
     def test_inbox_not_public(self, mock_head, mock_get, mock_post):
-        Follower.get_or_create(ACTOR['id'], 'user.com')
+        Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']),
+                               from_=self.user)
 
         mock_head.return_value = requests_response(url='http://target')
         mock_get.return_value = self.as2_resp(ACTOR)  # source actor
@@ -732,9 +742,6 @@ class ActivityPubTest(TestCase):
                            labels=['notification', 'activity'],
                            object_ids=[FOLLOW['object']])
 
-        follower = Follower.query().get()
-        self.assertEqual(follow, follower.last_follow)
-
     def test_inbox_follow_accept_with_object(self, *mocks):
         wrapped_user = {
             'id': FOLLOW_WRAPPED['object'],
@@ -753,12 +760,10 @@ class ActivityPubTest(TestCase):
 
         self._test_inbox_follow_accept(follow, accept, *mocks)
 
-        follower = Follower.query().get()
         follow.update({
             'actor': ACTOR,
             'url': 'https://mas.to/users/swentel#followed-https://user.com/',
         })
-        self.assertEqual(follow, follower.last_follow)
         self.assert_object('https://mas.to/6d1a',
                            domains=['user.com'],
                            source_protocol='activitypub',
@@ -790,9 +795,6 @@ class ActivityPubTest(TestCase):
                            type='follow',
                            labels=['notification', 'activity'],
                            object_ids=[FOLLOW['object']])
-
-        follower = Follower.query().get()
-        self.assertEqual(follow, follower.last_follow)
 
     def _test_inbox_follow_accept(self, follow_as2, accept_as2,
                                   mock_head, mock_get, mock_post):
@@ -827,8 +829,13 @@ class ActivityPubTest(TestCase):
         }, kwargs['data'])
 
         # check that we stored a Follower object
-        follower = Follower.get_by_id(f'user.com {FOLLOW["actor"]}')
-        self.assertEqual('active', follower.status)
+        self.assert_entities_equal(
+            Follower(to=self.user.key,
+                     from_=ActivityPub(id=ACTOR['id']).key,
+                     status='active',
+                     follow=Object(id=FOLLOW['id']).key),
+            Follower.query().fetch(),
+            ignore=['created', 'updated'])
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
         self.make_user('www.user.com', use_instead=self.user.key)
@@ -845,13 +852,23 @@ class ActivityPubTest(TestCase):
         got = self.post('/user.com/inbox', json=FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
-        # check that the Follower doesn't have www
-        follower = Follower.get_by_id(f'user.com {ACTOR["id"]}')
+        follower = Follower.query().get()
+        self.assert_entities_equal(
+            Follower(to=self.user.key,
+                     from_=ActivityPub(id=ACTOR['id']).key,
+                     status='active',
+                     follow=Object(id=FOLLOW['id']).key),
+            follower,
+            ignore=['created', 'updated'])
+
+        # double check that Follower doesn't have www
+        self.assertEqual('user.com', follower.to.id())
+
+        # double check that follow Object doesn't have www
         self.assertEqual('active', follower.status)
-        self.assertEqual({
-            **FOLLOW_WITH_ACTOR,
-            'url': 'https://mas.to/users/swentel#followed-https://user.com/',
-        }, follower.last_follow)
+        self.assertEqual('https://mas.to/users/swentel#followed-https://user.com/',
+                         follower.follow.get().as2['url'])
+
 
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/')
@@ -859,16 +876,18 @@ class ActivityPubTest(TestCase):
             self.as2_resp(ACTOR),
         ]
 
-        Follower.get_or_create('user.com', ACTOR['id'])
-
+        follower = Follower.get_or_create(to=self.user,
+                                          from_=ActivityPub.get_or_create(ACTOR['id']))
         got = self.post('/user.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
-        follower = Follower.get_by_id(f'user.com {FOLLOW["actor"]}')
-        self.assertEqual('inactive', follower.status)
+        # check that the Follower is now inactive
+        self.assertEqual('inactive', follower.key.get().status)
 
     def test_inbox_follow_inactive(self, mock_head, mock_get, mock_post):
-        Follower.get_or_create('user.com', ACTOR['id'], status='inactive')
+        follower = Follower.get_or_create(to=self.user,
+                                          from_=ActivityPub.get_or_create(ACTOR['id']),
+                                          status='inactive')
 
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
@@ -882,8 +901,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, got.status_code)
 
         # check that the Follower is now active
-        follower = Follower.get_by_id(f'user.com {FOLLOW["actor"]}')
-        self.assertEqual('active', follower.status)
+        self.assertEqual('active', follower.key.get().status)
 
     def test_inbox_undo_follow_doesnt_exist(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/')
@@ -900,10 +918,13 @@ class ActivityPubTest(TestCase):
             self.as2_resp(ACTOR),
         ]
 
-        Follower.get_or_create('user.com', ACTOR['id'], status='inactive')
+        follower = Follower.get_or_create(to=self.user,
+                                          from_=ActivityPub.get_or_create(ACTOR['id']),
+                                          status='inactive')
 
         got = self.post('/user.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
+        self.assertEqual('inactive', follower.key.get().status)
 
     def test_inbox_undo_follow_composite_object(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/')
@@ -911,12 +932,15 @@ class ActivityPubTest(TestCase):
             self.as2_resp(ACTOR),
         ]
 
-        Follower.get_or_create('user.com', ACTOR['id'], status='inactive')
+        follower = Follower.get_or_create(to=self.user,
+                                          from_=ActivityPub.get_or_create(ACTOR['id']),
+                                          status='inactive')
 
         undo_follow = copy.deepcopy(UNDO_FOLLOW_WRAPPED)
         undo_follow['object']['object'] = {'id': undo_follow['object']['object']}
         got = self.post('/user.com/inbox', json=undo_follow)
         self.assertEqual(200, got.status_code)
+        self.assertEqual('inactive', follower.key.get().status)
 
     def test_inbox_unsupported_type(self, *_):
         got = self.post('/user.com/inbox', json={
@@ -1022,10 +1046,14 @@ class ActivityPubTest(TestCase):
         mock_common_log.assert_any_call('Returning 401: No HTTP Signature', exc_info=None)
 
     def test_delete_actor(self, *mocks):
-        follower = Follower.get_or_create('user.com', DELETE['actor'])
-        followee = Follower.get_or_create(DELETE['actor'], 'snarfed.org')
+        follower = Follower.get_or_create(
+            to=self.user, from_=ActivityPub.get_or_create(DELETE['actor']))
+        followee = Follower.get_or_create(
+            to=ActivityPub.get_or_create(DELETE['actor']),
+            from_=Fake.get_or_create('snarfed.org'))
         # other unrelated follower
-        other = Follower.get_or_create('user.com', 'https://mas.to/users/other')
+        other = Follower.get_or_create(
+            to=self.user, from_=ActivityPub.get_or_create('https://mas.to/users/other'))
         self.assertEqual(3, Follower.query().count())
 
         got = self.post('/ap/sharedInbox', json=DELETE)
@@ -1165,12 +1193,19 @@ class ActivityPubTest(TestCase):
         }, resp.json)
 
     def store_followers(self):
-        Follower.get_or_create('user.com', 'https://bar.com',
-                               last_follow=FOLLOW_WITH_ACTOR)
-        Follower.get_or_create('http://other/actor', 'user.com')
-        Follower.get_or_create('user.com', 'https://baz.com',
-                               last_follow=FOLLOW_WITH_ACTOR)
-        Follower.get_or_create('user.com', 'baj.com', status='inactive')
+        with self.request_context:
+            follow = Object(id=FOLLOW_WITH_ACTOR['id'], as2=FOLLOW_WITH_ACTOR).put()
+
+        Follower.get_or_create(to=self.user,
+                               from_=ActivityPub.get_or_create('bar.com', actor_as2=ACTOR),
+                               follow=follow)
+        Follower.get_or_create(to=ActivityPub.get_or_create('other/actor'),
+                               from_=self.user)
+        Follower.get_or_create(to=self.user,
+                               from_=ActivityPub.get_or_create('baz.com', actor_as2=ACTOR),
+                               follow=follow)
+        Follower.get_or_create(to=self.user, from_=Fake.get_or_create('baj.com'),
+                               status='inactive')
 
     def test_followers_collection_fake(self, *_):
         self.make_user('foo.com', cls=Fake)
@@ -1212,7 +1247,9 @@ class ActivityPubTest(TestCase):
     def test_followers_collection_page(self, *_):
         self.store_followers()
         before = (datetime.utcnow() + timedelta(seconds=1)).isoformat()
-        next = Follower.get_by_id('user.com https://baz.com').updated.isoformat()
+        next = Follower.query(Follower.from_ == ActivityPub(id='baz.com').key,
+                              Follower.to == self.user.key,
+                              ).get().updated.isoformat()
 
         resp = self.client.get(f'/user.com/followers?before={before}')
         self.assertEqual(200, resp.status_code)
@@ -1247,12 +1284,17 @@ class ActivityPubTest(TestCase):
         }, resp.json)
 
     def store_following(self):
-        Follower.get_or_create('https://bar.com', 'user.com',
-                               last_follow=FOLLOW_WITH_OBJECT)
-        Follower.get_or_create('user.com', 'http://other/actor')
-        Follower.get_or_create('https://baz.com', 'user.com',
-                               last_follow=FOLLOW_WITH_OBJECT)
-        Follower.get_or_create('baj.com', 'user.com', status='inactive')
+        with self.request_context:
+            follow = Object(id=FOLLOW_WITH_ACTOR['id'], as2=FOLLOW_WITH_ACTOR).put()
+
+        Follower.get_or_create(to=ActivityPub.get_or_create('bar.com', actor_as2=ACTOR),
+                               from_=self.user, follow=follow)
+        Follower.get_or_create(to=self.user,
+                               from_=ActivityPub.get_or_create('other/actor'))
+        Follower.get_or_create(to=ActivityPub.get_or_create('baz.com', actor_as2=ACTOR),
+                               from_=self.user, follow=follow)
+        Follower.get_or_create(to=ActivityPub.get_or_create('baj.com'),
+                               from_=self.user, status='inactive')
 
     def test_following_collection(self, *_):
         self.store_following()
@@ -1276,7 +1318,9 @@ class ActivityPubTest(TestCase):
     def test_following_collection_page(self, *_):
         self.store_following()
         after = datetime(1900, 1, 1).isoformat()
-        prev = Follower.get_by_id('https://baz.com user.com').updated.isoformat()
+        prev = Follower.query(Follower.to == ActivityPub(id='baz.com').key,
+                              Follower.from_ == self.user.key,
+                              ).get().updated.isoformat()
 
         resp = self.client.get(f'/user.com/following?after={after}')
         self.assertEqual(200, resp.status_code)

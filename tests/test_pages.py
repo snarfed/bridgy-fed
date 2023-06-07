@@ -36,12 +36,7 @@ class PagesTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        # self.request_context.push()
         self.user = self.make_user('user.com')
-
-    # def tearDown(self):
-    #     self.request_context.pop()
-    #     super().tearDown()
 
     def test_user(self):
         got = self.client.get('/web/user.com')
