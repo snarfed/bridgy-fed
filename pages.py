@@ -31,6 +31,38 @@ with app.test_request_context('/'):
 logger = logging.getLogger(__name__)
 
 
+def load_user(protocol, id):
+    """Loads the current request's user into `g.user`.
+
+    Args:
+      protocol: str
+      id: str
+
+    Raises:
+      :class:`werkzeug.exceptions.HTTPException` on error or redirect
+    """
+    cls = PROTOCOLS[protocol]
+    g.user = cls.get_by_id(id)
+
+    # TODO(#512): generalize across protocols
+    if protocol == 'activitypub':
+        if not g.user:
+            g.user = cls.query(cls.readable_id == id).get()
+            if g.user and g.user.use_instead:
+                g.user = g.user.use_instead.get()
+
+        if g.user and id != g.user.readable_or_key_id():
+            error('', status=302, location=g.user.user_page_path())
+
+    elif g.user and id != g.user.key.id():  # use_instead redirect
+        error('', status=302, location=g.user.user_page_path())
+
+    if not g.user or not g.user.direct:
+        error(USER_NOT_FOUND_HTML, status=404)
+
+    assert not g.user.use_instead
+
+
 @app.route('/')
 @flask_util.cached(cache, datetime.timedelta(days=1))
 def front_page():
@@ -55,17 +87,7 @@ def web_user_redirects(**kwargs):
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>')
 def user(protocol, id):
-    # TODO: unify this with followers_or_following, others
-    cls = PROTOCOLS[protocol]
-    g.user = cls.get_by_id(id)
-    if not g.user:
-        g.user = cls.query(cls.readable_id == id).get()
-    if not g.user or not g.user.direct:
-        return USER_NOT_FOUND_HTML, 404
-    elif id != g.user.readable_or_key_id():  # this also handles use_instead
-        return redirect(g.user.user_page_path(), code=301)
-
-    assert not g.user.use_instead
+    load_user(protocol, id)
 
     query = Object.query(
         Object.domains == id,
@@ -94,17 +116,7 @@ def user(protocol, id):
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/<any(followers,following):collection>')
 def followers_or_following(protocol, id, collection):
-    # TODO: unify this with user, feed
-    cls = PROTOCOLS[protocol]
-    g.user = cls.get_by_id(id)
-    if not g.user:
-        g.user = cls.query(cls.readable_id == id).get()
-    if not g.user or not g.user.direct:
-        return USER_NOT_FOUND_HTML, 404
-    elif id != g.user.readable_or_key_id():  # this also handles use_instead
-        return redirect(g.user.user_page_path(), code=301)
-
-    assert not g.user.use_instead
+    load_user(protocol, id)
 
     followers, before, after = Follower.fetch_page(id, collection)
 
@@ -131,15 +143,7 @@ def feed(protocol, id):
     if format not in ('html', 'atom', 'rss'):
         error(f'format {format} not supported; expected html, atom, or rss')
 
-    # TODO: unify this with user, followers_or_following
-    cls = PROTOCOLS[protocol]
-    g.user = cls.get_by_id(id)
-    if not g.user:
-        g.user = cls.query(cls.readable_id == id).get()
-    if not g.user or not g.user.direct:
-        return USER_NOT_FOUND_HTML, 404
-    elif id != g.user.readable_or_key_id():  # this also handles use_instead
-        return redirect(g.user.user_page_path(), code=301)
+    load_user(protocol, id)
 
     assert not g.user.use_instead
 

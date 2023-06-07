@@ -88,6 +88,17 @@ class Web(User, Protocol):
             url += f'/{rest}'
         return url
 
+    def user_page_path(self, rest=None):
+        """Always use domain."""
+        path = f'/{self.LABEL}/{self.key.id()}'
+
+        if rest:
+            if not rest.startswith('?'):
+                path += '/'
+            path += rest
+
+        return path
+
     def username(self):
         """Returns the user's preferred username.
 

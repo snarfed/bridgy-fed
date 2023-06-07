@@ -56,8 +56,27 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code)
 
         got = self.client.get('/activitypub/foo')
-        self.assert_equals(301, got.status_code)
+        self.assert_equals(302, got.status_code)
         self.assert_equals('/activitypub/@me@plus.google.com', got.headers['Location'])
+
+    def test_user_web_custom_username_doesnt_redirect(self):
+        """https://github.com/snarfed/bridgy-fed/issues/534"""
+        self.user.actor_as2 = {
+            **ACTOR_AS2,
+            'url': 'acct:baz@user.com',
+        }
+        self.user.put()
+        self.assertEqual('baz', self.user.username())
+
+        got = self.client.get('/web/@baz@user.com')
+        self.assert_equals(404, got.status_code)
+
+        got = self.client.get('/web/baz')
+        self.assert_equals(404, got.status_code)
+
+        got = self.client.get('/web/user.com')
+        self.assert_equals(200, got.status_code)
+        self.assertIn('@baz@user.com', got.get_data(as_text=True))
 
     def test_user_objects(self):
         self.add_objects()
@@ -80,13 +99,14 @@ class PagesTest(TestCase):
         self.assert_equals('/web/user.com', got.headers['Location'])
 
     def test_user_use_instead(self):
-        bar = self.make_user('bar.com')
-        bar.use_instead = self.user.key
-        bar.put()
+        self.make_user('bar.com', use_instead=self.user.key)
 
         got = self.client.get('/web/bar.com')
-        self.assert_equals(301, got.status_code)
+        self.assert_equals(302, got.status_code)
         self.assert_equals('/web/user.com', got.headers['Location'])
+
+        got = self.client.get('/web/user.com')
+        self.assert_equals(200, got.status_code)
 
     def test_user_object_bare_string_id(self):
         with self.request_context:
