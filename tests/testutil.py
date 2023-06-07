@@ -3,6 +3,7 @@ import copy
 from datetime import datetime
 import logging
 import random
+import re
 import unittest
 from unittest.mock import ANY, call
 
@@ -137,6 +138,24 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.ndb_context.__exit__(None, None, None)
         self.client.__exit__(None, None, None)
         super().tearDown()
+
+    def run(self, result=None):
+        """Override to hide stdlib and virtualenv lines in tracebacks.
+
+        https://docs.python.org/3.9/library/unittest.html#unittest.TestCase.run
+        https://docs.python.org/3.9/library/unittest.html#unittest.TestResult
+        """
+        result = super().run(result=result)
+
+        def prune(results):
+            return [
+                (tc, re.sub(r'\n  File ".+/(local|.venv|Python.framework)/.+\n.+\n',
+                            '\n', tb))
+                for tc, tb in results]
+
+        result.errors = prune(result.errors)
+        result.failures = prune(result.failures)
+        return result
 
     # TODO(#512): switch default to Fake, start using that more
     @staticmethod
