@@ -311,23 +311,27 @@ class UnfollowTest(TestCase):
     def setUp(self):
         super().setUp()
         self.user = self.make_user('alice.com')
-        self.follower = Follower(
-            id='https://bar/id alice.com', last_follow=FOLLOW_ADDRESS,
-            src='alice.com', dest='https://bar/id', status='active',
-        ).put()
+
+        with self.request_context:
+            self.follower = Follower.get_or_create(
+                from_=self.user,
+                to=ActivityPub.get_or_create('https://bar/id', actor_as2=FOLLOWEE),
+                follow=Object(id=FOLLOW_ADDRESS['id'], as2=FOLLOW_ADDRESS).put(),
+                status='active',
+            )
+
         self.state = util.encode_oauth_state({
             'endpoint': 'http://auth/endpoint',
             'me': 'https://alice.com',
-            'state': self.follower.id(),
+            'state': self.follower.key.id(),
         })
-
 
     def test_start(self, mock_get, _):
         mock_get.return_value = requests_response('')  # IndieAuth endpoint discovery
 
         resp = self.client.post('/unfollow/start', data={
             'me': 'https://alice.com',
-            'key': self.follower.id(),
+            'key': self.follower.key.id(),
         })
         self.assertEqual(302, resp.status_code)
         self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
@@ -345,12 +349,14 @@ class UnfollowTest(TestCase):
         self.check(resp, UNDO_FOLLOW, mock_get, mock_post)
 
     def test_callback_last_follow_object_str(self, mock_get, mock_post):
-        follower = self.follower.get()
-        follower.last_follow = {
-            **FOLLOW_ADDRESS,
-            'object': FOLLOWEE['id'],
-        }
-        follower.put()
+        to = self.follower.to.get()
+        to.actor_as2 = None
+        to.put()
+
+        obj = self.follower.follow.get()
+        obj.as2['object'] = FOLLOWEE['id']
+        with self.request_context:
+            obj.put()
 
         mock_get.side_effect = (
             # oauth-dropins indieauth https://alice.com fetch for user json
@@ -384,7 +390,7 @@ class UnfollowTest(TestCase):
         self.assertTrue(sig_template.startswith('keyId="http://localhost/alice.com"'),
                         sig_template)
 
-        follower = Follower.get_by_id('https://bar/id alice.com')
+        follower = Follower.query().get()
         self.assertEqual('inactive', follower.status)
 
         self.assert_object(
@@ -401,10 +407,12 @@ class UnfollowTest(TestCase):
         self.user.use_instead = user.key
         self.user.put()
 
-        self.follower = Follower(
-            id='https://bar/id www.alice.com', last_follow=FOLLOW_ADDRESS,
-            src='www.alice.com', dest='https://bar/id', status='active',
-        ).put()
+        with self.request_context:
+            Follower.get_or_create(
+                from_=self.user,
+                to=ActivityPub.get_or_create('https://bar/id', actor_as2=FOLLOWEE),
+                follow=Object(id=FOLLOW_ADDRESS['id'], as2=FOLLOW_ADDRESS).put(),
+                status='active')
 
         mock_get.side_effect = (
             requests_response(''),
@@ -418,7 +426,7 @@ class UnfollowTest(TestCase):
         state = util.encode_oauth_state({
             'endpoint': 'http://auth/endpoint',
             'me': 'https://alice.com',
-            'state': self.follower.id(),
+            'state': self.follower.key.id(),
         })
         resp = self.client.get(f'/unfollow/callback?code=my_code&state={state}')
         self.assertEqual(302, resp.status_code)
@@ -437,7 +445,7 @@ class UnfollowTest(TestCase):
         self.assertEqual(('http://bar/inbox',), inbox_args)
         self.assert_equals(expected_undo, json_loads(inbox_kwargs['data']))
 
-        follower = Follower.get_by_id('https://bar/id www.alice.com')
+        follower = Follower.query().get()
         self.assertEqual('inactive', follower.status)
 
         self.assert_object(id, domains=['www.alice.com'], status='complete',
@@ -456,7 +464,7 @@ class UnfollowTest(TestCase):
 
         resp = self.client.post('/unfollow/start', data={
             'me': 'https://alice.com',
-            'key': self.follower.id(),
+            'key': self.follower.key.id(),
         })
         self.check(resp, UNDO_FOLLOW, mock_get, mock_post)
 
@@ -470,7 +478,7 @@ class UnfollowTest(TestCase):
 
         resp = self.client.post('/unfollow/start', data={
             'me': 'https://alice.com',
-            'key': self.follower.id(),
+            'key': self.follower.key.id(),
         })
         self.assertEqual(302, resp.status_code)
         self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),

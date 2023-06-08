@@ -100,11 +100,13 @@ def user(protocol, id):
     )
     objects, before, after = fetch_objects(query)
 
-    followers = Follower.query(Follower.dest == id, Follower.status == 'active')\
+    followers = Follower.query(Follower.to == g.user.key,
+                               Follower.status == 'active')\
                         .count(limit=FOLLOWERS_UI_LIMIT)
     followers = f'{followers}{"+" if followers == FOLLOWERS_UI_LIMIT else ""}'
 
-    following = Follower.query(Follower.src == id, Follower.status == 'active')\
+    following = Follower.query(Follower.from_ == g.user.key,
+                               Follower.status == 'active')\
                         .count(limit=FOLLOWERS_UI_LIMIT)
     following = f'{following}{"+" if following == FOLLOWERS_UI_LIMIT else ""}'
 

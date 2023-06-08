@@ -215,7 +215,7 @@ class Protocol:
             # assume this is an actor
             # https://github.com/snarfed/bridgy-fed/issues/63
             # TODO(#512): generalize across protocols
-            logger.info(f'Deactivating Followers with src or dest = {inner_obj_id}')
+            logger.info(f'Deactivating Followers from or to = {inner_obj_id}')
             from activitypub import ActivityPub
             deleted_user = ActivityPub(id=inner_obj_id).key
             followers = Follower.query(OR(Follower.to == deleted_user,

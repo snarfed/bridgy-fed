@@ -58,6 +58,8 @@ def remote_follow():
 class FollowStart(indieauth.Start):
     """Starts the IndieAuth flow to add a follower to an existing user."""
     def dispatch_request(self):
+        logger.info(f'Got: {request.values}')
+
         address = request.form['address']
         me = request.form['me']
 
@@ -151,6 +153,7 @@ class FollowCallback(indieauth.Callback):
 class UnfollowStart(indieauth.Start):
     """Starts the IndieAuth flow to remove a follower from an existing user."""
     def dispatch_request(self):
+        logger.info(f'Got: {request.values}')
         key = request.form['key']
         me = request.form['me']
 
@@ -186,20 +189,22 @@ class UnfollowCallback(indieauth.Callback):
             error(f'No web user for domain {domain}')
         domain = g.user.key.id()
 
+        if util.is_int(state):
+            state = int(state)
         follower = Follower.get_by_id(state)
         if not follower:
             error(f'Bad state {state}')
 
-        followee_id = follower.dest
-        followee = follower.last_follow['object']
+        followee_id = follower.to.id()
+        followee = follower.to.get()
 
         # TODO: make this generic across protocols
-        if isinstance(followee, str):
+        if not followee.actor_as2:
             # fetch as AS2 to get full followee with inbox
-            followee_id = followee
-            followee = ActivityPub.load(followee_id).as2
+            followee.actor_as2 = ActivityPub.load(followee_id).as2
+            followee.put()
 
-        inbox = followee.get('inbox')
+        inbox = followee.actor_as2.get('inbox')
         if not inbox:
             flash(f"AS2 profile {followee_id} missing inbox")
             return redirect(g.user.user_page_path('following'))
@@ -211,7 +216,7 @@ class UnfollowCallback(indieauth.Callback):
             'type': 'Undo',
             'id': unfollow_id,
             'actor': g.user.ap_actor(),
-            'object': follower.last_follow,
+            'object': follower.follow.get().as2 if follower.follow else None,
         }
 
         obj = Object(id=unfollow_id, domains=[domain], labels=['user'],
@@ -222,7 +227,7 @@ class UnfollowCallback(indieauth.Callback):
         follower.put()
         obj.put()
 
-        link = common.pretty_link(util.get_url(followee) or followee_id)
+        link = common.pretty_link(util.get_url(followee.actor_as2) or followee_id)
         flash(f'Unfollowed {link}.')
         return redirect(g.user.user_page_path('following'))
 

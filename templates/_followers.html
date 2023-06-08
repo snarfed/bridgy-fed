@@ -17,7 +17,7 @@
 
   {% if page_name == 'following' %}
     <form method="post" action="/unfollow/start" class="col-xs-2 col-sm-1 col-lg-1">
-      <input type="hidden" name="me" value="https://{{ domain }}/" />
+      <input type="hidden" name="me" value="{{ g.user.web_url() }}/" />
       <input type="hidden" name="key" value="{{ f.key.id() }}" />
       <input type="submit" title="Unfollow (requires IndieAuth)" value="✖"
              class="btn delete-website" />
