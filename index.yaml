@@ -29,24 +29,19 @@ indexes:
 
 - kind: Follower
   properties:
-  - name: dest
+  - name: from
   - name: status
   - name: updated
     direction: desc
 
 - kind: Follower
   properties:
-  - name: src
+  - name: to
   - name: status
   - name: updated
     direction: desc
 
 - kind: Follower
   properties:
-  - name: dest
-  - name: src
-
-- kind: Follower
-  properties:
-  - name: status
-  - name: src
+  - name: to
+  - name: from
