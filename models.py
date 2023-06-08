@@ -491,10 +491,10 @@ class Follower(ndb.Model):
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
-    # DEPRECATED
-    src = ndb.StringProperty()
-    dest = ndb.StringProperty()
-    last_follow = JsonProperty()
+    # OLD. some stored entities still have these; do not reuse.
+    # src = ndb.StringProperty()
+    # dest = ndb.StringProperty()
+    # last_follow = JsonProperty()
 
     def _post_put_hook(self, future):
         logger.info(f'Wrote {self}')
