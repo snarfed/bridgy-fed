@@ -2,6 +2,7 @@
 import datetime
 import difflib
 import logging
+import urllib.parse
 from urllib.parse import urlencode, urljoin, urlparse
 
 import feedparser
@@ -157,15 +158,16 @@ class Web(User, Protocol):
             domain_urls = ([f'https://{domain}/' for domain in common.DOMAINS] +
                            [common.host_url()])
             expected = [urljoin(url, path) for url in domain_urls]
-            if resp.ok:
-                if resp.url in expected:
+            if resp.ok and resp.url:
+                got = urllib.parse.unquote(resp.url)
+                if got in expected:
                     self.has_redirects = True
-                elif resp.url:
-                    diff = '\n'.join(difflib.Differ().compare([resp.url], [expected[0]]))
+                elif got:
+                    diff = '\n'.join(difflib.Differ().compare([got], [expected[0]]))
                     self.redirects_error = f'Current vs expected:<pre>{diff}</pre>'
             else:
                 lines = [url, f'  returned HTTP {resp.status_code}']
-                if resp.url != url:
+                if resp.url and resp.url != url:
                     lines[1:1] = ['  redirected to:', resp.url]
                 self.redirects_error = '<pre>' + '\n'.join(lines) + '</pre>'
         except RequestException:

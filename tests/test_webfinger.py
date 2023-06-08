@@ -159,6 +159,14 @@ class WebfingerTest(testutil.TestCase):
                 self.assertEqual('application/jrd+json', got.headers['Content-Type'])
                 self.assert_equals(WEBFINGER, got.json)
 
+    def test_webfinger_urlencoded(self):
+        """https://github.com/snarfed/bridgy-fed/issues/535"""
+        got = self.client.get('/.well-known/webfinger?resource=acct%3Auser.com%40user.com',
+                              headers={'Accept': 'application/json'})
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual('application/jrd+json', got.headers['Content-Type'])
+        self.assert_equals(WEBFINGER, got.json)
+
     def test_webfinger_custom_username(self):
         self.user.actor_as2 = {
             **self.actor_as2,

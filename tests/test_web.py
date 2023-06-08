@@ -1391,7 +1391,9 @@ class WebTest(TestCase):
     def test_verify_neither(self, mock_get, _):
         empty = requests_response('')
         mock_get.side_effect = [empty, empty]
-        self._test_verify(False, False, None)
+        self._test_verify(False, False, None, """\
+<pre>https://user.com/.well-known/webfinger?resource=acct:user.com@user.com
+  returned HTTP 200</pre>""")
 
     def test_verify_redirect_strips_query_params(self, mock_get, _):
         half_redir = requests_response(
@@ -1421,6 +1423,15 @@ Current vs expected:<pre>- http://localhost/.well-known/webfinger
   redirected to:
 http://this/404s
   returned HTTP 404</pre>""")
+
+    def test_verify_webfinger_urlencoded(self, mock_get, _):
+        mock_get.side_effect = [
+            requests_response(
+                status=302,
+                redirected_url='http://localhost/.well-known/webfinger?resource=acct%3Auser.com%40user.com'),
+            requests_response(''),
+        ]
+        self._test_verify(True, False, None)
 
     def test_verify_no_hcard(self, mock_get, _):
         mock_get.side_effect = [
