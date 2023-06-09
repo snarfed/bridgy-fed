@@ -111,7 +111,7 @@ def redir(to):
 <!doctype html>
 <html>
 <head>
-<link href="{to}" type="application/activity+json">
+<link href="{request.url}" rel="alternate" type="application/activity+json">
 </head>
 <title>Redirecting...</title>
 <h1>Redirecting...</h1>
