@@ -3,7 +3,7 @@
 
 {% for obj in objects %}
 <li class="row h-entry">
-  <div class="e-content col-sm-{{ 5 if show_domains else 8 }}">
+  <div class="e-content col-sm-{{ 5 if show_users else 8 }}">
     {{ obj.actor_link()|safe }}
     {{ obj.phrase|safe }}
     <a target="_blank" href="{{ obj.url }}" class="u-url">
@@ -11,19 +11,19 @@
     </a>
   </div>
 
-  {% if show_domains %}
+  {% if show_users %}
   <div class="col-sm-3">
-    {% for domain in obj.domains %}
+    {% for user in obj.users %}
       {% if loop.index0 == 3 %}
-        <span id="more-domains" style="display: none">
+        <span id="more-users" style="display: none">
       {% endif %}
-      <a href="/web/{{ domain }}">🌐 {{ domain }}</a>
+      <a href="{{ user.user_page_path() }}">🌐 {{ user.readable_or_key_id() }}</a>
       <br>
     {% endfor %}
-    {% if obj.domains|length > 3 %}
+    {% if obj.users|length > 3 %}
       </span>
-      <a onclick="toggle('more-domains'); toggle('show-more-domains'); return false"
-         id="show-more-domains" href="#" />...</a>
+      <a onclick="toggle('more-users'); toggle('show-more-users'); return false"
+         id="show-more-users" href="#" />...</a>
     {% endif %}
   </div>
   {% endif %}

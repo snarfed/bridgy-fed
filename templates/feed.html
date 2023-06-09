@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ domain }}'s feed - Bridgy Fed{% endblock %}
+{% block title %}{{ g.user.readable_or_key_id() }}'s feed - Bridgy Fed{% endblock %}
 
 {% block content %}
 
