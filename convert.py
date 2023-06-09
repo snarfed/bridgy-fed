@@ -24,8 +24,10 @@ logger = logging.getLogger(__name__)
 
 SOURCES = frozenset((
     ActivityPub.LABEL,
+    Web.LABEL,
 ))
 DESTS = frozenset((
+    ActivityPub.LABEL,
     Web.LABEL,
 ))
 
