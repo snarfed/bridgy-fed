@@ -9,7 +9,7 @@ import logging
 import re
 import urllib.parse
 
-from flask import redirect, request
+from flask import g, redirect, request
 from granary import as1
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
@@ -51,6 +51,13 @@ def convert(src, dest, _):
 
     if not util.is_web(url):
         error(f'Expected fully qualified URL; got {url}')
+
+    # require g.user for AP since postprocess_as2 currently needs it. ugh
+    if dest == ActivityPub.LABEL:
+        domain = util.domain_from_link(url, minimize=False)
+        g.user = Web.get_by_id(domain)
+        if not g.user:
+            error(f'No web user found for {domain}')
 
     # load, and maybe fetch. if it's a post/update, redirect to inner object.
     obj = PROTOCOLS[src].load(url)
