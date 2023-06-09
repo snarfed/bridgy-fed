@@ -95,7 +95,6 @@ class FollowCallback(indieauth.Callback):
         g.user = Web.get_by_id(domain)
         if not g.user:
             error(f'No web user for domain {domain}')
-        domain = g.user.key.id()
 
         addr = state
         if not state:
@@ -135,11 +134,12 @@ class FollowCallback(indieauth.Callback):
             'actor': g.user.ap_actor(),
             'to': [as2.PUBLIC_AUDIENCE],
         }
-        follow_obj = Object(id=follow_id, domains=[domain], labels=['user'],
-                            source_protocol='ui', status='complete', as2=follow_as2)
+        followee_user = ActivityPub.get_or_create(followee_id, actor_as2=followee.as2)
+        follow_obj = Object(id=follow_id, users=[g.user.key, followee_user.key],
+                            labels=['user'], source_protocol='ui', status='complete',
+                            as2=follow_as2)
         ActivityPub.send(follow_obj, inbox)
 
-        followee_user = ActivityPub.get_or_create(followee_id, actor_as2=followee.as2)
         Follower.get_or_create(from_=g.user, to=followee_user, status='active',
                                follow=follow_obj.key)
         follow_obj.put()
@@ -187,7 +187,6 @@ class UnfollowCallback(indieauth.Callback):
         g.user = Web.get_by_id(domain)
         if not g.user:
             error(f'No web user for domain {domain}')
-        domain = g.user.key.id()
 
         if util.is_int(state):
             state = int(state)
@@ -219,7 +218,10 @@ class UnfollowCallback(indieauth.Callback):
             'object': follower.follow.get().as2 if follower.follow else None,
         }
 
-        obj = Object(id=unfollow_id, domains=[domain], labels=['user'],
+        # don't include the followee User who's being unfollowed in the users
+        # property, since we don't want to notify or show them. (standard social
+        # network etiquette.)
+        obj = Object(id=unfollow_id, users=[g.user.key], labels=['user'],
                      source_protocol='ui', status='complete', as2=unfollow_as2)
         ActivityPub.send(obj, inbox)
 

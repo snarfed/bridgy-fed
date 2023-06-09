@@ -301,8 +301,11 @@ class Object(StringIdModel):
     STATUSES = ('new', 'in progress', 'complete', 'failed', 'ignored')
     LABELS = ('activity', 'feed', 'notification', 'user')
 
-    # domains of the Bridgy Fed users this activity is to or from
+    # Users this activity is to or from
+    users = ndb.KeyProperty(repeated=True)
+    # DEPRECATED
     domains = ndb.StringProperty(repeated=True)
+
     status = ndb.StringProperty(choices=STATUSES)
     # choices is populated in flask_app, after all User subclasses are created,
     # so that PROTOCOLS is fully populated
@@ -383,7 +386,7 @@ class Object(StringIdModel):
     def _post_put_hook(self, future):
         """Update :meth:`Protocol.load` cache."""
         # TODO: assert that as1 id is same as key id? in pre put hook?
-        logger.info(f'Wrote Object {self.key.id()} {self.type} {self.status or ""} {self.labels} for {len(self.domains)} users')
+        logger.info(f'Wrote Object {self.key.id()} {self.type} {self.status or ""} {self.labels} for {len(self.users)} users {len(self.domains)} domains')
         if '#' not in self.key.id():
             import protocol  # TODO: actually fix this circular import
             protocol.objects_cache[self.key.id()] = self
@@ -423,7 +426,7 @@ class Object(StringIdModel):
         attrs = {'class': 'h-card u-author'}
 
         if (self.source_protocol in ('web', 'webmention', 'ui') and g.user and
-            g.user.key.id() in self.domains):
+            (g.user.key in self.users or g.user.key.id() in self.domains)):
             # outbound; show a nice link to the user
             return g.user.user_page_link()
 

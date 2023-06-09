@@ -45,6 +45,7 @@ class ProtocolTest(TestCase):
     def test_receive_reply_not_feed_not_notification(self, mock_get):
         Follower.get_or_create(to=Fake.get_or_create(id=ACTOR['id']),
                                from_=Fake.get_or_create(id='foo.com'))
+        other_user = self.make_user('user.com', cls=Web)
 
         # user.com webmention discovery
         mock_get.return_value = requests_response('<html></html>')
@@ -54,7 +55,7 @@ class ProtocolTest(TestCase):
         self.assert_object(REPLY['id'],
                            as2=REPLY,
                            type='post',
-                           domains=['user.com'],
+                           users=[other_user.key],
                            # not feed since it's a reply
                            # not notification since it doesn't involve the user
                            labels=['activity'],

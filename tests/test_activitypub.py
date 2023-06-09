@@ -429,7 +429,7 @@ class ActivityPubTest(TestCase):
             + [WEBMENTION_DISCOVERY])
         mock_post.return_value = requests_response()
 
-        got = self.post('/user.com/inbox', json=reply)
+        got = self.post('/ap/web/user.com/inbox', json=reply)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assert_req(mock_get, 'https://user.com/post')
         convert_id = reply['id'].replace('://', ':/')
@@ -445,7 +445,7 @@ class ActivityPubTest(TestCase):
         )
 
         self.assert_object(reply['id'],
-                           domains=['user.com'],
+                           users=[self.user.key],
                            source_protocol='activitypub',
                            status='complete',
                            delivered=['https://user.com/post'],
@@ -501,7 +501,7 @@ class ActivityPubTest(TestCase):
         self.assert_object('http://mas.to/note/as2',
                            source_protocol='activitypub',
                            as2=expected_as2,
-                           domains=['user.com', 'baz.com'],
+                           users=[self.user.key, Fake(id='baz.com').key],
                            type='post',
                            labels=['activity', 'feed'],
                            object_ids=[NOTE_OBJECT['id']])
@@ -548,7 +548,7 @@ class ActivityPubTest(TestCase):
                            source_protocol='activitypub',
                            status='complete',
                            as2=repost,
-                           domains=['user.com'],
+                           users=[self.user.key],
                            delivered=['https://user.com/orig'],
                            type='share',
                            labels=['activity', 'feed', 'notification'],
@@ -579,7 +579,7 @@ class ActivityPubTest(TestCase):
                            source_protocol='activitypub',
                            status='ignored',
                            as2=REPOST_FULL,
-                           domains=['user.com', 'baz.com'],
+                           users=[self.user.key, Fake(id='baz.com').key],
                            type='share',
                            labels=['activity', 'feed'],
                            object_ids=[REPOST['object']])
@@ -596,9 +596,10 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, got.status_code)
 
         self.assert_object('http://mas.to/like#ok',
-                           domains=['nope.com'],
+                           # no nope.com Web user key since it didn't exist
+                           users=[],
                            source_protocol='activitypub',
-                           status='complete',
+                           status='ignored',
                            as2={**LIKE_WITH_ACTOR, 'object': 'http://nope.com/post'},
                            type='like',
                            labels=['activity'],
@@ -650,6 +651,8 @@ class ActivityPubTest(TestCase):
                            type='note')
 
     def _test_inbox_mention(self, mention, expected_props, mock_head, mock_get, mock_post):
+        self.make_user('tar.get')
+
         mock_get.side_effect = [
             WEBMENTION_DISCOVERY,
             HTML,
@@ -673,7 +676,7 @@ class ActivityPubTest(TestCase):
 
         expected_as2 = common.redirect_unwrap(mention)
         self.assert_object(mention['id'],
-                           domains=['tar.get', 'masto.foo'],
+                           users=[Web(id='tar.get').key],
                            source_protocol='activitypub',
                            status='complete',
                            as2=expected_as2,
@@ -705,7 +708,7 @@ class ActivityPubTest(TestCase):
         }, kwargs['data'])
 
         self.assert_object('http://mas.to/like#ok',
-                           domains=['user.com'],
+                           users=[self.user.key],
                            source_protocol='activitypub',
                            status='complete',
                            as2=LIKE_WITH_ACTOR,
@@ -733,7 +736,7 @@ class ActivityPubTest(TestCase):
             'url': 'https://mas.to/users/swentel#followed-https://user.com/',
         }
         self.assert_object('https://mas.to/6d1a',
-                           domains=['user.com'],
+                           users=[self.user.key],
                            source_protocol='activitypub',
                            status='complete',
                            as2=follow,
@@ -765,7 +768,7 @@ class ActivityPubTest(TestCase):
             'url': 'https://mas.to/users/swentel#followed-https://user.com/',
         })
         self.assert_object('https://mas.to/6d1a',
-                           domains=['user.com'],
+                           users=[self.user.key],
                            source_protocol='activitypub',
                            status='complete',
                            as2=follow,
@@ -787,7 +790,7 @@ class ActivityPubTest(TestCase):
             'url': 'https://mas.to/users/swentel#followed-https://user.com/',
         }
         self.assert_object('https://mas.to/6d1a',
-                           domains=['user.com'],
+                           users=[self.user.key],
                            source_protocol='activitypub',
                            status='complete',
                            as2=follow,
@@ -980,6 +983,7 @@ class ActivityPubTest(TestCase):
 
         obj = Object.get_by_id(id)
         self.assertEqual(['activity'], obj.labels)
+        self.assertEqual([], obj.users)
         self.assertEqual([], obj.domains)
 
         self.assertIsNone(Object.get_by_id(bad_url))
@@ -1159,7 +1163,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, got.status_code)
 
         self.assert_object('http://mas.to/like#ok',
-                           domains=['user.com'],
+                           users=[self.user.key],
                            source_protocol='activitypub',
                            status='complete',
                            as2=LIKE_WITH_ACTOR,

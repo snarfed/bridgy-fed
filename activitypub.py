@@ -600,8 +600,8 @@ def inbox(protocol=None, domain=None):
     # load user
     # TODO(#512) parameterize on protocol, move to Protocol
     if protocol and domain:
-        g.user = PROTOCOLS[protocol].get_by_id(domain)  # receiving user
-        if (not g.user or not g.user.direct) and actor_id:
+        g.user = PROTOCOLS[protocol].get_or_create(domain, direct=False)  # receiving user
+        if not g.user.direct and actor_id:
             # this is a deliberate interaction with an indirect receiving user;
             # create a local AP User for the sending user
             actor_obj = ActivityPub.load(actor_id)

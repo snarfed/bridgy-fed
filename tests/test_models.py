@@ -164,7 +164,7 @@ class ObjectTest(TestCase):
 
     def test_actor_link_user(self):
         g.user = Fake(id='user.com', actor_as2={"name": "Alice"})
-        obj = Object(id='x', source_protocol='ui', domains=['user.com'])
+        obj = Object(id='x', source_protocol='ui', users=[g.user.key])
         self.assertIn(
             'href="/fake/user.com"><img src="" class="profile"> Alice</a>',
             obj.actor_link())

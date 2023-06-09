@@ -8,6 +8,7 @@ import urllib.parse
 
 from flask import g, redirect, render_template, request
 from google.cloud.ndb.model import get_multi
+from google.cloud.ndb.query import OR
 from google.cloud.ndb.stats import KindStat
 from granary import as1, as2, atom, microformats2, rss
 import humanize
@@ -95,7 +96,8 @@ def user(protocol, id):
     load_user(protocol, id)
 
     query = Object.query(
-        Object.domains == id,
+        OR(Object.users == g.user.key,
+           Object.domains == id),
         Object.labels.IN(('notification', 'user')),
     )
     objects, before, after = fetch_objects(query)
@@ -144,12 +146,12 @@ def feed(protocol, id):
 
     load_user(protocol, id)
 
-    assert not g.user.use_instead
-
-    objects, _, _ = Object.query(
-        Object.domains == id, Object.labels == 'feed') \
+    objects = Object.query(
+        OR(Object.users == g.user.key,
+           Object.domains == id),
+        Object.labels == 'feed') \
         .order(-Object.created) \
-        .fetch_page(PAGE_SIZE)
+        .fetch(PAGE_SIZE)
     activities = [obj.as1 for obj in objects if not obj.deleted]
 
     actor = {
@@ -226,12 +228,13 @@ def fetch_objects(query):
         urls = as1.object_urls(inner_obj)
         id = common.redirect_unwrap(inner_obj.get('id', ''))
         url = urls[0] if urls else id
-        if (type == 'update' and obj.domains and
-            id.strip('/') == f'https://{obj.domains[0]}'):
+        if (type == 'update' and
+            (obj.users and id.strip('/') == obj.users[0].id()
+             or obj.domains and id.strip('/') == f'https://{obj.domains[0]}')):
             obj.phrase = 'updated'
             obj_as1.update({
                 'content': 'their profile',
-                'url': f'https://{obj.domains[0]}',
+                'url': id,
             })
         elif url:
             content = common.pretty_link(url, text=content)

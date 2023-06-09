@@ -210,15 +210,17 @@ class FollowTest(TestCase):
         follow_id = f'http://localhost/web/alice.com/following#2022-01-02T03:04:05-{input}'
 
         followers = Follower.query().fetch()
+        followee = ActivityPub(id='https://bar/id').key
         self.assert_entities_equal(
-            Follower(from_=self.user.key, to=ActivityPub(id='https://bar/id').key,
+            Follower(from_=self.user.key, to=followee,
                      follow=Object(id=follow_id).key, status='active'),
             followers,
             ignore=['created', 'updated'])
 
-        self.assert_object(follow_id, domains=['alice.com'], status='complete',
-                           labels=['user', 'activity'], source_protocol='ui',
-                           as2=expected_follow, as1=as2.to_as1(expected_follow))
+        self.assert_object(follow_id, users=[self.user.key, followee],
+                           status='complete', labels=['user', 'activity'],
+                           source_protocol='ui', as2=expected_follow,
+                           as1=as2.to_as1(expected_follow))
 
         self.assertEqual('https://alice.com', session['indieauthed-me'])
 
@@ -258,15 +260,15 @@ class FollowTest(TestCase):
             'object': FOLLOWEE,
             'to': [as2.PUBLIC_AUDIENCE],
         }
+        followee = ActivityPub(id='https://bar/id').key
         follow_obj = self.assert_object(
-            id, domains=['www.alice.com'], status='complete',
+            id, users=[user.key, followee], status='complete',
             labels=['user', 'activity'], source_protocol='ui', as2=expected_follow,
             as1=as2.to_as1(expected_follow))
 
         followers = Follower.query().fetch()
         self.assert_entities_equal(
-            Follower(from_=user.key, to=ActivityPub(id='https://bar/id').key,
-                     follow=follow_obj.key, status='active'),
+            Follower(from_=user.key, to=followee, follow=follow_obj.key, status='active'),
             followers,
             ignore=['created', 'updated'])
 
@@ -395,10 +397,8 @@ class UnfollowTest(TestCase):
 
         self.assert_object(
             'http://localhost/web/alice.com/following#undo-2022-01-02T03:04:05-https://bar/id',
-            domains=['alice.com'], status='complete',
-            source_protocol='ui', labels=['user', 'activity'],
-            as2=expected_undo,
-            as1=as2.to_as1(expected_undo))
+            users=[self.user.key], status='complete', source_protocol='ui',
+            labels=['user', 'activity'], as2=expected_undo, as1=as2.to_as1(expected_undo))
 
         self.assertEqual('https://alice.com', session['indieauthed-me'])
 
@@ -448,7 +448,7 @@ class UnfollowTest(TestCase):
         follower = Follower.query().get()
         self.assertEqual('inactive', follower.status)
 
-        self.assert_object(id, domains=['www.alice.com'], status='complete',
+        self.assert_object(id, users=[user.key], status='complete',
                            source_protocol='ui', labels=['user', 'activity'],
                            as2=expected_undo, as1=as2.to_as1(expected_undo))
 

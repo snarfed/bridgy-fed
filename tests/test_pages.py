@@ -110,7 +110,7 @@ class PagesTest(TestCase):
 
     def test_user_object_bare_string_id(self):
         with self.request_context:
-            Object(id='a', domains=['user.com'], labels=['notification'],
+            Object(id='a', users=[self.user.key], labels=['notification'],
                    as2=REPOST_AS2).put()
 
         got = self.client.get('/web/user.com')
@@ -118,7 +118,7 @@ class PagesTest(TestCase):
 
     def test_user_object_url_object(self):
         with self.request_context:
-            Object(id='a', domains=['user.com'], labels=['notification'], our_as1={
+            Object(id='a', users=[self.user.key], labels=['notification'], our_as1={
                 **REPOST_AS2,
                 'object': {
                     'id': 'https://mas.to/toot/id',

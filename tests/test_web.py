@@ -606,14 +606,14 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], AS2_CREATE)
 
         self.assert_object('https://user.com/reply',
-                           domains=['user.com'],
+                           users=[g.user.key],
                            source_protocol='web',
                            mf2=REPLY_MF2,
                            as1=REPLY_AS1,
                            type='comment',
                            )
         self.assert_object('https://user.com/reply#bridgy-fed-create',
-                           domains=['user.com'],
+                           users=[g.user.key],
                            source_protocol='web',
                            status='complete',
                            mf2=REPLY_MF2,
@@ -767,7 +767,7 @@ class WebTest(TestCase):
 
         mf2 = util.parse_mf2(html)['items'][0]
         self.assert_object('https://user.com/repost',
-                           domains=['user.com'],
+                           users=[g.user.key],
                            source_protocol='web',
                            status='complete',
                            mf2=mf2,
@@ -825,7 +825,7 @@ class WebTest(TestCase):
         mock_post.assert_not_called()
 
         self.assert_object('https://user.com/like',
-                           domains=['user.com'],
+                           users=[g.user.key],
                            source_protocol='web',
                            mf2=LIKE_MF2,
                            as1=microformats2.json_to_object(LIKE_MF2),
@@ -930,13 +930,13 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, inboxes, CREATE_AS2)
 
         self.assert_object('https://user.com/post',
-                           domains=['user.com'],
+                           users=[g.user.key],
                            mf2=NOTE_MF2,
                            type='note',
                            source_protocol='web',
                            )
         self.assert_object('https://user.com/post#bridgy-fed-create',
-                           domains=['user.com'],
+                           users=[g.user.key],
                            source_protocol='web',
                            status='complete',
                            mf2=NOTE_MF2,
@@ -953,7 +953,7 @@ class WebTest(TestCase):
         with self.request_context:
             mf2 = copy.deepcopy(NOTE_MF2)
             mf2['properties']['content'] = 'different'
-            Object(id='https://user.com/post', domains=['user.com'], mf2=mf2).put()
+            Object(id='https://user.com/post', users=[g.user.key], mf2=mf2).put()
 
         self.make_followers()
 
@@ -981,7 +981,7 @@ class WebTest(TestCase):
         }
         self.assert_object(
             f'https://user.com/post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-            domains=['user.com'],
+            users=[g.user.key],
             source_protocol='web',
             status='complete',
             mf2=NOTE_MF2,
@@ -1036,7 +1036,7 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
 
         obj = self.assert_object('https://user.com/follow',
-                                 domains=['user.com'],
+                                 users=[g.user.key],
                                  source_protocol='web',
                                  status='complete',
                                  mf2=FOLLOW_MF2,
@@ -1119,7 +1119,7 @@ class WebTest(TestCase):
                                FOLLOW_FRAGMENT_AS2)
 
         obj = self.assert_object('https://user.com/follow#2',
-                                 domains=['user.com'],
+                                 users=[g.user.key],
                                  source_protocol='web',
                                  status='complete',
                                  mf2=FOLLOW_FRAGMENT_MF2,
@@ -1180,7 +1180,7 @@ class WebTest(TestCase):
         mf2 = util.parse_mf2(html)['items'][0]
         as1 = microformats2.json_to_object(mf2)
         obj = self.assert_object('https://user.com/follow',
-                                 domains=['user.com'],
+                                 users=[g.user.key],
                                  source_protocol='web',
                                  status='complete',
                                  mf2=mf2,
@@ -1239,7 +1239,7 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, inboxes, DELETE_AS2)
 
         self.assert_object('https://user.com/post#bridgy-fed-delete',
-                           domains=['user.com'],
+                           users=[g.user.key],
                            source_protocol='web',
                            status='complete',
                            our_as1=DELETE_AS1,
@@ -1298,7 +1298,7 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
 
         self.assert_object('https://user.com/follow',
-                           domains=['user.com'],
+                           users=[g.user.key],
                            source_protocol='web',
                            status='failed',
                            mf2=FOLLOW_MF2,
@@ -1386,7 +1386,7 @@ class WebTest(TestCase):
             },
         }
         self.assert_object(id,
-                           domains=['user.com'],
+                           users=[g.user.key],
                            source_protocol='web',
                            status='complete',
                            our_as1=expected_as1,

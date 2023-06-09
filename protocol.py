@@ -251,9 +251,9 @@ class Protocol:
             from activitypub import ActivityPub
             for f in Follower.query(Follower.to == ActivityPub(id=actor_id).key,
                                     Follower.status == 'active'):
-                if f.from_.id() not in obj.domains:
-                    obj.domains.append(f.from_.id())
-            if obj.domains and 'feed' not in obj.labels:
+                if f.from_ not in obj.users:
+                    obj.users.append(f.from_)
+            if obj.users and 'feed' not in obj.labels:
                 obj.labels.append('feed')
 
         obj.put()
@@ -345,6 +345,7 @@ class Protocol:
         # send webmentions and update Object
         errors = []  # stores (code, body) tuples
         targets = [Target(uri=uri, protocol='web') for uri in targets]
+        no_user_domains = set()
 
         obj.populate(
           undelivered=targets,
@@ -362,12 +363,25 @@ class Protocol:
                 logger.info(f'Skipping same-domain webmention from {source} to {target.uri}')
                 continue
 
-            if domain not in obj.domains:
-                obj.domains.append(domain)
+            # only deliver if we have a matching User already.
+            # TODO: consider delivering or at least storing Users for all
+            # targets? need to filter out native targets in this protocol
+            # though, eg mastodon.social targets in AP inbox deliveries.
+            if domain in no_user_domains:
+                continue
+
+            # TODO(#512): generalize protocol
+            from web import Web
+            recip = Web(id=domain).key
+            if recip not in obj.users:
+                if not recip.get():
+                    logger.info(f'No Web user for {domain}; skipping {target.uri}')
+                    no_user_domains.add(domain)
+                    continue
+                obj.users.append(recip)
 
             try:
-                # TODO: fix
-                from web import Web
+                # TODO(#512): generalize protocol
                 if Web.send(obj, target.uri):
                     obj.delivered.append(target)
                     if 'notification' not in obj.labels:
@@ -381,7 +395,7 @@ class Protocol:
 
             obj.put()
 
-        obj.status = ('complete' if obj.delivered or obj.domains
+        obj.status = ('complete' if obj.delivered or obj.users
                       else 'failed' if obj.failed
                       else 'ignored')
 

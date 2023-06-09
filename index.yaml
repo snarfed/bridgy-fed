@@ -15,6 +15,13 @@ indexes:
 
 - kind: Object
   properties:
+  - name: users
+  - name: labels
+  - name: updated
+    direction: asc
+
+- kind: Object
+  properties:
   - name: domains
   - name: labels
   - name: updated
@@ -22,7 +29,21 @@ indexes:
 
 - kind: Object
   properties:
+  - name: users
+  - name: labels
+  - name: updated
+    direction: desc
+
+- kind: Object
+  properties:
   - name: domains
+  - name: labels
+  - name: created
+    direction: desc
+
+- kind: Object
+  properties:
+  - name: users
   - name: labels
   - name: created
     direction: desc

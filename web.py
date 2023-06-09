@@ -482,7 +482,7 @@ def webmention_task():
     inboxes_to_targets = _activitypub_targets(obj)
 
     obj.populate(
-        domains=[g.user.key.id()],
+        users=[g.user.key],
         source_protocol='web',
     )
     if not inboxes_to_targets:
@@ -519,7 +519,7 @@ def webmention_task():
                 },
             }
             obj = Object(id=id, mf2=obj.mf2, our_as1=update_as1, labels=['user'],
-                         domains=[g.user.key.id()], source_protocol='web')
+                         users=[g.user.key], source_protocol='web')
 
         elif obj.new or 'force' in request.form:
             logger.info(f'New Object {obj.key.id()}')
@@ -534,7 +534,7 @@ def webmention_task():
                 'object': obj.as1,
             }
             obj = Object(id=id, mf2=obj.mf2, our_as1=create_as1,
-                         domains=[g.user.key.id()], labels=['user'],
+                         users=[g.user.key], labels=['user'],
                          source_protocol='web')
 
         else:
