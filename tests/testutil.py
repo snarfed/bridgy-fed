@@ -6,9 +6,11 @@ import random
 import re
 import unittest
 from unittest.mock import ANY, call
+import warnings
 
 import arroba.util
 from arroba.util import datetime_to_tid
+from bs4 import MarkupResemblesLocatorWarning
 import dag_cbor.random
 from flask import g
 from google.cloud import ndb
@@ -132,6 +134,10 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         init_globals()
 
         self.request_context = app.test_request_context('/')
+
+        # suppress a few warnings
+        # local/lib/python3.9/site-packages/bs4/__init__.py:435: MarkupResemblesLocatorWarning: The input looks more like a filename than markup. You may want to open this file and pass the filehandle into Beautiful Soup.
+        warnings.filterwarnings('ignore', category=MarkupResemblesLocatorWarning)
 
     def tearDown(self):
         self.app_context.pop()
