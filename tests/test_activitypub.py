@@ -798,6 +798,10 @@ class ActivityPubTest(TestCase):
 
     def _test_inbox_follow_accept(self, follow_as2, accept_as2,
                                   mock_head, mock_get, mock_post):
+        # this should makes us make the follower ActivityPub as direct=True
+        self.user.direct = False
+        self.user.put()
+
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             # source actor
@@ -828,7 +832,7 @@ class ActivityPubTest(TestCase):
             'target': 'https://user.com/',
         }, kwargs['data'])
 
-        # check that we stored a Follower object
+        # check that we stored Follower and ActivityPub user for the follower
         self.assert_entities_equal(
             Follower(to=self.user.key,
                      from_=ActivityPub(id=ACTOR['id']).key,
@@ -836,6 +840,10 @@ class ActivityPubTest(TestCase):
                      follow=Object(id=FOLLOW['id']).key),
             Follower.query().fetch(),
             ignore=['created', 'updated'])
+
+        self.assert_user(ActivityPub, ACTOR['id'],
+                         actor_as2=ACCEPT_FOLLOW['actor'],
+                         direct=True)
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
         self.make_user('www.user.com', use_instead=self.user.key)

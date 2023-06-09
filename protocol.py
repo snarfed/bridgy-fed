@@ -279,10 +279,17 @@ class Protocol:
         if not inbox or not follower_id:
             error(f'Follow actor requires id and inbox. Got: {follower}')
 
-        # store Follower
+        # store Follower and follower ActivityPub user.
+        #
+        # If followee user is already direct, AP follower may not know they're
+        # interacting with a bridge. If followee user is indirect though, AP
+        # follower should know, so they're direct.
+        #
         # TODO(#512): generalize across protocols
         from activitypub import ActivityPub
-        from_ = ActivityPub.get_or_create(id=follower_id, actor_as2=obj.as2)
+        from_ = ActivityPub.get_or_create(id=follower_id,
+                                          actor_as2=as2.from_as1(follower),
+                                          direct=not g.user.direct)
         follower_obj = Follower.get_or_create(to=g.user, from_=from_, follow=obj.key,
                                               status='active')
 

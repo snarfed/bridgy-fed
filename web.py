@@ -557,6 +557,7 @@ def webmention_task():
     logger.info(f'Delivering to inboxes: {sorted(t.uri for t in obj.undelivered)}')
     for target in list(obj.undelivered):
         inbox = target.uri
+        assert inbox
         if inbox in inboxes_to_targets:
             target_as2 = inboxes_to_targets[inbox]
         else:
@@ -678,12 +679,17 @@ def _activitypub_targets(obj):
         for follower in Follower.query(Follower.to == g.user.key,
                                        Follower.status == 'active'):
             recip = follower.from_.get()
+            inbox = None
             if recip and recip.actor_as2:
                 inbox = (recip.actor_as2.get('endpoints', {}).get('sharedInbox') or
                          recip.actor_as2.get('publicInbox') or
                          recip.actor_as2.get('inbox'))
+            if inbox:
                 # HACK: use last target object from above for reposts, which
                 # has its resolved id
                 inboxes_to_targets[inbox] = (target_obj if verb == 'share' else None)
+            else:
+                # TODO: probably need a way to surface errors like this
+                logger.error(f'Follower {follower.from_} has no entity or inbox')
 
     return inboxes_to_targets
