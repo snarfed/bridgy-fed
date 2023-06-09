@@ -104,6 +104,17 @@ def redir(to):
             'Access-Control-Allow-Origin': '*',
         }
 
-    # redirect
+    # redirect. include rel-alternate link to make posts discoverable by entering
+    # https://fed.brid.gy/r/[URL] in a fediverse instance's search.
     logger.info(f'redirecting to {to}')
-    return redirect(to, code=301)
+    return f"""\
+<!doctype html>
+<html>
+<head>
+<link href="{to}" type="application/activity+json">
+</head>
+<title>Redirecting...</title>
+<h1>Redirecting...</h1>
+<p>You should be redirected automatically to the target URL: <a href="{to}">{to}</a>. If not, click the link.
+</html>
+""", 301, {'Location': to}
