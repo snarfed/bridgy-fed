@@ -20,7 +20,15 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 logger = logging.getLogger(__name__)
 
-DOMAIN_RE = r'[^/:]+\.[^/:]+'
+# allow hostname chars (a-z, 0-9, -), allow arbitrary unicode (eg ☃.net), don't
+# allow specific chars that we'll often see in webfinger, AP handles, etc. (@, :)
+# https://stackoverflow.com/questions/10306690/what-is-a-regular-expression-which-will-match-a-valid-domain-name-without-a-subd
+#
+# uses $ at end but not ^ at the beginning so that it can be used to match just
+# part of a URL path segment, eg for /acct:user.com in webfinger.py.
+#
+# TODO: preprocess with domain2idna, then narrow this to just [a-z0-9-]
+DOMAIN_RE = r'[^/:;@_?!\']+\.[^/:@_?!\']+$'
 TLD_BLOCKLIST = ('7z', 'asp', 'aspx', 'gif', 'html', 'ico', 'jpg', 'jpeg', 'js',
                  'json', 'php', 'png', 'rar', 'txt', 'yaml', 'yml', 'zip')
 

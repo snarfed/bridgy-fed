@@ -407,6 +407,30 @@ class WebTest(TestCase):
     def assert_object(self, id, **props):
         return super().assert_object(id, delivered_protocol='activitypub', **props)
 
+    def test_put_validates_domain_id(self, *_):
+        for bad in (
+            'AbC.cOm',
+            'foo',
+            '@user.com',
+            '@user.com@user.com',
+            'acct:user.com',
+            'acct:@user.com@user.com',
+            'acc:me@user.com',
+        ):
+            with self.assertRaises(AssertionError):
+                Web(id=bad).put()
+
+    def test_get_or_create_lower_cases_domain(self, *_):
+        user = Web.get_or_create('AbC.oRg')
+        self.assertEqual('abc.org', user.key.id())
+        self.assert_entities_equal(user, Web.get_by_id('abc.org'))
+        self.assertIsNone(Web.get_by_id('AbC.oRg'))
+
+    def test_get_or_create_unicode_domain(self, *_):
+        user = Web.get_or_create('☃.net')
+        self.assertEqual('☃.net', user.key.id())
+        self.assert_entities_equal(user, Web.get_by_id('☃.net'))
+
     def test_bad_source_url(self, mock_get, mock_post):
         for data in b'', {'source': 'bad'}, {'source': 'https://'}:
             got = self.client.post('/webmention', data=data)
@@ -1581,6 +1605,29 @@ http://this/404s
         self.assertEqual('Person', user.actor_as2['type'])
         self.assertEqual('http://localhost/user.com', user.actor_as2['id'])
 
+    def test_check_web_site_unicode_domain(self, mock_get, _):
+        mock_get.side_effect = (
+            requests_response(''),
+            requests_response(''),
+        )
+
+        got = self.client.post('/web-site', data={'url': 'https://☃.net/'})
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/web/%E2%98%83.net', got.headers['Location'])
+        self.assertIsNotNone(Web.get_by_id('☃.net'))
+
+    def test_check_web_site_lower_cases_domain(self, mock_get, _):
+        mock_get.side_effect = (
+            requests_response(''),
+            requests_response(''),
+        )
+
+        got = self.client.post('/web-site', data={'url': 'https://AbC.oRg/'})
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/web/abc.org', got.headers['Location'])
+        self.assertIsNotNone(Web.get_by_id('abc.org'))
+        self.assertIsNone(Web.get_by_id('AbC.oRg'))
+
     def test_check_web_site_bad_url(self, _, __):
         got = self.client.post('/web-site', data={'url': '!!!'})
         self.assert_equals(200, got.status_code)
@@ -1594,10 +1641,10 @@ http://this/404s
             requests_response('', status=503),
         )
 
-        got = self.client.post('/web-site', data={'url': 'https://orig/'})
+        got = self.client.post('/web-site', data={'url': 'https://orig.co/'})
         self.assert_equals(200, got.status_code, got.headers)
         self.assertTrue(get_flashed_messages()[0].startswith(
-            "Couldn't connect to https://orig/: "))
+            "Couldn't connect to https://orig.co/: "))
 
 
 @patch('requests.post')

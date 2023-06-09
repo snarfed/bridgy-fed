@@ -228,6 +228,7 @@ def fetch(addr):
     return data
 
 
+# TODO: why do we serve this URL? should we drop it?
 app.add_url_rule(f'/acct:<regex("{common.DOMAIN_RE}"):domain>',
                  view_func=Actor.as_view('actor_acct'))
 app.add_url_rule('/.well-known/webfinger', view_func=Webfinger.as_view('webfinger'))

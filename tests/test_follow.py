@@ -63,7 +63,7 @@ class RemoteFollowTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.make_user('me')
+        self.make_user('user.com')
 
     def test_no_domain(self, _):
         got = self.client.post('/remote-follow?address=@foo@bar&protocol=web')
@@ -74,11 +74,11 @@ class RemoteFollowTest(TestCase):
         self.assertEqual(400, got.status_code)
 
     def test_no_protocol(self, _):
-        got = self.client.post('/remote-follow?address=@foo@bar&domain=me')
+        got = self.client.post('/remote-follow?address=@foo@bar&domain=user.com')
         self.assertEqual(400, got.status_code)
 
     def test_unknown_protocol(self, _):
-        got = self.client.post('/remote-follow?address=@foo@bar&domain=me&protocol=foo')
+        got = self.client.post('/remote-follow?address=@foo@bar&domain=user.com&protocol=foo')
         self.assertEqual(400, got.status_code)
 
     def test_no_user(self, _):
@@ -87,9 +87,9 @@ class RemoteFollowTest(TestCase):
 
     def test(self, mock_get):
         mock_get.return_value = WEBFINGER
-        got = self.client.post('/remote-follow?address=@foo@bar&domain=me&protocol=web')
+        got = self.client.post('/remote-follow?address=@foo@bar&domain=user.com&protocol=web')
         self.assertEqual(302, got.status_code)
-        self.assertEqual('https://bar/follow?uri=@me@me',
+        self.assertEqual('https://bar/follow?uri=@user.com@user.com',
                          got.headers['Location'])
 
         mock_get.assert_has_calls((
@@ -98,9 +98,9 @@ class RemoteFollowTest(TestCase):
 
     def test_url(self, mock_get):
         mock_get.return_value = WEBFINGER
-        got = self.client.post('/remote-follow?address=https://bar/foo&domain=me&protocol=web')
+        got = self.client.post('/remote-follow?address=https://bar/foo&domain=user.com&protocol=web')
         self.assertEqual(302, got.status_code)
-        self.assertEqual('https://bar/follow?uri=@me@me', got.headers['Location'])
+        self.assertEqual('https://bar/follow?uri=@user.com@user.com', got.headers['Location'])
 
         mock_get.assert_has_calls((
             self.req('https://bar/.well-known/webfinger?resource=https://bar/foo'),
@@ -112,23 +112,23 @@ class RemoteFollowTest(TestCase):
             'links': [{'rel': 'other', 'template': 'meh'}],
         })
 
-        got = self.client.post('/remote-follow?address=https://bar/foo&domain=me&protocol=web')
+        got = self.client.post('/remote-follow?address=https://bar/foo&domain=user.com&protocol=web')
         self.assertEqual(302, got.status_code)
-        self.assertEqual('/web/me', got.headers['Location'])
+        self.assertEqual('/web/user.com', got.headers['Location'])
 
     def test_webfinger_error(self, mock_get):
         mock_get.return_value = requests_response(status=500)
 
-        got = self.client.post('/remote-follow?address=https://bar/foo&domain=me&protocol=web')
+        got = self.client.post('/remote-follow?address=https://bar/foo&domain=user.com&protocol=web')
         self.assertEqual(302, got.status_code)
-        self.assertEqual('/web/me', got.headers['Location'])
+        self.assertEqual('/web/user.com', got.headers['Location'])
 
     def test_webfinger_returns_not_json(self, mock_get):
         mock_get.return_value = requests_response('<html>not json</html>')
 
-        got = self.client.post('/remote-follow?address=https://bar/foo&domain=me&protocol=web')
+        got = self.client.post('/remote-follow?address=https://bar/foo&domain=user.com&protocol=web')
         self.assertEqual(302, got.status_code)
-        self.assertEqual('/web/me', got.headers['Location'])
+        self.assertEqual('/web/user.com', got.headers['Location'])
 
 
 @patch('requests.post')

@@ -21,12 +21,12 @@ class CommonTest(TestCase):
     def setUpClass(cls):
         with appengine_config.ndb_client.context():
             # do this in setUpClass since generating RSA keys is slow
-            cls.user = cls.make_user('site')
+            cls.user = cls.make_user('user.com')
 
     def setUp(self):
         super().setUp()
         self.request_context.push()
-        g.user = Fake(id='site')
+        g.user = Fake(id='user.com')
 
     def tearDown(self):
         self.request_context.pop()
@@ -48,8 +48,8 @@ class CommonTest(TestCase):
                          common.pretty_link('http://foo'))
 
         self.assertEqual(
-            '<a class="h-card u-author" href="/fake/site"><img src="" class="profile"> site</a>',
-            common.pretty_link('https://site/'))
+            '<a class="h-card u-author" href="/fake/user.com"><img src="" class="profile"> user.com</a>',
+            common.pretty_link('https://user.com/'))
 
     def test_redirect_wrap_empty(self):
         self.assertIsNone(common.redirect_wrap(None))

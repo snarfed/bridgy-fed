@@ -2,6 +2,7 @@
 import datetime
 import difflib
 import logging
+import re
 import urllib.parse
 from urllib.parse import urlencode, urljoin, urlparse
 
@@ -61,6 +62,18 @@ class Web(User, Protocol):
         username = self.username()
         if username != self.key.id():
             return util.domain_from_link(username, minimize=False)
+
+    def put(self, *args, **kwargs):
+        """Validate domain id, don't allow lower case or invalid characters."""
+        id = self.key.id()
+        assert re.match(common.DOMAIN_RE, id)
+        assert id.lower() == id, f'lower case is not allowed in Web key id: {id}'
+        return super().put(*args, **kwargs)
+
+    @classmethod
+    def get_or_create(cls, id, **kwargs):
+        """Lower cases id (domain), then passes through to :meth:`User.get_or_create`."""
+        return super().get_or_create(id.lower(), **kwargs)
 
     def web_url(self):
         """Returns this user's web URL aka web_url, eg 'https://foo.com/'."""
@@ -325,6 +338,7 @@ def enter_web_site():
 @app.post('/web-site')
 def check_web_site():
     url = request.values['url']
+    # this normalizes and lower cases domain
     domain = util.domain_from_link(url, minimize=False)
     if not domain:
         flash(f'No domain found in {url}')
