@@ -163,7 +163,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         result.failures = prune(result.failures)
         return result
 
-    # TODO(#512): switch default to Fake, start using that more
+    # TODO: switch default to Fake, start using that more
     @staticmethod
     def make_user(id, cls=Web, **kwargs):
         """Reuse RSA key across Users because generating it is expensive."""

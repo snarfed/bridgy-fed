@@ -1,14 +1,18 @@
 """Simple conneg endpoint that serves AS2 or redirects to to the original post.
 
-Serves /r/https://foo.com/bar URL paths, where https://foo.com/bar is an
-original post. Needed for Mastodon interop, they require that AS2 object ids and
-urls are on the same domain that serves them. Background:
+Only for Web users. Other protocols (including Web sometimes) use /convert/ in
+convert.py instead.
+
+Serves /r/https://foo.com/bar URL paths, where https://foo.com/bar is a original
+post for a Web user. Needed for Mastodon interop, they require that AS2 object
+ids and urls are on the same domain that serves them. Background:
 
 https://github.com/snarfed/bridgy-fed/issues/16#issuecomment-424799599
 https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
 
 The conneg makes these /r/ URLs searchable in Mastodon:
 https://github.com/snarfed/bridgy-fed/issues/352
+
 """
 import logging
 import re
@@ -76,8 +80,6 @@ def redir(to):
                    to_domain))
     for domain in domains:
         if domain:
-            # TODO(#512): do we need to parameterize this by protocol? or is it
-            # only for web?
             g.user = Web.get_by_id(domain)
             if g.user:
                 logger.info(f'Found web user for domain {domain}')

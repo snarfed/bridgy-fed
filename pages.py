@@ -43,11 +43,11 @@ def load_user(protocol, id):
     Raises:
       :class:`werkzeug.exceptions.HTTPException` on error or redirect
     """
+    assert id
     cls = PROTOCOLS[protocol]
     g.user = cls.get_by_id(id)
 
-    # TODO(#512): generalize across protocols
-    if protocol == 'activitypub':
+    if protocol != 'web':
         if not g.user:
             g.user = cls.query(cls.readable_id == id).get()
             if g.user and g.user.use_instead:

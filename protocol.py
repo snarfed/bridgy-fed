@@ -45,6 +45,7 @@ objects_cache_lock = threading.Lock()
 logger = logging.getLogger(__name__)
 
 
+# TODO: merge Protocol and User classes?
 class Protocol:
     """Base protocol class. Not to be instantiated; classmethods only.
 
@@ -173,8 +174,8 @@ class Protocol:
                 error(f'Undo of Follow requires actor id and object id. Got: {actor_id} {inner_obj_id} {obj.as1}')
 
             # deactivate Follower
-            # TODO(#512): generalize across protocols
-            # TODO(#512): merge Protocol and User
+            # TODO(#512): generalize across protocols. use inner_obj_id's
+            # brid.gy subdomain to determine protocol?
             followee_domain = util.domain_from_link(inner_obj_id, minimize=False)
             from web import Web
             follower = Follower.query(
@@ -372,17 +373,16 @@ class Protocol:
 
             # TODO(#512): generalize protocol
             from web import Web
-            recip = Web(id=domain).key
-            if recip not in obj.users:
-                if not recip.get():
+            recip = Web(id=domain)
+            if recip.key not in obj.users:
+                if not recip.key.get():
                     logger.info(f'No Web user for {domain}; skipping {target.uri}')
                     no_user_domains.add(domain)
                     continue
-                obj.users.append(recip)
+                obj.users.append(recip.key)
 
             try:
-                # TODO(#512): generalize protocol
-                if Web.send(obj, target.uri):
+                if recip.send(obj, target.uri):
                     obj.delivered.append(target)
                     if 'notification' not in obj.labels:
                         obj.labels.append('notification')
