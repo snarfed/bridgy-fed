@@ -36,9 +36,17 @@ TLD_BLOCKLIST = ('7z', 'asp', 'aspx', 'gif', 'html', 'ico', 'jpg', 'jpeg', 'js',
 CONTENT_TYPE_HTML = 'text/html; charset=utf-8'
 
 PRIMARY_DOMAIN = 'fed.brid.gy'
+# TODO: add a Flask route decorator version of util.canonicalize_domain, then
+# use it to canonicalize most UI routes from these to fed.brid.gy.
 OTHER_DOMAINS = (
+    'ap.brid.gy',
+    'atp.brid.gy',
+    'bluesky.brid.gy',
+    'bsky.brid.gy',
     'bridgy-federated.appspot.com',
     'bridgy-federated.uc.r.appspot.com',
+    'nostr.brid.gy',
+    'web.brid.gy',
 )
 LOCAL_DOMAINS = (
   'localhost',
