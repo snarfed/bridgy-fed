@@ -17,6 +17,7 @@ import mf2util
 from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.util import json_dumps, json_loads
+from werkzeug.exceptions import BadRequest
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,11 @@ DOMAIN_BLOCKLIST = frozenset((
 ) + DOMAINS)
 
 CACHE_TIME = timedelta(seconds=60)
+
+
+class NoMicroformats(BadRequest):
+    """Raised by :meth:`Web.fetch` when a page has no microformats2."""
+    pass
 
 
 def base64_to_long(x):

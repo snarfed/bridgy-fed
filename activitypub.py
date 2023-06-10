@@ -23,12 +23,16 @@ from common import (
     CONTENT_TYPE_HTML,
     error,
     host_url,
+    NoMicroformats,
     redirect_unwrap,
     redirect_wrap,
     TLD_BLOCKLIST,
 )
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
+
+# TODO: remove this. we only need it to make sure Web is registered in PROTOCOLS
+# before the URL route registrations below.
 import web
 
 logger = logging.getLogger(__name__)
@@ -44,6 +48,7 @@ _DEFAULT_SIGNATURE_USER = None
 def default_signature_user():
     global _DEFAULT_SIGNATURE_USER
     if _DEFAULT_SIGNATURE_USER is None:
+        import web
         _DEFAULT_SIGNATURE_USER = web.Web.get_or_create('snarfed.org')
     return _DEFAULT_SIGNATURE_USER
 
@@ -539,7 +544,7 @@ def actor(protocol, domain):
         try:
             obj = cls.load(f'https://{domain}/', gateway=True)
             actor_as2 = as2.from_as1(obj.as1)
-        except web.NoMicroformats as e:
+        except NoMicroformats as e:
             actor_as2 = {}
         g.user = cls.get_or_create(id=domain, actor_as2=actor_as2)
 
@@ -598,7 +603,6 @@ def inbox(protocol=None, domain=None):
     logger.info(f'Got {type} from {actor_id}: {json_dumps(activity, indent=2)}')
 
     # load user
-    # TODO(#512) parameterize on protocol, move to Protocol
     if protocol and domain:
         g.user = PROTOCOLS[protocol].get_or_create(domain, direct=False)  # receiving user
         if not g.user.direct and actor_id:

@@ -144,6 +144,7 @@ class Webfinger(Actor):
         allow_indirect = False
         try:
             user, domain = util.parse_acct_uri(resource)
+            # TODO(#512): infer protocol, pass through
             if domain in common.DOMAINS:
                 domain = user
                 allow_indirect=True
