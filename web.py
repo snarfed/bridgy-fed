@@ -462,9 +462,13 @@ def webmention_task():
             props['author'] = [g.user.ap_actor()]
         logger.info(f'Converted to AS1: {obj.type}: {json_dumps(obj.as1, indent=2)}')
 
-    # if source is home page, send an actor Update to followers' instances
+    # if source is home page, update Web user and send an actor Update to
+    # followers' instances
     if g.user.is_web_url(obj.key.id()):
         obj.put()
+        g.user.actor_as2 = as2.from_as1(obj.as1)
+        g.user.put()
+
         actor_as1 = {
             **obj.as1,
             'id': g.user.ap_actor(),

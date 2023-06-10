@@ -69,6 +69,16 @@ ACTOR_AS2 = {
     'name': 'Ms. ☕ Baz',
     'preferredUsername': 'user.com',
 }
+ACTOR_AS2_USER = {
+    'type': 'Person',
+    'url': 'https://user.com/',
+    'name': 'Ms. ☕ Baz',
+    'attachment': [{
+        'name': 'Ms. ☕ Baz',
+        'type': 'PropertyValue',
+        'value': '<a rel="me" href="https://user.com/">user.com</a>',
+    }],
+}
 ACTOR_AS2_FULL = {
     **ACTOR_AS2,
     '@context': [
@@ -1360,6 +1370,9 @@ class WebTest(TestCase):
         }
         self.assert_deliveries(mock_post, ('https://shared/inbox', 'https://inbox'),
                                expected_as2)
+
+        # updated Web user
+        self.assert_user(Web, 'user.com', actor_as2=ACTOR_AS2_USER, direct=True)
 
         # homepage object
         self.assert_object('https://user.com/',
