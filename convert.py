@@ -2,8 +2,6 @@
 
 URL pattern is /convert/SOURCE/DEST , where SOURCE and DEST are the LABEL
 constants from the :class:`Protocol` subclasses.
-
-Currently only supports /convert/activitypub/web/...
 """
 import logging
 import re
@@ -23,11 +21,15 @@ from web import Web
 logger = logging.getLogger(__name__)
 
 SOURCES = frozenset((
+    ActivityPub.ABBREV,
     ActivityPub.LABEL,
+    Web.ABBREV,
     Web.LABEL,
 ))
 DESTS = frozenset((
+    ActivityPub.ABBREV,
     ActivityPub.LABEL,
+    Web.ABBREV,
     Web.LABEL,
 ))
 
@@ -53,14 +55,16 @@ def convert(src, dest, _):
         error(f'Expected fully qualified URL; got {url}')
 
     # require g.user for AP since postprocess_as2 currently needs it. ugh
-    if dest == ActivityPub.LABEL:
+    dest_cls = PROTOCOLS[dest]
+    src_cls = PROTOCOLS[src]
+    if dest_cls == ActivityPub:
         domain = util.domain_from_link(url, minimize=False)
         g.user = Web.get_by_id(domain)
         if not g.user:
             error(f'No web user found for {domain}')
 
     # load, and maybe fetch. if it's a post/update, redirect to inner object.
-    obj = PROTOCOLS[src].load(url)
+    obj = src_cls.load(url)
     if not obj.as1:
         error(f'Stored object for {id} has no data', status=404)
 
@@ -80,11 +84,11 @@ def convert(src, dest, _):
         return '', 410
 
     # convert and serve
-    return PROTOCOLS[dest].serve(obj)
+    return dest_cls.serve(obj)
 
 
 @app.get('/render')
 def render_redirect():
     """Redirect from old /render?id=... endpoint to /convert/..."""
     id = flask_util.get_required_param('id')
-    return redirect(f'/convert/activitypub/web/{id}', code=301)
+    return redirect(f'/convert/ap/web/{id}', code=301)

@@ -44,7 +44,7 @@ class PagesTest(TestCase):
 
     def test_user_fake(self):
         self.make_user('foo.com', cls=Fake)
-        got = self.client.get('/fake/foo.com')
+        got = self.client.get('/fa/foo.com')
         self.assert_equals(200, got.status_code)
 
     def test_user_readable_id_activitypub_address(self):
@@ -52,12 +52,12 @@ class PagesTest(TestCase):
                               actor_as2=ACTOR_WITH_PREFERRED_USERNAME)
         self.assertEqual('@me@plus.google.com', user.ap_address())
 
-        got = self.client.get('/activitypub/@me@plus.google.com')
+        got = self.client.get('/ap/@me@plus.google.com')
         self.assert_equals(200, got.status_code)
 
-        got = self.client.get('/activitypub/foo')
+        got = self.client.get('/ap/foo')
         self.assert_equals(302, got.status_code)
-        self.assert_equals('/activitypub/@me@plus.google.com', got.headers['Location'])
+        self.assert_equals('/ap/@me@plus.google.com', got.headers['Location'])
 
     def test_user_web_custom_username_doesnt_redirect(self):
         """https://github.com/snarfed/bridgy-fed/issues/534"""
@@ -167,7 +167,7 @@ class PagesTest(TestCase):
 
     def test_followers_fake(self):
         self.make_user('foo.com', cls=Fake)
-        got = self.client.get('/fake/foo.com/followers')
+        got = self.client.get('/fa/foo.com/followers')
         self.assert_equals(200, got.status_code)
 
     def test_followers_empty(self):
@@ -207,7 +207,7 @@ class PagesTest(TestCase):
 
     def test_following_fake(self):
         self.make_user('foo.com', cls=Fake)
-        got = self.client.get('/fake/foo.com/following')
+        got = self.client.get('/fa/foo.com/following')
         self.assert_equals(200, got.status_code)
 
     def test_following_user_not_found(self):
@@ -238,7 +238,7 @@ class PagesTest(TestCase):
 
     def test_feed_fake(self):
         self.make_user('foo.com', cls=Fake)
-        got = self.client.get('/fake/foo.com/feed')
+        got = self.client.get('/fa/foo.com/feed')
         self.assert_equals(200, got.status_code)
 
     def test_feed_html_empty(self):

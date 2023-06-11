@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 
 
 class Fake(User, protocol.Protocol):
-    LABEL = 'fake'
+    ABBREV = 'fa'
 
     # maps string ids to dict AS1 objects. send adds objects here, fetch
     # returns them

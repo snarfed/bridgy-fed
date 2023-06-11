@@ -51,9 +51,9 @@ class ProtocolUserMeta(type(ndb.Model)):
     """:class:`User` metaclass. Registers all subclasses in the PROTOCOLS global."""
     def __new__(meta, name, bases, class_dict):
         cls = super().__new__(meta, name, bases, class_dict)
-        PROTOCOLS[cls.__name__.lower()] = cls
-        if hasattr(cls, 'LABEL'):
-            PROTOCOLS[cls.LABEL] = cls
+        if hasattr(cls, 'LABEL') and cls.LABEL not in ('protocol', 'user'):
+            for label in (cls.LABEL, cls.ABBREV) + cls.OTHER_LABELS:
+                PROTOCOLS[label] = cls
         return cls
 
 
@@ -256,7 +256,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     def user_page_path(self, rest=None):
         """Returns the user's Bridgy Fed user page path."""
-        path = f'/{self.LABEL}/{self.readable_or_key_id()}'
+        path = f'/{self.ABBREV}/{self.readable_or_key_id()}'
 
         if rest:
             if not rest.startswith('?'):
@@ -420,6 +420,7 @@ class Object(StringIdModel):
         """
         assert '^^' not in self.key.id()
         id = self.key.id().replace('#', '^^')
+        # TODO: canonicalize to ABBREV? but need to handle eg ui
         return common.host_url(f'convert/{self.source_protocol}/web/{id}')
 
     def actor_link(self):

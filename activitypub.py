@@ -58,7 +58,7 @@ class ActivityPub(User, Protocol):
 
     Key id is AP/AS2 actor id URL. (*Not* fediverse/WebFinger @-@ handle!)
     """
-    LABEL = 'ap'
+    ABBREV = 'ap'
 
     @ndb.ComputedProperty
     def readable_id(self):

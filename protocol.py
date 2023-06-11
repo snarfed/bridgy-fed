@@ -50,12 +50,20 @@ class Protocol:
     """Base protocol class. Not to be instantiated; classmethods only.
 
     Attributes:
-      LABEL: str, label used in `Object.source_protocol`
+      LABEL: str, human-readable lower case name
+      OTHER_LABELS: sequence of str, label aliases
+      ABBREV: str, lower case abbreviation, used in URL paths
     """
-    LABEL = None
+    ABBREV = None
+    OTHER_LABELS = ()
 
     def __init__(self):
         assert False
+
+    @classmethod
+    @property
+    def LABEL(cls):
+        return cls.__name__.lower()
 
     @staticmethod
     def for_request():

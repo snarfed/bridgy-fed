@@ -45,7 +45,8 @@ class Web(User, Protocol):
 
     The key name is the domain.
     """
-    LABEL = 'web'
+    ABBREV = 'web'
+    OTHER_LABELS = ('webmention',)
 
     @classmethod
     def _get_kind(cls):
@@ -99,7 +100,7 @@ class Web(User, Protocol):
 
     def user_page_path(self, rest=None):
         """Always use domain."""
-        path = f'/{self.LABEL}/{self.key.id()}'
+        path = f'/{self.ABBREV}/{self.key.id()}'
 
         if rest:
             if not rest.startswith('?'):
@@ -319,9 +320,6 @@ class Web(User, Protocol):
             html = html.replace(utf8, utf8 + '\n' + refresh)
 
         return html, {'Content-Type': common.CONTENT_TYPE_HTML}
-
-# 'webmention' is an old LABEL alias for 'web'
-PROTOCOLS['webmention'] = Web
 
 
 @app.get('/web-site')

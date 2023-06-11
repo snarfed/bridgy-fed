@@ -48,7 +48,7 @@ class CommonTest(TestCase):
                          common.pretty_link('http://foo'))
 
         self.assertEqual(
-            '<a class="h-card u-author" href="/fake/user.com"><img src="" class="profile"> user.com</a>',
+            '<a class="h-card u-author" href="/fa/user.com"><img src="" class="profile"> user.com</a>',
             common.pretty_link('https://user.com/'))
 
     def test_redirect_wrap_empty(self):

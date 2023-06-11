@@ -71,7 +71,7 @@ class ProtocolTest(TestCase):
         # user.com webmention discovery
         mock_get.return_value = requests_response('<html></html>')
 
-        Protocol.receive(REPLY['id'], as2=REPLY)
+        Fake.receive(REPLY['id'], as2=REPLY)
 
         self.assert_object(REPLY['id'],
                            as2=REPLY,
@@ -81,10 +81,12 @@ class ProtocolTest(TestCase):
                            # not notification since it doesn't involve the user
                            labels=['activity'],
                            status='complete',
+                           source_protocol='fake',
                            )
         self.assert_object(REPLY['object']['id'],
                            as2=REPLY['object'],
                            type='comment',
+                           source_protocol='fake',
                            )
 
     def test_load(self):
