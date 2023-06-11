@@ -36,6 +36,8 @@ TLD_BLOCKLIST = ('7z', 'asp', 'aspx', 'gif', 'html', 'ico', 'jpg', 'jpeg', 'js',
 CONTENT_TYPE_HTML = 'text/html; charset=utf-8'
 
 PRIMARY_DOMAIN = 'fed.brid.gy'
+# protocol-specific subdomains are under this "super"domain
+SUPERDOMAIN = '.brid.gy'
 # TODO: add a Flask route decorator version of util.canonicalize_domain, then
 # use it to canonicalize most UI routes from these to fed.brid.gy.
 OTHER_DOMAINS = (

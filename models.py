@@ -51,6 +51,7 @@ class ProtocolUserMeta(type(ndb.Model)):
     """:class:`User` metaclass. Registers all subclasses in the PROTOCOLS global."""
     def __new__(meta, name, bases, class_dict):
         cls = super().__new__(meta, name, bases, class_dict)
+        PROTOCOLS[cls.__name__.lower()] = cls
         if hasattr(cls, 'LABEL'):
             PROTOCOLS[cls.LABEL] = cls
         return cls

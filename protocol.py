@@ -3,14 +3,14 @@ import logging
 import threading
 
 from cachetools import cached, LRUCache
-from flask import g
+from flask import g, request
 from google.cloud import ndb
 from google.cloud.ndb import OR
 from granary import as1, as2
 
 import common
 from common import error
-from models import Follower, Object, Target
+from models import Follower, Object, PROTOCOLS, Target
 from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
@@ -56,6 +56,32 @@ class Protocol:
 
     def __init__(self):
         assert False
+
+    @staticmethod
+    def for_request():
+        """Returns the protocol for the current request.
+
+        ...based on the request's hostname.
+
+        Returns:
+         :class:`Protocol` subclass, or None if the provided domain or request
+           hostname domain is not a subdomain of brid.gy or isn't a known protocol
+        """
+        return Protocol.for_domain(request.host)
+
+    @staticmethod
+    def for_domain(domain):
+        """Returns the protocol for a brid.gy subdomain.
+
+        Returns:
+         :class:`Protocol` subclass, or None if the request hostname is not a
+           subdomain of brid.gy or isn't a known protocol
+        """
+        if not domain or not domain.endswith(common.SUPERDOMAIN):
+            return None
+
+        label = domain.removesuffix(common.SUPERDOMAIN)
+        return PROTOCOLS.get(label)
 
     @classmethod
     def send(cls, obj, url, log_data=True):

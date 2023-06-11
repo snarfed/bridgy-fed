@@ -8,8 +8,10 @@ import requests
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
 
-from protocol import Protocol
+from activitypub import ActivityPub
+from app import app
 from models import Follower, Object, PROTOCOLS, User
+from protocol import Protocol
 from web import Web
 
 from .test_activitypub import ACTOR, REPLY
@@ -40,6 +42,25 @@ class ProtocolTest(TestCase):
         self.assertEqual(Fake, PROTOCOLS['fake'])
         self.assertEqual(Web, PROTOCOLS['web'])
         self.assertEqual(Web, PROTOCOLS['webmention'])
+
+    def test_for_domain(self):
+        self.assertEqual(Fake, Protocol.for_domain('fake.brid.gy'))
+        self.assertEqual(ActivityPub, Protocol.for_domain('ap.brid.gy'))
+        self.assertEqual(ActivityPub, Protocol.for_domain('activitypub.brid.gy'))
+
+        for bad in [None, '', 'fake', 'fake.com', 'brid.gy', 'www.brid.gy',
+                    'fed.brid.gy', 'fake.fed.brid.gy']:
+            self.assertIsNone(Protocol.for_domain(bad))
+
+    def test_for_request(self):
+        with app.test_request_context('/', base_url='https://fake.brid.gy/'):
+            self.assertEqual(Fake, Protocol.for_request())
+
+        with app.test_request_context('/foo', base_url='http://ap.brid.gy/'):
+            self.assertEqual(ActivityPub, Protocol.for_request())
+
+        for bad in None, '', 'brid.gy', 'fake.fed.brid.gy':
+            self.assertIsNone(Protocol.for_request())
 
     @patch('requests.get')
     def test_receive_reply_not_feed_not_notification(self, mock_get):
