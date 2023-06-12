@@ -43,24 +43,24 @@ class ProtocolTest(TestCase):
         self.assertEqual(Web, PROTOCOLS['web'])
         self.assertEqual(Web, PROTOCOLS['webmention'])
 
-    def test_for_domain(self):
-        self.assertEqual(Fake, Protocol.for_domain('fake.brid.gy'))
-        self.assertEqual(ActivityPub, Protocol.for_domain('ap.brid.gy'))
-        self.assertEqual(ActivityPub, Protocol.for_domain('activitypub.brid.gy'))
-
-        for bad in [None, '', 'fake', 'fake.com', 'brid.gy', 'www.brid.gy',
-                    'fed.brid.gy', 'fake.fed.brid.gy']:
-            self.assertIsNone(Protocol.for_domain(bad))
-
-    def test_for_request(self):
-        with app.test_request_context('/', base_url='https://fake.brid.gy/'):
-            self.assertEqual(Fake, Protocol.for_request())
-
-        with app.test_request_context('/foo', base_url='http://ap.brid.gy/'):
-            self.assertEqual(ActivityPub, Protocol.for_request())
-
-        for bad in None, '', 'brid.gy', 'fake.fed.brid.gy':
-            self.assertIsNone(Protocol.for_request())
+    def test_for_domain_for_request(self):
+        for domain, protocol in [
+                ('fake.brid.gy', Fake),
+                ('ap.brid.gy', ActivityPub),
+                ('activitypub.brid.gy', ActivityPub),
+                ('web.brid.gy', Web),
+                ('fed.brid.gy', Web),
+                (None, None),
+                ('', None),
+                ('brid.gy', None),
+                ('www.brid.gy', None),
+                ('fake.fed.brid.gy', None),
+                ('fake', None),
+                ('fake.com', None),
+        ]:
+            self.assertEqual(protocol, Protocol.for_domain(domain))
+            with app.test_request_context('/foo', base_url=f'https://{domain}/'):
+                self.assertEqual(protocol, Protocol.for_request())
 
     @patch('requests.get')
     def test_receive_reply_not_feed_not_notification(self, mock_get):
