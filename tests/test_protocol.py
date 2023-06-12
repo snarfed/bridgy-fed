@@ -49,18 +49,19 @@ class ProtocolTest(TestCase):
                 ('ap.brid.gy', ActivityPub),
                 ('activitypub.brid.gy', ActivityPub),
                 ('web.brid.gy', Web),
-                ('fed.brid.gy', Web),
                 (None, None),
                 ('', None),
                 ('brid.gy', None),
                 ('www.brid.gy', None),
+                ('fed.brid.gy', None),
                 ('fake.fed.brid.gy', None),
                 ('fake', None),
                 ('fake.com', None),
         ]:
-            self.assertEqual(protocol, Protocol.for_domain(domain))
-            with app.test_request_context('/foo', base_url=f'https://{domain}/'):
-                self.assertEqual(protocol, Protocol.for_request())
+            with self.subTest(domain=domain, protocol=protocol):
+                self.assertEqual(protocol, Protocol.for_domain(domain))
+                with app.test_request_context('/foo', base_url=f'https://{domain}/'):
+                    self.assertEqual(protocol, Protocol.for_request())
 
     @patch('requests.get')
     def test_receive_reply_not_feed_not_notification(self, mock_get):

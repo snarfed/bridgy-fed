@@ -17,6 +17,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import common
 from flask_app import app, cache
 from models import User
+from protocol import Protocol
 from web import Web
 
 NON_TLDS = frozenset(('html', 'json', 'php', 'xml'))
@@ -51,28 +52,39 @@ class Webfinger(flask_util.XrdOrJrd):
             error('Expected other domain, not *.brid.gy')
 
         allow_indirect = False
+        cls = None
         try:
-            user, domain = util.parse_acct_uri(resource)
-            # TODO(#512): infer protocol, pass through
-            if domain in common.DOMAINS:
-                domain = user
+            user, id = util.parse_acct_uri(resource)
+            if id in common.DOMAINS:
+                cls = Protocol.for_domain(id)
+                id = user
                 allow_indirect=True
         except ValueError:
-            domain = urllib.parse.urlparse(resource).netloc or resource
+            id = urllib.parse.urlparse(resource).netloc or resource
 
-        if domain.split('.')[-1] in NON_TLDS:
-            error(f"{domain} doesn't look like a domain", status=404)
+        if not cls:
+            cls = Protocol.for_request() or Web
 
+        logger.info(f'Protocol {cls.__name__}, user id {id}')
+
+        # if id is a domain, validate
+        if re.match(common.DOMAIN_RE, id):
+            tld = id.split('.')[-1]
+            if tld in NON_TLDS:
+                error(f"{id} looks like a domain but {tld} isn't a TLD", status=404)
+
+        # only allow indirect users if this id is "on" a brid.gy subdomain,
+        # eg user.com@bsky.brid.gy but not user.com@user.com
         if allow_indirect:
-            g.user = Web.get_or_create(domain)
+            g.user = cls.get_or_create(id)
         else:
-            g.user = Web.get_by_id(domain)
+            g.user = cls.get_by_id(id)
 
         if not g.user:
-            error(f'No user or web site found for {domain}', status=404)
+            error(f'No {cls.LABEL} user found for {id}', status=404)
 
         actor = g.user.to_as1() or {}
-        logger.info(f'Generating WebFinger data for {domain}')
+        logger.info(f'Generating WebFinger data for {g.user.key}')
         logger.info(f'AS1 actor: {actor}')
         urls = util.dedupe_urls(util.get_list(actor, 'urls') +
                                 util.get_list(actor, 'url') +
@@ -132,7 +144,7 @@ class Webfinger(flask_util.XrdOrJrd):
                 # 'template': common.host_url(g.user.user_page_path('?url={uri}')),
                 # the problem is that user_page_path() uses readable_id, which uses
                 # custom username instead of domain, which may not be unique
-                'template': common.host_url(f'web/{domain}?url={{uri}}'),
+                'template': common.host_url(f'{cls.ABBREV}/{id}?url={{uri}}'),
             }]
         })
 

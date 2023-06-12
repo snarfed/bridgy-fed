@@ -48,13 +48,13 @@ class Fake(User, protocol.Protocol):
     fetched = []
 
     def web_url(self):
-        return f'https://{self.key.id()}'
+        return f'fake://{self.key.id()}'
 
     def ap_address(self):
         return f'@{self.key.id()}@fake'
 
     def ap_actor(self, rest=None):
-        return f'http://bf/{self.key.id()}/ap' + (f'/{rest}' if rest else '')
+        return f'http://bf/fake/{self.key.id()}/ap' + (f'/{rest}' if rest else '')
 
     @classmethod
     def send(cls, obj, url, log_data=True):
@@ -85,7 +85,7 @@ class Fake(User, protocol.Protocol):
 # expensive to generate
 requests.post(f'http://{ndb_client.host}/reset')
 with ndb_client.context():
-    global_user = Fake.get_or_create('user.com')
+    global_user = Fake.get_or_create('user')
 
 
 # import other modules that register Flask handlers *after* Fake is defined
@@ -113,6 +113,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         Fake.objects = {}
         Fake.sent = []
         Fake.fetched = []
+
+        common.OTHER_DOMAINS += ('fake.brid.gy',)
+        common.DOMAINS += ('fake.brid.gy',)
 
         # make random test data deterministic
         arroba.util._clockid = 17
