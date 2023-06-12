@@ -90,7 +90,7 @@ tweepy==4.14.0
 # https://github.com/hashberg-io/bases/issues/3
 typing-extensions==4.5.0
 typing-validation==1.0.0.post2
-ujson==5.7.0
+ujson==5.8.0
 update-checker==0.18.0
 urllib3==2.0.3
 webencodings==0.5.1
