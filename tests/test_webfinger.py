@@ -122,31 +122,6 @@ class WebfingerTest(testutil.TestCase):
         self.user = self.make_user('user.com', has_hcard=True, actor_as2=self.actor_as2)
         self.user.put()
 
-    def test_user(self):
-        got = self.client.get('/acct:user.com', headers={'Accept': 'application/json'})
-        self.assertEqual(200, got.status_code)
-        self.assertEqual('application/jrd+json', got.headers['Content-Type'])
-        self.assert_equals(WEBFINGER, got.json)
-
-    def test_user_no_hcard(self):
-        self.user.has_hcard = False
-        self.user.actor_as2 = None
-        self.user.put()
-
-        got = self.client.get('/acct:user.com')
-        self.assertEqual(200, got.status_code)
-        self.assert_equals(WEBFINGER_NO_HCARD, got.json)
-
-    def test_user_bad_tld(self):
-        got = self.client.get('/acct:foo.json')
-        self.assertEqual(404, got.status_code)
-        self.assertIn("doesn't look like a domain",
-                      html.unescape(got.get_data(as_text=True)))
-
-    def test_missing_user(self):
-        got = self.client.get('/acct:nope.com', headers={'Accept': 'application/json'})
-        self.assertEqual(404, got.status_code)
-
     def test_webfinger(self):
         for resource in ('user.com@user.com', 'acct:user.com@user.com', 'xyz@user.com',
                          'user.com', 'http://user.com/', 'https://user.com/',
@@ -159,7 +134,7 @@ class WebfingerTest(testutil.TestCase):
                 self.assertEqual('application/jrd+json', got.headers['Content-Type'])
                 self.assert_equals(WEBFINGER, got.json)
 
-    def test_webfinger_urlencoded(self):
+    def test_urlencoded(self):
         """https://github.com/snarfed/bridgy-fed/issues/535"""
         got = self.client.get('/.well-known/webfinger?resource=acct%3Auser.com%40user.com',
                               headers={'Accept': 'application/json'})
@@ -167,7 +142,7 @@ class WebfingerTest(testutil.TestCase):
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
         self.assert_equals(WEBFINGER, got.json)
 
-    def test_webfinger_custom_username(self):
+    def test_custom_username(self):
         self.user.actor_as2 = {
             **self.actor_as2,
             'url': [
@@ -210,12 +185,19 @@ class WebfingerTest(testutil.TestCase):
                     ],
                 }, got.json)
 
-    def test_webfinger_missing_user(self):
-        got = self.client.get('/acct:nope.com', headers={'Accept': 'application/json'})
-        self.assertEqual(404, got.status_code)
+    def test_missing_user(self):
+        for bad in 'nope.com', 'nope.com@nope.com':
+            got = self.client.get(f'/.well-known/webfinger?resource=acct:{bad}')
+            self.assertEqual(404, got.status_code)
+
+    def test_bad_tld(self):
+        self.make_user('user.json')
+        got = self.client.get(f'/.well-known/webfinger?resource=acct:user.json@user.json')
+        self.assertIn("doesn't look like a domain",
+                      html.unescape(got.get_data(as_text=True)))
 
     @patch('requests.get')
-    def test_webfinger_fetch_create_user(self, mock_get):
+    def test_fetch_create_user(self, mock_get):
         self.user.key.delete()
         mock_get.return_value = requests_response(ACTOR_HTML)
 
@@ -230,7 +212,7 @@ class WebfingerTest(testutil.TestCase):
         user = Web.get_by_id('user.com')
         assert not user.direct
 
-    def test_webfinger_fed_brid_gy(self):
+    def test_fed_brid_gy(self):
         got = self.client.get('/.well-known/webfinger?resource=http://localhost/')
         self.assertEqual(400, got.status_code, got.get_data(as_text=True))
 

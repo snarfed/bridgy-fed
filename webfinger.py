@@ -26,8 +26,12 @@ SUBSCRIBE_LINK_REL = 'http://ostatus.org/schema/1.0/subscribe'
 logger = logging.getLogger(__name__)
 
 
-class Actor(flask_util.XrdOrJrd):
-    """Serves a user's WebFinger profile."""
+class Webfinger(flask_util.XrdOrJrd):
+    """Serves a user's WebFinger profile.
+
+    Supports both JRD and XRD; defaults to JRD.
+    https://tools.ietf.org/html/rfc7033#section-4
+    """
     @flask_util.cached(cache, common.CACHE_TIME, headers=['Accept'])
     def dispatch_request(self, *args, **kwargs):
         return super().dispatch_request(*args, **kwargs)
@@ -35,14 +39,26 @@ class Actor(flask_util.XrdOrJrd):
     def template_prefix(self):
         return 'webfinger_user'
 
-    def template_vars(self, domain=None, allow_indirect=False):
-        """
-        Args:
-          domain: str, user domain
-          allow_indirect: bool, whether this may be an indirect user, ie without
-            an existing :class:`User`
-        """
+    def template_vars(self):
         logger.debug(f'Headers: {list(request.headers.items())}')
+
+        resource = flask_util.get_required_param('resource').strip()
+        resource = resource.removeprefix(common.host_url())
+
+        # handle Bridgy Fed actor URLs, eg https://fed.brid.gy/snarfed.org
+        host = util.domain_from_link(common.host_url())
+        if resource in ('', '/', f'acct:{host}', f'acct:@{host}'):
+            error('Expected other domain, not *.brid.gy')
+
+        allow_indirect = False
+        try:
+            user, domain = util.parse_acct_uri(resource)
+            # TODO(#512): infer protocol, pass through
+            if domain in common.DOMAINS:
+                domain = user
+                allow_indirect=True
+        except ValueError:
+            domain = urllib.parse.urlparse(resource).netloc or resource
 
         if domain.split('.')[-1] in NON_TLDS:
             error(f"{domain} doesn't look like a domain", status=404)
@@ -124,36 +140,6 @@ class Actor(flask_util.XrdOrJrd):
         return data
 
 
-class Webfinger(Actor):
-    """Handles Webfinger requests.
-
-    https://webfinger.net/
-
-    Supports both JRD and XRD; defaults to JRD.
-    https://tools.ietf.org/html/rfc7033#section-4
-    """
-    def template_vars(self):
-        resource = flask_util.get_required_param('resource').strip()
-        resource = resource.removeprefix(common.host_url())
-
-        # handle Bridgy Fed actor URLs, eg https://fed.brid.gy/snarfed.org
-        host = util.domain_from_link(common.host_url())
-        if resource in ('', '/', f'acct:{host}', f'acct:@{host}'):
-            error('Expected other domain, not fed.brid.gy')
-
-        allow_indirect = False
-        try:
-            user, domain = util.parse_acct_uri(resource)
-            # TODO(#512): infer protocol, pass through
-            if domain in common.DOMAINS:
-                domain = user
-                allow_indirect=True
-        except ValueError:
-            domain = urllib.parse.urlparse(resource).netloc or resource
-
-        return super().template_vars(domain=domain, allow_indirect=allow_indirect)
-
-
 class HostMeta(flask_util.XrdOrJrd):
     """Renders and serves the /.well-known/host-meta file.
 
@@ -229,9 +215,6 @@ def fetch(addr):
     return data
 
 
-# TODO: why do we serve this URL? should we drop it?
-app.add_url_rule(f'/acct:<regex("{common.DOMAIN_RE}"):domain>',
-                 view_func=Actor.as_view('actor_acct'))
 app.add_url_rule('/.well-known/webfinger', view_func=Webfinger.as_view('webfinger'))
 app.add_url_rule('/.well-known/host-meta', view_func=HostMeta.as_view('hostmeta'))
 app.add_url_rule('/.well-known/host-meta.json', view_func=HostMeta.as_view('hostmeta-json'))
