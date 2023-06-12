@@ -63,7 +63,7 @@ class Fake(User, protocol.Protocol):
         cls.objects[obj.key.id()] = obj
 
     @classmethod
-    def fetch(cls, obj):
+    def fetch(cls, obj,  **kwargs):
         id = obj.key.id()
         logger.info(f'Fake.load {id}')
         cls.fetched.append(id)

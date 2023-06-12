@@ -307,29 +307,30 @@ class ActivityPubTest(TestCase):
         return self.client.post(path, data=body, headers=self.sign(path, body))
 
     def test_actor_fake(self, *_):
-        self.make_user('fake.com', cls=Fake)
-        got = self.client.get('/ap/fake/fake.com')
+        self.make_user('user.com', cls=Fake, actor_as2={
+            'type': 'Person',
+            'id': 'https://user.com/',
+        })
+
+        got = self.client.get('/ap/fake/user.com')
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         type = got.headers['Content-Type']
         self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
         self.assertEqual({
-            '@context': [
-                'https://www.w3.org/ns/activitystreams',
-                'https://w3id.org/security/v1',
-            ],
+            '@context': ['https://w3id.org/security/v1'],
             'type': 'Person',
-            'id': 'http://bf/fake.com/ap',
-            'preferredUsername': 'fake.com',
-            'url': 'http://localhost/r/https://fake.com',
+            'id': 'http://bf/fake/user.com/ap',
+            'preferredUsername': 'user.com',
+            'url': 'http://localhost/r/fake://user.com',
             'summary': '',
-            'inbox': 'http://bf/fake.com/ap/inbox',
-            'outbox': 'http://bf/fake.com/ap/outbox',
-            'following': 'http://bf/fake.com/ap/following',
-            'followers': 'http://bf/fake.com/ap/followers',
+            'inbox': 'http://bf/fake/user.com/ap/inbox',
+            'outbox': 'http://bf/fake/user.com/ap/outbox',
+            'following': 'http://bf/fake/user.com/ap/following',
+            'followers': 'http://bf/fake/user.com/ap/followers',
             'endpoints': {'sharedInbox': 'http://localhost/ap/sharedInbox'},
             'publicKey': {
-                'id': 'http://localhost/fake.com',
-                'owner': 'http://localhost/fake.com',
+                'id': 'http://localhost/user.com',
+                'owner': 'http://localhost/user.com',
                 'publicKeyPem': self.user.public_pem().decode(),
             },
         }, got.json)
@@ -1427,16 +1428,16 @@ class ActivityPubUtilsTest(TestCase):
             'actor': {
                 'id': 'baj',
                 'preferredUsername': 'site',
-                'url': 'http://localhost/r/https://site',
+                'url': 'http://localhost/r/fake://site',
             },
             'attributedTo': [{
                 'id': 'bar',
                 'preferredUsername': 'site',
-                'url': 'http://localhost/r/https://site',
+                'url': 'http://localhost/r/fake://site',
             }, {
                 'id': 'baz',
                 'preferredUsername': 'site',
-                'url': 'http://localhost/r/https://site',
+                'url': 'http://localhost/r/fake://site',
             }],
             'to': [as2.PUBLIC_AUDIENCE],
         }, activitypub.postprocess_as2({

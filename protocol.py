@@ -116,7 +116,7 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def fetch(cls, obj):
+    def fetch(cls, obj, **kwargs):
         """Fetches a protocol-specific object and returns it in an :class:`Object`.
 
         To be implemented by subclasses. The returned :class:`Object` is loaded
@@ -126,6 +126,7 @@ class Protocol:
         Args:
           obj: :class:`Object` with the id to fetch. Data is filled into one of
             the protocol-specific properties, eg as2, mf2, bsky.
+          **kwargs: subclass-specific
 
         Raises:
           :class:`werkzeug.HTTPException` if the fetch fails
