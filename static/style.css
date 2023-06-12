@@ -442,17 +442,26 @@ a img.shadow:hover
 
 .docs table {
   border-collapse: collapse;
-  width: 100%;
+  width: auto;
   font-size: .8em;
   border: 1px solid steelblue;
-  margin-left: 0.25em;
-  margin-right: 0.25em;
+  margin-left: -55px;
+  margin-right: -15px;
   margin-top: 2em;
   margin-bottom: 2em;
 }
 
 .docs th, .docs td {
   padding: .5em;
+}
+
+.docs td.na {
+  background-color: #f0f0f0;
+}
+
+.docs th.subhead {
+  font-weight: normal;
+  font-style: italic;
 }
 
 .docs tbody th {
@@ -466,6 +475,10 @@ a img.shadow:hover
 .docs table code {
   white-space: nowrap;
   background-color: transparent !important;
+}
+
+.docs td {
+  text-align: center;
 }
 
 .docs th {

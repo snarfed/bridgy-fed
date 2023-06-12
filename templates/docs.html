@@ -495,12 +495,13 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <p>In the tables below, BF is Bridgy Fed, <em>enhanced</em> is users who have done extra setup for BF, <em>basic</em> is users who haven't. <span class="done">Green parts</span> have been implemented and running here for years, the rest are still in the early design phase.
 </p>
 
-<p>Here's how we (hope to) translate <em>user identity</em> between protocols. Specifically, each cell shows how a user in a given row is identified to the protocol in a given column.
+<p>Here's how we (hope to) translate <em>user identity</em> between protocols. Specifically, each cell shows how a user in a given column is identified to the protocol in a given row. <em>Basic</em> is the default, <em>enhanced</em> requires extra setup on the user's part (or their fediverse instance's) to forward some of their <code>/.well-known</code> HTTP requests to Bridgy Fed.
 </p>
 
 <table>
 <thead>
 <tr>
+  <th></th>
   <th></th>
   <th>Web</th>
   <th>ActivityPub</th>
@@ -509,61 +510,68 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 </tr>
 </thead>
 <tbody>
+
 <tr>
   <th>Web</th>
-  <td>-</td>
-  <td class="done">
-    <span class="not-done"><em>basic</em>: <code>@[domain]@web.brid.gy</code></span><br>
-    <em>enhanced</em>: <code>@[domain]@[domain]</code>
-  </td>
-  <td><em>basic</em>: <code>[domain].web.brid.gy</code> as <a href="https://atproto.com/specs/handle">handle</a><br>
-      <em>enhanced</em>: bare domain as <a href="https://atproto.com/specs/handle">handle</a><br>
-      <em>code</em>: <code><a href="https://atproto.com/specs/did-plc">did:plc</a></code>, via BF
-  </td>
-  <td><em>basic</em>: <code>[domain].web.brid.gy</code>, as <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a><br>
-      <em>enhanced</em>: bare domain, via <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a><br>
-      <em>code</em>: <code>npub...</code> public key, via BF<br>
-  </td>
-</tr>
-<tr>
-  <th>AP</th>
+  <th></th>
+  <td class="na">-</td>
   <td class="done">Fediverse profile URL</td>
-  <td>-</td>
-  <td><em>basic</em>: <code>[username].[instance].ap.brid.gy</code> as <a href="https://atproto.com/specs/handle">handle</a><br>
-      <em>enhanced</em>: <code>[username].[instance]</code> domain as <a href="https://atproto.com/specs/handle">handle</a> (unlikely?)<br>
-      <em>code</em>: <code><a href="https://atproto.com/specs/did-plc">did:plc</a></code>, via BF
-  </td>
-  <td><em>basic</em>: <code>[username].[instance].ap.brid.gy</code> as <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a><br>
-      <em>enhanced</em>: <code>[username].[instance]</code> domain, via <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> (unlikely?)<br>
-      <em>code</em>: <code>npub...</code> public key, via BF</td>
-</tr>
-<tr>
-  <th>ATP</th>
   <td><a href="https://atproto.com/guides/data-repos">PDS</a> web frontend profile URL (how will we get this?)</td>
-  <td><em>basic</em>: <code>@[handle]@bsky.brid.gy</code><br>
-      <em>enhanced</em>: <code>@[handle]@[handle]</code>
-  </td>
-  <td>-</td>
-  <td><em>basic</em>: <code>[handle].bsky.brid.gy</code> as <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a><br>
-      <em>enhanced</em>: bare <a href="https://atproto.com/specs/handle">handle</a>, via <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a><br>
-      <em>code</em>: <code>npub...</code> public key, via BF<br>
-  </td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain or BF user page</td>
+</tr>
+
+<tr>
+  <th rowspan="2">AP <a href="https://docs.joinmastodon.org/user/signup/#address">address</a></th>
+  <th class="subhead">basic</th>
+  <td><code>@[domain]@web.brid.gy</code></td>
+  <td rowspan="2" class="na">-</td>
+  <td><code>@[<a href="https://atproto.com/specs/handle">handle</a>]@bsky.brid.gy</code></td>
+  <td><code>@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> or <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>]@nostr.brid.gy</code></td>
 </tr>
 <tr>
-  <th>Nostr</th>
-  <td><a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain or BF user page</td>
-  <td><em>basic</em>: <code>@[npub...]@nostr.brid.gy</code><br>
-      <em>NIP-05</em>: <code>@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a>]@nostr.brid.gy</code><br>
-      <em>enhanced</em>: <code>@[NIP-05]@[NIP-05]</code>
-  </td>
-  <td><em>basic</em>: <code>[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a>].nostr.brid.gy</code> as <a href="https://atproto.com/specs/handle">handle</a><br>
-      <em>enhanced</em>: bare <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain as <a href="https://atproto.com/specs/handle">handle</a><br>
-      <em>code</em>: <code><a href="https://atproto.com/specs/did-plc">did:plc</a></code>, via BF
-  </td>
-  <td>-</td>
+  <th class="subhead">enhanced</th>
+  <td class="done"><code>@[domain]@[domain]</code></td>
+  <td><code>@[<a href="https://atproto.com/specs/handle">handle</a>]@[<a href="https://atproto.com/specs/handle">handle</a>]</code></td>
+  <td><code>@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a>]@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a>]</code></td>
 </tr>
+
+
+<tr>
+  <th rowspan="2">ATP <a href="https://atproto.com/specs/handle">handle</a></th>
+  <th class="subhead">basic</th>
+  <td><code>[domain].web.brid.gy</code></td>
+  <td><code>[username].[instance].ap.brid.gy</code></td>
+  <td rowspan="2" class="na">-</td>
+  <td><code>@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> or <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>]@nostr.brid.gy</code></td>
+
+</tr>
+<tr>
+  <th class="subhead">enhanced</th>
+  <td>bare domain</td>
+  <td><code>[username].[instance]</code> domain</td>
+  <td>bare <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain</td>
+</tr>
+
+
+<tr>
+  <th rowspan="2">Nostr <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain</th>
+  <th class="subhead">basic</th>
+  <td><code>[domain].web.brid.gy</code></td>
+  <td><code>[username].[instance].ap.brid.gy</code></td>
+  <td><code>[<a href="https://atproto.com/specs/handle">handle</a>].bsky.brid.gy</code></td>
+  <td rowspan="2" class="na">-</td>
+</tr>
+<tr>
+  <th class="subhead">enhanced</th>
+  <td>bare domain</td>
+  <td><code>[username].[instance]</code> domain</td>
+  <td>bare <a href="https://atproto.com/specs/handle">handle</a></td>
+</tr>
+
 </tbody>
 </table>
+
+<p>In addition to the user-facing identifers above, Bridgy Fed will generate and use <a href="https://atproto.com/specs/did-plc"><code>did:plc</code> DIDs</a> for Bluesky/AT Protocol and <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a></code> public keys</a> for Nostr behind the scenes.</p>
 
 <p>Here's how we (hope to) translate <em>events and operations</em> between protocols, both inbound to and outbound from Bridgy Fed.
 </p>
