@@ -106,12 +106,17 @@ class ProtocolTest(TestCase):
                            )
 
     def test_for_id(self):
-        self.assertIsNone(Protocol.for_id(None))
-        self.assertIsNone(Protocol.for_id(''))
-        self.assertIsNone(Protocol.for_id('foo://bar'))
-        self.assertEqual(Fake, Protocol.for_id('fake://foo'))
-        # TODO
-        # self.assertEqual(ATProto, Protocol.for_id('at://foo'))
+        for id, expected in [
+                (None, None),
+                ('', None),
+                ('foo://bar', None),
+                ('fake://foo', Fake),
+                # TODO
+                # ('at://foo', ATProto),
+                ('https://ap.brid.gy/foo/bar', ActivityPub),
+                ('https://web.brid.gy/foo/bar', Web),
+        ]:
+            self.assertEqual(expected, Protocol.for_id(id))
 
     def test_for_id_true_overrides_none(self):
         class Greedy(Protocol, User):

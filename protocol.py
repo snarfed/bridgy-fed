@@ -145,6 +145,11 @@ class Protocol:
         if not id:
             return None
 
+        if util.is_web(id):
+            by_domain = Protocol.for_domain(id)
+            if by_domain:
+                return by_domain
+
         candidates = []
         for protocol in set(PROTOCOLS.values()):
             if not protocol:
@@ -253,6 +258,7 @@ class Protocol:
           :class:`werkzeug.HTTPException` if the request is invalid
         """
         logger.info(f'From {from_cls.__name__}')
+        assert from_cls != Protocol
 
         if not id:
             error('Activity has no id')
