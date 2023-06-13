@@ -1673,6 +1673,14 @@ class WebProtocolTest(TestCase):
         self.request_context.__enter__()
         super().tearDown()
 
+    def test_key_for(self, *_):
+        for id in 'user.com', 'http://user.com', 'https://user.com/':
+            self.assertEqual(Web(id='user.com').key, Web.key_for(id))
+
+        for bad in None, '', 'foo bar':
+            with self.assertRaises(AssertionError):
+                Web.key_for(bad)
+
     def test_owns_id(self, *_):
         self.assertIsNone(Web.owns_id('http://foo'))
         self.assertIsNone(Web.owns_id('https://bar/baz'))

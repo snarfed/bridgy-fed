@@ -194,6 +194,28 @@ class Web(User, Protocol):
         return self
 
     @classmethod
+    def key_for(cls, id):
+        """Returns the :class:`ndb.Key` for a given id.
+
+        If id is a domain, uses it as is. If it's a home page URL or fed.brid.gy
+        or web.brid.gy AP actor URL, extracts the domain and uses that.
+        Otherwise, raises AssertionError.
+
+        Args:
+          id: str
+        """
+        assert id
+
+        if re.match(common.DOMAIN_RE, id):
+            return cls(id=id).key
+        elif util.is_web(id):
+            parsed = urlparse(id)
+            if parsed.path in ('', '/'):
+                return cls(id=parsed.netloc).key
+
+        assert False, f'{id} is not domain or usable home page URL'
+
+    @classmethod
     def owns_id(cls, id):
         """Returns None if id is an http(s) URL, False otherwise.
 

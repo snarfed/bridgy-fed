@@ -128,6 +128,14 @@ class Protocol:
         """
         return False
 
+    @classmethod
+    def key_for(cls, id):
+        """Returns the :class:`ndb.Key` for this protocol for a given id.
+
+        Canonicalizes the id if necessary.
+        """
+        return cls(id=id).key
+
     @staticmethod
     def for_id(id):
         """Returns the protocol for a given id.
