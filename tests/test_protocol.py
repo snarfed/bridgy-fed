@@ -44,7 +44,7 @@ class ProtocolTest(TestCase):
         self.assertEqual(Web, PROTOCOLS['webmention'])
 
     def test_for_domain_for_request(self):
-        for domain, protocol in [
+        for domain, expected in [
                 ('fake.brid.gy', Fake),
                 ('ap.brid.gy', ActivityPub),
                 ('activitypub.brid.gy', ActivityPub),
@@ -58,19 +58,22 @@ class ProtocolTest(TestCase):
                 ('fake', None),
                 ('fake.com', None),
         ]:
-            with self.subTest(domain=domain, protocol=protocol):
-                self.assertEqual(protocol, Protocol.for_domain(domain))
+            with self.subTest(domain=domain, expected=expected):
+                self.assertEqual(expected, Protocol.for_domain(domain))
                 with app.test_request_context('/foo', base_url=f'https://{domain}/'):
-                    self.assertEqual(protocol, Protocol.for_request())
+                    self.assertEqual(expected, Protocol.for_request())
 
-    def test_for_request_fed(self):
-        for base_url in 'https://fed.brid.gy/', 'http://localhost/':
-            with app.test_request_context('/foo', base_url=base_url):
-                self.assertEqual(Fake, Protocol.for_request(fed=Fake))
-
-        with app.test_request_context('/foo', base_url='https://ap.brid.gy/'):
-            self.assertEqual(ActivityPub, Protocol.for_request(fed=Fake))
-
+    def test_for_domain_for_request_fed(self):
+        for url, expected in [
+            ('https://fed.brid.gy/', Fake),
+            ('http://localhost/foo', Fake),
+            ('https://ap.brid.gy/bar', ActivityPub),
+            ('https://baz/biff', None),
+        ]:
+            with self.subTest(url=url, expected=expected):
+                self.assertEqual(expected, Protocol.for_domain(url, fed=Fake))
+                with app.test_request_context('/foo', base_url=url):
+                    self.assertEqual(expected, Protocol.for_request(fed=Fake))
 
     @patch('requests.get')
     def test_receive_reply_not_feed_not_notification(self, mock_get):
