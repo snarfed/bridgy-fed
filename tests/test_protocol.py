@@ -63,6 +63,15 @@ class ProtocolTest(TestCase):
                 with app.test_request_context('/foo', base_url=f'https://{domain}/'):
                     self.assertEqual(protocol, Protocol.for_request())
 
+    def test_for_request_fed(self):
+        for base_url in 'https://fed.brid.gy/', 'http://localhost/':
+            with app.test_request_context('/foo', base_url=base_url):
+                self.assertEqual(Fake, Protocol.for_request(fed=Fake))
+
+        with app.test_request_context('/foo', base_url='https://ap.brid.gy/'):
+            self.assertEqual(ActivityPub, Protocol.for_request(fed=Fake))
+
+
     @patch('requests.get')
     def test_receive_reply_not_feed_not_notification(self, mock_get):
         Follower.get_or_create(to=Fake.get_or_create(id=ACTOR['id']),

@@ -63,7 +63,7 @@ class Webfinger(flask_util.XrdOrJrd):
             id = urllib.parse.urlparse(resource).netloc or resource
 
         if not cls:
-            cls = Protocol.for_request() or Web
+            cls = Protocol.for_request(fed=Web)
 
         logger.info(f'Protocol {cls.__name__}, user id {id}')
 

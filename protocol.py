@@ -66,16 +66,25 @@ class Protocol:
         return cls.__name__.lower()
 
     @staticmethod
-    def for_request():
+    def for_request(fed=None):
         """Returns the protocol for the current request.
 
         ...based on the request's hostname.
+
+        Args:
+          fed: :class:`Protocol` subclass to return if the current request is on
+          fed.brid.gy
 
         Returns:
          :class:`Protocol` subclass, or None if the provided domain or request
            hostname domain is not a subdomain of brid.gy or isn't a known protocol
         """
-        return Protocol.for_domain(request.host)
+        request_cls = Protocol.for_domain(request.host)
+        if request_cls:
+            return request_cls
+        elif (request.host == common.PRIMARY_DOMAIN
+              or request.host in common.LOCAL_DOMAINS):
+            return fed
 
     @staticmethod
     def for_domain(domain):
@@ -153,7 +162,7 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def receive(cls, id, **props):
+    def receive(from_cls, id, **props):
         """Handles an incoming activity.
 
         Args:
@@ -166,6 +175,8 @@ class Protocol:
         Raises:
           :class:`werkzeug.HTTPException` if the request is invalid
         """
+        logger.info(f'From {from_cls.__name__}')
+
         if not id:
             error('Activity has no id')
 
@@ -180,7 +191,7 @@ class Protocol:
 
         obj = Object.get_or_insert(id)
         obj.clear()
-        obj.populate(source_protocol=cls.LABEL, **props)
+        obj.populate(source_protocol=from_cls.LABEL, **props)
         obj.put()
 
         logger.info(f'Got AS1: {json_dumps(obj.as1, indent=2)}')
@@ -194,7 +205,7 @@ class Protocol:
         if obj.type in ('post', 'create', 'update') and inner_obj.keys() > set(['id']):
             to_update = (Object.get_by_id(inner_obj_id)
                          or Object(id=inner_obj_id))
-            to_update.populate(as2=obj.as2['object'], source_protocol=cls.LABEL)
+            to_update.populate(as2=obj.as2['object'], source_protocol=from_cls.LABEL)
             to_update.put()
 
         actor = as1.get_object(obj.as1, 'actor')
@@ -209,13 +220,13 @@ class Protocol:
                 error(f'Undo of Follow requires actor id and object id. Got: {actor_id} {inner_obj_id} {obj.as1}')
 
             # deactivate Follower
-            # TODO(#512): generalize across protocols. use inner_obj_id's
-            # brid.gy subdomain to determine protocol?
             followee_domain = util.domain_from_link(inner_obj_id, minimize=False)
+            # TODO: avoid import?
             from web import Web
+            to_cls = Protocol.for_domain(followee_domain) or Protocol.for_request(fed=Web)
             follower = Follower.query(
-                Follower.to == Web(id=followee_domain).key,
-                Follower.from_ == cls(id=actor_id).key,
+                Follower.to == to_cls(id=followee_domain).key,
+                Follower.from_ == from_cls(id=actor_id).key,
                 Follower.status == 'active').get()
             if follower:
                 logger.info(f'Marking {follower} inactive')
@@ -251,7 +262,7 @@ class Protocol:
             # assume this is an actor
             # https://github.com/snarfed/bridgy-fed/issues/63
             logger.info(f'Deactivating Followers from or to = {inner_obj_id}')
-            deleted_user = cls(id=inner_obj_id).key
+            deleted_user = from_cls(id=inner_obj_id).key
             followers = Follower.query(OR(Follower.to == deleted_user,
                                           Follower.from_ == deleted_user)
                                        ).fetch()
@@ -263,18 +274,18 @@ class Protocol:
 
         # fetch actor if necessary so we have name, profile photo, etc
         if actor and actor.keys() == set(['id']):
-            actor = obj.as2['actor'] = cls.load(actor['id']).as2
+            actor = obj.as2['actor'] = from_cls.load(actor['id']).as2
 
         # fetch object if necessary so we can render it in feeds
         if obj.type == 'share' and inner_obj.keys() == set(['id']):
             inner_obj = obj.as2['object'] = as2.from_as1(
-                cls.load(inner_obj_id).as1)
+                from_cls.load(inner_obj_id).as1)
 
         if obj.type == 'follow':
-            cls.accept_follow(obj)
+            from_cls.accept_follow(obj)
 
         # deliver to each target
-        cls.deliver(obj)
+        from_cls.deliver(obj)
 
         # deliver original posts and reposts to followers
         is_reply = (obj.type == 'comment' or
@@ -282,7 +293,7 @@ class Protocol:
         if (actor and actor_id and
             (obj.type == 'share' or obj.type in ('create', 'post') and not is_reply)):
             logger.info(f'Delivering to followers of {actor_id}')
-            for f in Follower.query(Follower.to == cls(id=actor_id).key,
+            for f in Follower.query(Follower.to == from_cls(id=actor_id).key,
                                     Follower.status == 'active'):
                 if f.from_ not in obj.users:
                     obj.users.append(f.from_)
@@ -390,7 +401,7 @@ class Protocol:
                     obj.labels.append('notification')
 
             if domain == util.domain_from_link(source, minimize=False):
-                logger.info(f'Skipping same-domain webmention from {source} to {target.uri}')
+                logger.info(f'Skipping same-domain delivery from {source} to {target.uri}')
                 continue
 
             # only deliver if we have a matching User already.
@@ -400,12 +411,14 @@ class Protocol:
             if domain in no_user_domains:
                 continue
 
-            # TODO(#512): generalize protocol
+            # TODO: avoid import?
             from web import Web
-            recip = Web(id=domain)
+            recip_cls = Protocol.for_domain(domain) or Protocol.for_request(fed=Web)
+            recip = recip_cls(id=domain)
+            logger.info(f'Sending to {recip.key}')
             if recip.key not in obj.users:
                 if not recip.key.get():
-                    logger.info(f'No Web user for {domain}; skipping {target.uri}')
+                    logger.info(f'No {recip_cls.__name__} user for {domain}; skipping {target}')
                     no_user_domains.add(domain)
                     continue
                 obj.users.append(recip.key)
