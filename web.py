@@ -408,7 +408,7 @@ def webmention_interactive():
 
 @app.post('/_ah/queue/webmention')
 def webmention_task():
-    """Handles webmention task, converts to ActivityPub and delivers."""
+    """Handles inbound webmention task."""
     logger.info(f'Params: {list(request.form.items())}')
 
     # load user
@@ -486,7 +486,7 @@ def webmention_task():
         obj.labels.append('user')
         obj.status = 'ignored'
         obj.put()
-        return 'No ActivityPub targets'
+        return 'No targets'
 
     err = None
     last_success = None

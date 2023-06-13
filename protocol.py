@@ -385,13 +385,17 @@ class Protocol:
 
         # send webmentions and update Object
         errors = []  # stores (code, body) tuples
-        targets = [Target(uri=uri, protocol='web') for uri in targets]
-        no_user_domains = set()
+        obj.undelivered = []
+        obj.status = 'in progress'
 
-        obj.populate(
-          undelivered=targets,
-          status='in progress',
-        )
+        for uri in targets:
+            # TODO: avoid import?
+            from web import Web
+            domain = util.domain_from_link(uri, minimize=False)
+            protocol = Protocol.for_domain(domain) or Protocol.for_request() or Web
+            obj.undelivered.append(Target(uri=uri, protocol=protocol.LABEL))
+
+        no_user_domains = set()
 
         while obj.undelivered:
             target = obj.undelivered.pop()
@@ -411,14 +415,11 @@ class Protocol:
             if domain in no_user_domains:
                 continue
 
-            # TODO: avoid import?
-            from web import Web
-            recip_cls = Protocol.for_domain(domain) or Protocol.for_request(fed=Web)
-            recip = recip_cls(id=domain)
+            recip = PROTOCOLS[target.protocol](id=domain)
             logger.info(f'Sending to {recip.key}')
             if recip.key not in obj.users:
                 if not recip.key.get():
-                    logger.info(f'No {recip_cls.__name__} user for {domain}; skipping {target}')
+                    logger.info(f'No {recip.key} user found; skipping {target}')
                     no_user_domains.add(domain)
                     continue
                 obj.users.append(recip.key)
