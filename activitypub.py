@@ -95,6 +95,16 @@ class ActivityPub(User, Protocol):
     def fetch(cls, obj):
         """Tries to fetch an AS2 object.
 
+        Assumes obj.id is a URL. Any fragment at the end is stripped before
+        loading. This is currently underspecified and somewhat inconsistent
+        across AP implementations:
+
+        https://socialhub.activitypub.rocks/t/problems-posting-to-mastodon-inbox/801/11
+        https://socialhub.activitypub.rocks/t/problems-posting-to-mastodon-inbox/801/23
+        https://socialhub.activitypub.rocks/t/s2s-create-activity/1647/5
+        https://github.com/mastodon/mastodon/issues/13879 (open!)
+        https://github.com/w3c/activitypub/issues/224
+
         Uses HTTP content negotiation via the Content-Type header. If the url is
         HTML and it has a rel-alternate link with an AS2 content type, fetches and
         returns that URL.

@@ -139,7 +139,7 @@ class Protocol:
 
         For example, an HTML string and `'text/html'` for :class:`Web`,
         or a dict with AS2 JSON and `'application/activity+json'` for
-        :class:`ActivityPub.
+        :class:`ActivityPub`.
 
         To be implemented by subclasses.
 
@@ -250,10 +250,8 @@ class Protocol:
 
             # assume this is an actor
             # https://github.com/snarfed/bridgy-fed/issues/63
-            # TODO(#512): generalize across protocols
             logger.info(f'Deactivating Followers from or to = {inner_obj_id}')
-            from activitypub import ActivityPub
-            deleted_user = ActivityPub(id=inner_obj_id).key
+            deleted_user = cls(id=inner_obj_id).key
             followers = Follower.query(OR(Follower.to == deleted_user,
                                           Follower.from_ == deleted_user)
                                        ).fetch()
@@ -284,8 +282,7 @@ class Protocol:
         if (actor and actor_id and
             (obj.type == 'share' or obj.type in ('create', 'post') and not is_reply)):
             logger.info(f'Delivering to followers of {actor_id}')
-            from activitypub import ActivityPub
-            for f in Follower.query(Follower.to == ActivityPub(id=actor_id).key,
+            for f in Follower.query(Follower.to == cls(id=actor_id).key,
                                     Follower.status == 'active'):
                 if f.from_ not in obj.users:
                     obj.users.append(f.from_)
@@ -315,17 +312,14 @@ class Protocol:
         if not inbox or not follower_id:
             error(f'Follow actor requires id and inbox. Got: {follower}')
 
-        # store Follower and follower ActivityPub user.
+        # store Follower and follower User
         #
         # If followee user is already direct, AP follower may not know they're
         # interacting with a bridge. If followee user is indirect though, AP
         # follower should know, so they're direct.
-        #
-        # TODO(#512): generalize across protocols
-        from activitypub import ActivityPub
-        from_ = ActivityPub.get_or_create(id=follower_id,
-                                          actor_as2=as2.from_as1(follower),
-                                          direct=not g.user.direct)
+        from_ = cls.get_or_create(id=follower_id,
+                                  actor_as2=as2.from_as1(follower),
+                                  direct=not g.user.direct)
         follower_obj = Follower.get_or_create(to=g.user, from_=from_, follow=obj.key,
                                               status='active')
 
@@ -373,7 +367,7 @@ class Protocol:
         targets = util.dedupe_urls(util.get_url(t) for t in targets)
         targets = common.remove_blocklisted(t.lower() for t in targets)
         if not targets:
-            logger.info("Couldn't find any IndieWeb target URLs in inReplyTo, object, or mention tags")
+            logger.info("Couldn't find any target URLs in inReplyTo, object, or mention tags")
             return
 
         logger.info(f'targets: {targets}')
@@ -441,16 +435,6 @@ class Protocol:
     @classmethod
     def load(cls, id, refresh=False, **kwargs):
         """Loads and returns an Object from memory cache, datastore, or HTTP fetch.
-
-        Assumes id is a URL. Any fragment at the end is stripped before loading.
-        This is currently underspecified and somewhat inconsistent across AP
-        implementations:
-
-        https://socialhub.activitypub.rocks/t/problems-posting-to-mastodon-inbox/801/11
-        https://socialhub.activitypub.rocks/t/problems-posting-to-mastodon-inbox/801/23
-        https://socialhub.activitypub.rocks/t/s2s-create-activity/1647/5
-        https://github.com/mastodon/mastodon/issues/13879 (open!)
-        https://github.com/w3c/activitypub/issues/224
 
         Note that :meth:`Object._post_put_hook` updates the cache.
 

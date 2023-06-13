@@ -140,7 +140,7 @@ class Webfinger(flask_util.XrdOrJrd):
             # https://github.com/snarfed/bridgy-fed/issues/60#issuecomment-1325589750
             {
                 'rel': 'http://ostatus.org/schema/1.0/subscribe',
-                # TODO(#512) switch to:
+                # TODO: switch to:
                 # 'template': common.host_url(g.user.user_page_path('?url={uri}')),
                 # the problem is that user_page_path() uses readable_id, which uses
                 # custom username instead of domain, which may not be unique

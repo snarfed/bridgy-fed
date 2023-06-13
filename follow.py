@@ -116,7 +116,8 @@ class FollowCallback(indieauth.Callback):
             flash(f"Couldn't find ActivityPub profile link for {addr}")
             return redirect(g.user.user_page_path('following'))
 
-        # TODO(#512): generalize all this across protocols
+        # TODO(#512): follower will always be Web here, but we should generalize
+        # followee support in UI and here across protocols
         followee = ActivityPub.load(as2_url)
         followee_id = followee.as1.get('id')
         inbox = followee.as2.get('inbox')
