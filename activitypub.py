@@ -81,6 +81,16 @@ class ActivityPub(User, Protocol):
         return self.key.id()
 
     @classmethod
+    def owns_id(cls, id):
+        """Returns None if id is an http(s) URL, False otherwise.
+
+        All AP ids are http(s) URLs, but not all http(s) URLs are AP ids.
+
+        https://www.w3.org/TR/activitypub/#obj-id
+        """
+        return None if util.is_web(id) else False
+
+    @classmethod
     def send(cls, obj, url, log_data=True):
         """Delivers an activity to an inbox URL."""
         # this is set in web.webmention_task()

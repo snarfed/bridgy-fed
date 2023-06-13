@@ -57,6 +57,10 @@ class Fake(User, protocol.Protocol):
         return f'http://bf/fake/{self.key.id()}/ap' + (f'/{rest}' if rest else '')
 
     @classmethod
+    def owns_id(cls, id):
+        return id.startswith('fake://')
+
+    @classmethod
     def send(cls, obj, url, log_data=True):
         logger.info(f'Fake.send {url}')
         cls.sent.append((obj, url))

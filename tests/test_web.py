@@ -1673,6 +1673,12 @@ class WebProtocolTest(TestCase):
         self.request_context.__enter__()
         super().tearDown()
 
+    def test_owns_id(self, *_):
+        self.assertIsNone(Web.owns_id('http://foo'))
+        self.assertIsNone(Web.owns_id('https://bar/baz'))
+        self.assertFalse(Web.owns_id('at://did:plc:foo/bar/123'))
+        self.assertFalse(Web.owns_id('e45fab982'))
+
     def test_fetch(self, mock_get, __):
         mock_get.return_value = REPOST
 

@@ -12,9 +12,11 @@ from activitypub import ActivityPub
 from app import app
 from models import Follower, Object, PROTOCOLS, User
 from protocol import Protocol
+from ui import UIProtocol
 from web import Web
 
 from .test_activitypub import ACTOR, REPLY
+from .test_web import ACTOR_HTML
 
 REPLY = {
     **REPLY,
@@ -35,6 +37,7 @@ class ProtocolTest(TestCase):
         g.user = None
 
     def tearDown(self):
+        PROTOCOLS.pop('greedy', None)
         self.request_context.pop()
         super().tearDown()
 
@@ -101,6 +104,45 @@ class ProtocolTest(TestCase):
                            type='comment',
                            source_protocol='fake',
                            )
+
+    def test_for_id(self):
+        self.assertIsNone(Protocol.for_id(None))
+        self.assertIsNone(Protocol.for_id(''))
+        self.assertIsNone(Protocol.for_id('foo://bar'))
+        self.assertEqual(Fake, Protocol.for_id('fake://foo'))
+        # TODO
+        # self.assertEqual(ATProto, Protocol.for_id('at://foo'))
+
+    def test_for_id_true_overrides_none(self):
+        class Greedy(Protocol, User):
+            @classmethod
+            def owns_id(cls, id):
+                return True
+
+        self.assertEqual(Greedy, Protocol.for_id('http://foo'))
+        self.assertEqual(Greedy, Protocol.for_id('https://bar/baz'))
+
+    def test_for_id_object(self):
+        Object(id='http://ui/obj', source_protocol='ui').put()
+        self.assertEqual(UIProtocol, Protocol.for_id('http://ui/obj'))
+
+    @patch('requests.get')
+    def test_for_id_activitypub_fetch(self, mock_get):
+        mock_get.return_value = self.as2_resp(ACTOR)
+        self.assertEqual(ActivityPub, Protocol.for_id('http://ap/actor'))
+        self.assertIn(self.as2_req('http://ap/actor'), mock_get.mock_calls)
+
+    @patch('requests.get')
+    def test_for_id_web_fetch(self, mock_get):
+        mock_get.return_value = requests_response(ACTOR_HTML)
+        self.assertEqual(Web, Protocol.for_id('http://web.site/'))
+        self.assertIn(self.req('http://web.site/'), mock_get.mock_calls)
+
+    @patch('requests.get')
+    def test_for_id_web_fetch_no_mf2(self, mock_get):
+        mock_get.return_value = requests_response('<html></html>')
+        self.assertIsNone(Protocol.for_id('http://web.site/'))
+        self.assertIn(self.req('http://web.site/'), mock_get.mock_calls)
 
     def test_load(self):
         Fake.objects['foo'] = {'x': 'y'}

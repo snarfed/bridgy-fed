@@ -194,6 +194,14 @@ class Web(User, Protocol):
         return self
 
     @classmethod
+    def owns_id(cls, id):
+        """Returns None if id is an http(s) URL, False otherwise.
+
+        All web pages are http(s) URLs, but not all http(s) URLs are web pages.
+        """
+        return None if util.is_web(id) else False
+
+    @classmethod
     def send(cls, obj, url):
         """Sends a webmention to a given target URL.
 

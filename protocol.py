@@ -7,6 +7,8 @@ from flask import g, request
 from google.cloud import ndb
 from google.cloud.ndb import OR
 from granary import as1, as2
+import requests
+import werkzeug.exceptions
 
 import common
 from common import error
@@ -76,8 +78,8 @@ class Protocol:
           fed.brid.gy
 
         Returns:
-         :class:`Protocol` subclass, or None if the provided domain or request
-           hostname domain is not a subdomain of brid.gy or isn't a known protocol
+          :class:`Protocol` subclass, or None if the provided domain or request
+            hostname domain is not a subdomain of brid.gy or isn't a known protocol
         """
         return Protocol.for_domain(request.host, fed=fed)
 
@@ -91,8 +93,8 @@ class Protocol:
             fed.brid.gy
 
         Returns:
-         :class:`Protocol` subclass, or None if the request hostname is not a
-           subdomain of brid.gy or isn't a known protocol
+          :class:`Protocol` subclass, or None if the request hostname is not a
+            subdomain of brid.gy or isn't a known protocol
         """
         domain = (util.domain_from_link(domain_or_url, minimize=False)
                   if util.is_web(domain_or_url)
@@ -103,6 +105,77 @@ class Protocol:
         elif domain and domain.endswith(common.SUPERDOMAIN):
             label = domain.removesuffix(common.SUPERDOMAIN)
             return PROTOCOLS.get(label)
+
+    @classmethod
+    def owns_id(cls, id):
+        """Returns whether this protocol owns the id, or None if it's unclear.
+
+        To be implemented by subclasses.
+
+        Some protocols' ids are more or less deterministic based on the id
+        format, eg AT Protocol owns at:// URIs. Others, like http(s) URLs, could
+        be owned by eg Web or ActivityPub.
+
+        This should be a quick guess without expensive side effects, eg no
+        external HTTP fetches to fetch the id itself or otherwise perform
+        discovery.
+
+        Args:
+          id: str
+
+        Returns:
+          boolean or None
+        """
+        return False
+
+    @staticmethod
+    def for_id(id):
+        """Returns the protocol for a given id.
+
+        May incur expensive side effects like fetching the id itself over the
+        network or other discovery.
+
+        Args:
+          id: str
+
+        Returns:
+          :class:`Protocol` subclass, or None if no known protocol owns this id
+        """
+        logger.info(f'Determining protocol for id {id}')
+        if not id:
+            return None
+
+        candidates = []
+        for protocol in set(PROTOCOLS.values()):
+            if not protocol:
+                continue
+            owns = protocol.owns_id(id)
+            if owns:
+                return protocol
+            elif owns is not False:
+                candidates.append(protocol)
+
+        if len(candidates) == 1:
+            return candidates[0]
+
+        for protocol in candidates:
+            logger.info(f'Trying {protocol.__name__}')
+            try:
+                obj = protocol.load(id)
+                logger.info(f"Looks like it's {obj.source_protocol}")
+                return PROTOCOLS[obj.source_protocol]
+            except werkzeug.exceptions.HTTPException:
+                # internal error we generated ourselves; try next protocol
+                pass
+            except Exception as e:
+                code, _ = util.interpret_http_exception(e)
+                if code:
+                    # we tried and failed fetching the id over the network
+                    return None
+                logger.info(e)
+
+        logger.info(f'No matching protocol found for {id} !')
+        return None
 
     @classmethod
     def send(cls, obj, url, log_data=True):

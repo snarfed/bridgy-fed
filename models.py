@@ -53,7 +53,8 @@ class ProtocolUserMeta(type(ndb.Model)):
         cls = super().__new__(meta, name, bases, class_dict)
         if hasattr(cls, 'LABEL') and cls.LABEL not in ('protocol', 'user'):
             for label in (cls.LABEL, cls.ABBREV) + cls.OTHER_LABELS:
-                PROTOCOLS[label] = cls
+                if label:
+                    PROTOCOLS[label] = cls
         return cls
 
 
