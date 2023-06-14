@@ -130,10 +130,17 @@ class Protocol:
 
     @classmethod
     def key_for(cls, id):
-        """Returns the :class:`ndb.Key` for this protocol for a given id.
+        """Returns the :class:`ndb.Key` for a given id's :class:`User`.
 
         Canonicalizes the id if necessary.
+
+        If called via `Protocol.key_for`, infers the appropriate protocol with
+        :meth:`for_id`. If called with a concrete subclass, uses that subclass
+        as is.
         """
+        if cls == Protocol:
+            return Protocol.for_id(id).key_for(id)
+
         return cls(id=id).key
 
     @staticmethod
@@ -153,15 +160,19 @@ class Protocol:
         if not id:
             return None
 
+        # check for our per-protocol subdomains
         if util.is_web(id):
             by_domain = Protocol.for_domain(id)
             if by_domain:
                 return by_domain
 
         candidates = []
-        for protocol in set(PROTOCOLS.values()):
-            if not protocol:
-                continue
+
+        # sort to be deterministic
+        protocols = sorted(set(p for p in PROTOCOLS.values() if p),
+                           key=lambda p: p.__name__)
+        candidates = []
+        for protocol in protocols:
             owns = protocol.owns_id(id)
             if owns:
                 return protocol
@@ -312,20 +323,19 @@ class Protocol:
                 error(f'Undo of Follow requires actor id and object id. Got: {actor_id} {inner_obj_id} {obj.as1}')
 
             # deactivate Follower
-            followee_domain = util.domain_from_link(inner_obj_id, minimize=False)
             # TODO: avoid import?
             from web import Web
-            to_cls = Protocol.for_domain(followee_domain) or Protocol.for_request() or Web
-            follower = Follower.query(
-                Follower.to == to_cls(id=followee_domain).key,
-                Follower.from_ == from_cls(id=actor_id).key,
-                Follower.status == 'active').get()
+            from_ = from_cls.key_for(actor_id)
+            to = (Protocol.for_id(inner_obj_id) or Web).key_for(inner_obj_id)
+            follower = Follower.query(Follower.to == to,
+                                      Follower.from_ == from_,
+                                      Follower.status == 'active').get()
             if follower:
                 logger.info(f'Marking {follower} inactive')
                 follower.status = 'inactive'
                 follower.put()
             else:
-                logger.warning(f'No Follower found for {followee_domain} {actor_id}')
+                logger.warning(f'No Follower found for {from_} => {to}')
 
             # TODO send webmention with 410 of u-follow
 
@@ -479,7 +489,7 @@ class Protocol:
 
         # TODO: avoid import?
         from web import Web
-        targets = [Target(uri=uri, protocol=(Protocol.for_domain(uri) or Web).LABEL)
+        targets = [Target(uri=uri, protocol=(Protocol.for_id(uri) or Web).LABEL)
                    for uri in targets]
         no_user_domains = set()
 

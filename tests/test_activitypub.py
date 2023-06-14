@@ -32,6 +32,7 @@ import protocol
 from protocol import Protocol
 from web import Web
 
+# have to import module, not attrs, to avoid circular import
 from . import test_web
 
 ACTOR = {
@@ -270,7 +271,8 @@ class ActivityPubTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR)
+        self.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR,
+                                   has_redirects=True)
         ACTOR_BASE['publicKey']['publicKeyPem'] = self.user.public_pem().decode()
 
         with self.request_context:
@@ -410,14 +412,14 @@ class ActivityPubTest(TestCase):
                                 'labels': ['notification']},
                                *mocks)
 
-    def test_inbox_reply_create_activity(self, *mocks):
+    def test_inbox_reply_create_activity(self, mock_head, mock_get, mock_post):
         self._test_inbox_reply(REPLY,
                                {'as2': REPLY,
                                 'type': 'post',
                                 'object_ids': [REPLY_OBJECT['id']],
                                 'labels': ['notification', 'activity'],
                                 },
-                               *mocks)
+                               mock_head, mock_get, mock_post)
         self.assert_object(REPLY_OBJECT['id'],
                            source_protocol='activitypub',
                            as2=REPLY_OBJECT,
@@ -427,7 +429,11 @@ class ActivityPubTest(TestCase):
         mock_head.return_value = requests_response(url='https://user.com/post')
         mock_get.side_effect = (
             (list(mock_get.side_effect) if mock_get.side_effect else [])
-            + [WEBMENTION_DISCOVERY])
+            + [
+                requests_response(test_web.NOTE_HTML),
+                requests_response(test_web.NOTE_HTML),
+                WEBMENTION_DISCOVERY,
+            ])
         mock_post.return_value = requests_response()
 
         got = self.post('/ap/web/user.com/inbox', json=reply)
@@ -452,9 +458,8 @@ class ActivityPubTest(TestCase):
                            delivered=['https://user.com/post'],
                            **expected_props)
 
-    def test_inbox_reply_to_self_domain(self, mock_head, mock_get, mock_post):
-        self._test_inbox_ignore_reply_to('http://localhost/mas.to',
-                                         mock_head, mock_get, mock_post)
+    def test_inbox_reply_to_self_domain(self, *mocks):
+        self._test_inbox_ignore_reply_to('http://localhost/mas.to', *mocks)
 
     def test_inbox_reply_to_in_blocklist(self, *mocks):
         self._test_inbox_ignore_reply_to('https://twitter.com/foo', *mocks)
@@ -464,11 +469,15 @@ class ActivityPubTest(TestCase):
         reply['inReplyTo'] = reply_to
 
         mock_head.return_value = requests_response(url='http://mas.to/')
+        mock_get.side_effect = [
+            # protocol inference
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
+        ]
 
         got = self.post('/user.com/inbox', json=reply)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
-        mock_get.assert_not_called()
         mock_post.assert_not_called()
 
     def test_individual_inbox_create_obj(self, *mocks):
@@ -523,7 +532,8 @@ class ActivityPubTest(TestCase):
         }
         del note['url']
         with self.request_context:
-            Object(id=orig_url, mf2=microformats2.object_to_json(as2.to_as1(note))).put()
+            Object(id=orig_url, mf2=microformats2.object_to_json(as2.to_as1(note)),
+                   source_protocol='web').put()
 
         repost = copy.deepcopy(REPOST_FULL)
         repost['object'] = f'http://localhost/r/{orig_url}'
@@ -568,6 +578,9 @@ class ActivityPubTest(TestCase):
         mock_get.side_effect = [
             self.as2_resp(ACTOR),  # source actor
             self.as2_resp(NOTE_OBJECT),  # object of repost
+            # protocol inference
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
             HTML,  # no webmention endpoint
         ]
 
@@ -589,6 +602,9 @@ class ActivityPubTest(TestCase):
         mock_get.side_effect = [
             # source actor
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            # protocol inference
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
             # target post webmention discovery
             HTML,
         ]
@@ -655,8 +671,10 @@ class ActivityPubTest(TestCase):
         self.make_user('tar.get')
 
         mock_get.side_effect = [
+            self.as2_resp(ACTOR),
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
             WEBMENTION_DISCOVERY,
-            HTML,
         ]
         mock_post.return_value = requests_response()
 
@@ -689,6 +707,8 @@ class ActivityPubTest(TestCase):
         mock_get.side_effect = [
             # source actor
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
             WEBMENTION_DISCOVERY,
         ]
         mock_post.return_value = requests_response()
@@ -696,10 +716,8 @@ class ActivityPubTest(TestCase):
         got = self.post('/user.com/inbox', json=LIKE)
         self.assertEqual(200, got.status_code)
 
-        mock_get.assert_has_calls((
-            self.as2_req('https://user.com/actor'),
-            self.req('https://user.com/post'),
-        )),
+        self.assertIn(self.as2_req('https://user.com/actor'), mock_get.mock_calls)
+        self.assertIn(self.req('https://user.com/post'), mock_get.mock_calls)
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://user.com/webmention',), args)
@@ -883,13 +901,11 @@ class ActivityPubTest(TestCase):
 
 
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
-        mock_head.return_value = requests_response(url='https://user.com/')
-        mock_get.side_effect = [
-            self.as2_resp(ACTOR),
-        ]
+        follower = Follower(to=self.user.key,
+                            from_=ActivityPub.get_or_create(ACTOR['id']).key,
+                            status='active')
+        follower.put()
 
-        follower = Follower.get_or_create(to=self.user,
-                                          from_=ActivityPub.get_or_create(ACTOR['id']))
         got = self.post('/user.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
@@ -1145,6 +1161,9 @@ class ActivityPubTest(TestCase):
         mock_get.side_effect = [
             # source actor
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            # protocol inference
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
             # target post webmention discovery
             ReadTimeoutError(None, None, None),
         ]
@@ -1156,6 +1175,9 @@ class ActivityPubTest(TestCase):
         mock_get.side_effect = [
             # source actor
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            # protocol inference
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
             # target post webmention discovery
             HTML,
         ]

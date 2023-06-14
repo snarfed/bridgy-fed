@@ -209,14 +209,15 @@ class Web(User, Protocol):
         """
         assert id
 
-        if re.match(common.DOMAIN_RE, id):
-            return cls(id=id).key
-        elif util.is_web(id):
+        if util.is_web(id):
             parsed = urlparse(id)
             if parsed.path in ('', '/'):
-                return cls(id=parsed.netloc).key
+                id = parsed.netloc
 
-        assert False, f'{id} is not domain or usable home page URL'
+        if re.match(common.DOMAIN_RE, id):
+            return cls(id=id).key
+
+        assert False, f'{id} is not a domain or usable home page URL'
 
     @classmethod
     def owns_id(cls, id):
@@ -224,6 +225,17 @@ class Web(User, Protocol):
 
         All web pages are http(s) URLs, but not all http(s) URLs are web pages.
         """
+        if not id:
+            return False
+
+        try:
+            key = cls.key_for(id)
+            if key:
+                user = key.get()
+                return True if user and user.has_redirects else None
+        except AssertionError:
+            pass
+
         return None if util.is_web(id) else False
 
     @classmethod

@@ -396,7 +396,7 @@ ACTIVITYPUB_GETS = [REPLY, NOT_FEDIVERSE, TOOT_AS2, ACTOR]
 class WebTest(TestCase):
     def setUp(self):
         super().setUp()
-        g.user = self.make_user('user.com')
+        g.user = self.make_user('user.com', has_redirects=True)
         self.request_context.push()
 
     def assert_deliveries(self, mock_post, inboxes, data, ignore=()):
@@ -1398,7 +1398,8 @@ class WebTest(TestCase):
                                expected_as2)
 
         # updated Web user
-        self.assert_user(Web, 'user.com', actor_as2=ACTOR_AS2_USER, direct=True)
+        self.assert_user(Web, 'user.com', actor_as2=ACTOR_AS2_USER, direct=True,
+                         has_redirects=True)
 
         # homepage object
         self.assert_object('https://user.com/',
@@ -1436,6 +1437,9 @@ class WebTest(TestCase):
                            )
 
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
+        g.user.has_redirects = False
+        g.user.put()
+
         got = g.user.verify()
         self.assertEqual(g.user.key, got.key)
 
@@ -1703,15 +1707,24 @@ class WebProtocolTest(TestCase):
         for id in 'user.com', 'http://user.com', 'https://user.com/':
             self.assertEqual(Web(id='user.com').key, Web.key_for(id))
 
-        for bad in None, '', 'foo bar':
+        for bad in None, '', 'foo', 'https://foo/', 'foo bar':
             with self.assertRaises(AssertionError):
                 Web.key_for(bad)
 
     def test_owns_id(self, *_):
-        self.assertIsNone(Web.owns_id('http://foo'))
-        self.assertIsNone(Web.owns_id('https://bar/baz'))
+        self.assertIsNone(Web.owns_id('http://foo.com'))
+        self.assertIsNone(Web.owns_id('https://bar.com/'))
+        self.assertIsNone(Web.owns_id('https://bar.com/baz'))
+        self.assertIsNone(Web.owns_id('https://bar/'))
         self.assertFalse(Web.owns_id('at://did:plc:foo/bar/123'))
         self.assertFalse(Web.owns_id('e45fab982'))
+
+        self.assertFalse(Web.owns_id('user.com'))
+        g.user.has_redirects = True
+        g.user.put()
+        self.assertTrue(Web.owns_id('user.com'))
+        g.user.key.delete()
+        self.assertIsNone(Web.owns_id('user.com'))
 
     def test_fetch(self, mock_get, __):
         mock_get.return_value = REPOST
