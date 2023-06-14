@@ -16,6 +16,7 @@ from .testutil import Fake, TestCase
 import common
 from models import AtpNode, Follower, Object, OBJECT_EXPIRE_AGE, User
 import protocol
+from web import Web
 
 from .test_activitypub import ACTOR
 
@@ -215,6 +216,13 @@ class FollowerTest(TestCase):
         super().setUp()
         g.user = self.make_user('foo', cls=Fake)
         self.other_user = self.make_user('bar', cls=Fake)
+
+    def test_from_to_same_type_fails(self):
+        with self.assertRaises(AssertionError):
+            Follower(from_=Web.key_for('foo'), to=Web.key_for('bar')).put()
+
+        with self.assertRaises(AssertionError):
+            Follower.get_or_create(from_=Web(id='foo'), to=Web(id='bar'))
 
     def test_get_or_create(self):
         follower = Follower.get_or_create(from_=g.user, to=self.other_user)

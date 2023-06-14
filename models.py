@@ -488,8 +488,8 @@ class Follower(ndb.Model):
     STATUSES = ('active', 'inactive')
 
     # these are both subclasses of User
-    from_ = ndb.KeyProperty(name='from')
-    to = ndb.KeyProperty()
+    from_ = ndb.KeyProperty(name='from', required=True)
+    to = ndb.KeyProperty(required=True)
 
     follow = ndb.KeyProperty(Object)  # last follow activity
     status = ndb.StringProperty(choices=STATUSES, default='active')
@@ -501,6 +501,13 @@ class Follower(ndb.Model):
     # src = ndb.StringProperty()
     # dest = ndb.StringProperty()
     # last_follow = JsonProperty()
+
+    def _pre_put_hook(self):
+        if self.from_.kind() == 'Fake' and self.to.kind() == 'Fake':
+            return
+
+        # we're a bridge! stick with bridging.
+        assert self.from_.kind() != self.to.kind(), f'from {self.from_} to {self.to}'
 
     def _post_put_hook(self, future):
         logger.info(f'Wrote {self}')
