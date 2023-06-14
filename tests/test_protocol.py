@@ -131,6 +131,10 @@ class ProtocolTest(TestCase):
         Object(id='http://ui/obj', source_protocol='ui').put()
         self.assertEqual(UIProtocol, Protocol.for_id('http://ui/obj'))
 
+    def test_for_id_object_missing_source_protocol(self):
+        Object(id='http://bad/obj').put()
+        self.assertIsNone(Protocol.for_id('http://bad/obj'))
+
     @patch('requests.get')
     def test_for_id_activitypub_fetch(self, mock_get):
         mock_get.return_value = self.as2_resp(ACTOR)

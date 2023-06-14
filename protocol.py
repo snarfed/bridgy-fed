@@ -175,8 +175,9 @@ class Protocol:
             logger.info(f'Trying {protocol.__name__}')
             try:
                 obj = protocol.load(id)
-                logger.info(f"Looks like it's {obj.source_protocol}")
-                return PROTOCOLS[obj.source_protocol]
+                if obj.source_protocol:
+                    logger.info(f"{obj.key} has source_protocol {obj.source_protocol}")
+                    return PROTOCOLS[obj.source_protocol]
             except werkzeug.exceptions.HTTPException:
                 # internal error we generated ourselves; try next protocol
                 pass
@@ -185,7 +186,7 @@ class Protocol:
                 if code:
                     # we tried and failed fetching the id over the network
                     return None
-                logger.info(e)
+                raise
 
         logger.info(f'No matching protocol found for {id} !')
         return None
