@@ -85,9 +85,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     public_exponent = ndb.StringProperty()
     private_exponent = ndb.StringProperty()
     p256_key = ndb.StringProperty()
-    has_redirects = ndb.BooleanProperty()
-    redirects_error = ndb.TextProperty()
-    has_hcard = ndb.BooleanProperty()
     actor_as2 = JsonProperty()
     use_instead = ndb.KeyProperty()
 

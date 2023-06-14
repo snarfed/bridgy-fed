@@ -9,6 +9,7 @@ from urllib.parse import urlencode, urljoin, urlparse
 import feedparser
 from flask import g, redirect, render_template, request
 from flask.views import View
+from google.cloud import ndb
 from google.cloud.ndb import ComputedProperty, Key
 from granary import as1, as2, microformats2
 import mf2util
@@ -47,6 +48,10 @@ class Web(User, Protocol):
     """
     ABBREV = 'web'
     OTHER_LABELS = ('webmention',)
+
+    has_redirects = ndb.BooleanProperty()
+    redirects_error = ndb.TextProperty()
+    has_hcard = ndb.BooleanProperty()
 
     @classmethod
     def _get_kind(cls):
