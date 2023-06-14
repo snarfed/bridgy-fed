@@ -197,9 +197,15 @@ def fetch_objects(query):
     # synthesize human-friendly content for objects
     for i, obj in enumerate(objects):
         obj_as1 = obj.as1
+        inner_obj = as1.get_object(obj_as1)
 
         # synthesize text snippet
         type = as1.object_type(obj_as1)
+        if type == 'post':
+            inner_type = inner_obj.get('objectType')
+            if inner_type:
+                type = inner_type
+
         phrases = {
             'article': 'posted',
             'comment': 'replied',
@@ -221,7 +227,6 @@ def fetch_objects(query):
         }
         obj.phrase = phrases.get(type)
 
-        inner_obj = as1.get_object(obj_as1)
         content = (inner_obj.get('content')
                    or inner_obj.get('displayName')
                    or inner_obj.get('summary'))
@@ -244,8 +249,7 @@ def fetch_objects(query):
                        or obj_as1.get('summary'))
         obj.url = util.get_first(obj_as1, 'url')
 
-        if (type in ('like', 'follow', 'repost', 'share') or
-            not obj.content):
+        if type in ('like', 'follow', 'repost', 'share') or not obj.content:
             if obj.url:
                 obj.phrase = common.pretty_link(obj.url, text=obj.phrase,
                                                 attrs={'class': 'u-url'})
