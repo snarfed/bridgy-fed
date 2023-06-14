@@ -13,18 +13,17 @@ from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 
 from activitypub import ActivityPub
-from common import CACHE_TIME
+from common import CACHE_TIME, SUPERDOMAIN
 from flask_app import app, cache
 from models import Object, PROTOCOLS
+from protocol import Protocol
 from web import Web
 
 logger = logging.getLogger(__name__)
 
 SOURCES = frozenset((
-    ActivityPub.ABBREV,
-    ActivityPub.LABEL,
-    Web.ABBREV,
-    Web.LABEL,
+    ActivityPub,
+    Web,
 ))
 DESTS = frozenset((
     ActivityPub.ABBREV,
@@ -34,17 +33,21 @@ DESTS = frozenset((
 ))
 
 
-@app.get(f'/convert/<any({",".join(SOURCES)}):src>/<any({",".join(DESTS)}):dest>/<path:_>')
+@app.get(f'/convert/<any({",".join(DESTS)}):dest>/<path:_>')
 @flask_util.cached(cache, CACHE_TIME, headers=['Accept'])
-def convert(src, dest, _):
+def convert(dest, _):
     """Converts data from one protocol to another and serves it.
 
     Fetches the source data if it's not already stored.
     """
+    src_cls = Protocol.for_request()
+    if not src_cls:
+        error(f'Unknown protocol {request.host.removesuffix(SUPERDOMAIN)}', status=404)
+
     # don't use urllib.parse.urlencode(request.args) because that doesn't
     # guarantee us the same query param string as in the original URL, and we
     # want exactly the same thing since we're looking up the URL's Object by id
-    path_prefix = f'convert/{src}/{dest}/'
+    path_prefix = f'convert/{dest}/'
     url = request.url.removeprefix(request.root_url).removeprefix(path_prefix)
 
     # our redirects evidently collapse :// down to :/ , maybe to prevent URL
@@ -56,7 +59,6 @@ def convert(src, dest, _):
 
     # require g.user for AP since postprocess_as2 currently needs it. ugh
     dest_cls = PROTOCOLS[dest]
-    src_cls = PROTOCOLS[src]
     if dest_cls == ActivityPub:
         domain = util.domain_from_link(url, minimize=False)
         g.user = Web.get_by_id(domain)
@@ -91,4 +93,4 @@ def convert(src, dest, _):
 def render_redirect():
     """Redirect from old /render?id=... endpoint to /convert/..."""
     id = flask_util.get_required_param('id')
-    return redirect(f'/convert/ap/web/{id}', code=301)
+    return redirect(ActivityPub.subdomain_url(f'/convert/web/{id}'), code=301)
