@@ -122,7 +122,10 @@ class Web(User, Protocol):
             for url in [u.get('value') if isinstance(u, dict) else u
                         for u in util.get_list(self.actor_as2, 'url')]:
                 if url and url.startswith('acct:'):
-                    urluser, urldomain = util.parse_acct_uri(url)
+                    try:
+                        urluser, urldomain = util.parse_acct_uri(url)
+                    except ValueError:
+                        continue
                     if urldomain == id:
                         logger.info(f'Found custom username: {urluser}')
                         return urluser

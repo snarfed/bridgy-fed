@@ -441,11 +441,37 @@ class WebTest(TestCase):
         self.assertEqual('☃.net', user.key.id())
         self.assert_entities_equal(user, Web.get_by_id('☃.net'))
 
-    def test_bad_source_url(self, mock_get, mock_post):
+    def test_bad_source_url(self, *mocks):
         for data in b'', {'source': 'bad'}, {'source': 'https://'}:
             got = self.client.post('/webmention', data=data)
             self.assertEqual(400, got.status_code)
             self.assertEqual(0, Object.query().count())
+
+    def test_username(self, *mocks):
+        self.assertEqual('user.com', g.user.username())
+
+        g.user.actor_as2 = {
+            'type': 'Person',
+            'name': 'foo',
+            'url': ['bar'],
+            'preferredUsername': 'baz',
+        }
+        g.user.direct = True
+        self.assertEqual('user.com', g.user.username())
+
+        # bad acct: URI, util.parse_acct_uri raises ValueError
+        # https://console.cloud.google.com/errors/detail/CPLmrpzFs4qTUA;time=P30D?project=bridgy-federated
+        g.user.actor_as2['url'].append('acct:@user.com')
+        self.assertEqual('user.com', g.user.username())
+
+        g.user.actor_as2['url'].append('acct:alice@foo.com')
+        self.assertEqual('user.com', g.user.username())
+
+        g.user.actor_as2['url'].append('acct:alice@user.com')
+        self.assertEqual('alice', g.user.username())
+
+        g.user.direct = False
+        self.assertEqual('user.com', g.user.username())
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_make_task(self, mock_create_task, mock_get, mock_post):
