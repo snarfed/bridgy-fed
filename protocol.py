@@ -550,7 +550,7 @@ class Protocol:
           id: str
           refresh: boolean, whether to fetch the object remotely even if we have
             it stored
-          kwargs: passed through to fetch()
+          kwargs: passed through to :meth:`fetch()`
 
         Returns: :class:`Object`
 

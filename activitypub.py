@@ -102,7 +102,7 @@ class ActivityPub(User, Protocol):
         # TODO: return bool or otherwise unify return value with others
 
     @classmethod
-    def fetch(cls, obj):
+    def fetch(cls, obj, **kwargs):
         """Tries to fetch an AS2 object.
 
         Assumes obj.id is a URL. Any fragment at the end is stripped before
@@ -133,6 +133,7 @@ class ActivityPub(User, Protocol):
         Args:
           obj: :class:`Object` with the id to fetch. Fills data into the as2
             property.
+          kwargs: ignored
 
         Raises:
           :class:`requests.HTTPError`, :class:`werkzeug.exceptions.HTTPException`

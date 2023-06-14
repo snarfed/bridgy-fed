@@ -247,7 +247,7 @@ class Web(User, Protocol):
             return False
 
     @classmethod
-    def fetch(cls, obj, gateway=False, check_backlink=None):
+    def fetch(cls, obj, gateway=False, check_backlink=False, **kwargs):
         """Fetches a URL over HTTP and extracts its microformats2.
 
         Follows redirects, but doesn't change the original URL in obj's id! The
@@ -259,14 +259,16 @@ class Web(User, Protocol):
 
         Args:
           gateway: passed through to :func:`webutil.util.fetch_mf2`
-          check_backlink: bool, optional, whether to require a link to Bridgy Fed
+          check_backlink: bool, optional, whether to require a link to Bridgy
+            Fed. Ignored if the URL is a homepage, ie has no path.
+          kwargs: ignored
         """
         url = obj.key.id()
         is_homepage = urlparse(url).path.strip('/') == ''
 
-        require_backlink = None
-        if check_backlink or (check_backlink is None and not is_homepage):
-            require_backlink = common.host_url().rstrip('/')
+        require_backlink = (common.host_url().rstrip('/')
+                            if check_backlink and not is_homepage
+                            else None)
 
         try:
             parsed = util.fetch_mf2(url, gateway=gateway,
@@ -452,7 +454,7 @@ def webmention_task():
 
     # fetch source page
     try:
-        obj = Web.load(source, refresh=True)
+        obj = Web.load(source, refresh=True, check_backlink=True)
     except BadRequest as e:
         error(str(e.description), status=304)
     except HTTPError as e:
