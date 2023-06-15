@@ -20,8 +20,6 @@ from models import User
 from protocol import Protocol
 from web import Web
 
-NON_TLDS = frozenset(('html', 'json', 'php', 'xml'))
-
 SUBSCRIBE_LINK_REL = 'http://ostatus.org/schema/1.0/subscribe'
 
 logger = logging.getLogger(__name__)
@@ -55,8 +53,8 @@ class Webfinger(flask_util.XrdOrJrd):
         cls = None
         try:
             user, id = util.parse_acct_uri(resource)
-            if id in common.DOMAINS:
-                cls = Protocol.for_domain(id)
+            cls = Protocol.for_domain(id, fed=Web)
+            if cls:
                 id = user
                 allow_indirect=True
         except ValueError:
@@ -66,12 +64,8 @@ class Webfinger(flask_util.XrdOrJrd):
             cls = Protocol.for_request(fed=Web)
 
         logger.info(f'Protocol {cls.__name__}, user id {id}')
-
-        # if id is a domain, validate
-        if re.match(common.DOMAIN_RE, id):
-            tld = id.split('.')[-1]
-            if tld in NON_TLDS:
-                error(f"{id} looks like a domain but {tld} isn't a TLD", status=404)
+        if cls.owns_id(id) is False:
+            error(f'{id} is not a valid {cls.__name__} id')
 
         # only allow indirect users if this id is "on" a brid.gy subdomain,
         # eg user.com@bsky.brid.gy but not user.com@user.com
@@ -79,6 +73,8 @@ class Webfinger(flask_util.XrdOrJrd):
             g.user = cls.get_or_create(id)
         else:
             g.user = cls.get_by_id(id)
+            if g.user and not g.user.direct:
+                error(f"{g.user.key} hasn't signed up yet", status=404)
 
         if not g.user:
             error(f'No {cls.LABEL} user found for {id}', status=404)

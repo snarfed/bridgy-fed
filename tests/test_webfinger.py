@@ -82,32 +82,32 @@ WEBFINGER_NO_HCARD = {
     }],
 }
 WEBFINGER_FAKE = {
-    'subject': 'acct:user@fake',
-    'aliases': ['fake://user/'],
+    'subject': 'acct:fake:user@fake',
+    'aliases': ['fake:user'],
     'links': [{
         'rel': 'canonical_uri',
         'type': 'text/html',
-        'href': 'fake://user/',
+        'href': 'fake:user',
     }, {
         'rel': 'self',
         'type': 'application/activity+json',
-        'href': 'http://bf/fake/user/ap',
+        'href': 'http://bf/fake/fake:user/ap',
     }, {
         'rel': 'inbox',
         'type': 'application/activity+json',
-        'href': 'http://bf/fake/user/ap/inbox',
+        'href': 'http://bf/fake/fake:user/ap/inbox',
     }, {
         'rel': 'sharedInbox',
         'type': 'application/activity+json',
         'href': 'http://localhost/ap/sharedInbox',
     }, {
         'rel': 'http://ostatus.org/schema/1.0/subscribe',
-        'template': 'http://localhost/fa/user?url={uri}',
+        'template': 'http://localhost/fa/fake:user?url={uri}',
     }],
 }
 WEBFINGER_FAKE_FED_BRID_GY = copy.deepcopy(WEBFINGER_FAKE)
 WEBFINGER_FAKE_FED_BRID_GY['links'][3]['href'] = 'https://fed.brid.gy/ap/sharedInbox'
-WEBFINGER_FAKE_FED_BRID_GY['links'][4]['template'] = 'https://fed.brid.gy/fa/user?url={uri}'
+WEBFINGER_FAKE_FED_BRID_GY['links'][4]['template'] = 'https://fed.brid.gy/fa/fake:user?url={uri}'
 
 
 class HostMetaTest(TestCase):
@@ -162,33 +162,37 @@ class WebfingerTest(TestCase):
                 self.assert_equals(WEBFINGER, got.json)
 
     def test_user_infer_protocol_from_resource_subdomain(self):
-        got = self.client.get('/.well-known/webfinger?resource=acct:user@fake.brid.gy',
-                              headers={'Accept': 'application/json'})
+        got = self.client.get(
+            '/.well-known/webfinger?resource=acct:fake:user@fake.brid.gy',
+            headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
         self.assert_equals(WEBFINGER_FAKE, got.json)
 
     def test_user_infer_protocol_from_request_subdomain(self):
-        self.make_user('user', cls=Fake)
-        got = self.client.get('/.well-known/webfinger?resource=acct:user@user',
-                              base_url='https://fake.brid.gy/',
-                              headers={'Accept': 'application/json'})
+        self.make_user('fake:user', cls=Fake)
+        got = self.client.get(
+            '/.well-known/webfinger?resource=acct:user@fake:user',
+            base_url='https://fake.brid.gy/',
+            headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
         self.assert_equals(WEBFINGER_FAKE_FED_BRID_GY, got.json)
 
     def test_user_infer_protocol_resource_overrides_request(self):
-        got = self.client.get('/.well-known/webfinger?resource=acct:user@fake.brid.gy',
-                              base_url='https://ap.brid.gy/',
-                              headers={'Accept': 'application/json'})
+        got = self.client.get(
+            '/.well-known/webfinger?resource=acct:fake:user@fake.brid.gy',
+            base_url='https://ap.brid.gy/',
+            headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
         self.assert_equals(WEBFINGER_FAKE_FED_BRID_GY, got.json)
 
     def test_urlencoded(self):
         """https://github.com/snarfed/bridgy-fed/issues/535"""
-        got = self.client.get('/.well-known/webfinger?resource=acct%3Auser.com%40user.com',
-                              headers={'Accept': 'application/json'})
+        got = self.client.get(
+            '/.well-known/webfinger?resource=acct%3Auser.com%40user.com',
+            headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
         self.assert_equals(WEBFINGER, got.json)
@@ -216,7 +220,6 @@ class WebfingerTest(TestCase):
                 # Mastodon requires this as of 3.3.0
                 # https://github.com/snarfed/bridgy-fed/issues/73
                 'acct:user.com@fed.brid.gy',
-                'acct:user.com@bridgy-federated.appspot.com',
                 'acct:user.com@localhost',
         ):
             with self.subTest(resource=resource):
@@ -237,14 +240,31 @@ class WebfingerTest(TestCase):
                 }, got.json)
 
     def test_missing_user(self):
-        for bad in 'nope.com', 'nope.com@nope.com':
-            got = self.client.get(f'/.well-known/webfinger?resource=acct:{bad}')
-            self.assertEqual(404, got.status_code)
+        got = self.client.get(f'/.well-known/webfinger?resource=acct:nope.com@nope.com')
+        self.assertEqual(404, got.status_code)
+
+        got = self.client.get(f'/.well-known/webfinger?resource=acct:nope.com')
+        self.assertEqual(400, got.status_code)
+
+    def test_indirect_user_not_on_bridgy_fed_subdomain(self):
+        self.user.direct = False
+        self.user.put()
+        got = self.client.get(f'/.well-known/webfinger?resource=acct:user.com@user.com')
+        self.assertEqual(404, got.status_code)
+
+    def test_bad_id(self):
+        got = self.client.get(f'/.well-known/webfinger?resource=acct:nope@fa.brid.gy')
+        self.assertEqual(400, got.status_code, got.get_data(as_text=True))
+
+        got = self.client.get(f'/.well-known/webfinger?resource=acct:nope@nope',
+                              base_url='https://fa.brid.gy/')
+        self.assertEqual(400, got.status_code, got.get_data(as_text=True))
 
     def test_bad_tld(self):
         self.make_user('user.json')
-        got = self.client.get(f'/.well-known/webfinger?resource=acct:user.json@user.json')
-        self.assertIn("like a domain but", html.unescape(got.get_data(as_text=True)))
+        got = self.client.get(f'/.well-known/webfinger?resource=acct:user.json@user.json',
+                              base_url='https://web.brid.gy/')
+        self.assertEqual(400, got.status_code, got.get_data(as_text=True))
 
     @patch('requests.get')
     def test_fetch_create_user(self, mock_get):

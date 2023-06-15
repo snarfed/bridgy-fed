@@ -115,7 +115,7 @@ class ProtocolTest(TestCase):
                 (None, None),
                 ('', None),
                 ('foo://bar', None),
-                ('fake://foo', Fake),
+                ('fake:foo', Fake),
                 # TODO
                 # ('at://foo', ATProto),
                 ('https://ap.brid.gy/foo/bar', ActivityPub),

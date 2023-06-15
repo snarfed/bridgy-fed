@@ -1707,8 +1707,8 @@ class WebProtocolTest(TestCase):
         for id in 'user.com', 'http://user.com', 'https://user.com/':
             self.assertEqual(Web(id='user.com').key, Web.key_for(id))
 
-        for bad in None, '', 'foo', 'https://foo/', 'foo bar':
-            with self.assertRaises(AssertionError):
+        for bad in None, '', 'foo', 'https://foo/', 'foo bar', 'user.json':
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
                 Web.key_for(bad)
 
     def test_owns_id(self, *_):

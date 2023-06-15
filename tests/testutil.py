@@ -48,7 +48,7 @@ class Fake(User, protocol.Protocol):
     fetched = []
 
     def web_url(self):
-        return f'fake://{self.key.id()}'
+        return self.key.id()
 
     def ap_address(self):
         return f'@{self.key.id()}@fake'
@@ -58,7 +58,10 @@ class Fake(User, protocol.Protocol):
 
     @classmethod
     def owns_id(cls, id):
-        return id.startswith('fake://')
+        if id.startswith('nope'):
+            return False
+
+        return id.startswith('fake:') or id in cls.objects
 
     @classmethod
     def send(cls, obj, url, log_data=True):
@@ -89,7 +92,7 @@ class Fake(User, protocol.Protocol):
 # expensive to generate
 requests.post(f'http://{ndb_client.host}/reset')
 with ndb_client.context():
-    global_user = Fake.get_or_create('user')
+    global_user = Fake.get_or_create('fake:user')
 
 
 # import other modules that register Flask handlers *after* Fake is defined

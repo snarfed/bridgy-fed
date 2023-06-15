@@ -14,6 +14,7 @@ import common
 from flask_app import app
 from models import Object, User
 import protocol
+from web import Web
 
 
 class CommonTest(TestCase):
@@ -47,8 +48,10 @@ class CommonTest(TestCase):
 
                          common.pretty_link('http://foo'))
 
+        # current user's homepage gets converted to BF user page
+        g.user = Web(id='user.com')
         self.assertEqual(
-            '<a class="h-card u-author" href="/fa/user.com"><img src="" class="profile"> user.com</a>',
+            '<a class="h-card u-author" href="/web/user.com"><img src="" class="profile"> user.com</a>',
             common.pretty_link('https://user.com/'))
 
     def test_redirect_wrap_empty(self):

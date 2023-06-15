@@ -219,10 +219,10 @@ class FollowerTest(TestCase):
 
     def test_from_to_same_type_fails(self):
         with self.assertRaises(AssertionError):
-            Follower(from_=Web.key_for('foo'), to=Web.key_for('bar')).put()
+            Follower(from_=Web.key_for('foo.com'), to=Web.key_for('bar.com')).put()
 
         with self.assertRaises(AssertionError):
-            Follower.get_or_create(from_=Web(id='foo'), to=Web(id='bar'))
+            Follower.get_or_create(from_=Web(id='foo.com'), to=Web(id='bar.com'))
 
     def test_get_or_create(self):
         follower = Follower.get_or_create(from_=g.user, to=self.other_user)

@@ -323,7 +323,7 @@ class ActivityPubTest(TestCase):
             'type': 'Person',
             'id': 'http://bf/fake/user.com/ap',
             'preferredUsername': 'user.com',
-            'url': 'http://localhost/r/fake://user.com',
+            'url': 'http://localhost/r/user.com',
             'summary': '',
             'inbox': 'http://bf/fake/user.com/ap/inbox',
             'outbox': 'http://bf/fake/user.com/ap/outbox',
@@ -1456,16 +1456,16 @@ class ActivityPubUtilsTest(TestCase):
             'actor': {
                 'id': 'baj',
                 'preferredUsername': 'site',
-                'url': 'http://localhost/r/fake://site',
+                'url': 'http://localhost/r/site',
             },
             'attributedTo': [{
                 'id': 'bar',
                 'preferredUsername': 'site',
-                'url': 'http://localhost/r/fake://site',
+                'url': 'http://localhost/r/site',
             }, {
                 'id': 'baz',
                 'preferredUsername': 'site',
-                'url': 'http://localhost/r/fake://site',
+                'url': 'http://localhost/r/site',
             }],
             'to': [as2.PUBLIC_AUDIENCE],
         }, activitypub.postprocess_as2({

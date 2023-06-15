@@ -39,6 +39,7 @@ CHAR_AFTER_SPACE = chr(ord(' ') + 1)
 WWW_DOMAINS = frozenset((
     'www.jvt.me',
 ))
+NON_TLDS = frozenset(('html', 'json', 'php', 'xml'))
 
 
 class Web(User, Protocol):
@@ -211,8 +212,12 @@ class Web(User, Protocol):
 
         Args:
           id: str
+
+        Raises:
+          ValueError
         """
-        assert id
+        if not id:
+            raise ValueError()
 
         if util.is_web(id):
             parsed = urlparse(id)
@@ -220,13 +225,16 @@ class Web(User, Protocol):
                 id = parsed.netloc
 
         if re.match(common.DOMAIN_RE, id):
+            tld = id.split('.')[-1]
+            if tld in NON_TLDS:
+                raise ValueError(f"{id} looks like a domain but {tld} isn't a TLD")
             return cls(id=id).key
 
-        assert False, f'{id} is not a domain or usable home page URL'
+        raise ValueError(f'{id} is not a domain or usable home page URL')
 
     @classmethod
     def owns_id(cls, id):
-        """Returns None if id is an http(s) URL, False otherwise.
+        """Returns None if id is a domain or http(s) URL, False otherwise.
 
         All web pages are http(s) URLs, but not all http(s) URLs are web pages.
         """
@@ -238,8 +246,8 @@ class Web(User, Protocol):
             if key:
                 user = key.get()
                 return True if user and user.has_redirects else None
-        except AssertionError:
-            pass
+        except ValueError as e:
+            logger.info(e)
 
         return None if util.is_web(id) else False
 
