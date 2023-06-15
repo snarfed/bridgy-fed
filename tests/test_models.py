@@ -25,12 +25,7 @@ class UserTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.request_context.push()
         g.user = self.make_user('y.z')
-
-    def tearDown(self):
-        self.request_context.pop()
-        super().tearDown()
 
     def test_get_or_create(self):
         user = Fake.get_or_create('a.b')
@@ -111,12 +106,7 @@ class UserTest(TestCase):
 class ObjectTest(TestCase):
     def setUp(self):
         super().setUp()
-        self.request_context.push()
         g.user = None
-
-    def tearDown(self):
-        self.request_context.pop()
-        super().tearDown()
 
     def test_proxy_url(self):
         obj = Object(id='abc', source_protocol='bluesky')

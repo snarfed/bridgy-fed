@@ -144,6 +144,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         init_globals()
 
         self.request_context = app.test_request_context('/')
+        self.request_context.push()
 
         # suppress a few warnings
         # local/lib/python3.9/site-packages/bs4/__init__.py:435: MarkupResemblesLocatorWarning: The input looks more like a filename than markup. You may want to open this file and pass the filehandle into Beautiful Soup.
@@ -154,6 +155,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.ndb_context.__exit__(None, None, None)
         self.client.__exit__(None, None, None)
         super().tearDown()
+
+        # this breaks if it's before super().tearDown(). why?!
+        self.request_context.pop()
 
     def run(self, result=None):
         """Override to hide stdlib and virtualenv lines in tracebacks.

@@ -313,14 +313,12 @@ class UnfollowTest(TestCase):
     def setUp(self):
         super().setUp()
         self.user = self.make_user('alice.com')
-
-        with self.request_context:
-            self.follower = Follower.get_or_create(
-                from_=self.user,
-                to=ActivityPub.get_or_create('https://bar/id', actor_as2=FOLLOWEE),
-                follow=Object(id=FOLLOW_ADDRESS['id'], as2=FOLLOW_ADDRESS).put(),
-                status='active',
-            )
+        self.follower = Follower.get_or_create(
+            from_=self.user,
+            to=ActivityPub.get_or_create('https://bar/id', actor_as2=FOLLOWEE),
+            follow=Object(id=FOLLOW_ADDRESS['id'], as2=FOLLOW_ADDRESS).put(),
+            status='active',
+        )
 
         self.state = util.encode_oauth_state({
             'endpoint': 'http://auth/endpoint',
@@ -357,8 +355,7 @@ class UnfollowTest(TestCase):
 
         obj = self.follower.follow.get()
         obj.as2['object'] = FOLLOWEE['id']
-        with self.request_context:
-            obj.put()
+        obj.put()
 
         mock_get.side_effect = (
             # oauth-dropins indieauth https://alice.com fetch for user json
@@ -407,12 +404,11 @@ class UnfollowTest(TestCase):
         self.user.use_instead = user.key
         self.user.put()
 
-        with self.request_context:
-            Follower.get_or_create(
-                from_=self.user,
-                to=ActivityPub.get_or_create('https://bar/id', actor_as2=FOLLOWEE),
-                follow=Object(id=FOLLOW_ADDRESS['id'], as2=FOLLOW_ADDRESS).put(),
-                status='active')
+        Follower.get_or_create(
+            from_=self.user,
+            to=ActivityPub.get_or_create('https://bar/id', actor_as2=FOLLOWEE),
+            follow=Object(id=FOLLOW_ADDRESS['id'], as2=FOLLOW_ADDRESS).put(),
+            status='active')
 
         mock_get.side_effect = (
             requests_response(''),

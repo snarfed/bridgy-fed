@@ -26,12 +26,7 @@ class CommonTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.request_context.push()
         g.user = Fake(id='user.com')
-
-    def tearDown(self):
-        self.request_context.pop()
-        super().tearDown()
 
     def test_pretty_link(self):
         for expected, url, text in (

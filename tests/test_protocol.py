@@ -33,12 +33,10 @@ class ProtocolTest(TestCase):
     def setUp(self):
         super().setUp()
         self.user = self.make_user('foo.com', has_hcard=True)
-        self.request_context.push()
         g.user = None
 
     def tearDown(self):
         PROTOCOLS.pop('greedy', None)
-        self.request_context.pop()
         super().tearDown()
 
     def test_protocols_global(self):

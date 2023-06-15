@@ -70,8 +70,7 @@ class RedirectTest(testutil.TestCase):
         self._test_as2(as2.CONTENT_TYPE_LD)
 
     def test_as2_creates_user(self):
-        with self.request_context:
-            Object(id='https://user.com/repost', as2=REPOST_AS2).put()
+        Object(id='https://user.com/repost', as2=REPOST_AS2).put()
 
         self.user.key.delete()
 
@@ -152,8 +151,7 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual('https://user.com/bar', resp.headers['Location'])
 
     def _test_as2(self, content_type):
-        with self.request_context:
-            self.obj = Object(id='https://user.com/', as2=REPOST_AS2).put()
+        self.obj = Object(id='https://user.com/', as2=REPOST_AS2).put()
 
         resp = self.client.get('/r/https://user.com/', headers={'Accept': content_type})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
@@ -161,8 +159,7 @@ class RedirectTest(testutil.TestCase):
         self.assert_equals(REPOST_AS2, resp.json)
 
     def test_as2_deleted(self):
-        with self.request_context:
-            Object(id='https://user.com/bar', as2={}, deleted=True).put()
+        Object(id='https://user.com/bar', as2={}, deleted=True).put()
 
         resp = self.client.get('/r/https://user.com/bar',
                               headers={'Accept': as2.CONTENT_TYPE})

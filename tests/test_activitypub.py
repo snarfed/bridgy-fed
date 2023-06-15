@@ -275,16 +275,15 @@ class ActivityPubTest(TestCase):
                                    has_redirects=True)
         ACTOR_BASE['publicKey']['publicKeyPem'] = self.user.public_pem().decode()
 
-        with self.request_context:
-            self.key_id_obj = Object(id='http://my/key/id', as2={
-                **ACTOR,
-                'publicKey': {
-                    'id': 'http://my/key/id#unused',
-                    'owner': 'http://own/er',
-                    'publicKeyPem': self.user.public_pem().decode(),
-                },
-            })
-            self.key_id_obj.put()
+        self.key_id_obj = Object(id='http://my/key/id', as2={
+            **ACTOR,
+            'publicKey': {
+                'id': 'http://my/key/id#unused',
+                'owner': 'http://own/er',
+                'publicKeyPem': self.user.public_pem().decode(),
+            },
+        })
+        self.key_id_obj.put()
 
     def assert_object(self, id, **props):
         return super().assert_object(id, delivered_protocol='web', **props)
@@ -531,9 +530,8 @@ class ActivityPubTest(TestCase):
             'id': 'https://user.com/orig',
         }
         del note['url']
-        with self.request_context:
-            Object(id=orig_url, mf2=microformats2.object_to_json(as2.to_as1(note)),
-                   source_protocol='web').put()
+        Object(id=orig_url, mf2=microformats2.object_to_json(as2.to_as1(note)),
+               source_protocol='web').put()
 
         repost = copy.deepcopy(REPOST_FULL)
         repost['object'] = f'http://localhost/r/{orig_url}'
@@ -1228,8 +1226,7 @@ class ActivityPubTest(TestCase):
         }, resp.json)
 
     def store_followers(self):
-        with self.request_context:
-            follow = Object(id=FOLLOW_WITH_ACTOR['id'], as2=FOLLOW_WITH_ACTOR).put()
+        follow = Object(id=FOLLOW_WITH_ACTOR['id'], as2=FOLLOW_WITH_ACTOR).put()
 
         Follower.get_or_create(to=self.user,
                                from_=ActivityPub.get_or_create('bar.com', actor_as2=ACTOR),
@@ -1319,8 +1316,7 @@ class ActivityPubTest(TestCase):
         }, resp.json)
 
     def store_following(self):
-        with self.request_context:
-            follow = Object(id=FOLLOW_WITH_ACTOR['id'], as2=FOLLOW_WITH_ACTOR).put()
+        follow = Object(id=FOLLOW_WITH_ACTOR['id'], as2=FOLLOW_WITH_ACTOR).put()
 
         Follower.get_or_create(to=ActivityPub.get_or_create('bar.com', actor_as2=ACTOR),
                                from_=self.user, follow=follow)
@@ -1406,12 +1402,7 @@ class ActivityPubTest(TestCase):
 class ActivityPubUtilsTest(TestCase):
     def setUp(self):
         super().setUp()
-        self.request_context.push()
         g.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR)
-
-    def tearDown(self):
-        self.request_context.pop()
-        super().tearDown()
 
     def test_owns_id(self):
         self.assertIsNone(ActivityPub.owns_id('http://foo'))

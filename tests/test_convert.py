@@ -90,8 +90,7 @@ class ConvertTest(testutil.TestCase):
 
     def test_activitypub_to_web_object(self):
         url = 'https://user.com/bar?baz=baj&biff'
-        with self.request_context:
-            Object(id=url, our_as1=COMMENT).put()
+        Object(id=url, our_as1=COMMENT).put()
 
         resp = self.client.get('/convert/web/https://user.com/bar?baz=baj&biff',
                                base_url='https://ap.brid.gy/')
@@ -100,8 +99,7 @@ class ConvertTest(testutil.TestCase):
                                      ignore_blanks=True)
 
     def test_activitypub_to_web_object_empty(self):
-        with self.request_context:
-            Object(id='http://foo').put()
+        Object(id='http://foo').put()
 
         resp = self.client.get('/convert/web/http://foo',
                                base_url='https://ap.brid.gy/')
@@ -131,11 +129,10 @@ class ConvertTest(testutil.TestCase):
         mock_get.assert_has_calls((self.as2_req('http://foo'),))
 
     def test_activitypub_to_web_with_author(self):
-        with self.request_context:
-            Object(id='http://foo', our_as1={**COMMENT, 'author': 'http://bar'},
-                   source_protocol='activitypub').put()
-            Object(id='http://bar', our_as1=ACTOR,
-                   source_protocol='activitypub').put()
+        Object(id='http://foo', our_as1={**COMMENT, 'author': 'http://bar'},
+               source_protocol='activitypub').put()
+        Object(id='http://bar', our_as1=ACTOR,
+               source_protocol='activitypub').put()
 
         resp = self.client.get('/convert/web/http://foo',
                                base_url='https://ap.brid.gy/')
@@ -146,8 +143,7 @@ class ConvertTest(testutil.TestCase):
     def test_activitypub_to_web_no_url(self):
         comment = copy.deepcopy(COMMENT)
         del comment['url']
-        with self.request_context:
-            Object(id='http://foo', our_as1=comment).put()
+        Object(id='http://foo', our_as1=comment).put()
 
         resp = self.client.get('/convert/web/http://foo',
                                base_url='https://ap.brid.gy/')
@@ -159,26 +155,23 @@ class ConvertTest(testutil.TestCase):
                                      ignore_blanks=True)
 
     def test_activitypub_to_web_deleted_object(self):
-        with self.request_context:
-            Object(id='http://foo', as2={'content': 'foo'}, deleted=True).put()
+        Object(id='http://foo', as2={'content': 'foo'}, deleted=True).put()
 
         resp = self.client.get('/convert/web/http://foo',
                                base_url='https://ap.brid.gy/')
         self.assertEqual(410, resp.status_code)
 
     def test_activitypub_to_web_delete_activity(self):
-        with self.request_context:
-            Object(id='http://foo', our_as1=DELETE_OF_ID).put()
+        Object(id='http://foo', our_as1=DELETE_OF_ID).put()
 
         resp = self.client.get('/convert/web/http://foo',
                                base_url='https://ap.brid.gy/')
         self.assertEqual(410, resp.status_code)
 
     def test_activitypub_to_web_update_inner_obj_exists_redirect(self):
-        with self.request_context:
-            # UPDATE's object field is a full object
-            Object(id='http://foo', our_as1=UPDATE).put()
-            Object(id=UPDATE['object']['id'], as2={'content': 'foo'}).put()
+        # UPDATE's object field is a full object
+        Object(id='http://foo', our_as1=UPDATE).put()
+        Object(id=UPDATE['object']['id'], as2={'content': 'foo'}).put()
 
         resp = self.client.get('/convert/web/http://foo',
                                base_url='https://ap.brid.gy/')
@@ -187,10 +180,9 @@ class ConvertTest(testutil.TestCase):
                          resp.headers['Location'])
 
     def test_activitypub_to_web_delete_inner_obj_exists_redirect(self):
-        with self.request_context:
-            # DELETE_OF_ID's object field is a bare string id
-            Object(id='http://foo', our_as1=DELETE_OF_ID).put()
-            Object(id=DELETE_OF_ID['object'], as2={'content': 'foo'}).put()
+        # DELETE_OF_ID's object field is a bare string id
+        Object(id='http://foo', our_as1=DELETE_OF_ID).put()
+        Object(id=DELETE_OF_ID['object'], as2={'content': 'foo'}).put()
 
         resp = self.client.get('/convert/web/http://foo',
                                base_url='https://ap.brid.gy/')
@@ -199,9 +191,8 @@ class ConvertTest(testutil.TestCase):
                          resp.headers['Location'])
 
     def test_activitypub_to_web_update_no_inner_obj_serve_as_is(self):
-        with self.request_context:
-            # UPDATE's object field is a full object
-            Object(id='http://foo', our_as1=UPDATE).put()
+        # UPDATE's object field is a full object
+        Object(id='http://foo', our_as1=UPDATE).put()
 
         resp = self.client.get('/convert/web/http://foo',
                                base_url='https://ap.brid.gy/')
@@ -214,10 +205,9 @@ A ☕ reply
 """, resp.get_data(as_text=True), ignore_blanks=True)
 
     def test_activitypub_to_web_update_inner_obj_too_minimal_serve_as_is(self):
-        with self.request_context:
-            # UPDATE's object field is a full object
-            Object(id='http://foo', our_as1=UPDATE).put()
-            Object(id=UPDATE['object']['id'], as2={'id': 'foo'}).put()
+        # UPDATE's object field is a full object
+        Object(id='http://foo', our_as1=UPDATE).put()
+        Object(id=UPDATE['object']['id'], as2={'id': 'foo'}).put()
 
         resp = self.client.get('/convert/web/http://foo',
                                base_url='https://ap.brid.gy/')
@@ -239,8 +229,7 @@ A ☕ reply
         url = 'https://user.com/bar?baz=baj&biff'
         self.make_user('user.com')
 
-        with self.request_context:
-            Object(id=url, mf2=parse_mf2(HTML)['items'][0]).put()
+        Object(id=url, mf2=parse_mf2(HTML)['items'][0]).put()
 
         resp = self.client.get(f'/convert/ap/{url}',
                                base_url='https://ap.brid.gy/')
@@ -253,8 +242,7 @@ A ☕ reply
         url = 'https://user.com/bar?baz=baj&biff'
         self.make_user('user.com')
 
-        with self.request_context:
-            Object(id=url, mf2=parse_mf2(HTML)['items'][0]).put()
+        Object(id=url, mf2=parse_mf2(HTML)['items'][0]).put()
 
         resp = self.client.get(f'/convert/ap/{url}',
                                base_url='https://web.brid.gy/')

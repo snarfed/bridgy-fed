@@ -82,17 +82,17 @@ class XrpcFeedTest(testutil.TestCase):
 
     def test_getAuthorFeed(self):
         post_as2 = as2.from_as1(POST_AS)
-        with self.request_context:
-            Object(id='a', domains=['user.com'], labels=['user'], as2=post_as2).put()
-            Object(id='b', domains=['user.com'], labels=['user'],
-                   as2=as2.from_as1(REPLY_AS)).put()
-            # not outbound from user
-            Object(id='d', domains=['user.com'], labels=['feed'], as2=post_as2).put()
-            # deleted
-            Object(id='e', domains=['user.com'], labels=['user'], as2=post_as2,
-                     deleted=True).put()
-            # other user's
-            Object(id='f', domains=['bar.org'], labels=['user'], as2=post_as2).put()
+
+        Object(id='a', domains=['user.com'], labels=['user'], as2=post_as2).put()
+        Object(id='b', domains=['user.com'], labels=['user'],
+               as2=as2.from_as1(REPLY_AS)).put()
+        # not outbound from user
+        Object(id='d', domains=['user.com'], labels=['feed'], as2=post_as2).put()
+        # deleted
+        Object(id='e', domains=['user.com'], labels=['user'], as2=post_as2,
+                 deleted=True).put()
+        # other user's
+        Object(id='f', domains=['bar.org'], labels=['user'], as2=post_as2).put()
 
         resp = self.client.get('/xrpc/app.bsky.feed.getAuthorFeed',
                                query_string={'author': 'user.com'})
@@ -122,9 +122,8 @@ class XrpcFeedTest(testutil.TestCase):
         self.assert_equals({'feed': []}, resp.json)
 
     def test_getPostThread(self):
-        with self.request_context:
-            Object(id='http://a/post', domains=['user.com'], labels=['user'],
-                   as2=as2.from_as1(POST_THREAD_AS)).put()
+        Object(id='http://a/post', domains=['user.com'], labels=['user'],
+               as2=as2.from_as1(POST_THREAD_AS)).put()
 
         resp = self.client.get('/xrpc/app.bsky.feed.getPostThread',
                                query_string={'uri': 'http://a/post'})
@@ -141,16 +140,15 @@ class XrpcFeedTest(testutil.TestCase):
         self.assertEqual(400, resp.status_code, resp.get_data(as_text=True))
 
     def test_getRepostedBy(self):
-        with self.request_context:
-            Object(id='repost/1', domains=['user.com'], as2=as2.from_as1({
-                **REPOST_AS,
-                'object': 'http://a/post',
-            })).put()
-            Object(id='repost/2', domains=['user.com'], as2=as2.from_as1({
-                **REPOST_AS,
-                'object': 'http://a/post',
-                'actor': as2.to_as1(ACTOR),
-            })).put()
+        Object(id='repost/1', domains=['user.com'], as2=as2.from_as1({
+            **REPOST_AS,
+            'object': 'http://a/post',
+        })).put()
+        Object(id='repost/2', domains=['user.com'], as2=as2.from_as1({
+            **REPOST_AS,
+            'object': 'http://a/post',
+            'actor': as2.to_as1(ACTOR),
+        })).put()
 
         got = self.client.get('/xrpc/app.bsky.feed.getRepostedBy',
                                query_string={'uri': 'http://a/post'})

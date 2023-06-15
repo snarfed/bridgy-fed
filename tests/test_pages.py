@@ -109,9 +109,8 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code)
 
     def test_user_object_bare_string_id(self):
-        with self.request_context:
-            Object(id='a', users=[self.user.key], labels=['notification'],
-                   as2=REPOST_AS2).put()
+        Object(id='a', users=[self.user.key], labels=['notification'],
+               as2=REPOST_AS2).put()
 
         got = self.client.get('/web/user.com')
         self.assert_equals(200, got.status_code)

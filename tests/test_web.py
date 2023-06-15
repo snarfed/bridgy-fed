@@ -397,7 +397,6 @@ class WebTest(TestCase):
     def setUp(self):
         super().setUp()
         g.user = self.make_user('user.com', has_redirects=True)
-        self.request_context.push()
 
     def assert_deliveries(self, mock_post, inboxes, data, ignore=()):
         self.assertEqual(len(inboxes), len(mock_post.call_args_list))
@@ -667,8 +666,7 @@ class WebTest(TestCase):
                 'content': ['other'],
             },
         }
-        with self.request_context:
-            Object(id='https://user.com/reply', status='complete', mf2=mf2).put()
+        Object(id='https://user.com/reply', status='complete', mf2=mf2).put()
 
         mock_get.side_effect = ACTIVITYPUB_GETS
         mock_post.return_value = requests_response('abc xyz')
@@ -686,8 +684,7 @@ class WebTest(TestCase):
 
     def test_redo_repost_isnt_update(self, mock_get, mock_post):
         """Like and Announce shouldn't use Update, they should just resend as is."""
-        with self.request_context:
-            Object(id='https://user.com/repost', mf2={}, status='complete').put()
+        Object(id='https://user.com/repost', mf2={}, status='complete').put()
 
         mock_get.side_effect = [REPOST, TOOT_AS2, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
@@ -702,8 +699,7 @@ class WebTest(TestCase):
 
     def test_skip_update_if_content_unchanged(self, mock_get, mock_post):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
-        with self.request_context:
-            Object(id='https://user.com/reply', mf2=REPLY_MF2).put()
+        Object(id='https://user.com/reply', mf2=REPLY_MF2).put()
 
         mock_get.side_effect = ACTIVITYPUB_GETS
 
@@ -715,8 +711,7 @@ class WebTest(TestCase):
         mock_post.assert_not_called()
 
     def test_force_with_content_unchanged_sends_create(self, mock_get, mock_post):
-        with self.request_context:
-            Object(id='https://user.com/reply', mf2=REPLY_MF2).put()
+        Object(id='https://user.com/reply', mf2=REPLY_MF2).put()
 
         mock_get.side_effect = ACTIVITYPUB_GETS
         mock_post.return_value = requests_response('abc xyz')
@@ -986,10 +981,9 @@ class WebTest(TestCase):
         mock_get.side_effect = [NOTE, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
-        with self.request_context:
-            mf2 = copy.deepcopy(NOTE_MF2)
-            mf2['properties']['content'] = 'different'
-            Object(id='https://user.com/post', users=[g.user.key], mf2=mf2).put()
+        mf2 = copy.deepcopy(NOTE_MF2)
+        mf2['properties']['content'] = 'different'
+        Object(id='https://user.com/post', users=[g.user.key], mf2=mf2).put()
 
         self.make_followers()
 
@@ -1300,9 +1294,8 @@ class WebTest(TestCase):
         mock_get.return_value = requests_response('"unused"', status=410,
                                                   url='http://final/delete')
 
-        with self.request_context:
-            Object(id='https://user.com/post#bridgy-fed-create',
-                   mf2=NOTE_MF2, status='in progress')
+        Object(id='https://user.com/post#bridgy-fed-create',
+               mf2=NOTE_MF2, status='in progress')
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/post',
@@ -1696,12 +1689,7 @@ class WebProtocolTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.request_context.__enter__()
         g.user = self.make_user('user.com')
-
-    def tearDown(self):
-        self.request_context.__enter__()
-        super().tearDown()
 
     def test_key_for(self, *_):
         for id in 'user.com', 'http://user.com', 'https://user.com/':
