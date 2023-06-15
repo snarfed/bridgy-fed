@@ -221,6 +221,14 @@ code {
   background-color: white !important;
 }
 
+code a, a code {
+  color: #337ab7;
+}
+
+code a:hover, a code:hover {
+  color: #23527c;
+}
+
 .original-post-links {
   list-style: none;
   padding-left: 0;
@@ -489,16 +497,24 @@ a img.shadow:hover
   background-color: #f6f6f6;
 }
 
-.docs .done {
+.docs .done, .docs .yes  {
   background-color: #ebf6eb;
 }
 
-.docs tr:nth-child(even) .done {
+.docs tr:nth-child(even) .done, .docs tr:nth-child(even) .yes {
   background-color: #e2f6e2;
 }
 
 .docs .not-done {
   background-color: white;
+}
+
+.docs .maybe {
+  background-color: #fffdda;
+}
+
+.docs tr:nth-child(even) .maybe {
+  background-color: #fffacd;
 }
 
 .question {

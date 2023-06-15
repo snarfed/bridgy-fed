@@ -495,7 +495,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <p>In the tables below, BF is Bridgy Fed. <span class="done">Green parts</span> have been implemented and running here for years, the rest are still in the early design phase.
 </p>
 
-<p>Here's how we (hope to) translate <em>user identity</em> between protocols. Specifically, each cell shows how a user in a given column is identified to the protocol in a given row. <em>Basic</em> is the default, <em>enhanced</em> requires extra setup on the user's part (or their fediverse instance's) to forward some of their <code>/.well-known</code> HTTP requests to Bridgy Fed.
+<p>Here's how we (hope to) translate <em>user identity</em> between protocols. Specifically, each cell shows how a user in a given column is identified to the protocol in a given row. <em>Basic</em> is the default, <em>enhanced</em> requires extra setup on the user's part (or their fediverse instance's) to forward some of their <code>/.well-known</code> HTTP requests to Bridgy Fed:
 </p>
 
 <table>
@@ -573,7 +573,104 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 
 <p>In addition to the user-facing identifers above, Bridgy Fed will generate and use <a href="https://atproto.com/specs/did-plc"><code>did:plc</code> DIDs</a> for Bluesky/AT Protocol and <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a></code> public keys</a> for Nostr behind the scenes.</p>
 
-<p>Here's how we (hope to) translate <em>events and operations</em> between protocols, both inbound to and outbound from Bridgy Fed.
+<p>Here's how we (hope to) infer the protocol for any string id. In the Format column, <span class="yes">green parts</span> are deterministic, ie they conclusively determine that a matching id belongs to the protocol, and <span class="maybe">yellow parts</span> are ambiguous, ie a matching id may or may not belong to the protocol:
+</p>
+
+<table>
+<thead>
+<tr>
+  <th></th>
+  <th></th>
+  <th>Example(s)</th>
+  <th>Format</th>
+  <th>Network discovery</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+  <th rowspan="2">Web</th>
+  <th class="subhead">user</th>
+  <td><a href="https://snarfed.org/">https://snarfed.org/</a></td>
+  <td class="maybe">http(s) URL with empty path</td>
+  <td rowspan="2"><code>HTTP GET</code> succeeds and returns HTML</td>
+</tr>
+<tr>
+  <th class="subhead">object</th>
+  <td><a href="https://snarfed.org/2023-05-26_50328">https://snarfed.org/2023-05-26_50328</a></td>
+  <td class="maybe">http(s) URL with non-empty path</td>
+</tr>
+
+<tr>
+  <th rowspan="2">ActivityPub</th>
+  <th class="subhead">user</th>
+  <td><a href="https://indieweb.social/users/snarfed">https://indieweb.social/users/snarfed</a></td>
+  <td rowspan="2" class="maybe">http(s) URL</td>
+  <td><code>HTTP GET</code> <a href="https://www.w3.org/TR/activitypub/#retrieving-objects">with AS2 conneg</a> returns valid AS2 with <a href="https://www.w3.org/TR/activitystreams-core/#actors"><code>Actor type</code></a></td>
+</tr>
+<tr>
+  <th class="subhead">object</th>
+  <td><a href="https://mitra.social/post/01885fad-85ee-c6c3-191e-0a4f132c8113">https://mitra.social/post/01885fad</a></td>
+  <td><code>HTTP GET</code> <a href="https://www.w3.org/TR/activitypub/#retrieving-objects">with AS2 conneg</a> returns valid AS2 with <a href="https://www.w3.org/TR/activitystreams-core/#actors"><code>non-Actor type</code></a></td>
+</tr>
+
+
+<tr>
+  <th rowspan="2">AT Protocol</th>
+  <th class="subhead">user</th>
+  <td>
+    <code>did:plc:abc123</code><br>
+    <code>did:web:snarfed.org</code>
+  </td>
+  <td class="yes"><a href="https://atproto.com/specs/did-plc"><code>did:plc:</code></a> or <a href="https://w3c-ccg.github.io/did-method-web/"><code>did:web:</code></a> prefix<br>
+    <nobr>(TODO: <a href="https://atproto.com/specs/handle">domain handles</a>)</nobr>
+  </td>
+  <td>
+    <a href="">resolve <code>did:plc</code></a>,<br>
+    <a href="https://w3c-ccg.github.io/did-method-web/#read-resolve">resolve <code>did:web</code></a>
+  </td>
+</tr>
+<tr>
+  <th class="subhead">object</th>
+  <td><code>at://did:plc:asdf/post/abc-123</code></td>
+  <td class="yes"><a href="https://atproto.com/specs/at-uri-scheme"><code>at://</code> URI</a></td>
+  <td><a href="https://github.com/snarfed/atproto/blob/main/lexicons/com/atproto/repo/getRecord.json"><code>com.atproto.repo.getRecord</code></a> XRPC</td>
+</tr>
+
+
+<tr>
+  <th rowspan="2">Nostr</th>
+  <th class="subhead">user</th>
+  <td>
+    <code>abc123...</code> (<a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">32 chars</a>)<br>
+    <code>npub10hx886...</code> (<a href="https://github.com/nostr-protocol/nips/blob/master/19.md">bech32</a>)
+  </td>
+  <td>
+    <span class="maybe">32 char hex</span> or
+    <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids" class="yes"><code>npub</code> prefix</a>
+    <nobr>(TODO: <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domains)</nobr>
+  </td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/65.md">NIP-65</a> or <a href="https://github.com/nostr-protocol/nips/blob/master/39.md">NIP-39</a> lookup</td>
+</tr>
+<tr>
+  <th class="subhead">object</th>
+  <td>
+    <code>def456...</code> (<a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">32 chars</a>)<br>
+    <code>nevent10hx886...</code> (<a href="https://github.com/nostr-protocol/nips/blob/master/19.md">bech32</a>)<br>
+    <code>note10hx886...</code> (<a href="https://github.com/nostr-protocol/nips/blob/master/19.md">bech32</a>)
+  </td>
+  <td>
+    <span class="maybe">32 char hex</span> or
+    <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids" class="yes"><code>nevent</code>, <code>note</code>, etc</a> prefix</a>
+  </td>
+  <td><code><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">REQ</a></code> request</td>
+</tr>
+
+</tbody>
+</table>
+
+
+<p>Here's how we (hope to) translate <em>events and operations</em> between protocols, both inbound to and outbound from Bridgy Fed:
 </p>
 
 <table>
@@ -594,14 +691,14 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
       <em>enhanced</em>: user's site serves and redirects <a href="https://webfinger.net/">WebFinger</a> to fed.brid.gy
   </td>
   <td>resolve <a href="https://www.w3.org/TR/did-core/">DID</a>, serve DID document with fed.brid.gy <a href="https://atproto.com/guides/data-repos">PDS</a></td>
-  <td><a href="https://github.com/nostr-protocol/nips/blob/master/.md">NIP-39</a> (kind 0) query to BF (or other?) relay</td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/39.md">NIP-39</a> (kind 0) query to BF (or other?) relay</td>
 </tr>
 <tr>
   <th>User discovery outbound</th>
   <td class="done">Fetch home page, parse <code><a href="https://microformats.org/wiki/h-card">h-card</a></code></td>
   <td class="done">look up <a href="https://webfinger.net/">WebFinger</a>, fetch <a href="https://www.w3.org/TR/activitypub/#actors">AP actor</a></td>
   <td>resolve <a href="https://www.w3.org/TR/did-core/">DID</a>, subscribe to <a href="https://atproto.com/guides/data-repos">PDS</a> repo, extract profile object?</td>
-  <td>discover user's relays with <a href="https://github.com/nostr-protocol/nips/blob/master/.md">NIP-65</a>, query <a href="https://github.com/nostr-protocol/nips/blob/master/.md">NIP-39</a> to get profile</td>
+  <td>discover user's relays with <a href="https://github.com/nostr-protocol/nips/blob/master/65.md">NIP-65</a>, query <a href="https://github.com/nostr-protocol/nips/blob/master/39.md">NIP-39</a> to get profile</td>
 </tr>
 <tr>
   <th>Publish inbound</th>
@@ -630,7 +727,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <td class="done"><a href="https://webmention.net/">webmention</a> with BF proxy HTML page as source</td>
   <td class="done">deliver <code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-follow">Follow</a></code> to followee's <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a></td>
   <td>call <code><a href="https://atproto.com/lexicons/com-atproto-sync#comatprotosyncsubscriberepos">sync.subscribeRepos</a></code> on followee's <a href="https://atproto.com/guides/data-repos">PDS</a>?</td>
-  <td>discover followee's relay(s) with <a href="https://github.com/nostr-protocol/nips/blob/master/.md">NIP-65</a>, send them a <code><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">REQ</a></code></td>
+  <td>discover followee's relay(s) with <a href="https://github.com/nostr-protocol/nips/blob/master/65.md">NIP-65</a>, send them a <code><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">REQ</a></code></td>
 </tr>
 <tr>
   <th>Response inbound</th>
@@ -638,7 +735,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <td class="done"><code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-create">Create</a></code>, <code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-like">Like</a></code>, <code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-announce">Announce</a></code> delivered to BF user <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a></td>
   <td>response object received from a subscribed repo?<br>
       (what if it's from a user we don't subscribe to?)</td>
-  <td><a href="https://github.com/nostr-protocol/nips/blob/master/.md">NIP-10</a> response <a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">event</a> received at BF relay or other relay</td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/10.md">NIP-10</a> response <a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">event</a> received at BF relay or other relay</td>
 </tr>
 <tr>
   <th>Response outbound</th>
