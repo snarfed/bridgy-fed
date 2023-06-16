@@ -322,10 +322,7 @@ class ActivityPubTest(TestCase):
         type = got.headers['Content-Type']
         self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
         self.assertEqual({
-            '@context': [
-                'https://www.w3.org/ns/activitystreams',
-                'https://w3id.org/security/v1',
-            ],
+            '@context': ['https://w3id.org/security/v1'],
             'type': 'Person',
             'id': 'http://bf/fake/user.com/ap',
             'preferredUsername': 'user.com',
@@ -850,6 +847,9 @@ class ActivityPubTest(TestCase):
         self.assertEqual(2, len(mock_post.call_args_list))
         args, kwargs = mock_post.call_args_list[0]
         self.assertEqual(('http://mas.to/inbox',), args)
+
+        accept_as2 = copy.deepcopy(accept_as2)
+        accept_as2['object']['actor']['@context'] = 'https://www.w3.org/ns/activitystreams'
         self.assertEqual(accept_as2, json_loads(kwargs['data']))
 
         # check webmention

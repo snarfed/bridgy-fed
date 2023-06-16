@@ -102,6 +102,18 @@ class UserTest(TestCase):
     def test_readable_id(self):
         self.assertIsNone(g.user.readable_id)
 
+    def test_as2(self):
+        self.assertEqual({}, g.user.as2())
+
+        obj = Object(id='foo')
+        g.user.obj_key = obj.key  # doesn't exist
+        self.assertEqual({}, g.user.as2())
+
+        del g.user._obj
+        obj.as2 = {'foo': 'bar'}
+        obj.put()
+        self.assertEqual({'foo': 'bar'}, g.user.as2())
+
 
 class ObjectTest(TestCase):
     def setUp(self):
@@ -198,6 +210,26 @@ class ObjectTest(TestCase):
         obj.our_as1 = {'foo': 'bar'}
         obj.put()
         self.assertEqual(['user'], obj.labels)
+
+    def test_as2(self):
+        obj = Object(id='foo')
+        self.assertEqual({}, obj.as_as2())
+
+        obj.our_as1 = {}
+        self.assertEqual({}, obj.as_as2())
+
+        obj.our_as1 = {
+            'objectType': 'person',
+            'foo': 'bar',
+        }
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Person',
+            'foo': 'bar',
+        }, obj.as_as2())
+
+        obj.as2 = {'baz': 'biff'}
+        self.assertEqual({'baz': 'biff'}, obj.as_as2())
 
 
 class FollowerTest(TestCase):

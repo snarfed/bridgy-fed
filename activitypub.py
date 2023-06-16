@@ -108,9 +108,7 @@ class ActivityPub(User, Protocol):
         if obj.type not in as1.ACTOR_TYPES:
             logger.info(f'{obj.key} type {type} is not an actor')
 
-        actor = obj.as2 or as2.from_as1(obj.as1)
-        if not actor:
-            return None
+        actor = obj.as_as2()
 
         if shared:
             shared_inbox = actor.get('endpoints', {}).get('sharedInbox')

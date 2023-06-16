@@ -199,10 +199,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             u._obj = keys_to_objs.get(u.obj_key)
 
     def as2(self):
-        if self.obj and self.obj.as1:
-            return self.obj.as2 or as2.from_as1(self.obj.as1)
-
-        return {}
+        """Returns this user as an AS2 actor."""
+        return self.obj.as_as2() if self.obj else {}
 
     @ndb.ComputedProperty
     def readable_id(self):
@@ -455,6 +453,10 @@ class Object(StringIdModel):
             if val:
                 logger.warning(f'Wiping out {prop}: {json_dumps(val, indent=2)}')
             setattr(self, prop, None)
+
+    def as_as2(self):
+        """Returns this object as an AS2 dict."""
+        return self.as2 or as2.from_as1(self.as1) or {}
 
     def proxy_url(self):
         """Returns the Bridgy Fed proxy URL to render this post as HTML.

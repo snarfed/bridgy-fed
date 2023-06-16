@@ -420,8 +420,7 @@ class Protocol:
 
         # fetch object if necessary so we can render it in feeds
         if obj.type == 'share' and inner_obj.keys() == set(['id']):
-            inner_obj = obj.as2['object'] = as2.from_as1(
-                from_cls.load(inner_obj_id).as1)
+            inner_obj = obj.as2['object'] = from_cls.load(inner_obj_id).as_as2()
 
         if obj.type == 'follow':
             from_cls.accept_follow(obj)
@@ -487,7 +486,7 @@ class Protocol:
             'id': common.host_url(f'/web/{g.user.key.id()}/followers#accept-{obj.key.id()}'),
             'type': 'Accept',
             'actor': followee_actor_url,
-            'object': as2.from_as1(obj.as1),
+            'object': obj.as_as2()
         }
         return cls.send(Object(as2=accept), inbox)
 
