@@ -1852,3 +1852,14 @@ class WebProtocolTest(TestCase):
 </html>
 """, html, ignore_blanks=True)
         self.assertEqual({'Content-Type': 'text/html; charset=utf-8'}, headers)
+
+    def test_target_for(self, _, __):
+        with self.assertRaises(AssertionError):
+            Web.target_for(Object(id='x', source_protocol='ap'))
+
+        self.assertIsNone(Web.target_for(Object(id='x', source_protocol='web')))
+
+        self.assertEqual('http://foo', Web.target_for(
+            Object(id='http://foo', source_protocol='web')))
+        self.assertEqual('http://foo', Web.target_for(
+            Object(id='http://foo', source_protocol='web'), shared=True))

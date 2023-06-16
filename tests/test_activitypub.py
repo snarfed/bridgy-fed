@@ -24,7 +24,7 @@ from werkzeug.exceptions import BadGateway
 from .testutil import Fake, TestCase
 
 import activitypub
-from activitypub import ActivityPub
+from activitypub import ActivityPub, postprocess_as2
 import common
 import models
 from models import Follower, Object
@@ -1434,7 +1434,7 @@ class ActivityPubUtilsTest(TestCase):
             'id': 'http://localhost/r/xyz',
             'inReplyTo': 'foo',
             'to': [as2.PUBLIC_AUDIENCE],
-        }, activitypub.postprocess_as2({
+        }, postprocess_as2({
             'id': 'xyz',
             'inReplyTo': ['foo', 'bar'],
         }))
@@ -1444,7 +1444,7 @@ class ActivityPubUtilsTest(TestCase):
             'id': 'http://localhost/r/xyz',
             'url': ['http://localhost/r/foo', 'http://localhost/r/bar'],
             'to': [as2.PUBLIC_AUDIENCE],
-        }, activitypub.postprocess_as2({
+        }, postprocess_as2({
             'id': 'xyz',
             'url': ['foo', 'bar'],
         }))
@@ -1455,7 +1455,7 @@ class ActivityPubUtilsTest(TestCase):
             'attachment': [{'url': 'http://r/foo'}, {'url': 'http://r/bar'}],
             'image': [{'url': 'http://r/foo'}, {'url': 'http://r/bar'}],
             'to': [as2.PUBLIC_AUDIENCE],
-        }, activitypub.postprocess_as2({
+        }, postprocess_as2({
             'id': 'xyz',
             'image': [{'url': 'http://r/foo'}, {'url': 'http://r/bar'}],
         }))
@@ -1478,7 +1478,7 @@ class ActivityPubUtilsTest(TestCase):
                 'url': 'http://localhost/r/site',
             }],
             'to': [as2.PUBLIC_AUDIENCE],
-        }, activitypub.postprocess_as2({
+        }, postprocess_as2({
             'attributedTo': [{'id': 'bar'}, {'id': 'baz'}],
             'actor': {'id': 'baj'},
         }))
@@ -1488,7 +1488,7 @@ class ActivityPubUtilsTest(TestCase):
             'id': 'http://localhost/r/xyz',
             'type': 'Note',
             'to': [as2.PUBLIC_AUDIENCE],
-        }, activitypub.postprocess_as2({
+        }, postprocess_as2({
             'id': 'xyz',
             'type': 'Note',
         }))
@@ -1502,7 +1502,7 @@ class ActivityPubUtilsTest(TestCase):
                 {'type': 'Mention', 'href': 'foo'},
             ],
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
-        }, activitypub.postprocess_as2({
+        }, postprocess_as2({
             'tag': [
                 {'name': 'bar', 'href': 'bar'},
                 {'type': 'Tag','name': '#baz'},
@@ -1512,7 +1512,7 @@ class ActivityPubUtilsTest(TestCase):
         }))
 
     def test_postprocess_as2_url_attachments(self):
-        got = activitypub.postprocess_as2(as2.from_as1({
+        got = postprocess_as2(as2.from_as1({
             'objectType': 'person',
             'urls': [
                 {
@@ -1553,7 +1553,7 @@ class ActivityPubUtilsTest(TestCase):
         # preferredUsername stays y.z despite user's username. since Mastodon
         # queries Webfinger for preferredUsername@fed.brid.gy
         # https://github.com/snarfed/bridgy-fed/issues/77#issuecomment-949955109
-        self.assertEqual('user.com', activitypub.postprocess_as2({
+        self.assertEqual('user.com', postprocess_as2({
             'type': 'Person',
             'url': 'https://user.com/about-me',
             'preferredUsername': 'nick',
@@ -1755,10 +1755,9 @@ class ActivityPubUtilsTest(TestCase):
                     ):
             with self.subTest(obj=obj):
                 obj = copy.deepcopy(obj)
-                self.assert_equals(
-                    activitypub.postprocess_as2(obj),
-                    activitypub.postprocess_as2(activitypub.postprocess_as2(obj)),
-                    ignore=['to'])
+                self.assert_equals(postprocess_as2(obj),
+                                   postprocess_as2(postprocess_as2(obj)),
+                                   ignore=['to'])
 
     def test_ap_address(self):
         user = ActivityPub(obj=Object(id='a', as2={**ACTOR, 'preferredUsername': 'me'}))
@@ -1795,3 +1794,30 @@ class ActivityPubUtilsTest(TestCase):
         user.obj = Object(id='a', as2=ACTOR)
         self.assertEqual('@swentel@mas.to', user.readable_id)
         self.assertEqual('@swentel@mas.to', user.readable_or_key_id())
+
+    def test_target_for(self):
+        with self.assertRaises(AssertionError):
+            ActivityPub.target_for(Object(source_protocol='web'))
+
+        self.assertEqual(ACTOR['inbox'], ActivityPub.target_for(
+            Object(source_protocol='ap', as2=ACTOR)))
+
+        actor = copy.deepcopy(ACTOR)
+        del actor['inbox']
+        self.assertIsNone(ActivityPub.target_for(
+            Object(source_protocol='ap', as2=actor)))
+
+        actor['publicInbox'] = 'so-public'
+        self.assertEqual('so-public', ActivityPub.target_for(
+            Object(source_protocol='ap', as2=actor)))
+
+        # sharedInbox
+        self.assertEqual('so-public', ActivityPub.target_for(
+            Object(source_protocol='ap', as2=actor), shared=True))
+        actor['endpoints'] = {
+            'sharedInbox': 'so-shared',
+        }
+        self.assertEqual('so-public', ActivityPub.target_for(
+            Object(source_protocol='ap', as2=actor)))
+        self.assertEqual('so-shared', ActivityPub.target_for(
+            Object(source_protocol='ap', as2=actor), shared=True))

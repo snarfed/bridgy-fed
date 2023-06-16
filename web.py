@@ -253,6 +253,17 @@ class Web(User, Protocol):
         return None if util.is_web(id) else False
 
     @classmethod
+    def target_for(cls, obj, shared=False):
+        """Returns `obj`'s id, as a URL webmention target."""
+        assert obj.source_protocol in (cls.LABEL, cls.ABBREV)
+
+        if not util.is_web(obj.key.id()):
+            logger.warning(f"{obj.key} is source_protocol web but id isn't a URL!")
+            return None
+
+        return obj.key.id()
+
+    @classmethod
     def send(cls, obj, url):
         """Sends a webmention to a given target URL.
 

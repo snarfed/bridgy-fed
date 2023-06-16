@@ -280,6 +280,30 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
+    def target_for(cls, obj, shared=False):
+        """Returns a recipient :class:`Object`'s delivery target (endpoint).
+
+        To be implemented by subclasses.
+
+        Examples:
+
+        * If obj has `source_protocol` `'web'`, returns its URL, as a
+          webmention target.
+        * If obj is an `'activitypub'` actor, returns its inbox.
+        * If obj is another `'activitypub'` object, returns `None`.
+
+        Args:
+          obj: :class:`Object`
+          shared: boolean, optional. If `True`, returns a common/shared
+            endpoint, eg ActivityPub's `sharedInbox`, that can be reused for
+            multiple recipients for efficiency
+
+        Returns:
+          str target endpoint or `None`
+        """
+        raise NotImplementedError()
+
+    @classmethod
     def receive(from_cls, id, **props):
         """Handles an incoming activity.
 

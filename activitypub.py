@@ -101,6 +101,25 @@ class ActivityPub(User, Protocol):
         return None if util.is_web(id) else False
 
     @classmethod
+    def target_for(cls, obj, shared=False):
+        """Returns `obj`'s inbox if it has one, otherwise `None`."""
+        assert obj.source_protocol in (cls.LABEL, cls.ABBREV)
+
+        if obj.type not in as1.ACTOR_TYPES:
+            logger.info(f'{obj.key} type {type} is not an actor')
+
+        actor = obj.as2 or as2.from_as1(obj.as1)
+        if not actor:
+            return None
+
+        if shared:
+            shared_inbox = actor.get('endpoints', {}).get('sharedInbox')
+            if shared_inbox:
+                return shared_inbox
+
+        return actor.get('inbox') or actor.get('publicInbox')
+
+    @classmethod
     def send(cls, obj, url, log_data=True):
         """Delivers an activity to an inbox URL."""
         # this is set in web.webmention_task()
