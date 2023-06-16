@@ -3,14 +3,14 @@
 
 {% for f in followers %}
 <li class="row">
-  {% with url=f.user.web_url() %}
+  {% with url=f.user.web_url(), user_as1=f.user.obj.as1 or {} %}
     <a class="follower col-xs-10 col-sm-6 col-lg-6" href="{{ url }}">
-      {% with picture=util.get_url(f.user.obj.as1, 'icon') or util.get_url(f.user.obj.as1, 'image') %}
+      {% with picture=util.get_url(user_as1, 'icon') or util.get_url(user_as1, 'image') %}
         {% if picture %}
           <img class="profile u-photo" src="{{ picture }}" width="48px">
         {% endif %}
       {% endwith %}
-      {{ f.user.obj.as1.get('displayName') or '' }}
+      {{ user_as1.get('displayName') or '' }}
       {{ as2.address(f.user.as2() or url) or url }}
     </a>
   {% endwith %}
