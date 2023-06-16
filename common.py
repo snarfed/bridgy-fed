@@ -89,13 +89,13 @@ def long_to_base64(x):
 
 
 def host_url(path_query=None):
-  base = request.host_url
-  if (util.domain_or_parent_in(request.host, OTHER_DOMAINS) or
-      # when running locally against prod datastore
-      (not DEBUG and request.host in LOCAL_DOMAINS)):
-    base = f'https://{PRIMARY_DOMAIN}'
+    base = request.host_url
+    if (util.domain_or_parent_in(request.host, OTHER_DOMAINS) or
+        # when running locally against prod datastore
+        (not DEBUG and request.host in LOCAL_DOMAINS)):
+      base = f'https://{PRIMARY_DOMAIN}'
 
-  return urllib.parse.urljoin(base, path_query)
+    return urllib.parse.urljoin(base, path_query)
 
 
 def error(msg, status=400, exc_info=None, **kwargs):

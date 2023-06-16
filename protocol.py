@@ -446,8 +446,12 @@ class Protocol:
         # If followee user is already direct, AP follower may not know they're
         # interacting with a bridge. If followee user is indirect though, AP
         # follower should know, so they're direct.
-        from_ = cls.get_or_create(id=follower_id,
-                                  actor_as2=as2.from_as1(follower),
+        follower_obj = Object.get_or_insert(follower_id)
+        if not follower_obj.as1:
+            follower_obj.our_as1 = follower
+            follower_obj.put()
+
+        from_ = cls.get_or_create(id=follower_id, obj=follower_obj,
                                   direct=not g.user.direct)
         follower_obj = Follower.get_or_create(to=g.user, from_=from_, follow=obj.key,
                                               status='active')

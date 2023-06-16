@@ -26,7 +26,7 @@ def getAuthorFeed(input, author=None, limit=None, before=None):
     g.user = Web.get_by_id(author)
     if not g.user:
         raise ValueError(f'User {author} not found')
-    elif not g.user.actor_as2:
+    elif not g.user.obj.as1:
         return ValueError(f'User {author} not fully set up')
 
     # TODO: unify with pages.feed?

@@ -124,9 +124,10 @@ class Web(User, Protocol):
         """
         id = self.key.id()
 
-        if self.actor_as2 and self.direct:
-            for url in [u.get('value') if isinstance(u, dict) else u
-                        for u in util.get_list(self.actor_as2, 'url')]:
+        if self.obj and self.obj.as1 and self.direct:
+            for url in (util.get_list(self.obj.as1, 'url') +
+                        util.get_list(self.obj.as1, 'urls')):
+                url = url.get('value') if isinstance(url, dict) else url
                 if url and url.startswith('acct:'):
                     try:
                         urluser, urldomain = util.parse_acct_uri(url)
@@ -193,13 +194,13 @@ class Web(User, Protocol):
 
         # check home page
         try:
-            obj = Web.load(self.web_url(), gateway=True)
-            self.actor_as2 = activitypub.postprocess_as2(as2.from_as1(obj.as1))
+            self.obj = Web.load(self.web_url(), gateway=True)
             self.has_hcard = True
         except (BadRequest, NotFound, common.NoMicroformats):
-            self.actor_as2 = None
+            self.obj = None
             self.has_hcard = False
 
+        self.put()
         return self
 
     @classmethod
@@ -519,7 +520,7 @@ def webmention_task():
     # followers' instances
     if g.user.is_web_url(obj.key.id()):
         obj.put()
-        g.user.actor_as2 = as2.from_as1(obj.as1)
+        g.user.obj = obj
         g.user.put()
 
         actor_as1 = {
@@ -624,12 +625,15 @@ def webmention_task():
         if obj.type == 'follow':
             # prefer AS2 id or url, if available
             # https://github.com/snarfed/bridgy-fed/issues/307
-            dest = target_as2 or as1.get_object(obj.as1)
-            dest_id = dest.get('id') or dest.get('url')
+            dest = target_as2 or as2.from_as1(as1.get_object(obj.as1))
+            dest_id = dest.get('id') or util.get_url(dest)
             if not dest_id:
                 error('follow missing target')
+
             # TODO(#512): generalize across protocols
-            to_ = activitypub.ActivityPub.get_or_create(id=dest_id, actor_as2=dest)
+            to_obj = Object.get_or_insert(dest_id, as2=dest)
+            to_ = activitypub.ActivityPub.get_or_create(id=dest_id, obj=to_obj)
+
             Follower.get_or_create(to=to_, from_=g.user, follow=obj.key)
 
         # this is reused later in ActivityPub.send()
@@ -737,10 +741,11 @@ def _activitypub_targets(obj):
                                        Follower.status == 'active'):
             recip = follower.from_.get()
             inbox = None
-            if recip and recip.actor_as2:
-                inbox = (recip.actor_as2.get('endpoints', {}).get('sharedInbox') or
-                         recip.actor_as2.get('publicInbox') or
-                         recip.actor_as2.get('inbox'))
+            # TODO(#512): generalize across protocols
+            if recip and recip.obj and recip.obj.as2:
+                inbox = (recip.obj.as2.get('endpoints', {}).get('sharedInbox') or
+                         recip.obj.as2.get('publicInbox') or
+                         recip.obj.as2.get('inbox'))
             if inbox:
                 # HACK: use last target object from above for reposts, which
                 # has its resolved id

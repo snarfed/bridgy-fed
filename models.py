@@ -81,11 +81,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
       property: p256_key, PEM encoded
       https://atproto.com/guides/overview#account-portability
     """
+    obj_key = ndb.KeyProperty(kind='Object')  # user profile
     mod = ndb.StringProperty()
     public_exponent = ndb.StringProperty()
     private_exponent = ndb.StringProperty()
     p256_key = ndb.StringProperty()
-    actor_as2 = JsonProperty()
     use_instead = ndb.KeyProperty()
 
     # whether this user signed up or otherwise explicitly, deliberately
@@ -98,16 +98,23 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     updated = ndb.DateTimeProperty(auto_now=True)
 
     @ndb.ComputedProperty
-    def readable_id(self):
-        """This user's human-readable unique id, eg '@me@snarfed.org'.
+    def actor_as2(self):
+        return self.as2()
 
-        To be implemented by subclasses.
+    # OLD. some stored entities still have this; do not reuse.
+    old_actor_as2 = JsonProperty(name='actor_as2')
+
+    def __init__(self, **kwargs):
+        """Constructor.
+
+        Sets :attr:`obj` explicitly because however :class:`Model` sets it
+        doesn't work with @property and @obj.setter below.
         """
-        return None
+        obj = kwargs.pop('obj', None)
+        super().__init__(**kwargs)
 
-    def readable_or_key_id(self):
-        """Returns readable_id if set, otherwise key id."""
-        return self.readable_id or self.key.id()
+        if obj:
+            self.obj = obj
 
     @classmethod
     def new(cls, **kwargs):
@@ -164,6 +171,53 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         user.put()
         return user
 
+    @property
+    def obj(self):
+        """Convenience accessor that loads :attr:`obj_key` from the datastore."""
+        if self.obj_key:
+            if not hasattr(self, '_obj'):
+                self._obj = self.obj_key.get()
+            return self._obj
+
+    @obj.setter
+    def obj(self, obj):
+        if obj:
+            assert isinstance(obj, Object)
+            assert obj.key
+            self._obj = obj
+            self.obj_key = obj.key
+        else:
+            self._obj = self.obj_key = None
+
+    @classmethod
+    def load_multi(cls, users):
+        """Loads :attr:`obj` for multiple users in parallel.
+
+        Args:
+          users: sequence of :class:`User`
+        """
+        objs = ndb.get_multi(u.obj_key for u in users if u.obj_key)
+        keys_to_objs = {o.key: o for o in objs}
+
+        for u in users:
+            u._obj = keys_to_objs.get(u.obj_key)
+
+    def as2(self):
+        return (as2.from_as1(self.obj.as1) if self.obj and self.obj.as1
+                else self.old_actor_as2)
+
+    @ndb.ComputedProperty
+    def readable_id(self):
+        """This user's human-readable unique id, eg '@me@snarfed.org'.
+
+        To be implemented by subclasses.
+        """
+        return None
+
+    def readable_or_key_id(self):
+        """Returns readable_id if set, otherwise key id."""
+        return self.readable_id or self.key.id()
+
     def href(self):
         return f'data:application/magic-public-key,RSA.{self.mod}.{self.public_exponent}'
 
@@ -180,15 +234,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                              base64_to_long(str(self.private_exponent))))
         return rsa.exportKey(format='PEM')
 
-    def to_as1(self):
-        """Returns this user as an AS1 actor dict, if possible."""
-        if self.actor_as2:
-            return as2.to_as1(self.actor_as2)
-
     def name(self):
         """Returns this user's human-readable name, eg 'Ryan Barrett'."""
-        if self.actor_as2:
-            name = self.actor_as2.get('name')
+        if self.obj and self.obj.as1:
+            name = self.obj.as1.get('displayName')
             if name:
                 return name
 
@@ -265,8 +314,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     def user_page_link(self):
         """Returns a pretty user page link with the user's name and profile picture."""
-        actor = self.actor_as2 or {}
-        img = util.get_url(actor, 'icon') or ''
+        actor = self.obj.as1 if self.obj and self.obj.as1 else {}
+        img = util.get_url(actor, 'image') or ''
         return f'<a class="h-card u-author" href="{self.user_page_path()}"><img src="{img}" class="profile"> {self.name()}</a>'
 
 
@@ -302,7 +351,8 @@ class Object(StringIdModel):
 
     # Users this activity is to or from
     users = ndb.KeyProperty(repeated=True)
-    # DEPRECATED
+    # DEPRECATED but still used read only to maintain backward compatibility
+    # with old Objects in the datastore that we haven't bothered migrating.
     domains = ndb.StringProperty(repeated=True)
 
     status = ndb.StringProperty(choices=STATUSES)
@@ -569,6 +619,8 @@ class Follower(ndb.Model):
         followers, before, after = fetch_page(query, Follower)
         users = ndb.get_multi(f.from_ if collection == 'followers' else f.to
                               for f in followers)
+        User.load_multi(u for u in users if u)
+
         for f, u in zip(followers, users):
             f.user = u
 

@@ -67,11 +67,21 @@ class ActivityPub(User, Protocol):
 
     def web_url(self):
         """Returns this user's web URL aka web_url, eg 'https://foo.com/'."""
-        return util.get_url(self.actor_as2) or self.ap_actor()
+        if self.obj and self.obj.as1:
+            url = util.get_url(self.obj.as1)
+            if url:
+                return url
+
+        return self.ap_actor()
 
     def ap_address(self):
         """Returns this user's ActivityPub address, eg '@foo.com@foo.com'."""
-        return as2.address(self.actor_as2) or as2.address(self.key.id())
+        if self.obj and self.obj.as1:
+            addr = as2.address(self.as2())
+            if addr:
+                return addr
+
+        return as2.address(self.key.id())
 
     def ap_actor(self, rest=None):
         """Returns this user's ActivityPub/AS2 actor id URL.
@@ -564,13 +574,12 @@ def actor(protocol, domain):
     if not g.user:
         try:
             obj = cls.load(f'https://{domain}/', gateway=True)
-            actor_as2 = as2.from_as1(obj.as1)
         except NoMicroformats as e:
-            actor_as2 = {}
-        g.user = cls.get_or_create(id=domain, actor_as2=actor_as2)
+            obj = None
+        g.user = cls.get_or_create(id=domain, obj=obj)
 
     # TODO: unify with common.actor()
-    actor = g.user.actor_as2 or {
+    actor = g.user.as2() or {
         '@context': [as2.CONTEXT],
         'type': 'Person',
     }
@@ -630,8 +639,7 @@ def inbox(protocol=None, domain=None):
             # this is a deliberate interaction with an indirect receiving user;
             # create a local AP User for the sending user
             actor_obj = ActivityPub.load(actor_id)
-            ActivityPub.get_or_create(actor_id, direct=True,
-                                      actor_as2=as2.from_as1(actor_obj.as1))
+            ActivityPub.get_or_create(actor_id, direct=True, obj=actor_obj)
 
     ActivityPub.verify_signature(activity)
 
@@ -679,7 +687,7 @@ def follower_collection(protocol, domain, collection):
     page = {
         'type': 'CollectionPage',
         'partOf': request.base_url,
-        'items': [f.user.actor_as2 for f in followers if f.user.actor_as2],
+        'items': util.trim_nulls([f.user.as2() for f in followers]),
     }
     if new_before:
         page['next'] = f'{request.base_url}?before={new_before}'

@@ -49,7 +49,7 @@ class PagesTest(TestCase):
 
     def test_user_readable_id_activitypub_address(self):
         user = self.make_user('foo', cls=ActivityPub,
-                              actor_as2=ACTOR_WITH_PREFERRED_USERNAME)
+                              obj_as2=ACTOR_WITH_PREFERRED_USERNAME)
         self.assertEqual('@me@plus.google.com', user.ap_address())
 
         got = self.client.get('/ap/@me@plus.google.com')
@@ -61,10 +61,10 @@ class PagesTest(TestCase):
 
     def test_user_web_custom_username_doesnt_redirect(self):
         """https://github.com/snarfed/bridgy-fed/issues/534"""
-        self.user.actor_as2 = {
+        self.user.obj = Object(id='a', as2={
             **ACTOR_AS2,
             'url': 'acct:baz@user.com',
-        }
+        })
         self.user.put()
         self.assertEqual('baz', self.user.username())
 
@@ -151,14 +151,14 @@ class PagesTest(TestCase):
     def test_followers(self):
         Follower.get_or_create(
             to=self.user,
-            from_=self.make_user('unused', cls=Fake, actor_as2={
+            from_=self.make_user('unused', cls=Fake, obj_as2={
                 **ACTOR,
                 'url': 'http://stored/users/follow',
             }))
         Follower.get_or_create(
             to=self.user,
             from_=self.make_user('masto/user', cls=Fake,
-                                 actor_as2=ACTOR_WITH_PREFERRED_USERNAME))
+                                 obj_as2=ACTOR_WITH_PREFERRED_USERNAME))
 
         got = self.client.get('/web/user.com/followers')
         self.assert_equals(200, got.status_code)
@@ -189,14 +189,14 @@ class PagesTest(TestCase):
     def test_following(self):
         Follower.get_or_create(
             from_=self.user,
-            to=self.make_user('unused', cls=Fake, actor_as2={
+            to=self.make_user('unused', cls=Fake, obj_as2={
                 **ACTOR,
                 'url': 'http://stored/users/follow',
             }))
         Follower.get_or_create(
             from_=self.user,
             to=self.make_user('masto/user', cls=Fake,
-                              actor_as2=ACTOR_WITH_PREFERRED_USERNAME))
+                              obj_as2=ACTOR_WITH_PREFERRED_USERNAME))
 
         got = self.client.get('/web/user.com/following')
         self.assert_equals(200, got.status_code)

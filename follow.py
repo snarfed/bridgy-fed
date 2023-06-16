@@ -135,7 +135,7 @@ class FollowCallback(indieauth.Callback):
             'actor': g.user.ap_actor(),
             'to': [as2.PUBLIC_AUDIENCE],
         }
-        followee_user = ActivityPub.get_or_create(followee_id, actor_as2=followee.as2)
+        followee_user = ActivityPub.get_or_create(followee_id, obj=followee)
         follow_obj = Object(id=follow_id, users=[g.user.key, followee_user.key],
                             labels=['user'], source_protocol='ui', status='complete',
                             as2=follow_as2)
@@ -198,13 +198,13 @@ class UnfollowCallback(indieauth.Callback):
         followee_id = follower.to.id()
         followee = follower.to.get()
 
-        # TODO: make this generic across protocols
-        if not followee.actor_as2:
-            # fetch as AS2 to get full followee with inbox
-            followee.actor_as2 = ActivityPub.load(followee_id).as2
+        if not followee.obj or not followee.obj.as1:
+            # fetch to get full followee so we can find its target to deliver to
+            followee.obj = ActivityPub.load(followee_id)
             followee.put()
 
-        inbox = followee.actor_as2.get('inbox')
+        # TODO(#529): generalize
+        inbox = followee.as2().get('inbox')
         if not inbox:
             flash(f"AS2 profile {followee_id} missing inbox")
             return redirect(g.user.user_page_path('following'))
@@ -230,7 +230,7 @@ class UnfollowCallback(indieauth.Callback):
         follower.put()
         obj.put()
 
-        link = common.pretty_link(util.get_url(followee.actor_as2) or followee_id)
+        link = common.pretty_link(util.get_url(followee.obj.as1) or followee_id)
         flash(f'Unfollowed {link}.')
         return redirect(g.user.user_page_path('following'))
 

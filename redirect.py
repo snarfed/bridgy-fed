@@ -94,11 +94,7 @@ def redir(to):
         if not obj or obj.deleted:
             return f'Object not found: {to}', 404
 
-        g.user = Web.get_or_create(util.domain_from_link(to), direct=False)
-        if g.user.is_web_url(to):
-            g.user.actor_as2 = as2.from_as1(obj.as1)
-            g.user.put()
-
+        g.user = Web.get_or_create(util.domain_from_link(to), direct=False, obj=obj)
         ret, _ = ActivityPub.serve(obj)
         logger.info(f'Returning: {json_dumps(ret, indent=2)}')
         return ret, {

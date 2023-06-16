@@ -20,7 +20,7 @@ from werkzeug.exceptions import BadGateway, BadRequest
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
 
-from activitypub import ActivityPub
+from activitypub import ActivityPub, postprocess_as2
 from common import (
     CONTENT_TYPE_HTML,
     redirect_unwrap,
@@ -238,8 +238,8 @@ LIKE = requests_response(LIKE_HTML, content_type=CONTENT_TYPE_HTML,
 LIKE_MF2 = util.parse_mf2(LIKE_HTML)['items'][0]
 
 ACTOR = TestCase.as2_resp({
-    'objectType' : 'Person',
-    'displayName': 'Mrs. ☕ Foo',
+    'type' : 'Person',
+    'name': 'Mrs. ☕ Foo',
     'id': 'https://mas.to/mrs-foo',
     'inbox': 'https://mas.to/inbox',
 })
@@ -449,24 +449,24 @@ class WebTest(TestCase):
     def test_username(self, *mocks):
         self.assertEqual('user.com', g.user.username())
 
-        g.user.actor_as2 = {
+        g.user.obj = Object(id='a', as2={
             'type': 'Person',
             'name': 'foo',
             'url': ['bar'],
             'preferredUsername': 'baz',
-        }
+        })
         g.user.direct = True
         self.assertEqual('user.com', g.user.username())
 
         # bad acct: URI, util.parse_acct_uri raises ValueError
         # https://console.cloud.google.com/errors/detail/CPLmrpzFs4qTUA;time=P30D?project=bridgy-federated
-        g.user.actor_as2['url'].append('acct:@user.com')
+        g.user.obj.as2['url'].append('acct:@user.com')
         self.assertEqual('user.com', g.user.username())
 
-        g.user.actor_as2['url'].append('acct:alice@foo.com')
+        g.user.obj.as2['url'].append('acct:alice@foo.com')
         self.assertEqual('user.com', g.user.username())
 
-        g.user.actor_as2['url'].append('acct:alice@user.com')
+        g.user.obj.as2['url'].append('acct:alice@user.com')
         self.assertEqual('alice', g.user.username())
 
         g.user.direct = False
@@ -916,8 +916,7 @@ class WebTest(TestCase):
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals(REPOST_AS2, json_loads(kwargs['data']))
 
-    @staticmethod
-    def make_followers():
+    def make_followers(self):
         for id, kwargs, actor in [
             ('https://mastodon/aaa', {}, None),
             ('https://mastodon/bbb', {}, {
@@ -940,7 +939,7 @@ class WebTest(TestCase):
                 'inbox': 'https://inbox',
             }),
         ]:
-            from_ = ActivityPub.get_or_create(id=id, actor_as2=actor)
+            from_ = self.make_user(id, cls=ActivityPub, obj_as2=actor)
             Follower.get_or_create(to=g.user, from_=from_, **kwargs)
 
     def test_create_post(self, mock_get, mock_post):
@@ -1031,8 +1030,9 @@ class WebTest(TestCase):
         ]
         mock_post.return_value = requests_response('abc xyz ')
 
-        Follower.get_or_create(to=g.user, from_=ActivityPub.get_or_create(
-            id='aaa', actor_as2={'inbox': 'https://inbox'}))
+        Follower.get_or_create(
+            to=g.user,
+            from_=self.make_user('a', cls=ActivityPub, obj_as2={'inbox': 'https://inbox'}))
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/post',
@@ -1077,11 +1077,11 @@ class WebTest(TestCase):
                                  labels=['user', 'activity'],
                                  )
 
-        to = self.assert_user(ActivityPub, 'https://mas.to/mrs-foo', actor_as2={
-            'displayName': 'Mrs. ☕ Foo',
+        to = self.assert_user(ActivityPub, 'https://mas.to/mrs-foo', obj_as2={
+            'name': 'Mrs. ☕ Foo',
             'id': 'https://mas.to/mrs-foo',
             'inbox': 'https://mas.to/inbox',
-            'objectType': 'Person',
+            'type': 'Person',
         })
 
         followers = Follower.query().fetch()
@@ -1091,7 +1091,7 @@ class WebTest(TestCase):
         self.assert_equals(obj.key, followers[0].follow)
 
     def test_follow_no_actor(self, mock_get, mock_post):
-        g.user.actor_as2 = ACTOR_AS2
+        g.user.obj_key = Object(id='a', as2=ACTOR_AS2).put()
         g.user.put()
 
         html = FOLLOW_HTML.replace(
@@ -1355,14 +1355,14 @@ class WebTest(TestCase):
     def test_update_profile(self, mock_get, mock_post):
         mock_get.side_effect = [ACTOR_HTML_RESP]
         mock_post.return_value = requests_response('abc xyz')
-        Follower.get_or_create(to=g.user, from_=ActivityPub.get_or_create(
-            id='ccc', actor_as2={
+        Follower.get_or_create(to=g.user, from_=self.make_user(
+            'ccc', cls=ActivityPub, obj_as2={
                 'endpoints': {
                     'sharedInbox': 'https://shared/inbox',
                 },
             }))
-        Follower.get_or_create(to=g.user, from_=ActivityPub.get_or_create(
-            id='ddd', actor_as2={'inbox': 'https://inbox'}))
+        Follower.get_or_create(to=g.user, from_=self.make_user(
+            'ddd', cls=ActivityPub, obj_as2={'inbox': 'https://inbox'}))
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/',
@@ -1391,7 +1391,7 @@ class WebTest(TestCase):
                                expected_as2)
 
         # updated Web user
-        self.assert_user(Web, 'user.com', actor_as2=ACTOR_AS2_USER, direct=True,
+        self.assert_user(Web, 'user.com', obj_as2=ACTOR_AS2_USER, direct=True,
                          has_redirects=True)
 
         # homepage object
@@ -1441,9 +1441,9 @@ class WebTest(TestCase):
             self.assert_equals(redirects, bool(g.user.has_redirects))
             self.assert_equals(hcard, bool(g.user.has_hcard))
             if actor is None:
-                self.assertIsNone(g.user.actor_as2)
+                assert not g.user.obj or not g.user.obj.as1
             else:
-                got = {k: v for k, v in g.user.actor_as2.items()
+                got = {k: v for k, v in g.user.obj.as1.items()
                        if k in actor}
                 self.assert_equals(actor, got)
             self.assert_equals(redirects_error, g.user.redirects_error)
@@ -1524,10 +1524,13 @@ http://this/404s
         )
         mock_get.side_effect = [FULL_REDIR, hcard]
         self._test_verify(True, True, {
-            'type': 'Person',
-            'name': 'me',
-            'url': ['http://localhost/r/https://user.com/', 'acct:myself@user.com'],
-            'preferredUsername': 'user.com',
+            'objectType': 'person',
+            'displayName': 'me',
+            'url': 'https://user.com/',
+            'urls': [
+                {'value': 'https://user.com/'},
+                {'value': 'acct:myself@user.com'},
+            ],
         })
 
     def test_verify_www_redirect(self, mock_get, _):
@@ -1563,23 +1566,20 @@ http://this/404s
 """, url='https://user.com/'),
         ]
         self._test_verify(True, True, {
-            'attachment': [{
-            'type': 'PropertyValue',
-            'name': 'Mrs. ☕ Foo',
-            'value': '<a rel="me" href="https://user.com/about-me">user.com/about-me</a>',
-        }, {
-            'type': 'PropertyValue',
-            'name': 'Web site',
-            'value': '<a rel="me" href="https://user.com/">user.com</a>',
-        }, {
-            'type': 'PropertyValue',
-            'name': 'one text',
-            'value': '<a rel="me" href="http://one">one</a>',
-        }, {
-            'type': 'PropertyValue',
-            'name': 'two title',
-            'value': '<a rel="me" href="https://two">two</a>',
-        }]})
+            'urls': [{
+                'value': 'https://user.com/about-me',
+                'displayName': 'Mrs. \u2615 Foo',
+            }, {
+                'value': 'https://user.com/',
+                'displayName': 'should be ignored',
+            }, {
+                'value': 'http://one',
+                'displayName': 'one text',
+            }, {
+                'value': 'https://two',
+                'displayName': 'two title',
+            }],
+        })
 
     def test_verify_override_preferredUsername(self, mock_get, _):
         mock_get.side_effect = [
@@ -1592,12 +1592,13 @@ http://this/404s
 </body>
 """, url='https://user.com/'),
         ]
-        self._test_verify(True, True, {
-            # stays y.z despite user's username. since Mastodon queries Webfinger
-            # for preferredUsername@fed.brid.gy
-            # https://github.com/snarfed/bridgy-fed/issues/77#issuecomment-949955109
-            'preferredUsername': 'user.com',
-        })
+        self._test_verify(True, True, {})
+
+        # preferredUsername stays y.z despite user's username. since Mastodon
+        # queries Webfinger for preferredUsername@fed.brid.gy
+        # https://github.com/snarfed/bridgy-fed/issues/77#issuecomment-949955109
+        postprocessed = postprocess_as2(g.user.as2())
+        self.assertEqual('user.com', postprocessed['preferredUsername'])
 
     def test_web_url(self, _, __):
         self.assertEqual('https://user.com/', g.user.web_url())
@@ -1605,13 +1606,13 @@ http://this/404s
     def test_ap_address(self, *_):
         self.assertEqual('@user.com@user.com', g.user.ap_address())
 
-        g.user.actor_as2 = {'type': 'Person'}
+        g.user.obj = Object(id='a', as2={'type': 'Person'})
         self.assertEqual('@user.com@user.com', g.user.ap_address())
 
-        g.user.actor_as2 = {'url': 'http://foo'}
+        g.user.obj.as2 = {'url': 'http://foo'}
         self.assertEqual('@user.com@user.com', g.user.ap_address())
 
-        g.user.actor_as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@user.com']}
+        g.user.obj.as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@user.com']}
         self.assertEqual('@baz@user.com', g.user.ap_address())
 
         g.user.direct = False
@@ -1638,8 +1639,7 @@ http://this/404s
 
         user = Web.get_by_id('user.com')
         self.assertTrue(user.has_hcard)
-        self.assertEqual('Person', user.actor_as2['type'])
-        self.assertEqual('http://localhost/user.com', user.actor_as2['id'])
+        self.assertEqual('person', user.obj.as1['objectType'])
 
     def test_check_web_site_unicode_domain(self, mock_get, _):
         mock_get.side_effect = (

@@ -18,12 +18,6 @@ from web import Web
 
 
 class CommonTest(TestCase):
-    @classmethod
-    def setUpClass(cls):
-        with appengine_config.ndb_client.context():
-            # do this in setUpClass since generating RSA keys is slow
-            cls.user = cls.make_user('user.com')
-
     def setUp(self):
         super().setUp()
         g.user = Fake(id='user.com')

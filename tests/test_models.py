@@ -79,7 +79,7 @@ class UserTest(TestCase):
 
     def test_user_page_link(self):
         self.assertEqual('<a class="h-card u-author" href="/web/y.z"><img src="" class="profile"> y.z</a>', g.user.user_page_link())
-        g.user.actor_as2 = ACTOR
+        g.user.obj = Object(id='a', as2=ACTOR)
         self.assertEqual('<a class="h-card u-author" href="/web/y.z"><img src="https://user.com/me.jpg" class="profile"> Mrs. ☕ Foo</a>', g.user.user_page_link())
 
     def test_is_web_url(self):
@@ -93,10 +93,10 @@ class UserTest(TestCase):
     def test_name(self):
         self.assertEqual('y.z', g.user.name())
 
-        g.user.actor_as2 = {'id': 'abc'}
+        g.user.obj = Object(id='a', as2={'id': 'abc'})
         self.assertEqual('y.z', g.user.name())
 
-        g.user.actor_as2 = {'name': 'alice'}
+        g.user.obj = Object(id='a', as2={'name': 'alice'})
         self.assertEqual('alice', g.user.name())
 
     def test_readable_id(self):
@@ -154,7 +154,7 @@ class ObjectTest(TestCase):
             self.assert_multiline_in(expected, obj.actor_link())
 
     def test_actor_link_user(self):
-        g.user = Fake(id='user.com', actor_as2={"name": "Alice"})
+        g.user = Fake(id='user.com', obj=Object(id='a', as2={"name": "Alice"}))
         obj = Object(id='x', source_protocol='ui', users=[g.user.key])
         self.assertIn(
             'href="/fa/user.com"><img src="" class="profile"> Alice</a>',

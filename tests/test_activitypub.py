@@ -42,6 +42,7 @@ ACTOR = {
     'inbox': 'http://mas.to/inbox',
     'name': 'Mrs. ☕ Foo',
     'icon': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
+    'image': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
 }
 ACTOR_BASE = {
     '@context': [
@@ -271,8 +272,11 @@ class ActivityPubTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR,
-                                   has_redirects=True)
+        self.request_context.push()
+
+        self.user = self.make_user('user.com', has_hcard=True, has_redirects=True,
+                                   obj_as2=ACTOR)
+
         ACTOR_BASE['publicKey']['publicKeyPem'] = self.user.public_pem().decode()
 
         self.key_id_obj = Object(id='http://my/key/id', as2={
@@ -308,7 +312,7 @@ class ActivityPubTest(TestCase):
         return self.client.post(path, data=body, headers=self.sign(path, body))
 
     def test_actor_fake(self, *_):
-        self.make_user('user.com', cls=Fake, actor_as2={
+        self.make_user('user.com', cls=Fake, obj_as2={
             'type': 'Person',
             'id': 'https://user.com/',
         })
@@ -318,7 +322,10 @@ class ActivityPubTest(TestCase):
         type = got.headers['Content-Type']
         self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
         self.assertEqual({
-            '@context': ['https://w3id.org/security/v1'],
+            '@context': [
+                'https://www.w3.org/ns/activitystreams',
+                'https://w3id.org/security/v1',
+            ],
             'type': 'Person',
             'id': 'http://bf/fake/user.com/ap',
             'preferredUsername': 'user.com',
@@ -346,6 +353,7 @@ class ActivityPubTest(TestCase):
             **ACTOR_BASE,
             'name': 'Mrs. ☕ Foo',
             'icon': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
+            'image': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
         }, got.json)
 
     def test_actor_blocked_tld(self, _, __, ___):
@@ -389,7 +397,7 @@ class ActivityPubTest(TestCase):
         }, mock_head, mock_get, mock_post)
 
         self.assert_user(ActivityPub, 'https://user.com/actor',
-                         actor_as2=LIKE_ACTOR, direct=True)
+                         obj_as2=LIKE_ACTOR, direct=True)
 
     def test_inbox_activity_without_id(self, *_):
         note = copy.deepcopy(NOTE)
@@ -742,7 +750,7 @@ class ActivityPubTest(TestCase):
 
         self.test_inbox_like()
         self.assert_user(ActivityPub, 'https://user.com/actor',
-                         actor_as2=LIKE_ACTOR, direct=True)
+                         obj_as2=LIKE_ACTOR, direct=True)
 
 
     def test_inbox_follow_accept_with_id(self, *mocks):
@@ -862,7 +870,7 @@ class ActivityPubTest(TestCase):
             ignore=['created', 'updated'])
 
         self.assert_user(ActivityPub, ACTOR['id'],
-                         actor_as2=ACCEPT_FOLLOW['actor'],
+                         obj_as2=ACCEPT_FOLLOW['actor'],
                          direct=True)
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
@@ -1228,16 +1236,21 @@ class ActivityPubTest(TestCase):
     def store_followers(self):
         follow = Object(id=FOLLOW_WITH_ACTOR['id'], as2=FOLLOW_WITH_ACTOR).put()
 
-        Follower.get_or_create(to=self.user,
-                               from_=ActivityPub.get_or_create('bar.com', actor_as2=ACTOR),
-                               follow=follow)
-        Follower.get_or_create(to=ActivityPub.get_or_create('other/actor'),
-                               from_=self.user)
-        Follower.get_or_create(to=self.user,
-                               from_=ActivityPub.get_or_create('baz.com', actor_as2=ACTOR),
-                               follow=follow)
-        Follower.get_or_create(to=self.user, from_=Fake.get_or_create('baj.com'),
-                               status='inactive')
+        Follower.get_or_create(
+            to=self.user,
+            from_=self.make_user('bar.com', cls=ActivityPub, obj_as2=ACTOR),
+            follow=follow)
+        Follower.get_or_create(
+            to=self.make_user('other/actor', cls=ActivityPub),
+            from_=self.user)
+        Follower.get_or_create(
+            to=self.user,
+            from_=self.make_user('baz.com', cls=ActivityPub, obj_as2=ACTOR),
+            follow=follow)
+        Follower.get_or_create(
+            to=self.user,
+            from_=self.make_user('baj.com', cls=Fake),
+            status='inactive')
 
     def test_followers_collection_fake(self, *_):
         self.make_user('foo.com', cls=Fake)
@@ -1318,14 +1331,20 @@ class ActivityPubTest(TestCase):
     def store_following(self):
         follow = Object(id=FOLLOW_WITH_ACTOR['id'], as2=FOLLOW_WITH_ACTOR).put()
 
-        Follower.get_or_create(to=ActivityPub.get_or_create('bar.com', actor_as2=ACTOR),
-                               from_=self.user, follow=follow)
-        Follower.get_or_create(to=self.user,
-                               from_=ActivityPub.get_or_create('other/actor'))
-        Follower.get_or_create(to=ActivityPub.get_or_create('baz.com', actor_as2=ACTOR),
-                               from_=self.user, follow=follow)
-        Follower.get_or_create(to=ActivityPub.get_or_create('baj.com'),
-                               from_=self.user, status='inactive')
+        Follower.get_or_create(
+            to=self.make_user('bar.com', cls=ActivityPub, obj_as2=ACTOR),
+            from_=self.user,
+            follow=follow)
+        Follower.get_or_create(
+            to=self.user,
+            from_=self.make_user('other/actor', cls=ActivityPub))
+        Follower.get_or_create(
+            to=self.make_user('baz.com', cls=ActivityPub, obj_as2=ACTOR),
+            from_=self.user, follow=follow)
+        Follower.get_or_create(
+            to=self.make_user('baj.com', cls=ActivityPub),
+            from_=self.user,
+            status='inactive')
 
     def test_following_collection(self, *_):
         self.store_following()
@@ -1402,7 +1421,7 @@ class ActivityPubTest(TestCase):
 class ActivityPubUtilsTest(TestCase):
     def setUp(self):
         super().setUp()
-        g.user = self.make_user('user.com', has_hcard=True, actor_as2=ACTOR)
+        g.user = self.make_user('user.com', has_hcard=True, obj_as2=ACTOR)
 
     def test_owns_id(self):
         self.assertIsNone(ActivityPub.owns_id('http://foo'))
@@ -1491,6 +1510,59 @@ class ActivityPubUtilsTest(TestCase):
                 {'type': 'Mention', 'href': 'foo'},
             ],
         }))
+
+    def test_postprocess_as2_url_attachments(self):
+        got = activitypub.postprocess_as2(as2.from_as1({
+            'objectType': 'person',
+            'urls': [
+                {
+                    'value': 'https://user.com/about-me',
+                    'displayName': 'Mrs. \u2615 Foo',
+                }, {
+                    'value': 'https://user.com/',
+                    'displayName': 'should be ignored',
+                }, {
+                    'value': 'http://one',
+                    'displayName': 'one text',
+                }, {
+                    'value': 'https://two',
+                    'displayName': 'two title',
+                },
+            ]
+        }))
+
+        self.assert_equals([{
+            'type': 'PropertyValue',
+            'name': 'Mrs. ☕ Foo',
+            'value': '<a rel="me" href="https://user.com/about-me">user.com/about-me</a>',
+        }, {
+            'type': 'PropertyValue',
+            'name': 'Web site',
+            'value': '<a rel="me" href="https://user.com/">user.com</a>',
+        }, {
+            'type': 'PropertyValue',
+            'name': 'one text',
+            'value': '<a rel="me" href="http://one">one</a>',
+        }, {
+            'type': 'PropertyValue',
+            'name': 'two title',
+            'value': '<a rel="me" href="https://two">two</a>',
+        }], got['attachment'])
+
+    def test_postprocess_as2_preserves_preferredUsername(self):
+        # preferredUsername stays y.z despite user's username. since Mastodon
+        # queries Webfinger for preferredUsername@fed.brid.gy
+        # https://github.com/snarfed/bridgy-fed/issues/77#issuecomment-949955109
+        self.assertEqual('user.com', activitypub.postprocess_as2({
+            'type': 'Person',
+            'url': 'https://user.com/about-me',
+            'preferredUsername': 'nick',
+            'attachment': [{
+                'type': 'PropertyValue',
+                'name': 'nick',
+                'value': '<a rel="me" href="https://user.com/about-me">user.com/about-me</a>'
+            }],
+        })['preferredUsername'])
 
     # TODO: make these generic and use Fake
     @patch('requests.get')
@@ -1689,11 +1761,11 @@ class ActivityPubUtilsTest(TestCase):
                     ignore=['to'])
 
     def test_ap_address(self):
-        user = ActivityPub(actor_as2={**ACTOR, 'preferredUsername': 'me'})
+        user = ActivityPub(obj=Object(id='a', as2={**ACTOR, 'preferredUsername': 'me'}))
         self.assertEqual('@me@mas.to', user.ap_address())
         self.assertEqual('@me@mas.to', user.readable_id)
 
-        user = ActivityPub(actor_as2=ACTOR)
+        user.obj.as2 = ACTOR
         self.assertEqual('@swentel@mas.to', user.ap_address())
         self.assertEqual('@swentel@mas.to', user.readable_id)
 
@@ -1709,10 +1781,10 @@ class ActivityPubUtilsTest(TestCase):
         user = self.make_user('http://foo/actor', cls=ActivityPub)
         self.assertEqual('http://foo/actor', user.web_url())
 
-        user.actor_as2 = copy.deepcopy(ACTOR)  # no url
+        user.obj = Object(id='a', as2=ACTOR)  # no url
         self.assertEqual('http://foo/actor', user.web_url())
 
-        user.actor_as2['url'] = ['http://my/url']
+        user.obj.as2['url'] = ['http://my/url']
         self.assertEqual('http://my/url', user.web_url())
 
     def test_readable_id(self):
@@ -1720,6 +1792,6 @@ class ActivityPubUtilsTest(TestCase):
         self.assertIsNone(user.readable_id)
         self.assertEqual('http://foo', user.readable_or_key_id())
 
-        user.actor_as2 = ACTOR
+        user.obj = Object(id='a', as2=ACTOR)
         self.assertEqual('@swentel@mas.to', user.readable_id)
         self.assertEqual('@swentel@mas.to', user.readable_or_key_id())

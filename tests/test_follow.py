@@ -315,7 +315,7 @@ class UnfollowTest(TestCase):
         self.user = self.make_user('alice.com')
         self.follower = Follower.get_or_create(
             from_=self.user,
-            to=ActivityPub.get_or_create('https://bar/id', actor_as2=FOLLOWEE),
+            to=self.make_user('https://bar/id', cls=ActivityPub, obj_as2=FOLLOWEE),
             follow=Object(id=FOLLOW_ADDRESS['id'], as2=FOLLOW_ADDRESS).put(),
             status='active',
         )
@@ -350,7 +350,7 @@ class UnfollowTest(TestCase):
 
     def test_callback_last_follow_object_str(self, mock_get, mock_post):
         to = self.follower.to.get()
-        to.actor_as2 = None
+        to.obj = None
         to.put()
 
         obj = self.follower.follow.get()
@@ -406,7 +406,7 @@ class UnfollowTest(TestCase):
 
         Follower.get_or_create(
             from_=self.user,
-            to=ActivityPub.get_or_create('https://bar/id', actor_as2=FOLLOWEE),
+            to=self.make_user('https://bar/id', cls=ActivityPub, obj_as2=FOLLOWEE),
             follow=Object(id=FOLLOW_ADDRESS['id'], as2=FOLLOW_ADDRESS).put(),
             status='active')
 

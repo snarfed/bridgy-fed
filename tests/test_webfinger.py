@@ -139,15 +139,13 @@ class WebfingerTest(TestCase):
     def setUp(self):
         super().setUp()
 
-        self.actor_as2 = {
+        self.user = self.make_user('user.com', has_hcard=True, obj_as2={
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Person',
             'url': 'https://user.com/about-me',
             'name': 'Mrs. ☕ Foo',
             'icon': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
-        }
-        self.user = self.make_user('user.com', has_hcard=True, actor_as2=self.actor_as2)
-        self.user.put()
+        })
 
     def test_webfinger(self):
         for resource in ('user.com@user.com', 'acct:user.com@user.com', 'xyz@user.com',
@@ -198,14 +196,11 @@ class WebfingerTest(TestCase):
         self.assert_equals(WEBFINGER, got.json)
 
     def test_custom_username(self):
-        self.user.actor_as2 = {
-            **self.actor_as2,
-            'url': [
-                'https://user.com/about-me',
-                'acct:notthisuser@boop.org',
-                'acct:customuser@user.com',
-            ],
-        }
+        self.user.obj.as2['url'] = [
+            'https://user.com/about-me',
+            'acct:notthisuser@boop.org',
+            'acct:customuser@user.com',
+        ]
         self.user.put()
 
         for resource in (

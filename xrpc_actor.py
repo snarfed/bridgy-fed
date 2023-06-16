@@ -28,10 +28,10 @@ def getProfile(input, actor=None):
     g.user = Web.get_by_id(actor)
     if not g.user:
         raise ValueError(f'User {actor} not found')
-    elif not g.user.actor_as2:
+    elif not g.user.obj.as1:
         return ValueError(f'User {actor} not fully set up')
 
-    actor_as1 = g.user.to_as1()
+    actor_as1 = g.user.obj.as1
     logger.info(f'AS1 actor: {json.dumps(actor_as1, indent=2)}')
 
     profile = bluesky.from_as1(actor_as1)

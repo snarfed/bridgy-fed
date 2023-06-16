@@ -138,6 +138,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.ndb_context.__enter__()
 
         util.now = lambda **kwargs: testutil.NOW
+        # used in make_user()
+        self.last_make_user_id = 1
 
         self.app_context = app.app_context()
         self.app_context.push()
@@ -178,15 +180,21 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         return result
 
     # TODO: switch default to Fake, start using that more
-    @staticmethod
-    def make_user(id, cls=Web, **kwargs):
+    def make_user(self, id, cls=Web, **kwargs):
         """Reuse RSA key across Users because generating it is expensive."""
+        obj_key = None
+        obj_as2 = kwargs.pop('obj_as2', None)
+        if obj_as2:
+            obj_key = Object(id=str(self.last_make_user_id), as2=obj_as2).put()
+            self.last_make_user_id += 1
+
         user = cls(id=id,
                    direct=True,
                    mod=global_user.mod,
                    public_exponent=global_user.public_exponent,
                    private_exponent=global_user.private_exponent,
                    p256_key=global_user.p256_key,
+                   obj_key=obj_key,
                    **kwargs)
         user.put()
         return user
@@ -300,10 +308,17 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         got = cls.get_by_id(id)
         assert got, id
 
-        self.assert_entities_equal(
-            cls(id=id, **props), got,
-            ignore=['created', 'mod', 'p256_key', 'private_exponent',
-                    'public_exponent', 'updated'])
+        obj_as2 = props.pop('obj_as2', None)
+        if obj_as2:
+            self.assert_equals(obj_as2, got.as2())
+
+        # generated, computed, etc
+        ignore = ['created', 'mod', 'obj_key', 'old_actor_as2', 'p256_key',
+                  'private_exponent', 'public_exponent', 'readable_id', 'updated']
+        for prop in ignore:
+            assert prop not in props
+
+        self.assert_entities_equal(cls(id=id, **props), got, ignore=ignore)
 
         if cls != ActivityPub:
             assert got.mod

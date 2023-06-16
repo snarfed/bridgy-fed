@@ -79,7 +79,7 @@ class Webfinger(flask_util.XrdOrJrd):
         if not g.user:
             error(f'No {cls.LABEL} user found for {id}', status=404)
 
-        actor = g.user.to_as1() or {}
+        actor = g.user.obj.as1 if g.user.obj and g.user.obj.as1 else {}
         logger.info(f'Generating WebFinger data for {g.user.key}')
         logger.info(f'AS1 actor: {actor}')
         urls = util.dedupe_urls(util.get_list(actor, 'urls') +
