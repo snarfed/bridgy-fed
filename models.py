@@ -97,12 +97,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
-    @ndb.ComputedProperty
-    def actor_as2(self):
-        return self.as2()
-
     # OLD. some stored entities still have this; do not reuse.
-    old_actor_as2 = JsonProperty(name='actor_as2')
+    # actor_as2 = JsonProperty()
 
     def __init__(self, **kwargs):
         """Constructor.
@@ -203,8 +199,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             u._obj = keys_to_objs.get(u.obj_key)
 
     def as2(self):
-        return (as2.from_as1(self.obj.as1) if self.obj and self.obj.as1
-                else self.old_actor_as2)
+        if self.obj and self.obj.as1:
+            return self.obj.as2 or as2.from_as1(self.obj.as1)
+
+        return {}
 
     @ndb.ComputedProperty
     def readable_id(self):

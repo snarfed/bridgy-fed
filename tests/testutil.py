@@ -313,8 +313,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             self.assert_equals(obj_as2, got.as2())
 
         # generated, computed, etc
-        ignore = ['created', 'mod', 'obj_key', 'old_actor_as2', 'p256_key',
-                  'private_exponent', 'public_exponent', 'readable_id', 'updated']
+        ignore = ['created', 'mod', 'obj_key', 'p256_key', 'private_exponent',
+                  'public_exponent', 'readable_id', 'updated']
         for prop in ignore:
             assert prop not in props
 
