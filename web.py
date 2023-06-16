@@ -69,7 +69,7 @@ class Web(User, Protocol):
         """Validate domain id, don't allow lower case or invalid characters."""
         id = self.key.id()
         assert re.match(common.DOMAIN_RE, id)
-        assert id.lower() == id, f'lower case is not allowed in Web key id: {id}'
+        assert id.lower() == id, f'upper case is not allowed in Web key id: {id}'
         return super().put(*args, **kwargs)
 
     @classmethod
