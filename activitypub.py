@@ -451,7 +451,7 @@ def postprocess_as2(activity, target=None, wrap=True):
         obj['id'] = g.user.ap_actor()
 
     # for Accepts
-    if g.user and g.user.is_web_url(obj.get('object')):
+    if g.user and g.user.is_web_url(as1.get_object(obj).get('id')):
         obj['object'] = g.user.ap_actor()
 
     # id is required for most things. default to url if it's not set.
