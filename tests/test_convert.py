@@ -225,6 +225,12 @@ A ☕ reply
         self.assertEqual(f'https://ap.brid.gy/convert/web/http://foo?bar',
                          resp.headers['Location'])
 
+    def test_convert_source_path_redirect(self):
+        resp = self.client.get('/convert/ap/web/http://foo?bar')
+        self.assertEqual(301, resp.status_code)
+        self.assertEqual(f'https://ap.brid.gy/convert/web/http://foo?bar',
+                         resp.headers['Location'])
+
     def test_web_to_activitypub_object(self):
         url = 'https://user.com/bar?baz=baj&biff'
         self.make_user('user.com')

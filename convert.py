@@ -22,8 +22,10 @@ from web import Web
 logger = logging.getLogger(__name__)
 
 SOURCES = frozenset((
-    ActivityPub,
-    Web,
+    ActivityPub.ABBREV,
+    ActivityPub.LABEL,
+    Web.ABBREV,
+    Web.LABEL,
 ))
 DESTS = frozenset((
     ActivityPub.ABBREV,
@@ -94,3 +96,13 @@ def render_redirect():
     """Redirect from old /render?id=... endpoint to /convert/..."""
     id = flask_util.get_required_param('id')
     return redirect(ActivityPub.subdomain_url(f'/convert/web/{id}'), code=301)
+
+
+@app.get(f'/convert/<any({",".join(SOURCES)}):src>/<any({",".join(DESTS)}):dest>/<path:_>')
+def convert_source_path_redirect(src, dest, _):
+    """Old route that included source protocol in path instead of subdomain."""
+    if Protocol.for_request() not in (None, 'web'):  # no per-protocol subdomains
+        error(f'Try again on fed.brid.gy', status=404)
+
+    new_path = request.full_path.replace(f'/{src}/', '/')
+    return redirect(PROTOCOLS[src].subdomain_url(new_path), code=301)
