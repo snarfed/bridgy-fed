@@ -54,6 +54,7 @@ jobs:
           command: |
             echo $$CIRCLE_BRANCH
             if [ $CIRCLE_BRANCH = "main" ]; then
+              echo $FLASK_SECRET_KEY > flask_secret_key
               echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
               gcloud -q beta app deploy --no-cache --project bridgy-federated *.yaml
             fi
