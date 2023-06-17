@@ -87,6 +87,11 @@ class Fake(User, protocol.Protocol):
         return (f'Fake object {obj.key.id()}',
                 {'Accept': 'fake/protocol'})
 
+    @classmethod
+    def target_for(cls, obj, shared=False):
+        assert obj.source_protocol in (cls.LABEL, cls.ABBREV)
+        return 'shared target' if shared else f'target: {self.key.id()}'
+
 
 # used in TestCase.make_user() to reuse keys across Users since they're
 # expensive to generate
