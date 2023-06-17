@@ -229,3 +229,12 @@ class ProtocolTest(TestCase):
         self.assertTrue(loaded.changed)
         self.assertFalse(loaded.new)
         self.assertEqual(['foo'], Fake.fetched)
+
+    def test_load_shallow_missing(self):
+        self.assertIsNone(Fake.load('nope', shallow=True))
+        self.assertEqual([], Fake.fetched)
+
+        obj = Object(id='foo', our_as1={'content': 'stored'})
+        obj.put()
+        self.assert_entities_equal(obj, Fake.load('foo', shallow=True))
+        self.assertEqual([], Fake.fetched)

@@ -595,7 +595,7 @@ class Protocol:
             error(msg, status=int(errors[0][0] or 502))
 
     @classmethod
-    def load(cls, id, refresh=False, **kwargs):
+    def load(cls, id, refresh=False, shallow=True, **kwargs):
         """Loads and returns an Object from memory cache, datastore, or HTTP fetch.
 
         Note that :meth:`Object._post_put_hook` updates the cache.
@@ -604,13 +604,18 @@ class Protocol:
           id: str
           refresh: boolean, whether to fetch the object remotely even if we have
             it stored
+          shallow: boolean, whether to only fetch from the datastore. If it
+            isn't there, returns None instead of fetching over the network.
           kwargs: passed through to :meth:`fetch()`
 
-        Returns: :class:`Object`
+        Returns: :class:`Object` or None if it isn't in the datastore and shallow
+          is True
 
         Raises:
           :class:`requests.HTTPError`, anything else that :meth:`fetch` raises
         """
+        assert not (refresh and shallow)
+
         if not refresh:
             with objects_cache_lock:
                 cached = objects_cache.get(id)
@@ -636,7 +641,10 @@ class Protocol:
             obj.clear()
             obj.new = False
         else:
-            logger.info(f'  not in datastore')
+            logger.info('  not in datastore')
+            if shallow:
+                logger.info('  shallow load requested, returning None')
+                return None
             obj = Object(id=id)
             obj.new = True
             obj.changed = False
