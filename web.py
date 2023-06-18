@@ -494,7 +494,7 @@ def webmention_task():
 
     # fetch source page
     try:
-        obj = Web.load(source, refresh=True, check_backlink=True)
+        obj = Web.load(source, remote=True, check_backlink=True)
     except BadRequest as e:
         error(str(e.description), status=304)
     except HTTPError as e:

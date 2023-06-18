@@ -176,14 +176,13 @@ class Protocol:
         if not id:
             return None
 
-        # check for our per-protocol subdomains
+        # step 1: check for our per-protocol subdomains
         if util.is_web(id):
             by_domain = Protocol.for_domain(id)
             if by_domain:
                 return by_domain
 
-        candidates = []
-
+        # step 2: check if any Protocols say conclusively that they own it
         # sort to be deterministic
         protocols = sorted(set(p for p in PROTOCOLS.values() if p),
                            key=lambda p: p.__name__)
@@ -198,13 +197,18 @@ class Protocol:
         if len(candidates) == 1:
             return candidates[0]
 
+        # step 3: look for existing Objects in the datastore
+        obj = Protocol.load(id, remote=False)
+        if obj and obj.source_protocol:
+            logger.info(f'{obj.key} has source_protocol {obj.source_protocol}')
+            return PROTOCOLS[obj.source_protocol]
+
+        # step 4: fetch over the network
         for protocol in candidates:
             logger.info(f'Trying {protocol.__name__}')
             try:
-                obj = protocol.load(id)
-                if obj.source_protocol:
-                    logger.info(f"{obj.key} has source_protocol {obj.source_protocol}")
-                    return PROTOCOLS[obj.source_protocol]
+                protocol.load(id, local=False, remote=True)
+                return protocol
             except werkzeug.exceptions.HTTPException:
                 # internal error we generated ourselves; try next protocol
                 pass
@@ -244,11 +248,9 @@ class Protocol:
 
     @classmethod
     def fetch(cls, obj, **kwargs):
-        """Fetches a protocol-specific object and returns it in an :class:`Object`.
+        """Fetches a protocol-specific object and populates it in an :class:`Object`.
 
-        To be implemented by subclasses. The returned :class:`Object` is loaded
-        from the datastore, if it exists there, then updated in memory but not
-        yet written back to the datastore.
+        To be implemented by subclasses.
 
         Args:
           obj: :class:`Object` with the id to fetch. Data is filled into one of
@@ -595,55 +597,63 @@ class Protocol:
             error(msg, status=int(errors[0][0] or 502))
 
     @classmethod
-    def load(cls, id, refresh=False, shallow=True, **kwargs):
+    def load(cls, id, remote=None, local=True, **kwargs):
         """Loads and returns an Object from memory cache, datastore, or HTTP fetch.
 
         Note that :meth:`Object._post_put_hook` updates the cache.
 
         Args:
           id: str
-          refresh: boolean, whether to fetch the object remotely even if we have
-            it stored
-          shallow: boolean, whether to only fetch from the datastore. If it
-            isn't there, returns None instead of fetching over the network.
+
+          remote: boolean, whether to fetch the object over the network. If True,
+            fetches even if we already have the object stored, and updates our
+            stored copy. If False and we don't have the object stored, returns
+            None. Default (None) means to fetch over the network only if we
+            don't already have it stored.
+          local: boolean, whether to load from the datastore before
+            fetching over the network. If False, still stores back to the
+            datastore after a successful remote fetch.
           kwargs: passed through to :meth:`fetch()`
 
-        Returns: :class:`Object` or None if it isn't in the datastore and shallow
-          is True
+        Returns: :class:`Object` or None if it isn't in the datastore and remote
+          is False
 
         Raises:
           :class:`requests.HTTPError`, anything else that :meth:`fetch` raises
         """
-        assert not (refresh and shallow)
+        assert local or remote is not False
 
-        if not refresh:
+        logger.info(f'Loading Object {id} local={local} remote={remote}')
+
+        if remote is not True:
             with objects_cache_lock:
                 cached = objects_cache.get(id)
                 if cached:
                     return cached
 
-        logger.info(f'Loading Object {id}')
-        orig_as1 = None
-        obj = Object.get_by_id(id)
-        if obj and (obj.as1 or obj.deleted):
-            logger.info('  got from datastore')
-            obj.new = False
-            orig_as1 = obj.as1
-            if not refresh:
-                with objects_cache_lock:
-                    objects_cache[id] = obj
-                return obj
+        obj = orig_as1 = None
+        if local:
+            obj = Object.get_by_id(id)
+            if obj and (obj.as1 or obj.deleted):
+                logger.info('  got from datastore')
+                obj.new = False
+                orig_as1 = obj.as1
+                if remote is not True:
+                    with objects_cache_lock:
+                        objects_cache[id] = obj
+                    return obj
 
-        if refresh:
-            logger.info('  forced refresh requested')
+        if remote is True:
+            logger.info('  remote=True, forced refresh requested')
 
         if obj:
             obj.clear()
             obj.new = False
         else:
-            logger.info('  not in datastore')
-            if shallow:
-                logger.info('  shallow load requested, returning None')
+            if local:
+                logger.info('  not in datastore')
+            if remote is False:
+                logger.info('  remote=False; returning None')
                 return None
             obj = Object(id=id)
             obj.new = True
