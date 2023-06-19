@@ -71,7 +71,7 @@ pyasn1==0.5.0
 pyasn1-modules==0.3.0
 pycryptodome==3.18.0
 pymemcache==4.0.0
-pyparsing==3.0.9
+pyparsing==3.1.0
 pyrsistent==0.19.3
 python-dateutil==2.8.2
 python-tumblpy==1.1.4
