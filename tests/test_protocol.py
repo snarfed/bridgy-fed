@@ -41,6 +41,13 @@ class ProtocolTest(TestCase):
         PROTOCOLS.pop('greedy', None)
         super().tearDown()
 
+    @staticmethod
+    def store_object(**kwargs):
+        obj = Object(**kwargs)
+        obj.put()
+        del protocol.objects_cache[obj.key.id()]
+        return obj
+
     def test_protocols_global(self):
         self.assertEqual(Fake, PROTOCOLS['fake'])
         self.assertEqual(Web, PROTOCOLS['web'])
@@ -133,11 +140,11 @@ class ProtocolTest(TestCase):
         self.assertEqual(Greedy, Protocol.for_id('https://bar/baz'))
 
     def test_for_id_object(self):
-        Object(id='http://ui/obj', source_protocol='ui').put()
+        self.store_object(id='http://ui/obj', source_protocol='ui')
         self.assertEqual(UIProtocol, Protocol.for_id('http://ui/obj'))
 
     def test_for_id_object_missing_source_protocol(self):
-        Object(id='http://bad/obj').put()
+        self.store_object(id='http://bad/obj')
         self.assertIsNone(Protocol.for_id('http://bad/obj'))
 
     @patch('requests.get')
@@ -170,8 +177,7 @@ class ProtocolTest(TestCase):
         self.assertEqual(['foo'], Fake.fetched)
 
     def test_load_existing(self):
-        stored = Object(id='foo', our_as1={'x': 'y'})
-        stored.put()
+        self.store_object(id='foo', our_as1={'x': 'y'})
 
         loaded = Fake.load('foo')
         self.assert_equals({'x': 'y'}, loaded.our_as1)
@@ -181,8 +187,7 @@ class ProtocolTest(TestCase):
         self.assertEqual([], Fake.fetched)
 
     def test_load_existing_empty_deleted(self):
-        stored = Object(id='foo', deleted=True)
-        stored.put()
+        stored = self.store_object(id='foo', deleted=True)
 
         loaded = Fake.load('foo')
         self.assert_entities_equal(stored, loaded)
@@ -190,6 +195,12 @@ class ProtocolTest(TestCase):
         self.assertFalse(loaded.new)
 
         self.assertEqual([], Fake.fetched)
+
+    def test_load_cached(self):
+        obj = Object(our_as1={'x': 'y'})
+        protocol.objects_cache['foo'] = obj
+        loaded = Fake.load('foo')
+        self.assert_entities_equal(obj, loaded)
 
     def test_load_remote_true_existing_empty(self):
         Fake.objects['foo'] = {'x': 'y'}
@@ -203,7 +214,7 @@ class ProtocolTest(TestCase):
 
     def test_load_remote_true_new_empty(self):
         Fake.objects['foo'] = None
-        Object(id='foo', our_as1={'x': 'y'}).put()
+        self.store_object(id='foo', our_as1={'x': 'y'})
 
         loaded = Fake.load('foo', remote=True)
         self.assertIsNone(loaded.as1)
@@ -212,18 +223,17 @@ class ProtocolTest(TestCase):
         self.assertEqual(['foo'], Fake.fetched)
 
     def test_load_remote_true_unchanged(self):
-        obj = Object(id='foo', our_as1={'x': 'stored'})
-        obj.put()
+        obj = self.store_object(id='foo', our_as1={'x': 'stored'})
         Fake.objects['foo'] = {'x': 'stored'}
 
         loaded = Fake.load('foo', remote=True)
         self.assert_entities_equal(obj, loaded)
-        self.assertFalse(obj.changed)
-        self.assertFalse(obj.new)
+        self.assertFalse(loaded.changed)
+        self.assertFalse(loaded.new)
         self.assertEqual(['foo'], Fake.fetched)
 
     def test_load_remote_true_changed(self):
-        Object(id='foo', our_as1={'content': 'stored'}).put()
+        self.store_object(id='foo', our_as1={'content': 'stored'})
         Fake.objects['foo'] = {'content': 'new'}
 
         loaded = Fake.load('foo', remote=True)
@@ -236,15 +246,12 @@ class ProtocolTest(TestCase):
         self.assertIsNone(Fake.load('nope', remote=False))
         self.assertEqual([], Fake.fetched)
 
-        obj = Object(id='foo', our_as1={'content': 'stored'})
-        obj.put()
+        obj = self.store_object(id='foo', our_as1={'content': 'stored'})
         self.assert_entities_equal(obj, Fake.load('foo', remote=False))
         self.assertEqual([], Fake.fetched)
 
     def test_Protocol_load_remote_false_existing_object_empty(self):
-        obj = Object(id='foo')
-        obj.put()
-        del protocol.objects_cache['foo']
+        obj = self.store_object(id='foo')
         self.assert_entities_equal(obj, Protocol.load('foo', remote=False))
 
     def test_local_false_missing(self):
@@ -255,9 +262,7 @@ class ProtocolTest(TestCase):
         self.assertEqual(['foo'], Fake.fetched)
 
     def test_local_false_existing(self):
-        obj = Object(id='foo', our_as1={'content': 'stored'}, source_protocol='ui')
-        obj.put()
-        del protocol.objects_cache['foo']
+        self.store_object(id='foo', our_as1={'content': 'stored'}, source_protocol='ui')
 
         Fake.objects['foo'] = {'foo': 'bar'}
         Fake.load('foo', local=False)
