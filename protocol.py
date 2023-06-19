@@ -645,6 +645,9 @@ class Protocol:
 
         if remote is True:
             logger.info('  remote=True, forced refresh requested')
+        elif remote is False:
+            logger.info('  remote=False, {"empty" if obj else "not"} in datastore')
+            return obj
 
         if obj:
             obj.clear()
@@ -652,9 +655,6 @@ class Protocol:
         else:
             if local:
                 logger.info('  not in datastore')
-            if remote is False:
-                logger.info('  remote=False; returning None')
-                return None
             obj = Object(id=id)
             obj.new = True
             obj.changed = False
