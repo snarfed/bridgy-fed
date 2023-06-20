@@ -28,7 +28,7 @@ jobs:
       - run:
           name: Python dependencies
           command: |
-            pip install -U pip
+            pip install -U pip flake8
             pip  -V
             # make sure we install these at head, below
             pip uninstall -y granary lexrpc oauth-dropins
@@ -46,6 +46,11 @@ jobs:
             python -m coverage run --source=. --omit=appengine_config.py,logs.py,tests/\* -m unittest discover -v
             python -m coverage html -d /tmp/coverage_html
             if [ "$COVERALLS_REPO_TOKEN" != "" ]; then coveralls || true; fi
+
+            # check for unintentionally overridden test methods
+            # https://flake8.pycqa.org/en/latest/user/error-codes.html#error-codes
+            # https://flake8.pycqa.org/en/latest/user/options.html#cmdoption-flake8-select
+            flake8 --select=F811 tests/test_*.py
 
       # a step only runs if all previous steps succeed, including tests above
       # https://circleci.com/docs/configuration-reference/#the-when-attribute
