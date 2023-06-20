@@ -4,12 +4,10 @@ import json
 import re
 
 from flask import g
-from granary import microformats2, bluesky
-import mf2util
+from granary import bluesky
 from oauth_dropins.webutil import util
 
 from flask_app import xrpc_server
-from models import User
 from web import Web
 
 logger = logging.getLogger(__name__)

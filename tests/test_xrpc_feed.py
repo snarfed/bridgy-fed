@@ -1,5 +1,4 @@
 """Unit tests for feed.py."""
-import copy
 from unittest import skip
 
 from granary import as2, bluesky
@@ -7,22 +6,15 @@ from granary.tests.test_as1 import COMMENT, NOTE
 from granary.tests.test_bluesky import (
     POST_BSKY,
     POST_AS,
-    POST_AUTHOR_AS,
     REPLY_BSKY,
     REPLY_AS,
-    REPOST_BSKY,
     REPOST_AS,
 )
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.testutil import requests_response
-import requests
-from werkzeug.exceptions import BadGateway
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
 
-import common
-from models import Object, User
+from models import Object
 from .test_activitypub import ACTOR
 
 POST_THREAD_AS = {
@@ -90,7 +82,7 @@ class XrpcFeedTest(testutil.TestCase):
         Object(id='d', domains=['user.com'], labels=['feed'], as2=post_as2).put()
         # deleted
         Object(id='e', domains=['user.com'], labels=['user'], as2=post_as2,
-                 deleted=True).put()
+               deleted=True).put()
         # other user's
         Object(id='f', domains=['bar.org'], labels=['user'], as2=post_as2).put()
 
@@ -151,7 +143,7 @@ class XrpcFeedTest(testutil.TestCase):
         })).put()
 
         got = self.client.get('/xrpc/app.bsky.feed.getRepostedBy',
-                               query_string={'uri': 'http://a/post'})
+                              query_string={'uri': 'http://a/post'})
         self.assertEqual({
             'uri': 'http://orig/post',
             'repostBy': [{

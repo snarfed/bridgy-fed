@@ -2,7 +2,6 @@
 """Misc common utilities.
 """
 import base64
-import copy
 from datetime import timedelta
 import logging
 import re
@@ -12,11 +11,8 @@ import urllib.parse
 import cachetools
 from Crypto.Util import number
 from flask import abort, g, make_response, request
-from granary import as1, as2, microformats2
-import mf2util
 from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.appengine_info import DEBUG
-from oauth_dropins.webutil.util import json_dumps, json_loads
 from werkzeug.exceptions import BadRequest
 
 logger = logging.getLogger(__name__)
@@ -90,10 +86,10 @@ def long_to_base64(x):
 
 def host_url(path_query=None):
     base = request.host_url
-    if (util.domain_or_parent_in(request.host, OTHER_DOMAINS) or
-        # when running locally against prod datastore
-        (not DEBUG and request.host in LOCAL_DOMAINS)):
-      base = f'https://{PRIMARY_DOMAIN}'
+    if (util.domain_or_parent_in(request.host, OTHER_DOMAINS)
+            # when running locally against prod datastore
+            or (not DEBUG and request.host in LOCAL_DOMAINS)):
+        base = f'https://{PRIMARY_DOMAIN}'
 
     return urllib.parse.urljoin(base, path_query)
 
@@ -105,26 +101,26 @@ def error(msg, status=400, exc_info=None, **kwargs):
 
 
 def pretty_link(url, text=None, **kwargs):
-  """Wrapper around util.pretty_link() that converts Mastodon user URLs to @-@.
+    """Wrapper around util.pretty_link() that converts Mastodon user URLs to @-@.
 
-  Eg for URLs like https://mastodon.social/@foo and
-  https://mastodon.social/users/foo, defaults text to @foo@mastodon.social if
-  it's not provided.
+    Eg for URLs like https://mastodon.social/@foo and
+    https://mastodon.social/users/foo, defaults text to @foo@mastodon.social if
+    it's not provided.
 
-  Args:
-    url: str
-    text: str
-    kwargs: passed through to :func:`webutil.util.pretty_link`
-  """
-  if g.user and g.user.is_web_url(url):
-    return g.user.user_page_link()
+    Args:
+      url: str
+      text: str
+      kwargs: passed through to :func:`webutil.util.pretty_link`
+    """
+    if g.user and g.user.is_web_url(url):
+        return g.user.user_page_link()
 
-  if text is None:
-    match = re.match(r'https?://([^/]+)/(@|users/)([^/]+)$', url)
-    if match:
-      text = match.expand(r'@\3@\1')
+    if text is None:
+        match = re.match(r'https?://([^/]+)/(@|users/)([^/]+)$', url)
+        if match:
+            text = match.expand(r'@\3@\1')
 
-  return util.pretty_link(url, text=text, **kwargs)
+    return util.pretty_link(url, text=text, **kwargs)
 
 
 def content_type(resp):
@@ -199,25 +195,25 @@ def redirect_unwrap(val):
 
 
 def webmention_endpoint_cache_key(url):
-  """Returns cache key for a cached webmention endpoint for a given URL.
+    """Returns cache key for a cached webmention endpoint for a given URL.
 
-  Just the domain by default. If the URL is the home page, ie path is / , the
-  key includes a / at the end, so that we cache webmention endpoints for home
-  pages separate from other pages. https://github.com/snarfed/bridgy/issues/701
+    Just the domain by default. If the URL is the home page, ie path is / , the
+    key includes a / at the end, so that we cache webmention endpoints for home
+    pages separate from other pages. https://github.com/snarfed/bridgy/issues/701
 
-  Example: 'snarfed.org /'
+    Example: 'snarfed.org /'
 
-  https://github.com/snarfed/bridgy-fed/issues/423
+    https://github.com/snarfed/bridgy-fed/issues/423
 
-  Adapted from bridgy/util.py.
-  """
-  parsed = urllib.parse.urlparse(url)
-  key = parsed.netloc
-  if parsed.path in ('', '/'):
-    key += ' /'
+    Adapted from bridgy/util.py.
+    """
+    parsed = urllib.parse.urlparse(url)
+    key = parsed.netloc
+    if parsed.path in ('', '/'):
+        key += ' /'
 
-  # logger.debug(f'wm cache key {key}')
-  return key
+    # logger.debug(f'wm cache key {key}')
+    return key
 
 
 @cachetools.cached(cachetools.TTLCache(50000, 60 * 60 * 2),  # 2h expiration

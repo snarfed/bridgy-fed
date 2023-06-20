@@ -18,7 +18,7 @@ import logging
 import re
 import urllib.parse
 
-from flask import g, redirect, request
+from flask import g, request
 from granary import as2
 from negotiator import ContentNegotiator, AcceptParameters, ContentType
 from oauth_dropins.webutil import flask_util, util
@@ -28,7 +28,6 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from activitypub import ActivityPub
 from flask_app import app, cache
 from common import CACHE_TIME, CONTENT_TYPE_HTML
-from models import Object, User
 from web import Web
 
 logger = logging.getLogger(__name__)

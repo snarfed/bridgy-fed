@@ -6,8 +6,7 @@ from granary import bluesky
 from oauth_dropins.webutil import util
 
 from flask_app import xrpc_server
-import common
-from models import Follower, User
+from models import Follower
 from web import Web
 
 logger = logging.getLogger(__name__)

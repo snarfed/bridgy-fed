@@ -1,26 +1,20 @@
 """UI pages."""
-import calendar
 import datetime
 import logging
 import os
-import re
-import urllib.parse
 
-from flask import g, redirect, render_template, request
-from google.cloud.ndb.model import get_multi
+from flask import g, render_template, request
 from google.cloud.ndb.query import OR
 from google.cloud.ndb.stats import KindStat
 from granary import as1, as2, atom, microformats2, rss
 import humanize
 from oauth_dropins.webutil import flask_util, logs, util
-from oauth_dropins.webutil.flask_util import error, flash, redirect
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from oauth_dropins.webutil.flask_util import error, redirect
 
 import common
 from common import DOMAIN_RE
 from flask_app import app, cache
-from models import fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS, User
-from web import Web
+from models import fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS
 
 FOLLOWERS_UI_LIMIT = 999
 
@@ -192,7 +186,6 @@ def fetch_objects(query):
         to fetch the previous and next pages, respectively
     """
     objects, new_before, new_after = fetch_page(query, Object)
-    seen = set()
 
     # synthesize human-friendly content for objects
     for i, obj in enumerate(objects):

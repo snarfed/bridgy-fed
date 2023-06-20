@@ -13,7 +13,6 @@ from app import app
 from models import Follower, Object, PROTOCOLS, User
 import protocol
 from protocol import Protocol
-import requests
 from ui import UIProtocol
 from web import Web
 

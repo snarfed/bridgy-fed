@@ -3,18 +3,17 @@ import logging
 import threading
 from urllib.parse import urljoin
 
-from cachetools import cached, LRUCache
+from cachetools import LRUCache
 from flask import g, request
 from google.cloud import ndb
 from google.cloud.ndb import OR
-from granary import as1, as2
-import requests
+from granary import as1
 import werkzeug.exceptions
 
 import common
 from common import error
 from models import Follower, Object, PROTOCOLS, Target
-from oauth_dropins.webutil import util, webmention
+from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 SUPPORTED_TYPES = (
@@ -433,8 +432,8 @@ class Protocol:
         # deliver original posts and reposts to followers
         is_reply = (obj.type == 'comment' or
                     (inner_obj and inner_obj.get('inReplyTo')))
-        if (actor and actor_id and
-            (obj.type == 'share' or obj.type in ('create', 'post') and not is_reply)):
+        if ((obj.type == 'share' or obj.type in ('create', 'post') and not is_reply)
+                and actor and actor_id):
             logger.info(f'Delivering to followers of {actor_id}')
             for f in Follower.query(Follower.to == from_cls(id=actor_id).key,
                                     Follower.status == 'active'):
@@ -580,11 +579,11 @@ class Protocol:
                     if 'notification' not in obj.labels:
                         obj.labels.append('notification')
             except BaseException as e:
-              code, body = util.interpret_http_exception(e)
-              if not code and not body:
-                raise
-              errors.append((code, body))
-              obj.failed.append(target)
+                code, body = util.interpret_http_exception(e)
+                if not code and not body:
+                    raise
+                errors.append((code, body))
+                obj.failed.append(target)
 
             obj.put()
 

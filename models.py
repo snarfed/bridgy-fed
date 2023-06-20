@@ -7,7 +7,6 @@ import random
 import urllib.parse
 
 from arroba.mst import dag_cbor_cid
-from Crypto import Random
 from Crypto.PublicKey import ECC, RSA
 import dag_json
 from flask import g, request
@@ -18,10 +17,9 @@ from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.models import ComputedJsonProperty, JsonProperty, StringIdModel
 from oauth_dropins.webutil.util import json_dumps, json_loads
-import requests
 
 import common
-from common import base64_to_long, long_to_base64, redirect_unwrap, redirect_wrap
+from common import base64_to_long, long_to_base64, redirect_unwrap
 
 # maps string label to Protocol subclass. populated by ProtocolUserMeta.
 # seed with old and upcoming protocols that don't have their own classes (yet).
@@ -475,8 +473,8 @@ class Object(StringIdModel):
         """Returns a pretty actor link with their name and profile picture."""
         attrs = {'class': 'h-card u-author'}
 
-        if (self.source_protocol in ('web', 'webmention', 'ui') and g.user and
-            (g.user.key in self.users or g.user.key.id() in self.domains)):
+        if (self.source_protocol in ('web', 'webmention', 'ui') and g.user
+                and (g.user.key in self.users or g.user.key.id() in self.domains)):
             # outbound; show a nice link to the user
             return g.user.user_page_link()
 
@@ -497,6 +495,7 @@ class Object(StringIdModel):
           <img class="profile" src="{image}" />
           {util.ellipsize(name, chars=40)}
         </a>"""
+
 
 class AtpNode(StringIdModel):
     """An AT Protocol (Bluesky) node.

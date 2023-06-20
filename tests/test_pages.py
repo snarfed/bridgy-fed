@@ -1,31 +1,25 @@
 """Unit tests for pages.py."""
-from granary import as2, atom, microformats2, rss
-from granary.tests.test_bluesky import REPLY_BSKY
+from granary import atom, microformats2, rss
 from granary.tests.test_as1 import (
     ACTOR,
     COMMENT,
-    FOLLOW_WITH_ACTOR,
-    FOLLOW_WITH_OBJECT,
-    LIKE,
     NOTE,
 )
 from oauth_dropins.webutil import util
-from oauth_dropins.webutil.testutil import requests_response
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
 
 from activitypub import ActivityPub
-import common
-from models import Object, Follower, User
-from web import Web
+from models import Object, Follower
 
-from .test_web import ACTOR_AS2, ACTOR_HTML, ACTOR_MF2, REPOST_AS2
+from .test_web import ACTOR_AS2, REPOST_AS2
 
 ACTOR_WITH_PREFERRED_USERNAME = {
     **ACTOR,
     'preferredUsername': 'me',
 }
+
 
 def contents(activities):
     return [(a.get('object') or a)['content'] for a in activities]

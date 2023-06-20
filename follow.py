@@ -5,16 +5,13 @@ https://socialhub.activitypub.rocks/t/what-is-the-current-spec-for-remote-follow
 https://www.rfc-editor.org/rfc/rfc7033
 """
 import logging
-import urllib.parse
 
 from flask import g, redirect, request, session
 from granary import as2
 from oauth_dropins import indieauth
-from oauth_dropins.webutil import flask_util, util
-from oauth_dropins.webutil.flask_util import error, flash
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.flask_util import error, flash
 from oauth_dropins.webutil.testutil import NOW
-from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from activitypub import ActivityPub
 from flask_app import app

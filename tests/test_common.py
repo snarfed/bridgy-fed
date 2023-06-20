@@ -1,19 +1,11 @@
 """Unit tests for common.py."""
-from unittest import mock
-
 from flask import g
-from granary import as2
-from oauth_dropins.webutil import appengine_config, util
-from oauth_dropins.webutil.testutil import requests_response
-import requests
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
 
 import common
 from flask_app import app
-from models import Object, User
-import protocol
 from web import Web
 
 

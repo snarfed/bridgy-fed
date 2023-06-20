@@ -6,11 +6,9 @@ import re
 import urllib.parse
 from urllib.parse import urlencode, urljoin, urlparse
 
-import feedparser
 from flask import g, redirect, render_template, request
-from flask.views import View
 from google.cloud import ndb
-from google.cloud.ndb import ComputedProperty, Key
+from google.cloud.ndb import ComputedProperty
 from granary import as1, as2, microformats2
 import mf2util
 from oauth_dropins.webutil import flask_util, util

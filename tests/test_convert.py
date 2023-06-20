@@ -8,7 +8,6 @@ from granary.tests.test_as1 import ACTOR, COMMENT, DELETE_OF_ID, UPDATE
 from models import Object
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import parse_mf2
-import requests
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
@@ -191,7 +190,7 @@ class ConvertTest(testutil.TestCase):
                          resp.headers['Location'])
 
     def test_activitypub_to_web_update_no_inner_obj_serve_as_is(self):
-        # UPDATE's object field is a full object
+        # Update's object field is a full object
         Object(id='http://foo', our_as1=UPDATE).put()
 
         resp = self.client.get('/convert/web/http://foo',
@@ -205,7 +204,7 @@ A ☕ reply
 """, resp.get_data(as_text=True), ignore_blanks=True)
 
     def test_activitypub_to_web_update_inner_obj_too_minimal_serve_as_is(self):
-        # UPDATE's object field is a full object
+        # Update's object field is a full object
         Object(id='http://foo', our_as1=UPDATE).put()
         Object(id=UPDATE['object']['id'], as2={'id': 'foo'}).put()
 
@@ -259,4 +258,3 @@ A ☕ reply
         resp = self.client.get(f'/convert/ap/http://nope.com/post',
                                base_url='https://ap.brid.gy/')
         self.assertEqual(400, resp.status_code)
-

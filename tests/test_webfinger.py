@@ -1,7 +1,6 @@
 # coding=utf-8
 """Unit tests for webfinger.py."""
 import copy
-import html
 from unittest.mock import patch
 import urllib.parse
 
@@ -10,7 +9,6 @@ from oauth_dropins.webutil.testutil import requests_response
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
 
-import common
 from web import Web
 
 from .test_web import ACTOR_HTML
@@ -115,7 +113,7 @@ class HostMetaTest(TestCase):
         got = self.client.get('/.well-known/host-meta')
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/xrd+xml; charset=utf-8',
-                          got.headers['Content-Type'])
+                         got.headers['Content-Type'])
         body = got.get_data(as_text=True)
         self.assertTrue(body.startswith('<?xml'), body)
 

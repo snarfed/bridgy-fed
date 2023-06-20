@@ -3,9 +3,7 @@
 https://webfinger.net/
 https://tools.ietf.org/html/rfc7033
 """
-import datetime
 import logging
-import re
 import urllib.parse
 
 from flask import g, render_template, request
@@ -16,7 +14,6 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
 from flask_app import app, cache
-from models import User
 from protocol import Protocol
 from web import Web
 
@@ -56,7 +53,7 @@ class Webfinger(flask_util.XrdOrJrd):
             cls = Protocol.for_domain(id, fed=Web)
             if cls:
                 id = user
-                allow_indirect=True
+                allow_indirect = True
         except ValueError:
             id = urllib.parse.urlparse(resource).netloc or resource
 

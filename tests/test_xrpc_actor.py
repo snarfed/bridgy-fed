@@ -1,13 +1,9 @@
 """Unit tests for actor.py."""
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.testutil import requests_response
-import requests
 from unittest import skip
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
 
-from models import User
 from .test_activitypub import ACTOR
 
 
@@ -30,7 +26,6 @@ class XrpcActorTest(testutil.TestCase):
             'handle': 'mas.to/users/swentel',
             'did': 'did:web:mas.to:users:swentel',
             'displayName': 'Mrs. ☕ Foo',
-            'description': None,
             'description': "I'm a person",
             'avatar': 'https://user.com/me.jpg',
             'banner': 'http://user.com/header.png',
@@ -59,7 +54,7 @@ class XrpcActorTest(testutil.TestCase):
 
     def test_search(self):
         resp = self.client.get('/xrpc/app.bsky.actor.searchActors',
-                              query_string={'term': 'foo'})
+                               query_string={'term': 'foo'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             'actors': [],
@@ -67,7 +62,7 @@ class XrpcActorTest(testutil.TestCase):
 
     def test_searchTypeahead(self):
         resp = self.client.get('/xrpc/app.bsky.actor.searchActorsTypeahead',
-                              query_string={'term': 'foo'})
+                               query_string={'term': 'foo'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             'actors': [],

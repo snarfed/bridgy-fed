@@ -4,28 +4,21 @@ import copy
 from unittest.mock import patch
 from urllib.parse import urlencode
 
-import feedparser
 from flask import g, get_flashed_messages
-from granary import as1, as2, atom, microformats2
-from httpsig.sign import HeaderSigner
-from oauth_dropins.webutil import appengine_config, util
-from oauth_dropins.webutil.appengine_config import tasks_client
+from granary import as1, as2, microformats2
+from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_info import APP_ID
 from oauth_dropins.webutil.testutil import NOW, requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
-from requests import HTTPError
 from werkzeug.exceptions import BadGateway, BadRequest
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
 
 from activitypub import ActivityPub, postprocess_as2
-from common import (
-    CONTENT_TYPE_HTML,
-    redirect_unwrap,
-)
-from models import Follower, Object, Target, User
+from common import CONTENT_TYPE_HTML
+from models import Follower, Object
 from web import TASKS_LOCATION, Web
 from . import test_activitypub
 from .testutil import TestCase
@@ -210,7 +203,7 @@ REPLY_HTML = """\
 </html>
 """
 REPLY = requests_response(REPLY_HTML, content_type=CONTENT_TYPE_HTML,
-                               url='https://user.com/reply')
+                          url='https://user.com/reply')
 REPLY_MF2 = util.parse_mf2(REPLY_HTML)['items'][0]
 REPLY_AS1 = microformats2.json_to_object(REPLY_MF2)
 CREATE_REPLY_AS1 = {
@@ -238,7 +231,7 @@ LIKE = requests_response(LIKE_HTML, content_type=CONTENT_TYPE_HTML,
 LIKE_MF2 = util.parse_mf2(LIKE_HTML)['items'][0]
 
 ACTOR = TestCase.as2_resp({
-    'type' : 'Person',
+    'type': 'Person',
     'name': 'Mrs. ☕ Foo',
     'id': 'https://mas.to/mrs-foo',
     'inbox': 'https://mas.to/inbox',
@@ -583,9 +576,6 @@ class WebTest(TestCase):
         self.assertEqual(502, got.status_code)
 
     def test_target_fetch_has_no_content_type(self, mock_get, mock_post):
-        html = REPLY_HTML.replace(
-            '</body>',
-            "<link href='http://as2' rel='alternate' type='application/activity+json'></body")
         mock_get.side_effect = (
             requests_response(REPLY_HTML, url='https://user.com/reply'),
             requests_response(REPLY_HTML, url='https://user.com/reply',
@@ -612,7 +602,7 @@ class WebTest(TestCase):
     def test_backlink_without_trailing_slash(self, mock_get, mock_post):
         mock_get.return_value = requests_response(
             REPLY_HTML.replace('<a href="http://localhost/"></a>',
-                                    '<a href="http://localhost"></a>'),
+                               '<a href="http://localhost"></a>'),
             content_type=CONTENT_TYPE_HTML, url='https://user.com/reply')
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -1148,17 +1138,17 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'],
                                FOLLOW_FRAGMENT_AS2)
 
-        obj = self.assert_object('https://user.com/follow#2',
-                                 users=[g.user.key],
-                                 source_protocol='web',
-                                 status='complete',
-                                 mf2=FOLLOW_FRAGMENT_MF2,
-                                 as1=FOLLOW_FRAGMENT_AS1,
-                                 delivered=['https://mas.to/inbox'],
-                                 type='follow',
-                                 object_ids=['https://mas.to/mrs-foo'],
-                                 labels=['user', 'activity'],
-                                 )
+        self.assert_object('https://user.com/follow#2',
+                           users=[g.user.key],
+                           source_protocol='web',
+                           status='complete',
+                           mf2=FOLLOW_FRAGMENT_MF2,
+                           as1=FOLLOW_FRAGMENT_AS1,
+                           delivered=['https://mas.to/inbox'],
+                           type='follow',
+                           object_ids=['https://mas.to/mrs-foo'],
+                           labels=['user', 'activity'],
+                           )
 
         followers = Follower.query().fetch()
         self.assert_equals(1, len(followers))
@@ -1178,7 +1168,7 @@ class WebTest(TestCase):
                 content_type=CONTENT_TYPE_HTML),
             ACTOR,
             self.as2_resp({
-                'objectType' : 'Person',
+                'objectType': 'Person',
                 'displayName': 'Mr. ☕ Biff',
                 'id': 'https://mas.to/mr-biff',
                 'inbox': 'https://mas.to/inbox/biff',
@@ -1277,7 +1267,7 @@ class WebTest(TestCase):
                            type='delete',
                            object_ids=['https://user.com/post'],
                            labels=['user', 'activity'],
-                          )
+                           )
 
     def test_delete_no_object(self, mock_get, mock_post):
         mock_get.side_effect = [
@@ -1336,7 +1326,7 @@ class WebTest(TestCase):
                            type='follow',
                            object_ids=['https://mas.to/mrs-foo'],
                            labels=['user', 'activity'],
-                          )
+                           )
 
     def test_repost_blocklisted_error(self, mock_get, mock_post):
         """Reposts of non-fediverse (ie blocklisted) sites aren't yet supported."""
@@ -1723,7 +1713,7 @@ class WebProtocolTest(TestCase):
         self.assert_equals({**REPOST_MF2, 'url': 'https://user.com/repost'}, obj.mf2)
 
     def test_fetch_redirect(self, mock_get, __):
-        mock_get.return_value =requests_response(
+        mock_get.return_value = requests_response(
             REPOST_HTML, content_type=CONTENT_TYPE_HTML,
             redirected_url='http://new/url')
         obj = Object(id='https://orig/url')
@@ -1735,7 +1725,7 @@ class WebProtocolTest(TestCase):
 
     def test_fetch_error(self, mock_get, __):
         mock_get.return_value = requests_response(REPOST_HTML, status=405)
-        with self.assertRaises(BadGateway) as e:
+        with self.assertRaises(BadGateway):
             Web.fetch(Object(id='https://foo'), gateway=True)
 
     def test_fetch_run_authorship(self, mock_get, __):

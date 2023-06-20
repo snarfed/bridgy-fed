@@ -5,7 +5,6 @@ constants from the :class:`Protocol` subclasses.
 """
 import logging
 import re
-import urllib.parse
 
 from flask import g, redirect, request
 from granary import as1
@@ -78,8 +77,8 @@ def convert(dest, _):
         if obj_id:
             # TODO: PROTOCOLS[src].load() this instead?
             obj_obj = Object.get_by_id(obj_id)
-            if (obj_obj and obj_obj.as1 and
-                not obj_obj.as1.keys() <= set(['id', 'url', 'objectType'])):
+            if (obj_obj and obj_obj.as1
+                    and not obj_obj.as1.keys() <= set(['id', 'url', 'objectType'])):
                 logger.info(f'{type} activity, redirecting to Object {obj_id}')
                 return redirect(f'/{path_prefix}{obj_id}', code=301)
 

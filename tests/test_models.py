@@ -1,20 +1,15 @@
 # coding=utf-8
 """Unit tests for models.py."""
-from unittest import mock
-
 from arroba.mst import dag_cbor_cid
 from Crypto.PublicKey import ECC
-from flask import g, get_flashed_messages
-from granary import as2
+from flask import g
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
-from multiformats import CID
-from oauth_dropins.webutil.testutil import NOW, requests_response
+from oauth_dropins.webutil.testutil import NOW
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
 
-import common
-from models import AtpNode, Follower, Object, OBJECT_EXPIRE_AGE, User
+from models import AtpNode, Follower, Object, OBJECT_EXPIRE_AGE
 import protocol
 from web import Web
 
@@ -158,9 +153,9 @@ class ObjectTest(TestCase):
         title="Alice">
           <img class="profile" src="http://pic/" />
           Alice""", {'actor': {
-            'name': 'Alice',
-            'icon': {'type': 'Image', 'url': 'http://pic'},
-        }}),
+              'name': 'Alice',
+              'icon': {'type': 'Image', 'url': 'http://pic'},
+          }}),
         ):
             obj = Object(id='x', as2=as2)
             self.assert_multiline_in(expected, obj.actor_link())

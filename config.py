@@ -14,10 +14,10 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 CACHE_THRESHOLD = 3000
 
 if appengine_info.DEBUG:
-  ENV = 'development'
-  CACHE_TYPE = 'NullCache'
-  SECRET_KEY = 'sooper seekret'
+    ENV = 'development'
+    CACHE_TYPE = 'NullCache'
+    SECRET_KEY = 'sooper seekret'
 else:
-  ENV = 'production'
-  CACHE_TYPE = 'SimpleCache'
-  SECRET_KEY = util.read('flask_secret_key')
+    ENV = 'production'
+    CACHE_TYPE = 'SimpleCache'
+    SECRET_KEY = util.read('flask_secret_key')

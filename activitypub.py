@@ -28,7 +28,7 @@ from common import (
     redirect_wrap,
     TLD_BLOCKLIST,
 )
-from models import Follower, Object, PROTOCOLS, Target, User
+from models import Follower, Object, PROTOCOLS, User
 from protocol import Protocol
 
 # TODO: remove this. we only need it to make sure Web is registered in PROTOCOLS
@@ -263,8 +263,8 @@ class ActivityPub(User, Protocol):
             key_actor = cls.load(keyId)
         except BadGateway:
             obj_id = as1.get_object(activity).get('id')
-            if (activity.get('type') == 'Delete' and obj_id and
-                keyId == fragmentless(obj_id)):
+            if (activity.get('type') == 'Delete' and obj_id
+                    and keyId == fragmentless(obj_id)):
                 logger.info('Object/actor being deleted is also keyId')
                 key_actor = Object(id=keyId, source_protocol='activitypub', deleted=True)
                 key_actor.put()
@@ -356,12 +356,13 @@ def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
 
     # handle GET redirects manually so that we generate a new HTTP signature
     if resp.is_redirect and fn == util.requests_get:
-      return signed_request(fn, resp.headers['Location'], data=data,
-                            headers=headers, log_data=log_data, **kwargs)
+        return signed_request(fn, resp.headers['Location'], data=data,
+                              headers=headers, log_data=log_data, **kwargs)
 
     type = common.content_type(resp)
     if (type and type != 'text/html' and
-        (type.startswith('text/') or type.endswith('+json') or type.endswith('/json'))):
+        (type.startswith('text/') or type.endswith('+json')
+         or type.endswith('/json'))):
         logger.info(resp.text)
 
     return resp
@@ -546,7 +547,7 @@ def postprocess_as2_actor(actor, wrap=True):
     url = g.user.web_url() if g.user else None
     urls = util.get_list(actor, 'url')
     if not urls and url:
-      urls = [url]
+        urls = [url]
 
     domain = util.domain_from_link(urls[0], minimize=False)
     if wrap:
@@ -565,11 +566,11 @@ def postprocess_as2_actor(actor, wrap=True):
 
     # Override the label for their home page to be "Web site"
     for att in util.get_list(actor, 'attachment'):
-      if att.get('type') == 'PropertyValue':
-        val = att.get('value', '')
-        link = util.parse_html(val).find('a')
-        if url and (val == url or link.get('href') == url):
-          att['name'] = 'Web site'
+        if att.get('type') == 'PropertyValue':
+            val = att.get('value', '')
+            link = util.parse_html(val).find('a')
+            if url and (val == url or link.get('href') == url):
+                att['name'] = 'Web site'
 
     # required by pixelfed. https://github.com/snarfed/bridgy-fed/issues/39
     actor.setdefault('summary', '')
@@ -591,7 +592,7 @@ def actor(protocol, domain):
     if not g.user:
         try:
             obj = cls.load(f'https://{domain}/', gateway=True)
-        except NoMicroformats as e:
+        except NoMicroformats:
             obj = None
         g.user = cls.get_or_create(id=domain, obj=obj)
 

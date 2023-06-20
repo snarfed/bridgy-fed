@@ -4,12 +4,11 @@ import logging
 import re
 
 from flask import g
-from granary import bluesky, microformats2
-import mf2util
+from granary import bluesky
 from oauth_dropins.webutil import util
 
 from flask_app import xrpc_server
-from models import Object, PAGE_SIZE, User
+from models import Object, PAGE_SIZE
 from web import Web
 
 logger = logging.getLogger(__name__)

@@ -6,14 +6,12 @@ from datetime import datetime, timedelta
 from hashlib import sha256
 import logging
 from unittest import skip
-from unittest.mock import ANY, call, patch
-import urllib.parse
+from unittest.mock import patch
 
 from flask import g
 from google.cloud import ndb
 from granary import as2, microformats2
 from httpsig import HeaderSigner
-from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
@@ -26,10 +24,8 @@ from .testutil import Fake, TestCase
 import activitypub
 from activitypub import ActivityPub, postprocess_as2
 import common
-import models
 from models import Follower, Object
 import protocol
-from protocol import Protocol
 from web import Web
 
 # have to import module, not attrs, to avoid circular import
@@ -49,7 +45,7 @@ ACTOR_BASE = {
         'https://www.w3.org/ns/activitystreams',
         'https://w3id.org/security/v1',
     ],
-    'type' : 'Person',
+    'type': 'Person',
     'id': 'http://localhost/user.com',
     'url': 'http://localhost/r/https://user.com/',
     'preferredUsername': 'user.com',
@@ -387,7 +383,7 @@ class ActivityPubTest(TestCase):
             **REPLY,
             'actor': LIKE_ACTOR,
         }
-        got = self._test_inbox_reply(reply, {
+        self._test_inbox_reply(reply, {
             'as2': reply,
             'type': 'post',
             'labels': ['activity', 'notification'],
@@ -749,7 +745,6 @@ class ActivityPubTest(TestCase):
         self.assert_user(ActivityPub, 'https://user.com/actor',
                          obj_as2=LIKE_ACTOR, direct=True)
 
-
     def test_inbox_follow_accept_with_id(self, *mocks):
         self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, *mocks)
 
@@ -768,10 +763,6 @@ class ActivityPubTest(TestCase):
                            object_ids=[FOLLOW['object']])
 
     def test_inbox_follow_accept_with_object(self, *mocks):
-        wrapped_user = {
-            'id': FOLLOW_WRAPPED['object'],
-            'url': FOLLOW_WRAPPED['object'],
-        }
         unwrapped_user = {
             'id': FOLLOW['object'],
             'url': FOLLOW['object'],
@@ -904,7 +895,6 @@ class ActivityPubTest(TestCase):
         self.assertEqual('active', follower.status)
         self.assertEqual('https://mas.to/users/swentel#followed-https://user.com/',
                          follower.follow.get().as2['url'])
-
 
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
         follower = Follower(to=self.user.key,
@@ -1065,7 +1055,6 @@ class ActivityPubTest(TestCase):
         # invalid signature, header changed
         protocol.seen_ids.clear()
         obj_key.delete()
-        orig_date = headers['Date']
 
         resp = self.client.post('/ap/sharedInbox', data=body, headers={**headers, 'Date': 'X'})
         self.assertEqual(401, resp.status_code)
@@ -1505,7 +1494,7 @@ class ActivityPubUtilsTest(TestCase):
         }, postprocess_as2({
             'tag': [
                 {'name': 'bar', 'href': 'bar'},
-                {'type': 'Tag','name': '#baz'},
+                {'type': 'Tag', 'name': '#baz'},
                 # should leave alone
                 {'type': 'Mention', 'href': 'foo'},
             ],
@@ -1644,7 +1633,7 @@ class ActivityPubUtilsTest(TestCase):
                               allow_redirects=False),
             requests_response(status=200, allow_redirects=False),
         ]
-        resp = activitypub.signed_get('https://first')
+        activitypub.signed_get('https://first')
 
         first = mock_get.call_args_list[0][1]
         second = mock_get.call_args_list[1][1]
@@ -1697,7 +1686,7 @@ class ActivityPubUtilsTest(TestCase):
 
         mock_get.assert_has_calls((
             self.as2_req('http://orig'),
-            self.as2_req('http://as2', headers=common.as2.CONNEG_HEADERS),
+            self.as2_req('http://as2', headers=as2.CONNEG_HEADERS),
         ))
 
     @patch('requests.get')
@@ -1708,7 +1697,7 @@ class ActivityPubUtilsTest(TestCase):
 
     @patch('requests.get')
     def test_fetch_not_acceptable(self, mock_get):
-        mock_get.return_value=NOT_ACCEPTABLE
+        mock_get.return_value = NOT_ACCEPTABLE
         with self.assertRaises(BadGateway):
             ActivityPub.fetch(Object(id='http://orig'))
 

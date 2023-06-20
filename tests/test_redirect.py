@@ -5,20 +5,17 @@ from unittest.mock import patch
 
 from granary import as2
 from oauth_dropins.webutil.testutil import requests_response
-import requests
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
 
-from common import redirect_unwrap
 from flask_app import app, cache
-from models import Object, User
+from models import Object
 from web import Web
 
 from .test_activitypub import ACTOR_BASE_FULL
 from .test_web import (
     ACTOR_AS2,
-    ACTOR_AS2_FULL,
     ACTOR_HTML,
     REPOST_AS2,
     REPOST_HTML,
@@ -146,7 +143,7 @@ class RedirectTest(testutil.TestCase):
         self._test_as2(as2.CONTENT_TYPE)
 
         resp = self.client.get('/r/https://user.com/bar',
-                              headers={'Accept': 'text/html'})
+                               headers={'Accept': 'text/html'})
         self.assertEqual(301, resp.status_code)
         self.assertEqual('https://user.com/bar', resp.headers['Location'])
 
@@ -162,5 +159,5 @@ class RedirectTest(testutil.TestCase):
         Object(id='https://user.com/bar', as2={}, deleted=True).put()
 
         resp = self.client.get('/r/https://user.com/bar',
-                              headers={'Accept': as2.CONTENT_TYPE})
+                               headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(404, resp.status_code, resp.get_data(as_text=True))

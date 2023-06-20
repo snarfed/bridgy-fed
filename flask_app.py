@@ -15,8 +15,6 @@ from oauth_dropins.webutil import (
     util,
 )
 
-import common
-
 logger = logging.getLogger(__name__)
 logging.getLogger('lexrpc').setLevel(logging.INFO)
 logging.getLogger('negotiator').setLevel(logging.WARNING)
@@ -34,6 +32,7 @@ app.register_error_handler(Exception, flask_util.handle_exception)
 if appengine_info.LOCAL:
     flask_gae_static.init_app(app)
 
+
 @app.before_request
 def init_globals():
     """Set request globals.
@@ -41,6 +40,7 @@ def init_globals():
     * g.user: Current internal user we're operating on behalf of.
     """
     g.user = None
+
 
 # don't redirect API requests with blank path elements
 app.url_map.merge_slashes = False

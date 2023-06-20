@@ -14,10 +14,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from .testutil import Fake, TestCase
 
 from activitypub import ActivityPub
-import common
-from common import redirect_unwrap
-from models import Follower, Object, User
-from web import Web
+from models import Follower, Object
 
 WEBFINGER = requests_response({
     'subject': 'acct:foo@bar',
@@ -191,7 +188,7 @@ class FollowTest(TestCase):
 
     def check(self, input, resp, expected_follow, mock_get, mock_post):
         self.assertEqual(302, resp.status_code)
-        self.assertEqual('/web/alice.com/following',resp.headers['Location'])
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
         self.assertEqual([f'Followed <a href="https://bar/url">{input}</a>.'],
                          get_flashed_messages())
 

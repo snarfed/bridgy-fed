@@ -1,13 +1,9 @@
 """Unit tests for graph.py."""
-from granary import bluesky
-from oauth_dropins.webutil.testutil import requests_response
-import requests
-
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
 
-from .test_activitypub import ACTOR, FOLLOW, FOLLOW_WITH_ACTOR, FOLLOW_WITH_OBJECT
-from models import Follower, User
+from .test_activitypub import FOLLOW, FOLLOW_WITH_ACTOR, FOLLOW_WITH_OBJECT
+from models import Follower
 from unittest import skip
 
 SUBJECT = {
@@ -42,19 +38,19 @@ class XrpcGraphTest(testutil.TestCase):
 
     def test_getFollowers_not_domain(self):
         resp = self.client.get('/xrpc/app.bsky.graph.getFollowers',
-                              query_string={'user': 'not a domain'})
+                               query_string={'user': 'not a domain'})
         self.assertEqual(400, resp.status_code)
 
     def test_getFollowers_no_user(self):
         resp = self.client.get('/xrpc/app.bsky.graph.getFollowers',
-                              query_string={'user': 'no.com'})
+                               query_string={'user': 'no.com'})
         self.assertEqual(400, resp.status_code)
 
     def test_getFollowers_empty(self):
         self.make_user('user.com')
 
         resp = self.client.get('/xrpc/app.bsky.graph.getFollowers',
-                              query_string={'user': 'user.com'})
+                               query_string={'user': 'user.com'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             'subject': SUBJECT,
@@ -83,7 +79,7 @@ class XrpcGraphTest(testutil.TestCase):
                                last_follow=other_follow)
 
         resp = self.client.get('/xrpc/app.bsky.graph.getFollowers',
-                              query_string={'user': 'user.com'})
+                               query_string={'user': 'user.com'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             'subject': SUBJECT,
@@ -93,14 +89,14 @@ class XrpcGraphTest(testutil.TestCase):
 
     def test_getFollows_not_domain(self):
         resp = self.client.get('/xrpc/app.bsky.graph.getFollows',
-                              query_string={'user': 'not a domain'})
+                               query_string={'user': 'not a domain'})
         self.assertEqual(400, resp.status_code)
 
     def test_getFollows_empty(self):
         self.make_user('user.com')
 
         resp = self.client.get('/xrpc/app.bsky.graph.getFollows',
-                              query_string={'user': 'user.com'})
+                               query_string={'user': 'user.com'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             'subject': SUBJECT,
@@ -123,13 +119,13 @@ class XrpcGraphTest(testutil.TestCase):
         Follower.get_or_create('https://no/stored/follow', 'user.com')
         Follower.get_or_create('https://masto/user', 'user.com',
                                last_follow=FOLLOW_WITH_OBJECT)
-        Follower.get_or_create( 'http://other', 'user.com',
+        Follower.get_or_create('http://other', 'user.com',
                                last_follow=other_follow)
         Follower.get_or_create('http://nope', 'nope.com',
                                last_follow=other_follow)
 
         resp = self.client.get('/xrpc/app.bsky.graph.getFollows',
-                              query_string={'user': 'user.com'})
+                               query_string={'user': 'user.com'})
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             'subject': SUBJECT,
