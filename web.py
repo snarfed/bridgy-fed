@@ -724,16 +724,10 @@ def _targets(obj):
 
     if not targets or verb == 'share':
         logger.info('Delivering to followers')
-        followers = Follower.query(Follower.to == g.user.key,
-                                   Follower.status == 'active'
-                                   ).fetch()
-        users = ndb.get_multi(f.from_ for f in followers)
-        users = [u for u in users if u]
-        User.load_multi(users)
-
-        for user in users:
-            # STATE: is this fetching remotely? should it be remote=False?
-            target = user.target_for(user.obj, shared=True) if user.obj else None
+        for follower in Follower.query(Follower.to == g.user.key,
+                                       Follower.status == 'active'):
+            recip = follower.from_.get()
+            target = recip.target_for(recip.obj, shared=True) if recip.obj else None
             if not target:
                 # TODO: surface errors like this somehow?
                 logger.error(f'Follower {follower.from_} has no delivery target')
@@ -742,6 +736,6 @@ def _targets(obj):
             # HACK: use last target object from above for reposts, which
             # has its resolved id
             obj = orig_obj if verb == 'share' else None
-            targets[user.__class__, target] = obj
+            targets[recip.__class__, target] = obj
 
     return targets
