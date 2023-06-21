@@ -381,7 +381,13 @@ NOT_FEDIVERSE = requests_response("""\
 <body>foo</body>
 </html>
 """, url='http://not/fediverse', content_type=CONTENT_TYPE_HTML)
-ACTIVITYPUB_GETS = [REPLY, NOT_FEDIVERSE, TOOT_AS2, ACTOR]
+ACTIVITYPUB_GETS = [
+    REPLY,
+    NOT_FEDIVERSE,  # AP
+    NOT_FEDIVERSE,  # Web
+    TOOT_AS2,       # AP
+    ACTOR,
+]
 
 
 @patch('requests.post')
@@ -389,7 +395,10 @@ ACTIVITYPUB_GETS = [REPLY, NOT_FEDIVERSE, TOOT_AS2, ACTOR]
 class WebTest(TestCase):
     def setUp(self):
         super().setUp()
-        g.user = self.make_user('user.com', has_redirects=True)
+
+        obj = Object(id='https://user.com/', mf2=ACTOR_MF2, source_protocol='web')
+        obj.put()
+        g.user = self.make_user('user.com', has_redirects=True, obj=obj)
 
     def assert_deliveries(self, mock_post, inboxes, data, ignore=()):
         self.assertEqual(len(inboxes), len(mock_post.call_args_list))
@@ -434,10 +443,12 @@ class WebTest(TestCase):
         self.assert_entities_equal(user, Web.get_by_id('☃.net'))
 
     def test_bad_source_url(self, *mocks):
+        orig_count = Object.query().count()
+
         for data in b'', {'source': 'bad'}, {'source': 'https://'}:
             got = self.client.post('/webmention', data=data)
             self.assertEqual(400, got.status_code)
-            self.assertEqual(0, Object.query().count())
+            self.assertEqual(orig_count, Object.query().count())
 
     def test_username(self, *mocks):
         self.assertEqual('user.com', g.user.username())
@@ -489,11 +500,15 @@ class WebTest(TestCase):
         )
 
     def test_no_user(self, mock_get, mock_post):
+        orig_count = Object.query().count()
+
         got = self.client.post('/webmention', data={'source': 'https://nope.com/post'})
         self.assertEqual(400, got.status_code)
-        self.assertEqual(0, Object.query().count())
+        self.assertEqual(orig_count, Object.query().count())
 
     def test_source_fetch_fails(self, mock_get, mock_post):
+        orig_count = Object.query().count()
+
         mock_get.side_effect = (
             requests_response(REPLY_HTML, status=405,
                               content_type=CONTENT_TYPE_HTML),
@@ -502,9 +517,11 @@ class WebTest(TestCase):
         got = self.client.post('/_ah/queue/webmention',
                                data={'source': 'https://user.com/post'})
         self.assertEqual(502, got.status_code)
-        self.assertEqual(0, Object.query().count())
+        self.assertEqual(orig_count, Object.query().count())
 
     def test_no_source_entry(self, mock_get, mock_post):
+        orig_count = Object.query().count()
+
         mock_get.return_value = requests_response("""
 <html>
 <body>
@@ -517,7 +534,7 @@ class WebTest(TestCase):
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(304, got.status_code)
-        self.assertEqual(0, Object.query().count())
+        self.assertEqual(orig_count, Object.query().count())
 
         mock_get.assert_has_calls((self.req('https://user.com/post'),))
 
@@ -548,44 +565,68 @@ class WebTest(TestCase):
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(204, got.status_code)
 
         mock_get.assert_has_calls((self.req('https://user.com/post'),))
 
     def test_bad_target_url(self, mock_get, mock_post):
         mock_get.side_effect = (
             requests_response(
-                REPLY_HTML.replace('https://mas.to/toot', 'bad'),
+                REPLY_HTML.replace('https://mas.to/toot', 'bad:nope'),
                 content_type=CONTENT_TYPE_HTML, url='https://user.com/reply'),
-            ValueError('foo bar'),
+            ValueError('foo bar'),  # AS2 fetch
+            ValueError('foo bar'),  # HTML fetch
         )
 
         got = self.client.post('/_ah/queue/webmention',
                                data={'source': 'https://user.com/reply'})
-        self.assertEqual(400, got.status_code)
+        self.assertEqual(204, got.status_code)
+
+        self.assert_object('https://user.com/reply',
+                           users=[g.user.key],
+                           source_protocol='web',
+                           type='comment',
+                           status='ignored',
+                           labels=['user'],
+                           ignore=['mf2'],
+                           )
 
     def test_target_fetch_fails(self, mock_get, mock_post):
-        mock_get.side_effect = (
+        mock_get.side_effect = [
             requests_response(
-                REPLY_HTML.replace('https://mas.to/toot', 'bad'),
+                REPLY_HTML.replace('https://mas.to/toot', 'bad:nope'),
                 url='https://user.com/post', content_type=CONTENT_TYPE_HTML),
-            requests.Timeout('foo bar'))
+            # http://not/fediverse AP protocol discovery
+            requests.Timeout('foo bar'),
+            # http://not/fediverse web protocol discovery
+            requests.Timeout('foo bar'),
+        ]
 
         got = self.client.post('/_ah/queue/webmention',
                                data={'source': 'https://user.com/reply'})
-        self.assertEqual(502, got.status_code)
+        self.assertEqual(204, got.status_code)
 
     def test_target_fetch_has_no_content_type(self, mock_get, mock_post):
+        Object(id='http://not/fediverse', mf2=NOTE_MF2, source_protocol='web').put()
+
+        no_content_type = requests_response(REPLY_HTML, content_type='')
+
         mock_get.side_effect = (
             requests_response(REPLY_HTML, url='https://user.com/reply'),
-            requests_response(REPLY_HTML, url='https://user.com/reply',
-                              content_type='None'),
+            # requests:
+            no_content_type,  # https://mas.to/toot AP protocol discovery
+            no_content_type,  # https://mas.to/toot Web protocol discovery
+            no_content_type,  # https://user.com/ webmention discovery
+            no_content_type,  # http://not/fediverse webmention discovery
         )
         got = self.client.post('/_ah/queue/webmention',
                                data={'source': 'https://user.com/reply'})
-        self.assertEqual(502, got.status_code)
+        self.assertEqual(204, got.status_code)
+        mock_post.assert_not_called()
 
     def test_missing_backlink(self, mock_get, mock_post):
+        orig_count = Object.query().count()
+
         mock_get.return_value = requests_response(
             REPLY_HTML.replace('<a href="http://localhost/"></a>', ''),
             url='https://user.com/reply', content_type=CONTENT_TYPE_HTML)
@@ -595,7 +636,7 @@ class WebTest(TestCase):
             'target': 'https://fed.brid.gy/',
         })
         self.assertEqual(304, got.status_code)
-        self.assertEqual(0, Object.query().count())
+        self.assertEqual(orig_count, Object.query().count())
 
         mock_get.assert_has_calls((self.req('https://user.com/reply'),))
 
@@ -609,21 +650,22 @@ class WebTest(TestCase):
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(204, got.status_code)
 
     def test_create_reply(self, mock_get, mock_post):
         mock_get.side_effect = ACTIVITYPUB_GETS
-        mock_post.return_value = requests_response('abc xyz', status=203)
+        mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(203, got.status_code)
+        self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('https://user.com/reply'),
             self.as2_req('http://not/fediverse'),
+            self.req('http://not/fediverse'),
             self.as2_req('https://mas.to/toot'),
             self.as2_req('https://mas.to/author'),
         ))
@@ -722,24 +764,32 @@ class WebTest(TestCase):
 
         https://github.com/snarfed/bridgy-fed/issues/40
         """
-        del TOOT_AS2_DATA['actor']
-        TOOT_AS2_DATA['attributedTo'] = {
+        toot_as2_data = copy.deepcopy(TOOT_AS2_DATA)
+        del toot_as2_data['actor']
+        toot_as2_data['attributedTo'] = {
             'type': 'Person',
             'id': 'https://mas.to/author',
         }
 
-        mock_get.side_effect = [REPLY, NOT_FEDIVERSE, TOOT_AS2, ACTOR]
-        mock_post.return_value = requests_response('abc xyz', status=203)
+        mock_get.side_effect = [
+            REPLY,
+            NOT_FEDIVERSE,  # AP
+            NOT_FEDIVERSE,  # Web
+            self.as2_resp(toot_as2_data),  # AP
+            ACTOR,
+        ]
+        mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(203, got.status_code)
+        self.assertEqual(200, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('https://user.com/reply'),
             self.as2_req('http://not/fediverse'),
+            self.req('http://not/fediverse'),
             self.as2_req('https://mas.to/toot'),
             self.as2_req('https://mas.to/author'),
         ))
@@ -802,9 +852,10 @@ class WebTest(TestCase):
     def test_link_rel_alternate_as2(self, mock_get, mock_post):
         mock_get.side_effect = [
             REPLY,
-            NOT_FEDIVERSE,
-            TOOT_HTML,
-            TOOT_AS2,
+            NOT_FEDIVERSE,  # AP
+            NOT_FEDIVERSE,  # Web
+            TOOT_HTML,      # AP
+            TOOT_AS2,       # AP via rel-alternate
             ACTOR,
         ]
         mock_post.return_value = requests_response('abc xyz')
@@ -818,6 +869,7 @@ class WebTest(TestCase):
         mock_get.assert_has_calls((
             self.req('https://user.com/reply'),
             self.as2_req('http://not/fediverse'),
+            self.req('http://not/fediverse'),
             self.as2_req('https://mas.to/toot'),
             self.as2_req('https://mas.to/toot/id', headers=as2.CONNEG_HEADERS),
             self.as2_req('https://mas.to/author'),
@@ -828,7 +880,7 @@ class WebTest(TestCase):
         self.assert_equals(AS2_CREATE, json_loads(kwargs['data']))
 
     def test_like_stored_object_without_as2(self, mock_get, mock_post):
-        Object(id='https://mas.to/toot', mf2=NOTE_MF2).put()
+        Object(id='https://mas.to/toot', mf2=NOTE_MF2, source_protocol='ap').put()
         Object(id='https://user.com/', mf2=ACTOR_MF2).put()
         mock_get.side_effect = [
             LIKE,
@@ -838,7 +890,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/like',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(204, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('https://user.com/like'),
@@ -867,13 +919,13 @@ class WebTest(TestCase):
 </html>
 """, url='https://user.com/repost', content_type=CONTENT_TYPE_HTML)
         mock_get.side_effect = [missing_url, TOOT_AS2, ACTOR]
-        mock_post.return_value = requests_response('abc xyz', status=203)
+        mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(203, got.status_code)
+        self.assertEqual(200, got.status_code)
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
@@ -894,13 +946,13 @@ class WebTest(TestCase):
 </html>
 """, url='https://user.com/repost', content_type=CONTENT_TYPE_HTML)
         mock_get.side_effect = [repost, ACTOR, TOOT_AS2, ACTOR]
-        mock_post.return_value = requests_response('abc xyz', status=201)
+        mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(201, got.status_code)
+        self.assertEqual(200, got.status_code)
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
@@ -1166,13 +1218,13 @@ class WebTest(TestCase):
             requests_response(
                 html, url='https://user.com/follow',
                 content_type=CONTENT_TYPE_HTML),
-            ACTOR,
             self.as2_resp({
                 'objectType': 'Person',
                 'displayName': 'Mr. ☕ Biff',
                 'id': 'https://mas.to/mr-biff',
                 'inbox': 'https://mas.to/inbox/biff',
             }),
+            ACTOR,
         ]
         mock_post.return_value = requests_response('unused')
 
@@ -1184,8 +1236,8 @@ class WebTest(TestCase):
 
         mock_get.assert_has_calls((
             self.req('https://user.com/follow'),
-            self.as2_req('https://mas.to/mrs-foo'),
             self.as2_req('https://mas.to/mr-biff'),
+            self.as2_req('https://mas.to/mrs-foo'),
         ))
 
         calls = mock_post.call_args_list
@@ -1339,7 +1391,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(204, got.status_code)
         mock_post.assert_not_called()
 
     def test_update_profile(self, mock_get, mock_post):

@@ -20,7 +20,6 @@ from oauth_dropins.webutil import webmention
 from requests import HTTPError, RequestException, URLRequired
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 
-import activitypub
 import common
 from flask_app import app, cache
 from models import Follower, Object, PROTOCOLS, Target, User
@@ -192,7 +191,7 @@ class Web(User, Protocol):
 
         # check home page
         try:
-            self.obj = Web.load(self.web_url(), gateway=True)
+            self.obj = Web.load(self.web_url(), remote=True, gateway=True)
             self.has_hcard = True
         except (BadRequest, NotFound, common.NoMicroformats):
             self.obj = None
@@ -262,7 +261,7 @@ class Web(User, Protocol):
         return obj.key.id()
 
     @classmethod
-    def send(cls, obj, url):
+    def send(cls, obj, url, **kwargs):
         """Sends a webmention to a given target URL.
 
         See :meth:`Protocol.send` for details.
@@ -546,17 +545,17 @@ def webmention_task():
             'object': actor_as1,
         })
 
-    inboxes_to_targets = _activitypub_targets(obj)
+    targets = _targets(obj)  # maps Target to Object or None
 
     obj.populate(
         users=[g.user.key],
         source_protocol='web',
     )
-    if not inboxes_to_targets:
+    if not targets:
         obj.labels.append('user')
         obj.status = 'ignored'
         obj.put()
-        return 'No targets'
+        return 'No targets', 204
 
     err = None
     last_success = None
@@ -609,60 +608,47 @@ def webmention_task():
             logger.info(msg)
             return msg, 204
 
-    # TODO: collect by inbox, add 'to' fields, de-dupe inboxes and recipients
-    #
-    # make copy of undelivered because we modify it below
     obj.populate(
         status='in progress',
         labels=['user'],
         delivered=[],
         failed=[],
-        undelivered=[Target(uri=uri, protocol='activitypub')
-                     for uri in inboxes_to_targets.keys()],
+        undelivered=[Target(uri=uri, protocol=cls.LABEL)
+                     for cls, uri in targets.keys()],
     )
 
-    logger.info(f'Delivering to inboxes: {sorted(t.uri for t in obj.undelivered)}')
-    for target in list(obj.undelivered):
-        inbox = target.uri
-        assert inbox
-        if inbox in inboxes_to_targets:
-            target_as2 = inboxes_to_targets[inbox]
-        else:
-            logger.warning(f'Missing target_as2 for inbox {inbox}!')
-            target_as2 = None
+    logger.info(f'Delivering to: {sorted(obj.undelivered, key=lambda t: t.uri)}')
+    # make copy of undelivered because we modify it below
+    # sort targets so order is deterministic for tests
+    for (protocol, target), orig_obj in sorted(targets.items()):
+        assert target
 
         if obj.type == 'follow':
-            # prefer AS2 id or url, if available
-            # https://github.com/snarfed/bridgy-fed/issues/307
-            dest = target_as2 or as2.from_as1(as1.get_object(obj.as1))
-            dest_id = dest.get('id') or util.get_url(dest)
-            if not dest_id:
-                error('follow missing target')
-
-            # TODO(#512): generalize across protocols
-            to_obj = Object.get_or_insert(dest_id, as2=dest)
-            to_ = activitypub.ActivityPub.get_or_create(id=dest_id, obj=to_obj)
-
-            Follower.get_or_create(to=to_, from_=g.user, follow=obj.key)
+            # should be guaranteed by _targets()
+            assert orig_obj and orig_obj.as1
+            to = protocol.get_or_create(id=orig_obj.key.id(), obj=orig_obj)
+            Follower.get_or_create(to=to, from_=g.user, follow=obj.key)
 
         # this is reused later in ActivityPub.send()
         # TODO: find a better way
-        obj.target_as2 = target_as2
+        obj.orig_obj = orig_obj
+        target_prop = Target(uri=target, protocol=protocol.LABEL)
 
         try:
-            last = activitypub.ActivityPub.send(obj, inbox, log_data=log_data)
-            obj.delivered.append(target)
-            last_success = last
+            sent = protocol.send(obj, target, log_data=log_data)
+            if sent:
+                obj.delivered.append(target_prop)
+                obj.undelivered.remove(target_prop)
         except BaseException as e:
             code, body = util.interpret_http_exception(e)
             if not code and not body:
                 raise
-            obj.failed.append(target)
+            obj.failed.append(target_prop)
+            obj.undelivered.remove(target_prop)
             err = e
         finally:
             log_data = False
 
-        obj.undelivered.remove(target)
         obj.put()
 
     obj.status = ('complete' if obj.delivered
@@ -670,96 +656,84 @@ def webmention_task():
                   else 'ignored')
     obj.put()
 
-    # Pass the AP response status code and body through as our response
-    if last_success:
-        return last_success.text or 'Sent!', last_success.status_code
+    # Pass the response status code and body through as our response
+    if obj.delivered:
+        return 'OK', 200
     elif isinstance(err, BadGateway):
         raise err
     elif isinstance(err, HTTPError):
         return str(err), err.status_code
+    elif obj.status == 'ignored':
+        return 'Nothing to do', 204
     else:
-        return str(err)
+        return str(err) if err else r'¯\_(ツ)_/¯'
 
 
-def _activitypub_targets(obj):
-    """
+def _targets(obj):
+    """Collects the targets to send an :class:`models.Object` to.
+
     Args:
       obj: :class:`models.Object`
 
-    Returns: dict of {str inbox URL: dict target AS2 object}
+    Returns: dict: {
+      (:class:`Protocol`:, :str: target URI) tuple: recipient :class:`Object` or None
+    }
     """
+    logger.info('Finding recipients and their targets')
+
     # if there's in-reply-to, like-of, or repost-of, they're the targets.
     # otherwise, it's all followers' inboxes.
-    targets = util.get_urls(obj.as1, 'inReplyTo')
+    # sort so order is deterministic for tests.
+    orig_ids = sorted(as1.get_ids(obj.as1, 'inReplyTo'))
     verb = obj.as1.get('verb')
-    if targets:
-        logger.info(f'targets from inReplyTo: {targets}')
+    if orig_ids:
+        logger.info(f'original object ids from inReplyTo: {orig_ids}')
     elif verb in as1.VERBS_WITH_OBJECT:
-        targets = util.get_urls(obj.as1, 'object')
-        logger.info(f'targets from object: {targets}')
+        # prefer id or url, if available
+        # https://github.com/snarfed/bridgy-fed/issues/307
+        orig_ids = (as1.get_ids(obj.as1, 'object')
+                    or util.get_urls(obj.as1, 'object'))
+        if not orig_ids:
+            error(f'{verb} missing target URL')
+        logger.info(f'original object ids from object: {orig_ids}')
 
-    targets = common.remove_blocklisted(targets)
-
-    inboxes_to_targets = {}
-    target_obj = None
-    for target in targets:
-        # fetch target page as AS2 object
-        try:
-            # TODO: make this generic across protocols
-            target_stored = activitypub.ActivityPub.load(target)
-            target_obj = target_stored.as_as2()
-        except (HTTPError, BadGateway) as e:
-            resp = getattr(e, 'requests_response', None)
-            if resp and resp.ok:
-                type = common.content_type(resp)
-                if type and type.startswith('text/html'):
-                    continue  # give up
-            raise
-
-        inbox_url = target_obj.get('inbox')
-        if not inbox_url:
-            # TODO: test actor/attributedTo and not, with/without inbox
-            actor = (util.get_first(target_obj, 'actor') or
-                     util.get_first(target_obj, 'attributedTo'))
-            if isinstance(actor, dict):
-                inbox_url = actor.get('inbox')
-                actor = util.get_first(actor, 'url') or actor.get('id')
-            if not inbox_url and not actor:
-                error('Target object has no actor or attributedTo with URL or id.', status=304)
-            elif not isinstance(actor, str):
-                error(f'Target actor or attributedTo has unexpected url or id object: {actor}', status=304)
-
-        if not inbox_url:
-            # fetch actor as AS object
-            # TODO: make this generic across protocols
-            actor = activitypub.ActivityPub.load(actor).as_as2()
-            inbox_url = actor.get('inbox')
-
-        if not inbox_url:
-            # TODO: probably need a way to surface errors like this
-            logger.error('Target actor has no inbox')
+    orig_ids = sorted(common.remove_blocklisted(orig_ids))
+    orig_obj = None
+    targets = {}
+    for id in orig_ids:
+        protocol = Protocol.for_id(id)
+        if not protocol:
+            logger.info(f"Can't determine protocol for {id}")
             continue
 
-        inbox_url = urljoin(target, inbox_url)
-        inboxes_to_targets[inbox_url] = target_obj
+        orig_obj = protocol.load(id)
+        if not orig_obj or not orig_obj.as1:
+            logger.info(f"Couldn't load {id}")
+            continue
+
+        target = protocol.target_for(orig_obj)
+        if target:
+            targets[protocol, target] = orig_obj
+            logger.info(f'Target for {id} is {target}')
+            continue
+
+        # TODO: surface errors like this somehow?
+        logger.error(f"Can't find delivery target for {id}")
 
     if not targets or verb == 'share':
         logger.info('Delivering to followers')
         for follower in Follower.query(Follower.to == g.user.key,
                                        Follower.status == 'active'):
             recip = follower.from_.get()
-            inbox = None
-            # TODO(#512): generalize across protocols
-            if recip and recip.obj and recip.obj.as2:
-                inbox = (recip.obj.as2.get('endpoints', {}).get('sharedInbox') or
-                         recip.obj.as2.get('publicInbox') or
-                         recip.obj.as2.get('inbox'))
-            if inbox:
-                # HACK: use last target object from above for reposts, which
-                # has its resolved id
-                inboxes_to_targets[inbox] = (target_obj if verb == 'share' else None)
-            else:
-                # TODO: probably need a way to surface errors like this
-                logger.error(f'Follower {follower.from_} has no entity or inbox')
+            target = recip.target_for(recip.obj, shared=True) if recip.obj else None
+            if not target:
+                # TODO: surface errors like this somehow?
+                logger.error(f'Follower {follower.from_} has no delivery target')
+                continue
 
-    return inboxes_to_targets
+            # HACK: use last target object from above for reposts, which
+            # has its resolved id
+            obj = orig_obj if verb == 'share' else None
+            targets[recip.__class__, target] = obj
+
+    return targets

@@ -304,9 +304,11 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         if got.mf2:
             got.mf2.pop('url', None)
 
+        ignore = props.pop('ignore', [])
         self.assert_entities_equal(Object(id=id, **props), got,
                                    ignore=['as1', 'created', 'expire',
-                                           'object_ids', 'type', 'updated'])
+                                           'object_ids', 'type', 'updated'
+                                           ] + ignore)
         return got
 
     def assert_user(self, cls, id, **props):

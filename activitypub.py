@@ -109,7 +109,7 @@ class ActivityPub(User, Protocol):
             return None
 
         if obj.type not in as1.ACTOR_TYPES:
-            for field in 'actor', 'author':
+            for field in 'actor', 'author', 'attributedTo':
                 inner_obj = as1.get_object(obj.as1, field)
                 inner_id = inner_obj.get('id') or as1.get_url(inner_obj)
                 if not inner_id:
@@ -132,18 +132,22 @@ class ActivityPub(User, Protocol):
             if shared_inbox:
                 return shared_inbox
 
-        return actor.get('inbox') or actor.get('publicInbox')
+        return actor.get('publicInbox') or actor.get('inbox')
 
     @classmethod
     def send(cls, obj, url, log_data=True):
-        """Delivers an activity to an inbox URL."""
-        # this is set in web.webmention_task()
-        target = getattr(obj, 'target_as2', None)
+        """Delivers an activity to an inbox URL.
 
-        activity = obj.as2 or postprocess_as2(as2.from_as1(obj.as1), target=target)
+        If `obj.recipient_obj` is set, it's interpreted as the receiving actor
+        who we're delivering to and its id is populated into `cc`.
+        """
+        # this is set in web.webmention_task()
+        orig_obj = getattr(obj, 'orig_obj', None)
+        orig_as2 = orig_obj.as_as2() if orig_obj else None
+        activity = obj.as2 or postprocess_as2(as2.from_as1(obj.as1),
+                                              orig_obj=orig_as2)
         activity['actor'] = g.user.ap_actor()
-        return signed_post(url, log_data=True, data=activity)
-        # TODO: return bool or otherwise unify return value with others
+        return signed_post(url, log_data=True, data=activity).ok
 
     @classmethod
     def fetch(cls, obj, **kwargs):
@@ -385,14 +389,14 @@ def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
     return resp
 
 
-def postprocess_as2(activity, target=None, wrap=True):
+def postprocess_as2(activity, orig_obj=None, wrap=True):
     """Prepare an AS2 object to be served or sent via ActivityPub.
 
     g.user is required. Populates it into the actor.id and publicKey fields.
 
     Args:
       activity: dict, AS2 object or activity
-      target: dict, AS2 object, optional. The target of activity's inReplyTo or
+      orig_obj: dict, AS2 object, optional. The target of activity's inReplyTo or
         Like/Announce/etc object, if any.
       wrap: boolean, whether to wrap id, url, object, actor, and attributedTo
     """
@@ -429,12 +433,12 @@ def postprocess_as2(activity, target=None, wrap=True):
                 activity[field] = activity[field][0]
 
     # inReplyTo: singly valued, prefer id over url
-    # TODO: ignore target, do for all inReplyTo
-    target_id = target.get('id') if target else None
+    # TODO: ignore orig_obj, do for all inReplyTo
+    orig_id = orig_obj.get('id') if orig_obj else None
     in_reply_to = activity.get('inReplyTo')
     if in_reply_to:
-        if target_id:
-            activity['inReplyTo'] = target_id
+        if orig_id:
+            activity['inReplyTo'] = orig_id
         elif isinstance(in_reply_to, list):
             if len(in_reply_to) > 1:
                 logger.warning(
@@ -446,9 +450,10 @@ def postprocess_as2(activity, target=None, wrap=True):
         # notification to the original post's author. not required for likes,
         # reposts, etc. details:
         # https://github.com/snarfed/bridgy-fed/issues/34
-        if target:
-            for to in (util.get_list(target, 'attributedTo') +
-                       util.get_list(target, 'actor')):
+        if orig_obj:
+            for to in (util.get_list(orig_obj, 'attributedTo') +
+                       util.get_list(orig_obj, 'author') +
+                       util.get_list(orig_obj, 'actor')):
                 if isinstance(to, dict):
                     to = util.get_first(to, 'url') or to.get('id')
                 if to:
@@ -460,11 +465,11 @@ def postprocess_as2(activity, target=None, wrap=True):
     # activity objects (for Like, Announce, etc): prefer id over url
     obj = as1.get_object(activity)
     id = obj.get('id')
-    if target_id and type in as2.TYPES_WITH_OBJECT:
+    if orig_id and type in as2.TYPES_WITH_OBJECT:
         # inline most objects as bare string ids, not composite objects, for interop
-        activity['object'] = target_id
+        activity['object'] = orig_id
     elif not id:
-        obj['id'] = util.get_first(obj, 'url') or target_id
+        obj['id'] = util.get_first(obj, 'url') or orig_id
     elif g.user and g.user.is_web_url(id):
         obj['id'] = g.user.ap_actor()
 
@@ -501,8 +506,8 @@ def postprocess_as2(activity, target=None, wrap=True):
     # cc target's author(s) and recipients
     # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting
     # https://w3c.github.io/activitypub/#delivery
-    if target and type in as2.TYPE_TO_VERB:
-        recips = itertools.chain(*(util.get_list(target, field) for field in
+    if orig_obj and type in as2.TYPE_TO_VERB:
+        recips = itertools.chain(*(util.get_list(orig_obj, field) for field in
                                  ('actor', 'attributedTo', 'to', 'cc')))
         obj_or_activity['cc'] = sorted(util.dedupe_urls(
             util.get_url(recip) or recip.get('id') for recip in recips))
@@ -536,7 +541,7 @@ def postprocess_as2(activity, target=None, wrap=True):
             if not name.startswith('#'):
                 tag['name'] = f'#{name}'
 
-    activity['object'] = postprocess_as2(activity.get('object'), target=target,
+    activity['object'] = postprocess_as2(activity.get('object'), orig_obj=orig_obj,
                                          wrap=type in ('Create', 'Update', 'Delete'))
 
     return util.trim_nulls(activity)
