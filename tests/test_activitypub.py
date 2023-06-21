@@ -1784,10 +1784,11 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual('@swentel@mas.to', user.readable_id)
         self.assertEqual('@swentel@mas.to', user.readable_or_key_id())
 
-    def test_target_for(self):
+    def test_target_for_not_activitypub(self):
         with self.assertRaises(AssertionError):
             ActivityPub.target_for(Object(source_protocol='web'))
 
+    def test_target_for_actor(self):
         self.assertEqual(ACTOR['inbox'], ActivityPub.target_for(
             Object(source_protocol='ap', as2=ACTOR)))
 
@@ -1810,3 +1811,30 @@ class ActivityPubUtilsTest(TestCase):
             Object(source_protocol='ap', as2=actor)))
         self.assertEqual('so-shared', ActivityPub.target_for(
             Object(source_protocol='ap', as2=actor), shared=True))
+
+    def test_target_for_object(self):
+        obj = Object(as2=NOTE_OBJECT, source_protocol='ap')
+        self.assertIsNone(ActivityPub.target_for(obj))
+
+        Object(id=ACTOR['id'], as2=ACTOR).put()
+        obj.as2 = {
+            **NOTE_OBJECT,
+            'author': ACTOR['id'],
+        }
+        self.assertEqual('http://mas.to/inbox', ActivityPub.target_for(obj))
+
+        del obj.as2['author']
+        obj.as2['actor'] = copy.deepcopy(ACTOR)
+        obj.as2['actor']['url'] = [obj.as2['actor'].pop('id')]
+        self.assertEqual('http://mas.to/inbox', ActivityPub.target_for(obj))
+
+    @patch('requests.get')
+    def test_target_for_object_fetch(self, mock_get):
+        mock_get.return_value = self.as2_resp(ACTOR)
+
+        obj = Object(as2={
+            **NOTE_OBJECT,
+            'author': 'http://the/author',
+        }, source_protocol='ap')
+        self.assertEqual('http://mas.to/inbox', ActivityPub.target_for(obj))
+        mock_get.assert_has_calls([self.as2_req('http://the/author')])

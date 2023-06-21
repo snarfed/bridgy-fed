@@ -236,10 +236,6 @@ class Protocol:
           True if the activity is sent successfully, False if it is ignored due
           to protocol logic. (Failures are raised as exceptions.)
 
-        Returns:
-          True if the activity was sent successfully, False if it was discarded
-          or ignored due to protocol logic, ie not network or other failures
-
         Raises:
           :class:`werkzeug.HTTPException` if the request fails
         """
@@ -282,7 +278,7 @@ class Protocol:
 
     @classmethod
     def target_for(cls, obj, shared=False):
-        """Returns a recipient :class:`Object`'s delivery target (endpoint).
+        """Returns an :class:`Object`'s delivery target (endpoint).
 
         To be implemented by subclasses.
 
@@ -291,7 +287,8 @@ class Protocol:
         * If obj has `source_protocol` `'web'`, returns its URL, as a
           webmention target.
         * If obj is an `'activitypub'` actor, returns its inbox.
-        * If obj is another `'activitypub'` object, returns `None`.
+        * If obj is an `'activitypub'` object, returns it's author's or actor's
+          inbox.
 
         Args:
           obj: :class:`Object`
@@ -300,7 +297,7 @@ class Protocol:
             multiple recipients for efficiency
 
         Returns:
-          str target endpoint or `None`
+          str target endpoint, or `None` if not available.
         """
         raise NotImplementedError()
 

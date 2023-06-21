@@ -102,11 +102,28 @@ class ActivityPub(User, Protocol):
 
     @classmethod
     def target_for(cls, obj, shared=False):
-        """Returns `obj`'s inbox if it has one, otherwise `None`."""
-        assert obj.source_protocol in (cls.LABEL, cls.ABBREV)
+        """Returns `obj`'s or its author's/actor's inbox, if available."""
+        assert obj.source_protocol in (cls.LABEL, cls.ABBREV, 'ui', None), str(obj)
+
+        if not obj.as1:
+            return None
 
         if obj.type not in as1.ACTOR_TYPES:
-            logger.info(f'{obj.key} type {type} is not an actor')
+            for field in 'actor', 'author':
+                inner_obj = as1.get_object(obj.as1, field)
+                inner_id = inner_obj.get('id') or as1.get_url(inner_obj)
+                if not inner_id:
+                    continue
+
+                # TODO: need a "soft" kwarg for load to suppress errors?
+                actor = cls.load(inner_id)
+                if actor and actor.as1:
+                    target = cls.target_for(actor)
+                    if target:
+                        logger.info(f'Target for {obj.key} via {inner_id} is {target}')
+                        return target
+
+            logger.info(f'{obj.key} type {obj.type} is not an actor and has no author or actor with inbox')
 
         actor = obj.as_as2()
 
