@@ -252,7 +252,9 @@ class Web(User, Protocol):
     @classmethod
     def target_for(cls, obj, shared=False):
         """Returns `obj`'s id, as a URL webmention target."""
-        assert obj.source_protocol in (cls.LABEL, cls.ABBREV, 'ui', None)
+        # TODO: we have entities in prod that fail this, eg
+        # https://indieweb.social/users/bismark has source_protocol webmention
+        # assert obj.source_protocol in (cls.LABEL, cls.ABBREV, 'ui', None), str(obj)
 
         if not util.is_web(obj.key.id()):
             logger.warning(f"{obj.key} is source_protocol web but id isn't a URL!")

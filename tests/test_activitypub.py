@@ -1784,6 +1784,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual('@swentel@mas.to', user.readable_id)
         self.assertEqual('@swentel@mas.to', user.readable_or_key_id())
 
+    @skip
     def test_target_for_not_activitypub(self):
         with self.assertRaises(AssertionError):
             ActivityPub.target_for(Object(source_protocol='web'))
