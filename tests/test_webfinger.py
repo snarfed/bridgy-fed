@@ -199,6 +199,7 @@ class WebfingerTest(TestCase):
             'acct:notthisuser@boop.org',
             'acct:customuser@user.com',
         ]
+        self.user.obj.put()
         self.user.put()
 
         for resource in (

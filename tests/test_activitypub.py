@@ -1124,7 +1124,8 @@ class ActivityPubTest(TestCase):
                            labels=['activity'])
 
         obj.deleted = True
-        self.assert_entities_equal(obj, protocol.objects_cache['http://an/obj'])
+        self.assert_entities_equal(obj, protocol.objects_cache['http://an/obj'],
+                                   ignore=['expire', 'created', 'updated'])
 
     def test_update_note(self, *mocks):
         Object(id='https://a/note', as2={}).put()

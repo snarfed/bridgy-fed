@@ -116,6 +116,26 @@ class ObjectTest(TestCase):
         super().setUp()
         g.user = None
 
+    def test_ndb_in_memory_cache_off(self):
+        """It has a weird bug that we want to avoid.
+
+        https://github.com/googleapis/python-ndb/issues/888
+        """
+        from google.cloud.ndb import Model, StringProperty
+        class Foo(Model):
+            a = StringProperty()
+
+        f = Foo(id='x', a='asdf')
+        f.put()
+        # print(id(f))
+
+        f.a = 'qwert'
+
+        got = Foo.get_by_id('x')
+        # print(got)
+        # print(id(got))
+        self.assertEqual('asdf', got.a)
+
     def test_proxy_url(self):
         obj = Object(id='abc', source_protocol='bluesky')
         self.assertEqual('http://localhost/convert/bluesky/web/abc',

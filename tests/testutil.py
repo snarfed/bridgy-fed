@@ -139,7 +139,10 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         # clear datastore
         requests.post(f'http://{ndb_client.host}/reset')
-        self.ndb_context = ndb_client.context()
+        # disable in-memory cache
+        # (also in flask_app.py)
+        # https://github.com/googleapis/python-ndb/issues/888
+        self.ndb_context = ndb_client.context(cache_policy=lambda key: False)
         self.ndb_context.__enter__()
 
         util.now = lambda **kwargs: testutil.NOW

@@ -227,11 +227,13 @@ class ProtocolTest(TestCase):
         self.assertEqual(['foo'], Fake.fetched)
 
     def test_load_remote_true_unchanged(self):
-        obj = self.store_object(id='foo', our_as1={'x': 'stored'})
+        obj = self.store_object(id='foo', our_as1={'x': 'stored'},
+                                source_protocol='fake')
         Fake.objects['foo'] = {'x': 'stored'}
 
         loaded = Fake.load('foo', remote=True)
-        self.assert_entities_equal(obj, loaded)
+        self.assert_entities_equal(obj, loaded,
+                                   ignore=['expire', 'created', 'updated'])
         self.assertFalse(loaded.changed)
         self.assertFalse(loaded.new)
         self.assertEqual(['foo'], Fake.fetched)

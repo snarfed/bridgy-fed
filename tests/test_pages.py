@@ -55,10 +55,10 @@ class PagesTest(TestCase):
 
     def test_user_web_custom_username_doesnt_redirect(self):
         """https://github.com/snarfed/bridgy-fed/issues/534"""
-        self.user.obj = Object(id='a', as2={
+        self.user.obj_key = Object(id='a', as2={
             **ACTOR_AS2,
             'url': 'acct:baz@user.com',
-        })
+        }).put()
         self.user.put()
         self.assertEqual('baz', self.user.username())
 

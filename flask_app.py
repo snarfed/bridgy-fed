@@ -47,7 +47,12 @@ app.url_map.merge_slashes = False
 app.url_map.redirect_defaults = False
 
 app.wsgi_app = flask_util.ndb_context_middleware(
-    app.wsgi_app, client=appengine_config.ndb_client)
+    app.wsgi_app, client=appengine_config.ndb_client,
+    # disable in-memory cache
+    # (also in tests/testutil.py)
+    # https://github.com/googleapis/python-ndb/issues/888
+    cache_policy=lambda key: False,
+)
 
 cache = Cache(app)
 
