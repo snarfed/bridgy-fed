@@ -11,6 +11,7 @@ from .testutil import Fake, TestCase
 
 from models import AtpNode, Follower, Object, OBJECT_EXPIRE_AGE
 import protocol
+from protocol import Protocol
 from web import Web
 
 from .test_activitypub import ACTOR

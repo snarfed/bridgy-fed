@@ -625,7 +625,12 @@ class Protocol:
             with objects_cache_lock:
                 cached = objects_cache.get(id)
                 if cached:
-                    return cached
+                    # make a copy so that if the client modifies this entity in
+                    # memory, those modifications aren't applied to the cache
+                    # until they explicitly put() the modified entity.
+                    return Object(id=cached.key.id(), **cached.to_dict(
+                        # computed properties
+                        exclude=['as1', 'expire', 'object_ids', 'type']))
 
         obj = orig_as1 = None
         if local:

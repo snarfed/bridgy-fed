@@ -196,10 +196,15 @@ class ProtocolTest(TestCase):
         self.assertEqual([], Fake.fetched)
 
     def test_load_cached(self):
-        obj = Object(our_as1={'x': 'y'})
+        obj = Object(id='foo', our_as1={'x': 'y'})
         protocol.objects_cache['foo'] = obj
         loaded = Fake.load('foo')
         self.assert_entities_equal(obj, loaded)
+
+        # check that it's a separate copy of the entity in the cache
+        # https://github.com/snarfed/bridgy-fed/issues/558#issuecomment-1603203927
+        loaded.our_as1 = {'a': 'b'}
+        self.assertEqual({'x': 'y'}, Protocol.load('foo').our_as1)
 
     def test_load_remote_true_existing_empty(self):
         Fake.objects['foo'] = {'x': 'y'}
