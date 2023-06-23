@@ -35,6 +35,7 @@ Bridgy Fed takes some technical know-how to set up, and there are simpler (but l
 <li><a href="#profile">How do I set up my profile?</a></li>
 <li><a href="#update-profile">How do I update my profile?</a></li>
 <li><a href="#user-page">Where's my user page and dashboard?</a></li>
+<li><a href="#mastodon-link-verification">How do I verify my profile links (ie get green checks) in Mastodon?</a></li>
 
 <br>
 <p><em>Usage</em></p>
@@ -195,6 +196,23 @@ Your site's fediverse profile comes from the <a href="https://microformats.org/w
 <a href="/web-site">Enter your domain here</a> to see your user page. It shows your site's current status, recent interactions, remote follow UI, and links to your timeline feeds in various formats.
 </p>
 </li>
+
+<li id="mastodon-link-verification" class="question">How do I verify my profile links (ie get green checks) in Mastodon?</li>
+<li class="answer">
+<p>Mastodon's verified profile links with ✅ green checks are fun! <a href="https://docs.joinmastodon.org/user/profile/#verification"></a> Follow these steps to get one on your Bridgy Fed profile:</p>
+
+<ul>
+<li>Add a <a href="https://indieweb.org/rel-me"><code>rel=me</code> link</a> on your site that points to <code>https://fed.brid.gy/r/https://[DOMAIN]/</code> for your domain, eg <code>https://fed.brid.gy/r/https://snarfed.org/</code></li>
+<li>Click the 🔄 button on your Bridgy Fed <a href="#user-page">user page</a> to update your profile on all of your followers' instances.</li>
+<li>Log into any Mastodon instance where you have an account.</li>
+<li>Search for your fediverse handle, eg <code>@snarfed.org@snarfed.org</code>.</li>
+<li>Click on your fediverse user in the search results.</li>
+<li>Wait a minute or two (or ten 😐), then refresh the page. You should see a green check on the profile link for your web site.</li>
+</ul>
+
+<p>When you're logged into a Mastodon instance, searching for your Bridgy Fed user triggers that instance to check and verify its profile link(s) in the background. This only works when you're logged in with a native Mastodon account. Also, each instance does this independently; verified links are not synched across instances.</p>
+</li>
+
 
 <br>
 <h3 id="usage">Usage</h3>
