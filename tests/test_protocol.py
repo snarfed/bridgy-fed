@@ -15,8 +15,9 @@ import protocol
 from protocol import Protocol
 from ui import UIProtocol
 from web import Web
+from werkzeug.exceptions import BadRequest
 
-from .test_activitypub import ACTOR, REPLY
+from .test_activitypub import ACTOR, REPLY, REPLY_OBJECT
 from .test_web import ACTOR_HTML
 
 REPLY = {
@@ -88,6 +89,29 @@ class ProtocolTest(TestCase):
         self.assertEqual('https://fa.brid.gy/', Fake.subdomain_url())
         self.assertEqual('https://fa.brid.gy/foo?bar', Fake.subdomain_url('foo?bar'))
         self.assertEqual('https://fed.brid.gy/', UIProtocol.subdomain_url())
+
+    def test_receive_from_bridgy_fed_fails(self):
+        with self.assertRaises(BadRequest):
+            Fake.receive('https://fed.brid.gy/r/foo', as2=REPLY)
+
+        self.assertIsNone(Object.get_by_id('https://fed.brid.gy/r/foo'))
+
+        with self.assertRaises(BadRequest):
+            Fake.receive('foo', as2={
+                **REPLY,
+                'id': 'https://web.brid.gy/r/foo',
+            })
+
+        self.assertIsNone(Object.get_by_id('foo'))
+        self.assertIsNone(Object.get_by_id('https://web.brid.gy/r/foo'))
+
+        with self.assertRaises(BadRequest):
+            Fake.receive(REPLY['id'], as2={
+                **REPLY,
+                'actor': 'https://ap.brid.gy/user.com',
+            })
+
+        self.assertIsNone(Object.get_by_id(REPLY['id']))
 
     @patch('requests.get')
     def test_receive_reply_not_feed_not_notification(self, mock_get):

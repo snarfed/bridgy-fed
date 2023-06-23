@@ -161,6 +161,36 @@ class ObjectTest(TestCase):
         obj.put()
         self.assert_entities_equal(obj, Object.get_by_id('ab^^c'))
 
+    def test_get_by_id_uses_cache(self):
+        obj = Object(id='foo', our_as1={'x': 'y'})
+        protocol.objects_cache['foo'] = obj
+        loaded = Fake.load('foo')
+        self.assert_entities_equal(obj, loaded)
+
+        # check that it's a separate copy of the entity in the cache
+        # https://github.com/snarfed/bridgy-fed/issues/558#issuecomment-1603203927
+        loaded.our_as1 = {'a': 'b'}
+        self.assertEqual({'x': 'y'}, Protocol.load('foo').our_as1)
+
+    def test_put_cached_makes_copy(self):
+        obj = Object(id='foo', our_as1={'x': 'y'})
+        obj.put()
+        obj.our_as1 = {'a': 'b'}
+        # don't put()
+
+        self.assertEqual({'x': 'y'}, Fake.load('foo').our_as1)
+
+    def test_get_by_id_cached_makes_copy(self):
+        obj = Object(id='foo', our_as1={'x': 'y'})
+        protocol.objects_cache['foo'] = obj
+        loaded = Fake.load('foo')
+        self.assert_entities_equal(obj, loaded)
+
+        # check that it's a separate copy of the entity in the cache
+        # https://github.com/snarfed/bridgy-fed/issues/558#issuecomment-1603203927
+        loaded.our_as1 = {'a': 'b'}
+        self.assertEqual({'x': 'y'}, Protocol.load('foo').our_as1)
+
     def test_actor_link(self):
         for expected, as2 in (
                 ('href="">', {}),

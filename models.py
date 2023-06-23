@@ -429,10 +429,23 @@ class Object(StringIdModel):
     def _post_put_hook(self, future):
         """Update :meth:`Protocol.load` cache."""
         # TODO: assert that as1 id is same as key id? in pre put hook?
-        logger.info(f'Wrote Object {self.key.id()} {self.type} {self.status or ""} {self.labels} for {len(self.users)} users {len(self.domains)} domains')
+
+        # log, pruning data fields
+        props = self.to_dict()
+        for prop in 'as2', 'bsky', 'mf2':
+            if props.get(prop):
+                props[prop] = "..."
+        logger.info(f'Wrote {self.key} {props}')
+
         if '#' not in self.key.id():
             import protocol  # TODO: actually fix this circular import
-            protocol.objects_cache[self.key.id()] = self
+            # make a copy so that if we later modify this object in memory,
+            # those modifications don't affect the cache.
+            # NOTE: keep in sync with Protocol.load!
+            protocol.objects_cache[self.key.id()] = Object(
+                id=self.key.id(),
+                # exclude computed properties
+                **self.to_dict(exclude=['as1', 'expire', 'object_ids', 'type']))
 
     @classmethod
     def get_by_id(cls, id):

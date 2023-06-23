@@ -319,7 +319,9 @@ class Protocol:
         assert from_cls != Protocol
 
         if not id:
-            error('Activity has no id')
+            error('No id provided')
+        elif util.domain_from_link(id) in common.DOMAINS:
+            error(f'{id} is on a Bridgy Fed domain, which is not supported')
 
         # short circuit if we've already seen this activity id
         with seen_ids_lock:
@@ -330,11 +332,20 @@ class Protocol:
                 logger.info(msg)
                 return msg, 200
 
+        # block intra-BF ids
+        obj = Object(**props)
+        if obj.as1:
+            for field in 'id', 'actor', 'author', 'attributedTo':
+                val = as1.get_object(obj.as1, field).get('id')
+                if util.domain_from_link(val) in common.DOMAINS:
+                    error(f'{field} {val} is on Bridgy Fed, which is not supported')
+
+        # write real Object
         obj = Object.get_or_insert(id)
         obj.clear()
         obj.populate(source_protocol=from_cls.LABEL, **props)
-        obj.put()
 
+        obj.put()
         logger.info(f'Got AS1: {json_dumps(obj.as1, indent=2)}')
 
         if obj.type not in SUPPORTED_TYPES:
@@ -628,6 +639,7 @@ class Protocol:
                     # make a copy so that if the client modifies this entity in
                     # memory, those modifications aren't applied to the cache
                     # until they explicitly put() the modified entity.
+                    # NOTE: keep in sync with Object._post_put_hook!
                     return Object(id=cached.key.id(), **cached.to_dict(
                         # computed properties
                         exclude=['as1', 'expire', 'object_ids', 'type']))

@@ -1381,9 +1381,15 @@ class WebTest(TestCase):
                            labels=['user', 'activity'],
                            )
 
-    def test_repost_blocklisted_error(self, mock_get, mock_post):
+    def test_repost_twitter_blocklisted(self, *mocks):
+        self._test_repost_blocklisted_error('https://twitter.com/foo', *mocks)
+
+    def test_repost_bridgy_fed_blocklisted(self, *mocks):
+        self._test_repost_blocklisted_error('https://fed.brid.gy/foo', *mocks)
+
+    def _test_repost_blocklisted_error(self, orig_url, mock_get, mock_post):
         """Reposts of non-fediverse (ie blocklisted) sites aren't yet supported."""
-        repost_html = REPOST_HTML.replace('https://mas.to/toot', 'https://twitter.com/foo')
+        repost_html = REPOST_HTML.replace('https://mas.to/toot', orig_url)
         repost_resp = requests_response(repost_html, content_type=CONTENT_TYPE_HTML,
                                         url='https://user.com/repost')
         mock_get.side_effect = [repost_resp]
