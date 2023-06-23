@@ -65,7 +65,7 @@ pbr==5.11.1
 pkce==1.0.3
 praw==7.7.0
 prawcore==2.3.0
-proto-plus==1.22.2
+proto-plus==1.22.3
 protobuf==3.20.3
 pyasn1==0.5.0
 pyasn1-modules==0.3.0
