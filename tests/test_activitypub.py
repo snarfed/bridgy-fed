@@ -69,7 +69,7 @@ ACTOR_BASE_FULL = {
     'attachment': [{
         'name': 'Web site',
         'type': 'PropertyValue',
-        'value': '<a rel="me" href="https://user.com/">user.com</a>',
+        'value': '<a rel="me" href="https://user.com/"><span class="invisible">https://</span>user.com<span class="invisible">/</span></a>',
     }],
 }
 REPLY_OBJECT = {
@@ -1524,19 +1524,20 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals([{
             'type': 'PropertyValue',
             'name': 'Mrs. ☕ Foo',
-            'value': '<a rel="me" href="https://user.com/about-me">user.com/about-me</a>',
+            'value': '<a rel="me" href="https://user.com/about-me"><span class="invisible">https://</span>user.com/about-me<span class="invisible"></span></a>',
+
         }, {
             'type': 'PropertyValue',
             'name': 'Web site',
-            'value': '<a rel="me" href="https://user.com/">user.com</a>',
+            'value': '<a rel="me" href="https://user.com/"><span class="invisible">https://</span>user.com<span class="invisible">/</span></a>',
         }, {
             'type': 'PropertyValue',
             'name': 'one text',
-            'value': '<a rel="me" href="http://one">one</a>',
+            'value': '<a rel="me" href="http://one"><span class="invisible">http://</span>one<span class="invisible"></span></a>',
         }, {
             'type': 'PropertyValue',
             'name': 'two title',
-            'value': '<a rel="me" href="https://two">two</a>',
+            'value': '<a rel="me" href="https://two"><span class="invisible">https://</span>two<span class="invisible"></span></a>',
         }], got['attachment'])
 
     def test_postprocess_as2_preserves_preferredUsername(self):
@@ -1550,7 +1551,7 @@ class ActivityPubUtilsTest(TestCase):
             'attachment': [{
                 'type': 'PropertyValue',
                 'name': 'nick',
-                'value': '<a rel="me" href="https://user.com/about-me">user.com/about-me</a>'
+                'value': '<a rel="me" href="https://user.com/about-me"><span class="invisible">https://</span>user.com/about-me<span class="invisible"></span></a>',
             }],
         })['preferredUsername'])
 

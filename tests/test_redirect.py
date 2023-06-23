@@ -122,7 +122,7 @@ class RedirectTest(testutil.TestCase):
             'attachment': [{
                 'type': 'PropertyValue',
                 'name': 'Ms. ☕ Baz',
-                'value': '<a rel="me" href="https://user.com/">user.com</a>',
+                'value': '<a rel="me" href="https://user.com/"><span class="invisible">https://</span>user.com<span class="invisible">/</span></a>',
             }],
         })
 
