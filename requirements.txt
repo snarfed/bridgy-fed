@@ -42,7 +42,7 @@ grpc-google-iam-v1==0.12.6
 # 1.55.0 hangs on Mac in gunicorn/flask run with:
 # "Waiting for thread pool to idle before forking"
 # https://github.com/grpc/grpc/issues/31885
-grpcio==1.54.2
+grpcio==1.56.0
 gunicorn==20.1.0
 html2text==2020.1.16
 html5lib==1.1
