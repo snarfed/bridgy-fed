@@ -375,11 +375,12 @@ class Object(StringIdModel):
 
     @ComputedJsonProperty
     def as1(self):
-        # TODO: switch back to assert?
+        # TODO: bring back log or assert? we have prod entities that currently
+        # fail this though.
         # assert (self.as2 is not None) ^ (self.bsky is not None) ^ (self.mf2 is not None), \
         #     f'{self.as2} {self.bsky} {self.mf2}'
-        if bool(self.as2) + bool(self.bsky) + bool(self.mf2) > 1:
-            logger.warning(f'{self.key} has multiple! {bool(self.as2)} {bool(self.bsky)} {bool(self.mf2)}')
+        # if bool(self.as2) + bool(self.bsky) + bool(self.mf2) > 1:
+        #     logger.warning(f'{self.key} has multiple! {bool(self.as2)} {bool(self.bsky)} {bool(self.mf2)}')
 
         if self.our_as1 is not None:
             return redirect_unwrap(self.our_as1)
