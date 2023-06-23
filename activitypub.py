@@ -65,6 +65,21 @@ class ActivityPub(User, Protocol):
         """Returns fediverse handle ie WebFinger address, eg '@me@snarfed.org'."""
         return self.ap_address()
 
+    def _pre_put_hook(self):
+        """Validate id, require URL, don't allow Bridgy Fed domains.
+
+        TODO: normalize scheme and domain to lower case. Add that to
+        webutil.util.UrlCanonicalizer?
+        """
+        super()._pre_put_hook()
+        id = self.key.id()
+        assert id
+        assert util.is_web(id), f'{id} is not a URL'
+        domain = util.domain_from_link(id)
+        assert domain, 'missing domain'
+        assert util.domain_from_link(id) not in common.DOMAINS, \
+            f'{id} is a Bridgy Fed domain'
+
     def web_url(self):
         """Returns this user's web URL aka web_url, eg 'https://foo.com/'."""
         if self.obj and self.obj.as1:

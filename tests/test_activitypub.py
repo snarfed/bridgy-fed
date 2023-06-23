@@ -489,12 +489,12 @@ class ActivityPubTest(TestCase):
     def _test_inbox_create_obj(self, path, mock_head, mock_get, mock_post):
         Follower.get_or_create(to=ActivityPub.get_or_create(NOTE['actor']),
                                from_=self.user)
-        Follower.get_or_create(to=ActivityPub.get_or_create('http://other/actor'),
-                               from_=Fake.get_or_create('bar.com'))
+        Follower.get_or_create(to=ActivityPub.get_or_create('https://other.actor'),
+                               from_=Fake.get_or_create('http://bar'))
         Follower.get_or_create(to=ActivityPub.get_or_create(NOTE['actor']),
-                               from_=Fake.get_or_create('baz.com'))
+                               from_=Fake.get_or_create('http://baz'))
         Follower.get_or_create(to=ActivityPub.get_or_create(NOTE['actor']),
-                               from_=Fake.get_or_create('baj.com'),
+                               from_=Fake.get_or_create('http://baj'),
                                status='inactive')
 
         mock_head.return_value = requests_response(url='http://target')
@@ -511,7 +511,7 @@ class ActivityPubTest(TestCase):
         self.assert_object('http://mas.to/note/as2',
                            source_protocol='activitypub',
                            as2=expected_as2,
-                           users=[self.user.key, Fake(id='baz.com').key],
+                           users=[self.user.key, Fake(id='http://baz').key],
                            type='post',
                            labels=['activity', 'feed'],
                            object_ids=[NOTE_OBJECT['id']])
@@ -568,9 +568,9 @@ class ActivityPubTest(TestCase):
         Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']),
                                from_=self.user)
         Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']),
-                               from_=Fake.get_or_create('baz.com'))
+                               from_=Fake.get_or_create('http://baz'))
         Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']),
-                               from_=Fake.get_or_create('baj.com'),
+                               from_=Fake.get_or_create('http://baj'),
                                status='inactive')
 
         mock_head.return_value = requests_response(url='http://target')
@@ -592,7 +592,7 @@ class ActivityPubTest(TestCase):
                            source_protocol='activitypub',
                            status='ignored',
                            as2=REPOST_FULL,
-                           users=[self.user.key, Fake(id='baz.com').key],
+                           users=[self.user.key, Fake(id='http://baz').key],
                            type='share',
                            labels=['activity', 'feed'],
                            object_ids=[REPOST['object']])
@@ -1228,18 +1228,18 @@ class ActivityPubTest(TestCase):
 
         Follower.get_or_create(
             to=self.user,
-            from_=self.make_user('bar.com', cls=ActivityPub, obj_as2=ACTOR),
+            from_=self.make_user('http://bar', cls=ActivityPub, obj_as2=ACTOR),
             follow=follow)
         Follower.get_or_create(
-            to=self.make_user('other/actor', cls=ActivityPub),
+            to=self.make_user('https://other.actor', cls=ActivityPub),
             from_=self.user)
         Follower.get_or_create(
             to=self.user,
-            from_=self.make_user('baz.com', cls=ActivityPub, obj_as2=ACTOR),
+            from_=self.make_user('http://baz', cls=ActivityPub, obj_as2=ACTOR),
             follow=follow)
         Follower.get_or_create(
             to=self.user,
-            from_=self.make_user('baj.com', cls=Fake),
+            from_=self.make_user('http://baj', cls=Fake),
             status='inactive')
 
     def test_followers_collection_fake(self, *_):
@@ -1282,7 +1282,7 @@ class ActivityPubTest(TestCase):
     def test_followers_collection_page(self, *_):
         self.store_followers()
         before = (datetime.utcnow() + timedelta(seconds=1)).isoformat()
-        next = Follower.query(Follower.from_ == ActivityPub(id='baz.com').key,
+        next = Follower.query(Follower.from_ == ActivityPub(id='http://baz').key,
                               Follower.to == self.user.key,
                               ).get().updated.isoformat()
 
@@ -1322,17 +1322,17 @@ class ActivityPubTest(TestCase):
         follow = Object(id=FOLLOW_WITH_ACTOR['id'], as2=FOLLOW_WITH_ACTOR).put()
 
         Follower.get_or_create(
-            to=self.make_user('bar.com', cls=ActivityPub, obj_as2=ACTOR),
+            to=self.make_user('http://bar', cls=ActivityPub, obj_as2=ACTOR),
             from_=self.user,
             follow=follow)
         Follower.get_or_create(
             to=self.user,
-            from_=self.make_user('other/actor', cls=ActivityPub))
+            from_=self.make_user('https://other.actor', cls=ActivityPub))
         Follower.get_or_create(
-            to=self.make_user('baz.com', cls=ActivityPub, obj_as2=ACTOR),
+            to=self.make_user('http://baz', cls=ActivityPub, obj_as2=ACTOR),
             from_=self.user, follow=follow)
         Follower.get_or_create(
-            to=self.make_user('baj.com', cls=ActivityPub),
+            to=self.make_user('http://baj', cls=ActivityPub),
             from_=self.user,
             status='inactive')
 
@@ -1358,7 +1358,7 @@ class ActivityPubTest(TestCase):
     def test_following_collection_page(self, *_):
         self.store_following()
         after = datetime(1900, 1, 1).isoformat()
-        prev = Follower.query(Follower.to == ActivityPub(id='baz.com').key,
+        prev = Follower.query(Follower.to == ActivityPub(id='http://baz').key,
                               Follower.from_ == self.user.key,
                               ).get().updated.isoformat()
 
@@ -1412,6 +1412,19 @@ class ActivityPubUtilsTest(TestCase):
     def setUp(self):
         super().setUp()
         g.user = self.make_user('user.com', has_hcard=True, obj_as2=ACTOR)
+
+    def test_put_validates_id(self, *_):
+        for bad in (
+            '',
+            'not a url',
+            'ftp://not.web/url',
+            'https:///no/domain',
+            'https://fed.brid.gy/foo',
+            'https://ap.brid.gy/foo',
+            'http://localhost/foo',
+        ):
+            with self.assertRaises(AssertionError):
+                ActivityPub(id=bad).put()
 
     def test_owns_id(self):
         self.assertIsNone(ActivityPub.owns_id('http://foo'))

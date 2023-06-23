@@ -62,12 +62,13 @@ class Web(User, Protocol):
         if username != self.key.id():
             return util.domain_from_link(username, minimize=False)
 
-    def put(self, *args, **kwargs):
-        """Validate domain id, don't allow lower case or invalid characters."""
+    def _pre_put_hook(self):
+        """Validate domain id, don't allow upper case or invalid characters."""
+        super()._pre_put_hook()
         id = self.key.id()
         assert re.match(common.DOMAIN_RE, id)
         assert id.lower() == id, f'upper case is not allowed in Web key id: {id}'
-        return super().put(*args, **kwargs)
+        assert id not in common.DOMAINS, f'{id} is a Bridgy Fed domain'
 
     @classmethod
     def get_or_create(cls, id, **kwargs):
@@ -406,6 +407,9 @@ def check_web_site():
     domain = util.domain_from_link(url, minimize=False)
     if not domain:
         flash(f'No domain found in {url}')
+        return render_template('enter_web_site.html')
+    elif domain in common.DOMAINS:
+        flash(f'{domain} is a Bridgy Fed domain')
         return render_template('enter_web_site.html')
 
     g.user = Web.get_or_create(domain, direct=True)

@@ -161,8 +161,12 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             kwargs['p256_key'] = key.export_key(format='PEM')
 
         user = cls(id=id, **kwargs)
+        try:
+            user.put()
+        except AssertionError as e:
+            error(f'Bad {cls.__name__} id {id} : {e}')
+
         logger.info(f'Created new {user}')
-        user.put()
         return user
 
     @property

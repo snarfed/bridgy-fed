@@ -428,6 +428,9 @@ class WebTest(TestCase):
             'acct:user.com',
             'acct:@user.com@user.com',
             'acc:me@user.com',
+            'fed.brid.gy',
+            'ap.brid.gy',
+            'localhost',
         ):
             with self.assertRaises(AssertionError):
                 Web(id=bad).put()
@@ -1075,8 +1078,8 @@ class WebTest(TestCase):
 
         Follower.get_or_create(
             to=g.user,
-            from_=self.make_user('a', cls=ActivityPub, obj_as2={'inbox': 'https://inbox'}))
-
+            from_=self.make_user('http://a', cls=ActivityPub,
+                                 obj_as2={'inbox': 'https://inbox'}))
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
@@ -1405,13 +1408,13 @@ class WebTest(TestCase):
         mock_get.side_effect = [ACTOR_HTML_RESP]
         mock_post.return_value = requests_response('abc xyz')
         Follower.get_or_create(to=g.user, from_=self.make_user(
-            'ccc', cls=ActivityPub, obj_as2={
+            'http://ccc', cls=ActivityPub, obj_as2={
                 'endpoints': {
                     'sharedInbox': 'https://shared/inbox',
                 },
             }))
         Follower.get_or_create(to=g.user, from_=self.make_user(
-            'ddd', cls=ActivityPub, obj_as2={'inbox': 'https://inbox'}))
+            'http://ddd', cls=ActivityPub, obj_as2={'inbox': 'https://inbox'}))
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/',
@@ -1717,6 +1720,13 @@ http://this/404s
         got = self.client.post('/web-site', data={'url': '!!!'})
         self.assert_equals(200, got.status_code)
         self.assertEqual(['No domain found in !!!'], get_flashed_messages())
+        self.assertEqual(1, Web.query().count())
+
+    def test_check_web_site_bridgy_fed_domain(self, _, __):
+        got = self.client.post('/web-site', data={'url': 'https://fed.brid.gy/foo'})
+        self.assert_equals(200, got.status_code)
+        self.assertEqual(['fed.brid.gy is a Bridgy Fed domain'],
+                         get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
     def test_check_web_site_fetch_fails(self, mock_get, _):
