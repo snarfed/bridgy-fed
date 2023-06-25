@@ -192,8 +192,10 @@ FOLLOW_WITH_OBJECT = copy.deepcopy(FOLLOW)
 FOLLOW_WITH_OBJECT['object'] = ACTOR
 
 ACCEPT_FOLLOW = copy.deepcopy(FOLLOW_WITH_ACTOR)
+del ACCEPT_FOLLOW['@context']
 del ACCEPT_FOLLOW['actor']['@context']
 ACCEPT_FOLLOW['actor']['image'] = {'type': 'Image', 'url': 'https://user.com/me.jpg'}
+ACCEPT_FOLLOW['object'] = 'http://localhost/user.com'
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Accept',
@@ -202,7 +204,9 @@ ACCEPT = {
     'object': {
         **ACCEPT_FOLLOW,
         'url': 'https://mas.to/users/swentel#followed-https://user.com/',
+        'to': ['https://www.w3.org/ns/activitystreams#Public'],
     },
+   'to': ['https://www.w3.org/ns/activitystreams#Public'],
 }
 
 UNDO_FOLLOW_WRAPPED = {
@@ -763,18 +767,14 @@ class ActivityPubTest(TestCase):
                            object_ids=[FOLLOW['object']])
 
     def test_inbox_follow_accept_with_object(self, *mocks):
-        unwrapped_user = {
-            'id': FOLLOW['object'],
-            'url': FOLLOW['object'],
-        }
         follow = {
             **FOLLOW,
-            'object': unwrapped_user,
+            'object': {
+                'id': FOLLOW['object'],
+                'url': FOLLOW['object'],
+            },
         }
-        accept = copy.deepcopy(ACCEPT)
-        accept['object']['object'] = unwrapped_user
-
-        self._test_inbox_follow_accept(follow, accept, *mocks)
+        self._test_inbox_follow_accept(follow, ACCEPT, *mocks)
 
         follow.update({
             'actor': ACTOR,
@@ -838,9 +838,6 @@ class ActivityPubTest(TestCase):
         self.assertEqual(2, len(mock_post.call_args_list))
         args, kwargs = mock_post.call_args_list[0]
         self.assertEqual(('http://mas.to/inbox',), args)
-
-        accept_as2 = copy.deepcopy(accept_as2)
-        accept_as2['object']['actor']['@context'] = 'https://www.w3.org/ns/activitystreams'
         self.assertEqual(accept_as2, json_loads(kwargs['data']))
 
         # check webmention
@@ -861,7 +858,7 @@ class ActivityPubTest(TestCase):
             ignore=['created', 'updated'])
 
         self.assert_user(ActivityPub, ACTOR['id'],
-                         obj_as2=ACCEPT_FOLLOW['actor'],
+                         obj_as2=ACCEPT['object']['actor'],
                          direct=True)
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):

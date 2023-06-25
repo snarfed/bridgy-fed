@@ -455,49 +455,47 @@ class Protocol:
 
     @classmethod
     def accept_follow(cls, obj):
-        """Replies to an AP Follow request with an Accept request.
+        """Replies to a follow with an accept.
 
         Args:
           obj: :class:`Object`, follow activity
         """
         logger.info('Replying to Follow with Accept')
 
-        followee = as1.get_object(obj.as1)
-        followee_id = followee.get('id')
-        follower = as1.get_object(obj.as1, 'actor')
-        if not followee or not followee_id or not follower:
+        followee_id = as1.get_object(obj.as1).get('id')
+        follower_as1 = as1.get_object(obj.as1, 'actor')
+        follower_id = follower_as1.get('id')
+        if not followee_id or not follower_id:
             error(f'Follow activity requires object and actor. Got: {obj.as1}')
-
-        inbox = follower.get('inbox')
-        follower_id = follower.get('id')
-        if not inbox or not follower_id:
-            error(f'Follow actor requires id and inbox. Got: {follower}')
 
         # store Follower and follower User
         #
-        # If followee user is already direct, AP follower may not know they're
-        # interacting with a bridge. If followee user is indirect though, AP
+        # If followee user is already direct, follower may not know they're
+        # interacting with a bridge. If followee user is indirect though,
         # follower should know, so they're direct.
-        follower_obj = Object.get_or_insert(follower_id)
+        follower_obj = cls.load(follower_id)
         if not follower_obj.as1:
-            follower_obj.our_as1 = follower
+            follower_obj.our_as1 = follower_as1
             follower_obj.put()
+
+        target = cls.target_for(follower_obj)
+        if not target or not follower_id:
+            error(f"Couldn't find delivery target for follow actor {follower_obj}")
 
         from_ = cls.get_or_create(id=follower_id, obj=follower_obj,
                                   direct=not g.user.direct)
         follower_obj = Follower.get_or_create(to=g.user, from_=from_, follow=obj.key,
                                               status='active')
 
-        # send Accept
-        followee_actor_url = g.user.ap_actor()
+        # send accept
         accept = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': common.host_url(f'/web/{g.user.key.id()}/followers#accept-{obj.key.id()}'),
-            'type': 'Accept',
-            'actor': followee_actor_url,
-            'object': obj.as_as2()
+            'id': common.host_url(g.user.user_page_path(f'followers#accept-{obj.key.id()}')),
+            'objectType': 'activity',
+            'verb': 'accept',
+            'actor': followee_id,
+            'object': obj.as1,
         }
-        return cls.send(Object(as2=accept), inbox)
+        return cls.send(Object(our_as1=accept), target)
 
     @classmethod
     def deliver(cls, obj):
