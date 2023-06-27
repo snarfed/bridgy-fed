@@ -633,12 +633,6 @@ def _deliver(obj):
         assert target.uri
         protocol = PROTOCOLS[target.protocol]
 
-        if obj.type == 'follow':
-            # should be guaranteed by _targets()
-            assert orig_obj and orig_obj.as1
-            to = protocol.get_or_create(id=orig_obj.key.id(), obj=orig_obj)
-            Follower.get_or_create(to=to, from_=g.user, follow=obj.key)
-
         # this is reused later in ActivityPub.send()
         # TODO: find a better way
         obj.orig_obj = orig_obj

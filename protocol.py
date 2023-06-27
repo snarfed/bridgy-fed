@@ -490,8 +490,8 @@ class Protocol:
             to_obj.our_as1 = to_as1
             to_obj.put()
 
-        target = from_cls.target_for(from_obj)
-        if not target:
+        from_target = from_cls.target_for(from_obj)
+        if not from_target:
             error(f"Couldn't find delivery target for follower {from_obj}")
 
         # If followee user is alread direct, follower may not know they're
@@ -506,6 +506,7 @@ class Protocol:
 
         follower_obj = Follower.get_or_create(to=to_user, from_=from_user,
                                               follow=obj.key, status='active')
+        obj.users = [from_key, to_key]
 
         # send Accept
         id = common.host_url(to_user.user_page_path(
@@ -517,7 +518,14 @@ class Protocol:
             'actor': to_id,
             'object': obj.as1,
         })
-        return cls.send(accept, target)
+        sent = cls.send(accept, from_target)
+
+        accept.populate(
+            delivered=[Target(protocol=from_cls.LABEL, uri=from_target)],
+            status='complete',
+        )
+        accept.put()
+        return sent
 
     @classmethod
     def deliver(cls, obj):

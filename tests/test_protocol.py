@@ -625,24 +625,49 @@ class ProtocolReceiveTest(TestCase):
         g.user = None
 
         follow_as1 = {
+            'id': 'fake:follow',
             'objectType': 'activity',
             'verb': 'follow',
-            'id': 'fake:follow',
             'actor': 'fake:alice',
             'object': 'fake:bob',
         }
         self.assertEqual('OK', Fake.receive('fake:follow', our_as1=follow_as1))
 
-        obj = self.assert_object('fake:follow',
-                                 our_as1=follow_as1,
-                                 type='follow',
-                                 source_protocol='fake',
-                                 labels=['activity'],
-                                 status='ignored',
-                                 )
+        follow_obj = self.assert_object('fake:follow',
+                                        our_as1=follow_as1,
+                                        type='follow',
+                                        source_protocol='fake',
+                                        labels=['user', 'activity'],
+                                        status='complete',
+                                        delivered=['fake:bob:target'],
+                                        users=[self.alice.key, self.bob.key],
+                                        )
+
+        accept_id = 'http://localhost/fa/fake:bob/followers#accept-fake:follow'
+        accept_as1 = {
+            'id': accept_id,
+            'objectType': 'activity',
+            'verb': 'accept',
+            'actor': 'fake:bob',
+            'object': follow_as1,
+        }
+        accept_obj = self.assert_object(accept_id,
+                                        our_as1=accept_as1,
+                                        type='accept',
+                                        labels=['activity'],
+                                        status='complete',
+                                        delivered=['fake:alice:target'],
+                                        users=[],
+                                        )
+
+        self.assertEqual([
+            (accept_obj, 'fake:alice:target'),
+            (follow_obj, 'fake:bob:target'),
+        ], Fake.sent)
+
         self.assert_entities_equal(
             Follower(to=self.bob.key, from_=self.alice.key, status='active',
-                     follow=obj.key),
+                     follow=follow_obj.key),
             Follower.query().get(),
             ignore=['created', 'updated'])
 
@@ -783,29 +808,30 @@ class ProtocolReceiveTest(TestCase):
 #                                ignore=['cc'])
 
     def test_inbox_like(self):
-        # Fake.fetchable['fake:post'] = {
-        #     'objectType': 'note',
-        # }
+        Fake.fetchable['fake:post'] = {
+            'objectType': 'note',
+        }
 
         like_as1 = {
-            # 'id': 'http://mas.to/like#ok',
+            'id': 'fake:like',
             'objectType': 'activity',
             'verb': 'like',
             'actor': 'fake:user',
             'object': 'fake:post',
         }
         self.assertEqual('OK', Fake.receive('fake:like', our_as1=like_as1))
-        self.assertEqual({'fake:post:target': like_as1}, Fake.sent)
 
-        self.assert_object('fake:like',
-                           users=[g.user.key],
-                           source_protocol='fake',
-                           status='complete',
-                           our_as1=like_as1,
-                           delivered=['fake:post:target'],
-                           type='like',
-                           labels=['notification', 'activity'],
-                           object_ids=['fake:post'])
+        like_obj = self.assert_object('fake:like',
+                                      users=[g.user.key],
+                                      source_protocol='fake',
+                                      status='complete',
+                                      our_as1=like_as1,
+                                      delivered=['fake:post:target'],
+                                      type='like',
+                                      labels=['user', 'activity'],
+                                      object_ids=['fake:post'])
+
+        self.assertEqual([(like_obj, 'fake:post:target')], Fake.sent)
 
 #     def test_like_stored_object_without_as2(self):
 #         Object(id='https://mas.to/toot', mf2=NOTE_MF2, source_protocol='ap').put()
