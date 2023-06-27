@@ -2,6 +2,7 @@
 from unittest.mock import patch
 
 from flask import g
+from granary import as2
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
@@ -25,7 +26,7 @@ REPLY = {
     'actor': ACTOR,
     'object': {
         **REPLY['object'],
-        'author': ACTOR,
+        'attributedTo': ACTOR,
     },
 }
 
@@ -135,7 +136,7 @@ class ProtocolTest(TestCase):
                            source_protocol='fake',
                            )
         self.assert_object(REPLY['object']['id'],
-                           as2=REPLY['object'],
+                           our_as1=as2.to_as1(REPLY['object']),
                            type='comment',
                            source_protocol='fake',
                            )
@@ -302,3 +303,41 @@ class ProtocolTest(TestCase):
     def test_remote_false_local_false_assert(self):
         with self.assertRaises(AssertionError):
             Fake.load('nope', local=False, remote=False)
+
+
+class ProtocolReceiveTest(TestCase):
+
+    def setUp(self):
+        super().setUp()
+        g.user = self.make_user('fake:user', cls=Fake, obj_id='fake:user')
+        self.alice = self.make_user('fake:alice', cls=Fake, obj_id='fake:alice')
+        self.bob = self.make_user('fake:bob', cls=Fake, obj_id='fake:bob')
+
+    def assert_object(self, id, **props):
+        return super().assert_object(id, delivered_protocol='fake', **props)
+
+    def test_follow_no_g_user(self):
+        """No user from request, eg delivered to our ActivityPub shared inbox."""
+        g.user = None
+
+        follow_as1 = {
+            'objectType': 'activity',
+            'verb': 'follow',
+            'id': 'fake:follow',
+            'actor': 'fake:alice',
+            'object': 'fake:bob',
+        }
+        self.assertEqual('OK', Fake.receive('fake:follow', our_as1=follow_as1))
+
+        obj = self.assert_object('fake:follow',
+                                 our_as1=follow_as1,
+                                 type='follow',
+                                 source_protocol='fake',
+                                 labels=['activity'],
+                                 status='ignored',
+                                 )
+        self.assert_entities_equal(
+            Follower(to=self.bob.key, from_=self.alice.key, status='active',
+                     follow=obj.key),
+            Follower.query().get(),
+            ignore=['created', 'updated'])

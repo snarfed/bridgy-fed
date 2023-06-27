@@ -382,13 +382,13 @@ class Object(StringIdModel):
         # if bool(self.as2) + bool(self.bsky) + bool(self.mf2) > 1:
         #     logger.warning(f'{self.key} has multiple! {bool(self.as2)} {bool(self.bsky)} {bool(self.mf2)}')
 
-        if self.our_as1 is not None:
+        if self.our_as1:
             return redirect_unwrap(self.our_as1)
-        elif self.as2 is not None:
+        elif self.as2:
             return as2.to_as1(redirect_unwrap(self.as2))
-        elif self.bsky is not None:
+        elif self.bsky:
             return bluesky.to_as1(self.bsky)
-        elif self.mf2 is not None:
+        elif self.mf2:
             return microformats2.json_to_object(self.mf2,
                                                 rel_urls=self.mf2.get('rel-urls'))
 
@@ -496,9 +496,11 @@ class Object(StringIdModel):
             # outbound; show a nice link to the user
             return g.user.user_page_link()
 
-        actor = (util.get_first(self.as1, 'actor')
-                 or util.get_first(self.as1, 'author')
-                 or {})
+        actor = {}
+        if self.as1:
+            actor = (util.get_first(self.as1, 'actor')
+                     or util.get_first(self.as1, 'author')
+                     or {})
         if isinstance(actor, str):
             return common.pretty_link(actor, attrs=attrs)
 

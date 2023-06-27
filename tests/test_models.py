@@ -208,8 +208,9 @@ class ObjectTest(TestCase):
               'icon': {'type': 'Image', 'url': 'http://pic'},
           }}),
         ):
-            obj = Object(id='x', as2=as2)
-            self.assert_multiline_in(expected, obj.actor_link())
+            with self.subTest(expected=expected, as2=as2):
+                obj = Object(id='x', as2=as2)
+                self.assert_multiline_in(expected, obj.actor_link())
 
     def test_actor_link_user(self):
         g.user = Fake(id='user.com', obj=Object(id='a', as2={"name": "Alice"}))

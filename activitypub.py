@@ -627,13 +627,12 @@ def actor(protocol, domain):
         error('', status=404)
 
     cls = PROTOCOLS[protocol]
-    g.user = cls.get_by_id(domain)
-    if not g.user:
+    g.user = cls.get_or_create(domain)
+    if not g.user.obj or not g.user.obj.as1:
         try:
-            obj = cls.load(f'https://{domain}/', gateway=True)
-        except NoMicroformats:
-            obj = None
-        g.user = cls.get_or_create(id=domain, obj=obj)
+            g.user.obj = cls.load(f'https://{domain}/', gateway=True)
+        except NoMicroformats as e:
+            pass
 
     # TODO: unify with common.actor()
     actor = g.user.as2() or {

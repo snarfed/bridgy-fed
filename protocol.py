@@ -179,6 +179,7 @@ class Protocol:
         if util.is_web(id):
             by_domain = Protocol.for_domain(id)
             if by_domain:
+                logger.info(f'  {by_domain.__name__} owns {id}')
                 return by_domain
 
         # step 2: check if any Protocols say conclusively that they own it
@@ -189,17 +190,19 @@ class Protocol:
         for protocol in protocols:
             owns = protocol.owns_id(id)
             if owns:
+                logger.info(f'  {protocol.__name__} owns {id}')
                 return protocol
             elif owns is not False:
                 candidates.append(protocol)
 
         if len(candidates) == 1:
+            logger.info(f'  {candidates[0].__name__} owns {id}')
             return candidates[0]
 
         # step 3: look for existing Objects in the datastore
         obj = Protocol.load(id, remote=False)
         if obj and obj.source_protocol:
-            logger.info(f'{obj.key} has source_protocol {obj.source_protocol}')
+            logger.info(f'  {obj.key} owned by source_protocol {obj.source_protocol}')
             return PROTOCOLS[obj.source_protocol]
 
         # step 4: fetch over the network
@@ -207,8 +210,9 @@ class Protocol:
             logger.info(f'Trying {protocol.__name__}')
             try:
                 protocol.load(id, local=False, remote=True)
+                logger.info(f'  {protocol.__name__} owns {id}')
                 return protocol
-            except werkzeug.exceptions.HTTPException:
+            except werkzeug.exceptions.HTTPException as e:
                 # internal error we generated ourselves; try next protocol
                 pass
             except Exception as e:
@@ -352,13 +356,15 @@ class Protocol:
             error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
 
         # store inner object
-        inner_obj = as1.get_object(obj.as1)
-        inner_obj_id = inner_obj.get('id')
-        if obj.type in ('post', 'create', 'update') and inner_obj.keys() > set(['id']):
-            to_update = (Object.get_by_id(inner_obj_id)
-                         or Object(id=inner_obj_id))
-            to_update.populate(as2=obj.as2['object'], source_protocol=from_cls.LABEL)
-            to_update.put()
+        inner_obj_as1 = as1.get_object(obj.as1)
+        inner_obj_id = inner_obj_as1.get('id')
+        inner_obj = None
+        if (obj.type in ('post', 'create', 'update')
+              and inner_obj_as1.keys() > set(['id'])):
+            inner_obj = Object.get_or_insert(inner_obj_id)
+            inner_obj.populate(our_as1=inner_obj_as1,
+                               source_protocol=from_cls.LABEL)
+            inner_obj.put()
 
         actor = as1.get_object(obj.as1, 'actor')
         actor_id = actor.get('id')
@@ -425,11 +431,16 @@ class Protocol:
 
         # fetch actor if necessary so we have name, profile photo, etc
         if actor and actor.keys() == set(['id']):
-            actor = obj.as2['actor'] = from_cls.load(actor['id']).as2
+            actor_obj = from_cls.load(actor['id'])
+            if actor_obj.as1:
+                obj.our_as1 = {**obj.as1, 'actor': actor_obj.as1}
 
         # fetch object if necessary so we can render it in feeds
-        if obj.type == 'share' and inner_obj.keys() == set(['id']):
-            inner_obj = obj.as2['object'] = from_cls.load(inner_obj_id).as_as2()
+        if obj.type == 'share' and inner_obj_as1.keys() == set(['id']):
+            if not inner_obj:
+                inner_obj = from_cls.load(inner_obj_id)
+            if inner_obj.as1:
+                obj.our_as1 = {**obj.as1, 'object': inner_obj.as1}
 
         if obj.type == 'follow':
             from_cls.accept_follow(obj)
@@ -439,11 +450,11 @@ class Protocol:
 
         # deliver original posts and reposts to followers
         is_reply = (obj.type == 'comment' or
-                    (inner_obj and inner_obj.get('inReplyTo')))
+                    (inner_obj_as1 and inner_obj_as1.get('inReplyTo')))
         if ((obj.type == 'share' or obj.type in ('create', 'post') and not is_reply)
-                and actor and actor_id):
+                and actor_id):
             logger.info(f'Delivering to followers of {actor_id}')
-            for f in Follower.query(Follower.to == from_cls(id=actor_id).key,
+            for f in Follower.query(Follower.to == from_cls.key_for(actor_id),
                                     Follower.status == 'active'):
                 if f.from_ not in obj.users:
                     obj.users.append(f.from_)
@@ -460,42 +471,57 @@ class Protocol:
         Args:
           obj: :class:`Object`, follow activity
         """
-        logger.info('Replying to Follow with Accept')
+        logger.info('Got follow. Loading users, storing Follow, sending accept')
 
-        followee_id = as1.get_object(obj.as1).get('id')
-        follower_as1 = as1.get_object(obj.as1, 'actor')
-        follower_id = follower_as1.get('id')
-        if not followee_id or not follower_id:
+        # Extract follower/followee objects and ids
+        from_as1 = as1.get_object(obj.as1, 'actor')
+        from_id = from_as1.get('id')
+        to_as1 = as1.get_object(obj.as1)
+        to_id = to_as1.get('id')
+        if not to_id or not from_id:
             error(f'Follow activity requires object and actor. Got: {obj.as1}')
 
-        # store Follower and follower User
-        #
-        # If followee user is already direct, follower may not know they're
-        # interacting with a bridge. If followee user is indirect though,
-        # follower should know, so they're direct.
-        follower_obj = cls.load(follower_id)
-        if not follower_obj.as1:
-            follower_obj.our_as1 = follower_as1
-            follower_obj.put()
+        # Store follower/followee Objects
+        from_cls = cls
+        from_obj = from_cls.load(from_id)
+        if not from_obj.as1:
+            from_obj.our_as1 = from_as1
+            from_obj.put()
 
-        target = cls.target_for(follower_obj)
-        if not target or not follower_id:
-            error(f"Couldn't find delivery target for follow actor {follower_obj}")
+        to_cls = Protocol.for_id(to_id)
+        to_obj = to_cls.load(to_id)
+        if not to_obj.as1:
+            to_obj.our_as1 = to_as1
+            to_obj.put()
 
-        from_ = cls.get_or_create(id=follower_id, obj=follower_obj,
-                                  direct=not g.user.direct)
-        follower_obj = Follower.get_or_create(to=g.user, from_=from_, follow=obj.key,
-                                              status='active')
+        target = from_cls.target_for(from_obj)
+        if not target:
+            error(f"Couldn't find delivery target for follower {from_obj}")
 
-        # send accept
-        accept = {
-            'id': common.host_url(g.user.user_page_path(f'followers#accept-{obj.key.id()}')),
+        # If followee user is alread direct, follower may not know they're
+        # interacting with a bridge. f followee user is indirect though,
+        # follower should know, so the're direct.
+        to_key = to_cls.key_for(to_id)
+        to_user = to_cls.get_or_create(id=to_key.id(), obj=to_obj, direct=False)
+
+        from_key = from_cls.key_for(from_id)
+        from_user = from_cls.get_or_create(id=from_key.id(), obj=from_obj,
+                                           direct=not to_user.direct)
+
+        follower_obj = Follower.get_or_create(to=to_user, from_=from_user,
+                                              follow=obj.key, status='active')
+
+        # send Accept
+        id = common.host_url(to_user.user_page_path(
+            f'followers#accept-{obj.key.id()}'))
+        accept = Object.get_or_insert(id, our_as1={
+            'id': id,
             'objectType': 'activity',
             'verb': 'accept',
-            'actor': followee_id,
+            'actor': to_id,
             'object': obj.as1,
-        }
-        return cls.send(Object(our_as1=accept), target)
+        })
+        return cls.send(accept, target)
 
     @classmethod
     def deliver(cls, obj):

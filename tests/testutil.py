@@ -90,7 +90,7 @@ class Fake(User, protocol.Protocol):
     @classmethod
     def target_for(cls, obj, shared=False):
         assert obj.source_protocol in (cls.LABEL, cls.ABBREV, 'ui', None)
-        return 'shared target' if shared else f'target: {self.key.id()}'
+        return 'shared:target' if shared else f'{obj.key.id()}:target'
 
 
 # used in TestCase.make_user() to reuse keys across Users since they're
@@ -191,10 +191,16 @@ class TestCase(unittest.TestCase, testutil.Asserts):
     def make_user(self, id, cls=Web, **kwargs):
         """Reuse RSA key across Users because generating it is expensive."""
         obj_key = None
-        obj_as2 = kwargs.pop('obj_as2', None)
-        if obj_as2:
-            obj_key = Object(id=str(self.last_make_user_id), as2=obj_as2).put()
+
+        obj_as2 = kwargs.pop('obj_as2', None) or {}
+        obj_mf2 = kwargs.pop('obj_mf2', None) or {}
+        obj_id = kwargs.pop('obj_id', None)
+        if not obj_id:
+            obj_id = (obj_as2.get('id')
+                      or util.get_url(obj_mf2, 'properties')
+                      or str(self.last_make_user_id))
             self.last_make_user_id += 1
+        obj_key = Object(id=obj_id, as2=obj_as2, mf2=obj_mf2).put()
 
         user = cls(id=id,
                    direct=True,

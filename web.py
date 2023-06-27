@@ -129,7 +129,7 @@ class Web(User, Protocol):
                 if url and url.startswith('acct:'):
                     try:
                         urluser, urldomain = util.parse_acct_uri(url)
-                    except ValueError:
+                    except ValueError as e:
                         continue
                     if urldomain == id:
                         logger.info(f'Found custom username: {urluser}')
