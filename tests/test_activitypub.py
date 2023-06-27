@@ -290,9 +290,7 @@ class ActivityPubTest(TestCase):
         self.key_id_obj.put()
 
     def assert_object(self, id, **props):
-        ignore = ['as2'] if 'our_as1' in props and 'as2' not in props else []
-        return super().assert_object(id, delivered_protocol='web',
-                                     ignore=ignore, **props)
+        return super().assert_object(id, delivered_protocol='web', **props)
 
     def sign(self, path, body):
         """Constructs HTTP Signature, returns headers."""

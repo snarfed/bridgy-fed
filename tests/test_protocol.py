@@ -30,20 +30,6 @@ REPLY = {
     },
 }
 
-UPDATE_PROFILE = {
-    'objectType': 'activity',
-    'verb': 'update',
-    'id': 'fake:user#update-2022-01-02T03:04:05+00:00',
-    'actor': 'fake:user',
-    'object': {
-        'objectType': 'person',
-        'id': 'fake:user',
-        'displayName': 'Ms. ☕ Baz',
-        'urls': [{'displayName': 'Ms. ☕ Baz', 'value': 'https://user.com/'}],
-        'updated': '2022-01-02T03:04:05+00:00',
-    },
-}
-
 
 class ProtocolTest(TestCase):
 
@@ -310,7 +296,13 @@ class ProtocolReceiveTest(TestCase):
         self.bob = self.make_user('fake:bob', cls=Fake, obj_id='fake:bob')
 
     def assert_object(self, id, **props):
-        return super().assert_object(id, delivered_protocol='fake', **props)
+        ignore = []
+        for field in 'as2', 'bsky', 'mf2':
+            if 'our_as1' in props and field not in props:
+                ignore.append(field)
+
+        return super().assert_object(id, delivered_protocol='fake',
+                                     ignore=ignore, **props)
 
     def make_followers(self):
         from_ = self.make_user(id, cls=ActivityPub, obj_as2=actor)
@@ -790,30 +782,30 @@ class ProtocolReceiveTest(TestCase):
 #         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], REPOST_AS2,
 #                                ignore=['cc'])
 
-    # def test_inbox_like(self):
-    #     # Fake.fetchable['fake:post'] = {
-    #     #     'objectType': 'note',
-    #     # }
+    def test_inbox_like(self):
+        # Fake.fetchable['fake:post'] = {
+        #     'objectType': 'note',
+        # }
 
-    #     like_as1 = {
-    #         # 'id': 'http://mas.to/like#ok',
-    #         'objectType': 'activity',
-    #         'verb': 'like',
-    #         'actor': 'fake:user',
-    #         'object': 'fake:post',
-    #     }
-    #     self.assertEqual('OK', Fake.receive('fake:like', our_as1=like_as1))
-    #     self.assertEqual({'fake:post:target': like_as1}, Fake.sent)
+        like_as1 = {
+            # 'id': 'http://mas.to/like#ok',
+            'objectType': 'activity',
+            'verb': 'like',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        }
+        self.assertEqual('OK', Fake.receive('fake:like', our_as1=like_as1))
+        self.assertEqual({'fake:post:target': like_as1}, Fake.sent)
 
-    #     self.assert_object('fake:like',
-    #                        users=[g.user.key],
-    #                        source_protocol='fake',
-    #                        status='complete',
-    #                        our_as1=like_as1,
-    #                        delivered=['fake:post:target'],
-    #                        type='like',
-    #                        labels=['notification', 'activity'],
-    #                        object_ids=['fake:post'])
+        self.assert_object('fake:like',
+                           users=[g.user.key],
+                           source_protocol='fake',
+                           status='complete',
+                           our_as1=like_as1,
+                           delivered=['fake:post:target'],
+                           type='like',
+                           labels=['notification', 'activity'],
+                           object_ids=['fake:post'])
 
 #     def test_like_stored_object_without_as2(self):
 #         Object(id='https://mas.to/toot', mf2=NOTE_MF2, source_protocol='ap').put()
@@ -978,32 +970,49 @@ class ProtocolReceiveTest(TestCase):
 #         self.assertEqual(204, got.status_code)
 #         mock_post.assert_not_called()
 
-#     def test_update_profile(self):
-#         Follower.get_or_create(to=g.user, from_=self.alice)
-#         Follower.get_or_create(to=g.user, from_=self.bob)
+    def test_update_profile(self):
+        Follower.get_or_create(to=g.user, from_=self.alice)
+        Follower.get_or_create(to=g.user, from_=self.bob)
 
-#         id = UPDATE_PROFILE['id']
-#         Fake.receive(id, our_as1=UPDATE_PROFILE)
-#         # self.assertEqual([(UPDATE_PROFILE, 'shared:target')], Fake.sent)
+        id = 'fake:user#update-2022-01-02T03:04:05+00:00'
+        update_as1 = {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': id,
+            'actor': 'fake:user',
+            'object': {
+                'objectType': 'person',
+                'id': 'fake:user',
+                'displayName': 'Ms. ☕ Baz',
+                'urls': [{'displayName': 'Ms. ☕ Baz', 'value': 'https://user.com/'}],
+                'updated': '2022-01-02T03:04:05+00:00',
+            },
+        }
 
-#         # profile object
-#         self.assert_object('fake:user',
-#                            source_protocol='fake',
-#                            our_as1=UPDATE_PROFILE,
-#                            type='person',
-#                            )
+        Fake.receive(id, our_as1=update_as1)
 
-#         # update activity
-#         self.assert_object(id,
-#                            users=[g.user.key],
-#                            source_protocol='fake',
-#                            status='complete',
-#                            our_as1=UPDATE_PROFILE,
-#                            delivered=['shared:target'],
-#                            type='update',
-#                            object_ids=['fake:user'],
-#                            labels=['user', 'activity'],
-#                            )
+        # profile object
+        self.assert_object('fake:user',
+                           source_protocol='fake',
+                           our_as1=update_as1['object'],
+                           type='person',
+                           )
+
+        # update activity
+        update_as1['actor'] = update_as1['object']
+        update_obj = self.assert_object(
+            id,
+            users=[g.user.key],
+            source_protocol='fake',
+            status='complete',
+            our_as1=update_as1,
+            delivered=['shared:target'],
+            type='update',
+            object_ids=['fake:user'],
+            labels=['user', 'activity'],
+        )
+
+        self.assertEqual([(update_obj, 'shared:target')], Fake.sent)
 
  #    def test_mention_object(self, *mocks):
  #        self._test_mention(
@@ -1275,3 +1284,4 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('inactive', follower.key.get().status)
         self.assertEqual('inactive', followee.key.get().status)
         self.assertEqual('active', other.key.get().status)
+        

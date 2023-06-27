@@ -66,6 +66,7 @@ class Fake(User, protocol.Protocol):
     def send(cls, obj, url, log_data=True):
         logger.info(f'Fake.send {url}')
         cls.sent.append((obj, url))
+        return True
 
     @classmethod
     def fetch(cls, obj,  **kwargs):
@@ -310,6 +311,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         if got.mf2:
             got.mf2.pop('url', None)
+
+        for target in got.delivered:
+            del target.key
 
         ignore = props.pop('ignore', [])
         self.assert_entities_equal(Object(id=id, **props), got,

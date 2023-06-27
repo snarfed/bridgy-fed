@@ -533,7 +533,8 @@ def webmention_task():
 
     # if source is home page, update Web user and send an actor Update to
     # followers' instances
-    if g.user.is_web_url(obj.key.id()):
+    if g.user and (g.user.key.id() == obj.key.id()
+                   or g.user.is_web_url(obj.key.id())):
         obj.put()
         g.user.obj = obj
         g.user.put()
@@ -552,12 +553,13 @@ def webmention_task():
             'object': actor_as1,
         })
 
+    return _deliver(obj)
+
+
+def _deliver(obj):
+
     targets = _targets(obj)  # maps Target to Object or None
 
-    obj.populate(
-        users=[g.user.key],
-        source_protocol='web',
-    )
     if not targets:
         add(obj.labels, 'user')
         obj.status = 'ignored'
@@ -689,8 +691,7 @@ def _targets(obj):
     logger.info('Finding recipients and their targets')
 
     # if there's in-reply-to, like-of, or repost-of, they're the targets.
-    # otherwise, it's all followers' inboxes.
-    # sort so order is deterministic for tests.
+    # otherwise, it's all followers. sort so order is deterministic for tests.
     orig_ids = sorted(as1.get_ids(obj.as1, 'inReplyTo'))
     verb = obj.as1.get('verb')
     if orig_ids:

@@ -441,7 +441,7 @@ class Object(StringIdModel):
 
         # log, pruning data fields
         props = self.to_dict()
-        for prop in 'as2', 'bsky', 'mf2':
+        for prop in 'as1', 'as2', 'bsky', 'mf2', 'our_as1':
             if props.get(prop):
                 props[prop] = "..."
         logger.info(f'Wrote {self.key} {props}')

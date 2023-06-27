@@ -348,7 +348,8 @@ class Protocol:
         obj = Object.get_or_insert(id)
         obj.clear()
         obj.populate(source_protocol=from_cls.LABEL, **props)
-
+        if g.user and g.user not in obj.users:
+            obj.users.append(g.user.key)
         obj.put()
         logger.info(f'Got AS1: {json_dumps(obj.as1, indent=2)}')
 
@@ -401,10 +402,6 @@ class Protocol:
         elif obj.type == 'update':
             if not inner_obj_id:
                 error("Couldn't find id of object to update")
-
-            obj.status = 'complete'
-            obj.put()
-            return 'OK'
 
         elif obj.type == 'delete':
             if not inner_obj_id:
@@ -529,6 +526,9 @@ class Protocol:
         Args:
           obj: :class:`Object`, activity to deliver
         """
+        import web
+        return web._deliver(obj)
+
         # extract source and targets
         source = obj.as1.get('url') or obj.as1.get('id')
         inner_obj = as1.get_object(obj.as1)
