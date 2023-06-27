@@ -97,6 +97,8 @@ def render_redirect():
     return redirect(ActivityPub.subdomain_url(f'/convert/web/{id}'), code=301)
 
 
+# WARNING: This doesn't currently work. The /convert/... URL route at the top
+# overrides it and handles all of these URLs.
 @app.get(f'/convert/<any({",".join(SOURCES)}):src>/<any({",".join(DESTS)}):dest>/<path:_>')
 def convert_source_path_redirect(src, dest, _):
     """Old route that included source protocol in path instead of subdomain."""

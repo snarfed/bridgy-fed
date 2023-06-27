@@ -553,20 +553,22 @@ class Protocol:
         if obj.type in ('follow', 'like', 'share'):
             targets.append(obj_url)
 
-        targets = util.dedupe_urls(util.get_url(t) for t in targets)
-        targets = common.remove_blocklisted(t.lower() for t in targets)
-        if not targets:
+        target_urls = util.dedupe_urls(util.get_url(t) for t in targets)
+        target_urls = common.remove_blocklisted(t.lower() for t in targets)
+        if not target_urls:
             logger.info("Couldn't find any target URLs in inReplyTo, object, or mention tags")
             return
 
-        logger.info(f'targets: {targets}')
+        logger.info(f'targets: {target_urls}')
 
         errors = []  # stores (code, body) tuples
 
-        # TODO: avoid import?
-        from web import Web
-        targets = [Target(uri=uri, protocol=(Protocol.for_id(uri) or Web).LABEL)
-                   for uri in targets]
+        targets = []
+        for url in target_urls:
+            protocol = Protocol.for_id(url)
+            label = protocol.LABEL if protocol else 'web'
+            targets.append(Target(uri=url, protocol=label))
+
         no_user_domains = set()
 
         obj.undelivered = []
@@ -585,7 +587,8 @@ class Protocol:
                 if 'notification' not in obj.labels:
                     obj.labels.append('notification')
 
-            if domain == util.domain_from_link(source, minimize=False):
+            if (domain == util.domain_from_link(source, minimize=False)
+                and cls.LABEL != 'fake'):
                 logger.info(f'Skipping same-domain delivery from {source} to {target.uri}')
                 continue
 

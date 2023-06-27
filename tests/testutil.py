@@ -37,9 +37,8 @@ logger = logging.getLogger(__name__)
 class Fake(User, protocol.Protocol):
     ABBREV = 'fa'
 
-    # maps string ids to dict AS1 objects. send adds objects here, fetch
-    # returns them
-    objects = {}
+    # maps string ids to dict AS1 objects that can be fetched
+    fetchable = {}
 
     # in-order list of (Object, str URL)
     sent = []
@@ -61,13 +60,12 @@ class Fake(User, protocol.Protocol):
         if id.startswith('nope'):
             return False
 
-        return id.startswith('fake:') or id in cls.objects
+        return id.startswith('fake:') or id in cls.fetchable
 
     @classmethod
     def send(cls, obj, url, log_data=True):
         logger.info(f'Fake.send {url}')
         cls.sent.append((obj, url))
-        cls.objects[obj.key.id()] = obj
 
     @classmethod
     def fetch(cls, obj,  **kwargs):
@@ -75,8 +73,8 @@ class Fake(User, protocol.Protocol):
         logger.info(f'Fake.load {id}')
         cls.fetched.append(id)
 
-        if id in cls.objects:
-            obj.our_as1 = cls.objects[id]
+        if id in cls.fetchable:
+            obj.our_as1 = cls.fetchable[id]
             return obj
 
         raise requests.HTTPError(response=util.Struct(status_code='410'))
@@ -122,7 +120,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         protocol.objects_cache.clear()
         common.webmention_discover.cache.clear()
 
-        Fake.objects = {}
+        Fake.fetchable = {}
         Fake.sent = []
         Fake.fetched = []
 
