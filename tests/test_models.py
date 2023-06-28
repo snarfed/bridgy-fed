@@ -9,7 +9,7 @@ from oauth_dropins.webutil.testutil import NOW
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
 
-from models import AtpNode, Follower, Object, OBJECT_EXPIRE_AGE
+from models import AtpNode, Follower, Object, OBJECT_EXPIRE_AGE, Target
 import protocol
 from protocol import Protocol
 from web import Web
@@ -115,6 +115,13 @@ class ObjectTest(TestCase):
     def setUp(self):
         super().setUp()
         g.user = None
+
+    def test_target_hashable(self):
+        target = Target(protocol='ui', uri='http://foo')
+
+        # just check that these don't crash
+        assert isinstance(id(target), int)
+        {target: 'foo'}
 
     def test_ndb_in_memory_cache_off(self):
         """It has a weird bug that we want to avoid.

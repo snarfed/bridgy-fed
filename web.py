@@ -614,20 +614,21 @@ def webmention_task():
             logger.info(msg)
             return msg, 204
 
+    sorted_targets = sorted(targets.items(), key=lambda t: t[0].uri)
     obj.populate(
         status='in progress',
         labels=['user'],
         delivered=[],
         failed=[],
-        undelivered=[Target(uri=uri, protocol=cls.LABEL)
-                     for cls, uri in targets.keys()],
+        undelivered=[t for t, _ in sorted_targets],
     )
+    logger.info(f'Delivering to: {obj.undelivered}')
 
-    logger.info(f'Delivering to: {sorted(obj.undelivered, key=lambda t: t.uri)}')
-    # make copy of undelivered because we modify it below
-    # sort targets so order is deterministic for tests
-    for (protocol, target), orig_obj in sorted(targets.items()):
-        assert target
+    # make copy of undelivered because we modify it below.
+    # sort targets so order is deterministic for tests.
+    for target, orig_obj in sorted_targets:
+        assert target.uri
+        protocol = PROTOCOLS[target.protocol]
 
         if obj.type == 'follow':
             # should be guaranteed by _targets()
@@ -638,19 +639,17 @@ def webmention_task():
         # this is reused later in ActivityPub.send()
         # TODO: find a better way
         obj.orig_obj = orig_obj
-        target_prop = Target(uri=target, protocol=protocol.LABEL)
-
         try:
-            sent = protocol.send(obj, target, log_data=log_data)
+            sent = protocol.send(obj, target.uri, log_data=log_data)
             if sent:
-                obj.delivered.append(target_prop)
-                obj.undelivered.remove(target_prop)
+                obj.delivered.append(target)
+                obj.undelivered.remove(target)
         except BaseException as e:
             code, body = util.interpret_http_exception(e)
             if not code and not body:
                 raise
-            obj.failed.append(target_prop)
-            obj.undelivered.remove(target_prop)
+            obj.failed.append(target)
+            obj.undelivered.remove(target)
             err = e
         finally:
             log_data = False
@@ -682,7 +681,8 @@ def _targets(obj):
       obj: :class:`models.Object`
 
     Returns: dict: {
-      (:class:`Protocol`:, :str: target URI) tuple: recipient :class:`Object` or None
+      :class:`Target`: original (in response to) :class:`Object`, if any,
+      otherwise None
     }
     """
     logger.info('Finding recipients and their targets')
@@ -719,7 +719,7 @@ def _targets(obj):
 
         target = protocol.target_for(orig_obj)
         if target:
-            targets[protocol, target] = orig_obj
+            targets[Target(protocol=protocol.LABEL, uri=target)] = orig_obj
             logger.info(f'Target for {id} is {target}')
             continue
 
@@ -746,6 +746,6 @@ def _targets(obj):
             # HACK: use last target object from above for reposts, which
             # has its resolved id
             obj = orig_obj if verb == 'share' else None
-            targets[user.__class__, target] = obj
+            targets[Target(protocol=user.LABEL, uri=target)] = obj
 
     return targets

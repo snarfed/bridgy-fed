@@ -338,6 +338,10 @@ class Target(ndb.Model):
     # so that PROTOCOLS is fully populated
     protocol = ndb.StringProperty(choices=[], required=True)
 
+    def __hash__(self):
+        """Override Model and allow hashing so these can be dict keys."""
+        return hash((self.protocol, self.uri))
+
 
 class Object(StringIdModel):
     """An activity or other object, eg actor.
