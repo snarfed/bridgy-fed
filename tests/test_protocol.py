@@ -250,6 +250,15 @@ class ProtocolTest(TestCase):
         self.assertFalse(loaded.new)
         self.assertEqual(['foo'], Fake.fetched)
 
+    def test_load_remote_true_local_false(self):
+        Fake.fetchable['foo'] = our_as1={'x': 'y'}
+
+        loaded = Fake.load('foo', local=False, remote=True)
+        self.assertEqual({'x': 'y'}, loaded.as1)
+        self.assertIsNone(loaded.changed)
+        self.assertIsNone(loaded.new)
+        self.assertEqual(['foo'], Fake.fetched)
+
     def test_load_remote_true_changed(self):
         self.store_object(id='foo', our_as1={'content': 'stored'})
         Fake.fetchable['foo'] = {'content': 'new'}

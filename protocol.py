@@ -634,6 +634,9 @@ class Protocol:
     def load(cls, id, remote=None, local=True, **kwargs):
         """Loads and returns an Object from memory cache, datastore, or HTTP fetch.
 
+        Sets the :attr:`new` and :attr:`changed` attributes if we know either
+        one for the loaded object, ie local is True and remote is True or None.
+
         Note that :meth:`Object._post_put_hook` updates the cache.
 
         Args:
@@ -693,14 +696,14 @@ class Protocol:
             obj.clear()
             obj.new = False
         else:
+            obj = Object(id=id)
             if local:
                 logger.info('  not in datastore')
-            obj = Object(id=id)
-            obj.new = True
-            obj.changed = False
+                obj.new = True
+                obj.changed = False
 
         cls.fetch(obj, **kwargs)
-        if not obj.new:
+        if obj.new is False:
             if orig_as1 and obj.as1:
                 obj.changed = as1.activity_changed(orig_as1, obj.as1)
             else:

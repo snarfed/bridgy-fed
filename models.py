@@ -374,6 +374,8 @@ class Object(StringIdModel):
 
     # Protocol and subclasses set these in fetch if this Object is new or if its
     # contents have changed from what was originally loaded from the datastore.
+    # If either one is None, that means we don't know whether this Object is
+    # new/changed.
     new = None
     changed = None
 
