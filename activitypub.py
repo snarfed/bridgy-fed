@@ -11,7 +11,7 @@ from granary import as1, as2
 from httpsig import HeaderVerifier
 from httpsig.requests_auth import HTTPSignatureAuth
 from httpsig.utils import parse_signature_header
-from oauth_dropins.webutil import flask_util, util
+from oauth_dropins.webutil import appengine_info, flask_util, util
 from oauth_dropins.webutil.util import fragmentless, json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadGateway
@@ -267,6 +267,9 @@ class ActivityPub(User, Protocol):
         headers = dict(request.headers)  # copy so we can modify below
         sig = headers.get('Signature')
         if not sig:
+            if appengine_info.DEBUG:
+                logging.info('No HTTP Signature, allowing due to DEBUG=true')
+                return
             error('No HTTP Signature', status=401)
 
         logger.info('Verifying HTTP Signature')

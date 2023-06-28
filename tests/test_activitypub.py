@@ -1017,6 +1017,7 @@ class ActivityPubTest(TestCase):
 
     @patch('activitypub.logger.info', side_effect=logging.info)
     @patch('common.logger.info', side_effect=logging.info)
+    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
     def test_inbox_verify_http_signature(self, mock_common_log, mock_activitypub_log,
                                          _, mock_get, ___):
         # actor with a public key
