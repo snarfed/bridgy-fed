@@ -554,7 +554,7 @@ class Protocol:
             targets.append(obj_url)
 
         target_urls = util.dedupe_urls(util.get_url(t) for t in targets)
-        target_urls = common.remove_blocklisted(t.lower() for t in targets)
+        target_urls = common.remove_blocklisted(t.lower() for t in target_urls)
         if not target_urls:
             logger.info("Couldn't find any target URLs in inReplyTo, object, or mention tags")
             return
