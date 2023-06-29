@@ -692,9 +692,12 @@ def _targets(obj):
     """
     logger.info('Finding recipients and their targets')
 
+    inner_obj_as1 = as1.get_object(obj.as1)
+
     # if there's in-reply-to, like-of, or repost-of, they're the targets.
     # otherwise, it's all followers. sort so order is deterministic for tests.
-    orig_ids = sorted(as1.get_ids(obj.as1, 'inReplyTo'))
+    orig_ids = sorted(as1.get_ids(obj.as1, 'inReplyTo') +
+                      as1.get_ids(inner_obj_as1, 'inReplyTo'))
     verb = obj.as1.get('verb')
     if orig_ids:
         logger.info(f'original object ids from inReplyTo: {orig_ids}')
@@ -724,16 +727,24 @@ def _targets(obj):
         # TODO: attach orig_obj's author/actor to obj.users
 
         target = protocol.target_for(orig_obj)
-        if target:
-            targets[Target(protocol=protocol.LABEL, uri=target)] = orig_obj
-            logger.info(f'Target for {id} is {target}')
+        if not target:
+            # TODO: surface errors like this somehow?
+            logger.error(f"Can't find delivery target for {id}")
             continue
 
-        # TODO: surface errors like this somehow?
-        logger.error(f"Can't find delivery target for {id}")
+        logger.info(f'Target for {id} is {target}')
+        targets[Target(protocol=protocol.LABEL, uri=target)] = orig_obj
+        orig_user = orig_obj.as1.get('author') or orig_obj.as1.get('actor')
+        if orig_user:
+            user_key = protocol.key_for(orig_user)
+            logger.info(f'Recipient is {user_key}')
+            if user_key not in obj.users:
+                obj.users.append(user_key)
+            if 'notification' not in obj.labels:
+                obj.labels.append('notification')
+
 
     # deliver to followers?
-    inner_obj_as1 = as1.get_object(obj.as1)
     is_reply = (obj.type == 'comment' or
                 (inner_obj_as1 and inner_obj_as1.get('inReplyTo')))
     if obj.type == 'share' or (obj.type in ('post', 'update') and not is_reply):

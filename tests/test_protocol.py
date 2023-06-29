@@ -314,7 +314,7 @@ class ProtocolReceiveTest(TestCase):
         create_as1 = {
             'id': 'fake:create',
             'objectType': 'activity',
-            'verb': 'create',
+            'verb': 'post',
             'actor': 'fake:user',
             'object': post_as1,
         }
@@ -328,7 +328,7 @@ class ProtocolReceiveTest(TestCase):
                                  status='complete',
                                  our_as1=create_as1,
                                  delivered=['shared:target'],
-                                 type='create',
+                                 type='post',
                                  labels=['user', 'activity', 'feed'],
                                  users=[g.user.key, self.alice.key, self.bob.key],
                                  )
@@ -453,7 +453,7 @@ class ProtocolReceiveTest(TestCase):
         create_as1 = {
             'id': 'fake:create',
             'objectType': 'activity',
-            'verb': 'create',
+            'verb': 'post',
             'actor': 'fake:user',
             'object': reply_as1,
         }
@@ -467,9 +467,50 @@ class ProtocolReceiveTest(TestCase):
                                  status='complete',
                                  our_as1=create_as1,
                                  delivered=['fake:post:target'],
-                                 type='create',
+                                 type='post',
                                  labels=['user', 'activity', 'notification'],
                                  users=[g.user.key, self.alice.key],
+                                 )
+
+        self.assertEqual([(obj, 'fake:post:target')], Fake.sent)
+
+    def test_create_reply_bare_object(self):
+        self.make_followers()
+
+        reply_as1 = {
+            'id': 'fake:reply',
+            'objectType': 'note',
+            'inReplyTo': 'fake:post',
+            'author': 'fake:alice',
+        }
+        Fake.fetchable['fake:post'] = {
+            'objectType': 'note',
+            'id': 'fake:post',
+            'author': 'fake:bob',
+        }
+        self.assertEqual('OK', Fake.receive('fake:reply', our_as1=reply_as1))
+
+        self.assert_object('fake:reply',
+                           our_as1=reply_as1,
+                           type='note',
+                           users=[g.user.key],
+                           )
+
+        create_as1 = {
+            'id': 'fake:reply#bridgy-fed-create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'http://bf/fake/fake:user/ap',
+            'object': reply_as1,
+            'published': '2022-01-02T03:04:05+00:00',
+        }
+        obj = self.assert_object('fake:reply#bridgy-fed-create',
+                                 status='complete',
+                                 our_as1=create_as1,
+                                 delivered=['fake:post:target'],
+                                 type='post',
+                                 labels=['user', 'activity', 'notification'],
+                                 users=[g.user.key, self.bob.key],
                                  )
 
         self.assertEqual([(obj, 'fake:post:target')], Fake.sent)
@@ -505,7 +546,7 @@ class ProtocolReceiveTest(TestCase):
             'inReplyTo': 'fake:post',
         }
         create_as1 = {
-            'objectType': 'create',
+            'objectType': 'post',
             'id': 'fake:create',
             'object': reply_as1,
         }
@@ -513,7 +554,7 @@ class ProtocolReceiveTest(TestCase):
 
         self.assert_object('fake:create',
                            our_as1=reply_as1,
-                           type='create',
+                           type='post',
                            users=[g.user.key],
                            # not feed since it's a reply
                            # not notification since it doesn't involve the user
