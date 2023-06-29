@@ -372,12 +372,14 @@ class Object(StringIdModel):
                               # parse object with items inside an 'items' field)
     our_as1 = JsonProperty()  # AS1 for activities that we generate or modify ourselves
 
-    # Protocol and subclasses set these in fetch if this Object is new or if its
-    # contents have changed from what was originally loaded from the datastore.
-    # If either one is None, that means we don't know whether this Object is
-    # new/changed.
     new = None
     changed = None
+    """
+    Protocol and subclasses set these in fetch if this Object is new or if its
+    contents have changed from what was originally loaded from the datastore.
+    If either one is None, that means we don't know whether this Object is
+    new/changed.
+    """
 
     @ComputedJsonProperty
     def as1(self):
@@ -417,12 +419,14 @@ class Object(StringIdModel):
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
-    # For certain types, automatically delete this Object after 90d using a
-    # TTL policy:
-    # https://cloud.google.com/datastore/docs/ttl#ttl_properties_and_indexes
-    # They recommend not indexing TTL properties:
-    # https://cloud.google.com/datastore/docs/ttl#ttl_properties_and_indexes
     def _expire(self):
+        """Maybe automatically delete this Object after 90d using a TTL policy.
+
+        https://cloud.google.com/datastore/docs/ttl#ttl_properties_and_indexes
+
+        They recommend not indexing TTL properties:
+        https://cloud.google.com/datastore/docs/ttl#ttl_properties_and_indexes
+        """
         if self.type in OBJECT_EXPIRE_TYPES:
             return (self.updated or util.now()) + OBJECT_EXPIRE_AGE
     expire = ndb.ComputedProperty(_expire, indexed=False)
@@ -440,10 +444,13 @@ class Object(StringIdModel):
         # TODO: assert that as1 id is same as key id? in pre put hook?
 
         # log, pruning data fields
-        props = self.to_dict()
-        for prop in 'as1', 'as2', 'bsky', 'mf2', 'our_as1':
+        props = util.trim_nulls(self.to_dict())
+        for prop in 'as2', 'bsky', 'mf2', 'our_as1':
             if props.get(prop):
                 props[prop] = "..."
+        for prop in 'created', 'updated', 'as1', 'expire':
+            props.pop(prop, None)
+
         logger.info(f'Wrote {self.key} {props}')
 
         if '#' not in self.key.id():
@@ -580,7 +587,14 @@ class Follower(ndb.Model):
         assert self.from_.kind() != self.to.kind(), f'from {self.from_} to {self.to}'
 
     def _post_put_hook(self, future):
-        logger.info(f'Wrote {self}')
+        # log, pruning data fields
+        props = util.trim_nulls(self.to_dict())
+        if props.get('follow'):
+            props['follow'] = "..."
+        for prop in 'created', 'updated':
+            props.pop(prop, None)
+
+        logger.info(f'Wrote {self.key} {props}')
 
     @classmethod
     @ndb.transactional()
