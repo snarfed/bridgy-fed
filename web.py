@@ -498,7 +498,7 @@ def webmention_task():
 
     # fetch source page
     try:
-        obj = Web.load(source, remote=True, check_backlink=True)
+        obj = Web.load(source, local=False, remote=True, check_backlink=True)
     except BadRequest as e:
         error(str(e.description), status=304)
     except HTTPError as e:
@@ -557,25 +557,18 @@ def webmention_task():
 
 
 def _deliver(obj):
-
-    targets = _targets(obj)  # maps Target to Object or None
-
-    if not targets:
-        add(obj.labels, 'user')
-        obj.status = 'ignored'
-        obj.put()
-        return 'No targets', 204
-
-    err = None
-    last_success = None
-    log_data = True
-
+    # if this is a post, wrap it in a create or update activity, if necessary
+    now = util.now().isoformat()
     if obj.type in ('note', 'article', 'comment'):
-        # have we already seen this object? has it changed? or is it new?
+        if obj.new is None and obj.changed is None:
+            # check if we've seen this object, and if it's changed since then
+            existing = Object.get_by_id(obj.key.id())
+            obj.new = existing is not None
+            obj.changed = existing and as1.activity_changed(existing.as1, obj.as1)
+
         if obj.changed:
             logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes')
-            updated = util.now().isoformat()
-            id = f'{obj.key.id()}#bridgy-fed-update-{updated}'
+            id = f'{obj.key.id()}#bridgy-fed-update-{now}'
             logger.info(f'Wrapping in update activity {id}')
             obj.put()
             update_as1 = {
@@ -589,12 +582,12 @@ def _deliver(obj):
                     # https://docs.joinmastodon.org/spec/activitypub/#supported-activities-for-statuses
                     # https://socialhub.activitypub.rocks/t/what-could-be-the-reason-that-my-update-activity-does-not-work/2893/4
                     # https://github.com/mastodon/documentation/pull/1150
-                    'updated': updated,
+                    'updated': now,
                     **obj.as1,
                 },
             }
-            obj = Object(id=id, mf2=obj.mf2, our_as1=update_as1, labels=['user'],
-                         users=[g.user.key], source_protocol='web')
+            obj = Object(id=id, our_as1=update_as1, users=[g.user.key],
+                         source_protocol=obj.source_protocol)
 
         elif obj.new or 'force' in request.form:
             logger.info(f'New Object {obj.key.id()}')
@@ -607,28 +600,43 @@ def _deliver(obj):
                 'id': id,
                 'actor': g.user.ap_actor(),
                 'object': obj.as1,
+                'published': now,
             }
-            obj = Object(id=id, mf2=obj.mf2, our_as1=create_as1,
-                         users=[g.user.key], labels=['user'],
-                         source_protocol='web')
+            source_protocol = obj.source_protocol
+            obj = Object.get_or_insert(id)
+            obj.populate(our_as1=create_as1, users=[g.user.key],
+                         source_protocol=source_protocol)
 
         else:
             msg = f'{obj.key.id()} is unchanged, nothing to do'
             logger.info(msg)
             return msg, 204
 
+    # find delivery targets
+    # sort targets so order is deterministic for tests, debugging, etc
+    targets = _targets(obj)  # maps Target to Object or None
+
+    if not targets:
+        add(obj.labels, 'user')
+        obj.status = 'ignored'
+        obj.put()
+        return 'No targets', 204
+
     sorted_targets = sorted(targets.items(), key=lambda t: t[0].uri)
     obj.populate(
         status='in progress',
-        labels=['user'],
         delivered=[],
         failed=[],
         undelivered=[t for t, _ in sorted_targets],
     )
+    add(obj.labels, 'user')
     logger.info(f'Delivering to: {obj.undelivered}')
 
-    # make copy of undelivered because we modify it below.
-    # sort targets so order is deterministic for tests.
+    err = None
+    last_success = None
+    log_data = True
+
+    # deliver!
     for target, orig_obj in sorted_targets:
         assert target.uri
         protocol = PROTOCOLS[target.protocol]
@@ -713,6 +721,8 @@ def _targets(obj):
             logger.info(f"Couldn't load {id}")
             continue
 
+        # TODO: attach orig_obj's author/actor to obj.users
+
         target = protocol.target_for(orig_obj)
         if target:
             targets[Target(protocol=protocol.LABEL, uri=target)] = orig_obj
@@ -722,14 +732,19 @@ def _targets(obj):
         # TODO: surface errors like this somehow?
         logger.error(f"Can't find delivery target for {id}")
 
-    if not targets or verb == 'share':
+    # deliver to followers?
+    inner_obj_as1 = as1.get_object(obj.as1)
+    is_reply = (obj.type == 'comment' or
+                (inner_obj_as1 and inner_obj_as1.get('inReplyTo')))
+    if obj.type == 'share' or (obj.type in ('post', 'update') and not is_reply):
         logger.info('Delivering to followers')
         followers = Follower.query(Follower.to == g.user.key,
                                    Follower.status == 'active'
                                    ).fetch()
-        users = ndb.get_multi(f.from_ for f in followers)
-        users = [u for u in users if u]
+        users = [u for u in ndb.get_multi(f.from_ for f in followers) if u]
         User.load_multi(users)
+        obj.users.extend(u.key for u in users)
+        add(obj.labels, 'feed')
 
         for user in users:
             # TODO: should we pass remote=False through here to Protocol.load?

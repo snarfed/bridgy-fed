@@ -21,7 +21,6 @@ SUPPORTED_TYPES = (
     'article',
     'audio',
     'comment',
-    'create',
     'delete',
     'follow',
     'image',
@@ -360,7 +359,7 @@ class Protocol:
         inner_obj_as1 = as1.get_object(obj.as1)
         inner_obj_id = inner_obj_as1.get('id')
         inner_obj = None
-        if (obj.type in ('post', 'create', 'update')
+        if (obj.type in ('post', 'update')
               and inner_obj_as1.keys() > set(['id'])):
             inner_obj = Object.get_or_insert(inner_obj_id)
             inner_obj.populate(our_as1=inner_obj_as1,
@@ -448,7 +447,7 @@ class Protocol:
         # deliver original posts and reposts to followers
         is_reply = (obj.type == 'comment' or
                     (inner_obj_as1 and inner_obj_as1.get('inReplyTo')))
-        if ((obj.type == 'share' or obj.type in ('create', 'post') and not is_reply)
+        if ((obj.type == 'share' or obj.type in ('post', 'update') and not is_reply)
                 and actor_id):
             logger.info(f'Delivering to followers of {actor_id}')
             for f in Follower.query(Follower.to == from_cls.key_for(actor_id),
@@ -542,7 +541,7 @@ class Protocol:
         inner_obj = as1.get_object(obj.as1)
         obj_url = util.get_url(inner_obj) or inner_obj.get('id')
 
-        if not source or obj.type in ('create', 'post', 'update'):
+        if not source or obj.type in ('post', 'update'):
             source = obj_url
         if not source:
             error("Couldn't find source post URL")

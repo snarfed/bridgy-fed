@@ -42,13 +42,6 @@ class ProtocolTest(TestCase):
         PROTOCOLS.pop('greedy', None)
         super().tearDown()
 
-    @staticmethod
-    def store_object(**kwargs):
-        obj = Object(**kwargs)
-        obj.put()
-        del protocol.objects_cache[obj.key.id()]
-        return obj
-
     def test_protocols_global(self):
         self.assertEqual(Fake, PROTOCOLS['fake'])
         self.assertEqual(Web, PROTOCOLS['web'])
@@ -301,195 +294,185 @@ class ProtocolReceiveTest(TestCase):
             if 'our_as1' in props and field not in props:
                 ignore.append(field)
 
-        return super().assert_object(id, delivered_protocol='fake',
+        return super().assert_object(id, source_protocol='fake',
+                                     delivered_protocol='fake',
                                      ignore=ignore, **props)
 
     def make_followers(self):
-        from_ = self.make_user(id, cls=ActivityPub, obj_as2=actor)
-        Follower.get_or_create(to=g.user, from_=from_, **kwargs)
+        Follower.get_or_create(to=g.user, from_=self.alice)
+        Follower.get_or_create(to=g.user, from_=self.bob)
+        Follower.get_or_create(to=g.user, from_=Fake(id='fake:eve'),
+                               status='inactive')
 
-        for id, kwargs, actor in [
-            ('fake:a', {}, None),
-            ('fake:b', {}, None),
-            ('https://mastodon/bbb', {}, {
-                'publicInbox': 'https://public/inbox',
-                'inbox': 'https://unused',
-            }),
-            ('https://mastodon/ccc', {}, {
-                'endpoints': {
-                    'sharedInbox': 'https://shared/inbox',
-                },
-            }),
-            ('https://mastodon/ddd', {}, {
-               'inbox': 'https://inbox',
-            }),
-            ('https://mastodon/ggg', {'status': 'inactive'}, {
-                'inbox': 'https://unused/2',
-            }),
-            ('https://mastodon/hhh', {}, {
-                # dupe of ddd; should be de-duped
-                'inbox': 'https://inbox',
-            }),
-        ]:
-            from_ = self.make_user(id, cls=ActivityPub, obj_as2=actor)
-            Follower.get_or_create(to=g.user, from_=from_, **kwargs)
+    def test_create_post(self):
+        self.make_followers()
 
-#     def test_create_post(self):
-#         mock_get.side_effect = [NOTE, ACTOR]
-#         mock_post.return_value = requests_response('abc xyz')
-#         self.make_followers()
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+        }
+        create_as1 = {
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'create',
+            'actor': 'fake:user',
+            'object': post_as1,
+        }
+        self.assertEqual('OK', Fake.receive('fake:create', our_as1=create_as1))
 
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/post',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(200, got.status_code)
+        self.assert_object('fake:post',
+                           our_as1=post_as1,
+                           type='note',
+                           )
+        obj = self.assert_object('fake:create',
+                                 status='complete',
+                                 our_as1=create_as1,
+                                 delivered=['shared:target'],
+                                 type='create',
+                                 labels=['user', 'activity', 'feed'],
+                                 users=[g.user.key, self.alice.key, self.bob.key],
+                                 )
 
-#         mock_get.assert_has_calls((
-#             self.req('https://user.com/post'),
-#         ))
-#         inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
-#         self.assert_deliveries(mock_post, inboxes, CREATE_AS2)
+        self.assertEqual([(obj, 'shared:target')], Fake.sent)
 
-#         self.assert_object('https://user.com/post',
-#                            users=[g.user.key],
-#                            mf2=NOTE_MF2,
-#                            type='note',
-#                            source_protocol='web',
-#                            )
-#         self.assert_object('https://user.com/post#bridgy-fed-create',
-#                            users=[g.user.key],
-#                            source_protocol='web',
-#                            status='complete',
-#                            mf2=NOTE_MF2,
-#                            our_as1=CREATE_AS1,
-#                            delivered=inboxes,
-#                            type='post',
-#                            labels=['user', 'activity'],
-#                            )
+    def test_create_post_bare_object(self):
+        self.make_followers()
 
-#     def test_update_post(self):
-#         mock_get.side_effect = [NOTE, ACTOR]
-#         mock_post.return_value = requests_response('abc xyz')
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+        }
+        self.assertEqual('OK', Fake.receive('fake:post', our_as1=post_as1))
 
-#         mf2 = copy.deepcopy(NOTE_MF2)
-#         mf2['properties']['content'] = 'different'
-#         Object(id='https://user.com/post', users=[g.user.key], mf2=mf2).put()
+        self.assert_object('fake:post',
+                           our_as1=post_as1,
+                           type='note',
+                           users=[g.user.key],
+                           )
 
-#         self.make_followers()
+        obj = self.assert_object('fake:post#bridgy-fed-create',
+                                 status='complete',
+                                 our_as1={
+                                     'objectType': 'activity',
+                                     'verb': 'post',
+                                     'id': 'fake:post#bridgy-fed-create',
+                                     'actor': 'http://bf/fake/fake:user/ap',
+                                     'object': post_as1,
+                                     'published': '2022-01-02T03:04:05+00:00',
+                                 },
+                                 delivered=['shared:target'],
+                                 type='post',
+                                 labels=['user', 'activity', 'feed'],
+                                 users=[g.user.key, self.alice.key, self.bob.key],
+                                 )
 
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/post',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(200, got.status_code)
+        self.assertEqual([(obj, 'shared:target')], Fake.sent)
 
-#         mock_get.assert_has_calls((
-#             self.req('https://user.com/post'),
-#         ))
-#         inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
-#         self.assert_deliveries(mock_post, inboxes, UPDATE_AS2)
+    def test_update_post(self):
+        self.make_followers()
 
-#         update_as1 = {
-#             'objectType': 'activity',
-#             'verb': 'update',
-#             'id': 'https://user.com/post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-#             'actor': 'http://localhost/user.com',
-#             'object': {
-#                 **NOTE_AS1,
-#                 'updated': '2022-01-02T03:04:05+00:00',
-#             },
-#         }
-#         self.assert_object(
-#             f'https://user.com/post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-#             users=[g.user.key],
-#             source_protocol='web',
-#             status='complete',
-#             mf2=NOTE_MF2,
-#             our_as1=update_as1,
-#             delivered=inboxes,
-#             type='update',
-#             labels=['user', 'activity'],
-#         )
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+        }
+        self.store_object(id='fake:post', our_as1=post_as1)
 
-#     def test_update_skip_if_content_unchanged(self):
-#         """https://github.com/snarfed/bridgy-fed/issues/78"""
-#         Object(id='https://user.com/reply', mf2=REPLY_MF2).put()
+        update_as1 = {
+            'id': 'fake:update',
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'fake:user',
+            'object': post_as1,
+        }
+        self.assertEqual('OK', Fake.receive('fake:update', our_as1=update_as1))
 
-#         mock_get.side_effect = ACTIVITYPUB_GETS
+        self.assert_object('fake:post',
+                           our_as1=post_as1,
+                           type='note',
+                           )
+        obj = self.assert_object('fake:update',
+                                 status='complete',
+                                 our_as1=update_as1,
+                                 delivered=['shared:target'],
+                                 type='update',
+                                 labels=['user', 'activity'],
+                                 users=[g.user.key],
+                                 )
 
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/reply',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(204, got.status_code)
-#         mock_post.assert_not_called()
+        self.assertEqual([(obj, 'shared:target')], Fake.sent)
 
-#     def test_create_with_image(self):
-#         create_html = NOTE_HTML.replace(
-#             '</body>', '<img class="u-photo" src="http://im/age" />\n</body>')
-#         mock_get.side_effect = [
-#             requests_response(create_html, url='https://user.com/post',
-#                               content_type=CONTENT_TYPE_HTML),
-#             ACTOR,
-#         ]
-#         mock_post.return_value = requests_response('abc xyz ')
+    def test_update_post_bare_object(self):
+        self.make_followers()
 
-#         Follower.get_or_create(
-#             to=g.user,
-#             from_=self.make_user('http://a', cls=ActivityPub,
-#                                  obj_as2={'inbox': 'https://inbox'}))
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/post',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(200, got.status_code)
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'content': 'first',
+        }
+        self.store_object(id='fake:post', our_as1=post_as1)
 
-#         self.assertEqual(('https://inbox',), mock_post.call_args[0])
-#         create = copy.deepcopy(CREATE_AS2)
-#         create['object'].update({
-#             'image': {'url': 'http://im/age', 'type': 'Image'},
-#             'attachment': [{'url': 'http://im/age', 'type': 'Image'}],
-#         })
-#         self.assert_equals(create, json_loads(mock_post.call_args[1]['data']))
+        post_as1['content'] = 'second'
+        self.assertEqual('OK', Fake.receive('fake:post', our_as1=post_as1))
 
-#     def test_create_reply(self):
-#         mock_get.side_effect = ACTIVITYPUB_GETS
-#         mock_post.return_value = requests_response('abc xyz')
+        self.assert_object('fake:post',
+                           our_as1=post_as1,
+                           type='note',
+                           users=[g.user.key],
+                           labels=['user'],
+                           )
 
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/reply',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(200, got.status_code)
+        update_id = 'fake:post#bridgy-fed-update-2022-01-02T03:04:05+00:00'
+        obj = self.assert_object(update_id,
+                                 status='complete',
+                                 our_as1={
+                                     'objectType': 'activity',
+                                     'verb': 'post',
+                                     'id': update_id,
+                                     'actor': 'http://bf/fake/fake:user/ap',
+                                     'object': post_as1,
+                                     'published': '2022-01-02T03:04:05+00:00',
+                                 },
+                                 delivered=['shared:target'],
+                                 type='update',
+                                 labels=['user', 'activity', 'feed'],
+                                 users=[g.user.key, self.alice.key, self.bob.key],
+                                 )
 
-#         mock_get.assert_has_calls((
-#             self.req('https://user.com/reply'),
-#             self.as2_req('http://not/fediverse'),
-#             self.req('http://not/fediverse'),
-#             self.as2_req('https://mas.to/toot'),
-#             self.as2_req('https://mas.to/author'),
-#         ))
+        self.assertEqual([(obj, 'shared:target')], Fake.sent)
 
-#         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], AS2_CREATE)
+    def test_create_reply(self):
+        self.make_followers()
 
-#         self.assert_object('https://user.com/reply',
-#                            users=[g.user.key],
-#                            source_protocol='web',
-#                            mf2=REPLY_MF2,
-#                            as1=REPLY_AS1,
-#                            type='comment',
-#                            )
-#         self.assert_object('https://user.com/reply#bridgy-fed-create',
-#                            users=[g.user.key],
-#                            source_protocol='web',
-#                            status='complete',
-#                            mf2=REPLY_MF2,
-#                            our_as1=CREATE_REPLY_AS1,
-#                            delivered=['https://mas.to/inbox'],
-#                            type='post',
-#                            labels=['user', 'activity'],
-#                            )
+        reply_as1 = {
+            'id': 'fake:reply',
+            'objectType': 'note',
+            'inReplyTo': 'fake:post',
+            'author': 'fake:alice',
+        }
+        create_as1 = {
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'create',
+            'actor': 'fake:user',
+            'object': reply_as1,
+        }
+        self.assertEqual('OK', Fake.receive('fake:create', our_as1=create_as1))
+
+        self.assert_object('fake:reply',
+                           our_as1=reply_as1,
+                           type='note',
+                           )
+        obj = self.assert_object('fake:create',
+                                 status='complete',
+                                 our_as1=create_as1,
+                                 delivered=['fake:post:target'],
+                                 type='create',
+                                 labels=['user', 'activity', 'notification'],
+                                 users=[g.user.key, self.alice.key],
+                                 )
+
+        self.assertEqual([(obj, 'fake:post:target')], Fake.sent)
 
 #     def test_update_reply(self):
 #         self.make_followers()
@@ -511,31 +494,35 @@ class ProtocolReceiveTest(TestCase):
 #         self.assertEqual(200, got.status_code)
 #         self.assertEqual((AS2_UPDATE, 'https://mas.to/inbox'), Fake.sent)
 
-    @patch('requests.get')
-    def test_receive_reply_not_feed_not_notification(self, mock_get):
-        Follower.get_or_create(to=Fake.get_or_create(id=ACTOR['id']),
-                               from_=Fake.get_or_create(id='foo.com'))
-        other_user = self.make_user('user.com', cls=Web)
+    def test_receive_reply_not_feed_not_notification(self):
+        Follower.get_or_create(to=g.user, from_=self.alice)
 
-        # user.com webmention discovery
-        mock_get.return_value = requests_response('<html></html>')
+        reply_as1 = {
+            'objectType': 'note',
+            'id': 'fake:reply',
+            'author': 'fake:bob',
+            'content': 'A ☕ reply',
+            'inReplyTo': 'fake:post',
+        }
+        create_as1 = {
+            'objectType': 'create',
+            'id': 'fake:create',
+            'object': reply_as1,
+        }
+        Fake.receive('fake:create', our_as1=create_as1)
 
-        Fake.receive(REPLY['id'], as2=REPLY)
-
-        self.assert_object(REPLY['id'],
-                           as2=REPLY,
-                           type='post',
-                           users=[other_user.key],
+        self.assert_object('fake:create',
+                           our_as1=reply_as1,
+                           type='create',
+                           users=[g.user.key],
                            # not feed since it's a reply
                            # not notification since it doesn't involve the user
-                           labels=['activity'],
+                           labels=['user'],
                            status='complete',
-                           source_protocol='fake',
                            )
         self.assert_object(REPLY['object']['id'],
-                           our_as1=as2.to_as1(REPLY['object']),
+                           our_as1=create_as1,
                            type='comment',
-                           source_protocol='fake',
                            )
 
 #     def test_follow(self):
@@ -557,7 +544,6 @@ class ProtocolReceiveTest(TestCase):
 
 #         obj = self.assert_object('https://user.com/follow',
 #                                  users=[g.user.key],
-#                                  source_protocol='web',
 #                                  status='complete',
 #                                  mf2=FOLLOW_MF2,
 #                                  as1=FOLLOW_AS1,
@@ -636,7 +622,6 @@ class ProtocolReceiveTest(TestCase):
         follow_obj = self.assert_object('fake:follow',
                                         our_as1=follow_as1,
                                         type='follow',
-                                        source_protocol='fake',
                                         labels=['user', 'activity'],
                                         status='complete',
                                         delivered=['fake:bob:target'],
@@ -670,76 +655,6 @@ class ProtocolReceiveTest(TestCase):
                      follow=follow_obj.key),
             Follower.query().get(),
             ignore=['created', 'updated'])
-
-#     def test_follow_multiple(self):
-#         html = FOLLOW_HTML.replace(
-#             '<a class="u-follow-of" href="https://mas.to/mrs-foo"></a>',
-#             '<a class="u-follow-of" href="https://mas.to/mrs-foo"></a> '
-#             '<a class="u-follow-of" href="https://mas.to/mr-biff"></a>')
-
-#         mock_get.side_effect = [
-#             requests_response(
-#                 html, url='https://user.com/follow',
-#                 content_type=CONTENT_TYPE_HTML),
-#             self.as2_resp({
-#                 'objectType': 'Person',
-#                 'displayName': 'Mr. ☕ Biff',
-#                 'id': 'https://mas.to/mr-biff',
-#                 'inbox': 'https://mas.to/inbox/biff',
-#             }),
-#             ACTOR,
-#         ]
-#         mock_post.return_value = requests_response('unused')
-
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/follow',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(200, got.status_code)
-
-#         mock_get.assert_has_calls((
-#             self.req('https://user.com/follow'),
-#             self.as2_req('https://mas.to/mr-biff'),
-#             self.as2_req('https://mas.to/mrs-foo'),
-#         ))
-
-#         calls = mock_post.call_args_list
-#         self.assertEqual('https://mas.to/inbox', calls[0][0][0])
-#         self.assertEqual(FOLLOW_AS2, json_loads(calls[0][1]['data']))
-#         self.assertEqual('https://mas.to/inbox/biff', calls[1][0][0])
-#         self.assertEqual({
-#             **FOLLOW_AS2,
-#             'object': 'https://mas.to/mr-biff',
-#         }, json_loads(calls[1][1]['data']))
-
-#         mf2 = util.parse_mf2(html)['items'][0]
-#         as1 = microformats2.json_to_object(mf2)
-#         obj = self.assert_object('https://user.com/follow',
-#                                  users=[g.user.key],
-#                                  source_protocol='web',
-#                                  status='complete',
-#                                  mf2=mf2,
-#                                  as1=as1,
-#                                  delivered=['https://mas.to/inbox',
-#                                             'https://mas.to/inbox/biff'],
-#                                  type='follow',
-#                                  object_ids=['https://mas.to/mrs-foo',
-#                                              'https://mas.to/mr-biff'],
-#                                  labels=['user', 'activity'],
-#                                  )
-
-#         followers = Follower.query().fetch()
-#         self.assertEqual(2, len(followers))
-
-#         self.assertEqual(g.user.key, followers[0].from_)
-#         self.assertEqual(ActivityPub(id='https://mas.to/mr-biff').key,
-#                          followers[0].to)
-#         self.assert_equals(obj.key, followers[0].follow)
-
-#         self.assertEqual(g.user.key, followers[1].from_)
-#         self.assertEqual(ActivityPub(id='https://mas.to/mrs-foo').key,
-#                          followers[1].to)
-#         self.assert_equals(obj.key, followers[1].follow)
 
 #     def test_repost(self):
 #         self._test_repost(REPOST_HTML, REPOST_AS2)
@@ -782,7 +697,6 @@ class ProtocolReceiveTest(TestCase):
 #         mf2 = util.parse_mf2(html)['items'][0]
 #         self.assert_object('https://user.com/repost',
 #                            users=[g.user.key],
-#                            source_protocol='web',
 #                            status='complete',
 #                            mf2=mf2,
 #                            as1=microformats2.json_to_object(mf2),
@@ -823,7 +737,6 @@ class ProtocolReceiveTest(TestCase):
 
         like_obj = self.assert_object('fake:like',
                                       users=[g.user.key],
-                                      source_protocol='fake',
                                       status='complete',
                                       our_as1=like_as1,
                                       delivered=['fake:post:target'],
@@ -853,7 +766,6 @@ class ProtocolReceiveTest(TestCase):
 
 #         self.assert_object('https://user.com/like',
 #                            users=[g.user.key],
-#                            source_protocol='web',
 #                            mf2=LIKE_MF2,
 #                            as1=microformats2.json_to_object(LIKE_MF2),
 #                            type='like',
@@ -908,7 +820,6 @@ class ProtocolReceiveTest(TestCase):
 
 #         self.assert_object('https://user.com/post#bridgy-fed-delete',
 #                            users=[g.user.key],
-#                            source_protocol='web',
 #                            status='complete',
 #                            our_as1=DELETE_AS1,
 #                            delivered=inboxes,
@@ -966,7 +877,6 @@ class ProtocolReceiveTest(TestCase):
 
 #         self.assert_object('https://user.com/follow',
 #                            users=[g.user.key],
-#                            source_protocol='web',
 #                            status='failed',
 #                            mf2=FOLLOW_MF2,
 #                            as1=FOLLOW_AS1,
@@ -1019,7 +929,6 @@ class ProtocolReceiveTest(TestCase):
 
         # profile object
         self.assert_object('fake:user',
-                           source_protocol='fake',
                            our_as1=update_as1['object'],
                            type='person',
                            )
@@ -1029,7 +938,6 @@ class ProtocolReceiveTest(TestCase):
         update_obj = self.assert_object(
             id,
             users=[g.user.key],
-            source_protocol='fake',
             status='complete',
             our_as1=update_as1,
             delivered=['shared:target'],
@@ -1065,7 +973,6 @@ class ProtocolReceiveTest(TestCase):
  #        expected_as2 = copy.deepcopy(MENTION_OBJECT)
  #        expected_as2['tag'][1]['href'] = 'https://tar.get/'
  #        self.assert_object(MENTION_OBJECT['id'],
- #                           source_protocol='activitypub',
  #                           as2=expected_as2,
  #                           type='note')
 
@@ -1098,7 +1005,6 @@ class ProtocolReceiveTest(TestCase):
  #        expected_as2 = common.redirect_unwrap(mention)
  #        self.assert_object(mention['id'],
  #                           users=[Web(id='tar.get').key],
- #                           source_protocol='activitypub',
  #                           status='complete',
  #                           as2=expected_as2,
  #                           delivered=['https://tar.get/'],
@@ -1148,7 +1054,6 @@ class ProtocolReceiveTest(TestCase):
 
  #        obj = self.assert_object('fake:follow',
  #                                 users=[g.user.key],
- #                                 source_protocol='fake',
  #                                 status='complete',
  #                                 our_as1=follow_as1,
  #                                 delivered=['fake:user'],
@@ -1230,7 +1135,6 @@ class ProtocolReceiveTest(TestCase):
  #        })
  #        self.assert_object('https://mas.to/6d1a',
  #                           users=[g.user.key],
- #                           source_protocol='activitypub',
  #                           status='complete',
  #                           as2=follow,
  #                           delivered=['https://user.com/'],
@@ -1310,4 +1214,3 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('inactive', follower.key.get().status)
         self.assertEqual('inactive', followee.key.get().status)
         self.assertEqual('active', other.key.get().status)
-        

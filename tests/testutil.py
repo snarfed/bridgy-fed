@@ -71,7 +71,7 @@ class Fake(User, protocol.Protocol):
     @classmethod
     def fetch(cls, obj,  **kwargs):
         id = obj.key.id()
-        logger.info(f'Fake.load {id}')
+        logger.info(f'Fake.fetch {id}')
         cls.fetched.append(id)
 
         if id in cls.fetchable:
@@ -213,22 +213,31 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         return user
 
     def add_objects(self):
-        with self.request_context:
-            # post
-            Object(id='a', domains=['user.com'], labels=['feed', 'notification'],
-                   as2=as2.from_as1(NOTE)).put()
-            # different domain
-            Object(id='b', domains=['nope.org'], labels=['feed', 'notification'],
-                   as2=as2.from_as1(MENTION)).put()
-            # reply
-            Object(id='d', domains=['user.com'], labels=['feed', 'notification'],
-                   as2=as2.from_as1(COMMENT)).put()
-            # not feed/notif
-            Object(id='e', domains=['user.com'],
-                   as2=as2.from_as1(NOTE)).put()
-            # deleted
-            Object(id='f', domains=['user.com'], labels=['feed', 'notification', 'user'],
-                   as2=as2.from_as1(NOTE), deleted=True).put()
+        # post
+        self.store_object(id='a', domains=['user.com'],
+                          labels=['feed', 'notification'],
+                          as2=as2.from_as1(NOTE))
+        # different domain
+        self.store_object(id='b', domains=['nope.org'],
+                          labels=['feed', 'notification'],
+                          as2=as2.from_as1(MENTION))
+        # reply
+        self.store_object(id='d', domains=['user.com'],
+                          labels=['feed', 'notification'],
+                          as2=as2.from_as1(COMMENT))
+        # not feed/notif
+        self.store_object(id='e', domains=['user.com'], as2=as2.from_as1(NOTE))
+        # deleted
+        self.store_object(id='f', domains=['user.com'],
+                          labels=['feed', 'notification', 'user'],
+                          as2=as2.from_as1(NOTE), deleted=True)
+
+    @staticmethod
+    def store_object(**kwargs):
+        obj = Object(**kwargs)
+        obj.put()
+        del protocol.objects_cache[obj.key.id()]
+        return obj
 
     @staticmethod
     def random_keys_and_cids(num):
