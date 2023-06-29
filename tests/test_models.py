@@ -9,7 +9,7 @@ from oauth_dropins.webutil.testutil import NOW
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
 
-from models import AtpNode, Follower, Object, OBJECT_EXPIRE_AGE, Target
+from models import AtpNode, Follower, Object, OBJECT_EXPIRE_AGE, Target, User
 import protocol
 from protocol import Protocol
 from web import Web
@@ -109,6 +109,25 @@ class UserTest(TestCase):
         obj.as2 = {'foo': 'bar'}
         obj.put()
         self.assertEqual({'foo': 'bar'}, g.user.as2())
+
+    def test_load_multi(self):
+        # obj_key is None
+        alice = Fake(id='alice.com')
+        alice.put()
+
+        # obj_key points to nonexistent entity
+        bob = Fake(id='bob.com', obj_key=Object(id='bob').key)
+        bob.put()
+
+        user = g.user.key.get()
+        self.assertFalse(hasattr(user, '_obj'))
+        self.assertFalse(hasattr(alice, '_obj'))
+        self.assertFalse(hasattr(bob, '_obj'))
+
+        User.load_multi([user, alice, bob])
+        self.assertIsNotNone(user._obj)
+        self.assertIsNone(alice._obj)
+        self.assertIsNone(bob._obj)
 
 
 class ObjectTest(TestCase):

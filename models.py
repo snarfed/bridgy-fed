@@ -195,7 +195,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
           users: sequence of :class:`User`
         """
         objs = ndb.get_multi(u.obj_key for u in users if u.obj_key)
-        keys_to_objs = {o.key: o for o in objs}
+        keys_to_objs = {o.key: o for o in objs if o}
 
         for u in users:
             u._obj = keys_to_objs.get(u.obj_key)
