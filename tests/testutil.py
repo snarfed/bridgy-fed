@@ -91,6 +91,13 @@ class Fake(User, protocol.Protocol):
         assert obj.source_protocol in (cls.LABEL, cls.ABBREV, 'ui', None)
         return 'shared:target' if shared else f'{obj.key.id()}:target'
 
+    @classmethod
+    def receive(cls, id_or_data, **kwargs):
+        if isinstance(id_or_data, dict):
+            return super().receive(id_or_data['id'], our_as1=id_or_data, **kwargs)
+        else:
+            return super().receive(id_or_data, **kwargs)
+
 
 # used in TestCase.make_user() to reuse keys across Users since they're
 # expensive to generate

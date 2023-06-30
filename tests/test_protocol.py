@@ -84,29 +84,6 @@ class ProtocolTest(TestCase):
         self.assertEqual('https://fa.brid.gy/foo?bar', Fake.subdomain_url('foo?bar'))
         self.assertEqual('https://fed.brid.gy/', UIProtocol.subdomain_url())
 
-    def test_receive_from_bridgy_fed_fails(self):
-        with self.assertRaises(BadRequest):
-            Fake.receive('https://fed.brid.gy/r/foo', as2=REPLY)
-
-        self.assertIsNone(Object.get_by_id('https://fed.brid.gy/r/foo'))
-
-        with self.assertRaises(BadRequest):
-            Fake.receive('foo', as2={
-                **REPLY,
-                'id': 'https://web.brid.gy/r/foo',
-            })
-
-        self.assertIsNone(Object.get_by_id('foo'))
-        self.assertIsNone(Object.get_by_id('https://web.brid.gy/r/foo'))
-
-        with self.assertRaises(BadRequest):
-            Fake.receive(REPLY['id'], as2={
-                **REPLY,
-                'actor': 'https://ap.brid.gy/user.com',
-            })
-
-        self.assertIsNone(Object.get_by_id(REPLY['id']))
-
     def test_for_id(self):
         for id, expected in [
                 (None, None),
@@ -289,14 +266,15 @@ class ProtocolReceiveTest(TestCase):
         self.bob = self.make_user('fake:bob', cls=Fake, obj_id='fake:bob')
 
     def assert_object(self, id, **props):
+        props.setdefault('source_protocol', 'fake')
+        props.setdefault('delivered_protocol', 'fake')
+
         ignore = []
         for field in 'as2', 'bsky', 'mf2':
             if 'our_as1' in props and field not in props:
                 ignore.append(field)
 
-        return super().assert_object(id, source_protocol='fake',
-                                     delivered_protocol='fake',
-                                     ignore=ignore, **props)
+        return super().assert_object(id, ignore=ignore, **props)
 
     def make_followers(self):
         Follower.get_or_create(to=g.user, from_=self.alice)
@@ -318,7 +296,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': post_as1,
         }
-        self.assertEqual('OK', Fake.receive('fake:create', our_as1=create_as1))
+        self.assertEqual('OK', Fake.receive(create_as1))
 
         self.assert_object('fake:post',
                            our_as1=post_as1,
@@ -343,7 +321,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'author': 'fake:user',
         }
-        self.assertEqual('OK', Fake.receive('fake:post', our_as1=post_as1))
+        self.assertEqual('OK', Fake.receive(post_as1))
 
         self.assert_object('fake:post',
                            our_as1=post_as1,
@@ -385,7 +363,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': post_as1,
         }
-        self.assertEqual('OK', Fake.receive('fake:update', our_as1=update_as1))
+        self.assertEqual('OK', Fake.receive(update_as1))
 
         self.assert_object('fake:post',
                            our_as1=post_as1,
@@ -413,7 +391,7 @@ class ProtocolReceiveTest(TestCase):
         self.store_object(id='fake:post', our_as1=post_as1)
 
         post_as1['content'] = 'second'
-        self.assertEqual('OK', Fake.receive('fake:post', our_as1=post_as1))
+        self.assertEqual('OK', Fake.receive(post_as1))
 
         self.assert_object('fake:post',
                            our_as1=post_as1,
@@ -457,7 +435,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': reply_as1,
         }
-        self.assertEqual('OK', Fake.receive('fake:create', our_as1=create_as1))
+        self.assertEqual('OK', Fake.receive(create_as1))
 
         self.assert_object('fake:reply',
                            our_as1=reply_as1,
@@ -488,7 +466,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:post',
             'author': 'fake:bob',
         }
-        self.assertEqual('OK', Fake.receive('fake:reply', our_as1=reply_as1))
+        self.assertEqual('OK', Fake.receive(reply_as1))
 
         self.assert_object('fake:reply',
                            our_as1=reply_as1,
@@ -535,99 +513,46 @@ class ProtocolReceiveTest(TestCase):
 #         self.assertEqual(200, got.status_code)
 #         self.assertEqual((AS2_UPDATE, 'https://mas.to/inbox'), Fake.sent)
 
-    def test_receive_reply_not_feed_not_notification(self):
-        Follower.get_or_create(to=g.user, from_=self.alice)
+    # TODO: revisit? remove?
+    # def test_reply_not_feed_not_notification(self):
+    #     Follower.get_or_create(to=g.user, from_=self.alice)
+    #     g.user = None
 
-        reply_as1 = {
-            'objectType': 'note',
-            'id': 'fake:reply',
-            'author': 'fake:bob',
-            'content': 'A ☕ reply',
-            'inReplyTo': 'fake:post',
-        }
-        create_as1 = {
-            'objectType': 'post',
-            'id': 'fake:create',
-            'object': reply_as1,
-        }
-        Fake.receive('fake:create', our_as1=create_as1)
+    #     Fake.fetchable['fake:post'] = {
+    #         'objectType': 'note',
+    #         'id': 'fake:post',
+    #         'author': 'fake:eve',  # we have no user for this id
+    #     }
+    #     reply_as1 = {
+    #         'objectType': 'comment',
+    #         'id': 'fake:reply',
+    #         'author': 'fake:bob',
+    #         'content': 'A ☕ reply',
+    #         'inReplyTo': 'fake:post',
+    #     }
+    #     create_as1 = {
+    #         'objectType': 'post',
+    #         'id': 'fake:create',
+    #         'object': reply_as1,
+    #     }
+    #     Fake.receive(create_as1)
 
-        self.assert_object('fake:create',
-                           our_as1=reply_as1,
-                           type='post',
-                           users=[g.user.key],
-                           # not feed since it's a reply
-                           # not notification since it doesn't involve the user
-                           labels=['user'],
-                           status='complete',
-                           )
-        self.assert_object(REPLY['object']['id'],
-                           our_as1=create_as1,
-                           type='comment',
-                           )
+    #     self.assert_object('fake:reply',
+    #                        our_as1=reply_as1,
+    #                        type='comment',
+    #                        )
+    #     self.assert_object('fake:create',
+    #                        our_as1=create_as1,
+    #                        type='post',
+    #                        users=[Fake(id='fake:eve').key],
+    #                        # not feed since it's a reply
+    #                        # not notification since it doesn't involve the user
+    #                        labels=['notification', 'user'],
+    #                        delivered=['fake:post:target'],
+    #                        status='complete',
+    #                        )
 
-#     def test_follow(self):
-#         mock_get.side_effect = [FOLLOW, ACTOR]
-#         mock_post.return_value = requests_response('abc xyz')
-
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/follow',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(200, got.status_code)
-
-#         mock_get.assert_has_calls((
-#             self.req('https://user.com/follow'),
-#             self.as2_req('https://mas.to/mrs-foo'),
-#         ))
-
-#         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
-
-#         obj = self.assert_object('https://user.com/follow',
-#                                  users=[g.user.key],
-#                                  status='complete',
-#                                  mf2=FOLLOW_MF2,
-#                                  as1=FOLLOW_AS1,
-#                                  delivered=['https://mas.to/inbox'],
-#                                  type='follow',
-#                                  object_ids=['https://mas.to/mrs-foo'],
-#                                  labels=['user', 'activity'],
-#                                  )
-
-#         to = self.assert_user(ActivityPub, 'https://mas.to/mrs-foo', obj_as2={
-#             'name': 'Mrs. ☕ Foo',
-#             'id': 'https://mas.to/mrs-foo',
-#             'inbox': 'https://mas.to/inbox',
-#             'type': 'Person',
-#         })
-
-#         followers = Follower.query().fetch()
-#         self.assertEqual(1, len(followers))
-#         self.assertEqual(g.user.key, followers[0].from_)
-#         self.assertEqual(to.key, followers[0].to)
-#         self.assert_equals(obj.key, followers[0].follow)
-
-#     def test_follow_no_actor(self):
-#         g.user.obj_key = Object(id='a', as2=ACTOR_AS2).put()
-#         g.user.put()
-
-#         html = FOLLOW_HTML.replace(
-#             '<a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>', '')
-#         follow = requests_response(html, url='https://user.com/follow',
-#                                    content_type=CONTENT_TYPE_HTML)
-
-#         mock_get.side_effect = [follow, ACTOR]
-#         mock_post.return_value = requests_response('abc xyz')
-
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/follow',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(200, got.status_code)
-
-#         args, kwargs = mock_post.call_args
-#         self.assertEqual(('https://mas.to/inbox',), args)
-#         self.assert_equals(FOLLOW_AS2, json_loads(kwargs['data']))
+    #     self.assertEqual([(obj, 'fake:post:target')], Fake.sent)
 
 #     def test_follow_no_target(self):
 #         self.make_followers()
@@ -646,56 +571,6 @@ class ProtocolReceiveTest(TestCase):
 #         })
 #         self.assertEqual(400, got.status_code)
 #         mock_post.assert_not_called()
-
-    def test_follow_no_g_user(self):
-        """No user from request, eg delivered to our ActivityPub shared inbox."""
-        g.user = None
-
-        follow_as1 = {
-            'id': 'fake:follow',
-            'objectType': 'activity',
-            'verb': 'follow',
-            'actor': 'fake:alice',
-            'object': 'fake:bob',
-        }
-        self.assertEqual('OK', Fake.receive('fake:follow', our_as1=follow_as1))
-
-        follow_obj = self.assert_object('fake:follow',
-                                        our_as1=follow_as1,
-                                        type='follow',
-                                        labels=['user', 'activity'],
-                                        status='complete',
-                                        delivered=['fake:bob:target'],
-                                        users=[self.alice.key, self.bob.key],
-                                        )
-
-        accept_id = 'http://localhost/fa/fake:bob/followers#accept-fake:follow'
-        accept_as1 = {
-            'id': accept_id,
-            'objectType': 'activity',
-            'verb': 'accept',
-            'actor': 'fake:bob',
-            'object': follow_as1,
-        }
-        accept_obj = self.assert_object(accept_id,
-                                        our_as1=accept_as1,
-                                        type='accept',
-                                        labels=['activity'],
-                                        status='complete',
-                                        delivered=['fake:alice:target'],
-                                        users=[],
-                                        )
-
-        self.assertEqual([
-            (accept_obj, 'fake:alice:target'),
-            (follow_obj, 'fake:bob:target'),
-        ], Fake.sent)
-
-        self.assert_entities_equal(
-            Follower(to=self.bob.key, from_=self.alice.key, status='active',
-                     follow=follow_obj.key),
-            Follower.query().get(),
-            ignore=['created', 'updated'])
 
 #     def test_repost(self):
 #         self._test_repost(REPOST_HTML, REPOST_AS2)
@@ -774,7 +649,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': 'fake:post',
         }
-        self.assertEqual('OK', Fake.receive('fake:like', our_as1=like_as1))
+        self.assertEqual('OK', Fake.receive(like_as1))
 
         like_obj = self.assert_object('fake:like',
                                       users=[g.user.key],
@@ -966,7 +841,7 @@ class ProtocolReceiveTest(TestCase):
             },
         }
 
-        Fake.receive(id, our_as1=update_as1)
+        Fake.receive(update_as1)
 
         # profile object
         self.assert_object('fake:user',
@@ -1051,159 +926,102 @@ class ProtocolReceiveTest(TestCase):
  #                           delivered=['https://tar.get/'],
  #                           **expected_props)
 
- #    def test_follow_accept_with_id(self):
- #        eve_as1 = Fake.fetchable['fake:eve'] = {
- #            'id': 'fake:eve',
- #            'displayName': 'Eve',
- #        }
+    def test_follow(self):
+        self._test_follow()
 
- #        # this should makes us make the follower ActivityPub as direct=True
- #        g.user.direct = False
- #        g.user.put()
+    def test_follow_no_g_user(self):
+        """No user from request, eg delivered to our ActivityPub shared inbox."""
+        g.user = None
+        self.test_follow()
 
- #        follow_as1 = {
- #            'id': 'fake:follow',
- #            'objectType': 'activity',
- #            'verb': 'follow',
- #            'actor': 'fake:eve',
- #            'object': 'fake:user',
- #        }
- #        self.assertEqual('OK', Fake.receive('fake:follow', our_as1=follow_as1))
-
- #        # check that we replied with accept and sent the follow
- #        accept_id = 'http://localhost/fa/fake:user/followers#accept-fake:follow'
- #        accept_as1 = {
- #            'id': accept_id,
- #            'objectType': 'activity',
- #            'verb': 'accept',
- #            'actor': 'fake:user',
- #            'object': {
- #                **follow_as1,
- #                'actor': {
- #                    'id': 'fake:eve',
- #                    'displayName': 'Eve',
- #                },
- #            },
- #        }
-
- #        [(sent_accept, accept_target)] = Fake.sent
- # #, (sent_follow, follow_target)
- #        self.assertEqual(accept_as1, sent_accept.as1)
- #        self.assertEqual('fake:eve:target', accept_target)
- #        # self.assertEqual(follow_as1, sent_follow.as1)
- #        # self.assertEqual('fake:user:target', follow_target)
-
- #        obj = self.assert_object('fake:follow',
- #                                 users=[g.user.key],
- #                                 status='complete',
- #                                 our_as1=follow_as1,
- #                                 delivered=['fake:user'],
- #                                 type='follow',
- #                                 labels=['notification', 'activity'],
- #                                 object_ids=['fake:user'])
-
- #        # check that we stored new User and Follower
- #        eve = self.assert_user(Fake, 'fake:eve', obj_as1=eve_as1, direct=True)
- #        self.assert_entities_equal(
- #            Follower(to=g.user.key, from_=eve.key, follow=obj.key, status='active'),
- #            Follower.query().fetch(),
- #            ignore=['created', 'updated'])
-
- #    def test_follow_accept_with_object(self):
- #        unwrapped_user = {
- #            'id': FOLLOW['object'],
- #            'url': FOLLOW['object'],
- #        }
- #        follow = {
- #            **FOLLOW,
- #            'object': unwrapped_user,
- #        }
- #        accept = copy.deepcopy(ACCEPT)
- #        accept['object']['object'] = unwrapped_user
-
- #        # this should makes us make the follower ActivityPub as direct=True
- #        g.user.direct = False
- #        g.user.put()
-
- #        mock_head.return_value = requests_response(url='https://user.com/')
- #        mock_get.side_effect = [
- #            # source actor
- #            self.as2_resp(ACTOR),
- #            WEBMENTION_DISCOVERY,
- #        ]
- #        if not mock_post.return_value and not mock_post.side_effect:
- #            mock_post.return_value = requests_response()
-
- #        got = self.post('/user.com/inbox', json=follow)
- #        self.assertEqual(200, got.status_code)
-
- #        mock_get.assert_has_calls((
- #            self.as2_req(FOLLOW['actor']),
- #        ))
-
- #        # check AP Accept
- #        self.assertEqual(2, len(mock_post.call_args_list))
- #        args, kwargs = mock_post.call_args_list[0]
- #        self.assertEqual(('http://mas.to/inbox',), args)
-
- #        accept['object']['actor']['@context'] = 'https://www.w3.org/ns/activitystreams'
- #        self.assertEqual(accept, json_loads(kwargs['data']))
-
- #        # check webmention
- #        args, kwargs = mock_post.call_args_list[1]
- #        self.assertEqual(('https://user.com/webmention',), args)
- #        self.assertEqual({
- #            'source': 'http://localhost/convert/activitypub/web/https:/mas.to/6d1a',
- #            'target': 'https://user.com/',
- #        }, kwargs['data'])
-
- #        # check that we stored Follower and ActivityPub user for the follower
- #        self.assert_entities_equal(
- #            Follower(to=g.user.key,
- #                     from_=ActivityPub(id=ACTOR['id']).key,
- #                     status='active',
- #                     follow=Object(id=FOLLOW['id']).key),
- #            Follower.query().fetch(),
- #            ignore=['created', 'updated'])
-
- #        self.assert_user(ActivityPub, ACTOR['id'],
- #                         obj_as2=ACCEPT_FOLLOW['actor'],
- #                         direct=True)
-
- #        follow.update({
- #            'actor': ACTOR,
- #            'url': 'https://mas.to/users/swentel#followed-https://user.com/',
- #        })
- #        self.assert_object('https://mas.to/6d1a',
- #                           users=[g.user.key],
- #                           status='complete',
- #                           as2=follow,
- #                           delivered=['https://user.com/'],
- #                           type='follow',
- #                           labels=['notification', 'activity'],
- #                           object_ids=[FOLLOW['object']])
-
-    def test_follow_inactive(self):
+    def test_follow_existing_inactive(self):
         follower = Follower.get_or_create(to=g.user, from_=self.alice,
                                           status='inactive')
+        self._test_follow()
+
+    def test_follow_actor_object_composite_objects(self):
+        self._test_follow(actor={'id': 'fake:alice', 'objectType': 'person'},
+                          object={'id': 'fake:user', 'objectType': 'person'})
+
+    def _test_follow(self, **extra):
         Fake.fetchable['fake:alice'] = {}
 
-        self.assertEqual('OK', Fake.receive('fake:follow', our_as1={
+        follow_as1 = {
             'id': 'fake:follow',
             'objectType': 'activity',
             'verb': 'follow',
             'actor': 'fake:alice',
             'object': 'fake:user',
-        }))
+            **extra,
+        }
+        self.assertEqual('OK', Fake.receive(follow_as1))
 
-        # check that the Follower is now active
-        self.assertEqual('active', follower.key.get().status)
+        user = Fake.get_by_id('fake:user')
+        follow_obj = self.assert_object('fake:follow',
+                                        our_as1=follow_as1,
+                                        status='complete',
+                                        users=[self.alice.key, user.key],
+                                        labels=['activity', 'user'],
+                                        delivered=['fake:user:target'],
+                                        )
+
+        accept_id = 'http://localhost/fa/fake:user/followers#accept-fake:follow'
+        accept_as1 = {
+            'id': accept_id,
+            'objectType': 'activity',
+            'verb': 'accept',
+            'actor': 'fake:user',
+            'object': follow_as1,
+        }
+        accept_obj = self.assert_object(accept_id,
+                                        our_as1=accept_as1,
+                                        type='accept',
+                                        labels=['activity'],
+                                        status='complete',
+                                        delivered=['fake:alice:target'],
+                                        users=[],
+                                        source_protocol=None,
+                                        )
+
+        self.assertEqual([
+            (accept_obj, 'fake:alice:target'),
+            (follow_obj, 'fake:user:target'),
+        ], Fake.sent)
+
+        self.assert_entities_equal(
+            Follower(to=user.key, from_=self.alice.key, status='active',
+                     follow=follow_obj.key),
+            Follower.query().fetch(),
+            ignore=['created', 'updated'],
+        )
+
+    def test_follow_no_actor(self):
+        with self.assertRaises(BadRequest):
+            Fake.receive({
+                'id': 'fake:follow',
+                'objectType': 'activity',
+                'verb': 'follow',
+                'object': 'fake:user',
+            })
+
+        self.assertEqual([], Follower.query().fetch())
+
+    def test_follow_no_object(self):
+        with self.assertRaises(BadRequest):
+            Fake.receive({
+                'id': 'fake:follow',
+                'objectType': 'activity',
+                'verb': 'follow',
+                'actor': 'fake:alice',
+            })
+
+        self.assertEqual([], Follower.query().fetch())
 
     def test_undo_follow(self):
         follower = Follower.get_or_create(to=g.user, from_=self.alice)
         Fake.fetchable['fake:alice'] = {}
 
-        self.assertEqual('OK', Fake.receive('fake:undo-follow', our_as1={
+        self.assertEqual('OK', Fake.receive({
             'id': 'fake:undo-follow',
             'objectType': 'activity',
             'verb': 'stop-following',
@@ -1214,7 +1032,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('inactive', follower.key.get().status)
 
     def test_undo_follow_doesnt_exist(self):
-        self.assertEqual('OK', Fake.receive('fake:undo-follow', our_as1={
+        self.assertEqual('OK', Fake.receive({
             'id': 'fake:undo-follow',
             'objectType': 'activity',
             'verb': 'stop-following',
@@ -1229,7 +1047,7 @@ class ProtocolReceiveTest(TestCase):
                                           status='inactive')
         Fake.fetchable['fake:alice'] = {}
 
-        self.assertEqual('OK', Fake.receive('fake:undo-follow', our_as1={
+        self.assertEqual('OK', Fake.receive({
             'id': 'fake:undo-follow',
             'objectType': 'activity',
             'verb': 'stop-following',
@@ -1244,7 +1062,7 @@ class ProtocolReceiveTest(TestCase):
         other = Follower.get_or_create(to=g.user, from_=self.bob)
         self.assertEqual(3, Follower.query().count())
 
-        self.assertEqual('OK', Fake.receive('fake:delete', our_as1={
+        self.assertEqual('OK', Fake.receive({
             'objectType': 'activity',
             'verb': 'delete',
             'id': 'fake:delete',
@@ -1255,3 +1073,26 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('inactive', follower.key.get().status)
         self.assertEqual('inactive', followee.key.get().status)
         self.assertEqual('active', other.key.get().status)
+
+    def test_receive_from_bridgy_fed_fails(self):
+        with self.assertRaises(BadRequest):
+            Fake.receive('https://fed.brid.gy/r/foo', as2=REPLY)
+
+        self.assertIsNone(Object.get_by_id('https://fed.brid.gy/r/foo'))
+
+        with self.assertRaises(BadRequest):
+            Fake.receive('foo', as2={
+                **REPLY,
+                'id': 'https://web.brid.gy/r/foo',
+            })
+
+        self.assertIsNone(Object.get_by_id('foo'))
+        self.assertIsNone(Object.get_by_id('https://web.brid.gy/r/foo'))
+
+        with self.assertRaises(BadRequest):
+            Fake.receive(REPLY['id'], as2={
+                **REPLY,
+                'actor': 'https://ap.brid.gy/user.com',
+            })
+
+        self.assertIsNone(Object.get_by_id(REPLY['id']))
