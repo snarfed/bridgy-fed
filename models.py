@@ -19,7 +19,7 @@ from oauth_dropins.webutil.models import ComputedJsonProperty, JsonProperty, Str
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
-from common import base64_to_long, long_to_base64, redirect_unwrap
+from common import add, base64_to_long, long_to_base64, redirect_unwrap
 
 # maps string label to Protocol subclass. populated by ProtocolUserMeta.
 # seed with old and upcoming protocols that don't have their own classes (yet).
@@ -431,11 +431,9 @@ class Object(StringIdModel):
         assert '^^' not in self.key.id()
 
         if self.as1 and self.as1.get('objectType') == 'activity':
-            if 'activity' not in self.labels:
-                self.labels.append('activity')
-        else:
-            if 'activity' in self.labels:
-                self.labels.remove('activity')
+            add(self.labels, 'activity')
+        elif 'activity' in self.labels:
+            self.labels.remove('activity')
 
     def _post_put_hook(self, future):
         """Update :meth:`Protocol.load` cache."""

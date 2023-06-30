@@ -11,7 +11,7 @@ from granary import as1
 import werkzeug.exceptions
 
 import common
-from common import error
+from common import add, error
 from models import Follower, Object, PROTOCOLS, Target
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -456,10 +456,9 @@ class Protocol:
             logger.info(f'Delivering to followers of {actor_id}')
             for f in Follower.query(Follower.to == from_cls.key_for(actor_id),
                                     Follower.status == 'active'):
-                if f.from_ not in obj.users:
-                    obj.users.append(f.from_)
-            if obj.users and 'feed' not in obj.labels:
-                obj.labels.append('feed')
+                add(obj.users, f.from_)
+            if obj.users:
+                add(obj.labels, 'feed')
 
         obj.put()
         return 'OK'
@@ -584,8 +583,7 @@ class Protocol:
             target = obj.undelivered.pop()
             domain = util.domain_from_link(target.uri, minimize=False)
             if g.user and domain == g.user.key.id():
-                if 'notification' not in obj.labels:
-                    obj.labels.append('notification')
+                add(obj.labels, 'notification')
 
             if (domain == util.domain_from_link(source, minimize=False)
                 and cls.LABEL != 'fake'):
@@ -611,8 +609,7 @@ class Protocol:
             try:
                 if recip.send(obj, target.uri):
                     obj.delivered.append(target)
-                    if 'notification' not in obj.labels:
-                        obj.labels.append('notification')
+                    add(obj.labels, 'notification')
             except BaseException as e:
                 code, body = util.interpret_http_exception(e)
                 if not code and not body:

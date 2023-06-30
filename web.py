@@ -21,6 +21,7 @@ from requests import HTTPError, RequestException, URLRequired
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 
 import common
+from common import add
 from flask_app import app, cache
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
@@ -558,7 +559,7 @@ def webmention_task():
         source_protocol='web',
     )
     if not targets:
-        obj.labels.append('user')
+        add(obj.labels, 'user')
         obj.status = 'ignored'
         obj.put()
         return 'No targets', 204

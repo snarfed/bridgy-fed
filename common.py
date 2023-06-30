@@ -223,3 +223,12 @@ def webmention_endpoint_cache_key(url):
 def webmention_discover(url, **kwargs):
     """Thin caching wrapper around :func:`web.discover`."""
     return webmention.discover(url, **kwargs)
+
+
+def add(seq, val):
+    """Appends val to seq if seq doesn't already contain it.
+
+    Useful for treating repeated ndb properties like sets instead of lists.
+    """
+    if val not in seq:
+        seq.append(val)
