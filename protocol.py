@@ -347,8 +347,8 @@ class Protocol:
         obj = Object.get_or_insert(id)
         obj.clear()
         obj.populate(source_protocol=from_cls.LABEL, **props)
-        if g.user and g.user not in obj.users:
-            obj.users.append(g.user.key)
+        if g.user:
+            add(obj.users, g.user.key)
         obj.put()
         logger.info(f'Got AS1: {json_dumps(obj.as1, indent=2)}')
 

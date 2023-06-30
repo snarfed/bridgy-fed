@@ -754,7 +754,8 @@ def _targets(obj):
                                    ).fetch()
         users = [u for u in ndb.get_multi(f.from_ for f in followers) if u]
         User.load_multi(users)
-        obj.users.extend(u.key for u in users)
+        for u in users:
+            add(obj.users, u.key)
         add(obj.labels, 'feed')
 
         for user in users:
