@@ -19,6 +19,7 @@ from werkzeug.exceptions import BadGateway
 from flask_app import app, cache
 import common
 from common import (
+    add,
     CACHE_TIME,
     CONTENT_TYPE_HTML,
     error,
@@ -536,8 +537,7 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     # https://socialhub.activitypub.rocks/t/visibility-to-cc-mapping/284
     # https://wordsmith.social/falkreon/securing-activitypub
     to = activity.setdefault('to', [])
-    if as2.PUBLIC_AUDIENCE not in to:
-        to.append(as2.PUBLIC_AUDIENCE)
+    add(to, as2.PUBLIC_AUDIENCE)
 
     # hashtags. Mastodon requires:
     # * type: Hashtag

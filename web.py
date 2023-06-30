@@ -556,8 +556,12 @@ def webmention_task():
     return _deliver(obj)
 
 
-def _deliver(obj):
-    # if this is a post, wrap it in a create or update activity, if necessary
+def _deliver(cls, obj):
+    obj_actor = as1.get_owner(obj.as1)
+    if not obj_actor and g.user:
+        obj_actor = g.user.key.id()
+
+    # is this is a post? wrap it in a create or update activity if so
     now = util.now().isoformat()
     if obj.type in ('note', 'article', 'comment'):
         if obj.new is None and obj.changed is None:
@@ -575,7 +579,7 @@ def _deliver(obj):
                 'objectType': 'activity',
                 'verb': 'update',
                 'id': id,
-                'actor': g.user.ap_actor(),
+                'actor': obj_actor,
                 'object': {
                     # Mastodon requires the updated field for Updates, so
                     # add a default value.
@@ -586,7 +590,7 @@ def _deliver(obj):
                     **obj.as1,
                 },
             }
-            obj = Object(id=id, our_as1=update_as1, users=[g.user.key],
+            obj = Object(id=id, our_as1=update_as1,
                          source_protocol=obj.source_protocol)
 
         elif obj.new or 'force' in request.form:
@@ -598,19 +602,26 @@ def _deliver(obj):
                 'objectType': 'activity',
                 'verb': 'post',
                 'id': id,
-                'actor': g.user.ap_actor(),
+                'actor': obj_actor,
                 'object': obj.as1,
                 'published': now,
             }
             source_protocol = obj.source_protocol
             obj = Object.get_or_insert(id)
-            obj.populate(our_as1=create_as1, users=[g.user.key],
-                         source_protocol=source_protocol)
+            obj.populate(our_as1=create_as1, source_protocol=source_protocol)
 
         else:
             msg = f'{obj.key.id()} is unchanged, nothing to do'
             logger.info(msg)
             return msg, 204
+
+    # attach object's author/actor(s) to Object
+    if obj_actor:
+        add(obj.users, cls.key_for(obj_actor))
+    if obj.as1.get('verb') in ('post', 'update', 'delete'):
+        inner_actor = as1.get_owner(as1.get_object(obj.as1))
+        if inner_actor:
+            add(obj.users, cls.key_for(inner_actor))
 
     # find delivery targets
     # sort targets so order is deterministic for tests, debugging, etc
@@ -647,13 +658,13 @@ def _deliver(obj):
         try:
             sent = protocol.send(obj, target.uri, log_data=log_data)
             if sent:
-                obj.delivered.append(target)
+                add(obj.delivered, target)
                 obj.undelivered.remove(target)
         except BaseException as e:
             code, body = util.interpret_http_exception(e)
             if not code and not body:
                 raise
-            obj.failed.append(target)
+            add(obj.failed, target)
             obj.undelivered.remove(target)
             err = e
         finally:
@@ -724,8 +735,6 @@ def _targets(obj):
             logger.info(f"Couldn't load {id}")
             continue
 
-        # TODO: attach orig_obj's author/actor to obj.users
-
         target = protocol.target_for(orig_obj)
         if not target:
             # TODO: surface errors like this somehow?
@@ -734,15 +743,12 @@ def _targets(obj):
 
         logger.info(f'Target for {id} is {target}')
         targets[Target(protocol=protocol.LABEL, uri=target)] = orig_obj
-        orig_user = orig_obj.as1.get('author') or orig_obj.as1.get('actor')
+        orig_user = as1.get_owner(orig_obj.as1)
         if orig_user:
             user_key = protocol.key_for(orig_user)
             logger.info(f'Recipient is {user_key}')
-            if user_key not in obj.users:
-                obj.users.append(user_key)
-            if 'notification' not in obj.labels:
-                obj.labels.append('notification')
-
+            add(obj.users, user_key)
+            add(obj.labels, 'notification')
 
     # deliver to followers?
     is_reply = (obj.type == 'comment' or
@@ -754,9 +760,10 @@ def _targets(obj):
                                    ).fetch()
         users = [u for u in ndb.get_multi(f.from_ for f in followers) if u]
         User.load_multi(users)
-        for u in users:
-            add(obj.users, u.key)
-        add(obj.labels, 'feed')
+        if obj.type != 'update':
+            for u in users:
+                add(obj.users, u.key)
+            add(obj.labels, 'feed')
 
         for user in users:
             # TODO: should we pass remote=False through here to Protocol.load?

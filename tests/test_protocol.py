@@ -335,7 +335,7 @@ class ProtocolReceiveTest(TestCase):
                                      'objectType': 'activity',
                                      'verb': 'post',
                                      'id': 'fake:post#bridgy-fed-create',
-                                     'actor': 'http://bf/fake/fake:user/ap',
+                                     'actor': 'fake:user',
                                      'object': post_as1,
                                      'published': '2022-01-02T03:04:05+00:00',
                                  },
@@ -422,6 +422,10 @@ class ProtocolReceiveTest(TestCase):
     def test_create_reply(self):
         self.make_followers()
 
+        Fake.fetchable['fake:post'] = {
+            'objectType': 'note',
+            'author': 'fake:bob',
+        }
         reply_as1 = {
             'id': 'fake:reply',
             'objectType': 'note',
@@ -447,7 +451,7 @@ class ProtocolReceiveTest(TestCase):
                                  delivered=['fake:post:target'],
                                  type='post',
                                  labels=['user', 'activity', 'notification'],
-                                 users=[g.user.key, self.alice.key],
+                                 users=[g.user.key, self.bob.key, self.alice.key],
                                  )
 
         self.assertEqual([(obj, 'fake:post:target')], Fake.sent)
@@ -478,7 +482,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:reply#bridgy-fed-create',
             'objectType': 'activity',
             'verb': 'post',
-            'actor': 'http://bf/fake/fake:user/ap',
+            'actor': 'fake:alice',
             'object': reply_as1,
             'published': '2022-01-02T03:04:05+00:00',
         }
@@ -488,7 +492,7 @@ class ProtocolReceiveTest(TestCase):
                                  delivered=['fake:post:target'],
                                  type='post',
                                  labels=['user', 'activity', 'notification'],
-                                 users=[g.user.key, self.bob.key],
+                                 users=[self.alice.key, self.bob.key],
                                  )
 
         self.assertEqual([(obj, 'fake:post:target')], Fake.sent)
@@ -961,7 +965,7 @@ class ProtocolReceiveTest(TestCase):
                                         our_as1=follow_as1,
                                         status='complete',
                                         users=[self.alice.key, user.key],
-                                        labels=['activity', 'user'],
+                                        labels=['activity', 'user', 'notification'],
                                         delivered=['fake:user:target'],
                                         )
 

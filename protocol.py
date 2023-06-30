@@ -447,7 +447,7 @@ class Protocol:
         # deliver original posts and reposts to followers
         is_reply = (obj.type == 'comment' or
                     (inner_obj_as1 and inner_obj_as1.get('inReplyTo')))
-        if ((obj.type == 'share' or obj.type in ('post', 'update') and not is_reply)
+        if ((obj.type == 'share' or (obj.type == 'post' and not is_reply))
                 and actor_id):
             logger.info(f'Delivering to followers of {actor_id}')
             for f in Follower.query(Follower.to == from_cls.key_for(actor_id),
@@ -506,6 +506,7 @@ class Protocol:
         follower_obj = Follower.get_or_create(to=to_user, from_=from_user,
                                               follow=obj.key, status='active')
         obj.users = [from_key, to_key]
+        add(obj.labels, 'notification')
 
         # send Accept
         id = common.host_url(to_user.user_page_path(
@@ -534,105 +535,105 @@ class Protocol:
           obj: :class:`Object`, activity to deliver
         """
         import web
-        return web._deliver(obj)
+        return web._deliver(cls, obj)
 
-        # extract source and targets
-        source = obj.as1.get('url') or obj.as1.get('id')
-        inner_obj = as1.get_object(obj.as1)
-        obj_url = util.get_url(inner_obj) or inner_obj.get('id')
+        # # extract source and targets
+        # source = obj.as1.get('url') or obj.as1.get('id')
+        # inner_obj = as1.get_object(obj.as1)
+        # obj_url = util.get_url(inner_obj) or inner_obj.get('id')
 
-        if not source or obj.type in ('post', 'update'):
-            source = obj_url
-        if not source:
-            error("Couldn't find source post URL")
+        # if not source or obj.type in ('post', 'update'):
+        #     source = obj_url
+        # if not source:
+        #     error("Couldn't find source post URL")
 
-        targets = util.get_list(obj.as1, 'inReplyTo')
-        targets.extend(util.get_list(inner_obj, 'inReplyTo'))
+        # targets = util.get_list(obj.as1, 'inReplyTo')
+        # targets.extend(util.get_list(inner_obj, 'inReplyTo'))
 
-        for tag in (util.get_list(obj.as1, 'tags') +
-                    util.get_list(as1.get_object(obj.as1), 'tags')):
-            if tag.get('objectType') == 'mention':
-                url = tag.get('url')
-                if url:
-                    targets.append(url)
+        # for tag in (util.get_list(obj.as1, 'tags') +
+        #             util.get_list(as1.get_object(obj.as1), 'tags')):
+        #     if tag.get('objectType') == 'mention':
+        #         url = tag.get('url')
+        #         if url:
+        #             targets.append(url)
 
-        if obj.type in ('follow', 'like', 'share'):
-            targets.append(obj_url)
+        # if obj.type in ('follow', 'like', 'share'):
+        #     targets.append(obj_url)
 
-        target_urls = util.dedupe_urls(util.get_url(t) for t in targets)
-        target_urls = common.remove_blocklisted(t.lower() for t in target_urls)
-        if not target_urls:
-            logger.info("Couldn't find any target URLs in inReplyTo, object, or mention tags")
-            return
+        # target_urls = util.dedupe_urls(util.get_url(t) for t in targets)
+        # target_urls = common.remove_blocklisted(t.lower() for t in target_urls)
+        # if not target_urls:
+        #     logger.info("Couldn't find any target URLs in inReplyTo, object, or mention tags")
+        #     return
 
-        logger.info(f'targets: {target_urls}')
+        # logger.info(f'targets: {target_urls}')
 
-        errors = []  # stores (code, body) tuples
+        # errors = []  # stores (code, body) tuples
 
-        targets = []
-        for url in target_urls:
-            protocol = Protocol.for_id(url)
-            label = protocol.LABEL if protocol else 'web'
-            targets.append(Target(uri=url, protocol=label))
+        # targets = []
+        # for url in target_urls:
+        #     protocol = Protocol.for_id(url)
+        #     label = protocol.LABEL if protocol else 'web'
+        #     targets.append(Target(uri=url, protocol=label))
 
-        no_user_domains = set()
+        # no_user_domains = set()
 
-        obj.undelivered = []
-        obj.status = 'in progress'
+        # obj.undelivered = []
+        # obj.status = 'in progress'
 
-        obj.populate(
-          undelivered=targets,
-          status='in progress',
-        )
+        # obj.populate(
+        #   undelivered=targets,
+        #   status='in progress',
+        # )
 
-        # send webmentions and update Object
-        while obj.undelivered:
-            target = obj.undelivered.pop()
-            domain = util.domain_from_link(target.uri, minimize=False)
-            if g.user and domain == g.user.key.id():
-                add(obj.labels, 'notification')
+        # # send webmentions and update Object
+        # while obj.undelivered:
+        #     target = obj.undelivered.pop()
+        #     domain = util.domain_from_link(target.uri, minimize=False)
+        #     if g.user and domain == g.user.key.id():
+        #         add(obj.labels, 'notification')
 
-            if (domain == util.domain_from_link(source, minimize=False)
-                and cls.LABEL != 'fake'):
-                logger.info(f'Skipping same-domain delivery from {source} to {target.uri}')
-                continue
+        #     if (domain == util.domain_from_link(source, minimize=False)
+        #         and cls.LABEL != 'fake'):
+        #         logger.info(f'Skipping same-domain delivery from {source} to {target.uri}')
+        #         continue
 
-            # only deliver if we have a matching User already.
-            # TODO: consider delivering or at least storing Users for all
-            # targets? need to filter out native targets in this protocol
-            # though, eg mastodon.social targets in AP inbox deliveries.
-            if domain in no_user_domains:
-                continue
+        #     # only deliver if we have a matching User already.
+        #     # TODO: consider delivering or at least storing Users for all
+        #     # targets? need to filter out native targets in this protocol
+        #     # though, eg mastodon.social targets in AP inbox deliveries.
+        #     if domain in no_user_domains:
+        #         continue
 
-            recip = PROTOCOLS[target.protocol](id=domain)
-            logger.info(f'Sending to {recip.key}')
-            if recip.key not in obj.users:
-                if not recip.key.get():
-                    logger.info(f'No {recip.key} user found; skipping {target}')
-                    no_user_domains.add(domain)
-                    continue
-                obj.users.append(recip.key)
+        #     recip = PROTOCOLS[target.protocol](id=domain)
+        #     logger.info(f'Sending to {recip.key}')
+        #     if recip.key not in obj.users:
+        #         if not recip.key.get():
+        #             logger.info(f'No {recip.key} user found; skipping {target}')
+        #             no_user_domains.add(domain)
+        #             continue
+        #         add(obj.users, recip.key)
 
-            try:
-                if recip.send(obj, target.uri):
-                    obj.delivered.append(target)
-                    add(obj.labels, 'notification')
-            except BaseException as e:
-                code, body = util.interpret_http_exception(e)
-                if not code and not body:
-                    raise
-                errors.append((code, body))
-                obj.failed.append(target)
+        #     try:
+        #         if recip.send(obj, target.uri):
+        #             add(obj.delivered, target)
+        #             add(obj.labels, 'notification')
+        #     except BaseException as e:
+        #         code, body = util.interpret_http_exception(e)
+        #         if not code and not body:
+        #             raise
+        #         errors.append((code, body))
+        #         add(obj.failed, target)
 
-            obj.put()
+        #     obj.put()
 
-        obj.status = ('complete' if obj.delivered or obj.users
-                      else 'failed' if obj.failed
-                      else 'ignored')
+        # obj.status = ('complete' if obj.delivered or obj.users
+        #               else 'failed' if obj.failed
+        #               else 'ignored')
 
-        if errors:
-            msg = 'Errors: ' + ', '.join(f'{code} {body}' for code, body in errors)
-            error(msg, status=int(errors[0][0] or 502))
+        # if errors:
+        #     msg = 'Errors: ' + ', '.join(f'{code} {body}' for code, body in errors)
+        #     error(msg, status=int(errors[0][0] or 502))
 
     @classmethod
     def load(cls, id, remote=None, local=True, **kwargs):
