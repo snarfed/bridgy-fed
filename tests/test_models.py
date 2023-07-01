@@ -162,6 +162,39 @@ class ObjectTest(TestCase):
         # print(id(got))
         self.assertEqual('asdf', got.a)
 
+    def test_get_or_create(self):
+        def check(obj1, obj2):
+            self.assert_entities_equal(obj1, obj2, ignore=['expire', 'updated'])
+
+        self.assertEqual(0, Object.query().count())
+
+        obj = Object.get_or_create('foo', status='failed', source_protocol='ui',
+                                   labels=['notification'])
+        check([obj], Object.query().fetch())
+        self.assertEqual('foo', obj.key.id())
+        self.assertEqual('failed', obj.status)
+        self.assertEqual('ui', obj.source_protocol)
+        self.assertEqual(['notification'], obj.labels)
+
+        obj2 = Object.get_or_create('foo')
+        check(obj, obj2)
+        check([obj2], Object.query().fetch())
+
+        # non-null **props should be populated
+        obj3 = Object.get_or_create('foo', status='complete', source_protocol=None,
+                                    labels=[])
+        self.assertEqual('foo', obj3.key.id())
+        self.assertEqual('complete', obj3.status)
+        self.assertEqual('ui', obj.source_protocol)
+        self.assertEqual(['notification'], obj.labels)
+        check([obj3], Object.query().fetch())
+
+        check(obj3, Object.get_by_id('foo'))
+
+        Object.get_or_create('bar')
+        Object.get_or_create('baz', labels=['feed'])
+        self.assertEqual(3, Object.query().count())
+
     def test_proxy_url(self):
         obj = Object(id='abc', source_protocol='bluesky')
         self.assertEqual('http://localhost/convert/bluesky/web/abc',

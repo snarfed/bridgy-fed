@@ -473,6 +473,24 @@ class Object(StringIdModel):
         """
         return super().get_by_id(id.replace('^^', '#'))
 
+    @classmethod
+    @ndb.transactional()
+    def get_or_create(cls, id, **props):
+        """Returns an Object with the given property values.
+
+        If a matching Object doesn't exist in the datastore, creates it first.
+
+        Only populates non-False/empty property values.
+
+        Returns:
+          :class:`Object`
+        """
+        obj = cls.get_by_id(id) or Object(id=id)
+        obj.clear()
+        obj.populate(**{k: v for k, v in props.items() if v})
+        obj.put()
+        return obj
+
     def clear(self):
         """Clears all data properties."""
         for prop in 'as2', 'bsky', 'mf2':
