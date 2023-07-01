@@ -305,7 +305,7 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def receive(from_cls, id, **props):
+    def receive(cls, id, **props):
         """Handles an incoming activity.
 
         Args:
@@ -318,37 +318,54 @@ class Protocol:
         Raises:
           :class:`werkzeug.HTTPException` if the request is invalid
         """
-        logger.info(f'From {from_cls.__name__}')
-        assert from_cls != Protocol
+        logger.info(f'From {cls.__name__}')
+        assert cls != Protocol
 
         if not id:
             error('No id provided')
         elif util.domain_from_link(id) in common.DOMAINS:
             error(f'{id} is on a Bridgy Fed domain, which is not supported')
 
-        # short circuit if we've already seen this activity id
-        with seen_ids_lock:
-            already_seen = id in seen_ids
-            seen_ids[id] = True
-            if already_seen or Object.get_by_id(id):
-                msg = f'Already handled this activity {id}'
-                logger.info(msg)
-                return msg, 200
+        # short circuit if we've already seen this activity id.
+        # (don't do this for bare objects since we need to check further down
+        # whether they've been updated since we saw them last.)
+        obj = Object(id=id, **props)
+        if not obj.as1 or obj.as1.get('objectType') == 'activity':
+            with seen_ids_lock:
+                already_seen = id in seen_ids
+                seen_ids[id] = True
+                if already_seen or Object.get_by_id(id):
+                    msg = f'Already handled this activity {id}'
+                    logger.info(msg)
+                    return msg, 200
 
         # block intra-BF ids
-        obj = Object(**props)
         if obj.as1:
             for field in 'id', 'actor', 'author', 'attributedTo':
                 val = as1.get_object(obj.as1, field).get('id')
                 if util.domain_from_link(val) in common.DOMAINS:
                     error(f'{field} {val} is on Bridgy Fed, which is not supported')
 
-        # write real Object
-        obj = Object.get_or_insert(id)
-        obj.clear()
-        obj.populate(source_protocol=from_cls.LABEL, **props)
-        if g.user:
+        # create real Object
+        #
+        # if this is a post, ie not an activity, wrap it in a create or update
+        obj = cls._handle_bare_object(obj)
+        if not obj:
+            obj = Object.get_or_insert(id)
+            obj.clear()
+            obj.populate(source_protocol=cls.LABEL, **props)
+
+        obj_actor = as1.get_owner(obj.as1)
+        if obj_actor:
+            add(obj.users, cls.key_for(obj_actor))
+        elif g.user:
             add(obj.users, g.user.key)
+
+        if obj.as1.get('verb') in ('post', 'update', 'delete'):
+            inner_actor = as1.get_owner(as1.get_object(obj.as1))
+            if inner_actor:
+                add(obj.users, cls.key_for(inner_actor))
+
         obj.put()
         logger.info(f'Got AS1: {json_dumps(obj.as1, indent=2)}')
 
@@ -363,7 +380,7 @@ class Protocol:
               and inner_obj_as1.keys() > set(['id'])):
             inner_obj = Object.get_or_insert(inner_obj_id)
             inner_obj.populate(our_as1=inner_obj_as1,
-                               source_protocol=from_cls.LABEL)
+                               source_protocol=cls.LABEL)
             inner_obj.put()
 
         actor = as1.get_object(obj.as1, 'actor')
@@ -380,7 +397,7 @@ class Protocol:
             # deactivate Follower
             # TODO: avoid import?
             from web import Web
-            from_ = from_cls.key_for(actor_id)
+            from_ = cls.key_for(actor_id)
             to = (Protocol.for_id(inner_obj_id) or Web).key_for(inner_obj_id)
             follower = Follower.query(Follower.to == to,
                                       Follower.from_ == from_,
@@ -415,7 +432,7 @@ class Protocol:
             # assume this is an actor
             # https://github.com/snarfed/bridgy-fed/issues/63
             logger.info(f'Deactivating Followers from or to = {inner_obj_id}')
-            deleted_user = from_cls(id=inner_obj_id).key
+            deleted_user = cls(id=inner_obj_id).key
             followers = Follower.query(OR(Follower.to == deleted_user,
                                           Follower.from_ == deleted_user)
                                        ).fetch()
@@ -427,22 +444,22 @@ class Protocol:
 
         # fetch actor if necessary so we have name, profile photo, etc
         if actor and actor.keys() == set(['id']):
-            actor_obj = from_cls.load(actor['id'])
+            actor_obj = cls.load(actor['id'])
             if actor_obj.as1:
                 obj.our_as1 = {**obj.as1, 'actor': actor_obj.as1}
 
         # fetch object if necessary so we can render it in feeds
         if obj.type == 'share' and inner_obj_as1.keys() == set(['id']):
             if not inner_obj:
-                inner_obj = from_cls.load(inner_obj_id)
+                inner_obj = cls.load(inner_obj_id)
             if inner_obj.as1:
                 obj.our_as1 = {**obj.as1, 'object': inner_obj.as1}
 
         if obj.type == 'follow':
-            from_cls.accept_follow(obj)
+            cls.accept_follow(obj)
 
         # deliver to each target
-        from_cls._deliver(obj)
+        cls._deliver(obj)
 
         # deliver original posts and reposts to followers
         is_reply = (obj.type == 'comment' or
@@ -450,7 +467,7 @@ class Protocol:
         if ((obj.type == 'share' or (obj.type == 'post' and not is_reply))
                 and actor_id):
             logger.info(f'Delivering to followers of {actor_id}')
-            for f in Follower.query(Follower.to == from_cls.key_for(actor_id),
+            for f in Follower.query(Follower.to == cls.key_for(actor_id),
                                     Follower.status == 'active'):
                 add(obj.users, f.from_)
             if obj.users:
@@ -528,84 +545,94 @@ class Protocol:
         return sent
 
     @classmethod
+    def _handle_bare_object(cls, obj):
+        """If obj is a bare object, wraps it in a create or update activity.
+
+        Checks if we've seen it before.
+
+        Args:
+          obj: :class:`Object`
+
+        Returns:
+          obj: :class:`Object`, the same one if the input obj is an activity,
+          otherwise a new one
+        """
+        obj_actor = as1.get_owner(obj.as1)
+        if not obj_actor and g.user:
+            obj_actor = g.user.key.id()
+
+        now = util.now().isoformat()
+
+        if obj.type not in ('note', 'article', 'comment'):
+            return
+
+        # this is a raw post; wrap it in a create or update activity
+        if obj.new is None and obj.changed is None:
+            # check if we've seen this object, and if it's changed since then
+            existing = Object.get_by_id(obj.key.id())
+            obj.new = existing is None
+            obj.changed = existing and as1.activity_changed(existing.as1, obj.as1)
+
+        if obj.changed:
+            logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes')
+            id = f'{obj.key.id()}#bridgy-fed-update-{now}'
+            logger.info(f'Wrapping in update activity {id}')
+            obj.put()
+            update_as1 = {
+                'objectType': 'activity',
+                'verb': 'update',
+                'id': id,
+                'actor': obj_actor,
+                'object': {
+                    # Mastodon requires the updated field for Updates, so
+                    # add a default value.
+                    # https://docs.joinmastodon.org/spec/activitypub/#supported-activities-for-statuses
+                    # https://socialhub.activitypub.rocks/t/what-could-be-the-reason-that-my-update-activity-does-not-work/2893/4
+                    # https://github.com/mastodon/documentation/pull/1150
+                    'updated': now,
+                    **obj.as1,
+                },
+            }
+            obj = Object(id=id, our_as1=update_as1,
+                         source_protocol=obj.source_protocol)
+
+        # HACK: 'force' in request.form here is specific to webmention
+        elif obj.new or 'force' in request.form:
+            logger.info(f'New Object {obj.key.id()}')
+            id = f'{obj.key.id()}#bridgy-fed-create'
+            logger.info(f'Wrapping in post activity {id}')
+            obj.put()
+            create_as1 = {
+                'objectType': 'activity',
+                'verb': 'post',
+                'id': id,
+                'actor': obj_actor,
+                'object': obj.as1,
+                'published': now,
+            }
+            source_protocol = obj.source_protocol
+            obj = Object.get_or_insert(id)
+            obj.populate(our_as1=create_as1, source_protocol=source_protocol)
+
+        else:
+            error(f'{obj.key.id()} is unchanged, nothing to do', status=204)
+
+        return obj
+
+    @classmethod
     def _deliver(cls, obj):
         """Delivers an activity to its external recipients.
 
         Args:
           obj: :class:`Object`, activity to deliver
         """
-        obj_actor = as1.get_owner(obj.as1)
-        if not obj_actor and g.user:
-            obj_actor = g.user.key.id()
-
-        # is this is a post? wrap it in a create or update activity if so
-        now = util.now().isoformat()
-        if obj.type in ('note', 'article', 'comment'):
-            if obj.new is None and obj.changed is None:
-                # check if we've seen this object, and if it's changed since then
-                existing = Object.get_by_id(obj.key.id())
-                obj.new = existing is not None
-                obj.changed = existing and as1.activity_changed(existing.as1, obj.as1)
-
-            if obj.changed:
-                logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes')
-                id = f'{obj.key.id()}#bridgy-fed-update-{now}'
-                logger.info(f'Wrapping in update activity {id}')
-                obj.put()
-                update_as1 = {
-                    'objectType': 'activity',
-                    'verb': 'update',
-                    'id': id,
-                    'actor': obj_actor,
-                    'object': {
-                        # Mastodon requires the updated field for Updates, so
-                        # add a default value.
-                        # https://docs.joinmastodon.org/spec/activitypub/#supported-activities-for-statuses
-                        # https://socialhub.activitypub.rocks/t/what-could-be-the-reason-that-my-update-activity-does-not-work/2893/4
-                        # https://github.com/mastodon/documentation/pull/1150
-                        'updated': now,
-                        **obj.as1,
-                    },
-                }
-                obj = Object(id=id, our_as1=update_as1,
-                             source_protocol=obj.source_protocol)
-
-            elif obj.new or 'force' in request.form:
-                logger.info(f'New Object {obj.key.id()}')
-                id = f'{obj.key.id()}#bridgy-fed-create'
-                logger.info(f'Wrapping in post activity {id}')
-                obj.put()
-                create_as1 = {
-                    'objectType': 'activity',
-                    'verb': 'post',
-                    'id': id,
-                    'actor': obj_actor,
-                    'object': obj.as1,
-                    'published': now,
-                }
-                source_protocol = obj.source_protocol
-                obj = Object.get_or_insert(id)
-                obj.populate(our_as1=create_as1, source_protocol=source_protocol)
-
-            else:
-                msg = f'{obj.key.id()} is unchanged, nothing to do'
-                logger.info(msg)
-                return msg, 204
-
-        # attach object's author/actor(s) to Object
-        if obj_actor:
-            add(obj.users, cls.key_for(obj_actor))
-        if obj.as1.get('verb') in ('post', 'update', 'delete'):
-            inner_actor = as1.get_owner(as1.get_object(obj.as1))
-            if inner_actor:
-                add(obj.users, cls.key_for(inner_actor))
+        add(obj.labels, 'user')
 
         # find delivery targets
         # sort targets so order is deterministic for tests, debugging, etc
         targets = cls._targets(obj)  # maps Target to Object or None
 
         if not targets:
-            add(obj.labels, 'user')
             obj.status = 'ignored'
             obj.put()
             return 'No targets', 204
@@ -617,7 +644,6 @@ class Protocol:
             failed=[],
             undelivered=[t for t, _ in sorted_targets],
         )
-        add(obj.labels, 'user')
         logger.info(f'Delivering to: {obj.undelivered}')
 
         log_data = True

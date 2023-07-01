@@ -326,7 +326,6 @@ class ProtocolReceiveTest(TestCase):
         self.assert_object('fake:post',
                            our_as1=post_as1,
                            type='note',
-                           users=[g.user.key],
                            )
 
         obj = self.assert_object('fake:post#bridgy-fed-create',
@@ -343,6 +342,7 @@ class ProtocolReceiveTest(TestCase):
                                  type='post',
                                  labels=['user', 'activity', 'feed'],
                                  users=[g.user.key, self.alice.key, self.bob.key],
+                                 source_protocol=None,
                                  )
 
         self.assertEqual([(obj, 'shared:target')], Fake.sent)
@@ -389,15 +389,15 @@ class ProtocolReceiveTest(TestCase):
             'content': 'first',
         }
         self.store_object(id='fake:post', our_as1=post_as1)
+        existing = Object.get_by_id('fake:post')
 
         post_as1['content'] = 'second'
         self.assertEqual('OK', Fake.receive(post_as1))
 
+        post_as1['updated'] = '2022-01-02T03:04:05+00:00'
         self.assert_object('fake:post',
                            our_as1=post_as1,
                            type='note',
-                           users=[g.user.key],
-                           labels=['user'],
                            )
 
         update_id = 'fake:post#bridgy-fed-update-2022-01-02T03:04:05+00:00'
@@ -405,16 +405,16 @@ class ProtocolReceiveTest(TestCase):
                                  status='complete',
                                  our_as1={
                                      'objectType': 'activity',
-                                     'verb': 'post',
+                                     'verb': 'update',
                                      'id': update_id,
-                                     'actor': 'http://bf/fake/fake:user/ap',
+                                     'actor': 'fake:user',
                                      'object': post_as1,
-                                     'published': '2022-01-02T03:04:05+00:00',
                                  },
                                  delivered=['shared:target'],
                                  type='update',
-                                 labels=['user', 'activity', 'feed'],
-                                 users=[g.user.key, self.alice.key, self.bob.key],
+                                 labels=['user', 'activity'],
+                                 users=[g.user.key],
+                                 source_protocol=None,
                                  )
 
         self.assertEqual([(obj, 'shared:target')], Fake.sent)
@@ -475,7 +475,6 @@ class ProtocolReceiveTest(TestCase):
         self.assert_object('fake:reply',
                            our_as1=reply_as1,
                            type='note',
-                           users=[g.user.key],
                            )
 
         create_as1 = {
@@ -493,6 +492,7 @@ class ProtocolReceiveTest(TestCase):
                                  type='post',
                                  labels=['user', 'activity', 'notification'],
                                  users=[self.alice.key, self.bob.key],
+                                 source_protocol=None,
                                  )
 
         self.assertEqual([(obj, 'fake:post:target')], Fake.sent)
