@@ -379,6 +379,8 @@ class Object(StringIdModel):
     contents have changed from what was originally loaded from the datastore.
     If either one is None, that means we don't know whether this Object is
     new/changed.
+
+    :attr:`changed` is populated by :meth:`Object.activity_changed()`.
     """
 
     @ComputedJsonProperty
@@ -502,6 +504,20 @@ class Object(StringIdModel):
     def as_as2(self):
         """Returns this object as an AS2 dict."""
         return self.as2 or as2.from_as1(self.as1) or {}
+
+    def activity_changed(self, other_as1):
+        """Returns True if this activity is meaningfully changed from other_as1.
+
+        ...otherwise False.
+
+        Used to populate :attr:`changed`.
+
+        Args:
+          other_as1: dict AS1 object, or none
+        """
+        return (as1.activity_changed(self.as1, other_as1)
+                if self.as1 and other_as1
+                else bool(self.as1) != bool(other_as1))
 
     def proxy_url(self):
         """Returns the Bridgy Fed proxy URL to render this post as HTML.

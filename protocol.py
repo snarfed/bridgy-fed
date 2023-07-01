@@ -571,7 +571,7 @@ class Protocol:
             # check if we've seen this object, and if it's changed since then
             existing = Object.get_by_id(obj.key.id())
             obj.new = existing is None
-            obj.changed = existing and as1.activity_changed(existing.as1, obj.as1)
+            obj.changed = existing and obj.activity_changed(existing.as1)
 
         if obj.changed:
             logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes')
@@ -855,10 +855,7 @@ class Protocol:
 
         cls.fetch(obj, **kwargs)
         if obj.new is False:
-            if orig_as1 and obj.as1:
-                obj.changed = as1.activity_changed(orig_as1, obj.as1)
-            else:
-                obj.changed = bool(orig_as1) != bool(obj.as1)
+            obj.changed = obj.activity_changed(orig_as1)
 
         obj.source_protocol = cls.LABEL
         obj.put()

@@ -195,6 +195,27 @@ class ObjectTest(TestCase):
         Object.get_or_create('baz', labels=['feed'])
         self.assertEqual(3, Object.query().count())
 
+    def test_activity_changed(self):
+        obj = Object()
+        self.assertFalse(obj.activity_changed(None))
+        self.assertFalse(obj.activity_changed({}))
+        self.assertTrue(obj.activity_changed({'content': 'x'}))
+
+        obj.our_as1 = {}
+        self.assertFalse(obj.activity_changed(None))
+        self.assertFalse(obj.activity_changed({}))
+        self.assertTrue(obj.activity_changed({'content': 'x'}))
+
+        obj.our_as1 = {'content': 'x'}
+        self.assertTrue(obj.activity_changed(None))
+        self.assertTrue(obj.activity_changed({}))
+        self.assertFalse(obj.activity_changed({'content': 'x'}))
+
+        obj.our_as1 = {'content': 'y'}
+        self.assertTrue(obj.activity_changed(None))
+        self.assertTrue(obj.activity_changed({}))
+        self.assertTrue(obj.activity_changed({'content': 'x'}))
+
     def test_proxy_url(self):
         obj = Object(id='abc', source_protocol='bluesky')
         self.assertEqual('http://localhost/convert/bluesky/web/abc',
