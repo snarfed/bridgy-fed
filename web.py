@@ -643,9 +643,8 @@ def _deliver(cls, obj):
     add(obj.labels, 'user')
     logger.info(f'Delivering to: {obj.undelivered}')
 
-    err = None
-    last_success = None
     log_data = True
+    errors = []  # stores (target URL, code, body) tuples
 
     # deliver!
     for target, orig_obj in sorted_targets:
@@ -666,7 +665,7 @@ def _deliver(cls, obj):
                 raise
             add(obj.failed, target)
             obj.undelivered.remove(target)
-            err = e
+            errors.append((target.uri, code, body))
         finally:
             log_data = False
 
@@ -679,15 +678,14 @@ def _deliver(cls, obj):
 
     # Pass the response status code and body through as our response
     if obj.delivered:
-        return 'OK', 200
-    elif isinstance(err, BadGateway):
-        raise err
-    elif isinstance(err, HTTPError):
-        return str(err), err.status_code
-    elif obj.status == 'ignored':
-        return 'Nothing to do', 204
+        ret = 'OK', 200
+    elif errors:
+        ret = f'Delivery failed: {errors}', 502
     else:
-        return str(err) if err else r'¯\_(ツ)_/¯'
+        ret = r'Nothing to do ¯\_(ツ)_/¯', 204
+
+    logger.info(f'Returning {ret}')
+    return ret
 
 
 def _targets(obj):
@@ -721,7 +719,7 @@ def _targets(obj):
             error(f'{verb} missing target URL')
         logger.info(f'original object ids from object: {orig_ids}')
 
-    orig_ids = sorted(common.remove_blocklisted(orig_ids))
+    orig_ids = sorted(common.remove_blocklisted(util.dedupe_urls(orig_ids)))
     orig_obj = None
     targets = {}
     for id in orig_ids:

@@ -1100,3 +1100,6 @@ class ProtocolReceiveTest(TestCase):
             })
 
         self.assertIsNone(Object.get_by_id(REPLY['id']))
+
+    # def test_skip_same_domain_target(self):
+    #     TODO
