@@ -11,7 +11,7 @@ from granary import as1
 import werkzeug.exceptions
 
 import common
-from common import add, error
+from common import add, error, is_blocklisted
 from models import Follower, Object, PROTOCOLS, Target, User
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -133,6 +133,8 @@ class Protocol:
         This should be a quick guess without expensive side effects, eg no
         external HTTP fetches to fetch the id itself or otherwise perform
         discovery.
+
+        Returns False if the id's domain is in :attr:`common.DOMAIN_BLOCKLIST`.
 
         Args:
           id: str
@@ -727,7 +729,8 @@ class Protocol:
                 error(f'{verb} missing target URL')
             logger.info(f'original object ids from object: {orig_ids}')
 
-        orig_ids = sorted(common.remove_blocklisted(util.dedupe_urls(orig_ids)))
+        orig_ids = sorted(id for id in util.dedupe_urls(orig_ids)
+                          if not is_blocklisted(id))
         orig_obj = None
         targets = {}
         for id in orig_ids:

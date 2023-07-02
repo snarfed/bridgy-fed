@@ -1452,6 +1452,9 @@ class ActivityPubUtilsTest(TestCase):
         self.assertFalse(ActivityPub.owns_id('at://did:plc:foo/bar/123'))
         self.assertFalse(ActivityPub.owns_id('e45fab982'))
 
+        self.assertFalse(ActivityPub.owns_id('https://twitter.com/foo'))
+        self.assertFalse(ActivityPub.owns_id('https://fed.brid.gy/foo'))
+
     def test_postprocess_as2_multiple_in_reply_tos(self):
         self.assert_equals({
             'id': 'http://localhost/r/xyz',

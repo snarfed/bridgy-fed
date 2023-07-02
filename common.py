@@ -130,16 +130,15 @@ def content_type(resp):
         return type.split(';')[0]
 
 
-def remove_blocklisted(urls):
-    """Returns the subset of input URLs that aren't in our domain blocklist.
+def is_blocklisted(url):
+    """Returns True if the given URL is in our domain blocklist, False otherwise.
 
     Args:
-      urls: sequence of str
+      url: str
 
-    Returns: list of str
+    Returns: boolean
     """
-    return [u for u in urls if not util.domain_or_parent_in(
-              util.domain_from_link(u), DOMAIN_BLOCKLIST)]
+    return util.domain_or_parent_in(util.domain_from_link(url), DOMAIN_BLOCKLIST)
 
 
 def redirect_wrap(url):

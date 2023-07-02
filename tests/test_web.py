@@ -1803,6 +1803,9 @@ class WebProtocolTest(TestCase):
         g.user.key.delete()
         self.assertIsNone(Web.owns_id('user.com'))
 
+        self.assertFalse(Web.owns_id('https://twitter.com/foo'))
+        self.assertFalse(Web.owns_id('https://fed.brid.gy/foo'))
+
     def test_fetch(self, mock_get, __):
         mock_get.return_value = REPOST
 

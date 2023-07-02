@@ -24,6 +24,7 @@ from common import (
     CONTENT_TYPE_HTML,
     error,
     host_url,
+    is_blocklisted,
     NoMicroformats,
     redirect_unwrap,
     redirect_wrap,
@@ -114,7 +115,10 @@ class ActivityPub(User, Protocol):
 
         https://www.w3.org/TR/activitypub/#obj-id
         """
-        return None if util.is_web(id) else False
+        if util.is_web(id) and not is_blocklisted(id):
+            return None
+
+        return False
 
     @classmethod
     def target_for(cls, obj, shared=False):
