@@ -487,9 +487,19 @@ class Object(StringIdModel):
         Returns:
           :class:`Object`
         """
-        obj = cls.get_by_id(id) or Object(id=id)
+        obj = cls.get_by_id(id)
+        if obj:
+            obj.new = False
+            orig_as1 = obj.as1
+        else:
+            obj = Object(id=id)
+            obj.new = True
+
         obj.clear()
         obj.populate(**{k: v for k, v in props.items() if v})
+        if not obj.new:
+            obj.changed = obj.activity_changed(orig_as1)
+
         obj.put()
         return obj
 

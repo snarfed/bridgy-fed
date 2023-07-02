@@ -168,31 +168,48 @@ class ObjectTest(TestCase):
 
         self.assertEqual(0, Object.query().count())
 
-        obj = Object.get_or_create('foo', status='failed', source_protocol='ui',
-                                   labels=['notification'])
+        obj = Object.get_or_create('foo', our_as1={'content': 'foo'},
+                                   source_protocol='ui', labels=['notification'])
         check([obj], Object.query().fetch())
+        self.assertTrue(obj.new)
+        self.assertIsNone(obj.changed)
         self.assertEqual('foo', obj.key.id())
-        self.assertEqual('failed', obj.status)
+        self.assertEqual({'content': 'foo'}, obj.as1)
         self.assertEqual('ui', obj.source_protocol)
         self.assertEqual(['notification'], obj.labels)
 
         obj2 = Object.get_or_create('foo')
+        self.assertFalse(obj2.new)
+        self.assertFalse(obj2.changed)
         check(obj, obj2)
         check([obj2], Object.query().fetch())
 
         # non-null **props should be populated
-        obj3 = Object.get_or_create('foo', status='complete', source_protocol=None,
-                                    labels=[])
+        obj3 = Object.get_or_create('foo', our_as1={'content': 'bar'},
+                                    source_protocol=None, labels=[])
         self.assertEqual('foo', obj3.key.id())
-        self.assertEqual('complete', obj3.status)
-        self.assertEqual('ui', obj.source_protocol)
-        self.assertEqual(['notification'], obj.labels)
+        self.assertEqual({'content': 'bar'}, obj3.as1)
+        self.assertEqual('ui', obj3.source_protocol)
+        self.assertEqual(['notification'], obj3.labels)
+        self.assertFalse(obj3.new)
+        self.assertTrue(obj3.changed)
         check([obj3], Object.query().fetch())
-
         check(obj3, Object.get_by_id('foo'))
 
-        Object.get_or_create('bar')
-        Object.get_or_create('baz', labels=['feed'])
+        obj4 = Object.get_or_create('foo', our_as1={'content': 'bar'})
+        self.assertEqual({'content': 'bar'}, obj4.as1)
+        self.assertFalse(obj4.new)
+        self.assertFalse(obj4.changed)
+        check(obj4, Object.get_by_id('foo'))
+
+        obj5 = Object.get_or_create('bar')
+        self.assertTrue(obj5.new)
+        self.assertIsNone(obj5.changed)
+
+        obj6 = Object.get_or_create('baz', labels=['feed'])
+        self.assertTrue(obj6.new)
+        self.assertIsNone(obj6.changed)
+
         self.assertEqual(3, Object.query().count())
 
     def test_activity_changed(self):
