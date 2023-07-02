@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from flask import g
 from granary import as2
+from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
@@ -593,14 +594,42 @@ class ProtocolReceiveTest(TestCase):
                                  delivered=['fake:post:target', 'shared:target'],
                                  type='share',
                                  labels=['user', 'activity', 'notification', 'feed'],
-                                 users=[g.user.key, self.bob.key, self.alice.key],
+                                 users=[g.user.key, self.alice.key, self.bob.key],
                                  )
         self.assertEqual([
             (obj, 'fake:post:target'),
             (obj, 'shared:target'),
         ], Fake.sent)
 
-    def test_inbox_like(self):
+    def test_repost_twitter_blocklisted(self):
+        self._test_repost_blocklisted_error('https://twitter.com/foo')
+
+    def test_repost_bridgy_fed_blocklisted(self):
+        self._test_repost_blocklisted_error('https://fed.brid.gy/foo')
+
+    def _test_repost_blocklisted_error(self, orig_url):
+        """Reposts of non-fediverse (ie blocklisted) sites aren't yet supported."""
+        repost_as1 = {
+            'id': 'fake:repost',
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'fake:user',
+            'object': orig_url,
+        }
+        with self.assertRaises(NoContent):
+            Fake.receive(repost_as1)
+
+        obj = self.assert_object('fake:repost',
+                                 status='ignored',
+                                 our_as1=repost_as1,
+                                 delivered=[],
+                                 type='share',
+                                 labels=['user', 'activity', 'feed'],
+                                 users=[g.user.key],
+                                 )
+        self.assertEqual([], Fake.sent)
+
+    def test_like(self):
         Fake.fetchable['fake:post'] = {
             'objectType': 'note',
         }
@@ -625,113 +654,87 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual([(like_obj, 'fake:post:target')], Fake.sent)
 
-#     def test_like_stored_object_without_as2(self):
-#         Object(id='https://mas.to/toot', mf2=NOTE_MF2, source_protocol='ap').put()
-#         Object(id='https://user.com/', mf2=ACTOR_MF2).put()
-#         mock_get.side_effect = [
-#             LIKE,
-#         ]
+    def test_delete(self):
+        self.make_followers()
 
-        # with self.assertRaises(NoContent):
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/like',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(204, got.status_code)
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+        }
+        self.store_object(id='fake:post', our_as1=post_as1)
 
-#         mock_get.assert_has_calls((
-#             self.req('https://user.com/like'),
-#         ))
-#         mock_post.assert_not_called()
+        delete_as1 = {
+            'id': 'fake:delete',
+            'objectType': 'activity',
+            'verb': 'delete',
+            'object': 'fake:post',
+        }
+        self.assertEqual('OK', Fake.receive(delete_as1))
 
-#         self.assert_object('https://user.com/like',
-#                            users=[g.user.key],
-#                            mf2=LIKE_MF2,
-#                            as1=microformats2.json_to_object(LIKE_MF2),
-#                            type='like',
-#                            labels=['user', 'activity'],
-#                            status='ignored',
-#                            )
+        self.assert_object('fake:post',
+                           our_as1=post_as1,
+                           deleted=True,
+                           source_protocol=None,
+                           )
 
-#     def test_create_author_only_url(self):
-#         """Mf2 author property is just a URL. We should run full authorship.
+        obj = self.assert_object('fake:delete',
+                                 status='complete',
+                                 our_as1=delete_as1,
+                                 delivered=['shared:target'],
+                                 type='delete',
+                                 labels=['user', 'activity', 'feed'],
+                                 users=[g.user.key, self.alice.key, self.bob.key],
+                                 )
+        self.assertEqual([(obj, 'shared:target')], Fake.sent)
 
-#         https://indieweb.org/authorship
-#         """
-#         repost = requests_response("""\
-# <html>
-# <body class="h-entry">
-# <a class="u-repost-of p-name" href="https://mas.to/toot">reposted!</a>
-# <a class="u-author" href="https://user.com/"></a>
-# <a href="http://localhost/"></a>
-# </body>
-# </html>
-# """, url='https://user.com/repost', content_type=CONTENT_TYPE_HTML)
-#         mock_get.side_effect = [repost, ACTOR, TOOT_AS2, ACTOR]
-#         mock_post.return_value = requests_response('abc xyz')
+    def test_delete_no_followers_no_stored_object(self):
+        delete_as1 = {
+            'id': 'fake:delete',
+            'objectType': 'activity',
+            'verb': 'delete',
+            'object': 'fake:post',
+        }
+        with self.assertRaises(NoContent):
+            self.assertEqual('OK', Fake.receive(delete_as1))
 
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/repost',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(200, got.status_code)
+        self.assert_object('fake:post',
+                           deleted=True,
+                           source_protocol=None,
+                           )
 
-#         args, kwargs = mock_post.call_args
-#         self.assertEqual(('https://mas.to/inbox',), args)
-#         self.assert_equals(REPOST_AS2, json_loads(kwargs['data']))
+        self.assert_object('fake:delete',
+                           status='ignored',
+                           our_as1=delete_as1,
+                           delivered=[],
+                           type='delete',
+                           labels=['user', 'activity', 'feed'],
+                           users=[g.user.key],
+                           )
+        self.assertEqual([], Fake.sent)
 
-#     def test_delete(self):
-#         mock_get.return_value = requests_response('"unused"', status=410,
-#                                                   url='http://final/delete')
-#         mock_post.return_value = requests_response('unused', status=200)
-#         Object(id='https://user.com/post#bridgy-fed-create',
-#                mf2=NOTE_MF2, status='complete').put()
+    def test_delete_actor(self):
+        follower = Follower.get_or_create(to=g.user, from_=self.alice)
+        followee = Follower.get_or_create(to=self.alice, from_=self.bob)
+        other = Follower.get_or_create(to=g.user, from_=self.bob)
+        self.assertEqual(3, Follower.query().count())
 
-#         self.make_followers()
+        self.assertEqual('OK', Fake.receive({
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': 'fake:delete',
+            'object': 'fake:alice',
+        }))
 
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/post',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(200, got.status_code, got.text)
+        self.assertEqual(3, Follower.query().count())
+        self.assertEqual('inactive', follower.key.get().status)
+        self.assertEqual('inactive', followee.key.get().status)
+        self.assertEqual('active', other.key.get().status)
 
-#         inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
-#         self.assert_deliveries(mock_post, inboxes, DELETE_AS2)
-
-#         self.assert_object('https://user.com/post#bridgy-fed-delete',
-#                            users=[g.user.key],
-#                            status='complete',
-#                            our_as1=DELETE_AS1,
-#                            delivered=inboxes,
-#                            type='delete',
-#                            object_ids=['https://user.com/post'],
-#                            labels=['user', 'activity'],
-#                            )
-
-#     def test_delete_no_object(self):
-#         mock_get.side_effect = [
-#             requests_response('"unused"', status=410, url='http://final/delete'),
-#         ]
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/post',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(304, got.status_code, got.text)
-#         mock_post.assert_not_called()
-
-#     def test_delete_incomplete_response(self):
-#         mock_get.return_value = requests_response('"unused"', status=410,
-#                                                   url='http://final/delete')
-
-#         Object(id='https://user.com/post#bridgy-fed-create',
-#                mf2=NOTE_MF2, status='in progress')
-
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/post',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(304, got.status_code, got.text)
-#         mock_post.assert_not_called()
+        self.assert_object('fake:alice',
+                           deleted=True,
+                           source_protocol=None,
+                           )
 
 #     def test_send_error(self):
 #         mock_get.side_effect = [FOLLOW, ACTOR]
@@ -765,27 +768,6 @@ class ProtocolReceiveTest(TestCase):
 #                            object_ids=['https://mas.to/mrs-foo'],
 #                            labels=['user', 'activity'],
 #                            )
-
-#     def test_repost_twitter_blocklisted(self):
-#         self._test_repost_blocklisted_error('https://twitter.com/foo')
-
-#     def test_repost_bridgy_fed_blocklisted(self):
-#         self._test_repost_blocklisted_error('https://fed.brid.gy/foo')
-
-#     def _test_repost_blocklisted_error(self, orig_url):
-#         """Reposts of non-fediverse (ie blocklisted) sites aren't yet supported."""
-#         repost_html = REPOST_HTML.replace('https://mas.to/toot', orig_url)
-#         repost_resp = requests_response(repost_html, content_type=CONTENT_TYPE_HTML,
-#                                         url='https://user.com/repost')
-#         mock_get.side_effect = [repost_resp]
-
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/repost',
-#             'target': 'https://fed.brid.gy/',
-#         })
-        # with self.assertRaises(NoContent):
-#         self.assertEqual(204, got.status_code)
-#         mock_post.assert_not_called()
 
     def test_update_profile(self):
         Follower.get_or_create(to=g.user, from_=self.alice)
@@ -1020,24 +1002,6 @@ class ProtocolReceiveTest(TestCase):
             'object': 'fake:user',
         }))
         self.assertEqual('inactive', follower.key.get().status)
-
-    def test_delete_actor(self):
-        follower = Follower.get_or_create(to=g.user, from_=self.alice)
-        followee = Follower.get_or_create(to=self.alice, from_=self.bob)
-        other = Follower.get_or_create(to=g.user, from_=self.bob)
-        self.assertEqual(3, Follower.query().count())
-
-        self.assertEqual('OK', Fake.receive({
-            'objectType': 'activity',
-            'verb': 'delete',
-            'id': 'fake:delete',
-            'object': 'fake:alice',
-        }))
-
-        self.assertEqual(3, Follower.query().count())
-        self.assertEqual('inactive', follower.key.get().status)
-        self.assertEqual('inactive', followee.key.get().status)
-        self.assertEqual('active', other.key.get().status)
 
     def test_receive_from_bridgy_fed_fails(self):
         with self.assertRaises(BadRequest):

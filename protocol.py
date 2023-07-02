@@ -385,8 +385,7 @@ class Protocol:
         inner_obj_as1 = as1.get_object(obj.as1)
         inner_obj_id = inner_obj_as1.get('id')
         inner_obj = None
-        if (obj.type in ('post', 'update')
-              and inner_obj_as1.keys() > set(['id'])):
+        if obj.type in ('post', 'update') and inner_obj_as1.keys() > set(['id']):
             inner_obj = Object.get_or_insert(inner_obj_id)
             inner_obj.populate(our_as1=inner_obj_as1,
                                source_protocol=cls.LABEL)
@@ -427,29 +426,26 @@ class Protocol:
         elif obj.type == 'update':
             if not inner_obj_id:
                 error("Couldn't find id of object to update")
+            # fall through to deliver to followers
 
         elif obj.type == 'delete':
             if not inner_obj_id:
                 error("Couldn't find id of object to delete")
 
-            to_delete = Object.get_by_id(inner_obj_id)
-            if to_delete:
-                logger.info(f'Marking Object {inner_obj_id} deleted')
-                to_delete.deleted = True
-                to_delete.put()
+            logger.info(f'Marking Object {inner_obj_id} deleted')
+            Object.get_or_create(inner_obj_id, deleted=True)
 
             # assume this is an actor
             # https://github.com/snarfed/bridgy-fed/issues/63
             logger.info(f'Deactivating Followers from or to = {inner_obj_id}')
-            deleted_user = cls(id=inner_obj_id).key
+            deleted_user = cls.key_for(id=inner_obj_id)
             followers = Follower.query(OR(Follower.to == deleted_user,
                                           Follower.from_ == deleted_user)
                                        ).fetch()
             for f in followers:
                 f.status = 'inactive'
-            obj.status = 'complete'
-            ndb.put_multi(followers + [obj])
-            return 'OK'
+            ndb.put_multi(followers)
+            # fall through to deliver to followers
 
         # fetch actor if necessary so we have name, profile photo, etc
         if actor and actor.keys() == set(['id']):
@@ -459,9 +455,9 @@ class Protocol:
 
         # fetch object if necessary so we can render it in feeds
         if obj.type == 'share' and inner_obj_as1.keys() == set(['id']):
-            if not inner_obj:
+            if not inner_obj and cls.owns_id(inner_obj_id):
                 inner_obj = cls.load(inner_obj_id)
-            if inner_obj.as1:
+            if inner_obj and inner_obj.as1:
                 obj.our_as1 = {
                     **obj.as1,
                     'object': {
@@ -473,23 +469,8 @@ class Protocol:
         if obj.type == 'follow':
             cls._accept_follow(obj)
 
-        # deliver to each target
-        cls._deliver(obj)
-
-        # deliver original posts and reposts to followers
-        is_reply = (obj.type == 'comment' or
-                    (inner_obj_as1 and inner_obj_as1.get('inReplyTo')))
-        if ((obj.type == 'share' or (obj.type == 'post' and not is_reply))
-                and actor_id):
-            logger.info(f'Delivering to followers of {actor_id}')
-            for f in Follower.query(Follower.to == cls.key_for(actor_id),
-                                    Follower.status == 'active'):
-                add(obj.users, f.from_)
-            if obj.users:
-                add(obj.labels, 'feed')
-
-        obj.put()
-        return 'OK'
+        # deliver to targets
+        return cls._deliver(obj)
 
     @classmethod
     def _accept_follow(cls, obj):
@@ -680,19 +661,18 @@ class Protocol:
 
             obj.put()
 
-        obj.status = ('complete' if obj.delivered
-                      else 'failed' if obj.failed
-                      else 'ignored')
-        obj.put()
-
         # Pass the response status code and body through as our response
         if obj.delivered:
-            ret = 'OK', 200
+            ret = 'OK'
+            obj.status = 'complete'
         elif errors:
             ret = f'Delivery failed: {errors}', 502
+            obj.status = 'failed'
         else:
             ret = r'Nothing to do ¯\_(ツ)_/¯', 204
+            obj.status = 'ignored'
 
+        obj.put()
         logger.info(f'Returning {ret}')
         return ret
 
@@ -712,7 +692,7 @@ class Protocol:
 
         inner_obj_as1 = as1.get_object(obj.as1)
 
-        # if it's a reply, like, or repost. otherwise, it's all followers.
+        # if it's a reply, like, or repost, grab the object
         #
         # sort so order is deterministic for tests.
         orig_ids = sorted(as1.get_ids(obj.as1, 'inReplyTo') +
@@ -720,7 +700,8 @@ class Protocol:
         verb = obj.as1.get('verb')
         if orig_ids:
             logger.info(f'original object ids from inReplyTo: {orig_ids}')
-        elif verb in as1.VERBS_WITH_OBJECT:
+
+        if verb in as1.VERBS_WITH_OBJECT:
             # prefer id or url, if available
             # https://github.com/snarfed/bridgy-fed/issues/307
             orig_ids = (as1.get_ids(obj.as1, 'object')
@@ -760,10 +741,10 @@ class Protocol:
                 add(obj.labels, 'notification')
 
         # deliver to followers?
-        is_reply = (obj.type == 'comment' or
-                    (inner_obj_as1 and inner_obj_as1.get('inReplyTo')))
-        if obj.type == 'share' or (obj.type in ('post', 'update') and not is_reply):
-            logger.info('Delivering to followers')
+        if (obj.type in ('post', 'update', 'delete', 'share')
+            and not (obj.type == 'comment' or inner_obj_as1.get('inReplyTo'))):
+            # TODO: use obj's actor/author instead of g.user?
+            logger.info(f'Delivering to followers of {g.user.key}')
             followers = Follower.query(Follower.to == g.user.key,
                                        Follower.status == 'active'
                                        ).fetch()
