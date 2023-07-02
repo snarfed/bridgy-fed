@@ -460,7 +460,13 @@ class Protocol:
             if not inner_obj:
                 inner_obj = cls.load(inner_obj_id)
             if inner_obj.as1:
-                obj.our_as1 = {**obj.as1, 'object': inner_obj.as1}
+                obj.our_as1 = {
+                    **obj.as1,
+                    'object': {
+                        **inner_obj_as1,
+                        **inner_obj.as1,
+                    }
+                }
 
         if obj.type == 'follow':
             cls._accept_follow(obj)
@@ -704,8 +710,9 @@ class Protocol:
 
         inner_obj_as1 = as1.get_object(obj.as1)
 
-        # if there's in-reply-to, like-of, or repost-of, they're the targets.
-        # otherwise, it's all followers. sort so order is deterministic for tests.
+        # if it's a reply, like, or repost. otherwise, it's all followers.
+        #
+        # sort so order is deterministic for tests.
         orig_ids = sorted(as1.get_ids(obj.as1, 'inReplyTo') +
                           as1.get_ids(inner_obj_as1, 'inReplyTo'))
         verb = obj.as1.get('verb')

@@ -485,25 +485,43 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual([(obj, 'fake:post:target')], Fake.sent)
 
-#     def test_update_reply(self):
-#         self.make_followers()
+    def test_update_reply(self):
+        self.make_followers()
 
-#         mf2 = {
-#             'properties': {
-#                 'content': ['other'],
-#             },
-#         }
-#         Object(id='https://user.com/reply', status='complete', mf2=mf2).put()
+        Fake.fetchable['fake:post'] = {
+            'objectType': 'note',
+            'author': 'fake:bob',
+        }
+        reply_as1 = {
+            'id': 'fake:reply',
+            'objectType': 'note',
+            'inReplyTo': 'fake:post',
+            'author': 'fake:alice',
+        }
+        self.store_object(id='fake:reply', our_as1=reply_as1)
 
-#         mock_get.side_effect = ACTIVITYPUB_GETS
-#         mock_post.return_value = requests_response('abc xyz')
+        update_as1 = {
+            'id': 'fake:update',
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'fake:user',
+            'object': reply_as1,
+        }
+        self.assertEqual('OK', Fake.receive(update_as1))
 
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/reply',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(200, got.status_code)
-#         self.assertEqual((AS2_UPDATE, 'https://mas.to/inbox'), Fake.sent)
+        self.assert_object('fake:reply',
+                           our_as1=reply_as1,
+                           type='note',
+                           )
+        obj = self.assert_object('fake:update',
+                                 status='complete',
+                                 our_as1=update_as1,
+                                 delivered=['fake:post:target'],
+                                 type='update',
+                                 labels=['user', 'activity', 'notification'],
+                                 users=[g.user.key, self.alice.key, self.bob.key],
+                                 )
+        self.assertEqual([(obj, 'fake:post:target')], Fake.sent)
 
     # TODO: revisit? remove?
     # def test_reply_not_feed_not_notification(self):
@@ -546,88 +564,41 @@ class ProtocolReceiveTest(TestCase):
 
     #     self.assertEqual([(obj, 'fake:post:target')], Fake.sent)
 
-#     def test_follow_no_target(self):
-#         self.make_followers()
+    def test_repost(self):
+        self.make_followers()
 
-#         html = FOLLOW_HTML.replace(
-#             '<a class="u-follow-of" href="https://mas.to/mrs-foo"></a>',
-#             '<a class="u-follow-of"></a>')
-#         follow = requests_response(html, url='https://user.com/follow',
-#                                    content_type=CONTENT_TYPE_HTML)
+        Fake.fetchable['fake:post'] = {
+            'objectType': 'note',
+            'author': 'fake:bob',
+        }
+        repost_as1 = {
+            'id': 'fake:repost',
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        }
+        self.assertEqual('OK', Fake.receive(repost_as1))
 
-#         mock_get.side_effect = [follow, ACTOR]
-
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/follow',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(400, got.status_code)
-#         mock_post.assert_not_called()
-
-#     def test_repost(self):
-#         self._test_repost(REPOST_HTML, REPOST_AS2)
-
-#     def test_repost_composite_hcite(self):
-#         self._test_repost(REPOST_HCITE_HTML, REPOST_AS2)
-
-#     def _test_repost(self, html, expected_as2):
-#         self.make_followers()
-
-#         mock_get.side_effect = [
-#             requests_response(html, content_type=CONTENT_TYPE_HTML,
-#                               url='https://user.com/repost'),
-#             TOOT_AS2,
-#             ACTOR,
-#         ]
-#         mock_post.return_value = requests_response('abc xyz')
-
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/repost',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(200, got.status_code)
-
-#         mock_get.assert_has_calls((
-#             self.req('https://user.com/repost'),
-#             self.as2_req('https://mas.to/toot/id'),
-#             self.as2_req('https://mas.to/author'),
-#         ))
-
-#         inboxes = ('https://inbox', 'https://public/inbox',
-#                    'https://shared/inbox', 'https://mas.to/inbox')
-#         self.assert_deliveries(mock_post, inboxes, expected_as2, ignore=['cc'])
-
-#         for args, kwargs in mock_get.call_args_list[1:]:
-#             with self.subTest(url=args[0]):
-#                 rsa_key = kwargs['auth'].header_signer._rsa._key
-#                 self.assertEqual(g.user.private_pem(), rsa_key.exportKey())
-
-#         mf2 = util.parse_mf2(html)['items'][0]
-#         self.assert_object('https://user.com/repost',
-#                            users=[g.user.key],
-#                            status='complete',
-#                            mf2=mf2,
-#                            as1=microformats2.json_to_object(mf2),
-#                            delivered=inboxes,
-#                            type='share',
-#                            object_ids=['https://mas.to/toot/id'],
-#                            labels=['user', 'activity'],
-#                            )
-
-#     def test_redo_repost_isnt_update(self):
-#         """Like and Announce shouldn't use Update, they should just resend as is."""
-#         Object(id='https://user.com/repost', mf2={}, status='complete').put()
-
-#         mock_get.side_effect = [REPOST, TOOT_AS2, ACTOR]
-#         mock_post.return_value = requests_response('abc xyz')
-
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/repost',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         self.assertEqual(200, got.status_code)
-#         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], REPOST_AS2,
-#                                ignore=['cc'])
+        obj = self.assert_object('fake:repost',
+                                 status='complete',
+                                 our_as1={
+                                     **repost_as1,
+                                     'object': {
+                                         'id': 'fake:post',
+                                         'objectType': 'note',
+                                         'author': 'fake:bob',
+                                     },
+                                 },
+                                 delivered=['fake:post:target', 'shared:target'],
+                                 type='share',
+                                 labels=['user', 'activity', 'notification', 'feed'],
+                                 users=[g.user.key, self.bob.key, self.alice.key],
+                                 )
+        self.assertEqual([
+            (obj, 'fake:post:target'),
+            (obj, 'shared:target'),
+        ], Fake.sent)
 
     def test_inbox_like(self):
         Fake.fetchable['fake:post'] = {
