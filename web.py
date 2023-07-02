@@ -523,7 +523,7 @@ def webmention_task():
     if not obj.mf2 and obj.type != 'delete':
         error(f'No microformats2 found in {source}', status=304)
     elif obj.mf2:
-        # set actor to user
+        # default actor to user
         props = obj.mf2['properties']
         author_urls = microformats2.get_string_urls(props.get('author', []))
         if author_urls and not g.user.is_web_url(author_urls[0]):

@@ -722,7 +722,8 @@ def inbox(protocol=None, domain=None):
         followee_url = redirect_unwrap(util.get_url(activity, 'object'))
         activity.setdefault('url', f'{follower_url}#followed-{followee_url}')
 
-    return ActivityPub.receive(activity.get('id'), as2=redirect_unwrap(activity))
+    obj = Object(id=activity.get('id'), as2=redirect_unwrap(activity))
+    return ActivityPub.receive(obj)
 
 
 @app.get(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{common.DOMAIN_RE}"):domain>/<any(followers,following):collection>')

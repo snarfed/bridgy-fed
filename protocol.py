@@ -305,12 +305,14 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def receive(cls, id, **props):
+    def receive(cls, obj):
         """Handles an incoming activity.
 
+        If obj's key is unset, obj.as1's id field is used. If both are unset,
+        raises :class:`werkzeug.exceptions.BadRequest`.
+
         Args:
-          id: str, activity id
-          props: property values to populate into the :class:`Object`
+          obj: :class:`Object`
 
         Returns:
           (response body, HTTP status code) tuple for Flask response
@@ -318,42 +320,47 @@ class Protocol:
         Raises:
           :class:`werkzeug.HTTPException` if the request is invalid
         """
+        # check some invariants
         logger.info(f'From {cls.__name__}')
         assert cls != Protocol
+        assert isinstance(obj, Object), obj
+        logger.info(f'Got {obj.key.id()} AS1: {json_dumps(obj.as1, indent=2)}')
 
+        if not obj.as1:
+            error('No object data provided')
+
+        id = obj.key.id()
         if not id:
-            error('No id provided')
-        elif util.domain_from_link(id) in common.DOMAINS:
+            id = obj.as1.get('id')
+            if not id:
+                error('No id provided')
+            obj.key = ndb.Key(Object, id)
+
+        # block intra-BF ids
+        if util.domain_from_link(id) in common.DOMAINS:
             error(f'{id} is on a Bridgy Fed domain, which is not supported')
+        for field in 'id', 'actor', 'author', 'attributedTo':
+            val = as1.get_object(obj.as1, field).get('id')
+            if util.domain_from_link(val) in common.DOMAINS:
+                error(f'{field} {val} is on Bridgy Fed, which is not supported')
 
         # short circuit if we've already seen this activity id.
         # (don't do this for bare objects since we need to check further down
         # whether they've been updated since we saw them last.)
-        obj = Object(id=id, **props)
-        if not obj.as1 or obj.as1.get('objectType') == 'activity':
+        if obj.as1.get('objectType') == 'activity':
             with seen_ids_lock:
                 already_seen = id in seen_ids
                 seen_ids[id] = True
                 if already_seen or Object.get_by_id(id):
                     msg = f'Already handled this activity {id}'
                     logger.info(msg)
-                    return msg, 200
+                    return msg, 204
 
-        # block intra-BF ids
-        if obj.as1:
-            for field in 'id', 'actor', 'author', 'attributedTo':
-                val = as1.get_object(obj.as1, field).get('id')
-                if util.domain_from_link(val) in common.DOMAINS:
-                    error(f'{field} {val} is on Bridgy Fed, which is not supported')
+        # write Object to datastore
+        obj = Object.get_or_create(id, **obj.to_dict())
 
-        # create real Object
-        #
         # if this is a post, ie not an activity, wrap it in a create or update
         obj = cls._handle_bare_object(obj)
-        if not obj:
-            obj = Object.get_or_insert(id)
-            obj.clear()
-            obj.populate(source_protocol=cls.LABEL, **props)
 
         obj_actor = as1.get_owner(obj.as1)
         if obj_actor:
@@ -366,8 +373,8 @@ class Protocol:
             if inner_actor:
                 add(obj.users, cls.key_for(inner_actor))
 
+        obj.source_protocol = cls.LABEL
         obj.put()
-        logger.info(f'Got AS1: {json_dumps(obj.as1, indent=2)}')
 
         if obj.type not in SUPPORTED_TYPES:
             error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
@@ -456,7 +463,7 @@ class Protocol:
                 obj.our_as1 = {**obj.as1, 'object': inner_obj.as1}
 
         if obj.type == 'follow':
-            cls.accept_follow(obj)
+            cls._accept_follow(obj)
 
         # deliver to each target
         cls._deliver(obj)
@@ -477,7 +484,7 @@ class Protocol:
         return 'OK'
 
     @classmethod
-    def accept_follow(cls, obj):
+    def _accept_follow(cls, obj):
         """Replies to a follow with an accept.
 
         Args:
@@ -564,20 +571,13 @@ class Protocol:
         now = util.now().isoformat()
 
         if obj.type not in ('note', 'article', 'comment'):
-            return
+            return obj
 
         # this is a raw post; wrap it in a create or update activity
-        if obj.new is None and obj.changed is None:
-            # check if we've seen this object, and if it's changed since then
-            existing = Object.get_by_id(obj.key.id())
-            obj.new = existing is None
-            obj.changed = existing and obj.activity_changed(existing.as1)
-
         if obj.changed:
             logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes')
             id = f'{obj.key.id()}#bridgy-fed-update-{now}'
             logger.info(f'Wrapping in update activity {id}')
-            obj.put()
             update_as1 = {
                 'objectType': 'activity',
                 'verb': 'update',
@@ -601,7 +601,6 @@ class Protocol:
             logger.info(f'New Object {obj.key.id()}')
             id = f'{obj.key.id()}#bridgy-fed-create'
             logger.info(f'Wrapping in post activity {id}')
-            obj.put()
             create_as1 = {
                 'objectType': 'activity',
                 'verb': 'post',
@@ -611,9 +610,8 @@ class Protocol:
                 'published': now,
             }
             source_protocol = obj.source_protocol
-            obj = Object.get_or_insert(id)
-            obj.populate(our_as1=create_as1, source_protocol=source_protocol)
-
+            obj = Object.get_or_create(id, our_as1=create_as1,
+                                       source_protocol=source_protocol)
         else:
             error(f'{obj.key.id()} is unchanged, nothing to do', status=204)
 
@@ -635,7 +633,7 @@ class Protocol:
         if not targets:
             obj.status = 'ignored'
             obj.put()
-            return 'No targets', 204
+            error('No targets', status=204)
 
         sorted_targets = sorted(targets.items(), key=lambda t: t[0].uri)
         obj.populate(
@@ -803,7 +801,7 @@ class Protocol:
             datastore after a successful remote fetch.
           kwargs: passed through to :meth:`fetch()`
 
-        Returns: :class:`Object` or None if it isn't in the datastore and remote
+        Returns: :class:`Object`, or None if it isn't in the datastore and remote
           is False
 
         Raises:

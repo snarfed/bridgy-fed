@@ -15,7 +15,11 @@ from granary import as1, as2, bluesky, microformats2
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import error
-from oauth_dropins.webutil.models import ComputedJsonProperty, JsonProperty, StringIdModel
+from oauth_dropins.webutil.models import (
+    ComputedJsonProperty,
+    JsonProperty,
+    StringIdModel,
+)
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
@@ -481,8 +485,8 @@ class Object(StringIdModel):
         """Returns an Object with the given property values.
 
         If a matching Object doesn't exist in the datastore, creates it first.
-
-        Only populates non-False/empty property values.
+        Only populates non-False/empty property values in props into the object.
+        Also populates the :attr:`new` and :attr:`changed` properties.
 
         Returns:
           :class:`Object`
@@ -496,7 +500,10 @@ class Object(StringIdModel):
             obj.new = True
 
         obj.clear()
-        obj.populate(**{k: v for k, v in props.items() if v})
+        obj.populate(**{
+            k: v for k, v in props.items()
+            if v and not isinstance(getattr(Object, k), ndb.ComputedProperty)
+        })
         if not obj.new:
             obj.changed = obj.activity_changed(orig_as1)
 
@@ -508,7 +515,7 @@ class Object(StringIdModel):
         for prop in 'as2', 'bsky', 'mf2':
             val = getattr(self, prop, None)
             if val:
-                logger.warning(f'Wiping out {prop}: {json_dumps(val, indent=2)}')
+                logger.warning(f'Wiping out existing {prop}: {json_dumps(val, indent=2)}')
             setattr(self, prop, None)
 
     def as_as2(self):

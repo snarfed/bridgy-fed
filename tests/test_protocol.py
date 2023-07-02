@@ -18,17 +18,8 @@ from ui import UIProtocol
 from web import Web
 from werkzeug.exceptions import BadRequest
 
-from .test_activitypub import ACTOR, REPLY, REPLY_OBJECT
+from .test_activitypub import ACTOR
 from .test_web import ACTOR_HTML
-
-REPLY = {
-    **REPLY,
-    'actor': ACTOR,
-    'object': {
-        **REPLY['object'],
-        'attributedTo': ACTOR,
-    },
-}
 
 
 class ProtocolTest(TestCase):
@@ -342,7 +333,6 @@ class ProtocolReceiveTest(TestCase):
                                  type='post',
                                  labels=['user', 'activity', 'feed'],
                                  users=[g.user.key, self.alice.key, self.bob.key],
-                                 source_protocol=None,
                                  )
 
         self.assertEqual([(obj, 'shared:target')], Fake.sent)
@@ -414,7 +404,6 @@ class ProtocolReceiveTest(TestCase):
                                  type='update',
                                  labels=['user', 'activity'],
                                  users=[g.user.key],
-                                 source_protocol=None,
                                  )
 
         self.assertEqual([(obj, 'shared:target')], Fake.sent)
@@ -492,7 +481,6 @@ class ProtocolReceiveTest(TestCase):
                                  type='post',
                                  labels=['user', 'activity', 'notification'],
                                  users=[self.alice.key, self.bob.key],
-                                 source_protocol=None,
                                  )
 
         self.assertEqual([(obj, 'fake:post:target')], Fake.sent)
@@ -673,6 +661,7 @@ class ProtocolReceiveTest(TestCase):
 #             LIKE,
 #         ]
 
+        # with self.assertRaises(NoContent):
 #         got = self.client.post('/_ah/queue/webmention', data={
 #             'source': 'https://user.com/like',
 #             'target': 'https://fed.brid.gy/',
@@ -823,6 +812,7 @@ class ProtocolReceiveTest(TestCase):
 #             'source': 'https://user.com/repost',
 #             'target': 'https://fed.brid.gy/',
 #         })
+        # with self.assertRaises(NoContent):
 #         self.assertEqual(204, got.status_code)
 #         mock_post.assert_not_called()
 
@@ -1080,26 +1070,20 @@ class ProtocolReceiveTest(TestCase):
 
     def test_receive_from_bridgy_fed_fails(self):
         with self.assertRaises(BadRequest):
-            Fake.receive('https://fed.brid.gy/r/foo', as2=REPLY)
+            Fake.receive({
+                'id': 'https://fed.brid.gy/r/foo',
+            })
 
         self.assertIsNone(Object.get_by_id('https://fed.brid.gy/r/foo'))
 
         with self.assertRaises(BadRequest):
-            Fake.receive('foo', as2={
-                **REPLY,
-                'id': 'https://web.brid.gy/r/foo',
-            })
-
-        self.assertIsNone(Object.get_by_id('foo'))
-        self.assertIsNone(Object.get_by_id('https://web.brid.gy/r/foo'))
-
-        with self.assertRaises(BadRequest):
-            Fake.receive(REPLY['id'], as2={
-                **REPLY,
+            Fake.receive({
+                'id': 'fake:foo',
                 'actor': 'https://ap.brid.gy/user.com',
             })
 
-        self.assertIsNone(Object.get_by_id(REPLY['id']))
+        self.assertIsNone(Object.get_by_id('foo'))
+        self.assertIsNone(Object.get_by_id('https://ap.brid.gy/user.com'))
 
     # def test_skip_same_domain_target(self):
     #     TODO
