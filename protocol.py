@@ -227,6 +227,26 @@ class Protocol:
         return None
 
     @classmethod
+    def actor_key(cls, obj, default_g_user=True):
+        """Returns the :class:`User`: key for a given object's author or actor.
+
+        If obj has no author or actor, defaults to g.user if it's set and
+        default_g_user is True, otherwise None.
+
+        Args:
+          obj: :class:`Object`
+          default_g_user: boolean
+
+        Returns:
+          :class:`ndb.Key` or None
+        """
+        owner = as1.get_owner(obj.as1)
+        if owner:
+            return cls.key_for(owner)
+        elif default_g_user and g.user:
+            return g.user.key
+
+    @classmethod
     def send(cls, obj, url, log_data=True):
         """Sends an outgoing activity.
 

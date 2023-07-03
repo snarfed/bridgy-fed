@@ -225,18 +225,18 @@ class ProtocolTest(TestCase):
         self.assert_entities_equal(obj, Fake.load('foo', remote=False))
         self.assertEqual([], Fake.fetched)
 
-    def test_Protocol_load_remote_false_existing_object_empty(self):
+    def test_load_remote_false_existing_object_empty(self):
         obj = self.store_object(id='foo')
         self.assert_entities_equal(obj, Protocol.load('foo', remote=False))
 
-    def test_local_false_missing(self):
+    def test_load_local_false_missing(self):
         with self.assertRaises(requests.HTTPError) as e:
             Fake.load('foo', local=False)
             self.assertEqual(410, e.response.status_code)
 
         self.assertEqual(['foo'], Fake.fetched)
 
-    def test_local_false_existing(self):
+    def test_load_local_false_existing(self):
         self.store_object(id='foo', our_as1={'content': 'stored'}, source_protocol='ui')
 
         Fake.fetchable['foo'] = {'foo': 'bar'}
@@ -244,9 +244,28 @@ class ProtocolTest(TestCase):
         self.assert_object('foo', source_protocol='fake', our_as1={'foo': 'bar'})
         self.assertEqual(['foo'], Fake.fetched)
 
-    def test_remote_false_local_false_assert(self):
+    def test_load_remote_false_local_false_assert(self):
         with self.assertRaises(AssertionError):
             Fake.load('nope', local=False, remote=False)
+
+    def test_owner_key(self):
+        user = Fake(id='fake:a')
+        a_key = user.key
+
+        for expected, obj in [
+                (None, Object()),
+                (None, Object(our_as1={})),
+                (None, Object(our_as1={'foo': 'bar'})),
+                (None, Object(our_as1={'foo': 'bar'})),
+                (None, Object(our_as1={'actor': ''})),
+                (a_key, Object(our_as1={'actor': 'fake:a'})),
+                (a_key, Object(our_as1={'author': 'fake:a'})),
+        ]:
+            self.assertEqual(expected, Fake.actor_key(obj))
+
+        g.user = user
+        self.assertEqual(a_key, Fake.actor_key(Object()))
+        self.assertIsNone(Fake.actor_key(Object(), default_g_user=False))
 
 
 class ProtocolReceiveTest(TestCase):
