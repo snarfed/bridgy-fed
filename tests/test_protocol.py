@@ -735,43 +735,63 @@ class ProtocolReceiveTest(TestCase):
                            deleted=True,
                            source_protocol=None,
                            )
+    @patch.object(Fake, 'send')
+    @patch.object(Fake, 'target_for')
+    def test_send_error(self, mock_target_for, mock_send):
+        """Two targets. First send fails, second succeeds."""
+        self.make_followers()
 
-#     def test_send_error(self):
-#         mock_get.side_effect = [FOLLOW, ACTOR]
-#         mock_post.return_value = requests_response(
-#             'abc xyz', status=405, url='https://mas.to/inbox')
+        mock_target_for.side_effect = [
+            'target:1',
+            'target:2',
+        ]
 
-#         got = self.client.post('/_ah/queue/webmention', data={
-#             'source': 'https://user.com/follow',
-#             'target': 'https://fed.brid.gy/',
-#         })
-#         body = got.get_data(as_text=True)
-#         self.assertEqual(502, got.status_code, body)
-#         self.assertIn(
-#             '405 Client Error: None for url: https://mas.to/inbox ; abc xyz',
-#             body)
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+        }
+        create_as1 = {
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'object': post_as1,
+        }
 
-#         mock_get.assert_has_calls((
-#             self.req('https://user.com/follow'),
-#             self.as2_req('https://mas.to/mrs-foo'),
-#         ))
+        sent = []
+        def send(obj, url, log_data=True):
+            self.assertEqual(create_as1, obj.as1)
+            if not sent:
+                self.assertEqual('target:1', url)
+                sent.append('fail')
+                raise BadRequest()
+            else:
+                self.assertEqual('target:2', url)
+                sent.append('sent')
+                return True
 
-#         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
+        mock_send.side_effect = send
 
-#         self.assert_object('https://user.com/follow',
-#                            users=[g.user.key],
-#                            status='failed',
-#                            mf2=FOLLOW_MF2,
-#                            as1=FOLLOW_AS1,
-#                            failed=['https://mas.to/inbox'],
-#                            type='follow',
-#                            object_ids=['https://mas.to/mrs-foo'],
-#                            labels=['user', 'activity'],
-#                            )
+        self.assertEqual('OK', Fake.receive(create_as1))
+
+        self.assert_object('fake:post',
+                           our_as1=post_as1,
+                           type='note',
+                           )
+        obj = self.assert_object('fake:create',
+                                 status='complete',
+                                 our_as1=create_as1,
+                                 delivered=['target:2'],
+                                 failed=['target:1'],
+                                 type='post',
+                                 labels=['user', 'activity', 'feed'],
+                                 users=[g.user.key, self.alice.key, self.bob.key],
+                                 )
+
+        self.assertEqual(['fail', 'sent'], sent)
 
     def test_update_profile(self):
-        Follower.get_or_create(to=g.user, from_=self.alice)
-        Follower.get_or_create(to=g.user, from_=self.bob)
+        self.make_followers()
 
         id = 'fake:user#update-2022-01-02T03:04:05+00:00'
         update_as1 = {
