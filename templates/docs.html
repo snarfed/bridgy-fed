@@ -74,6 +74,7 @@ Bridgy Fed takes some technical know-how to set up, and there are simpler (but l
 <br>
 <p><em>Development</em></p>
 <li><a href="#translate">How are the different protocols translated?</a></li>
+<li><a href="#router">How are activities routed?</a></li>
 <li><a href="#error-handling">How are errors handled?</a></li>
 </ul>
 
@@ -762,6 +763,93 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 </tbody>
 </table>
 
+</li>
+
+<li id="router" class="question">How are activities routed?</li>
+<li class="answer">
+<p>A bridge does more than just translate protocols and formats. It processes activities (events) based on domain-specific logic and semantics. The domain Bridgy Fed currently handles is public social microblogging, the kind popularized by Twitter. There are many other related social domains, with fuzzy boundaries and lots of overlap, eg forums (Reddit), questions and answers (StackOverflow), project trackers (GitHub), and many more, but here we're currently focused on microblogging.</p>
+
+<p>Even within that domain, behavior logic varies. Twitter follows are one way, but Facebook friends are bidirectional. Your Bluesky timeline (skyline) includes your followings' replies, but your fediverse timeline generally doesn't. LinkedIn...honestly I have no clue how LinkedIn works, but I'm sure it has its own logic, workfluencers and all.</p>
+
+<p>Here's what Bridgy Fed's activity router does. I've tried to make it follow "least common denominator" logic, ie do the most common and least surprising thing, and I've explicitly tried not to innovate or invent anything new here. It's a bridge, not a product, after all.</p>
+
+<table class="list">
+<thead>
+<tr>
+  <th>When Bridgy Fed receives a...</th>
+  <th>The router will...</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <th>follow</th>
+  <td><ul>
+    <li>deliver the follow activity to the followee</li>
+    <li>automatically send an accept activity to the follower<br>
+      (we may eventually add UX for this)</li>
+    <li>store the follower locally</li>
+    <li>generate a local notification to the follower</li>
+  </ul></td>
+</tr>
+<tr>
+  <th>unfollow</th>
+  <td><ul>
+    <li>deliver the unfollow activity to the followee</li>
+    <li>deactivate the locally stored follower</li>
+  </ul></td>
+</tr>
+<tr>
+  <th>new post</th>
+  <td><ul>
+    <li>deliver to all active stored followers</li>
+    <li>store the post locally</li>
+  </ul></td>
+</tr>
+<tr>
+  <th>update post</th>
+  <td><ul>
+    <li>deliver to all active stored followers</li>
+    <li>update the locally stored post</li>
+  </ul></td>
+</tr>
+<tr>
+  <th>delete post</th>
+  <td><ul>
+    <li>deliver to all active stored followers</li>
+    <li>mark the locally stored post deleted</li>
+  </ul></td>
+</tr>
+<tr>
+  <th>delete actor</th>
+  <td><ul>
+    <li>deactivate their locally stored follows, to and from</li>
+  </ul></td>
+</tr>
+<tr>
+  <th>reply</th>
+  <td><ul>
+    <li>deliver to the original post</li>
+    <li>store locally</li>
+    <li>generate a local notification to the original post's author</li>
+  </ul></td>
+</tr>
+<tr>
+  <th>repost</th>
+  <td><ul>
+    <li>deliver to all active stored followers</li>
+    <li>store locally</li>
+    <li>generate a local notification to the original post's author</li>
+  </ul></td>
+</tr>
+<tr>
+  <th>like</th>
+  <td><ul>
+    <li>deliver to the original post</li>
+    <li>generate a local notification to the original post's author</li>
+  </ul></td>
+</tr>
+</tbody>
+</table>
 </li>
 
 <li id="error-handling" class="question">How are errors handled?</li>

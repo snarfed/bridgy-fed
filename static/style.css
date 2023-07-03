@@ -459,6 +459,10 @@ a img.shadow:hover
   margin-bottom: 2em;
 }
 
+.docs table.list {
+  margin-left: inherit;
+}
+
 .docs th, .docs td {
   padding: .5em;
 }
@@ -480,6 +484,10 @@ a img.shadow:hover
   text-align: center;
 }
 
+.docs table.list thead th {
+  text-align: left;
+}
+
 .docs table code {
   white-space: nowrap;
   background-color: transparent !important;
@@ -487,6 +495,10 @@ a img.shadow:hover
 
 .docs td {
   text-align: center;
+}
+
+.docs table.list td {
+  text-align: left;
 }
 
 .docs th {
