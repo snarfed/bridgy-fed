@@ -384,14 +384,14 @@ class Protocol:
         # if this is a post, ie not an activity, wrap it in a create or update
         obj = cls._handle_bare_object(obj)
 
-        obj_actor = as1.get_owner(obj.as1)
-        if obj_actor:
-            add(obj.users, cls.key_for(obj_actor))
-        elif g.user:
-            add(obj.users, g.user.key)
+        # add involved users
+        actor_key = cls.actor_key(obj)
+        if actor_key:
+            add(obj.users, actor_key)
 
+        inner_obj_as1 = as1.get_object(obj.as1)
         if obj.as1.get('verb') in ('post', 'update', 'delete'):
-            inner_actor = as1.get_owner(as1.get_object(obj.as1))
+            inner_actor = as1.get_owner(inner_obj_as1)
             if inner_actor:
                 add(obj.users, cls.key_for(inner_actor))
 
@@ -402,14 +402,11 @@ class Protocol:
             error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
 
         # store inner object
-        inner_obj_as1 = as1.get_object(obj.as1)
         inner_obj_id = inner_obj_as1.get('id')
         inner_obj = None
         if obj.type in ('post', 'update') and inner_obj_as1.keys() > set(['id']):
-            inner_obj = Object.get_or_insert(inner_obj_id)
-            inner_obj.populate(our_as1=inner_obj_as1,
-                               source_protocol=cls.LABEL)
-            inner_obj.put()
+            Object.get_or_create(inner_obj_id, our_as1=inner_obj_as1,
+                                 source_protocol=cls.LABEL)
 
         actor = as1.get_object(obj.as1, 'actor')
         actor_id = actor.get('id')
@@ -753,20 +750,18 @@ class Protocol:
 
             logger.info(f'Target for {id} is {target}')
             targets[Target(protocol=protocol.LABEL, uri=target)] = orig_obj
-            orig_user = as1.get_owner(orig_obj.as1)
+            orig_user = protocol.actor_key(orig_obj, default_g_user=False)
             if orig_user:
-                user_key = protocol.key_for(orig_user)
-                logger.info(f'Recipient is {user_key}')
-                add(obj.users, user_key)
+                logger.info(f'Recipient is {orig_user}')
+                add(obj.users, orig_user)
                 add(obj.labels, 'notification')
 
-        user = as1.get_owner(obj.as1) or as1.get_owner(inner_obj_as1)
-        user_key = cls.key_for(user) if user else g.user.key if g.user else None
+        # deliver to followers?
+        user_key = cls.actor_key(obj)
         if not user_key:
             logger.info("Can't tell who this is from! Skipping followers.")
             return targets
 
-        # deliver to followers?
         if (obj.type in ('post', 'update', 'delete', 'share')
                 and not (obj.type == 'comment' or inner_obj_as1.get('inReplyTo'))):
             logger.info(f'Delivering to followers of {user_key}')
