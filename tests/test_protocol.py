@@ -253,7 +253,7 @@ class ProtocolReceiveTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        g.user = self.make_user('fake:user', cls=Fake, obj_id='fake:user')
+        g.user = self.user = self.make_user('fake:user', cls=Fake, obj_id='fake:user')
         self.alice = self.make_user('fake:alice', cls=Fake, obj_id='fake:alice')
         self.bob = self.make_user('fake:bob', cls=Fake, obj_id='fake:bob')
 
@@ -269,9 +269,9 @@ class ProtocolReceiveTest(TestCase):
         return super().assert_object(id, ignore=ignore, **props)
 
     def make_followers(self):
-        Follower.get_or_create(to=g.user, from_=self.alice)
-        Follower.get_or_create(to=g.user, from_=self.bob)
-        Follower.get_or_create(to=g.user, from_=Fake(id='fake:eve'),
+        Follower.get_or_create(to=self.user, from_=self.alice)
+        Follower.get_or_create(to=self.user, from_=self.bob)
+        Follower.get_or_create(to=self.user, from_=Fake(id='fake:eve'),
                                status='inactive')
 
     def test_create_post(self):
@@ -655,6 +655,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([(like_obj, 'fake:post:target')], Fake.sent)
 
     def test_delete(self):
+        g.user = None  # should use activity's actor
         self.make_followers()
 
         post_as1 = {
@@ -668,6 +669,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:delete',
             'objectType': 'activity',
             'verb': 'delete',
+            'actor': 'fake:user',
             'object': 'fake:post',
         }
         self.assertEqual('OK', Fake.receive(delete_as1))
@@ -684,15 +686,17 @@ class ProtocolReceiveTest(TestCase):
                                  delivered=['shared:target'],
                                  type='delete',
                                  labels=['user', 'activity', 'feed'],
-                                 users=[g.user.key, self.alice.key, self.bob.key],
+                                 users=[self.user.key, self.alice.key, self.bob.key],
                                  )
         self.assertEqual([(obj, 'shared:target')], Fake.sent)
 
     def test_delete_no_followers_no_stored_object(self):
+        g.user = None  # should use activity's actor
         delete_as1 = {
             'id': 'fake:delete',
             'objectType': 'activity',
             'verb': 'delete',
+            'actor': 'fake:user',
             'object': 'fake:post',
         }
         with self.assertRaises(NoContent):
@@ -709,22 +713,25 @@ class ProtocolReceiveTest(TestCase):
                            delivered=[],
                            type='delete',
                            labels=['user', 'activity', 'feed'],
-                           users=[g.user.key],
+                           users=[self.user.key],
                            )
         self.assertEqual([], Fake.sent)
 
     def test_delete_actor(self):
-        follower = Follower.get_or_create(to=g.user, from_=self.alice)
+        g.user = None
+
+        follower = Follower.get_or_create(to=self.user, from_=self.alice)
         followee = Follower.get_or_create(to=self.alice, from_=self.bob)
-        other = Follower.get_or_create(to=g.user, from_=self.bob)
+        other = Follower.get_or_create(to=self.user, from_=self.bob)
         self.assertEqual(3, Follower.query().count())
 
-        self.assertEqual('OK', Fake.receive({
-            'objectType': 'activity',
-            'verb': 'delete',
-            'id': 'fake:delete',
-            'object': 'fake:alice',
-        }))
+        with self.assertRaises(NoContent):
+            Fake.receive({
+                'objectType': 'activity',
+                'verb': 'delete',
+                'id': 'fake:delete',
+                'object': 'fake:alice',
+            })
 
         self.assertEqual(3, Follower.query().count())
         self.assertEqual('inactive', follower.key.get().status)
@@ -735,6 +742,7 @@ class ProtocolReceiveTest(TestCase):
                            deleted=True,
                            source_protocol=None,
                            )
+
     @patch.object(Fake, 'send')
     @patch.object(Fake, 'target_for')
     def test_send_error(self, mock_target_for, mock_send):

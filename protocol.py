@@ -676,8 +676,8 @@ class Protocol:
         logger.info(f'Returning {ret}')
         return ret
 
-    @staticmethod
-    def _targets(obj):
+    @classmethod
+    def _targets(cls, obj):
         """Collects the targets to send an :class:`models.Object` to.
 
         Args:
@@ -740,12 +740,17 @@ class Protocol:
                 add(obj.users, user_key)
                 add(obj.labels, 'notification')
 
+        user = as1.get_owner(obj.as1) or as1.get_owner(inner_obj_as1)
+        user_key = cls.key_for(user) if user else g.user.key if g.user else None
+        if not user_key:
+            logger.info("Can't tell who this is from! Skipping followers.")
+            return targets
+
         # deliver to followers?
         if (obj.type in ('post', 'update', 'delete', 'share')
-            and not (obj.type == 'comment' or inner_obj_as1.get('inReplyTo'))):
-            # TODO: use obj's actor/author instead of g.user?
-            logger.info(f'Delivering to followers of {g.user.key}')
-            followers = Follower.query(Follower.to == g.user.key,
+                and not (obj.type == 'comment' or inner_obj_as1.get('inReplyTo'))):
+            logger.info(f'Delivering to followers of {user_key}')
+            followers = Follower.query(Follower.to == user_key,
                                        Follower.status == 'active'
                                        ).fetch()
             users = [u for u in ndb.get_multi(f.from_ for f in followers) if u]
