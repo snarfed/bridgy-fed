@@ -1094,7 +1094,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(3, Follower.query().count())
 
         got = self.post('/ap/sharedInbox', json=DELETE)
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(204, got.status_code)
         self.assertEqual('inactive', follower.key.get().status)
         self.assertEqual('inactive', followee.key.get().status)
         self.assertEqual('active', other.key.get().status)
@@ -1130,14 +1130,23 @@ class ActivityPubTest(TestCase):
             'object': 'http://an/obj',
         }
         resp = self.post('/ap/sharedInbox', json=delete)
-        self.assertEqual(200, resp.status_code)
+        self.assertEqual(204, resp.status_code)
         self.assertTrue(obj.key.get().deleted)
-        self.assert_object(delete['id'], as2=delete, type='delete',
-                           source_protocol='activitypub', status='complete',
-                           labels=['activity'])
+        self.assert_object(delete['id'],
+                           as2=delete,
+                           our_as1={
+                               **as2.to_as1(delete),
+                               'actor': as2.to_as1(ACTOR),
+                           },
+                           type='delete',
+                           source_protocol='activitypub',
+                           status='ignored',
+                           labels=['user', 'activity'],
+                           users=[ActivityPub(id='https://mas.to/users/swentel').key])
 
-        obj.deleted = True
-        self.assert_entities_equal(obj, protocol.objects_cache['http://an/obj'],
+        obj.populate(deleted=True, as2=None)
+        self.assert_entities_equal(obj,
+                                   protocol.objects_cache['http://an/obj'],
                                    ignore=['expire', 'created', 'updated'])
 
     def test_update_note(self, *mocks):

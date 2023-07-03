@@ -452,16 +452,20 @@ class Protocol:
             logger.info(f'Marking Object {inner_obj_id} deleted')
             Object.get_or_create(inner_obj_id, deleted=True)
 
-            # assume this is an actor
+            # if this is an actor, deactivate its followers/followings
             # https://github.com/snarfed/bridgy-fed/issues/63
-            logger.info(f'Deactivating Followers from or to = {inner_obj_id}')
-            deleted_user = cls.key_for(id=inner_obj_id)
-            followers = Follower.query(OR(Follower.to == deleted_user,
-                                          Follower.from_ == deleted_user)
-                                       ).fetch()
-            for f in followers:
-                f.status = 'inactive'
-            ndb.put_multi(followers)
+            try:
+                deleted_user = cls.key_for(id=inner_obj_id)
+                logger.info(f'Deactivating Followers from or to = {inner_obj_id}')
+                followers = Follower.query(OR(Follower.to == deleted_user,
+                                              Follower.from_ == deleted_user)
+                                           ).fetch()
+                for f in followers:
+                    f.status = 'inactive'
+                ndb.put_multi(followers)
+            except ValueError:
+                logger.info(f"{inner_obj_id} doesn't look like an actor or user")
+
             # fall through to deliver to followers
 
         # fetch actor if necessary so we have name, profile photo, etc
@@ -770,7 +774,7 @@ class Protocol:
                                        ).fetch()
             users = [u for u in ndb.get_multi(f.from_ for f in followers) if u]
             User.load_multi(users)
-            if obj.type != 'update':
+            if obj.type not in ('update', 'delete'):
                 for u in users:
                     add(obj.users, u.key)
                 add(obj.labels, 'feed')

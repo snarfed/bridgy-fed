@@ -704,8 +704,8 @@ class ProtocolReceiveTest(TestCase):
                                  our_as1=delete_as1,
                                  delivered=['shared:target'],
                                  type='delete',
-                                 labels=['user', 'activity', 'feed'],
-                                 users=[self.user.key, self.alice.key, self.bob.key],
+                                 labels=['user', 'activity'],
+                                 users=[self.user.key],
                                  )
         self.assertEqual([(obj, 'shared:target')], Fake.sent)
 
@@ -731,7 +731,7 @@ class ProtocolReceiveTest(TestCase):
                            our_as1=delete_as1,
                            delivered=[],
                            type='delete',
-                           labels=['user', 'activity', 'feed'],
+                           labels=['user', 'activity'],
                            users=[self.user.key],
                            )
         self.assertEqual([], Fake.sent)

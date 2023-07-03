@@ -54,7 +54,6 @@ ACTOR_AS1_UNWRAPPED = {
     'objectType': 'person',
     'displayName': 'Ms. ☕ Baz',
     'url': 'https://user.com/',
-    'urls': [{'value': 'https://user.com/', 'displayName': 'Ms. ☕ Baz'}],
 }
 ACTOR_AS2 = {
     'type': 'Person',
@@ -121,15 +120,6 @@ REPOST_AS2 = {
         as2.PUBLIC_AUDIENCE,
     ],
     'actor': 'http://localhost/user.com',
-}
-REPOST_AS1_UNWRAPPED = {
-    'objectType': 'activity',
-    'verb': 'share',
-    'id': 'https://user.com/repost',
-    'url': 'https://user.com/repost',
-    'displayName': 'reposted!',
-    'object': 'https://mas.to/toot/id',
-    'actor': ACTOR_AS1_UNWRAPPED,
 }
 
 REPOST_HCITE_HTML = """\
@@ -1348,7 +1338,10 @@ class WebTest(TestCase):
                            users=[g.user.key],
                            source_protocol='web',
                            status='complete',
-                           our_as1=DELETE_AS1,
+                           our_as1={
+                               **DELETE_AS1,
+                               'actor': ACTOR_AS1_UNWRAPPED,
+                           },
                            delivered=inboxes,
                            type='delete',
                            object_ids=['https://user.com/post'],
@@ -1856,8 +1849,10 @@ class WebProtocolTest(TestCase):
             **ACTOR_MF2_REL_URLS,
             'url': 'https://user.com/',
         }, obj.mf2)
-        self.assert_equals({**ACTOR_AS1_UNWRAPPED, 'url': 'https://user.com/'},
-                           obj.as1)
+        self.assert_equals({
+            **ACTOR_AS1_UNWRAPPED,
+            'urls': [{'value': 'https://user.com/', 'displayName': 'Ms. ☕ Baz'}],
+        }, obj.as1)
 
     def test_fetch_user_homepage_no_hcard(self, mock_get, __):
         mock_get.return_value = REPOST
