@@ -911,6 +911,36 @@ class WebTest(TestCase):
                            status='ignored',
                            )
 
+    def test_post_type_discovery_multiple_types(self, mock_get, mock_post):
+        self.make_followers()
+
+        mock_get.return_value = requests_response(
+            NOTE_HTML.replace('<a href="http://localhost/"></a>', """
+  <a class="u-like-of" href="https://alice.com/post"></a>
+  <a class="u-bookmark-of" href="http://bob.com/post"></a>
+  <a href="http://localhost/"></a>
+"""), content_type=CONTENT_TYPE_HTML, url='https://user.com/post')
+
+        got = self.client.post('/_ah/queue/webmention', data={
+            'source': 'https://user.com/multiple',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
+
+        inboxes = ['https://inbox', 'https://public/inbox', 'https://shared/inbox']
+        self.assert_deliveries(mock_post, inboxes, {
+            **NOTE_AS2,
+            'attributedTo': None,
+            'type': 'Create',
+            'actor': 'http://localhost/user.com',
+            # TODO: this is an awkward wart left over from the multi-type mf2.
+            # remove it eventually.
+            'object': {
+                'targetUrl': 'http://bob.com/post',
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            },
+        })
+
     def test_create_default_url_to_wm_source(self, mock_get, mock_post):
         """Source post has no u-url. AS2 id should default to webmention source."""
         missing_url = requests_response("""\
