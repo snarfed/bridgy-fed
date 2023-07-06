@@ -64,6 +64,7 @@ ACTOR_AS2 = {
 }
 ACTOR_AS2_USER = {
     'type': 'Person',
+    'id': 'https://user.com/',
     'url': 'https://user.com/',
     'name': 'Ms. ☕ Baz',
     'attachment': [{
@@ -897,7 +898,7 @@ class WebTest(TestCase):
                            mf2=LIKE_MF2,
                            as1=microformats2.json_to_object(LIKE_MF2),
                            type='like',
-                           labels=['user', 'activity'],
+                           labels=['activity'],
                            status='ignored',
                            )
 
@@ -1466,8 +1467,12 @@ class WebTest(TestCase):
                                expected_as2)
 
         # updated Web user
-        self.assert_user(Web, 'user.com', obj_as2=ACTOR_AS2_USER, direct=True,
-                         has_redirects=True)
+        self.assert_user(Web, 'user.com',
+                         obj_as2=ACTOR_AS2_USER,
+                         direct=True,
+                         has_redirects=True,
+                         updated='2022-01-02T03:04:05+00:00'
+                         )
 
         # homepage object
         self.assert_object('https://user.com/',

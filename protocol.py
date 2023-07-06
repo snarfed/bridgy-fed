@@ -346,17 +346,21 @@ class Protocol:
         logger.info(f'From {cls.__name__}')
         assert cls != Protocol
         assert isinstance(obj, Object), obj
-        logger.info(f'Got {obj.key.id()} AS1: {json_dumps(obj.as1, indent=2)}')
+        logger.info(f'Got {obj.key} AS1: {json_dumps(obj.as1, indent=2)}')
 
         if not obj.as1:
             error('No object data provided')
 
-        id = obj.key.id()
+        id = None
+        if obj.key and obj.key.id():
+            id = obj.key.id()
+
         if not id:
             id = obj.as1.get('id')
-            if not id:
-                error('No id provided')
             obj.key = ndb.Key(Object, id)
+
+        if not id:
+            error('No id provided')
 
         # block intra-BF ids
         if util.domain_from_link(id) in common.DOMAINS:
