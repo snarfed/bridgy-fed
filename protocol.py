@@ -474,6 +474,7 @@ class Protocol:
 
         # fetch actor if necessary so we have name, profile photo, etc
         if actor and actor.keys() == set(['id']):
+            logger.info('Fetching actor so we have name, profile photo, etc')
             actor_obj = cls.load(actor['id'])
             if actor_obj.as1:
                 obj.our_as1 = {**obj.as1, 'actor': actor_obj.as1}
@@ -481,6 +482,7 @@ class Protocol:
         # fetch object if necessary so we can render it in feeds
         if obj.type == 'share' and inner_obj_as1.keys() == set(['id']):
             if not inner_obj and cls.owns_id(inner_obj_id):
+                logger.info('Fetching object so we can render it in feeds')
                 inner_obj = cls.load(inner_obj_id)
             if inner_obj and inner_obj.as1:
                 obj.our_as1 = {
@@ -673,7 +675,7 @@ class Protocol:
                 sent = protocol.send(obj, target.uri, log_data=log_data)
                 if sent:
                     add(obj.delivered, target)
-                    obj.undelivered.remove(target)
+                obj.undelivered.remove(target)
             except BaseException as e:
                 code, body = util.interpret_http_exception(e)
                 if not code and not body:

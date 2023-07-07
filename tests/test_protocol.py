@@ -279,13 +279,7 @@ class ProtocolReceiveTest(TestCase):
     def assert_object(self, id, **props):
         props.setdefault('source_protocol', 'fake')
         props.setdefault('delivered_protocol', 'fake')
-
-        ignore = []
-        for field in 'as2', 'bsky', 'mf2':
-            if 'our_as1' in props and field not in props:
-                ignore.append(field)
-
-        return super().assert_object(id, ignore=ignore, **props)
+        return super().assert_object(id, **props)
 
     def make_followers(self):
         Follower.get_or_create(to=self.user, from_=self.alice)

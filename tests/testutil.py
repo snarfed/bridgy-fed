@@ -300,6 +300,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         mock.assert_any_call(url, **kwargs)
 
     def assert_object(self, id, delivered_protocol=None, **props):
+        ignore = props.pop('ignore', [])
         got = Object.get_by_id(id)
         assert got, id
 
@@ -307,6 +308,12 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         for field in 'delivered', 'undelivered', 'failed':
             props[field] = [Target(uri=uri, protocol=delivered_protocol)
                             for uri in props.get(field, [])]
+
+        if 'our_as1' in props:
+            assert 'as2' not in props
+            assert 'bsky' not in props
+            assert 'mf2' not in props
+            ignore.extend(['as2', 'bsky', 'mf2'])
 
         mf2 = props.get('mf2')
         if mf2 and 'items' in mf2:
@@ -329,7 +336,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         for target in got.delivered:
             del target.key
 
-        ignore = props.pop('ignore', [])
         self.assert_entities_equal(Object(id=id, **props), got,
                                    ignore=['as1', 'created', 'expire',
                                            'object_ids', 'type', 'updated'

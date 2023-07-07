@@ -276,6 +276,8 @@ class ActivityPubTest(TestCase):
 
         self.user = self.make_user('user.com', has_hcard=True, has_redirects=True,
                                    obj_as2={**ACTOR, 'id': 'https://user.com/'})
+        self.swentel_key = ndb.Key(ActivityPub, 'https://mas.to/users/swentel')
+        self.user_actor_key = ndb.Key(ActivityPub, 'https://user.com/actor')
 
         ACTOR_BASE['publicKey']['publicKeyPem'] = self.user.public_pem().decode()
 
@@ -396,7 +398,8 @@ class ActivityPubTest(TestCase):
         self._test_inbox_reply(reply, {
             'as2': reply,
             'type': 'post',
-            'labels': ['activity', 'notification'],
+            'labels': ['activity', 'user', 'notification'],
+            'users': [self.user.key, self.user_actor_key],
         }, mock_head, mock_get, mock_post)
 
         self.assert_user(ActivityPub, 'https://user.com/actor',
@@ -427,7 +430,7 @@ class ActivityPubTest(TestCase):
                                {'as2': REPLY,
                                 'type': 'post',
                                 'object_ids': [REPLY_OBJECT['id']],
-                                'labels': ['notification', 'activity'],
+                                'labels': ['notification', 'activity', 'user'],
                                 },
                                mock_head, mock_get, mock_post)
         self.assert_object(REPLY_OBJECT['id'],
@@ -435,7 +438,8 @@ class ActivityPubTest(TestCase):
                            our_as1=as2.to_as1(REPLY_OBJECT),
                            type='comment')
 
-    def _test_inbox_reply(self, reply, expected_props, mock_head, mock_get, mock_post):
+    def _test_inbox_reply(self, reply, expected_props, mock_head, mock_get,
+                          mock_post):
         mock_head.return_value = requests_response(url='https://user.com/post')
         mock_get.side_effect = (
             (list(mock_get.side_effect) if mock_get.side_effect else [])
@@ -461,12 +465,14 @@ class ActivityPubTest(TestCase):
             },
         )
 
-        self.assert_object(reply['id'],
-                           users=[self.user.key],
-                           source_protocol='activitypub',
-                           status='complete',
-                           delivered=['https://user.com/post'],
-                           **expected_props)
+        expected_props = {
+            'users': [self.user.key, self.swentel_key],
+            'source_protocol': 'activitypub',
+            'status': 'complete',
+            'delivered': ['https://user.com/post'],
+            **expected_props,
+        }
+        self.assert_object(reply['id'], **expected_props)
 
     def test_inbox_reply_to_self_domain(self, *mocks):
         self._test_inbox_ignore_reply_to('http://localhost/mas.to', *mocks)
@@ -480,14 +486,15 @@ class ActivityPubTest(TestCase):
 
         mock_head.return_value = requests_response(url='http://mas.to/')
         mock_get.side_effect = [
+            # actor fetch
+            self.as2_resp(ACTOR),
             # protocol inference
             requests_response(test_web.NOTE_HTML),
             requests_response(test_web.NOTE_HTML),
         ]
 
         got = self.post('/user.com/inbox', json=reply)
-        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-
+        self.assertEqual(204, got.status_code, got.get_data(as_text=True))
         mock_post.assert_not_called()
 
     def test_individual_inbox_create_obj(self, *mocks):
@@ -566,24 +573,25 @@ class ActivityPubTest(TestCase):
             },
         )
 
-        repost['object'] = note
-        del repost['object']['to']
-        del repost['object']['cc']
         self.assert_object(REPOST_FULL['id'],
                            source_protocol='activitypub',
                            status='complete',
-                           our_as1=as2.to_as1(repost),
-                           users=[self.user.key],
+                           as2={
+                               **REPOST,
+                               'actor': ACTOR,
+                               'object': orig_url,
+                           },
+                           users=[self.swentel_key],
                            delivered=['https://user.com/orig'],
                            type='share',
-                           labels=['activity', 'feed', 'notification'],
+                           labels=['activity', 'user', 'feed'],
                            object_ids=['https://user.com/orig'])
 
     def test_shared_inbox_repost_of_fediverse(self, mock_head, mock_get, mock_post):
         Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']),
                                from_=self.user)
-        Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']),
-                               from_=Fake.get_or_create('http://baz'))
+        baz = Fake.get_or_create('http://baz')
+        Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']), from_=baz)
         Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']),
                                from_=Fake.get_or_create('http://baj'),
                                status='inactive')
@@ -599,7 +607,7 @@ class ActivityPubTest(TestCase):
         ]
 
         got = self.post('/ap/sharedInbox', json=REPOST)
-        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(204, got.status_code, got.get_data(as_text=True))
 
         mock_post.assert_not_called()  # no webmention
 
@@ -607,7 +615,7 @@ class ActivityPubTest(TestCase):
                            source_protocol='activitypub',
                            status='ignored',
                            our_as1=as2.to_as1(REPOST_FULL),
-                           users=[self.user.key, Fake(id='http://baz').key],
+                           users=[self.user.key, baz, self.swentel_key],
                            type='share',
                            labels=['activity', 'feed'],
                            object_ids=[REPOST['object']])
@@ -623,8 +631,11 @@ class ActivityPubTest(TestCase):
             HTML,
         ]
 
-        got = self.post('/ap/sharedInbox', json={**LIKE, 'object': 'http://nope.com/post'})
-        self.assertEqual(200, got.status_code)
+        got = self.post('/ap/sharedInbox', json={
+            **LIKE,
+            'object': 'http://nope.com/post',
+        })
+        self.assertEqual(204, got.status_code)
 
         self.assert_object('http://mas.to/like#ok',
                            # no nope.com Web user key since it didn't exist
@@ -744,7 +755,7 @@ class ActivityPubTest(TestCase):
         }, kwargs['data'])
 
         self.assert_object('http://mas.to/like#ok',
-                           users=[self.user.key],
+                           users=[self.user.key, self.user_actor_key],
                            source_protocol='activitypub',
                            status='complete',
                            our_as1=as2.to_as1(LIKE_WITH_ACTOR),
@@ -764,14 +775,14 @@ class ActivityPubTest(TestCase):
                          obj_as2=LIKE_ACTOR, direct=True)
 
     def test_inbox_follow_accept_with_id(self, *mocks):
-        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, *mocks)
+        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, 200, *mocks)
 
         follow = {
             **FOLLOW_WITH_ACTOR,
             'url': 'https://mas.to/users/swentel#followed-https://user.com/',
         }
         self.assert_object('https://mas.to/6d1a',
-                           users=[self.user.key],
+                           users=[self.user.key, self.swentel_key],
                            source_protocol='activitypub',
                            status='complete',
                            our_as1=as2.to_as1(follow),
@@ -788,14 +799,14 @@ class ActivityPubTest(TestCase):
                 'url': FOLLOW['object'],
             },
         }
-        self._test_inbox_follow_accept(follow, ACCEPT, *mocks)
+        self._test_inbox_follow_accept(follow, ACCEPT, 200, *mocks)
 
         follow.update({
             'actor': ACTOR,
             'url': 'https://mas.to/users/swentel#followed-https://user.com/',
         })
         self.assert_object('https://mas.to/6d1a',
-                           users=[self.user.key],
+                           users=[self.user.key, self.swentel_key],
                            source_protocol='activitypub',
                            status='complete',
                            our_as1=as2.to_as1(follow),
@@ -804,29 +815,28 @@ class ActivityPubTest(TestCase):
                            labels=['notification', 'activity'],
                            object_ids=[FOLLOW['object']])
 
-    def test_inbox_follow_accept_webmention_fails(self, mock_head, mock_get, mock_post):
+    def test_inbox_follow_accept_webmention_fails(self, mock_head, mock_get,
+                                                  mock_post):
         mock_post.side_effect = [
             requests_response(),         # AP Accept
             requests.ConnectionError(),  # webmention
         ]
-        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT,
+        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, 304,
                                        mock_head, mock_get, mock_post)
 
-        follow = {
-            **FOLLOW_WITH_ACTOR,
-            'url': 'https://mas.to/users/swentel#followed-https://user.com/',
-        }
+        url = 'https://mas.to/users/swentel#followed-https://user.com/'
         self.assert_object('https://mas.to/6d1a',
-                           users=[self.user.key],
+                           users=[self.user.key, self.swentel_key],
                            source_protocol='activitypub',
-                           status='complete',
-                           our_as1=as2.to_as1(follow),
+                           status='failed',
+                           our_as1=as2.to_as1({**FOLLOW_WITH_ACTOR, 'url': url}),
                            delivered=[],
+                           failed=['https://user.com/'],
                            type='follow',
-                           labels=['notification', 'activity'],
+                           labels=['notification', 'activity', 'user'],
                            object_ids=[FOLLOW['object']])
 
-    def _test_inbox_follow_accept(self, follow_as2, accept_as2,
+    def _test_inbox_follow_accept(self, follow_as2, accept_as2, expected_status,
                                   mock_head, mock_get, mock_post):
         # this should makes us make the follower ActivityPub as direct=True
         self.user.direct = False
@@ -842,7 +852,7 @@ class ActivityPubTest(TestCase):
             mock_post.return_value = requests_response()
 
         got = self.post('/user.com/inbox', json=follow_as2)
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(expected_status, got.status_code)
 
         mock_get.assert_has_calls((
             self.as2_req(FOLLOW['actor']),
@@ -889,7 +899,7 @@ class ActivityPubTest(TestCase):
         mock_post.return_value = requests_response()
 
         got = self.post('/user.com/inbox', json=FOLLOW_WRAPPED)
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(204, got.status_code)
 
         follower = Follower.query().get()
         self.assert_entities_equal(
@@ -994,23 +1004,29 @@ class ActivityPubTest(TestCase):
 
         id = 'https://mas.to/users/tmichellemoore#likes/56486252'
         bad_url = 'http://localhost/r/Testing \u2013 Brid.gy \u2013 Post to Mastodon 3'
-        got = self.post('/user.com/inbox', json={
+        bad = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': id,
             'type': 'Like',
             'actor': ACTOR['id'],
             'object': bad_url,
-        })
+        }
+        got = self.post('/user.com/inbox', json=bad)
 
         # bad object, should ignore activity
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(204, got.status_code)
         mock_post.assert_not_called()
 
-        obj = Object.get_by_id(id)
-        self.assertEqual(['activity'], obj.labels)
-        self.assertEqual([], obj.users)
-        self.assertEqual([], obj.domains)
-
+        self.assert_object(id,
+                           our_as1={
+                               **as2.to_as1(bad),
+                               'actor': as2.to_as1(ACTOR),
+                           },
+                           labels=['activity', 'user'],
+                           users=[self.swentel_key],
+                           source_protocol='activitypub',
+                           status='ignored',
+                           )
         self.assertIsNone(Object.get_by_id(bad_url))
 
     @patch('activitypub.logger.info', side_effect=logging.info)
@@ -1034,7 +1050,7 @@ class ActivityPubTest(TestCase):
         body = json_dumps(NOTE)
         headers = self.sign('/ap/sharedInbox', json_dumps(NOTE))
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
-        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(204, resp.status_code, resp.get_data(as_text=True))
         mock_get.assert_has_calls((
             self.as2_req('http://my/key/id'),
         ))
@@ -1133,7 +1149,6 @@ class ActivityPubTest(TestCase):
         self.assertEqual(204, resp.status_code)
         self.assertTrue(obj.key.get().deleted)
         self.assert_object(delete['id'],
-                           as2=delete,
                            our_as1={
                                **as2.to_as1(delete),
                                'actor': as2.to_as1(ACTOR),
@@ -1162,21 +1177,29 @@ class ActivityPubTest(TestCase):
         ]
 
         resp = self.post('/ap/sharedInbox', json=UPDATE_NOTE)
-        self.assertEqual(200, resp.status_code)
+        self.assertEqual(204, resp.status_code)
 
+        note_as1 = as2.to_as1({
+            **UPDATE_NOTE['object'],
+            'author': {'id': 'https://mas.to/users/swentel'},
+        })
         self.assert_object('https://a/note',
                            type='note',
-                           our_as1=as2.to_as1({
-                               **UPDATE_NOTE['object'],
-                               'author': {'id': 'https://mas.to/users/swentel'},
-                           }),
+                           our_as1=note_as1,
                            source_protocol='activitypub')
+
+        update_as1 = {
+            **as2.to_as1(UPDATE_NOTE),
+            'object': note_as1,
+            'actor': as2.to_as1(ACTOR),
+        }
         self.assert_object(UPDATE_NOTE['id'],
                            source_protocol='activitypub',
                            type='update',
-                           status='complete',
-                           as2=UPDATE_NOTE,
-                           labels=['activity'])
+                           status='ignored',
+                           our_as1=update_as1,
+                           labels=['activity', 'user'],
+                           users=[self.swentel_key])
 
         self.assert_entities_equal(Object.get_by_id('https://a/note'),
                                    protocol.objects_cache['https://a/note'])
@@ -1208,22 +1231,22 @@ class ActivityPubTest(TestCase):
         ]
 
         got = self.post('/user.com/inbox', json=LIKE)
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(204, got.status_code)
 
         self.assert_object('http://mas.to/like#ok',
-                           users=[self.user.key],
+                           users=[self.user.key, self.user_actor_key],
                            source_protocol='activitypub',
-                           status='complete',
+                           status='ignored',
                            our_as1=as2.to_as1(LIKE_WITH_ACTOR),
                            type='like',
-                           labels=['activity', 'notification'],
+                           labels=['activity', 'user', 'notification'],
                            object_ids=[LIKE['object']])
 
     def test_inbox_id_already_seen(self, *mocks):
         obj_key = Object(id=FOLLOW_WRAPPED['id'], as2={}).put()
 
         got = self.post('/user.com/inbox', json=FOLLOW_WRAPPED)
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(204, got.status_code)
         self.assertEqual(0, Follower.query().count())
 
         # second time should use in memory cache
