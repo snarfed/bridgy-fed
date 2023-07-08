@@ -389,7 +389,7 @@ class Protocol:
         obj = cls._handle_bare_object(obj)
 
         # add involved users
-        actor_key = cls.actor_key(obj)
+        actor_key = cls.actor_key(obj, default_g_user=False)
         if actor_key:
             add(obj.users, actor_key)
 
