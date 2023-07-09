@@ -6,6 +6,7 @@ from unittest.mock import patch
 from urllib.parse import urlencode
 
 from flask import g, get_flashed_messages
+from google.cloud import ndb
 from granary import as1, as2, microformats2
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_info import APP_ID
@@ -413,6 +414,36 @@ class WebTest(TestCase):
     def assert_object(self, id, **props):
         return super().assert_object(id, delivered_protocol='activitypub', **props)
 
+    def make_followers(self):
+        self.followers = []
+
+        for id, kwargs, actor in [
+            ('https://mastodon/aaa', {}, None),
+            ('https://mastodon/bbb', {}, {
+                'publicInbox': 'https://public/inbox',
+                'inbox': 'https://unused',
+            }),
+            ('https://mastodon/ccc', {}, {
+                'endpoints': {
+                    'sharedInbox': 'https://shared/inbox',
+                },
+            }),
+            ('https://mastodon/ddd', {}, {
+               'inbox': 'https://inbox',
+            }),
+            ('https://mastodon/ggg', {'status': 'inactive'}, {
+                'inbox': 'https://unused/2',
+            }),
+            ('https://mastodon/hhh', {}, {
+                # dupe of ddd; should be de-duped
+                'inbox': 'https://inbox',
+            }),
+        ]:
+            from_ = self.make_user(id, cls=ActivityPub, obj_as2=actor)
+            f = Follower.get_or_create(to=g.user, from_=from_, **kwargs)
+            if f.status != 'inactive':
+                self.followers.append(from_.key)
+
     def test_put_validates_domain_id(self, *_):
         for bad in (
             'AbC.cOm',
@@ -581,12 +612,19 @@ class WebTest(TestCase):
         self.assertEqual(204, got.status_code)
 
         self.assert_object('https://user.com/reply',
-                           users=[g.user.key],
                            source_protocol='web',
                            type='comment',
+                           labels=[],
+                           ignore=['our_as1'],
+                           )
+        self.assert_object('https://user.com/reply#bridgy-fed-create',
+                           source_protocol='web',
+                           our_as1=CREATE_REPLY_AS1,
+                           type='post',
+                           labels=['activity', 'user'],
+                           ignore=['our_as1'],
                            status='ignored',
-                           labels=['user'],
-                           ignore=['mf2'],
+                           users=[g.user.key],
                            )
 
     def test_target_fetch_fails(self, mock_get, mock_post):
@@ -796,13 +834,13 @@ class WebTest(TestCase):
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals(AS2_CREATE, json_loads(kwargs['data']))
 
-    def test_announce_repost(self, mock_get, mock_post):
-        self._test_announce(REPOST_HTML, REPOST_AS2, mock_get, mock_post)
+    def test_repost(self, mock_get, mock_post):
+        self._test_repost(REPOST_HTML, REPOST_AS2, mock_get, mock_post)
 
-    def test_announce_repost_composite_hcite(self, mock_get, mock_post):
-        self._test_announce(REPOST_HCITE_HTML, REPOST_AS2, mock_get, mock_post)
+    def test_repost_composite_hcite(self, mock_get, mock_post):
+        self._test_repost(REPOST_HCITE_HTML, REPOST_AS2, mock_get, mock_post)
 
-    def _test_announce(self, html, expected_as2, mock_get, mock_post):
+    def _test_repost(self, html, expected_as2, mock_get, mock_post):
         self.make_followers()
 
         mock_get.side_effect = [
@@ -835,16 +873,20 @@ class WebTest(TestCase):
                 self.assertEqual(g.user.private_pem(), rsa_key.exportKey())
 
         mf2 = util.parse_mf2(html)['items'][0]
+        author_key = ndb.Key('ActivityPub', 'https://mas.to/author')
         self.assert_object('https://user.com/repost',
-                           users=[g.user.key],
+                           users=self.followers + [g.user.key, author_key],
                            source_protocol='web',
                            status='complete',
                            mf2=mf2,
-                           as1=microformats2.json_to_object(mf2),
+                           as1={
+                               **microformats2.json_to_object(mf2),
+                               'id': 'https://user.com/repost',
+                           },
                            delivered=inboxes,
                            type='share',
                            object_ids=['https://mas.to/toot/id'],
-                           labels=['user', 'activity'],
+                           labels=['user', 'activity', 'notification', 'feed'],
                            )
 
     def test_link_rel_alternate_as2(self, mock_get, mock_post):
@@ -984,36 +1026,6 @@ class WebTest(TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals(REPOST_AS2, json_loads(kwargs['data']))
-
-    def make_followers(self):
-        self.followers = []
-
-        for id, kwargs, actor in [
-            ('https://mastodon/aaa', {}, None),
-            ('https://mastodon/bbb', {}, {
-                'publicInbox': 'https://public/inbox',
-                'inbox': 'https://unused',
-            }),
-            ('https://mastodon/ccc', {}, {
-                'endpoints': {
-                    'sharedInbox': 'https://shared/inbox',
-                },
-            }),
-            ('https://mastodon/ddd', {}, {
-               'inbox': 'https://inbox',
-            }),
-            ('https://mastodon/ggg', {'status': 'inactive'}, {
-                'inbox': 'https://unused/2',
-            }),
-            ('https://mastodon/hhh', {}, {
-                # dupe of ddd; should be de-duped
-                'inbox': 'https://inbox',
-            }),
-        ]:
-            from_ = self.make_user(id, cls=ActivityPub, obj_as2=actor)
-            f = Follower.get_or_create(to=g.user, from_=from_, **kwargs)
-            if f.status != 'inactive':
-                self.followers.append(from_.key)
 
     def test_create_post(self, mock_get, mock_post):
         mock_get.side_effect = [NOTE, ACTOR]
@@ -1861,6 +1873,7 @@ class WebProtocolTest(TestCase):
         }, obj.mf2)
         self.assert_equals({
             **ACTOR_AS1_UNWRAPPED,
+            'id': 'https://user.com/',
             'urls': [{'value': 'https://user.com/', 'displayName': 'Ms. ☕ Baz'}],
         }, obj.as1)
 
@@ -1918,20 +1931,22 @@ class WebProtocolTest(TestCase):
                 requests.HTTPError(response=util.Struct(status_code='429', text='')),
                 requests.ConnectionError(),
         ]:
-            mock_get.return_value = WEBMENTION_REL_LINK
-            mock_post.side_effect = err
+            with self.subTest(err=err):
+                mock_get.return_value = WEBMENTION_REL_LINK
+                mock_post.side_effect = err
 
-            obj = Object(id='http://mas.to/like#ok', as2=test_activitypub.LIKE,
-                         source_protocol='ui')
-            self.assertFalse(Web.send(obj, 'https://user.com/post'))
+                obj = Object(id='http://mas.to/like#ok', as2=test_activitypub.LIKE,
+                             source_protocol='ui')
+                with self.assertRaises(err.__class__):
+                    Web.send(obj, 'https://user.com/post')
 
-            self.assert_req(mock_get, 'https://user.com/post')
-            args, kwargs = mock_post.call_args
-            self.assertEqual(('https://user.com/webmention',), args)
-            self.assertEqual({
-                'source': 'http://localhost/convert/ui/web/http:/mas.to/like^^ok',
-                'target': 'https://user.com/post',
-            }, kwargs['data'])
+                self.assert_req(mock_get, 'https://user.com/post')
+                args, kwargs = mock_post.call_args
+                self.assertEqual(('https://user.com/webmention',), args)
+                self.assertEqual({
+                    'source': 'http://localhost/convert/ui/web/http:/mas.to/like^^ok',
+                    'target': 'https://user.com/post',
+                }, kwargs['data'])
 
     def test_serve(self, _, __):
         obj = Object(id='http://orig', mf2=ACTOR_MF2)
@@ -1943,6 +1958,7 @@ class WebProtocolTest(TestCase):
 <meta http-equiv="refresh" content="0;url=https://user.com/"></head>
 <body class="">
   <span class="h-card">
+    <data class="p-uid" value="http://orig"></data>
     <a class="p-name u-url" href="https://user.com/">Ms. ☕ Baz</a>
   </span>
 </body>

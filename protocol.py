@@ -376,7 +376,10 @@ class Protocol:
             with seen_ids_lock:
                 already_seen = id in seen_ids
                 seen_ids[id] = True
-                if already_seen or Object.get_by_id(id):
+                if (already_seen
+                        or (obj.new is False and obj.changed is False)
+                        or (obj.new is None and obj.changed is None
+                            and cls.load(id, remote=False))):
                     msg = f'Already handled this activity {id}'
                     logger.info(msg)
                     return msg, 204
