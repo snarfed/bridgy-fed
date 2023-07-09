@@ -405,6 +405,12 @@ class Object(StringIdModel):
         elif self.mf2:
             obj = microformats2.json_to_object(self.mf2,
                                                rel_urls=self.mf2.get('rel-urls'))
+            # postprocess: if no id, use url
+            if url := util.get_url(obj):
+                obj.setdefault('id', url)
+            for field in 'author', 'actor', 'object':  # None is obj itself
+                if url := util.get_url(obj, field):
+                    as1.get_object(obj, field).setdefault('id', url)
         else:
             return None
 

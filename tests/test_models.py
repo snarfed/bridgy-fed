@@ -174,7 +174,7 @@ class ObjectTest(TestCase):
         self.assertTrue(obj.new)
         self.assertIsNone(obj.changed)
         self.assertEqual('foo', obj.key.id())
-        self.assertEqual({'content': 'foo'}, obj.as1)
+        self.assertEqual({'content': 'foo', 'id': 'foo'}, obj.as1)
         self.assertEqual('ui', obj.source_protocol)
         self.assertEqual(['notification'], obj.labels)
 
@@ -188,7 +188,7 @@ class ObjectTest(TestCase):
         obj3 = Object.get_or_create('foo', our_as1={'content': 'bar'},
                                     source_protocol=None, labels=[])
         self.assertEqual('foo', obj3.key.id())
-        self.assertEqual({'content': 'bar'}, obj3.as1)
+        self.assertEqual({'content': 'bar', 'id': 'foo'}, obj3.as1)
         self.assertEqual('ui', obj3.source_protocol)
         self.assertEqual(['notification'], obj3.labels)
         self.assertFalse(obj3.new)
@@ -197,7 +197,7 @@ class ObjectTest(TestCase):
         check(obj3, Object.get_by_id('foo'))
 
         obj4 = Object.get_or_create('foo', our_as1={'content': 'bar'})
-        self.assertEqual({'content': 'bar'}, obj4.as1)
+        self.assertEqual({'content': 'bar', 'id': 'foo'}, obj4.as1)
         self.assertFalse(obj4.new)
         self.assertFalse(obj4.changed)
         check(obj4, Object.get_by_id('foo'))
@@ -356,7 +356,7 @@ class ObjectTest(TestCase):
         self.assertEqual(['user'], obj.labels)
 
     def test_as_as2(self):
-        obj = Object(id='foo')
+        obj = Object()
         self.assertEqual({}, obj.as_as2())
 
         obj.our_as1 = {}
@@ -387,6 +387,28 @@ class ObjectTest(TestCase):
         self.assertEqual({'foo': 'bar'}, Object(our_as1={'foo': 'bar'}).as1)
         self.assertEqual({'id': 'x', 'foo': 'bar'},
                          Object(id='x', our_as1={'foo': 'bar'}).as1)
+
+    def test_as1_from_mf2_uses_url_as_id(self):
+        obj = Object(mf2={
+            'properties': {
+                'url': ['x', 'y'],
+                'author': [{'properties': {'url': ['a', 'b']}}],
+                'repost-of': [{'properties': {'url': ['c', 'd']}}],
+            },
+        })
+        self.assertEqual('x', obj.as1['id'])
+        self.assertEqual('a', obj.as1['actor']['id'])
+        self.assertEqual('c', obj.as1['object']['id'])
+
+        obj = Object(mf2={
+            'properties': {
+                'author': ['a', 'b'],
+                'repost-of': ['c', 'd'],
+            },
+        })
+        self.assertNotIn('id', obj.as1)
+        self.assertNotIn('id', obj.as1['actor'])
+        self.assertEqual(['c', 'd'], obj.as1['object'])
 
 
 class FollowerTest(TestCase):
