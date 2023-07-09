@@ -1734,7 +1734,8 @@ class ActivityPubUtilsTest(TestCase):
         mock_get.assert_has_calls([self.as2_req(id)])
 
         self.assert_object(id,
-                           as2=AS2_OBJ, as1=AS2_OBJ,
+                           as2=AS2_OBJ,
+                           as1={**AS2_OBJ, 'id': id},
                            source_protocol='activitypub',
                            # check that it reused our original Object
                            status='in progress')

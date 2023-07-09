@@ -597,7 +597,6 @@ class Protocol:
         if obj.changed:
             logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes')
             id = f'{obj.key.id()}#bridgy-fed-update-{now}'
-            logger.info(f'Wrapping in update activity {id}')
             update_as1 = {
                 'objectType': 'activity',
                 'verb': 'update',
@@ -613,6 +612,7 @@ class Protocol:
                     **obj.as1,
                 },
             }
+            logger.info(f'Wrapping in update: {json_dumps(update_as1, indent=2)}')
             obj = Object(id=id, our_as1=update_as1,
                          source_protocol=obj.source_protocol)
 
@@ -620,7 +620,6 @@ class Protocol:
         elif obj.new or 'force' in request.form:
             logger.info(f'New Object {obj.key.id()}')
             id = f'{obj.key.id()}#bridgy-fed-create'
-            logger.info(f'Wrapping in post activity {id}')
             create_as1 = {
                 'objectType': 'activity',
                 'verb': 'post',
@@ -629,9 +628,9 @@ class Protocol:
                 'object': obj.as1,
                 'published': now,
             }
-            source_protocol = obj.source_protocol
+            logger.info(f'Wrapping in post: {json_dumps(create_as1, indent=2)}')
             obj = Object.get_or_create(id, our_as1=create_as1,
-                                       source_protocol=source_protocol)
+                                       source_protocol=obj.source_protocol)
         else:
             error(f'{obj.key.id()} is unchanged, nothing to do', status=204)
 
@@ -881,6 +880,7 @@ class Protocol:
             obj.changed = obj.activity_changed(orig_as1)
 
         obj.source_protocol = cls.LABEL
+        # TODO: drop this?
         obj.put()
 
         with objects_cache_lock:

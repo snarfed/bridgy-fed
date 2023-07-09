@@ -355,7 +355,7 @@ class ObjectTest(TestCase):
         obj.put()
         self.assertEqual(['user'], obj.labels)
 
-    def test_as2(self):
+    def test_as_as2(self):
         obj = Object(id='foo')
         self.assertEqual({}, obj.as_as2())
 
@@ -374,6 +374,19 @@ class ObjectTest(TestCase):
 
         obj.as2 = {'baz': 'biff'}
         self.assertEqual({'baz': 'biff'}, obj.as_as2())
+
+    def test_as1(self):
+        self.assertEqual({
+            'objectType': 'person',
+            'id': 'https://mas.to/users/swentel',
+            'displayName': 'Mrs. ☕ Foo',
+            'image': [{'url': 'https://user.com/me.jpg'}],
+            'inbox': 'http://mas.to/inbox',
+        }, Object(as2=ACTOR).as1)
+
+        self.assertEqual({'foo': 'bar'}, Object(our_as1={'foo': 'bar'}).as1)
+        self.assertEqual({'id': 'x', 'foo': 'bar'},
+                         Object(id='x', our_as1={'foo': 'bar'}).as1)
 
 
 class FollowerTest(TestCase):

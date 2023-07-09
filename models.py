@@ -397,14 +397,20 @@ class Object(StringIdModel):
         #     logger.warning(f'{self.key} has multiple! {bool(self.as2)} {bool(self.bsky)} {bool(self.mf2)}')
 
         if self.our_as1:
-            return redirect_unwrap(self.our_as1)
+            obj = redirect_unwrap(self.our_as1)
         elif self.as2:
-            return as2.to_as1(redirect_unwrap(self.as2))
+            obj = as2.to_as1(redirect_unwrap(self.as2))
         elif self.bsky:
-            return bluesky.to_as1(self.bsky)
+            obj = bluesky.to_as1(self.bsky)
         elif self.mf2:
-            return microformats2.json_to_object(self.mf2,
-                                                rel_urls=self.mf2.get('rel-urls'))
+            obj = microformats2.json_to_object(self.mf2,
+                                               rel_urls=self.mf2.get('rel-urls'))
+        else:
+            return None
+
+        if self.key:
+            obj.setdefault('id', self.key.id())
+        return obj
 
     @ndb.ComputedProperty
     def type(self):  # AS1 objectType, or verb if it's an activity

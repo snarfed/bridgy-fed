@@ -171,7 +171,7 @@ class ProtocolTest(TestCase):
         Object(id='foo').put()
 
         loaded = Fake.load('foo', remote=True)
-        self.assertEqual({'x': 'y'}, loaded.as1)
+        self.assertEqual({'id': 'foo', 'x': 'y'}, loaded.as1)
         self.assertTrue(loaded.changed)
         self.assertFalse(loaded.new)
         self.assertEqual(['foo'], Fake.fetched)
@@ -202,7 +202,7 @@ class ProtocolTest(TestCase):
         Fake.fetchable['foo'] = our_as1={'x': 'y'}
 
         loaded = Fake.load('foo', local=False, remote=True)
-        self.assertEqual({'x': 'y'}, loaded.as1)
+        self.assertEqual({'id': 'foo', 'x': 'y'}, loaded.as1)
         self.assertIsNone(loaded.changed)
         self.assertIsNone(loaded.new)
         self.assertEqual(['foo'], Fake.fetched)

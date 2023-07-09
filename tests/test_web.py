@@ -368,6 +368,7 @@ UPDATE_AS2.update({
     'type': 'Update',
     'id': 'http://localhost/r/https://user.com/post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
 })
+del UPDATE_AS2['published']
 UPDATE_AS2['object']['updated'] = NOW.isoformat()
 
 NOT_FEDIVERSE = requests_response("""\
@@ -1072,7 +1073,7 @@ class WebTest(TestCase):
             'objectType': 'activity',
             'verb': 'update',
             'id': 'https://user.com/post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-            'actor': 'http://localhost/user.com',
+            'actor': ACTOR_AS1_UNWRAPPED,
             'object': {
                 **NOTE_AS1,
                 'updated': '2022-01-02T03:04:05+00:00',
@@ -1083,7 +1084,6 @@ class WebTest(TestCase):
             users=[g.user.key],
             source_protocol='web',
             status='complete',
-            mf2=NOTE_MF2,
             our_as1=update_as1,
             delivered=inboxes,
             type='update',
