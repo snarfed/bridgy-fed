@@ -495,7 +495,8 @@ def webmention_task():
 
     # fetch source page
     try:
-        obj = Web.load(source, local=False, remote=True, check_backlink=True)
+        # remote=True to force fetch, local=True to populate new/changed attrs
+        obj = Web.load(source, local=True, remote=True, check_backlink=True)
     except BadRequest as e:
         error(str(e.description), status=304)
     except HTTPError as e:
@@ -526,16 +527,17 @@ def webmention_task():
         if author_urls and not g.user.is_web_url(author_urls[0]):
             logger.info(f'Overriding author {author_urls[0]} with {g.user.ap_actor()}')
             props['author'] = [g.user.ap_actor()]
-        logger.info(f'Converted to AS1: {obj.type}: {json_dumps(obj.as1, indent=2)}')
 
     # if source is home page, update Web user and send an actor Update to
     # followers' instances
     if g.user and (g.user.key.id() == obj.key.id()
                    or g.user.is_web_url(obj.key.id())):
+        logger.info(f'Converted to AS1: {obj.type}: {json_dumps(obj.as1, indent=2)}')
         obj.put()
         g.user.obj = obj
         g.user.put()
 
+        logger.info('Wrapping in Update for home page user profile')
         actor_as1 = {
             **obj.as1,
             'id': g.user.ap_actor(),

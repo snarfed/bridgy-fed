@@ -450,7 +450,11 @@ class Object(StringIdModel):
         # TODO: assert that as1 id is same as key id? in pre put hook?
 
         # log, pruning data fields
-        props = util.trim_nulls(self.to_dict())
+        props = util.trim_nulls({
+            **self.to_dict(),
+            'new': self.new,
+            'changed': self.changed,
+        })
         for prop in 'as2', 'bsky', 'mf2', 'our_as1':
             if props.get(prop):
                 props[prop] = "..."

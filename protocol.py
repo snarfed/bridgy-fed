@@ -343,10 +343,9 @@ class Protocol:
           :class:`werkzeug.HTTPException` if the request is invalid
         """
         # check some invariants
-        logger.info(f'From {cls.__name__}')
         assert cls != Protocol
         assert isinstance(obj, Object), obj
-        logger.info(f'Got {obj.key} AS1: {json_dumps(obj.as1, indent=2)}')
+        logger.info(f'From {cls.__name__}: {obj.key} AS1: {json_dumps(obj.as1, indent=2)}')
 
         if not obj.as1:
             error('No object data provided')
@@ -383,7 +382,12 @@ class Protocol:
                     return msg, 204
 
         # write Object to datastore
-        obj = Object.get_or_create(id, **obj.to_dict())
+        orig = obj
+        obj = Object.get_or_create(id, **orig.to_dict())
+        if orig.new is not None:
+            obj.new = orig.new
+        if orig.changed is not None:
+            obj.changed = orig.changed
 
         # if this is a post, ie not an activity, wrap it in a create or update
         obj = cls._handle_bare_object(obj)

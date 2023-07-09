@@ -350,8 +350,9 @@ CREATE_AS1 = {
     'objectType': 'activity',
     'verb': 'post',
     'id': 'https://user.com/post#bridgy-fed-create',
-    'actor': 'http://localhost/user.com',
+    'actor': ACTOR_AS1_UNWRAPPED,
     'object': NOTE_AS1,
+    'published': '2022-01-02T03:04:05+00:00',
 }
 CREATE_AS2 = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -359,6 +360,7 @@ CREATE_AS2 = {
     'id': 'http://localhost/r/https://user.com/post#bridgy-fed-create',
     'actor': 'http://localhost/user.com',
     'object': NOTE_AS2,
+    'published': '2022-01-02T03:04:05+00:00',
     'to': [as2.PUBLIC_AUDIENCE],
 }
 UPDATE_AS2 = copy.deepcopy(CREATE_AS2)
@@ -899,7 +901,6 @@ class WebTest(TestCase):
                            as1=microformats2.json_to_object(LIKE_MF2),
                            type='like',
                            labels=['activity'],
-                           status='ignored',
                            )
 
     def test_post_type_discovery_multiple_types(self, mock_get, mock_post):
@@ -984,6 +985,8 @@ class WebTest(TestCase):
         self.assert_equals(REPOST_AS2, json_loads(kwargs['data']))
 
     def make_followers(self):
+        self.followers = []
+
         for id, kwargs, actor in [
             ('https://mastodon/aaa', {}, None),
             ('https://mastodon/bbb', {}, {
@@ -1007,7 +1010,9 @@ class WebTest(TestCase):
             }),
         ]:
             from_ = self.make_user(id, cls=ActivityPub, obj_as2=actor)
-            Follower.get_or_create(to=g.user, from_=from_, **kwargs)
+            f = Follower.get_or_create(to=g.user, from_=from_, **kwargs)
+            if f.status != 'inactive':
+                self.followers.append(from_.key)
 
     def test_create_post(self, mock_get, mock_post):
         mock_get.side_effect = [NOTE, ACTOR]
@@ -1027,20 +1032,18 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, inboxes, CREATE_AS2)
 
         self.assert_object('https://user.com/post',
-                           users=[g.user.key],
                            mf2=NOTE_MF2,
                            type='note',
                            source_protocol='web',
                            )
         self.assert_object('https://user.com/post#bridgy-fed-create',
-                           users=[g.user.key],
+                           users=self.followers + [g.user.key],
                            source_protocol='web',
                            status='complete',
-                           mf2=NOTE_MF2,
                            our_as1=CREATE_AS1,
                            delivered=inboxes,
                            type='post',
-                           labels=['user', 'activity'],
+                           labels=['user', 'activity', 'feed'],
                            )
 
     def test_update_post(self, mock_get, mock_post):
@@ -1468,16 +1471,27 @@ class WebTest(TestCase):
 
         # updated Web user
         self.assert_user(Web, 'user.com',
-                         obj_as2=ACTOR_AS2_USER,
+                         obj_as2={
+                             **ACTOR_AS2_USER,
+                             'updated': '2022-01-02T03:04:05+00:00',
+                         },
                          direct=True,
                          has_redirects=True,
-                         updated='2022-01-02T03:04:05+00:00'
                          )
 
+
         # homepage object
+        actor = {
+            'objectType': 'person',
+            'id': 'https://user.com/',
+            'url': 'https://user.com/',
+            'urls': [{'displayName': 'Ms. ☕ Baz', 'value': 'https://user.com/'}],
+            'displayName': 'Ms. ☕ Baz',
+            'updated': '2022-01-02T03:04:05+00:00',
+        }
         self.assert_object('https://user.com/',
                            source_protocol='web',
-                           mf2=ACTOR_MF2_REL_URLS,
+                           our_as1=actor,
                            type='person',
                            )
 
@@ -1486,17 +1500,8 @@ class WebTest(TestCase):
             'objectType': 'activity',
             'verb': 'update',
             'id': id,
-            'actor': 'http://localhost/user.com',
-            'object': {
-                'objectType': 'person',
-                'id': 'http://localhost/user.com',
-                'url': 'https://user.com/',
-                'urls': [
-                    {'displayName': 'Ms. ☕ Baz', 'value': 'https://user.com/'},
-                ],
-                'displayName': 'Ms. ☕ Baz',
-                'updated': '2022-01-02T03:04:05+00:00',
-            },
+            'actor': actor,
+            'object': actor,
         }
         self.assert_object(id,
                            users=[g.user.key],
