@@ -346,6 +346,12 @@ class Web(User, Protocol):
             props.setdefault('url', [parsed['url']])
         logger.info(f'Extracted microformats2 entry: {json_dumps(entry, indent=2)}')
 
+        # default actor/author to home page URL
+        if not props.get('author'):
+            homepage = urljoin(url, '/')
+            logger.info(f'Defaulting author to {homepage}')
+            props['author'] = [homepage]
+
         # run full authorship algorithm if necessary: https://indieweb.org/authorship
         # duplicated in microformats2.json_to_object
         author = util.get_first(props, 'author')

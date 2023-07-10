@@ -262,11 +262,11 @@ AS2_CREATE = {
     },
     'to': [as2.PUBLIC_AUDIENCE],
 }
-AS2_UPDATE = {
-    **AS2_CREATE,
+AS2_UPDATE = copy.deepcopy(AS2_CREATE)
+AS2_UPDATE.update({
     'id': 'http://localhost/r/https://user.com/reply#bridgy-fed-update-2022-01-02T03:04:05+00:00',
     'type': 'Update',
-}
+})
 del AS2_UPDATE['published']
 # we should generate this if it's not already in mf2 because Mastodon
 # requires it for updates
@@ -946,7 +946,8 @@ class WebTest(TestCase):
                            source_protocol='web',
                            mf2=LIKE_MF2,
                            type='like',
-                           labels=['activity'],
+                           labels=['activity', 'user'],
+                           status='ignored',
                            )
 
     def test_post_type_discovery_multiple_types(self, mock_get, mock_post):
@@ -1184,7 +1185,11 @@ class WebTest(TestCase):
         follow = requests_response(html, url='https://user.com/follow',
                                    content_type=CONTENT_TYPE_HTML)
 
-        mock_get.side_effect = [follow, ACTOR]
+        mock_get.side_effect = [
+            follow,
+            ACTOR_HTML_RESP,  # authorship on follower
+            ACTOR,  # followee AS2
+        ]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -1862,6 +1867,27 @@ class WebUtilTest(TestCase):
         obj = Object(id='https://user.com/repost')
         Web.fetch(obj)
         self.assert_equals({**REPOST_MF2, 'url': 'https://user.com/repost'}, obj.mf2)
+
+    def test_fetch_default_author_to_user(self, mock_get, __):
+        mock_get.return_value = requests_response("""\
+<html>
+<body class="h-entry">
+<p class="p-name">hello i am a post</p>
+</body>
+</html>
+""", url='https://user.com/post', content_type=CONTENT_TYPE_HTML)
+
+        obj = Object(id='https://user.com/post')
+        Web.fetch(obj)
+        self.assert_equals({
+            'type': ['h-entry'],
+            'properties': {
+                'name': ['hello i am a post'],
+                'author': ['https://user.com/'],
+                'url': ['https://user.com/post'],
+            },
+            'url': 'https://user.com/post',
+        }, obj.mf2)
 
     def test_fetch_user_homepage(self, mock_get, __):
         mock_get.return_value = ACTOR_HTML_RESP
