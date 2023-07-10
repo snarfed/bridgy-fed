@@ -2,6 +2,7 @@
 from unittest.mock import patch
 
 from flask import g
+from google.cloud import ndb
 from granary import as2
 from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import requests_response
@@ -1062,4 +1063,30 @@ class ProtocolReceiveTest(TestCase):
         self.assertIsNone(Object.get_by_id('https://ap.brid.gy/user.com'))
 
     def test_skip_same_domain_target(self):
-        TODO
+        Fake.fetchable = {
+            'http://x.com/alice': {},
+            'http://x.com/bob': {},
+            'http://x.com/eve': {},
+        }
+
+        follow_as1 = {
+            'id': 'http://x.com/follow',
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'http://x.com/alice',
+            'object': ['http://x.com/bob', 'http://x.com/eve'],
+        }
+
+        with self.assertRaises(NoContent) as e:
+            Fake.receive(follow_as1)
+
+        self.assert_object('http://x.com/follow',
+                           our_as1=follow_as1,
+                           status='ignored',
+                           labels=['activity', 'user', 'notification'],
+                           users=[ndb.Key(Fake, 'http://x.com/alice'),
+                                  ndb.Key(Fake, 'http://x.com/bob'),
+                                  ndb.Key(Fake, 'http://x.com/eve')],
+                           )
+        self.assertEqual(2, Follower.query().count())
+

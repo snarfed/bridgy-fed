@@ -816,8 +816,25 @@ class Protocol:
 
                 # HACK: use last target object from above for reposts, which
                 # has its resolved id
-                obj = orig_obj if verb == 'share' else None
-                targets[Target(protocol=user.LABEL, uri=target)] = obj
+                targets[Target(protocol=user.LABEL, uri=target)] = \
+                    orig_obj if verb == 'share' else None
+
+        # de-dupe targets, discard same-domain and blocklisted
+        candidates = {t.uri: (t, obj) for t, obj in targets.items()}
+        targets = {}
+        source_domains = [
+            util.domain_from_link(url) for url in
+            (obj.as1.get('id'), obj.as1.get('url'), as1.get_owner(obj.as1))
+            if util.is_web(url)
+        ]
+        for url in sorted(util.dedupe_urls(candidates.keys())):
+            if is_blocklisted(url):
+                logger.info(f'Skipping blocklisted target {url}')
+            elif util.is_web(url) and util.domain_from_link(url) in source_domains:
+                logger.info(f'Skipping same-domain target {url}')
+            else:
+                target, obj = candidates[url]
+                targets[target] = obj
 
         return targets
 
