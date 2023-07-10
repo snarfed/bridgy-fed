@@ -601,8 +601,9 @@ class WebTest(TestCase):
         mock_get.return_value = requests_response("""
 <html>
 <body class="h-entry">
-<p class="e-content">no one to send to! <a href="http://localhost/"></a></p>
+<p class="e-content">no one to send to!</p>
 </body>
+<a href="http://localhost/"></a>
 </html>""", url='https://user.com/post', content_type=CONTENT_TYPE_HTML)
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -1221,7 +1222,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(400, got.status_code)
+        self.assertEqual(304, got.status_code)
         mock_post.assert_not_called()
 
     def test_follow_fragment(self, mock_get, mock_post):
@@ -1997,7 +1998,7 @@ class WebUtilTest(TestCase):
 <meta http-equiv="refresh" content="0;url=https://user.com/"></head>
 <body class="">
   <span class="h-card">
-    <data class="p-uid" value="http://orig"></data>
+    <data class="p-uid" value="https://user.com/"></data>
     <a class="p-name u-url" href="https://user.com/">Ms. ☕ Baz</a>
   </span>
 </body>

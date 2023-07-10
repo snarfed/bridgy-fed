@@ -564,4 +564,8 @@ def webmention_task():
             'object': actor_as1,
         })
 
-    return Web.receive(obj)
+    try:
+        return Web.receive(obj)
+    except ValueError as e:
+        logger.warning(e, exc_info=True)
+        error(e, status=304)
