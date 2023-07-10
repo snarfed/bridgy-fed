@@ -1883,7 +1883,7 @@ class ActivityPubUtilsTest(TestCase):
         user = self.make_user('http://foo/actor', cls=ActivityPub)
         self.assertEqual('http://foo/actor', user.web_url())
 
-        user.obj = Object(id='a', as2=ACTOR)  # no url
+        user.obj = Object(id='a', as2=copy.deepcopy(ACTOR))  # no url
         self.assertEqual('http://foo/actor', user.web_url())
 
         user.obj.as2['url'] = ['http://my/url']

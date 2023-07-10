@@ -376,7 +376,7 @@ class ObjectTest(TestCase):
         self.assertEqual({'baz': 'biff'}, obj.as_as2())
 
     def test_as1(self):
-        self.assertEqual({
+        self.assert_equals({
             'objectType': 'person',
             'id': 'https://mas.to/users/swentel',
             'displayName': 'Mrs. ☕ Foo',

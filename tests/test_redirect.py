@@ -117,6 +117,7 @@ class RedirectTest(testutil.TestCase):
         self.assert_user(Web, 'user.com', direct=False, obj_as2={
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Person',
+            'id': 'https://user.com/',
             'url': 'https://user.com/',
             'name': 'Ms. ☕ Baz',
             'attachment': [{
