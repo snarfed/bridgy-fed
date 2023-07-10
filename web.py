@@ -270,10 +270,14 @@ class Web(User, Protocol):
 
         See :meth:`Protocol.send` for details.
 
-        Returns true if the target URL doesn't advertise a webmention endpoint,
-        since webmention support itself is optional for web recipients.
+        Returns False if the target URL doesn't advertise a webmention endpoint,
+        or if webmention/microformats2 don't support the activity type.
         https://fed.brid.gy/docs#error-handling
         """
+        if obj.as1.get('verb') == 'accept':
+            logger.info(f'Skipping sending accept activity to {url}')
+            return False
+
         source_url = obj.proxy_url()
         logger.info(f'Sending webmention from {source_url} to {url}')
 

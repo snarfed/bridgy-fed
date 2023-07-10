@@ -53,8 +53,9 @@ ACTOR_MF2_REL_URLS = {
 }
 ACTOR_AS1_UNWRAPPED = {
     'objectType': 'person',
-    'displayName': 'Ms. ☕ Baz',
+    'id': 'https://user.com/',
     'url': 'https://user.com/',
+    'displayName': 'Ms. ☕ Baz',
 }
 ACTOR_AS2 = {
     'type': 'Person',
@@ -235,6 +236,7 @@ AS2_CREATE = {
     'type': 'Create',
     'id': 'http://localhost/r/https://user.com/reply#bridgy-fed-create',
     'actor': 'http://localhost/user.com',
+    'published': '2022-01-02T03:04:05+00:00',
     'object': {
         'type': 'Note',
         'id': 'http://localhost/r/https://user.com/reply',
@@ -260,11 +262,12 @@ AS2_CREATE = {
     },
     'to': [as2.PUBLIC_AUDIENCE],
 }
-AS2_UPDATE = copy.deepcopy(AS2_CREATE)
-AS2_UPDATE.update({
+AS2_UPDATE = {
+    **AS2_CREATE,
     'id': 'http://localhost/r/https://user.com/reply#bridgy-fed-update-2022-01-02T03:04:05+00:00',
     'type': 'Update',
-})
+}
+del AS2_UPDATE['published']
 # we should generate this if it's not already in mf2 because Mastodon
 # requires it for updates
 AS2_UPDATE['object']['updated'] = NOW.isoformat()
@@ -315,7 +318,6 @@ FOLLOW_FRAGMENT = requests_response(
     content_type=CONTENT_TYPE_HTML)
 FOLLOW_FRAGMENT_MF2 = \
     util.parse_mf2(FOLLOW_FRAGMENT_HTML, id='2')['items'][0]
-FOLLOW_FRAGMENT_AS1 = microformats2.json_to_object(FOLLOW_FRAGMENT_MF2)
 FOLLOW_FRAGMENT_AS2 = {
     **FOLLOW_AS2,
     'id': 'http://localhost/r/https://user.com/follow#2',
@@ -338,6 +340,13 @@ NOTE = requests_response(NOTE_HTML, url='https://user.com/post',
                          content_type=CONTENT_TYPE_HTML)
 NOTE_MF2 = util.parse_mf2(NOTE_HTML)['items'][0]
 NOTE_AS1 = microformats2.json_to_object(NOTE_MF2)
+NOTE_AS1.update({
+    'author': {
+        **NOTE_AS1['author'],
+        'id': 'https://user.com/',
+    },
+    'id': 'https://user.com/post',
+})
 NOTE_AS2 = {
     'type': 'Note',
     'id': 'http://localhost/r/https://user.com/post',
@@ -397,7 +406,8 @@ class WebTest(TestCase):
         g.user = self.make_user('user.com', has_redirects=True, obj=obj)
 
     def assert_deliveries(self, mock_post, inboxes, data, ignore=()):
-        self.assertEqual(len(inboxes), len(mock_post.call_args_list))
+        self.assertEqual(len(inboxes), len(mock_post.call_args_list),
+                         mock_post.call_args_list)
 
         calls = {}  # maps inbox URL to JSON data
         for args, kwargs in mock_post.call_args_list:
@@ -712,14 +722,12 @@ class WebTest(TestCase):
                            users=[g.user.key],
                            source_protocol='web',
                            mf2=REPLY_MF2,
-                           as1=REPLY_AS1,
                            type='comment',
                            )
         self.assert_object('https://user.com/reply#bridgy-fed-create',
                            users=[g.user.key],
                            source_protocol='web',
                            status='complete',
-                           mf2=REPLY_MF2,
                            our_as1=CREATE_REPLY_AS1,
                            delivered=['https://mas.to/inbox'],
                            type='post',
@@ -879,10 +887,6 @@ class WebTest(TestCase):
                            source_protocol='web',
                            status='complete',
                            mf2=mf2,
-                           as1={
-                               **microformats2.json_to_object(mf2),
-                               'id': 'https://user.com/repost',
-                           },
                            delivered=inboxes,
                            type='share',
                            object_ids=['https://mas.to/toot/id'],
@@ -941,7 +945,6 @@ class WebTest(TestCase):
                            users=[g.user.key],
                            source_protocol='web',
                            mf2=LIKE_MF2,
-                           as1=microformats2.json_to_object(LIKE_MF2),
                            type='like',
                            labels=['activity'],
                            )
@@ -1045,7 +1048,7 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, inboxes, CREATE_AS2)
 
         self.assert_object('https://user.com/post',
-                           mf2=NOTE_MF2,
+                           our_as1=NOTE_AS1,
                            type='note',
                            source_protocol='web',
                            )
@@ -1131,7 +1134,7 @@ class WebTest(TestCase):
         self.assert_equals(create, json_loads(mock_post.call_args[1]['data']))
 
     def test_follow(self, mock_get, mock_post):
-        mock_get.side_effect = [FOLLOW, ACTOR]
+        mock_get.side_effect = [FOLLOW, ACTOR, WEBMENTION_REL_LINK]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -1147,16 +1150,16 @@ class WebTest(TestCase):
 
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
 
+        mrs_foo = ndb.Key(ActivityPub, 'https://mas.to/mrs-foo')
         obj = self.assert_object('https://user.com/follow',
-                                 users=[g.user.key],
+                                 users=[g.user.key, mrs_foo],
                                  source_protocol='web',
                                  status='complete',
                                  mf2=FOLLOW_MF2,
-                                 as1=FOLLOW_AS1,
                                  delivered=['https://mas.to/inbox'],
                                  type='follow',
                                  object_ids=['https://mas.to/mrs-foo'],
-                                 labels=['user', 'activity'],
+                                 labels=['user', 'activity', 'notification'],
                                  )
 
         to = self.assert_user(ActivityPub, 'https://mas.to/mrs-foo', obj_as2={
@@ -1235,7 +1238,6 @@ class WebTest(TestCase):
                            source_protocol='web',
                            status='complete',
                            mf2=FOLLOW_FRAGMENT_MF2,
-                           as1=FOLLOW_FRAGMENT_AS1,
                            delivered=['https://mas.to/inbox'],
                            type='follow',
                            object_ids=['https://mas.to/mrs-foo'],
@@ -1290,13 +1292,11 @@ class WebTest(TestCase):
         }, json_loads(calls[1][1]['data']))
 
         mf2 = util.parse_mf2(html)['items'][0]
-        as1 = microformats2.json_to_object(mf2)
         obj = self.assert_object('https://user.com/follow',
                                  users=[g.user.key],
                                  source_protocol='web',
                                  status='complete',
                                  mf2=mf2,
-                                 as1=as1,
                                  delivered=['https://mas.to/inbox',
                                             'https://mas.to/inbox/biff'],
                                  type='follow',
@@ -1356,7 +1356,10 @@ class WebTest(TestCase):
                            status='complete',
                            our_as1={
                                **DELETE_AS1,
-                               'actor': ACTOR_AS1_UNWRAPPED,
+                               'actor': {
+                                   **ACTOR_AS1_UNWRAPPED,
+                                   'id': 'https://user.com/',
+                               },
                            },
                            delivered=inboxes,
                            type='delete',
@@ -1416,7 +1419,6 @@ class WebTest(TestCase):
                            source_protocol='web',
                            status='failed',
                            mf2=FOLLOW_MF2,
-                           as1=FOLLOW_AS1,
                            failed=['https://mas.to/inbox'],
                            type='follow',
                            object_ids=['https://mas.to/mrs-foo'],
@@ -1789,7 +1791,7 @@ http://this/404s
 
 @patch('requests.post')
 @patch('requests.get')
-class WebProtocolTest(TestCase):
+class WebUtilTest(TestCase):
 
     def setUp(self):
         super().setUp()
@@ -1924,6 +1926,12 @@ class WebProtocolTest(TestCase):
         self.assertFalse(Web.send(obj, 'https://user.com/post'))
 
         self.assert_req(mock_get, 'https://user.com/post')
+        mock_post.assert_not_called()
+
+    def test_send_skips_accept_follow(self, mock_get, mock_post):
+        obj = Object(id='https://user.com/accept', as2=test_activitypub.ACCEPT)
+        self.assertFalse(Web.send(obj, 'https://user.com/'))
+        mock_get.assert_not_called()
         mock_post.assert_not_called()
 
     def test_send_errors(self, mock_get, mock_post):

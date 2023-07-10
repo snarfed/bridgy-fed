@@ -258,8 +258,10 @@ class Protocol:
           log_data: boolean, whether to log full data object
 
         Returns:
-          True if the activity is sent successfully, False if it is ignored due
-          to protocol logic. (Failures are raised as exceptions.)
+          True if the activity is sent successfully, False if it is ignored or
+          otherwise unsent due to protocol logic, eg no webmention endpoint,
+          protocol doesn't support the activity type. (Failures are raised as
+          exceptions.)
 
         Raises:
           :class:`werkzeug.HTTPException` if the request fails
