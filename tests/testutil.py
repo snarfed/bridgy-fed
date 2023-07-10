@@ -183,7 +183,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         def prune(results):
             return [
-                (tc, re.sub(r'\n  File ".+/(local|.venv|Python.framework)/.+\n.+\n',
+                (tc, re.sub(r'\n  File ".+/(local|.venv|oauth-dropins|Python.framework)/.+\n.+\n',
                             '\n', tb))
                 for tc, tb in results]
 

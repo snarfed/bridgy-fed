@@ -200,12 +200,15 @@ REPLY = requests_response(REPLY_HTML, content_type=CONTENT_TYPE_HTML,
                           url='https://user.com/reply')
 REPLY_MF2 = util.parse_mf2(REPLY_HTML)['items'][0]
 REPLY_AS1 = microformats2.json_to_object(REPLY_MF2)
+REPLY_AS1['id'] = 'https://user.com/reply'
+REPLY_AS1['author']['id'] = 'https://user.com/'
 CREATE_REPLY_AS1 = {
     'objectType': 'activity',
     'verb': 'post',
     'id': 'https://user.com/reply#bridgy-fed-create',
-    'actor': 'http://localhost/user.com',
+    'actor': ACTOR_AS1_UNWRAPPED,
     'object': REPLY_AS1,
+    'published': '2022-01-02T03:04:05+00:00',
 }
 REPLY_AS2 = as2.from_as1(REPLY_AS1)
 
@@ -404,6 +407,8 @@ class WebTest(TestCase):
         obj = Object(id='https://user.com/', mf2=ACTOR_MF2, source_protocol='web')
         obj.put()
         g.user = self.make_user('user.com', has_redirects=True, obj=obj)
+
+        self.mrs_foo = ndb.Key(ActivityPub, 'https://mas.to/mrs-foo')
 
     def assert_deliveries(self, mock_post, inboxes, data, ignore=()):
         self.assertEqual(len(inboxes), len(mock_post.call_args_list),
@@ -719,19 +724,19 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], AS2_CREATE)
 
         self.assert_object('https://user.com/reply',
-                           users=[g.user.key],
                            source_protocol='web',
-                           mf2=REPLY_MF2,
+                           our_as1=REPLY_AS1,
                            type='comment',
                            )
+        author = ndb.Key(ActivityPub, 'https://mas.to/author')
         self.assert_object('https://user.com/reply#bridgy-fed-create',
-                           users=[g.user.key],
+                           users=[g.user.key, author],
                            source_protocol='web',
                            status='complete',
                            our_as1=CREATE_REPLY_AS1,
                            delivered=['https://mas.to/inbox'],
                            type='post',
-                           labels=['user', 'activity'],
+                           labels=['user', 'activity', 'notification'],
                            )
 
     def test_update_reply(self, mock_get, mock_post):
@@ -1151,9 +1156,8 @@ class WebTest(TestCase):
 
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
 
-        mrs_foo = ndb.Key(ActivityPub, 'https://mas.to/mrs-foo')
         obj = self.assert_object('https://user.com/follow',
-                                 users=[g.user.key, mrs_foo],
+                                 users=[g.user.key, self.mrs_foo],
                                  source_protocol='web',
                                  status='complete',
                                  mf2=FOLLOW_MF2,
@@ -1239,14 +1243,14 @@ class WebTest(TestCase):
                                FOLLOW_FRAGMENT_AS2)
 
         self.assert_object('https://user.com/follow#2',
-                           users=[g.user.key],
+                           users=[g.user.key, self.mrs_foo],
                            source_protocol='web',
                            status='complete',
                            mf2=FOLLOW_FRAGMENT_MF2,
                            delivered=['https://mas.to/inbox'],
                            type='follow',
                            object_ids=['https://mas.to/mrs-foo'],
-                           labels=['user', 'activity'],
+                           labels=['user', 'activity', 'notification',],
                            )
 
         followers = Follower.query().fetch()
@@ -1420,14 +1424,14 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
 
         self.assert_object('https://user.com/follow',
-                           users=[g.user.key],
+                           users=[g.user.key, self.mrs_foo],
                            source_protocol='web',
                            status='failed',
                            mf2=FOLLOW_MF2,
                            failed=['https://mas.to/inbox'],
                            type='follow',
                            object_ids=['https://mas.to/mrs-foo'],
-                           labels=['user', 'activity'],
+                           labels=['user', 'activity', 'notification',],
                            )
 
     def test_repost_twitter_blocklisted(self, *mocks):

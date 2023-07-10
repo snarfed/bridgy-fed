@@ -346,28 +346,30 @@ class Web(User, Protocol):
             props.setdefault('url', [parsed['url']])
         logger.info(f'Extracted microformats2 entry: {json_dumps(entry, indent=2)}')
 
-        # default actor/author to home page URL
-        if not props.get('author'):
-            homepage = urljoin(url, '/')
-            logger.info(f'Defaulting author to {homepage}')
-            props['author'] = [homepage]
+        if not is_homepage:
+            # default actor/author to home page URL
+            if not props.get('author'):
+                homepage = urljoin(url, '/')
+                logger.info(f'Defaulting author to {homepage}')
+                props['author'] = [homepage]
 
-        # run full authorship algorithm if necessary: https://indieweb.org/authorship
-        # duplicated in microformats2.json_to_object
-        author = util.get_first(props, 'author')
-        if not isinstance(author, dict) and not is_homepage:
-            logger.info(f'Fetching full authorship for author {author}')
-            author = mf2util.find_author({'items': [entry]}, hentry=entry,
-                                         fetch_mf2_func=util.fetch_mf2)
-            logger.info(f'Got: {author}')
-            if author:
-                props['author'] = util.trim_nulls([{
-                    "type": ["h-card"],
-                    'properties': {
-                        field: [author[field]] if author.get(field) else []
-                        for field in ('name', 'photo', 'url')
-                    },
-                }])
+            # run full authorship algorithm if necessary:
+            # https://indieweb.org/authorship
+            # duplicated in microformats2.json_to_object
+            author = util.get_first(props, 'author')
+            if not isinstance(author, dict) and not is_homepage:
+                logger.info(f'Fetching full authorship for author {author}')
+                author = mf2util.find_author({'items': [entry]}, hentry=entry,
+                                             fetch_mf2_func=util.fetch_mf2)
+                logger.info(f'Got: {author}')
+                if author:
+                    props['author'] = util.trim_nulls([{
+                        "type": ["h-card"],
+                        'properties': {
+                            field: [author[field]] if author.get(field) else []
+                            for field in ('name', 'photo', 'url')
+                        },
+                    }])
 
         obj.mf2 = entry
         return obj
