@@ -852,67 +852,67 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual([(update_obj, 'shared:target')], Fake.sent)
 
- #    def test_mention_object(self, *mocks):
- #        self._test_mention(
- #            MENTION_OBJECT,
- #            {
- #                'type': 'note',  # not mention (?)
- #                'labels': ['notification'],
- #            },
- #            *mocks,
- #        )
+    def test_mention_object(self, *mocks):
+        self._test_mention(
+            MENTION_OBJECT,
+            {
+                'type': 'note',  # not mention (?)
+                'labels': ['notification'],
+            },
+            *mocks,
+        )
 
- #    def test_mention_create_activity(self, *mocks):
- #        self._test_mention(
- #            MENTION,
- #            {
- #                'type': 'post',  # not mention (?)
- #                'object_ids': [MENTION_OBJECT['id']],
- #                'labels': ['notification', 'activity'],
- #            },
- #            *mocks,
- #        )
+    def test_mention_create_activity(self, *mocks):
+        self._test_mention(
+            MENTION,
+            {
+                'type': 'post',  # not mention (?)
+                'object_ids': [MENTION_OBJECT['id']],
+                'labels': ['notification', 'activity'],
+            },
+            *mocks,
+        )
 
- #        # redirect unwrap
- #        expected_as2 = copy.deepcopy(MENTION_OBJECT)
- #        expected_as2['tag'][1]['href'] = 'https://tar.get/'
- #        self.assert_object(MENTION_OBJECT['id'],
- #                           as2=expected_as2,
- #                           type='note')
+        # redirect unwrap
+        expected_as2 = copy.deepcopy(MENTION_OBJECT)
+        expected_as2['tag'][1]['href'] = 'https://tar.get/'
+        self.assert_object(MENTION_OBJECT['id'],
+                           as2=expected_as2,
+                           type='note')
 
- #    def _test_mention(self, mention, expected_props):
- #        self.make_user('tar.get')
+    def _test_mention(self, mention, expected_props):
+        self.make_user('tar.get')
 
- #        mock_get.side_effect = [
- #            self.as2_resp(ACTOR),
- #            requests_response(test_web.NOTE_HTML),
- #            requests_response(test_web.NOTE_HTML),
- #            WEBMENTION_DISCOVERY,
- #        ]
- #        mock_post.return_value = requests_response()
+        mock_get.side_effect = [
+            self.as2_resp(ACTOR),
+            requests_response(test_web.NOTE_HTML),
+            requests_response(test_web.NOTE_HTML),
+            WEBMENTION_DISCOVERY,
+        ]
+        mock_post.return_value = requests_response()
 
- #        got = self.post('/user.com/inbox', json=mention)
- #        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
- #        self.assert_req(mock_get, 'https://tar.get/')
- #        convert_id = mention['id'].replace('://', ':/')
- #        self.assert_req(
- #            mock_post,
- #            'https://tar.get/webmention',
- #            headers={'Accept': '*/*'},
- #            allow_redirects=False,
- #            data={
- #                'source': f'http://localhost/convert/activitypub/web/{convert_id}',
- #                'target': 'https://tar.get/',
- #            },
- #        )
+        got = self.post('/user.com/inbox', json=mention)
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assert_req(mock_get, 'https://tar.get/')
+        convert_id = mention['id'].replace('://', ':/')
+        self.assert_req(
+            mock_post,
+            'https://tar.get/webmention',
+            headers={'Accept': '*/*'},
+            allow_redirects=False,
+            data={
+                'source': f'http://localhost/convert/activitypub/web/{convert_id}',
+                'target': 'https://tar.get/',
+            },
+        )
 
- #        expected_as2 = common.redirect_unwrap(mention)
- #        self.assert_object(mention['id'],
- #                           users=[Web(id='tar.get').key],
- #                           status='complete',
- #                           as2=expected_as2,
- #                           delivered=['https://tar.get/'],
- #                           **expected_props)
+        expected_as2 = common.redirect_unwrap(mention)
+        self.assert_object(mention['id'],
+                           users=[Web(id='tar.get').key],
+                           status='complete',
+                           as2=expected_as2,
+                           delivered=['https://tar.get/'],
+                           **expected_props)
 
     def test_follow(self):
         self._test_follow()
@@ -1061,5 +1061,5 @@ class ProtocolReceiveTest(TestCase):
         self.assertIsNone(Object.get_by_id('foo'))
         self.assertIsNone(Object.get_by_id('https://ap.brid.gy/user.com'))
 
-    # def test_skip_same_domain_target(self):
-    #     TODO
+    def test_skip_same_domain_target(self):
+        TODO
