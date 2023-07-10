@@ -744,7 +744,10 @@ class Protocol:
         #
         # sort so order is deterministic for tests.
         orig_ids = sorted(as1.get_ids(obj.as1, 'inReplyTo') +
-                          as1.get_ids(inner_obj_as1, 'inReplyTo'))
+                          as1.get_ids(inner_obj_as1, 'inReplyTo') +
+                          # TODO: tagged users don't currently get populated
+                          # into Object.users. fix that!
+                          as1.get_ids(inner_obj_as1, 'tags'))
         verb = obj.as1.get('verb')
         if orig_ids:
             logger.info(f'original object ids from inReplyTo: {orig_ids}')

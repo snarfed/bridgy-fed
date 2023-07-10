@@ -854,66 +854,49 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([(update_obj, 'shared:target')], Fake.sent)
 
     def test_mention_object(self, *mocks):
-        self._test_mention(
-            MENTION_OBJECT,
-            {
-                'type': 'note',  # not mention (?)
-                'labels': ['notification'],
-            },
-            *mocks,
-        )
+        self.alice.obj.our_as1 = {'foo': 'bar'}
+        self.alice.obj.put()
+        self.bob.obj.our_as1 = {'foo': 'baz'}
+        self.bob.obj.put()
 
-    def test_mention_create_activity(self, *mocks):
-        self._test_mention(
-            MENTION,
-            {
-                'type': 'post',  # not mention (?)
-                'object_ids': [MENTION_OBJECT['id']],
-                'labels': ['notification', 'activity'],
-            },
-            *mocks,
-        )
+        mention_as1 = {
+            'objectType': 'note',
+            'id': 'fake:mention',
+            'author': 'fake:user',
+            'content': 'something',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'fake:alice',
+            }, {
+                'objectType': 'mention',
+                'url': 'fake:bob',
+            }],
+        }
+        self.assertEqual('OK', Fake.receive(mention_as1))
 
-        # redirect unwrap
-        expected_as2 = copy.deepcopy(MENTION_OBJECT)
-        expected_as2['tag'][1]['href'] = 'https://tar.get/'
-        self.assert_object(MENTION_OBJECT['id'],
-                           as2=expected_as2,
-                           type='note')
+        self.assert_object('fake:mention',
+                           our_as1=mention_as1,
+                           type='note',
+                           )
 
-    def _test_mention(self, mention, expected_props):
-        self.make_user('tar.get')
+        obj = self.assert_object('fake:mention#bridgy-fed-create',
+                                 status='complete',
+                                 our_as1={
+                                     'objectType': 'activity',
+                                     'verb': 'post',
+                                     'id': 'fake:mention#bridgy-fed-create',
+                                     'actor': 'fake:user',
+                                     'object': mention_as1,
+                                     'published': '2022-01-02T03:04:05+00:00',
+                                 },
+                                 delivered=['fake:alice:target', 'fake:bob:target'],
+                                 type='post',
+                                 labels=['user', 'activity', 'feed'],
+                                 users=[g.user.key],
+                                 )
 
-        mock_get.side_effect = [
-            self.as2_resp(ACTOR),
-            requests_response(test_web.NOTE_HTML),
-            requests_response(test_web.NOTE_HTML),
-            WEBMENTION_DISCOVERY,
-        ]
-        mock_post.return_value = requests_response()
-
-        got = self.post('/user.com/inbox', json=mention)
-        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-        self.assert_req(mock_get, 'https://tar.get/')
-        convert_id = mention['id'].replace('://', ':/')
-        self.assert_req(
-            mock_post,
-            'https://tar.get/webmention',
-            headers={'Accept': '*/*'},
-            allow_redirects=False,
-            data={
-                'source': f'http://localhost/convert/activitypub/web/{convert_id}',
-                'target': 'https://tar.get/',
-            },
-        )
-
-        expected_as2 = common.redirect_unwrap(mention)
-        self.assert_object(mention['id'],
-                           users=[Web(id='tar.get').key],
-                           status='complete',
-                           as2=expected_as2,
-                           delivered=['https://tar.get/'],
-                           **expected_props)
+        self.assertEqual([(obj, 'fake:alice:target'), (obj, 'fake:bob:target')],
+                         Fake.sent)
 
     def test_follow(self):
         self._test_follow()
