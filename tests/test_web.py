@@ -1269,13 +1269,13 @@ class WebTest(TestCase):
             requests_response(
                 html, url='https://user.com/follow',
                 content_type=CONTENT_TYPE_HTML),
+            ACTOR,
             self.as2_resp({
                 'objectType': 'Person',
                 'displayName': 'Mr. ☕ Biff',
                 'id': 'https://mas.to/mr-biff',
                 'inbox': 'https://mas.to/inbox/biff',
             }),
-            ACTOR,
         ]
         mock_post.return_value = requests_response('unused')
 
@@ -1287,8 +1287,8 @@ class WebTest(TestCase):
 
         mock_get.assert_has_calls((
             self.req('https://user.com/follow'),
-            self.as2_req('https://mas.to/mr-biff'),
             self.as2_req('https://mas.to/mrs-foo'),
+            self.as2_req('https://mas.to/mr-biff'),
         ))
 
         calls = mock_post.call_args_list
@@ -1301,8 +1301,9 @@ class WebTest(TestCase):
         }, json_loads(calls[1][1]['data']))
 
         mf2 = util.parse_mf2(html)['items'][0]
+        mr_biff = ndb.Key(ActivityPub, 'https://mas.to/mr-biff')
         obj = self.assert_object('https://user.com/follow',
-                                 users=[g.user.key],
+                                 users=[g.user.key, self.mrs_foo, mr_biff],
                                  source_protocol='web',
                                  status='complete',
                                  mf2=mf2,
@@ -1311,7 +1312,7 @@ class WebTest(TestCase):
                                  type='follow',
                                  object_ids=['https://mas.to/mrs-foo',
                                              'https://mas.to/mr-biff'],
-                                 labels=['user', 'activity'],
+                                 labels=['user', 'activity', 'notification',],
                                  )
 
         followers = Follower.query().fetch()
