@@ -137,13 +137,13 @@ LIKE = {
     'id': 'http://mas.to/like#ok',
     'type': 'Like',
     'object': 'https://user.com/post',
-    'actor': 'https://user.com/actor',
+    'actor': 'https://mas.to/actor',
 }
 LIKE_WRAPPED = copy.deepcopy(LIKE)
 LIKE_WRAPPED['object'] = 'http://localhost/r/https://user.com/post'
 LIKE_ACTOR = {
     '@context': 'https://www.w3.org/ns/activitystreams',
-    'id': 'https://user.com/actor',
+    'id': 'https://mas.to/actor',
     'type': 'Person',
     'name': 'Ms. Actor',
     'preferredUsername': 'msactor',
@@ -277,7 +277,7 @@ class ActivityPubTest(TestCase):
         self.user = self.make_user('user.com', has_hcard=True, has_redirects=True,
                                    obj_as2={**ACTOR, 'id': 'https://user.com/'})
         self.swentel_key = ndb.Key(ActivityPub, 'https://mas.to/users/swentel')
-        self.user_actor_key = ndb.Key(ActivityPub, 'https://user.com/actor')
+        self.masto_actor_key = ndb.Key(ActivityPub, 'https://mas.to/actor')
 
         ACTOR_BASE['publicKey']['publicKeyPem'] = self.user.public_pem().decode()
 
@@ -398,7 +398,7 @@ class ActivityPubTest(TestCase):
         }
         self._test_inbox_reply(reply, mock_head, mock_get, mock_post)
 
-        self.assert_user(ActivityPub, 'https://user.com/actor',
+        self.assert_user(ActivityPub, 'https://mas.to/actor',
                          obj_as2=LIKE_ACTOR, direct=True)
 
     def test_inbox_activity_without_id(self, *_):
@@ -690,7 +690,7 @@ class ActivityPubTest(TestCase):
                            }),
                            type='like',
                            labels=['activity', 'user', 'notification'],
-                           users=[self.user.key, self.user_actor_key],
+                           users=[self.user.key, self.masto_actor_key],
                            object_ids=['http://nope.com/post'])
 
     def test_inbox_not_public(self, mock_head, mock_get, mock_post):
@@ -723,7 +723,7 @@ class ActivityPubTest(TestCase):
         got = self.post('/user.com/inbox', json=LIKE)
         self.assertEqual(200, got.status_code)
 
-        self.assertIn(self.as2_req('https://user.com/actor'), mock_get.mock_calls)
+        self.assertIn(self.as2_req('https://mas.to/actor'), mock_get.mock_calls)
         self.assertIn(self.req('https://user.com/post'), mock_get.mock_calls)
 
         args, kwargs = mock_post.call_args
@@ -734,7 +734,7 @@ class ActivityPubTest(TestCase):
         }, kwargs['data'])
 
         self.assert_object('http://mas.to/like#ok',
-                           users=[self.user.key, self.user_actor_key],
+                           users=[self.user.key, self.masto_actor_key],
                            source_protocol='activitypub',
                            status='complete',
                            our_as1=as2.to_as1(LIKE_WITH_ACTOR),
@@ -750,7 +750,7 @@ class ActivityPubTest(TestCase):
         mock_get.return_value = self.as2_resp(LIKE_ACTOR)
 
         self.test_inbox_like()
-        self.assert_user(ActivityPub, 'https://user.com/actor',
+        self.assert_user(ActivityPub, 'https://mas.to/actor',
                          obj_as2=LIKE_ACTOR, direct=True)
 
     def test_inbox_follow_accept_with_id(self, *mocks):
@@ -1213,7 +1213,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(204, got.status_code)
 
         self.assert_object('http://mas.to/like#ok',
-                           users=[self.user.key, self.user_actor_key],
+                           users=[self.user.key, self.masto_actor_key],
                            source_protocol='activitypub',
                            status='ignored',
                            our_as1=as2.to_as1(LIKE_WITH_ACTOR),

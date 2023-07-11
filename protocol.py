@@ -817,6 +817,9 @@ class Protocol:
                     logger.error(f'Follower {user.key} has no delivery target')
                     continue
 
+                # normalize URL (lower case hostname, etc)
+                target = util.dedupe_urls([target])[0]
+
                 # HACK: use last target object from above for reposts, which
                 # has its resolved id
                 targets[Target(protocol=user.LABEL, uri=target)] = \

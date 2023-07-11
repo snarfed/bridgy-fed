@@ -877,7 +877,7 @@ class WebTest(TestCase):
             self.as2_req('https://mas.to/author'),
         ))
 
-        inboxes = ('https://inbox', 'https://public/inbox',
+        inboxes = ('https://inbox/', 'https://public/inbox',
                    'https://shared/inbox', 'https://mas.to/inbox')
         self.assert_deliveries(mock_post, inboxes, expected_as2, ignore=['cc'])
 
@@ -972,7 +972,7 @@ class WebTest(TestCase):
         })
         self.assertEqual(200, got.status_code)
 
-        inboxes = ['https://inbox', 'https://public/inbox', 'https://shared/inbox']
+        inboxes = ['https://inbox/', 'https://public/inbox', 'https://shared/inbox']
         self.assert_deliveries(mock_post, inboxes, {
             **NOTE_AS2,
             'attributedTo': None,
@@ -1051,7 +1051,7 @@ class WebTest(TestCase):
         mock_get.assert_has_calls((
             self.req('https://user.com/post'),
         ))
-        inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
+        inboxes = ('https://inbox/', 'https://public/inbox', 'https://shared/inbox')
         self.assert_deliveries(mock_post, inboxes, CREATE_AS2)
 
         self.assert_object('https://user.com/post',
@@ -1088,7 +1088,7 @@ class WebTest(TestCase):
         mock_get.assert_has_calls((
             self.req('https://user.com/post'),
         ))
-        inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
+        inboxes = ('https://inbox/', 'https://public/inbox', 'https://shared/inbox')
         self.assert_deliveries(mock_post, inboxes, UPDATE_AS2)
 
         update_as1 = {
@@ -1132,7 +1132,7 @@ class WebTest(TestCase):
         })
         self.assertEqual(200, got.status_code)
 
-        self.assertEqual(('https://inbox',), mock_post.call_args[0])
+        self.assertEqual(('https://inbox/',), mock_post.call_args[0])
         create = copy.deepcopy(CREATE_AS2)
         create['object'].update({
             'image': {'url': 'http://im/age', 'type': 'Image'},
@@ -1358,7 +1358,7 @@ class WebTest(TestCase):
         })
         self.assertEqual(200, got.status_code, got.text)
 
-        inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
+        inboxes = ('https://inbox/', 'https://public/inbox', 'https://shared/inbox')
         self.assert_deliveries(mock_post, inboxes, DELETE_AS2)
 
         self.assert_object('https://user.com/post#bridgy-fed-delete',
@@ -1491,7 +1491,7 @@ class WebTest(TestCase):
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         }
-        self.assert_deliveries(mock_post, ('https://shared/inbox', 'https://inbox'),
+        self.assert_deliveries(mock_post, ('https://shared/inbox', 'https://inbox/'),
                                expected_as2)
 
         # updated Web user
@@ -1533,7 +1533,7 @@ class WebTest(TestCase):
                            source_protocol='web',
                            status='complete',
                            our_as1=expected_as1,
-                           delivered=['https://inbox', 'https://shared/inbox'],
+                           delivered=['https://inbox/', 'https://shared/inbox'],
                            type='update',
                            object_ids=['https://user.com/'],
                            labels=['user', 'activity'],
