@@ -168,7 +168,12 @@ class ActivityPub(User, Protocol):
         orig_as2 = orig_obj.as_as2() if orig_obj else None
         activity = obj.as2 or postprocess_as2(as2.from_as1(obj.as1),
                                               orig_obj=orig_as2)
-        activity['actor'] = g.user.ap_actor()
+
+        if g.user:
+            activity['actor'] = g.user.ap_actor()
+        elif not activity.get('actor'):
+            logger.warning('Outgoing AP activity has no actor!')
+
         return signed_post(url, log_data=True, data=activity).ok
 
     @classmethod
