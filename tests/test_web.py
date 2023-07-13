@@ -1222,7 +1222,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(304, got.status_code)
+        self.assertEqual(204, got.status_code)
         mock_post.assert_not_called()
 
     def test_follow_fragment(self, mock_get, mock_post):

@@ -25,7 +25,7 @@ from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
-# other modules are imported _after_ Fake class is defined so that it's in
+# other modules are imported _after_ Fake etc classes is defined so that it's in
 # PROTOCOLS when URL routes are registered.
 import models
 from models import Object, PROTOCOLS, Target, User
@@ -95,6 +95,18 @@ class Fake(User, protocol.Protocol):
     def receive(cls, our_as1):
         assert isinstance(our_as1, dict)
         return super().receive(Object(id=our_as1['id'], our_as1=our_as1))
+
+
+class OtherFake(Fake):
+    """Different class because the same-protocol check special cases Fake.
+
+    Used in ProtocolTest.test_skip_same_protocol
+    """
+    ABBREV = 'other'
+
+    @classmethod
+    def owns_id(cls, id):
+        return id.startswith('other:')
 
 
 # used in TestCase.make_user() to reuse keys across Users since they're

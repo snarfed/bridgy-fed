@@ -9,7 +9,7 @@ from oauth_dropins.webutil.testutil import requests_response
 import requests
 
 # import first so that Fake is defined before URL routes are registered
-from .testutil import Fake, TestCase
+from .testutil import Fake, OtherFake, TestCase
 
 from activitypub import ActivityPub
 from app import app
@@ -1045,7 +1045,34 @@ class ProtocolReceiveTest(TestCase):
         self.assertIsNone(Object.get_by_id('foo'))
         self.assertIsNone(Object.get_by_id('https://ap.brid.gy/user.com'))
 
-    def test_skip_same_domain_target(self):
+    def test_skip_same_protocol(self):
+        self.make_user('other:carol', cls=OtherFake, obj_id='other:carol')
+        self.make_user('other:dan', cls=OtherFake, obj_id='other:dan')
+
+        OtherFake.fetchable = {
+            'other:carol': {},
+        }
+
+        follow_as1 = {
+            'id': 'http://x.com/follow',
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'other:carol',
+            'object': ['other:dan', 'fake:alice'],
+        }
+
+        # with self.assertRaises(NoContent) as e:
+        self.assertEqual('OK', OtherFake.receive(follow_as1))
+
+        self.assertEqual(2, len(Fake.sent))
+        self.assertEqual('accept', Fake.sent[0][0].type)
+        self.assertEqual('follow', Fake.sent[1][0].type)
+
+        followers = Follower.query().fetch()
+        self.assertEqual(1, len(followers))
+        self.assertEqual(self.alice.key, followers[0].to)
+
+    def test_skip_same_domain(self):
         Fake.fetchable = {
             'http://x.com/alice': {},
             'http://x.com/bob': {},
@@ -1060,8 +1087,13 @@ class ProtocolReceiveTest(TestCase):
             'object': ['http://x.com/bob', 'http://x.com/eve'],
         }
 
-        with self.assertRaises(NoContent) as e:
+        with self.assertRaises(NoContent):
             Fake.receive(follow_as1)
+
+        self.assertEqual(1, len(Fake.sent))
+        obj, target = Fake.sent[0]
+        self.assertEqual('accept', obj.type)
+        self.assertEqual('http://x.com/alice:target', target)
 
         self.assert_object('http://x.com/follow',
                            our_as1=follow_as1,
@@ -1072,4 +1104,3 @@ class ProtocolReceiveTest(TestCase):
                                   ndb.Key(Fake, 'http://x.com/eve')],
                            )
         self.assertEqual(2, Follower.query().count())
-

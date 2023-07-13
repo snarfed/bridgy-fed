@@ -543,12 +543,17 @@ class Protocol:
             error(f'Follow activity requires object(s). Got: {obj.as1}')
 
         # Store Followers
+        to_user = None
         for to_as1 in to_as1s:
             to_id = to_as1.get('id')
             if not to_id or not from_id:
                 error(f'Follow activity requires object(s). Got: {obj.as1}')
 
             to_cls = Protocol.for_id(to_id)
+            if from_cls == to_cls and from_cls.LABEL != 'fake':
+                logger.info(f'Skipping same-protocol Follower {from_id} => {to_id}')
+                continue
+
             to_obj = to_cls.load(to_id)
             if not to_obj.as1:
                 to_obj.our_as1 = to_as1
@@ -569,6 +574,9 @@ class Protocol:
 
             add(obj.users, to_key)
             add(obj.labels, 'notification')
+
+        if not to_user:
+            return
 
         # send accept. note that this is one accept for the whole follow, even
         # if it has multiple followees!
@@ -770,6 +778,9 @@ class Protocol:
             if not protocol:
                 logger.info(f"Can't determine protocol for {id}")
                 continue
+            elif protocol == cls and cls.LABEL != 'fake':
+                logger.info(f'Skipping same-protocol target {id}')
+                continue
 
             orig_obj = protocol.load(id)
             if not orig_obj or not orig_obj.as1:
@@ -903,7 +914,7 @@ class Protocol:
         if remote is True:
             logger.info('  remote=True, forced refresh requested')
         elif remote is False:
-            logger.info('  remote=False, {"empty" if obj else "not"} in datastore')
+            logger.info(f'  remote=False, {"empty" if obj else "not"} in datastore')
             return obj
 
         if obj:
