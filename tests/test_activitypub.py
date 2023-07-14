@@ -408,8 +408,6 @@ class ActivityPubTest(TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_inbox_reply_object(self, mock_head, mock_get, mock_post):
-        mock_get.side_effect = [self.as2_resp(LIKE_ACTOR)]
-
         self._test_inbox_reply(REPLY_OBJECT, mock_head, mock_get, mock_post)
 
         self.assert_object('http://mas.to/reply/id',
@@ -419,12 +417,11 @@ class ActivityPubTest(TestCase):
         # auto-generated post activity
         self.assert_object(
             'http://mas.to/reply/id#bridgy-fed-create',
-            users=[ndb.Key(ActivityPub, 'user.com'), self.user.key],
+            users=[self.user.key],
             source_protocol='activitypub',
             our_as1={
                 **as2.to_as1(REPLY),
                 'id': 'http://mas.to/reply/id#bridgy-fed-create',
-                'actor': as2.to_as1(LIKE_ACTOR),
                 'published': '2022-01-02T03:04:05+00:00',
             },
             status='complete',
@@ -434,8 +431,6 @@ class ActivityPubTest(TestCase):
         )
 
     def test_inbox_reply_object_wrapped(self, mock_head, mock_get, mock_post):
-        mock_get.side_effect = [self.as2_resp(LIKE_ACTOR)]
-
         self._test_inbox_reply(REPLY_OBJECT_WRAPPED, mock_head, mock_get, mock_post)
 
         self.assert_object('http://mas.to/reply/id',
@@ -445,12 +440,11 @@ class ActivityPubTest(TestCase):
         # auto-generated post activity
         self.assert_object(
             'http://mas.to/reply/id#bridgy-fed-create',
-            users=[ndb.Key(ActivityPub, 'user.com'), self.user.key],
+            users=[self.user.key],
             source_protocol='activitypub',
             our_as1={
                 **as2.to_as1(REPLY),
                 'id': 'http://mas.to/reply/id#bridgy-fed-create',
-                'actor': as2.to_as1(LIKE_ACTOR),
                 'published': '2022-01-02T03:04:05+00:00',
             },
             status='complete',
@@ -1742,14 +1736,18 @@ class ActivityPubUtilsTest(TestCase):
     @patch('requests.get')
     def test_fetch_only_html(self, mock_get):
         mock_get.return_value = HTML
-        with self.assertRaises(BadGateway):
-            ActivityPub.fetch(Object(id='http://orig'))
+
+        obj = Object(id='http://orig')
+        self.assertFalse(ActivityPub.fetch(obj))
+        self.assertIsNone(obj.as1)
 
     @patch('requests.get')
     def test_fetch_not_acceptable(self, mock_get):
         mock_get.return_value = NOT_ACCEPTABLE
-        with self.assertRaises(BadGateway):
-            ActivityPub.fetch(Object(id='http://orig'))
+
+        obj = Object(id='http://orig')
+        self.assertFalse(ActivityPub.fetch(obj))
+        self.assertIsNone(obj.as1)
 
     @patch('requests.get')
     def test_fetch_ssl_error(self, mock_get):
@@ -1774,6 +1772,11 @@ class ActivityPubUtilsTest(TestCase):
             ActivityPub.fetch(Object(id='http://the/id'))
 
         mock_get.assert_has_calls([self.as2_req('http://the/id')])
+
+    def test_fetch_non_url(self):
+        obj = Object(id='x y z')
+        self.assertFalse(ActivityPub.fetch(obj))
+        self.assertIsNone(obj.as1)
 
     @skip
     def test_serve(self):

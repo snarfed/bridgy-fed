@@ -76,9 +76,9 @@ class Fake(User, protocol.Protocol):
 
         if id in cls.fetchable:
             obj.our_as1 = cls.fetchable[id]
-            return obj
+            return True
 
-        raise requests.HTTPError(response=util.Struct(status_code='410'))
+        return False
 
     @classmethod
     def serve(cls, obj):

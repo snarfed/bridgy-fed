@@ -17,7 +17,7 @@ from oauth_dropins.webutil.appengine_info import APP_ID
 from oauth_dropins.webutil.flask_util import error, flash
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from oauth_dropins.webutil import webmention
-from requests import HTTPError, RequestException, URLRequired
+from requests import HTTPError, RequestException
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 
 import common
@@ -192,12 +192,14 @@ class Web(User, Protocol):
             pass
 
         # check home page
+        self.obj = None
+        self.has_hcard = False
         try:
             self.obj = Web.load(self.web_url(), remote=True, gateway=True)
-            self.has_hcard = True
-        except (BadRequest, NotFound, common.NoMicroformats):
-            self.obj = None
-            self.has_hcard = False
+            if self.obj:
+                self.has_hcard = True
+        except (BadRequest, NotFound):
+            pass
 
         self.put()
         return self
@@ -306,6 +308,10 @@ class Web(User, Protocol):
           kwargs: ignored
         """
         url = obj.key.id()
+        if not util.is_web(url):
+            logger.info(f'{url} is not a URL')
+            return False
+
         is_homepage = urlparse(url).path.strip('/') == ''
 
         require_backlink = (common.host_url().rstrip('/')
@@ -315,25 +321,26 @@ class Web(User, Protocol):
         try:
             parsed = util.fetch_mf2(url, gateway=gateway,
                                     require_backlink=require_backlink)
-        except (ValueError, URLRequired) as e:
+        except ValueError as e:
             error(str(e))
 
         if parsed is None:
             error(f'id {urlparse(url).fragment} not found in {url}')
+        elif not parsed.get('items'):
+            logger.info(f'No microformats2 found in {url}')
+            return False
 
         # find mf2 item
         if is_homepage:
             logger.info(f"{url} is user's web url")
             entry = mf2util.representative_hcard(parsed, parsed['url'])
-            logger.info(f'Representative h-card: {json_dumps(entry, indent=2)}')
             if not entry:
-                msg = f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {parsed['url']}"
-                logging.info(msg)
-                raise common.NoMicroformats(msg)
+                error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {parsed['url']}")
+            logger.info(f'Representative h-card: {json_dumps(entry, indent=2)}')
         else:
             entry = mf2util.find_first_entry(parsed, ['h-entry'])
             if not entry:
-                error(f'No microformats2 found in {url}')
+                error(f'No microformats2 h-entry found in {url}')
 
         # store final URL in mf2 object, and also default url property to it,
         # since that's the fallback for AS1/AS2 id
@@ -372,7 +379,7 @@ class Web(User, Protocol):
                     }])
 
         obj.mf2 = entry
-        return obj
+        return True
 
     @classmethod
     def serve(cls, obj):
@@ -530,8 +537,8 @@ def webmention_task():
             'object': source,
         })
 
-    if not obj.mf2 and obj.type != 'delete':
-        error(f'No microformats2 found in {source}', status=304)
+    if not obj or (not obj.mf2 and obj.type != 'delete'):
+        error(f"Couldn't load {source} as microformats2 HTML", status=304)
     elif obj.mf2:
         # default actor to user
         props = obj.mf2['properties']

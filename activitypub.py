@@ -25,7 +25,6 @@ from common import (
     error,
     host_url,
     is_blocklisted,
-    NoMicroformats,
     redirect_unwrap,
     redirect_wrap,
     TLD_BLOCKLIST,
@@ -205,10 +204,16 @@ class ActivityPub(User, Protocol):
         Signs the request with the current user's key. If not provided, defaults to
         using @snarfed.org@snarfed.org's key.
 
+        See :meth:`Protocol.fetch` for more details.
+
         Args:
           obj: :class:`Object` with the id to fetch. Fills data into the as2
             property.
           kwargs: ignored
+
+        Returns:
+          True if the object was fetched and populated successfully,
+          False otherwise
 
         Raises:
           :class:`requests.HTTPError`, :class:`werkzeug.exceptions.HTTPException`
@@ -216,13 +221,20 @@ class ActivityPub(User, Protocol):
           If we raise a werkzeug HTTPException, it will have an additional
           requests_response attribute with the last requests.Response we received.
         """
+        url = obj.key.id()
+        if not util.is_web(url):
+            logger.info(f'{url} is not a URL')
+            return False
+
         resp = None
 
         def _error(extra_msg=None):
-            msg = f"Couldn't fetch {obj.key.id()} as ActivityStreams 2"
+            msg = f"Couldn't fetch {url} as ActivityStreams 2"
             if extra_msg:
                 msg += ': ' + extra_msg
             logger.warning(msg)
+            # protocol.for_id depends on us raising this when an AP network
+            # fetch fails. if we change that, update for_id too!
             err = BadGateway(msg)
             err.requests_response = resp
             raise err
@@ -230,7 +242,15 @@ class ActivityPub(User, Protocol):
         def _get(url, headers):
             """Returns None if we fetched and populated, resp otherwise."""
             nonlocal resp
-            resp = signed_get(url, headers=headers, gateway=True)
+
+            try:
+                resp = signed_get(url, headers=headers, gateway=True)
+            except BadGateway as e:
+                # ugh, this is ugly, should be something structured
+                if '406 Client Error' in str(e):
+                    return
+                raise
+
             if not resp.content:
                 _error('empty response')
             elif common.content_type(resp) in as2.CONTENT_TYPES:
@@ -239,24 +259,30 @@ class ActivityPub(User, Protocol):
                 except requests.JSONDecodeError:
                     _error("Couldn't decode as JSON")
 
-        obj.as2 = _get(obj.key.id(), CONNEG_HEADERS_AS2_HTML)
+        obj.as2 = _get(url, CONNEG_HEADERS_AS2_HTML)
+
         if obj.as2:
-            return obj
+            return True
+        elif not resp:
+            return False
 
         # look in HTML to find AS2 link
         if common.content_type(resp) != 'text/html':
-            _error('no AS2 available')
+            logger.info('no AS2 available')
+            return False
+
         parsed = util.parse_html(resp)
         link = parsed.find('link', rel=('alternate', 'self'), type=(
             as2.CONTENT_TYPE, as2.CONTENT_TYPE_LD))
         if not (link and link['href']):
-            _error('no AS2 available')
+            logger.info('no AS2 available')
+            return False
 
         obj.as2 = _get(link['href'], as2.CONNEG_HEADERS)
         if obj.as2:
-            return obj
+            return True
 
-        _error()
+        return False
 
     @classmethod
     def serve(cls, obj):
@@ -322,8 +348,10 @@ class ActivityPub(User, Protocol):
             else:
                 raise
 
-        if key_actor.deleted:
+        if key_actor and key_actor.deleted:
             abort(202, f'Ignoring, signer {keyId} is already deleted')
+        elif not key_actor:
+            error(f"Couldn't load {keyId} to verify signature", status=401)
 
         key = key_actor.as2.get("publicKey", {}).get('publicKeyPem')
         logger.info(f'Verifying signature for {request.path} with key {key}')
@@ -641,10 +669,7 @@ def actor(protocol, domain):
     cls = PROTOCOLS[protocol]
     g.user = cls.get_or_create(domain)
     if not g.user.obj or not g.user.obj.as1:
-        try:
-            g.user.obj = cls.load(f'https://{domain}/', gateway=True)
-        except NoMicroformats as e:
-            pass
+        g.user.obj = cls.load(f'https://{domain}/', gateway=True)
 
     # TODO: unify with common.actor()
     actor = g.user.as2() or {
@@ -702,7 +727,8 @@ def inbox(protocol=None, domain=None):
 
     # load user
     if protocol and domain:
-        g.user = PROTOCOLS[protocol].get_or_create(domain, direct=False)  # receiving user
+        # receiving user
+        g.user = PROTOCOLS[protocol].get_or_create(domain, direct=False)
         if not g.user.direct and actor_id:
             # this is a deliberate interaction with an indirect receiving user;
             # create a local AP User for the sending user

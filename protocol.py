@@ -210,9 +210,13 @@ class Protocol:
         for protocol in candidates:
             logger.info(f'Trying {protocol.__name__}')
             try:
-                protocol.load(id, local=False, remote=True)
-                logger.info(f'  {protocol.__name__} owns {id}')
-                return protocol
+                if protocol.load(id, local=False, remote=True):
+                    logger.info(f'  {protocol.__name__} owns {id}')
+                    return protocol
+            except werkzeug.exceptions.BadGateway:
+                # we tried and failed fetching the id over the network.
+                # this depends on ActivityPub.fetch raising this!
+                return None
             except werkzeug.exceptions.HTTPException as e:
                 # internal error we generated ourselves; try next protocol
                 pass
@@ -272,6 +276,10 @@ class Protocol:
     def fetch(cls, obj, **kwargs):
         """Fetches a protocol-specific object and populates it in an :class:`Object`.
 
+        Errors are raised as exceptions. If this method returns False, the fetch
+        didn't fail but didn't succeed either, eg the id isn't valid for this
+        protocol, or the fetch didn't return valid data for this protocol.
+
         To be implemented by subclasses.
 
         Args:
@@ -281,6 +289,10 @@ class Protocol:
 
         Raises:
           :class:`werkzeug.HTTPException` if the fetch fails
+
+        Returns:
+          True if the object was fetched and populated successfully,
+          False otherwise
         """
         raise NotImplementedError()
 
@@ -485,7 +497,7 @@ class Protocol:
         if actor and actor.keys() == set(['id']):
             logger.info('Fetching actor so we have name, profile photo, etc')
             actor_obj = cls.load(actor['id'])
-            if actor_obj.as1:
+            if actor_obj and actor_obj.as1:
                 obj.our_as1 = {**obj.as1, 'actor': actor_obj.as1}
 
         # fetch object if necessary so we can render it in feeds
@@ -525,6 +537,8 @@ class Protocol:
 
         from_cls = cls
         from_obj = from_cls.load(from_id)
+        if not from_obj:
+            error(f"Couldn't load {from_id}")
 
         if not from_obj.as1:
             from_obj.our_as1 = from_as1
@@ -555,7 +569,7 @@ class Protocol:
                 continue
 
             to_obj = to_cls.load(to_id)
-            if not to_obj.as1:
+            if to_obj and not to_obj.as1:
                 to_obj.our_as1 = to_as1
                 to_obj.put()
 
@@ -610,14 +624,11 @@ class Protocol:
           obj: :class:`Object`, the same one if the input obj is an activity,
           otherwise a new one
         """
-        obj_actor = as1.get_owner(obj.as1)
-        if not obj_actor and g.user:
-            obj_actor = g.user.key.id()
-
-        now = util.now().isoformat()
-
         if obj.type not in ('note', 'article', 'comment'):
             return obj
+
+        obj_actor = as1.get_owner(obj.as1)
+        now = util.now().isoformat()
 
         # this is a raw post; wrap it in a create or update activity
         if obj.changed:
@@ -877,8 +888,9 @@ class Protocol:
             datastore after a successful remote fetch.
           kwargs: passed through to :meth:`fetch()`
 
-        Returns: :class:`Object`, or None if it isn't in the datastore and remote
-          is False
+        Returns: :class:`Object`, or None if:
+          * it isn't fetchable, eg a non-URL string for Web
+          * remote is False and it isn't in the cache or datastore
 
         Raises:
           :class:`requests.HTTPError`, anything else that :meth:`fetch` raises
@@ -927,7 +939,10 @@ class Protocol:
                 obj.new = True
                 obj.changed = False
 
-        cls.fetch(obj, **kwargs)
+        fetched = cls.fetch(obj, **kwargs)
+        if not fetched:
+            return None
+
         if obj.new is False:
             obj.changed = obj.activity_changed(orig_as1)
 

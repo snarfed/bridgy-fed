@@ -68,7 +68,9 @@ def convert(dest, _):
 
     # load, and maybe fetch. if it's a post/update, redirect to inner object.
     obj = src_cls.load(url)
-    if not obj.as1:
+    if not obj:
+        error(f"Couldn't load {url}", status=404)
+    elif not obj.as1:
         error(f'Stored object for {id} has no data', status=404)
 
     type = as1.object_type(obj.as1)

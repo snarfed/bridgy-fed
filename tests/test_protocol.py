@@ -114,6 +114,13 @@ class ProtocolTest(TestCase):
         self.assertIn(self.as2_req('http://ap/actor'), mock_get.mock_calls)
 
     @patch('requests.get')
+    def test_for_id_activitypub_fetch_fails(self, mock_get):
+        mock_get.return_value = requests_response('', status=403)
+        self.assertIsNone(Protocol.for_id('http://ap/actor'))
+        self.assertIn(self.as2_req('http://ap/actor'), mock_get.mock_calls)
+        mock_get.assert_called_once()
+
+    @patch('requests.get')
     def test_for_id_web_fetch(self, mock_get):
         mock_get.return_value = requests_response(ACTOR_HTML)
         self.assertEqual(Web, Protocol.for_id('http://web.site/'))
@@ -231,10 +238,7 @@ class ProtocolTest(TestCase):
         self.assert_entities_equal(obj, Protocol.load('foo', remote=False))
 
     def test_load_local_false_missing(self):
-        with self.assertRaises(requests.HTTPError) as e:
-            Fake.load('foo', local=False)
-            self.assertEqual(410, e.response.status_code)
-
+        self.assertIsNone(Fake.load('foo', local=False))
         self.assertEqual(['foo'], Fake.fetched)
 
     def test_load_local_false_existing(self):
@@ -412,13 +416,12 @@ class ProtocolReceiveTest(TestCase):
                                      'objectType': 'activity',
                                      'verb': 'update',
                                      'id': update_id,
-                                     'actor': 'fake:user',
                                      'object': post_as1,
                                  },
                                  delivered=['shared:target'],
                                  type='update',
                                  labels=['user', 'activity'],
-                                 users=[g.user.key],
+                                 users=[],
                                  )
 
         self.assertEqual([(obj, 'shared:target')], Fake.sent)
@@ -1061,7 +1064,6 @@ class ProtocolReceiveTest(TestCase):
             'object': ['other:dan', 'fake:alice'],
         }
 
-        # with self.assertRaises(NoContent) as e:
         self.assertEqual('OK', OtherFake.receive(follow_as1))
 
         self.assertEqual(2, len(Fake.sent))

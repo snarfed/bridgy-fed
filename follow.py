@@ -116,6 +116,10 @@ class FollowCallback(indieauth.Callback):
         # TODO(#512): follower will always be Web here, but we should generalize
         # followee support in UI and here across protocols
         followee = ActivityPub.load(as2_url)
+        if not followee:
+            flash(f"Couldn't load {as2_url} as AS2")
+            return redirect(g.user.user_page_path('following'))
+
         followee_id = followee.as1.get('id')
         inbox = followee.as2.get('inbox')
         if not followee_id or not inbox:
@@ -198,6 +202,8 @@ class UnfollowCallback(indieauth.Callback):
         if not followee.obj or not followee.obj.as1:
             # fetch to get full followee so we can find its target to deliver to
             followee.obj = ActivityPub.load(followee_id)
+            if not followee.obj:
+                error("Couldn't load {followee_id} as AS2")
             followee.put()
 
         # TODO(#529): generalize

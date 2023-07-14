@@ -1935,6 +1935,26 @@ class WebUtilTest(TestCase):
             Web.fetch(obj)
             self.assertEqual(500, e.status_code)
 
+    def test_fetch_not_html(self, mock_get, __):
+        mock_get.return_value = self.as2_resp({})
+
+        obj = Object(id='https://user.com/post')
+        self.assertFalse(Web.fetch(obj))
+        self.assertIsNone(obj.as1)
+
+    def test_fetch_non_url(self, mock_get, __):
+        obj = Object(id='x y z')
+        self.assertFalse(Web.fetch(obj))
+        self.assertIsNone(obj.as1)
+
+    def test_fetch_no_mf2(self, mock_get, __):
+        mock_get.return_value = requests_response(
+            '<html>\n<body>foo</body>\n</html>')
+
+        obj = Object(id='https://user.com/post')
+        self.assertFalse(Web.fetch(obj))
+        self.assertIsNone(obj.as1)
+
     def test_send(self, mock_get, mock_post):
         mock_get.return_value = WEBMENTION_REL_LINK
         mock_post.return_value = requests_response()
