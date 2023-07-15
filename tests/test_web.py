@@ -1955,7 +1955,18 @@ class WebUtilTest(TestCase):
         self.assertFalse(Web.fetch(obj))
         self.assertIsNone(obj.as1)
 
-    def test_send(self, mock_get, mock_post):
+    def test_send_note_does_nothing(self, mock_get, mock_post):
+        Follower.get_or_create(
+            to=self.make_user('https://mas.to/bob', cls=ActivityPub),
+            from_=g.user)
+
+        self.assertFalse(Web.send(
+            Object(id='http://mas.to/note', as2=test_activitypub.NOTE),
+            'https://user.com/post'))
+        mock_get.assert_not_called()
+        mock_post.assert_not_called()
+
+    def test_send_like(self, mock_get, mock_post):
         mock_get.return_value = WEBMENTION_REL_LINK
         mock_post.return_value = requests_response()
 

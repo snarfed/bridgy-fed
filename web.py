@@ -276,8 +276,17 @@ class Web(User, Protocol):
         or if webmention/microformats2 don't support the activity type.
         https://fed.brid.gy/docs#error-handling
         """
-        if obj.as1.get('verb') == 'accept':
-            logger.info(f'Skipping sending accept activity to {url}')
+        # we only send webmentions for responses. for normal posts etc, we just
+        # update our stored objects (elsewhere) and web users consume them via
+        # feeds.
+        type = obj.as1.get('objectType')
+        verb = obj.as1.get('verb')
+        in_reply_to = as1.get_object(obj.as1).get('inReplyTo')
+        if (type != 'activity'
+                # TODO: do we need undo for anything?
+                or verb in ('undo', 'accept')
+                or (verb in ('post', 'update', 'delete') and not in_reply_to)):
+            logger.info(f'Skipping sending {type} {verb} activity to {url}')
             return False
 
         source_url = obj.proxy_url()
