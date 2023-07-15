@@ -1682,7 +1682,25 @@ class ActivityPubUtilsTest(TestCase):
         first = mock_get.call_args_list[0][1]
         second = mock_get.call_args_list[1][1]
         self.assertNotEqual(first['headers'], second['headers'])
-        self.assertNotEqual(
+
+    @patch('requests.get')
+    def test_signed_get_redirects_to_relative_url(self, mock_get):
+        mock_get.side_effect = [
+            # redirected URL is relative, we have to resolve it
+            requests_response(status=302, redirected_url='/second',
+                              allow_redirects=False),
+            requests_response(status=200, allow_redirects=False),
+        ]
+        activitypub.signed_get('https://first')
+
+        self.assertEqual(('https://first/second',), mock_get.call_args_list[1][0])
+
+        first = mock_get.call_args_list[0][1]
+        second = mock_get.call_args_list[1][1]
+
+        # headers are equal because host is the same
+        self.assertEqual(first['headers'], second['headers'])
+        self.assertEqual(
             first['auth'].header_signer.sign(first['headers'], method='GET', path='/'),
             second['auth'].header_signer.sign(second['headers'], method='GET', path='/'))
 

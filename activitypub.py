@@ -3,7 +3,7 @@ from base64 import b64encode
 from hashlib import sha256
 import itertools
 import logging
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urljoin
 
 from flask import abort, g, request
 from google.cloud import ndb
@@ -435,8 +435,9 @@ def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
 
     # handle GET redirects manually so that we generate a new HTTP signature
     if resp.is_redirect and fn == util.requests_get:
-        return signed_request(fn, resp.headers['Location'], data=data,
-                              headers=headers, log_data=log_data, **kwargs)
+        new_url = urljoin(url, resp.headers['Location'])
+        return signed_request(fn, new_url, data=data, headers=headers,
+                              log_data=log_data, **kwargs)
 
     type = common.content_type(resp)
     if (type and type != 'text/html' and
