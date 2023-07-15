@@ -186,6 +186,35 @@ class FollowTest(TestCase):
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
         self.check('https://bar/actor', resp, FOLLOW_URL, mock_get, mock_post)
 
+    def test_callback_composite_url_field(self, mock_get, mock_post):
+        """https://console.cloud.google.com/errors/detail/CKmLytj-nPv9RQ;time=P30D?project=bridgy-federated"""
+        followee = {
+            **FOLLOWEE,
+            # this turns into a composite value for url in AS1:
+            # {'displayName': 'foo bar', 'value': 'https://bar/url'}
+            'attachment': [{
+                'type': 'PropertyValue',
+                'name': 'foo bar',
+                'value': '<a href="https://bar/url">@bar</a>'
+            }],
+        }
+        mock_get.side_effect = (
+            requests_response(''),
+            self.as2_resp(followee),
+        )
+        mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
+            requests_response('OK'),  # AP Follow to inbox
+        )
+
+        self.state['state'] = 'https://bar/actor'
+        state = util.encode_oauth_state(self.state)
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+
+        expected_follow = copy.deepcopy(FOLLOW_URL)
+        expected_follow['object'] = followee
+        self.check('https://bar/actor', resp, expected_follow, mock_get, mock_post)
+
     def check(self, input, resp, expected_follow, mock_get, mock_post):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
@@ -214,10 +243,12 @@ class FollowTest(TestCase):
             followers,
             ignore=['created', 'updated'])
 
-        self.assert_object(follow_id, users=[self.user.key, followee],
-                           status='complete', labels=['user', 'activity'],
-                           source_protocol='ui', as2=expected_follow,
-                           as1=as2.to_as1(expected_follow))
+        self.assert_object(follow_id,
+                           users=[self.user.key, followee],
+                           labels=['user', 'activity'],
+                           status='complete',
+                           source_protocol='ui',
+                           as2=expected_follow)
 
         self.assertEqual('https://alice.com', session['indieauthed-me'])
 

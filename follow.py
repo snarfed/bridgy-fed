@@ -7,7 +7,7 @@ https://www.rfc-editor.org/rfc/rfc7033
 import logging
 
 from flask import g, redirect, request, session
-from granary import as2
+from granary import as1, as2
 from oauth_dropins import indieauth
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.flask_util import error, flash
@@ -146,8 +146,9 @@ class FollowCallback(indieauth.Callback):
                                follow=follow_obj.key)
         follow_obj.put()
 
-        link = common.pretty_link(util.get_url(followee.as1) or followee_id,
-                                  text=addr)
+        urls = as1.object_urls(followee.as1)
+        url = (urls[0] if urls else None) or followee_id
+        link = common.pretty_link(url, text=addr)
         flash(f'Followed {link}.')
         return redirect(g.user.user_page_path('following'))
 
