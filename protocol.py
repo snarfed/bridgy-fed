@@ -756,35 +756,12 @@ class Protocol:
         }
         """
         logger.info('Finding recipients and their targets')
+        candidates = sorted(id for id in as1.targets(obj.as1)
+                            if not is_blocklisted(id))
 
-        inner_obj_as1 = as1.get_object(obj.as1)
-
-        # if it's a reply, like, or repost, grab the object
-        #
-        # sort so order is deterministic for tests.
-        orig_ids = sorted(as1.get_ids(obj.as1, 'inReplyTo') +
-                          as1.get_ids(inner_obj_as1, 'inReplyTo') +
-                          # TODO: tagged users don't currently get populated
-                          # into Object.users. fix that!
-                          as1.get_ids(inner_obj_as1, 'tags'))
-        verb = obj.as1.get('verb')
-        if orig_ids:
-            logger.info(f'original object ids from inReplyTo: {orig_ids}')
-
-        if verb in as1.VERBS_WITH_OBJECT:
-            # prefer id or url, if available
-            # https://github.com/snarfed/bridgy-fed/issues/307
-            orig_ids = (as1.get_ids(obj.as1, 'object')
-                        or util.get_urls(obj.as1, 'object'))
-            if not orig_ids:
-                error(f'{verb} missing target URL')
-            logger.info(f'original object ids from object: {orig_ids}')
-
-        orig_ids = sorted(id for id in util.dedupe_urls(orig_ids)
-                          if not is_blocklisted(id))
         orig_obj = None
         targets = {}
-        for id in orig_ids:
+        for id in candidates:
             protocol = Protocol.for_id(id)
             if not protocol:
                 logger.info(f"Can't determine protocol for {id}")
@@ -812,6 +789,8 @@ class Protocol:
                 add(obj.users, orig_user)
                 add(obj.labels, 'notification')
 
+        logger.info(f'Direct targets: {candidates}')
+
         # deliver to followers?
         user_key = cls.actor_key(obj)
         if not user_key:
@@ -819,7 +798,8 @@ class Protocol:
             return targets
 
         if (obj.type in ('post', 'update', 'delete', 'share')
-                and not (obj.type == 'comment' or inner_obj_as1.get('inReplyTo'))):
+                and not (obj.type == 'comment'
+                         or as1.get_object(obj.as1).get('inReplyTo'))):
             logger.info(f'Delivering to followers of {user_key}')
             followers = Follower.query(Follower.to == user_key,
                                        Follower.status == 'active'
@@ -845,7 +825,7 @@ class Protocol:
                 # HACK: use last target object from above for reposts, which
                 # has its resolved id
                 targets[Target(protocol=user.LABEL, uri=target)] = \
-                    orig_obj if verb == 'share' else None
+                    orig_obj if obj.as1.get('verb')  == 'share' else None
 
         # de-dupe targets, discard same-domain and blocklisted
         candidates = {t.uri: (t, obj) for t, obj in targets.items()}
