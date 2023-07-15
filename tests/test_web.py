@@ -1,7 +1,6 @@
 # coding=utf-8
 """Unit tests for webmention.py."""
 import copy
-from unittest import skip
 from unittest.mock import patch
 from urllib.parse import urlencode
 
@@ -1962,7 +1961,35 @@ class WebUtilTest(TestCase):
 
         self.assertFalse(Web.send(
             Object(id='http://mas.to/note', as2=test_activitypub.NOTE),
-            'https://user.com/post'))
+            'https://user.com/'))
+        mock_get.assert_not_called()
+        mock_post.assert_not_called()
+
+    def test_send_unrelated_repost_does_nothing(self, mock_get, mock_post):
+        Follower.get_or_create(
+            to=self.make_user('https://mas.to/bob', cls=ActivityPub),
+            from_=g.user)
+
+        self.assertFalse(Web.send(
+            Object(id='http://mas.to/note', as2={
+                **test_activitypub.REPOST,
+                'actor': 'https://mas.to/bob',
+            }),
+            'https://user.com/'))
+        mock_get.assert_not_called()
+        mock_post.assert_not_called()
+
+    def test_send_unrelated_reply_does_nothing(self, mock_get, mock_post):
+        Follower.get_or_create(
+            to=self.make_user('https://mas.to/bob', cls=ActivityPub),
+            from_=g.user)
+
+        self.assertFalse(Web.send(
+            Object(id='http://mas.to/note', as2={
+                **test_activitypub.REPLY,
+                'actor': 'https://mas.to/bob',
+            }),
+            'https://user.com/'))
         mock_get.assert_not_called()
         mock_post.assert_not_called()
 
@@ -2036,11 +2063,6 @@ class WebUtilTest(TestCase):
 </html>
 """, html, ignore_blanks=True)
         self.assertEqual({'Content-Type': 'text/html; charset=utf-8'}, headers)
-
-    @skip
-    def test_target_for_not_web_fails(self, _, __):
-        with self.assertRaises(AssertionError):
-            Web.target_for(Object(id='x', source_protocol='ap'))
 
     def test_target_for(self, _, __):
         self.assertIsNone(Web.target_for(Object(id='x', source_protocol='web')))
