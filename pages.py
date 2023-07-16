@@ -4,7 +4,7 @@ import logging
 import os
 
 from flask import g, render_template, request
-from google.cloud.ndb.query import OR
+from google.cloud.ndb.query import AND, OR
 from google.cloud.ndb.stats import KindStat
 from granary import as1, as2, atom, microformats2, rss
 import humanize
@@ -89,11 +89,8 @@ def web_user_redirects(**kwargs):
 def user(protocol, id):
     load_user(protocol, id)
 
-    query = Object.query(
-        OR(Object.users == g.user.key,
-           Object.domains == id),
-        Object.labels.IN(('notification', 'user')),
-    )
+    query = Object.query(OR(Object.users == g.user.key,
+                            Object.notify == g.user.key))
     objects, before, after = fetch_objects(query)
 
     followers = Follower.query(Follower.to == g.user.key,
@@ -140,12 +137,12 @@ def feed(protocol, id):
 
     load_user(protocol, id)
 
-    objects = Object.query(
-        OR(Object.users == g.user.key,
-           Object.domains == id),
-        Object.labels == 'feed') \
-        .order(-Object.created) \
-        .fetch(PAGE_SIZE)
+    objects = Object.query(OR(Object.feed == g.user.key,
+                              # backward compatibility
+                              AND(Object.users == g.user.key,
+                                  Object.labels == 'feed'))) \
+                    .order(-Object.created) \
+                    .fetch(PAGE_SIZE)
     activities = [obj.as1 for obj in objects if not obj.deleted]
 
     actor = {

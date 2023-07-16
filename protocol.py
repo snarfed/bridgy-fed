@@ -409,7 +409,10 @@ class Protocol:
         # if this is a post, ie not an activity, wrap it in a create or update
         obj = cls._handle_bare_object(obj)
 
-        # add involved users
+        if obj.type not in SUPPORTED_TYPES:
+            error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
+
+        # add owner(s)
         actor_key = cls.actor_key(obj, default_g_user=False)
         if actor_key:
             add(obj.users, actor_key)
@@ -422,9 +425,6 @@ class Protocol:
 
         obj.source_protocol = cls.LABEL
         obj.put()
-
-        if obj.type not in SUPPORTED_TYPES:
-            error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
 
         # store inner object
         inner_obj_id = inner_obj_as1.get('id')
@@ -441,6 +441,8 @@ class Protocol:
             return 'OK'  # noop
 
         elif obj.type == 'stop-following':
+            # TODO: unify with _handle_follow?
+            # TODO: handle multiple followees
             if not actor_id or not inner_obj_id:
                 error(f'Undo of Follow requires actor id and object id. Got: {actor_id} {inner_obj_id} {obj.as1}')
 
@@ -448,7 +450,8 @@ class Protocol:
             # TODO: avoid import?
             from web import Web
             from_ = cls.key_for(actor_id)
-            to = (Protocol.for_id(inner_obj_id) or Web).key_for(inner_obj_id)
+            to_cls = Protocol.for_id(inner_obj_id) or Web
+            to = to_cls.key_for(inner_obj_id)
             follower = Follower.query(Follower.to == to,
                                       Follower.from_ == from_,
                                       Follower.status == 'active').get()
@@ -459,15 +462,14 @@ class Protocol:
             else:
                 logger.warning(f'No Follower found for {from_} => {to}')
 
-            # TODO send webmention with 410 of u-follow
-
-            obj.status = 'complete'
-            obj.put()
-            return 'OK'
+            # fall through to deliver to followee
+            # TODO: do we convert stop-following to webmention 410 of original
+            # follow?
 
         elif obj.type == 'update':
             if not inner_obj_id:
                 error("Couldn't find id of object to update")
+
             # fall through to deliver to followers
 
         elif obj.type == 'delete':
@@ -573,8 +575,8 @@ class Protocol:
                 to_obj.put()
 
             # If followee user is already direct, follower may not know they're
-            # interacting with a bridge. f followee user is indirect though,
-            # follower should know, so the're direct.
+            # interacting with a bridge. if followee user is indirect though,
+            # follower should know, so they're direct.
             to_key = to_cls.key_for(to_id)
             to_user = to_cls.get_or_create(id=to_key.id(), obj=to_obj, direct=False)
 
@@ -584,9 +586,7 @@ class Protocol:
                                                direct=not to_user.direct)
             follower_obj = Follower.get_or_create(to=to_user, from_=from_user,
                                                   follow=obj.key, status='active')
-
-            add(obj.users, to_key)
-            add(obj.labels, 'notification')
+            add(obj.notify, to_key)
 
             # send accept. note that this is one accept for the whole follow, even
             # if it has multiple followees!
@@ -676,8 +676,6 @@ class Protocol:
         Args:
           obj: :class:`Object`, activity to deliver
         """
-        add(obj.labels, 'user')
-
         # find delivery targets
         # sort targets so order is deterministic for tests, debugging, etc
         targets = cls._targets(obj)  # maps Target to Object or None
@@ -782,13 +780,12 @@ class Protocol:
             orig_user = protocol.actor_key(orig_obj, default_g_user=False)
             if orig_user:
                 logger.info(f'Recipient is {orig_user}')
-                add(obj.users, orig_user)
-                add(obj.labels, 'notification')
+                add(obj.notify, orig_user)
 
-        logger.info(f'Direct targets: {candidates}')
+        logger.info(f'Direct targets: {targets.keys()}')
 
-        # deliver to followers?
-        user_key = cls.actor_key(obj)
+        # deliver to followers, if appropriate
+        user_key = cls.actor_key(obj, default_g_user=False)
         if not user_key:
             logger.info("Can't tell who this is from! Skipping followers.")
             return targets
@@ -802,10 +799,19 @@ class Protocol:
                                        ).fetch()
             users = [u for u in ndb.get_multi(f.from_ for f in followers) if u]
             User.load_multi(users)
-            if obj.type not in ('update', 'delete'):
-                for u in users:
-                    add(obj.users, u.key)
-                add(obj.labels, 'feed')
+
+            # which object should we add to followers' feeds, if any
+            feed_obj = None
+            if obj.type == 'share':
+                feed_obj = obj
+            else:
+                inner = as1.get_object(obj.as1)
+                # don't add profile updates to feeds
+                if not (obj.type == 'update'
+                        and inner.get('objectType') in as1.ACTOR_TYPES):
+                    inner_id = inner.get('id')
+                    if inner_id:
+                        feed_obj = cls.load(inner_id)
 
             for user in users:
                 # TODO: should we pass remote=False through here to Protocol.load?
@@ -822,6 +828,13 @@ class Protocol:
                 # has its resolved id
                 targets[Target(protocol=user.LABEL, uri=target)] = \
                     orig_obj if obj.as1.get('verb')  == 'share' else None
+
+                if feed_obj:
+                    add(feed_obj.feed, user.key)
+
+            if feed_obj:
+                feed_obj.put()
+
 
         # de-dupe targets, discard same-domain and blocklisted
         candidates = {t.uri: (t, obj) for t, obj in targets.items()}

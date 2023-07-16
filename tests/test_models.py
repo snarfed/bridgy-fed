@@ -3,6 +3,7 @@
 from arroba.mst import dag_cbor_cid
 from Crypto.PublicKey import ECC
 from flask import g
+from google.cloud import ndb
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
 from oauth_dropins.webutil.testutil import NOW
 
@@ -168,15 +169,16 @@ class ObjectTest(TestCase):
 
         self.assertEqual(0, Object.query().count())
 
+        user = ndb.Key(Web, 'user.com')
         obj = Object.get_or_create('foo', our_as1={'content': 'foo'},
-                                   source_protocol='ui', labels=['notification'])
+                                   source_protocol='ui', notify=[user])
         check([obj], Object.query().fetch())
         self.assertTrue(obj.new)
         self.assertIsNone(obj.changed)
         self.assertEqual('foo', obj.key.id())
         self.assertEqual({'content': 'foo', 'id': 'foo'}, obj.as1)
         self.assertEqual('ui', obj.source_protocol)
-        self.assertEqual(['notification'], obj.labels)
+        self.assertEqual([user], obj.notify)
 
         obj2 = Object.get_or_create('foo')
         self.assertFalse(obj2.new)
@@ -186,11 +188,11 @@ class ObjectTest(TestCase):
 
         # non-null **props should be populated
         obj3 = Object.get_or_create('foo', our_as1={'content': 'bar'},
-                                    source_protocol=None, labels=[])
+                                    source_protocol=None, notify=[])
         self.assertEqual('foo', obj3.key.id())
         self.assertEqual({'content': 'bar', 'id': 'foo'}, obj3.as1)
         self.assertEqual('ui', obj3.source_protocol)
-        self.assertEqual(['notification'], obj3.labels)
+        self.assertEqual([user], obj3.notify)
         self.assertFalse(obj3.new)
         self.assertTrue(obj3.changed)
         check([obj3], Object.query().fetch())
@@ -206,7 +208,7 @@ class ObjectTest(TestCase):
         self.assertTrue(obj5.new)
         self.assertIsNone(obj5.changed)
 
-        obj6 = Object.get_or_create('baz', labels=['feed'])
+        obj6 = Object.get_or_create('baz', notify=[ndb.Key(Web, 'other')])
         self.assertTrue(obj6.new)
         self.assertIsNone(obj6.changed)
 

@@ -230,23 +230,31 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         return user
 
     def add_objects(self):
+        user = ndb.Key(Web, 'user.com')
+
         # post
-        self.store_object(id='a', domains=['user.com'],
-                          labels=['feed', 'notification'],
+        self.store_object(id='a',
+                          users=[user],
+                          notify=[user],
+                          feed=[user],
                           as2=as2.from_as1(NOTE))
         # different domain
-        self.store_object(id='b', domains=['nope.org'],
-                          labels=['feed', 'notification'],
+        nope = ndb.Key(Web, 'nope.org')
+        self.store_object(id='b',
+                          notify=[nope],
+                          feed=[nope],
                           as2=as2.from_as1(MENTION))
         # reply
-        self.store_object(id='d', domains=['user.com'],
-                          labels=['feed', 'notification'],
+        self.store_object(id='d',
+                          notify=[user],
+                          feed=[user],
                           as2=as2.from_as1(COMMENT))
         # not feed/notif
-        self.store_object(id='e', domains=['user.com'], as2=as2.from_as1(NOTE))
+        self.store_object(id='e', users=[user], as2=as2.from_as1(NOTE))
         # deleted
-        self.store_object(id='f', domains=['user.com'],
-                          labels=['feed', 'notification', 'user'],
+        self.store_object(id='f',
+                          notify=[user],
+                          feed=[user],
                           as2=as2.from_as1(NOTE), deleted=True)
 
     @staticmethod
@@ -316,7 +324,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         got = Object.get_by_id(id)
         assert got, id
 
-        # right now we only do ActivityPub
         for field in 'delivered', 'undelivered', 'failed':
             props[field] = [Target(uri=uri, protocol=delivered_protocol)
                             for uri in props.get(field, [])]
@@ -349,7 +356,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             del target.key
 
         self.assert_entities_equal(Object(id=id, **props), got,
-                                   ignore=['as1', 'created', 'expire',
+                                   ignore=['as1', 'created', 'expire', 'labels',
                                            'object_ids', 'type', 'updated'
                                            ] + ignore)
         return got

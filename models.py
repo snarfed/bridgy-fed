@@ -353,10 +353,22 @@ class Object(StringIdModel):
     Key name is the id. We synthesize ids if necessary.
     """
     STATUSES = ('new', 'in progress', 'complete', 'failed', 'ignored')
-    LABELS = ('activity', 'feed', 'notification', 'user')
+    LABELS = ('activity',
+              # DEPRECATED, replaced by users, notify, feed
+              'feed', 'notification', 'user')
 
-    # Users this activity is to or from
+    # Keys for user(s) who created or otherwise own this activity.
+    #
+    # DEPRECATED: this used to include all users related the activity, including
+    # followers, but we've now moved those to the notify and feed properties.
     users = ndb.KeyProperty(repeated=True)
+    # User keys who should see this activity in their user page, eg in reply to,
+    # reaction to, share of, etc.
+    notify = ndb.KeyProperty(repeated=True)
+    # User keys who should see this activity in their feeds, eg followers of its
+    # creator
+    feed = ndb.KeyProperty(repeated=True)
+
     # DEPRECATED but still used read only to maintain backward compatibility
     # with old Objects in the datastore that we haven't bothered migrating.
     domains = ndb.StringProperty(repeated=True)
