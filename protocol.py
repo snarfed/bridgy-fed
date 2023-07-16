@@ -557,7 +557,6 @@ class Protocol:
             error(f'Follow activity requires object(s). Got: {obj.as1}')
 
         # Store Followers
-        to_user = None
         for to_as1 in to_as1s:
             to_id = to_as1.get('id')
             if not to_id or not from_id:
@@ -589,27 +588,24 @@ class Protocol:
             add(obj.users, to_key)
             add(obj.labels, 'notification')
 
-        if not to_user:
-            return
-
-        # send accept. note that this is one accept for the whole follow, even
-        # if it has multiple followees!
-        id = common.host_url(to_user.user_page_path(
-            f'followers#accept-{obj.key.id()}'))
-        accept = Object.get_or_create(id, our_as1={
-            'id': id,
-            'objectType': 'activity',
-            'verb': 'accept',
-            'actor': to_id,
-            'object': obj.as1,
-        })
-        sent = cls.send(accept, from_target)
-        if sent:
-            accept.populate(
-                delivered=[Target(protocol=from_cls.LABEL, uri=from_target)],
-                status='complete',
-            )
-            accept.put()
+            # send accept. note that this is one accept for the whole follow, even
+            # if it has multiple followees!
+            id = common.host_url(to_user.user_page_path(
+                f'followers#accept-{obj.key.id()}'))
+            accept = Object.get_or_create(id, our_as1={
+                'id': id,
+                'objectType': 'activity',
+                'verb': 'accept',
+                'actor': to_id,
+                'object': obj.as1,
+            })
+            sent = cls.send(accept, from_target)
+            if sent:
+                accept.populate(
+                    delivered=[Target(protocol=from_cls.LABEL, uri=from_target)],
+                    status='complete',
+                )
+                accept.put()
 
     @classmethod
     def _handle_bare_object(cls, obj):

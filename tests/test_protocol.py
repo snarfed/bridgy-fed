@@ -1092,10 +1092,13 @@ class ProtocolReceiveTest(TestCase):
         with self.assertRaises(NoContent):
             Fake.receive(follow_as1)
 
-        self.assertEqual(1, len(Fake.sent))
-        obj, target = Fake.sent[0]
-        self.assertEqual('accept', obj.type)
-        self.assertEqual('http://x.com/alice:target', target)
+        (bob_obj, bob_target), (eve_obj, eve_target) = Fake.sent
+        self.assertEqual('http://localhost/fa/http://x.com/bob/followers#accept-http://x.com/follow',
+                         bob_obj.key.id())
+        self.assertEqual('http://x.com/alice:target', bob_target)
+        self.assertEqual('http://localhost/fa/http://x.com/eve/followers#accept-http://x.com/follow',
+                         eve_obj.key.id())
+        self.assertEqual('http://x.com/alice:target', eve_target)
 
         self.assert_object('http://x.com/follow',
                            our_as1=follow_as1,
