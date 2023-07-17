@@ -48,6 +48,24 @@ indexes:
   - name: created
     direction: desc
 
+- kind: Object
+  properties:
+  - name: users
+  - name: updated
+    direction: desc
+
+- kind: Object
+  properties:
+  - name: notify
+  - name: updated
+    direction: desc
+
+- kind: Object
+  properties:
+  - name: feed
+  - name: created
+    direction: desc
+
 - kind: Follower
   properties:
   - name: from
