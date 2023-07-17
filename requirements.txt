@@ -34,7 +34,7 @@ google-cloud-audit-log==0.2.5
 google-cloud-core==2.3.2
 google-cloud-datastore==2.11.0
 google-cloud-error-reporting==1.9.2
-google-cloud-logging==3.5.0
+google-cloud-logging==3.6.0
 google-cloud-ndb==2.1.1
 google-cloud-tasks==2.13.2
 googleapis-common-protos==1.59.1
