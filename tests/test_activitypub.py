@@ -417,7 +417,6 @@ class ActivityPubTest(TestCase):
         # auto-generated post activity
         self.assert_object(
             'http://mas.to/reply/id#bridgy-fed-create',
-            users=[self.user.key],
             source_protocol='activitypub',
             our_as1={
                 **as2.to_as1(REPLY),
@@ -427,7 +426,7 @@ class ActivityPubTest(TestCase):
             status='complete',
             delivered=['https://user.com/post'],
             type='post',
-            labels=['notification', 'activity', 'user'],
+            notify=[self.user.key],
         )
 
     def test_inbox_reply_object_wrapped(self, mock_head, mock_get, mock_post):
@@ -440,7 +439,6 @@ class ActivityPubTest(TestCase):
         # auto-generated post activity
         self.assert_object(
             'http://mas.to/reply/id#bridgy-fed-create',
-            users=[self.user.key],
             source_protocol='activitypub',
             our_as1={
                 **as2.to_as1(REPLY),
@@ -450,7 +448,7 @@ class ActivityPubTest(TestCase):
             status='complete',
             delivered=['https://user.com/post'],
             type='post',
-            labels=['notification', 'activity', 'user'],
+            notify=[self.user.key],
         )
 
     def test_inbox_reply_create_activity(self, mock_head, mock_get, mock_post):
@@ -466,13 +464,12 @@ class ActivityPubTest(TestCase):
         # sent activity
         self.assert_object(
             'http://mas.to/reply/as2',
-            users=[self.user.key],
             source_protocol='activitypub',
             as2=REPLY,
             status='complete',
             delivered=['https://user.com/post'],
             type='post',
-            labels=['notification', 'activity', 'user'],
+            notify=[self.user.key],
         )
 
     def _test_inbox_reply(self, reply, mock_head, mock_get, mock_post):
@@ -537,13 +534,14 @@ class ActivityPubTest(TestCase):
     def _test_inbox_create_obj(self, path, mock_head, mock_get, mock_post):
         swentel = self.make_user('https://mas.to/users/swentel', cls=ActivityPub)
         Follower.get_or_create(to=swentel, from_=self.user)
+        bar = self.make_user('fake:bar', cls=Fake, obj_id='fake:bar')
         Follower.get_or_create(to=self.make_user('https://other.actor',
                                                  cls=ActivityPub),
-                               from_=Fake.get_or_create('http://bar'))
-        baz = self.make_user('http://baz', cls=Fake)
+                               from_=bar)
+        baz = self.make_user('fake:baz', cls=Fake, obj_id='fake:baz')
         Follower.get_or_create(to=swentel, from_=baz)
-        Follower.get_or_create(to=swentel, status='inactive',
-                               from_=self.make_user('http://baj', cls=Fake))
+        baj = self.make_user('fake:baj', cls=Fake, obj_id='fake:baj')
+        Follower.get_or_create(to=swentel, from_=baj, status='inactive')
 
         mock_head.return_value = requests_response(url='http://target')
         mock_get.return_value = self.as2_resp(ACTOR)  # source actor
@@ -559,21 +557,19 @@ class ActivityPubTest(TestCase):
         self.assert_object(NOTE_OBJECT['id'],
                            source_protocol='activitypub',
                            our_as1=expected_obj,
-                           type='note')
+                           type='note',
+                           feed=[self.user.key, baz.key])
 
         expected_create = as2.to_as1(common.redirect_unwrap(NOTE))
         expected_create.update({
             'actor': as2.to_as1(ACTOR),
             'object': expected_obj,
         })
-
         self.assert_object('http://mas.to/note/as2',
                            source_protocol='activitypub',
                            our_as1=expected_create,
-                           users=[self.user.key, baz.key,
-                                  ndb.Key(ActivityPub, 'https://masto.foo/@author')],
+                           users=[ndb.Key(ActivityPub, 'https://masto.foo/@author')],
                            type='post',
-                           labels=['activity', 'feed', 'user'],
                            object_ids=[NOTE_OBJECT['id']],
                            status='complete',
                            delivered=['shared:target'],
@@ -621,17 +617,16 @@ class ActivityPubTest(TestCase):
                            users=[self.swentel_key],
                            delivered=['https://user.com/orig'],
                            type='share',
-                           labels=['activity', 'user', 'feed'],
                            object_ids=['https://user.com/orig'])
 
     def test_shared_inbox_repost_of_fediverse(self, mock_head, mock_get, mock_post):
         Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']),
                                from_=self.user)
-        baz = Fake.get_or_create('http://baz')
+        baz = self.make_user('fake:baz', cls=Fake, obj_id='fake:baz')
         Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']), from_=baz)
+        baj = self.make_user('fake:baj', cls=Fake, obj_id='fake:baj')
         Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']),
-                               from_=Fake.get_or_create('http://baj'),
-                               status='inactive')
+                               from_=baj, status='inactive')
 
         mock_head.return_value = requests_response(url='http://target')
         mock_get.side_effect = [
@@ -644,17 +639,19 @@ class ActivityPubTest(TestCase):
         ]
 
         got = self.post('/ap/sharedInbox', json=REPOST)
-        self.assertEqual(204, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
         mock_post.assert_not_called()  # no webmention
 
         self.assert_object(REPOST['id'],
                            source_protocol='activitypub',
-                           status='ignored',
+                           status='complete',
                            our_as1=as2.to_as1({**REPOST, 'actor': ACTOR}),
-                           users=[self.user.key, baz.key, self.swentel_key],
+                           users=[self.swentel_key],
+                           feed=[self.user.key, baz.key],
+                           delivered=['shared:target'],
+                           delivered_protocol='fake',
                            type='share',
-                           labels=['activity', 'user', 'feed'],
                            object_ids=[REPOST['object']])
 
     def test_inbox_no_user(self, mock_head, mock_get, mock_post):
@@ -683,8 +680,8 @@ class ActivityPubTest(TestCase):
                                'object': 'http://nope.com/post',
                            }),
                            type='like',
-                           labels=['activity', 'user', 'notification'],
-                           users=[self.user.key, self.masto_actor_key],
+                           notify=[self.user.key],
+                           users=[self.masto_actor_key],
                            object_ids=['http://nope.com/post'])
 
     def test_inbox_not_public(self, mock_head, mock_get, mock_post):
@@ -728,13 +725,13 @@ class ActivityPubTest(TestCase):
         }, kwargs['data'])
 
         self.assert_object('http://mas.to/like#ok',
-                           users=[self.user.key, self.masto_actor_key],
+                           notify=[self.user.key],
+                           users=[self.masto_actor_key],
                            source_protocol='activitypub',
                            status='complete',
                            our_as1=as2.to_as1(LIKE_WITH_ACTOR),
                            delivered=['https://user.com/post'],
                            type='like',
-                           labels=['notification', 'activity', 'user'],
                            object_ids=[LIKE['object']])
 
     def test_inbox_like_indirect_user_creates_User(self, mock_get, *_):
@@ -755,13 +752,13 @@ class ActivityPubTest(TestCase):
             'url': 'https://mas.to/users/swentel#followed-https://user.com/',
         }
         self.assert_object('https://mas.to/6d1a',
-                           users=[self.user.key, self.swentel_key],
+                           users=[self.swentel_key],
+                           notify=[self.user.key],
                            source_protocol='activitypub',
                            status='complete',
                            our_as1=as2.to_as1(follow),
                            delivered=['https://user.com/'],
                            type='follow',
-                           labels=['notification', 'activity', 'user'],
                            object_ids=[FOLLOW['object']])
 
     def test_inbox_follow_accept_with_object(self, *mocks):
@@ -779,13 +776,13 @@ class ActivityPubTest(TestCase):
             'url': 'https://mas.to/users/swentel#followed-https://user.com/',
         })
         self.assert_object('https://mas.to/6d1a',
-                           users=[self.user.key, self.swentel_key],
+                           users=[self.swentel_key],
+                           notify=[self.user.key],
                            source_protocol='activitypub',
                            status='complete',
                            our_as1=as2.to_as1(follow),
                            delivered=['https://user.com/'],
                            type='follow',
-                           labels=['notification', 'activity', 'user'],
                            object_ids=[FOLLOW['object']])
 
     def test_inbox_follow_accept_webmention_fails(self, mock_head, mock_get,
@@ -799,14 +796,14 @@ class ActivityPubTest(TestCase):
 
         url = 'https://mas.to/users/swentel#followed-https://user.com/'
         self.assert_object('https://mas.to/6d1a',
-                           users=[self.user.key, self.swentel_key],
+                           users=[self.swentel_key],
+                           notify=[self.user.key],
                            source_protocol='activitypub',
                            status='failed',
                            our_as1=as2.to_as1({**FOLLOW_WITH_ACTOR, 'url': url}),
                            delivered=[],
                            failed=['https://user.com/'],
                            type='follow',
-                           labels=['notification', 'activity', 'user'],
                            object_ids=[FOLLOW['object']])
 
     def _test_inbox_follow_accept(self, follow_as2, accept_as2, expected_status,
@@ -897,6 +894,12 @@ class ActivityPubTest(TestCase):
                             status='active')
         follower.put()
 
+        mock_get.side_effect = [
+            self.as2_resp(ACTOR),
+            WEBMENTION_DISCOVERY,
+        ]
+        mock_post.return_value = requests_response()
+
         got = self.post('/user.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
 
@@ -926,7 +929,9 @@ class ActivityPubTest(TestCase):
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
+            WEBMENTION_DISCOVERY,
         ]
+        mock_post.return_value = requests_response()
 
         got = self.post('/user.com/inbox', json=UNDO_FOLLOW_WRAPPED)
         self.assertEqual(200, got.status_code)
@@ -935,7 +940,9 @@ class ActivityPubTest(TestCase):
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
+            WEBMENTION_DISCOVERY,
         ]
+        mock_post.return_value = requests_response()
 
         follower = Follower.get_or_create(to=self.user,
                                           from_=ActivityPub.get_or_create(ACTOR['id']),
@@ -949,7 +956,9 @@ class ActivityPubTest(TestCase):
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
+            WEBMENTION_DISCOVERY,
         ]
+        mock_post.return_value = requests_response()
 
         follower = Follower.get_or_create(to=self.user,
                                           from_=ActivityPub.get_or_create(ACTOR['id']),
@@ -995,7 +1004,6 @@ class ActivityPubTest(TestCase):
                                **as2.to_as1(bad),
                                'actor': as2.to_as1(ACTOR),
                            },
-                           labels=['activity', 'user'],
                            users=[self.swentel_key],
                            source_protocol='activitypub',
                            status='ignored',
@@ -1129,7 +1137,6 @@ class ActivityPubTest(TestCase):
                            type='delete',
                            source_protocol='activitypub',
                            status='ignored',
-                           labels=['user', 'activity'],
                            users=[ActivityPub(id='https://mas.to/users/swentel').key])
 
         obj.populate(deleted=True, as2=None)
@@ -1171,7 +1178,6 @@ class ActivityPubTest(TestCase):
                            type='update',
                            status='ignored',
                            our_as1=update_as1,
-                           labels=['activity', 'user'],
                            users=[self.swentel_key])
 
         self.assert_entities_equal(Object.get_by_id('https://a/note'),
@@ -1207,12 +1213,12 @@ class ActivityPubTest(TestCase):
         self.assertEqual(204, got.status_code)
 
         self.assert_object('http://mas.to/like#ok',
-                           users=[self.user.key, self.masto_actor_key],
+                           notify=[self.user.key],
+                           users=[self.masto_actor_key],
                            source_protocol='activitypub',
                            status='ignored',
                            our_as1=as2.to_as1(LIKE_WITH_ACTOR),
                            type='like',
-                           labels=['activity', 'user', 'notification'],
                            object_ids=[LIKE['object']])
 
     def test_inbox_id_already_seen(self, *mocks):

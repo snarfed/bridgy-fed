@@ -814,6 +814,9 @@ class Protocol:
                         feed_obj = cls.load(inner_id)
 
             for user in users:
+                if feed_obj:
+                    add(feed_obj.feed, user.key)
+
                 # TODO: should we pass remote=False through here to Protocol.load?
                 target = user.target_for(user.obj, shared=True) if user.obj else None
                 if not target:
@@ -828,9 +831,6 @@ class Protocol:
                 # has its resolved id
                 targets[Target(protocol=user.LABEL, uri=target)] = \
                     orig_obj if obj.as1.get('verb')  == 'share' else None
-
-                if feed_obj:
-                    add(feed_obj.feed, user.key)
 
             if feed_obj:
                 feed_obj.put()

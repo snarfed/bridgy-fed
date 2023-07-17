@@ -730,13 +730,13 @@ class WebTest(TestCase):
                            )
         author = ndb.Key(ActivityPub, 'https://mas.to/author')
         self.assert_object('https://user.com/reply#bridgy-fed-create',
-                           users=[g.user.key, author],
+                           users=[g.user.key],
+                           notify=[author],
                            source_protocol='web',
                            status='complete',
                            our_as1=CREATE_REPLY_AS1,
                            delivered=['https://mas.to/inbox'],
                            type='post',
-                           labels=['user', 'activity', 'notification'],
                            )
 
     def test_update_reply(self, mock_get, mock_post):
@@ -888,7 +888,9 @@ class WebTest(TestCase):
         mf2 = util.parse_mf2(html)['items'][0]
         author_key = ndb.Key('ActivityPub', 'https://mas.to/author')
         self.assert_object('https://user.com/repost',
-                           users=self.followers + [g.user.key, author_key],
+                           users=[g.user.key],
+                           notify=[author_key],
+                           feed=self.followers,
                            source_protocol='web',
                            status='complete',
                            mf2=mf2,
@@ -1055,17 +1057,17 @@ class WebTest(TestCase):
 
         self.assert_object('https://user.com/post',
                            our_as1=NOTE_AS1,
+                           feed=self.followers,
                            type='note',
                            source_protocol='web',
                            )
         self.assert_object('https://user.com/post#bridgy-fed-create',
-                           users=self.followers + [g.user.key],
+                           users=[g.user.key],
                            source_protocol='web',
                            status='complete',
                            our_as1=CREATE_AS1,
                            delivered=inboxes,
                            type='post',
-                           labels=['user', 'activity', 'feed'],
                            )
 
     def test_update_post(self, mock_get, mock_post):
@@ -1157,7 +1159,8 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
 
         obj = self.assert_object('https://user.com/follow',
-                                 users=[g.user.key, self.mrs_foo],
+                                 users=[g.user.key],
+                                 notify=[self.mrs_foo],
                                  source_protocol='web',
                                  status='complete',
                                  mf2=FOLLOW_MF2,
@@ -1243,7 +1246,8 @@ class WebTest(TestCase):
                                FOLLOW_FRAGMENT_AS2)
 
         self.assert_object('https://user.com/follow#2',
-                           users=[g.user.key, self.mrs_foo],
+                           users=[g.user.key],
+                           notify=[self.mrs_foo],
                            source_protocol='web',
                            status='complete',
                            mf2=FOLLOW_FRAGMENT_MF2,
@@ -1303,7 +1307,8 @@ class WebTest(TestCase):
         mf2 = util.parse_mf2(html)['items'][0]
         mr_biff = ndb.Key(ActivityPub, 'https://mas.to/mr-biff')
         obj = self.assert_object('https://user.com/follow',
-                                 users=[g.user.key, self.mrs_foo, mr_biff],
+                                 users=[g.user.key],
+                                 notify=[self.mrs_foo, mr_biff],
                                  source_protocol='web',
                                  status='complete',
                                  mf2=mf2,
@@ -1425,7 +1430,8 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
 
         self.assert_object('https://user.com/follow',
-                           users=[g.user.key, self.mrs_foo],
+                           users=[g.user.key],
+                           notify=[self.mrs_foo],
                            source_protocol='web',
                            status='failed',
                            mf2=FOLLOW_MF2,
