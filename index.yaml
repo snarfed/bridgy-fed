@@ -52,6 +52,11 @@ indexes:
   properties:
   - name: users
   - name: updated
+
+- kind: Object
+  properties:
+  - name: users
+  - name: updated
     direction: desc
 
 - kind: Object
