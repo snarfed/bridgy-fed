@@ -63,6 +63,11 @@ indexes:
   properties:
   - name: notify
   - name: updated
+
+- kind: Object
+  properties:
+  - name: notify
+  - name: updated
     direction: desc
 
 - kind: Object
