@@ -1,5 +1,6 @@
 """UI pages."""
 import datetime
+import itertools
 import logging
 import os
 
@@ -146,17 +147,19 @@ def feed(protocol, id):
                     .fetch(PAGE_SIZE)
     activities = [obj.as1 for obj in objects if not obj.deleted]
 
-    # fill in authors/actors stored in their own Objects
-    owners = list(filter(lambda o: isinstance(o, str),
-                         [as1.get_owner(a) for a in activities]))
-    if owners:
-        keys = [ndb.Key(Object, id) for id in owners]
-        owner_objs = ndb.get_multi(keys)
+    # fill in authors, actors, objects stored in their own Objects
+    fields = 'author', 'actor', 'object'
+    hydrate_ids = [id for id in itertools.chain(
+        *[[a[f] for f in fields if isinstance(a.get(f), str)]
+          for a in activities])]
+    if hydrate_ids:
+        keys = [ndb.Key(Object, id) for id in hydrate_ids]
+        hydrated = {o.key.id(): o.as1 for o in ndb.get_multi(keys) if o}
         for a in activities:
-            if as1.get_owner(a) == owner_objs[0].key.id():
-                a['author'] = a['actor'] = owner_objs.pop(0).as1
-            if not owner_objs:
-                break
+            for field in fields:
+                id = a.get(field)
+                if isinstance(id, str) and hydrated.get(id):
+                    a[field] = hydrated[id]
 
     actor = {
       'displayName': id,

@@ -263,14 +263,29 @@ class PagesTest(TestCase):
         alice = {
             'displayName': 'Ms Alice Macbeth',
         }
-        self.store_object(id='z', feed=[ndb.Key(Web, 'user.com')], our_as1=note_2)
+        user = ndb.Key(Web, 'user.com')
+        self.store_object(id='fake:note_2', feed=[user], our_as1=note_2)
         self.store_object(id='fake:alice', our_as1=alice)
+
+        # repost with object (original post) in separate Object
+        repost = {
+            'objectType': 'activity',
+            'verb': 'share',
+            'object': 'fake:orig',
+        }
+        orig = {
+            'objectType': 'note',
+            'content': 'biff',
+        }
+        self.store_object(id='fake:repost', feed=[user], our_as1=repost)
+        self.store_object(id='fake:orig', our_as1=orig)
 
         got = self.client.get('/web/user.com/feed')
         self.assert_equals(200, got.status_code)
-        self.assert_equals(self.EXPECTED + ['foo'],
+        self.assert_equals(self.EXPECTED + ['foo', 'biff'],
                            contents(microformats2.html_to_activities(got.text)))
         self.assertIn('Ms Alice Macbeth', got.text)
+        self.assertIn('biff', got.text)
 
     def test_feed_atom_empty(self):
         got = self.client.get('/web/user.com/feed?format=atom')
