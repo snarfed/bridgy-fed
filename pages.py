@@ -4,6 +4,7 @@ import logging
 import os
 
 from flask import g, render_template, request
+from google.cloud import ndb
 from google.cloud.ndb.query import AND, OR
 from google.cloud.ndb.stats import KindStat
 from granary import as1, as2, atom, microformats2, rss
@@ -144,6 +145,18 @@ def feed(protocol, id):
                     .order(-Object.created) \
                     .fetch(PAGE_SIZE)
     activities = [obj.as1 for obj in objects if not obj.deleted]
+
+    # fill in authors/actors stored in their own Objects
+    owners = list(filter(lambda o: isinstance(o, str),
+                         [as1.get_owner(a) for a in activities]))
+    if owners:
+        keys = [ndb.Key(Object, id) for id in owners]
+        owner_objs = ndb.get_multi(keys)
+        for a in activities:
+            if as1.get_owner(a) == owner_objs[0].key.id():
+                a['author'] = a['actor'] = owner_objs.pop(0).as1
+            if not owner_objs:
+                break
 
     actor = {
       'displayName': id,

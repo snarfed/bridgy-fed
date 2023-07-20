@@ -1,4 +1,5 @@
 """Unit tests for pages.py."""
+from google.cloud import ndb
 from granary import atom, microformats2, rss
 from granary.tests.test_as1 import (
     ACTOR,
@@ -12,6 +13,7 @@ from .testutil import Fake, TestCase
 
 from activitypub import ActivityPub
 from models import Object, Follower
+from web import Web
 
 from .test_web import ACTOR_AS2, REPOST_AS2
 
@@ -251,10 +253,24 @@ class PagesTest(TestCase):
 
     def test_feed_html(self):
         self.add_objects()
+
+        # note with author in separate Object
+        note_2 = {
+            'objectType': 'note',
+            'content': 'foo',
+            'author': 'fake:alice',
+        }
+        alice = {
+            'displayName': 'Ms Alice Macbeth',
+        }
+        self.store_object(id='z', feed=[ndb.Key(Web, 'user.com')], our_as1=note_2)
+        self.store_object(id='fake:alice', our_as1=alice)
+
         got = self.client.get('/web/user.com/feed')
         self.assert_equals(200, got.status_code)
-        self.assert_equals(self.EXPECTED,
+        self.assert_equals(self.EXPECTED + ['foo'],
                            contents(microformats2.html_to_activities(got.text)))
+        self.assertIn('Ms Alice Macbeth', got.text)
 
     def test_feed_atom_empty(self):
         got = self.client.get('/web/user.com/feed?format=atom')
