@@ -69,7 +69,7 @@ class Web(User, Protocol):
         id = self.key.id()
         assert re.match(common.DOMAIN_RE, id)
         assert id.lower() == id, f'upper case is not allowed in Web key id: {id}'
-        assert id not in common.DOMAINS, f'{id} is a Bridgy Fed domain'
+        assert id not in common.DOMAIN_BLOCKLIST, f'{id} is a blocked domain'
 
     @classmethod
     def get_or_create(cls, id, **kwargs):

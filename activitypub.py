@@ -78,8 +78,8 @@ class ActivityPub(User, Protocol):
         assert util.is_web(id), f'{id} is not a URL'
         domain = util.domain_from_link(id)
         assert domain, 'missing domain'
-        assert util.domain_from_link(id) not in common.DOMAINS, \
-            f'{id} is a Bridgy Fed domain'
+        assert domain not in common.DOMAIN_BLOCKLIST, \
+            f'{id} is a blocked domain'
 
     def web_url(self):
         """Returns this user's web URL aka web_url, eg 'https://foo.com/'."""
