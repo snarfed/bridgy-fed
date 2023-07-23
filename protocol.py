@@ -148,11 +148,15 @@ class Protocol:
     def key_for(cls, id):
         """Returns the :class:`ndb.Key` for a given id's :class:`User`.
 
-        Canonicalizes the id if necessary.
+        To be implemented by subclasses. Canonicalizes the id if necessary.
 
         If called via `Protocol.key_for`, infers the appropriate protocol with
         :meth:`for_id`. If called with a concrete subclass, uses that subclass
         as is.
+
+        Returns:
+          :class:`ndb.Key`, or None if the given id is not a valid :class:`User`
+          id for this protocol.
         """
         if cls == Protocol:
             return Protocol.for_id(id).key_for(id)
@@ -413,7 +417,9 @@ class Protocol:
         if obj.as1.get('verb') in ('post', 'update', 'delete'):
             inner_actor = as1.get_owner(inner_obj_as1)
             if inner_actor:
-                add(obj.users, cls.key_for(inner_actor))
+                user_key = cls.key_for(inner_actor)
+                if user_key:
+                    add(obj.users, user_key)
 
         obj.source_protocol = cls.LABEL
         obj.put()
@@ -473,8 +479,8 @@ class Protocol:
 
             # if this is an actor, deactivate its followers/followings
             # https://github.com/snarfed/bridgy-fed/issues/63
-            try:
-                deleted_user = cls.key_for(id=inner_obj_id)
+            deleted_user = cls.key_for(id=inner_obj_id)
+            if deleted_user:
                 logger.info(f'Deactivating Followers from or to = {inner_obj_id}')
                 followers = Follower.query(OR(Follower.to == deleted_user,
                                               Follower.from_ == deleted_user)
@@ -482,8 +488,6 @@ class Protocol:
                 for f in followers:
                     f.status = 'inactive'
                 ndb.put_multi(followers)
-            except ValueError:
-                logger.info(f"{inner_obj_id} doesn't look like an actor or user")
 
             # fall through to deliver to followers
 
@@ -543,6 +547,8 @@ class Protocol:
             error(f"Couldn't find delivery target for follower {from_obj}")
 
         from_key = from_cls.key_for(from_id)
+        if not from_key:
+            error(f'Invalid {from_cls} user key: {from_id}')
         obj.users = [from_key]
 
         # Prepare followee (to) users' data
@@ -570,6 +576,10 @@ class Protocol:
             # interacting with a bridge. if followee user is indirect though,
             # follower should know, so they're direct.
             to_key = to_cls.key_for(to_id)
+            if not to_key:
+                logger.info(f'Skipping invalid {from_cls} user key: {from_id}')
+                continue
+
             to_user = to_cls.get_or_create(id=to_key.id(), obj=to_obj, direct=False)
 
             # HACK: we rewrite direct here for each followee, so the last one

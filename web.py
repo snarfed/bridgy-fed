@@ -229,10 +229,12 @@ class Web(User, Protocol):
         if re.match(common.DOMAIN_RE, id):
             tld = id.split('.')[-1]
             if tld in NON_TLDS:
-                raise ValueError(f"{id} looks like a domain but {tld} isn't a TLD")
+                logger.info(f"{id} looks like a domain but {tld} isn't a TLD")
+                return None
             return cls(id=id).key
 
-        raise ValueError(f'{id} is not a domain or usable home page URL')
+        logger.info(f'{id} is not a domain or usable home page URL')
+        return None
 
     @classmethod
     def owns_id(cls, id):
@@ -243,13 +245,10 @@ class Web(User, Protocol):
         if not id:
             return False
 
-        try:
-            key = cls.key_for(id)
-            if key:
-                user = key.get()
-                return True if user and user.has_redirects else None
-        except ValueError as e:
-            logger.info(e)
+        key = cls.key_for(id)
+        if key:
+            user = key.get()
+            return True if user and user.has_redirects else None
 
         return None if util.is_web(id) else False
 
