@@ -375,14 +375,6 @@ class Protocol:
         if not id:
             error('No id provided')
 
-        # block intra-BF ids
-        if util.domain_from_link(id) in common.DOMAINS:
-            error(f'{id} is on a Bridgy Fed domain, which is not supported')
-        for field in 'id', 'actor', 'author', 'attributedTo':
-            val = as1.get_object(obj.as1, field).get('id')
-            if util.domain_from_link(val) in common.DOMAINS:
-                error(f'{field} {val} is on Bridgy Fed, which is not supported')
-
         # short circuit if we've already seen this activity id.
         # (don't do this for bare objects since we need to check further down
         # whether they've been updated since we saw them last.)
