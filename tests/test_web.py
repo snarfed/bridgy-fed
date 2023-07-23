@@ -2030,6 +2030,15 @@ class WebUtilTest(TestCase):
         mock_get.assert_not_called()
         mock_post.assert_not_called()
 
+    def test_send_blocklisted(self, mock_get, mock_post):
+        obj = Object(id='http://mas.to/like#ok', as2={
+            **test_activitypub.LIKE,
+            'object': 'https://fed.brid.gy/foo',
+        })
+        self.assertFalse(Web.send(obj, 'https://fed.brid.gy/foo'))
+        mock_get.assert_not_called()
+        mock_post.assert_not_called()
+
     def test_send_errors(self, mock_get, mock_post):
         for err in [
                 requests.HTTPError(response=util.Struct(status_code='429', text='')),

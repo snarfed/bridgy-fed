@@ -1916,3 +1916,9 @@ class ActivityPubUtilsTest(TestCase):
         }, source_protocol='ap')
         self.assertEqual('http://mas.to/inbox', ActivityPub.target_for(obj))
         mock_get.assert_has_calls([self.as2_req('http://the/author')])
+
+    @patch('requests.post')
+    def test_send_blocklisted(self, mock_post):
+        self.assertFalse(ActivityPub.send(Object(as2=NOTE),
+                                          'https://fed.brid.gy/ap/sharedInbox'))
+        mock_post.assert_not_called()

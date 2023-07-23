@@ -280,7 +280,9 @@ class Web(User, Protocol):
         # to followers, we just update our stored objects (elsewhere) and web
         # users consume them via feeds.
         verb = obj.as1.get('verb')
-        if verb in ('accept', 'undo') or url not in as1.targets(obj.as1):
+        if (verb in ('accept', 'undo')
+                or url not in as1.targets(obj.as1)
+                or common.is_blocklisted(url)):
             logger.info(f'Skipping sending to {url}')
             return False
 

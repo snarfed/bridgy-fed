@@ -162,6 +162,10 @@ class ActivityPub(User, Protocol):
         If `obj.recipient_obj` is set, it's interpreted as the receiving actor
         who we're delivering to and its id is populated into `cc`.
         """
+        if is_blocklisted(url):
+            logger.info(f'Skipping sending to {url}')
+            return False
+
         # this is set in web.webmention_task()
         orig_obj = getattr(obj, 'orig_obj', None)
         orig_as2 = orig_obj.as_as2() if orig_obj else None
