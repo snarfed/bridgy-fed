@@ -514,6 +514,7 @@ def webmention_task():
     logger.info(f'webmention from {domain}')
 
     g.user = Web.get_by_id(domain)
+    logger.info(f'User: {g.user.key}')
     if not g.user:
         error(f'No user found for domain {domain}', status=304)
 
@@ -544,13 +545,15 @@ def webmention_task():
 
     if not obj or (not obj.mf2 and obj.type != 'delete'):
         error(f"Couldn't load {source} as microformats2 HTML", status=304)
-    elif obj.mf2:
+    elif obj.mf2 and 'h-entry' in obj.mf2.get('type', []):
         # default actor to user
         props = obj.mf2['properties']
-        author_urls = microformats2.get_string_urls(props.get('author', []))
-        if author_urls and not g.user.is_web_url(author_urls[0]):
-            logger.info(f'Overriding author {author_urls[0]} with {g.user.ap_actor()}')
-            props['author'] = [g.user.ap_actor()]
+        for url in microformats2.get_string_urls(props.get('author', [])):
+            if g.user.is_web_url(url):
+                break
+        else:
+            logger.info(f'Adding {g.user.web_url()} as author')
+            props.setdefault('author', []).append(g.user.web_url())
 
     # if source is home page, update Web user and send an actor Update to
     # followers' instances

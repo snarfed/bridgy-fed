@@ -127,6 +127,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """Override Model.get_by_id to follow the use_instead property."""
         user = cls._get_by_id(id)
         if user and user.use_instead:
+            logger.info(f'{user.key} use_instead => {user.use_instead}')
             return user.use_instead.get()
 
         return user

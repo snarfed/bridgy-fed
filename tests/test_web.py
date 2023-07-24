@@ -1038,6 +1038,42 @@ class WebTest(TestCase):
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals(REPOST_AS2, json_loads(kwargs['data']))
 
+    def test_create_no_author(self, mock_get, mock_post):
+        """No mf2 author. We should default to the user's homepage."""
+        mock_get.side_effect = [
+            requests_response("""\
+<html>
+<body class="h-entry">
+<a class="u-repost-of p-name" href="https://mas.to/toot/id">reposted!</a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+""", url='https://user.com/repost', content_type=CONTENT_TYPE_HTML),
+            NOT_FEDIVERSE,
+            TOOT_AS2,
+            ACTOR,
+        ]
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = self.client.post('/_ah/queue/webmention', data={
+            'source': 'https://user.com/repost',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
+
+        repost_mf2 = copy.deepcopy(REPOST_MF2)
+        repost_mf2['properties']['author'] = ['https://user.com/']
+        self.assert_object('https://user.com/repost',
+                           users=[g.user.key],
+                           source_protocol='web',
+                           mf2=repost_mf2,  # includes author https://user.com/
+                           type='share',
+                           labels=['activity', 'user'],
+                           notify=[ndb.Key('ActivityPub', 'https://mas.to/author')],
+                           delivered=['https://mas.to/inbox'],
+                           status='complete',
+                           )
+
     def test_create_post(self, mock_get, mock_post):
         mock_get.side_effect = [NOTE, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
