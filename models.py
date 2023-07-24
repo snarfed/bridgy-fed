@@ -4,7 +4,7 @@ import itertools
 import json
 import logging
 import random
-import urllib.parse
+from urllib.parse import quote, urlparse
 
 from arroba.mst import dag_cbor_cid
 from Crypto.PublicKey import ECC, RSA
@@ -269,12 +269,12 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             return False
 
         url = url.strip().rstrip('/')
-        parsed_url = urllib.parse.urlparse(url)
+        parsed_url = urlparse(url)
         if parsed_url.scheme not in ('http', 'https', ''):
             return False
 
         this = self.web_url().rstrip('/')
-        parsed_this = urllib.parse.urlparse(this)
+        parsed_this = urlparse(this)
 
         return (url == this or url == parsed_this.netloc or
                 parsed_url[1:] == parsed_this[1:])  # ignore http vs https
@@ -502,6 +502,8 @@ class Object(StringIdModel):
     def get_by_id(cls, id):
         """Override Model.get_by_id to un-escape ^^ to #.
 
+        Only needed for compatibility with historical URL paths, we're now back
+        to URL-encoding #s instead.
         https://github.com/snarfed/bridgy-fed/issues/469
 
         See "meth:`proxy_url()` for the inverse.
@@ -568,14 +570,14 @@ class Object(StringIdModel):
     def proxy_url(self):
         """Returns the Bridgy Fed proxy URL to render this post as HTML.
 
-        Escapes # characters to ^^.
+        Note that some webmention receivers are struggling with the %23s
+        (URL-encoded #s) in these paths:
         https://github.com/snarfed/bridgy-fed/issues/469
 
         See "meth:`get_by_id()` for the inverse.
         """
-        assert '^^' not in self.key.id()
-        id = self.key.id().replace('#', '^^')
         # TODO: canonicalize to ABBREV? but need to handle eg ui
+        id = quote(self.key.id(), safe=':/')
         return common.host_url(f'convert/{self.source_protocol}/web/{id}')
 
     def actor_link(self):

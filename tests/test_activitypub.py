@@ -489,7 +489,7 @@ class ActivityPubTest(TestCase):
 
         convert_id = reply['id'].replace('://', ':/')
         if reply['type'] != 'Create':
-            convert_id += '^^bridgy-fed-create'
+            convert_id += '%23bridgy-fed-create'
 
         self.assert_req(
             mock_post,
@@ -720,7 +720,7 @@ class ActivityPubTest(TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'http://localhost/convert/activitypub/web/http:/mas.to/like^^ok',
+            'source': 'http://localhost/convert/activitypub/web/http:/mas.to/like%23ok',
             'target': 'https://user.com/post',
         }, kwargs['data'])
 

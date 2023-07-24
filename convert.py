@@ -5,6 +5,7 @@ constants from the :class:`Protocol` subclasses.
 """
 import logging
 import re
+from urllib.parse import unquote
 
 from flask import g, redirect, request
 from granary import as1
@@ -49,7 +50,7 @@ def convert(dest, _):
     # guarantee us the same query param string as in the original URL, and we
     # want exactly the same thing since we're looking up the URL's Object by id
     path_prefix = f'convert/{dest}/'
-    url = request.url.removeprefix(request.root_url).removeprefix(path_prefix)
+    url = unquote(request.url.removeprefix(request.root_url).removeprefix(path_prefix))
 
     # our redirects evidently collapse :// down to :/ , maybe to prevent URL
     # parsing bugs? if that happened to this URL, expand it back to ://

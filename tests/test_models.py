@@ -241,7 +241,7 @@ class ObjectTest(TestCase):
                          obj.proxy_url())
 
         obj = Object(id='ab#c', source_protocol='ui')
-        self.assertEqual('http://localhost/convert/ui/web/ab^^c',
+        self.assertEqual('http://localhost/convert/ui/web/ab%23c',
                          obj.proxy_url())
 
     def test_put(self):

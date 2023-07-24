@@ -237,7 +237,7 @@ A ☕ reply
         Object(id=url, mf2=parse_mf2(HTML)['items'][0]).put()
 
         resp = self.client.get(f'/convert/ap/{url}',
-                               base_url='https://ap.brid.gy/')
+                               base_url='https://web.brid.gy/')
         self.assertEqual(200, resp.status_code)
         self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
 
@@ -256,5 +256,15 @@ A ☕ reply
 
     def test_web_to_activitypub_no_user(self):
         resp = self.client.get(f'/convert/ap/http://nope.com/post',
-                               base_url='https://ap.brid.gy/')
+                               base_url='https://web.brid.gy/')
         self.assertEqual(400, resp.status_code)
+
+    def test_web_to_activitypub_url_decode(self):
+        """https://github.com/snarfed/bridgy-fed/issues/581"""
+        self.make_user('user.com')
+        self.store_object(id='http://user.com/a#b', mf2=parse_mf2(HTML)['items'][0])
+
+        resp = self.client.get(f'/convert/ap/http://user.com/a%23b',
+                               base_url='https://web.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
