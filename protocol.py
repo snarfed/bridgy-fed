@@ -648,28 +648,31 @@ class Protocol:
                 },
             }
             logger.info(f'Wrapping in update: {json_dumps(update_as1, indent=2)}')
-            obj = Object(id=id, our_as1=update_as1,
-                         source_protocol=obj.source_protocol)
+            return Object(id=id, our_as1=update_as1,
+                          source_protocol=obj.source_protocol)
 
-        # HACK: 'force' in request.form here is specific to webmention
-        elif obj.new or 'force' in request.form:
-            logger.info(f'New Object {obj.key.id()}')
-            id = f'{obj.key.id()}#bridgy-fed-create'
+        create_id = f'{obj.key.id()}#bridgy-fed-create'
+        create = cls.load(create_id, remote=False)
+        if (obj.new or not create or create.status != 'complete'
+                # HACK: force query param here is specific to webmention
+                or 'force' in request.form):
+            if create:
+                logger.info(f'Existing create {create.key} status {create.status}')
+            else:
+                logger.info(f'No existing create activity')
             create_as1 = {
                 'objectType': 'activity',
                 'verb': 'post',
-                'id': id,
+                'id': create_id,
                 'actor': obj_actor,
                 'object': obj.as1,
                 'published': now,
             }
             logger.info(f'Wrapping in post: {json_dumps(create_as1, indent=2)}')
-            obj = Object.get_or_create(id, our_as1=create_as1,
-                                       source_protocol=obj.source_protocol)
-        else:
-            error(f'{obj.key.id()} is unchanged, nothing to do', status=204)
+            return Object.get_or_create(create_id, our_as1=create_as1,
+                                        source_protocol=obj.source_protocol)
 
-        return obj
+        error(f'{obj.key.id()} is unchanged, nothing to do', status=204)
 
     @classmethod
     def _deliver(cls, obj):

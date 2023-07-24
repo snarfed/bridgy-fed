@@ -780,7 +780,9 @@ class WebTest(TestCase):
 
     def test_skip_update_if_content_unchanged(self, mock_get, mock_post):
         """https://github.com/snarfed/bridgy-fed/issues/78"""
-        Object(id='https://user.com/reply', mf2=REPLY_MF2).put()
+        self.store_object(id='https://user.com/reply', mf2=REPLY_MF2)
+        self.store_object(id='https://user.com/reply#bridgy-fed-create',
+                          status='complete')
 
         mock_get.side_effect = ACTIVITYPUB_GETS
 

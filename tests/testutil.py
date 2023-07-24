@@ -261,7 +261,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
     def store_object(**kwargs):
         obj = Object(**kwargs)
         obj.put()
-        del protocol.objects_cache[obj.key.id()]
+        protocol.objects_cache.pop(obj.key.id(), None)
         return obj
 
     @staticmethod

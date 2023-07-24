@@ -359,6 +359,51 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual([(obj, 'shared:target')], Fake.sent)
 
+    def test_create_post_bare_object_existing_failed_create(self):
+        self.make_followers()
+
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+        }
+        self.store_object(id='fake:post', our_as1=post_as1)
+        self.store_object(id='fake:post#bridgy-fed-create', status='failed')
+
+        self.assertEqual('OK', Fake.receive(post_as1))
+
+        obj = self.assert_object('fake:post#bridgy-fed-create',
+                                 status='complete',
+                                 delivered=['shared:target'],
+                                 type='post',
+                                 users=[g.user.key],
+                                 ignore=['our_as1'],
+                                 )
+
+        self.assertEqual([(obj, 'shared:target')], Fake.sent)
+
+    def test_create_post_bare_object_no_existing_create(self):
+        self.make_followers()
+
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+        }
+        self.store_object(id='fake:post', our_as1=post_as1)
+
+        self.assertEqual('OK', Fake.receive(post_as1))
+
+        obj = self.assert_object('fake:post#bridgy-fed-create',
+                                 status='complete',
+                                 delivered=['shared:target'],
+                                 type='post',
+                                 users=[g.user.key],
+                                 ignore=['our_as1'],
+                                 )
+
+        self.assertEqual([(obj, 'shared:target')], Fake.sent)
+
     def test_update_post(self):
         self.make_followers()
 
@@ -548,46 +593,6 @@ class ProtocolReceiveTest(TestCase):
                                  notify=[self.bob.key],
                                  )
         self.assertEqual([(obj, 'fake:post:target')], Fake.sent)
-
-    # TODO: revisit? remove?
-    # def test_reply_not_feed_not_notification(self):
-    #     Follower.get_or_create(to=g.user, from_=self.alice)
-    #     g.user = None
-
-    #     Fake.fetchable['fake:post'] = {
-    #         'objectType': 'note',
-    #         'id': 'fake:post',
-    #         'author': 'fake:eve',  # we have no user for this id
-    #     }
-    #     reply_as1 = {
-    #         'objectType': 'comment',
-    #         'id': 'fake:reply',
-    #         'author': 'fake:bob',
-    #         'content': 'A ☕ reply',
-    #         'inReplyTo': 'fake:post',
-    #     }
-    #     create_as1 = {
-    #         'objectType': 'post',
-    #         'id': 'fake:create',
-    #         'object': reply_as1,
-    #     }
-    #     Fake.receive(create_as1)
-
-    #     self.assert_object('fake:reply',
-    #                        our_as1=reply_as1,
-    #                        type='comment',
-    #                        )
-    #     self.assert_object('fake:create',
-    #                        our_as1=create_as1,
-    #                        type='post',
-    #                        users=[Fake(id='fake:eve').key],
-    #                        # not feed since it's a reply
-    #                        # not notification since it doesn't involve the user
-    #                        delivered=['fake:post:target'],
-    #                        status='complete',
-    #                        )
-
-    #     self.assertEqual([(obj, 'fake:post:target')], Fake.sent)
 
     def test_repost(self):
         self.make_followers()
