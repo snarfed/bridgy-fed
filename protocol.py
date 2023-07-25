@@ -563,7 +563,9 @@ class Protocol:
                 error(f'Follow activity requires object(s). Got: {obj.as1}')
 
             to_cls = Protocol.for_id(to_id)
-            if from_cls == to_cls and from_cls.LABEL != 'fake':
+            if not to_cls:
+                error(f"Couldn't determine protocol for {to_id}")
+            elif from_cls == to_cls and from_cls.LABEL != 'fake':
                 logger.info(f'Skipping same-protocol Follower {from_id} => {to_id}')
                 continue
 

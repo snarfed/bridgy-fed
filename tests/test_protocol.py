@@ -1011,6 +1011,19 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Follower.query().fetch())
         self.assertEqual([], Fake.sent)
 
+    def test_follow_object_unknown_protocol(self):
+        with self.assertRaises(BadRequest):
+            Fake.receive({
+                'id': 'fake:follow',
+                'objectType': 'activity',
+                'verb': 'follow',
+                'actor': 'fake:alice',
+                'object': 'unknown:bob',
+            })
+
+        self.assertEqual([], Follower.query().fetch())
+        self.assertEqual([], Fake.sent)
+
     def test_stop_following(self):
         follower = Follower.get_or_create(to=g.user, from_=self.alice)
 
