@@ -37,8 +37,7 @@ ACTOR_HTML = """\
 </body>
 </html>
 """
-ACTOR_HTML_RESP = requests_response(ACTOR_HTML, url='https://user.com/',
-                                    content_type=CONTENT_TYPE_HTML)
+ACTOR_HTML_RESP = requests_response(ACTOR_HTML, url='https://user.com/')
 ACTOR_MF2 = {
     'type': ['h-card'],
     'properties': {
@@ -104,8 +103,7 @@ REPOST_HTML = """\
 </body>
 </html>
 """
-REPOST = requests_response(REPOST_HTML, content_type=CONTENT_TYPE_HTML,
-                           url='https://user.com/repost')
+REPOST = requests_response(REPOST_HTML, url='https://user.com/repost')
 REPOST_MF2 = util.parse_mf2(REPOST_HTML)['items'][0]
 REPOST_AS2 = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -137,8 +135,7 @@ REPOST_HCITE_HTML = """\
 </body>
 </html>
 """
-REPOST_HCITE = requests_response(REPOST_HTML, content_type=CONTENT_TYPE_HTML,
-                                 url='https://user.com/repost')
+REPOST_HCITE = requests_response(REPOST_HTML, url='https://user.com/repost')
 
 WEBMENTION_REL_LINK = requests_response(
     '<html><head><link rel="webmention" href="/webmention"></html>')
@@ -167,7 +164,7 @@ TOOT_HTML = requests_response("""\
 <link href='https://mas.to/toot/id' rel='alternate' type='application/activity+json'>
 </meta>
 </html>
-""", url='https://mas.to/toot', content_type=CONTENT_TYPE_HTML)
+""", url='https://mas.to/toot')
 TOOT_AS2_DATA = {
     '@context': ['https://www.w3.org/ns/activitystreams'],
     'type': 'Article',
@@ -195,8 +192,7 @@ REPLY_HTML = """\
 </body>
 </html>
 """
-REPLY = requests_response(REPLY_HTML, content_type=CONTENT_TYPE_HTML,
-                          url='https://user.com/reply')
+REPLY = requests_response(REPLY_HTML, url='https://user.com/reply')
 REPLY_MF2 = util.parse_mf2(REPLY_HTML)['items'][0]
 REPLY_AS1 = microformats2.json_to_object(REPLY_MF2)
 REPLY_AS1['id'] = 'https://user.com/reply'
@@ -222,8 +218,7 @@ LIKE_HTML = """\
 </body>
 </html>
 """
-LIKE = requests_response(LIKE_HTML, content_type=CONTENT_TYPE_HTML,
-                         url='https://user.com/like')
+LIKE = requests_response(LIKE_HTML, url='https://user.com/like')
 LIKE_MF2 = util.parse_mf2(LIKE_HTML)['items'][0]
 
 ACTOR = TestCase.as2_resp({
@@ -285,9 +280,7 @@ FOLLOW_HTML = """\
 </html>
 """
 
-FOLLOW = requests_response(
-    FOLLOW_HTML, url='https://user.com/follow',
-    content_type=CONTENT_TYPE_HTML)
+FOLLOW = requests_response(FOLLOW_HTML, url='https://user.com/follow')
 FOLLOW_MF2 = util.parse_mf2(FOLLOW_HTML)['items'][0]
 FOLLOW_AS1 = microformats2.json_to_object(FOLLOW_MF2)
 FOLLOW_AS2 = {
@@ -316,8 +309,7 @@ FOLLOW_FRAGMENT_HTML = """\
 </html>
 """
 FOLLOW_FRAGMENT = requests_response(
-    FOLLOW_FRAGMENT_HTML, url='https://user.com/follow',
-    content_type=CONTENT_TYPE_HTML)
+    FOLLOW_FRAGMENT_HTML, url='https://user.com/follow')
 FOLLOW_FRAGMENT_MF2 = \
     util.parse_mf2(FOLLOW_FRAGMENT_HTML, id='2')['items'][0]
 FOLLOW_FRAGMENT_AS2 = {
@@ -338,8 +330,7 @@ NOTE_HTML = """\
 </body>
 </html>
 """
-NOTE = requests_response(NOTE_HTML, url='https://user.com/post',
-                         content_type=CONTENT_TYPE_HTML)
+NOTE = requests_response(NOTE_HTML, url='https://user.com/post')
 NOTE_MF2 = util.parse_mf2(NOTE_HTML)['items'][0]
 NOTE_AS1 = microformats2.json_to_object(NOTE_MF2)
 NOTE_AS1.update({
@@ -387,7 +378,7 @@ NOT_FEDIVERSE = requests_response("""\
 <html>
 <body>foo</body>
 </html>
-""", url='http://not/fediverse', content_type=CONTENT_TYPE_HTML)
+""", url='http://not/fediverse')
 ACTIVITYPUB_GETS = [
     REPLY,
     NOT_FEDIVERSE,  # AP
@@ -553,8 +544,7 @@ class WebTest(TestCase):
         orig_count = Object.query().count()
 
         mock_get.side_effect = (
-            requests_response(REPLY_HTML, status=405,
-                              content_type=CONTENT_TYPE_HTML),
+            requests_response(REPLY_HTML, status=405),
         )
 
         got = self.client.post('/_ah/queue/webmention',
@@ -570,7 +560,7 @@ class WebTest(TestCase):
 <body>
 <p>nothing to see here except <a href="http://localhost/">link</a></p>
 </body>
-</html>""", url='https://user.com/post', content_type=CONTENT_TYPE_HTML)
+</html>""", url='https://user.com/post')
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/post',
@@ -587,7 +577,7 @@ class WebTest(TestCase):
 <body>
 <p>nothing to see here except <a href="http://localhost/">link</a></p>
 </body>
-</html>""", url='https://user.com/', content_type=CONTENT_TYPE_HTML)
+</html>""", url='https://user.com/')
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/',
@@ -603,7 +593,7 @@ class WebTest(TestCase):
 <p class="e-content">no one to send to!</p>
 </body>
 <a href="http://localhost/"></a>
-</html>""", url='https://user.com/post', content_type=CONTENT_TYPE_HTML)
+</html>""", url='https://user.com/post')
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/post',
@@ -646,7 +636,7 @@ class WebTest(TestCase):
         mock_get.side_effect = [
             requests_response(
                 REPLY_HTML.replace('https://mas.to/toot', 'bad:nope'),
-                url='https://user.com/post', content_type=CONTENT_TYPE_HTML),
+                url='https://user.com/post'),
             # http://not/fediverse AP protocol discovery
             requests.Timeout('foo bar'),
             # http://not/fediverse web protocol discovery
@@ -680,7 +670,7 @@ class WebTest(TestCase):
 
         mock_get.return_value = requests_response(
             REPLY_HTML.replace('<a href="http://localhost/"></a>', ''),
-            url='https://user.com/reply', content_type=CONTENT_TYPE_HTML)
+            url='https://user.com/reply')
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/reply',
@@ -859,8 +849,7 @@ class WebTest(TestCase):
         self.make_followers()
 
         mock_get.side_effect = [
-            requests_response(html, content_type=CONTENT_TYPE_HTML,
-                              url='https://user.com/repost'),
+            requests_response(html, url='https://user.com/repost'),
             TOOT_AS2,
             ACTOR,
         ]
@@ -967,7 +956,7 @@ class WebTest(TestCase):
   <a class="u-like-of" href="https://alice.com/post"></a>
   <a class="u-bookmark-of" href="http://bob.com/post"></a>
   <a href="http://localhost/"></a>
-"""), content_type=CONTENT_TYPE_HTML, url='https://user.com/post')
+"""), url='https://user.com/post')
 
         got = self.client.post('/_ah/queue/webmention', data={
             'source': 'https://user.com/multiple',
@@ -999,7 +988,7 @@ class WebTest(TestCase):
 <a href="http://localhost/"></a>
 </body>
 </html>
-""", url='https://user.com/repost', content_type=CONTENT_TYPE_HTML)
+""", url='https://user.com/repost')
         mock_get.side_effect = [missing_url, TOOT_AS2, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
@@ -1026,7 +1015,7 @@ class WebTest(TestCase):
 <a href="http://localhost/"></a>
 </body>
 </html>
-""", url='https://user.com/repost', content_type=CONTENT_TYPE_HTML)
+""", url='https://user.com/repost')
         mock_get.side_effect = [repost, ACTOR, TOOT_AS2, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
@@ -1050,7 +1039,7 @@ class WebTest(TestCase):
 <a href="http://localhost/"></a>
 </body>
 </html>
-""", url='https://user.com/repost', content_type=CONTENT_TYPE_HTML),
+""", url='https://user.com/repost'),
             NOT_FEDIVERSE,
             TOOT_AS2,
             ACTOR,
@@ -1073,6 +1062,37 @@ class WebTest(TestCase):
                            labels=['activity', 'user'],
                            notify=[ndb.Key('ActivityPub', 'https://mas.to/author')],
                            delivered=['https://mas.to/inbox'],
+                           status='complete',
+                           )
+
+    def test_create_non_domain_author(self, mock_get, mock_post):
+        """Author is a page on the user's domain."""
+        self.make_followers()
+
+        mock_get.side_effect = [
+            requests_response(NOTE_HTML.replace(
+                '<a class="p-author h-card" href="https://user.com/">',
+                '<a class="p-author h-card" href="https://user.com/hcard">'
+            ), url='https://user.com/post'),
+            ACTOR_HTML_RESP,
+            TOOT_AS2,
+            ACTOR,
+        ]
+
+        got = self.client.post('/_ah/queue/webmention', data={
+            'source': 'https://user.com/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
+
+        inboxes = ['https://inbox/', 'https://public/inbox', 'https://shared/inbox']
+        self.assert_object('https://user.com/post#bridgy-fed-create',
+                           users=[g.user.key],
+                           source_protocol='web',
+                           our_as1=CREATE_AS1,
+                           type='post',
+                           labels=['activity', 'user'],
+                           delivered=inboxes,
                            status='complete',
                            )
 
@@ -1488,8 +1508,7 @@ class WebTest(TestCase):
     def _test_repost_blocklisted_error(self, orig_url, mock_get, mock_post):
         """Reposts of non-fediverse (ie blocklisted) sites aren't yet supported."""
         repost_html = REPOST_HTML.replace('https://mas.to/toot', orig_url)
-        repost_resp = requests_response(repost_html, content_type=CONTENT_TYPE_HTML,
-                                        url='https://user.com/repost')
+        repost_resp = requests_response(repost_html, url='https://user.com/repost')
         mock_get.side_effect = [repost_resp]
 
         got = self.client.post('/_ah/queue/webmention', data={
@@ -1890,8 +1909,7 @@ class WebUtilTest(TestCase):
 
     def test_fetch_redirect(self, mock_get, __):
         mock_get.return_value = requests_response(
-            REPOST_HTML, content_type=CONTENT_TYPE_HTML,
-            redirected_url='http://new/url')
+            REPOST_HTML, redirected_url='http://new/url')
         obj = Object(id='https://orig/url')
         Web.fetch(obj)
 
@@ -1927,7 +1945,7 @@ class WebUtilTest(TestCase):
 <p class="p-name">hello i am a post</p>
 </body>
 </html>
-""", url='https://user.com/post', content_type=CONTENT_TYPE_HTML)
+""", url='https://user.com/post')
 
         obj = Object(id='https://user.com/post')
         Web.fetch(obj)
