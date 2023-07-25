@@ -1018,14 +1018,15 @@ class ActivityPubTest(TestCase):
         # actor with a public key
         self.key_id_obj.key.delete()
         protocol.objects_cache.clear()
-        mock_get.return_value = self.as2_resp({
+        actor_as2 = {
             **ACTOR,
             'publicKey': {
                 'id': 'http://my/key/id#unused',
                 'owner': 'http://own/er',
                 'publicKeyPem': self.user.public_pem().decode(),
             },
-        })
+        }
+        mock_get.return_value = self.as2_resp(actor_as2)
 
         # valid signature
         body = json_dumps(NOTE)
@@ -1035,6 +1036,20 @@ class ActivityPubTest(TestCase):
         mock_get.assert_has_calls((
             self.as2_req('http://my/key/id'),
         ))
+        mock_activitypub_log.assert_any_call('HTTP Signature verified!')
+
+        # valid signature, Object has no key
+        self.key_id_obj.as2 = ACTOR
+        self.key_id_obj.put()
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
+
+        # valid signature, Object has our_as1 instead of as2
+        self.key_id_obj.clear()
+        self.key_id_obj.our_as1 = as2.to_as1(actor_as2)
+        self.key_id_obj.put()
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(204, resp.status_code, resp.get_data(as_text=True))
         mock_activitypub_log.assert_any_call('HTTP Signature verified!')
 
         # invalid signature, missing keyId

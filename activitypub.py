@@ -354,10 +354,13 @@ class ActivityPub(User, Protocol):
 
         if key_actor and key_actor.deleted:
             abort(202, f'Ignoring, signer {keyId} is already deleted')
-        elif not key_actor:
+        elif not key_actor or not key_actor.as1:
             error(f"Couldn't load {keyId} to verify signature", status=401)
 
-        key = key_actor.as2.get("publicKey", {}).get('publicKeyPem')
+        key = key_actor.as_as2().get('publicKey', {}).get('publicKeyPem')
+        if not key:
+            error(f'No public key for {keyId}', status=401)
+
         logger.info(f'Verifying signature for {request.path} with key {key}')
         try:
             verified = HeaderVerifier(headers, key,
