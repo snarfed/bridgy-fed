@@ -5,7 +5,7 @@ constants from the :class:`Protocol` subclasses.
 """
 import logging
 import re
-from urllib.parse import unquote
+from urllib.parse import quote, unquote
 
 from flask import g, redirect, request
 from granary import as1
@@ -100,13 +100,14 @@ def render_redirect():
     return redirect(ActivityPub.subdomain_url(f'/convert/web/{id}'), code=301)
 
 
-# WARNING: This doesn't currently work. The /convert/... URL route at the top
-# overrides it and handles all of these URLs.
 @app.get(f'/convert/<any({",".join(SOURCES)}):src>/<any({",".join(DESTS)}):dest>/<path:_>')
 def convert_source_path_redirect(src, dest, _):
     """Old route that included source protocol in path instead of subdomain."""
     if Protocol.for_request() not in (None, 'web'):  # no per-protocol subdomains
         error(f'Try again on fed.brid.gy', status=404)
 
-    new_path = request.full_path.replace(f'/{src}/', '/')
+    # in prod, eg gunicorn, the path somehow gets URL-decoded before we see
+    # it, so we need to re-encode.
+    new_path = quote(request.full_path.rstrip('?').replace(f'/{src}/', '/'),
+                     safe=':/%')
     return redirect(PROTOCOLS[src].subdomain_url(new_path), code=301)

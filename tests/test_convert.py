@@ -225,10 +225,19 @@ A ☕ reply
                          resp.headers['Location'])
 
     def test_convert_source_path_redirect(self):
-        resp = self.client.get('/convert/ap/web/http://foo?bar')
+        resp = self.client.get('/convert/activitypub/web/https:/foo%3Fbar%23baz')
         self.assertEqual(301, resp.status_code)
-        self.assertEqual(f'https://ap.brid.gy/convert/web/http://foo?bar',
+        self.assertEqual(f'https://ap.brid.gy/convert/web/https:/foo%3Fbar%23baz',
                          resp.headers['Location'])
+
+        # the Flask/Werkeug test client strips the #baz here. but ideally we
+        # should be testing it since somehow request.full_path URL-decodes in
+        # prod but not here. ugh.
+
+        # resp = self.client.get('/convert/activitypub/web/https:/foo?bar#baz')
+        # self.assertEqual(301, resp.status_code)
+        # self.assertEqual(f'https://ap.brid.gy/convert/web/https:/foo%3Fbar%23baz',
+        #                  resp.headers['Location'])
 
     def test_web_to_activitypub_object(self):
         url = 'https://user.com/bar?baz=baj&biff'
