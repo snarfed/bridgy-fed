@@ -610,38 +610,6 @@ class Object(StringIdModel):
         </a>"""
 
 
-class AtpNode(StringIdModel):
-    """An AT Protocol (Bluesky) node.
-
-    May be a data record, an MST node, or a commit.
-
-    Key name is the DAG-CBOR base32 CID of the data.
-
-    Properties:
-    * data: JSON-decoded DAG-JSON value of this node
-    * obj: optional, Key of the corresponding :class:`Object`, only populated
-      for records
-    """
-    data = JsonProperty(required=True)
-    obj = ndb.KeyProperty(Object)
-
-    @staticmethod
-    def create(data):
-        """Writes a new AtpNode to the datastore.
-
-        Args:
-          data: dict value
-
-        Returns:
-          :class:`AtpNode`
-        """
-        data = json.loads(dag_json.encode(data))
-        cid = dag_cbor_cid(data)
-        node = AtpNode(id=cid.encode('base32'), data=data)
-        node.put()
-        return node
-
-
 class Follower(ndb.Model):
     """A follower of a Bridgy Fed user."""
     STATUSES = ('active', 'inactive')

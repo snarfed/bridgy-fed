@@ -10,7 +10,7 @@ from oauth_dropins.webutil.testutil import NOW
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
 
-from models import AtpNode, Follower, Object, OBJECT_EXPIRE_AGE, Target, User
+from models import Follower, Object, OBJECT_EXPIRE_AGE, Target, User
 import protocol
 from protocol import Protocol
 from web import Web
@@ -447,11 +447,3 @@ class FollowerTest(TestCase):
                                           status='inactive')
         got = follower.key.get()
         self.assertEqual('inactive', got.status)
-
-
-class AtpNodeTest(TestCase):
-
-    def test_create(self):
-        AtpNode.create(ACTOR_PROFILE_BSKY)
-        stored = AtpNode.get_by_id(dag_cbor_cid(ACTOR_PROFILE_BSKY).encode('base32'))
-        self.assertEqual(ACTOR_PROFILE_BSKY, stored.data)
