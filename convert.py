@@ -42,7 +42,7 @@ def convert(dest, _):
 
     Fetches the source data if it's not already stored.
     """
-    src_cls = Protocol.for_request()
+    src_cls = Protocol.for_request(fed=Protocol)
     if not src_cls:
         error(f'Unknown protocol {request.host.removesuffix(SUPERDOMAIN)}', status=404)
 

@@ -277,3 +277,14 @@ A ☕ reply
                                base_url='https://web.brid.gy/')
         self.assertEqual(200, resp.status_code)
         self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
+
+    def test_fed_subdomain(self):
+        url = 'https://user.com/post'
+        Object(id=url, our_as1=COMMENT).put()
+
+        resp = self.client.get('/convert/web/https://user.com/post',
+                               base_url='https://fed.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assert_multiline_equals(HTML, resp.get_data(as_text=True),
+                                     ignore_blanks=True)
+

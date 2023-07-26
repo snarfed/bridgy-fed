@@ -2070,7 +2070,7 @@ class WebUtilTest(TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'https://ui.brid.gy/convert/web/http:/mas.to/like%23ok',
+            'source': 'https://fed.brid.gy/convert/web/http:/mas.to/like%23ok',
             'target': 'https://user.com/post',
         }, kwargs['data'])
 
@@ -2116,7 +2116,7 @@ class WebUtilTest(TestCase):
                 args, kwargs = mock_post.call_args
                 self.assertEqual(('https://user.com/webmention',), args)
                 self.assertEqual({
-                    'source': 'https://ui.brid.gy/convert/web/http:/mas.to/like%23ok',
+                    'source': 'https://fed.brid.gy/convert/web/http:/mas.to/like%23ok',
                     'target': 'https://user.com/post',
                 }, kwargs['data'])
 
