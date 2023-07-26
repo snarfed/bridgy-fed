@@ -497,7 +497,7 @@ class ActivityPubTest(TestCase):
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
-                'source': f'http://localhost/convert/activitypub/web/{convert_id}',
+                'source': f'https://ap.brid.gy/convert/web/{convert_id}',
                 'target': 'https://user.com/post',
             },
         )
@@ -601,7 +601,7 @@ class ActivityPubTest(TestCase):
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
-                'source': f'http://localhost/convert/activitypub/web/{convert_id}',
+                'source': f'https://ap.brid.gy/convert/web/{convert_id}',
                 'target': orig_url,
             },
         )
@@ -720,7 +720,7 @@ class ActivityPubTest(TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'http://localhost/convert/activitypub/web/http:/mas.to/like%23ok',
+            'source': 'https://ap.brid.gy/convert/web/http:/mas.to/like%23ok',
             'target': 'https://user.com/post',
         }, kwargs['data'])
 
@@ -838,7 +838,7 @@ class ActivityPubTest(TestCase):
         args, kwargs = mock_post.call_args_list[1]
         self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'http://localhost/convert/activitypub/web/https:/mas.to/6d1a',
+            'source': 'https://ap.brid.gy/convert/web/https:/mas.to/6d1a',
             'target': 'https://user.com/',
         }, kwargs['data'])
 

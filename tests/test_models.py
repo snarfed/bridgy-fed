@@ -236,12 +236,12 @@ class ObjectTest(TestCase):
         self.assertTrue(obj.activity_changed({'content': 'x'}))
 
     def test_proxy_url(self):
-        obj = Object(id='abc', source_protocol='bluesky')
-        self.assertEqual('http://localhost/convert/bluesky/web/abc',
+        obj = Object(id='abc', source_protocol='activitypub')
+        self.assertEqual('https://ap.brid.gy/convert/web/abc',
                          obj.proxy_url())
 
         obj = Object(id='ab#c', source_protocol='ui')
-        self.assertEqual('http://localhost/convert/ui/web/ab%23c',
+        self.assertEqual('https://fed.brid.gy/convert/web/ab%23c',
                          obj.proxy_url())
 
     def test_put(self):

@@ -573,12 +573,18 @@ class Object(StringIdModel):
         Note that some webmention receivers are struggling with the %23s
         (URL-encoded #s) in these paths:
         https://github.com/snarfed/bridgy-fed/issues/469
+        https://github.com/pfefferle/wordpress-webmention/issues/359
 
         See "meth:`get_by_id()` for the inverse.
         """
-        # TODO: canonicalize to ABBREV? but need to handle eg ui
+        # TODO: fix this circular import
+        from protocol import Protocol
+
         id = quote(self.key.id(), safe=':/')
-        return common.host_url(f'convert/{self.source_protocol}/web/{id}')
+        if not self.source_protocol:
+            logger.warning(f'!!! No source_protocol for {id} !!!')
+        protocol = PROTOCOLS.get(self.source_protocol) or Protocol
+        return protocol.subdomain_url(f'convert/web/{id}')
 
     def actor_link(self):
         """Returns a pretty actor link with their name and profile picture."""
