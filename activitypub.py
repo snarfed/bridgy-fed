@@ -133,7 +133,9 @@ class ActivityPub(User, Protocol):
             for field in 'actor', 'author', 'attributedTo':
                 inner_obj = as1.get_object(obj.as1, field)
                 inner_id = inner_obj.get('id') or as1.get_url(inner_obj)
-                if not inner_id:
+                if (not inner_id
+                        or inner_id == obj.as1.get('id')
+                        or (obj.key and inner_id == obj.key.id())):
                     continue
 
                 # TODO: need a "soft" kwarg for load to suppress errors?

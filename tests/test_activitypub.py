@@ -1932,6 +1932,14 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual('http://mas.to/inbox', ActivityPub.target_for(obj))
         mock_get.assert_has_calls([self.as2_req('http://the/author')])
 
+    @patch('requests.get')
+    def test_target_for_author_is_object_id(self, mock_get):
+        obj = self.store_object(id='http://the/author', our_as1={
+            'author': 'http://the/author',
+        })
+        # test is that we short circuit out instead of infinite recursion
+        self.assertIsNone(ActivityPub.target_for(obj))
+
     @patch('requests.post')
     def test_send_blocklisted(self, mock_post):
         self.assertFalse(ActivityPub.send(Object(as2=NOTE),
