@@ -16,6 +16,7 @@ from flask import g
 from google.cloud import ndb
 from granary import as2
 from granary.tests.test_as1 import (
+    ACTOR,
     COMMENT,
     MENTION,
     NOTE,
@@ -32,6 +33,25 @@ from models import Object, PROTOCOLS, Target, User
 import protocol
 
 logger = logging.getLogger(__name__)
+
+NOTE = {
+    **NOTE,
+    # bare string author id
+    'author': ACTOR['id'],
+}
+MENTION = {
+    **MENTION,
+    # author object with just id
+    'author': {'id': ACTOR['id']},
+}
+COMMENT = {
+    **COMMENT,
+    # full author object
+    'author': {
+        **ACTOR,
+        'displayName': 'Dr. Eve',
+    },
+}
 
 
 class Fake(User, protocol.Protocol):
@@ -237,25 +257,36 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                           users=[user],
                           notify=[user],
                           feed=[user],
-                          as2=as2.from_as1(NOTE))
-        # different domain
-        nope = ndb.Key(Web, 'nope.org')
+                          our_as1=NOTE)
+        # post with mention
         self.store_object(id='b',
-                          notify=[nope],
-                          feed=[nope],
-                          as2=as2.from_as1(MENTION))
+                          notify=[user],
+                          feed=[user],
+                          our_as1=MENTION)
         # reply
         self.store_object(id='d',
                           notify=[user],
                           feed=[user],
-                          as2=as2.from_as1(COMMENT))
+                          our_as1=COMMENT)
         # not feed/notif
-        self.store_object(id='e', users=[user], as2=as2.from_as1(NOTE))
+        self.store_object(id='e',
+                          users=[user],
+                          our_as1=NOTE)
         # deleted
         self.store_object(id='f',
                           notify=[user],
                           feed=[user],
-                          as2=as2.from_as1(NOTE), deleted=True)
+                          our_as1=NOTE,
+                          deleted=True)
+        # different domain
+        nope = ndb.Key(Web, 'nope.org')
+        self.store_object(id='g',
+                          notify=[nope],
+                          feed=[nope],
+                          our_as1=MENTION)
+
+        # actor whose id is in NOTE.author
+        self.store_object(id=ACTOR['id'], our_as1=ACTOR)
 
     @staticmethod
     def store_object(**kwargs):

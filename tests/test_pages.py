@@ -1,15 +1,10 @@
 """Unit tests for pages.py."""
 from google.cloud import ndb
 from granary import atom, microformats2, rss
-from granary.tests.test_as1 import (
-    ACTOR,
-    COMMENT,
-    NOTE,
-)
 from oauth_dropins.webutil import util
 
 # import first so that Fake is defined before URL routes are registered
-from .testutil import Fake, TestCase
+from .testutil import Fake, TestCase, ACTOR, COMMENT, MENTION, NOTE
 
 from activitypub import ActivityPub
 from models import Object, Follower
@@ -24,11 +19,12 @@ ACTOR_WITH_PREFERRED_USERNAME = {
 
 
 def contents(activities):
-    return [(a.get('object') or a)['content'] for a in activities]
+    return [(a.get('object') or a)['content'].splitlines()[0]
+            for a in activities]
 
 
 class PagesTest(TestCase):
-    EXPECTED = contents([COMMENT, NOTE])
+    EXPECTED = contents([COMMENT, NOTE, NOTE])
 
     def setUp(self):
         super().setUp()
@@ -254,19 +250,6 @@ class PagesTest(TestCase):
     def test_feed_html(self):
         self.add_objects()
 
-        # note with author in separate Object
-        note_2 = {
-            'objectType': 'note',
-            'content': 'foo',
-            'author': 'fake:alice',
-        }
-        alice = {
-            'displayName': 'Ms Alice Macbeth',
-        }
-        user = ndb.Key(Web, 'user.com')
-        self.store_object(id='fake:note_2', feed=[user], our_as1=note_2)
-        self.store_object(id='fake:alice', our_as1=alice)
-
         # repost with object (original post) in separate Object
         repost = {
             'objectType': 'activity',
@@ -277,15 +260,17 @@ class PagesTest(TestCase):
             'objectType': 'note',
             'content': 'biff',
         }
-        self.store_object(id='fake:repost', feed=[user], our_as1=repost)
+        self.store_object(id='fake:repost', feed=[self.user.key], our_as1=repost)
         self.store_object(id='fake:orig', our_as1=orig)
 
         got = self.client.get('/web/user.com/feed')
         self.assert_equals(200, got.status_code)
-        self.assert_equals(self.EXPECTED + ['foo', 'biff'],
+        self.assert_equals(['biff'] + self.EXPECTED,
                            contents(microformats2.html_to_activities(got.text)))
-        self.assertIn('Ms Alice Macbeth', got.text)
-        self.assertIn('biff', got.text)
+
+        # NOTE's and MENTION's authors; check for two instances
+        bob = '<a class="p-name u-url" href="https://plus.google.com/bob">Bob</a>'
+        assert got.text.index(bob) != got.text.rindex(bob)
 
     def test_feed_atom_empty(self):
         got = self.client.get('/web/user.com/feed?format=atom')
@@ -298,6 +283,16 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code)
         self.assert_equals(self.EXPECTED, contents(atom.atom_to_activities(got.text)))
 
+        # NOTE's and MENTION's authors; check for two instances
+        bob = """
+ <uri>https://plus.google.com/bob</uri>
+ 
+ <name>Bob</name>
+"""
+        assert got.text.index(bob) != got.text.rindex(bob)
+        # COMMENT's author
+        self.assertIn('Dr. Eve', got.text)
+
     def test_feed_rss_empty(self):
         got = self.client.get('/web/user.com/feed?format=rss')
         self.assert_equals(200, got.status_code)
@@ -308,6 +303,12 @@ class PagesTest(TestCase):
         got = self.client.get('/web/user.com/feed?format=rss')
         self.assert_equals(200, got.status_code)
         self.assert_equals(self.EXPECTED, contents(rss.to_activities(got.text)))
+
+        # NOTE's and MENTION's authors; check for two instances
+        bob = '<author>- (Bob)</author>'
+        assert got.text.index(bob) != got.text.rindex(bob)
+        # COMMENT's author
+        self.assertIn('Dr. Eve', got.text)
 
     def test_nodeinfo(self):
         # just check that it doesn't crash

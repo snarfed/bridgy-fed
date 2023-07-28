@@ -5,7 +5,7 @@ import logging
 import os
 
 from flask import g, render_template, request
-from google.cloud import ndb
+from google.cloud.ndb import tasklets
 from google.cloud.ndb.query import AND, OR
 from google.cloud.ndb.stats import KindStat
 from granary import as1, as2, atom, microformats2, rss
@@ -147,19 +147,24 @@ def feed(protocol, id):
                     .fetch(PAGE_SIZE)
     activities = [obj.as1 for obj in objects if not obj.deleted]
 
-    # fill in authors, actors, objects stored in their own Objects
+    # hydrate authors, actors, objects from stored Objects
     fields = 'author', 'actor', 'object'
-    hydrate_ids = [id for id in itertools.chain(
-        *[[a[f] for f in fields if isinstance(a.get(f), str)]
-          for a in activities])]
-    if hydrate_ids:
-        keys = [ndb.Key(Object, id) for id in hydrate_ids]
-        hydrated = {o.key.id(): o.as1 for o in ndb.get_multi(keys) if o}
-        for a in activities:
-            for field in fields:
-                id = a.get(field)
-                if isinstance(id, str) and hydrated.get(id):
-                    a[field] = hydrated[id]
+    gets = []
+    for a in activities:
+        for field in fields:
+            val = as1.get_object(a, field)
+            if val and val.keys() <= set(['id']):
+                def hydrate(a, f):
+                    def maybe_set(future):
+                        if future.result() and future.result().as1:
+                            a[f] = future.result().as1
+                    return maybe_set
+
+                future = Object.get_by_id_async(val['id'])
+                future.add_done_callback(hydrate(a, field))
+                gets.append(future)
+
+    tasklets.wait_all(gets)
 
     actor = {
       'displayName': id,
