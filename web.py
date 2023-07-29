@@ -360,16 +360,20 @@ class Web(User, Protocol):
 
         if not is_homepage:
             # default actor/author to home page URL
-            if not props.get('author'):
-                homepage = urljoin(url, '/')
-                logger.info(f'Defaulting author to {homepage}')
-                props['author'] = [homepage]
+            authors = props.setdefault('author', [])
+            if not microformats2.get_string_urls(authors):
+                homepage = urljoin(parsed.get('url') or url, '/')
+                logger.info(f'Defaulting author URL to {homepage}')
+                if authors and isinstance(authors[0], dict):
+                    authors[0]['properties']['url'] = [homepage]
+                else:
+                    authors.insert(0, homepage)
 
             # run full authorship algorithm if necessary:
             # https://indieweb.org/authorship
             # duplicated in microformats2.json_to_object
             author = util.get_first(props, 'author')
-            if not isinstance(author, dict) and not is_homepage:
+            if not isinstance(author, dict):
                 logger.info(f'Fetching full authorship for author {author}')
                 author = mf2util.find_author({'items': [entry]}, hentry=entry,
                                              fetch_mf2_func=util.fetch_mf2)

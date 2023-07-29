@@ -1938,7 +1938,7 @@ class WebUtilTest(TestCase):
         Web.fetch(obj)
         self.assert_equals({**REPOST_MF2, 'url': 'https://user.com/repost'}, obj.mf2)
 
-    def test_fetch_default_author_to_user(self, mock_get, __):
+    def test_fetch_default_missing_author_to_user(self, mock_get, __):
         mock_get.return_value = requests_response("""\
 <html>
 <body class="h-entry">
@@ -1954,6 +1954,33 @@ class WebUtilTest(TestCase):
             'properties': {
                 'name': ['hello i am a post'],
                 'author': ['https://user.com/'],
+                'url': ['https://user.com/post'],
+            },
+            'url': 'https://user.com/post',
+        }, obj.mf2)
+
+    def test_fetch_default_author_missing_url_to_user(self, mock_get, __):
+        mock_get.return_value = requests_response("""\
+<html>
+<body class="h-entry">
+<p class="p-author h-card">Alice</p>
+</body>
+</html>
+""", url='https://user.com/post')
+
+        obj = Object(id='https://user.com/post')
+        Web.fetch(obj)
+        self.assert_equals({
+            'type': ['h-entry'],
+            'properties': {
+                'author': [{
+                    'type': ['h-card'],
+                    'properties': {
+                        'name': ['Alice'],
+                        'url': ['https://user.com/'],
+                    },
+                    'value': 'Alice',
+                }],
                 'url': ['https://user.com/post'],
             },
             'url': 'https://user.com/post',
