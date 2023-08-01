@@ -121,7 +121,8 @@ class FollowCallback(indieauth.Callback):
             return redirect(g.user.user_page_path('following'))
 
         followee_id = followee.as1.get('id')
-        inbox = followee.as2.get('inbox')
+        followee_as2 = followee.as_as2()
+        inbox = followee_as2.get('inbox')
         if not followee_id or not inbox:
             flash(f"AS2 profile {as2_url} missing id or inbox")
             return redirect(g.user.user_page_path('following'))
@@ -132,7 +133,7 @@ class FollowCallback(indieauth.Callback):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Follow',
             'id': follow_id,
-            'object': followee.as2,
+            'object': followee_as2,
             'actor': g.user.ap_actor(),
             'to': [as2.PUBLIC_AUDIENCE],
         }

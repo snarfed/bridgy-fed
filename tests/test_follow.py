@@ -186,6 +186,39 @@ class FollowTest(TestCase):
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
         self.check('https://bar/actor', resp, FOLLOW_URL, mock_get, mock_post)
 
+    def test_callback_stored_followee_with_our_as1(self, mock_get, mock_post):
+        self.store_object(id='https://bar/id', our_as1=as2.to_as1({
+            **FOLLOWEE,
+            # 'id': 'https://bar/actor',
+        }))
+
+        mock_get.side_effect = (
+            requests_response(''),
+        )
+        mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
+            requests_response('OK'),  # AP Follow to inbox
+        )
+
+        self.state['state'] = 'https://bar/id'
+        state = util.encode_oauth_state(self.state)
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+
+        follow_with_profile_link = {
+            **FOLLOW_URL,
+            'id': f'http://localhost/web/alice.com/following#2022-01-02T03:04:05-https://bar/id',
+            'object': {
+                **FOLLOWEE,
+                'attachment': [{
+                    'type': 'PropertyValue',
+                    'name': 'Link',
+                    'value': '<a rel="me" href="https://bar/url"><span class="invisible">https://</span>bar/url<span class="invisible"></span></a>',
+                }],
+            },
+        }
+        self.check('https://bar/id', resp, follow_with_profile_link, mock_get,
+                   mock_post, fetched_followee=False)
+
     def test_callback_composite_url_field(self, mock_get, mock_post):
         """https://console.cloud.google.com/errors/detail/CKmLytj-nPv9RQ;time=P30D?project=bridgy-federated"""
         followee = {
@@ -215,15 +248,18 @@ class FollowTest(TestCase):
         expected_follow['object'] = followee
         self.check('https://bar/actor', resp, expected_follow, mock_get, mock_post)
 
-    def check(self, input, resp, expected_follow, mock_get, mock_post):
+    def check(self, input, resp, expected_follow, mock_get, mock_post,
+              fetched_followee=True):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
         self.assertEqual([f'Followed <a href="https://bar/url">{input}</a>.'],
                          get_flashed_messages())
 
-        mock_get.assert_has_calls((
-            self.as2_req('https://bar/actor'),
-        ))
+        if fetched_followee:
+            mock_get.assert_has_calls((
+                self.as2_req('https://bar/actor'),
+            ))
+
         inbox_args, inbox_kwargs = mock_post.call_args
         self.assertEqual(('http://bar/inbox',), inbox_args)
         self.assert_equals(expected_follow, json_loads(inbox_kwargs['data']))
