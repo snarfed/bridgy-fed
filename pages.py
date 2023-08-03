@@ -245,7 +245,8 @@ def fetch_objects(query):
         id = common.redirect_unwrap(inner_obj.get('id', ''))
         url = urls[0] if urls else id
         if (type == 'update' and
-            (obj.users and id.strip('/') == obj.users[0].id()
+            (obj.users and (g.user.is_web_url(id)
+                            or id.strip('/') == obj.users[0].id())
              or obj.domains and id.strip('/') == f'https://{obj.domains[0]}')):
             obj.phrase = 'updated'
             obj_as1.update({

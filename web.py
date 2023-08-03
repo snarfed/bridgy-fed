@@ -543,7 +543,7 @@ def webmention_task():
             'id': id,
             'objectType': 'activity',
             'verb': 'delete',
-            'actor': g.user.ap_actor(),
+            'actor': g.user.web_url(),
             'object': source,
         })
 
@@ -553,7 +553,7 @@ def webmention_task():
         authors = obj.mf2['properties'].setdefault('author', [])
         author_urls = microformats2.get_string_urls(authors)
         if not author_urls:
-            authors.append(g.user.ap_actor())
+            authors.append(g.user.web_url())
         elif not g.user.is_web_url(author_urls[0]):
             logger.info(f'Overriding author {author_urls[0]} with {g.user.web_url()}')
             if isinstance(authors[0], dict):
@@ -573,7 +573,7 @@ def webmention_task():
         logger.info('Wrapping in Update for home page user profile')
         actor_as1 = {
             **obj.as1,
-            'id': g.user.ap_actor(),
+            'id': g.user.web_url(),
             'updated': util.now().isoformat(),
         }
         id = common.host_url(f'{obj.key.id()}#update-{util.now().isoformat()}')
@@ -581,7 +581,7 @@ def webmention_task():
             'objectType': 'activity',
             'verb': 'update',
             'id': id,
-            'actor': g.user.ap_actor(),
+            'actor': g.user.web_url(),
             'object': actor_as1,
         })
 
