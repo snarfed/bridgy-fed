@@ -1,0 +1,16 @@
+# Config file for Sphinx build on ReadTheDocs:
+# https://docs.readthedocs.io/en/stable/config-file/
+# https://docs.readthedocs.io/en/stable/config-file/v2.html
+version: 2
+
+build:
+  os: ubuntu-22.04
+  tools:
+    # 3.11 can't resolve current dependencies as of 2023-01-24,
+    # google-api-core vs google-cloud-core versions
+    python: "3.10"
+
+python:
+   install:
+      - requirements: requirements.txt
+      - requirements: docs/requirements.txt
