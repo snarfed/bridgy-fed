@@ -1130,7 +1130,7 @@ class ActivityPubTest(TestCase):
         mock_get.assert_not_called()
 
     def test_delete_note(self, _, mock_get, ___):
-        obj = Object(id='http://an/obj', as2={})
+        obj = Object(id='http://an/obj')
         obj.put()
 
         mock_get.side_effect = [

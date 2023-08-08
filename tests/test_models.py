@@ -214,6 +214,12 @@ class ObjectTest(TestCase):
 
         self.assertEqual(3, Object.query().count())
 
+        # if no data property is set, don't clear existing data properties
+        obj7 = Object.get_or_create('biff', as2={'a': 'b'}, mf2={'c': 'd'})
+        Object.get_or_create('biff', users=[ndb.Key(Web, 'me')])
+        self.assert_object('biff', as2={'a': 'b'}, mf2={'c': 'd'},
+                           users=[ndb.Key(Web, 'me')])
+
     def test_activity_changed(self):
         obj = Object()
         self.assertFalse(obj.activity_changed(None))
@@ -411,6 +417,15 @@ class ObjectTest(TestCase):
         self.assertNotIn('id', obj.as1)
         self.assertNotIn('id', obj.as1['actor'])
         self.assertEqual(['c', 'd'], obj.as1['object'])
+
+    def test_clear(self):
+        ab = {'a': 'b'}
+        obj = Object(our_as1=ab, as2=ab, mf2=ab, bsky=ab)
+        obj.clear()
+        self.assertIsNone(obj.our_as1)
+        self.assertIsNone(obj.as2)
+        self.assertIsNone(obj.mf2)
+        self.assertIsNone(obj.bsky)
 
 
 class FollowerTest(TestCase):

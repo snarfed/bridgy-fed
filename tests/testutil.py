@@ -228,12 +228,12 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         """Reuse RSA key across Users because generating it is expensive."""
         obj_key = None
 
-        obj_as2 = kwargs.pop('obj_as2', None) or {}
-        obj_mf2 = kwargs.pop('obj_mf2', None) or {}
+        obj_as2 = kwargs.pop('obj_as2', None)
+        obj_mf2 = kwargs.pop('obj_mf2', None)
         obj_id = kwargs.pop('obj_id', None)
         if not obj_id:
-            obj_id = (obj_as2.get('id')
-                      or util.get_url(obj_mf2, 'properties')
+            obj_id = ((obj_as2 or {}).get('id')
+                      or util.get_url((obj_mf2 or {}), 'properties')
                       or str(self.last_make_user_id))
             self.last_make_user_id += 1
         obj_key = Object(id=obj_id, as2=obj_as2, mf2=obj_mf2).put()

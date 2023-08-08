@@ -530,7 +530,8 @@ class Object(StringIdModel):
             obj = Object(id=id)
             obj.new = True
 
-        obj.clear()
+        if set(props.keys()) & set(('our_as1', 'as2', 'mf2', 'bsky')):
+            obj.clear()
         obj.populate(**{
             k: v for k, v in props.items()
             if v and not isinstance(getattr(Object, k), ndb.ComputedProperty)
@@ -543,7 +544,7 @@ class Object(StringIdModel):
 
     def clear(self):
         """Clears all data properties."""
-        for prop in 'as2', 'bsky', 'mf2':
+        for prop in 'our_as1', 'as2', 'bsky', 'mf2':
             val = getattr(self, prop, None)
             if val:
                 logger.warning(f'Wiping out existing {prop}: {json_dumps(val, indent=2)}')
