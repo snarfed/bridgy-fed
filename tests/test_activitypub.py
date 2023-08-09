@@ -785,6 +785,21 @@ class ActivityPubTest(TestCase):
                            type='follow',
                            object_ids=[FOLLOW['object']])
 
+    def test_inbox_follow_accept_shared_inbox(self, *mocks):
+        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, 200, *mocks,
+                                       inbox_path='/ap/sharedInbox')
+
+        url = 'https://mas.to/users/swentel#followed-https://user.com/'
+        self.assert_object('https://mas.to/6d1a',
+                           users=[self.swentel_key],
+                           notify=[self.user.key],
+                           source_protocol='activitypub',
+                           status='complete',
+                           our_as1=as2.to_as1({**FOLLOW_WITH_ACTOR, 'url': url}),
+                           delivered=['https://user.com/'],
+                           type='follow',
+                           object_ids=[FOLLOW['object']])
+
     def test_inbox_follow_accept_webmention_fails(self, mock_head, mock_get,
                                                   mock_post):
         mock_post.side_effect = [
@@ -807,7 +822,8 @@ class ActivityPubTest(TestCase):
                            object_ids=[FOLLOW['object']])
 
     def _test_inbox_follow_accept(self, follow_as2, accept_as2, expected_status,
-                                  mock_head, mock_get, mock_post):
+                                  mock_head, mock_get, mock_post,
+                                  inbox_path='/user.com/inbox'):
         # this should makes us make the follower ActivityPub as direct=True
         self.user.direct = False
         self.user.put()
@@ -821,7 +837,7 @@ class ActivityPubTest(TestCase):
         if not mock_post.return_value and not mock_post.side_effect:
             mock_post.return_value = requests_response()
 
-        got = self.post('/user.com/inbox', json=follow_as2)
+        got = self.post(inbox_path, json=follow_as2)
         self.assertEqual(expected_status, got.status_code)
 
         mock_get.assert_has_calls((

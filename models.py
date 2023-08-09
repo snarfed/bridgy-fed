@@ -232,6 +232,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     def private_pem(self):
         """Returns: bytes"""
+        assert self.mod and self.public_exponent and self.private_exponent, str(self)
         rsa = RSA.construct((base64_to_long(str(self.mod)),
                              base64_to_long(str(self.public_exponent)),
                              base64_to_long(str(self.private_exponent))))

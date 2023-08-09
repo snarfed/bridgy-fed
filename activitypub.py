@@ -735,15 +735,31 @@ def inbox(protocol=None, domain=None):
     actor_id = actor.get('id')
     logger.info(f'Got {type} from {actor_id}: {json_dumps(activity, indent=2)}')
 
-    # load user
-    if protocol and domain:
-        # receiving user
-        g.user = PROTOCOLS[protocol].get_or_create(domain, direct=False)
-        if not g.user.direct and actor_id:
-            # this is a deliberate interaction with an indirect receiving user;
-            # create a local AP User for the sending user
-            actor_obj = ActivityPub.load(actor_id)
-            ActivityPub.get_or_create(actor_id, direct=True, obj=actor_obj)
+    # load receiving user
+    obj_id = as1.get_object(redirect_unwrap(activity)).get('id')
+    receiving_proto = receiving_user_id = None
+    if protocol:
+        receiving_proto = PROTOCOLS[protocol]
+    elif type == 'Follow':
+        receiving_proto = Protocol.for_id(obj_id)
+
+    if receiving_proto:
+        if domain:
+            assert receiving_proto is web.Web, 'https://github.com/snarfed/bridgy-fed/issues/611'
+            receiving_user_id = domain
+        else:
+            receiving_key = receiving_proto.key_for(obj_id)
+            if receiving_key:
+                receiving_user_id = receiving_key.id()
+
+        if receiving_user_id:
+            g.user = receiving_proto.get_or_create(receiving_user_id, direct=False)
+            logger.info(f'Setting g.user to {g.user.key}')
+            if not g.user.direct and actor_id:
+                # this is a deliberate interaction with an indirect receiving user;
+                # create a local AP User for the sending user
+                actor_obj = ActivityPub.load(actor_id)
+                ActivityPub.get_or_create(actor_id, direct=True, obj=actor_obj)
 
     ActivityPub.verify_signature(activity)
 
