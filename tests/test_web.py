@@ -478,6 +478,12 @@ class WebTest(TestCase):
         self.assertEqual('☃.net', user.key.id())
         self.assert_entities_equal(user, Web.get_by_id('☃.net'))
 
+    def test_get_or_create_scripts_leading_trailing_dots(self, *_):
+        user = Web.get_or_create('..foo.bar.')
+        self.assertEqual('foo.bar', user.key.id())
+        self.assert_entities_equal(user, Web.get_by_id('foo.bar'))
+        self.assertIsNone(Web.get_by_id('..foo.bar.'))
+
     def test_bad_source_url(self, *mocks):
         orig_count = Object.query().count()
 

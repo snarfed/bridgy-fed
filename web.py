@@ -73,8 +73,12 @@ class Web(User, Protocol):
 
     @classmethod
     def get_or_create(cls, id, **kwargs):
-        """Lower cases id (domain), then passes through to :meth:`User.get_or_create`."""
-        return super().get_or_create(id.lower(), **kwargs)
+        """Normalizes domain, then passes through to :meth:`User.get_or_create`.
+
+        Normalizing currently consists of lower casing and removing leading and
+        trailing dots.
+        """
+        return super().get_or_create(id.lower().strip('.'), **kwargs)
 
     def web_url(self):
         """Returns this user's web URL aka web_url, eg 'https://foo.com/'."""
