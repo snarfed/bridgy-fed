@@ -1535,15 +1535,21 @@ class ActivityPubUtilsTest(TestCase):
                 'id': 'baj',
                 'preferredUsername': 'site',
                 'url': 'http://localhost/r/site',
+                'inbox': 'http://bf/fake/site/ap/inbox',
+                'outbox': 'http://bf/fake/site/ap/outbox',
             },
             'attributedTo': [{
                 'id': 'bar',
                 'preferredUsername': 'site',
                 'url': 'http://localhost/r/site',
+                'inbox': 'http://bf/fake/site/ap/inbox',
+                'outbox': 'http://bf/fake/site/ap/outbox',
             }, {
                 'id': 'baz',
                 'preferredUsername': 'site',
                 'url': 'http://localhost/r/site',
+                'inbox': 'http://bf/fake/site/ap/inbox',
+                'outbox': 'http://bf/fake/site/ap/outbox',
             }],
             'to': [as2.PUBLIC_AUDIENCE],
         }, postprocess_as2({

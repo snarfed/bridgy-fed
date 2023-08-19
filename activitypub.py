@@ -648,6 +648,10 @@ def postprocess_as2_actor(actor, wrap=True):
 
     actor.update({
         'url': urls if len(urls) > 1 else urls[0],
+        # required by ActivityPub
+        # https://www.w3.org/TR/activitypub/#actor-objects
+        'inbox': g.user.ap_actor('inbox'),
+        'outbox': g.user.ap_actor('outbox'),
         # This has to be the domain for Mastodon interop/Webfinger discovery!
         # See related comment in actor() below.
         'preferredUsername': domain,

@@ -61,6 +61,8 @@ ACTOR_AS2 = {
     'url': 'http://localhost/r/https://user.com/',
     'name': 'Ms. ☕ Baz',
     'preferredUsername': 'user.com',
+    'inbox': 'http://localhost/user.com/inbox',
+    'outbox': 'http://localhost/user.com/outbox',
 }
 ACTOR_AS2_USER = {
     'type': 'Person',

@@ -110,8 +110,6 @@ class RedirectTest(testutil.TestCase):
         del expected['endpoints']
         del expected['followers']
         del expected['following']
-        del expected['inbox']
-        del expected['outbox']
         self.assert_equals(expected, resp.json, ignore=['publicKeyPem'])
 
         self.assert_user(Web, 'user.com', direct=False, obj_as2={

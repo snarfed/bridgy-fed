@@ -6,7 +6,6 @@ import logging
 import random
 from urllib.parse import quote, urlparse
 
-from arroba.mst import dag_cbor_cid
 from Crypto.PublicKey import ECC, RSA
 import dag_json
 from flask import g, request
