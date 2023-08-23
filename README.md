@@ -54,6 +54,17 @@ gcloud -q beta app deploy --no-cache --project bridgy-federated *.yaml
 ```
 
 
+How to add a new protocol
+---
+
+1. Determine [how you'll map the new protocol to other existing Bridgy Fed protocols](https://fed.brid.gy/docs#translate), specifically identity, protocol inference, events, and operations. [Add those to the existing tables in the docs](https://github.com/snarfed/bridgy-fed/blob/main/templates/docs.html) in a PR. This is an important step before you start writing code.
+1. If the new protocol uses a new data format - which is likely - add that format to [granary](https://github.com/snarfed/granary) in a new file with functions that convert to/from [ActivityStreams 1](https://activitystrea.ms/specs/json/1.0/) and tests. See [`nostr.py`](https://github.com/snarfed/granary/blob/main/granary/nostr.py#L542) and [`test_nostr.py`](https://github.com/snarfed/granary/blob/main/granary/tests/test_nostr.py#) for examples.
+1. Implement the protocol in a new `.py` file as a subclass of both [`Protocol`](https://github.com/snarfed/bridgy-fed/blob/main/protocol.py) and [`User`](https://github.com/snarfed/bridgy-fed/blob/main/models.py). Implement the `send`, `fetch`, `serve`, and `target_for` methods from `Protocol` and `readable_id`, `web_url`, `ap_address`, and `ap_actor` from `User` .
+1. TODO: add a new usage section to the docs for the new protocol.
+1. TODO: does the new protocol need any new UI or signup functionality? Unusual, but not impossible. Add that if necessary.
+1. Add the new protocol's logo to `static/`, use it in [`templates/user.html`](https://github.com/snarfed/bridgy-fed/blob/main/templates/user.html).
+
+
 Stats
 ---
 
@@ -62,7 +73,7 @@ I occasionally generate stats and graphs of usage and growth via BigQuery, [like
 1. [Export the full datastore to Google Cloud Storage.](https://cloud.google.com/datastore/docs/export-import-entities) Include all entities except `MagicKey`. Check to see if any new kinds have been added since the last time this command was run.
 
     ```
-    gcloud datastore export --async gs://bridgy-federated.appspot.com/stats/ --kinds Follower,Response
+    gcloud datastore export --async gs://bridgy-federated.appspot.com/stats/ --kinds Follower,Object
     ```
 
     Note that `--kinds` is required. [From the export docs](https://cloud.google.com/datastore/docs/export-import-entities#limitations):
@@ -71,7 +82,7 @@ I occasionally generate stats and graphs of usage and growth via BigQuery, [like
 1. [Import it into BigQuery](https://cloud.google.com/bigquery/docs/loading-data-cloud-datastore#loading_cloud_datastore_export_service_data):
 
     ```
-    for kind in Follower Response; do
+    for kind in Follower Object; do
       bq load --replace --nosync --source_format=DATASTORE_BACKUP datastore.$kind gs://bridgy-federated.appspot.com/stats/all_namespaces/kind_$kind/all_namespaces_kind_$kind.export_metadata
     done
     ```
