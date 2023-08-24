@@ -1,6 +1,11 @@
 """ATProto protocol implementation.
 
 https://atproto.com/
+
+TODO
+* signup. resolve DID, fetch DID doc, extract PDS
+  * use alsoKnownAs as handle? or call getProfile on PDS to get handle?
+  * maybe need getProfile to store profile object?
 """
 import logging
 import re
@@ -13,6 +18,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 from flask_app import app, cache
+from granary.bluesky import Bluesky
 import common
 from common import (
     add,
@@ -33,10 +39,10 @@ class ATProto(User, Protocol):
     """
     ABBREV = 'atproto'
 
-    # @ndb.ComputedProperty
-    # def readable_id(self):
-    #     """Prefers handle, then DID."""
-    #     pass
+    @ndb.ComputedProperty
+    def readable_id(self):
+        """Prefers handle, then DID."""
+        pass  # TODO
 
     def _pre_put_hook(self):
         """Validate id, require did:plc or non-blocklisted did:web."""
@@ -56,9 +62,12 @@ class ATProto(User, Protocol):
 
         assert False, f'{id} is not valid did:plc or did:web'
 
-    # def web_url(self):
-    #     """TODO"""
-    #     return self.ap_actor()
+    def handle(self):
+        # TODO get from self.obj
+        pass
+
+    def web_url(self):
+        return Bluesky.user_url(self.handle() or self.key.id())
 
     # def ap_address(self):
     #     """Returns this user's AP address, eg '@foo.com@foo.com'."""
@@ -188,8 +197,8 @@ class ATProto(User, Protocol):
 
     #     return False
 
-    # @classmethod
-    # def serve(cls, obj):
-    #     """Serves an :class:`Object` as AS2."""
-    #     return (postprocess_as2(as2.from_as1(obj.as1)),
-    #             {'Content-Type': as2.CONTENT_TYPE})
+    @classmethod
+    def serve(cls, obj):
+        """Serves an :class:`Object` as AS2."""
+        return (postprocess_as2(as2.from_as1(obj.as1)),
+                {'Content-Type': as2.CONTENT_TYPE})

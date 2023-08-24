@@ -227,15 +227,10 @@ class ATProtoTest(TestCase):
     #     user = self.make_user('http://foo/actor', cls=ATProto)
     #     self.assertEqual('http://foo/actor', user.ap_actor())
 
-    # def test_web_url(self):
-    #     user = self.make_user('http://foo/actor', cls=ATProto)
-    #     self.assertEqual('http://foo/actor', user.web_url())
-
-    #     user.obj = Object(id='a', as2=copy.deepcopy(ACTOR))  # no url
-    #     self.assertEqual('http://foo/actor', user.web_url())
-
-    #     user.obj.as2['url'] = ['http://my/url']
-    #     self.assertEqual('http://my/url', user.web_url())
+    def test_web_url(self):
+        user = self.make_user('did:plc:foo', cls=ATProto)
+        self.assertEqual('https://bsky.app/profile/did:plc:foo', user.web_url())
+        # TODO test that handle overrides
 
     # def test_readable_id(self):
     #     user = self.make_user('http://foo', cls=ATProto)
