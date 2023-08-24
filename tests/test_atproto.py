@@ -23,18 +23,23 @@ class ATProtoTest(TestCase):
         # self.user = self.make_user('user.com', has_hcard=True, has_redirects=True,
         #                            obj_as2={**ACTOR, 'id': 'https://user.com/'})
 
-    # def test_put_validates_id(self, *_):
-    #     for bad in (
-    #         '',
-    #         'not a url',
-    #         'ftp://not.web/url',
-    #         'https:///no/domain',
-    #         'https://fed.brid.gy/foo',
-    #         'https://ap.brid.gy/foo',
-    #         'http://localhost/foo',
-    #     ):
-    #         with self.assertRaises(AssertionError):
-    #             ATProto(id=bad).put()
+    def test_put_validates_id(self, *_):
+        for bad in (
+            '',
+            'not a did',
+            'https://not.a/did',
+            'at://not.a/did',
+            'did:other:foo',
+            'did:web:foo',  # not a domain
+            'did:web:fed.brid.gy',
+            'did:web:foo.ap.brid.gy',
+            'did:plc:'  # blank
+        ):
+            with self.assertRaises(AssertionError):
+                ATProto(id=bad).put()
+
+        ATProto(id='did:web:foo.com').put()
+        ATProto(id='did:plc:foo').put()
 
     def test_owns_id(self):
         self.assertFalse(ATProto.owns_id('http://foo'))

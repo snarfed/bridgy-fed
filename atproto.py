@@ -3,6 +3,7 @@
 https://atproto.com/
 """
 import logging
+import re
 
 from flask import abort, g, request
 from google.cloud import ndb
@@ -17,7 +18,6 @@ from common import (
     add,
     error,
     is_blocklisted,
-    TLD_BLOCKLIST,
 )
 from models import Follower, Object, User
 from protocol import Protocol
@@ -37,6 +37,24 @@ class ATProto(User, Protocol):
     # def readable_id(self):
     #     """Prefers handle, then DID."""
     #     pass
+
+    def _pre_put_hook(self):
+        """Validate id, require did:plc or non-blocklisted did:web."""
+        super()._pre_put_hook()
+        id = self.key.id()
+        assert id
+
+        if id.startswith('did:plc:'):
+            assert id.removeprefix('did:plc:')
+            return
+
+        if id.startswith('did:web:'):
+            domain = id.removeprefix('did:web:')
+            assert (re.match(common.DOMAIN_RE, domain)
+                    and not is_blocklisted(domain)), domain
+            return
+
+        assert False, f'{id} is not valid did:plc or did:web'
 
     # def web_url(self):
     #     """TODO"""
