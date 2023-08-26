@@ -336,6 +336,37 @@ class FollowTest(TestCase):
             followers,
             ignore=['created', 'updated'])
 
+    def test_callback_url_composite_url(self, mock_get, mock_post):
+        followee = {
+            **FOLLOWEE,
+            'attachments': [{
+                'type': 'PropertyValue',
+                'name': 'Link',
+                'value': '<a href="https://bar/actor"></a>',
+            }],
+        }
+        mock_get.side_effect = (
+            requests_response(''),
+            self.as2_resp(followee),
+        )
+        mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
+            requests_response('OK'),  # AP Follow to inbox
+        )
+
+        self.state['state'] = 'https://bar/actor'
+        state = util.encode_oauth_state(self.state)
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+
+        expected_follow = {
+            **FOLLOW_URL,
+            'object': followee,
+        }
+        self.check('https://bar/actor', resp, expected_follow, mock_get, mock_post)
+        self.assertEqual(
+            [f'Followed <a href="https://bar/url">https://bar/actor</a>.'],
+            get_flashed_messages())
+
     def test_indieauthed_session(self, mock_get, mock_post):
         mock_get.side_effect = (
             self.as2_resp(FOLLOWEE),
@@ -511,6 +542,29 @@ class UnfollowTest(TestCase):
         self.assert_object(id, users=[user.key], status='complete',
                            source_protocol='ui', labels=['user', 'activity'],
                            as2=expected_undo, as1=as2.to_as1(expected_undo))
+
+    def test_callback_composite_url(self, mock_get, mock_post):
+        follower = self.follower.to.get().obj
+        follower.our_as1 = {
+            **as2.to_as1(FOLLOWEE),
+            'url': {
+                'value': 'https://bar/url',
+                'displayName': 'something',
+            },
+        }
+        follower.put()
+
+        # oauth-dropins indieauth https://alice.com fetch for user json
+        mock_get.return_value = requests_response('')
+        mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
+            requests_response('OK'),  # AP Undo Follow to inbox
+        )
+
+        resp = self.client.get(f'/unfollow/callback?code=my_code&state={self.state}')
+        self.assertEqual([f'Unfollowed <a href="https://bar/url">bar/url</a>.'],
+                         get_flashed_messages())
+        self.check(resp, UNDO_FOLLOW, mock_get, mock_post)
 
     def test_indieauthed_session(self, mock_get, mock_post):
         # oauth-dropins indieauth https://alice.com fetch for user json
