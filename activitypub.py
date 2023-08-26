@@ -431,8 +431,10 @@ def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
     # (request-target) is a special HTTP Signatures header that some fediverse
     # implementations require, eg Peertube.
     # https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.3
-    # https://github.com/snarfed/bridgy-fed/issues/40
-    auth = HTTPSignatureAuth(secret=user.private_pem(), key_id=user.ap_actor(),
+    # https://www.w3.org/wiki/SocialCG/ActivityPub/Authentication_Authorization#Signing_requests_using_HTTP_Signatures
+    # https://docs.joinmastodon.org/spec/security/#http
+    key_id = f'{user.ap_actor()}#key'
+    auth = HTTPSignatureAuth(secret=user.private_pem(), key_id=key_id,
                              algorithm='rsa-sha256', sign_header='signature',
                              headers=HTTP_SIG_HEADERS)
 
@@ -484,7 +486,7 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
             actor_url = host_url(activity.get('preferredUsername'))
             activity.update({
                 'publicKey': {
-                    'id': actor_url,
+                    'id': f'{actor_url}#key',
                     'owner': actor_url,
                     'publicKeyPem': g.user.public_pem().decode(),
                 },

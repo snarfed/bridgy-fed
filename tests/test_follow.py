@@ -266,8 +266,9 @@ class FollowTest(TestCase):
 
         # check that we signed with the follower's key
         sig_template = inbox_kwargs['auth'].header_signer.signature_template
-        self.assertTrue(sig_template.startswith('keyId="http://localhost/alice.com"'),
-                        sig_template)
+        self.assertTrue(
+            sig_template.startswith('keyId="http://localhost/alice.com#key"'),
+            sig_template)
 
         follow_id = f'http://localhost/web/alice.com/following#2022-01-02T03:04:05-{input}'
 
@@ -481,8 +482,9 @@ class UnfollowTest(TestCase):
 
         # check that we signed with the follower's key
         sig_template = inbox_kwargs['auth'].header_signer.signature_template
-        self.assertTrue(sig_template.startswith('keyId="http://localhost/alice.com"'),
-                        sig_template)
+        self.assertTrue(
+            sig_template.startswith('keyId="http://localhost/alice.com#key"'),
+            sig_template)
 
         follower = Follower.query().get()
         self.assertEqual('inactive', follower.status)

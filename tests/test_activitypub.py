@@ -58,7 +58,7 @@ ACTOR_BASE = {
         'sharedInbox': 'http://localhost/ap/sharedInbox',
     },
     'publicKey': {
-        'id': 'http://localhost/user.com',
+        'id': 'http://localhost/user.com#key',
         'owner': 'http://localhost/user.com',
         'publicKeyPem': 'populated in setUp()',
     },
@@ -337,7 +337,7 @@ class ActivityPubTest(TestCase):
             'followers': 'http://bf/fake/user.com/ap/followers',
             'endpoints': {'sharedInbox': 'http://localhost/ap/sharedInbox'},
             'publicKey': {
-                'id': 'http://localhost/user.com',
+                'id': 'http://localhost/user.com#key',
                 'owner': 'http://localhost/user.com',
                 'publicKeyPem': self.user.public_pem().decode(),
             },
