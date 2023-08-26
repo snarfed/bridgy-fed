@@ -3,6 +3,7 @@ import datetime
 import itertools
 import logging
 import os
+import re
 
 from flask import g, render_template, request
 from google.cloud.ndb import tasklets
@@ -254,6 +255,16 @@ def fetch_objects(query):
                 'url': id,
             })
         elif url:
+            # heuristics for sniffing Mastodon and similar fediverse URLs and
+            # converting them to more friendly @-names
+            # TODO: standardize this into granary.as2 somewhere?
+            if not content:
+                fedi_url = re.match(
+                    r'https://[^/]+/(@|users/)([^/@]+)(@[^/@]+)?(/(?:statuses/)?[0-9]+)?', url)
+                if fedi_url:
+                    content = '@' + fedi_url.group(2)
+                    if fedi_url.group(4):
+                        content += "'s post"
             content = common.pretty_link(url, text=content)
 
         obj.content = (obj_as1.get('content')
