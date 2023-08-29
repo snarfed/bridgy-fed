@@ -19,7 +19,8 @@ ACTOR_WITH_PREFERRED_USERNAME = {
 
 
 def contents(activities):
-    return [(a.get('object') or a)['content'].splitlines()[0]
+    return [util.parse_html((a.get('object') or a)['content'].splitlines()[0]
+                            ).get_text().strip()
             for a in activities]
 
 
