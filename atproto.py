@@ -12,7 +12,7 @@ import re
 
 from flask import abort, g, request
 from google.cloud import ndb
-from granary import as1
+from granary import as1, bluesky
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
@@ -199,6 +199,11 @@ class ATProto(User, Protocol):
 
     @classmethod
     def serve(cls, obj):
-        """Serves an :class:`Object` as AS2."""
-        return (postprocess_as2(as2.from_as1(obj.as1)),
-                {'Content-Type': as2.CONTENT_TYPE})
+        """Serves an :class:`Object` as AS2.
+
+        This is minimally implemented to serve app.bsky.* lexicon data, but
+        BGSes and other clients will generally receive ATProto commits via
+        `com.atproto.sync.subscribeRepos` subscriptions, not BF-specific
+        /convert/... HTTP requests, so this should never be used in practice.
+        """
+        return bluesky.from_as1(obj.as1), {'Content-Type': 'application/json'}

@@ -5,6 +5,7 @@ from unittest import skip
 from unittest.mock import patch
 
 from flask import g
+from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_VIEW_BSKY
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
@@ -205,10 +206,11 @@ class ATProtoTest(TestCase):
     #     self.assertFalse(ATProto.fetch(obj))
     #     self.assertIsNone(obj.as1)
 
-    # def test_serve(self):
-    #     obj = Object(id='http://orig', as2=LIKE)
-    #     self.assertEqual((LIKE_WRAPPED, {'Content-Type': 'application/activity+json'}),
-    #                      ATProto.serve(obj))
+    def test_serve(self):
+        obj = self.store_object(id='http://orig', our_as1=ACTOR_AS)
+        self.assertEqual(
+            (ACTOR_PROFILE_VIEW_BSKY, {'Content-Type': 'application/json'}),
+            ATProto.serve(obj))
 
     # def test_ap_address(self):
     #     user = ATProto(obj=Object(id='a', as2={**ACTOR, 'preferredUsername': 'me'}))
