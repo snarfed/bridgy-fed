@@ -7,7 +7,7 @@ git+https://github.com/snarfed/lexrpc.git#egg=lexrpc
 git+https://github.com/snarfed/negotiator.git@py3#egg=negotiator
 git+https://github.com/snarfed/oauth-dropins.git#egg=oauth_dropins
 
-atproto==0.0.24
+atproto==0.0.25
 attrs==23.1.0
 bases==0.2.1
 beautifulsoup4==4.12.2
