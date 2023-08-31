@@ -6,14 +6,15 @@ from unittest.mock import patch
 
 from flask import g
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_VIEW_BSKY
+from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 from atproto import ATProto
 import common
+from models import Object
 import protocol
 from .testutil import Fake, TestCase
-
 
 class ATProtoTest(TestCase):
 
@@ -51,146 +52,25 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.owns_id('did:plc:foo'))
         self.assertTrue(ATProto.owns_id('did:web:bar.com'))
 
-    # # TODO: make these generic and use Fake
-    # @patch('requests.get')
-    # def test_load_http(self, mock_get):
-    #     mock_get.return_value = AS2
+    @patch('requests.get', return_value=requests_response({'foo': 'bar'}))
+    def test_fetch_did_plc(self, mock_get):
+        obj = Object(id='did:plc:123')
+        ATProto.fetch(obj)
+        self.assertEqual({'foo': 'bar'}, obj.raw)
 
-    #     id = 'http://the/id'
-    #     self.assertIsNone(Object.get_by_id(id))
+        mock_get.assert_has_calls((
+            self.req('https://plc.local/did:plc:123'),
+        ))
 
-    #     # first time fetches over HTTP
-    #     got = ATProto.load(id)
-    #     self.assert_equals(id, got.key.id())
-    #     self.assert_equals(AS2_OBJ, got.as2)
-    #     mock_get.assert_has_calls([self.as2_req(id)])
+    @patch('requests.get', return_value=requests_response({'foo': 'bar'}))
+    def test_fetch_did_web(self, mock_get):
+        obj = Object(id='did:web:user.com')
+        ATProto.fetch(obj)
+        self.assertEqual({'foo': 'bar'}, obj.raw)
 
-    #     # second time is in cache
-    #     got.key.delete()
-    #     mock_get.reset_mock()
-
-    #     got = ATProto.load(id)
-    #     self.assert_equals(id, got.key.id())
-    #     self.assert_equals(AS2_OBJ, got.as2)
-    #     mock_get.assert_not_called()
-
-    # @patch('requests.get')
-    # def test_load_datastore(self, mock_get):
-    #     id = 'http://the/id'
-    #     stored = Object(id=id, as2=AS2_OBJ)
-    #     stored.put()
-    #     protocol.objects_cache.clear()
-
-    #     # first time loads from datastore
-    #     got = ATProto.load(id)
-    #     self.assert_entities_equal(stored, got)
-    #     mock_get.assert_not_called()
-
-    #     # second time is in cache
-    #     stored.key.delete()
-    #     got = ATProto.load(id)
-    #     self.assert_entities_equal(stored, got)
-    #     mock_get.assert_not_called()
-
-    # @patch('requests.get')
-    # def test_load_preserves_fragment(self, mock_get):
-    #     stored = Object(id='http://the/id#frag', as2=AS2_OBJ)
-    #     stored.put()
-    #     protocol.objects_cache.clear()
-
-    #     got = ATProto.load('http://the/id#frag')
-    #     self.assert_entities_equal(stored, got)
-    #     mock_get.assert_not_called()
-
-    # @patch('requests.get')
-    # def test_load_datastore_no_as2(self, mock_get):
-    #     """If the stored Object has no as2, we should fall back to HTTP."""
-    #     id = 'http://the/id'
-    #     stored = Object(id=id, as2={}, status='in progress')
-    #     stored.put()
-    #     protocol.objects_cache.clear()
-
-    #     mock_get.return_value = AS2
-    #     got = ATProto.load(id)
-    #     mock_get.assert_has_calls([self.as2_req(id)])
-
-    #     self.assert_equals(id, got.key.id())
-    #     self.assert_equals(AS2_OBJ, got.as2)
-    #     mock_get.assert_has_calls([self.as2_req(id)])
-
-    #     self.assert_object(id,
-    #                        as2=AS2_OBJ,
-    #                        as1={**AS2_OBJ, 'id': id},
-    #                        source_protocol='atproto',
-    #                        # check that it reused our original Object
-    #                        status='in progress')
-
-    # @patch('requests.get')
-    # def test_fetch_direct(self, mock_get):
-    #     mock_get.return_value = AS2
-    #     obj = Object(id='http://orig')
-    #     ATProto.fetch(obj)
-    #     self.assertEqual(AS2_OBJ, obj.as2)
-
-    #     mock_get.assert_has_calls((
-    #         self.as2_req('http://orig'),
-    #     ))
-
-    # @patch('requests.get')
-    # def test_fetch_direct_ld_content_type(self, mock_get):
-    #     mock_get.return_value = requests_response(AS2_OBJ, headers={
-    #         'Content-Type': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
-    #     })
-    #     obj = Object(id='http://orig')
-    #     ATProto.fetch(obj)
-    #     self.assertEqual(AS2_OBJ, obj.as2)
-
-    #     mock_get.assert_has_calls((
-    #         self.as2_req('http://orig'),
-    #     ))
-
-    # @patch('requests.get')
-    # def test_fetch_via_html(self, mock_get):
-    #     mock_get.side_effect = [HTML_WITH_AS2, AS2]
-    #     obj = Object(id='http://orig')
-    #     ATProto.fetch(obj)
-    #     self.assertEqual(AS2_OBJ, obj.as2)
-
-    #     mock_get.assert_has_calls((
-    #         self.as2_req('http://orig'),
-    #         self.as2_req('http://as2', headers=as2.CONNEG_HEADERS),
-    #     ))
-
-    # @patch('requests.get')
-    # def test_fetch_only_html(self, mock_get):
-    #     mock_get.return_value = HTML
-
-    #     obj = Object(id='http://orig')
-    #     self.assertFalse(ATProto.fetch(obj))
-    #     self.assertIsNone(obj.as1)
-
-    # @patch('requests.get')
-    # def test_fetch_not_acceptable(self, mock_get):
-    #     mock_get.return_value = NOT_ACCEPTABLE
-
-    #     obj = Object(id='http://orig')
-    #     self.assertFalse(ATProto.fetch(obj))
-    #     self.assertIsNone(obj.as1)
-
-    # @patch('requests.get')
-    # def test_fetch_ssl_error(self, mock_get):
-    #     mock_get.side_effect = requests.exceptions.SSLError
-    #     with self.assertRaises(BadGateway):
-    #         ATProto.fetch(Object(id='http://orig'))
-
-    # @patch('requests.get')
-    # def test_fetch_no_content(self, mock_get):
-    #     mock_get.return_value = self.as2_resp('')
-
-    #     with self.assertRaises(BadGateway):
-    #         ATProto.fetch(Object(id='http://the/id'))
-
-    #     mock_get.assert_has_calls([self.as2_req('http://the/id')])
+        mock_get.assert_has_calls((
+            self.req('https://user.com/.well-known/did.json'),
+        ))
 
     # @patch('requests.get')
     # def test_fetch_not_json(self, mock_get):
@@ -200,11 +80,6 @@ class ATProtoTest(TestCase):
     #         ATProto.fetch(Object(id='http://the/id'))
 
     #     mock_get.assert_has_calls([self.as2_req('http://the/id')])
-
-    # def test_fetch_non_url(self):
-    #     obj = Object(id='x y z')
-    #     self.assertFalse(ATProto.fetch(obj))
-    #     self.assertIsNone(obj.as1)
 
     def test_serve(self):
         obj = self.store_object(id='http://orig', our_as1=ACTOR_AS)

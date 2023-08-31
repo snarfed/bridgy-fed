@@ -388,6 +388,7 @@ class Object(StringIdModel):
     mf2 = JsonProperty()      # HTML microformats2 item (ie _not_ the top level
                               # parse object with items inside an 'items' field)
     our_as1 = JsonProperty()  # AS1 for activities that we generate or modify ourselves
+    raw = JsonProperty()      # other standalone data format, eg DID document
 
     new = None
     changed = None
@@ -480,7 +481,7 @@ class Object(StringIdModel):
             'new': self.new,
             'changed': self.changed,
         })
-        for prop in 'as2', 'bsky', 'mf2', 'our_as1':
+        for prop in 'as2', 'bsky', 'mf2', 'our_as1', 'raw':
             if props.get(prop):
                 props[prop] = "..."
         for prop in 'created', 'updated', 'as1', 'expire':
@@ -530,7 +531,7 @@ class Object(StringIdModel):
             obj = Object(id=id)
             obj.new = True
 
-        if set(props.keys()) & set(('our_as1', 'as2', 'mf2', 'bsky')):
+        if set(props.keys()) & set(('our_as1', 'as2', 'mf2', 'bsky', 'raw')):
             obj.clear()
         obj.populate(**{
             k: v for k, v in props.items()
@@ -544,7 +545,7 @@ class Object(StringIdModel):
 
     def clear(self):
         """Clears all data properties."""
-        for prop in 'our_as1', 'as2', 'bsky', 'mf2':
+        for prop in 'our_as1', 'as2', 'bsky', 'mf2', 'raw':
             val = getattr(self, prop, None)
             if val:
                 logger.warning(f'Wiping out existing {prop}: {json_dumps(val, indent=2)}')

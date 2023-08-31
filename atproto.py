@@ -10,15 +10,14 @@ TODO
 import logging
 import re
 
+from arroba import did
 from flask import abort, g, request
 from google.cloud import ndb
 from granary import as1, bluesky
 from oauth_dropins.webutil import flask_util, util
-from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 from flask_app import app, cache
-from granary.bluesky import Bluesky
 import common
 from common import (
     add,
@@ -67,7 +66,7 @@ class ATProto(User, Protocol):
         pass
 
     def web_url(self):
-        return Bluesky.user_url(self.handle() or self.key.id())
+        return bluesky.Bluesky.user_url(self.handle() or self.key.id())
 
     # def ap_address(self):
     #     """Returns this user's AP address, eg '@foo.com@foo.com'."""
@@ -118,84 +117,37 @@ class ATProto(User, Protocol):
 
     #     return signed_post(url, log_data=True, data=activity).ok
 
-    # @classmethod
-    # def fetch(cls, obj, **kwargs):
-    #     """Tries to fetch a ATProto event.
+    @classmethod
+    def fetch(cls, obj, **kwargs):
+        """Tries to fetch a ATProto object.
 
-    #     Args:
-    #       obj: :class:`Object` with the id to fetch. Fills data into the as2
-    #         property.
-    #       kwargs: ignored
+        Args:
+          obj: :class:`Object` with the id to fetch. Fills data into the as2
+            property.
+          kwargs: ignored
 
-    #     Returns:
-    #       True if the object was fetched and populated successfully,
-    #       False otherwise
+        Returns:
+          True if the object was fetched and populated successfully,
+          False otherwise
 
-    #     Raises:
-    #       TODO
-    #     """
-    #     url = obj.key.id()
-    #     if not util.is_web(url):
-    #         logger.info(f'{url} is not a URL')
-    #         return False
+        Raises:
+          TODO
+        """
+        # 1. resolve DID
+        # 2. call getRecord on PDS
 
-    #     resp = None
+        id = obj.key.id()
+        if not cls.owns_id(id):
+            logger.info(f"ATProto can't fetch {id}")
+            return False
 
-    #     def _error(extra_msg=None):
-    #         msg = f"Couldn't fetch {url} as ActivityStreams 2"
-    #         if extra_msg:
-    #             msg += ': ' + extra_msg
-    #         logger.warning(msg)
-    #         # protocol.for_id depends on us raising this when an AP network
-    #         # fetch fails. if we change that, update for_id too!
-    #         err = BadGateway(msg)
-    #         err.requests_response = resp
-    #         raise err
-
-    #     def _get(url, headers):
-    #         """Returns None if we fetched and populated, resp otherwise."""
-    #         nonlocal resp
-
-    #         try:
-    #             resp = signed_get(url, headers=headers, gateway=True)
-    #         except BadGateway as e:
-    #             # ugh, this is ugly, should be something structured
-    #             if '406 Client Error' in str(e):
-    #                 return
-    #             raise
-
-    #         if not resp.content:
-    #             _error('empty response')
-    #         elif common.content_type(resp) in as2.CONTENT_TYPES:
-    #             try:
-    #                 return resp.json()
-    #             except requests.JSONDecodeError:
-    #                 _error("Couldn't decode as JSON")
-
-    #     obj.as2 = _get(url, CONNEG_HEADERS_AS2_HTML)
-
-    #     if obj.as2:
-    #         return True
-    #     elif not resp:
-    #         return False
-
-    #     # look in HTML to find AS2 link
-    #     if common.content_type(resp) != 'text/html':
-    #         logger.info('no AS2 available')
-    #         return False
-
-    #     parsed = util.parse_html(resp)
-    #     link = parsed.find('link', rel=('alternate', 'self'), type=(
-    #         as2.CONTENT_TYPE, as2.CONTENT_TYPE_LD))
-    #     if not (link and link['href']):
-    #         logger.info('no AS2 available')
-    #         return False
-
-    #     obj.as2 = _get(link['href'], as2.CONNEG_HEADERS)
-    #     if obj.as2:
-    #         return True
-
-    #     return False
+        if id.startswith('did:'):
+            try:
+                obj.raw = did.resolve(id, get_fn=util.requests_get)
+                return True
+            except (ValueError, requests.RequestException) as e:
+                util.interpret_http_exception(e)
+                return False
 
     @classmethod
     def serve(cls, obj):

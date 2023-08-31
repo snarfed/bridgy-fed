@@ -2,6 +2,7 @@
 import copy
 from datetime import datetime
 import logging
+import os
 import random
 import re
 import unittest
@@ -195,6 +196,12 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         # suppress a few warnings
         # local/lib/python3.9/site-packages/bs4/__init__.py:435: MarkupResemblesLocatorWarning: The input looks more like a filename than markup. You may want to open this file and pass the filehandle into Beautiful Soup.
         warnings.filterwarnings('ignore', category=MarkupResemblesLocatorWarning)
+
+        # arroba config
+        os.environ.update({
+            'PDS_HOST': 'pds.local',
+            'PLC_HOST': 'plc.local',
+        })
 
     def tearDown(self):
         self.app_context.pop()
