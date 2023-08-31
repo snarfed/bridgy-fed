@@ -121,7 +121,9 @@ class ATProtoTest(TestCase):
     def test_web_url(self):
         user = self.make_user('did:plc:foo', cls=ATProto)
         self.assertEqual('https://bsky.app/profile/did:plc:foo', user.web_url())
-        # TODO test that handle overrides
+
+        self.store_object(id='did:plc:foo', raw=DID_DOC)
+        self.assertEqual('https://bsky.app/profile/han.dull', user.web_url())
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_readable_id(self, mock_get):

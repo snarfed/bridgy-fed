@@ -78,12 +78,8 @@ class ATProto(User, Protocol):
 
         assert False, f'{id} is not valid did:plc or did:web'
 
-    def handle(self):
-        # TODO get from self.obj
-        pass
-
     def web_url(self):
-        return bluesky.Bluesky.user_url(self.handle() or self.key.id())
+        return bluesky.Bluesky.user_url(self.readable_id)
 
     def ap_address(self):
         """Returns this user's AP address, eg '@handle.com@bsky.brid.gy'."""
