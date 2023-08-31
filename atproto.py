@@ -85,14 +85,9 @@ class ATProto(User, Protocol):
     def web_url(self):
         return bluesky.Bluesky.user_url(self.handle() or self.key.id())
 
-    # def ap_address(self):
-    #     """Returns this user's AP address, eg '@foo.com@foo.com'."""
-    #     if self.obj and self.obj.as1:
-    #         addr = as2.address(self.as2())
-    #         if addr:
-    #             return addr
-
-    #     return as2.address(self.key.id())
+    def ap_address(self):
+        """Returns this user's AP address, eg '@handle.com@bsky.brid.gy'."""
+        return f'@{self.readable_id}@{self.ABBREV}{common.SUPERDOMAIN}'
 
     # def ap_actor(self, rest=None):
     #     """Returns this user's AP/AS2 actor id URL.

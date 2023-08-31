@@ -118,19 +118,6 @@ class ATProtoTest(TestCase):
             (ACTOR_PROFILE_VIEW_BSKY, {'Content-Type': 'application/json'}),
             ATProto.serve(obj))
 
-    # def test_ap_address(self):
-    #     user = ATProto(obj=Object(id='a', as2={**ACTOR, 'preferredUsername': 'me'}))
-    #     self.assertEqual('@me@mas.to', user.ap_address())
-    #     self.assertEqual('@me@mas.to', user.readable_id)
-
-    #     user.obj.as2 = ACTOR
-    #     self.assertEqual('@swentel@mas.to', user.ap_address())
-    #     self.assertEqual('@swentel@mas.to', user.readable_id)
-
-    #     user = ATProto(id='https://mas.to/users/alice')
-    #     self.assertEqual('@alice@mas.to', user.ap_address())
-    #     self.assertEqual('@alice@mas.to', user.readable_id)
-
     # def test_ap_actor(self):
     #     user = self.make_user('http://foo/actor', cls=ATProto)
     #     self.assertEqual('http://foo/actor', user.ap_actor())
@@ -147,3 +134,10 @@ class ATProtoTest(TestCase):
 
         self.store_object(id='did:plc:foo', raw=DID_DOC)
         self.assertEqual('han.dull', user.readable_id)
+
+    def test_ap_address(self):
+        user = self.make_user('did:plc:foo', cls=ATProto)
+        self.assertEqual('@did:plc:foo@atproto.brid.gy', user.ap_address())
+
+        self.store_object(id='did:plc:foo', raw=DID_DOC)
+        self.assertEqual('@han.dull@atproto.brid.gy', user.ap_address())
