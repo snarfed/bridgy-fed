@@ -52,7 +52,13 @@ class ATProto(User, Protocol):
     @ndb.ComputedProperty
     def readable_id(self):
         """Prefers handle, then DID."""
-        pass  # TODO
+        did_obj = ATProto.load(self.key.id(), remote=False)
+        if did_obj:
+            handle, _, _ = parse_at_uri(util.get_first(did_obj.raw, 'alsoKnownAs',' '))
+            if handle:
+                return handle
+
+        return self.key.id()
 
     def _pre_put_hook(self):
         """Validate id, require did:plc or non-blocklisted did:web."""
