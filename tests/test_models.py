@@ -11,6 +11,8 @@ from oauth_dropins.webutil.testutil import NOW
 from .testutil import Fake, TestCase
 
 from atproto import ATProto
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import serialization
 from models import Follower, Object, OBJECT_EXPIRE_AGE, Target, User
 import protocol
 from protocol import Protocol
@@ -32,15 +34,15 @@ class UserTest(TestCase):
         assert user.mod
         assert user.public_exponent
         assert user.private_exponent
-        assert user.p256_key
+        assert user.k256_key
 
         # check that we can load the keys
         assert user.public_pem()
         assert user.private_pem()
 
-        p256_key = ECC.import_key(user.p256_key)
-        assert isinstance(p256_key, ECC.EccKey)
-        self.assertEqual('NIST P-256', p256_key.curve)
+        k256_key = serialization.load_pem_private_key(user.k256_key, password=None)
+        self.assertIsInstance(k256_key, ec.EllipticCurvePrivateKey)
+        self.assertIsInstance(k256_key.curve, ec.SECP256K1)
 
         # direct should get set even if the user exists
         same = Fake.get_or_create('a.b', direct=True)

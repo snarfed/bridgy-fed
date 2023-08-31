@@ -142,6 +142,7 @@ models.reset_protocol_properties()
 
 import app
 from activitypub import ActivityPub, CONNEG_HEADERS_AS2_HTML
+from atproto import ATProto
 import common
 from web import Web
 from flask_app import app, cache, init_globals
@@ -250,7 +251,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                    mod=global_user.mod,
                    public_exponent=global_user.public_exponent,
                    private_exponent=global_user.private_exponent,
-                   p256_key=global_user.p256_key,
+                   k256_key=global_user.k256_key,
                    obj_key=obj_key,
                    **kwargs)
         user.put()
@@ -408,7 +409,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             self.assert_equals(obj_as2, got.as2())
 
         # generated, computed, etc
-        ignore = ['created', 'mod', 'obj_key', 'p256_key', 'private_exponent',
+        ignore = ['created', 'mod', 'obj_key', 'k256_key', 'private_exponent',
                   'public_exponent', 'readable_id', 'updated']
         for prop in ignore:
             assert prop not in props
@@ -420,8 +421,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             assert got.private_exponent
             assert got.public_exponent
 
-        # if cls != ATProto:
-        #     assert got.p256_key
+        if cls != ATProto:
+            assert got.k256_key
 
         return got
 

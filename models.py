@@ -6,7 +6,9 @@ import logging
 import random
 from urllib.parse import quote, urlparse
 
-from Crypto.PublicKey import ECC, RSA
+import arroba.util
+from Crypto.PublicKey import RSA
+from cryptography.hazmat.primitives import serialization
 import dag_json
 from flask import g, request
 from google.cloud import ndb
@@ -78,15 +80,15 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         section 5.1 of the Magic Signatures spec
       https://tools.ietf.org/html/draft-cavage-http-signatures-12
 
-    * P-256 keypair for AT Protocol's signing key
-      property: p256_key, PEM encoded
+    * K-256 keypair for AT Protocol's signing key
+      property: k256_key, PEM encoded
       https://atproto.com/guides/overview#account-portability
     """
     obj_key = ndb.KeyProperty(kind='Object')  # user profile
     mod = ndb.StringProperty()
     public_exponent = ndb.StringProperty()
     private_exponent = ndb.StringProperty()
-    p256_key = ndb.StringProperty()
+    k256_key = ndb.BlobProperty()
     use_instead = ndb.KeyProperty()
 
     # whether this user signed up or otherwise explicitly, deliberately
@@ -159,10 +161,13 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                     'private_exponent': long_to_base64(key.d),
             })
 
-        if cls.LABEL != 'atprotocol':
-            key = ECC.generate(
-                curve='P-256', randfunc=random.randbytes if DEBUG else None)
-            kwargs['p256_key'] = key.export_key(format='PEM')
+        if cls.LABEL != 'atproto':
+            privkey = arroba.util.new_key()
+            kwargs['k256_key'] = privkey.private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption(),
+            )
 
         user = cls(id=id, **kwargs)
         try:
