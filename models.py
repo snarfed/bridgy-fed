@@ -26,7 +26,7 @@ from common import add, base64_to_long, long_to_base64, redirect_unwrap
 
 # maps string label to Protocol subclass. populated by ProtocolUserMeta.
 # seed with old and upcoming protocols that don't have their own classes (yet).
-PROTOCOLS = {'bluesky': None, 'ostatus': None}
+PROTOCOLS = {'atproto': None, 'bluesky': None, 'ostatus': None}
 
 # 2048 bits makes tests slow, so use 1024 for them
 KEY_BITS = 1024 if DEBUG else 2048
@@ -339,8 +339,8 @@ class Target(ndb.Model):
     https://googleapis.dev/python/python-ndb/latest/model.html#google.cloud.ndb.model.StructuredProperty
     """
     uri = ndb.StringProperty(required=True)
-    # choices is populated in flask_app, after all User subclasses are created,
-    # so that PROTOCOLS is fully populated
+    # choices is populated in app via reset_protocol_properties, after all User
+    # subclasses are created, so that PROTOCOLS is fully populated
     protocol = ndb.StringProperty(choices=[], required=True)
 
     def __hash__(self):

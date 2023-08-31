@@ -7,15 +7,20 @@ TODO
   * use alsoKnownAs as handle? or call getProfile on PDS to get handle?
   * maybe need getProfile to store profile object?
 """
+import json
 import logging
+from pathlib import Path
 import re
 
 from arroba import did
+from arroba.util import parse_at_uri
 from flask import abort, g, request
 from google.cloud import ndb
 from granary import as1, bluesky
+from lexrpc import Client
 from oauth_dropins.webutil import flask_util, util
 import requests
+from urllib.parse import urljoin, urlparse
 
 from flask_app import app, cache
 import common
@@ -23,11 +28,17 @@ from common import (
     add,
     error,
     is_blocklisted,
+    USER_AGENT,
 )
 from models import Follower, Object, User
 from protocol import Protocol
 
 logger = logging.getLogger(__name__)
+
+lexicons = []
+for filename in (Path(__file__).parent / 'lexicons').glob('**/*.json'):
+    with open(filename) as f:
+        lexicons.append(json.load(f))
 
 
 class ATProto(User, Protocol):
@@ -90,11 +101,25 @@ class ATProto(User, Protocol):
                 or id.startswith('did:plc:')
                 or id.startswith('did:web:'))
 
-    # @classmethod
-    # def target_for(cls, obj, shared=False):
-    #     """Returns a relay that the receiving user uses."""
-    #     ...
-    #     return actor.get('publicInbox') or actor.get('inbox')
+    @classmethod
+    def target_for(cls, obj, shared=False):
+        """Returns the PDS URL for the given object, or None.
+
+        Args:
+          obj: :class:`Object`
+
+        Returns:
+          str
+        """
+        if not obj.key.id().startswith('at://'):
+            return None
+
+        repo, collection, rkey = parse_at_uri(obj.key.id())
+        did_obj = ATProto.load(repo)
+        if not did_obj:
+            return None
+
+        return did_obj.raw.get('services', {}).get('atproto_pds', {}).get('endpoint')
 
     # @classmethod
     # def send(cls, obj, url, log_data=True):
@@ -133,14 +158,12 @@ class ATProto(User, Protocol):
         Raises:
           TODO
         """
-        # 1. resolve DID
-        # 2. call getRecord on PDS
-
         id = obj.key.id()
         if not cls.owns_id(id):
             logger.info(f"ATProto can't fetch {id}")
             return False
 
+        # did:plc, did:web
         if id.startswith('did:'):
             try:
                 obj.raw = did.resolve(id, get_fn=util.requests_get)
@@ -148,6 +171,17 @@ class ATProto(User, Protocol):
             except (ValueError, requests.RequestException) as e:
                 util.interpret_http_exception(e)
                 return False
+
+        # at:// URI
+        # examples:
+        # at://did:plc:s2koow7r6t7tozgd4slc3dsg/app.bsky.feed.post/3jqcpv7bv2c2q
+        # https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
+        repo, collection, rkey = parse_at_uri(obj.key.id())
+        client = Client(cls.target_for(obj), lexicons,
+                        headers={'User-Agent': USER_AGENT})
+        obj.bsky = client.com.atproto.repo.getRecord(
+            repo=repo, collection=collection, rkey=rkey)
+        return True
 
     @classmethod
     def serve(cls, obj):

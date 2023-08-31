@@ -15,6 +15,8 @@ from oauth_dropins.webutil import (
     util,
 )
 
+from common import USER_AGENT
+
 logger = logging.getLogger(__name__)
 logging.getLogger('lexrpc').setLevel(logging.INFO)
 logging.getLogger('negotiator').setLevel(logging.WARNING)
@@ -56,7 +58,7 @@ app.wsgi_app = flask_util.ndb_context_middleware(
 
 cache = Cache(app)
 
-util.set_user_agent('Bridgy Fed (https://fed.brid.gy/)')
+util.set_user_agent(USER_AGENT)
 
 # XRPC server
 lexicons = []

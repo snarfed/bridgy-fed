@@ -910,7 +910,7 @@ class Protocol:
         obj = orig_as1 = None
         if local:
             obj = Object.get_by_id(id)
-            if obj and (obj.as1 or obj.deleted):
+            if obj and (obj.as1 or obj.raw or obj.deleted):
                 logger.info('  got from datastore')
                 obj.new = False
                 orig_as1 = obj.as1

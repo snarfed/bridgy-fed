@@ -60,6 +60,8 @@ DOMAIN_BLOCKLIST = frozenset((
 
 CACHE_TIME = timedelta(seconds=60)
 
+USER_AGENT = 'Bridgy Fed (https://fed.brid.gy/)'
+
 
 def base64_to_long(x):
     """Converts x from URL safe base64 encoding to a long integer.

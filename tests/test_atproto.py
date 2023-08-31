@@ -11,19 +11,30 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 from atproto import ATProto
-import common
+from common import USER_AGENT
 from models import Object
 import protocol
 from .testutil import Fake, TestCase
+
+DID_DOC = {
+  'type': 'plc_operation',
+  'rotationKeys': ['did:key:xyz'],
+  'verificationMethods': {'atproto': 'did:key:xyz'},
+  'alsoKnownAs': ['at://han.dull'],
+    'services': {
+        'atproto_pds': {
+            'type': 'AtprotoPersonalDataServer',
+            'endpoint': 'https://some.pds',
+        }
+    },
+  'prev': None,
+  'sig': '...'
+}
 
 class ATProtoTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        # self.request_context.push()
-
-        # self.user = self.make_user('user.com', has_hcard=True, has_redirects=True,
-        #                            obj_as2={**ACTOR, 'id': 'https://user.com/'})
 
     def test_put_validates_id(self, *_):
         for bad in (
@@ -52,10 +63,17 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.owns_id('did:plc:foo'))
         self.assertTrue(ATProto.owns_id('did:web:bar.com'))
 
+    def test_target_for_stored_did(self):
+        self.assertIsNone(ATProto.target_for(Object(id='did:plc:foo')))
+
+        did_obj = self.store_object(id='did:plc:foo', raw=DID_DOC)
+        got = ATProto.target_for(Object(id='at://did:plc:foo/co.ll/123'))
+        self.assertEqual('https://some.pds', got)
+
     @patch('requests.get', return_value=requests_response({'foo': 'bar'}))
     def test_fetch_did_plc(self, mock_get):
         obj = Object(id='did:plc:123')
-        ATProto.fetch(obj)
+        self.assertTrue(ATProto.fetch(obj))
         self.assertEqual({'foo': 'bar'}, obj.raw)
 
         mock_get.assert_has_calls((
@@ -65,21 +83,34 @@ class ATProtoTest(TestCase):
     @patch('requests.get', return_value=requests_response({'foo': 'bar'}))
     def test_fetch_did_web(self, mock_get):
         obj = Object(id='did:web:user.com')
-        ATProto.fetch(obj)
+        self.assertTrue(ATProto.fetch(obj))
         self.assertEqual({'foo': 'bar'}, obj.raw)
 
         mock_get.assert_has_calls((
             self.req('https://user.com/.well-known/did.json'),
         ))
 
-    # @patch('requests.get')
-    # def test_fetch_not_json(self, mock_get):
-    #     mock_get.return_value = self.as2_resp('XYZ not JSON')
+    @patch('requests.get', return_value=requests_response('not json'))
+    def test_fetch_did_plc_not_json(self, mock_get):
+        obj = Object(id='did:web:user.com')
+        self.assertFalse(ATProto.fetch(obj))
+        self.assertIsNone(obj.raw)
 
-    #     with self.assertRaises(BadGateway):
-    #         ATProto.fetch(Object(id='http://the/id'))
-
-    #     mock_get.assert_has_calls([self.as2_req('http://the/id')])
+    @patch('requests.get', return_value=requests_response({'foo': 'bar'}))
+    def test_fetch_at_uri_record(self, mock_get):
+        self.store_object(id='did:plc:abc', raw=DID_DOC)
+        obj = Object(id='at://did:plc:abc/app.bsky.feed.post/123')
+        self.assertTrue(ATProto.fetch(obj))
+        self.assertEqual({'foo': 'bar'}, obj.bsky)
+        # eg https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
+        mock_get.assert_called_with(
+            'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
+            json=None,
+            headers={
+                'Content-Type': 'application/json',
+                'User-Agent': USER_AGENT,
+            },
+        )
 
     def test_serve(self):
         obj = self.store_object(id='http://orig', our_as1=ACTOR_AS)
@@ -117,67 +148,3 @@ class ATProtoTest(TestCase):
     #     user.obj = Object(id='a', as2=ACTOR)
     #     self.assertEqual('@swentel@mas.to', user.readable_id)
     #     self.assertEqual('@swentel@mas.to', user.readable_or_key_id())
-
-    # @skip
-    # def test_target_for_not_atproto(self):
-    #     with self.assertRaises(AssertionError):
-    #         ATProto.target_for(Object(source_protocol='web'))
-
-    # def test_target_for_actor(self):
-    #     self.assertEqual(ACTOR['inbox'], ATProto.target_for(
-    #         Object(source_protocol='ap', as2=ACTOR)))
-
-    #     actor = copy.deepcopy(ACTOR)
-    #     del actor['inbox']
-    #     self.assertIsNone(ATProto.target_for(
-    #         Object(source_protocol='ap', as2=actor)))
-
-    #     actor['publicInbox'] = 'so-public'
-    #     self.assertEqual('so-public', ATProto.target_for(
-    #         Object(source_protocol='ap', as2=actor)))
-
-    #     # sharedInbox
-    #     self.assertEqual('so-public', ATProto.target_for(
-    #         Object(source_protocol='ap', as2=actor), shared=True))
-    #     actor['endpoints'] = {
-    #         'sharedInbox': 'so-shared',
-    #     }
-    #     self.assertEqual('so-public', ATProto.target_for(
-    #         Object(source_protocol='ap', as2=actor)))
-    #     self.assertEqual('so-shared', ATProto.target_for(
-    #         Object(source_protocol='ap', as2=actor), shared=True))
-
-    # def test_target_for_object(self):
-    #     obj = Object(as2=NOTE_OBJECT, source_protocol='ap')
-    #     self.assertIsNone(ATProto.target_for(obj))
-
-    #     Object(id=ACTOR['id'], as2=ACTOR).put()
-    #     obj.as2 = {
-    #         **NOTE_OBJECT,
-    #         'author': ACTOR['id'],
-    #     }
-    #     self.assertEqual('http://mas.to/inbox', ATProto.target_for(obj))
-
-    #     del obj.as2['author']
-    #     obj.as2['actor'] = copy.deepcopy(ACTOR)
-    #     obj.as2['actor']['url'] = [obj.as2['actor'].pop('id')]
-    #     self.assertEqual('http://mas.to/inbox', ATProto.target_for(obj))
-
-    # @patch('requests.get')
-    # def test_target_for_object_fetch(self, mock_get):
-    #     mock_get.return_value = self.as2_resp(ACTOR)
-
-    #     obj = Object(as2={
-    #         **NOTE_OBJECT,
-    #         'author': 'http://the/author',
-    #     }, source_protocol='ap')
-    #     self.assertEqual('http://mas.to/inbox', ATProto.target_for(obj))
-    #     mock_get.assert_has_calls([self.as2_req('http://the/author')])
-
-    # @patch('requests.get')
-    # def test_target_for_author_is_object_id(self, mock_get):
-    #     obj = self.store_object(id='http://the/author', our_as1={
-    #         'author': 'http://the/author',
-    #     })
-    #     # test is that we short circuit out instead of infinite recursion
-    #     self.assertIsNone(ATProto.target_for(obj))
