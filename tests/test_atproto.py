@@ -118,10 +118,6 @@ class ATProtoTest(TestCase):
             (ACTOR_PROFILE_VIEW_BSKY, {'Content-Type': 'application/json'}),
             ATProto.serve(obj))
 
-    # def test_ap_actor(self):
-    #     user = self.make_user('http://foo/actor', cls=ATProto)
-    #     self.assertEqual('http://foo/actor', user.ap_actor())
-
     def test_web_url(self):
         user = self.make_user('did:plc:foo', cls=ATProto)
         self.assertEqual('https://bsky.app/profile/did:plc:foo', user.web_url())

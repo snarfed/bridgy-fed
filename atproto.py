@@ -89,13 +89,6 @@ class ATProto(User, Protocol):
         """Returns this user's AP address, eg '@handle.com@bsky.brid.gy'."""
         return f'@{self.readable_id}@{self.ABBREV}{common.SUPERDOMAIN}'
 
-    # def ap_actor(self, rest=None):
-    #     """Returns this user's AP/AS2 actor id URL.
-
-    #     Eg 'https://fed.brid.gy/foo.com'
-    #     """
-    #     return self.key.id()
-
     @classmethod
     def owns_id(cls, id):
         return (id.startswith('at://')

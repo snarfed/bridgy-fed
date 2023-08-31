@@ -10,6 +10,7 @@ from oauth_dropins.webutil.testutil import NOW
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
 
+from atproto import ATProto
 from models import Follower, Object, OBJECT_EXPIRE_AGE, Target, User
 import protocol
 from protocol import Protocol
@@ -110,6 +111,13 @@ class UserTest(TestCase):
         obj.as2 = {'foo': 'bar'}
         obj.put()
         self.assertEqual({'foo': 'bar'}, g.user.as2())
+
+    def test_ap_actor(self):
+        user = self.make_user('did:plc:abc', cls=ATProto)
+        self.assertEqual('http://localhost/ap/atproto/did:plc:abc',
+                         user.ap_actor())
+        self.assertEqual('http://localhost/ap/atproto/did:plc:abc/foo',
+                         user.ap_actor(rest='foo'))
 
     def test_load_multi(self):
         # obj_key is None

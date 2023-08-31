@@ -292,9 +292,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     def ap_actor(self, rest=None):
         """Returns this user's ActivityPub/AS2 actor id.
 
-        Eg 'https://fed.brid.gy/ap/bluesky/foo.com'
+        Eg 'https://fed.brid.gy/ap/atproto/foo.com'
 
-        To be implemented by subclasses.
+        May be overridden by subclasses.
 
         Args:
           rest: str, optional, appended to URL path
@@ -302,7 +302,15 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Returns:
           str
         """
-        raise NotImplementedError()
+        # must match the URL route for activitypub.actor()
+        url = common.host_url(f'/ap/{self.ABBREV}/{self.key.id()}')
+
+        if rest:
+            if not rest.startswith('?'):
+                url += '/'
+            url += rest
+
+        return url
 
     def user_page_path(self, rest=None):
         """Returns the user's Bridgy Fed user page path."""
