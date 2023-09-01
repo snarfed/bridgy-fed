@@ -175,7 +175,8 @@ class ATProtoTest(TestCase):
         self.store_object(id='did:plc:foo', raw=DID_DOC)
         self.assertEqual('@han.dull@atproto.brid.gy', user.ap_address())
 
-    @patch('requests.post', return_value=requests_response('OK'))
+    @patch('requests.post',
+           return_value=requests_response('OK'))  # create DID on PLC
     def test_send_new_repo(self, mock_post):
         user = self.make_user(id='fake:user', cls=Fake)
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
@@ -195,6 +196,23 @@ class ATProtoTest(TestCase):
 
         # check repo, record
         repo = DatastoreStorage().load_repo(did=user.atproto_did)
+        record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
+        self.assertEqual(POST_BSKY, record)
+
+    @patch('requests.post',
+           return_value=requests_response('OK'))  # create DID on PLC
+    def test_send_new_repo_includes_user_profile(self, mock_post):
+        user = self.make_user(id='fake:user', cls=Fake, obj_as1=ACTOR_AS)
+        obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            **POST_AS,
+            'actor': 'fake:user',
+        })
+        self.assertTrue(ATProto.send(obj, 'http://localhost/'))
+
+        # check profile, record
+        repo = DatastoreStorage().load_repo(did=user.key.get().atproto_did)
+        profile = repo.get_record('app.bsky.actor.profile', 'self')
+        self.assertEqual(ACTOR_PROFILE_VIEW_BSKY, profile)
         record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
         self.assertEqual(POST_BSKY, record)
 

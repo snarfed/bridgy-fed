@@ -162,12 +162,14 @@ class ATProto(User, Protocol):
         user = user_key.get()
         privkey = user.k256_key()
         if user.atproto_did:
+            # existing DID
             did_doc = cls.load(user.atproto_did)
             pds = did_doc.raw['services']['atproto_pds']['endpoint']
             if pds.rstrip('/') != url.rstrip('/'):
                 logger.warning(f'{user_key} {user.atproto_did} PDS {pds} is not us')
                 return False
         else:
+            # create new DID
             # STATE: (unneeded?) new User.atproto_handle()
             did_plc = did.create_plc(user.atproto_handle(), privkey=privkey,
                                      pds_hostname=request.host,
@@ -181,14 +183,23 @@ class ATProto(User, Protocol):
                 user.put()
             update()
 
+
         repo = storage.load_repo(did=user.atproto_did)
+        writes = []
         if repo is None:
+            # create repo
             handle = user.readable_id if user.readable_id != user.atproto_did else None
             repo = Repo.create(storage, user.atproto_did, privkey, handle=handle)
+            if user.obj and user.obj.as1:
+                # create user profile
+                writes.append(Write(action=Action.CREATE,
+                                    collection='app.bsky.actor.profile',
+                                    rkey='self', record=user.obj.as_bsky()))
 
-        create = Write(action=Action.CREATE, collection='app.bsky.feed.post',
-                       rkey=next_tid(), record=obj.as_bsky())
-        repo.apply_writes([create], privkey)
+        # create record
+        writes.append(Write(action=Action.CREATE, collection='app.bsky.feed.post',
+                            rkey=next_tid(), record=obj.as_bsky()))
+        repo.apply_writes(writes, privkey)
         return True
 
     @classmethod
