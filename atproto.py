@@ -109,15 +109,27 @@ class ATProto(User, Protocol):
         Returns:
           str
         """
-        if not obj.key.id().startswith('at://'):
+        if obj.key.id().startswith('did:'):
             return None
 
-        repo, collection, rkey = parse_at_uri(obj.key.id())
-        did_obj = ATProto.load(repo)
-        if not did_obj:
-            return None
+        if obj.key.id().startswith('at://'):
+            repo, collection, rkey = parse_at_uri(obj.key.id())
+            did_obj = ATProto.load(repo)
+            if did_obj:
+                return did_obj.raw.get('services', {})\
+                                  .get('atproto_pds', {})\
+                                  .get('endpoint')
 
-        return did_obj.raw.get('services', {}).get('atproto_pds', {}).get('endpoint')
+        if obj.as1:
+            owner = as1.get_owner(obj.as1)
+            if owner:
+                user_key = Protocol.key_for(owner)
+                if user_key:
+                    user = user_key.get()
+                    if user and user.atproto_did:
+                        return cls.target_for(Object(id=f'at://{user.atproto_did}'))
+
+        return common.host_url()
 
     @classmethod
     def send(cls, obj, url, log_data=True):
