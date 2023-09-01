@@ -27,10 +27,7 @@
 {% if g.user.has_hcard == False %}
 <div class="row promo warning">
 <form method="post" action="/web-site">
-  Next step:
-  <a href="https://indiewebify.me/validate-h-card/?url={{ g.user.web_url() }}">
-    add a representative h-card.
-  </a>
+  Next step: <a href="/docs#profile">add a representative h-card.</a>
   <input type="hidden" name="url" value="{{ g.user.web_url() }}" />
   <input type="submit" class="btn btn-default" value="Check now" />
 </form>

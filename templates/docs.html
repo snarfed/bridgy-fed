@@ -160,15 +160,17 @@ https://en.support.wordpress.com/site-redirect/
 <li id="profile" class="question">How do I set up my profile?</li>
 <li class="answer">
 <p>
-Your site's fediverse profile comes from the <a href="https://microformats.org/wiki/microformats2">microformats2</a> <a href="https://indieweb.org/representative_h-card">representative h-card</a> on your site's home page. Here's a minimal example to set your name and a profile picture:
+Your site's fediverse profile comes from the <a href="https://microformats.org/wiki/microformats2">microformats2</a> <a href="https://microformats.org/wiki/representative-h-card-authoring">representative h-card</a> on your site's home page. Here's a minimal example to set your name and a profile picture:
 
 <pre>
 &lt;span class="<span class='keyword'>h-card</span>"&gt;
-  &lt;a rel="<span class='keyword'>me</span>" href="<span class='value'>/</span>"&gt;<span class='value'>Alice Foo</span>&lt;/a&gt;
+  &lt;a class="<span class='keyword'>u-url</span>" rel="<span class='keyword'>me</span>" href="<span class='value'>/</span>"&gt;<span class='value'>Alice Foo</span>&lt;/a&gt;
   &lt;img class="<span class='keyword'>u-photo</span>" src="<span class='value'>/me.jpg</span>" /&gt;
 &lt;/span&gt;
 </pre>
 </p>
+
+<p>You can use <a href="https://indiewebify.me/">indiewebify.me</a> to check your site's h-card interactively, but note that that doesn't check that it's <em>representative</em>. In the common case, this just means that your h-card needs a link to your home page with the <code>u-url</code> class. See the <a href="https://microformats.org/wiki/representative-h-card-authoring">representative h-card spec</a> for more details.</p>
 
 <p>If you want to set a <a href="https://docs.joinmastodon.org/user/profile/#header">header image</a>, add a <code><a href="https://indieweb.org/featured">u-featured</a></code> image to your h-card, eg:
 
