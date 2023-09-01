@@ -69,6 +69,12 @@ def reset_protocol_properties():
         'source_protocol', choices=list(PROTOCOLS.keys()))
 
 
+def _validate_atproto_did(prop, val):
+    if not val.startswith('did:plc:'):
+        raise ValueError(f'Expected did:plc, got {val}')
+    return val
+
+
 class User(StringIdModel, metaclass=ProtocolUserMeta):
     """Abstract base class for a Bridgy Fed user.
 
@@ -81,15 +87,16 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
       https://tools.ietf.org/html/draft-cavage-http-signatures-12
 
     * K-256 keypair for AT Protocol's signing key
-      property: k256_key, PEM encoded
+      property: k256_pem, PEM encoded
       https://atproto.com/guides/overview#account-portability
     """
     obj_key = ndb.KeyProperty(kind='Object')  # user profile
     mod = ndb.StringProperty()
     public_exponent = ndb.StringProperty()
     private_exponent = ndb.StringProperty()
-    k256_key = ndb.BlobProperty()
+    k256_pem = ndb.BlobProperty()
     use_instead = ndb.KeyProperty()
+    atproto_did = ndb.StringProperty(validator=_validate_atproto_did)
 
     # whether this user signed up or otherwise explicitly, deliberately
     # interacted with Bridgy Fed. For example, if fediverse user @a@b.com looks
@@ -163,7 +170,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         if cls.LABEL != 'atproto':
             privkey = arroba.util.new_key()
-            kwargs['k256_key'] = privkey.private_bytes(
+            kwargs['k256_pem'] = privkey.private_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PrivateFormat.PKCS8,
                 encryption_algorithm=serialization.NoEncryption(),
@@ -242,6 +249,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                              base64_to_long(str(self.private_exponent))))
         return rsa.exportKey(format='PEM')
 
+    def k256_key(self):
+        """Returns: :class:`ec.EllipticCurvePrivateKey"""
+        assert self.k256_pem
+        return serialization.load_pem_private_key(self.k256_pem, password=None)
+
     def name(self):
         """Returns this user's human-readable name, eg 'Ryan Barrett'."""
         if self.obj and self.obj.as1:
@@ -316,6 +328,16 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             url += rest
 
         return url
+
+    def atproto_handle(self):
+        """Returns this user's AT Protocol handle, eg 'foo.com'.
+
+        To be implemented by subclasses.
+
+        Returns:
+          str
+        """
+        raise NotImplementedError()
 
     def user_page_path(self, rest=None):
         """Returns the user's Bridgy Fed user page path."""
@@ -567,6 +589,10 @@ class Object(StringIdModel):
     def as_as2(self):
         """Returns this object as an AS2 dict."""
         return self.as2 or as2.from_as1(self.as1) or {}
+
+    def as_bsky(self):
+        """Returns this object as a Bluesky record."""
+        return self.bsky or bluesky.from_as1(self.as1) or {}
 
     def activity_changed(self, other_as1):
         """Returns True if this activity is meaningfully changed from other_as1.

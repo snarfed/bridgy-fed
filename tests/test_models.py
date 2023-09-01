@@ -40,7 +40,7 @@ class UserTest(TestCase):
         assert user.public_pem()
         assert user.private_pem()
 
-        k256_key = serialization.load_pem_private_key(user.k256_key, password=None)
+        k256_key = user.k256_key()
         self.assertIsInstance(k256_key, ec.EllipticCurvePrivateKey)
         self.assertIsInstance(k256_key.curve, ec.SECP256K1)
 
@@ -48,6 +48,15 @@ class UserTest(TestCase):
         same = Fake.get_or_create('a.b', direct=True)
         user.direct = True
         self.assert_entities_equal(same, user, ignore=['updated'])
+
+    def test_validate_atproto_did(self):
+        user = Fake()
+
+        with self.assertRaises(ValueError):
+            user.atproto_did = 'did:foo:bar'
+
+        user.atproto_did = 'did:plc:123'
+        user.atproto_did = None
 
     def test_get_or_create_use_instead(self):
         user = Fake.get_or_create('a.b')

@@ -76,6 +76,9 @@ class Fake(User, protocol.Protocol):
     def ap_actor(self, rest=None):
         return f'http://bf/fake/{self.key.id()}/ap' + (f'/{rest}' if rest else '')
 
+    def atproto_handle(self):
+        return self.key.id().removeprefix('fake:') + '.fake.brid.gy'
+
     @classmethod
     def owns_id(cls, id):
         if id.startswith('nope'):
@@ -251,7 +254,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                    mod=global_user.mod,
                    public_exponent=global_user.public_exponent,
                    private_exponent=global_user.private_exponent,
-                   k256_key=global_user.k256_key,
+                   k256_pem=global_user.k256_pem,
                    obj_key=obj_key,
                    **kwargs)
         user.put()
@@ -409,7 +412,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             self.assert_equals(obj_as2, got.as2())
 
         # generated, computed, etc
-        ignore = ['created', 'mod', 'obj_key', 'k256_key', 'private_exponent',
+        ignore = ['created', 'mod', 'obj_key', 'k256_pem', 'private_exponent',
                   'public_exponent', 'readable_id', 'updated']
         for prop in ignore:
             assert prop not in props
@@ -422,7 +425,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             assert got.public_exponent
 
         if cls != ATProto:
-            assert got.k256_key
+            assert got.k256_pem
 
         return got
 

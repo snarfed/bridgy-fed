@@ -4,8 +4,16 @@ import logging
 from unittest import skip
 from unittest.mock import patch
 
+from arroba.datastore_storage import AtpBlock, AtpRepo, DatastoreStorage
+from arroba.repo import Repo
+import arroba.util
 from flask import g
-from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_VIEW_BSKY
+from granary.tests.test_bluesky import (
+    ACTOR_AS,
+    ACTOR_PROFILE_VIEW_BSKY,
+    POST_AS,
+    POST_BSKY,
+)
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
@@ -36,7 +44,7 @@ class ATProtoTest(TestCase):
     def setUp(self):
         super().setUp()
 
-    def test_put_validates_id(self, *_):
+    def test_put_validates_id(self):
         for bad in (
             '',
             'not a did',
@@ -53,6 +61,10 @@ class ATProtoTest(TestCase):
 
         ATProto(id='did:web:foo.com').put()
         ATProto(id='did:plc:foo').put()
+
+    def test_put_blocks_atproto_did(self):
+        with self.assertRaises(AssertionError):
+            ATProto(id='did:plc:123', atproto_did='did:plc:456').put()
 
     def test_owns_id(self):
         self.assertFalse(ATProto.owns_id('http://foo'))
@@ -139,3 +151,61 @@ class ATProtoTest(TestCase):
 
         self.store_object(id='did:plc:foo', raw=DID_DOC)
         self.assertEqual('@han.dull@atproto.brid.gy', user.ap_address())
+
+    @patch('requests.post', return_value=requests_response('OK'))
+    def test_send_new_repo(self, mock_post):
+        user = self.make_user(id='fake:user', cls=Fake)
+        obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            **POST_AS,
+            'actor': 'fake:user',
+        })
+        self.assertTrue(ATProto.send(obj, 'http://localhost/'))
+
+        # check DID doc
+        user = user.key.get()
+        assert user.atproto_did
+        did_obj = ATProto.load(user.atproto_did)
+        self.assertEqual('https://localhost',
+                         did_obj.raw['services']['atproto_pds']['endpoint'])
+        mock_post.assert_has_calls(
+            [self.req(f'https://plc.local/{user.atproto_did}', json=did_obj.raw)])
+
+        # check repo, record
+        repo = DatastoreStorage().load_repo(did=user.atproto_did)
+        record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
+        self.assertEqual(POST_BSKY, record)
+
+    def test_send_existing_repo(self):
+        user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:foo')
+
+        did_doc = copy.deepcopy(DID_DOC)
+        did_doc['services']['atproto_pds']['endpoint'] = 'http://localhost/'
+        self.store_object(id='did:plc:foo', raw=did_doc)
+
+        obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            **POST_AS,
+            'actor': 'fake:user',
+        })
+        self.assertTrue(ATProto.send(obj, 'http://localhost/'))
+
+        # check repo, record
+        repo = DatastoreStorage().load_repo(did=user.atproto_did)
+        record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
+        self.assertEqual(POST_BSKY, record)
+
+    def test_send_not_our_repo(self):
+        self.assertFalse(ATProto.send(Object(id='fake:post'), 'http://other.pds/'))
+        self.assertEqual(0, AtpBlock.query().count())
+        self.assertEqual(0, AtpRepo.query().count())
+
+    def test_send_did_doc_not_our_repo(self):
+        self.store_object(id='did:plc:foo', raw=DID_DOC)  # uses https://some.pds
+        user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:foo')
+        obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'content': 'foo',
+            'actor': 'fake:user',
+        })
+        self.assertFalse(ATProto.send(obj, 'http://localhost/'))
+        self.assertEqual(0, AtpBlock.query().count())
+        self.assertEqual(0, AtpRepo.query().count())
