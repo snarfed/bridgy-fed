@@ -73,6 +73,7 @@ Bridgy Fed takes some technical know-how to set up, and there are simpler (but l
 
 <br>
 <p><em>Development</em></p>
+<li><a href="#compare">How do the different protocols compare?</a></li>
 <li><a href="#translate">How are the different protocols translated?</a></li>
 <li><a href="#router">How are activities routed?</a></li>
 <li><a href="#error-handling">How are errors handled?</a></li>
@@ -508,10 +509,11 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <br>
 <h3 id="development">Development</h3>
 
-<li id="translate" class="question">How do the different protocols compare?</li>
+<li id="compare" class="question">How do the different protocols compare?</li>
 <li class="answer">
-<p>Here's how they stack up on a number of factors. It's obviously oversimplified, but hopefully still right in spirit. <a href="https://github.com/snarfed/bridgy-fed/issues">Feedback is welcome!</a></p>
-</p>
+<p>Here's a table showing how they stack up on a number of factors. It's obviously oversimplified, but hopefully still right in spirit, focusing on how they're deployed and used in the real world. For example, <a href="https://www.w3.org/TR/activitypub/#obj-id">identity in ActivityPub is technically URL-based</a>, but in practice the fediverse uses <a href="https://webfinger.net/">WebFinger</a> <a href="https://datatracker.ietf.org/doc/html/rfc7565#section-4"><code>user@domain</code> identifiers</a> more or less universally, so the table reflects that.</p>
+
+<p><a href="https://github.com/snarfed/bridgy-fed/issues">Feedback is welcome!</a></p>
 
 <table>
 <thead>
