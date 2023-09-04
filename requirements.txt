@@ -88,7 +88,7 @@ rsa==4.9
 sgmllib3k==1.0.0
 simple-websocket==0.10.1
 six==1.16.0
-soupsieve==2.4.1
+soupsieve==2.5
 testtools==2.6.0
 tlslite-ng==0.7.6
 tweepy==4.14.0
