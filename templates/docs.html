@@ -508,6 +508,137 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <br>
 <h3 id="development">Development</h3>
 
+<li id="translate" class="question">How do the different protocols compare?</li>
+<li class="answer">
+<p>Here's how they stack up on a number of factors. It's obviously oversimplified, but hopefully still right in spirit. <a href="https://github.com/snarfed/bridgy-fed/issues">Feedback is welcome!</a></p>
+</p>
+
+<table>
+<thead>
+<tr>
+  <th></th>
+  <th>IndieWeb</th>
+  <th>ActivityPub + WebFinger</th>
+  <th>AT Protocol</th>
+  <th>Nostr</th>
+</tr>
+</thead>
+<tbody>
+
+<tr>
+  <th>identity</th>
+  <td><a href="https://indieweb.org/personal-domain">DNS</a></td>
+  <td>username + DNS</td>
+  <td><a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a>/<a href="https://w3c-ccg.github.io/did-method-web/"><code>did:web</code></a>,<br>
+    <a href="https://atproto.com/specs/handle">DNS handles</a></td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">public key</a>,
+    <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">DNS handles</a></td>
+</tr>
+
+<tr>
+  <th>data format</th>
+  <td><a href="https://microformats.org/wiki/microformats2">microformats2</a></td>
+  <td><a href="https://www.w3.org/TR/activitystreams-core/">ActivityStreams 2</a></td>
+  <td><a href="https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky"><code>app.bsky</code> lexicons</a></td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">Nostr events</a></td>
+</tr>
+
+<tr>
+  <th>serialization</th>
+  <td>HTML</td>
+  <td>JSON</td>
+  <td>JSON (<a href="https://atproto.com/specs/lexicon">Lexicon</a>)</td>
+  <td>JSON</td>
+</tr>
+
+<tr>
+  <th>delivery</th>
+  <td><a href="https://websub.net/">push</a>/<a href="https://indieweb.org/Microsub">pull</a> posts</a>,<br>
+    <a href="https://webmention.net/">push responses</a></td>
+  <td><a href="https://www.w3.org/TR/activitypub/#delivery">push</a></td>
+  <td><a href="https://blueskyweb.xyz/blog/5-5-2023-federation-architecture">pull</a></td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">pull</a></td>
+</tr>
+
+<tr>
+  <th>transport</th>
+  <td>HTTP</td>
+  <td><a href="https://www.w3.org/TR/activitypub/#retrieving-objects">HTTP</a></td>
+  <td>HTTP + <a href="https://atproto.com/specs/event-stream">WebSocket</a> (<a href="https://atproto.com/specs/xrpc">XRPC</a>)</td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#communication-between-clients-and-relays">WebSocket</a></td>
+</tr>
+
+<tr>
+  <th>topology</th>
+  <td>peer to peer</td>
+  <td><a href="">federated servers, two-tier</a></td>
+  <td><a href="https://blueskyweb.xyz/blog/5-5-2023-federation-architecture">federated servers</a>,<br>
+    <a href="https://blueskyweb.xyz/blog/4-13-2023-moderation">decoupled</a> <a href="https://blueskyweb.xyz/blog/3-30-2023-algorithmic-choice">services</a>, multi-tier</td>
+  <td><a href="https://github.com/nostr-protocol/nostr#how-does-nostr-work">federated relays</a></td>
+</tr>
+
+<tr>
+  <th>security model</th>
+  <td>SSL, one user per domain</td>
+  <td><a href="https://www.w3.org/wiki/SocialCG/ActivityPub/Authentication_Authorization#Signing_requests_using_HTTP_Signatures">transport signatures,<br>
+    custodial keys</a></td>
+  <td><a href="https://atproto.com/specs/repository">data signatures</a>,<br>
+    <a href="https://atproto.com/guides/overview#account-portability">custodial + user-owned keys</a></td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">data signatures,<br>
+    user-owned keys</a></td>
+</tr>
+
+<tr>
+  <th>semantics live in...</th>
+  <td>servers, clients</td>
+  <td>servers, clients</td>
+  <td><a href="https://blueskyweb.xyz/blog/5-5-2023-federation-architecture">dedicated AppView tier</a>, clients</td>
+  <td>clients</td>
+</tr>
+
+<tr>
+  <th>monetization</th>
+  <td>hosting</td>
+  <td>donations</td>
+  <td><a href="https://blueskyweb.xyz/blog/7-05-2023-business-plan">services</a></td>
+  <td><a href="https://nostr.how/en/zaps">Zaps</a> (microtransactions)</td>
+</tr>
+
+<tr>
+  <th>active user estimates<br>
+    (as of 9/2023)</th>
+  <td>
+    <!-- <a href="https://indiemap.org/">2k</a>, <a href="https://w3techs.com/technologies/overview/content_management">43M</a><br> -->
+    <a href="https://indiemap.org/docs.html#sites">not well defined</a></td>
+  <td><a href="https://fedidb.org/">1.6M</a>, <a href="https://fediverse.observer/stats#user_growth_active">2M</a>, <a href="https://the-federation.info/">2.7M</a></td>
+  <td><a href="https://discord.com/channels/1097580399187738645/1097580399187738648/1143696514825326685">360k</a></td>
+  <td><a href="https://stats.nostr.band/#weekly_active_users">25k</a>, <a href="https://stats.nostr.band/">100k</a></a></td>
+</tr>
+
+<tr>
+  <th>server estimates<br>
+    (as of 9/2023)</th>
+  <td><a href="https://indiemap.org/docs.html#sites">not well defined</a></td>
+  <td><a href="https://fediverse.observer/stats#pod_growth">23k</a>, <a href="https://fedidb.org/">25k</a>, <a href="https://the-federation.info/">26k</a></td>
+  <td>1</td>
+  <td><a href="https://nostr.watch/relays/statistics">170</a>, <a href="https://stats.nostr.band/">1800</a></td>
+</tr>
+
+<tr>
+  <th>governance</th>
+  <td><a href="https://indieweb.org/">IndieWeb</a> <a href="https://www.oscollective.org/">non-profit</a>,<br>
+    <a href="https://www.w3.org/community/socialcg/">minimal W3C</a></td>
+  <td><a href="https://www.w3.org/community/socialcg/">minimal W3C</a></td>
+  <td><a href="https://blueskyweb.xyz/blog/7-05-2023-business-plan">Bluesky C-corp now</a>,<br>
+    <a href="https://blue.amazingca.dev/user/bnewbold.bsky.team/post/3k3p6upex4x2l">IETF eventually?</a></td>
+  <td><a href="https://fiatjaf.com/">mildly BDFL(s) now</a>,<br>
+    <a href="https://github.com/nostr-protocol/nips/issues/162">decentralized eventually?</a></td>
+</tr>
+
+</tbody>
+</table>
+</li>
+
 <li id="translate" class="question">How are the different protocols translated?</li>
 <li class="answer">
 <p>Here are internal details on how Bridgy Fed translates user identity and events between protocols, including some like <a href="https://github.com/nostr-protocol/nostr">Nostr</a> and <a href="https://blueskyweb.xyz/">Bluesky</a>/<a href="https://atproto.com/">AT Protocol</a> that aren't launched here, or even fully implemented or thought through yet. Caveat hacker!
