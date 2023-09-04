@@ -59,12 +59,3 @@ app.wsgi_app = flask_util.ndb_context_middleware(
 cache = Cache(app)
 
 util.set_user_agent(USER_AGENT)
-
-# XRPC server
-lexicons = []
-for filename in (app_dir / 'lexicons').glob('**/*.json'):
-    with open(filename) as f:
-        lexicons.append(json.load(f))
-
-xrpc_server = Server(lexicons, validate=False)
-init_flask(xrpc_server, app)

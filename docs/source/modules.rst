@@ -9,9 +9,17 @@ activitypub
 -----------
 .. automodule:: activitypub
 
+atproto
+-------
+.. automodule:: atproto
+
 common
 ------
 .. automodule:: common
+
+convert
+-------
+.. automodule:: convert
 
 follow
 ------
@@ -41,23 +49,10 @@ superfeedr
 ----------
 .. automodule:: superfeedr
 
+web
+---
+.. automodule:: web
+
 webfinger
 ---------
 .. automodule:: webfinger
-
-webmention
-----------
-.. automodule:: webmention
-
-xrpc_actor
-----------
-.. automodule:: xrpc
-
-xrpc_feed
----------
-.. automodule:: xrpc
-
-xrpc_graph
-----------
-.. automodule:: xrpc
-

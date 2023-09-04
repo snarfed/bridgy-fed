@@ -9,14 +9,13 @@ TODO
 """
 import json
 import logging
-from pathlib import Path
 import re
 
 from arroba import did
 from arroba.datastore_storage import DatastoreStorage
 from arroba.repo import Repo, Write
 from arroba.storage import Action
-from arroba.util import next_tid, new_key, parse_at_uri
+from arroba.util import lexicons, next_tid, new_key, parse_at_uri
 from flask import abort, g, request
 from google.cloud import ndb
 from granary import as1, bluesky
@@ -38,12 +37,8 @@ from protocol import Protocol
 
 logger = logging.getLogger(__name__)
 
-lexicons = []
-for filename in (Path(__file__).parent / 'lexicons').glob('**/*.json'):
-    with open(filename) as f:
-        lexicons.append(json.load(f))
-
 storage = DatastoreStorage()
+
 
 class ATProto(User, Protocol):
     """AT Protocol class.
