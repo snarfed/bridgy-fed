@@ -250,7 +250,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return rsa.exportKey(format='PEM')
 
     def k256_key(self):
-        """Returns: :class:`ec.EllipticCurvePrivateKey"""
+        """Returns: :class:`ec.EllipticCurvePrivateKey`"""
         assert self.k256_pem
         return serialization.load_pem_private_key(self.k256_pem, password=None)
 

@@ -1,0 +1,21 @@
+# https://cloud.google.com/appengine/docs/flexible/reference/app-yaml?tab=python
+#
+# gcloud -q app deploy --project bridgy-federated hub.yaml
+
+# application: bridgy-federated
+
+env: flex
+runtime: python
+runtime_config:
+    operating_system: ubuntu22
+    runtime_version: 3.11
+
+# need only one instance so that new commits can be delivered to subscribeRepos
+# subscribers in memory
+manual_scaling:
+  instances: 1
+
+# https://cloud.google.com/appengine/docs/flexible/python/runtime#application_startup
+# https://docs.gunicorn.org/en/latest/settings.html#timeout
+# TODO: try asyncio w/eventlet workers
+entrypoint: gunicorn --workers 1 --threads 20 -b :$PORT hub:app

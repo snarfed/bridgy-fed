@@ -1,4 +1,6 @@
 git+https://github.com/snarfed/arroba.git#egg=arroba
+git+https://github.com/snarfed/carbox.git#egg=carbox
+git+https://github.com/snarfed/dag-json.git#egg=dag_json
 git+https://github.com/dvska/gdata-python3.git#egg=gdata
 git+https://github.com/snarfed/granary.git#egg=granary
 git+https://github.com/snarfed/dag-json.git#egg=dag_json
@@ -13,6 +15,7 @@ bases==0.2.1
 beautifulsoup4==4.12.2
 brevity==0.2.17
 cachetools==5.3.0
+cbor2==5.4.6
 certifi==2023.7.22
 cffi==1.15.1
 charset-normalizer==3.2.0
