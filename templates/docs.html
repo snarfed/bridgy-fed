@@ -528,13 +528,21 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <tbody>
 
 <tr>
-  <th>identity</th>
+  <th>user identity</th>
   <td><a href="https://indieweb.org/personal-domain">DNS</a></td>
   <td>username + DNS</td>
   <td><a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a>/<a href="https://w3c-ccg.github.io/did-method-web/"><code>did:web</code></a>,<br>
     <a href="https://atproto.com/specs/handle">DNS handles</a></td>
   <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">public key</a>,
     <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">DNS handles</a></td>
+</tr>
+
+<tr>
+  <th>object ids</th>
+  <td><a href="https://indieweb.org/permalink">URLs</a></td>
+  <td><a href="https://www.w3.org/TR/activitypub/#obj-id">URLs</a></td>
+  <td><a href="https://atproto.com/specs/at-uri-scheme"><code>at://</code> URIs</a>,<br><a href="https://atproto.com/specs/repository">data hashes</a></td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">data hashes</a></td>
 </tr>
 
 <tr>
@@ -573,10 +581,10 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <tr>
   <th>topology</th>
   <td>peer to peer</td>
-  <td><a href="">federated servers, two-tier</a></td>
+  <td><a href="">federated servers, two tier</a></td>
   <td><a href="https://blueskyweb.xyz/blog/5-5-2023-federation-architecture">federated servers</a>,<br>
     <a href="https://blueskyweb.xyz/blog/4-13-2023-moderation">decoupled</a> <a href="https://blueskyweb.xyz/blog/3-30-2023-algorithmic-choice">services</a>, multi-tier</td>
-  <td><a href="https://github.com/nostr-protocol/nostr#how-does-nostr-work">federated relays</a></td>
+  <td><a href="https://github.com/nostr-protocol/nostr#how-does-nostr-work">federated relays, two tier</a></td>
 </tr>
 
 <tr>
@@ -594,7 +602,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <th>semantics live in...</th>
   <td>servers, clients</td>
   <td>servers, clients</td>
-  <td><a href="https://blueskyweb.xyz/blog/5-5-2023-federation-architecture">dedicated AppView tier</a>, clients</td>
+  <td><a href="https://blueskyweb.xyz/blog/5-5-2023-federation-architecture">dedicated service</a>, clients</td>
   <td>clients</td>
 </tr>
 
@@ -603,7 +611,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <td>hosting</td>
   <td>donations</td>
   <td><a href="https://blueskyweb.xyz/blog/7-05-2023-business-plan">services</a></td>
-  <td><a href="https://nostr.how/en/zaps">Zaps</a> (microtransactions)</td>
+  <td><a href="https://nostr.how/en/zaps">microtransactions</a></td>
 </tr>
 
 <tr>
@@ -629,8 +637,8 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <tr>
   <th>governance</th>
   <td><a href="https://indieweb.org/">IndieWeb</a> <a href="https://www.oscollective.org/">non-profit</a>,<br>
-    <a href="https://www.w3.org/community/socialcg/">minimal W3C</a></td>
-  <td><a href="https://www.w3.org/community/socialcg/">minimal W3C</a></td>
+    <a href="https://www.w3.org/community/socialcg/">some W3C</a></td>
+  <td><a href="https://socialhub.activitypub.rocks/t/about-the-fediverse-enhancement-proposals/1168">FEPs</a>, <a href="https://www.w3.org/community/socialcg/">some W3C</a></td>
   <td><a href="https://blueskyweb.xyz/blog/7-05-2023-business-plan">Bluesky C-corp now</a>,<br>
     <a href="https://blue.amazingca.dev/user/bnewbold.bsky.team/post/3k3p6upex4x2l">IETF eventually?</a></td>
   <td><a href="https://fiatjaf.com/">mildly BDFL(s) now</a>,<br>
