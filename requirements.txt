@@ -79,7 +79,7 @@ pyparsing==3.1.1
 pyrsistent==0.19.3
 python-dateutil==2.8.2
 python-tumblpy==1.1.4
-pytz==2023.3
+pytz==2023.3.post1
 PyYAML==6.0.1
 redis==4.6.0
 requests==2.31.0
