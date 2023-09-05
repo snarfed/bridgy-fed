@@ -15,7 +15,7 @@ from arroba import did
 from arroba.datastore_storage import DatastoreStorage
 from arroba.repo import Repo, Write
 from arroba.storage import Action
-from arroba.util import lexicons, next_tid, new_key, parse_at_uri
+from arroba.util import next_tid, new_key, parse_at_uri
 from flask import abort, g, request
 from google.cloud import ndb
 from granary import as1, bluesky
@@ -232,8 +232,7 @@ class ATProto(User, Protocol):
         # at://did:plc:s2koow7r6t7tozgd4slc3dsg/app.bsky.feed.post/3jqcpv7bv2c2q
         # https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
         repo, collection, rkey = parse_at_uri(obj.key.id())
-        client = Client(cls.target_for(obj), lexicons,
-                        headers={'User-Agent': USER_AGENT})
+        client = Client(cls.target_for(obj), headers={'User-Agent': USER_AGENT})
         obj.bsky = client.com.atproto.repo.getRecord(
             repo=repo, collection=collection, rkey=rkey)
         return True
