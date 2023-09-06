@@ -1,5 +1,6 @@
 """Unit tests for atproto.py."""
 import copy
+from google.cloud.tasks_v2.types import Task
 import logging
 from unittest import skip
 from unittest.mock import patch
@@ -14,12 +15,14 @@ from granary.tests.test_bluesky import (
     POST_AS,
     POST_BSKY,
 )
+from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
+import atproto
 from atproto import ATProto
-from common import USER_AGENT
+import common
 from models import Object
 import protocol
 from .testutil import Fake, TestCase
@@ -36,7 +39,7 @@ DID_DOC = {
         }
     },
   'prev': None,
-  'sig': '...'
+  'sig': '...',
 }
 
 class ATProtoTest(TestCase):
@@ -143,7 +146,7 @@ class ATProtoTest(TestCase):
             json=None,
             headers={
                 'Content-Type': 'application/json',
-                'User-Agent': USER_AGENT,
+                'User-Agent': common.USER_AGENT,
             },
         )
 
@@ -175,9 +178,11 @@ class ATProtoTest(TestCase):
         self.store_object(id='did:plc:foo', raw=DID_DOC)
         self.assertEqual('@han.dull@atproto.brid.gy', user.ap_address())
 
+    @patch('common.APP_ID', 'my-app')
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
-    def test_send_new_repo(self, mock_post):
+    def test_send_new_repo(self, mock_post, mock_create_task):
         user = self.make_user(id='fake:user', cls=Fake)
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
             **POST_AS,
@@ -199,9 +204,20 @@ class ATProtoTest(TestCase):
         record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
         self.assertEqual(POST_BSKY, record)
 
+        # check atproto-commit task
+        mock_create_task.assert_called_with(
+            parent='projects/my-app/locations/us-central1/queues/atproto-commit',
+            task={'app_engine_http_request': {
+                'http_method': 'POST',
+                'relative_uri': '/_ah/queue/atproto-commit',
+                'body': b'seq=2',
+                'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
+            }})
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
-    def test_send_new_repo_includes_user_profile(self, mock_post):
+    def test_send_new_repo_includes_user_profile(self, mock_post, mock_create_task):
         user = self.make_user(id='fake:user', cls=Fake, obj_as1=ACTOR_AS)
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
             **POST_AS,
@@ -216,7 +232,10 @@ class ATProtoTest(TestCase):
         record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
         self.assertEqual(POST_BSKY, record)
 
-    def test_send_existing_repo(self):
+        mock_create_task.assert_called()
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_existing_repo(self, mock_create_task):
         user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:foo')
 
         did_doc = copy.deepcopy(DID_DOC)
@@ -234,12 +253,17 @@ class ATProtoTest(TestCase):
         record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
         self.assertEqual(POST_BSKY, record)
 
-    def test_send_not_our_repo(self):
+        mock_create_task.assert_called()
+
+    @patch.object(tasks_client, 'create_task')
+    def test_send_not_our_repo(self, mock_create_task):
         self.assertFalse(ATProto.send(Object(id='fake:post'), 'http://other.pds/'))
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())
+        mock_create_task.assert_not_called()
 
-    def test_send_did_doc_not_our_repo(self):
+    @patch.object(tasks_client, 'create_task')
+    def test_send_did_doc_not_our_repo(self, mock_create_task):
         self.store_object(id='did:plc:foo', raw=DID_DOC)  # uses https://some.pds
         user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:foo')
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
@@ -250,3 +274,4 @@ class ATProtoTest(TestCase):
         self.assertFalse(ATProto.send(obj, 'http://localhost/'))
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())
+        mock_create_task.assert_not_called()

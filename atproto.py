@@ -14,7 +14,7 @@ import re
 from arroba import did
 from arroba.datastore_storage import DatastoreStorage
 from arroba.repo import Repo, Write
-from arroba.storage import Action
+from arroba.storage import Action, CommitData
 from arroba.util import next_tid, new_key, parse_at_uri
 from flask import abort, g, request
 from google.cloud import ndb
@@ -178,7 +178,6 @@ class ATProto(User, Protocol):
                 user.put()
             update()
 
-
         repo = storage.load_repo(did=user.atproto_did)
         writes = []
         if repo is None:
@@ -191,10 +190,14 @@ class ATProto(User, Protocol):
                                     collection='app.bsky.actor.profile',
                                     rkey='self', record=user.obj.as_bsky()))
 
+        repo.callback = lambda commit_data: common.create_task(
+            queue='atproto-commit', seq=commit_data.commit.seq)
+
         # create record
         writes.append(Write(action=Action.CREATE, collection='app.bsky.feed.post',
                             rkey=next_tid(), record=obj.as_bsky()))
         repo.apply_writes(writes, privkey)
+
         return True
 
     @classmethod

@@ -12,7 +12,8 @@ import cachetools
 from Crypto.Util import number
 from flask import abort, g, make_response, request
 from oauth_dropins.webutil import util, webmention
-from oauth_dropins.webutil.appengine_info import DEBUG
+from oauth_dropins.webutil.appengine_config import tasks_client
+from oauth_dropins.webutil.appengine_info import APP_ID, DEBUG
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,8 @@ DOMAIN_BLOCKLIST = frozenset((
 CACHE_TIME = timedelta(seconds=60)
 
 USER_AGENT = 'Bridgy Fed (https://fed.brid.gy/)'
+
+TASKS_LOCATION = 'us-central1'
 
 
 def base64_to_long(x):
@@ -227,3 +230,24 @@ def add(seq, val):
     """
     if val not in seq:
         seq.append(val)
+
+
+def create_task(queue, **params):
+    """Adds a Cloud Tasks task.
+
+    Args:
+      queue: string, queue name
+      params: form-encoded and included in the task request body
+    """
+    assert queue
+    task = tasks_client.create_task(
+        parent=tasks_client.queue_path(APP_ID, TASKS_LOCATION, queue),
+        task={
+            'app_engine_http_request': {
+                'http_method': 'POST',
+                'relative_uri': f'/_ah/queue/{queue}',
+                'body': urllib.parse.urlencode(params).encode(),
+                'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
+            },
+        })
+    logger.info(f'Added {queue} task {task.name} : {params}')

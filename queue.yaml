@@ -1,0 +1,20 @@
+# https://cloud.google.com/appengine/docs/standard/python/config/queueref
+# https://cloud.google.com/tasks/docs/queue-yaml
+queue:
+- name: atproto-commit
+  target: hub
+  rate: 10/s
+  max_concurrent_requests: 10
+  retry_parameters:
+    task_retry_limit: 3
+    min_backoff_seconds: 5
+    max_doublings: 5
+
+- name: webmention
+  target: default
+  rate: 5/s
+  max_concurrent_requests: 5
+  retry_parameters:
+    task_retry_limit: 3
+    min_backoff_seconds: 120
+    max_doublings: 3
