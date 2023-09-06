@@ -50,14 +50,14 @@ LOCAL_DOMAINS = (
 )
 DOMAINS = (PRIMARY_DOMAIN,) + OTHER_DOMAINS + LOCAL_DOMAINS
 # TODO: unify with Bridgy's
-DOMAIN_BLOCKLIST = frozenset((
+DOMAIN_BLOCKLIST = (
     # https://github.com/snarfed/bridgy-fed/issues/348
     'aaronparecki.com',
     'facebook.com',
     'fb.com',
     't.co',
     'twitter.com',
-) + DOMAINS)
+)
 
 CACHE_TIME = timedelta(seconds=60)
 
@@ -127,17 +127,6 @@ def content_type(resp):
     type = resp.headers.get('Content-Type')
     if type:
         return type.split(';')[0]
-
-
-def is_blocklisted(url):
-    """Returns True if the given URL is in our domain blocklist, False otherwise.
-
-    Args:
-      url: str
-
-    Returns: boolean
-    """
-    return util.domain_or_parent_in(util.domain_from_link(url), DOMAIN_BLOCKLIST)
 
 
 def redirect_wrap(url):

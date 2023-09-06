@@ -24,7 +24,6 @@ from common import (
     CONTENT_TYPE_HTML,
     error,
     host_url,
-    is_blocklisted,
     redirect_unwrap,
     redirect_wrap,
     TLD_BLOCKLIST,
@@ -114,7 +113,7 @@ class ActivityPub(User, Protocol):
 
         https://www.w3.org/TR/activitypub/#obj-id
         """
-        if util.is_web(id) and not is_blocklisted(id):
+        if util.is_web(id) and not cls.is_blocklisted(id):
             return None
 
         return False
@@ -164,7 +163,7 @@ class ActivityPub(User, Protocol):
         If `obj.recipient_obj` is set, it's interpreted as the receiving actor
         who we're delivering to and its id is populated into `cc`.
         """
-        if is_blocklisted(url):
+        if cls.is_blocklisted(url):
             logger.info(f'Skipping sending to {url}')
             return False
 

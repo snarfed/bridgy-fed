@@ -11,7 +11,7 @@ from granary import as1
 import werkzeug.exceptions
 
 import common
-from common import add, error, is_blocklisted
+from common import add, DOMAIN_BLOCKLIST, DOMAINS, error
 from models import Follower, Object, PROTOCOLS, Target, User
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -343,6 +343,20 @@ class Protocol:
           str target endpoint, or `None` if not available.
         """
         raise NotImplementedError()
+
+    @classmethod
+    def is_blocklisted(cls, url):
+        """Returns True if we block the given URL and shouldn't deliver to it.
+
+        Default implementation here, subclasses may override.
+
+        Args:
+          url: str
+
+        Returns: boolean
+        """
+        return util.domain_or_parent_in(util.domain_from_link(url),
+                                        DOMAIN_BLOCKLIST + DOMAINS)
 
     @classmethod
     def receive(cls, obj):
@@ -758,7 +772,7 @@ class Protocol:
         """
         logger.info('Finding recipients and their targets')
         candidates = sorted(id for id in as1.targets(obj.as1)
-                            if not is_blocklisted(id))
+                            if not cls.is_blocklisted(id))
 
         orig_obj = None
         targets = {}
@@ -852,7 +866,7 @@ class Protocol:
             if util.is_web(url)
         ]
         for url in sorted(util.dedupe_urls(candidates.keys())):
-            if is_blocklisted(url):
+            if cls.is_blocklisted(url):
                 logger.info(f'Skipping blocklisted target {url}')
             elif util.is_web(url) and util.domain_from_link(url) in source_domains:
                 logger.info(f'Skipping same-domain target {url}')

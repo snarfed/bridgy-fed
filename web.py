@@ -281,7 +281,7 @@ class Web(User, Protocol):
         verb = obj.as1.get('verb')
         if (verb in ('accept', 'undo')
                 or url not in as1.targets(obj.as1)
-                or common.is_blocklisted(url)):
+                or cls.is_blocklisted(url)):
             logger.info(f'Skipping sending to {url}')
             return False
 

@@ -28,7 +28,6 @@ import common
 from common import (
     add,
     error,
-    is_blocklisted,
     USER_AGENT,
 )
 from flask_app import app, cache
@@ -74,7 +73,7 @@ class ATProto(User, Protocol):
         elif id.startswith('did:web:'):
             domain = id.removeprefix('did:web:')
             assert (re.match(common.DOMAIN_RE, domain)
-                    and not is_blocklisted(domain)), domain
+                    and not Protocol.is_blocklisted(domain)), domain
         else:
             assert False, f'{id} is not valid did:plc or did:web'
 
@@ -125,6 +124,11 @@ class ATProto(User, Protocol):
                         return cls.target_for(Object(id=f'at://{user.atproto_did}'))
 
         return common.host_url()
+
+    def is_blocklisted(url):
+        # don't block common.DOMAINS since we want ourselves, ie our own PDS, to
+        # be a valid domain to send to
+        return util.domain_or_parent_in(util.domain_from_link(url), DOMAIN_BLOCKLIST)
 
     @classmethod
     def send(cls, obj, url, log_data=True):
