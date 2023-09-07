@@ -77,8 +77,7 @@ class ActivityPub(User, Protocol):
         assert util.is_web(id), f'{id} is not a URL'
         domain = util.domain_from_link(id)
         assert domain, 'missing domain'
-        assert domain not in common.DOMAIN_BLOCKLIST, \
-            f'{id} is a blocked domain'
+        assert not self.is_blocklisted(domain), f'{id} is a blocked domain'
 
     def web_url(self):
         """Returns this user's web URL aka web_url, eg 'https://foo.com/'."""
@@ -90,7 +89,7 @@ class ActivityPub(User, Protocol):
         return self.ap_actor()
 
     def ap_address(self):
-        """Returns this user's ActivityPub address, eg '@foo.com@foo.com'."""
+        """Returns this user's ActivityPub address, eg '@user@foo.com'."""
         if self.obj and self.obj.as1:
             addr = as2.address(self.as2())
             if addr:
@@ -99,11 +98,16 @@ class ActivityPub(User, Protocol):
         return as2.address(self.key.id())
 
     def ap_actor(self, rest=None):
-        """Returns this user's ActivityPub/AS2 actor id URL.
+        """Returns this user's ActivityPub actor id URL.
 
-        Eg 'https://fed.brid.gy/foo.com'
+        Eg 'https://foo.com/@user'
         """
         return self.key.id()
+
+    def atproto_handle(self):
+        """Returns `[USERNAME].[INSTANCE].AP.brid.gy`."""
+        username, instance = self.ap_address().strip('@').split('@')
+        return f'{username}.{instance}.{self.ABBREV}{common.SUPERDOMAIN}'
 
     @classmethod
     def owns_id(cls, id):

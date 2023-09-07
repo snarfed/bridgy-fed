@@ -1863,7 +1863,10 @@ class ActivityPubUtilsTest(TestCase):
                                    ignore=['to'])
 
     def test_ap_address(self):
-        user = ActivityPub(obj=Object(id='a', as2={**ACTOR, 'preferredUsername': 'me'}))
+        user = ActivityPub(obj=Object(id='a', as2={
+            **ACTOR,
+            'preferredUsername': 'me',
+        }))
         self.assertEqual('@me@mas.to', user.ap_address())
         self.assertEqual('@me@mas.to', user.readable_id)
 
@@ -1878,6 +1881,13 @@ class ActivityPubUtilsTest(TestCase):
     def test_ap_actor(self):
         user = self.make_user('http://foo/actor', cls=ActivityPub)
         self.assertEqual('http://foo/actor', user.ap_actor())
+
+    def test_atproto_handle(self):
+        user = self.make_user('http://a', cls=ActivityPub, obj_as2={
+            'id': 'https://mas.to/users/foo',
+            'preferredUsername': 'me',
+        })
+        self.assertEqual('me.mas.to.ap.brid.gy', user.atproto_handle())
 
     def test_web_url(self):
         user = self.make_user('http://foo/actor', cls=ActivityPub)

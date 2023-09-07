@@ -164,11 +164,13 @@ class ATProtoTest(TestCase):
         self.assertEqual('https://bsky.app/profile/han.dull', user.web_url())
 
     @patch('requests.get', return_value=requests_response('', status=404))
-    def test_readable_id(self, mock_get):
+    def test_handle_and_readable_id(self, mock_get):
         user = self.make_user('did:plc:foo', cls=ATProto)
+        self.assertIsNone(user.atproto_handle())
         self.assertEqual('did:plc:foo', user.readable_id)
 
         self.store_object(id='did:plc:foo', raw=DID_DOC)
+        self.assertEqual('han.dull', user.atproto_handle())
         self.assertEqual('han.dull', user.readable_id)
 
     def test_ap_address(self):

@@ -1799,6 +1799,9 @@ http://this/404s
         self.assertEqual('http://localhost/user.com', g.user.ap_actor())
         self.assertEqual('http://localhost/user.com/inbox', g.user.ap_actor('inbox'))
 
+    def test_atproto_handle(self, *_):
+        self.assertEqual('user.com.web.brid.gy', g.user.atproto_handle())
+
     def test_check_web_site(self, mock_get, _):
         redir = 'http://localhost/.well-known/webfinger?resource=acct:user.com@user.com'
         mock_get.side_effect = (

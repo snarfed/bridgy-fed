@@ -69,7 +69,7 @@ class Web(User, Protocol):
         id = self.key.id()
         assert re.match(common.DOMAIN_RE, id)
         assert id.lower() == id, f'upper case is not allowed in Web key id: {id}'
-        assert id not in common.DOMAIN_BLOCKLIST, f'{id} is a blocked domain'
+        assert not self.is_blocklisted(id), f'{id} is a blocked domain'
 
     @classmethod
     def get_or_create(cls, id, **kwargs):
@@ -102,6 +102,10 @@ class Web(User, Protocol):
         if rest:
             url += f'/{rest}'
         return url
+
+    def atproto_handle(self):
+        """Returns `[DOMAIN].web.brid.gy`."""
+        return f'{self.key.id()}.{self.ABBREV}{common.SUPERDOMAIN}'
 
     def user_page_path(self, rest=None):
         """Always use domain."""
