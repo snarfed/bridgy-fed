@@ -24,6 +24,7 @@ from granary.tests.test_as1 import (
 )
 from oauth_dropins.webutil import testutil, util
 from oauth_dropins.webutil.appengine_config import ndb_client
+from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
@@ -157,6 +158,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
     def setUp(self):
         super().setUp()
 
+        appengine_info.LOCAL_SERVER = False
         app.testing = True
         cache.clear()
         protocol.seen_ids.clear()
