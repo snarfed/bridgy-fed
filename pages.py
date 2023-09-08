@@ -242,6 +242,9 @@ def fetch_objects(query):
         content = (inner_obj.get('content')
                    or inner_obj.get('displayName')
                    or inner_obj.get('summary'))
+        if content:
+            content = util.parse_html(content).get_text()
+
         urls = as1.object_urls(inner_obj)
         id = common.redirect_unwrap(inner_obj.get('id', ''))
         url = urls[0] if urls else id
