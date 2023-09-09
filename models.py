@@ -78,7 +78,7 @@ def _validate_atproto_did(prop, val):
 class User(StringIdModel, metaclass=ProtocolUserMeta):
     """Abstract base class for a Bridgy Fed user.
 
-    Stores multiple keypairs needed for the supported protocols. Currently:
+    Stores some protocols' keypairs. Currently:
 
     * RSA keypair for ActivityPub HTTP Signatures
       properties: mod, public_exponent, private_exponent, all encoded as
@@ -86,15 +86,13 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         section 5.1 of the Magic Signatures spec
       https://tools.ietf.org/html/draft-cavage-http-signatures-12
 
-    * K-256 keypair for AT Protocol's signing key
-      property: k256_pem, PEM encoded
-      https://atproto.com/guides/overview#account-portability
+    * *Not* K-256 signing or rotation keys for AT Protocol, those are stored in
+      :class:`arroba.datastore_storage.AtpRepo` entities
     """
     obj_key = ndb.KeyProperty(kind='Object')  # user profile
     mod = ndb.StringProperty()
     public_exponent = ndb.StringProperty()
     private_exponent = ndb.StringProperty()
-    k256_pem = ndb.BlobProperty()
     use_instead = ndb.KeyProperty()
     atproto_did = ndb.StringProperty(validator=_validate_atproto_did)
 
@@ -168,14 +166,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                     'private_exponent': long_to_base64(key.d),
             })
 
-        if cls.LABEL != 'atproto':
-            privkey = arroba.util.new_key()
-            kwargs['k256_pem'] = privkey.private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.PKCS8,
-                encryption_algorithm=serialization.NoEncryption(),
-            )
-
         user = cls(id=id, **kwargs)
         try:
             user.put()
@@ -248,11 +238,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                              base64_to_long(str(self.public_exponent)),
                              base64_to_long(str(self.private_exponent))))
         return rsa.exportKey(format='PEM')
-
-    def k256_key(self):
-        """Returns: :class:`ec.EllipticCurvePrivateKey`"""
-        assert self.k256_pem
-        return serialization.load_pem_private_key(self.k256_pem, password=None)
 
     def name(self):
         """Returns this user's human-readable name, eg 'Ryan Barrett'."""

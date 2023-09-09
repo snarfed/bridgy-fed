@@ -145,7 +145,6 @@ class ATProto(User, Protocol):
         through subscribeRepos and then deliver it to AppView(s), which will
         notify recipients as necessary.
         """
-        # TODO
         if url.rstrip('/') != common.host_url().rstrip('/'):
             logger.info(f'Target PDS {url} is not us')
             return False
@@ -170,7 +169,6 @@ class ATProto(User, Protocol):
             if pds.rstrip('/') != url.rstrip('/'):
                 logger.warning(f'{user_key} {user.atproto_did} PDS {pds} is not us')
                 return False
-            did_plc = None
             repo = storage.load_repo(user.atproto_did)
 
         else:

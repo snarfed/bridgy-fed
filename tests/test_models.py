@@ -34,15 +34,10 @@ class UserTest(TestCase):
         assert user.mod
         assert user.public_exponent
         assert user.private_exponent
-        assert user.k256_key
 
         # check that we can load the keys
         assert user.public_pem()
         assert user.private_pem()
-
-        k256_key = user.k256_key()
-        self.assertIsInstance(k256_key, ec.EllipticCurvePrivateKey)
-        self.assertIsInstance(k256_key.curve, ec.SECP256K1)
 
         # direct should get set even if the user exists
         same = Fake.get_or_create('a.b', direct=True)

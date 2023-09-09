@@ -257,7 +257,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                    mod=global_user.mod,
                    public_exponent=global_user.public_exponent,
                    private_exponent=global_user.private_exponent,
-                   k256_pem=global_user.k256_pem,
                    obj_key=obj_key,
                    **kwargs)
         user.put()
@@ -415,7 +414,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             self.assert_equals(obj_as2, got.as2())
 
         # generated, computed, etc
-        ignore = ['created', 'mod', 'obj_key', 'k256_pem', 'private_exponent',
+        ignore = ['created', 'mod', 'obj_key', 'private_exponent',
                   'public_exponent', 'readable_id', 'updated']
         for prop in ignore:
             assert prop not in props
@@ -426,9 +425,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             assert got.mod
             assert got.private_exponent
             assert got.public_exponent
-
-        if cls != ATProto:
-            assert got.k256_pem
 
         return got
 
