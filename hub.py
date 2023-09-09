@@ -58,6 +58,7 @@ def health_check():
 #
 # XRPC server
 #
+arroba.server.storage = DatastoreStorage()
 lexrpc.flask_server.init_flask(arroba.server.server, app)
 
 
@@ -72,7 +73,7 @@ def atproto_commit():
     if not util.is_int(seq):
         flask_util.error(f'seq {seq} is not int')
 
-    for commit_data in DatastoreStorage().read_commits_by_seq(start=int(seq)):
+    for commit_data in arroba.server.storage.read_commits_by_seq(start=int(seq)):
         logger.info(f'Enqueueing commit {commit_data.commit.cid}')
         xrpc_sync.enqueue_commit(commit_data)
 
