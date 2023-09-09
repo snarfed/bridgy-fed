@@ -1,7 +1,9 @@
-"""Flask config.
+"""Flask config and env vars.
 
 https://flask.palletsprojects.com/en/latest/config/
 """
+import os
+
 from oauth_dropins.webutil import appengine_info, util
 
 # This is primarily for flashed messages, since we don't use session data
@@ -21,3 +23,7 @@ else:
     ENV = 'production'
     CACHE_TYPE = 'SimpleCache'
     SECRET_KEY = util.read('flask_secret_key')
+
+os.environ.setdefault('APPVIEW_HOST', 'api.bsky-sandbox.dev')
+os.environ.setdefault('BGS_HOST', 'bgs.bsky-sandbox.dev')
+os.environ.setdefault('PLC_HOST', 'plc.bsky-sandbox.dev')

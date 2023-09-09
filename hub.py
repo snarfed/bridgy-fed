@@ -6,9 +6,10 @@ import os
 from pathlib import Path
 
 import arroba.server
+from arroba.datastore_storage import DatastoreStorage
 from arroba.util import service_jwt
 from arroba import xrpc_sync
-from flask import Flask
+from flask import Flask, request
 import google.cloud.logging
 import lexrpc.server
 import lexrpc.flask_server
@@ -25,23 +26,6 @@ from common import USER_AGENT
 util.set_user_agent(USER_AGENT)
 
 logger = logging.getLogger(__name__)
-
-
-# #
-# # App Engine config
-# #
-# if appengine_info.LOCAL:
-#     logger.info('Running locally')
-#     # creds = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-#     # assert not creds or creds.endswith('fake_user_account.json')
-#     # os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = \
-#     #     os.path.join(os.path.dirname(__file__), 'fake_user_account.json')
-#     # os.environ.setdefault('CLOUDSDK_CORE_PROJECT', 'app')
-#     # os.environ.setdefault('DATASTORE_DATASET', 'app')
-#     # os.environ.setdefault('GOOGLE_CLOUD_PROJECT', 'app')
-#     # os.environ.setdefault('DATASTORE_EMULATOR_HOST', 'localhost:8089')
-# else:
-#     logger.info('Running against production GAE')
 
 
 #
@@ -64,11 +48,11 @@ app.wsgi_app = flask_util.ndb_context_middleware(
 @app.get('/liveness_check')
 @app.get('/readiness_check')
 def health_check():
-  """App Engine Flex health checks.
+    """App Engine Flex health checks.
 
-  https://cloud.google.com/appengine/docs/flexible/reference/app-yaml?tab=python#updated_health_checks
-  """
-  return 'OK'
+    https://cloud.google.com/appengine/docs/flexible/reference/app-yaml?tab=python#updated_health_checks
+    """
+    return 'OK'
 
 
 #
@@ -77,17 +61,19 @@ def health_check():
 lexrpc.flask_server.init_flask(arroba.server.server, app)
 
 
-# # requestCrawl in prod
-# # not working because the BGS immediately tries to connect and errors if it can't,
-# # and evidently we're not quite serving subscribeRepos here yet. not sure why not.
-# if is_prod:
-#     url = f'https://{os.environ["BGS_HOST"]}/xrpc/com.atproto.sync.requestCrawl'
-#     logger.info(f'Fetching {url}')
-#     jwt = service_jwt(os.environ['BGS_HOST'], TODO repo did, TODO repo key)
-#     resp = requests.get(url, params={'hostname': os.environ['PDS_HOST']},
-#                         headers={'User-Agent': USER_AGENT,
-#                                  'Authorization': f'Bearer {jwt}',
-#                                 })
-#     logger.info(resp.content)
-#     resp.raise_for_status()
-#     logger.info('OK')
+@app.post('/_ah/queue/atproto-commit')
+def atproto_commit():
+    """Handler for atproto-commit tasks. Enqueues the commit for subscribeRepos.
+    """
+    logger.info(f'Params: {request.values}')
+    seq = request.form['seq']
+    logger.info(f'Got atproto-commit task for seq {seq}')
+
+    if not util.is_int(seq):
+        flask_util.error(f'seq {seq} is not int')
+
+    for commit_data in DatastoreStorage().read_commits_by_seq(start=int(seq)):
+        logger.info(f'Enqueueing commit {commit_data.commit.cid}')
+        xrpc_sync.enqueue_commit(commit_data)
+
+    return 'OK'
