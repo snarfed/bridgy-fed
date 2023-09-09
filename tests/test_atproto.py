@@ -3,7 +3,7 @@ import copy
 from google.cloud.tasks_v2.types import Task
 import logging
 from unittest import skip
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from arroba.datastore_storage import AtpBlock, AtpRepo, DatastoreStorage
 from arroba.repo import Repo
@@ -18,7 +18,6 @@ from granary.tests.test_bluesky import (
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
-import requests
 
 import atproto
 from atproto import ATProto
@@ -142,7 +141,7 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.fetch(obj))
         self.assertEqual({'foo': 'bar'}, obj.bsky)
         # eg https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
-        mock_get.assert_called_with(
+        mock_get.assert_called_once_with(
             'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
             json=None,
             headers={
@@ -208,14 +207,22 @@ class ATProtoTest(TestCase):
         self.assertEqual(POST_BSKY, record)
 
         # check atproto-commit task
-        mock_create_task.assert_called_with(
-            parent='projects/my-app/locations/us-central1/queues/atproto-commit',
-            task={'app_engine_http_request': {
-                'http_method': 'POST',
-                'relative_uri': '/_ah/queue/atproto-commit',
-                'body': b'seq=2',
-                'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
-            }})
+        mock_create_task.assert_has_calls([
+            call(parent='projects/my-app/locations/us-central1/queues/atproto-commit',
+                 task={'app_engine_http_request': {
+                     'http_method': 'POST',
+                     'relative_uri': '/_ah/queue/atproto-commit',
+                     'body': b'seq=1',
+                     'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
+                 }}),
+            call(parent='projects/my-app/locations/us-central1/queues/atproto-commit',
+                 task={'app_engine_http_request': {
+                     'http_method': 'POST',
+                     'relative_uri': '/_ah/queue/atproto-commit',
+                     'body': b'seq=2',
+                     'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
+                 }}),
+        ])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',

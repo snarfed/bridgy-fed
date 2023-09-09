@@ -159,6 +159,9 @@ class ATProto(User, Protocol):
             logger.info(f"Couldn't find {obj.source_protocol} user for {obj.key}")
             return False
 
+        def create_atproto_commit_task(commit_data):
+            common.create_task(queue='atproto-commit', seq=commit_data.commit.seq)
+
         writes = []
         user = user_key.get()
         repo = None
@@ -170,12 +173,13 @@ class ATProto(User, Protocol):
                 logger.warning(f'{user_key} {user.atproto_did} PDS {pds} is not us')
                 return False
             repo = storage.load_repo(user.atproto_did)
+            repo.callback = create_atproto_commit_task
 
         else:
             # create new DID, repo
             logger.info(f'Creating new did:plc for {user.key}')
             did_plc = did.create_plc(user.atproto_handle(),
-                                     pds_url=request.host_url,
+                                     pds_url=common.host_url(),
                                      post_fn=util.requests_post)
 
             ndb.transactional()
@@ -189,6 +193,7 @@ class ATProto(User, Protocol):
                 nonlocal repo
                 repo = Repo.create(storage, user.atproto_did,
                                    handle=user.atproto_handle(),
+                                   callback=create_atproto_commit_task,
                                    signing_key=did_plc.signing_key,
                                    rotation_key=did_plc.rotation_key)
                 if user.obj and user.obj.as1:
@@ -200,8 +205,6 @@ class ATProto(User, Protocol):
 
         logger.info(f'{user.key} is {user.atproto_did}')
         assert repo
-        repo.callback = lambda commit_data: common.create_task(
-            queue='atproto-commit', seq=commit_data.commit.seq)
 
         # create record
         writes.append(Write(action=Action.CREATE, collection='app.bsky.feed.post',
