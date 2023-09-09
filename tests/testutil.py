@@ -88,6 +88,10 @@ class Fake(User, protocol.Protocol):
         return id.startswith('fake:') or id in cls.fetchable
 
     @classmethod
+    def is_blocklisted(cls, url):
+        return url.startswith('fake:blocklisted')
+
+    @classmethod
     def send(cls, obj, url, log_data=True):
         logger.info(f'Fake.send {url}')
         cls.sent.append((obj, url))

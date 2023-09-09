@@ -1,4 +1,5 @@
 """Unit tests for protocol.py."""
+import copy
 from unittest import skip
 from unittest.mock import patch
 
@@ -14,7 +15,8 @@ from .testutil import Fake, OtherFake, TestCase
 
 from activitypub import ActivityPub
 from app import app
-from models import Follower, Object, PROTOCOLS, User
+from atproto import ATProto
+from models import Follower, Object, PROTOCOLS, Target, User
 import protocol
 from protocol import Protocol
 from ui import UIProtocol
@@ -22,6 +24,7 @@ from web import Web
 from werkzeug.exceptions import BadRequest
 
 from .test_activitypub import ACTOR
+from .test_atproto import DID_DOC
 from .test_web import ACTOR_HTML
 
 
@@ -272,6 +275,35 @@ class ProtocolTest(TestCase):
         g.user = user
         self.assertEqual(a_key, Fake.actor_key(Object()))
         self.assertIsNone(Fake.actor_key(Object(), default_g_user=False))
+
+    def test_targets_checks_blocklisted_per_protocol(self):
+        """_targets should call the target protocol's is_blocklisted()."""
+        # non-ATProto account, ATProto target (PDS) is http://localhost,
+        # shouldn't be blocklisted
+        user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:foo')
+        did_doc = copy.deepcopy(DID_DOC)
+        did_doc['services']['atproto_pds']['endpoint'] = 'http://localhost/'
+        self.store_object(id='did:plc:foo', raw=did_doc)
+
+        # store Objects so we don't try to fetch them remotely
+        self.store_object(id='at://did:plc:foo/co.ll/post', our_as1={'foo': 'bar'})
+        self.store_object(id='fake:post', our_as1={'foo': 'baz'})
+
+        obj = Object(our_as1={
+            'id': 'other:reply',
+            'objectType': 'note',
+            'inReplyTo': [
+                'fake:post',
+                'fake:blocklisted-post',
+                'https://t.co/foo',
+                'http://localhost/post',
+                'at://did:plc:foo/co.ll/post',
+            ],
+        })
+        self.assertCountEqual([
+            Target(protocol='fake', uri='fake:post:target'),
+            Target(protocol='atproto', uri='http://localhost/'),
+        ], Protocol._targets(obj).keys())
 
 
 class ProtocolReceiveTest(TestCase):

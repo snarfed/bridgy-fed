@@ -27,6 +27,7 @@ from urllib.parse import urljoin, urlparse
 import common
 from common import (
     add,
+    DOMAIN_BLOCKLIST,
     error,
     USER_AGENT,
 )

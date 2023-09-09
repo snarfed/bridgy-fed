@@ -770,18 +770,19 @@ class Protocol:
         }
         """
         logger.info('Finding recipients and their targets')
-        candidates = sorted(id for id in as1.targets(obj.as1)
-                            if not cls.is_blocklisted(id))
 
         orig_obj = None
         targets = {}
-        for id in candidates:
+        for id in sorted(as1.targets(obj.as1)):
             protocol = Protocol.for_id(id)
             if not protocol:
                 logger.info(f"Can't determine protocol for {id}")
                 continue
             elif protocol == cls and cls.LABEL != 'fake':
                 logger.info(f'Skipping same-protocol target {id}')
+                continue
+            elif protocol.is_blocklisted(id):
+                logger.info(f'{id} is blocklisted')
                 continue
 
             orig_obj = protocol.load(id)
@@ -856,7 +857,7 @@ class Protocol:
                 feed_obj.put()
 
 
-        # de-dupe targets, discard same-domain and blocklisted
+        # de-dupe targets, discard same-domain
         candidates = {t.uri: (t, obj) for t, obj in targets.items()}
         targets = {}
         source_domains = [
@@ -865,9 +866,7 @@ class Protocol:
             if util.is_web(url)
         ]
         for url in sorted(util.dedupe_urls(candidates.keys())):
-            if cls.is_blocklisted(url):
-                logger.info(f'Skipping blocklisted target {url}')
-            elif util.is_web(url) and util.domain_from_link(url) in source_domains:
+            if util.is_web(url) and util.domain_from_link(url) in source_domains:
                 logger.info(f'Skipping same-domain target {url}')
             else:
                 target, obj = candidates[url]
