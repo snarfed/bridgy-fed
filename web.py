@@ -270,7 +270,7 @@ class Web(User, Protocol):
         return obj.key.id()
 
     @classmethod
-    def send(cls, obj, url, **kwargs):
+    def send(to_cls, obj, url, **kwargs):
         """Sends a webmention to a given target URL.
 
         See :meth:`Protocol.send` for details.
@@ -285,7 +285,7 @@ class Web(User, Protocol):
         verb = obj.as1.get('verb')
         if (verb in ('accept', 'undo')
                 or url not in as1.targets(obj.as1)
-                or cls.is_blocklisted(url)):
+                or to_cls.is_blocklisted(url)):
             logger.info(f'Skipping sending to {url}')
             return False
 

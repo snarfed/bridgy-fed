@@ -255,7 +255,7 @@ class Protocol:
             return g.user.key
 
     @classmethod
-    def send(cls, obj, url, log_data=True):
+    def send(to_cls, obj, url, log_data=True):
         """Sends an outgoing activity.
 
         To be implemented by subclasses.
@@ -359,7 +359,7 @@ class Protocol:
                                         DOMAIN_BLOCKLIST + DOMAINS)
 
     @classmethod
-    def receive(cls, obj):
+    def receive(from_cls, obj):
         """Handles an incoming activity.
 
         If obj's key is unset, obj.as1's id field is used. If both are unset,
@@ -375,9 +375,9 @@ class Protocol:
           :class:`werkzeug.HTTPException` if the request is invalid
         """
         # check some invariants
-        assert cls != Protocol
+        assert from_cls != Protocol
         assert isinstance(obj, Object), obj
-        logger.info(f'From {cls.__name__}: {obj.key} AS1: {json_dumps(obj.as1, indent=2)}')
+        logger.info(f'From {from_cls.__name__}: {obj.key} AS1: {json_dumps(obj.as1, indent=2)}')
 
         if not obj.as1:
             error('No object data provided')
@@ -403,7 +403,7 @@ class Protocol:
                 if (already_seen
                         or (obj.new is False and obj.changed is False)
                         or (obj.new is None and obj.changed is None
-                            and cls.load(id, remote=False))):
+                            and from_cls.load(id, remote=False))):
                     msg = f'Already handled this activity {id}'
                     logger.info(msg)
                     return msg, 204
@@ -417,13 +417,13 @@ class Protocol:
             obj.changed = orig.changed
 
         # if this is a post, ie not an activity, wrap it in a create or update
-        obj = cls._handle_bare_object(obj)
+        obj = from_cls._handle_bare_object(obj)
 
         if obj.type not in SUPPORTED_TYPES:
             error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
 
         # add owner(s)
-        actor_key = cls.actor_key(obj, default_g_user=False)
+        actor_key = from_cls.actor_key(obj, default_g_user=False)
         if actor_key:
             add(obj.users, actor_key)
 
@@ -431,11 +431,11 @@ class Protocol:
         if obj.as1.get('verb') in ('post', 'update', 'delete'):
             inner_actor = as1.get_owner(inner_obj_as1)
             if inner_actor:
-                user_key = cls.key_for(inner_actor)
+                user_key = from_cls.key_for(inner_actor)
                 if user_key:
                     add(obj.users, user_key)
 
-        obj.source_protocol = cls.LABEL
+        obj.source_protocol = from_cls.LABEL
         obj.put()
 
         # store inner object
@@ -443,7 +443,7 @@ class Protocol:
         inner_obj = None
         if obj.type in ('post', 'update') and inner_obj_as1.keys() > set(['id']):
             Object.get_or_create(inner_obj_id, our_as1=inner_obj_as1,
-                                 source_protocol=cls.LABEL)
+                                 source_protocol=from_cls.LABEL)
 
         actor = as1.get_object(obj.as1, 'actor')
         actor_id = actor.get('id')
@@ -461,7 +461,7 @@ class Protocol:
             # deactivate Follower
             # TODO: avoid import?
             from web import Web
-            from_ = cls.key_for(actor_id)
+            from_ = from_cls.key_for(actor_id)
             to_cls = Protocol.for_id(inner_obj_id) or Web
             to = to_cls.key_for(inner_obj_id)
             follower = Follower.query(Follower.to == to,
@@ -493,7 +493,7 @@ class Protocol:
 
             # if this is an actor, deactivate its followers/followings
             # https://github.com/snarfed/bridgy-fed/issues/63
-            deleted_user = cls.key_for(id=inner_obj_id)
+            deleted_user = from_cls.key_for(id=inner_obj_id)
             if deleted_user:
                 logger.info(f'Deactivating Followers from or to = {inner_obj_id}')
                 followers = Follower.query(OR(Follower.to == deleted_user,
@@ -508,15 +508,15 @@ class Protocol:
         # fetch actor if necessary so we have name, profile photo, etc
         if actor and actor.keys() == set(['id']):
             logger.info('Fetching actor so we have name, profile photo, etc')
-            actor_obj = cls.load(actor['id'])
+            actor_obj = from_cls.load(actor['id'])
             if actor_obj and actor_obj.as1:
                 obj.our_as1 = {**obj.as1, 'actor': actor_obj.as1}
 
         # fetch object if necessary so we can render it in feeds
         if obj.type == 'share' and inner_obj_as1.keys() == set(['id']):
-            if not inner_obj and cls.owns_id(inner_obj_id):
+            if not inner_obj and from_cls.owns_id(inner_obj_id):
                 logger.info('Fetching object so we can render it in feeds')
-                inner_obj = cls.load(inner_obj_id)
+                inner_obj = from_cls.load(inner_obj_id)
             if inner_obj and inner_obj.as1:
                 obj.our_as1 = {
                     **obj.as1,
@@ -527,13 +527,13 @@ class Protocol:
                 }
 
         if obj.type == 'follow':
-            cls._handle_follow(obj)
+            from_cls._handle_follow(obj)
 
         # deliver to targets
-        return cls._deliver(obj)
+        return from_cls._deliver(obj)
 
     @classmethod
-    def _handle_follow(cls, obj):
+    def _handle_follow(from_cls, obj):
         """Handles an incoming follow activity.
 
         Args:
@@ -547,7 +547,6 @@ class Protocol:
         if not from_id:
             error(f'Follow activity requires actor. Got: {obj.as1}')
 
-        from_cls = cls
         from_obj = from_cls.load(from_id)
         if not from_obj:
             error(f"Couldn't load {from_id}")
@@ -617,7 +616,7 @@ class Protocol:
                 'actor': to_id,
                 'object': obj.as1,
             })
-            sent = cls.send(accept, from_target)
+            sent = from_cls.send(accept, from_target)
             if sent:
                 accept.populate(
                     delivered=[Target(protocol=from_cls.LABEL, uri=from_target)],
@@ -691,7 +690,7 @@ class Protocol:
         error(f'{obj.key.id()} is unchanged, nothing to do', status=204)
 
     @classmethod
-    def _deliver(cls, obj):
+    def _deliver(from_cls, obj):
         """Delivers an activity to its external recipients.
 
         Args:
@@ -699,7 +698,7 @@ class Protocol:
         """
         # find delivery targets
         # sort targets so order is deterministic for tests, debugging, etc
-        targets = cls._targets(obj)  # maps Target to Object or None
+        targets = from_cls._targets(obj)  # maps Target to Object or None
 
         if not targets:
             obj.status = 'ignored'

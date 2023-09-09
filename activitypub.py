@@ -161,13 +161,13 @@ class ActivityPub(User, Protocol):
         return actor.get('publicInbox') or actor.get('inbox')
 
     @classmethod
-    def send(cls, obj, url, log_data=True):
+    def send(to_cls, obj, url, log_data=True):
         """Delivers an activity to an inbox URL.
 
         If `obj.recipient_obj` is set, it's interpreted as the receiving actor
         who we're delivering to and its id is populated into `cc`.
         """
-        if cls.is_blocklisted(url):
+        if to_cls.is_blocklisted(url):
             logger.info(f'Skipping sending to {url}')
             return False
 

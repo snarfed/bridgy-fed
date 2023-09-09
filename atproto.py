@@ -133,7 +133,7 @@ class ATProto(User, Protocol):
         return util.domain_or_parent_in(util.domain_from_link(url), DOMAIN_BLOCKLIST)
 
     @classmethod
-    def send(cls, obj, url, log_data=True):
+    def send(to_cls, obj, url, log_data=True):
         """Creates a record if we own its repo.
 
         Creates the repo first if it doesn't exist.
@@ -167,7 +167,7 @@ class ATProto(User, Protocol):
         repo = None
         if user.atproto_did:
             # existing DID and repo
-            did_doc = cls.load(user.atproto_did)
+            did_doc = to_cls.load(user.atproto_did)
             pds = did_doc.raw['services']['atproto_pds']['endpoint']
             if pds.rstrip('/') != url.rstrip('/'):
                 logger.warning(f'{user_key} {user.atproto_did} PDS {pds} is not us')
