@@ -13,7 +13,7 @@ from granary import as1, as2, microformats2
 import mf2util
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.appengine_config import tasks_client
-from oauth_dropins.webutil.appengine_info import APP_ID
+from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.flask_util import error, flash
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from oauth_dropins.webutil import webmention
@@ -477,7 +477,8 @@ def webmention_external():
     if not g.user:
         error(f'No user found for domain {domain}')
 
-    queue_path = tasks_client.queue_path(APP_ID, TASKS_LOCATION, 'webmention')
+    queue_path = tasks_client.queue_path(appengine_info.APP_ID, TASKS_LOCATION,
+                                         'webmention')
     task = tasks_client.create_task(
         parent=queue_path,
         task={
@@ -529,7 +530,8 @@ def webmention_task():
     # fetch source page
     try:
         # remote=True to force fetch, local=True to populate new/changed attrs
-        obj = Web.load(source, local=True, remote=True, check_backlink=True)
+        obj = Web.load(source, local=True, remote=True,
+                       check_backlink=not appengine_info.LOCAL_SERVER)
     except BadRequest as e:
         error(str(e.description), status=304)
     except HTTPError as e:
