@@ -15,7 +15,7 @@ from arroba import did
 from arroba.datastore_storage import DatastoreStorage
 from arroba.repo import Repo, Write
 from arroba.storage import Action, CommitData
-from arroba.util import next_tid, new_key, parse_at_uri
+from arroba.util import next_tid, parse_at_uri
 from flask import abort, g, request
 from google.cloud import ndb
 from granary import as1, bluesky
@@ -160,50 +160,55 @@ class ATProto(User, Protocol):
             logger.info(f"Couldn't find {obj.source_protocol} user for {obj.key}")
             return False
 
+        writes = []
         user = user_key.get()
-        privkey = user.k256_key()
+        repo = None
         if user.atproto_did:
-            # existing DID
+            # existing DID and repo
             did_doc = cls.load(user.atproto_did)
             pds = did_doc.raw['services']['atproto_pds']['endpoint']
             if pds.rstrip('/') != url.rstrip('/'):
                 logger.warning(f'{user_key} {user.atproto_did} PDS {pds} is not us')
                 return False
+            did_plc = None
+            repo = storage.load_repo(user.atproto_did)
+
         else:
-            # create new DID
+            # create new DID, repo
             logger.info(f'Creating new did:plc for {user.key}')
-            did_plc = did.create_plc(user.atproto_handle(), privkey=privkey,
-                                     pds_hostname=request.host,
+            did_plc = did.create_plc(user.atproto_handle(),
+                                     pds_url=request.host_url,
                                      post_fn=util.requests_post)
-            assert did_plc.privkey == privkey
 
             ndb.transactional()
-            def update():
+            def update_user_create_repo():
                 Object.get_or_create(did_plc.did, raw=did_plc.doc)
                 user.atproto_did = did_plc.did
                 user.put()
-            update()
+
+                assert not storage.load_repo(user.atproto_did)
+                # TODO: pass callback into create() so it's called for initial commit
+                nonlocal repo
+                repo = Repo.create(storage, user.atproto_did,
+                                   handle=user.atproto_handle(),
+                                   signing_key=did_plc.signing_key,
+                                   rotation_key=did_plc.rotation_key)
+                if user.obj and user.obj.as1:
+                    # create user profile
+                    writes.append(Write(action=Action.CREATE,
+                                        collection='app.bsky.actor.profile',
+                                        rkey='self', record=user.obj.as_bsky()))
+            update_user_create_repo()
 
         logger.info(f'{user.key} is {user.atproto_did}')
-        repo = storage.load_repo(did=user.atproto_did)
-        writes = []
-        if repo is None:
-            # create repo
-            handle = user.atproto_handle()
-            repo = Repo.create(storage, user.atproto_did, privkey, handle=handle)
-            if user.obj and user.obj.as1:
-                # create user profile
-                writes.append(Write(action=Action.CREATE,
-                                    collection='app.bsky.actor.profile',
-                                    rkey='self', record=user.obj.as_bsky()))
-
+        assert repo
         repo.callback = lambda commit_data: common.create_task(
             queue='atproto-commit', seq=commit_data.commit.seq)
 
         # create record
         writes.append(Write(action=Action.CREATE, collection='app.bsky.feed.post',
                             rkey=next_tid(), record=obj.as_bsky()))
-        repo.apply_writes(writes, privkey)
+        repo.apply_writes(writes)
 
         return True
 

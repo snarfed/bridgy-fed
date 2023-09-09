@@ -46,6 +46,7 @@ class ATProtoTest(TestCase):
 
     def setUp(self):
         super().setUp()
+        self.storage = DatastoreStorage()
 
     def test_put_validates_id(self):
         for bad in (
@@ -196,13 +197,13 @@ class ATProtoTest(TestCase):
         user = user.key.get()
         assert user.atproto_did
         did_obj = ATProto.load(user.atproto_did)
-        self.assertEqual('https://localhost',
+        self.assertEqual('http://localhost/',
                          did_obj.raw['services']['atproto_pds']['endpoint'])
         mock_post.assert_has_calls(
             [self.req(f'https://plc.local/{user.atproto_did}', json=did_obj.raw)])
 
         # check repo, record
-        repo = DatastoreStorage().load_repo(did=user.atproto_did)
+        repo = self.storage.load_repo(user.atproto_did)
         record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
         self.assertEqual(POST_BSKY, record)
 
@@ -228,7 +229,7 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.send(obj, 'http://localhost/'))
 
         # check profile, record
-        repo = DatastoreStorage().load_repo(did=user.key.get().atproto_did)
+        repo = self.storage.load_repo(user.key.get().atproto_did)
         profile = repo.get_record('app.bsky.actor.profile', 'self')
         self.assertEqual(ACTOR_PROFILE_VIEW_BSKY, profile)
         record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
@@ -243,6 +244,7 @@ class ATProtoTest(TestCase):
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['services']['atproto_pds']['endpoint'] = 'http://localhost/'
         self.store_object(id='did:plc:foo', raw=did_doc)
+        Repo.create(self.storage, 'did:plc:foo', signing_key=arroba.util.new_key())
 
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
             **POST_AS,
@@ -251,7 +253,7 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.send(obj, 'http://localhost/'))
 
         # check repo, record
-        repo = DatastoreStorage().load_repo(did=user.atproto_did)
+        repo = self.storage.load_repo(user.atproto_did)
         record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
         self.assertEqual(POST_BSKY, record)
 
