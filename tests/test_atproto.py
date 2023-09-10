@@ -212,14 +212,14 @@ class ATProtoTest(TestCase):
                  task={'app_engine_http_request': {
                      'http_method': 'POST',
                      'relative_uri': '/_ah/queue/atproto-commit',
-                     'body': b'seq=1',
+                     'body': b'',
                      'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
                  }}),
             call(parent='projects/my-app/locations/us-central1/queues/atproto-commit',
                  task={'app_engine_http_request': {
                      'http_method': 'POST',
                      'relative_uri': '/_ah/queue/atproto-commit',
-                     'body': b'seq=2',
+                     'body': b'',
                      'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
                  }}),
         ])

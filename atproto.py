@@ -161,7 +161,7 @@ class ATProto(User, Protocol):
             return False
 
         def create_atproto_commit_task(commit_data):
-            common.create_task(queue='atproto-commit', seq=commit_data.commit.seq)
+            common.create_task(queue='atproto-commit')
 
         writes = []
         user = user_key.get()

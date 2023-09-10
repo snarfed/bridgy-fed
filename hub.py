@@ -64,17 +64,9 @@ lexrpc.flask_server.init_flask(arroba.server.server, app)
 
 @app.post('/_ah/queue/atproto-commit')
 def atproto_commit():
-    """Handler for atproto-commit tasks. Enqueues the commit for subscribeRepos.
+    """Handler for atproto-commit tasks.
+
+    Triggers `subscribeRepos` to check for new commits.
     """
-    logger.info(f'Params: {request.values}')
-    seq = request.form['seq']
-    logger.info(f'Got atproto-commit task for seq {seq}')
-
-    if not util.is_int(seq):
-        flask_util.error(f'seq {seq} is not int')
-
-    for commit_data in arroba.server.storage.read_commits_by_seq(start=int(seq)):
-        logger.info(f'Enqueueing commit {commit_data.commit.cid}')
-        xrpc_sync.enqueue_commit(commit_data)
-
+    xrpc_sync.send_new_commits()
     return 'OK'
