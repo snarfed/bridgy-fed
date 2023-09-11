@@ -4,11 +4,15 @@
 
 # application: bridgy-federated
 
+service: hub
 env: flex
 runtime: python
 runtime_config:
     operating_system: ubuntu22
-    runtime_version: 3.11
+    runtime_version: "3.10"
+
+network:
+  instance_ip_mode: internal
 
 # need only one instance so that new commits can be delivered to subscribeRepos
 # subscribers in memory
