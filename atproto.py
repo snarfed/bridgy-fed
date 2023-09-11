@@ -100,6 +100,9 @@ class ATProto(User, Protocol):
     def target_for(cls, obj, shared=False):
         """Returns the PDS URL for the given object, or None.
 
+        If the repo DID/handle doesn't exist in the PLC directory, defaults to
+        returning Bridgy Fed's URL as the PDS.
+
         Args:
           obj: :class:`Object`
 
@@ -116,6 +119,9 @@ class ATProto(User, Protocol):
                 return did_obj.raw.get('services', {})\
                                   .get('atproto_pds', {})\
                                   .get('endpoint')
+            # TODO: what should we do if the DID doesn't exist? should we return
+            # None here? or do we need this path to return BF's URL so that we
+            # then create the DID for non-ATP users on demand?
 
         if obj.as1:
             owner = as1.get_owner(obj.as1)

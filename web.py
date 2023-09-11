@@ -481,23 +481,12 @@ def webmention_external():
     if not g.user:
         error(f'No user found for domain {domain}')
 
-    queue_path = tasks_client.queue_path(appengine_info.APP_ID, TASKS_LOCATION,
-                                         'webmention')
-    task = tasks_client.create_task(
-        parent=queue_path,
-        task={
-            'app_engine_http_request': {
-                'http_method': 'POST',
-                'relative_uri': '/_ah/queue/webmention',
-                'body': urlencode(request.form).encode(),
-                # https://googleapis.dev/python/cloudtasks/latest/gapic/v2/types.html#google.cloud.tasks_v2.types.AppEngineHttpRequest.headers
-                'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
-            },
-        },
-    )
-    msg = f'Enqueued task {task.name}.'
-    logger.info(msg)
-    return msg, 202
+    if appengine_info.LOCAL_SERVER:
+        logger.info('Running locally, handling webmention inline')
+        return webmention_task()
+    else:
+        common.create_task('webmention', **request.form)
+        return 'Enqueued webmention task', 202
 
 
 @app.post('/webmention-interactive')
