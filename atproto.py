@@ -1,11 +1,6 @@
 """ATProto protocol implementation.
 
 https://atproto.com/
-
-TODO
-* signup. resolve DID, fetch DID doc, extract PDS
-  * use alsoKnownAs as handle? or call getProfile on PDS to get handle?
-  * maybe need getProfile to store profile object?
 """
 import json
 import logging
@@ -91,6 +86,7 @@ class ATProto(User, Protocol):
         return f'@{self.readable_id}@{self.ABBREV}{common.SUPERDOMAIN}'
 
     @classmethod
+    # TODO: add bsky.app URLs, translating to/from at:// URIs. (to arroba?)
     def owns_id(cls, id):
         return (id.startswith('at://')
                 or id.startswith('did:plc:')
@@ -116,9 +112,7 @@ class ATProto(User, Protocol):
             repo, collection, rkey = parse_at_uri(obj.key.id())
             did_obj = ATProto.load(repo)
             if did_obj:
-                return did_obj.raw.get('services', {})\
-                                  .get('atproto_pds', {})\
-                                  .get('endpoint')
+                return cls._pds_for(did_obj)
             # TODO: what should we do if the DID doesn't exist? should we return
             # None here? or do we need this path to return BF's URL so that we
             # then create the DID for non-ATP users on demand?
@@ -133,6 +127,25 @@ class ATProto(User, Protocol):
                         return cls.target_for(Object(id=f'at://{user.atproto_did}'))
 
         return common.host_url()
+
+    @classmethod
+    def _pds_for(cls, did_obj):
+        """
+        Args:
+          did_obj: :class:`Object`
+
+        Returns:
+          str, PDS URL, or None
+        """
+        assert did_obj.key.id().startswith('did:')
+
+        for service in did_obj.raw.get('service', []):
+            if service.get('id') in ('#atproto_pds',
+                                     f'{did_obj.key.id()}#atproto_pds'):
+                return service.get('serviceEndpoint')
+
+        logger.info(f"{did_obj.key.id()}'s DID doc has no ATProto PDS")
+        return None
 
     def is_blocklisted(url):
         # don't block common.DOMAINS since we want ourselves, ie our own PDS, to
@@ -175,8 +188,8 @@ class ATProto(User, Protocol):
         if user.atproto_did:
             # existing DID and repo
             did_doc = to_cls.load(user.atproto_did)
-            pds = did_doc.raw['services']['atproto_pds']['endpoint']
-            if pds.rstrip('/') != url.rstrip('/'):
+            pds = to_cls._pds_for(did_doc)
+            if not pds or pds.rstrip('/') != url.rstrip('/'):
                 logger.warning(f'{user_key} {user.atproto_did} PDS {pds} is not us')
                 return False
             repo = storage.load_repo(user.atproto_did)
@@ -196,7 +209,6 @@ class ATProto(User, Protocol):
                 user.put()
 
                 assert not storage.load_repo(user.atproto_did)
-                # TODO: pass callback into create() so it's called for initial commit
                 nonlocal repo
                 repo = Repo.create(storage, user.atproto_did,
                                    handle=user.atproto_handle(),
@@ -250,12 +262,16 @@ class ATProto(User, Protocol):
                 util.interpret_http_exception(e)
                 return False
 
+        pds = cls.target_for(obj)
+        if not pds:
+            return False
+
         # at:// URI
         # examples:
         # at://did:plc:s2koow7r6t7tozgd4slc3dsg/app.bsky.feed.post/3jqcpv7bv2c2q
         # https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
         repo, collection, rkey = parse_at_uri(obj.key.id())
-        client = Client(cls.target_for(obj), headers={'User-Agent': USER_AGENT})
+        client = Client(pds, headers={'User-Agent': USER_AGENT})
         obj.bsky = client.com.atproto.repo.getRecord(
             repo=repo, collection=collection, rkey=rkey)
         return True

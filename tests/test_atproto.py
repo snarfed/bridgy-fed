@@ -1,4 +1,5 @@
 """Unit tests for atproto.py."""
+import base64
 import copy
 from google.cloud.tasks_v2.types import Task
 import logging
@@ -6,6 +7,7 @@ from unittest import skip
 from unittest.mock import call, patch
 
 from arroba.datastore_storage import AtpBlock, AtpRepo, DatastoreStorage
+from arroba.did import encode_did_key
 from arroba.repo import Repo
 import arroba.util
 from flask import g
@@ -27,18 +29,19 @@ import protocol
 from .testutil import Fake, TestCase
 
 DID_DOC = {
-  'type': 'plc_operation',
-  'rotationKeys': ['did:key:xyz'],
-  'verificationMethods': {'atproto': 'did:key:xyz'},
-  'alsoKnownAs': ['at://han.dull'],
-    'services': {
-        'atproto_pds': {
-            'type': 'AtprotoPersonalDataServer',
-            'endpoint': 'https://some.pds',
-        }
-    },
-  'prev': None,
-  'sig': '...',
+    'id': 'did:plc:foo',
+    'alsoKnownAs': ['at://han.dull'],
+    'verificationMethod': [{
+        'id': 'did:plc:foo#atproto',
+        'type': 'Multikey',
+        'controller': 'did:plc:foo',
+        'publicKeyMultibase': 'did:key:xyz',
+    }],
+    'service': [{
+        'id': '#atproto_pds',
+        'type': 'AtprotoPersonalDataServer',
+        'serviceEndpoint': 'https://some.pds',
+    }],
 }
 
 class ATProtoTest(TestCase):
@@ -197,14 +200,39 @@ class ATProtoTest(TestCase):
         assert user.atproto_did
         did_obj = ATProto.load(user.atproto_did)
         self.assertEqual('http://localhost/',
-                         did_obj.raw['services']['atproto_pds']['endpoint'])
-        mock_post.assert_has_calls(
-            [self.req(f'https://plc.local/{user.atproto_did}', json=did_obj.raw)])
+                         did_obj.raw['service'][0]['serviceEndpoint'])
 
         # check repo, record
         repo = self.storage.load_repo(user.atproto_did)
         record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
         self.assertEqual(POST_BSKY, record)
+
+        # check PLC directory call to create did:plc
+        self.assertEqual((f'https://plc.local/{user.atproto_did}',),
+                         mock_post.call_args.args)
+        genesis_op = mock_post.call_args.kwargs['json']
+        self.assertEqual(user.atproto_did, genesis_op.pop('did'))
+        genesis_op['sig'] = base64.urlsafe_b64decode(genesis_op['sig'])
+        assert arroba.util.verify_sig(genesis_op, repo.rotation_key.public_key())
+
+        del genesis_op['sig']
+        self.assertEqual({
+                'type': 'plc_operation',
+                'verificationMethods': {
+                    'atproto': encode_did_key(repo.signing_key.public_key()),
+                },
+                'rotationKeys': [encode_did_key(repo.rotation_key.public_key())],
+                'alsoKnownAs': [
+                    'at://user.fake.brid.gy',
+                ],
+                'services': {
+                    'atproto_pds': {
+                        'type': 'AtprotoPersonalDataServer',
+                        'endpoint': 'http://localhost/',
+                    }
+                },
+                'prev': None,
+            }, genesis_op)
 
         # check atproto-commit task
         mock_create_task.assert_has_calls([
@@ -249,7 +277,7 @@ class ATProtoTest(TestCase):
         user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:foo')
 
         did_doc = copy.deepcopy(DID_DOC)
-        did_doc['services']['atproto_pds']['endpoint'] = 'http://localhost/'
+        did_doc['service'][0]['serviceEndpoint'] = 'http://localhost/'
         self.store_object(id='did:plc:foo', raw=did_doc)
         Repo.create(self.storage, 'did:plc:foo', signing_key=arroba.util.new_key())
 

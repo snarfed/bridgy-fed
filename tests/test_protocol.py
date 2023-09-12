@@ -282,7 +282,7 @@ class ProtocolTest(TestCase):
         # shouldn't be blocklisted
         user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:foo')
         did_doc = copy.deepcopy(DID_DOC)
-        did_doc['services']['atproto_pds']['endpoint'] = 'http://localhost/'
+        did_doc['service'][0]['serviceEndpoint'] = 'http://localhost/'
         self.store_object(id='did:plc:foo', raw=did_doc)
 
         # store Objects so we don't try to fetch them remotely
