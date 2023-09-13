@@ -2,7 +2,6 @@
 """Unit tests for webmention.py."""
 import copy
 from unittest.mock import patch
-from urllib.parse import urlencode
 
 from flask import g, get_flashed_messages
 from google.cloud import ndb
@@ -529,17 +528,8 @@ class WebTest(TestCase):
         got = self.client.post('/webmention', data=params)
 
         self.assertEqual(202, got.status_code)
-        mock_create_task.assert_called_with(
-            parent=f'projects/{APP_ID}/locations/{TASKS_LOCATION}/queues/webmention',
-            task={
-                'app_engine_http_request': {
-                    'http_method': 'POST',
-                    'relative_uri': '/_ah/queue/webmention',
-                    'body': urlencode(params).encode(),
-                    'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
-                },
-            },
-        )
+        self.assert_task(mock_create_task, 'webmention', '/_ah/queue/webmention',
+                         **params)
 
     def test_no_user(self, mock_get, mock_post):
         orig_count = Object.query().count()

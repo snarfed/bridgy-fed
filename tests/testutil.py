@@ -7,6 +7,7 @@ import random
 import re
 import unittest
 from unittest.mock import ANY, call
+from urllib.parse import urlencode
 import warnings
 
 import arroba.util
@@ -30,6 +31,7 @@ import requests
 
 # other modules are imported _after_ Fake etc classes is defined so that it's in
 # PROTOCOLS when URL routes are registered.
+from common import TASKS_LOCATION
 import models
 from models import Object, PROTOCOLS, Target, User
 import protocol
@@ -431,6 +433,20 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             assert got.public_exponent
 
         return got
+
+    def assert_task(self, mock_create_task, queue, path, **params):
+        mock_create_task.assert_any_call(
+            parent=f'projects/{appengine_info.APP_ID}/locations/{TASKS_LOCATION}/queues/{queue}',
+            task={
+                'app_engine_http_request': {
+                    'http_method': 'POST',
+                    'relative_uri': path,
+                    'body': urlencode(params).encode(),
+                    'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
+                },
+            },
+        )
+
 
     def assert_equals(self, expected, actual, msg=None, ignore=(), **kwargs):
         return super().assert_equals(

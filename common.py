@@ -14,7 +14,7 @@ from flask import abort, g, make_response, request
 from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil import appengine_info
-from oauth_dropins.webutil.appengine_info import APP_ID, DEBUG
+from oauth_dropins.webutil.appengine_info import DEBUG
 
 logger = logging.getLogger(__name__)
 
@@ -235,7 +235,8 @@ def create_task(queue, **params):
         logger.info(f'Would add task: {queue} {params}')
     else:
         task = tasks_client.create_task(
-            parent=tasks_client.queue_path(APP_ID, TASKS_LOCATION, queue),
+            parent=tasks_client.queue_path(appengine_info.APP_ID,
+                                           TASKS_LOCATION, queue),
             task={
                 'app_engine_http_request': {
                     'http_method': 'POST',

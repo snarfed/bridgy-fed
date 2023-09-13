@@ -212,7 +212,6 @@ class ATProtoTest(TestCase):
         self.store_object(id='did:plc:foo', raw=DID_DOC)
         self.assertEqual('@han.dull@atproto.brid.gy', user.ap_address())
 
-    @patch('common.APP_ID', 'my-app')
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
@@ -264,22 +263,9 @@ class ATProtoTest(TestCase):
             }, genesis_op)
 
         # check atproto-commit task
-        mock_create_task.assert_has_calls([
-            call(parent='projects/my-app/locations/us-central1/queues/atproto-commit',
-                 task={'app_engine_http_request': {
-                     'http_method': 'POST',
-                     'relative_uri': '/_ah/queue/atproto-commit',
-                     'body': b'',
-                     'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
-                 }}),
-            call(parent='projects/my-app/locations/us-central1/queues/atproto-commit',
-                 task={'app_engine_http_request': {
-                     'http_method': 'POST',
-                     'relative_uri': '/_ah/queue/atproto-commit',
-                     'body': b'',
-                     'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
-                 }}),
-        ])
+        self.assertEqual(2, mock_create_task.call_count)
+        self.assert_task(mock_create_task, 'atproto-commit',
+                         '/_ah/queue/atproto-commit')
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',
