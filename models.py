@@ -486,6 +486,12 @@ class Object(StringIdModel):
     def _pre_put_hook(self):
         assert '^^' not in self.key.id()
 
+        if self.key.id().startswith('at://'):
+            repo, _, _ = arroba.util.parse_at_uri(self.key.id())
+            if not repo.startswith('did:'):
+                raise ValueError(
+                    f'at:// URI ids must have DID repos; got {self.key.id()}')
+
         if self.as1 and self.as1.get('objectType') == 'activity':
             add(self.labels, 'activity')
         elif 'activity' in self.labels:

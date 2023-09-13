@@ -441,6 +441,15 @@ class ObjectTest(TestCase):
         self.assertIsNone(obj.mf2)
         self.assertIsNone(obj.bsky)
 
+    def test_validate_id(self):
+        # DID repo ids
+        Object(id='at://did:plc:123/app.bsky.feed.post/abc').put()
+        Object(id='at://did:plc:foo.com/app.bsky.actor.profile/self').put()
+
+        with self.assertRaises(ValueError):
+            # non-DID (bare handle) repo id
+            Object(id='at://foo.com/app.bsky.feed.post/abc').put()
+
 
 class FollowerTest(TestCase):
 
