@@ -86,11 +86,11 @@ class ATProto(User, Protocol):
         return f'@{self.readable_id}@{self.ABBREV}{common.SUPERDOMAIN}'
 
     @classmethod
-    # TODO: add bsky.app URLs, translating to/from at:// URIs. (to arroba?)
     def owns_id(cls, id):
         return (id.startswith('at://')
                 or id.startswith('did:plc:')
-                or id.startswith('did:web:'))
+                or id.startswith('did:web:')
+                or id.startswith('https://bsky.app/'))
 
     @classmethod
     def target_for(cls, obj, shared=False):
@@ -105,11 +105,26 @@ class ATProto(User, Protocol):
         Returns:
           str
         """
-        if obj.key.id().startswith('did:'):
+        id = obj.key.id()
+        if id.startswith('did:'):
             return None
 
-        if obj.key.id().startswith('at://'):
-            repo, collection, rkey = parse_at_uri(obj.key.id())
+        logger.info(f'Finding ATProto PDS for {id}')
+        if id.startswith('https://bsky.app/'):
+            return cls.target_for(Object(id=bluesky.web_url_to_at_uri(id)))
+
+        if id.startswith('at://'):
+            repo, collection, rkey = parse_at_uri(id)
+
+            if not repo.startswith('did:'):
+                # repo is a handle; resolve it
+                repo_did = did.resolve_handle(repo, get_fn=util.requests_get)
+                if repo_did:
+                    return cls.target_for(Object(id=id.replace(
+                        f'at://{repo}', f'at://{repo_did}')))
+                else:
+                    return None
+
             did_obj = ATProto.load(repo)
             if did_obj:
                 return cls._pds_for(did_obj)

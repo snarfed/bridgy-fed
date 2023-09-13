@@ -10,6 +10,8 @@ from arroba.datastore_storage import AtpBlock, AtpRepo, DatastoreStorage
 from arroba.did import encode_did_key
 from arroba.repo import Repo
 import arroba.util
+import dns.resolver
+from dns.resolver import NXDOMAIN
 from flask import g
 from granary.tests.test_bluesky import (
     ACTOR_AS,
@@ -80,12 +82,14 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.owns_id('at://did:plc:foo/bar/123'))
         self.assertTrue(ATProto.owns_id('did:plc:foo'))
         self.assertTrue(ATProto.owns_id('did:web:bar.com'))
+        self.assertTrue(ATProto.owns_id(
+            'https://bsky.app/profile/snarfed.org/post/3k62u4ht77f2z'))
 
     def test_target_for_did_doc(self):
         self.assertIsNone(ATProto.target_for(Object(id='did:plc:foo')))
 
     def test_target_for_stored_did(self):
-        did_obj = self.store_object(id='did:plc:foo', raw=DID_DOC)
+        self.store_object(id='did:plc:foo', raw=DID_DOC)
         got = ATProto.target_for(Object(id='at://did:plc:foo/co.ll/123'))
         self.assertEqual('https://some.pds', got)
 
@@ -95,8 +99,8 @@ class ATProtoTest(TestCase):
         self.assertEqual('https://some.pds', got)
 
     def test_target_for_user_with_stored_did(self):
-        did_obj = self.store_object(id='did:plc:foo', raw=DID_DOC)
-        user = self.make_user('fake:user', cls=Fake, atproto_did='did:plc:foo')
+        self.store_object(id='did:plc:foo', raw=DID_DOC)
+        self.make_user('fake:user', cls=Fake, atproto_did='did:plc:foo')
         got = ATProto.target_for(Object(id='fake:post', our_as1={
             **POST_AS,
             'actor': 'fake:user',
@@ -104,12 +108,37 @@ class ATProtoTest(TestCase):
         self.assertEqual('https://some.pds', got)
 
     def test_target_for_user_no_stored_did(self):
-        user = self.make_user('fake:user', cls=Fake)
+        self.make_user('fake:user', cls=Fake)
         got = ATProto.target_for(Object(id='fake:post', our_as1={
             **POST_AS,
             'actor': 'fake:user',
         }))
         self.assertEqual('http://localhost/', got)
+
+    def test_target_for_bsky_app_url_did_stored(self):
+        self.store_object(id='did:plc:foo', raw=DID_DOC)
+        self.make_user('fake:user', cls=Fake, atproto_did='did:plc:foo')
+
+        got = ATProto.target_for(Object(
+            id='https://bsky.app/profile/did:plc:foo/post/123'))
+        self.assertEqual('https://some.pds', got)
+
+    @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
+    @patch('requests.get', side_effect=[
+        # resolving handle, HTTPS method
+        requests_response('did:plc:foo', content_type='text/plain'),
+        # fetching DID doc
+        requests_response(DID_DOC),
+    ])
+    def test_target_for_bsky_app_url_resolve_handle(self, mock_get, _):
+        got = ATProto.target_for(Object(
+            id='https://bsky.app/profile/baz.com/post/123'))
+        self.assertEqual('https://some.pds', got)
+
+        mock_get.assert_has_calls((
+            self.req('https://baz.com/.well-known/atproto-did'),
+            self.req('https://plc.local/did:plc:foo'),
+        ))
 
     @patch('requests.get', return_value=requests_response({'foo': 'bar'}))
     def test_fetch_did_plc(self, mock_get):
