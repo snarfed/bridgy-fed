@@ -2,12 +2,13 @@
 
 https://atproto.com/
 """
-import json
+import itertools
 import logging
+import os
 import re
 
 from arroba import did
-from arroba.datastore_storage import DatastoreStorage
+from arroba.datastore_storage import AtpRepo, DatastoreStorage
 from arroba.repo import Repo, Write
 from arroba.storage import Action, CommitData
 from arroba.util import next_tid, parse_at_uri
@@ -15,9 +16,8 @@ from flask import abort, g, request
 from google.cloud import ndb
 from granary import as1, bluesky
 from lexrpc import Client
-from oauth_dropins.webutil import flask_util, util
+from oauth_dropins.webutil import util
 import requests
-from urllib.parse import urljoin, urlparse
 
 import common
 from common import (
@@ -26,8 +26,9 @@ from common import (
     error,
     USER_AGENT,
 )
-from flask_app import app, cache
-from models import Follower, Object, PROTOCOLS, User
+import flask_app
+import hub
+from models import Object, PROTOCOLS, User
 from protocol import Protocol
 
 logger = logging.getLogger(__name__)
@@ -289,6 +290,7 @@ class ATProto(User, Protocol):
         client = Client(pds, headers={'User-Agent': USER_AGENT})
         obj.bsky = client.com.atproto.repo.getRecord(
             repo=repo, collection=collection, rkey=rkey)
+        # TODO: verify sig?
         return True
 
     @classmethod
@@ -301,3 +303,44 @@ class ATProto(User, Protocol):
         /convert/... HTTP requests, so this should never be used in practice.
         """
         return bluesky.from_as1(obj.as1), {'Content-Type': 'application/json'}
+
+
+@hub.app.get('/_ah/queue/atproto-poll-notifs')
+def poll_notifications():
+    """Fetches and enqueueus new activities from the AppView for our users.
+
+    Uses the `listNotifications` endpoint, which is intended more for end users. 🤷
+    """
+    repo_dids = [key.id() for key in AtpRepo.query().iter(keys_only=True)]
+    logger.info(f'Got {len(repo_dids)} repo DIDs')
+
+    users = itertools.chain(*(cls.query(cls.atproto_did.IN(repo_dids))
+                              for cls in set(PROTOCOLS.values())
+                              if cls and cls != ATProto))
+
+    # TODO: convert to Session for connection pipelining!
+    client = Client(f'https://{os.environ["APPVIEW_HOST"]}',
+                    headers={'User-Agent': USER_AGENT})
+
+    for user in users:
+        # TODO: store and use cursor
+        # TODO: user JWT
+        resp = client.app.bsky.notification.listNotifications()
+        for notif in resp['notifications']:
+            # TODO: load Object with id notif.uri, skip if it already exists?
+            # transactional with enqueueing receive task
+            logger.info(f'Got {notif["reason"]} from {notif["author"]["handle"]} {notif["uri"]} {notif["cid"]}')
+
+            # TODO: verify sig
+            # TODO: if notif.uri has handle, resolve and replace with DID
+            # ...but that's probably unlikely, at least coming from AppView?
+            obj = Object.get_or_create(id=notif['uri'], bsky=notif['record'],
+                                       source_protocol=ATProto.ABBREV)
+            if not obj.status:
+                obj.status = 'new'
+            add(obj.notify, user.key)
+            obj.put()
+
+            common.create_task(queue='receive', key=obj.key.urlsafe())
+
+    return 'OK'

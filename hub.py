@@ -21,12 +21,15 @@ from oauth_dropins.webutil import (
 )
 import requests
 
+import atproto  # atproto-poll-notifs task handler
 from common import USER_AGENT
-
-util.set_user_agent(USER_AGENT)
+import models
 
 logger = logging.getLogger(__name__)
 
+util.set_user_agent(USER_AGENT)
+
+models.reset_protocol_properties()
 
 #
 # Flask app

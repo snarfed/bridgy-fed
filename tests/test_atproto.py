@@ -30,6 +30,8 @@ from models import Object
 import protocol
 from .testutil import Fake, TestCase
 
+from hub import app
+
 DID_DOC = {
     'id': 'did:plc:foo',
     'alsoKnownAs': ['at://han.dull'],
@@ -45,6 +47,9 @@ DID_DOC = {
         'serviceEndpoint': 'https://some.pds',
     }],
 }
+
+KEY = arroba.util.new_key()
+
 
 class ATProtoTest(TestCase):
 
@@ -294,7 +299,7 @@ class ATProtoTest(TestCase):
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = 'http://localhost/'
         self.store_object(id='did:plc:foo', raw=did_doc)
-        Repo.create(self.storage, 'did:plc:foo', signing_key=arroba.util.new_key())
+        Repo.create(self.storage, 'did:plc:foo', signing_key=KEY)
 
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
             **POST_AS,
@@ -329,3 +334,112 @@ class ATProtoTest(TestCase):
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())
         mock_create_task.assert_not_called()
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch('requests.get')
+    def test_poll_notifications(self, mock_get, mock_create_task):
+        self.make_user(id='fake:user-a', cls=Fake, atproto_did=f'did:plc:a')
+        self.make_user(id='fake:user-c', cls=Fake, atproto_did=f'did:plc:b')
+        self.make_user(id='fake:user-b', cls=Fake, atproto_did=f'did:plc:c')
+
+        Repo.create(self.storage, 'did:plc:a', signing_key=KEY)
+        Repo.create(self.storage, 'did:plc:c', signing_key=KEY)
+
+        like = {
+            '$type': 'app.bsky.feed.like',
+            'subject': {
+                'cid': '...',
+                'uri': 'at://did:plc:a/app.bsky.feed.post/999',
+            },
+        }
+        reply = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'I hereby reply',
+            'reply': {
+                'root': {
+                    'cid': '...',
+                    'uri': 'at://did:plc:a/app.bsky.feed.post/987',
+                },
+                'parent': {
+                    'cid': '...',
+                    'uri': 'at://did:plc:a/app.bsky.feed.post/987',
+                }
+            },
+        }
+        follow = {
+            '$type': 'app.bsky.graph.follow',
+            'subject': 'did:plc:c',
+        }
+        eve = {
+            '$type': 'app.bsky.actor.defs#profileView',
+            'did': 'did:plc:eve',
+            'handle': 'eve.com',
+        }
+        alice = {
+            '$type': 'app.bsky.actor.defs#profileView',
+            'did': 'did:plc:a',
+            'handle': 'alice',
+        }
+
+        mock_get.side_effect = [
+            requests_response({
+                'cursor': '...',
+                'notifications': [{
+                # TODO
+                #     'uri': 'at://did:plc:d/app.bsky.feed.like/123',
+                #     'cid': '...',
+                #     'author': eve,
+                #     'record': like,
+                #     'reason': 'like',
+                # }, {
+                    'uri': 'at://did:plc:d/app.bsky.feed.post/456',
+                    'cid': '...',
+                    'author': eve,
+                    'record': reply,
+                    'reason': 'reply',
+                }],
+            }),
+            requests_response({
+                'cursor': '...',
+                'notifications': [{
+                    'uri': 'at://did:plc:d/app.bsky.graph.follow/789',
+                    'cid': '...',
+                    'author': alice,
+                    'record': follow,
+                    'reason': 'follow',
+                }],
+            }),
+        ]
+
+        client = app.test_client()
+        resp = client.get('/_ah/queue/atproto-poll-notifs')
+        self.assertEqual(200, resp.status_code)
+
+        self.assertEqual([call(
+            'https://api.bsky-sandbox.dev/xrpc/app.bsky.notification.listNotifications',
+            json=None,
+            headers={
+                'Content-Type': 'application/json',
+                'User-Agent': common.USER_AGENT,
+            },
+        )] * 2, mock_get.call_args_list)
+
+        # TODO: to convert like back to AS1, we need some mapping from the
+        # original post's URI/CID to its original non-ATP URL, right? add a new
+        # AS1 field? store it in datastore?
+        # ANSWER: add `copies` repeated Target property to Object to map
+        #
+        # like_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.like/123')
+        # self.assertEqual(like, like_obj.bsky)
+        # self.assert_task(mock_create_task, 'receive', '/_ah/queue/receive',
+        #                  key=like.key.urlsafe())
+
+        reply_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.post/456')
+        self.assertEqual(reply, reply_obj.bsky)
+        self.assert_task(mock_create_task, 'receive', '/_ah/queue/receive',
+                         key=reply_obj.key.urlsafe())
+
+        follow_obj = Object.get_by_id('at://did:plc:d/app.bsky.graph.follow/789')
+        self.assertEqual(follow, follow_obj.bsky)
+        self.assert_task(mock_create_task, 'receive', '/_ah/queue/receive',
+                         key=follow_obj.key.urlsafe())

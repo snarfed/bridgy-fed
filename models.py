@@ -395,7 +395,7 @@ class Object(StringIdModel):
     domains = ndb.StringProperty(repeated=True)
 
     status = ndb.StringProperty(choices=STATUSES)
-    # choices is populated in flask_app, after all User subclasses are created,
+    # choices is populated in app, after all User subclasses are created,
     # so that PROTOCOLS is fully populated
     # TODO: remove? is this redundant with the protocol-specific data fields below?
     source_protocol = ndb.StringProperty(choices=[])
