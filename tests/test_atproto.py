@@ -399,12 +399,12 @@ class ATProtoTest(TestCase):
                 'cursor': '...',
                 'notifications': [{
                 # TODO
-                #     'uri': 'at://did:plc:d/app.bsky.feed.like/123',
-                #     'cid': '...',
-                #     'author': eve,
-                #     'record': like,
-                #     'reason': 'like',
-                # }, {
+                    'uri': 'at://did:plc:d/app.bsky.feed.like/123',
+                    'cid': '...',
+                    'author': eve,
+                    'record': like,
+                    'reason': 'like',
+                }, {
                     'uri': 'at://did:plc:d/app.bsky.feed.post/456',
                     'cid': '...',
                     'author': eve,
@@ -442,10 +442,10 @@ class ATProtoTest(TestCase):
         # AS1 field? store it in datastore?
         # ANSWER: add `copies` repeated Target property to Object to map
         #
-        # like_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.like/123')
-        # self.assertEqual(like, like_obj.bsky)
-        # self.assert_task(mock_create_task, 'receive', '/_ah/queue/receive',
-        #                  key=like.key.urlsafe())
+        like_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.like/123')
+        self.assertEqual(like, like_obj.bsky)
+        self.assert_task(mock_create_task, 'receive', '/_ah/queue/receive',
+                         key=like_obj.key.urlsafe())
 
         reply_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.post/456')
         self.assertEqual(reply, reply_obj.bsky)
