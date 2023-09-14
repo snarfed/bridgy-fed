@@ -28,7 +28,7 @@ from common import (
 )
 import flask_app
 import hub
-from models import Object, PROTOCOLS, User
+from models import Object, PROTOCOLS, Target, User
 from protocol import Protocol
 
 logger = logging.getLogger(__name__)
@@ -242,9 +242,18 @@ class ATProto(User, Protocol):
         assert repo
 
         # create record
-        writes.append(Write(action=Action.CREATE, collection='app.bsky.feed.post',
-                            rkey=next_tid(), record=obj.as_bsky()))
-        repo.apply_writes(writes)
+        ndb.transactional()
+        def write():
+            tid = next_tid()
+            writes.append(Write(action=Action.CREATE, collection='app.bsky.feed.post',
+                                rkey=tid, record=obj.as_bsky()))
+            repo.apply_writes(writes)
+
+            at_uri = f'at://{user.atproto_did}/app.bsky.feed.post/{tid}'
+            add(obj.copies, Target(uri=at_uri, protocol=to_cls.ABBREV))
+            obj.put()
+
+        write()
 
         return True
 

@@ -343,7 +343,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
 
 class Target(ndb.Model):
-    """Delivery destinations. ActivityPub inboxes, webmention targets, etc.
+    """Protocol + URI pairs for identifying objects.
+
+    These are currently used for:
+    * delivery destinations, eg ActivityPub inboxes, webmention targets, etc.
+    * copies of objects stored elsewhere, eg at:// URIs for ATProto records
 
     Used in StructuredPropertys inside Object; not stored directly in the
     datastore.
@@ -352,9 +356,9 @@ class Target(ndb.Model):
     property on the parent entity, prefixed by the StructuredProperty name
     below, eg delivered.uri, delivered.protocol, etc.
 
-    For repeated StructuredPropertys, the hoisted properties are all
-    repeated on the parent entity, and reconstructed into
-    StructuredPropertys based on their order.
+    For repeated StructuredPropertys, the hoisted properties are all repeated on
+    the parent entity, and reconstructed into StructuredPropertys based on their
+    order.
 
     https://googleapis.dev/python/python-ndb/latest/model.html#google.cloud.ndb.model.StructuredProperty
     """
@@ -363,8 +367,12 @@ class Target(ndb.Model):
     # subclasses are created, so that PROTOCOLS is fully populated
     protocol = ndb.StringProperty(choices=[], required=True)
 
+    def __eq__(self, other):
+        """Equality excludes Targets' :class:`Key`."""
+        return self.uri == other.uri and self.protocol == other.protocol
+
     def __hash__(self):
-        """Override Model and allow hashing so these can be dict keys."""
+        """Allow hashing so these can be dict keys."""
         return hash((self.protocol, self.uri))
 
 
@@ -409,6 +417,18 @@ class Object(StringIdModel):
                               # parse object with items inside an 'items' field)
     our_as1 = JsonProperty()  # AS1 for activities that we generate or modify ourselves
     raw = JsonProperty()      # other standalone data format, eg DID document
+
+    deleted = ndb.BooleanProperty()
+
+    delivered = ndb.StructuredProperty(Target, repeated=True)
+    undelivered = ndb.StructuredProperty(Target, repeated=True)
+    failed = ndb.StructuredProperty(Target, repeated=True)
+
+    # Copies of this object elsewhere, eg at:// URIs for ATProto records
+    copies = ndb.StructuredProperty(Target, repeated=True)
+
+    created = ndb.DateTimeProperty(auto_now_add=True)
+    updated = ndb.DateTimeProperty(auto_now=True)
 
     new = None
     changed = None
@@ -460,16 +480,8 @@ class Object(StringIdModel):
     def _object_ids(self):  # id(s) of inner objects
         if self.as1:
             return redirect_unwrap(as1.get_ids(self.as1, 'object'))
+
     object_ids = ndb.ComputedProperty(_object_ids, repeated=True)
-
-    deleted = ndb.BooleanProperty()
-
-    delivered = ndb.StructuredProperty(Target, repeated=True)
-    undelivered = ndb.StructuredProperty(Target, repeated=True)
-    failed = ndb.StructuredProperty(Target, repeated=True)
-
-    created = ndb.DateTimeProperty(auto_now_add=True)
-    updated = ndb.DateTimeProperty(auto_now=True)
 
     def _expire(self):
         """Maybe automatically delete this Object after 90d using a TTL policy.
@@ -481,6 +493,7 @@ class Object(StringIdModel):
         """
         if self.type in OBJECT_EXPIRE_TYPES:
             return (self.updated or util.now()) + OBJECT_EXPIRE_AGE
+
     expire = ndb.ComputedProperty(_expire, indexed=False)
 
     def _pre_put_hook(self):

@@ -26,7 +26,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import atproto
 from atproto import ATProto
 import common
-from models import Object
+from models import Object, Target
 import protocol
 from .testutil import Fake, TestCase
 
@@ -240,6 +240,10 @@ class ATProtoTest(TestCase):
         record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
         self.assertEqual(POST_BSKY, record)
 
+        at_uri = f'at://{user.atproto_did}/app.bsky.feed.post/{arroba.util._tid_last}'
+        self.assertEqual([Target(uri=at_uri, protocol='atproto')],
+                         Object.get_by_id(id='fake:post').copies)
+
         # check PLC directory call to create did:plc
         self.assertEqual((f'https://plc.local/{user.atproto_did}',),
                          mock_post.call_args.args)
@@ -284,11 +288,16 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.send(obj, 'http://localhost/'))
 
         # check profile, record
-        repo = self.storage.load_repo(user.key.get().atproto_did)
+        did = user.key.get().atproto_did
+        repo = self.storage.load_repo(did)
         profile = repo.get_record('app.bsky.actor.profile', 'self')
         self.assertEqual(ACTOR_PROFILE_VIEW_BSKY, profile)
         record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
         self.assertEqual(POST_BSKY, record)
+
+        at_uri = f'at://{did}/app.bsky.feed.post/{arroba.util._tid_last}'
+        self.assertEqual([Target(uri=at_uri, protocol='atproto')],
+                         Object.get_by_id(id='fake:post').copies)
 
         mock_create_task.assert_called()
 
@@ -311,6 +320,10 @@ class ATProtoTest(TestCase):
         repo = self.storage.load_repo(user.atproto_did)
         record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
         self.assertEqual(POST_BSKY, record)
+
+        at_uri = f'at://{user.atproto_did}/app.bsky.feed.post/{arroba.util._tid_last}'
+        self.assertEqual([Target(uri=at_uri, protocol='atproto')],
+                         Object.get_by_id(id='fake:post').copies)
 
         mock_create_task.assert_called()
 
