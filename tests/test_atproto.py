@@ -398,7 +398,6 @@ class ATProtoTest(TestCase):
             requests_response({
                 'cursor': '...',
                 'notifications': [{
-                # TODO
                     'uri': 'at://did:plc:d/app.bsky.feed.like/123',
                     'cid': '...',
                     'author': eve,

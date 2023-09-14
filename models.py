@@ -502,6 +502,11 @@ class Object(StringIdModel):
         if self.key.id().startswith('at://'):
             repo, _, _ = arroba.util.parse_at_uri(self.key.id())
             if not repo.startswith('did:'):
+                # TODO: if we hit this, that means the AppView gave us an AT URI
+                # with a handle repo/authority instead of DID. that's surprising!
+                # ...if so, and if we need to handle it, add a new
+                # arroba.did.canonicalize_at_uri() function, then use it here,
+                # or before.
                 raise ValueError(
                     f'at:// URI ids must have DID repos; got {self.key.id()}')
 

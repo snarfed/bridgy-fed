@@ -341,8 +341,6 @@ def poll_notifications():
             logger.info(f'Got {notif["reason"]} from {notif["author"]["handle"]} {notif["uri"]} {notif["cid"]}')
 
             # TODO: verify sig
-            # TODO: if notif.uri has handle, resolve and replace with DID
-            # ...but that's probably unlikely, at least coming from AppView?
             obj = Object.get_or_create(id=notif['uri'], bsky=notif['record'],
                                        source_protocol=ATProto.ABBREV)
             if not obj.status:
