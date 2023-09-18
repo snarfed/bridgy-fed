@@ -51,7 +51,7 @@ jobs:
             # https://flake8.pycqa.org/en/latest/user/options.html#cmdoption-flake8-select
             flake8 --select=F811 tests/test_*.py
 
-      # a step only runs if all previous steps succeed, including tests above
+      # only runs if all previous steps succeed, including tests
       # https://circleci.com/docs/configuration-reference/#the-when-attribute
       - run:
           name: Deploy
