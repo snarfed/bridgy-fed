@@ -142,9 +142,12 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     @staticmethod
     def get_by_atproto_did(did):
-        """Fetches the user across all protocols with the given atproto_did.
+        """Fetches the user across all protocols with the given ATProto DID.
 
-        If more than one user has the given atproto_did, this returns an
+        Prefers bridged (ie not :class:`ATProto`) users to :class:`ATProto`
+        users.
+
+        If more than one :class:`ATProto` user exists, this returns an
         arbitrary one!
 
         Args:
@@ -156,11 +159,13 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         assert did
 
         for cls in set(PROTOCOLS.values()):
-            if not cls:
+            if not cls or cls.ABBREV == 'atproto':
                 continue
             user = cls.query(cls.atproto_did == did).get()
             if user:
                 return user
+
+        return PROTOCOLS['atproto'].get_by_id(did)
 
     @classmethod
     @ndb.transactional()
@@ -489,6 +494,8 @@ class Object(StringIdModel):
                      else None)
             if field:
                 repo, _, _ = arroba.util.parse_at_uri(self.key.id())
+                # load matching user. prefer bridged non-ATProto user
+                # to ATProto user
                 user = User.get_by_atproto_did(repo)
                 if user:
                     logger.debug(f'Filling in {field} from {user}')

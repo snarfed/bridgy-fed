@@ -55,8 +55,13 @@ class UserTest(TestCase):
 
     def test_get_by_atproto_did(self):
         self.assertIsNone(User.get_by_atproto_did('did:plc:foo'))
-        user = self.make_user('fake:user', cls=Fake, atproto_did='did:plc:foo')
-        self.assertEqual(user, User.get_by_atproto_did('did:plc:foo'))
+
+        atp_user = self.make_user('did:plc:foo', cls=ATProto)
+        self.assertEqual(atp_user, User.get_by_atproto_did('did:plc:foo'))
+
+        # prefer non-ATProto user, if available
+        fake_user = self.make_user('fake:user', cls=Fake, atproto_did='did:plc:foo')
+        self.assertEqual(fake_user, User.get_by_atproto_did('did:plc:foo'))
 
     def test_get_or_create_use_instead(self):
         user = Fake.get_or_create('a.b')
@@ -433,15 +438,15 @@ class ObjectTest(TestCase):
         obj = Object(id='at://did:plc:foo/co.ll/123', bsky=like_bsky)
         self.assert_equals(like_as1, obj.as1)
 
-        # user without Object
-        user = self.make_user(id='fake:user', cls=Fake, atproto_did=f'did:plc:foo')
+        # ATProto user without Object
+        user = self.make_user(id='did:plc:foo', cls=ATProto)
         obj = Object(id='at://did:plc:foo/co.ll/123', bsky=like_bsky)
         self.assertEqual({
             **like_as1,
-            'actor': 'fake:user',
+            'actor': 'did:plc:foo',
         }, obj.as1)
 
-        # user with Object
+        # ATProto user with Object
         user.obj = self.store_object(id='fake:profile', our_as1={'foo': 'bar'})
         user.put()
         obj = Object(id='at://did:plc:foo/co.ll/123', bsky=like_bsky)
@@ -450,6 +455,18 @@ class ObjectTest(TestCase):
             'actor': {
                 'id': 'fake:profile',
                 'foo': 'bar',
+            },
+        }, obj.as1)
+
+        # Fake user, should prefer to ATProto user
+        user.obj = self.store_object(id='fake:profile', our_as1={'baz': 'biff'})
+        user.put()
+        obj = Object(id='at://did:plc:foo/co.ll/123', bsky=like_bsky)
+        self.assertEqual({
+            **like_as1,
+            'actor': {
+                'id': 'fake:profile',
+                'baz': 'biff',
             },
         }, obj.as1)
 
