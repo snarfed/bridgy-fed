@@ -53,6 +53,11 @@ class UserTest(TestCase):
         user.atproto_did = 'did:plc:123'
         user.atproto_did = None
 
+    def test_get_by_atproto_did(self):
+        self.assertIsNone(User.get_by_atproto_did('did:plc:foo'))
+        user = self.make_user('fake:user', cls=Fake, atproto_did='did:plc:foo')
+        self.assertEqual(user, User.get_by_atproto_did('did:plc:foo'))
+
     def test_get_or_create_use_instead(self):
         user = Fake.get_or_create('a.b')
         user.use_instead = g.user.key
@@ -155,7 +160,6 @@ class ObjectTest(TestCase):
 
         # just check that these don't crash
         assert isinstance(id(target), int)
-        {target: 'foo'}
 
     def test_ndb_in_memory_cache_off(self):
         """It has a weird bug that we want to avoid.

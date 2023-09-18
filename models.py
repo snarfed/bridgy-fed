@@ -138,6 +138,28 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         return user
 
+    @staticmethod
+    def get_by_atproto_did(did):
+        """Fetches the user across all protocols with the given atproto_did.
+
+        If more than one user has the given atproto_did, this returns an
+        arbitrary one!
+
+        Args:
+          did: str
+
+        Returns:
+          :class:`User` subclass instance, or None if not found
+        """
+        assert did
+
+        for cls in set(PROTOCOLS.values()):
+            if not cls:
+                continue
+            user = cls.query(cls.atproto_did == did).get()
+            if user:
+                return user
+
     @classmethod
     @ndb.transactional()
     def get_or_create(cls, id, **kwargs):
