@@ -401,7 +401,7 @@ class ObjectTest(TestCase):
         obj.as2 = {'baz': 'biff'}
         self.assertEqual({'baz': 'biff'}, obj.as_as2())
 
-    def test_as1(self):
+    def test_as1_from_as2(self):
         self.assert_equals({
             'objectType': 'person',
             'id': 'https://mas.to/users/swentel',
@@ -413,6 +413,45 @@ class ObjectTest(TestCase):
         self.assertEqual({'foo': 'bar'}, Object(our_as1={'foo': 'bar'}).as1)
         self.assertEqual({'id': 'x', 'foo': 'bar'},
                          Object(id='x', our_as1={'foo': 'bar'}).as1)
+
+    def test_as1_from_bsky(self):
+        like_bsky = {
+            '$type': 'app.bsky.feed.like',
+            'subject': {
+                'uri': 'http://example.com/original/post',
+                'cid': 'TODO',
+            },
+        }
+        like_as1 = {
+            'objectType': 'activity',
+            'verb': 'like',
+            'id': 'at://did:plc:foo/co.ll/123',
+            'object': 'http://example.com/original/post',
+        }
+
+        # no user
+        obj = Object(id='at://did:plc:foo/co.ll/123', bsky=like_bsky)
+        self.assert_equals(like_as1, obj.as1)
+
+        # user without Object
+        user = self.make_user(id='fake:user', cls=Fake, atproto_did=f'did:plc:foo')
+        obj = Object(id='at://did:plc:foo/co.ll/123', bsky=like_bsky)
+        self.assertEqual({
+            **like_as1,
+            'actor': 'fake:user',
+        }, obj.as1)
+
+        # user with Object
+        user.obj = self.store_object(id='fake:profile', our_as1={'foo': 'bar'})
+        user.put()
+        obj = Object(id='at://did:plc:foo/co.ll/123', bsky=like_bsky)
+        self.assertEqual({
+            **like_as1,
+            'actor': {
+                'id': 'fake:profile',
+                'foo': 'bar',
+            },
+        }, obj.as1)
 
     def test_as1_from_mf2_uses_url_as_id(self):
         obj = Object(mf2={

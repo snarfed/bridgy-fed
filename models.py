@@ -28,7 +28,7 @@ from common import add, base64_to_long, long_to_base64, redirect_unwrap
 
 # maps string label to Protocol subclass. populated by ProtocolUserMeta.
 # seed with old and upcoming protocols that don't have their own classes (yet).
-PROTOCOLS = {'atproto': None, 'bluesky': None, 'ostatus': None}
+PROTOCOLS = {'ostatus': None}
 
 # 2048 bits makes tests slow, so use 1024 for them
 KEY_BITS = 1024 if DEBUG else 2048
@@ -43,7 +43,7 @@ OBJECT_EXPIRE_TYPES = (
     'accept',
     'reject',
     'undo',
-    None
+    None,
 )
 OBJECT_EXPIRE_AGE = timedelta(days=90)
 
@@ -54,10 +54,12 @@ class ProtocolUserMeta(type(ndb.Model)):
     """:class:`User` metaclass. Registers all subclasses in the PROTOCOLS global."""
     def __new__(meta, name, bases, class_dict):
         cls = super().__new__(meta, name, bases, class_dict)
+
         if hasattr(cls, 'LABEL') and cls.LABEL not in ('protocol', 'user'):
             for label in (cls.LABEL, cls.ABBREV) + cls.OTHER_LABELS:
                 if label:
                     PROTOCOLS[label] = cls
+
         return cls
 
 
@@ -474,10 +476,26 @@ class Object(StringIdModel):
 
         if self.our_as1:
             obj = redirect_unwrap(self.our_as1)
+
         elif self.as2:
             obj = as2.to_as1(redirect_unwrap(self.as2))
+
         elif self.bsky:
             obj = bluesky.to_as1(self.bsky)
+            # ATProto implies actor from repo; fill that in here
+            type = obj.get('objectType')
+            field = ('actor' if type == 'activity'
+                     else 'author' if type not in as1.ACTOR_TYPES
+                     else None)
+            if field:
+                repo, _, _ = arroba.util.parse_at_uri(self.key.id())
+                user = User.get_by_atproto_did(repo)
+                if user:
+                    logger.debug(f'Filling in {field} from {user}')
+                    user_as1 = (user.obj.as1 if user.obj and user.obj.as1
+                                else user.key.id())
+                    obj.setdefault(field, user_as1)
+
         elif self.mf2:
             obj = microformats2.json_to_object(self.mf2,
                                                rel_urls=self.mf2.get('rel-urls'))
@@ -487,6 +505,7 @@ class Object(StringIdModel):
             for field in 'author', 'actor', 'object':  # None is obj itself
                 if url := util.get_url(obj, field):
                     as1.get_object(obj, field).setdefault('id', url)
+
         else:
             return None
 
@@ -508,7 +527,7 @@ class Object(StringIdModel):
     def _expire(self):
         """Maybe automatically delete this Object after 90d using a TTL policy.
 
-        https://cloud.google.com/datastore/docs/ttl#ttl_properties_and_indexes
+        https://cloud.google.com/datastore/docs/ttl
 
         They recommend not indexing TTL properties:
         https://cloud.google.com/datastore/docs/ttl#ttl_properties_and_indexes
