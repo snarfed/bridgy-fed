@@ -427,6 +427,9 @@ class ATProtoTest(TestCase):
         resp = client.get('/_ah/queue/atproto-poll-notifs')
         self.assertEqual(200, resp.status_code)
 
+        # just check that access token was set, then remove it before comparing
+        for call in mock_get.call_args_list:
+            assert call.kwargs['headers'].pop('Authorization')
         self.assertEqual([call(
             'https://api.bsky-sandbox.dev/xrpc/app.bsky.notification.listNotifications',
             json=None,
