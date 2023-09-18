@@ -431,6 +431,7 @@ class ObjectTest(TestCase):
             'objectType': 'activity',
             'verb': 'like',
             'id': 'at://did:plc:foo/co.ll/123',
+            'actor': 'did:plc:foo',
             'object': 'http://example.com/original/post',
         }
 
@@ -439,33 +440,29 @@ class ObjectTest(TestCase):
         self.assert_equals(like_as1, obj.as1)
 
         # ATProto user without Object
-        user = self.make_user(id='did:plc:foo', cls=ATProto)
-        obj = Object(id='at://did:plc:foo/co.ll/123', bsky=like_bsky)
-        self.assertEqual({
-            **like_as1,
-            'actor': 'did:plc:foo',
-        }, obj.as1)
+        user = ATProto(id='did:plc:foo')
+        user.put()
+        self.assertEqual(like_as1, obj.as1)
 
         # ATProto user with Object
-        user.obj = self.store_object(id='fake:profile', our_as1={'foo': 'bar'})
+        user.obj = self.store_object(id='at://did:plc:foo/profile/self',
+                                     our_as1={'foo': 'bar'})
         user.put()
-        obj = Object(id='at://did:plc:foo/co.ll/123', bsky=like_bsky)
         self.assertEqual({
             **like_as1,
             'actor': {
-                'id': 'fake:profile',
+                'id': 'did:plc:foo',
                 'foo': 'bar',
             },
         }, obj.as1)
 
         # Fake user, should prefer to ATProto user
-        user.obj = self.store_object(id='fake:profile', our_as1={'baz': 'biff'})
-        user.put()
-        obj = Object(id='at://did:plc:foo/co.ll/123', bsky=like_bsky)
+        user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:foo',
+                              obj_as1={'baz': 'biff'})
         self.assertEqual({
             **like_as1,
             'actor': {
-                'id': 'fake:profile',
+                'id': 'fake:user',
                 'baz': 'biff',
             },
         }, obj.as1)

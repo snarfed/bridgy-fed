@@ -494,14 +494,19 @@ class Object(StringIdModel):
                      else None)
             if field:
                 repo, _, _ = arroba.util.parse_at_uri(self.key.id())
+                obj.setdefault(field, repo)
                 # load matching user. prefer bridged non-ATProto user
                 # to ATProto user
                 user = User.get_by_atproto_did(repo)
                 if user:
                     logger.debug(f'Filling in {field} from {user}')
-                    user_as1 = (user.obj.as1 if user.obj and user.obj.as1
-                                else user.key.id())
-                    obj.setdefault(field, user_as1)
+                    if user.obj and user.obj.as1:
+                        obj[field] = {
+                            **user.obj.as1,
+                            'id': user.key.id(),
+                        }
+                    else:
+                        obj[field] = user.key.id()
 
         elif self.mf2:
             obj = microformats2.json_to_object(self.mf2,
