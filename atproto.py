@@ -222,6 +222,7 @@ class ATProto(User, Protocol):
             def update_user_create_repo():
                 Object.get_or_create(did_plc.did, raw=did_plc.doc)
                 user.atproto_did = did_plc.did
+                add(user.copies, Target(uri=did_plc.did, protocol=to_cls.LABEL))
                 user.put()
 
                 assert not storage.load_repo(user.atproto_did)

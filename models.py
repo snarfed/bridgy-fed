@@ -50,6 +50,42 @@ OBJECT_EXPIRE_AGE = timedelta(days=90)
 logger = logging.getLogger(__name__)
 
 
+class Target(ndb.Model):
+    """Protocol + URI pairs for identifying objects.
+
+    These are currently used for:
+    * delivery destinations, eg ActivityPub inboxes, webmention targets, etc.
+    * copies of :class:`Object`s and :class:`User`s elsewhere, eg at:// URIs for
+      ATProto records, nevent etc bech32-encoded Nostr ids, ATProto user DIDs,
+      etc.
+
+    Used in StructuredPropertys inside :class:`Object` and :class:`User`; not
+    stored as top-level entities in the datastore.
+
+    ndb implements this by hoisting each property here into a corresponding
+    property on the parent entity, prefixed by the StructuredProperty name
+    below, eg `delivered.uri`, `delivered.protocol`, etc.
+
+    For repeated StructuredPropertys, the hoisted properties are all repeated on
+    the parent entity, and reconstructed into StructuredPropertys based on their
+    order.
+
+    https://googleapis.dev/python/python-ndb/latest/model.html#google.cloud.ndb.model.StructuredProperty
+    """
+    uri = ndb.StringProperty(required=True)
+    # choices is populated in app via reset_protocol_properties, after all User
+    # subclasses are created, so that PROTOCOLS is fully populated
+    protocol = ndb.StringProperty(choices=[], required=True)
+
+    def __eq__(self, other):
+        """Equality excludes Targets' :class:`Key`."""
+        return self.uri == other.uri and self.protocol == other.protocol
+
+    def __hash__(self):
+        """Allow hashing so these can be dict keys."""
+        return hash((self.protocol, self.uri))
+
+
 class ProtocolUserMeta(type(ndb.Model)):
     """:class:`User` metaclass. Registers all subclasses in the PROTOCOLS global."""
     def __new__(meta, name, bases, class_dict):
@@ -109,6 +145,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     # OLD. some stored entities still have this; do not reuse.
     # actor_as2 = JsonProperty()
+
+    # Proxy copies of this user elsewhere, eg DIDs for ATProto records, bech32
+    # npub Nostr ids, etc. Similar to rel-me links in microformats2, alsoKnownAs
+    # in DID docs (and now AS2), etc.
+    copies = ndb.StructuredProperty(Target, repeated=True)
 
     def __init__(self, **kwargs):
         """Constructor.
@@ -371,40 +412,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return f'<a class="h-card u-author" href="{self.user_page_path()}"><img src="{img}" class="profile"> {self.name()}</a>'
 
 
-class Target(ndb.Model):
-    """Protocol + URI pairs for identifying objects.
-
-    These are currently used for:
-    * delivery destinations, eg ActivityPub inboxes, webmention targets, etc.
-    * copies of objects stored elsewhere, eg at:// URIs for ATProto records
-
-    Used in StructuredPropertys inside Object; not stored directly in the
-    datastore.
-
-    ndb implements this by hoisting each property here into a corresponding
-    property on the parent entity, prefixed by the StructuredProperty name
-    below, eg delivered.uri, delivered.protocol, etc.
-
-    For repeated StructuredPropertys, the hoisted properties are all repeated on
-    the parent entity, and reconstructed into StructuredPropertys based on their
-    order.
-
-    https://googleapis.dev/python/python-ndb/latest/model.html#google.cloud.ndb.model.StructuredProperty
-    """
-    uri = ndb.StringProperty(required=True)
-    # choices is populated in app via reset_protocol_properties, after all User
-    # subclasses are created, so that PROTOCOLS is fully populated
-    protocol = ndb.StringProperty(choices=[], required=True)
-
-    def __eq__(self, other):
-        """Equality excludes Targets' :class:`Key`."""
-        return self.uri == other.uri and self.protocol == other.protocol
-
-    def __hash__(self):
-        """Allow hashing so these can be dict keys."""
-        return hash((self.protocol, self.uri))
-
-
 class Object(StringIdModel):
     """An activity or other object, eg actor.
 
@@ -453,7 +460,10 @@ class Object(StringIdModel):
     undelivered = ndb.StructuredProperty(Target, repeated=True)
     failed = ndb.StructuredProperty(Target, repeated=True)
 
-    # Copies of this object elsewhere, eg at:// URIs for ATProto records
+    # Copies of this object elsewhere, eg at:// URIs for ATProto records and
+    # nevent etc bech32-encoded Nostr ids, where this object is the original.
+    # Similar to u-syndication links in microformats2 and
+    # upstream/downstreamDuplicates in AS1.
     copies = ndb.StructuredProperty(Target, repeated=True)
 
     created = ndb.DateTimeProperty(auto_now_add=True)

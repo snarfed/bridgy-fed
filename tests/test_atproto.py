@@ -48,7 +48,7 @@ DID_DOC = {
     }],
 }
 
-KEY = arroba.util.new_key()
+KEY = arroba.util.new_key(2349823483510)  # deterministic seed
 
 
 class ATProtoTest(TestCase):
@@ -231,6 +231,8 @@ class ATProtoTest(TestCase):
         # check DID doc
         user = user.key.get()
         assert user.atproto_did
+        self.assertEqual([Target(uri=user.atproto_did, protocol='atproto')],
+                         user.copies)
         did_obj = ATProto.load(user.atproto_did)
         self.assertEqual('http://localhost/',
                          did_obj.raw['service'][0]['serviceEndpoint'])
