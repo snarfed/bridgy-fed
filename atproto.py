@@ -334,6 +334,8 @@ def poll_notifications():
 
     for user in users:
         # TODO: store and use cursor
+        # seenAt would be easier, but they don't support it yet
+        # https://github.com/bluesky-social/atproto/issues/1636
         repo = repos[user.atproto_did]
         client.access_token = service_jwt(os.environ['APPVIEW_HOST'],
                                           repo_did=user.atproto_did,
@@ -342,7 +344,9 @@ def poll_notifications():
         for notif in resp['notifications']:
             logger.info(f'Got {notif["reason"]} from {notif["author"]["handle"]} {notif["uri"]} {notif["cid"]}')
 
-            # TODO: verify sig
+            # TODO: verify sig. skipping this for now because we're getting
+            # these from the AppView, which is trusted, specifically we expect
+            # the BGS and/or the AppView already checked sigs.
             obj = Object.get_or_create(id=notif['uri'], bsky=notif['record'],
                                        source_protocol=ATProto.ABBREV)
             if not obj.status:
@@ -350,9 +354,6 @@ def poll_notifications():
             add(obj.notify, user.key)
             obj.put()
 
-            # TODO: do we need to Object.load() the source user (actor) here? or
-            # does Protocol.receive() (or later, eg send/serve) do that
-            # automatically?
             common.create_task(queue='receive', obj=obj.key.urlsafe(),
                                # TODO: should this be the receiving user?
                                # or the sending user?
