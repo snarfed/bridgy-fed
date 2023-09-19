@@ -230,19 +230,22 @@ def create_task(queue, **params):
       params: form-encoded and included in the task request body
     """
     assert queue
+    path = f'/_ah/queue/{queue}'
 
     if appengine_info.LOCAL_SERVER:
-        logger.info(f'Would add task: {queue} {params}')
-    else:
-        task = tasks_client.create_task(
-            parent=tasks_client.queue_path(appengine_info.APP_ID,
-                                           TASKS_LOCATION, queue),
-            task={
-                'app_engine_http_request': {
-                    'http_method': 'POST',
-                    'relative_uri': f'/_ah/queue/{queue}',
-                    'body': urllib.parse.urlencode(params).encode(),
-                    'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
-                },
-            })
-        logger.info(f'Added {queue} task {task.name} : {params}')
+        logger.info(f'Running task inline: {queue} {params}')
+        app.test_client().post(path, data=params)
+        return
+
+    task = tasks_client.create_task(
+        parent=tasks_client.queue_path(appengine_info.APP_ID,
+                                       TASKS_LOCATION, queue),
+        task={
+            'app_engine_http_request': {
+                'http_method': 'POST',
+                'relative_uri': path,
+                'body': urllib.parse.urlencode(params).encode(),
+                'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
+            },
+        })
+    logger.info(f'Added {queue} task {task.name} : {params}')

@@ -481,12 +481,8 @@ def webmention_external():
     if not g.user:
         error(f'No user found for domain {domain}')
 
-    if appengine_info.LOCAL_SERVER:
-        logger.info('Running locally, handling webmention inline')
-        return webmention_task()
-    else:
-        common.create_task('webmention', **request.form)
-        return 'Enqueued webmention task', 202
+    common.create_task('webmention', **request.form)
+    return 'Enqueued webmention task', 202
 
 
 @app.post('/webmention-interactive')
