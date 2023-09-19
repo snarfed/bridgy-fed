@@ -182,31 +182,27 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return user
 
     @staticmethod
-    def get_by_atproto_did(did):
-        """Fetches the user across all protocols with the given ATProto DID.
+    def get_for_copy(copy_id):
+        """Fetches any user (across all protocols) with the given id in `copies`.
 
-        Prefers bridged (ie not :class:`ATProto`) users to :class:`ATProto`
-        users.
-
-        If more than one :class:`ATProto` user exists, this returns an
-        arbitrary one!
+        If more than one matching user exists, this returns an arbitrary one!
 
         Args:
-          did: str
+          copy_id: str
 
         Returns:
           :class:`User` subclass instance, or None if not found
         """
-        assert did
+        assert copy_id
 
         for cls in set(PROTOCOLS.values()):
-            if not cls or cls.ABBREV == 'atproto':
-                continue
-            user = cls.query(cls.atproto_did == did).get()
-            if user:
-                return user
+            if cls:
+                user = cls.query(cls.copies.uri == copy_id).get()
+                if user:
+                    return user
 
-        return PROTOCOLS['atproto'].get_by_id(did)
+        # TODO: default to lookup by id, across protocols? is that useful
+        # anywhere?
 
     @classmethod
     @ndb.transactional()
@@ -507,7 +503,7 @@ class Object(StringIdModel):
                 obj.setdefault(field, repo)
                 # load matching user. prefer bridged non-ATProto user
                 # to ATProto user
-                user = User.get_by_atproto_did(repo)
+                user = User.get_for_copy(repo)
                 if user:
                     logger.debug(f'Filling in {field} from {user}')
                     if user.obj and user.obj.as1:
