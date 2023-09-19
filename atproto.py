@@ -353,7 +353,9 @@ def poll_notifications():
             # TODO: do we need to Object.load() the source user (actor) here? or
             # does Protocol.receive() (or later, eg send/serve) do that
             # automatically?
-
-            common.create_task(queue='receive', key=obj.key.urlsafe())
+            common.create_task(queue='receive', obj=obj.key.urlsafe(),
+                               # TODO: should this be the receiving user?
+                               # or the sending user?
+                               user=user.key.urlsafe())
 
     return 'OK'

@@ -7,7 +7,7 @@ from flask import g, get_flashed_messages
 from google.cloud import ndb
 from granary import as1, as2, microformats2
 from oauth_dropins.webutil import util
-from oauth_dropins.webutil.appengine_info import APP_ID
+from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.testutil import NOW, requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests

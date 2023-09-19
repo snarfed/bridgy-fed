@@ -169,6 +169,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
     def setUp(self):
         super().setUp()
 
+        appengine_info.APP_ID = 'my-app'
         appengine_info.LOCAL_SERVER = False
         app.testing = True
         cache.clear()

@@ -481,8 +481,7 @@ def webmention_external():
     if not g.user:
         error(f'No user found for domain {domain}')
 
-    common.create_task('webmention', **request.form)
-    return 'Enqueued webmention task', 202
+    return common.create_task('webmention', **request.form)
 
 
 @app.post('/webmention-interactive')
@@ -534,7 +533,7 @@ def webmention_task():
             error(f"Bridgy Fed hasn't successfully published {source}", status=304)
 
         id = f'{source}#bridgy-fed-delete'
-        obj = Object(id=id, our_as1={
+        obj = Object(id=id, status='new', our_as1={
             'id': id,
             'objectType': 'activity',
             'verb': 'delete',
@@ -572,7 +571,7 @@ def webmention_task():
             'updated': util.now().isoformat(),
         }
         id = common.host_url(f'{obj.key.id()}#update-{util.now().isoformat()}')
-        obj = Object(id=id, our_as1={
+        obj = Object(id=id, status='new', our_as1={
             'objectType': 'activity',
             'verb': 'update',
             'id': id,

@@ -1213,6 +1213,6 @@ class ProtocolReceiveTest(TestCase):
         obj = self.store_object(id='fake:post', our_as1=note,
                                 source_protocol='fake')
 
-        self.client.post('/_ah/queue/receive', data={'key': obj.key.urlsafe()})
+        self.client.post('/_ah/queue/receive', data={'obj': obj.key.urlsafe()})
         obj = Object.get_by_id('fake:post#bridgy-fed-create')
         self.assertEqual('ignored', obj.status)

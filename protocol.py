@@ -969,11 +969,20 @@ def receive_task():
     """Task handler for a newly received :class:`Object`.
 
     Form parameters:
-    * key: urlsafe :class:`ndb.Key` of the :class:`Object` to handle
+
+    * obj: urlsafe :class:`ndb.Key` of the :class:`Object` to handle
+    * user: urlsafe :class:`ndb.Key` of the :class:`User` this activity is on
+      behalf of. This user will be loaded into `g.user`.
     """
     logger.info(f'Params: {list(request.form.items())}')
 
-    obj = ndb.Key(urlsafe=request.form['key']).get()
+    obj = ndb.Key(urlsafe=request.form['obj']).get()
     assert obj
+    if user_key := request.form.get('user'):
+        g.user = ndb.Key(urlsafe=user_key).get()
 
-    return PROTOCOLS[obj.source_protocol].receive(obj)
+    try:
+        return PROTOCOLS[obj.source_protocol].receive(obj)
+    except ValueError as e:
+        logger.warning(e, exc_info=True)
+        error(e, status=304)

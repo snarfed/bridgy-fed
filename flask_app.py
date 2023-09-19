@@ -13,10 +13,7 @@ from oauth_dropins.webutil import (
     appengine_info,
     appengine_config,
     flask_util,
-    util,
 )
-
-from common import USER_AGENT
 
 logger = logging.getLogger(__name__)
 # logging.getLogger('lexrpc').setLevel(logging.INFO)
@@ -43,6 +40,9 @@ def init_globals():
     """Set request globals.
 
     * g.user: Current internal user we're operating on behalf of.
+      TODO: is this the "receiving" user for a given activity? or the sending
+      user? webmentions use sending; AP uses receiving. but "receiving" isn't well
+      defined in general, so should we standardize on sending user?
     """
     g.user = None
 
@@ -60,5 +60,3 @@ app.wsgi_app = flask_util.ndb_context_middleware(
 )
 
 cache = Cache(app)
-
-util.set_user_agent(USER_AGENT)

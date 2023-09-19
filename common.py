@@ -16,6 +16,8 @@ from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.appengine_info import DEBUG
 
+from flask_app import app
+
 logger = logging.getLogger(__name__)
 
 # allow hostname chars (a-z, 0-9, -), allow arbitrary unicode (eg ☃.net), don't
@@ -63,6 +65,7 @@ DOMAIN_BLOCKLIST = (
 CACHE_TIME = timedelta(seconds=60)
 
 USER_AGENT = 'Bridgy Fed (https://fed.brid.gy/)'
+util.set_user_agent(USER_AGENT)
 
 TASKS_LOCATION = 'us-central1'
 
@@ -225,17 +228,30 @@ def add(seq, val):
 def create_task(queue, **params):
     """Adds a Cloud Tasks task.
 
+    If running in a local server, runs the task handler inline instead of
+    creating a task.
+
     Args:
       queue: string, queue name
       params: form-encoded and included in the task request body
+
+    Returns:
+      :flask:`Response` from running the task inline if running in a local
+      server, otherwise (str response body, int status code) response from
+      creating the task.
     """
     assert queue
     path = f'/_ah/queue/{queue}'
 
     if appengine_info.LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')
-        app.test_client().post(path, data=params)
-        return
+        return app.test_client().post(path, data=params)
+
+        # # alternative: run inline in this request context
+        # request.form = params
+        # endpoint, args = app.url_map.bind(request.server[0])\
+        #                             .match(path, method='POST')
+        # return app.view_functions[endpoint](**args)
 
     task = tasks_client.create_task(
         parent=tasks_client.queue_path(appengine_info.APP_ID,
@@ -248,4 +264,6 @@ def create_task(queue, **params):
                 'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
             },
         })
-    logger.info(f'Added {queue} task {task.name} : {params}')
+    msg = f'Added {queue} task {task.name} : {params}'
+    logger.info(msg)
+    return msg, 202

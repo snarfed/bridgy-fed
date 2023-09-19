@@ -351,9 +351,9 @@ class ATProtoTest(TestCase):
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get')
     def test_poll_notifications(self, mock_get, mock_create_task):
-        self.make_user(id='fake:user-a', cls=Fake, atproto_did=f'did:plc:a')
-        self.make_user(id='fake:user-c', cls=Fake, atproto_did=f'did:plc:b')
-        self.make_user(id='fake:user-b', cls=Fake, atproto_did=f'did:plc:c')
+        user_a = self.make_user(id='fake:user-a', cls=Fake, atproto_did=f'did:plc:a')
+        user_b = self.make_user(id='fake:user-c', cls=Fake, atproto_did=f'did:plc:b')
+        user_c = self.make_user(id='fake:user-b', cls=Fake, atproto_did=f'did:plc:c')
 
         Repo.create(self.storage, 'did:plc:a', signing_key=KEY)
         Repo.create(self.storage, 'did:plc:c', signing_key=KEY)
@@ -447,14 +447,14 @@ class ATProtoTest(TestCase):
         like_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.like/123')
         self.assertEqual(like, like_obj.bsky)
         self.assert_task(mock_create_task, 'receive', '/_ah/queue/receive',
-                         key=like_obj.key.urlsafe())
+                         obj=like_obj.key.urlsafe(), user=user_a.key.urlsafe())
 
         reply_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.post/456')
         self.assertEqual(reply, reply_obj.bsky)
         self.assert_task(mock_create_task, 'receive', '/_ah/queue/receive',
-                         key=reply_obj.key.urlsafe())
+                         obj=reply_obj.key.urlsafe(), user=user_a.key.urlsafe())
 
         follow_obj = Object.get_by_id('at://did:plc:d/app.bsky.graph.follow/789')
         self.assertEqual(follow, follow_obj.bsky)
         self.assert_task(mock_create_task, 'receive', '/_ah/queue/receive',
-                         key=follow_obj.key.urlsafe())
+                         obj=follow_obj.key.urlsafe(), user=user_c.key.urlsafe())
