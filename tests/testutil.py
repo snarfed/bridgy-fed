@@ -123,7 +123,12 @@ class Fake(User, protocol.Protocol):
         return 'shared:target' if shared else f'{obj.key.id()}:target'
 
     @classmethod
-    def receive(cls, our_as1):
+    def receive(cls, obj):
+        assert isinstance(obj, Object)
+        return super().receive(obj=obj)
+
+    @classmethod
+    def receive_as1(cls, our_as1):
         assert isinstance(our_as1, dict)
         return super().receive(Object(id=our_as1['id'], our_as1=our_as1))
 

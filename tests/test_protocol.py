@@ -339,7 +339,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': post_as1,
         }
-        self.assertEqual('OK', Fake.receive(create_as1))
+        self.assertEqual('OK', Fake.receive_as1(create_as1))
 
         self.assert_object('fake:post',
                            our_as1=post_as1,
@@ -365,7 +365,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'author': 'fake:user',
         }
-        self.assertEqual('OK', Fake.receive(post_as1))
+        self.assertEqual('OK', Fake.receive_as1(post_as1))
 
         self.assert_object('fake:post',
                            our_as1=post_as1,
@@ -402,7 +402,7 @@ class ProtocolReceiveTest(TestCase):
         self.store_object(id='fake:post', our_as1=post_as1)
         self.store_object(id='fake:post#bridgy-fed-create', status='failed')
 
-        self.assertEqual('OK', Fake.receive(post_as1))
+        self.assertEqual('OK', Fake.receive_as1(post_as1))
 
         obj = self.assert_object('fake:post#bridgy-fed-create',
                                  status='complete',
@@ -424,7 +424,7 @@ class ProtocolReceiveTest(TestCase):
         }
         self.store_object(id='fake:post', our_as1=post_as1)
 
-        self.assertEqual('OK', Fake.receive(post_as1))
+        self.assertEqual('OK', Fake.receive_as1(post_as1))
 
         obj = self.assert_object('fake:post#bridgy-fed-create',
                                  status='complete',
@@ -452,7 +452,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': post_as1,
         }
-        self.assertEqual('OK', Fake.receive(update_as1))
+        self.assertEqual('OK', Fake.receive_as1(update_as1))
 
         self.assert_object('fake:post',
                            our_as1=post_as1,
@@ -484,7 +484,7 @@ class ProtocolReceiveTest(TestCase):
 
         post_as1['content'] = 'second'
         with self.assertRaises(NoContent):
-            Fake.receive(post_as1)
+            Fake.receive_as1(post_as1)
 
         post_as1['updated'] = '2022-01-02T03:04:05+00:00'
         self.assert_object('fake:post',
@@ -531,7 +531,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': reply_as1,
         }
-        self.assertEqual('OK', Fake.receive(create_as1))
+        self.assertEqual('OK', Fake.receive_as1(create_as1))
 
         self.assert_object('fake:reply',
                            our_as1=reply_as1,
@@ -562,7 +562,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:post',
             'author': 'fake:bob',
         }
-        self.assertEqual('OK', Fake.receive(reply_as1))
+        self.assertEqual('OK', Fake.receive_as1(reply_as1))
 
         self.assert_object('fake:reply',
                            our_as1=reply_as1,
@@ -610,7 +610,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': reply_as1,
         }
-        self.assertEqual('OK', Fake.receive(update_as1))
+        self.assertEqual('OK', Fake.receive_as1(update_as1))
 
         self.assert_object('fake:reply',
                            our_as1=reply_as1,
@@ -640,7 +640,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': 'fake:post',
         }
-        self.assertEqual('OK', Fake.receive(repost_as1))
+        self.assertEqual('OK', Fake.receive_as1(repost_as1))
 
         obj = self.assert_object('fake:repost',
                                  status='complete',
@@ -679,7 +679,7 @@ class ProtocolReceiveTest(TestCase):
             'object': orig_url,
         }
         with self.assertRaises(NoContent):
-            Fake.receive(repost_as1)
+            Fake.receive_as1(repost_as1)
 
         obj = self.assert_object('fake:repost',
                                  status='ignored',
@@ -703,7 +703,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': 'fake:post',
         }
-        self.assertEqual('OK', Fake.receive(like_as1))
+        self.assertEqual('OK', Fake.receive_as1(like_as1))
 
         like_obj = self.assert_object('fake:like',
                                       users=[g.user.key],
@@ -734,7 +734,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': 'fake:post',
         }
-        self.assertEqual('OK', Fake.receive(delete_as1))
+        self.assertEqual('OK', Fake.receive_as1(delete_as1))
 
         self.assert_object('fake:post',
                            our_as1=post_as1,
@@ -763,7 +763,7 @@ class ProtocolReceiveTest(TestCase):
             'object': 'fake:post',
         }
         with self.assertRaises(NoContent):
-            self.assertEqual('OK', Fake.receive(delete_as1))
+            self.assertEqual('OK', Fake.receive_as1(delete_as1))
 
         self.assert_object('fake:post',
                            deleted=True,
@@ -790,7 +790,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(3, Follower.query().count())
 
         with self.assertRaises(NoContent):
-            Fake.receive({
+            Fake.receive_as1({
                 'objectType': 'activity',
                 'verb': 'delete',
                 'id': 'fake:delete',
@@ -844,7 +844,7 @@ class ProtocolReceiveTest(TestCase):
 
         mock_send.side_effect = send
 
-        self.assertEqual('OK', Fake.receive(create_as1))
+        self.assertEqual('OK', Fake.receive_as1(create_as1))
 
         self.assert_object('fake:post',
                            our_as1=post_as1,
@@ -880,7 +880,7 @@ class ProtocolReceiveTest(TestCase):
             },
         }
 
-        Fake.receive(update_as1)
+        Fake.receive_as1(update_as1)
 
         # profile object
         self.assert_object('fake:user',
@@ -922,7 +922,7 @@ class ProtocolReceiveTest(TestCase):
                 'url': 'fake:bob',
             }],
         }
-        self.assertEqual('OK', Fake.receive(mention_as1))
+        self.assertEqual('OK', Fake.receive_as1(mention_as1))
 
         self.assert_object('fake:mention',
                            our_as1=mention_as1,
@@ -976,7 +976,7 @@ class ProtocolReceiveTest(TestCase):
             'object': 'fake:user',
             **extra,
         }
-        self.assertEqual('OK', Fake.receive(follow_as1))
+        self.assertEqual('OK', Fake.receive_as1(follow_as1))
 
         user = Fake.get_by_id('fake:user')
         follow_obj = self.assert_object('fake:follow',
@@ -1021,7 +1021,7 @@ class ProtocolReceiveTest(TestCase):
 
     def test_follow_no_actor(self):
         with self.assertRaises(BadRequest):
-            Fake.receive({
+            Fake.receive_as1({
                 'id': 'fake:follow',
                 'objectType': 'activity',
                 'verb': 'follow',
@@ -1033,7 +1033,7 @@ class ProtocolReceiveTest(TestCase):
 
     def test_follow_no_object(self):
         with self.assertRaises(BadRequest):
-            Fake.receive({
+            Fake.receive_as1({
                 'id': 'fake:follow',
                 'objectType': 'activity',
                 'verb': 'follow',
@@ -1045,7 +1045,7 @@ class ProtocolReceiveTest(TestCase):
 
     def test_follow_object_unknown_protocol(self):
         with self.assertRaises(BadRequest):
-            Fake.receive({
+            Fake.receive_as1({
                 'id': 'fake:follow',
                 'objectType': 'activity',
                 'verb': 'follow',
@@ -1069,7 +1069,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:alice',
             'object': 'fake:user',
         }
-        self.assertEqual('OK', Fake.receive(stop_as1))
+        self.assertEqual('OK', Fake.receive_as1(stop_as1))
 
         stop_obj = self.assert_object('fake:stop-following',
                                       our_as1=stop_as1,
@@ -1088,7 +1088,7 @@ class ProtocolReceiveTest(TestCase):
         g.user.obj.our_as1 = {'id': 'fake:user'}
         g.user.obj.put()
 
-        self.assertEqual('OK', Fake.receive({
+        self.assertEqual('OK', Fake.receive_as1({
             'id': 'fake:stop-following',
             'objectType': 'activity',
             'verb': 'stop-following',
@@ -1110,7 +1110,7 @@ class ProtocolReceiveTest(TestCase):
         g.user.obj.our_as1 = {'id': 'fake:user'}
         g.user.obj.put()
 
-        self.assertEqual('OK', Fake.receive({
+        self.assertEqual('OK', Fake.receive_as1({
             'id': 'fake:stop-following',
             'objectType': 'activity',
             'verb': 'stop-following',
@@ -1128,14 +1128,14 @@ class ProtocolReceiveTest(TestCase):
     @skip
     def test_receive_from_bridgy_fed_domain_fails(self):
         with self.assertRaises(BadRequest):
-            Fake.receive({
+            Fake.receive_as1({
                 'id': 'https://fed.brid.gy/r/foo',
             })
 
         self.assertIsNone(Object.get_by_id('https://fed.brid.gy/r/foo'))
 
         with self.assertRaises(BadRequest):
-            Fake.receive({
+            Fake.receive_as1({
                 'id': 'fake:foo',
                 'actor': 'https://ap.brid.gy/user.com',
             })
@@ -1159,7 +1159,7 @@ class ProtocolReceiveTest(TestCase):
             'object': ['other:dan', 'fake:alice'],
         }
 
-        self.assertEqual('OK', OtherFake.receive(follow_as1))
+        self.assertEqual('OK', OtherFake.receive_as1(follow_as1))
 
         self.assertEqual(2, len(Fake.sent))
         self.assertEqual('accept', Fake.sent[0][0].type)
@@ -1185,7 +1185,7 @@ class ProtocolReceiveTest(TestCase):
         }
 
         with self.assertRaises(NoContent):
-            Fake.receive(follow_as1)
+            Fake.receive_as1(follow_as1)
 
         (bob_obj, bob_target), (eve_obj, eve_target) = Fake.sent
         self.assertEqual('http://localhost/fa/http://x.com/bob/followers#accept-http://x.com/follow',
@@ -1203,3 +1203,16 @@ class ProtocolReceiveTest(TestCase):
                                    ndb.Key(Fake, 'http://x.com/eve')],
                            )
         self.assertEqual(2, Follower.query().count())
+
+    def test_task_handler(self):
+        note = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:other',
+        }
+        obj = self.store_object(id='fake:post', our_as1=note,
+                                source_protocol='fake')
+
+        self.client.post('/_ah/queue/receive', data={'key': obj.key.urlsafe()})
+        obj = Object.get_by_id('fake:post#bridgy-fed-create')
+        self.assertEqual('ignored', obj.status)

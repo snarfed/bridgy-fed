@@ -12,6 +12,7 @@ import werkzeug.exceptions
 
 import common
 from common import add, DOMAIN_BLOCKLIST, DOMAINS, error
+from flask_app import app
 from models import Follower, Object, PROTOCOLS, Target, User
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -961,3 +962,18 @@ class Protocol:
         with objects_cache_lock:
             objects_cache[id] = obj
         return obj
+
+
+@app.post('/_ah/queue/receive')
+def receive_task():
+    """Task handler for a newly received :class:`Object`.
+
+    Form parameters:
+    * key: urlsafe :class:`ndb.Key` of the :class:`Object` to handle
+    """
+    logger.info(f'Params: {list(request.form.items())}')
+
+    obj = ndb.Key(urlsafe=request.form['key']).get()
+    assert obj
+
+    return PROTOCOLS[obj.source_protocol].receive(obj)
