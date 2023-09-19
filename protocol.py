@@ -973,6 +973,12 @@ def receive_task():
     * obj: urlsafe :class:`ndb.Key` of the :class:`Object` to handle
     * user: urlsafe :class:`ndb.Key` of the :class:`User` this activity is on
       behalf of. This user will be loaded into `g.user`.
+
+    TODO: migrate incoming webmentions and AP inbox deliveries to this.
+    difficulty is that parts of Protocol.receive depend on setup in
+    Web.webmention and ActivityPub.inbox, eg Object with new/changed, g.user
+    (which receive now loads), HTTP request details, etc. see stash for attempt
+    at this for Web.
     """
     logger.info(f'Params: {list(request.form.items())}')
 
