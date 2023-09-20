@@ -303,7 +303,49 @@ class ProtocolTest(TestCase):
         self.assertCountEqual([
             Target(protocol='fake', uri='fake:post:target'),
             Target(protocol='atproto', uri='http://localhost/'),
-        ], Protocol._targets(obj).keys())
+        ], Protocol.targets(obj).keys())
+
+    @patch('requests.get', return_value=requests_response({}))
+    def test_targets_converts_copies_to_originals(self, mock_get):
+        """targets should convert User/Object.copies to their originals."""
+        alice = self.make_user('fake:alice', cls=Fake,
+                               copies=[Target(uri='did:plc:alice', protocol='atproto')])
+        bob = self.make_user(
+            'fake:bob', cls=OtherFake,
+            copies=[Target(uri='other:bob', protocol='other')])
+        obj = self.store_object(
+            id='fake:post', our_as1={'foo': 9},
+            copies=[Target(uri='at://did:plc:eve/post/789', protocol='fake')])
+
+        Fake.fetchable = {
+            'fake:alice': {'foo': 1},
+            'fake:bob': {'foo': 2},
+        }
+        OtherFake.fetchable = {
+            'other:bob': {'foo': 3},
+        }
+
+        obj = Object(our_as1={
+            'id': 'other:reply',
+            'objectType': 'note',
+            'inReplyTo': [
+                'at://did:web:unknown/post/123',
+                'at://did:plc:eve/post/789',
+            ],
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'did:plc:alice',
+            }, {
+                'objectType': 'mention',
+                'url': 'other:bob',
+            }],
+        })
+        self.assertCountEqual([
+            Target(uri='fake:post:target', protocol='fake'),
+            Target(uri='fake:alice:target', protocol='fake'),
+            Target(uri='fake:bob:target', protocol='fake'),
+            Target(uri='other:bob:target', protocol='otherfake'),
+        ], Protocol.targets(obj).keys())
 
 
 class ProtocolReceiveTest(TestCase):
@@ -1161,9 +1203,11 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual('OK', OtherFake.receive_as1(follow_as1))
 
-        self.assertEqual(2, len(Fake.sent))
-        self.assertEqual('accept', Fake.sent[0][0].type)
-        self.assertEqual('follow', Fake.sent[1][0].type)
+        self.assertEqual(1, len(OtherFake.sent))
+        self.assertEqual('accept', OtherFake.sent[0][0].type)
+
+        self.assertEqual(1, len(Fake.sent))
+        self.assertEqual('follow', Fake.sent[0][0].type)
 
         followers = Follower.query().fetch()
         self.assertEqual(1, len(followers))

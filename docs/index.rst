@@ -9,8 +9,9 @@ Bridgy Fed connects your web site to
 `microformats2 <https://microformats.org/wiki/microformats2>`__. Your
 site gets its own fediverse profile, posts and avatar and header and
 all. Bridgy Fed translates likes, reposts, mentions, follows, and more
-back and forth. `See the user docs <https://fed.brid.gy/docs>`__ for
-more details.
+back and forth. `See the user docs <https://fed.brid.gy/docs>`__ and
+`developer docs <https://bridgy-fed.readthedocs.io/>`__ for more
+details.
 
 https://fed.brid.gy/
 
@@ -23,7 +24,9 @@ License: This project is placed in the public domain.
 Development
 -----------
 
-Pull requests are welcome! Feel free to `ping me in
+Development reference docs are at
+`bridgy-fed.readthedocs.io <https://bridgy-fed.readthedocs.io/>`__. Pull
+requests are welcome! Feel free to `ping me in
 #indieweb-dev <https://indieweb.org/discuss>`__ with any questions.
 
 First, fork and clone this repo. Then, install the `Google Cloud
@@ -80,6 +83,36 @@ added you as an owner - run:
 
    gcloud -q beta app deploy --no-cache --project bridgy-federated *.yaml
 
+How to add a new protocol
+-------------------------
+
+1. Determine `how you’ll map the new protocol to other existing Bridgy
+   Fed protocols <https://fed.brid.gy/docs#translate>`__, specifically
+   identity, protocol inference, events, and operations. `Add those to
+   the existing tables in the
+   docs <https://github.com/snarfed/bridgy-fed/blob/main/templates/docs.html>`__
+   in a PR. This is an important step before you start writing code.
+2. If the new protocol uses a new data format - which is likely - add
+   that format to `granary <https://github.com/snarfed/granary>`__ in a
+   new file with functions that convert to/from `ActivityStreams
+   1 <https://activitystrea.ms/specs/json/1.0/>`__ and tests. See
+   `nostr.py <https://github.com/snarfed/granary/blob/main/granary/nostr.py#L542>`__
+   and
+   `test_nostr.py <https://github.com/snarfed/granary/blob/main/granary/tests/test_nostr.py#>`__
+   for examples.
+3. Implement the protocol in a new ``.py`` file as a subclass of both
+   `Protocol <https://github.com/snarfed/bridgy-fed/blob/main/protocol.py>`__
+   and
+   `User <https://github.com/snarfed/bridgy-fed/blob/main/models.py>`__.
+   Implement the ``send``, ``fetch``, ``serve``, and ``target_for``
+   methods from ``Protocol`` and ``readable_id``, ``web_url``,
+   ``ap_address``, and ``ap_actor`` from ``User`` .
+4. TODO: add a new usage section to the docs for the new protocol.
+5. TODO: does the new protocol need any new UI or signup functionality?
+   Unusual, but not impossible. Add that if necessary.
+6. Add the new protocol’s logo to ``static/``, use it in
+   `templates/user.html <https://github.com/snarfed/bridgy-fed/blob/main/templates/user.html>`__.
+
 Stats
 -----
 
@@ -94,7 +127,7 @@ Bridgy <https://bridgy.readthedocs.io/#stats>`__. Here’s how.
 
    ::
 
-      gcloud datastore export --async gs://bridgy-federated.appspot.com/stats/ --kinds Follower,Response
+      gcloud datastore export --async gs://bridgy-federated.appspot.com/stats/ --kinds Follower,Object
 
    Note that ``--kinds`` is required. `From the export
    docs <https://cloud.google.com/datastore/docs/export-import-entities#limitations>`__:
@@ -109,7 +142,7 @@ Bridgy <https://bridgy.readthedocs.io/#stats>`__. Here’s how.
 
    ::
 
-      for kind in Follower Response; do
+      for kind in Follower Object; do
         bq load --replace --nosync --source_format=DATASTORE_BACKUP datastore.$kind gs://bridgy-federated.appspot.com/stats/all_namespaces/kind_$kind/all_namespaces_kind_$kind.export_metadata
       done
 

@@ -140,6 +140,10 @@ class OtherFake(Fake):
     """
     ABBREV = 'other'
 
+    fetchable = {}
+    sent = []
+    fetched = []
+
     @classmethod
     def owns_id(cls, id):
         return id.startswith('other:')

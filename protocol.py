@@ -418,7 +418,7 @@ class Protocol:
             obj.changed = orig.changed
 
         # if this is a post, ie not an activity, wrap it in a create or update
-        obj = from_cls._handle_bare_object(obj)
+        obj = from_cls.handle_bare_object(obj)
 
         if obj.type not in SUPPORTED_TYPES:
             error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
@@ -454,7 +454,7 @@ class Protocol:
             return 'OK'  # noop
 
         elif obj.type == 'stop-following':
-            # TODO: unify with _handle_follow?
+            # TODO: unify with handle_follow?
             # TODO: handle multiple followees
             if not actor_id or not inner_obj_id:
                 error(f'Undo of Follow requires actor id and object id. Got: {actor_id} {inner_obj_id} {obj.as1}')
@@ -528,13 +528,13 @@ class Protocol:
                 }
 
         if obj.type == 'follow':
-            from_cls._handle_follow(obj)
+            from_cls.handle_follow(obj)
 
         # deliver to targets
-        return from_cls._deliver(obj)
+        return from_cls.deliver(obj)
 
     @classmethod
-    def _handle_follow(from_cls, obj):
+    def handle_follow(from_cls, obj):
         """Handles an incoming follow activity.
 
         Args:
@@ -626,7 +626,7 @@ class Protocol:
                 accept.put()
 
     @classmethod
-    def _handle_bare_object(cls, obj):
+    def handle_bare_object(cls, obj):
         """If obj is a bare object, wraps it in a create or update activity.
 
         Checks if we've seen it before.
@@ -691,7 +691,7 @@ class Protocol:
         error(f'{obj.key.id()} is unchanged, nothing to do', status=204)
 
     @classmethod
-    def _deliver(from_cls, obj):
+    def deliver(from_cls, obj):
         """Delivers an activity to its external recipients.
 
         Args:
@@ -699,7 +699,7 @@ class Protocol:
         """
         # find delivery targets
         # sort targets so order is deterministic for tests, debugging, etc
-        targets = from_cls._targets(obj)  # maps Target to Object or None
+        targets = from_cls.targets(obj)  # maps Target to Object or None
 
         if not targets:
             obj.status = 'ignored'
@@ -759,24 +759,37 @@ class Protocol:
         return ret
 
     @classmethod
-    def _targets(cls, obj):
+    def targets(cls, obj):
         """Collects the targets to send an :class:`models.Object` to.
 
         Targets are both objects - original posts, events, etc - and actors.
 
         Args:
-          obj: :class:`models.Object`
+          obj (:class:`models.Object`)
 
-        Returns: dict: {
-          :class:`Target`: original (in response to) :class:`Object`, if any,
-          otherwise None
-        }
+        Returns:
+          dict: {
+            :class:`Target`: original (in response to) :class:`models.Object`,
+            if any, otherwise None
+          }
         """
         logger.info('Finding recipients and their targets')
 
+        target_uris = set(as1.targets(obj.as1))
+        logger.info(f'Raw targets: {target_uris}')
+
+        if target_uris:
+            origs = {u.key.id() for u in User.get_for_copies(target_uris)} | \
+                {o.key.id() for o in Object.query(Object.copies.uri.IN(target_uris))}
+            if origs:
+                target_uris |= origs
+                logger.info(f'Added originals: {origs}')
+
+
         orig_obj = None
-        targets = {}
-        for id in sorted(as1.targets(obj.as1)):
+        targets = {}  # maps Target to Object or None
+
+        for id in sorted(target_uris):
             protocol = Protocol.for_id(id)
             if not protocol:
                 logger.info(f"Can't determine protocol for {id}")
