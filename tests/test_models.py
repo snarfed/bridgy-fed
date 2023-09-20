@@ -53,12 +53,12 @@ class UserTest(TestCase):
         user.atproto_did = 'did:plc:123'
         user.atproto_did = None
 
-    def test_get_for_copy(self):
-        self.assertIsNone(User.get_for_copy('did:plc:foo'))
+    def test_get_for_copies(self):
+        self.assertEqual([], User.get_for_copies(['did:plc:foo']))
 
         target = Target(uri='did:plc:foo', protocol='atproto')
         fake_user = self.make_user('fake:user', cls=Fake, copies=[target])
-        self.assertEqual(fake_user, User.get_for_copy('did:plc:foo'))
+        self.assertEqual([fake_user], User.get_for_copies(['did:plc:foo']))
 
     def test_get_or_create_use_instead(self):
         user = Fake.get_or_create('a.b')

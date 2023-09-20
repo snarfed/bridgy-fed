@@ -182,27 +182,22 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return user
 
     @staticmethod
-    def get_for_copy(copy_id):
-        """Fetches any user (across all protocols) with the given id in `copies`.
-
-        If more than one matching user exists, this returns an arbitrary one!
+    def get_for_copies(copy_ids):
+        """Fetches users (across all protocols) for a given set of copies.
 
         Args:
-          copy_id: str
+          copy_ids (sequence of str)
 
         Returns:
-          :class:`User` subclass instance, or None if not found
+          sequence of :class:`User` subclass instances
         """
-        assert copy_id
+        assert copy_ids
+        return list(itertools.chain(*(
+            cls.query(cls.copies.uri.IN(copy_ids))
+            for cls in set(PROTOCOLS.values()) if cls)))
 
-        for cls in set(PROTOCOLS.values()):
-            if cls:
-                user = cls.query(cls.copies.uri == copy_id).get()
-                if user:
-                    return user
-
-        # TODO: default to lookup by id, across protocols? is that useful
-        # anywhere?
+        # TODO: default to looking up copy_ids as key ids, across protocols? is
+        # that useful anywhere?
 
     @classmethod
     @ndb.transactional()
@@ -523,14 +518,16 @@ class Object(StringIdModel):
             logger.info(f'Replacing {owner_field} {obj.get(owner_field)}...')
 
             # load matching user, if any
-            user = User.get_for_copy(owner)
-            if user and user.obj and user.obj.as1:
-                obj[owner_field] = {
-                    **user.obj.as1,
-                    'id': user.key.id(),
-                }
-            elif user:
-                obj[owner_field] = user.key.id()
+            users = User.get_for_copies([owner])
+            if users:
+                user = users[0]
+                if user.obj and user.obj.as1:
+                    obj[owner_field] = {
+                        **user.obj.as1,
+                        'id': user.key.id(),
+                    }
+                else:
+                    obj[owner_field] = user.key.id()
             else:
                 obj[owner_field] = owner
 
