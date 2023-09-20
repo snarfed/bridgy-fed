@@ -437,8 +437,9 @@ class ObjectTest(TestCase):
         self.assert_equals(like_as1, obj.as1)
 
         # matching user without Object
-        user = self.make_user(id='fake:user', cls=Fake,
-                              copies=[Target(uri='did:plc:foo', protocol='atproto')])
+        user = Fake(id='fake:user',
+                    copies=[Target(uri='did:plc:foo', protocol='atproto')])
+        user.put()
         self.assertEqual({
             **like_as1,
             'actor': 'fake:user',

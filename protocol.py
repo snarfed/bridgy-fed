@@ -762,6 +762,8 @@ class Protocol:
     def _targets(cls, obj):
         """Collects the targets to send an :class:`models.Object` to.
 
+        Targets are both objects - original posts, events, etc - and actors.
+
         Args:
           obj: :class:`models.Object`
 

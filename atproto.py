@@ -242,7 +242,7 @@ class ATProto(User, Protocol):
         logger.info(f'{user.key} is {user.atproto_did}')
         assert repo
 
-        # create record
+        # create record and commit in ATProto repo
         ndb.transactional()
         def write():
             tid = next_tid()

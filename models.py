@@ -134,6 +134,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     use_instead = ndb.KeyProperty()
     atproto_did = ndb.StringProperty(validator=_validate_atproto_did)
 
+    # Proxy copies of this user elsewhere, eg DIDs for ATProto records, bech32
+    # npub Nostr ids, etc. Similar to rel-me links in microformats2, alsoKnownAs
+    # in DID docs (and now AS2), etc.
+    copies = ndb.StructuredProperty(Target, repeated=True)
+
     # whether this user signed up or otherwise explicitly, deliberately
     # interacted with Bridgy Fed. For example, if fediverse user @a@b.com looks
     # up @foo.com@fed.brid.gy via WebFinger, we'll create Users for both,
@@ -145,11 +150,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     # OLD. some stored entities still have this; do not reuse.
     # actor_as2 = JsonProperty()
-
-    # Proxy copies of this user elsewhere, eg DIDs for ATProto records, bech32
-    # npub Nostr ids, etc. Similar to rel-me links in microformats2, alsoKnownAs
-    # in DID docs (and now AS2), etc.
-    copies = ndb.StructuredProperty(Target, repeated=True)
 
     def __init__(self, **kwargs):
         """Constructor.
@@ -485,6 +485,8 @@ class Object(StringIdModel):
         # if bool(self.as2) + bool(self.bsky) + bool(self.mf2) > 1:
         #     logger.warning(f'{self.key} has multiple! {bool(self.as2)} {bool(self.bsky)} {bool(self.mf2)}')
 
+        owner = None
+
         if self.our_as1:
             obj = redirect_unwrap(self.our_as1)
 
@@ -493,26 +495,7 @@ class Object(StringIdModel):
 
         elif self.bsky:
             obj = bluesky.to_as1(self.bsky)
-            # ATProto implies actor from repo; fill that in here
-            type = obj.get('objectType')
-            field = ('actor' if type == 'activity'
-                     else 'author' if type not in as1.ACTOR_TYPES
-                     else None)
-            if field:
-                repo, _, _ = arroba.util.parse_at_uri(self.key.id())
-                obj.setdefault(field, repo)
-                # load matching user. prefer bridged non-ATProto user
-                # to ATProto user
-                user = User.get_for_copy(repo)
-                if user:
-                    logger.debug(f'Filling in {field} from {user}')
-                    if user.obj and user.obj.as1:
-                        obj[field] = {
-                            **user.obj.as1,
-                            'id': user.key.id(),
-                        }
-                    else:
-                        obj[field] = user.key.id()
+            owner, _, _ = arroba.util.parse_at_uri(self.key.id())
 
         elif self.mf2:
             obj = microformats2.json_to_object(self.mf2,
@@ -527,8 +510,32 @@ class Object(StringIdModel):
         else:
             return None
 
+        # populate id if necessary
         if self.key:
             obj.setdefault('id', self.key.id())
+
+        # populate actor/author if necessary and available
+        type = obj.get('objectType')
+        owner_field = ('actor' if type == 'activity'
+                       else 'author' if type not in as1.ACTOR_TYPES
+                       else None)
+        if owner_field and owner:
+            logger.info(f'Replacing {owner_field} {obj.get(owner_field)}...')
+
+            # load matching user, if any
+            user = User.get_for_copy(owner)
+            if user and user.obj and user.obj.as1:
+                obj[owner_field] = {
+                    **user.obj.as1,
+                    'id': user.key.id(),
+                }
+            elif user:
+                obj[owner_field] = user.key.id()
+            else:
+                obj[owner_field] = owner
+
+            logger.info(f'  with {obj[owner_field]}')
+
         return obj
 
     @ndb.ComputedProperty
