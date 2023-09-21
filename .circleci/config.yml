@@ -34,8 +34,8 @@ jobs:
             pip install -U -r requirements.txt
             pip install coverage coveralls
 
-            ln -sf `pyenv prefix`/lib/python3.9/site-packages/oauth_dropins/fonts oauth_dropins_fonts
-            ln -sf `pyenv prefix`/lib/python3.9/site-packages/oauth_dropins/static oauth_dropins_static
+            ln -sf `pyenv prefix`/lib/python3.11/site-packages/oauth_dropins/fonts oauth_dropins_fonts
+            ln -sf `pyenv prefix`/lib/python3.11/site-packages/oauth_dropins/static oauth_dropins_static
 
       - run:
           name: Build and test
