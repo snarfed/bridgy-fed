@@ -182,6 +182,17 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return user
 
     @staticmethod
+    def get_for_copy(copy_id):
+        """Fetches a user with a given id in copies.
+
+        Thin wrapper around :meth:User.get_copies` that returns the first
+        matching :class:`User`.
+        """
+        users = User.get_for_copies([copy_id])
+        if users:
+            return users[0]
+
+    @staticmethod
     def get_for_copies(copy_ids):
         """Fetches users (across all protocols) for a given set of copies.
 
@@ -518,9 +529,8 @@ class Object(StringIdModel):
             logger.info(f'Replacing {owner_field} {obj.get(owner_field)}...')
 
             # load matching user, if any
-            users = User.get_for_copies([owner])
-            if users:
-                user = users[0]
+            user = User.get_for_copy(owner)
+            if user:
                 if user.obj and user.obj.as1:
                     obj[owner_field] = {
                         **user.obj.as1,
