@@ -3,7 +3,6 @@ git+https://github.com/snarfed/carbox.git#egg=carbox
 git+https://github.com/snarfed/dag-json.git#egg=dag_json
 git+https://github.com/dvska/gdata-python3.git#egg=gdata
 git+https://github.com/snarfed/granary.git#egg=granary
-git+https://github.com/snarfed/dag-json.git#egg=dag_json
 git+https://github.com/snarfed/httpsig.git@HTTPSignatureAuth-sign-header#egg=httpsig
 git+https://github.com/snarfed/lexrpc.git#egg=lexrpc
 git+https://github.com/snarfed/mox3.git#egg=mox3
