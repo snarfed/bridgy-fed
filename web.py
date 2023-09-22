@@ -40,6 +40,27 @@ WWW_DOMAINS = frozenset((
 NON_TLDS = frozenset(('html', 'json', 'php', 'xml'))
 
 
+def is_valid_domain(domain):
+    """Returns True if this is a valid domain we can use, False otherwise.
+
+    Valid means TLD is ok, not blacklisted, etc.
+    """
+    if not re.match(DOMAIN_RE, domain):
+        logger.debug(f"{id} doesn't look like a domain")
+        return False
+
+    if Web.is_blocklisted(domain):
+        logger.debug(f'{domain} is blocklisted')
+        return False
+
+    tld = domain.split('.')[-1]
+    if tld in NON_TLDS:
+        logger.info(f"{domain} looks like a domain but {tld} isn't a TLD")
+        return False
+
+    return True
+
+
 class Web(User, Protocol):
     """Web user and webmention protocol implementation.
 
@@ -67,9 +88,8 @@ class Web(User, Protocol):
         """Validate domain id, don't allow upper case or invalid characters."""
         super()._pre_put_hook()
         id = self.key.id()
-        assert re.match(DOMAIN_RE, id)
+        assert is_valid_domain(id)
         assert id.lower() == id, f'upper case is not allowed in Web key id: {id}'
-        assert not self.is_blocklisted(id), f'{id} is a blocked domain'
 
     @classmethod
     def get_or_create(cls, id, **kwargs):
@@ -234,11 +254,7 @@ class Web(User, Protocol):
             if parsed.path in ('', '/'):
                 id = parsed.netloc
 
-        if re.match(DOMAIN_RE, id):
-            tld = id.split('.')[-1]
-            if tld in NON_TLDS:
-                logger.info(f"{id} looks like a domain but {tld} isn't a TLD")
-                return None
+        if is_valid_domain(id):
             return cls(id=id).key
 
         logger.info(f'{id} is not a domain or usable home page URL')
@@ -262,7 +278,7 @@ class Web(User, Protocol):
 
     @classmethod
     def owns_handle(cls, handle):
-        if not re.match(DOMAIN_RE, handle):
+        if not is_valid_domain(handle):
             return False
 
     @classmethod

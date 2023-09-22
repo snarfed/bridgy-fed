@@ -336,6 +336,8 @@ def poll_notifications():
     """Fetches and enqueueus new activities from the AppView for our users.
 
     Uses the `listNotifications` endpoint, which is intended for end users. 🤷
+
+    https://github.com/bluesky-social/atproto/discussions/1538
     """
     repos = {r.key.id(): r for r in AtpRepo.query()}
     logger.info(f'Got {len(repos)} repos')

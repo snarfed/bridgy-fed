@@ -60,9 +60,18 @@ class Webfinger(flask_util.XrdOrJrd):
         if not cls:
             cls = Protocol.for_request(fed=Web)
 
-        logger.info(f'Protocol {cls.__name__}, user id {id}')
         if cls.owns_id(id) is False:
-            error(f'{id} is not a valid {cls.__name__} id')
+            logger.info(f'{id} is not a {cls.LABEL} id')
+            handle = id
+            id = None
+            if cls.owns_handle(handle) is not False:
+                logger.info('  ...might be a handle, trying to resolve')
+                id = cls.handle_to_id(handle)
+
+        if not id:
+            error(f'{id} is not a valid {cls.LABEL} id')
+
+        logger.info(f'Protocol {cls.LABEL}, user id {id}')
 
         # only allow indirect users if this id is "on" a brid.gy subdomain,
         # eg user.com@bsky.brid.gy but not user.com@user.com

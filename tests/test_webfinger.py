@@ -12,7 +12,7 @@ from .testutil import Fake, TestCase
 from web import Web
 from webfinger import fetch, fetch_actor_url
 
-from .test_web import ACTOR_HTML
+from . import test_web
 
 WEBFINGER = {
     'subject': 'acct:user.com@user.com',
@@ -185,6 +185,13 @@ class WebfingerTest(TestCase):
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
         self.assert_equals(WEBFINGER_FAKE_FED_BRID_GY, got.json)
 
+    def test_handle(self):
+        got = self.client.get(
+            '/.well-known/webfinger?resource=acct:fake:handle:user@fake.brid.gy',
+            headers={'Accept': 'application/json'})
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assert_equals(WEBFINGER_FAKE, got.json)
+
     def test_urlencoded(self):
         """https://github.com/snarfed/bridgy-fed/issues/535"""
         got = self.client.get(
@@ -256,15 +263,15 @@ class WebfingerTest(TestCase):
         self.assertEqual(400, got.status_code, got.get_data(as_text=True))
 
     def test_bad_tld(self):
-        self.make_user('user.json')
-        got = self.client.get(f'/.well-known/webfinger?resource=acct:user.json@user.json',
-                              base_url='https://web.brid.gy/')
+        got = self.client.get(
+            f'/.well-known/webfinger?resource=acct:user.json@user.json',
+            base_url='https://web.brid.gy/')
         self.assertEqual(400, got.status_code, got.get_data(as_text=True))
 
     @patch('requests.get')
-    def test_serve_create_user(self, mock_get):
+    def test_create_user(self, mock_get):
         self.user.key.delete()
-        mock_get.return_value = requests_response(ACTOR_HTML)
+        mock_get.return_value = requests_response(test_web.ACTOR_HTML)
 
         expected = copy.deepcopy(WEBFINGER_NO_HCARD)
         expected['subject'] = 'acct:user.com@localhost'
