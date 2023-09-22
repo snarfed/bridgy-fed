@@ -1497,6 +1497,17 @@ class ActivityPubUtilsTest(TestCase):
         self.assertFalse(ActivityPub.owns_id('https://twitter.com/foo'))
         self.assertFalse(ActivityPub.owns_id('https://fed.brid.gy/foo'))
 
+    def test_owns_handle(self):
+        for handle in ('@user@instance', 'user@instance.com', 'user.com@instance.com',
+                     'user@instance'):
+            with self.subTest(handle=handle):
+                assert ActivityPub.owns_handle(handle)
+
+        for handle in ('instance', 'instance.com', '@user', '@user.com',
+                    'http://user.com'):
+            with self.subTest(handle=handle):
+                self.assertFalse(ActivityPub.owns_handle(handle))
+
     def test_postprocess_as2_multiple_in_reply_tos(self):
         self.assert_equals({
             'id': 'http://localhost/r/xyz',

@@ -123,6 +123,18 @@ class ActivityPub(User, Protocol):
         return False
 
     @classmethod
+    def owns_handle(cls, handle):
+        """Returns True if handle is a WebFinger @-@, False otherwise.
+
+        Example: ``@user@instance.com``. The leading ``@`` is optional.
+
+        https://datatracker.ietf.org/doc/html/rfc7033#section-3.1
+        https://datatracker.ietf.org/doc/html/rfc7033#section-4.5
+        """
+        parts = handle.lstrip('@').split('@')
+        return len(parts) == 2 and parts[0] and parts[1]
+
+    @classmethod
     def target_for(cls, obj, shared=False):
         """Returns `obj`'s or its author's/actor's inbox, if available."""
         # TODO: we have entities in prod that fail this, eg

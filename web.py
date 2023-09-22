@@ -21,7 +21,7 @@ from requests import HTTPError, RequestException
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 
 import common
-from common import add
+from common import add, DOMAIN_RE
 from flask_app import app, cache
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
@@ -67,7 +67,7 @@ class Web(User, Protocol):
         """Validate domain id, don't allow upper case or invalid characters."""
         super()._pre_put_hook()
         id = self.key.id()
-        assert re.match(common.DOMAIN_RE, id)
+        assert re.match(DOMAIN_RE, id)
         assert id.lower() == id, f'upper case is not allowed in Web key id: {id}'
         assert not self.is_blocklisted(id), f'{id} is a blocked domain'
 
@@ -234,7 +234,7 @@ class Web(User, Protocol):
             if parsed.path in ('', '/'):
                 id = parsed.netloc
 
-        if re.match(common.DOMAIN_RE, id):
+        if re.match(DOMAIN_RE, id):
             tld = id.split('.')[-1]
             if tld in NON_TLDS:
                 logger.info(f"{id} looks like a domain but {tld} isn't a TLD")
@@ -259,6 +259,11 @@ class Web(User, Protocol):
             return True if user and user.has_redirects else None
 
         return None if util.is_web(id) else False
+
+    @classmethod
+    def owns_handle(cls, handle):
+        if not re.match(DOMAIN_RE, handle):
+            return False
 
     @classmethod
     def target_for(cls, obj, shared=False):

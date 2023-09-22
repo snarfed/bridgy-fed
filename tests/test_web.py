@@ -1900,6 +1900,16 @@ class WebUtilTest(TestCase):
         self.assertFalse(Web.owns_id('https://twitter.com/foo'))
         self.assertFalse(Web.owns_id('https://fed.brid.gy/foo'))
 
+    def test_owns_handle(self, *_):
+        self.assertIsNone(Web.owns_handle('foo.com'))
+        self.assertIsNone(Web.owns_handle('foo.bar.com'))
+
+        self.assertFalse(Web.owns_handle('foo'))
+        self.assertFalse(Web.owns_handle('@foo'))
+        self.assertFalse(Web.owns_handle('@foo.com'))
+        self.assertFalse(Web.owns_handle('@foo@bar.com'))
+        self.assertFalse(Web.owns_handle('foo@bar.com'))
+
     def test_fetch(self, mock_get, __):
         mock_get.return_value = REPOST
 

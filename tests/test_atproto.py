@@ -90,6 +90,16 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.owns_id(
             'https://bsky.app/profile/snarfed.org/post/3k62u4ht77f2z'))
 
+    def test_owns_handle(self):
+        self.assertIsNone(ATProto.owns_handle('foo.com'))
+        self.assertIsNone(ATProto.owns_handle('foo.bar.com'))
+
+        self.assertFalse(ATProto.owns_handle('foo'))
+        self.assertFalse(ATProto.owns_handle('@foo'))
+        self.assertFalse(ATProto.owns_handle('@foo.com'))
+        self.assertFalse(ATProto.owns_handle('@foo@bar.com'))
+        self.assertFalse(ATProto.owns_handle('foo@bar.com'))
+
     def test_target_for_did_doc(self):
         self.assertIsNone(ATProto.target_for(Object(id='did:plc:foo')))
 

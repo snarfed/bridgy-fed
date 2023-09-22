@@ -64,10 +64,7 @@ def convert_handle(*, handle, from_proto, to_proto):
     """
     assert handle and from_proto and to_proto
     assert from_proto != to_proto
-
-    if from_proto in (Web, ATProto):
-        # Web, ATProto, Nostr handles are all domains
-        assert re.match(DOMAIN_RE, handle)
+    assert from_proto.owns_handle(handle) is not False
 
     match (from_proto.LABEL, to_proto.LABEL):
         case (_, 'activitypub'):

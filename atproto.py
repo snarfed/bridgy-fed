@@ -23,6 +23,7 @@ import common
 from common import (
     add,
     DOMAIN_BLOCKLIST,
+    DOMAIN_RE,
     error,
     USER_AGENT,
 )
@@ -92,6 +93,11 @@ class ATProto(User, Protocol):
                 or id.startswith('did:plc:')
                 or id.startswith('did:web:')
                 or id.startswith('https://bsky.app/'))
+
+    @classmethod
+    def owns_handle(cls, handle):
+        if not re.match(DOMAIN_RE, handle):
+            return False
 
     @classmethod
     def target_for(cls, obj, shared=False):

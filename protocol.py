@@ -138,10 +138,33 @@ class Protocol:
         Returns False if the id's domain is in :attr:`common.DOMAIN_BLOCKLIST`.
 
         Args:
-          id: str
+          id (str)
 
         Returns:
-          boolean or None
+          bool or None
+        """
+        return False
+
+    @classmethod
+    def owns_handle(cls, handle):
+        """Returns whether this protocol owns the handle, or None if it's unclear.
+
+        To be implemented by subclasses.
+
+        Some protocols' handles are more or less deterministic based on the id
+        format, eg ActivityPub (technically WebFinger) handles are
+        ``@user@instance.com``. Others, like domains, could be owned by eg Web,
+        ActivityPub, AT Protocol, or others.
+
+        This should be a quick guess without expensive side effects, eg no
+        external HTTP fetches to fetch the id itself or otherwise perform
+        discovery.
+
+        Args:
+          handle (str)
+
+        Returns:
+          bool or None
         """
         return False
 
