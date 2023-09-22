@@ -87,13 +87,16 @@ class Fake(User, protocol.Protocol):
         if id.startswith('nope'):
             return False
 
-        return id.startswith('fake:') or id in cls.fetchable
+        return ((id.startswith('fake:') and not id.startswith('fake:handle:'))
+                or id in cls.fetchable)
 
-    owns_handle = owns_id
+    @classmethod
+    def owns_handle(cls, handle):
+        return handle.startswith('fake:handle:')
 
     @classmethod
     def handle_to_id(cls, handle):
-        return handle
+        return handle.replace('fake:handle:', 'fake:')
 
     @classmethod
     def is_blocklisted(cls, url):

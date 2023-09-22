@@ -84,6 +84,6 @@ def convert_handle(*, handle, from_proto, to_proto):
         case (_, 'web'):
             return handle
         case (_, 'fake'):
-            return f'fake:{handle}'
+            return f'fake:handle:{handle}'
 
     assert False, (id, from_proto, to_proto)

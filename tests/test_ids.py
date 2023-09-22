@@ -52,28 +52,29 @@ class IdsTest(TestCase):
             # basic
             (Web, 'user.com', ActivityPub, '@user.com@web.brid.gy'),
             (Web, 'user.com', ATProto, 'user.com.web.brid.gy'),
-            (Web, 'user.com', Fake, 'fake:user.com'),
+            (Web, 'user.com', Fake, 'fake:handle:user.com'),
             # # TODO: enhanced
             # (Web, 'user.com', ActivityPub, '@user.com@user.com'),
-            # (Web, 'user.com', Fake, 'fake:user.com'),
+            # (Web, 'user.com', Fake, 'fake:handle:user.com'),
 
             # TODO: webfinger lookup
             (ActivityPub, '@user@instance', Web, 'instance/@user'),
             (ActivityPub, '@user@instance', ATProto, 'user.instance.ap.brid.gy'),
-            (ActivityPub, '@user@instance', Fake, 'fake:@user@instance'),
+            (ActivityPub, '@user@instance', Fake, 'fake:handle:@user@instance'),
             # # # TODO: enhanced
             # (ActivityPub, '@user@instance', Web, 'https://instance/user'),
-            # (ActivityPub, '@user@instance', Fake, 'fake:https://instance/user'),
+            # (ActivityPub, '@user@instance', Fake,
+            #  'fake:handle:https://instance/user'),
 
             (ATProto, 'user.com', Web, 'user.com'),
             (ATProto, 'user.com', ActivityPub, '@user.com@atproto.brid.gy'),
-            (ATProto, 'user.com', Fake, 'fake:user.com'),
+            (ATProto, 'user.com', Fake, 'fake:handle:user.com'),
             # # # TODO: enhanced
             # (ATProto, '@user@instance', ActivityPub, 'user.com'),
 
-            (Fake, 'fake:user', Web, 'fake:user'),
-            (Fake, 'fake:user', ActivityPub, '@fake:user@fa.brid.gy'),
-            (Fake, 'fake:user', ATProto, 'fake:user.fa.brid.gy'),
+            (Fake, 'fake:handle:user', Web, 'fake:handle:user'),
+            (Fake, 'fake:handle:user', ActivityPub, '@fake:handle:user@fa.brid.gy'),
+            (Fake, 'fake:handle:user', ATProto, 'fake:handle:user.fa.brid.gy'),
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, convert_handle(
