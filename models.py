@@ -398,6 +398,22 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """
         raise NotImplementedError()
 
+    def profile_id(self):
+        """Returns the id of this user's profile object in its native protocol.
+
+        Examples:
+
+        * Web: home page URL, eg ``https://me.com/``
+        * ActivityPub: actor URL, eg ``https://instance.com/users/me``
+        * ATProto: profile AT URI, eg ``at://did:plc:123/app.bsky.actor.profile/self``
+
+        Defaults to this user's key id.
+
+        Returns:
+          str
+        """
+        return self.key.id()
+
     def user_page_path(self, rest=None):
         """Returns the user's Bridgy Fed user page path."""
         path = f'/{self.ABBREV}/{self.readable_or_key_id()}'

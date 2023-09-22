@@ -109,6 +109,9 @@ class ATProto(User, Protocol):
 
         return did.resolve_handle(handle, get_fn=util.requests_get)
 
+    def profile_id(self):
+        return f'at://{self.key.id()}/app.bsky.actor.profile/self'
+
     @classmethod
     def target_for(cls, obj, shared=False):
         """Returns the PDS URL for the given object, or None.

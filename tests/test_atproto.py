@@ -238,6 +238,10 @@ class ATProtoTest(TestCase):
         self.store_object(id='did:plc:foo', raw=DID_DOC)
         self.assertEqual('@han.dull@atproto.brid.gy', user.ap_address())
 
+    def test_profile_id(self):
+        self.assertEqual('at://did:plc:foo/app.bsky.actor.profile/self',
+                         self.make_user('did:plc:foo', cls=ATProto).profile_id())
+
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
