@@ -81,10 +81,10 @@ class Protocol:
           :class:`Protocol` subclass, or None if the provided domain or request
             hostname domain is not a subdomain of brid.gy or isn't a known protocol
         """
-        return Protocol.for_domain(request.host, fed=fed)
+        return Protocol.for_bridgy_subdomain(request.host, fed=fed)
 
     @staticmethod
-    def for_domain(domain_or_url, fed=None):
+    def for_bridgy_subdomain(domain_or_url, fed=None):
         """Returns the protocol for a brid.gy subdomain.
 
         Args:
@@ -183,10 +183,10 @@ class Protocol:
 
         # step 1: check for our per-protocol subdomains
         if util.is_web(id):
-            by_domain = Protocol.for_domain(id)
-            if by_domain:
-                logger.info(f'  {by_domain.__name__} owns {id}')
-                return by_domain
+            by_subdomain = Protocol.for_bridgy_subdomain(id)
+            if by_subdomain:
+                logger.info(f'  {by_subdomain.__name__} owns {id}')
+                return by_subdomain
 
         # step 2: check if any Protocols say conclusively that they own it
         # sort to be deterministic

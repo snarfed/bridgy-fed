@@ -44,7 +44,7 @@ class ProtocolTest(TestCase):
         self.assertEqual(Web, PROTOCOLS['web'])
         self.assertEqual(Web, PROTOCOLS['webmention'])
 
-    def test_for_domain_for_request(self):
+    def test_for_bridgy_subdomain_for_request(self):
         for domain, expected in [
                 ('fake.brid.gy', Fake),
                 ('ap.brid.gy', ActivityPub),
@@ -60,11 +60,11 @@ class ProtocolTest(TestCase):
                 ('fake.com', None),
         ]:
             with self.subTest(domain=domain, expected=expected):
-                self.assertEqual(expected, Protocol.for_domain(domain))
+                self.assertEqual(expected, Protocol.for_bridgy_subdomain(domain))
                 with app.test_request_context('/foo', base_url=f'https://{domain}/'):
                     self.assertEqual(expected, Protocol.for_request())
 
-    def test_for_domain_for_request_fed(self):
+    def test_for_bridgy_subdomain_for_request_fed(self):
         for url, expected in [
             ('https://fed.brid.gy/', Fake),
             ('http://localhost/foo', Fake),
@@ -72,7 +72,8 @@ class ProtocolTest(TestCase):
             ('https://baz/biff', None),
         ]:
             with self.subTest(url=url, expected=expected):
-                self.assertEqual(expected, Protocol.for_domain(url, fed=Fake))
+                self.assertEqual(expected,
+                                 Protocol.for_bridgy_subdomain(url, fed=Fake))
                 with app.test_request_context('/foo', base_url=url):
                     self.assertEqual(expected, Protocol.for_request(fed=Fake))
 

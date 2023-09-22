@@ -50,7 +50,7 @@ class Webfinger(flask_util.XrdOrJrd):
         cls = None
         try:
             user, id = util.parse_acct_uri(resource)
-            cls = Protocol.for_domain(id, fed=Web)
+            cls = Protocol.for_bridgy_subdomain(id, fed=Web)
             if cls:
                 id = user
                 allow_indirect = True
