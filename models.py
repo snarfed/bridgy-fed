@@ -129,8 +129,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     """
     obj_key = ndb.KeyProperty(kind='Object')  # user profile
     mod = ndb.StringProperty()
-    public_exponent = ndb.StringProperty()
-    private_exponent = ndb.StringProperty()
     use_instead = ndb.KeyProperty()
     atproto_did = ndb.StringProperty(validator=_validate_atproto_did)
 
@@ -144,6 +142,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     # up @foo.com@fed.brid.gy via WebFinger, we'll create Users for both,
     # @a@b.com will be direct, foo.com will not.
     direct = ndb.BooleanProperty(default=False)
+
+    # these are for ActivityPub HTTP Signatures
+    public_exponent = ndb.StringProperty()
+    private_exponent = ndb.StringProperty()
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
