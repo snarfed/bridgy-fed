@@ -96,19 +96,8 @@ class FollowCallback(indieauth.Callback):
         addr = state
         if not state:
             error('Missing state')
-        elif util.is_web(state):
-            as2_url = state
-        else:
-            resp = webfinger.fetch(addr)
-            if resp is None:
-                return redirect(g.user.user_page_path('following'))
 
-            as2_url = None
-            for link in resp.get('links', []):
-                type = link.get('type', '').split(';')[0]
-                if link.get('rel') == 'self' and type in as2.CONTENT_TYPES:
-                    as2_url = link.get('href')
-
+        as2_url = state if util.is_web(state) else webfinger.fetch_actor_url(addr)
         if not as2_url:
             flash(f"Couldn't find ActivityPub profile link for {addr}")
             return redirect(g.user.user_page_path('following'))

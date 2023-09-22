@@ -1,7 +1,7 @@
 """Handles requests for WebFinger endpoints.
 
-https://webfinger.net/
-https://tools.ietf.org/html/rfc7033
+* https://webfinger.net/
+* https://tools.ietf.org/html/rfc7033
 """
 import logging
 import urllib.parse
@@ -172,17 +172,15 @@ def fetch(addr):
 
     On failure, flashes a message and returns None.
 
-    TODO: unit tests. right now it's only tested indirectly, in test_follow.
     TODO: switch to raising exceptions instead of flashing messages and
     returning None
 
     Args:
-      addr: str, a Webfinger-compatible address, eg @x@y, acct:x@y, or
+      addr (str): a Webfinger-compatible address, eg @x@y, acct:x@y, or
         https://x/y
 
     Returns:
-      dict, fetched Webfinger data, or None on error
-
+      dict: fetched Webfinger data, or None on error
     """
     addr = addr.strip().strip('@')
     split = addr.split('@')
@@ -218,6 +216,28 @@ def fetch(addr):
 
     logger.info(f'Got: {json_dumps(data, indent=2)}')
     return data
+
+
+def fetch_actor_url(addr):
+    """Fetches and returns a WebFinger address's ActivityPub actor URL.
+
+    On failure, flashes a message and returns None.
+
+    Args:
+      addr (str): a Webfinger-compatible address, eg ``@x@y``, ``acct:x@y``, or
+        ``https://x/y``
+
+    Returns:
+      str: ActivityPub actor URL, or None on error or not fouund
+    """
+    data = fetch(addr)
+    if not data:
+        return None
+
+    for link in data.get('links', []):
+        type = link.get('type', '').split(';')[0]
+        if link.get('rel') == 'self' and type in as2.CONTENT_TYPES:
+            return link.get('href')
 
 
 app.add_url_rule('/.well-known/webfinger', view_func=Webfinger.as_view('webfinger'))

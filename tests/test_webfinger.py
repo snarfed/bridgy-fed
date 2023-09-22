@@ -10,6 +10,7 @@ from oauth_dropins.webutil.testutil import requests_response
 from .testutil import Fake, TestCase
 
 from web import Web
+from webfinger import fetch, fetch_actor_url
 
 from .test_web import ACTOR_HTML
 
@@ -261,7 +262,7 @@ class WebfingerTest(TestCase):
         self.assertEqual(400, got.status_code, got.get_data(as_text=True))
 
     @patch('requests.get')
-    def test_fetch_create_user(self, mock_get):
+    def test_serve_create_user(self, mock_get):
         self.user.key.delete()
         mock_get.return_value = requests_response(ACTOR_HTML)
 
@@ -282,3 +283,22 @@ class WebfingerTest(TestCase):
 
         got = self.client.get('/.well-known/webfinger?resource=acct%3A%40localhost')
         self.assertEqual(400, got.status_code, got.get_data(as_text=True))
+
+    @patch('requests.get', return_value=requests_response(
+        WEBFINGER, content_type='application/jrd+json'))
+    def test_fetch(self, mock_get):
+        self.assertEqual(WEBFINGER, fetch('@foo@bar'))
+        self.assert_req(mock_get,
+                        'https://bar/.well-known/webfinger?resource=acct:foo@bar')
+
+    @patch('requests.get', return_value=requests_response(WEBFINGER))
+    def test_fetch_actor_url(self, mock_get):
+        self.assertEqual('http://localhost/user.com', fetch_actor_url('@foo@bar'))
+        self.assert_req(mock_get,
+                        'https://bar/.well-known/webfinger?resource=acct:foo@bar')
+
+    @patch('requests.get', return_value=requests_response({'links': []}))
+    def test_fetch_actor_url_not_found(self, mock_get):
+        self.assertIsNone(fetch_actor_url('@foo@bar'))
+        self.assert_req(mock_get,
+                        'https://bar/.well-known/webfinger?resource=acct:foo@bar')
