@@ -30,6 +30,7 @@ from common import (
 )
 from models import Follower, Object, PROTOCOLS, User
 from protocol import Protocol
+import webfinger
 
 # TODO: remove this. we only need it to make sure Web is registered in PROTOCOLS
 # before the URL route registrations below.
@@ -133,6 +134,20 @@ class ActivityPub(User, Protocol):
         """
         parts = handle.lstrip('@').split('@')
         return len(parts) == 2 and parts[0] and parts[1]
+
+    @classmethod
+    def handle_to_id(cls, handle):
+        """Looks in the datastore first, then queries WebFinger."""
+        assert cls.owns_handle(handle)
+
+        if not handle.startswith('@'):
+            handle = '@' + handle
+
+        user = ActivityPub.query(ActivityPub.readable_id == handle).get()
+        if user:
+            return user.key.id()
+
+        return webfinger.fetch_actor_url(handle)
 
     @classmethod
     def target_for(cls, obj, shared=False):

@@ -1910,6 +1910,9 @@ class WebUtilTest(TestCase):
         self.assertFalse(Web.owns_handle('@foo@bar.com'))
         self.assertFalse(Web.owns_handle('foo@bar.com'))
 
+    def test_handle_to_id(self, *_):
+        self.assertEqual('foo.com', Web.handle_to_id('foo.com'))
+
     def test_fetch(self, mock_get, __):
         mock_get.return_value = REPOST
 

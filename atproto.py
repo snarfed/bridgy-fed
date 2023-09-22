@@ -100,6 +100,16 @@ class ATProto(User, Protocol):
             return False
 
     @classmethod
+    def handle_to_id(cls, handle):
+        assert cls.owns_handle(handle) is not False
+
+        user = ATProto.query(ATProto.readable_id == handle).get()
+        if user:
+            return user.key.id()
+
+        return did.resolve_handle(handle, get_fn=util.requests_get)
+
+    @classmethod
     def target_for(cls, obj, shared=False):
         """Returns the PDS URL for the given object, or None.
 

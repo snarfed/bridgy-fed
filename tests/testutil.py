@@ -92,6 +92,10 @@ class Fake(User, protocol.Protocol):
     owns_handle = owns_id
 
     @classmethod
+    def handle_to_id(cls, handle):
+        return handle
+
+    @classmethod
     def is_blocklisted(cls, url):
         return url.startswith('fake:blocklisted')
 

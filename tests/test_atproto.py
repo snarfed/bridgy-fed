@@ -100,6 +100,17 @@ class ATProtoTest(TestCase):
         self.assertFalse(ATProto.owns_handle('@foo@bar.com'))
         self.assertFalse(ATProto.owns_handle('foo@bar.com'))
 
+    def test_handle_to_id(self, *_):
+        self.store_object(id='did:plc:foo', raw=DID_DOC)
+        self.make_user('did:plc:foo', cls=ATProto)
+        self.assertEqual('did:plc:foo', ATProto.handle_to_id('han.dull'))
+
+    @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
+    # resolving handle, HTTPS method, not founud
+    @patch('requests.get', return_value=requests_response('', status=404))
+    def test_handle_to_id_not_found(self, *_):
+        self.assertIsNone(ATProto.handle_to_id('han.dull'))
+
     def test_target_for_did_doc(self):
         self.assertIsNone(ATProto.target_for(Object(id='did:plc:foo')))
 

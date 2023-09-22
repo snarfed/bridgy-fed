@@ -30,6 +30,7 @@ from web import Web
 
 # have to import module, not attrs, to avoid circular import
 from . import test_web
+from .test_webfinger import WEBFINGER
 
 ACTOR = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -1507,6 +1508,26 @@ class ActivityPubUtilsTest(TestCase):
                     'http://user.com'):
             with self.subTest(handle=handle):
                 self.assertFalse(ActivityPub.owns_handle(handle))
+
+    def test_handle_to_id_stored(self):
+        self.make_user(id='http://inst.com/@user', cls=ActivityPub)
+        self.assertEqual('http://inst.com/@user',
+                         ActivityPub.handle_to_id('@user@inst.com'))
+
+    @patch('requests.get', return_value=requests_response(WEBFINGER))
+    def test_handle_to_id_fetch(self, mock_get):
+        self.assertEqual('http://localhost/user.com',
+                         ActivityPub.handle_to_id('@user@inst.com'))
+        self.assert_req(
+            mock_get,
+            'https://inst.com/.well-known/webfinger?resource=acct:user@inst.com')
+
+    @patch('requests.get', return_value=requests_response({}))
+    def test_handle_to_id_not_found(self, mock_get):
+        self.assertIsNone(ActivityPub.handle_to_id('@user@inst.com'))
+        self.assert_req(
+            mock_get,
+            'https://inst.com/.well-known/webfinger?resource=acct:user@inst.com')
 
     def test_postprocess_as2_multiple_in_reply_tos(self):
         self.assert_equals({

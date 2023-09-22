@@ -168,7 +168,7 @@ def host_meta_xrds():
 
 
 def fetch(addr):
-    """Fetches and returns an address's Webfinger data.
+    """Fetches and returns an address's WebFinger data.
 
     On failure, flashes a message and returns None.
 
@@ -180,7 +180,7 @@ def fetch(addr):
         https://x/y
 
     Returns:
-      dict: fetched Webfinger data, or None on error
+      dict: fetched WebFinger data, or None on error
     """
     addr = addr.strip().strip('@')
     split = addr.split('@')

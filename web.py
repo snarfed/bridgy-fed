@@ -266,6 +266,11 @@ class Web(User, Protocol):
             return False
 
     @classmethod
+    def handle_to_id(cls, handle):
+        assert cls.owns_handle(handle) is not False
+        return handle
+
+    @classmethod
     def target_for(cls, obj, shared=False):
         """Returns `obj`'s id, as a URL webmention target."""
         # TODO: we have entities in prod that fail this, eg

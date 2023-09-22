@@ -127,6 +127,10 @@ class Protocol:
 
         To be implemented by subclasses.
 
+        IDs are string identities that uniquely identify users, and are intended
+        primarily to be machine readable and usable. Compare to handles, which
+        are human-chosen, human-meaningful, and often but not always unique.
+
         Some protocols' ids are more or less deterministic based on the id
         format, eg AT Protocol owns at:// URIs. Others, like http(s) URLs, could
         be owned by eg Web or ActivityPub.
@@ -151,6 +155,10 @@ class Protocol:
 
         To be implemented by subclasses.
 
+        Handles are string identities that are human-chosen, human-meaningful,
+        and often but not always unique. Compare to IDs, which uniquely identify
+        users, and are intended primarily to be machine readable and usable.
+
         Some protocols' handles are more or less deterministic based on the id
         format, eg ActivityPub (technically WebFinger) handles are
         ``@user@instance.com``. Others, like domains, could be owned by eg Web,
@@ -167,6 +175,22 @@ class Protocol:
           bool or None
         """
         return False
+
+    @classmethod
+    def handle_to_id(cls, handle):
+        """Converts a handle to an id.
+
+        To be implemented by subclasses.
+
+        May incur network requests, eg DNS queries or HTTP requests.
+
+        Args:
+          handle (str)
+
+        Returns:
+          str: corresponding id, or None if the handle can't be found
+        """
+        raise NotImplementedError()
 
     @classmethod
     def key_for(cls, id):
