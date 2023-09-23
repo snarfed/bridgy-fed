@@ -30,7 +30,7 @@ from web import Web
 
 # have to import module, not attrs, to avoid circular import
 from . import test_web
-from .test_webfinger import WEBFINGER
+from . import test_webfinger
 
 ACTOR = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -72,6 +72,24 @@ ACTOR_BASE_FULL = {
         'type': 'PropertyValue',
         'value': '<a rel="me" href="https://user.com/"><span class="invisible">https://</span>user.com<span class="invisible">/</span></a>',
     }],
+}
+ACTOR_FAKE = {
+    '@context': ['https://w3id.org/security/v1'],
+    'type': 'Person',
+    'id': 'http://bf/fake/fake:user/ap',
+    'preferredUsername': 'fake:user',
+    'url': 'http://localhost/r/fake:user',
+    'summary': '',
+    'inbox': 'http://bf/fake/fake:user/ap/inbox',
+    'outbox': 'http://bf/fake/fake:user/ap/outbox',
+    'following': 'http://bf/fake/fake:user/ap/following',
+    'followers': 'http://bf/fake/fake:user/ap/followers',
+    'endpoints': {'sharedInbox': 'http://localhost/ap/sharedInbox'},
+    'publicKey': {
+        'id': 'http://localhost/fake#key',
+        'owner': 'http://localhost/fake',
+        'publicKeyPem': 'populated in setUp()',
+    },
 }
 REPLY_OBJECT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -280,7 +298,9 @@ class ActivityPubTest(TestCase):
         self.swentel_key = ndb.Key(ActivityPub, 'https://mas.to/users/swentel')
         self.masto_actor_key = ndb.Key(ActivityPub, 'https://mas.to/actor')
 
-        ACTOR_BASE['publicKey']['publicKeyPem'] = self.user.public_pem().decode()
+        ACTOR_BASE['publicKey']['publicKeyPem'] = \
+            ACTOR_FAKE['publicKey']['publicKeyPem'] = \
+                self.user.public_pem().decode()
 
         self.key_id_obj = Object(id='http://my/key/id', as2={
             **ACTOR,
@@ -316,33 +336,16 @@ class ActivityPubTest(TestCase):
         return self.client.post(path, data=body, headers=self.sign(path, body))
 
     def test_actor_fake(self, *_):
-        self.make_user('user.com', cls=Fake, obj_as2={
+        self.make_user('fake:user', cls=Fake, obj_as2={
             'type': 'Person',
-            'id': 'https://user.com/',
+            'id': 'fake:user',
         })
 
-        got = self.client.get('/ap/fake/user.com')
+        got = self.client.get('/ap/fake/fake:user')
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         type = got.headers['Content-Type']
         self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
-        self.assertEqual({
-            '@context': ['https://w3id.org/security/v1'],
-            'type': 'Person',
-            'id': 'http://bf/fake/user.com/ap',
-            'preferredUsername': 'user.com',
-            'url': 'http://localhost/r/user.com',
-            'summary': '',
-            'inbox': 'http://bf/fake/user.com/ap/inbox',
-            'outbox': 'http://bf/fake/user.com/ap/outbox',
-            'following': 'http://bf/fake/user.com/ap/following',
-            'followers': 'http://bf/fake/user.com/ap/followers',
-            'endpoints': {'sharedInbox': 'http://localhost/ap/sharedInbox'},
-            'publicKey': {
-                'id': 'http://localhost/user.com#key',
-                'owner': 'http://localhost/user.com',
-                'publicKeyPem': self.user.public_pem().decode(),
-            },
-        }, got.json)
+        self.assertEqual(ACTOR_FAKE, got.json)
 
     def test_actor_web(self, *_):
         """Web users are special cased to drop the /web/ prefix."""
@@ -383,10 +386,32 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, got.status_code)
         self.assert_equals(ACTOR_BASE, got.json, ignore=['publicKeyPem'])
 
-    def test_actor_new_user_fetch_fails(self, _, mock_get, __):
+    def test_actor_new_user_fetch_fails(self, _, mock_get, ___):
         mock_get.side_effect = ReadTimeoutError(None, None, None)
         got = self.client.get('/nope.com')
         self.assertEqual(504, got.status_code)
+
+    def test_actor_handle_existing_user(self, _, __, ___):
+        self.make_user('fake:user', cls=Fake, obj_as2=ACTOR)
+        got = self.client.get('/ap/fake/fake:handle:user')
+        self.assertEqual(200, got.status_code)
+        self.assert_equals({
+            **ACTOR,
+            **ACTOR_FAKE,
+        }, got.json, ignore=['publicKeyPem'])
+
+    def test_actor_handle_new_user(self, _, __, ___):
+        Fake.fetchable['fake:user'] = as2.to_as1(ACTOR)
+        got = self.client.get('/ap/fake/fake:handle:user')
+        self.assertEqual(200, got.status_code)
+        self.assert_equals({
+            **ACTOR,
+            **ACTOR_FAKE,
+        }, got.json, ignore=['publicKeyPem'])
+
+    def test_actor_handle_user_fetch_fails(self, _, __, ___):
+        got = self.client.get('/ap/fake/fake:handle:nope')
+        self.assertEqual(404, got.status_code)
 
     def test_individual_inbox_no_user(self, mock_head, mock_get, mock_post):
         self.user.key.delete()
@@ -1514,8 +1539,9 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual('http://inst.com/@user',
                          ActivityPub.handle_to_id('@user@inst.com'))
 
-    @patch('requests.get', return_value=requests_response(WEBFINGER))
+    @patch('requests.get')
     def test_handle_to_id_fetch(self, mock_get):
+        mock_get.return_value = requests_response(test_webfinger.WEBFINGER)
         self.assertEqual('http://localhost/user.com',
                          ActivityPub.handle_to_id('@user@inst.com'))
         self.assert_req(

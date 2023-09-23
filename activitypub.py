@@ -3,6 +3,7 @@ from base64 import b64encode
 from hashlib import sha256
 import itertools
 import logging
+import re
 from urllib.parse import quote_plus, urljoin
 
 from flask import abort, g, request
@@ -22,11 +23,11 @@ from common import (
     add,
     CACHE_TIME,
     CONTENT_TYPE_HTML,
+    DOMAIN_RE,
     error,
     host_url,
     redirect_unwrap,
     redirect_wrap,
-    TLD_BLOCKLIST,
 )
 from models import Follower, Object, PROTOCOLS, User
 from protocol import Protocol
@@ -702,22 +703,30 @@ def postprocess_as2_actor(actor, wrap=True):
     return actor
 
 
-@app.get(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{common.DOMAIN_RE}"):domain>')
+@app.get(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<handle_or_id>')
 # special case Web users without /ap/web/ prefix, for backward compatibility
-@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>', defaults={'protocol': 'web'})
+@app.get(f'/<regex("{DOMAIN_RE}"):handle_or_id>', defaults={'protocol': 'web'})
 @flask_util.cached(cache, CACHE_TIME)
-def actor(protocol, domain):
+def actor(protocol, handle_or_id):
     """Serves a user's AS2 actor from the datastore."""
-    tld = domain.split('.')[-1]
-    if tld in TLD_BLOCKLIST:
-        error('', status=404)
-
     cls = PROTOCOLS[protocol]
-    g.user = cls.get_or_create(domain)
-    if not g.user.obj or not g.user.obj.as1:
-        g.user.obj = cls.load(f'https://{domain}/', gateway=True)
 
-    # TODO: unify with common.actor()
+    if cls.owns_id(handle_or_id) is False:
+        if cls.owns_handle(handle_or_id) is False:
+            error(f"{handle_or_id} doesn't look like a {cls.LABEL} id or handle",
+                  status=404)
+        id = cls.handle_to_id(handle_or_id)
+        if not id:
+            error(f"Couldn't resolve {handle_or_id} as a {cls.LABEL} handle",
+                  status=404)
+    else:
+        id = handle_or_id
+
+    assert id
+    g.user = cls.get_or_create(id)
+    if not g.user.obj or not g.user.obj.as1:
+        g.user.obj = cls.load(g.user.profile_id(), gateway=True)
+
     actor = g.user.as2() or {
         '@context': [as2.CONTEXT],
         'type': 'Person',
@@ -725,14 +734,15 @@ def actor(protocol, domain):
     actor = postprocess_as2(actor)
     actor.update({
         'id': g.user.ap_actor(),
-        # This has to be the domain for Mastodon etc interop! It seems like it
-        # should be the custom username from the acct: u-url in their h-card,
-        # but that breaks Mastodon's Webfinger discovery. Background:
+        # This has to be the id (domain for Web) for Mastodon etc interop! It
+        # seems like it should be the custom username from the acct: u-url in
+        # their h-card, but that breaks Mastodon's Webfinger discovery.
+        # Background:
         # https://docs.joinmastodon.org/spec/activitypub/#properties-used-1
         # https://docs.joinmastodon.org/spec/webfinger/#mastodons-requirements-for-webfinger
         # https://github.com/snarfed/bridgy-fed/issues/302#issuecomment-1324305460
         # https://github.com/snarfed/bridgy-fed/issues/77
-        'preferredUsername': domain,
+        'preferredUsername': id,
         'inbox': g.user.ap_actor('inbox'),
         'outbox': g.user.ap_actor('outbox'),
         'following': g.user.ap_actor('following'),
@@ -740,8 +750,8 @@ def actor(protocol, domain):
         'endpoints': {
             'sharedInbox': host_url('/ap/sharedInbox'),
         },
-        # add this if we ever change the Web actor ids to be /web/[domain]
-        # 'alsoKnownAs': [host_url(domain)],
+        # add this if we ever change the Web actor ids to be /web/[id]
+        # 'alsoKnownAs': [host_url(id)],
     })
 
     logger.info(f'Returning: {json_dumps(actor, indent=2)}')
@@ -752,10 +762,10 @@ def actor(protocol, domain):
 
 
 @app.post('/ap/sharedInbox')
-@app.post(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{common.DOMAIN_RE}"):domain>/inbox')
+@app.post(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{DOMAIN_RE}"):domain>/inbox')
 # special case Web users without /ap/web/ prefix, for backward compatibility
 @app.post('/inbox')
-@app.post(f'/<regex("{common.DOMAIN_RE}"):domain>/inbox', defaults={'protocol': 'web'})
+@app.post(f'/<regex("{DOMAIN_RE}"):domain>/inbox', defaults={'protocol': 'web'})
 def inbox(protocol=None, domain=None):
     """Handles ActivityPub inbox delivery."""
     # parse and validate AS2 activity
@@ -823,9 +833,9 @@ def inbox(protocol=None, domain=None):
     return ActivityPub.receive(obj)
 
 
-@app.get(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{common.DOMAIN_RE}"):domain>/<any(followers,following):collection>')
+@app.get(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
 # special case Web users without /ap/web/ prefix, for backward compatibility
-@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/<any(followers,following):collection>',
+@app.get(f'/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>',
          defaults={'protocol': 'web'})
 @flask_util.cached(cache, CACHE_TIME)
 def follower_collection(protocol, domain, collection):
@@ -878,9 +888,9 @@ def follower_collection(protocol, domain, collection):
     return collection, {'Content-Type': as2.CONTENT_TYPE}
 
 
-@app.get(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{common.DOMAIN_RE}"):domain>/outbox')
+@app.get(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{DOMAIN_RE}"):domain>/outbox')
 # special case Web users without /ap/web/ prefix, for backward compatibility
-@app.get(f'/<regex("{common.DOMAIN_RE}"):domain>/outbox', defaults={'protocol': 'web'})
+@app.get(f'/<regex("{DOMAIN_RE}"):domain>/outbox', defaults={'protocol': 'web'})
 def outbox(protocol, domain):
     return {
             '@context': 'https://www.w3.org/ns/activitystreams',

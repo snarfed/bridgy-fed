@@ -84,7 +84,7 @@ class Fake(User, protocol.Protocol):
 
     @classmethod
     def owns_id(cls, id):
-        if id.startswith('nope'):
+        if id.startswith('nope') or id == 'fake:nope':
             return False
 
         return ((id.startswith('fake:') and not id.startswith('fake:handle:'))
@@ -96,6 +96,8 @@ class Fake(User, protocol.Protocol):
 
     @classmethod
     def handle_to_id(cls, handle):
+        if handle == 'fake:handle:nope':
+            return None
         return handle.replace('fake:handle:', 'fake:')
 
     @classmethod
