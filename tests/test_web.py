@@ -1913,6 +1913,9 @@ class WebUtilTest(TestCase):
     def test_handle_to_id(self, *_):
         self.assertEqual('foo.com', Web.handle_to_id('foo.com'))
 
+    def test_profile_id(self, *_):
+        self.assertEqual('https://foo.com/', Web(id='foo.com').profile_id())
+
     def test_fetch(self, mock_get, __):
         mock_get.return_value = REPOST
 

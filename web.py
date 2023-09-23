@@ -104,6 +104,8 @@ class Web(User, Protocol):
         """Returns this user's web URL aka web_url, eg 'https://foo.com/'."""
         return f'https://{self.key.id()}/'
 
+    profile_id = web_url
+
     def ap_address(self):
         """Returns this user's ActivityPub address, eg '@foo.com@foo.com'.
 
