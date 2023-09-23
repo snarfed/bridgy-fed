@@ -192,7 +192,11 @@ class ATProtoTest(TestCase):
         self.assertFalse(ATProto.fetch(obj))
         self.assertIsNone(obj.raw)
 
-    @patch('requests.get', return_value=requests_response({'foo': 'bar'}))
+    @patch('requests.get', return_value=requests_response({
+        'uri': 'at://did:plc:abc/app.bsky.feed.post/123',
+        'cid': 'bafy...',
+        'value': {'foo': 'bar'},
+    }))
     def test_fetch_at_uri_record(self, mock_get):
         self.store_object(id='did:plc:abc', raw=DID_DOC)
         obj = Object(id='at://did:plc:abc/app.bsky.feed.post/123')

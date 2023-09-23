@@ -317,9 +317,10 @@ class ATProto(User, Protocol):
         # https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
         repo, collection, rkey = parse_at_uri(obj.key.id())
         client = Client(pds, headers={'User-Agent': USER_AGENT})
-        obj.bsky = client.com.atproto.repo.getRecord(
+        ret = client.com.atproto.repo.getRecord(
             repo=repo, collection=collection, rkey=rkey)
         # TODO: verify sig?
+        obj.bsky = ret['value']
         return True
 
     @classmethod
