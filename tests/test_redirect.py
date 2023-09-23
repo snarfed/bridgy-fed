@@ -51,6 +51,11 @@ class RedirectTest(testutil.TestCase):
         got = self.client.get('/r/http://bar.com/baz')
         self.assertEqual(404, got.status_code)
 
+    def test_redirect_html_domain_allowlist(self):
+        got = self.client.get('/r/http://bsky.app/baz')
+        self.assertEqual(301, got.status_code)
+        self.assertEqual('http://bsky.app/baz', got.headers['Location'])
+
     def test_redirect_single_slash(self):
         got = self.client.get('/r/https:/user.com/bar')
         self.assertEqual(301, got.status_code)

@@ -38,6 +38,9 @@ _negotiator = ContentNegotiator(acceptable=[
     AcceptParameters(ContentType(as2.CONTENT_TYPE_LD)),
 ])
 
+DOMAIN_ALLOWLIST = frozenset((
+    'bsky.app',
+))
 
 @app.get(r'/r/<path:to>')
 @flask_util.cached(cache, CACHE_TIME, headers=['Accept'])
@@ -79,6 +82,8 @@ def redir(to):
                    to_domain))
     for domain in domains:
         if domain:
+            if domain in DOMAIN_ALLOWLIST:
+                break
             g.user = Web.get_by_id(domain)
             if g.user:
                 logger.info(f'Found web user for domain {domain}')
