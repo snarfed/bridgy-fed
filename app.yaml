@@ -21,6 +21,10 @@ automatic_scaling:
 inbound_services:
 - warmup
 
+env_variables:
+  PLC_HOST: plc.directory
+  APPVIEW_HOST: bsky.social  # this is the PDS. TODO: where's the prod AppView?
+
 handlers:
 
 # static
