@@ -70,6 +70,9 @@ class Fake(User, protocol.Protocol):
     # in-order list of ids
     fetched = []
 
+    def handle(self):
+        return self.key.id().replace('fake:', 'fake:handle:')
+
     def web_url(self):
         return self.key.id()
 

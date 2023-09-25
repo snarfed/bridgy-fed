@@ -1869,7 +1869,7 @@ class WebUtilTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        g.user = self.make_user('user.com')
+        g.user = self.make_user('user.com', cls=Web)
 
     def test_key_for(self, *_):
         for id in 'user.com', 'http://user.com', 'https://user.com/':
@@ -1881,6 +1881,9 @@ class WebUtilTest(TestCase):
         for bad in 'foo', 'https://foo/', 'foo bar', 'user.json':
             with self.subTest(bad=bad):
                 self.assertIsNone(Web.key_for(bad))
+
+    def test_handle(self, *_):
+        self.assertEqual('user.com', g.user.handle())
 
     def test_owns_id(self, *_):
         self.assertIsNone(Web.owns_id('http://foo.com'))

@@ -8,12 +8,12 @@ from common import host_url, SUPERDOMAIN
 
 
 def convert_id(*, id, from_proto, to_proto):
-    """Converts an id (not necessarily handle) from one protocol to another.
+    """Converts an id from one protocol to another.
 
     Args:
       id (str)
-      from_proto (protocols.Protocol)
-      to_proto (protocols.Protocol)
+      from_proto (Protocol)
+      to_proto (Protocol)
 
     Returns:
       str: the corresponding id in ``to_proto``
@@ -49,8 +49,8 @@ def convert_handle(*, handle, from_proto, to_proto):
 
     Args:
       handle (str)
-      from_proto (protocols.Protocol)
-      to_proto (protocols.Protocol)
+      from_proto (Protocol)
+      to_proto (Protocol)
 
     Returns:
       str: the corresponding handle in ``to_proto``

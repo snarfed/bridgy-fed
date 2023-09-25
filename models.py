@@ -25,6 +25,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
 from common import add, base64_to_long, long_to_base64, redirect_unwrap
+import ids
 
 # maps string label to Protocol subclass. populated by ProtocolUserMeta.
 # seed with old and upcoming protocols that don't have their own classes (yet).
@@ -286,11 +287,20 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     @ndb.ComputedProperty
     def readable_id(self):
-        """This user's human-readable unique id, eg '@me@snarfed.org'.
+        """This user's human-readable unique id, eg ``@me@snarfed.org``.
+
+        TODO: rename to handle? Need to backfill then.
 
         To be implemented by subclasses.
         """
         return None
+
+    def handle(self):
+        """Returns this user's handle, eg ``@me@snarfed.org``.
+
+        To be implemented by subclasses.
+        """
+        raise NotImplementedError()
 
     def readable_or_key_id(self):
         """Returns readable_id if set, otherwise key id."""

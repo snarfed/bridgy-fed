@@ -80,6 +80,8 @@ class ATProto(User, Protocol):
             if handle:
                 return handle
 
+    handle = atproto_handle
+
     def web_url(self):
         return bluesky.Bluesky.user_url(self.readable_id)
 

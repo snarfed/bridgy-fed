@@ -91,13 +91,15 @@ class ActivityPub(User, Protocol):
         return self.ap_actor()
 
     def ap_address(self):
-        """Returns this user's ActivityPub address, eg '@user@foo.com'."""
+        """Returns this user's ActivityPub address, eg ``@user@foo.com``."""
         if self.obj and self.obj.as1:
             addr = as2.address(self.as2())
             if addr:
                 return addr
 
         return as2.address(self.key.id())
+
+    handle = ap_address
 
     def ap_actor(self, rest=None):
         """Returns this user's ActivityPub actor id URL.

@@ -100,8 +100,12 @@ class Web(User, Protocol):
         """
         return super().get_or_create(id.lower().strip('.'), **kwargs)
 
+    def handle(self):
+        """Returns this user's domain, eg ``user.com``."""
+        return self.key.id()
+
     def web_url(self):
-        """Returns this user's web URL aka web_url, eg 'https://foo.com/'."""
+        """Returns this user's web URL aka web_url, eg ``https://foo.com/``."""
         return f'https://{self.key.id()}/'
 
     profile_id = web_url
@@ -119,10 +123,10 @@ class Web(User, Protocol):
     def ap_actor(self, rest=None):
         """Returns this user's ActivityPub/AS2 actor id.
 
-        Eg 'https://fed.brid.gy/foo.com'
+        Eg ``https://fed.brid.gy/foo.com``
 
-        Web users are special cased to not have an /ap/web/ prefix, for backward
-        compatibility.
+        Web users are special cased to not have an ``/ap/web/`` prefix, for
+        backward compatibility.
         """
         url = common.host_url(self.key.id())
         if rest:
@@ -130,7 +134,7 @@ class Web(User, Protocol):
         return url
 
     def atproto_handle(self):
-        """Returns `[DOMAIN].web.brid.gy`."""
+        """Returns ``[DOMAIN].web.brid.gy``."""
         return f'{self.key.id()}.{self.ABBREV}{common.SUPERDOMAIN}'
 
     def user_page_path(self, rest=None):
