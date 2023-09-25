@@ -464,12 +464,9 @@ def check_web_site():
     url = request.values['url']
     # this normalizes and lower cases domain
     domain = util.domain_from_link(url, minimize=False)
-    if not domain:
-        flash(f'No domain found in {url}')
-        return render_template('enter_web_site.html')
-    elif domain in common.DOMAINS:
-        flash(f'{domain} is a Bridgy Fed domain')
-        return render_template('enter_web_site.html')
+    if not domain or not is_valid_domain(domain):
+        flash(f'{url} is not a valid or supported web site')
+        return render_template('enter_web_site.html'), 400
 
     g.user = Web.get_or_create(domain, direct=True)
     try:

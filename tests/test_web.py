@@ -1839,14 +1839,23 @@ http://this/404s
 
     def test_check_web_site_bad_url(self, _, __):
         got = self.client.post('/web-site', data={'url': '!!!'})
-        self.assert_equals(200, got.status_code)
-        self.assertEqual(['No domain found in !!!'], get_flashed_messages())
+        self.assert_equals(400, got.status_code)
+        self.assertEqual(['!!! is not a valid or supported web site'],
+                         get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
     def test_check_web_site_bridgy_fed_domain(self, _, __):
         got = self.client.post('/web-site', data={'url': 'https://fed.brid.gy/foo'})
-        self.assert_equals(200, got.status_code)
-        self.assertEqual(['fed.brid.gy is a Bridgy Fed domain'],
+        self.assert_equals(400, got.status_code)
+        self.assertEqual(
+            ['https://fed.brid.gy/foo is not a valid or supported web site'],
+            get_flashed_messages())
+        self.assertEqual(1, Web.query().count())
+
+    def test_check_web_site_blocklisted(self, _, __):
+        got = self.client.post('/web-site', data={'url': 'https://t.co/'})
+        self.assert_equals(400, got.status_code)
+        self.assertEqual(['https://t.co/ is not a valid or supported web site'],
                          get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
