@@ -394,7 +394,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                 parsed_url[1:] == parsed_this[1:])  # ignore http vs https
 
     def ap_address(self):
-        """Returns this user's ActivityPub address, eg '@me@foo.com'.
+        """Returns this user's ActivityPub address, eg ``@me@foo.com``.
 
         Returns:
           str
@@ -405,24 +405,20 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     def ap_actor(self, rest=None):
         """Returns this user's ActivityPub/AS2 actor id.
 
-        Eg 'https://fed.brid.gy/ap/atproto/foo.com'
+        Eg ``https://fed.brid.gy/ap/atproto/foo.com`.
 
         May be overridden by subclasses.
 
         Args:
-          rest: str, optional, appended to URL path
+          rest (str): optional, appended to URL path
 
         Returns:
           str
         """
         # must match the URL route for activitypub.actor()
         url = common.host_url(f'/ap/{self.ABBREV}/{self.key.id()}')
-
         if rest:
-            if not rest.startswith('?'):
-                url += '/'
-            url += rest
-
+            url += f'/{rest.lstrip("/")}'
         return url
 
     def profile_id(self):

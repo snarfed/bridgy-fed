@@ -127,7 +127,7 @@ class Web(User, Protocol):
         """
         url = common.host_url(self.key.id())
         if rest:
-            url += f'/{rest}'
+            url += f'/{rest.lstrip("/")}'
         return url
 
     def user_page_path(self, rest=None):
@@ -137,7 +137,7 @@ class Web(User, Protocol):
         if rest:
             if not rest.startswith('?'):
                 path += '/'
-            path += rest
+            path += rest.lstrip('/')
 
         return path
 
