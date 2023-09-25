@@ -685,10 +685,13 @@ def postprocess_as2_actor(actor, wrap=True):
         # https://www.w3.org/TR/activitypub/#actor-objects
         'inbox': g.user.ap_actor('inbox'),
         'outbox': g.user.ap_actor('outbox'),
+    })
+
+    # TODO: genericize (see line 752 in actor())
+    if g.user.LABEL != 'atproto':
         # This has to be the domain for Mastodon interop/Webfinger discovery!
         # See related comment in actor() below.
-        'preferredUsername': domain,
-    })
+        actor['preferredUsername'] = domain
 
     # Override the label for their home page to be "Web site"
     for att in util.get_list(actor, 'attachment'):
@@ -734,15 +737,6 @@ def actor(protocol, handle_or_id):
     actor = postprocess_as2(actor)
     actor.update({
         'id': g.user.ap_actor(),
-        # This has to be the id (domain for Web) for Mastodon etc interop! It
-        # seems like it should be the custom username from the acct: u-url in
-        # their h-card, but that breaks Mastodon's Webfinger discovery.
-        # Background:
-        # https://docs.joinmastodon.org/spec/activitypub/#properties-used-1
-        # https://docs.joinmastodon.org/spec/webfinger/#mastodons-requirements-for-webfinger
-        # https://github.com/snarfed/bridgy-fed/issues/302#issuecomment-1324305460
-        # https://github.com/snarfed/bridgy-fed/issues/77
-        'preferredUsername': id,
         'inbox': g.user.ap_actor('inbox'),
         'outbox': g.user.ap_actor('outbox'),
         'following': g.user.ap_actor('following'),
@@ -753,6 +747,18 @@ def actor(protocol, handle_or_id):
         # add this if we ever change the Web actor ids to be /web/[id]
         # 'alsoKnownAs': [host_url(id)],
     })
+
+    # TODO: genericize (see line 690 in postprocess_as2)
+    if cls.LABEL != 'atproto':
+        # This has to be the id (domain for Web) for Mastodon etc interop! It
+        # seems like it should be the custom username from the acct: u-url in
+        # their h-card, but that breaks Mastodon's Webfinger discovery.
+        # Background:
+        # https://docs.joinmastodon.org/spec/activitypub/#properties-used-1
+        # https://docs.joinmastodon.org/spec/webfinger/#mastodons-requirements-for-webfinger
+        # https://github.com/snarfed/bridgy-fed/issues/302#issuecomment-1324305460
+        # https://github.com/snarfed/bridgy-fed/issues/77
+        actor['preferredUsername'] = id
 
     logger.info(f'Returning: {json_dumps(actor, indent=2)}')
     return actor, {
