@@ -133,10 +133,6 @@ class Web(User, Protocol):
             url += f'/{rest}'
         return url
 
-    def atproto_handle(self):
-        """Returns ``[DOMAIN].web.brid.gy``."""
-        return f'{self.key.id()}.{self.ABBREV}{common.SUPERDOMAIN}'
-
     def user_page_path(self, rest=None):
         """Always use domain."""
         path = f'/{self.ABBREV}/{self.key.id()}'

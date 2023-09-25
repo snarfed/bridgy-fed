@@ -128,6 +128,18 @@ class UserTest(TestCase):
         obj.put()
         self.assertEqual({'foo': 'bar'}, g.user.as2())
 
+    def test_id_as(self):
+        user = self.make_user('fake:user', cls=Fake)
+        self.assertEqual('fake:user', user.id_as(Fake))
+        self.assertEqual('fake:user', user.id_as('fake'))
+        self.assertEqual('http://localhost/fa/ap/fake:user', user.id_as('ap'))
+
+    def test_handle_as(self):
+        user = self.make_user('fake:user', cls=Fake)
+        self.assertEqual('fake:handle:user', user.handle_as(Fake))
+        self.assertEqual('fake:handle:user', user.handle_as('fake'))
+        self.assertEqual('@fake:handle:user@fa.brid.gy', user.handle_as('ap'))
+
     def test_ap_actor(self):
         user = self.make_user('did:plc:abc', cls=ATProto)
         self.assertEqual('http://localhost/ap/atproto/did:plc:abc',

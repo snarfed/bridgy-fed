@@ -48,7 +48,7 @@ class ATProto(User, Protocol):
     @ndb.ComputedProperty
     def readable_id(self):
         """Prefers handle, then DID."""
-        return self.atproto_handle() or self.key.id()
+        return self.handle() or self.key.id()
 
     def _pre_put_hook(self):
         """Validate id, require did:plc or non-blocklisted did:web.
@@ -71,7 +71,7 @@ class ATProto(User, Protocol):
         assert not self.atproto_did, \
             f"{self.key} shouldn't have atproto_did {self.atproto_did}"
 
-    def atproto_handle(self):
+    def handle(self):
         """Returns handle if the DID document includes one, otherwise None."""
         did_obj = ATProto.load(self.key.id(), remote=False)
         if did_obj:
@@ -79,8 +79,6 @@ class ATProto(User, Protocol):
                 util.get_first(did_obj.raw, 'alsoKnownAs', ''))
             if handle:
                 return handle
-
-    handle = atproto_handle
 
     def web_url(self):
         return bluesky.Bluesky.user_url(self.readable_id)
@@ -235,7 +233,7 @@ class ATProto(User, Protocol):
         else:
             # create new DID, repo
             logger.info(f'Creating new did:plc for {user.key}')
-            did_plc = did.create_plc(user.atproto_handle(),
+            did_plc = did.create_plc(user.handle_as('atproto'),
                                      pds_url=common.host_url(),
                                      post_fn=util.requests_post)
 
@@ -249,7 +247,7 @@ class ATProto(User, Protocol):
                 assert not storage.load_repo(user.atproto_did)
                 nonlocal repo
                 repo = Repo.create(storage, user.atproto_did,
-                                   handle=user.atproto_handle(),
+                                   handle=user.handle_as('atproto'),
                                    callback=create_atproto_commit_task,
                                    signing_key=did_plc.signing_key,
                                    rotation_key=did_plc.rotation_key)

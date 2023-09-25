@@ -1940,12 +1940,12 @@ class ActivityPubUtilsTest(TestCase):
         user = self.make_user('http://foo/actor', cls=ActivityPub)
         self.assertEqual('http://foo/actor', user.ap_actor())
 
-    def test_atproto_handle(self):
+    def test_handle_as(self):
         user = self.make_user('http://a', cls=ActivityPub, obj_as2={
             'id': 'https://mas.to/users/foo',
             'preferredUsername': 'me',
         })
-        self.assertEqual('me.mas.to.ap.brid.gy', user.atproto_handle())
+        self.assertEqual('me.mas.to.ap.brid.gy', user.handle_as('atproto'))
 
     def test_web_url(self):
         user = self.make_user('http://foo/actor', cls=ActivityPub)

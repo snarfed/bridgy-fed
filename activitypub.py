@@ -108,11 +108,6 @@ class ActivityPub(User, Protocol):
         """
         return self.key.id()
 
-    def atproto_handle(self):
-        """Returns `[USERNAME].[INSTANCE].AP.brid.gy`."""
-        username, instance = self.ap_address().strip('@').split('@')
-        return f'{username}.{instance}.{self.ABBREV}{common.SUPERDOMAIN}'
-
     @classmethod
     def owns_id(cls, id):
         """Returns None if id is an http(s) URL, False otherwise.

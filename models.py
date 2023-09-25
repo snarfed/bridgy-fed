@@ -289,7 +289,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     def readable_id(self):
         """This user's human-readable unique id, eg ``@me@snarfed.org``.
 
-        TODO: rename to handle? Need to backfill then.
+        TODO: rename to handle! And keep readable_id in queries for backcompat
 
         To be implemented by subclasses.
         """
@@ -301,6 +301,36 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         To be implemented by subclasses.
         """
         raise NotImplementedError()
+
+    def handle_as(self, to_proto):
+        """Returns this user's handle in a different protocol.
+
+        Args:
+          to_proto (str or Protocol)
+
+        Returns:
+          str
+        """
+        if isinstance(to_proto, str):
+            to_proto = PROTOCOLS[to_proto]
+
+        return ids.convert_handle(handle=self.handle(), from_proto=self.__class__,
+                                  to_proto=to_proto)
+
+    def id_as(self, to_proto):
+        """Returns this user's id in a different protocol.
+
+        Args:
+          to_proto (str or Protocol)
+
+        Returns:
+          str
+        """
+        if isinstance(to_proto, str):
+            to_proto = PROTOCOLS[to_proto]
+
+        return ids.convert_id(id=self.key.id(), from_proto=self.__class__,
+                                  to_proto=to_proto)
 
     def readable_or_key_id(self):
         """Returns readable_id if set, otherwise key id."""
@@ -397,16 +427,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             url += rest
 
         return url
-
-    def atproto_handle(self):
-        """Returns this user's AT Protocol handle, eg 'foo.com'.
-
-        To be implemented by subclasses.
-
-        Returns:
-          str
-        """
-        raise NotImplementedError()
 
     def profile_id(self):
         """Returns the id of this user's profile object in its native protocol.
@@ -530,7 +550,7 @@ class Object(StringIdModel):
         elif self.bsky:
             owner, _, _ = arroba.util.parse_at_uri(self.key.id())
             ATProto = PROTOCOLS['atproto']
-            handle = ATProto(id=owner).atproto_handle()
+            handle = ATProto(id=owner).handle()
             obj = bluesky.to_as1(self.bsky, repo_did=owner, repo_handle=handle,
                                  pds=ATProto.target_for(self))
 

@@ -228,11 +228,11 @@ class ATProtoTest(TestCase):
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_handle_and_readable_id(self, mock_get):
         user = self.make_user('did:plc:foo', cls=ATProto)
-        self.assertIsNone(user.atproto_handle())
+        self.assertIsNone(user.handle())
         self.assertEqual('did:plc:foo', user.readable_id)
 
         self.store_object(id='did:plc:foo', raw=DID_DOC)
-        self.assertEqual('han.dull', user.atproto_handle())
+        self.assertEqual('han.dull', user.handle())
         self.assertEqual('han.dull', user.readable_id)
 
     def test_ap_address(self):
@@ -291,7 +291,7 @@ class ATProtoTest(TestCase):
                 },
                 'rotationKeys': [encode_did_key(repo.rotation_key.public_key())],
                 'alsoKnownAs': [
-                    'at://user.fake.brid.gy',
+                    'at://fake:handle:user.fa.brid.gy',
                 ],
                 'services': {
                     'atproto_pds': {
