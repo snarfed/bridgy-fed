@@ -518,8 +518,11 @@ class Object(StringIdModel):
             obj = as2.to_as1(redirect_unwrap(self.as2))
 
         elif self.bsky:
-            obj = bluesky.to_as1(self.bsky)
             owner, _, _ = arroba.util.parse_at_uri(self.key.id())
+            ATProto = PROTOCOLS['atproto']
+            handle = ATProto(id=owner).atproto_handle()
+            obj = bluesky.to_as1(self.bsky, repo_did=owner, repo_handle=handle,
+                                 pds=ATProto.target_for(self))
 
         elif self.mf2:
             obj = microformats2.json_to_object(self.mf2,

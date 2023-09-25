@@ -1,11 +1,13 @@
 # coding=utf-8
 """Unit tests for models.py."""
+from unittest.mock import patch
+
 from arroba.mst import dag_cbor_cid
 from Crypto.PublicKey import ECC
 from flask import g
 from google.cloud import ndb
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
-from oauth_dropins.webutil.testutil import NOW
+from oauth_dropins.webutil.testutil import NOW, requests_response
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
@@ -19,6 +21,7 @@ from protocol import Protocol
 from web import Web
 
 from .test_activitypub import ACTOR
+from .test_atproto import DID_DOC
 
 
 class UserTest(TestCase):
@@ -416,7 +419,8 @@ class ObjectTest(TestCase):
         self.assertEqual({'id': 'x', 'foo': 'bar'},
                          Object(id='x', our_as1={'foo': 'bar'}).as1)
 
-    def test_as1_from_bsky(self):
+    @patch('requests.get', return_value=requests_response(DID_DOC))
+    def test_as1_from_bsky(self, mock_get):
         like_bsky = {
             '$type': 'app.bsky.feed.like',
             'subject': {
