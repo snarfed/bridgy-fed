@@ -1031,7 +1031,7 @@ class ProtocolReceiveTest(TestCase):
                                         delivered=['fake:user:target'],
                                         )
 
-        accept_id = 'http://localhost/fa/fake:user/followers#accept-fake:follow'
+        accept_id = 'http://localhost/ap/fa/fake:user/followers#accept-fake:follow'
         accept_as1 = {
             'id': accept_id,
             'objectType': 'activity',
@@ -1233,10 +1233,10 @@ class ProtocolReceiveTest(TestCase):
             Fake.receive_as1(follow_as1)
 
         (bob_obj, bob_target), (eve_obj, eve_target) = Fake.sent
-        self.assertEqual('http://localhost/fa/http://x.com/bob/followers#accept-http://x.com/follow',
+        self.assertEqual('http://localhost/ap/fa/http://x.com/bob/followers#accept-http://x.com/follow',
                          bob_obj.key.id())
         self.assertEqual('http://x.com/alice:target', bob_target)
-        self.assertEqual('http://localhost/fa/http://x.com/eve/followers#accept-http://x.com/follow',
+        self.assertEqual('http://localhost/ap/fa/http://x.com/eve/followers#accept-http://x.com/follow',
                          eve_obj.key.id())
         self.assertEqual('http://x.com/alice:target', eve_target)
 

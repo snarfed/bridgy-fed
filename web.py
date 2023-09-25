@@ -46,7 +46,7 @@ def is_valid_domain(domain):
     Valid means TLD is ok, not blacklisted, etc.
     """
     if not re.match(DOMAIN_RE, domain):
-        logger.debug(f"{id} doesn't look like a domain")
+        logger.debug(f"{domain} doesn't look like a domain")
         return False
 
     if Web.is_blocklisted(domain):
@@ -77,13 +77,6 @@ class Web(User, Protocol):
     def _get_kind(cls):
         return 'MagicKey'
 
-    @ComputedProperty
-    def readable_id(self):
-        # prettify if domain, noop if username
-        username = self.username()
-        if username != self.key.id():
-            return util.domain_from_link(username, minimize=False)
-
     def _pre_put_hook(self):
         """Validate domain id, don't allow upper case or invalid characters."""
         super()._pre_put_hook()
@@ -101,8 +94,12 @@ class Web(User, Protocol):
         return super().get_or_create(id.lower().strip('.'), **kwargs)
 
     def handle(self):
-        """Returns this user's domain, eg ``user.com``."""
-        return self.key.id()
+        """Returns this user's chosen username or domain, eg ``user.com``."""
+        # prettify if domain, noop if username
+        username = self.username()
+        if username != self.key.id():
+            return util.domain_from_link(username, minimize=False)
+        return username
 
     def web_url(self):
         """Returns this user's web URL aka web_url, eg ``https://foo.com/``."""

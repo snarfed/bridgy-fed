@@ -45,11 +45,6 @@ class ATProto(User, Protocol):
     """
     ABBREV = 'atproto'
 
-    @ndb.ComputedProperty
-    def readable_id(self):
-        """Prefers handle, then DID."""
-        return self.handle() or self.key.id()
-
     def _pre_put_hook(self):
         """Validate id, require did:plc or non-blocklisted did:web.
 
@@ -81,11 +76,11 @@ class ATProto(User, Protocol):
                 return handle
 
     def web_url(self):
-        return bluesky.Bluesky.user_url(self.readable_id)
+        return bluesky.Bluesky.user_url(self.handle_or_id())
 
     def ap_address(self):
         """Returns this user's AP address, eg '@handle.com@bsky.brid.gy'."""
-        return f'@{self.readable_id}@{self.ABBREV}{common.SUPERDOMAIN}'
+        return f'@{self.handle_or_id()}@{self.ABBREV}{common.SUPERDOMAIN}'
 
     @classmethod
     def owns_id(cls, id):

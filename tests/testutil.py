@@ -79,9 +79,6 @@ class Fake(User, protocol.Protocol):
     def ap_address(self):
         return f'@{self.key.id()}@fake'
 
-    def ap_actor(self, rest=None):
-        return f'http://bf/fake/{self.key.id()}/ap' + (f'/{rest}' if rest else '')
-
     @classmethod
     def owns_id(cls, id):
         if id.startswith('nope') or id == 'fake:nope':

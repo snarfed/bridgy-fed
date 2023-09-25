@@ -290,10 +290,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """This user's human-readable unique id, eg ``@me@snarfed.org``.
 
         TODO: rename to handle! And keep readable_id in queries for backcompat
-
-        To be implemented by subclasses.
         """
-        return None
+        return self.handle()
 
     def handle(self):
         """Returns this user's handle, eg ``@me@snarfed.org``.
@@ -332,9 +330,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return ids.convert_id(id=self.key.id(), from_proto=self.__class__,
                                   to_proto=to_proto)
 
-    def readable_or_key_id(self):
-        """Returns readable_id if set, otherwise key id."""
-        return self.readable_id or self.key.id()
+    def handle_or_id(self):
+        """Returns handle if we know it, otherwise id."""
+        return self.handle() or self.key.id()
 
     def href(self):
         return f'data:application/magic-public-key,RSA.{self.mod}.{self.public_exponent}'
@@ -360,7 +358,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             if name:
                 return name
 
-        return self.readable_or_key_id()
+        return self.handle_or_id()
 
     def web_url(self):
         """Returns this user's web URL (homepage), eg 'https://foo.com/'.
@@ -446,7 +444,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     def user_page_path(self, rest=None):
         """Returns the user's Bridgy Fed user page path."""
-        path = f'/{self.ABBREV}/{self.readable_or_key_id()}'
+        path = f'/{self.ABBREV}/{self.handle_or_id()}'
 
         if rest:
             if not rest.startswith('?'):

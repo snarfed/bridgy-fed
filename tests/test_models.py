@@ -28,7 +28,7 @@ class UserTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        g.user = self.make_user('y.z')
+        g.user = self.make_user('y.z', cls=Web)
 
     def test_get_or_create(self):
         user = Fake.get_or_create('a.b')
@@ -114,7 +114,7 @@ class UserTest(TestCase):
         self.assertEqual('alice', g.user.name())
 
     def test_readable_id(self):
-        self.assertIsNone(g.user.readable_id)
+        self.assertEqual('y.z', g.user.readable_id)
 
     def test_as2(self):
         self.assertEqual({}, g.user.as2())

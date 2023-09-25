@@ -76,14 +76,14 @@ ACTOR_BASE_FULL = {
 ACTOR_FAKE = {
     '@context': ['https://w3id.org/security/v1'],
     'type': 'Person',
-    'id': 'http://bf/fake/fake:user/ap',
+    'id': 'http://localhost/ap/fa/fake:user',
     'preferredUsername': 'fake:user',
     'url': 'http://localhost/r/fake:user',
     'summary': '',
-    'inbox': 'http://bf/fake/fake:user/ap/inbox',
-    'outbox': 'http://bf/fake/fake:user/ap/outbox',
-    'following': 'http://bf/fake/fake:user/ap/following',
-    'followers': 'http://bf/fake/fake:user/ap/followers',
+    'inbox': 'http://localhost/ap/fa/fake:user/inbox',
+    'outbox': 'http://localhost/ap/fa/fake:user/outbox',
+    'following': 'http://localhost/ap/fa/fake:user/following',
+    'followers': 'http://localhost/ap/fa/fake:user/followers',
     'endpoints': {'sharedInbox': 'http://localhost/ap/sharedInbox'},
     'publicKey': {
         'id': 'http://localhost/fake#key',
@@ -218,7 +218,7 @@ ACCEPT_FOLLOW['object'] = 'http://localhost/user.com'
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Accept',
-    'id': 'http://localhost/web/user.com/followers#accept-https://mas.to/6d1a',
+    'id': 'http://localhost/user.com/followers#accept-https://mas.to/6d1a',
     'actor': 'http://localhost/user.com',
     'object': {
         **ACCEPT_FOLLOW,
@@ -1593,21 +1593,21 @@ class ActivityPubUtilsTest(TestCase):
                 'id': 'baj',
                 'preferredUsername': 'site',
                 'url': 'http://localhost/r/site',
-                'inbox': 'http://bf/fake/site/ap/inbox',
-                'outbox': 'http://bf/fake/site/ap/outbox',
+                'inbox': 'http://localhost/ap/fa/site/inbox',
+                'outbox': 'http://localhost/ap/fa/site/outbox',
             },
             'attributedTo': [{
                 'id': 'bar',
                 'preferredUsername': 'site',
                 'url': 'http://localhost/r/site',
-                'inbox': 'http://bf/fake/site/ap/inbox',
-                'outbox': 'http://bf/fake/site/ap/outbox',
+                'inbox': 'http://localhost/ap/fa/site/inbox',
+                'outbox': 'http://localhost/ap/fa/site/outbox',
             }, {
                 'id': 'baz',
                 'preferredUsername': 'site',
                 'url': 'http://localhost/r/site',
-                'inbox': 'http://bf/fake/site/ap/inbox',
-                'outbox': 'http://bf/fake/site/ap/outbox',
+                'inbox': 'http://localhost/ap/fa/site/inbox',
+                'outbox': 'http://localhost/ap/fa/site/outbox',
             }],
             'to': [as2.PUBLIC_AUDIENCE],
         }, postprocess_as2({
@@ -1960,11 +1960,11 @@ class ActivityPubUtilsTest(TestCase):
     def test_readable_id(self):
         user = self.make_user('http://foo', cls=ActivityPub)
         self.assertIsNone(user.readable_id)
-        self.assertEqual('http://foo', user.readable_or_key_id())
+        self.assertEqual('http://foo', user.handle_or_id())
 
         user.obj = Object(id='a', as2=ACTOR)
         self.assertEqual('@swentel@mas.to', user.readable_id)
-        self.assertEqual('@swentel@mas.to', user.readable_or_key_id())
+        self.assertEqual('@swentel@mas.to', user.handle_or_id())
 
     @skip
     def test_target_for_not_activitypub(self):

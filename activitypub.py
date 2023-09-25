@@ -62,11 +62,6 @@ class ActivityPub(User, Protocol):
     """
     ABBREV = 'ap'
 
-    @ndb.ComputedProperty
-    def readable_id(self):
-        """Returns fediverse handle ie WebFinger address, eg '@me@snarfed.org'."""
-        return self.ap_address()
-
     def _pre_put_hook(self):
         """Validate id, require URL, don't allow Bridgy Fed domains.
 
@@ -106,7 +101,7 @@ class ActivityPub(User, Protocol):
 
         Eg 'https://foo.com/@user'
         """
-        return self.key.id()
+        return self.key.id() + (f'/{rest}' if rest else '')
 
     @classmethod
     def owns_id(cls, id):

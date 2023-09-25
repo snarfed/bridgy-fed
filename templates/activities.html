@@ -17,7 +17,7 @@
       {% if loop.index0 == 3 %}
         <span id="more-users" style="display: none">
       {% endif %}
-      <a href="{{ user.user_page_path() }}">🌐 {{ user.readable_or_key_id() }}</a>
+      <a href="{{ user.user_page_path() }}">🌐 {{ user.handle_or_id() }}</a>
       <br>
     {% endfor %}
     {% if obj.users|length > 3 %}

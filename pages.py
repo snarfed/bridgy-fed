@@ -50,7 +50,7 @@ def load_user(protocol, id):
             if g.user and g.user.use_instead:
                 g.user = g.user.use_instead.get()
 
-        if g.user and id != g.user.readable_or_key_id():
+        if g.user and id not in (g.user.key.id(), g.user.handle()):
             error('', status=302, location=g.user.user_page_path())
 
     elif g.user and id != g.user.key.id():  # use_instead redirect

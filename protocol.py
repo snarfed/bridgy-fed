@@ -655,8 +655,7 @@ class Protocol:
 
             # send accept. note that this is one accept for the whole follow, even
             # if it has multiple followees!
-            id = common.host_url(to_user.user_page_path(
-                f'followers#accept-{obj.key.id()}'))
+            id = to_user.ap_actor(f'followers#accept-{obj.key.id()}')
             accept = Object.get_or_create(id, our_as1={
                 'id': id,
                 'objectType': 'activity',

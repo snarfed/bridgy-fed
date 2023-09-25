@@ -144,7 +144,7 @@ class Webfinger(flask_util.XrdOrJrd):
                 'rel': 'http://ostatus.org/schema/1.0/subscribe',
                 # TODO: switch to:
                 # 'template': common.host_url(g.user.user_page_path('?url={uri}')),
-                # the problem is that user_page_path() uses readable_id, which uses
+                # the problem is that user_page_path() uses handle_or_id, which uses
                 # custom username instead of domain, which may not be unique
                 'template': common.host_url(f'{cls.ABBREV}/{id}?url={{uri}}'),
             }]

@@ -90,11 +90,11 @@ WEBFINGER_FAKE = {
     }, {
         'rel': 'self',
         'type': 'application/activity+json',
-        'href': 'http://bf/fake/fake:user/ap',
+        'href': 'http://localhost/ap/fa/fake:user',
     }, {
         'rel': 'inbox',
         'type': 'application/activity+json',
-        'href': 'http://bf/fake/fake:user/ap/inbox',
+        'href': 'http://localhost/ap/fa/fake:user/inbox',
     }, {
         'rel': 'sharedInbox',
         'type': 'application/activity+json',
@@ -105,7 +105,9 @@ WEBFINGER_FAKE = {
     }],
 }
 WEBFINGER_FAKE_FED_BRID_GY = copy.deepcopy(WEBFINGER_FAKE)
-WEBFINGER_FAKE_FED_BRID_GY['links'][3]['href'] = 'https://fed.brid.gy/ap/sharedInbox'
+for link in WEBFINGER_FAKE_FED_BRID_GY['links']:
+    if 'href' in link:
+        link['href'] = link['href'].replace('http://localhost', 'https://fed.brid.gy')
 WEBFINGER_FAKE_FED_BRID_GY['links'][4]['template'] = 'https://fed.brid.gy/fa/fake:user?url={uri}'
 
 
