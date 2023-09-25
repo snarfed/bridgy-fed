@@ -4,14 +4,7 @@ https://fed.brid.gy/docs#translate
 """
 import re
 
-from granary.bluesky import Bluesky
-
-from activitypub import ActivityPub
-from atproto import ATProto
-from common import DOMAIN_RE, host_url, SUPERDOMAIN
-from models import User
-from protocol import Protocol, PROTOCOLS
-from web import Web
+from common import host_url, SUPERDOMAIN
 
 
 def convert_id(*, id, from_proto, to_proto):
@@ -19,15 +12,17 @@ def convert_id(*, id, from_proto, to_proto):
 
     Args:
       id (str)
-      from_proto (:class:`Protocol`)
-      to_proto (:class:`Protocol`)
+      from_proto (protocols.Protocol)
+      to_proto (protocols.Protocol)
 
     Returns:
       str: the corresponding id in ``to_proto``
     """
     assert id and from_proto and to_proto
-    assert from_proto != to_proto
     assert from_proto.owns_id(id) is not False
+
+    if from_proto == to_proto:
+        return id
 
     match (from_proto.LABEL, to_proto.LABEL):
         case (_, 'atproto'):
@@ -37,7 +32,7 @@ def convert_id(*, id, from_proto, to_proto):
             user = from_proto.get_for_copy(id)
             return user.key.id() if user else None
         case (_, 'activitypub'):
-            return host_url(f'{from_proto.ABBREV}/{ActivityPub.ABBREV}/{id}')
+            return host_url(f'{from_proto.ABBREV}/ap/{id}')
         case ('activitypub', 'web'):
             return id
         # fake protocol is only for unit tests
@@ -52,19 +47,19 @@ def convert_id(*, id, from_proto, to_proto):
 def convert_handle(*, handle, from_proto, to_proto):
     """Converts a handle from one protocol to another.
 
-    TODO: May make network requests to resolve handles!
-
     Args:
       handle (str)
-      from_proto (:class:`Protocol`)
-      to_proto (:class:`Protocol`)
+      from_proto (protocols.Protocol)
+      to_proto (protocols.Protocol)
 
     Returns:
       str: the corresponding handle in ``to_proto``
     """
     assert handle and from_proto and to_proto
-    assert from_proto != to_proto
     assert from_proto.owns_handle(handle) is not False
+
+    if from_proto == to_proto:
+        return handle
 
     match (from_proto.LABEL, to_proto.LABEL):
         case (_, 'activitypub'):

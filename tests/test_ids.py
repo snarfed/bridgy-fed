@@ -11,25 +11,28 @@ class IdsTest(TestCase):
     def test_convert_id(self):
         Web(id='user.com', atproto_did='did:plc:123',
             copies=[Target(uri='did:plc:123', protocol='atproto')]).put()
-        ActivityPub(id='https://instance/user', atproto_did='did:plc:456',
+        ActivityPub(id='https://inst/user', atproto_did='did:plc:456',
                     copies=[Target(uri='did:plc:456', protocol='atproto')]).put()
         Fake(id='fake:user', atproto_did='did:plc:789',
              copies=[Target(uri='did:plc:789', protocol='atproto')]).put()
 
         for from_, id, to, expected in [
+            (ActivityPub, 'https://inst/user', ActivityPub, 'https://inst/user'),
+            (ActivityPub, 'https://inst/user', ATProto, 'did:plc:456'),
+            (ActivityPub, 'https://inst/user', Fake, 'fake:https://inst/user'),
+            (ActivityPub, 'https://inst/user', Web, 'https://inst/user'),
+            (ATProto, 'did:plc:123', Web, 'user.com'),
+            (ATProto, 'did:plc:456', ActivityPub, 'https://inst/user'),
+            (ATProto, 'did:plc:456', ATProto, 'did:plc:456'),
+            (ATProto, 'did:plc:789', Fake, 'fake:user'),
+            (Fake, 'fake:user', ActivityPub, 'http://localhost/fa/ap/fake:user'),
+            (Fake, 'fake:user', ATProto, 'did:plc:789'),
+            (Fake, 'fake:user', Fake, 'fake:user'),
+            (Fake, 'fake:user', Web, 'fake:user'),
             (Web, 'user.com', ActivityPub, 'http://localhost/web/ap/user.com'),
             (Web, 'user.com', ATProto, 'did:plc:123'),
             (Web, 'user.com', Fake, 'fake:user.com'),
-                # TODO: not a domain, is that ok?
-            (ActivityPub, 'https://instance/user', Web, 'https://instance/user'),
-            (ActivityPub, 'https://instance/user', ATProto, 'did:plc:456'),
-            (ActivityPub, 'https://instance/user', Fake, 'fake:https://instance/user'),
-            (ATProto, 'did:plc:123', Web, 'user.com'),
-            (ATProto, 'did:plc:456', ActivityPub, 'https://instance/user'),
-            (ATProto, 'did:plc:789', Fake, 'fake:user'),
-            (Fake, 'fake:user', Web, 'fake:user'),
-            (Fake, 'fake:user', ActivityPub, 'http://localhost/fa/ap/fake:user'),
-            (Fake, 'fake:user', ATProto, 'did:plc:789'),
+            (Web, 'user.com', Web, 'user.com'),
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, convert_id(
@@ -53,28 +56,32 @@ class IdsTest(TestCase):
             (Web, 'user.com', ActivityPub, '@user.com@web.brid.gy'),
             (Web, 'user.com', ATProto, 'user.com.web.brid.gy'),
             (Web, 'user.com', Fake, 'fake:handle:user.com'),
+            (Web, 'user.com', Web, 'user.com'),
             # # TODO: enhanced
             # (Web, 'user.com', ActivityPub, '@user.com@user.com'),
             # (Web, 'user.com', Fake, 'fake:handle:user.com'),
 
             # TODO: webfinger lookup
-            (ActivityPub, '@user@instance', Web, 'instance/@user'),
+            (ActivityPub, '@user@instance', ActivityPub, '@user@instance'),
             (ActivityPub, '@user@instance', ATProto, 'user.instance.ap.brid.gy'),
             (ActivityPub, '@user@instance', Fake, 'fake:handle:@user@instance'),
+            (ActivityPub, '@user@instance', Web, 'instance/@user'),
             # # # TODO: enhanced
             # (ActivityPub, '@user@instance', Web, 'https://instance/user'),
             # (ActivityPub, '@user@instance', Fake,
             #  'fake:handle:https://instance/user'),
 
-            (ATProto, 'user.com', Web, 'user.com'),
             (ATProto, 'user.com', ActivityPub, '@user.com@atproto.brid.gy'),
+            (ATProto, 'user.com', ATProto, 'user.com'),
             (ATProto, 'user.com', Fake, 'fake:handle:user.com'),
+            (ATProto, 'user.com', Web, 'user.com'),
             # # # TODO: enhanced
             # (ATProto, '@user@instance', ActivityPub, 'user.com'),
 
-            (Fake, 'fake:handle:user', Web, 'fake:handle:user'),
             (Fake, 'fake:handle:user', ActivityPub, '@fake:handle:user@fa.brid.gy'),
             (Fake, 'fake:handle:user', ATProto, 'fake:handle:user.fa.brid.gy'),
+            (Fake, 'fake:handle:user', Fake, 'fake:handle:user'),
+            (Fake, 'fake:handle:user', Web, 'fake:handle:user'),
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, convert_handle(
