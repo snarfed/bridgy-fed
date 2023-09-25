@@ -8,6 +8,7 @@ from urllib.parse import quote_plus, urljoin
 
 from flask import abort, g, request
 from google.cloud import ndb
+from google.cloud.ndb.query import OR
 from granary import as1, as2
 from httpsig import HeaderVerifier
 from httpsig.requests_auth import HTTPSignatureAuth
@@ -85,6 +86,7 @@ class ActivityPub(User, Protocol):
 
         return self.ap_actor()
 
+    @ndb.ComputedProperty
     def handle(self):
         """Returns this user's ActivityPub address, eg ``@user@foo.com``."""
         if self.obj and self.obj.as1:
@@ -94,7 +96,8 @@ class ActivityPub(User, Protocol):
 
         return as2.address(self.key.id())
 
-    ap_address = handle
+    def ap_address(self):
+        return self.handle
 
     def ap_actor(self, rest=None):
         """Returns this user's actor id URL, eg ``https://foo.com/@user``."""
@@ -136,7 +139,9 @@ class ActivityPub(User, Protocol):
         if not handle.startswith('@'):
             handle = '@' + handle
 
-        user = ActivityPub.query(ActivityPub.readable_id == handle).get()
+        user = ActivityPub.query(OR(ActivityPub.handle == handle,
+                                    ActivityPub.readable_id == handle),
+                                 ).get()
         if user:
             return user.key.id()
 

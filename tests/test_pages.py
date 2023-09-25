@@ -40,7 +40,7 @@ class PagesTest(TestCase):
         got = self.client.get('/fa/foo.com')
         self.assert_equals(200, got.status_code)
 
-    def test_user_readable_id_activitypub_address(self):
+    def test_user_page_handle(self):
         user = self.make_user('http://foo', cls=ActivityPub,
                               obj_as2=ACTOR_WITH_PREFERRED_USERNAME)
         self.assertEqual('@me@plus.google.com', user.ap_address())

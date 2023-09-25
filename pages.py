@@ -46,11 +46,13 @@ def load_user(protocol, id):
 
     if protocol != 'web':
         if not g.user:
-            g.user = cls.query(cls.readable_id == id).get()
+            g.user = cls.query(OR(cls.handle == id,
+                                  cls.readable_id == id),
+                               ).get()
             if g.user and g.user.use_instead:
                 g.user = g.user.use_instead.get()
 
-        if g.user and id not in (g.user.key.id(), g.user.handle()):
+        if g.user and id not in (g.user.key.id(), g.user.handle):
             error('', status=302, location=g.user.user_page_path())
 
     elif g.user and id != g.user.key.id():  # use_instead redirect

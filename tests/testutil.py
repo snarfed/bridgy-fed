@@ -70,6 +70,7 @@ class Fake(User, protocol.Protocol):
     # in-order list of ids
     fetched = []
 
+    @ndb.ComputedProperty
     def handle(self):
         return self.key.id().replace('fake:', 'fake:handle:')
 
@@ -435,8 +436,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             self.assert_equals(obj_as2, got.as2())
 
         # generated, computed, etc
-        ignore = ['created', 'mod', 'obj_key', 'private_exponent',
-                  'public_exponent', 'readable_id', 'updated']
+        ignore = ['created', 'mod', 'handle', 'obj_key', 'private_exponent',
+                  'public_exponent', 'updated']
         for prop in ignore:
             assert prop not in props
 

@@ -1926,15 +1926,15 @@ class ActivityPubUtilsTest(TestCase):
             'preferredUsername': 'me',
         }))
         self.assertEqual('@me@mas.to', user.ap_address())
-        self.assertEqual('@me@mas.to', user.readable_id)
+        self.assertEqual('@me@mas.to', user.handle)
 
         user.obj.as2 = ACTOR
         self.assertEqual('@swentel@mas.to', user.ap_address())
-        self.assertEqual('@swentel@mas.to', user.readable_id)
+        self.assertEqual('@swentel@mas.to', user.handle)
 
         user = ActivityPub(id='https://mas.to/users/alice')
         self.assertEqual('@alice@mas.to', user.ap_address())
-        self.assertEqual('@alice@mas.to', user.readable_id)
+        self.assertEqual('@alice@mas.to', user.handle)
 
     def test_ap_actor(self):
         user = self.make_user('http://foo/actor', cls=ActivityPub)
@@ -1957,13 +1957,13 @@ class ActivityPubUtilsTest(TestCase):
         user.obj.as2['url'] = ['http://my/url']
         self.assertEqual('http://my/url', user.web_url())
 
-    def test_readable_id(self):
+    def test_handle(self):
         user = self.make_user('http://foo', cls=ActivityPub)
-        self.assertIsNone(user.readable_id)
+        self.assertIsNone(user.handle)
         self.assertEqual('http://foo', user.handle_or_id())
 
         user.obj = Object(id='a', as2=ACTOR)
-        self.assertEqual('@swentel@mas.to', user.readable_id)
+        self.assertEqual('@swentel@mas.to', user.handle)
         self.assertEqual('@swentel@mas.to', user.handle_or_id())
 
     @skip

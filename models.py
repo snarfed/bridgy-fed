@@ -286,19 +286,17 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return self.obj.as_as2() if self.obj else {}
 
     @ndb.ComputedProperty
-    def readable_id(self):
-        """This user's human-readable unique id, eg ``@me@snarfed.org``.
-
-        TODO: rename to handle! And keep readable_id in queries for backcompat
-        """
-        return self.handle()
-
     def handle(self):
-        """Returns this user's handle, eg ``@me@snarfed.org``.
+        """This user's unique, human-chosen handle, eg ``@me@snarfed.org``.
 
         To be implemented by subclasses.
         """
         raise NotImplementedError()
+
+    @ndb.ComputedProperty
+    def readable_id(self):
+        """DEPRECATED: replaced by handle. Kept for backward compatibility."""
+        return None
 
     def handle_as(self, to_proto):
         """Returns this user's handle in a different protocol.
@@ -312,7 +310,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if isinstance(to_proto, str):
             to_proto = PROTOCOLS[to_proto]
 
-        return ids.convert_handle(handle=self.handle(), from_proto=self.__class__,
+        return ids.convert_handle(handle=self.handle, from_proto=self.__class__,
                                   to_proto=to_proto)
 
     def id_as(self, to_proto):
@@ -332,7 +330,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     def handle_or_id(self):
         """Returns handle if we know it, otherwise id."""
-        return self.handle() or self.key.id()
+        return self.handle or self.key.id()
 
     def href(self):
         return f'data:application/magic-public-key,RSA.{self.mod}.{self.public_exponent}'
@@ -543,7 +541,7 @@ class Object(StringIdModel):
         elif self.bsky:
             owner, _, _ = arroba.util.parse_at_uri(self.key.id())
             ATProto = PROTOCOLS['atproto']
-            handle = ATProto(id=owner).handle()
+            handle = ATProto(id=owner).handle
             obj = bluesky.to_as1(self.bsky, repo_did=owner, repo_handle=handle,
                                  pds=ATProto.target_for(self))
 

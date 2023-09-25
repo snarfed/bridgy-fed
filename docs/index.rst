@@ -105,7 +105,7 @@ How to add a new protocol
    and
    `User <https://github.com/snarfed/bridgy-fed/blob/main/models.py>`__.
    Implement the ``send``, ``fetch``, ``serve``, and ``target_for``
-   methods from ``Protocol`` and ``readable_id``, ``web_url``,
+   methods from ``Protocol`` and ``handle``, ``web_url``,
    ``ap_address``, and ``ap_actor`` from ``User`` .
 4. TODO: add a new usage section to the docs for the new protocol.
 5. TODO: does the new protocol need any new UI or signup functionality?

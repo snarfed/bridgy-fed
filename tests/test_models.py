@@ -113,8 +113,8 @@ class UserTest(TestCase):
         g.user.obj = Object(id='a', as2={'name': 'alice'})
         self.assertEqual('alice', g.user.name())
 
-    def test_readable_id(self):
-        self.assertEqual('y.z', g.user.readable_id)
+    def test_handle(self):
+        self.assertEqual('y.z', g.user.handle)
 
     def test_as2(self):
         self.assertEqual({}, g.user.as2())

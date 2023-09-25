@@ -81,7 +81,7 @@ class Web(User, Protocol):
         """Validate domain id, don't allow upper case or invalid characters."""
         super()._pre_put_hook()
         id = self.key.id()
-        assert is_valid_domain(id)
+        assert is_valid_domain(id), id
         assert id.lower() == id, f'upper case is not allowed in Web key id: {id}'
 
     @classmethod
@@ -93,6 +93,7 @@ class Web(User, Protocol):
         """
         return super().get_or_create(id.lower().strip('.'), **kwargs)
 
+    @ndb.ComputedProperty
     def handle(self):
         """Returns this user's chosen username or domain, eg ``user.com``."""
         # prettify if domain, noop if username

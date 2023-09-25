@@ -66,6 +66,7 @@ class ATProto(User, Protocol):
         assert not self.atproto_did, \
             f"{self.key} shouldn't have atproto_did {self.atproto_did}"
 
+    @ndb.ComputedProperty
     def handle(self):
         """Returns handle if the DID document includes one, otherwise None."""
         did_obj = ATProto.load(self.key.id(), remote=False)
@@ -94,7 +95,7 @@ class ATProto(User, Protocol):
     def handle_to_id(cls, handle):
         assert cls.owns_handle(handle) is not False
 
-        user = ATProto.query(ATProto.readable_id == handle).get()
+        user = ATProto.query(ATProto.handle == handle).get()
         if user:
             return user.key.id()
 

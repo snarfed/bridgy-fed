@@ -1892,7 +1892,7 @@ class WebUtilTest(TestCase):
                 self.assertIsNone(Web.key_for(bad))
 
     def test_handle(self, *_):
-        self.assertEqual('user.com', g.user.handle())
+        self.assertEqual('user.com', g.user.handle)
 
     def test_owns_id(self, *_):
         self.assertIsNone(Web.owns_id('http://foo.com'))
