@@ -114,8 +114,8 @@ class Web(User, Protocol):
         """
         if self.direct:
             return f'@{self.username()}@{self.key.id()}'
-        else:
-            return f'@{self.key.id()}@{request.host}'
+
+        return super().ap_address()
 
     def ap_actor(self, rest=None):
         """Returns this user's ActivityPub/AS2 actor id.

@@ -1786,7 +1786,7 @@ http://this/404s
         self.assertEqual('@baz@user.com', g.user.ap_address())
 
         g.user.direct = False
-        self.assertEqual('@user.com@localhost', g.user.ap_address())
+        self.assertEqual('@user.com@web.brid.gy', g.user.ap_address())
 
     def test_ap_actor(self, *_):
         self.assertEqual('http://localhost/user.com', g.user.ap_actor())

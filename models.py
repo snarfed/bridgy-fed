@@ -396,12 +396,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     def ap_address(self):
         """Returns this user's ActivityPub address, eg '@me@foo.com'.
 
-        To be implemented by subclasses.
-
         Returns:
           str
         """
-        raise NotImplementedError()
+        # TODO: use self.handle_as? need it to fall back to id?
+        return f'@{self.handle_or_id()}@{self.ABBREV}{common.SUPERDOMAIN}'
 
     def ap_actor(self, rest=None):
         """Returns this user's ActivityPub/AS2 actor id.

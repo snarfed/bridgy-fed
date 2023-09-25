@@ -66,7 +66,7 @@ class ActivityPub(User, Protocol):
         """Validate id, require URL, don't allow Bridgy Fed domains.
 
         TODO: normalize scheme and domain to lower case. Add that to
-        webutil.util.UrlCanonicalizer?
+        :class:`util.UrlCanonicalizer`?
         """
         super()._pre_put_hook()
         id = self.key.id()

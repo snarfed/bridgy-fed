@@ -78,10 +78,6 @@ class ATProto(User, Protocol):
     def web_url(self):
         return bluesky.Bluesky.user_url(self.handle_or_id())
 
-    def ap_address(self):
-        """Returns this user's AP address, eg '@handle.com@bsky.brid.gy'."""
-        return f'@{self.handle_or_id()}@{self.ABBREV}{common.SUPERDOMAIN}'
-
     @classmethod
     def owns_id(cls, id):
         return (id.startswith('at://')

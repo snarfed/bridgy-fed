@@ -81,7 +81,7 @@ WEBFINGER_NO_HCARD = {
     }],
 }
 WEBFINGER_FAKE = {
-    'subject': 'acct:fake:user@fake',
+    'subject': 'acct:fake:handle:user@fa.brid.gy',
     'aliases': ['fake:user'],
     'links': [{
         'rel': 'canonical_uri',
@@ -162,7 +162,7 @@ class WebfingerTest(TestCase):
 
     def test_user_infer_protocol_from_resource_subdomain(self):
         got = self.client.get(
-            '/.well-known/webfinger?resource=acct:fake:user@fake.brid.gy',
+            '/.well-known/webfinger?resource=acct:fake:handle:user@fake.brid.gy',
             headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
@@ -180,7 +180,7 @@ class WebfingerTest(TestCase):
 
     def test_user_infer_protocol_resource_overrides_request(self):
         got = self.client.get(
-            '/.well-known/webfinger?resource=acct:fake:user@fake.brid.gy',
+            '/.well-known/webfinger?resource=acct:fake:handle:user@fake.brid.gy',
             base_url='https://ap.brid.gy/',
             headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code)
@@ -276,7 +276,7 @@ class WebfingerTest(TestCase):
         mock_get.return_value = requests_response(test_web.ACTOR_HTML)
 
         expected = copy.deepcopy(WEBFINGER_NO_HCARD)
-        expected['subject'] = 'acct:user.com@localhost'
+        expected['subject'] = 'acct:user.com@web.brid.gy'
 
         got = self.client.get('/.well-known/webfinger?resource=acct:user.com@fed.brid.gy',
                               headers={'Accept': 'application/json'})

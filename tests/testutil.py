@@ -76,9 +76,6 @@ class Fake(User, protocol.Protocol):
     def web_url(self):
         return self.key.id()
 
-    def ap_address(self):
-        return f'@{self.key.id()}@fake'
-
     @classmethod
     def owns_id(cls, id):
         if id.startswith('nope') or id == 'fake:nope':
