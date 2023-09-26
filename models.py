@@ -403,7 +403,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     def ap_actor(self, rest=None):
         """Returns this user's ActivityPub/AS2 actor id.
 
-        Eg ``https://fed.brid.gy/ap/atproto/foo.com`.
+        Eg ``https://atproto.brid.gy/ap/foo.com`.
 
         May be overridden by subclasses.
 
@@ -414,7 +414,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
           str
         """
         # must match the URL route for activitypub.actor()
-        url = common.host_url(f'/ap/{self.ABBREV}/{self.key.id()}')
+        url = self.subdomain_url(f'/ap/{self.key.id()}')
         if rest:
             url += f'/{rest.lstrip("/")}'
         return url

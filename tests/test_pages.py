@@ -32,7 +32,7 @@ class PagesTest(TestCase):
         self.user = self.make_user('user.com')
 
     def test_user(self):
-        got = self.client.get('/web/user.com')
+        got = self.client.get('/web/user.com', base_url='https://fed.brid.gy/')
         self.assert_equals(200, got.status_code)
 
     def test_user_fake(self):

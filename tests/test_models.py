@@ -140,11 +140,12 @@ class UserTest(TestCase):
         self.assertEqual('fake:handle:user', user.handle_as('fake'))
         self.assertEqual('@fake:handle:user@fa.brid.gy', user.handle_as('ap'))
 
-    def test_ap_actor(self):
+    @patch('requests.get', return_value=requests_response(DID_DOC))
+    def test_ap_actor(self, mock_get):
         user = self.make_user('did:plc:abc', cls=ATProto)
-        self.assertEqual('http://localhost/ap/atproto/did:plc:abc',
+        self.assertEqual('https://atproto.brid.gy/ap/did:plc:abc',
                          user.ap_actor())
-        self.assertEqual('http://localhost/ap/atproto/did:plc:abc/foo',
+        self.assertEqual('https://atproto.brid.gy/ap/did:plc:abc/foo',
                          user.ap_actor(rest='foo'))
 
     def test_load_multi(self):

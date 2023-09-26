@@ -703,13 +703,24 @@ def postprocess_as2_actor(actor, wrap=True):
     return actor
 
 
+# source protocol in subdomain.
+# WARNING: the user page handler in pages.py overrides this for fediverse
+# addresses with leading @ character. be careful when changing this route!
+@app.get(f'/ap/<handle_or_id>', defaults={'protocol': None})
+# source protocol in path; primarily for localhost testing
 @app.get(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<handle_or_id>')
 # special case Web users without /ap/web/ prefix, for backward compatibility
 @app.get(f'/<regex("{DOMAIN_RE}"):handle_or_id>', defaults={'protocol': 'web'})
 @flask_util.cached(cache, CACHE_TIME)
 def actor(protocol, handle_or_id):
     """Serves a user's AS2 actor from the datastore."""
-    cls = PROTOCOLS[protocol]
+    if protocol:
+        cls = PROTOCOLS[protocol]
+    else:
+        cls = Protocol.for_request(fed=None)
+
+    if not cls:
+        error(f"Couldn't determine protocol")
 
     if cls.owns_id(handle_or_id) is False:
         if cls.owns_handle(handle_or_id) is False:
@@ -739,7 +750,7 @@ def actor(protocol, handle_or_id):
         'following': g.user.ap_actor('following'),
         'followers': g.user.ap_actor('followers'),
         'endpoints': {
-            'sharedInbox': host_url('/ap/sharedInbox'),
+            'sharedInbox': cls.subdomain_url('/ap/sharedInbox'),
         },
         # add this if we ever change the Web actor ids to be /web/[id]
         # 'alsoKnownAs': [host_url(id)],
@@ -764,6 +775,8 @@ def actor(protocol, handle_or_id):
     }
 
 
+# note that this path overlaps with the /ap/<handle_or_id> actor route above,
+# but doesn't collide because this is POST and that one is GET.
 @app.post('/ap/sharedInbox')
 @app.post(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{DOMAIN_RE}"):domain>/inbox')
 # special case Web users without /ap/web/ prefix, for backward compatibility

@@ -46,7 +46,7 @@ WEBFINGER = {
     }, {
         'rel': 'sharedInbox',
         'type': 'application/activity+json',
-        'href': 'http://localhost/ap/sharedInbox',
+        'href': 'https://web.brid.gy/ap/sharedInbox',
     }, {
         'rel': 'http://ostatus.org/schema/1.0/subscribe',
         'template': 'http://localhost/web/user.com?url={uri}',
@@ -74,7 +74,7 @@ WEBFINGER_NO_HCARD = {
     }, {
         'rel': 'sharedInbox',
         'type': 'application/activity+json',
-        'href': 'http://localhost/ap/sharedInbox',
+        'href': 'https://web.brid.gy/ap/sharedInbox',
     }, {
         'rel': 'http://ostatus.org/schema/1.0/subscribe',
         'template': 'http://localhost/web/user.com?url={uri}',
@@ -98,17 +98,18 @@ WEBFINGER_FAKE = {
     }, {
         'rel': 'sharedInbox',
         'type': 'application/activity+json',
-        'href': 'http://localhost/ap/sharedInbox',
+        'href': 'https://web.brid.gy/ap/sharedInbox',
     }, {
         'rel': 'http://ostatus.org/schema/1.0/subscribe',
         'template': 'http://localhost/fa/fake:user?url={uri}',
     }],
 }
-WEBFINGER_FAKE_FED_BRID_GY = copy.deepcopy(WEBFINGER_FAKE)
-for link in WEBFINGER_FAKE_FED_BRID_GY['links']:
+WEBFINGER_FAKE_FA_BRID_GY = copy.deepcopy(WEBFINGER_FAKE)
+for link in WEBFINGER_FAKE_FA_BRID_GY['links']:
     if 'href' in link:
-        link['href'] = link['href'].replace('http://localhost', 'https://fed.brid.gy')
-WEBFINGER_FAKE_FED_BRID_GY['links'][4]['template'] = 'https://fed.brid.gy/fa/fake:user?url={uri}'
+        link['href'] = link['href'].replace('http://localhost/ap/fa', 'https://fa.brid.gy/ap')
+WEBFINGER_FAKE_FA_BRID_GY['links'][3]['href'] = 'https://fa.brid.gy/ap/sharedInbox'
+WEBFINGER_FAKE_FA_BRID_GY['links'][4]['template'] = 'https://fed.brid.gy/fa/fake:user?url={uri}'
 
 
 class HostMetaTest(TestCase):
@@ -163,10 +164,11 @@ class WebfingerTest(TestCase):
     def test_user_infer_protocol_from_resource_subdomain(self):
         got = self.client.get(
             '/.well-known/webfinger?resource=acct:fake:handle:user@fake.brid.gy',
+            base_url='https://fed.brid.gy/',
             headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
-        self.assert_equals(WEBFINGER_FAKE, got.json)
+        self.assert_equals(WEBFINGER_FAKE_FA_BRID_GY, got.json)
 
     def test_user_infer_protocol_from_request_subdomain(self):
         self.make_user('fake:user', cls=Fake)
@@ -176,7 +178,7 @@ class WebfingerTest(TestCase):
             headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
-        self.assert_equals(WEBFINGER_FAKE_FED_BRID_GY, got.json)
+        self.assert_equals(WEBFINGER_FAKE_FA_BRID_GY, got.json)
 
     def test_user_infer_protocol_resource_overrides_request(self):
         got = self.client.get(
@@ -185,14 +187,15 @@ class WebfingerTest(TestCase):
             headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code)
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
-        self.assert_equals(WEBFINGER_FAKE_FED_BRID_GY, got.json)
+        self.assert_equals(WEBFINGER_FAKE_FA_BRID_GY, got.json)
 
     def test_handle(self):
         got = self.client.get(
             '/.well-known/webfinger?resource=acct:fake:handle:user@fake.brid.gy',
+            base_url='https://fed.brid.gy/',
             headers={'Accept': 'application/json'})
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-        self.assert_equals(WEBFINGER_FAKE, got.json)
+        self.assert_equals(WEBFINGER_FAKE_FA_BRID_GY, got.json)
 
     def test_urlencoded(self):
         """https://github.com/snarfed/bridgy-fed/issues/535"""

@@ -56,7 +56,7 @@ ACTOR_BASE = {
     'following': 'http://localhost/user.com/following',
     'followers': 'http://localhost/user.com/followers',
     'endpoints': {
-        'sharedInbox': 'http://localhost/ap/sharedInbox',
+        'sharedInbox': 'https://web.brid.gy/ap/sharedInbox',
     },
     'publicKey': {
         'id': 'http://localhost/user.com#key',
@@ -74,20 +74,23 @@ ACTOR_BASE_FULL = {
     }],
 }
 ACTOR_FAKE = {
-    '@context': ['https://w3id.org/security/v1'],
+    '@context': [
+        'https://www.w3.org/ns/activitystreams',
+        'https://w3id.org/security/v1',
+    ],
     'type': 'Person',
-    'id': 'http://localhost/ap/fa/fake:user',
+    'id': 'https://fa.brid.gy/ap/fake:user',
+    'url': 'https://fa.brid.gy/r/fake:user',
+    'inbox': 'https://fa.brid.gy/ap/fake:user/inbox',
+    'outbox': 'https://fa.brid.gy/ap/fake:user/outbox',
+    'following': 'https://fa.brid.gy/ap/fake:user/following',
+    'followers': 'https://fa.brid.gy/ap/fake:user/followers',
+    'endpoints': {'sharedInbox': 'https://fa.brid.gy/ap/sharedInbox'},
     'preferredUsername': 'fake:user',
-    'url': 'http://localhost/r/fake:user',
     'summary': '',
-    'inbox': 'http://localhost/ap/fa/fake:user/inbox',
-    'outbox': 'http://localhost/ap/fa/fake:user/outbox',
-    'following': 'http://localhost/ap/fa/fake:user/following',
-    'followers': 'http://localhost/ap/fa/fake:user/followers',
-    'endpoints': {'sharedInbox': 'http://localhost/ap/sharedInbox'},
     'publicKey': {
-        'id': 'http://localhost/fake#key',
-        'owner': 'http://localhost/fake',
+        'id': 'https://fa.brid.gy/fake#key',
+        'owner': 'https://fa.brid.gy/fake',
         'publicKeyPem': 'populated in setUp()',
     },
 }
@@ -298,9 +301,8 @@ class ActivityPubTest(TestCase):
         self.swentel_key = ndb.Key(ActivityPub, 'https://mas.to/users/swentel')
         self.masto_actor_key = ndb.Key(ActivityPub, 'https://mas.to/actor')
 
-        ACTOR_BASE['publicKey']['publicKeyPem'] = \
-            ACTOR_FAKE['publicKey']['publicKeyPem'] = \
-                self.user.public_pem().decode()
+        for obj in ACTOR_BASE, ACTOR_FAKE:
+            obj['publicKey']['publicKeyPem'] = self.user.public_pem().decode()
 
         self.key_id_obj = Object(id='http://my/key/id', as2={
             **ACTOR,
@@ -336,15 +338,17 @@ class ActivityPubTest(TestCase):
         return self.client.post(path, data=body, headers=self.sign(path, body))
 
     def test_actor_fake(self, *_):
-        self.make_user('fake:user', cls=Fake, obj_as2={
-            'type': 'Person',
-            'id': 'fake:user',
-        })
-
-        got = self.client.get('/ap/fake/fake:user')
+        self.make_user('fake:user', cls=Fake)
+        got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         type = got.headers['Content-Type']
         self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
+        self.assertEqual(ACTOR_FAKE, got.json)
+
+    def test_actor_fake_protocol_subdomain(self, *_):
+        self.make_user('fake:user', cls=Fake)
+        got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
+        self.assertEqual(200, got.status_code)
         self.assertEqual(ACTOR_FAKE, got.json)
 
     def test_actor_web(self, *_):
@@ -393,7 +397,7 @@ class ActivityPubTest(TestCase):
 
     def test_actor_handle_existing_user(self, _, __, ___):
         self.make_user('fake:user', cls=Fake, obj_as2=ACTOR)
-        got = self.client.get('/ap/fake/fake:handle:user')
+        got = self.client.get('/ap/fake:handle:user', base_url='https://fa.brid.gy/')
         self.assertEqual(200, got.status_code)
         self.assert_equals({
             **ACTOR,
@@ -402,7 +406,7 @@ class ActivityPubTest(TestCase):
 
     def test_actor_handle_new_user(self, _, __, ___):
         Fake.fetchable['fake:user'] = as2.to_as1(ACTOR)
-        got = self.client.get('/ap/fake/fake:handle:user')
+        got = self.client.get('/ap/fake:handle:user', base_url='https://fa.brid.gy/')
         self.assertEqual(200, got.status_code)
         self.assert_equals({
             **ACTOR,
@@ -556,6 +560,9 @@ class ActivityPubTest(TestCase):
 
     def test_shared_inbox_create_obj(self, *mocks):
         self._test_inbox_create_obj('/inbox', *mocks)
+
+    def test_ap_sharedInbox_create_obj(self, *mocks):
+        self._test_inbox_create_obj('/ap/sharedInbox', *mocks)
 
     def _test_inbox_create_obj(self, path, mock_head, mock_get, mock_post):
         swentel = self.make_user('https://mas.to/users/swentel', cls=ActivityPub)
@@ -1593,21 +1600,21 @@ class ActivityPubUtilsTest(TestCase):
                 'id': 'baj',
                 'preferredUsername': 'site',
                 'url': 'http://localhost/r/site',
-                'inbox': 'http://localhost/ap/fa/site/inbox',
-                'outbox': 'http://localhost/ap/fa/site/outbox',
+                'inbox': 'https://fa.brid.gy/ap/site/inbox',
+                'outbox': 'https://fa.brid.gy/ap/site/outbox',
             },
             'attributedTo': [{
                 'id': 'bar',
                 'preferredUsername': 'site',
                 'url': 'http://localhost/r/site',
-                'inbox': 'http://localhost/ap/fa/site/inbox',
-                'outbox': 'http://localhost/ap/fa/site/outbox',
+                'inbox': 'https://fa.brid.gy/ap/site/inbox',
+                'outbox': 'https://fa.brid.gy/ap/site/outbox',
             }, {
                 'id': 'baz',
                 'preferredUsername': 'site',
                 'url': 'http://localhost/r/site',
-                'inbox': 'http://localhost/ap/fa/site/inbox',
-                'outbox': 'http://localhost/ap/fa/site/outbox',
+                'inbox': 'https://fa.brid.gy/ap/site/inbox',
+                'outbox': 'https://fa.brid.gy/ap/site/outbox',
             }],
             'to': [as2.PUBLIC_AUDIENCE],
         }, postprocess_as2({

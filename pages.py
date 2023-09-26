@@ -91,7 +91,13 @@ def web_user_redirects(**kwargs):
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>')
+# WARNING: this overrides the /ap/... actor URL route in activitypub.py, *only*
+# for handles with leading @ character. be careful when changing this route!
+@app.get(f'/ap/@<id>', defaults={'protocol': 'ap'})
 def user(protocol, id):
+    if protocol == 'ap' and not id.startswith('@'):
+        id = '@' + id
+
     load_user(protocol, id)
 
     query = Object.query(OR(Object.users == g.user.key,
