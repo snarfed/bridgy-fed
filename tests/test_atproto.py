@@ -29,6 +29,7 @@ import common
 from models import Object, Target
 import protocol
 from .testutil import Fake, TestCase
+from . import test_activitypub
 
 from hub import app
 
@@ -374,6 +375,14 @@ class ATProtoTest(TestCase):
             'content': 'foo',
             'actor': 'fake:user',
         })
+        self.assertFalse(ATProto.send(obj, 'http://localhost/'))
+        self.assertEqual(0, AtpBlock.query().count())
+        self.assertEqual(0, AtpRepo.query().count())
+        mock_create_task.assert_not_called()
+
+    @patch.object(tasks_client, 'create_task')
+    def test_send_ignore_accept(self, mock_create_task):
+        obj = Object(id='fake:accept', as2=test_activitypub.ACCEPT)
         self.assertFalse(ATProto.send(obj, 'http://localhost/'))
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())

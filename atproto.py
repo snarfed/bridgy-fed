@@ -197,7 +197,10 @@ class ATProto(User, Protocol):
             return False
 
         type = as1.object_type(obj.as1)
-        if type == 'post':
+        if type in ('accept', 'undo'):
+            logger.info(f'Skipping sending to {url}')
+            return False
+        elif type == 'post':
             type = as1.object_type(as1.get_object(obj.as1))
         assert type in ('note', 'article')
 
