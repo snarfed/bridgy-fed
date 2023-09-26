@@ -58,7 +58,8 @@ class ATProtoTest(TestCase):
         super().setUp()
         self.storage = DatastoreStorage()
 
-    def test_put_validates_id(self):
+    @patch('requests.get', return_value=requests_response(DID_DOC))
+    def test_put_validates_id(self, mock_get):
         for bad in (
             '',
             'not a did',
@@ -75,6 +76,10 @@ class ATProtoTest(TestCase):
 
         ATProto(id='did:web:foo.com').put()
         ATProto(id='did:plc:foo').put()
+
+    def test_handle(self):
+        self.store_object(id='did:plc:foo', raw=DID_DOC)
+        self.assertEqual('han.dull', ATProto(id='did:plc:foo').handle)
 
     def test_put_blocks_atproto_did(self):
         with self.assertRaises(AssertionError):
@@ -101,7 +106,7 @@ class ATProtoTest(TestCase):
         self.assertFalse(ATProto.owns_handle('@foo@bar.com'))
         self.assertFalse(ATProto.owns_handle('foo@bar.com'))
 
-    def test_handle_to_id(self, *_):
+    def test_handle_to_id(self):
         self.store_object(id='did:plc:foo', raw=DID_DOC)
         self.make_user('did:plc:foo', cls=ATProto)
         self.assertEqual('did:plc:foo', ATProto.handle_to_id('han.dull'))
@@ -219,7 +224,8 @@ class ATProtoTest(TestCase):
             (ACTOR_PROFILE_VIEW_BSKY, {'Content-Type': 'application/json'}),
             ATProto.serve(obj))
 
-    def test_web_url(self):
+    @patch('requests.get', return_value=requests_response('', status=404))
+    def test_web_url(self, mock_get):
         user = self.make_user('did:plc:foo', cls=ATProto)
         self.assertEqual('https://bsky.app/profile/did:plc:foo', user.web_url())
 
@@ -236,14 +242,16 @@ class ATProtoTest(TestCase):
         self.assertEqual('han.dull', user.handle)
         self.assertEqual('han.dull', user.handle_or_id())
 
-    def test_ap_address(self):
+    @patch('requests.get', return_value=requests_response('', status=404))
+    def test_ap_address(self, mock_get):
         user = self.make_user('did:plc:foo', cls=ATProto)
         self.assertEqual('@did:plc:foo@atproto.brid.gy', user.ap_address())
 
         self.store_object(id='did:plc:foo', raw=DID_DOC)
         self.assertEqual('@han.dull@atproto.brid.gy', user.ap_address())
 
-    def test_profile_id(self):
+    @patch('requests.get', return_value=requests_response(DID_DOC))
+    def test_profile_id(self, mock_get):
         self.assertEqual('at://did:plc:foo/app.bsky.actor.profile/self',
                          self.make_user('did:plc:foo', cls=ATProto).profile_id())
 

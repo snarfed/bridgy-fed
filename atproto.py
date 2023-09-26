@@ -69,7 +69,7 @@ class ATProto(User, Protocol):
     @ndb.ComputedProperty
     def handle(self):
         """Returns handle if the DID document includes one, otherwise None."""
-        did_obj = ATProto.load(self.key.id(), remote=False)
+        did_obj = ATProto.load(self.key.id())
         if did_obj:
             handle, _, _ = parse_at_uri(
                 util.get_first(did_obj.raw, 'alsoKnownAs', ''))
