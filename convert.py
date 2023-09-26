@@ -102,7 +102,10 @@ def render_redirect():
 
 @app.get(f'/convert/<any({",".join(SOURCES)}):src>/<any({",".join(DESTS)}):dest>/<path:_>')
 def convert_source_path_redirect(src, dest, _):
-    """Old route that included source protocol in path instead of subdomain."""
+    """Old route that included source protocol in path instead of subdomain.
+
+    DEPRECATED! Only kept to support old webmention source URLs.
+    """
     if Protocol.for_request() not in (None, 'web'):  # no per-protocol subdomains
         error(f'Try again on fed.brid.gy', status=404)
 

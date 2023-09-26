@@ -1,8 +1,10 @@
 """Superfeedr callback handlers.
 
-Not really sure what this will be yet. Background:
-https://github.com/snarfed/bridgy-fed/issues/18#issuecomment-430731476
-https://documentation.superfeedr.com/publishers.html
+Not really sure what this will be yet.
+
+* https://github.com/snarfed/bridgy-fed/issues/550
+* https://github.com/snarfed/bridgy-fed/issues/18#issuecomment-430731476
+* https://documentation.superfeedr.com/publishers.html
 """
 import logging
 

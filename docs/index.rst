@@ -92,25 +92,27 @@ How to add a new protocol
    the existing tables in the
    docs <https://github.com/snarfed/bridgy-fed/blob/main/templates/docs.html>`__
    in a PR. This is an important step before you start writing code.
-2. If the new protocol uses a new data format - which is likely - add
+2. Implement the id and handle conversions in
+   `ids.py <https://github.com/snarfed/bridgy-fed/blob/main/ids.py>`__.
+3. If the new protocol uses a new data format - which is likely - add
    that format to `granary <https://github.com/snarfed/granary>`__ in a
    new file with functions that convert to/from `ActivityStreams
    1 <https://activitystrea.ms/specs/json/1.0/>`__ and tests. See
-   `nostr.py <https://github.com/snarfed/granary/blob/main/granary/nostr.py#L542>`__
+   `nostr.py <https://github.com/snarfed/granary/blob/main/granary/nostr.py>`__
    and
-   `test_nostr.py <https://github.com/snarfed/granary/blob/main/granary/tests/test_nostr.py#>`__
+   `test_nostr.py <https://github.com/snarfed/granary/blob/main/granary/tests/test_nostr.py>`__
    for examples.
-3. Implement the protocol in a new ``.py`` file as a subclass of both
+4. Implement the protocol in a new ``.py`` file as a subclass of both
    `Protocol <https://github.com/snarfed/bridgy-fed/blob/main/protocol.py>`__
    and
    `User <https://github.com/snarfed/bridgy-fed/blob/main/models.py>`__.
    Implement the ``send``, ``fetch``, ``serve``, and ``target_for``
-   methods from ``Protocol`` and ``handle``, ``web_url``,
-   ``ap_address``, and ``ap_actor`` from ``User`` .
-4. TODO: add a new usage section to the docs for the new protocol.
-5. TODO: does the new protocol need any new UI or signup functionality?
+   methods from ``Protocol`` and ``handle`` and ``web_url`` from
+   ``User`` .
+5. TODO: add a new usage section to the docs for the new protocol.
+6. TODO: does the new protocol need any new UI or signup functionality?
    Unusual, but not impossible. Add that if necessary.
-6. Add the new protocol’s logo to ``static/``, use it in
+7. Add the new protocol’s logo to ``static/``, use it in
    `templates/user.html <https://github.com/snarfed/bridgy-fed/blob/main/templates/user.html>`__.
 
 Stats
