@@ -77,7 +77,7 @@ protobuf==4.24.3
 pyasn1==0.5.0
 pyasn1-modules==0.3.0
 pycparser==2.21
-pycryptodome==3.18.0
+pycryptodome==3.19.0
 pyjwt==2.7.0
 pymemcache==4.0.0
 pyparsing==3.1.1
