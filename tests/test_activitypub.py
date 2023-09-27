@@ -417,6 +417,11 @@ class ActivityPubTest(TestCase):
         got = self.client.get('/ap/fake/fake:handle:nope')
         self.assertEqual(404, got.status_code)
 
+    def test_actor_no_matching_protocol(self, *_):
+        resp = self.client.get('/foo.json',
+                               base_url='https://bridgy-federated.appspot.com/')
+        self.assertEqual(404, resp.status_code)
+
     def test_individual_inbox_no_user(self, mock_head, mock_get, mock_post):
         self.user.key.delete()
 
@@ -435,6 +440,10 @@ class ActivityPubTest(TestCase):
         note = copy.deepcopy(NOTE)
         del note['id']
         resp = self.post('/ap/sharedInbox', json=note)
+        self.assertEqual(400, resp.status_code)
+
+    def test_inbox_no_matching_protocol(self, *_):
+        resp = self.post('/foo.json/inbox', json=NOTE)
         self.assertEqual(400, resp.status_code)
 
     def test_inbox_reply_object(self, mock_head, mock_get, mock_post):

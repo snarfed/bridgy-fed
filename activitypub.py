@@ -715,7 +715,8 @@ def postprocess_as2_actor(actor, wrap=True):
 def actor(handle_or_id):
     """Serves a user's AS2 actor from the datastore."""
     cls = Protocol.for_request(fed=PROTOCOLS['web'])
-    assert cls
+    if not cls:
+        error(f"Couldn't determine protocol", status=404)
 
     if cls.owns_id(handle_or_id) is False:
         if cls.owns_handle(handle_or_id) is False:
