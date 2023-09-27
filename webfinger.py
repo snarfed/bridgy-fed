@@ -15,7 +15,6 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import common
 from flask_app import app, cache
 from protocol import Protocol
-from web import Web
 
 SUBSCRIBE_LINK_REL = 'http://ostatus.org/schema/1.0/subscribe'
 
@@ -50,7 +49,7 @@ class Webfinger(flask_util.XrdOrJrd):
         cls = None
         try:
             user, id = util.parse_acct_uri(resource)
-            cls = Protocol.for_bridgy_subdomain(id, fed=Web)
+            cls = Protocol.for_bridgy_subdomain(id, fed='web')
             if cls:
                 id = user
                 allow_indirect = True
@@ -58,7 +57,7 @@ class Webfinger(flask_util.XrdOrJrd):
             id = urllib.parse.urlparse(resource).netloc or resource
 
         if not cls:
-            cls = Protocol.for_request(fed=Web)
+            cls = Protocol.for_request(fed='web')
 
         if cls.owns_id(id) is False:
             logger.info(f'{id} is not a {cls.LABEL} id')
@@ -142,11 +141,13 @@ class Webfinger(flask_util.XrdOrJrd):
             # https://github.com/snarfed/bridgy-fed/issues/60#issuecomment-1325589750
             {
                 'rel': 'http://ostatus.org/schema/1.0/subscribe',
+                # always use fed.brid.gy for UI pages, not protocol subdomain
                 # TODO: switch to:
                 # 'template': common.host_url(g.user.user_page_path('?url={uri}')),
                 # the problem is that user_page_path() uses handle_or_id, which uses
                 # custom username instead of domain, which may not be unique
-                'template': common.host_url(f'{cls.ABBREV}/{id}?url={{uri}}'),
+                'template': f'https://{common.PRIMARY_DOMAIN}' +
+                            g.user.user_page_path('?url={uri}'),
             }]
         })
 

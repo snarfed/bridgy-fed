@@ -36,24 +36,26 @@ PRIMARY_DOMAIN = 'fed.brid.gy'
 SUPERDOMAIN = '.brid.gy'
 # TODO: add a Flask route decorator version of util.canonicalize_domain, then
 # use it to canonicalize most UI routes from these to fed.brid.gy.
-OTHER_DOMAINS = (
+PROTOCOL_DOMAINS = (
     'ap.brid.gy',
     'atp.brid.gy',
     'atproto.brid.gy',
     'bluesky.brid.gy',
     'bsky.brid.gy',
-    'bridgy-federated.appspot.com',
-    'bridgy-federated.uc.r.appspot.com',
     'fa.brid.gy',
     'nostr.brid.gy',
     'web.brid.gy',
+)
+OTHER_DOMAINS = (
+    'bridgy-federated.appspot.com',
+    'bridgy-federated.uc.r.appspot.com',
 )
 LOCAL_DOMAINS = (
   'localhost',
   'localhost:8080',
   'my.dev.com:8080',
 )
-DOMAINS = (PRIMARY_DOMAIN,) + OTHER_DOMAINS + LOCAL_DOMAINS
+DOMAINS = (PRIMARY_DOMAIN,) + PROTOCOL_DOMAINS + OTHER_DOMAINS + LOCAL_DOMAINS
 # TODO: unify with Bridgy's
 DOMAIN_BLOCKLIST = (
     # https://github.com/snarfed/bridgy-fed/issues/348
@@ -96,6 +98,7 @@ def host_url(path_query=None):
             or (not DEBUG and request.host in LOCAL_DOMAINS)):
         base = f'https://{PRIMARY_DOMAIN}'
 
+    assert base
     return urllib.parse.urljoin(base, path_query)
 
 

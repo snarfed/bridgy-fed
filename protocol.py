@@ -74,12 +74,13 @@ class Protocol:
         ...based on the request's hostname.
 
         Args:
-          fed: :class:`Protocol` subclass to return if the current request is on
-          fed.brid.gy
+          fed (str or Protocol): protocol to return if the current request is on
+            ``fed.brid.gy``
 
         Returns:
-          :class:`Protocol` subclass, or None if the provided domain or request
-            hostname domain is not a subdomain of brid.gy or isn't a known protocol
+          Protocol subclass: ...or None if the provided domain or request
+            hostname domain is not a subdomain of ``brid.gy` or isn't a known
+            protocol
         """
         return Protocol.for_bridgy_subdomain(request.host, fed=fed)
 
@@ -89,19 +90,20 @@ class Protocol:
 
         Args:
           domain_or_url: str
-          fed: :class:`Protocol` subclass to return if the domain_or_url is on
-            fed.brid.gy
+          fed (str or Protocol): protocol to return if the current request is on
+            ``fed.brid.gy``
 
         Returns:
-          :class:`Protocol` subclass, or None if the request hostname is not a
-            subdomain of brid.gy or isn't a known protocol
+          Protocol subclass: ...or None if the provided domain or request
+            hostname domain is not a subdomain of ``brid.gy` or isn't a known
+            protocol
         """
         domain = (util.domain_from_link(domain_or_url, minimize=False)
                   if util.is_web(domain_or_url)
                   else domain_or_url)
 
         if domain == common.PRIMARY_DOMAIN or domain in common.LOCAL_DOMAINS:
-            return fed
+            return PROTOCOLS[fed] if isinstance(fed, str) else fed
         elif domain and domain.endswith(common.SUPERDOMAIN):
             label = domain.removesuffix(common.SUPERDOMAIN)
             return PROTOCOLS.get(label)

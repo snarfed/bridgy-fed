@@ -13,7 +13,8 @@ from google.cloud import ndb
 from granary import as2, microformats2
 from httpsig import HeaderSigner
 from oauth_dropins.webutil.testutil import requests_response
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from oauth_dropins.webutil.util import domain_from_link, json_dumps, json_loads
+from oauth_dropins.webutil import util
 import requests
 from urllib3.exceptions import ReadTimeoutError
 from werkzeug.exceptions import BadGateway
@@ -232,11 +233,11 @@ ACCEPT = {
 }
 
 UNDO_FOLLOW_WRAPPED = {
-  '@context': 'https://www.w3.org/ns/activitystreams',
-  'id': 'https://mas.to/6d1b',
-  'type': 'Undo',
-  'actor': 'https://mas.to/users/swentel',
-  'object': FOLLOW_WRAPPED,
+    '@context': 'https://www.w3.org/ns/activitystreams',
+    'id': 'https://mas.to/6d1b',
+    'type': 'Undo',
+    'actor': 'https://mas.to/users/swentel',
+    'object': FOLLOW_WRAPPED,
 }
 
 DELETE = {
@@ -318,12 +319,12 @@ class ActivityPubTest(TestCase):
         props.setdefault('delivered_protocol', 'web')
         return super().assert_object(id, **props)
 
-    def sign(self, path, body):
+    def sign(self, path, body, host=None):
         """Constructs HTTP Signature, returns headers."""
         digest = b64encode(sha256(body.encode()).digest()).decode()
         headers = {
             'Date': 'Sun, 02 Jan 2022 03:04:05 GMT',
-            'Host': 'localhost',
+            'Host': host or 'localhost',
             'Content-Type': as2.CONTENT_TYPE,
             'Digest': f'SHA-256={digest}',
         }
@@ -332,10 +333,13 @@ class ActivityPubTest(TestCase):
                           headers=('Date', 'Host', 'Digest', '(request-target)'))
         return hs.sign(headers, method='POST', path=path)
 
-    def post(self, path, json=None):
+    def post(self, path, json=None, base_url=None, **kwargs):
         """Wrapper around self.client.post that adds signature."""
         body = json_dumps(json)
-        return self.client.post(path, data=body, headers=self.sign(path, body))
+        host = domain_from_link(base_url) if base_url else None
+        headers = self.sign(path, body, host=host)
+        return self.client.post(path, data=body, headers=headers,
+                                base_url=base_url, **kwargs)
 
     def test_actor_fake(self, *_):
         self.make_user('fake:user', cls=Fake)
@@ -540,6 +544,24 @@ class ActivityPubTest(TestCase):
                 'target': 'https://user.com/post',
             },
         )
+
+    def test_inbox_reply_protocol_subdomain(self, reply, *_):
+        Fake.fetchable['fake:post'] = as2.to_as1({
+            **NOTE_OBJECT,
+            'id': 'fake:post',
+        })
+        reply = {
+            **REPLY_OBJECT,
+            'id': 'fake:my-reply',
+            'inReplyTo': 'fake:post',
+        }
+        got = self.post('/ap/fake:user/inbox', json=reply,
+                        base_url='https://fa.brid.gy/')
+        self.assertEqual(200, got.status_code)
+
+        [(obj, target)] = Fake.sent
+        self.assertEqual('fake:my-reply#bridgy-fed-create', obj.our_as1['id'])
+        self.assertEqual('fake:post:target', target)
 
     def test_inbox_reply_to_self_domain(self, *mocks):
         self._test_inbox_ignore_reply_to('http://localhost/mas.to', *mocks)

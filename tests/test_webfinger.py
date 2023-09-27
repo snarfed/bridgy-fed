@@ -49,7 +49,7 @@ WEBFINGER = {
         'href': 'https://web.brid.gy/ap/sharedInbox',
     }, {
         'rel': 'http://ostatus.org/schema/1.0/subscribe',
-        'template': 'http://localhost/web/user.com?url={uri}',
+        'template': 'https://fed.brid.gy/web/user.com?url={uri}',
     }],
 }
 WEBFINGER_NO_HCARD = {
@@ -77,7 +77,7 @@ WEBFINGER_NO_HCARD = {
         'href': 'https://web.brid.gy/ap/sharedInbox',
     }, {
         'rel': 'http://ostatus.org/schema/1.0/subscribe',
-        'template': 'http://localhost/web/user.com?url={uri}',
+        'template': 'https://fed.brid.gy/web/user.com?url={uri}',
     }],
 }
 WEBFINGER_FAKE = {
@@ -101,7 +101,7 @@ WEBFINGER_FAKE = {
         'href': 'https://web.brid.gy/ap/sharedInbox',
     }, {
         'rel': 'http://ostatus.org/schema/1.0/subscribe',
-        'template': 'http://localhost/fa/fake:user?url={uri}',
+        'template': 'https://fed.brid.gy/fa/fake:handle:user?url={uri}',
     }],
 }
 WEBFINGER_FAKE_FA_BRID_GY = copy.deepcopy(WEBFINGER_FAKE)
@@ -109,7 +109,7 @@ for link in WEBFINGER_FAKE_FA_BRID_GY['links']:
     if 'href' in link:
         link['href'] = link['href'].replace('http://localhost/ap/fa', 'https://fa.brid.gy/ap')
 WEBFINGER_FAKE_FA_BRID_GY['links'][3]['href'] = 'https://fa.brid.gy/ap/sharedInbox'
-WEBFINGER_FAKE_FA_BRID_GY['links'][4]['template'] = 'https://fed.brid.gy/fa/fake:user?url={uri}'
+WEBFINGER_FAKE_FA_BRID_GY['links'][4]['template'] = 'https://fed.brid.gy/fa/fake:handle:user?url={uri}'
 
 
 class HostMetaTest(TestCase):

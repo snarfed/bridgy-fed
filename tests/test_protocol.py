@@ -74,6 +74,8 @@ class ProtocolTest(TestCase):
             with self.subTest(url=url, expected=expected):
                 self.assertEqual(expected,
                                  Protocol.for_bridgy_subdomain(url, fed=Fake))
+                self.assertEqual(expected,
+                                 Protocol.for_bridgy_subdomain(url, fed='fake'))
                 with app.test_request_context('/foo', base_url=url):
                     self.assertEqual(expected, Protocol.for_request(fed=Fake))
 

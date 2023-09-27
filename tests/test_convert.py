@@ -22,6 +22,11 @@ COMMENT_AS2 = {
     'name': 'A ☕ reply',
     'inReplyTo': 'https://fake.com/123',
 }
+COMMENT_AS2_WEB = {
+    **COMMENT_AS2,
+    'id': 'https://web.brid.gy/r/tag:fake.com:123456',
+    'url': 'https://web.brid.gy/r/https://fake.com/123456',
+}
 HTML = """\
 <!DOCTYPE html>
 <html>
@@ -248,7 +253,7 @@ A ☕ reply
         resp = self.client.get(f'/convert/ap/{url}',
                                base_url='https://web.brid.gy/')
         self.assertEqual(200, resp.status_code)
-        self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
+        self.assert_equals(COMMENT_AS2_WEB, resp.json, ignore=['to'])
 
     @patch('requests.get')
     def test_web_to_activitypub_fetch(self, mock_get):
@@ -261,7 +266,7 @@ A ☕ reply
         resp = self.client.get(f'/convert/ap/{url}',
                                base_url='https://web.brid.gy/')
         self.assertEqual(200, resp.status_code)
-        self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
+        self.assert_equals(COMMENT_AS2_WEB, resp.json, ignore=['to'])
 
     def test_web_to_activitypub_no_user(self):
         resp = self.client.get(f'/convert/ap/http://nope.com/post',
@@ -276,7 +281,7 @@ A ☕ reply
         resp = self.client.get(f'/convert/ap/http://user.com/a%23b',
                                base_url='https://web.brid.gy/')
         self.assertEqual(200, resp.status_code)
-        self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
+        self.assert_equals(COMMENT_AS2_WEB, resp.json, ignore=['to'])
 
     def test_fed_subdomain(self):
         url = 'https://user.com/post'

@@ -101,3 +101,6 @@ class CommonTest(TestCase):
 
         with app.test_request_context(base_url='http://bridgy-federated.uc.r.appspot.com'):
             self.assertEqual('https://fed.brid.gy/asdf', common.host_url('asdf'))
+
+        with app.test_request_context(base_url='https://atproto.brid.gy', path='/foo'):
+            self.assertEqual('https://atproto.brid.gy/asdf', common.host_url('asdf'))
