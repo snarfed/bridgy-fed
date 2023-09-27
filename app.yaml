@@ -23,7 +23,7 @@ inbound_services:
 
 env_variables:
   PLC_HOST: plc.directory
-  APPVIEW_HOST: bsky.social  # this is the PDS. TODO: where's the prod AppView?
+  APPVIEW_HOST: api.bsky.app
 
 handlers:
 
