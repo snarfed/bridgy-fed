@@ -221,10 +221,10 @@ class Protocol:
         network or other discovery.
 
         Args:
-          id: str
+          id (str)
 
         Returns:
-          :class:`Protocol` subclass, or None if no known protocol owns this id
+          Protocol subclass: ...or None if no known protocol owns this id
         """
         logger.info(f'Determining protocol for id {id}')
         if not id:
@@ -234,7 +234,7 @@ class Protocol:
         if util.is_web(id):
             by_subdomain = Protocol.for_bridgy_subdomain(id)
             if by_subdomain:
-                logger.info(f'  {by_subdomain.__name__} owns {id}')
+                logger.info(f'  {by_subdomain.__name__} owns id {id}')
                 return by_subdomain
 
         # step 2: check if any Protocols say conclusively that they own it
@@ -245,13 +245,13 @@ class Protocol:
         for protocol in protocols:
             owns = protocol.owns_id(id)
             if owns:
-                logger.info(f'  {protocol.__name__} owns {id}')
+                logger.info(f'  {protocol.__name__} owns id {id}')
                 return protocol
             elif owns is not False:
                 candidates.append(protocol)
 
         if len(candidates) == 1:
-            logger.info(f'  {candidates[0].__name__} owns {id}')
+            logger.info(f'  {candidates[0].__name__} owns id {id}')
             return candidates[0]
 
         # step 3: look for existing Objects in the datastore
@@ -265,7 +265,7 @@ class Protocol:
             logger.info(f'Trying {protocol.__name__}')
             try:
                 if protocol.load(id, local=False, remote=True):
-                    logger.info(f'  {protocol.__name__} owns {id}')
+                    logger.info(f'  {protocol.__name__} owns id {id}')
                     return protocol
             except werkzeug.exceptions.BadGateway:
                 # we tried and failed fetching the id over the network.
@@ -283,6 +283,57 @@ class Protocol:
 
         logger.info(f'No matching protocol found for {id} !')
         return None
+
+    @staticmethod
+    def for_handle(handle):
+        """Returns the protocol for a given handle.
+
+        May incur expensive side effects like resolving the handle itself over
+        the network or other discovery.
+
+        Args:
+          handle (str)
+
+        Returns:
+          (Protocol subclass, str) tuple: matching protocol and optional id (if
+          resolved), or ``(None, None)`` if no known protocol owns this handle
+        """
+        logger.info(f'Determining protocol for handle {handle}')
+        if not handle:
+            return (None, None)
+
+        # step 1: check if any Protocols say conclusively that they own it.
+        # sort to be deterministic.
+        protocols = sorted(set(p for p in PROTOCOLS.values() if p),
+                           key=lambda p: p.__name__)
+        candidates = []
+        for proto in protocols:
+            owns = proto.owns_handle(handle)
+            if owns:
+                logger.info(f'  {proto.__name__} owns handle {handle}')
+                return (proto, None)
+            elif owns is not False:
+                candidates.append(proto)
+
+        if len(candidates) == 1:
+            logger.info(f'  {candidates[0].__name__} owns handle {handle}')
+            return (candidates[0], None)
+
+        # step 2: look for matching User in the datastore
+        for proto in candidates:
+            user = proto.query(proto.handle == handle).get(keys_only=True)
+            if user:
+                logger.info(f'  user {user} owns handle {handle}')
+                return (proto, user.id())
+
+        # step 3: resolve handle to id
+        for proto in candidates:
+            id = proto.handle_to_id(handle)
+            if id:
+                logger.info(f'  {proto.__name__} resolved handle {handle} to id {id}')
+                return (proto, id)
+
+        return (None, None)
 
     @classmethod
     def actor_key(cls, obj, default_g_user=True):

@@ -3,6 +3,7 @@ import copy
 from unittest import skip
 from unittest.mock import patch
 
+from arroba.tests.testutil import dns_answer
 from flask import g
 from google.cloud import ndb
 from granary import as2
@@ -90,8 +91,7 @@ class ProtocolTest(TestCase):
                 ('', None),
                 ('foo://bar', None),
                 ('fake:foo', Fake),
-                # TODO
-                # ('at://foo', ATProto),
+                ('at://foo', ATProto),
                 ('https://ap.brid.gy/foo/bar', ActivityPub),
                 ('https://web.brid.gy/foo/bar', Web),
         ]:
@@ -138,6 +138,27 @@ class ProtocolTest(TestCase):
         mock_get.return_value = requests_response('<html></html>')
         self.assertIsNone(Protocol.for_id('http://web.site/'))
         self.assertIn(self.req('http://web.site/'), mock_get.mock_calls)
+
+    def test_for_handle_deterministic(self):
+        for handle, expected in [
+            (None, (None, None)),
+            ('', (None, None)),
+            ('foo://bar', (None, None)),
+            ('fake:foo', (None, None)),
+            ('fake:handle:foo', (Fake, None)),
+            ('@me@foo', (ActivityPub, None)),
+        ]:
+            self.assertEqual(expected, Protocol.for_handle(handle))
+
+    def test_for_handle_stored_user(self):
+        user = self.make_user(id='user.com', cls=Web)
+        self.assertEqual('user.com', user.handle)
+        self.assertEqual((Web, 'user.com'), Protocol.for_handle('user.com'))
+
+    @patch('dns.resolver.resolve', return_value = dns_answer(
+            '_atproto.han.dull.', '"did=did:plc:123abc"'))
+    def test_for_handle_atproto_resolve(self, _):
+        self.assertEqual((ATProto, 'did:plc:123abc'), Protocol.for_handle('han.dull'))
 
     def test_load(self):
         Fake.fetchable['foo'] = {'x': 'y'}

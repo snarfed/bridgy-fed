@@ -1,7 +1,6 @@
 """Unit tests for atproto.py."""
 import base64
 import copy
-from google.cloud.tasks_v2.types import Task
 import logging
 from unittest import skip
 from unittest.mock import call, patch
@@ -13,6 +12,7 @@ import arroba.util
 import dns.resolver
 from dns.resolver import NXDOMAIN
 from flask import g
+from google.cloud.tasks_v2.types import Task
 from granary.tests.test_bluesky import (
     ACTOR_AS,
     ACTOR_PROFILE_VIEW_BSKY,
@@ -112,7 +112,7 @@ class ATProtoTest(TestCase):
         self.assertEqual('did:plc:foo', ATProto.handle_to_id('han.dull'))
 
     @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
-    # resolving handle, HTTPS method, not founud
+    # resolving handle, HTTPS method, not found
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_handle_to_id_not_found(self, *_):
         self.assertIsNone(ATProto.handle_to_id('han.dull'))
