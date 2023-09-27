@@ -24,6 +24,7 @@ inbound_services:
 env_variables:
   PLC_HOST: plc.directory
   APPVIEW_HOST: api.bsky.app
+  BGS_HOST: bgs.bsky.social
 
 handlers:
 
