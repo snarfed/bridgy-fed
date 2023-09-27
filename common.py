@@ -39,10 +39,12 @@ SUPERDOMAIN = '.brid.gy'
 OTHER_DOMAINS = (
     'ap.brid.gy',
     'atp.brid.gy',
+    'atproto.brid.gy',
     'bluesky.brid.gy',
     'bsky.brid.gy',
     'bridgy-federated.appspot.com',
     'bridgy-federated.uc.r.appspot.com',
+    'fa.brid.gy',
     'nostr.brid.gy',
     'web.brid.gy',
 )
@@ -141,12 +143,12 @@ def redirect_wrap(url):
     Args:
       url: string
 
-    https://github.com/snarfed/bridgy-fed/issues/16#issuecomment-424799599
-    https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
+    * https://github.com/snarfed/bridgy-fed/issues/16#issuecomment-424799599
+    * https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
 
     Returns: string, redirect url
     """
-    if not url or url.startswith(host_url()):
+    if not url or util.domain_from_link(url) in DOMAINS:
         return url
 
     return host_url('/r/') + url
@@ -172,15 +174,18 @@ def redirect_unwrap(val):
         return [redirect_unwrap(v) for v in val]
 
     elif isinstance(val, str):
-        prefix = host_url('/r/')
-        if val.startswith(prefix):
-            unwrapped = val.removeprefix(prefix)
-            if util.is_web(unwrapped):
-                return unwrapped
-        elif val.startswith(host_url()):
-            path = val.removeprefix(host_url())
-            if re.match(DOMAIN_RE, path):
-                return f'https://{path}/'
+        for domain in DOMAINS:
+            for scheme in 'http', 'https':
+                base = f'{scheme}://{domain}/'
+                redirect_prefix = f'{base}r/'
+                if val.startswith(redirect_prefix):
+                    unwrapped = val.removeprefix(redirect_prefix)
+                    if util.is_web(unwrapped):
+                        return unwrapped
+                elif val.startswith(base):
+                    path = val.removeprefix(base)
+                    if re.match(DOMAIN_RE, path):
+                        return f'https://{path}/'
 
     return val
 
