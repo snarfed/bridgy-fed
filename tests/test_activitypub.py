@@ -1340,17 +1340,18 @@ class ActivityPubTest(TestCase):
     def test_followers_collection_fake(self, *_):
         self.make_user('foo.com', cls=Fake)
 
-        resp = self.client.get('/ap/fake/foo.com/followers')
+        resp = self.client.get('/ap/foo.com/followers',
+                               base_url='https://fa.brid.gy')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': 'http://localhost/ap/fake/foo.com/followers',
+            'id': 'https://fa.brid.gy/ap/foo.com/followers',
             'type': 'Collection',
             'summary': "foo.com's followers",
             'totalItems': 0,
             'first': {
                 'type': 'CollectionPage',
-                'partOf': 'http://localhost/ap/fake/foo.com/followers',
+                'partOf': 'https://fa.brid.gy/ap/foo.com/followers',
                 'items': [],
             },
         }, resp.json)
@@ -1471,17 +1472,18 @@ class ActivityPubTest(TestCase):
 
     def test_outbox_fake(self, *_):
         self.make_user('foo.com', cls=Fake)
-        resp = self.client.get(f'/ap/fake/foo.com/outbox')
+        resp = self.client.get(f'/ap/foo.com/outbox',
+                               base_url='https://fa.brid.gy')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': 'http://localhost/ap/fake/foo.com/outbox',
+            'id': 'https://fa.brid.gy/ap/foo.com/outbox',
             'summary': "foo.com's outbox",
             'type': 'OrderedCollection',
             'totalItems': 0,
             'first': {
                 'type': 'CollectionPage',
-                'partOf': 'http://localhost/ap/fake/foo.com/outbox',
+                'partOf': 'https://fa.brid.gy/ap/foo.com/outbox',
                 'items': [],
             },
         }, resp.json)

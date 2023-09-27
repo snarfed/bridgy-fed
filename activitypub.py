@@ -706,21 +706,16 @@ def postprocess_as2_actor(actor, wrap=True):
 # source protocol in subdomain.
 # WARNING: the user page handler in pages.py overrides this for fediverse
 # addresses with leading @ character. be careful when changing this route!
-@app.get(f'/ap/<handle_or_id>', defaults={'protocol': None})
-# source protocol in path; primarily for localhost testing
-@app.get(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<handle_or_id>')
+@app.get(f'/ap/<handle_or_id>')
+# source protocol in path; primarily for backcompat
+@app.get(f'/ap/web/<handle_or_id>')
 # special case Web users without /ap/web/ prefix, for backward compatibility
-@app.get(f'/<regex("{DOMAIN_RE}"):handle_or_id>', defaults={'protocol': 'web'})
+@app.get(f'/<regex("{DOMAIN_RE}"):handle_or_id>')
 @flask_util.cached(cache, CACHE_TIME)
-def actor(protocol, handle_or_id):
+def actor(handle_or_id):
     """Serves a user's AS2 actor from the datastore."""
-    if protocol:
-        cls = PROTOCOLS[protocol]
-    else:
-        cls = Protocol.for_request(fed=None)
-
-    if not cls:
-        error(f"Couldn't determine protocol")
+    cls = Protocol.for_request(fed=PROTOCOLS['web'])
+    assert cls
 
     if cls.owns_id(handle_or_id) is False:
         if cls.owns_handle(handle_or_id) is False:
@@ -778,11 +773,12 @@ def actor(protocol, handle_or_id):
 # note that this path overlaps with the /ap/<handle_or_id> actor route above,
 # but doesn't collide because this is POST and that one is GET.
 @app.post('/ap/sharedInbox')
-@app.post(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{DOMAIN_RE}"):domain>/inbox')
+# TODO: protocol in subdomain
+@app.post(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<id>/inbox')
 # special case Web users without /ap/web/ prefix, for backward compatibility
 @app.post('/inbox')
-@app.post(f'/<regex("{DOMAIN_RE}"):domain>/inbox', defaults={'protocol': 'web'})
-def inbox(protocol=None, domain=None):
+@app.post(f'/<regex("{DOMAIN_RE}"):id>/inbox')
+def inbox(protocol='web', id=None):
     """Handles ActivityPub inbox delivery."""
     # parse and validate AS2 activity
     try:
@@ -799,23 +795,23 @@ def inbox(protocol=None, domain=None):
 
     # load receiving user
     obj_id = as1.get_object(redirect_unwrap(activity)).get('id')
-    receiving_proto = receiving_user_id = None
+    to_proto = None
     if protocol:
-        receiving_proto = PROTOCOLS[protocol]
+        to_proto = PROTOCOLS[protocol]
     elif type == 'Follow':
-        receiving_proto = Protocol.for_id(obj_id)
+        to_proto = Protocol.for_id(obj_id)
 
-    if receiving_proto:
-        if domain:
-            assert receiving_proto is web.Web, 'https://github.com/snarfed/bridgy-fed/issues/611'
-            receiving_user_id = domain
+    if to_proto:
+        to_user_id = None
+        if id:
+            to_user_id = id
         else:
-            receiving_key = receiving_proto.key_for(obj_id)
-            if receiving_key:
-                receiving_user_id = receiving_key.id()
+            to_key = to_proto.key_for(obj_id)
+            if to_key:
+                to_user_id = to_key.id()
 
-        if receiving_user_id:
-            g.user = receiving_proto.get_or_create(receiving_user_id, direct=False)
+        if to_user_id:
+            g.user = to_proto.get_or_create(to_user_id, direct=False)
             logger.info(f'Setting g.user to {g.user.key}')
             if not g.user.direct and actor_id:
                 # this is a deliberate interaction with an indirect receiving user;
@@ -849,21 +845,25 @@ def inbox(protocol=None, domain=None):
     return ActivityPub.receive(obj)
 
 
-@app.get(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
+# protocol in subdomain
+@app.get(f'/ap/<id>/<any(followers,following):collection>')
+# source protocol in path; primarily for backcompat
+@app.get(f'/ap/web/<regex("{DOMAIN_RE}"):id>/<any(followers,following):collection>')
 # special case Web users without /ap/web/ prefix, for backward compatibility
-@app.get(f'/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>',
-         defaults={'protocol': 'web'})
+@app.get(f'/<regex("{DOMAIN_RE}"):id>/<any(followers,following):collection>')
 @flask_util.cached(cache, CACHE_TIME)
-def follower_collection(protocol, domain, collection):
+def follower_collection(id, collection):
     """ActivityPub Followers and Following collections.
 
-    https://www.w3.org/TR/activitypub/#followers
-    https://www.w3.org/TR/activitypub/#collections
-    https://www.w3.org/TR/activitystreams-core/#paging
+    * https://www.w3.org/TR/activitypub/#followers
+    * https://www.w3.org/TR/activitypub/#collections
+    * https://www.w3.org/TR/activitystreams-core/#paging
     """
-    g.user = PROTOCOLS[protocol].get_by_id(domain)
+    protocol = Protocol.for_request(fed=PROTOCOLS['web'])
+    assert protocol
+    g.user = protocol.get_by_id(id)
     if not g.user:
-        return f'{protocol} user {domain} not found', 404
+        return f'{protocol} user {id} not found', 404
 
     # page
     followers, new_before, new_after = Follower.fetch_page(collection)
@@ -896,7 +896,7 @@ def follower_collection(protocol, domain, collection):
         '@context': 'https://www.w3.org/ns/activitystreams',
         'id': request.base_url,
         'type': 'Collection',
-        'summary': f"{domain}'s {collection}",
+        'summary': f"{id}'s {collection}",
         'totalItems': count,
         'first': page,
     }
@@ -904,14 +904,19 @@ def follower_collection(protocol, domain, collection):
     return collection, {'Content-Type': as2.CONTENT_TYPE}
 
 
-@app.get(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<regex("{DOMAIN_RE}"):domain>/outbox')
+# protocol in subdomain
+@app.get(f'/ap/<id>/outbox')
+# source protocol in path; primarily for backcompat
+@app.get(f'/ap/web/<regex("{DOMAIN_RE}"):id>/outbox')
 # special case Web users without /ap/web/ prefix, for backward compatibility
-@app.get(f'/<regex("{DOMAIN_RE}"):domain>/outbox', defaults={'protocol': 'web'})
-def outbox(protocol, domain):
+@app.get(f'/<regex("{DOMAIN_RE}"):id>/outbox')
+def outbox(id):
+    protocol = Protocol.for_request(fed=PROTOCOLS['web'])
+    assert protocol
     return {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': request.url,
-            'summary': f"{domain}'s outbox",
+            'summary': f"{id}'s outbox",
             'type': 'OrderedCollection',
             'totalItems': 0,
             'first': {
