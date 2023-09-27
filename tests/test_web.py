@@ -1884,10 +1884,7 @@ class WebUtilTest(TestCase):
         for id in 'user.com', 'http://user.com', 'https://user.com/':
             self.assertEqual(Web(id='user.com').key, Web.key_for(id))
 
-        with self.assertRaises(ValueError):
-            Web.key_for('')
-
-        for bad in 'foo', 'https://foo/', 'foo bar', 'user.json':
+        for bad in '', 'foo', 'https://foo/', 'foo bar', 'user.json':
             with self.subTest(bad=bad):
                 self.assertIsNone(Web.key_for(bad))
 

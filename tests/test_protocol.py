@@ -759,6 +759,26 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual([(like_obj, 'fake:post:target')], Fake.sent)
 
+    def test_like_no_object_error(self):
+        with self.assertRaises(BadRequest):
+            Fake.receive_as1({
+                'id': 'fake:like',
+                'objectType': 'activity',
+                'verb': 'like',
+                'actor': 'fake:user',
+                'object': None,
+        })
+
+    def test_share_no_object_error(self):
+        with self.assertRaises(BadRequest):
+            Fake.receive_as1({
+                'id': 'fake:share',
+                'objectType': 'activity',
+                'verb': 'share',
+                'actor': 'fake:user',
+                'object': None,
+        })
+
     def test_delete(self):
         g.user = None  # should use activity's actor
         self.make_followers()

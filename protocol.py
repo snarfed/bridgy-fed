@@ -526,7 +526,7 @@ class Protocol:
             # TODO: do we convert stop-following to webmention 410 of original
             # follow?
 
-        elif obj.type == 'update':
+        elif obj.type in ('update', 'like', 'share'):  # require object
             if not inner_obj_id:
                 error("Couldn't find id of object to update")
 

@@ -777,6 +777,16 @@ class ActivityPubTest(TestCase):
         self.assert_user(ActivityPub, 'https://mas.to/actor',
                          obj_as2=LIKE_ACTOR, direct=True)
 
+    def test_inbox_like_no_object_error(self, *_):
+        Fake.fetchable = {'fake:user': {'id': 'fake:user'}}
+        got = self.post('/inbox', json={
+            'id': 'fake:like',
+            'type': 'Like',
+            'actor': 'fake:user',
+            'object': None,
+        })
+        self.assertEqual(400, got.status_code)
+
     def test_inbox_follow_accept_with_id(self, *mocks):
         self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, 200, *mocks)
 

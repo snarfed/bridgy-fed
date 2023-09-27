@@ -247,7 +247,7 @@ class Web(User, Protocol):
           ValueError
         """
         if not id:
-            raise ValueError()
+            return None
 
         if util.is_web(id):
             parsed = urlparse(id)
