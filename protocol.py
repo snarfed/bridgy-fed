@@ -234,24 +234,24 @@ class Protocol:
         if util.is_web(id):
             by_subdomain = Protocol.for_bridgy_subdomain(id)
             if by_subdomain:
-                logger.info(f'  {by_subdomain.__name__} owns id {id}')
+                logger.info(f'  {by_subdomain.LABEL} owns id {id}')
                 return by_subdomain
 
         # step 2: check if any Protocols say conclusively that they own it
         # sort to be deterministic
         protocols = sorted(set(p for p in PROTOCOLS.values() if p),
-                           key=lambda p: p.__name__)
+                           key=lambda p: p.LABEL)
         candidates = []
         for protocol in protocols:
             owns = protocol.owns_id(id)
             if owns:
-                logger.info(f'  {protocol.__name__} owns id {id}')
+                logger.info(f'  {protocol.LABEL} owns id {id}')
                 return protocol
             elif owns is not False:
                 candidates.append(protocol)
 
         if len(candidates) == 1:
-            logger.info(f'  {candidates[0].__name__} owns id {id}')
+            logger.info(f'  {candidates[0].LABEL} owns id {id}')
             return candidates[0]
 
         # step 3: look for existing Objects in the datastore
@@ -262,10 +262,10 @@ class Protocol:
 
         # step 4: fetch over the network
         for protocol in candidates:
-            logger.info(f'Trying {protocol.__name__}')
+            logger.info(f'Trying {protocol.LABEL}')
             try:
                 if protocol.load(id, local=False, remote=True):
-                    logger.info(f'  {protocol.__name__} owns id {id}')
+                    logger.info(f'  {protocol.LABEL} owns id {id}')
                     return protocol
             except werkzeug.exceptions.BadGateway:
                 # we tried and failed fetching the id over the network.
@@ -298,6 +298,7 @@ class Protocol:
           (Protocol subclass, str) tuple: matching protocol and optional id (if
           resolved), or ``(None, None)`` if no known protocol owns this handle
         """
+        # TODO: normalize, eg convert domains to lower case
         logger.info(f'Determining protocol for handle {handle}')
         if not handle:
             return (None, None)
@@ -305,18 +306,18 @@ class Protocol:
         # step 1: check if any Protocols say conclusively that they own it.
         # sort to be deterministic.
         protocols = sorted(set(p for p in PROTOCOLS.values() if p),
-                           key=lambda p: p.__name__)
+                           key=lambda p: p.LABEL)
         candidates = []
         for proto in protocols:
             owns = proto.owns_handle(handle)
             if owns:
-                logger.info(f'  {proto.__name__} owns handle {handle}')
+                logger.info(f'  {proto.LABEL} owns handle {handle}')
                 return (proto, None)
             elif owns is not False:
                 candidates.append(proto)
 
         if len(candidates) == 1:
-            logger.info(f'  {candidates[0].__name__} owns handle {handle}')
+            logger.info(f'  {candidates[0].LABEL} owns handle {handle}')
             return (candidates[0], None)
 
         # step 2: look for matching User in the datastore
@@ -330,7 +331,7 @@ class Protocol:
         for proto in candidates:
             id = proto.handle_to_id(handle)
             if id:
-                logger.info(f'  {proto.__name__} resolved handle {handle} to id {id}')
+                logger.info(f'  {proto.LABEL} resolved handle {handle} to id {id}')
                 return (proto, id)
 
         return (None, None)
@@ -478,7 +479,7 @@ class Protocol:
         # check some invariants
         assert from_cls != Protocol
         assert isinstance(obj, Object), obj
-        logger.info(f'From {from_cls.__name__}: {obj.key} AS1: {json_dumps(obj.as1, indent=2)}')
+        logger.info(f'From {from_cls.LABEL}: {obj.key} AS1: {json_dumps(obj.as1, indent=2)}')
 
         if not obj.as1:
             error('No object data provided')
