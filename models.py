@@ -8,8 +8,9 @@ from urllib.parse import quote, urlparse
 
 from arroba import did
 from arroba.repo import Repo, Write
+import arroba.server
 from arroba.storage import Action
-import arroba.util
+from arroba.util import at_uri, parse_at_uri
 from Crypto.PublicKey import RSA
 from cryptography.hazmat.primitives import serialization
 import dag_json
@@ -239,9 +240,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         else:
             user = cls(id=id, **kwargs)
 
-        # TODO: fetch and store profile
-        # self.obj = self.load(self.profile_id())
-
         if propagate and cls.LABEL != 'atproto' and not user.atproto_did:
             # create new DID, repo
             logger.info(f'Creating new did:plc for {user.key}')
@@ -253,18 +251,27 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             user.atproto_did = did_plc.did
             add(user.copies, Target(uri=did_plc.did, protocol='atproto'))
 
+            # fetch and store profile
+            if not user.obj:
+                user.obj = user.load(user.profile_id())
+
+            initial_writes = None
+            if user.obj and user.obj.as1:
+                # create user profile
+                initial_writes = [Write(action=Action.CREATE,
+                                        collection='app.bsky.actor.profile',
+                                        rkey='self', record=user.obj.as_bsky())]
+                uri = at_uri(user.atproto_did, 'app.bsky.actor.profile', 'self')
+                add(user.obj.copies, Target(uri=uri, protocol='atproto'))
+                user.obj.put()
+
             repo = Repo.create(
                 arroba.server.storage, user.atproto_did,
                 handle=user.handle_as('atproto'),
                 callback=lambda _: common.create_task(queue='atproto-commit'),
+                initial_writes=initial_writes,
                 signing_key=did_plc.signing_key,
                 rotation_key=did_plc.rotation_key)
-
-            if user.obj and user.obj.as1:
-                # create user profile
-                repo.apply_writes([Write(action=Action.CREATE,
-                                         collection='app.bsky.actor.profile',
-                                         rkey='self', record=user.obj.as_bsky())])
 
         # generate keys for all protocols _except_ our own
         #
@@ -574,7 +581,7 @@ class Object(StringIdModel):
             obj = as2.to_as1(redirect_unwrap(self.as2))
 
         elif self.bsky:
-            owner, _, _ = arroba.util.parse_at_uri(self.key.id())
+            owner, _, _ = parse_at_uri(self.key.id())
             ATProto = PROTOCOLS['atproto']
             handle = ATProto(id=owner).handle
             obj = bluesky.to_as1(self.bsky, repo_did=owner, repo_handle=handle,
@@ -650,7 +657,7 @@ class Object(StringIdModel):
         assert '^^' not in self.key.id()
 
         if self.key.id().startswith('at://'):
-            repo, _, _ = arroba.util.parse_at_uri(self.key.id())
+            repo, _, _ = parse_at_uri(self.key.id())
             if not repo.startswith('did:'):
                 # TODO: if we hit this, that means the AppView gave us an AT URI
                 # with a handle repo/authority instead of DID. that's surprising!
