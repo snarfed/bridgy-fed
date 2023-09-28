@@ -1,15 +1,23 @@
 """Unit tests for pages.py."""
+from unittest.mock import patch
+
+import arroba.server
+from flask import get_flashed_messages
 from google.cloud import ndb
+from google.cloud.tasks_v2.types import Task
 from granary import atom, microformats2, rss
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.appengine_config import tasks_client
+from oauth_dropins.webutil.testutil import requests_response
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase, ACTOR, COMMENT, MENTION, NOTE
 
 from activitypub import ActivityPub
-from models import Object, Follower
+from models import Object, Follower, Target
 from web import Web
 
+from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_VIEW_BSKY
 from .test_web import ACTOR_AS2, REPOST_AS2
 
 ACTOR_WITH_PREFERRED_USERNAME = {
@@ -310,6 +318,41 @@ class PagesTest(TestCase):
         assert got.text.index(bob) != got.text.rindex(bob)
         # COMMENT's author
         self.assertIn('Dr. Eve', got.text)
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch('requests.post',
+           return_value=requests_response('OK'))  # create DID on PLC
+    def test_bridge_user(self, mock_post, mock_create_task):
+        Fake.fetchable = {'fake:user': ACTOR_AS}
+
+        got = self.client.post('/bridge-user', data={'handle': 'fake:handle:user'})
+        self.assertEqual(200, got.status_code)
+        self.assertEqual(
+            ['Bridging fake:user into Bluesky. <a href="https://bsky.app/search">Try searching for them</a> in a minute!'],
+            get_flashed_messages())
+
+        # check user, repo
+        user = Fake.get_by_id('fake:user')
+        self.assertEqual('fake:handle:user', user.handle)
+        self.assertEqual([Target(uri=user.atproto_did, protocol='atproto')],
+                         user.copies)
+        repo = arroba.server.storage.load_repo(user.atproto_did)
+
+        # check profile
+        profile = repo.get_record('app.bsky.actor.profile', 'self')
+        self.assertEqual(ACTOR_PROFILE_VIEW_BSKY, profile)
+
+        at_uri = f'at://{user.atproto_did}/app.bsky.actor.profile/self'
+        self.assertEqual([Target(uri=at_uri, protocol='atproto')],
+                         Object.get_by_id(id='fake:user').copies)
+
+        mock_create_task.assert_called()
+
+    def test_bridge_user_bad_handle(self):
+        got = self.client.post('/bridge-user', data={'handle': 'bad xyz'})
+        self.assertEqual(400, got.status_code)
+        self.assertEqual(["Couldn't determine protocol for bad xyz"],
+                         get_flashed_messages())
 
     def test_nodeinfo(self):
         # just check that it doesn't crash

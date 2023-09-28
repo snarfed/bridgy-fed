@@ -12,12 +12,13 @@ from google.cloud.ndb.stats import KindStat
 from granary import as1, as2, atom, microformats2, rss
 import humanize
 from oauth_dropins.webutil import flask_util, logs, util
-from oauth_dropins.webutil.flask_util import error, redirect
+from oauth_dropins.webutil.flask_util import error, flash, redirect
 
 import common
 from common import DOMAIN_RE
 from flask_app import app, cache
 from models import fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS
+from protocol import Protocol
 
 FOLLOWERS_UI_LIMIT = 999
 
@@ -195,6 +196,33 @@ def feed(protocol, id):
         body = rss.from_activities(activities, actor=actor, title=title,
                                    feed_url=request.url)
         return body, {'Content-Type': rss.CONTENT_TYPE}
+
+
+@app.get('/bridge-user')
+@flask_util.cached(cache, datetime.timedelta(days=1))
+def bridge_user_page():
+    return render_template('bridge_user.html')
+
+
+@app.post('/bridge-user')
+def bridge_user():
+    handle = request.values['handle']
+
+    proto, id = Protocol.for_handle(handle)
+    if not proto:
+        flash(f"Couldn't determine protocol for {handle}")
+        return render_template('bridge_user.html'), 400
+
+    if not id:
+        id = proto.handle_to_id(handle)
+        if not id:
+            flash(f"Couldn't resolve {proto.__name__} handle {handle}")
+            return render_template('bridge_user.html'), 400
+
+    proto.get_or_create(id=id, propagate=True)
+
+    flash('Bridging fake:user into Bluesky. <a href="https://bsky.app/search">Try searching for them</a> in a minute!')
+    return render_template('bridge_user.html')
 
 
 def fetch_objects(query):
