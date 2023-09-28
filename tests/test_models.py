@@ -3,10 +3,13 @@
 from unittest.mock import patch
 
 from arroba.mst import dag_cbor_cid
+import arroba.server
 from Crypto.PublicKey import ECC
 from flask import g
 from google.cloud import ndb
-from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
+from google.cloud.tasks_v2.types import Task
+from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_VIEW_BSKY
+from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import NOW, requests_response
 
 # import first so that Fake is defined before URL routes are registered
@@ -31,7 +34,7 @@ class UserTest(TestCase):
         g.user = self.make_user('y.z', cls=Web)
 
     def test_get_or_create(self):
-        user = Fake.get_or_create('a.b')
+        user = Fake.get_or_create('fake:user')
 
         assert not user.direct
         assert user.mod
@@ -43,9 +46,28 @@ class UserTest(TestCase):
         assert user.private_pem()
 
         # direct should get set even if the user exists
-        same = Fake.get_or_create('a.b', direct=True)
+        same = Fake.get_or_create('fake:user', direct=True)
         user.direct = True
         self.assert_entities_equal(same, user, ignore=['updated'])
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch('requests.post',
+           return_value=requests_response('OK'))  # create DID on PLC
+    def test_get_or_create_propagate(self, mock_post, mock_create_task):
+        Fake.fetchable = {'fake:user': ACTOR_AS}
+
+        user = Fake.get_or_create('fake:user', propagate=True)
+
+        # check user, record
+        # TODO: check profile
+        user = Fake.get_by_id('fake:user')
+        self.assertEqual('fake:handle:user', user.handle)
+        self.assertEqual([Target(uri=user.atproto_did, protocol='atproto')],
+                         user.copies)
+        # check that the repo exists
+        repo = arroba.server.storage.load_repo(user.atproto_did)
+
+        mock_create_task.assert_called()
 
     def test_validate_atproto_did(self):
         user = Fake()

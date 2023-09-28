@@ -10,9 +10,10 @@ import re
 from arroba import did
 from arroba.datastore_storage import AtpRepo, DatastoreStorage
 from arroba.repo import Repo, Write
+import arroba.server
 from arroba.storage import Action, CommitData
 from arroba.util import next_tid, parse_at_uri, service_jwt
-from flask import abort, g, request
+from flask import abort, request
 from google.cloud import ndb
 from granary import as1, bluesky
 from lexrpc import Client
@@ -34,7 +35,7 @@ from protocol import Protocol
 
 logger = logging.getLogger(__name__)
 
-storage = DatastoreStorage()
+arroba.server.storage = DatastoreStorage()
 
 
 class ATProto(User, Protocol):
@@ -204,72 +205,40 @@ class ATProto(User, Protocol):
             type = as1.object_type(as1.get_object(obj.as1))
         assert type in ('note', 'article')
 
-        user_key = PROTOCOLS[obj.source_protocol].actor_key(obj)
-        if not user_key:
+        from_cls = PROTOCOLS[obj.source_protocol]
+        from_key = from_cls.actor_key(obj)
+        if not from_key:
             logger.info(f"Couldn't find {obj.source_protocol} user for {obj.key}")
             return False
 
-        def create_atproto_commit_task(commit_data):
-            common.create_task(queue='atproto-commit')
-
-        writes = []
-        user = user_key.get()
-        repo = None
-        if user.atproto_did:
-            # existing DID and repo
-            did_doc = to_cls.load(user.atproto_did)
-            pds = to_cls._pds_for(did_doc)
-            if not pds or pds.rstrip('/') != url.rstrip('/'):
-                logger.warning(f'{user_key} {user.atproto_did} PDS {pds} is not us')
-                return False
-            repo = storage.load_repo(user.atproto_did)
-            repo.callback = create_atproto_commit_task
-
-        else:
-            # create new DID, repo
-            logger.info(f'Creating new did:plc for {user.key}')
-            did_plc = did.create_plc(user.handle_as('atproto'),
-                                     pds_url=common.host_url(),
-                                     post_fn=util.requests_post)
-
-            ndb.transactional()
-            def update_user_create_repo():
-                Object.get_or_create(did_plc.did, raw=did_plc.doc)
-                user.atproto_did = did_plc.did
-                add(user.copies, Target(uri=did_plc.did, protocol=to_cls.LABEL))
-                user.put()
-
-                assert not storage.load_repo(user.atproto_did)
-                nonlocal repo
-                repo = Repo.create(storage, user.atproto_did,
-                                   handle=user.handle_as('atproto'),
-                                   callback=create_atproto_commit_task,
-                                   signing_key=did_plc.signing_key,
-                                   rotation_key=did_plc.rotation_key)
-                if user.obj and user.obj.as1:
-                    # create user profile
-                    writes.append(Write(action=Action.CREATE,
-                                        collection='app.bsky.actor.profile',
-                                        rkey='self', record=user.obj.as_bsky()))
-            update_user_create_repo()
-
+        # load user
+        user = from_cls.get_or_create(from_key.id(), propagate=True)
+        assert user.atproto_did
         logger.info(f'{user.key} is {user.atproto_did}')
-        assert repo
+        did_doc = to_cls.load(user.atproto_did)
+        pds = to_cls._pds_for(did_doc)
+        if not pds or pds.rstrip('/') != url.rstrip('/'):
+            logger.warning(f'{from_key} {user.atproto_did} PDS {pds} is not us')
+            return False
 
-        # create record and commit in ATProto repo
+        # load repo
+        repo = arroba.server.storage.load_repo(user.atproto_did)
+        assert repo
+        repo.callback = lambda _: common.create_task(queue='atproto-commit')
+
+        # create record and commit
         ndb.transactional()
         def write():
             tid = next_tid()
-            writes.append(Write(action=Action.CREATE, collection='app.bsky.feed.post',
-                                rkey=tid, record=obj.as_bsky()))
-            repo.apply_writes(writes)
+            repo.apply_writes(
+                [Write(action=Action.CREATE, collection='app.bsky.feed.post',
+                       rkey=tid, record=obj.as_bsky())])
 
             at_uri = f'at://{user.atproto_did}/app.bsky.feed.post/{tid}'
             add(obj.copies, Target(uri=at_uri, protocol=to_cls.ABBREV))
             obj.put()
 
         write()
-
         return True
 
     @classmethod

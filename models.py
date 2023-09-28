@@ -6,6 +6,9 @@ import logging
 import random
 from urllib.parse import quote, urlparse
 
+from arroba import did
+from arroba.repo import Repo, Write
+from arroba.storage import Action
 import arroba.util
 from Crypto.PublicKey import RSA
 from cryptography.hazmat.primitives import serialization
@@ -215,8 +218,13 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     @classmethod
     @ndb.transactional()
-    def get_or_create(cls, id, **kwargs):
-        """Loads and returns a User. Creates it if necessary."""
+    def get_or_create(cls, id, propagate=False, **kwargs):
+        """Loads and returns a User. Creates it if necessary.
+
+        Args:
+          propagate (bool): whether to create copies of this user in push-based
+            protocols, eg ATProto and Nostr.
+        """
         assert cls != User
         user = cls.get_by_id(id)
         if user:
@@ -226,7 +234,37 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                 logger.info(f'Setting {user.key} direct={direct}')
                 user.direct = direct
                 user.put()
-            return user
+            if not propagate:
+                return user
+        else:
+            user = cls(id=id, **kwargs)
+
+        # TODO: fetch and store profile
+        # self.obj = self.load(self.profile_id())
+
+        if propagate and cls.LABEL != 'atproto' and not user.atproto_did:
+            # create new DID, repo
+            logger.info(f'Creating new did:plc for {user.key}')
+            did_plc = did.create_plc(user.handle_as('atproto'),
+                                     pds_url=common.host_url(),
+                                     post_fn=util.requests_post)
+
+            Object.get_or_create(did_plc.did, raw=did_plc.doc)
+            user.atproto_did = did_plc.did
+            add(user.copies, Target(uri=did_plc.did, protocol='atproto'))
+
+            repo = Repo.create(
+                arroba.server.storage, user.atproto_did,
+                handle=user.handle_as('atproto'),
+                callback=lambda _: common.create_task(queue='atproto-commit'),
+                signing_key=did_plc.signing_key,
+                rotation_key=did_plc.rotation_key)
+
+            if user.obj and user.obj.as1:
+                # create user profile
+                repo.apply_writes([Write(action=Action.CREATE,
+                                         collection='app.bsky.actor.profile',
+                                         rkey='self', record=user.obj.as_bsky())])
 
         # generate keys for all protocols _except_ our own
         #
@@ -235,13 +273,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if cls.LABEL != 'activitypub':
             # originally from django_salmon.magicsigs
             key = RSA.generate(KEY_BITS, randfunc=random.randbytes if DEBUG else None)
-            kwargs.update({
-                    'mod': long_to_base64(key.n),
-                    'public_exponent': long_to_base64(key.e),
-                    'private_exponent': long_to_base64(key.d),
-            })
+            user.mod = long_to_base64(key.n)
+            user.public_exponent = long_to_base64(key.e)
+            user.private_exponent = long_to_base64(key.d)
 
-        user = cls(id=id, **kwargs)
         try:
             user.put()
         except AssertionError as e:

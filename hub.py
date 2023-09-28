@@ -61,7 +61,6 @@ def health_check():
 #
 # XRPC server
 #
-arroba.server.storage = DatastoreStorage()
 lexrpc.flask_server.init_flask(arroba.server.server, app)
 
 
