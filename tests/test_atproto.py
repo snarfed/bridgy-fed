@@ -319,7 +319,7 @@ class ATProtoTest(TestCase):
         # check atproto-commit task
         self.assertEqual(2, mock_create_task.call_count)
         self.assert_task(mock_create_task, 'atproto-commit',
-                         '/_ah/queue/atproto-commit')
+                         '/queue/atproto-commit')
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',
@@ -478,7 +478,7 @@ class ATProtoTest(TestCase):
         ]
 
         client = app.test_client()
-        resp = client.post('/_ah/queue/atproto-poll-notifs')
+        resp = client.post('/queue/atproto-poll-notifs')
         self.assertEqual(200, resp.status_code)
 
         expected_list_notifs = call(
@@ -504,15 +504,15 @@ class ATProtoTest(TestCase):
         #
         like_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.like/123')
         self.assertEqual(like, like_obj.bsky)
-        self.assert_task(mock_create_task, 'receive', '/_ah/queue/receive',
+        self.assert_task(mock_create_task, 'receive', '/queue/receive',
                          obj=like_obj.key.urlsafe(), user=user_a.key.urlsafe())
 
         reply_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.post/456')
         self.assertEqual(reply, reply_obj.bsky)
-        self.assert_task(mock_create_task, 'receive', '/_ah/queue/receive',
+        self.assert_task(mock_create_task, 'receive', '/queue/receive',
                          obj=reply_obj.key.urlsafe(), user=user_a.key.urlsafe())
 
         follow_obj = Object.get_by_id('at://did:plc:d/app.bsky.graph.follow/789')
         self.assertEqual(follow, follow_obj.bsky)
-        self.assert_task(mock_create_task, 'receive', '/_ah/queue/receive',
+        self.assert_task(mock_create_task, 'receive', '/queue/receive',
                          obj=follow_obj.key.urlsafe(), user=user_c.key.urlsafe())

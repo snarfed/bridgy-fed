@@ -65,11 +65,11 @@ def health_check():
 #
 lexrpc.flask_server.init_flask(arroba.server.server, app)
 
-app.add_url_rule('/_ah/queue/atproto-poll-notifs',
+app.add_url_rule('/queue/atproto-poll-notifs',
                  view_func=atproto.poll_notifications,
                  methods=['POST'])
 
-@app.post('/_ah/queue/atproto-commit')
+@app.post('/queue/atproto-commit')
 def atproto_commit():
     """Handler for atproto-commit tasks.
 

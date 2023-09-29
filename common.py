@@ -249,7 +249,7 @@ def create_task(queue, **params):
       creating the task.
     """
     assert queue
-    path = f'/_ah/queue/{queue}'
+    path = f'/queue/{queue}'
 
     if appengine_info.LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')

@@ -523,7 +523,7 @@ def webmention_interactive():
     return redirect(path, code=302)
 
 
-@app.post('/_ah/queue/webmention')
+@app.post('/queue/webmention')
 def webmention_task():
     """Handles inbound webmention task."""
     logger.info(f'Params: {list(request.form.items())}')

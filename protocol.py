@@ -1079,7 +1079,7 @@ class Protocol:
         return obj
 
 
-@app.post('/_ah/queue/receive')
+@app.post('/queue/receive')
 def receive_task():
     """Task handler for a newly received :class:`Object`.
 
