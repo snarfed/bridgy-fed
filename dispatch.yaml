@@ -1,0 +1,11 @@
+# https://cloud.google.com/appengine/docs/flexible/reference/dispatch-yaml?tab=python
+
+dispatch:
+  - url: "*/queue/atproto-commit"
+    service: hub
+
+  - url: "*/queue/atproto-poll-notifs"
+    service: hub
+
+  - url: "*/xrpc/com.atproto.sync.subscribeRepos"
+    service: hub
