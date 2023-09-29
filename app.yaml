@@ -23,6 +23,7 @@ inbound_services:
 
 env_variables:
   PDS_HOST: fed.brid.gy
+  PLC_WRITE_HOST: plc.bsky-sandbox.dev
 
   # # sandbox
   # PLC_HOST: plc.bsky-sandbox.dev
