@@ -170,6 +170,18 @@ class WebfingerTest(TestCase):
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
         self.assert_equals(WEBFINGER_FAKE_FA_BRID_GY, got.json)
 
+    def test_user_unknown_protocol_subdomain(self):
+        got = self.client.get(
+            '/.well-known/webfinger?resource=acct:user@nope.brid.gy',
+            headers={'Accept': 'application/json'})
+        self.assertEqual(404, got.status_code)
+
+    def test_user_unusable_protocol_subdomain(self):
+        got = self.client.get(
+            '/.well-known/webfinger?resource=acct:user@bsky.brid.gy',
+            headers={'Accept': 'application/json'})
+        self.assertEqual(400, got.status_code)
+
     def test_user_infer_protocol_from_request_subdomain(self):
         self.make_user('fake:user', cls=Fake)
         got = self.client.get(
