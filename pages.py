@@ -226,7 +226,7 @@ def bridge_user():
 
     proto.get_or_create(id=id, propagate=True)
 
-    flash('Bridging fake:user into Bluesky. <a href="https://bsky.app/search">Try searching for them</a> in a minute!')
+    flash(f'Bridging {handle} into Bluesky. <a href="https://bsky.app/search">Try searching for them</a> in a minute!')
     return render_template('bridge_user.html')
 
 
