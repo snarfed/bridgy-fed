@@ -16,6 +16,19 @@ runtime_config:
 # network:
 #   instance_ip_mode: internal
 
+env_variables:
+  PDS_HOST: fed.brid.gy
+
+  # sandbox
+  PLC_HOST: plc.bsky-sandbox.dev
+  APPVIEW_HOST: api.bsky-sandbox.dev
+  BGS_HOST: bgs.bsky-sandbox.dev
+
+  # prod
+  # PLC_HOST: plc.directory
+  # APPVIEW_HOST: api.bsky.app
+  # BGS_HOST: bgs.bsky.social
+
 # need only one instance so that new commits can be delivered to subscribeRepos
 # subscribers in memory
 manual_scaling:
