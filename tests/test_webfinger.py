@@ -1,4 +1,3 @@
-# coding=utf-8
 """Unit tests for webfinger.py."""
 import copy
 from unittest.mock import patch
@@ -13,6 +12,7 @@ from web import Web
 from webfinger import fetch, fetch_actor_url
 
 from . import test_web
+
 
 WEBFINGER = {
     'subject': 'acct:user.com@user.com',
@@ -189,7 +189,9 @@ class WebfingerTest(TestCase):
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
         self.assert_equals(WEBFINGER_FAKE_FA_BRID_GY, got.json)
 
-    def test_handle(self):
+    def test_handle_new_user(self):
+        self.assertIsNone(Fake.get_by_id('fake:user'))
+
         got = self.client.get(
             '/.well-known/webfinger?resource=acct:fake:handle:user@fake.brid.gy',
             base_url='https://fed.brid.gy/',

@@ -81,6 +81,11 @@ class ATProtoTest(TestCase):
         self.store_object(id='did:plc:foo', raw=DID_DOC)
         self.assertEqual('han.dull', ATProto(id='did:plc:foo').handle)
 
+    @patch('requests.get', return_value=requests_response(DID_DOC))
+    def test_get_or_create(self, _):
+        user = ATProto.get_or_create('did:plc:foo')
+        self.assertEqual('han.dull', user.key.get().handle)
+
     def test_put_blocks_atproto_did(self):
         with self.assertRaises(AssertionError):
             ATProto(id='did:plc:123', atproto_did='did:plc:456').put()

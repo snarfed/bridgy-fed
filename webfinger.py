@@ -59,6 +59,7 @@ class Webfinger(flask_util.XrdOrJrd):
         if not cls:
             cls = Protocol.for_request(fed='web')
 
+        # is this a handle?
         if cls.owns_id(id) is False:
             logger.info(f'{id} is not a {cls.LABEL} id')
             handle = id

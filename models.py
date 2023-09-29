@@ -230,6 +230,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         user = cls.get_by_id(id)
         if user:
             # override direct from False => True if set
+            # TODO: propagate more props into user?
             direct = kwargs.get('direct')
             if direct and not user.direct:
                 logger.info(f'Setting {user.key} direct={direct}')
