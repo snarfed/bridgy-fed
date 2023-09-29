@@ -478,7 +478,7 @@ class ATProtoTest(TestCase):
         ]
 
         client = app.test_client()
-        resp = client.get('/_ah/queue/atproto-poll-notifs')
+        resp = client.post('/_ah/queue/atproto-poll-notifs')
         self.assertEqual(200, resp.status_code)
 
         expected_list_notifs = call(

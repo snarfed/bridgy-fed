@@ -9,10 +9,12 @@ env: flex
 runtime: python
 runtime_config:
     operating_system: ubuntu22
-    runtime_version: "3.10"
+    runtime_version: "3.11"
 
-network:
-  instance_ip_mode: internal
+# can't do this because Bluesky BGS needs to be able to connect externally over
+# websocket for subscribeRepos
+# network:
+#   instance_ip_mode: internal
 
 # need only one instance so that new commits can be delivered to subscribeRepos
 # subscribers in memory

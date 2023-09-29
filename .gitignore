@@ -1,3 +1,5 @@
+*_token
+*_jwt
 .coverage
 /.well-known/acme-challenge/
 datastore.dat*

@@ -4,6 +4,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from threading import Timer
 
 import arroba.server
 from arroba.datastore_storage import DatastoreStorage
@@ -11,6 +12,7 @@ from arroba.util import service_jwt
 from arroba import xrpc_sync
 from flask import Flask, request
 import google.cloud.logging
+import lexrpc.client
 import lexrpc.server
 import lexrpc.flask_server
 from oauth_dropins.webutil import (
@@ -59,10 +61,13 @@ def health_check():
 
 
 #
-# XRPC server
+# XRPC server, other URL routes
 #
 lexrpc.flask_server.init_flask(arroba.server.server, app)
 
+app.add_url_rule('/_ah/queue/atproto-poll-notifs',
+                 view_func=atproto.poll_notifications,
+                 methods=['POST'])
 
 @app.post('/_ah/queue/atproto-commit')
 def atproto_commit():
@@ -72,3 +77,16 @@ def atproto_commit():
     """
     xrpc_sync.send_new_commits()
     return 'OK'
+
+
+# send requestCrawl to BGS
+# delay because we're not up and serving XRPCs at this point yet. not sure why not.
+if 'GAE_INSTANCE' in os.environ:  # prod
+    def request_crawl():
+        bgs = lexrpc.client.Client(f'https://{os.environ["BGS_HOST"]}',
+                                   headers={'User-Agent': USER_AGENT})
+        resp = bgs.com.atproto.sync.requestCrawl({'hostname': os.environ['PDS_HOST']})
+        logger.info(resp)
+
+    Timer(15, request_crawl).start()
+    logger.info('Will send BGS requestCrawl in 15s')

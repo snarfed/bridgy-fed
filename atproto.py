@@ -29,7 +29,6 @@ from common import (
     USER_AGENT,
 )
 import flask_app
-import hub
 from models import Object, PROTOCOLS, Target, User
 from protocol import Protocol
 
@@ -299,7 +298,7 @@ class ATProto(User, Protocol):
         return bluesky.from_as1(obj.as1), {'Content-Type': 'application/json'}
 
 
-@hub.app.get('/_ah/queue/atproto-poll-notifs')
+# URL route is registered in hub.py
 def poll_notifications():
     """Fetches and enqueueus new activities from the AppView for our users.
 
