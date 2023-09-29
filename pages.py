@@ -213,6 +213,11 @@ def bridge_user():
         flash(f"Couldn't determine protocol for {handle}")
         return render_template('bridge_user.html'), 400
 
+    # TODO: put these into a PULL_PROTOCOLS constant?
+    if not proto.LABEL in ('activitypub', 'fake', 'web'):
+        flash(f"{proto.__name__} isn't supported")
+        return render_template('bridge_user.html'), 400
+
     if not id:
         id = proto.handle_to_id(handle)
         if not id:
