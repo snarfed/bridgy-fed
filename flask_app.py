@@ -4,11 +4,13 @@ import logging
 from pathlib import Path
 import sys
 
+import arroba.server
+from arroba import xrpc_repo, xrpc_server, xrpc_sync
 from flask import Flask, g
 from flask_caching import Cache
 import flask_gae_static
 from lexrpc.server import Server
-from lexrpc.flask_server import init_flask
+import lexrpc.flask_server
 from oauth_dropins.webutil import (
     appengine_info,
     appengine_config,
@@ -60,3 +62,5 @@ app.wsgi_app = flask_util.ndb_context_middleware(
 )
 
 cache = Cache(app)
+
+lexrpc.flask_server.init_flask(arroba.server.server, app)
