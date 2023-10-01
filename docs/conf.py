@@ -10,9 +10,10 @@
 #
 # All configuration values have a default; values that are commented out
 # serve to show the default.
-
-import sys
+import collections
 import os
+import sys
+
 import sphinx_rtd_theme
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -353,3 +354,17 @@ intersphinx_mapping = {
   'urllib3': ('https://urllib3.readthedocs.io/en/latest', None),
   'werkzeug': ('https://werkzeug.palletsprojects.com/en/latest/', None),
 }
+
+# -- Post process ------------------------------------------------------------
+def remove_namedtuple_attrib_docstring(app, what, name, obj, skip, options):
+  """Removes `Alias for field number ...` entries from namedtuple generated docs.
+
+  https://stackoverflow.com/a/70459782/186123
+  """
+  if type(obj) is collections._tuplegetter:
+    return True
+  return skip
+
+
+def setup(app):
+  app.connect('autodoc-skip-member', remove_namedtuple_attrib_docstring)
