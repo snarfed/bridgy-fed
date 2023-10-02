@@ -762,7 +762,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <th class="subhead">enhanced</th>
   <td class="done"><code>@[domain]@[domain]</code></td>
   <td><code>@[<a href="https://atproto.com/specs/handle">handle</a>]@[<a href="https://atproto.com/specs/handle">handle</a>]</code></td>
-  <td><code>@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a>]@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a>]</code></td>
+  <td><code>@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a>]</code></td>
 </tr>
 
 <tr>
@@ -771,29 +771,31 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <td><code>[domain].web.brid.gy</code></td>
   <td><code>[username].[instance].ap.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
-  <td><code>[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> or <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>].nostr.brid.gy</code></td>
+  <td><code>[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> or <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>].nostr.brid.gy</code><br>
+(convert <code>@</code> to <code>.</code>)</td>
 
 </tr>
 <tr>
   <th class="subhead">enhanced</th>
   <td>bare domain</td>
   <td><code>[username].[instance]</code> domain</td>
-  <td>bare <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain</td>
+  <td>bare <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain<br>
+(<code>_</code> username)</td>
 </tr>
 
 <tr>
   <th rowspan="2">Nostr <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain</th>
   <th class="subhead">basic</th>
-  <td><code>[domain].web.brid.gy</code></td>
-  <td><code>[username].[instance].ap.brid.gy</code></td>
-  <td><code>[<a href="https://atproto.com/specs/handle">handle</a>].bsky.brid.gy</code></td>
+  <td><code>[domain]@web.brid.gy</code></td>
+  <td><code>[username].[instance]@ap.brid.gy</code></td>
+  <td><code>[<a href="https://atproto.com/specs/handle">handle</a>]@bsky.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
 </tr>
 <tr>
   <th class="subhead">enhanced</th>
   <td>bare domain</td>
-  <td><code>[username].[instance]</code> domain</td>
-  <td>bare <a href="https://atproto.com/specs/handle">handle</a></td>
+  <td><code>[username]@[instance]</code></td>
+  <td>bare <a href="https://atproto.com/specs/handle0">handle</a></td>
 </tr>
 
 </tbody>
@@ -809,7 +811,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <th>Web<br><code>me.com</code></th>
   <th>ActivityPub<br><code>@me@instance.com</code></th>
   <th>AT Protocol<br><code>me.com</code></th>
-  <th>Nostr<br><code>me.com</code></th>
+  <th>Nostr<br><code>me@domain.com</code><br><code>[_@]me.com</code></th>
 </tr>
 </thead>
 <tbody>
@@ -821,7 +823,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <td class="done"><code>https://instance.com/@me</code><br>
     (varies by instance)</td>
   <td><code>me.com</code></td>
-  <td><code>me.com</code></td>
+  <td>?<br><code>me.com</code></td>
 </tr>
 
 <tr>
@@ -830,13 +832,14 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <td><code>@me.com@web.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
   <td><code>@me.com@bsky.brid.gy</code></td>
-  <td><code>@me.com@nostr.brid.gy</code></td>
+  <td><code>@me[domain.]com@nostr.brid.gy</code></td>
 </tr>
 <tr>
   <th class="subhead">enhanced</th>
   <td class="done"><code>@me.com@me.com</code></td>
   <td><code>@me.com@me.com</code></td>
-  <td><code>@me.com@me.com</code></td>
+  <td><code>@me@domain.com</code><br>
+      <code>@me.com@me.com</code></td>
 </tr>
 
 <tr>
@@ -845,29 +848,28 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <td><code>me.com.web.brid.gy</code></td>
   <td><code>me.instance.com.ap.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
-  <td><code>me.com.nostr.brid.gy</code></td>
-
+  <td><code>me.[domain.]com.nostr.brid.gy</code></td>
 </tr>
 <tr>
   <th class="subhead">enhanced</th>
   <td><code>me.com</code></td>
   <td><code>me.instance.com</code></td>
-  <td><code>me.com</code></td>
+  <td><code>me.[domain.]com</code></td>
 </tr>
 
 <tr>
   <th rowspan="2">Nostr</th>
   <th class="subhead">basic</th>
-  <td><code>me.com.web.brid.gy</code></td>
-  <td><code>me.instance.com.ap.brid.gy</code></td>
-  <td><code>me.com.bsky.brid.gy</code></td>
+  <td><code>me.com@web.brid.gy</code></td>
+  <td><code>me.instance.com@ap.brid.gy</code></td>
+  <td><code>me.com@bsky.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
 </tr>
 <tr>
   <th class="subhead">enhanced</th>
-  <td><code>me.com</code></td>
-  <td><code>me.instance.com</code></td>
-  <td><code>me.com</code></td>
+  <td><code>[_@]me.com</code></td>
+  <td><code>[_@]me.instance.com</code></td>
+  <td><code>[_@]me.com</code></td>
 </tr>
 
 </tbody>
