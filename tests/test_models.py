@@ -9,9 +9,10 @@ from Crypto.PublicKey import ECC
 from flask import g
 from google.cloud import ndb
 from google.cloud.tasks_v2.types import Task
-from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_VIEW_BSKY
+from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import NOW, requests_response
+from oauth_dropins.webutil import util
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
@@ -68,7 +69,11 @@ class UserTest(TestCase):
 
         # check profile record
         profile = repo.get_record('app.bsky.actor.profile', 'self')
-        self.assertEqual(ACTOR_PROFILE_VIEW_BSKY, profile)
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'description': 'hi there',
+        }, profile)
 
         uri = at_uri(user.atproto_did, 'app.bsky.actor.profile', 'self')
         self.assertEqual([Target(uri=uri, protocol='atproto')],

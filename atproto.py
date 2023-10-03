@@ -36,6 +36,8 @@ logger = logging.getLogger(__name__)
 
 arroba.server.storage = DatastoreStorage()
 
+LEXICONS = Client('https://unused').defs
+
 
 class ATProto(User, Protocol):
     """AT Protocol class.
@@ -226,12 +228,17 @@ class ATProto(User, Protocol):
         repo.callback = lambda _: common.create_task(queue='atproto-commit')
 
         # create record and commit
+        record = obj.as_bsky()
+        type = record['$type']
+        lex_type = LEXICONS[type]['type']
+        assert lex_type == 'record', f"Can't store {type} object of type {lex_type}"
+
         ndb.transactional()
         def write():
             tid = next_tid()
             repo.apply_writes(
                 [Write(action=Action.CREATE, collection='app.bsky.feed.post',
-                       rkey=tid, record=obj.as_bsky())])
+                       rkey=tid, record=record)])
 
             at_uri = f'at://{user.atproto_did}/app.bsky.feed.post/{tid}'
             add(obj.copies, Target(uri=at_uri, protocol=to_cls.ABBREV))

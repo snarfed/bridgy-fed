@@ -17,7 +17,7 @@ from activitypub import ActivityPub
 from models import Object, Follower, Target
 from web import Web
 
-from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_VIEW_BSKY
+from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
 from .test_web import ACTOR_AS2, REPOST_AS2
 
 ACTOR_WITH_PREFERRED_USERNAME = {
@@ -340,7 +340,11 @@ class PagesTest(TestCase):
 
         # check profile
         profile = repo.get_record('app.bsky.actor.profile', 'self')
-        self.assertEqual(ACTOR_PROFILE_VIEW_BSKY, profile)
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'description': 'hi there',
+        }, profile)
 
         at_uri = f'at://{user.atproto_did}/app.bsky.actor.profile/self'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],

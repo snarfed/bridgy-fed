@@ -15,13 +15,13 @@ from flask import g
 from google.cloud.tasks_v2.types import Task
 from granary.tests.test_bluesky import (
     ACTOR_AS,
-    ACTOR_PROFILE_VIEW_BSKY,
+    ACTOR_PROFILE_BSKY,
     POST_AS,
     POST_BSKY,
 )
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import requests_response
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from oauth_dropins.webutil.util import json_dumps, json_loads, trim_nulls
 
 import atproto
 from atproto import ATProto
@@ -225,8 +225,13 @@ class ATProtoTest(TestCase):
 
     def test_serve(self):
         obj = self.store_object(id='http://orig', our_as1=ACTOR_AS)
+        expected = trim_nulls({
+            **ACTOR_PROFILE_BSKY,
+            'avatar': None,
+            'banner': None,
+        })
         self.assertEqual(
-            (ACTOR_PROFILE_VIEW_BSKY, {'Content-Type': 'application/json'}),
+            (expected, {'Content-Type': 'application/json'}),
             ATProto.serve(obj))
 
     @patch('requests.get', return_value=requests_response('', status=404))
@@ -336,7 +341,11 @@ class ATProtoTest(TestCase):
         did = user.key.get().atproto_did
         repo = self.storage.load_repo(did)
         profile = repo.get_record('app.bsky.actor.profile', 'self')
-        self.assertEqual(ACTOR_PROFILE_VIEW_BSKY, profile)
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'description': 'hi there',
+        }, profile)
         record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
         self.assertEqual(POST_BSKY, record)
 
