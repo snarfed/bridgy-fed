@@ -104,12 +104,6 @@ class UserTest(TestCase):
 
         self.assertEqual('y.z', Fake.get_or_create('a.b').key.id())
 
-    def test_href(self):
-        href = g.user.href()
-        self.assertTrue(href.startswith('data:application/magic-public-key,RSA.'), href)
-        self.assertIn(g.user.mod, href)
-        self.assertIn(g.user.public_exponent, href)
-
     def test_public_pem(self):
         pem = g.user.public_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN PUBLIC KEY-----\n'), pem)

@@ -279,7 +279,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         # these can use urandom() and do nontrivial math, so they can take time
         # depending on the amount of randomness available and compute needed.
         if cls.LABEL != 'activitypub':
-            # originally from django_salmon.magicsigs
             key = RSA.generate(KEY_BITS, randfunc=random.randbytes if DEBUG else None)
             user.mod = long_to_base64(key.n)
             user.public_exponent = long_to_base64(key.e)
@@ -374,9 +373,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     def handle_or_id(self):
         """Returns handle if we know it, otherwise id."""
         return self.handle or self.key.id()
-
-    def href(self):
-        return f'data:application/magic-public-key,RSA.{self.mod}.{self.public_exponent}'
 
     def public_pem(self):
         """Returns: bytes"""
