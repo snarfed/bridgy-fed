@@ -268,6 +268,35 @@ class ATProtoTest(TestCase):
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
+    def test_create_for(self, mock_post, mock_create_task):
+        Fake.fetchable = {'fake:user': ACTOR_AS}
+
+        user = Fake(id='fake:user')
+        ATProto.create_for(user)
+
+        # check user, repo
+        user = user.key.get()
+        self.assertEqual([Target(uri=user.atproto_did, protocol='atproto')],
+                         user.copies)
+        repo = arroba.server.storage.load_repo(user.atproto_did)
+
+        # check profile record
+        profile = repo.get_record('app.bsky.actor.profile', 'self')
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'description': 'hi there',
+        }, profile)
+
+        uri = arroba.util.at_uri(user.atproto_did, 'app.bsky.actor.profile', 'self')
+        self.assertEqual([Target(uri=uri, protocol='atproto')],
+                         Object.get_by_id(id='fake:user').copies)
+
+        mock_create_task.assert_called()
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch('requests.post',
+           return_value=requests_response('OK'))  # create DID on PLC
     def test_send_new_repo(self, mock_post, mock_create_task):
         user = self.make_user(id='fake:user', cls=Fake)
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={

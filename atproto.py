@@ -12,7 +12,7 @@ from arroba.datastore_storage import AtpRepo, DatastoreStorage
 from arroba.repo import Repo, Write
 import arroba.server
 from arroba.storage import Action, CommitData
-from arroba.util import next_tid, parse_at_uri, service_jwt
+from arroba.util import at_uri, next_tid, parse_at_uri, service_jwt
 from flask import abort, request
 from google.cloud import ndb
 from granary import as1, bluesky
@@ -180,6 +180,53 @@ class ATProto(User, Protocol):
         # don't block common.DOMAINS since we want ourselves, ie our own PDS, to
         # be a valid domain to send to
         return util.domain_or_parent_in(util.domain_from_link(url), DOMAIN_BLOCKLIST)
+
+    @classmethod
+    @ndb.transactional()
+    def create_for(cls, user):
+        """Creates an ATProto user, repo, and profile for a non-ATProto user.
+
+        Args:
+          user (User)
+        """
+        assert not isinstance(user, ATProto)
+
+        if user.atproto_did:
+            return
+
+        # create new DID, repo
+        logger.info(f'Creating new did:plc for {user.key}')
+        did_plc = did.create_plc(user.handle_as('atproto'),
+                                 pds_url=common.host_url(),
+                                 post_fn=util.requests_post)
+
+        Object.get_or_create(did_plc.did, raw=did_plc.doc)
+        user.atproto_did = did_plc.did
+        add(user.copies, Target(uri=did_plc.did, protocol='atproto'))
+
+        # fetch and store profile
+        if not user.obj:
+            user.obj = user.load(user.profile_id())
+
+        initial_writes = None
+        if user.obj and user.obj.as1:
+            # create user profile
+            initial_writes = [Write(action=Action.CREATE,
+                                    collection='app.bsky.actor.profile',
+                                    rkey='self', record=user.obj.as_bsky())]
+            uri = at_uri(user.atproto_did, 'app.bsky.actor.profile', 'self')
+            add(user.obj.copies, Target(uri=uri, protocol='atproto'))
+            user.obj.put()
+
+        repo = Repo.create(
+            arroba.server.storage, user.atproto_did,
+            handle=user.handle_as('atproto'),
+            callback=lambda _: common.create_task(queue='atproto-commit'),
+            initial_writes=initial_writes,
+            signing_key=did_plc.signing_key,
+            rotation_key=did_plc.rotation_key)
+
+        user.put()
 
     @classmethod
     def send(to_cls, obj, url, log_data=True):
