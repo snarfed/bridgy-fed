@@ -14,6 +14,7 @@ import arroba.server
 from arroba.storage import Action, CommitData
 from arroba.util import at_uri, next_tid, parse_at_uri, service_jwt
 from flask import abort, request
+from google.cloud import dns
 from google.cloud import ndb
 from granary import as1, bluesky
 from lexrpc import Client
@@ -37,6 +38,12 @@ logger = logging.getLogger(__name__)
 arroba.server.storage = DatastoreStorage()
 
 LEXICONS = Client('https://unused').defs
+
+DNS_GCP_PROJECT = 'brid-gy'
+DNS_ZONE = 'brid-gy'
+DNS_TTL = 10800  # seconds
+logger.info(f'Using GCP DNS project {DNS_GCP_PROJECT} zone {DNS_ZONE}')
+dns_client = dns.Client(project=DNS_GCP_PROJECT)
 
 
 class ATProto(User, Protocol):
@@ -203,6 +210,20 @@ class ATProto(User, Protocol):
         Object.get_or_create(did_plc.did, raw=did_plc.doc)
         user.atproto_did = did_plc.did
         add(user.copies, Target(uri=did_plc.did, protocol='atproto'))
+        handle = user.handle_as('atproto')
+
+        # create _atproto DNS record for handle resolution
+        # https://atproto.com/specs/handle#handle-resolution
+        name = f'_atproto.{handle}.'
+        val = f'"did={did_plc.did}"'
+        logger.info(f'adding GCP DNS TXT record for {name} {val}')
+        zone = dns_client.zone(DNS_ZONE)
+        r = zone.resource_record_set(name=name, record_type='TXT', ttl=DNS_TTL,
+                                     rrdatas=[val])
+        changes = zone.changes()
+        changes.add_record_set(r)
+        changes.create()
+        logger.info('  done!')
 
         # fetch and store profile
         if not user.obj:
@@ -219,8 +240,7 @@ class ATProto(User, Protocol):
             user.obj.put()
 
         repo = Repo.create(
-            arroba.server.storage, user.atproto_did,
-            handle=user.handle_as('atproto'),
+            arroba.server.storage, user.atproto_did, handle=handle,
             callback=lambda _: common.create_task(queue='atproto-commit'),
             initial_writes=initial_writes,
             signing_key=did_plc.signing_key,
