@@ -5,7 +5,7 @@ import logging
 from unittest import skip
 from unittest.mock import call, MagicMock, patch
 
-from arroba.datastore_storage import AtpBlock, AtpRepo, DatastoreStorage
+from arroba.datastore_storage import AtpBlock, AtpRemoteBlob, AtpRepo, DatastoreStorage
 from arroba.did import encode_did_key
 from arroba.repo import Repo
 import arroba.util
@@ -19,6 +19,7 @@ from granary.tests.test_bluesky import (
     POST_AS,
     POST_BSKY,
 )
+from multiformats import CID
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads, trim_nulls
@@ -48,6 +49,7 @@ DID_DOC = {
         'serviceEndpoint': 'https://some.pds',
     }],
 }
+BLOB_CID = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
 
 KEY = arroba.util.new_key(2349823483510)  # deterministic seed
 
@@ -275,6 +277,8 @@ class ATProtoTest(TestCase):
 
         Fake.fetchable = {'fake:user': ACTOR_AS}
         user = Fake(id='fake:user')
+        AtpRemoteBlob(id='https://alice.com/alice.jpg',
+                      cid=BLOB_CID.encode('base32'), size=8).put()
 
         ATProto.create_for(user)
 
@@ -295,6 +299,12 @@ class ATProtoTest(TestCase):
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there',
+            'avatar': {
+                '$type': 'blob',
+                'mimeType': 'application/octet-stream',
+                'ref': BLOB_CID,
+                'size': 8,
+            },
         }, profile)
 
         uri = arroba.util.at_uri(user.atproto_did, 'app.bsky.actor.profile', 'self')
@@ -313,6 +323,7 @@ class ATProtoTest(TestCase):
             **POST_AS,
             'actor': 'fake:user',
         })
+
         self.assertTrue(ATProto.send(obj, 'http://localhost/'))
 
         # check DID doc
@@ -365,11 +376,14 @@ class ATProtoTest(TestCase):
         self.assert_task(mock_create_task, 'atproto-commit',
                          '/queue/atproto-commit')
 
+    @patch('requests.get', return_value=requests_response(
+        'blob contents', content_type='image/png'))  # image blob fetch
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
-    def test_send_new_repo_includes_user_profile(self, mock_post, mock_create_task, _):
+    def test_send_new_repo_includes_user_profile(self, mock_post, mock_create_task,
+                                                 _, __):
         user = self.make_user(id='fake:user', cls=Fake, obj_as1=ACTOR_AS)
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
             **POST_AS,
@@ -385,6 +399,12 @@ class ATProtoTest(TestCase):
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there',
+            'avatar': {
+                '$type': 'blob',
+                'ref': BLOB_CID,
+                'mimeType': 'image/png',
+                'size': 13,
+            },
         }, profile)
         record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
         self.assertEqual(POST_BSKY, record)

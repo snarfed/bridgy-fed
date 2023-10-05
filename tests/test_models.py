@@ -2,14 +2,18 @@
 """Unit tests for models.py."""
 from unittest.mock import patch
 
+from arroba.datastore_storage import AtpRemoteBlob
 from arroba.mst import dag_cbor_cid
 import arroba.server
 from arroba.util import at_uri
 from Crypto.PublicKey import ECC
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import serialization
 from flask import g
 from google.cloud import ndb
 from google.cloud.tasks_v2.types import Task
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
+from multiformats import CID
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import NOW, requests_response
 from oauth_dropins.webutil import util
@@ -18,8 +22,6 @@ from oauth_dropins.webutil import util
 from .testutil import Fake, TestCase
 
 from atproto import ATProto
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import serialization
 from models import Follower, Object, OBJECT_EXPIRE_AGE, Target, User
 import protocol
 from protocol import Protocol
@@ -57,7 +59,12 @@ class UserTest(TestCase):
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
     def test_get_or_create_propagate(self, mock_post, mock_create_task, _):
-        Fake.fetchable = {'fake:user': ACTOR_AS}
+        Fake.fetchable = {
+            'fake:user': {
+                **ACTOR_AS,
+                'image': None,  # don't try to fetch as blob
+            },
+        }
 
         user = Fake.get_or_create('fake:user', propagate=True)
 
@@ -524,6 +531,59 @@ class ObjectTest(TestCase):
         self.assertNotIn('id', obj.as1)
         self.assertNotIn('id', obj.as1['actor'])
         self.assertEqual(['c', 'd'], obj.as1['object'])
+
+    def test_as_bsky_blobs_false(self):
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+        }, Object(our_as1={
+            'objectType': 'person',
+            'id': 'did:web:alice.com',
+            'displayName': 'Alice',
+            'image': [{'url': 'http://my/pic'}],
+        }).as_bsky())
+
+    @patch('requests.get', return_value=requests_response(
+        'blob contents', content_type='image/png'))
+    def test_as_bsky_fetch_blobs_true(self, mock_get):
+        cid = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'avatar': {
+                '$type': 'blob',
+                'ref': cid,
+                'mimeType': 'image/png',
+                'size': 13,
+            },
+        }, Object(our_as1={
+            'objectType': 'person',
+            'id': 'did:web:alice.com',
+            'displayName': 'Alice',
+            'image': [{'url': 'http://my/pic'}],
+        }).as_bsky(fetch_blobs=True))
+
+        mock_get.assert_has_calls([self.req('http://my/pic')])
+
+    def test_as_bsky_fetch_blobs_true_existing_atp_remote_blob(self):
+        cid = 'bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq'
+        AtpRemoteBlob(id='http://my/pic', cid=cid, size=8).put()
+
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'avatar': {
+                '$type': 'blob',
+                'ref': CID.decode(cid),
+                'mimeType': 'application/octet-stream',
+                'size': 8,
+            },
+        }, Object(our_as1={
+            'objectType': 'person',
+            'id': 'did:web:alice.com',
+            'displayName': 'Alice',
+            'image': [{'url': 'http://my/pic'}],
+        }).as_bsky(fetch_blobs=True))
 
     def test_clear(self):
         ab = {'a': 'b'}

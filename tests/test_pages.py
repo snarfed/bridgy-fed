@@ -324,7 +324,12 @@ class PagesTest(TestCase):
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
     def test_bridge_user(self, mock_post, mock_create_task, _):
-        Fake.fetchable = {'fake:user': ACTOR_AS}
+        Fake.fetchable = {
+            'fake:user': {
+                **ACTOR_AS,
+                'image': None,  # don't try to fetch as blob
+            },
+        }
 
         got = self.client.post('/bridge-user', data={'handle': 'fake:handle:user'})
         self.assertEqual(200, got.status_code)

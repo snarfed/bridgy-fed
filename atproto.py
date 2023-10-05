@@ -232,9 +232,9 @@ class ATProto(User, Protocol):
         initial_writes = None
         if user.obj and user.obj.as1:
             # create user profile
-            initial_writes = [Write(action=Action.CREATE,
-                                    collection='app.bsky.actor.profile',
-                                    rkey='self', record=user.obj.as_bsky())]
+            initial_writes = [Write(
+                action=Action.CREATE, collection='app.bsky.actor.profile',
+                rkey='self', record=user.obj.as_bsky(fetch_blobs=True))]
             uri = at_uri(user.atproto_did, 'app.bsky.actor.profile', 'self')
             add(user.obj.copies, Target(uri=uri, protocol='atproto'))
             user.obj.put()
@@ -295,7 +295,7 @@ class ATProto(User, Protocol):
         repo.callback = lambda _: common.create_task(queue='atproto-commit')
 
         # create record and commit
-        record = obj.as_bsky()
+        record = obj.as_bsky(fetch_blobs=True)
         type = record['$type']
         lex_type = LEXICONS[type]['type']
         assert lex_type == 'record', f"Can't store {type} object of type {lex_type}"
