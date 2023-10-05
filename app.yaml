@@ -33,7 +33,7 @@ env_variables:
   # prod
   PLC_HOST: plc.directory
   APPVIEW_HOST: api.bsky.app
-  BGS_HOST: bgs.bsky.social
+  BGS_HOST: bsky.network
 
 handlers:
 
