@@ -20,6 +20,7 @@ from granary import as1, bluesky
 from lexrpc import Client
 from oauth_dropins.webutil import util
 import requests
+from oauth_dropins.webutil.appengine_info import DEBUG
 
 import common
 from common import (
@@ -217,13 +218,14 @@ class ATProto(User, Protocol):
         name = f'_atproto.{handle}.'
         val = f'"did={did_plc.did}"'
         logger.info(f'adding GCP DNS TXT record for {name} {val}')
-        zone = dns_client.zone(DNS_ZONE)
-        r = zone.resource_record_set(name=name, record_type='TXT', ttl=DNS_TTL,
-                                     rrdatas=[val])
-        changes = zone.changes()
-        changes.add_record_set(r)
-        changes.create()
-        logger.info('  done!')
+        if not DEBUG:
+            zone = dns_client.zone(DNS_ZONE)
+            r = zone.resource_record_set(name=name, record_type='TXT', ttl=DNS_TTL,
+                                         rrdatas=[val])
+            changes = zone.changes()
+            changes.add_record_set(r)
+            changes.create()
+            logger.info('  done!')
 
         # fetch and store profile
         if not user.obj:

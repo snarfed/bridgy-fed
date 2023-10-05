@@ -319,11 +319,10 @@ class PagesTest(TestCase):
         # COMMENT's author
         self.assertIn('Dr. Eve', got.text)
 
-    @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
-    def test_bridge_user(self, mock_post, mock_create_task, _):
+    def test_bridge_user(self, mock_post, mock_create_task):
         Fake.fetchable = {
             'fake:user': {
                 **ACTOR_AS,

@@ -54,11 +54,10 @@ class UserTest(TestCase):
         user.direct = True
         self.assert_entities_equal(same, user, ignore=['updated'])
 
-    @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
-    def test_get_or_create_propagate(self, mock_post, mock_create_task, _):
+    def test_get_or_create_propagate(self, mock_post, mock_create_task):
         Fake.fetchable = {
             'fake:user': {
                 **ACTOR_AS,

@@ -267,6 +267,7 @@ class ATProtoTest(TestCase):
         self.assertEqual('at://did:plc:foo/app.bsky.actor.profile/self',
                          self.make_user('did:plc:foo', cls=ATProto).profile_id())
 
+    @patch('atproto.DEBUG', new=False)
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',
