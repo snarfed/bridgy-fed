@@ -333,7 +333,7 @@ class PagesTest(TestCase):
         got = self.client.post('/bridge-user', data={'handle': 'fake:handle:user'})
         self.assertEqual(200, got.status_code)
         self.assertEqual(
-            ['Bridging fake:handle:user into Bluesky. <a href="https://bsky.app/search">Try searching for them</a> in a minute!'],
+            ['Bridging <a href="fake:user">fake:handle:user</a> into Bluesky. <a href="https://bsky.app/search">Try searching for them</a> in a minute!'],
             get_flashed_messages())
 
         # check user, repo

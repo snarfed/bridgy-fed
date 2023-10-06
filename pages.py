@@ -224,9 +224,9 @@ def bridge_user():
             flash(f"Couldn't resolve {proto.__name__} handle {handle}")
             return render_template('bridge_user.html'), 400
 
-    proto.get_or_create(id=id, propagate=True)
+    user = proto.get_or_create(id=id, propagate=True)
 
-    flash(f'Bridging {handle} into Bluesky. <a href="https://bsky.app/search">Try searching for them</a> in a minute!')
+    flash(f'Bridging <a href="{user.web_url()}">{user.handle}</a> into Bluesky. <a href="https://bsky.app/search">Try searching for them</a> in a minute!')
     return render_template('bridge_user.html')
 
 
