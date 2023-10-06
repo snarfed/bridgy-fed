@@ -51,20 +51,22 @@ logger = logging.getLogger(__name__)
 
 
 class Target(ndb.Model):
-    """Protocol + URI pairs for identifying objects.
+    """:class:`protocol.Protocol` + URI pairs for identifying objects.
 
     These are currently used for:
-    * delivery destinations, eg ActivityPub inboxes, webmention targets, etc.
-    * copies of :class:`Object`s and :class:`User`s elsewhere, eg at:// URIs for
-      ATProto records, nevent etc bech32-encoded Nostr ids, ATProto user DIDs,
-      etc.
 
-    Used in StructuredPropertys inside :class:`Object` and :class:`User`; not
-    stored as top-level entities in the datastore.
+    * delivery destinations, eg ActivityPub inboxes, webmention targets, etc.
+    * copies of :class:`Object`\s and :class:`User`\s elsewhere,
+      eg ``at://`` URIs for ATProto records, nevent etc bech32-encoded Nostr ids,
+      ATProto user DIDs, etc.
+
+    Used in :class:`google.cloud.ndb.model.StructuredProperty`\s inside
+    :class:`Object` and :class:`User`\;
+    not stored as top-level entities in the datastore.
 
     ndb implements this by hoisting each property here into a corresponding
     property on the parent entity, prefixed by the StructuredProperty name
-    below, eg `delivered.uri`, `delivered.protocol`, etc.
+    below, eg ``delivered.uri``, ``delivered.protocol``, etc.
 
     For repeated StructuredPropertys, the hoisted properties are all repeated on
     the parent entity, and reconstructed into StructuredPropertys based on their
@@ -87,7 +89,7 @@ class Target(ndb.Model):
 
 
 class ProtocolUserMeta(type(ndb.Model)):
-    """:class:`User` metaclass. Registers all subclasses in the PROTOCOLS global."""
+    """:class:`User` metaclass. Registers all subclasses in the ``PROTOCOLS`` global."""
     def __new__(meta, name, bases, class_dict):
         cls = super().__new__(meta, name, bases, class_dict)
 
@@ -100,7 +102,7 @@ class ProtocolUserMeta(type(ndb.Model)):
 
 
 def reset_protocol_properties():
-    """Recreates various protocol properties to include choices PROTOCOLS."""
+    """Recreates various protocol properties to include choices from ``PROTOCOLS``."""
     Target.protocol = ndb.StringProperty(
         'protocol', choices=list(PROTOCOLS.keys()), required=True)
     Object.source_protocol = ndb.StringProperty(
@@ -119,11 +121,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     Stores some protocols' keypairs. Currently:
 
     * RSA keypair for ActivityPub HTTP Signatures
-      properties: mod, public_exponent, private_exponent, all encoded as
-        base64url (ie URL-safe base64) strings as described in RFC 4648 and
-        section 5.1 of the Magic Signatures spec
+      properties: ``mod``, ``public_exponent``, ``private_exponent``, all
+      encoded as base64url (ie URL-safe base64) strings as described in RFC
+      4648 and section 5.1 of the Magic Signatures spec:
       https://tools.ietf.org/html/draft-cavage-http-signatures-12
-
     * *Not* K-256 signing or rotation keys for AT Protocol, those are stored in
       :class:`arroba.datastore_storage.AtpRepo` entities
     """
@@ -156,8 +157,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     def __init__(self, **kwargs):
         """Constructor.
 
-        Sets :attr:`obj` explicitly because however :class:`Model` sets it
-        doesn't work with @property and @obj.setter below.
+        Sets :attr:`obj` explicitly because however
+        :class:`google.cloud.ndb.model.Model` sets it doesn't work with
+        ``@property`` and ``@obj.setter`` below.
         """
         obj = kwargs.pop('obj', None)
         super().__init__(**kwargs)
@@ -175,7 +177,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     @classmethod
     def get_by_id(cls, id):
-        """Override Model.get_by_id to follow the use_instead property."""
+        """Override :meth:`google.cloud.ndb.model.Model.get_by_id` to follow the
+        ``use_instead`` property.
+        """
         user = cls._get_by_id(id)
         if user and user.use_instead:
             logger.info(f'{user.key} use_instead => {user.use_instead}')
@@ -187,7 +191,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     def get_for_copy(copy_id):
         """Fetches a user with a given id in copies.
 
-        Thin wrapper around :meth:User.get_copies` that returns the first
+        Thin wrapper around :meth:`User.get_copies` that returns the first
         matching :class:`User`.
         """
         users = User.get_for_copies([copy_id])
@@ -215,7 +219,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     @classmethod
     @ndb.transactional()
     def get_or_create(cls, id, propagate=False, **kwargs):
-        """Loads and returns a User. Creates it if necessary.
+        """Loads and returns a :class:`User`\. Creates it if necessary.
 
         Args:
           propagate (bool): whether to create copies of this user in push-based
@@ -280,7 +284,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """Loads :attr:`obj` for multiple users in parallel.
 
         Args:
-          users: sequence of :class:`User`
+          users (sequence of User)
         """
         objs = ndb.get_multi(u.obj_key for u in users if u.obj_key)
         keys_to_objs = {o.key: o for o in objs if o}
@@ -340,13 +344,19 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return self.handle or self.key.id()
 
     def public_pem(self):
-        """Returns: bytes"""
+        """
+        Returns:
+          bytes:
+        """
         rsa = RSA.construct((base64_to_long(str(self.mod)),
                              base64_to_long(str(self.public_exponent))))
         return rsa.exportKey(format='PEM')
 
     def private_pem(self):
-        """Returns: bytes"""
+        """
+        Returns:
+          bytes:
+        """
         assert self.mod and self.public_exponent and self.private_exponent, str(self)
         rsa = RSA.construct((base64_to_long(str(self.mod)),
                              base64_to_long(str(self.public_exponent)),
@@ -354,7 +364,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return rsa.exportKey(format='PEM')
 
     def name(self):
-        """Returns this user's human-readable name, eg 'Ryan Barrett'."""
+        """Returns this user's human-readable name, eg ``Ryan Barrett``."""
         if self.obj and self.obj.as1:
             name = self.obj.as1.get('displayName')
             if name:
@@ -363,7 +373,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return self.handle_or_id()
 
     def web_url(self):
-        """Returns this user's web URL (homepage), eg 'https://foo.com/'.
+        """Returns this user's web URL (homepage), eg ``https://foo.com/``.
 
         To be implemented by subclasses.
 
@@ -376,10 +386,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """Returns True if the given URL is this user's web URL (homepage).
 
         Args:
-          url: str
+          url (str)
 
         Returns:
-          boolean
+          bool:
         """
         if not url:
             return False
@@ -399,7 +409,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """Returns this user's ActivityPub address, eg ``@me@foo.com``.
 
         Returns:
-          str
+          str:
         """
         # TODO: use self.handle_as? need it to fall back to id?
         return f'@{self.handle_or_id()}@{self.ABBREV}{common.SUPERDOMAIN}'
@@ -407,7 +417,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     def ap_actor(self, rest=None):
         """Returns this user's ActivityPub/AS2 actor id.
 
-        Eg ``https://atproto.brid.gy/ap/foo.com`.
+        Eg ``https://atproto.brid.gy/ap/foo.com``.
 
         May be overridden by subclasses.
 
@@ -435,7 +445,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Defaults to this user's key id.
 
         Returns:
-          str
+          str:
         """
         return self.key.id()
 
@@ -516,11 +526,10 @@ class Object(StringIdModel):
 
     new = None
     changed = None
-    """
-    Protocol and subclasses set these in fetch if this Object is new or if its
-    contents have changed from what was originally loaded from the datastore.
-    If either one is None, that means we don't know whether this Object is
-    new/changed.
+    """Protocol and subclasses set these in fetch if this :class:`Object` is
+    new or if its contents have changed from what was originally loaded from the
+    datastore. If either one is None, that means we don't know whether this
+    :class:`Object` is new/changed.
 
     :attr:`changed` is populated by :meth:`Object.activity_changed()`.
     """
@@ -664,12 +673,12 @@ class Object(StringIdModel):
 
     @classmethod
     def get_by_id(cls, id):
-        """Override Model.get_by_id to un-escape ^^ to #.
+        """Override :meth:`google.cloud.ndb.model.Model.get_by_id` to un-escape
+        ``^^`` to ``#``.
 
         Only needed for compatibility with historical URL paths, we're now back
-        to URL-encoding #s instead.
+        to URL-encoding ``#``s instead.
         https://github.com/snarfed/bridgy-fed/issues/469
-
         See "meth:`proxy_url()` for the inverse.
         """
         return super().get_by_id(id.replace('^^', '#'))
@@ -677,14 +686,14 @@ class Object(StringIdModel):
     @classmethod
     @ndb.transactional()
     def get_or_create(cls, id, **props):
-        """Returns an Object with the given property values.
+        """Returns an :class:`Object` with the given property values.
 
-        If a matching Object doesn't exist in the datastore, creates it first.
-        Only populates non-False/empty property values in props into the object.
-        Also populates the :attr:`new` and :attr:`changed` properties.
+        If a matching :class:`Object` doesn't exist in the datastore, creates it
+        first. Only populates non-False/empty property values in props into the
+        object. Also populates the :attr:`new` and :attr:`changed` properties.
 
         Returns:
-          :class:`Object`
+          Object:
         """
         obj = cls.get_by_id(id)
         if obj:
@@ -723,8 +732,8 @@ class Object(StringIdModel):
 
         Args:
           fetch_blobs (bool): whether to fetch images and other blobs, store
-            them in :class:`arroba.AtpRemoteBlob'\s if they don't already exist,
-            and fill them into the returned object.
+            them in :class:`arroba.datastore_storage.AtpRemoteBlob`\s if they
+            don't already exist, and fill them into the returned object.
         """
         if self.bsky:
             return self.bsky
@@ -744,14 +753,14 @@ class Object(StringIdModel):
         return {}
 
     def activity_changed(self, other_as1):
-        """Returns True if this activity is meaningfully changed from other_as1.
+        """Returns True if this activity is meaningfully changed from ``other_as1``.
 
         ...otherwise False.
 
         Used to populate :attr:`changed`.
 
         Args:
-          other_as1: dict AS1 object, or none
+          other_as1 (dict): AS1 object, or none
         """
         return (as1.activity_changed(self.as1, other_as1)
                 if self.as1 and other_as1
@@ -760,10 +769,11 @@ class Object(StringIdModel):
     def proxy_url(self):
         """Returns the Bridgy Fed proxy URL to render this post as HTML.
 
-        Note that some webmention receivers are struggling with the %23s
-        (URL-encoded #s) in these paths:
-        https://github.com/snarfed/bridgy-fed/issues/469
-        https://github.com/pfefferle/wordpress-webmention/issues/359
+        Note that some webmention receivers are struggling with the ``%23``s
+        (URL-encoded ``#``s) in these paths:
+
+        * https://github.com/snarfed/bridgy-fed/issues/469
+        * https://github.com/pfefferle/wordpress-webmention/issues/359
 
         See "meth:`get_by_id()` for the inverse.
         """
@@ -845,16 +855,17 @@ class Follower(ndb.Model):
     @classmethod
     @ndb.transactional()
     def get_or_create(cls, *, from_, to, **kwargs):
-        """Returns a Follower with the given from_ and to users.
+        """Returns a Follower with the given ``from_`` and ``to`` users.
 
-        If a matching Follower doesn't exist in the datastore, creates it first.
+        If a matching :class:`Follower` doesn't exist in the datastore, creates
+        it first.
 
         Args:
-          from_: :class:`User`
-          to: :class:`User`
+          from_ (User)
+          to (User)
 
         Returns:
-          :class:`Follower`
+          Follower:
         """
         assert from_
         assert to
@@ -878,11 +889,11 @@ class Follower(ndb.Model):
     def fetch_page(collection):
         """Fetches a page of Followers for the current user.
 
-        Wraps :func:`fetch_page`. Paging uses the `before` and `after` query
+        Wraps :func:`fetch_page`. Paging uses the ``before`` and ``after`` query
         parameters, if available in the request.
 
         Args:
-          collection, str, 'followers' or 'following'
+          collection (str): ``followers`` or ``following``
 
         Returns:
           (followers, new_before, new_after) tuple with:
@@ -913,22 +924,22 @@ class Follower(ndb.Model):
 def fetch_page(query, model_class):
     """Fetches a page of results from a datastore query.
 
-    Uses the `before` and `after` query params (if provided; should be ISO8601
-    timestamps) and the queried model class's `updated` property to identify the
-    page to fetch.
+    Uses the ``before`` and ``after`` query params (if provided; should be
+    ISO8601 timestamps) and the queried model class's ``updated`` property to
+    identify the page to fetch.
 
-    Populates a `log_url_path` property on each result entity that points to a
+    Populates a ``log_url_path`` property on each result entity that points to a
     its most recent logged request.
 
     Args:
-      query: :class:`ndb.Query`
-      model_class: ndb model class
+      query (ndb.Query)
+      model_class (class)
 
     Returns:
-      (results, new_before, new_after) tuple with:
-      results: list of query result entities
-      new_before, new_after: str query param values for `before` and `after`
-        to fetch the previous and next pages, respectively
+    (list of entities, str, str) tuple:
+      (results, new_before, new_after), where new_before and new_after are query
+      param values for ``before`` and ``after`` to fetch the previous and next
+      pages, respectively
     """
     # if there's a paging param ('before' or 'after'), update query with it
     # TODO: unify this with Bridgy's user page

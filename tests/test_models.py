@@ -1,4 +1,3 @@
-# coding=utf-8
 """Unit tests for models.py."""
 from unittest.mock import patch
 

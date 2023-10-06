@@ -157,7 +157,7 @@ class Webfinger(flask_util.XrdOrJrd):
 
 
 class HostMeta(flask_util.XrdOrJrd):
-    """Renders and serves the /.well-known/host-meta file.
+    """Renders and serves the ``/.well-known/host-meta`` file.
 
     Supports both JRD and XRD; defaults to XRD.
     https://tools.ietf.org/html/rfc6415#section-3
@@ -173,7 +173,7 @@ class HostMeta(flask_util.XrdOrJrd):
 
 @app.get('/.well-known/host-meta.xrds')
 def host_meta_xrds():
-    """Renders and serves the /.well-known/host-meta.xrds XRDS-Simple file."""
+    """Renders and serves the ``/.well-known/host-meta.xrds`` XRDS-Simple file."""
     return (render_template('host-meta.xrds', host_uri=common.host_url()),
             {'Content-Type': 'application/xrds+xml'})
 
@@ -187,8 +187,8 @@ def fetch(addr):
     returning None
 
     Args:
-      addr (str): a Webfinger-compatible address, eg @x@y, acct:x@y, or
-        https://x/y
+      addr (str): a Webfinger-compatible address, eg ``@x@y``, ``acct:x@y``, or
+        ``https://x/y``
 
     Returns:
       dict: fetched WebFinger data, or None on error

@@ -67,7 +67,7 @@ class ActivityPub(User, Protocol):
         """Validate id, require URL, don't allow Bridgy Fed domains.
 
         TODO: normalize scheme and domain to lower case. Add that to
-        :class:`util.UrlCanonicalizer`?
+        :class:`oauth_dropins.webutil.util.UrlCanonicalizer`\?
         """
         super()._pre_put_hook()
         id = self.key.id()
@@ -149,7 +149,7 @@ class ActivityPub(User, Protocol):
 
     @classmethod
     def target_for(cls, obj, shared=False):
-        """Returns `obj`'s or its author's/actor's inbox, if available."""
+        """Returns ``obj``'s or its author's/actor's inbox, if available."""
         # TODO: we have entities in prod that fail this, eg
         # https://indieweb.social/users/bismark has source_protocol webmention
         # assert obj.source_protocol in (cls.LABEL, cls.ABBREV, 'ui', None), str(obj)
@@ -189,8 +189,8 @@ class ActivityPub(User, Protocol):
     def send(to_cls, obj, url, log_data=True):
         """Delivers an activity to an inbox URL.
 
-        If `obj.recipient_obj` is set, it's interpreted as the receiving actor
-        who we're delivering to and its id is populated into `cc`.
+        If ``obj.recipient_obj`` is set, it's interpreted as the receiving actor
+        who we're delivering to and its id is populated into ``cc``.
         """
         if to_cls.is_blocklisted(url):
             logger.info(f'Skipping sending to {url}')
@@ -213,47 +213,48 @@ class ActivityPub(User, Protocol):
     def fetch(cls, obj, **kwargs):
         """Tries to fetch an AS2 object.
 
-        Assumes obj.id is a URL. Any fragment at the end is stripped before
+        Assumes ``obj.id`` is a URL. Any fragment at the end is stripped before
         loading. This is currently underspecified and somewhat inconsistent
         across AP implementations:
 
-        https://socialhub.activitypub.rocks/t/problems-posting-to-mastodon-inbox/801/11
-        https://socialhub.activitypub.rocks/t/problems-posting-to-mastodon-inbox/801/23
-        https://socialhub.activitypub.rocks/t/s2s-create-activity/1647/5
-        https://github.com/mastodon/mastodon/issues/13879 (open!)
-        https://github.com/w3c/activitypub/issues/224
+        * https://socialhub.activitypub.rocks/t/problems-posting-to-mastodon-inbox/801/11
+        * https://socialhub.activitypub.rocks/t/problems-posting-to-mastodon-inbox/801/23
+        * https://socialhub.activitypub.rocks/t/s2s-create-activity/1647/5
+        * https://github.com/mastodon/mastodon/issues/13879 (open!)
+        * https://github.com/w3c/activitypub/issues/224
 
-        Uses HTTP content negotiation via the Content-Type header. If the url is
-        HTML and it has a rel-alternate link with an AS2 content type, fetches and
-        returns that URL.
+        Uses HTTP content negotiation via the ``Content-Type`` header. If the
+        url is HTML and it has a ``rel-alternate`` link with an AS2 content
+        type, fetches and returns that URL.
 
         Includes an HTTP Signature with the request.
-        https://w3c.github.io/activitypub/#authorization
-        https://tools.ietf.org/html/draft-cavage-http-signatures-07
-        https://github.com/mastodon/mastodon/pull/11269
 
-        Mastodon requires this signature if AUTHORIZED_FETCH aka secure mode is on:
-        https://docs.joinmastodon.org/admin/config/#authorized_fetch
+        * https://w3c.github.io/activitypub/#authorization
+        * https://tools.ietf.org/html/draft-cavage-http-signatures-07
+        * https://github.com/mastodon/mastodon/pull/11269
+
+        Mastodon requires this signature if ``AUTHORIZED_FETCH`` aka secure mode
+        is on: https://docs.joinmastodon.org/admin/config/#authorized_fetch
 
         Signs the request with the current user's key. If not provided, defaults to
         using @snarfed.org@snarfed.org's key.
 
-        See :meth:`Protocol.fetch` for more details.
+        See :meth:`protocol.Protocol.fetch` for more details.
 
         Args:
-          obj: :class:`Object` with the id to fetch. Fills data into the as2
+          obj (models.Object): with the id to fetch. Fills data into the as2
             property.
           kwargs: ignored
 
         Returns:
-          True if the object was fetched and populated successfully,
+          bool: True if the object was fetched and populated successfully,
           False otherwise
 
         Raises:
-          :class:`requests.HTTPError`, :class:`werkzeug.exceptions.HTTPException`
-
-          If we raise a werkzeug HTTPException, it will have an additional
-          requests_response attribute with the last requests.Response we received.
+          requests.HTTPError:
+          werkzeug.exceptions.HTTPException: will have an additional
+            ``requests_response`` attribute with the last
+            :class:`requests.Response` we received.
         """
         url = obj.key.id()
         if not util.is_web(url):
@@ -329,7 +330,7 @@ class ActivityPub(User, Protocol):
         """Verifies the current request's HTTP Signature.
 
         Args:
-          activity: dict, AS2 activity
+          activity (dict): AS2 activity
 
         Logs details of the result. Raises :class:`werkzeug.HTTPError` if the
         signature is missing or invalid, otherwise does nothing and returns None.
@@ -417,19 +418,20 @@ def signed_post(url, **kwargs):
 
 
 def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
-    """Wraps requests.* and adds HTTP Signature.
+    """Wraps ``requests.*`` and adds HTTP Signature.
 
-    If the current session has a user (ie in g.user), signs with that user's
+    If the current session has a user (ie in ``g.user``), signs with that user's
     key. Otherwise, uses the default user snarfed.org.
 
     Args:
-      fn: :func:`util.requests_get` or  :func:`util.requests_get`
-      url: str
-      data: optional AS2 object
-      log_data: boolean, whether to log full data object
+      fn (callable): :func:`util.requests_get` or  :func:`util.requests_get`
+      url (str):
+      data (dict): optional AS2 object
+      log_data (bool): whether to log full data object
       kwargs: passed through to requests
 
-    Returns: :class:`requests.Response`
+    Returns:
+      requests.Response:
     """
     if headers is None:
         headers = {}
@@ -490,13 +492,15 @@ def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
 def postprocess_as2(activity, orig_obj=None, wrap=True):
     """Prepare an AS2 object to be served or sent via ActivityPub.
 
-    g.user is required. Populates it into the actor.id and publicKey fields.
+    ``g.user`` is required. Populates it into the ``actor.id`` and ``publicKey``
+    fields.
 
     Args:
-      activity: dict, AS2 object or activity
-      orig_obj: dict, AS2 object, optional. The target of activity's inReplyTo or
+      activity (dict): AS2 object or activity
+      orig_obj (dict): AS2 object, optional. The target of activity's inReplyTo or
         Like/Announce/etc object, if any.
-      wrap: boolean, whether to wrap id, url, object, actor, and attributedTo
+      wrap (bool): whether to wrap id, url, object, actor, and attributedTo
+
     """
     if not activity or isinstance(activity, str):
         return activity
@@ -650,8 +654,8 @@ def postprocess_as2_actor(actor, wrap=True):
     Modifies actor in place.
 
     Args:
-      actor: dict, AS2 actor object
-      wrap: boolean, whether to wrap url
+      actor (dict): AS2 actor object
+      wrap (bool): whether to wrap url
 
     Returns:
       actor dict

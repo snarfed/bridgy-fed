@@ -1,4 +1,3 @@
-# coding=utf-8
 """Unit tests for activitypub.py."""
 from base64 import b64encode
 import copy

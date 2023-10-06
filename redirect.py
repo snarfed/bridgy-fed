@@ -1,18 +1,18 @@
 """Simple conneg endpoint that serves AS2 or redirects to to the original post.
 
-Only for Web users. Other protocols (including Web sometimes) use /convert/ in
-convert.py instead.
+Only for :class:`web.Web` users. Other protocols (including :class:`web.Web`
+ sometimes) use ``/`` convert ``/`` in convert.py instead.
 
-Serves /r/https://foo.com/bar URL paths, where https://foo.com/bar is a original
-post for a Web user. Needed for Mastodon interop, they require that AS2 object
-ids and urls are on the same domain that serves them. Background:
+Serves ``/r/https://foo.com/bar`` URL paths, where ``https://foo.com/bar`` is a
+original post for a :class:`Web` user. Needed for Mastodon interop, they require
+that AS2 object ids and urls are on the same domain that serves them.
+Background:
 
-https://github.com/snarfed/bridgy-fed/issues/16#issuecomment-424799599
-https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
+* https://github.com/snarfed/bridgy-fed/issues/16#issuecomment-424799599
+* https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
 
-The conneg makes these /r/ URLs searchable in Mastodon:
+The conneg makes these ``/r/`` URLs searchable in Mastodon:
 https://github.com/snarfed/bridgy-fed/issues/352
-
 """
 import logging
 import re
@@ -47,9 +47,9 @@ DOMAIN_ALLOWLIST = frozenset((
 def redir(to):
     """Either redirect to a given URL or convert it to another format.
 
-    E.g. redirects /r/https://foo.com/bar?baz to https://foo.com/bar?baz, or if
-    it's requested with AS2 conneg in the Accept header, fetches and converts
-    and serves it as AS2.
+    E.g. redirects ``/r/https://foo.com/bar?baz`` to
+    ``https://foo.com/bar?baz``, or if it's requested with AS2 conneg in the
+    ``Accept`` header, fetches and converts and serves it as AS2.
     """
     if request.args:
         to += '?' + urllib.parse.urlencode(request.args)

@@ -1,4 +1,4 @@
-"""Handles inbound webmentions."""
+"""Webmention protocol with microformats2 in HTML, aka the IndieWeb stack."""
 import datetime
 import difflib
 import logging
@@ -109,7 +109,7 @@ class Web(User, Protocol):
     profile_id = web_url
 
     def ap_address(self):
-        """Returns this user's ActivityPub address, eg '@foo.com@foo.com'.
+        """Returns this user's ActivityPub address, eg ``@foo.com@foo.com``.
 
         Uses the user's domain if they're direct, fed.brid.gy if they're not.
         """
@@ -147,7 +147,8 @@ class Web(User, Protocol):
 
         Uses stored representative h-card if available, falls back to id.
 
-        Returns: str
+        Returns:
+          str:
         """
         id = self.key.id()
 
@@ -171,9 +172,9 @@ class Web(User, Protocol):
         """Fetches site a couple ways to check for redirects and h-card.
 
 
-        Returns: :class:`Web` that was verified. May be different than
-          self! eg if self's domain started with www and we switch to the root
-          domain.
+        Returns:
+          web.Web: user that was verified. May be different than self! eg if
+          self 's domain started with www and we switch to the root domain.
         """
         domain = self.key.id()
         logger.info(f'Verifying {domain}')
@@ -333,16 +334,17 @@ class Web(User, Protocol):
     def fetch(cls, obj, gateway=False, check_backlink=False, **kwargs):
         """Fetches a URL over HTTP and extracts its microformats2.
 
-        Follows redirects, but doesn't change the original URL in obj's id! The
-        :class:`Model` class doesn't allow that anyway, but more importantly, we
-        want to preserve that original URL becase other objects may refer to it
-        instead of the final redirect destination URL.
+        Follows redirects, but doesn't change the original URL in ``obj``'s id!
+        The :class:`Model` class doesn't allow that anyway, but more
+        importantly, we want to preserve that original URL becase other objects
+        may refer to it instead of the final redirect destination URL.
 
         See :meth:`Protocol.fetch` for other background.
 
         Args:
-          gateway: passed through to :func:`webutil.util.fetch_mf2`
-          check_backlink: bool, optional, whether to require a link to Bridgy
+          gateway (bool): passed through to
+            :func:`oauth_dropins.webutil.util.fetch_mf2`
+          check_backlink (bool): optional, whether to require a link to Bridgy
             Fed. Ignored if the URL is a homepage, ie has no path.
           kwargs: ignored
         """

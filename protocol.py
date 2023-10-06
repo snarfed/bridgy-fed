@@ -52,9 +52,9 @@ class Protocol:
     """Base protocol class. Not to be instantiated; classmethods only.
 
     Attributes:
-      LABEL: str, human-readable lower case name
-      OTHER_LABELS: sequence of str, label aliases
-      ABBREV: str, lower case abbreviation, used in URL paths
+      LABEL (str): human-readable lower case name
+      OTHER_LABELS (sequence): of str, label aliases
+      ABBREV (str): lower case abbreviation, used in URL paths
     """
     ABBREV = None
     OTHER_LABELS = ()
@@ -74,13 +74,13 @@ class Protocol:
         ...based on the request's hostname.
 
         Args:
-          fed (str or Protocol): protocol to return if the current request is on
-            ``fed.brid.gy``
+          fed (str or protocol.Protocol): protocol to return if the current
+            request is on ``fed.brid.gy``
 
         Returns:
-          Protocol subclass: ...or None if the provided domain or request
-            hostname domain is not a subdomain of ``brid.gy` or isn't a known
-            protocol
+          protocol.Protocol subclass: protocol, or None if the provided domain
+            or request hostname domain is not a subdomain of ``brid.gy` or isn't
+            a known protocol
         """
         return Protocol.for_bridgy_subdomain(request.host, fed=fed)
 
@@ -89,14 +89,13 @@ class Protocol:
         """Returns the protocol for a brid.gy subdomain.
 
         Args:
-          domain_or_url: str
-          fed (str or Protocol): protocol to return if the current request is on
-            ``fed.brid.gy``
+          domain_or_url (str)
+          fed (str or protocol.Protocol): protocol to return if the current
+            request is on ``fed.brid.gy``
 
-        Returns:
-          Protocol subclass: ...or None if the provided domain or request
-            hostname domain is not a subdomain of ``brid.gy` or isn't a known
-            protocol
+        Returns: protocol.Protocol subclass: protocol, or None if the provided
+          domain or request hostname domain is not a subdomain of ``brid.gy` or
+          isn't a known protocol
         """
         domain = (util.domain_from_link(domain_or_url, minimize=False)
                   if util.is_web(domain_or_url)
@@ -116,10 +115,10 @@ class Protocol:
         'https://ap.brid.gy/foo/bar'.
 
         Args:
-          path: str
+          path (str)
 
         Returns:
-          str, URL
+          str: URL
         """
         return urljoin(f'https://{cls.ABBREV or "fed"}{common.SUPERDOMAIN}/', path)
 
@@ -196,7 +195,7 @@ class Protocol:
 
     @classmethod
     def key_for(cls, id):
-        """Returns the :class:`ndb.Key` for a given id's :class:`User`.
+        """Returns the :class:`ndb.Key` for a given id's :class:`models.User`.
 
         To be implemented by subclasses. Canonicalizes the id if necessary.
 
@@ -344,8 +343,8 @@ class Protocol:
         default_g_user is True, otherwise None.
 
         Args:
-          obj: :class:`Object`
-          default_g_user: boolean
+          obj (models.Object)
+          default_g_user (bool)
 
         Returns:
           :class:`ndb.Key` or None
@@ -363,9 +362,9 @@ class Protocol:
         To be implemented by subclasses.
 
         Args:
-          obj: :class:`Object` with activity to send
-          url: str, destination URL to send to
-          log_data: boolean, whether to log full data object
+          obj (models.Object): with activity to send
+          url (str): destination URL to send to
+          log_data (bool): whether to log full data object
 
         Returns:
           True if the activity is sent successfully, False if it is ignored or
@@ -389,7 +388,7 @@ class Protocol:
         To be implemented by subclasses.
 
         Args:
-          obj: :class:`Object` with the id to fetch. Data is filled into one of
+          obj (models.Object): with the id to fetch. Data is filled into one of
             the protocol-specific properties, eg as2, mf2, bsky.
           **kwargs: subclass-specific
 
@@ -413,7 +412,7 @@ class Protocol:
         To be implemented by subclasses.
 
         Args:
-          obj: :class:`Object`
+          obj (models.Object):
 
         Returns:
           (response body, dict with HTTP headers) tuple appropriate to be
@@ -436,8 +435,8 @@ class Protocol:
           inbox.
 
         Args:
-          obj: :class:`Object`
-          shared: boolean, optional. If `True`, returns a common/shared
+          obj (models.Object):
+          shared (bool): optional. If `True`, returns a common/shared
             endpoint, eg ActivityPub's `sharedInbox`, that can be reused for
             multiple recipients for efficiency
 
@@ -453,9 +452,9 @@ class Protocol:
         Default implementation here, subclasses may override.
 
         Args:
-          url: str
+          url (str):
 
-        Returns: boolean
+        Returns: bool
         """
         return util.domain_or_parent_in(util.domain_from_link(url),
                                         DOMAIN_BLOCKLIST + DOMAINS)
@@ -468,7 +467,7 @@ class Protocol:
         raises :class:`werkzeug.exceptions.BadRequest`.
 
         Args:
-          obj: :class:`Object`
+          obj (models.Object):
 
         Returns:
           (response body, HTTP status code) tuple for Flask response
@@ -639,7 +638,7 @@ class Protocol:
         """Handles an incoming follow activity.
 
         Args:
-          obj: :class:`Object`, follow activity
+          obj (models.Object): follow activity
         """
         logger.info('Got follow. Loading users, storing Follow(s), sending accept(s)')
 
@@ -732,11 +731,10 @@ class Protocol:
         Checks if we've seen it before.
 
         Args:
-          obj: :class:`Object`
+          obj (models.Object)
 
         Returns:
-          obj: :class:`Object`, the same one if the input obj is an activity,
-          otherwise a new one
+          Object: ``obj`` if it's an activity, otherwise a new object
         """
         if obj.type not in ('note', 'article', 'comment'):
             return obj
@@ -795,7 +793,7 @@ class Protocol:
         """Delivers an activity to its external recipients.
 
         Args:
-          obj: :class:`Object`, activity to deliver
+          obj (models.Object): activity to deliver
         """
         # find delivery targets
         # sort targets so order is deterministic for tests, debugging, etc
@@ -865,13 +863,11 @@ class Protocol:
         Targets are both objects - original posts, events, etc - and actors.
 
         Args:
-          obj (:class:`models.Object`)
+          obj (models.Object)
 
         Returns:
-          dict: {
-            :class:`Target`: original (in response to) :class:`models.Object`,
-            if any, otherwise None
-          }
+          dict: maps :class:`Target`: to original (in response to)
+            :class:`models.Object`, if any, otherwise None
         """
         logger.info('Finding recipients and their targets')
 
@@ -1000,24 +996,25 @@ class Protocol:
         Note that :meth:`Object._post_put_hook` updates the cache.
 
         Args:
-          id: str
-
-          remote: boolean, whether to fetch the object over the network. If True,
+          id (str)
+          remote (bool): whether to fetch the object over the network. If True,
             fetches even if we already have the object stored, and updates our
             stored copy. If False and we don't have the object stored, returns
             None. Default (None) means to fetch over the network only if we
             don't already have it stored.
-          local: boolean, whether to load from the datastore before
+          local (bool): whether to load from the datastore before
             fetching over the network. If False, still stores back to the
             datastore after a successful remote fetch.
           kwargs: passed through to :meth:`fetch()`
 
-        Returns: :class:`Object`, or None if:
+        Returns
+        models.Object: loaded object, or None if:
+
           * it isn't fetchable, eg a non-URL string for Web
-          * remote is False and it isn't in the cache or datastore
+          * ``remote`` is False and it isn't in the cache or datastore
 
         Raises:
-          :class:`requests.HTTPError`, anything else that :meth:`fetch` raises
+          requests.HTTPError: anything that :meth:`fetch` raises
         """
         assert local or remote is not False
 
@@ -1081,19 +1078,19 @@ class Protocol:
 
 @app.post('/queue/receive')
 def receive_task():
-    """Task handler for a newly received :class:`Object`.
+    """Task handler for a newly received :class:`models.Object`.
 
-    Form parameters:
+    Parameters:
+    * obj (ndb.Key): :class:`models.Object` to handle
+    * user (ndb.Key): :class:`models.User` this activity is on behalf of. This
+      user will be loaded into ``g.user``
 
-    * obj: urlsafe :class:`ndb.Key` of the :class:`Object` to handle
-    * user: urlsafe :class:`ndb.Key` of the :class:`User` this activity is on
-      behalf of. This user will be loaded into `g.user`.
-
-    TODO: migrate incoming webmentions and AP inbox deliveries to this.
-    difficulty is that parts of Protocol.receive depend on setup in
-    Web.webmention and ActivityPub.inbox, eg Object with new/changed, g.user
-    (which receive now loads), HTTP request details, etc. see stash for attempt
-    at this for Web.
+    TODO: migrate incoming webmentions and AP inbox deliveries to this. The
+    difficulty is that parts of :meth:`protocol.Protocol.receive` depend on
+    setup in :func:`web.webmention` and :func:`activitypub.inbox`, eg
+    :class:`models.Object` with ``new`` and ``changed``, ``g.user`` (which
+    :meth:`receive` now loads), HTTP request details, etc. See stash for attempt
+    at this for :class:`web.Web`.
     """
     logger.info(f'Params: {list(request.form.items())}')
 

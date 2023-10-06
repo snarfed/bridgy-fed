@@ -12,8 +12,8 @@ def convert_id(*, id, from_proto, to_proto):
 
     Args:
       id (str)
-      from_proto (Protocol)
-      to_proto (Protocol)
+      from_proto (protocol.Protocol)
+      to_proto (protocol.Protocol)
 
     Returns:
       str: the corresponding id in ``to_proto``
@@ -49,8 +49,8 @@ def convert_handle(*, handle, from_proto, to_proto):
 
     Args:
       handle (str)
-      from_proto (Protocol)
-      to_proto (Protocol)
+      from_proto (protocol.Protocol)
+      to_proto (protocol.Protocol)
 
     Returns:
       str: the corresponding handle in ``to_proto``

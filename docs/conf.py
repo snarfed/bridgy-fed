@@ -342,17 +342,18 @@ texinfo_documents = [
 
 # Example configuration for intersphinx: refer to the Python standard library.
 intersphinx_mapping = {
-  'arroba': ('https://arroba.readthedocs.io/en/latest', None),
-  'dag_cbor': ('https://dag-cbor.readthedocs.io/en/latest', None),
+  'arroba': ('https://arroba.readthedocs.io/en/stable', None),
+  'dag_cbor': ('https://dag-cbor.readthedocs.io/en/stable', None),
   'flask': ('https://flask.palletsprojects.com/en/latest', None),
   'flask_caching': ('https://flask-caching.readthedocs.io/en/latest', None),
-  'granary': ('https://granary.readthedocs.io/en/latest', None),
-  'multiformats': ('https://multiformats.readthedocs.io/en/latest', None),
-  'oauth_dropins': ('https://oauth-dropins.readthedocs.io/en/latest', None),
+  'granary': ('https://granary.readthedocs.io/en/stable', None),
+  'lexrpc': ('https://granary.readthedocs.io/en/stable', None),
+  'multiformats': ('https://multiformats.readthedocs.io/en/stable', None),
+  'oauth_dropins': ('https://oauth-dropins.readthedocs.io/en/stable', None),
   'python': ('https://docs.python.org/3/', None),
-  'requests': ('https://requests.readthedocs.io/en/stable/', None),
-  'urllib3': ('https://urllib3.readthedocs.io/en/latest', None),
-  'werkzeug': ('https://werkzeug.palletsprojects.com/en/latest/', None),
+  'requests': ('https://requests.readthedocs.io/en/stable', None),
+  'urllib3': ('https://urllib3.readthedocs.io/en/stable', None),
+  'werkzeug': ('https://werkzeug.palletsprojects.com/en/latest', None),
 }
 
 # -- Post process ------------------------------------------------------------

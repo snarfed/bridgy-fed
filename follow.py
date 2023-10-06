@@ -1,8 +1,8 @@
 """Remote follow handler.
 
-https://github.com/snarfed/bridgy-fed/issues/60
-https://socialhub.activitypub.rocks/t/what-is-the-current-spec-for-remote-follow/2020
-https://www.rfc-editor.org/rfc/rfc7033
+* https://github.com/snarfed/bridgy-fed/issues/60
+* https://socialhub.activitypub.rocks/t/what-is-the-current-spec-for-remote-follow/2020
+* https://www.rfc-editor.org/rfc/rfc7033
 """
 import logging
 

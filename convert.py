@@ -1,7 +1,7 @@
-"""Serves /convert/... URLs to convert data from one protocol to another.
+"""Serves ``/convert/...`` URLs to convert data from one protocol to another.
 
-URL pattern is /convert/SOURCE/DEST , where SOURCE and DEST are the LABEL
-constants from the :class:`Protocol` subclasses.
+URL pattern is ``/convert/SOURCE/DEST``, where ``SOURCE`` and ``DEST`` are the
+``LABEL`` constants from the :class:`protocol.Protocol` subclasses.
 """
 import logging
 import re

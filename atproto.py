@@ -122,10 +122,10 @@ class ATProto(User, Protocol):
         returning Bridgy Fed's URL as the PDS.
 
         Args:
-          obj: :class:`Object`
+          obj (Object)
 
         Returns:
-          str
+          str:
         """
         id = obj.key.id()
         if id.startswith('did:'):
@@ -169,10 +169,10 @@ class ATProto(User, Protocol):
     def _pds_for(cls, did_obj):
         """
         Args:
-          did_obj: :class:`Object`
+          did_obj (Object)
 
         Returns:
-          str, PDS URL, or None
+          str: PDS URL, or None
         """
         assert did_obj.key.id().startswith('did:')
 
@@ -195,7 +195,7 @@ class ATProto(User, Protocol):
         """Creates an ATProto user, repo, and profile for a non-ATProto user.
 
         Args:
-          user (User)
+          user (models.User)
         """
         assert not isinstance(user, ATProto)
 
@@ -321,12 +321,12 @@ class ATProto(User, Protocol):
         """Tries to fetch a ATProto object.
 
         Args:
-          obj: :class:`Object` with the id to fetch. Fills data into the as2
+          obj (models.Object): with the id to fetch. Fills data into the ``as2``
             property.
           kwargs: ignored
 
         Returns:
-          True if the object was fetched and populated successfully,
+          bool: True if the object was fetched and populated successfully,
           False otherwise
 
         Raises:
@@ -364,12 +364,13 @@ class ATProto(User, Protocol):
 
     @classmethod
     def serve(cls, obj):
-        """Serves an :class:`Object` as AS2.
+        """Serves an :class:`models.Object` as AS2.
 
-        This is minimally implemented to serve app.bsky.* lexicon data, but
+        This is minimally implemented to serve ``app.bsky.*`` lexicon data, but
         BGSes and other clients will generally receive ATProto commits via
-        `com.atproto.sync.subscribeRepos` subscriptions, not BF-specific
-        /convert/... HTTP requests, so this should never be used in practice.
+        ``com.atproto.sync.subscribeRepos`` subscriptions, not BF-specific
+        ``/convert/...`` HTTP requests, so this should never be used in
+        practice.
         """
         return bluesky.from_as1(obj.as1), {'Content-Type': 'application/json'}
 
@@ -378,7 +379,7 @@ class ATProto(User, Protocol):
 def poll_notifications():
     """Fetches and enqueueus new activities from the AppView for our users.
 
-    Uses the `listNotifications` endpoint, which is intended for end users. 🤷
+    Uses the ``listNotifications`` endpoint, which is intended for end users. 🤷
 
     https://github.com/bluesky-social/atproto/discussions/1538
     """

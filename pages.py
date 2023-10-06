@@ -35,8 +35,8 @@ def load_user(protocol, id):
     """Loads the current request's user into `g.user`.
 
     Args:
-      protocol: str
-      id: str
+      protocol (str):
+      id (str):
 
     Raises:
       :class:`werkzeug.exceptions.HTTPException` on error or redirect
@@ -231,19 +231,18 @@ def bridge_user():
 
 
 def fetch_objects(query):
-    """Fetches a page of Object entities from a datastore query.
+    """Fetches a page of :class:`models.Object` entities from a datastore query.
 
-    Wraps :func:`models.fetch_page` and adds attributes to the returned Object
-    entities for rendering in objects.html.
+    Wraps :func:`models.fetch_page` and adds attributes to the returned
+    :class:`models.Object` entities for rendering in ``objects.html``.
 
     Args:
-      query: :class:`ndb.Query`
+      query (ndb.Query)
 
     Returns:
-      (results, new_before, new_after) tuple with:
-      results: list of Object entities
-      new_before, new_after: str query param values for `before` and `after`
-        to fetch the previous and next pages, respectively
+      (list of models.Object, str, str) tuple:
+      (results, new ``before`` query param, new ``after`` query param)
+      to fetch the previous and next pages, respectively
     """
     objects, new_before, new_after = fetch_page(query, Object)
 

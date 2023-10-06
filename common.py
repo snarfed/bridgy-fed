@@ -1,6 +1,4 @@
-# coding=utf-8
-"""Misc common utilities.
-"""
+"""Misc common utilities."""
 import base64
 from datetime import timedelta
 import logging
@@ -75,18 +73,18 @@ TASKS_LOCATION = 'us-central1'
 
 
 def base64_to_long(x):
-    """Converts x from URL safe base64 encoding to a long integer.
+    """Converts from URL safe base64 encoding to long integer.
 
-    Originally from django_salmon.magicsigs. Used in :meth:`User.public_pem`
+    Originally from ``django_salmon.magicsigs``. Used in :meth:`User.public_pem`
     and :meth:`User.private_pem`.
     """
     return number.bytes_to_long(base64.urlsafe_b64decode(x))
 
 
 def long_to_base64(x):
-    """Converts x from a long integer to base64 URL safe encoding.
+    """Converts from long integer to base64 URL safe encoding.
 
-    Originally from django_salmon.magicsigs. Used in :meth:`User.get_or_create`.
+    Originally from ``django_salmon.magicsigs``. Used in :meth:`User.get_or_create`.
     """
     return base64.urlsafe_b64encode(number.long_to_bytes(x))
 
@@ -103,22 +101,22 @@ def host_url(path_query=None):
 
 
 def error(msg, status=400, exc_info=None, **kwargs):
-    """Like flask_util.error, but wraps body in JSON."""
+    """Like :func:`oauth_dropins.webutil.flask_util.error`, but wraps body in JSON."""
     logger.info(f'Returning {status}: {msg}', exc_info=exc_info)
     abort(status, response=make_response({'error': msg}, status), **kwargs)
 
 
 def pretty_link(url, text=None, **kwargs):
-    """Wrapper around util.pretty_link() that converts Mastodon user URLs to @-@.
+    """Wrapper around :func:`oauth_dropins.webutil.util.pretty_link` that converts Mastodon user URLs to @-@ handles.
 
     Eg for URLs like https://mastodon.social/@foo and
     https://mastodon.social/users/foo, defaults text to @foo@mastodon.social if
     it's not provided.
 
     Args:
-      url: str
-      text: str
-      kwargs: passed through to :func:`webutil.util.pretty_link`
+      url (str)
+      text (str)
+      kwargs: passed through to :func:`oauth_dropins.webutil.util.pretty_link`
     """
     if g.user and g.user.is_web_url(url):
         return g.user.user_page_link()
@@ -144,12 +142,13 @@ def redirect_wrap(url):
     ...to satisfy Mastodon's non-standard domain matching requirement. :(
 
     Args:
-      url: string
+      url (str)
 
     * https://github.com/snarfed/bridgy-fed/issues/16#issuecomment-424799599
     * https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
 
-    Returns: string, redirect url
+    Returns:
+      str: redirect url
     """
     if not url or util.domain_from_link(url) in DOMAINS:
         return url
@@ -160,15 +159,16 @@ def redirect_wrap(url):
 def redirect_unwrap(val):
     """Removes our redirect wrapping from a URL, if it's there.
 
-    val may be a string, dict, or list. dicts and lists are unwrapped
+    ``val`` may be a string, dict, or list. dicts and lists are unwrapped
     recursively.
 
     Strings that aren't wrapped URLs are left unchanged.
 
     Args:
-      val: string or dict or list
+      val (str or dict or list)
 
-    Returns: string, unwrapped url
+    Returns:
+      str: unwrapped url
     """
     if isinstance(val, dict):
         return {k: redirect_unwrap(v) for k, v in val.items()}
@@ -196,15 +196,16 @@ def redirect_unwrap(val):
 def webmention_endpoint_cache_key(url):
     """Returns cache key for a cached webmention endpoint for a given URL.
 
-    Just the domain by default. If the URL is the home page, ie path is / , the
-    key includes a / at the end, so that we cache webmention endpoints for home
-    pages separate from other pages. https://github.com/snarfed/bridgy/issues/701
+    Just the domain by default. If the URL is the home page, ie path is ``/``,
+    the key includes a ``/`` at the end, so that we cache webmention endpoints
+    for home pages separate from other pages.
+    https://github.com/snarfed/bridgy/issues/701
 
-    Example: 'snarfed.org /'
+    Example: ``snarfed.org /``
 
     https://github.com/snarfed/bridgy-fed/issues/423
 
-    Adapted from bridgy/util.py.
+    Adapted from ``bridgy/util.py``.
     """
     parsed = urllib.parse.urlparse(url)
     key = parsed.netloc
@@ -225,7 +226,7 @@ def webmention_discover(url, **kwargs):
 
 
 def add(seq, val):
-    """Appends val to seq if seq doesn't already contain it.
+    """Appends ``val`` to ``seq`` if seq doesn't already contain it.
 
     Useful for treating repeated ndb properties like sets instead of lists.
     """
@@ -240,13 +241,13 @@ def create_task(queue, **params):
     creating a task.
 
     Args:
-      queue: string, queue name
+      queue (str): queue name
       params: form-encoded and included in the task request body
 
     Returns:
-      :flask:`Response` from running the task inline if running in a local
-      server, otherwise (str response body, int status code) response from
-      creating the task.
+      flask.Response or (str, int): response from either running the task
+      inline, if running in a local server, or the response from creating the
+      task.
     """
     assert queue
     path = f'/queue/{queue}'
