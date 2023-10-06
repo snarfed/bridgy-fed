@@ -140,10 +140,7 @@ class Fake(User, protocol.Protocol):
 
 
 class OtherFake(Fake):
-    """Different class because the same-protocol check special cases Fake.
-
-    Used in ProtocolTest.test_skip_same_protocol
-    """
+    """Different class because the same-protocol check special cases Fake."""
     ABBREV = 'other'
 
     fetchable = {}
@@ -153,6 +150,11 @@ class OtherFake(Fake):
     @classmethod
     def owns_id(cls, id):
         return id.startswith('other:')
+
+    @classmethod
+    def target_for(cls, obj, shared=False):
+        """No shared target."""
+        return f'{obj.key.id()}:target'
 
 
 # used in TestCase.make_user() to reuse keys across Users since they're
@@ -187,9 +189,10 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         protocol.objects_cache.clear()
         common.webmention_discover.cache.clear()
 
-        Fake.fetchable = {}
-        Fake.sent = []
-        Fake.fetched = []
+        for cls in Fake, OtherFake:
+            cls.fetchable = {}
+            cls.sent = []
+            cls.fetched = []
 
         common.OTHER_DOMAINS += ('fake.brid.gy',)
         common.DOMAINS += ('fake.brid.gy',)

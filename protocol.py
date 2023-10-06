@@ -885,6 +885,9 @@ class Protocol:
 
         orig_obj = None
         targets = {}  # maps Target to Object or None
+        in_reply_to = as1.get_object(obj.as1).get('inReplyTo')
+        is_self_reply = False
+        owner = as1.get_owner(obj.as1)
 
         for id in sorted(target_uris):
             protocol = Protocol.for_id(id)
@@ -902,6 +905,12 @@ class Protocol:
             if not orig_obj or not orig_obj.as1:
                 logger.info(f"Couldn't load {id}")
                 continue
+
+            # deliver self-replies to followers
+            # https://github.com/snarfed/bridgy-fed/issues/639
+            if owner == as1.get_owner(orig_obj.as1):
+                is_self_reply = True
+                logger.info(f'Looks like a self reply! Delivering to all followers')
 
             target = protocol.target_for(orig_obj)
             if not target:
@@ -924,9 +933,9 @@ class Protocol:
             logger.info("Can't tell who this is from! Skipping followers.")
             return targets
 
+        is_reply = obj.type == 'comment' or in_reply_to
         if (obj.type in ('post', 'update', 'delete', 'share')
-                and not (obj.type == 'comment'
-                         or as1.get_object(obj.as1).get('inReplyTo'))):
+                and (is_self_reply or not is_reply)):
             logger.info(f'Delivering to followers of {user_key}')
             followers = Follower.query(Follower.to == user_key,
                                        Follower.status == 'active'
