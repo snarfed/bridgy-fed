@@ -246,6 +246,7 @@ class Web(User, Protocol):
 
         Raises:
           ValueError
+          AssertionError
         """
         if not id:
             return None
@@ -335,7 +336,7 @@ class Web(User, Protocol):
         """Fetches a URL over HTTP and extracts its microformats2.
 
         Follows redirects, but doesn't change the original URL in ``obj``'s id!
-        The :class:`Model` class doesn't allow that anyway, but more
+        :class:`google.cloud.ndb.model.Model` doesn't allow that anyway, but more
         importantly, we want to preserve that original URL becase other objects
         may refer to it instead of the final redirect destination URL.
 

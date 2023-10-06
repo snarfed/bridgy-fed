@@ -58,7 +58,7 @@ class ATProto(User, Protocol):
     def _pre_put_hook(self):
         """Validate id, require did:plc or non-blocklisted did:web.
 
-        Also check that the atproto_did property isn't set.
+        Also check that the ``atproto_did`` property isn't set.
         """
         super()._pre_put_hook()
         id = self.key.id()
@@ -260,7 +260,7 @@ class ATProto(User, Protocol):
         returns False.
 
         Doesn't deliver anywhere externally! BGS(es) will receive this record
-        through subscribeRepos and then deliver it to AppView(s), which will
+        through ``subscribeRepos`` and then deliver it to AppView(s), which will
         notify recipients as necessary.
         """
         if url.rstrip('/') != common.host_url().rstrip('/'):
@@ -364,7 +364,7 @@ class ATProto(User, Protocol):
 
     @classmethod
     def serve(cls, obj):
-        """Serves an :class:`models.Object` as AS2.
+        """Serves a :class:`models.Object` as AS2.
 
         This is minimally implemented to serve ``app.bsky.*`` lexicon data, but
         BGSes and other clients will generally receive ATProto commits via

@@ -53,7 +53,7 @@ class Protocol:
 
     Attributes:
       LABEL (str): human-readable lower case name
-      OTHER_LABELS (sequence): of str, label aliases
+      OTHER_LABELS (list of str): label aliases
       ABBREV (str): lower case abbreviation, used in URL paths
     """
     ABBREV = None
@@ -78,9 +78,8 @@ class Protocol:
             request is on ``fed.brid.gy``
 
         Returns:
-          protocol.Protocol subclass: protocol, or None if the provided domain
-            or request hostname domain is not a subdomain of ``brid.gy` or isn't
-            a known protocol
+          Protocol: protocol, or None if the provided domain or request hostname
+          domain is not a subdomain of ``brid.gy`` or isn't a known protocol
         """
         return Protocol.for_bridgy_subdomain(request.host, fed=fed)
 
@@ -93,9 +92,10 @@ class Protocol:
           fed (str or protocol.Protocol): protocol to return if the current
             request is on ``fed.brid.gy``
 
-        Returns: protocol.Protocol subclass: protocol, or None if the provided
-          domain or request hostname domain is not a subdomain of ``brid.gy` or
-          isn't a known protocol
+        Returns:
+          class: :class:`Protocol` subclass, or None if the provided domain or request
+          hostname domain is not a subdomain of ``brid.gy`` or isn't a known
+          protocol
         """
         domain = (util.domain_from_link(domain_or_url, minimize=False)
                   if util.is_web(domain_or_url)
@@ -111,8 +111,8 @@ class Protocol:
     def subdomain_url(cls, path=None):
         """Returns the URL for a given path on this protocol's subdomain.
 
-        Eg for the path 'foo/bar' on ActivityPub, returns
-        'https://ap.brid.gy/foo/bar'.
+        Eg for the path ``foo/bar`` on ActivityPub, returns
+        ``https://ap.brid.gy/foo/bar``.
 
         Args:
           path (str)
@@ -133,20 +133,20 @@ class Protocol:
         are human-chosen, human-meaningful, and often but not always unique.
 
         Some protocols' ids are more or less deterministic based on the id
-        format, eg AT Protocol owns at:// URIs. Others, like http(s) URLs, could
-        be owned by eg Web or ActivityPub.
+        format, eg AT Protocol owns ``at://`` URIs. Others, like http(s) URLs,
+        could be owned by eg Web or ActivityPub.
 
         This should be a quick guess without expensive side effects, eg no
         external HTTP fetches to fetch the id itself or otherwise perform
         discovery.
 
-        Returns False if the id's domain is in :attr:`common.DOMAIN_BLOCKLIST`.
+        Returns False if the id's domain is in :const:`common.DOMAIN_BLOCKLIST`.
 
         Args:
           id (str)
 
         Returns:
-          bool or None
+          bool or None:
         """
         return False
 
@@ -195,7 +195,7 @@ class Protocol:
 
     @classmethod
     def key_for(cls, id):
-        """Returns the :class:`ndb.Key` for a given id's :class:`models.User`.
+        """Returns the :class:`google.cloud.ndb.Key` for a given id's :class:`models.User`.
 
         To be implemented by subclasses. Canonicalizes the id if necessary.
 
@@ -204,8 +204,8 @@ class Protocol:
         as is.
 
         Returns:
-          :class:`ndb.Key`, or None if the given id is not a valid :class:`User`
-          id for this protocol.
+          google.cloud.ndb.Key: matching key, or None if the given id is not a
+          valid :class:`User` id for this protocol.
         """
         if cls == Protocol:
             return Protocol.for_id(id).key_for(id)
@@ -223,8 +223,9 @@ class Protocol:
           id (str)
 
         Returns:
-          Protocol subclass: ...or None if no known protocol owns this id
-        """
+          Protocol subclass: matching protocol, or None if no known protocol
+          owns this id
+       """
         logger.info(f'Determining protocol for id {id}')
         if not id:
             return None
@@ -340,14 +341,14 @@ class Protocol:
         """Returns the :class:`User`: key for a given object's author or actor.
 
         If obj has no author or actor, defaults to g.user if it's set and
-        default_g_user is True, otherwise None.
+        ``default_g_user`` is True, otherwise None.
 
         Args:
           obj (models.Object)
           default_g_user (bool)
 
         Returns:
-          :class:`ndb.Key` or None
+          google.cloud.ndb.key.Key or None:
         """
         owner = as1.get_owner(obj.as1)
         if owner:
@@ -389,15 +390,15 @@ class Protocol:
 
         Args:
           obj (models.Object): with the id to fetch. Data is filled into one of
-            the protocol-specific properties, eg as2, mf2, bsky.
-          **kwargs: subclass-specific
-
-        Raises:
-          :class:`werkzeug.HTTPException` if the fetch fails
+            the protocol-specific properties, eg ``as2``, ``mf2``, ``bsky``.
+          kwargs: subclass-specific
 
         Returns:
-          True if the object was fetched and populated successfully,
+          bool: True if the object was fetched and populated successfully,
           False otherwise
+
+        Raises:
+          werkzeug.HTTPException: if the fetch fails
         """
         raise NotImplementedError()
 
@@ -405,8 +406,8 @@ class Protocol:
     def serve(cls, obj):
         """Returns this protocol's Flask response for a given :class:`Object`.
 
-        For example, an HTML string and `'text/html'` for :class:`Web`,
-        or a dict with AS2 JSON and `'application/activity+json'` for
+        For example, an HTML string and ``text/html`` for :class:`Web`,
+        or a dict with AS2 JSON and ``application/activity+json`` for
         :class:`ActivityPub`.
 
         To be implemented by subclasses.
@@ -415,7 +416,7 @@ class Protocol:
           obj (models.Object):
 
         Returns:
-          (response body, dict with HTTP headers) tuple appropriate to be
+          (str, dict): (response body, HTTP headers) tuple appropriate to be
           returned from a Flask handler
         """
         raise NotImplementedError()
@@ -428,20 +429,20 @@ class Protocol:
 
         Examples:
 
-        * If obj has `source_protocol` `'web'`, returns its URL, as a
+        * If obj has ``source_protocol`` ``web``, returns its URL, as a
           webmention target.
-        * If obj is an `'activitypub'` actor, returns its inbox.
-        * If obj is an `'activitypub'` object, returns it's author's or actor's
+        * If obj is an ``activitypub`` actor, returns its inbox.
+        * If obj is an ``activitypub`` object, returns it's author's or actor's
           inbox.
 
         Args:
           obj (models.Object):
-          shared (bool): optional. If `True`, returns a common/shared
-            endpoint, eg ActivityPub's `sharedInbox`, that can be reused for
+          shared (bool): optional. If True, returns a common/shared
+            endpoint, eg ActivityPub's ``sharedInbox``, that can be reused for
             multiple recipients for efficiency
 
         Returns:
-          str target endpoint, or `None` if not available.
+          str: target endpoint, or None if not available.
         """
         raise NotImplementedError()
 
@@ -454,7 +455,7 @@ class Protocol:
         Args:
           url (str):
 
-        Returns: bool
+        Returns: bool:
         """
         return util.domain_or_parent_in(util.domain_from_link(url),
                                         DOMAIN_BLOCKLIST + DOMAINS)
@@ -463,17 +464,17 @@ class Protocol:
     def receive(from_cls, obj):
         """Handles an incoming activity.
 
-        If obj's key is unset, obj.as1's id field is used. If both are unset,
-        raises :class:`werkzeug.exceptions.BadRequest`.
+        If ``obj``'s key is unset, ``obj.as1``'s id field is used. If both are
+        unset, raises :class:`werkzeug.exceptions.BadRequest`.
 
         Args:
-          obj (models.Object):
+          obj (models.Object)
 
         Returns:
-          (response body, HTTP status code) tuple for Flask response
+          (str, int) tuple: (response body, HTTP status code) Flask response
 
         Raises:
-          :class:`werkzeug.HTTPException` if the request is invalid
+          werkzeug.HTTPException: if the request is invalid
         """
         # check some invariants
         assert from_cls != Protocol
@@ -734,7 +735,7 @@ class Protocol:
           obj (models.Object)
 
         Returns:
-          Object: ``obj`` if it's an activity, otherwise a new object
+          models.Object: ``obj`` if it's an activity, otherwise a new object
         """
         if obj.type not in ('note', 'article', 'comment'):
             return obj
@@ -858,7 +859,7 @@ class Protocol:
 
     @classmethod
     def targets(cls, obj):
-        """Collects the targets to send an :class:`models.Object` to.
+        """Collects the targets to send a :class:`models.Object` to.
 
         Targets are both objects - original posts, events, etc - and actors.
 
@@ -866,8 +867,8 @@ class Protocol:
           obj (models.Object)
 
         Returns:
-          dict: maps :class:`Target`: to original (in response to)
-            :class:`models.Object`, if any, otherwise None
+          dict: maps :class:`models.Target` to original (in response to)
+          :class:`models.Object`, if any, otherwise None
         """
         logger.info('Finding recipients and their targets')
 
@@ -1007,11 +1008,10 @@ class Protocol:
             datastore after a successful remote fetch.
           kwargs: passed through to :meth:`fetch()`
 
-        Returns
-        models.Object: loaded object, or None if:
-
-          * it isn't fetchable, eg a non-URL string for Web
-          * ``remote`` is False and it isn't in the cache or datastore
+        Returns:
+          models.Object: loaded object, or None if it isn't fetchable, eg a
+          non-URL string for Web, or ``remote`` is False and it isn't in the
+          cache or datastore
 
         Raises:
           requests.HTTPError: anything that :meth:`fetch` raises
@@ -1081,16 +1081,16 @@ def receive_task():
     """Task handler for a newly received :class:`models.Object`.
 
     Parameters:
-    * obj (ndb.Key): :class:`models.Object` to handle
-    * user (ndb.Key): :class:`models.User` this activity is on behalf of. This
-      user will be loaded into ``g.user``
+      obj (google.cloud.ndb.key.Key): :class:`models.Object` to handle
+      user (google.cloud.ndb.key.Key): :class:`models.User` this activity is on
+        behalf of. This user will be loaded into ``g.user``
 
     TODO: migrate incoming webmentions and AP inbox deliveries to this. The
     difficulty is that parts of :meth:`protocol.Protocol.receive` depend on
     setup in :func:`web.webmention` and :func:`activitypub.inbox`, eg
     :class:`models.Object` with ``new`` and ``changed``, ``g.user`` (which
-    :meth:`receive` now loads), HTTP request details, etc. See stash for attempt
-    at this for :class:`web.Web`.
+    :meth:`Protocol.receive` now loads), HTTP request details, etc. See stash
+    for attempt at this for :class:`web.Web`.
     """
     logger.info(f'Params: {list(request.form.items())}')
 

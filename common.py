@@ -110,8 +110,8 @@ def pretty_link(url, text=None, **kwargs):
     """Wrapper around :func:`oauth_dropins.webutil.util.pretty_link` that converts Mastodon user URLs to @-@ handles.
 
     Eg for URLs like https://mastodon.social/@foo and
-    https://mastodon.social/users/foo, defaults text to @foo@mastodon.social if
-    it's not provided.
+    https://mastodon.social/users/foo, defaults text to ``@foo@mastodon.social``
+    if it's not provided.
 
     Args:
       url (str)
@@ -221,7 +221,7 @@ def webmention_endpoint_cache_key(url):
                    lock=threading.Lock(),
                    info=True)
 def webmention_discover(url, **kwargs):
-    """Thin caching wrapper around :func:`web.discover`."""
+    """Thin caching wrapper around :func:`oauth_dropins.webutil.webmention.discover`."""
     return webmention.discover(url, **kwargs)
 
 

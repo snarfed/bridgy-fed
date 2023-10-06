@@ -677,9 +677,9 @@ class Object(StringIdModel):
         ``^^`` to ``#``.
 
         Only needed for compatibility with historical URL paths, we're now back
-        to URL-encoding ``#``s instead.
+        to URL-encoding ``#``\s instead.
         https://github.com/snarfed/bridgy-fed/issues/469
-        See "meth:`proxy_url()` for the inverse.
+        See :meth:`proxy_url` for the inverse.
         """
         return super().get_by_id(id.replace('^^', '#'))
 
@@ -769,13 +769,13 @@ class Object(StringIdModel):
     def proxy_url(self):
         """Returns the Bridgy Fed proxy URL to render this post as HTML.
 
-        Note that some webmention receivers are struggling with the ``%23``s
-        (URL-encoded ``#``s) in these paths:
+        Note that some webmention receivers are struggling with the ``%23``\s
+        (URL-encoded ``#``\s) in these paths:
 
         * https://github.com/snarfed/bridgy-fed/issues/469
         * https://github.com/pfefferle/wordpress-webmention/issues/359
 
-        See "meth:`get_by_id()` for the inverse.
+        See :meth:`get_by_id()` for the inverse.
         """
         # TODO: fix this circular import
         from protocol import Protocol
@@ -896,11 +896,10 @@ class Follower(ndb.Model):
           collection (str): ``followers`` or ``following``
 
         Returns:
-          (followers, new_before, new_after) tuple with:
-          followers: list of :class:`Follower` entities, annotated with an extra
-            `user` attribute that holds the follower or following :class:`User`
-          new_before, new_after: str query param values for `before` and `after`
-            to fetch the previous and next pages, respectively
+          (list of Follower, str, str) tuple: results, annotated with an extra
+          ``user`` attribute that holds the follower or following :class:`User`,
+          and new str query param values for ``before`` and ``after`` to fetch
+          the previous and next pages, respectively
         """
         assert collection in ('followers', 'following'), collection
 
@@ -932,14 +931,14 @@ def fetch_page(query, model_class):
     its most recent logged request.
 
     Args:
-      query (ndb.Query)
+      query (google.cloud.ndb.query.Query)
       model_class (class)
 
     Returns:
-    (list of entities, str, str) tuple:
-      (results, new_before, new_after), where new_before and new_after are query
-      param values for ``before`` and ``after`` to fetch the previous and next
-      pages, respectively
+      (list of Object or Follower, str, str) tuple: (results, new_before,
+      new_after), where new_before and new_after are query param values for
+      ``before`` and ``after`` to fetch the previous and next pages,
+      respectively
     """
     # if there's a paging param ('before' or 'after'), update query with it
     # TODO: unify this with Bridgy's user page

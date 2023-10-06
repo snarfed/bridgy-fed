@@ -1,7 +1,7 @@
 """Simple conneg endpoint that serves AS2 or redirects to to the original post.
 
 Only for :class:`web.Web` users. Other protocols (including :class:`web.Web`
- sometimes) use ``/`` convert ``/`` in convert.py instead.
+sometimes) use ``/convert/`` in convert.py instead.
 
 Serves ``/r/https://foo.com/bar`` URL paths, where ``https://foo.com/bar`` is a
 original post for a :class:`Web` user. Needed for Mastodon interop, they require

@@ -349,6 +349,7 @@ intersphinx_mapping = {
   'granary': ('https://granary.readthedocs.io/en/stable', None),
   'lexrpc': ('https://granary.readthedocs.io/en/stable', None),
   'multiformats': ('https://multiformats.readthedocs.io/en/stable', None),
+  'ndb': ('https://googleapis.dev/python/python-ndb/latest/', None),
   'oauth_dropins': ('https://oauth-dropins.readthedocs.io/en/stable', None),
   'python': ('https://docs.python.org/3/', None),
   'requests': ('https://requests.readthedocs.io/en/stable', None),

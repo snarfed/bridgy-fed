@@ -108,7 +108,7 @@ class ActivityPub(User, Protocol):
 
     @classmethod
     def owns_id(cls, id):
-        """Returns None if id is an http(s) URL, False otherwise.
+        """Returns None if ``id`` is an http(s) URL, False otherwise.
 
         All AP ids are http(s) URLs, but not all http(s) URLs are AP ids.
 
@@ -121,7 +121,7 @@ class ActivityPub(User, Protocol):
 
     @classmethod
     def owns_handle(cls, handle):
-        """Returns True if handle is a WebFinger @-@, False otherwise.
+        """Returns True if handle is a WebFinger ``@-@`` handle, False otherwise.
 
         Example: ``@user@instance.com``. The leading ``@`` is optional.
 
@@ -321,7 +321,7 @@ class ActivityPub(User, Protocol):
 
     @classmethod
     def serve(cls, obj):
-        """Serves an :class:`Object` as AS2."""
+        """Serves a :class:`models.Object` as AS2."""
         return (postprocess_as2(as2.from_as1(obj.as1)),
                 {'Content-Type': as2.CONTENT_TYPE})
 
@@ -329,11 +329,13 @@ class ActivityPub(User, Protocol):
     def verify_signature(cls, activity):
         """Verifies the current request's HTTP Signature.
 
+        Raises :class:`werkzeug.exceptions.HTTPError` if the
+        signature is missing or invalid, otherwise does nothing and returns None.
+
+        Logs details of the result.
+
         Args:
           activity (dict): AS2 activity
-
-        Logs details of the result. Raises :class:`werkzeug.HTTPError` if the
-        signature is missing or invalid, otherwise does nothing and returns None.
         """
         headers = dict(request.headers)  # copy so we can modify below
         sig = headers.get('Signature')
@@ -424,7 +426,7 @@ def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
     key. Otherwise, uses the default user snarfed.org.
 
     Args:
-      fn (callable): :func:`util.requests_get` or  :func:`util.requests_get`
+      fn (callable): :func:`util.requests_get` or  :func:`util.requests_post`
       url (str):
       data (dict): optional AS2 object
       log_data (bool): whether to log full data object
