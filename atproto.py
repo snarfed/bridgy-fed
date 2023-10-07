@@ -251,7 +251,7 @@ class ATProto(User, Protocol):
         user.put()
 
     @classmethod
-    def send(to_cls, obj, url, orig_obj=None, log_data=True):
+    def send(to_cls, obj, url, orig_obj=None):
         """Creates a record if we own its repo.
 
         Creates the repo first if it doesn't exist.

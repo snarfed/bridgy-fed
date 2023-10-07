@@ -357,7 +357,7 @@ class Protocol:
             return g.user.key
 
     @classmethod
-    def send(to_cls, obj, url, orig_obj=None, log_data=True):
+    def send(to_cls, obj, url, orig_obj=None):
         """Sends an outgoing activity.
 
         To be implemented by subclasses.
@@ -367,7 +367,6 @@ class Protocol:
           url (str): destination URL to send to
           orig_obj (models.Object): the "original object" that this object
             refers to, eg replies to or reposts or likes
-          log_data (bool): whether to log full data object
 
         Returns:
           bool: True if the activity is sent successfully, False if it is
@@ -816,7 +815,6 @@ class Protocol:
         )
         logger.info(f'Delivering to: {obj.undelivered}')
 
-        log_data = True
         errors = []  # stores (target URL, code, body) tuples
 
         # deliver!
@@ -825,8 +823,7 @@ class Protocol:
             protocol = PROTOCOLS[target.protocol]
 
             try:
-                sent = protocol.send(obj, target.uri, orig_obj=orig_obj,
-                                     log_data=log_data)
+                sent = protocol.send(obj, target.uri, orig_obj=orig_obj)
                 if sent:
                     add(obj.delivered, target)
                 obj.undelivered.remove(target)
@@ -837,8 +834,6 @@ class Protocol:
                 add(obj.failed, target)
                 obj.undelivered.remove(target)
                 errors.append((target.uri, code, body))
-            finally:
-                log_data = False
 
             obj.put()
 
