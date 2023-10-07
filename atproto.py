@@ -13,14 +13,16 @@ from arroba.repo import Repo, Write
 import arroba.server
 from arroba.storage import Action, CommitData
 from arroba.util import at_uri, next_tid, parse_at_uri, service_jwt
+import dag_json
 from flask import abort, request
 from google.cloud import dns
 from google.cloud import ndb
 from granary import as1, bluesky
 from lexrpc import Client
-from oauth_dropins.webutil import util
 import requests
 from oauth_dropins.webutil.appengine_info import DEBUG
+from oauth_dropins.webutil import util
+from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
 from common import (
@@ -234,9 +236,12 @@ class ATProto(User, Protocol):
         initial_writes = None
         if user.obj and user.obj.as1:
             # create user profile
+            profile = user.obj.as_bsky(fetch_blobs=True)
+            profile_json = json_dumps(dag_json.encode(profile).decode(), indent=2)
+            logger.info(f'Storing ATProto app.bsky.actor.profile self: {profile_json}')
             initial_writes = [Write(
                 action=Action.CREATE, collection='app.bsky.actor.profile',
-                rkey='self', record=user.obj.as_bsky(fetch_blobs=True))]
+                rkey='self', record=profile)]
             uri = at_uri(user.atproto_did, 'app.bsky.actor.profile', 'self')
             add(user.obj.copies, Target(uri=uri, protocol='atproto'))
             user.obj.put()
@@ -305,6 +310,8 @@ class ATProto(User, Protocol):
         ndb.transactional()
         def write():
             tid = next_tid()
+            record_json = json_dumps(dag_json.encode(record).decode(), indent=2)
+            logger.info(f'Storing ATProto app.bsky.feed.post {tid}: {record_json}')
             repo.apply_writes(
                 [Write(action=Action.CREATE, collection='app.bsky.feed.post',
                        rkey=tid, record=record)])
