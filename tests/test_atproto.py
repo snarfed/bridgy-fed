@@ -385,7 +385,9 @@ class ATProtoTest(TestCase):
            return_value=requests_response('OK'))  # create DID on PLC
     def test_send_new_repo_includes_user_profile(self, mock_post, mock_create_task,
                                                  _, __):
-        user = self.make_user(id='fake:user', cls=Fake, obj_as1=ACTOR_AS)
+        user = self.make_user(id='fake:user', cls=Fake)
+        Fake.fetchable = {'fake:user': ACTOR_AS}
+
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
             **POST_AS,
             'actor': 'fake:user',

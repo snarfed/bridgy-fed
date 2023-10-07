@@ -240,6 +240,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         else:
             user = cls(id=id, **kwargs)
 
+        if propagate:
+            # force refresh user profile
+            user.obj = cls.load(user.profile_id(), remote=True)
+
         if propagate and cls.LABEL != 'atproto' and not user.atproto_did:
             PROTOCOLS['atproto'].create_for(user)
 

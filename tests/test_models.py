@@ -66,6 +66,9 @@ class UserTest(TestCase):
 
         user = Fake.get_or_create('fake:user', propagate=True)
 
+        # check that profile was fetched remotely
+        self.assertEqual(['fake:user'], Fake.fetched)
+
         # check user, repo
         user = Fake.get_by_id('fake:user')
         self.assertEqual('fake:handle:user', user.handle)
@@ -86,6 +89,13 @@ class UserTest(TestCase):
                          Object.get_by_id(id='fake:user').copies)
 
         mock_create_task.assert_called()
+
+    def test_get_or_create_propagate_reloads_existing_profile_object(self):
+        self.store_object(id='fake:user', our_as1={
+            'objectType': 'person',
+            'foo': 'bar',
+        })
+        self.test_get_or_create_propagate()
 
     def test_validate_atproto_did(self):
         user = Fake()
