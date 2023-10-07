@@ -1350,14 +1350,14 @@ class WebTest(TestCase):
             self.as2_req('https://mas.to/mr-biff'),
         ))
 
-        calls = mock_post.call_args_list
-        self.assertEqual('https://mas.to/inbox', calls[0][0][0])
-        self.assertEqual(FOLLOW_AS2, json_loads(calls[0][1]['data']))
-        self.assertEqual('https://mas.to/inbox/biff', calls[1][0][0])
-        self.assertEqual({
-            **FOLLOW_AS2,
-            'object': 'https://mas.to/mr-biff',
-        }, json_loads(calls[1][1]['data']))
+        self.assertCountEqual([
+            (('https://mas.to/inbox',), FOLLOW_AS2),
+            (('https://mas.to/inbox/biff',), {
+                **FOLLOW_AS2,
+                'object': 'https://mas.to/mr-biff',
+            }),
+        ], [(args, json_loads(kwargs['data']))
+            for args, kwargs in mock_post.call_args_list])
 
         mf2 = util.parse_mf2(html)['items'][0]
         mr_biff = ndb.Key(ActivityPub, 'https://mas.to/mr-biff')
