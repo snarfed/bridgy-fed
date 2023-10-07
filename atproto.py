@@ -243,7 +243,7 @@ class ATProto(User, Protocol):
                 action=Action.CREATE, collection='app.bsky.actor.profile',
                 rkey='self', record=profile)]
             uri = at_uri(user.atproto_did, 'app.bsky.actor.profile', 'self')
-            add(user.obj.copies, Target(uri=uri, protocol='atproto'))
+            user.obj.add('copies', Target(uri=uri, protocol='atproto'))
             user.obj.put()
 
         repo = Repo.create(
@@ -317,7 +317,7 @@ class ATProto(User, Protocol):
                        rkey=tid, record=record)])
 
             at_uri = f'at://{user.atproto_did}/app.bsky.feed.post/{tid}'
-            add(obj.copies, Target(uri=at_uri, protocol=to_cls.ABBREV))
+            obj.add('copies', Target(uri=at_uri, protocol=to_cls.ABBREV))
             obj.put()
 
         write()
@@ -421,7 +421,7 @@ def poll_notifications():
                                        source_protocol=ATProto.ABBREV)
             if not obj.status:
                 obj.status = 'new'
-            add(obj.notify, user.key)
+            obj.add('notify', user.key)
             obj.put()
 
             common.create_task(queue='receive', obj=obj.key.urlsafe(),

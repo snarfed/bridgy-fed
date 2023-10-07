@@ -528,7 +528,7 @@ class Protocol:
         # add owner(s)
         actor_key = from_cls.actor_key(obj, default_g_user=False)
         if actor_key:
-            add(obj.users, actor_key)
+            obj.add('users', actor_key)
 
         inner_obj_as1 = as1.get_object(obj.as1)
         if obj.as1.get('verb') in ('post', 'update', 'delete'):
@@ -536,7 +536,7 @@ class Protocol:
             if inner_actor:
                 user_key = from_cls.key_for(inner_actor)
                 if user_key:
-                    add(obj.users, user_key)
+                    obj.add('users', user_key)
 
         obj.source_protocol = from_cls.LABEL
         obj.put()
@@ -706,7 +706,7 @@ class Protocol:
                                                direct=not to_user.direct)
             follower_obj = Follower.get_or_create(to=to_user, from_=from_user,
                                                   follow=obj.key, status='active')
-            add(obj.notify, to_key)
+            obj.add('notify', to_key)
 
             # send accept. note that this is one accept for the whole follow, even
             # if it has multiple followees!
@@ -825,14 +825,14 @@ class Protocol:
             try:
                 sent = protocol.send(obj, target.uri, orig_obj=orig_obj)
                 if sent:
-                    add(obj.delivered, target)
-                obj.undelivered.remove(target)
+                    obj.add('delivered', target)
+                obj.remove('undelivered', target)
             except BaseException as e:
                 code, body = util.interpret_http_exception(e)
                 if not code and not body:
                     raise
-                add(obj.failed, target)
-                obj.undelivered.remove(target)
+                obj.add('failed', target)
+                obj.remove('undelivered', target)
                 errors.append((target.uri, code, body))
 
             obj.put()
@@ -918,7 +918,7 @@ class Protocol:
             orig_user = protocol.actor_key(orig_obj, default_g_user=False)
             if orig_user:
                 logger.info(f'Recipient is {orig_user}')
-                add(obj.notify, orig_user)
+                obj.add('notify', orig_user)
 
         logger.info(f'Direct targets: {targets.keys()}')
 
@@ -953,7 +953,7 @@ class Protocol:
 
             for user in users:
                 if feed_obj:
-                    add(feed_obj.feed, user.key)
+                    feed_obj.add('feed', user.key)
 
                 # TODO: should we pass remote=False through here to Protocol.load?
                 target = user.target_for(user.obj, shared=True) if user.obj else None

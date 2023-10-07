@@ -4,6 +4,7 @@ import itertools
 import json
 import logging
 import random
+from threading import Lock
 from urllib.parse import quote, urlparse
 
 from arroba.datastore_storage import AtpRemoteBlob
@@ -535,8 +536,11 @@ class Object(StringIdModel):
     datastore. If either one is None, that means we don't know whether this
     :class:`Object` is new/changed.
 
-    :attr:`changed` is populated by :meth:`Object.activity_changed()`.
+    :attr:`changed` is populated by :meth:`activity_changed()`.
     """
+
+    lock = None
+    """Initialized in __init__, synchronizes property access, :meth:`put`s, etc."""
 
     @ComputedJsonProperty
     def as1(self):
@@ -609,6 +613,10 @@ class Object(StringIdModel):
         if self.as1:
             return as1.object_type(self.as1)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lock = Lock()
+
     def _object_ids(self):  # id(s) of inner objects
         if self.as1:
             return redirect_unwrap(as1.get_ids(self.as1, 'object'))
@@ -643,8 +651,10 @@ class Object(StringIdModel):
                     f'at:// URI ids must have DID repos; got {self.key.id()}')
 
         if self.as1 and self.as1.get('objectType') == 'activity':
+            # can't self.add because we're inside self.put, which has the lock
             add(self.labels, 'activity')
         elif 'activity' in self.labels:
+            # ditto
             self.labels.remove('activity')
 
     def _post_put_hook(self, future):
@@ -719,13 +729,40 @@ class Object(StringIdModel):
         obj.put()
         return obj
 
+    def put(self, **kwargs):
+        """Stores this object. Uses ``self.lock``.
+        """
+        with self.lock:
+            return super().put(**kwargs)
+
+    def add(self, prop, val):
+        """Adds a value to a multiply-valued property. Uses ``self.lock``.
+
+        Args:
+          prop (str)
+          val
+        """
+        with self.lock:
+            add(getattr(self, prop), val)
+
+    def remove(self, prop, val):
+        """Removes a value from a multiply-valued property. Uses ``self.lock``.
+
+        Args:
+          prop (str)
+          val
+        """
+        with self.lock:
+            getattr(self, prop).remove(val)
+
     def clear(self):
         """Clears all data properties."""
         for prop in 'our_as1', 'as2', 'bsky', 'mf2', 'raw':
             val = getattr(self, prop, None)
             if val:
                 logger.warning(f'Wiping out existing {prop}: {json_dumps(val, indent=2)}')
-            setattr(self, prop, None)
+            with self.lock:
+                setattr(self, prop, None)
 
     def as_as2(self):
         """Returns this object as an AS2 dict."""
