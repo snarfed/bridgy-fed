@@ -186,7 +186,7 @@ class ActivityPub(User, Protocol):
         return actor.get('publicInbox') or actor.get('inbox')
 
     @classmethod
-    def send(to_cls, obj, url, log_data=True):
+    def send(to_cls, obj, url, orig_obj=None, log_data=True):
         """Delivers an activity to an inbox URL.
 
         If ``obj.recipient_obj`` is set, it's interpreted as the receiving actor
@@ -196,8 +196,6 @@ class ActivityPub(User, Protocol):
             logger.info(f'Skipping sending to {url}')
             return False
 
-        # this is set in web.webmention_task()
-        orig_obj = getattr(obj, 'orig_obj', None)
         orig_as2 = orig_obj.as_as2() if orig_obj else None
         activity = obj.as2 or postprocess_as2(as2.from_as1(obj.as1),
                                               orig_obj=orig_as2)

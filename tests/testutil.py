@@ -100,7 +100,7 @@ class Fake(User, protocol.Protocol):
         return url.startswith('fake:blocklisted')
 
     @classmethod
-    def send(cls, obj, url, log_data=True):
+    def send(cls, obj, url, orig_obj=None, log_data=True):
         logger.info(f'Fake.send {url}')
         cls.sent.append((obj, url))
         return True

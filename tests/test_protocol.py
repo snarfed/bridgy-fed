@@ -947,7 +947,7 @@ class ProtocolReceiveTest(TestCase):
         }
 
         sent = []
-        def send(obj, url, log_data=True):
+        def send(obj, url, orig_obj=None, log_data=True):
             self.assertEqual(create_as1, obj.as1)
             if not sent:
                 self.assertEqual('target:1', url)

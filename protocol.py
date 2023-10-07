@@ -357,7 +357,7 @@ class Protocol:
             return g.user.key
 
     @classmethod
-    def send(to_cls, obj, url, log_data=True):
+    def send(to_cls, obj, url, orig_obj=None, log_data=True):
         """Sends an outgoing activity.
 
         To be implemented by subclasses.
@@ -365,16 +365,18 @@ class Protocol:
         Args:
           obj (models.Object): with activity to send
           url (str): destination URL to send to
+          orig_obj (models.Object): the "original object" that this object
+            refers to, eg replies to or reposts or likes
           log_data (bool): whether to log full data object
 
         Returns:
-          True if the activity is sent successfully, False if it is ignored or
-          otherwise unsent due to protocol logic, eg no webmention endpoint,
-          protocol doesn't support the activity type. (Failures are raised as
-          exceptions.)
+          bool: True if the activity is sent successfully, False if it is
+          ignored or otherwise unsent due to protocol logic, eg no webmention
+          endpoint, protocol doesn't support the activity type. (Failures are
+          raised as exceptions.)
 
         Raises:
-          :class:`werkzeug.HTTPException` if the request fails
+          werkzeug.HTTPException if the request fails
         """
         raise NotImplementedError()
 
@@ -822,11 +824,9 @@ class Protocol:
             assert target.uri
             protocol = PROTOCOLS[target.protocol]
 
-            # this is reused later in ActivityPub.send()
-            # TODO: find a better way
-            obj.orig_obj = orig_obj
             try:
-                sent = protocol.send(obj, target.uri, log_data=log_data)
+                sent = protocol.send(obj, target.uri, orig_obj=orig_obj,
+                                     log_data=log_data)
                 if sent:
                     add(obj.delivered, target)
                 obj.undelivered.remove(target)
