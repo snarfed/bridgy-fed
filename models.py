@@ -759,8 +759,9 @@ class Object(StringIdModel):
         """Clears all data properties."""
         for prop in 'our_as1', 'as2', 'bsky', 'mf2', 'raw':
             val = getattr(self, prop, None)
-            if val:
-                logger.warning(f'Wiping out existing {prop}: {json_dumps(val, indent=2)}')
+            # TODO: delete entirely?
+            # if val:
+            #     logger.warning(f'Wiping out existing {prop}: {json_dumps(val, indent=2)}')
             with self.lock:
                 setattr(self, prop, None)
 
