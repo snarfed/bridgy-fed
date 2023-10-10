@@ -1,0 +1,11 @@
+{% extends "user_base.html" %}
+{% set tab = "notifications" %}
+
+{% block subtabs %}
+<div class="row">
+  Subscribe:
+  <a href="{{ g.user.user_page_path('feed') }}">HTML</a>
+  &middot; <a href="{{ g.user.user_page_path('feed?format=atom') }}">Atom</a>
+  &middot; <a href="{{ g.user.user_page_path('feed?format=rss') }}">RSS</a>
+</div>
+{% endblock subtabs %}

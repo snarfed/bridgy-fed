@@ -9,7 +9,7 @@ from flask import g, render_template, request
 from google.cloud.ndb import tasklets
 from google.cloud.ndb.query import AND, OR
 from google.cloud.ndb.stats import KindStat
-from granary import as1, as2, atom, microformats2, rss
+from granary import as1, atom, microformats2, rss
 import humanize
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import error, flash, redirect
@@ -42,6 +42,9 @@ def load_user(protocol, id):
       :class:`werkzeug.exceptions.HTTPException` on error or redirect
     """
     assert id
+    if protocol == 'ap' and not id.startswith('@'):
+        id = '@' + id
+
     cls = PROTOCOLS[protocol]
     g.user = cls.get_by_id(id)
 
@@ -95,15 +98,12 @@ def web_user_redirects(**kwargs):
 # WARNING: this overrides the /ap/... actor URL route in activitypub.py, *only*
 # for handles with leading @ character. be careful when changing this route!
 @app.get(f'/ap/@<id>', defaults={'protocol': 'ap'})
-def user(protocol, id):
-    if protocol == 'ap' and not id.startswith('@'):
-        id = '@' + id
-
+def profile(protocol, id):
     load_user(protocol, id)
 
     query = Object.query(OR(Object.users == g.user.key,
                             Object.notify == g.user.key))
-    objects, before, after = fetch_objects(query)
+    objects, before, after = fetch_objects(query, by=Object.updated)
 
     followers = Follower.query(Follower.to == g.user.key,
                                Follower.status == 'active')\
@@ -115,15 +115,27 @@ def user(protocol, id):
                         .count(limit=FOLLOWERS_UI_LIMIT)
     following = f'{following}{"+" if following == FOLLOWERS_UI_LIMIT else ""}'
 
-    return render_template(
-        'profile.html',
-        follow_url=request.values.get('url'),
-        logs=logs,
-        util=util,
-        address=request.args.get('address'),
-        g=g,
-        **locals(),
-    )
+    return render_template('profile.html', logs=logs, util=util, g=g, **locals())
+
+
+@app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/home')
+def home(protocol, id):
+    load_user(protocol, id)
+
+    query = Object.query(Object.feed == g.user.key)
+    objects, before, after = fetch_objects(query, by=Object.created)
+
+    return render_template('home.html', logs=logs, util=util, g=g, **locals())
+
+
+@app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/notifications')
+def notifications(protocol, id):
+    load_user(protocol, id)
+
+    query = Object.query(Object.notify == g.user.key)
+    objects, before, after = fetch_objects(query, by=Object.updated)
+
+    return render_template('notifications.html', logs=logs, util=util, g=g, **locals())
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/<any(followers,following):collection>')
@@ -134,10 +146,10 @@ def followers_or_following(protocol, id, collection):
     return render_template(
         f'{collection}.html',
         address=request.args.get('address'),
-        as2=as2,
+        follow_url=request.values.get('url'),
         g=g,
         util=util,
-        **locals()
+        **locals(),
     )
 
 
@@ -149,13 +161,13 @@ def feed(protocol, id):
 
     load_user(protocol, id)
 
-    objects = Object.query(OR(Object.feed == g.user.key,
-                              # backward compatibility
-                              AND(Object.users == g.user.key,
-                                  Object.labels == 'feed'))) \
-                    .order(-Object.created) \
-                    .fetch(PAGE_SIZE)
-    activities = [obj.as1 for obj in objects if not obj.deleted]
+    query = Object.query(Object.feed == g.user.key)
+                    # .order(-Object.created) \
+                    # .fetch(PAGE_SIZE)
+    # activities = [obj.as1 for obj in objects if not obj.deleted]
+
+    objects, _, _ = fetch_objects(query, by=Object.created)
+    activities = [obj.as1 for obj in objects]
 
     # hydrate authors, actors, objects from stored Objects
     fields = 'author', 'actor', 'object'
@@ -230,7 +242,7 @@ def bridge_user():
     return render_template('bridge_user.html')
 
 
-def fetch_objects(query):
+def fetch_objects(query, by=None):
     """Fetches a page of :class:`models.Object` entities from a datastore query.
 
     Wraps :func:`models.fetch_page` and adds attributes to the returned
@@ -238,16 +250,22 @@ def fetch_objects(query):
 
     Args:
       query (ndb.Query)
+      by (ndb.model.Property): either :attr:`models.Object.updated` or
+        :attr:`models.Object.created`
 
     Returns:
       (list of models.Object, str, str) tuple:
       (results, new ``before`` query param, new ``after`` query param)
       to fetch the previous and next pages, respectively
     """
-    objects, new_before, new_after = fetch_page(query, Object)
+    assert by is Object.updated or by is Object.created
+    objects, new_before, new_after = fetch_page(query, Object, by=by)
 
     # synthesize human-friendly content for objects
     for i, obj in enumerate(objects):
+        if obj.deleted:
+            continue
+
         obj_as1 = obj.as1
         inner_obj = as1.get_object(obj_as1)
 

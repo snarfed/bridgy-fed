@@ -957,7 +957,7 @@ class Follower(ndb.Model):
             filter_prop == g.user.key,
         ).order(-Follower.updated)
 
-        followers, before, after = fetch_page(query, Follower)
+        followers, before, after = fetch_page(query, Follower, by=Follower.updated)
         users = ndb.get_multi(f.from_ if collection == 'followers' else f.to
                               for f in followers)
         User.load_multi(u for u in users if u)
@@ -968,12 +968,11 @@ class Follower(ndb.Model):
         return followers, before, after
 
 
-def fetch_page(query, model_class):
+def fetch_page(query, model_class, by=None):
     """Fetches a page of results from a datastore query.
 
     Uses the ``before`` and ``after`` query params (if provided; should be
-    ISO8601 timestamps) and the queried model class's ``updated`` property to
-    identify the page to fetch.
+    ISO8601 timestamps) and the ``by`` property to identify the page to fetch.
 
     Populates a ``log_url_path`` property on each result entity that points to a
     its most recent logged request.
@@ -981,6 +980,8 @@ def fetch_page(query, model_class):
     Args:
       query (google.cloud.ndb.query.Query)
       model_class (class)
+      by (ndb.model.Property): paging property, eg :attr:`models.Object.updated`
+        or :attr:`models.Object.created`
 
     Returns:
       (list of Object or Follower, str, str) tuple: (results, new_before,
@@ -988,6 +989,8 @@ def fetch_page(query, model_class):
       ``before`` and ``after`` to fetch the previous and next pages,
       respectively
     """
+    assert by
+
     # if there's a paging param ('before' or 'after'), update query with it
     # TODO: unify this with Bridgy's user page
     def get_paging_param(param):
@@ -1006,11 +1009,11 @@ def fetch_page(query, model_class):
     if before and after:
         error("can't handle both before and after")
     elif after:
-        query = query.filter(model_class.updated >= after).order(model_class.updated)
+        query = query.filter(by >= after).order(by)
     elif before:
-        query = query.filter(model_class.updated < before).order(-model_class.updated)
+        query = query.filter(by < before).order(-by)
     else:
-        query = query.order(-model_class.updated)
+        query = query.order(-by)
 
     query_iter = query.iter()
     results = sorted(itertools.islice(query_iter, 0, PAGE_SIZE),

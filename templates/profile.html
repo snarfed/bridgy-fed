@@ -9,7 +9,7 @@
   &middot;
 
   {% if g.user.LABEL != 'activitypub' %}
-  Bridged to
+  bridged to
   <nobr title="Fediverse address">
     <img class="logo" src="/static/fediverse_logo.svg">
     {{ g.user.ap_address() }}
@@ -24,8 +24,3 @@
   {% endif %}
 </div>
 {% endblock subtabs %}
-
-{#
-{% block feed %}
-{% endblock feed %}
-#}
