@@ -169,12 +169,8 @@ def feed(protocol, id):
     load_user(protocol, id)
 
     query = Object.query(Object.feed == g.user.key)
-                    # .order(-Object.created) \
-                    # .fetch(PAGE_SIZE)
-    # activities = [obj.as1 for obj in objects if not obj.deleted]
-
     objects, _, _ = fetch_objects(query, by=Object.created)
-    activities = [obj.as1 for obj in objects]
+    activities = [obj.as1 for obj in objects if not obj.deleted]
 
     # hydrate authors, actors, objects from stored Objects
     fields = 'author', 'actor', 'object'

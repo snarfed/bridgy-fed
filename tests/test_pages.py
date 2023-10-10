@@ -33,7 +33,7 @@ def contents(activities):
 
 
 class PagesTest(TestCase):
-    EXPECTED = contents([COMMENT, NOTE, NOTE])
+    EXPECTED = contents([COMMENT, MENTION, NOTE])
 
     def setUp(self):
         super().setUp()

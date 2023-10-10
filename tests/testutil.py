@@ -47,6 +47,7 @@ MENTION = {
     **MENTION,
     # author object with just id
     'author': {'id': ACTOR['id']},
+    'content': 'a mention',
 }
 COMMENT = {
     **COMMENT,
@@ -55,6 +56,7 @@ COMMENT = {
         **ACTOR,
         'displayName': 'Dr. Eve',
     },
+    'content': 'a comment',
 }
 
 
@@ -314,7 +316,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.store_object(id='f',
                           notify=[user],
                           feed=[user],
-                          our_as1=NOTE,
+                          our_as1={**NOTE, 'content': 'deleted!'},
                           deleted=True)
         # different domain
         nope = ndb.Key(Web, 'nope.org')
