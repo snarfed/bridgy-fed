@@ -345,6 +345,7 @@ button[disabled]:hover {
   border-left: 1px solid;
   border-right: 1px solid;
   background: inherit;
+  color: inherit;
 }
 
 .disable-button, #bad-button {

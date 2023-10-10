@@ -9,7 +9,7 @@ from flask import g, render_template, request
 from google.cloud.ndb import tasklets
 from google.cloud.ndb.query import AND, OR
 from google.cloud.ndb.stats import KindStat
-from granary import as1, atom, microformats2, rss
+from granary import as1, as2, atom, microformats2, rss
 import humanize
 from oauth_dropins.webutil import flask_util, logs, util
 from oauth_dropins.webutil.flask_util import error, flash, redirect
@@ -105,15 +105,7 @@ def profile(protocol, id):
                             Object.notify == g.user.key))
     objects, before, after = fetch_objects(query, by=Object.updated)
 
-    followers = Follower.query(Follower.to == g.user.key,
-                               Follower.status == 'active')\
-                        .count(limit=FOLLOWERS_UI_LIMIT)
-    followers = f'{followers}{"+" if followers == FOLLOWERS_UI_LIMIT else ""}'
-
-    following = Follower.query(Follower.from_ == g.user.key,
-                               Follower.status == 'active')\
-                        .count(limit=FOLLOWERS_UI_LIMIT)
-    following = f'{following}{"+" if following == FOLLOWERS_UI_LIMIT else ""}'
+    num_followers, num_following = count_followers()
 
     return render_template('profile.html', logs=logs, util=util, g=g, **locals())
 
@@ -143,15 +135,30 @@ def followers_or_following(protocol, id, collection):
     load_user(protocol, id)
 
     followers, before, after = Follower.fetch_page(collection)
+    num_followers, num_following = count_followers()
     return render_template(
         f'{collection}.html',
         address=request.args.get('address'),
+        as2=as2,
         follow_url=request.values.get('url'),
         g=g,
         util=util,
         **locals(),
     )
 
+
+def count_followers():
+    followers = Follower.query(Follower.to == g.user.key,
+                               Follower.status == 'active')\
+                        .count(limit=FOLLOWERS_UI_LIMIT)
+    num_followers = f'{followers}{"+" if followers == FOLLOWERS_UI_LIMIT else ""}'
+
+    following = Follower.query(Follower.from_ == g.user.key,
+                               Follower.status == 'active')\
+                        .count(limit=FOLLOWERS_UI_LIMIT)
+    num_following = f'{following}{"+" if following == FOLLOWERS_UI_LIMIT else ""}'
+
+    return num_followers, num_following
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/feed')
 def feed(protocol, id):

@@ -1,13 +1,8 @@
-{% extends "base.html" %}
+{% extends "profile.html" %}
+{% set subtab = "followers" %}
 
-{% block title %}{{ g.user.handle_or_id() }}'s followers - Bridgy Fed{% endblock %}
-
-{% block content %}
-
-{% include "user_addresses.html" %}
-
-<div class="row big">Followers</div>
-
+{% block subsubtabs %}
+{% if g.user.LABEL != 'activitypub' %}
 <div class="row">
     <form method="post" action="/remote-follow">
     <nobr>
@@ -21,9 +16,11 @@
     </nobr>
     </form>
 </div>
+{% endif %}
+{% endblock subsubtabs %}
 
-{% with page_name="followers" %}
-  {% include "_followers.html" %}
-{% endwith %}
-
+{% block feed %}
+  {% with page_name="followers" %}
+    {% include "_followers.html" %}
+  {% endwith %}
 {% endblock %}

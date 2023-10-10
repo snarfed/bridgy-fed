@@ -1,13 +1,7 @@
-{% extends "base.html" %}
+{% extends "profile.html" %}
+{% set subtab = "following" %}
 
-{% block title %}{{ g.user.handle_or_id() }}'s following - Bridgy Fed{% endblock %}
-
-{% block content %}
-
-{% include "user_addresses.html" %}
-
-<div class="row big">Following</div>
-
+{% block subsubtabs %}
 {% if g.user.LABEL != 'activitypub' %}
 <div class="row">
 <form method="post" action="/follow/start">
@@ -22,9 +16,10 @@
 </form>
 </div>
 {% endif %}
+{% endblock subsubtabs %}
 
-{% with page_name="following" %}
-  {% include "_followers.html" %}
-{% endwith %}
-
+{% block feed %}
+  {% with page_name="following" %}
+    {% include "_followers.html" %}
+  {% endwith %}
 {% endblock %}
