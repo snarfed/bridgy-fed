@@ -214,7 +214,9 @@ class Protocol:
         if cls == Protocol:
             return Protocol.for_id(id).key_for(id)
 
-        return cls(id=id).key
+        # load user so that we follow use_instead
+        existing = cls.get_by_id(id)
+        return existing.key if existing else cls(id=id).key
 
     @staticmethod
     def for_id(id):

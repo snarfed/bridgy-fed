@@ -493,10 +493,10 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
 
     Args:
       activity (dict): AS2 object or activity
-      orig_obj (dict): AS2 object, optional. The target of activity's inReplyTo or
-        Like/Announce/etc object, if any.
-      wrap (bool): whether to wrap id, url, object, actor, and attributedTo
-
+      orig_obj (dict): AS2 object, optional. The target of activity's ``inReplyTo`` or
+        ``Like``/``Announce``/etc object, if any.
+      wrap (bool): whether to wrap ``id``, ``url``, ``object``, ``actor``, and
+       ``attributedTo``
     """
     if not activity or isinstance(activity, str):
         return activity

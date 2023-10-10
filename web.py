@@ -257,7 +257,7 @@ class Web(User, Protocol):
                 id = parsed.netloc
 
         if is_valid_domain(id):
-            return cls(id=id).key
+            return super().key_for(id)
 
         logger.info(f'{id} is not a domain or usable home page URL')
         return None

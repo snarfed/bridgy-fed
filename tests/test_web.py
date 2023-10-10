@@ -1093,6 +1093,45 @@ class WebTest(TestCase):
                            status='complete',
                            )
 
+    def test_create_post_use_instead_strip_www(self, mock_get, mock_post):
+        g.user.obj.mf2 = {
+            'type': ['h-card'],
+            'properties': {
+                # this is the key part to test; Object.as1 uses this as id
+                'url': ['https://www.user.com/'],
+                'name': ['Ms. ☕ Baz'],
+            },
+        }
+        g.user.obj.put()
+        self.make_user('www.user.com', use_instead=g.user.key)
+        self.make_followers()
+
+        note_html = NOTE_HTML.replace('https://user.com/', 'https://www.user.com/')
+        mock_get.side_effect = [
+            requests_response(note_html, url='https://www.user.com/post'),
+            ACTOR,
+        ]
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = self.client.post('/queue/webmention', data={
+            'source': 'https://www.user.com/post',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(200, got.status_code)
+
+        mock_get.assert_has_calls((
+            self.req('https://www.user.com/post'),
+        ))
+
+        inboxes = ('https://inbox/', 'https://public/inbox', 'https://shared/inbox')
+        create_as2 = copy.deepcopy(CREATE_AS2)
+        create_as2['id'] = 'http://localhost/r/https://www.user.com/post#bridgy-fed-create'
+        create_as2['object'].update({
+            'id': 'http://localhost/r/https://www.user.com/post',
+            'url': 'http://localhost/r/https://www.user.com/post',
+        })
+        self.assert_deliveries(mock_post, inboxes, create_as2)
+
     def test_create_post(self, mock_get, mock_post):
         mock_get.side_effect = [NOTE, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
@@ -1886,6 +1925,13 @@ class WebUtilTest(TestCase):
         for bad in '', 'foo', 'https://foo/', 'foo bar', 'user.json':
             with self.subTest(bad=bad):
                 self.assertIsNone(Web.key_for(bad))
+
+        # no stored user
+        self.assertEqual(Web(id='foo.com').key, Web.key_for('foo.com'))
+
+    def test_key_for_use_instead(self, *_):
+        Web(id='www.user.com', use_instead=g.user.key).put()
+        self.assertEqual(g.user.key, Web.key_for('www.user.com'))
 
     def test_handle(self, *_):
         self.assertEqual('user.com', g.user.handle)

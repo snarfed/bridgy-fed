@@ -281,7 +281,7 @@ class ProtocolTest(TestCase):
         with self.assertRaises(AssertionError):
             Fake.load('nope', local=False, remote=False)
 
-    def test_owner_key(self):
+    def test_actor_key(self):
         user = Fake(id='fake:a')
         a_key = user.key
 
@@ -299,6 +299,15 @@ class ProtocolTest(TestCase):
         g.user = user
         self.assertEqual(a_key, Fake.actor_key(Object()))
         self.assertIsNone(Fake.actor_key(Object(), default_g_user=False))
+
+    def test_key_for(self):
+        self.assertEqual(self.user.key, Protocol.key_for(self.user.key.id()))
+
+        Fake(id='fake:other', use_instead=self.user.key).put()
+        self.assertEqual(self.user.key, Protocol.key_for('fake:other'))
+
+        # no stored user
+        self.assertEqual(ndb.Key('Fake', 'fake:foo'), Protocol.key_for('fake:foo'))
 
     def test_targets_checks_blocklisted_per_protocol(self):
         """_targets should call the target protocol's is_blocklisted()."""
@@ -501,6 +510,27 @@ class ProtocolReceiveTest(TestCase):
                                  )
 
         self.assertEqual([(obj, 'shared:target')], Fake.sent)
+
+    def test_create_post_use_instead(self):
+        self.make_user('fake:instead', cls=Fake, use_instead=g.user.key, obj_mf2={
+            'type': ['h-card'],
+            'properties': {
+                # this is the key part to test; Object.as1 uses this as id
+                'url': ['https://www.user.com/'],
+            },
+        })
+        self.make_followers()
+
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:instead',
+        }
+        obj = self.store_object(id='fake:post', our_as1=post_as1)
+
+        self.assertEqual('OK', Fake.receive_as1(post_as1))
+        self.assertEqual(1, len(Fake.sent))
+        self.assertEqual('shared:target', Fake.sent[0][1])
 
     def test_update_post(self):
         self.make_followers()
