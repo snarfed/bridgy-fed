@@ -824,7 +824,8 @@ class Protocol:
         errors = []  # stores (target URL, code, body) tuples
 
         # deliver to all targets, in parallel, with a thread pool
-        with ThreadPoolExecutor(max_workers=DELIVER_THREADS) as executor:
+        with ThreadPoolExecutor(max_workers=DELIVER_THREADS,
+                                thread_name_prefix='deliver') as executor:
             results = []
 
             for target, orig_obj in sorted_targets:
