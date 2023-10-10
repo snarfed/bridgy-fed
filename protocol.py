@@ -59,9 +59,11 @@ class Protocol:
       LABEL (str): human-readable lower case name
       OTHER_LABELS (list of str): label aliases
       ABBREV (str): lower case abbreviation, used in URL paths
+      LOGO_HTML (str): logo emoji or ``<img>`` tag
     """
     ABBREV = None
     OTHER_LABELS = ()
+    LOGO_HTML = ''
 
     def __init__(self):
         assert False

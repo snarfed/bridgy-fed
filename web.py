@@ -68,6 +68,7 @@ class Web(User, Protocol):
     """
     ABBREV = 'web'
     OTHER_LABELS = ('webmention',)
+    LOGO_HTML = '🕸️'
 
     has_redirects = ndb.BooleanProperty()
     redirects_error = ndb.TextProperty()

@@ -465,11 +465,17 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         return path
 
-    def user_page_link(self):
-        """Returns a pretty user page link with the user's name and profile picture."""
+    def user_link(self):
+        """Returns a pretty link to the external user with name and profile picture."""
         actor = self.obj.as1 if self.obj and self.obj.as1 else {}
         img = util.get_url(actor, 'image') or ''
-        return f'<a class="h-card u-author" href="{self.user_page_path()}"><img src="{img}" class="profile"> {self.name()}</a>'
+        return f"""\
+<a class="h-card u-author" href="{self.web_url()}">
+  <img src="{img}" class="profile">
+  <span class="logo">{self.LOGO_HTML}</span>
+  {self.name()}
+</a>
+"""
 
 
 class Object(StringIdModel):
@@ -835,7 +841,7 @@ class Object(StringIdModel):
         if (self.source_protocol in ('web', 'webmention', 'ui') and g.user
                 and (g.user.key in self.users or g.user.key.id() in self.domains)):
             # outbound; show a nice link to the user
-            return g.user.user_page_link()
+            return g.user.user_link()
 
         actor = {}
         if self.as1:

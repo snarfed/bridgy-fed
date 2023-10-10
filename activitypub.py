@@ -62,6 +62,7 @@ class ActivityPub(User, Protocol):
     Key id is AP/AS2 actor id URL. (*Not* fediverse/WebFinger @-@ handle!)
     """
     ABBREV = 'ap'
+    LOGO_HTML = '<img src="/static/fediverse_logo.svg">'
 
     def _pre_put_hook(self):
         """Validate id, require URL, don't allow Bridgy Fed domains.

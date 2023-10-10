@@ -31,9 +31,12 @@ class CommonTest(TestCase):
 
         # current user's homepage gets converted to BF user page
         g.user = Web(id='user.com')
-        self.assertEqual(
-            '<a class="h-card u-author" href="/web/user.com"><img src="" class="profile"> user.com</a>',
-            common.pretty_link('https://user.com/'))
+        self.assert_multiline_equals("""\
+<a class="h-card u-author" href="https://user.com/">
+  <img src="" class="profile">
+  <span class="logo">🕸️</span>
+  user.com
+</a>""", common.pretty_link('https://user.com/'))
 
     def test_redirect_wrap_empty(self):
         self.assertIsNone(common.redirect_wrap(None))

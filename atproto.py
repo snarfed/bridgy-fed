@@ -56,6 +56,7 @@ class ATProto(User, Protocol):
     https://atproto.com/specs/did
     """
     ABBREV = 'atproto'
+    LOGO_HTML = '<img src="/static/atproto_logo.png">'
 
     def _pre_put_hook(self):
         """Validate id, require did:plc or non-blocklisted did:web.

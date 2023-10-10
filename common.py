@@ -119,7 +119,7 @@ def pretty_link(url, text=None, **kwargs):
       kwargs: passed through to :func:`oauth_dropins.webutil.util.pretty_link`
     """
     if g.user and g.user.is_web_url(url):
-        return g.user.user_page_link()
+        return g.user.user_link()
 
     if text is None:
         match = re.match(r'https?://([^/]+)/(@|users/)([^/]+)$', url)
