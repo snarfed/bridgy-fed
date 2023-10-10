@@ -472,7 +472,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return f"""\
 <a class="h-card u-author" href="{self.web_url()}">
   <img src="{img}" class="profile">
-  <span class="logo">{self.LOGO_HTML}</span>
+  <span class="logo" title="{self.__class__.__name__}">{self.LOGO_HTML}</span>
   {self.name()}
 </a>
 """

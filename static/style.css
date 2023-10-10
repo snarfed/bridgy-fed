@@ -327,6 +327,26 @@ button[disabled]:hover {
   margin-top: -.5em;
 }
 
+.tabs a {
+  border-bottom: 1px solid;
+  background: linear-gradient(white, #e8e8e8);
+  padding-left: .5em;
+  padding-right: .5em;
+  padding-top: .2em;
+  padding-bottom: .2em;
+}
+
+.tabs a:hover {
+  text-decoration: none;
+}
+
+.tabs a.active-tab {
+  border-bottom: none;
+  border-left: 1px solid;
+  border-right: 1px solid;
+  background: inherit;
+}
+
 .disable-button, #bad-button {
   border-color: red;
   color: red;

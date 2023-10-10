@@ -139,7 +139,7 @@ class UserTest(TestCase):
         self.assert_multiline_equals("""\
 <a class="h-card u-author" href="https://y.z/">
   <img src="" class="profile">
-  <span class="logo">🕸️</span>
+  <span class="logo" title="Web">🕸️</span>
   y.z
 </a>""", g.user.user_link())
 
@@ -147,7 +147,7 @@ class UserTest(TestCase):
         self.assert_multiline_equals("""\
 <a class="h-card u-author" href="https://y.z/">
   <img src="https://user.com/me.jpg" class="profile">
-  <span class="logo">🕸️</span>
+  <span class="logo" title="Web">🕸️</span>
   Mrs. ☕ Foo
 </a>""", g.user.user_link())
 

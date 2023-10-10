@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ id }} - Bridgy Fed{% endblock %}
+{% block title %}{{ id }} {{ tab }} - Bridgy Fed{% endblock %}
 
 {% block content %}
 
@@ -35,34 +35,37 @@
 {% endif %}
 {% endif %}
 
-{% include "user_addresses.html" %}
+<div class="row big">
+  {{ g.user.user_link()|safe }}
+</div>
 
+<!-- tabs -->
+<div class="row tabs">
+  <a>
+  <a href="{{ g.user.user_page_path() }}"
+     {% if tab == 'profile' %}class="active-tab"{% endif %}
+     >👤 Profile</a><a
+   href="{{ g.user.user_page_path('home') }}"
+     {% if tab == 'home' %}class="active-tab"{% endif %}
+     >🏠 Feed</a><a
+   href="{{ g.user.user_page_path('notifications') }}"
+     {% if tab == 'notifications' %}class="active-tab"{% endif %}
+     >🔔 Notifications</a>
+  <a>
+</div>
+
+{% block subtabs %}
 <div class="row">
-    <a href="{{ g.user.user_page_path('followers') }}">{{ followers }} follower{% if followers != '1' %}s{% endif %}</a>
-  &middot; <a href="{{ g.user.user_page_path('following') }}">following {{ following }}</a>
   &middot; <a href="{{ g.user.user_page_path('feed') }}">HTML</a>
   &middot; <a href="{{ g.user.user_page_path('feed?format=atom') }}">Atom</a>
   &middot; <a href="{{ g.user.user_page_path('feed?format=rss') }}">RSS</a>
   &middot; <a href="/.well-known/webfinger?resource=acct:{{ g.user.ap_address() }}">Webfinger</a>
   &middot; <a href="{{ g.user.ap_actor() }}">ActivityPub</a>
 </div>
+{% endblock subtabs %}
 
-{% if g.user.LABEL != 'activitypub' %}
-<div class="row">
-<form method="post" action="/remote-follow">
-<p>
- <label for="follow-address">Follow @{{ id }} with your fediverse address:</label>
- <input id="follow-address" name="address" type="text" required
-        placeholder="@user@domain.social" alt="fediverse address"
-        value="{{ follow_url or '' }}"></input>
- <input name="domain" type="hidden" value="{{ id }}"></input>
- <input name="protocol" type="hidden" value="{{ g.user.LABEL }}"></input>
- <button type="submit" class="btn btn-default">Follow</button>
-</p>
-</form>
-</div>
-{% endif %}
-
+{% block feed %}
 {% include "activities.html" %}
+{% endblock feed %}
 
-{% endblock %}
+{% endblock content %}

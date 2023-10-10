@@ -34,7 +34,7 @@ class CommonTest(TestCase):
         self.assert_multiline_equals("""\
 <a class="h-card u-author" href="https://user.com/">
   <img src="" class="profile">
-  <span class="logo">🕸️</span>
+  <span class="logo" title="{self.__class__.__name__}">🕸️</span>
   user.com
 </a>""", common.pretty_link('https://user.com/'))
 

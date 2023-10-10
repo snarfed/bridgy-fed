@@ -1,0 +1,31 @@
+{% extends "user_base.html" %}
+{% set tab = "profile" %}
+
+{% block subtabs %}
+<div class="row">
+  <a href="{{ g.user.user_page_path('followers') }}">{{ followers }} follower{% if followers != '1' %}s{% endif %}</a>
+  &middot;
+  <a href="{{ g.user.user_page_path('following') }}">following {{ following }}</a>
+  &middot;
+
+  {% if g.user.LABEL != 'activitypub' %}
+  Bridged to
+  <nobr title="Fediverse address">
+    <img class="logo" src="/static/fediverse_logo.svg">
+    {{ g.user.ap_address() }}
+  </nobr>
+  <form method="post" action="/webmention-interactive">
+    <input name="source" type="hidden" value="{{ g.user.web_url() }}" />
+    &nbsp;
+    <button id="update-profile-button" type="submit"
+            title="Update profile from web site"
+            class="btn btn-default glyphicon glyphicon-refresh"></button>
+  </form>
+  {% endif %}
+</div>
+{% endblock subtabs %}
+
+{#
+{% block feed %}
+{% endblock feed %}
+#}

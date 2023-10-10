@@ -116,7 +116,7 @@ def user(protocol, id):
     following = f'{following}{"+" if following == FOLLOWERS_UI_LIMIT else ""}'
 
     return render_template(
-        'user.html',
+        'profile.html',
         follow_url=request.values.get('url'),
         logs=logs,
         util=util,
