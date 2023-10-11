@@ -181,6 +181,7 @@ form input {
 @media (max-width: 767px) {
   .user-items > .row {
     margin-bottom: 1em;
+    text-align: left;
   }
 }
 
