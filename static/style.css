@@ -183,6 +183,10 @@ form input {
     margin-bottom: 1em;
     text-align: left;
   }
+
+  .user-items, .user-items ul {
+    padding-left: 0;
+  }
 }
 
 .deliveries li {
