@@ -409,6 +409,14 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         if mf2 and 'items' in mf2:
             props['mf2'] = mf2['items'][0]
 
+        # strip @context
+        if 'as2' in props:
+           props['as2'].pop('@context', None)
+           for field in 'actor', 'object':
+               val = props['as2'].get(field)
+               if isinstance(val, dict):
+                   val.pop('@context', None)
+
         type = props.pop('type', None)
         if type is not None:
             self.assertEqual(type, got.type)

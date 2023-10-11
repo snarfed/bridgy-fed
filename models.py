@@ -640,6 +640,11 @@ class Object(StringIdModel):
     expire = ndb.ComputedProperty(_expire, indexed=False)
 
     def _pre_put_hook(self):
+        """
+        * Validate that at:// URIs have DID repos
+        * Set/remove the activity label
+        * Strip @context from as2 (we don't do LD) to save disk space
+        """
         assert '^^' not in self.key.id()
 
         if self.key.id().startswith('at://'):
@@ -659,6 +664,13 @@ class Object(StringIdModel):
         elif 'activity' in self.labels:
             # ditto
             self.labels.remove('activity')
+
+        if self.as2:
+           self.as2.pop('@context', None)
+           for field in 'actor', 'attributedTo', 'author', 'object':
+               for val in util.get_list(self.as2, field):
+                   if isinstance(val, dict):
+                       val.pop('@context', None)
 
     def _post_put_hook(self, future):
         """Update :meth:`Protocol.load` cache."""

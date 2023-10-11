@@ -629,6 +629,43 @@ class ObjectTest(TestCase):
             # non-DID (bare handle) repo id
             Object(id='at://foo.com/app.bsky.feed.post/abc').put()
 
+    def test_put_strips_context(self):
+        # no actor/object
+        obj = Object(id='x', as2={
+            '@context': ['baz', {'baj': 1}],
+            'foo': 'bar'
+        })
+        obj.put()
+        self.assertEqual({'foo': 'bar'}, obj.key.get().as2)
+
+        # string actor/object
+        obj.as2 = {
+            '@context': ['baz', {'baj': 1}],
+            'actor': 'baz',
+            'object': 'baj',
+            'foo': 'bar'
+        }
+        obj.put()
+        self.assertEqual({
+            'foo': 'bar',
+            'actor': 'baz',
+            'object': 'baj',
+        }, obj.key.get().as2)
+
+        # dict actor/object with @context
+        obj.as2 = {
+            '@context': ['baz', {'baj': 1}],
+            'actor': {'@context': ['baz', {'baj': 1}]},
+            'object': {'@context': ['baz', {'baj': 1}]},
+            'foo': 'bar'
+        }
+        obj.put()
+        self.assertEqual({
+            'foo': 'bar',
+            'actor': {},
+            'object': {},
+        }, obj.key.get().as2)
+
 
 class FollowerTest(TestCase):
 

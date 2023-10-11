@@ -365,6 +365,7 @@ class ActivityPubTest(TestCase):
         self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
         self.assertEqual({
             **ACTOR_BASE,
+            '@context': ['https://w3id.org/security/v1'],
             'name': 'Mrs. ☕ Foo',
             'icon': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
             'image': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
