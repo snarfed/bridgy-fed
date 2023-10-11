@@ -494,8 +494,8 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
 
     Args:
       activity (dict): AS2 object or activity
-      orig_obj (dict): AS2 object, optional. The target of activity's ``inReplyTo`` or
-        ``Like``/``Announce``/etc object, if any.
+      orig_obj (dict): AS2 object, optional. The target of activity's
+        ``inReplyTo`` or ``Like``/``Announce``/etc object, if any.
       wrap (bool): whether to wrap ``id``, ``url``, ``object``, ``actor``, and
        ``attributedTo``
     """
@@ -524,12 +524,15 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
             })
         return activity
 
-    if wrap:
-        for field in 'actor', 'attributedTo':
-            activity[field] = [postprocess_as2_actor(actor, wrap=wrap)
-                               for actor in util.get_list(activity, field)]
-            if len(activity[field]) == 1:
-                activity[field] = activity[field][0]
+    # actors. wrap in our domain if necessary, then compact to just string id
+    # for compatibility, since many other AP implementations choke on objects.
+    # https://github.com/snarfed/bridgy-fed/issues/658
+    for field in 'actor', 'attributedTo', 'author':
+        actors = as1.get_objects(activity, field)
+        if wrap:
+            actors = [postprocess_as2_actor(actor, wrap=wrap) for actor in actors]
+        ids = [a['id'] for a in actors if a.get('id')]
+        activity[field] = ids[0] if len(ids) == 1 else ids
 
     # inReplyTo: singly valued, prefer id over url
     # TODO: ignore orig_obj, do for all inReplyTo

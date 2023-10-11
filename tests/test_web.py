@@ -251,7 +251,7 @@ AS2_CREATE = {
             'https://mas.to/recipient',
             as2.PUBLIC_AUDIENCE,
         ],
-        'attributedTo': ACTOR_AS2,
+        'attributedTo': 'http://localhost/user.com',
         'tag': [{
             'type': 'Mention',
             'href': 'https://mas.to/author',
@@ -344,7 +344,7 @@ NOTE_AS2 = {
     'type': 'Note',
     'id': 'http://localhost/r/https://user.com/post',
     'url': 'http://localhost/r/https://user.com/post',
-    'attributedTo': ACTOR_AS2,
+    'attributedTo': 'http://localhost/user.com',
     'name': 'hello i am a post',
     'content': 'hello i am a post',
     'to': [as2.PUBLIC_AUDIENCE],

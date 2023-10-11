@@ -224,7 +224,10 @@ ACCEPT = {
     'id': 'http://localhost/user.com/followers#accept-https://mas.to/6d1a',
     'actor': 'http://localhost/user.com',
     'object': {
-        **ACCEPT_FOLLOW,
+        'type': 'Follow',
+        'id': 'https://mas.to/6d1a',
+        'object': 'http://localhost/user.com',
+        'actor': 'https://mas.to/users/swentel',
         'url': 'https://mas.to/users/swentel#followed-https://user.com/',
         'to': ['https://www.w3.org/ns/activitystreams#Public'],
     },
@@ -1635,33 +1638,17 @@ class ActivityPubUtilsTest(TestCase):
             'image': [{'url': 'http://r/foo'}, {'url': 'http://r/bar'}],
         }))
 
-    def test_postprocess_as2_actor_attributedTo(self):
+    def test_postprocess_as2_actor_attributedTo_author(self):
         g.user = Fake(id='site')
         self.assert_equals({
-            'actor': {
-                'id': 'baj',
-                'preferredUsername': 'site',
-                'url': 'http://localhost/r/site',
-                'inbox': 'https://fa.brid.gy/ap/site/inbox',
-                'outbox': 'https://fa.brid.gy/ap/site/outbox',
-            },
-            'attributedTo': [{
-                'id': 'bar',
-                'preferredUsername': 'site',
-                'url': 'http://localhost/r/site',
-                'inbox': 'https://fa.brid.gy/ap/site/inbox',
-                'outbox': 'https://fa.brid.gy/ap/site/outbox',
-            }, {
-                'id': 'baz',
-                'preferredUsername': 'site',
-                'url': 'http://localhost/r/site',
-                'inbox': 'https://fa.brid.gy/ap/site/inbox',
-                'outbox': 'https://fa.brid.gy/ap/site/outbox',
-            }],
+            'actor': 'baj',
+            'attributedTo': ['bar', 'baz'],
+            'author': 'biff',
             'to': [as2.PUBLIC_AUDIENCE],
         }, postprocess_as2({
             'attributedTo': [{'id': 'bar'}, {'id': 'baz'}],
             'actor': {'id': 'baj'},
+            'author': {'id': 'biff'},
         }))
 
     def test_postprocess_as2_note(self):

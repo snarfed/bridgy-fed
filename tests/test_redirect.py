@@ -23,7 +23,7 @@ from .test_web import (
 
 REPOST_AS2 = {
     **REPOST_AS2,
-    'actor': ACTOR_AS2,
+    'actor': 'http://localhost/user.com',
 }
 del REPOST_AS2['cc']
 
