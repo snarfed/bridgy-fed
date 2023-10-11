@@ -385,8 +385,9 @@ class ObjectTest(TestCase):
 
     def test_actor_link(self):
         for expected, as2 in (
-                ('href="">', {}),
+                ('', {}),
                 ('href="http://foo">foo', {'actor': 'http://foo'}),
+                ('href="http://foo">foo', {'actor': {'id': 'http://foo'}}),
                 ('href="">Alice', {'actor': {'name': 'Alice'}}),
                 ('href="http://foo/">Alice', {'actor': {
                     'name': 'Alice',
@@ -403,6 +404,10 @@ class ObjectTest(TestCase):
             with self.subTest(expected=expected, as2=as2):
                 obj = Object(id='x', as2=as2)
                 self.assert_multiline_in(expected, obj.actor_link())
+
+        self.assertEqual(
+            '<a class="h-card u-author" href="http://foo">foo</a>',
+            Object(id='x', our_as1={'actor': {'id': 'http://foo'}}).actor_link())
 
     def test_actor_link_user(self):
         g.user = Fake(id='fake:user', obj=Object(id='a', as2={"name": "Alice"}))

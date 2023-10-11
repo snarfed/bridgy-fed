@@ -4,7 +4,7 @@
 {% block subtabs %}
 <div class="row">
   Subscribe:
-  <a href="{{ g.user.user_page_path('feed') }}">HTML</a>
+  <a href="{{ g.user.user_page_path('feed?format=html') }}">HTML</a>
   &middot; <a href="{{ g.user.user_page_path('feed?format=atom') }}">Atom</a>
   &middot; <a href="{{ g.user.user_page_path('feed?format=rss') }}">RSS</a>
 </div>

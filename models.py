@@ -840,13 +840,15 @@ class Object(StringIdModel):
             # outbound; show a nice link to the user
             return g.user.user_link()
 
-        actor = {}
+        actor = None
         if self.as1:
-            actor = (util.get_first(self.as1, 'actor')
-                     or util.get_first(self.as1, 'author')
-                     or {})
-        if isinstance(actor, str):
-            return common.pretty_link(actor, attrs=attrs)
+            actor = (as1.get_object(self.as1, 'actor')
+                     or as1.get_object(self.as1, 'author'))
+
+        if not actor:
+            return ''
+        elif set(actor.keys()) == {'id'}:
+            return common.pretty_link(actor['id'], attrs=attrs)
 
         url = util.get_first(actor, 'url') or ''
         name = actor.get('displayName') or actor.get('username') or ''
