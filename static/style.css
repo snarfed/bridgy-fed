@@ -304,7 +304,7 @@ button[disabled]:hover {
   border-radius: 1em;
 }
 
-.btn-home img, .logo {
+.btn-home img, .logo, .logo img {
   height: 1.1em;
   margin-top: -.2em;
 }
@@ -328,7 +328,7 @@ button[disabled]:hover {
 }
 
 .tabs a {
-  border-bottom: 1px solid;
+  border-bottom: 1px solid lightgray;
   background: linear-gradient(white, #e8e8e8);
   padding-left: .5em;
   padding-right: .5em;
@@ -340,12 +340,21 @@ button[disabled]:hover {
   text-decoration: none;
 }
 
-.tabs a.active-tab {
+a.active-tab {
   border-bottom: none;
-  border-left: 1px solid;
-  border-right: 1px solid;
+  border-left: 1px solid lightgray;
   background: inherit;
   color: inherit;
+}
+
+/* TODO: drop border-left above and switch to this once Firefix supports :has()
+ * https://caniuse.com/css-has
+a:has(+ a.active-tab) {
+  border-right: 1px solid lightgray;
+} */
+
+a.active-tab + a {
+  border-left: 1px solid lightgray;
 }
 
 .disable-button, #bad-button {

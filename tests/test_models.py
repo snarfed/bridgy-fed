@@ -139,17 +139,13 @@ class UserTest(TestCase):
         self.assert_multiline_equals("""\
 <a class="h-card u-author" href="https://y.z/">
   <img src="" class="profile">
-  <span class="logo" title="Web">🕸️</span>
-  y.z
-</a>""", g.user.user_link())
+  y.z</a>""", g.user.user_link())
 
         g.user.obj = Object(id='a', as2=ACTOR)
         self.assert_multiline_equals("""\
 <a class="h-card u-author" href="https://y.z/">
-  <img src="https://user.com/me.jpg" class="profile">
-  <span class="logo" title="Web">🕸️</span>
-  Mrs. ☕ Foo
-</a>""", g.user.user_link())
+<img src="https://user.com/me.jpg" class="profile">
+  Mrs. ☕ Foo</a>""", g.user.user_link())
 
     def test_is_web_url(self):
         for url in 'y.z', '//y.z', 'http://y.z', 'https://y.z':

@@ -30,6 +30,16 @@ with app.test_request_context('/'):
 
 logger = logging.getLogger(__name__)
 
+TEMPLATE_VARS = {
+    'as2': as2,
+    'g': g,
+    'isinstance': isinstance,
+    'logs': logs,
+    'PROTOCOLS': PROTOCOLS,
+    'set': set,
+    'util': util,
+}
+
 
 def load_user(protocol, id):
     """Loads the current request's user into `g.user`.
@@ -101,13 +111,10 @@ def web_user_redirects(**kwargs):
 def profile(protocol, id):
     load_user(protocol, id)
 
-    query = Object.query(OR(Object.users == g.user.key,
-                            Object.notify == g.user.key))
+    query = Object.query(Object.users == g.user.key)
     objects, before, after = fetch_objects(query, by=Object.updated)
-
     num_followers, num_following = count_followers()
-
-    return render_template('profile.html', logs=logs, util=util, g=g, **locals())
+    return render_template('profile.html', **TEMPLATE_VARS, **locals())
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/home')
@@ -116,8 +123,7 @@ def home(protocol, id):
 
     query = Object.query(Object.feed == g.user.key)
     objects, before, after = fetch_objects(query, by=Object.created)
-
-    return render_template('home.html', logs=logs, util=util, g=g, **locals())
+    return render_template('home.html', **TEMPLATE_VARS, **locals())
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/notifications')
@@ -126,8 +132,7 @@ def notifications(protocol, id):
 
     query = Object.query(Object.notify == g.user.key)
     objects, before, after = fetch_objects(query, by=Object.updated)
-
-    return render_template('notifications.html', logs=logs, util=util, g=g, **locals())
+    return render_template('notifications.html', **TEMPLATE_VARS, **locals())
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/<any(followers,following):collection>')
@@ -139,10 +144,8 @@ def followers_or_following(protocol, id, collection):
     return render_template(
         f'{collection}.html',
         address=request.args.get('address'),
-        as2=as2,
         follow_url=request.values.get('url'),
-        g=g,
-        util=util,
+        **TEMPLATE_VARS,
         **locals(),
     )
 
@@ -202,7 +205,7 @@ def feed(protocol, id):
     # syntax. maybe a fediverse kwarg down through the call chain?
     if format == 'html':
         entries = [microformats2.object_to_html(a) for a in activities]
-        return render_template('feed.html', util=util, g=g, **locals())
+        return render_template('feed.html', **TEMPLATE_VARS, **locals())
     elif format == 'atom':
         body = atom.activities_to_atom(activities, actor=actor, title=title,
                                        request_url=request.url)

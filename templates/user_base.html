@@ -36,27 +36,38 @@
 {% endif %}
 
 <div class="row">
-  <span class="big">{{ g.user.user_link()|safe }}</span>
-  &middot;
-  {% if g.user.LABEL != 'activitypub' %}
-  bridged to
-  <nobr title="Fediverse address">
-    <img class="logo" src="/static/fediverse_logo.svg">
-    {{ g.user.ap_address() }}
-  </nobr>
-  <form method="post" action="/webmention-interactive">
-    <input name="source" type="hidden" value="{{ g.user.web_url() }}" />
-    &nbsp;
-    <button id="update-profile-button" type="submit"
-            title="Update profile from web site"
-            class="btn btn-default glyphicon glyphicon-refresh"></button>
-  </form>
-  {% endif %}
+  <span class="big">
+    {{ g.user.user_link()|safe }}
+    &middot;
+    <nobr>
+      <a href="{{ g.user.web_url() }}" title="{{ g.user.__class__.__name__ }}">
+        <span class="logo">{{ g.user.LOGO_HTML }}</span>
+        {{ g.user.handle_or_id() }}</a>
+
+    <!-- TODO: make this work with protocols other than Web -->
+    <form method="post" action="/webmention-interactive">
+      <input name="source" type="hidden" value="{{ g.user.web_url() }}" />
+      <button id="update-profile-button" type="submit" title="Update profile"
+              class="btn btn-default glyphicon glyphicon-refresh"></button>
+    </form>
+    </nobr>
+    &middot;
+  </span>
+
+  {% for proto in set(PROTOCOLS.values()) %}
+    {% if proto and not isinstance(g.user, proto)
+       and proto.LABEL not in ('atproto', 'ui') %}
+      <nobr title="{{ proto.__name__ }} (bridged)">
+        <span class="logo">{{ proto.LOGO_HTML|safe }}</span>
+        {{ g.user.ap_address() }}
+      </nobr>
+    {% endif %}
+  {% endfor %}
 </div>
 
 <!-- tabs -->
 <div class="row tabs">
-  <a></a>
+  <a class="left-tab"></a>
   <a href="{{ g.user.user_page_path() }}"
      {% if tab == 'profile' %}class="active-tab"{% endif %}
      >👤 Profile</a><a
@@ -66,7 +77,7 @@
    href="{{ g.user.user_page_path('notifications') }}"
      {% if tab == 'notifications' %}class="active-tab"{% endif %}
      >🔔 Notifications</a>
-  <a></a>
+  <a class="right-tab"></a>
 </div>
 
 {% block subtabs %}

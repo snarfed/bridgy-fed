@@ -34,9 +34,7 @@ class CommonTest(TestCase):
         self.assert_multiline_equals("""\
 <a class="h-card u-author" href="https://user.com/">
   <img src="" class="profile">
-  <span class="logo" title="Web">🕸️</span>
-  user.com
-</a>""", common.pretty_link('https://user.com/'))
+  user.com</a>""", common.pretty_link('https://user.com/'))
 
     def test_redirect_wrap_empty(self):
         self.assertIsNone(common.redirect_wrap(None))
