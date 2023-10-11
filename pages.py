@@ -110,7 +110,6 @@ def web_user_redirects(**kwargs):
 @app.get(f'/ap/@<id>', defaults={'protocol': 'ap'})
 def profile(protocol, id):
     load_user(protocol, id)
-
     query = Object.query(Object.users == g.user.key)
     objects, before, after = fetch_objects(query, by=Object.updated)
     num_followers, num_following = count_followers()
@@ -120,7 +119,6 @@ def profile(protocol, id):
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/home')
 def home(protocol, id):
     load_user(protocol, id)
-
     query = Object.query(Object.feed == g.user.key)
     objects, before, after = fetch_objects(query, by=Object.created)
     return render_template('home.html', **TEMPLATE_VARS, **locals())
@@ -132,6 +130,13 @@ def notifications(protocol, id):
 
     query = Object.query(Object.notify == g.user.key)
     objects, before, after = fetch_objects(query, by=Object.updated)
+
+    format = request.args.get('format')
+    if format:
+        return serve_feed(objects=objects, format=format,
+                          title=f'Bridgy Fed notifications for {id}')
+
+    # notifications tab UI page
     return render_template('notifications.html', **TEMPLATE_VARS, **locals())
 
 
@@ -163,16 +168,30 @@ def count_followers():
 
     return num_followers, num_following
 
+
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/feed')
 def feed(protocol, id):
-    format = request.args.get('format', 'html')
+    load_user(protocol, id)
+    query = Object.query(Object.feed == g.user.key)
+    objects, _, _ = fetch_objects(query, by=Object.created)
+    return serve_feed(objects=objects, format=request.args.get('format', 'html'),
+                      title=f'Bridgy Fed feed for {id}')
+
+
+def serve_feed(*, objects, format, title):
+    """Generates a feed based on :class:`Object`s.
+
+    Args:
+      objects (sequence of models.Object)
+      format (str): ``html``, ``atom``, or ``rss``
+      title (str)
+
+    Returns:
+      str or (str, dict) tuple: Flask response
+    """
     if format not in ('html', 'atom', 'rss'):
         error(f'format {format} not supported; expected html, atom, or rss')
 
-    load_user(protocol, id)
-
-    query = Object.query(Object.feed == g.user.key)
-    objects, _, _ = fetch_objects(query, by=Object.created)
     activities = [obj.as1 for obj in objects if not obj.deleted]
 
     # hydrate authors, actors, objects from stored Objects
@@ -198,7 +217,6 @@ def feed(protocol, id):
       'displayName': id,
       'url': g.user.web_url(),
     }
-    title = f'Bridgy Fed feed for {id}'
 
     # TODO: inject/merge common.pretty_link into microformats2.render_content
     # (specifically into hcard_to_html) somehow to convert Mastodon URLs to @-@

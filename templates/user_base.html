@@ -40,7 +40,8 @@
     {{ g.user.user_link()|safe }}
     &middot;
     <nobr>
-      <a href="{{ g.user.web_url() }}" title="{{ g.user.__class__.__name__ }}">
+      <a href="{{ g.user.web_url() }}"
+         title="{{ g.user.__class__.__name__ }} (native)">
         <span class="logo">{{ g.user.LOGO_HTML }}</span>
         {{ g.user.handle_or_id() }}</a>
 

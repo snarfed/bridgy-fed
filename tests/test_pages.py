@@ -181,6 +181,37 @@ class PagesTest(TestCase):
         got = self.client.get('/web/user.com/home')
         self.assert_equals(200, got.status_code)
 
+    def test_notifications_fake(self):
+        self.make_user('fake:foo', cls=Fake)
+        got = self.client.get('/fa/fake:foo/notifications')
+        self.assert_equals(200, got.status_code)
+
+    def test_notifications_objects(self):
+        self.add_objects()
+        got = self.client.get('/web/user.com/notifications')
+        self.assert_equals(200, got.status_code)
+
+    def test_notifications_rss(self):
+        self.add_objects()
+        got = self.client.get('/web/user.com/notifications?format=rss')
+        self.assert_equals(200, got.status_code)
+        self.assert_equals(rss.CONTENT_TYPE, got.headers['Content-Type'])
+        self.assert_equals(self.EXPECTED, contents(rss.to_activities(got.text)))
+
+    def test_notifications_atom(self):
+        self.add_objects()
+        got = self.client.get('/web/user.com/notifications?format=atom')
+        self.assert_equals(200, got.status_code)
+        self.assert_equals(atom.CONTENT_TYPE, got.headers['Content-Type'])
+        self.assert_equals(self.EXPECTED, contents(atom.atom_to_activities(got.text)))
+
+    def test_notifications_html(self):
+        self.add_objects()
+        got = self.client.get('/web/user.com/notifications?format=html')
+        self.assert_equals(200, got.status_code)
+        self.assert_equals(self.EXPECTED,
+                           contents(microformats2.html_to_activities(got.text)))
+
     def test_followers_fake(self):
         self.make_user('fake:foo', cls=Fake)
         got = self.client.get('/fa/fake:foo/followers')
@@ -294,12 +325,14 @@ class PagesTest(TestCase):
     def test_feed_atom_empty(self):
         got = self.client.get('/web/user.com/feed?format=atom')
         self.assert_equals(200, got.status_code)
+        self.assert_equals(atom.CONTENT_TYPE, got.headers['Content-Type'])
         self.assert_equals([], atom.atom_to_activities(got.text))
 
     def test_feed_atom(self):
         self.add_objects()
         got = self.client.get('/web/user.com/feed?format=atom')
         self.assert_equals(200, got.status_code)
+        self.assert_equals(atom.CONTENT_TYPE, got.headers['Content-Type'])
         self.assert_equals(self.EXPECTED, contents(atom.atom_to_activities(got.text)))
 
         # NOTE's and MENTION's authors; check for two instances
@@ -315,12 +348,14 @@ class PagesTest(TestCase):
     def test_feed_rss_empty(self):
         got = self.client.get('/web/user.com/feed?format=rss')
         self.assert_equals(200, got.status_code)
+        self.assert_equals(rss.CONTENT_TYPE, got.headers['Content-Type'])
         self.assert_equals([], rss.to_activities(got.text))
 
     def test_feed_rss(self):
         self.add_objects()
         got = self.client.get('/web/user.com/feed?format=rss')
         self.assert_equals(200, got.status_code)
+        self.assert_equals(rss.CONTENT_TYPE, got.headers['Content-Type'])
         self.assert_equals(self.EXPECTED, contents(rss.to_activities(got.text)))
 
         # NOTE's and MENTION's authors; check for two instances

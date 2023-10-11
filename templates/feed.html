@@ -3,16 +3,16 @@
 {% block title %}{{ g.user.handle_or_id() }}'s feed - Bridgy Fed{% endblock %}
 
 {% block content %}
-
-<div class="row big">Feed</div>
+<div class="h-feed">
+<div class="row big p-name">{{ title }}</div>
 
 <link rel="stylesheet" href="/static/feed.css" type="text/css" />
-<div class="row h-feed">
+<div class="row">
 {% for e in entries %}
   {{ e|safe }}
 {% else %}
   Nothing yet. <a href="/#To+use+it">Follow more people</a>, check back soon!
 {% endfor %}
 </div>
-
+</div>
 {% endblock %}
