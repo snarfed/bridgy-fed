@@ -417,6 +417,11 @@ class ObjectTest(TestCase):
         self.assertIn('href="fake:user">', got)
         self.assertIn('Alice', got)
 
+    def test_actor_link_object_in_datastore(self):
+        Object(id='fake:alice', as2={"name": "Alice"}).put()
+        obj = Object(id='x', source_protocol='fake', our_as1={'actor': 'fake:alice'})
+        self.assertIn('Alice', obj.actor_link())
+
     def test_put_updates_load_cache(self):
         obj = Object(id='x', as2={})
         obj.put()

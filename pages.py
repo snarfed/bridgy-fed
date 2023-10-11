@@ -121,6 +121,9 @@ def home(protocol, id):
     load_user(protocol, id)
     query = Object.query(Object.feed == g.user.key)
     objects, before, after = fetch_objects(query, by=Object.created)
+
+    # this calls Object.actor_link serially for each object, which loads the
+    # actor from the datastore if necessary. TODO: parallelize those fetches
     return render_template('home.html', **TEMPLATE_VARS, **locals())
 
 
@@ -284,6 +287,7 @@ def fetch_objects(query, by=None):
     """
     assert by is Object.updated or by is Object.created
     objects, new_before, new_after = fetch_page(query, Object, by=by)
+    objects = [o for o in objects if not o.deleted]
 
     # synthesize human-friendly content for objects
     for i, obj in enumerate(objects):

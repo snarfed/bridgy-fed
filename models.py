@@ -844,6 +844,13 @@ class Object(StringIdModel):
         if self.as1:
             actor = (as1.get_object(self.as1, 'actor')
                      or as1.get_object(self.as1, 'author'))
+            # hydrate from datastore if available
+            # TODO: optimize! this is called serially in loops, eg in home.html
+            if set(actor.keys()) == {'id'} and self.source_protocol:
+                proto = PROTOCOLS[self.source_protocol]
+                actor_obj = proto.load(actor['id'], remote=False)
+                if actor_obj and actor_obj.as1:
+                    actor = actor_obj.as1
 
         if not actor:
             return ''
