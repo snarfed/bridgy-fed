@@ -422,6 +422,19 @@ class ObjectTest(TestCase):
         obj = Object(id='x', source_protocol='fake', our_as1={'actor': 'fake:alice'})
         self.assertIn('Alice', obj.actor_link())
 
+    def test_actor_link_sized(self):
+        obj = Object(id='x', our_as1={
+            'actor': {
+                'displayName': 'Alice',
+                'image': 'foo.jpg',
+            },
+        })
+        self.assert_multiline_equals("""\
+<a class="h-card u-author" href="" title="Alice">
+  <img class="profile" src="foo.jpg" width="32"/>
+  Alice
+</a>""", obj.actor_link(sized=True))
+
     def test_put_updates_load_cache(self):
         obj = Object(id='x', as2={})
         obj.put()

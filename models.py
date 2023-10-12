@@ -843,8 +843,16 @@ class Object(StringIdModel):
         protocol = PROTOCOLS.get(self.source_protocol) or Protocol
         return protocol.subdomain_url(f'convert/web/{id}')
 
-    def actor_link(self):
-        """Returns a pretty actor link with their name and profile picture."""
+    def actor_link(self, sized=False):
+        """Returns a pretty HTML link with the actor's name and picture.
+
+        Args:
+          sized (bool): if True, sets an explicit size (``width=32``) on the
+            profile picture ``img` tag
+
+        Returns:
+          str:
+        """
         attrs = {'class': 'h-card u-author'}
 
         if (self.source_protocol in ('web', 'webmention', 'ui') and g.user
@@ -877,7 +885,7 @@ class Object(StringIdModel):
 
         return f"""\
         <a class="h-card u-author" href="{url}" title="{name}">
-          <img class="profile" src="{image}" />
+          <img class="profile" src="{image}" {'width="32"' if sized else ''}/>
           {util.ellipsize(name, chars=40)}
         </a>"""
 
