@@ -1,18 +1,18 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html>
 
-{% block title %}{{ g.user.handle_or_id() }}'s feed - Bridgy Fed{% endblock %}
+<head>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<title>{{ title }}</title>
+</head>
 
-{% block content %}
-<div class="h-feed">
-<div class="row big p-name">{{ title }}</div>
-
-<link rel="stylesheet" href="/static/feed.css" type="text/css" />
-<div class="row">
+<body class="h-feed">
+<div class="p-name">{{ title }}</div>
 {% for e in entries %}
   {{ e|safe }}
 {% else %}
   Nothing yet. <a href="/#To+use+it">Follow more people</a>, check back soon!
 {% endfor %}
-</div>
-</div>
-{% endblock %}
+</body>
+
+</html>
