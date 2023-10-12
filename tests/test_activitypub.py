@@ -1671,6 +1671,7 @@ class ActivityPubUtilsTest(TestCase):
                 {'type': 'Mention', 'href': 'foo'},
             ],
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'cc': ['foo'],
         }, postprocess_as2({
             'tag': [
                 {'name': 'bar', 'href': 'bar'},
@@ -1733,6 +1734,12 @@ class ActivityPubUtilsTest(TestCase):
                 'value': '<a rel="me" href="https://user.com/about-me"><span class="invisible">https://</span>user.com/about-me<span class="invisible"></span></a>',
             }],
         })['preferredUsername'])
+
+    def test_postprocess_as2_mentions_into_cc(self):
+        obj = copy.deepcopy(MENTION_OBJECT)
+        del obj['cc']
+        self.assertEqual(['https://masto.foo/@other'],
+                         postprocess_as2(obj)['cc'])
 
     # TODO: make these generic and use Fake
     @patch('requests.get')

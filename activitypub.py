@@ -559,7 +559,7 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
                 if isinstance(to, dict):
                     to = util.get_first(to, 'url') or to.get('id')
                 if to:
-                    activity.setdefault('tag', []).append({
+                    add(activity.setdefault('tag', []), {
                         'type': 'Mention',
                         'href': to,
                     })
@@ -605,14 +605,23 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     if imgs:
         atts.extend(img for img in imgs if img not in atts)
 
-    # cc target's author(s) and recipients
+    # cc target's author(s), recipients, mentions
     # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting
     # https://w3c.github.io/activitypub/#delivery
+    # https://docs.joinmastodon.org/spec/activitypub/#Mention
+    obj_or_activity.setdefault('cc', [])
+
+    tags = util.get_list(activity, 'tag') + util.get_list(obj, 'tag')
+    for tag in tags:
+        href = tag.get('href')
+        if (href and tag.get('type') == 'Mention'
+                and not ActivityPub.is_blocklisted(href)):
+            add(obj_or_activity['cc'], href)
+
     if orig_obj and type in as2.TYPE_TO_VERB:
-        recips = itertools.chain(*(util.get_list(orig_obj, field) for field in
-                                 ('actor', 'attributedTo', 'to', 'cc')))
-        obj_or_activity['cc'] = sorted(util.dedupe_urls(
-            util.get_url(recip) or recip.get('id') for recip in recips))
+        for field in 'actor', 'attributedTo', 'to', 'cc':
+            for recip in as1.get_objects(orig_obj, field):
+                add(obj_or_activity['cc'], util.get_url(recip) or recip.get('id'))
 
     # to public, since Mastodon interprets to public as public, cc public as unlisted:
     # https://socialhub.activitypub.rocks/t/visibility-to-cc-mapping/284
@@ -633,7 +642,7 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     #
     # https://docs.joinmastodon.org/spec/activitypub/#properties-used
     # https://github.com/snarfed/bridgy-fed/issues/45
-    for tag in util.get_list(activity, 'tag') + util.get_list(obj, 'tag'):
+    for tag in tags:
         name = tag.get('name')
         if name and tag.get('type', 'Tag') == 'Tag':
             tag['type'] = 'Hashtag'
