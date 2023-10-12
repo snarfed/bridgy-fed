@@ -34,6 +34,11 @@ def contents(activities):
 
 class PagesTest(TestCase):
     EXPECTED = contents([COMMENT, MENTION, NOTE])
+    EXPECTED_SNIPPETS = [
+        'Dr. Eve replied a comment',
+        'tag:fake.com:44... posted a mention',
+        'tag:fake.com:44... posted my note',
+    ]
 
     def setUp(self):
         super().setUp()
@@ -196,20 +201,22 @@ class PagesTest(TestCase):
         got = self.client.get('/web/user.com/notifications?format=rss')
         self.assert_equals(200, got.status_code)
         self.assert_equals(rss.CONTENT_TYPE, got.headers['Content-Type'])
-        self.assert_equals(self.EXPECTED, contents(rss.to_activities(got.text)))
+        self.assert_equals(self.EXPECTED_SNIPPETS,
+                           contents(rss.to_activities(got.text)))
 
     def test_notifications_atom(self):
         self.add_objects()
         got = self.client.get('/web/user.com/notifications?format=atom')
         self.assert_equals(200, got.status_code)
         self.assert_equals(atom.CONTENT_TYPE, got.headers['Content-Type'])
-        self.assert_equals(self.EXPECTED, contents(atom.atom_to_activities(got.text)))
+        self.assert_equals(self.EXPECTED_SNIPPETS,
+                           contents(atom.atom_to_activities(got.text)))
 
     def test_notifications_html(self):
         self.add_objects()
         got = self.client.get('/web/user.com/notifications?format=html')
         self.assert_equals(200, got.status_code)
-        self.assert_equals(self.EXPECTED,
+        self.assert_equals(self.EXPECTED_SNIPPETS,
                            contents(microformats2.html_to_activities(got.text)))
 
     def test_followers_fake(self):

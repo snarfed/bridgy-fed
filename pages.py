@@ -136,7 +136,7 @@ def notifications(protocol, id):
 
     format = request.args.get('format')
     if format:
-        return serve_feed(objects=objects, format=format,
+        return serve_feed(objects=objects, format=format, as_snippets=True,
                           title=f'Bridgy Fed notifications for {id}')
 
     # notifications tab UI page
@@ -181,13 +181,15 @@ def feed(protocol, id):
                       title=f'Bridgy Fed feed for {id}')
 
 
-def serve_feed(*, objects, format, title):
+def serve_feed(*, objects, format, title, as_snippets=False):
     """Generates a feed based on :class:`Object`s.
 
     Args:
       objects (sequence of models.Object)
       format (str): ``html``, ``atom``, or ``rss``
       title (str)
+      as_snippets (bool): if True, render short snippets for objects instead of
+        full contents
 
     Returns:
       str or (str, dict) tuple: Flask response
@@ -195,7 +197,15 @@ def serve_feed(*, objects, format, title):
     if format not in ('html', 'atom', 'rss'):
         error(f'format {format} not supported; expected html, atom, or rss')
 
-    activities = [obj.as1 for obj in objects if not obj.deleted]
+    if as_snippets:
+        activities = [{
+            'objectType': 'note',
+            'content': f'{obj.actor_link(image=False)} {obj.phrase} {obj.content}',
+            'content_is_html': True,
+            'updated': obj.updated.isoformat(),
+        } for obj in objects if not obj.deleted]
+    else:
+        activities = [obj.as1 for obj in objects if not obj.deleted]
 
     # hydrate authors, actors, objects from stored Objects
     fields = 'author', 'actor', 'object'
