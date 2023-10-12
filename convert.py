@@ -13,7 +13,7 @@ from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 
 from activitypub import ActivityPub
-from common import CACHE_TIME, SUPERDOMAIN
+from common import CACHE_TIME, LOCAL_DOMAINS, SUPERDOMAIN
 from flask_app import app, cache
 from models import Object, PROTOCOLS
 from protocol import Protocol
@@ -37,12 +37,22 @@ DESTS = frozenset((
 
 @app.get(f'/convert/<any({",".join(DESTS)}):dest>/<path:_>')
 @flask_util.cached(cache, CACHE_TIME, headers=['Accept'])
-def convert(dest, _):
+def convert(dest, _, src=None):
     """Converts data from one protocol to another and serves it.
 
     Fetches the source data if it's not already stored.
+
+    Args:
+      dest (str): protocol
+      src (str): protocol, only used when called by
+        :func:`convert_source_path_redirect`
     """
-    src_cls = Protocol.for_request(fed=Protocol)
+    if src:
+        logger.info(f'Overriding any domain protocol with {src}')
+        src_cls = PROTOCOLS[src]
+    else:
+        src_cls = Protocol.for_request(fed=Protocol)
+
     if not src_cls:
         error(f'Unknown protocol {request.host.removesuffix(SUPERDOMAIN)}', status=404)
 
@@ -58,6 +68,8 @@ def convert(dest, _):
 
     if not util.is_web(url):
         error(f'Expected fully qualified URL; got {url}')
+
+    logger.info(f'Converting from {src} to {dest}: {url}')
 
     # require g.user for AP since postprocess_as2 currently needs it. ugh
     dest_cls = PROTOCOLS[dest]
@@ -113,4 +125,9 @@ def convert_source_path_redirect(src, dest, _):
     # it, so we need to re-encode.
     new_path = quote(request.full_path.rstrip('?').replace(f'/{src}/', '/'),
                      safe=':/%')
+
+    if request.host in LOCAL_DOMAINS:
+        request.url = request.url.replace(f'/{src}/', '/')
+        return convert(dest, None, src)
+
     return redirect(PROTOCOLS[src].subdomain_url(new_path), code=301)

@@ -230,7 +230,8 @@ A ☕ reply
                          resp.headers['Location'])
 
     def test_convert_source_path_redirect(self):
-        resp = self.client.get('/convert/activitypub/web/https:/foo%3Fbar%23baz')
+        resp = self.client.get('/convert/activitypub/web/https:/foo%3Fbar%23baz',
+                               base_url='https://fed.brid.gy/')
         self.assertEqual(301, resp.status_code)
         self.assertEqual(f'https://ap.brid.gy/convert/web/https:/foo%3Fbar%23baz',
                          resp.headers['Location'])
