@@ -422,6 +422,17 @@ class ObjectTest(TestCase):
         obj = Object(id='x', source_protocol='fake', our_as1={'actor': 'fake:alice'})
         self.assertIn('Alice', obj.actor_link())
 
+    def test_actor_link_no_image(self):
+        obj = Object(id='x', our_as1={
+            'actor': {
+                'displayName': 'Alice',
+                'image': 'foo.jpg',
+            },
+        })
+        self.assert_multiline_equals(
+            '<a class="h-card u-author" href="">Alice</a>',
+            obj.actor_link(image=False))
+
     def test_actor_link_sized(self):
         obj = Object(id='x', our_as1={
             'actor': {

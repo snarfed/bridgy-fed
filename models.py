@@ -843,11 +843,12 @@ class Object(StringIdModel):
         protocol = PROTOCOLS.get(self.source_protocol) or Protocol
         return protocol.subdomain_url(f'convert/web/{id}')
 
-    def actor_link(self, sized=False):
+    def actor_link(self, image=True, sized=False):
         """Returns a pretty HTML link with the actor's name and picture.
 
         Args:
-          sized (bool): if True, sets an explicit size (``width=32``) on the
+          image (bool): whether to include an ``img`` tag with the actor's picture
+          sized (bool): whether to set an explicit (``width=32``) size on the
             profile picture ``img` tag
 
         Returns:
@@ -879,13 +880,13 @@ class Object(StringIdModel):
 
         url = util.get_first(actor, 'url') or ''
         name = actor.get('displayName') or actor.get('username') or ''
-        image = util.get_url(actor, 'image')
-        if not image:
+        img_url = util.get_url(actor, 'image')
+        if not image or not img_url:
             return common.pretty_link(url, text=name, attrs=attrs)
 
         return f"""\
         <a class="h-card u-author" href="{url}" title="{name}">
-          <img class="profile" src="{image}" {'width="32"' if sized else ''}/>
+          <img class="profile" src="{img_url}" {'width="32"' if sized else ''}/>
           {util.ellipsize(name, chars=40)}
         </a>"""
 
