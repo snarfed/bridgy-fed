@@ -137,7 +137,8 @@ def notifications(protocol, id):
     format = request.args.get('format')
     if format:
         return serve_feed(objects=objects, format=format, as_snippets=True,
-                          title=f'Bridgy Fed notifications for {id}')
+                          title=f'Bridgy Fed notifications for {id}',
+                          quiet=request.args.get('quiet'))
 
     # notifications tab UI page
     return render_template('notifications.html', **TEMPLATE_VARS, **locals())
@@ -181,7 +182,7 @@ def feed(protocol, id):
                       title=f'Bridgy Fed feed for {id}')
 
 
-def serve_feed(*, objects, format, title, as_snippets=False):
+def serve_feed(*, objects, format, title, as_snippets=False, quiet=False):
     """Generates a feed based on :class:`Object`s.
 
     Args:
@@ -190,6 +191,7 @@ def serve_feed(*, objects, format, title, as_snippets=False):
       title (str)
       as_snippets (bool): if True, render short snippets for objects instead of
         full contents
+      quiet (bool): if True, exclude follows, unfollows, likes, and reposts
 
     Returns:
       str or (str, dict) tuple: Flask response
@@ -197,15 +199,21 @@ def serve_feed(*, objects, format, title, as_snippets=False):
     if format not in ('html', 'atom', 'rss'):
         error(f'format {format} not supported; expected html, atom, or rss')
 
+    objects = [obj for obj in objects if not obj.deleted]
+    if quiet:
+        objects = [obj for obj in objects if obj.type not in
+                   ('follow', 'stop-following', 'like', 'share')]
+
     if as_snippets:
         activities = [{
             'objectType': 'note',
             'content': f'{obj.actor_link(image=False)} {obj.phrase} {obj.content}',
             'content_is_html': True,
             'updated': obj.updated.isoformat(),
-        } for obj in objects if not obj.deleted]
+        } for obj in objects]
     else:
-        activities = [obj.as1 for obj in objects if not obj.deleted]
+        activities = [obj.as1 for obj in objects]
+
 
     # hydrate authors, actors, objects from stored Objects
     fields = 'author', 'actor', 'object'
