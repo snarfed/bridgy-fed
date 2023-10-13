@@ -50,6 +50,7 @@ Bridgy Fed takes some technical know-how to set up, and there are simpler (but l
 <li><a href="#unfollow">How do I unfollow someone?</a></li>
 <li><a href="#image">How do I include an image in a post?</a></li>
 <li><a href="#hashtags">How do I use hashtags?</a></li>
+<li><a href="#mention">How do I @-mention someone?</a></li>
 <li><a href="#update">How do I edit an existing post?</a></li>
 <li><a href="#delete">How do I delete a post?</a></li>
 <li><a href="#fragment">Can I publish just one part of a page?</a></li>
@@ -372,6 +373,18 @@ I love scotch. Scotchy scotchy scotch.
 
 <p>The leading <code>#</code> character on the hashtag text is optional. If you don't include the hashtag in <code>e-content</code>, or include it but not inside an <code>&lt;a&gt;</code> link, fediverse sites won't add the hashtag text or link themselves, but your post will still be indexed in searches for that hashtag.
 </p>
+</li>
+
+<li id="mention" class="question">How do I @-mention someone?</li>
+<li class="answer">
+<p>Include a link to their fediverse profile in your post's content with their full handle as the text, eg <code>@alice@mastodon.social</code>. For example:
+</p>
+
+<pre>
+Hi &lt;a href="<a href='https://octodon.social/@cwebber'>https://octodon.social/@cwebber</a>"&gt;<span class='value'>@cwebber@octodon.social</span>&lt;/a&gt;!
+</pre>
+
+<p>The link and text are both necessary!</p>
 </li>
 
 <li id="update" class="question">How do I edit an existing post?</li>
