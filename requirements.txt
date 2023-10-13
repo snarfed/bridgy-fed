@@ -43,7 +43,7 @@ google-cloud-core==2.3.2
 google-cloud-datastore==2.16.1
 google-cloud-dns==0.34.1
 google-cloud-error-reporting==1.9.2
-google-cloud-logging==3.7.0
+google-cloud-logging==3.8.0
 google-cloud-ndb==2.2.2
 google-cloud-tasks==2.14.2
 googleapis-common-protos==1.60.0
