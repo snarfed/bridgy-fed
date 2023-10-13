@@ -4,6 +4,7 @@ import itertools
 import logging
 import os
 import re
+import time
 
 from flask import g, render_template, request
 from google.cloud.ndb import tasklets
@@ -19,8 +20,6 @@ from common import DOMAIN_RE
 from flask_app import app, cache
 from models import fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS
 from protocol import Protocol
-
-FOLLOWERS_UI_LIMIT = 999
 
 # precompute this because we get a ton of requests for non-existing users
 # from weird open redirect referrers:
@@ -159,16 +158,18 @@ def followers_or_following(protocol, id, collection):
     )
 
 
+# TODO: cache?
 def count_followers():
-    followers = Follower.query(Follower.to == g.user.key,
-                               Follower.status == 'active')\
-                        .count(limit=FOLLOWERS_UI_LIMIT)
-    num_followers = f'{followers}{"+" if followers == FOLLOWERS_UI_LIMIT else ""}'
+    start = time.time()
+    num_followers = Follower.query(Follower.to == g.user.key,
+                                   Follower.status == 'active')\
+                            .count()
+    end = time.time()
+    logger.info(f"Loading {g.user.key.id()}'s followers took {end - start}s")
 
-    following = Follower.query(Follower.from_ == g.user.key,
-                               Follower.status == 'active')\
-                        .count(limit=FOLLOWERS_UI_LIMIT)
-    num_following = f'{following}{"+" if following == FOLLOWERS_UI_LIMIT else ""}'
+    num_following = Follower.query(Follower.from_ == g.user.key,
+                                   Follower.status == 'active')\
+                            .count()
 
     return num_followers, num_following
 

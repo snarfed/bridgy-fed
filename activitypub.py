@@ -905,7 +905,7 @@ def follower_collection(id, collection):
     count = Follower.query(
         Follower.status == 'active',
         prop == g.user.key,
-    ).count()
+    ).count()  # TODO: cache, unify with pages.count_followers
 
     collection = {
         '@context': 'https://www.w3.org/ns/activitystreams',
