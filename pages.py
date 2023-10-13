@@ -207,6 +207,7 @@ def serve_feed(*, objects, format, title, as_snippets=False, quiet=False):
     if as_snippets:
         activities = [{
             'objectType': 'note',
+            'id': obj.key.id(),
             'content': f'{obj.actor_link(image=False)} {obj.phrase} {obj.content}',
             'content_is_html': True,
             'updated': obj.updated.isoformat(),
