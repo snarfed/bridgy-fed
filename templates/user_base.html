@@ -42,7 +42,7 @@
     <nobr>
       <a href="{{ g.user.web_url() }}"
          title="{{ g.user.__class__.__name__ }} (native)">
-        <span class="logo">{{ g.user.LOGO_HTML }}</span>
+        <span class="logo">{{ g.user.LOGO_HTML|safe }}</span>
         {{ g.user.handle_or_id() }}</a>
 
     <!-- TODO: make this work with protocols other than Web -->
