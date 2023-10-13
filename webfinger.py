@@ -59,6 +59,9 @@ class Webfinger(flask_util.XrdOrJrd):
         if not cls:
             cls = Protocol.for_request(fed='web')
 
+        if not cls:
+            error('Unknown protocol')
+
         # is this a handle?
         if cls.owns_id(id) is False:
             logger.info(f'{id} is not a {cls.LABEL} id')

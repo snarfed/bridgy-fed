@@ -177,10 +177,12 @@ class WebfingerTest(TestCase):
         self.assertEqual(404, got.status_code)
 
     def test_user_unusable_protocol_subdomain(self):
-        got = self.client.get(
-            '/.well-known/webfinger?resource=acct:user@bsky.brid.gy',
-            headers={'Accept': 'application/json'})
-        self.assertEqual(400, got.status_code)
+        from models import PROTOCOLS
+        for base_url in None, 'https://bsky.brid.gy/':
+            got = self.client.get(
+                '/.well-known/webfinger?resource=acct:user.handle@bsky.brid.gy',
+                base_url=base_url, headers={'Accept': 'application/json'})
+            self.assertEqual(400, got.status_code)
 
     def test_user_infer_protocol_from_request_subdomain(self):
         self.make_user('fake:user', cls=Fake)
