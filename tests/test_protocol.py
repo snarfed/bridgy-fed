@@ -155,6 +155,11 @@ class ProtocolTest(TestCase):
         self.assertEqual('user.com', user.handle)
         self.assertEqual((Web, 'user.com'), Protocol.for_handle('user.com'))
 
+    def test_for_handle_opted_out_user(self):
+        user = self.make_user(id='user.com', cls=Web, obj_as1={'summary': '#nobot'})
+        self.assertEqual('user.com', user.handle)
+        self.assertEqual((None, None), Protocol.for_handle('user.com'))
+
     @patch('dns.resolver.resolve', return_value = dns_answer(
             '_atproto.han.dull.', '"did=did:plc:123abc"'))
     def test_for_handle_atproto_resolve(self, _):
@@ -282,7 +287,7 @@ class ProtocolTest(TestCase):
             Fake.load('nope', local=False, remote=False)
 
     def test_actor_key(self):
-        user = Fake(id='fake:a')
+        user = self.make_user(id='fake:a', cls=Fake)
         a_key = user.key
 
         for expected, obj in [
@@ -300,14 +305,21 @@ class ProtocolTest(TestCase):
         self.assertEqual(a_key, Fake.actor_key(Object()))
         self.assertIsNone(Fake.actor_key(Object(), default_g_user=False))
 
+        g.user.obj.our_as1 = {'summary': '#nobot'}
+        self.assertIsNone(Fake.actor_key(Object(), default_g_user=True))
+
     def test_key_for(self):
         self.assertEqual(self.user.key, Protocol.key_for(self.user.key.id()))
 
-        Fake(id='fake:other', use_instead=self.user.key).put()
+        user = Fake(id='fake:other', use_instead=self.user.key).put()
         self.assertEqual(self.user.key, Protocol.key_for('fake:other'))
 
         # no stored user
         self.assertEqual(ndb.Key('Fake', 'fake:foo'), Protocol.key_for('fake:foo'))
+
+        self.user.obj.our_as1 = {'summary': '#nobridge'}
+        self.user.obj.put()
+        self.assertIsNone(Protocol.key_for(self.user.key.id()))
 
     def test_targets_checks_blocklisted_per_protocol(self):
         """_targets should call the target protocol's is_blocklisted()."""
@@ -909,7 +921,7 @@ class ProtocolReceiveTest(TestCase):
             'object': 'fake:post',
         }
         with self.assertRaises(NoContent):
-            self.assertEqual('OK', Fake.receive_as1(delete_as1))
+            Fake.receive_as1(delete_as1)
 
         self.assert_object('fake:post',
                            deleted=True,
@@ -1364,3 +1376,17 @@ class ProtocolReceiveTest(TestCase):
         self.client.post('/queue/receive', data={'obj': obj.key.urlsafe()})
         obj = Object.get_by_id('fake:post#bridgy-fed-create')
         self.assertEqual('ignored', obj.status)
+
+    def test_g_user_opted_out(self):
+        self.make_followers()
+        g.user.obj.our_as1 = {'summary': '#nobot'}
+        g.user.obj.put()
+
+        with self.assertRaises(NoContent):
+            Fake.receive_as1({
+                'id': 'fake:post',
+                'objectType': 'note',
+                'author': 'fake:user',
+            })
+
+        self.assertEqual([], Fake.sent)

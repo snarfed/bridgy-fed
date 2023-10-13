@@ -101,6 +101,12 @@ class PagesTest(TestCase):
         got = self.client.get('/web/user.com')
         self.assert_equals(404, got.status_code)
 
+    def test_user_opted_out(self):
+        self.user.obj.our_as1 = {'summary': '#nobridge'}
+        self.user.obj.put()
+        got = self.client.get('/web/user.com')
+        self.assert_equals(404, got.status_code)
+
     def test_user_web_redirect(self):
         got = self.client.get('/user/user.com')
         self.assert_equals(301, got.status_code)

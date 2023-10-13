@@ -48,6 +48,9 @@ OBJECT_EXPIRE_TYPES = (
 )
 OBJECT_EXPIRE_AGE = timedelta(days=90)
 
+OPT_OUT_TAGS = frozenset(('#nobot', '#nobridge'))
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -312,6 +315,29 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     @ndb.ComputedProperty
     def readable_id(self):
         """DEPRECATED: replaced by handle. Kept for backward compatibility."""
+        return None
+
+    @ndb.ComputedProperty
+    def status(self):
+        """Whether this user has explicitly opted out of Bridgy Fed.
+
+        Optional. Current possible values:
+          * ``opt-out``
+
+        Currently just looks for ``#nobridge`` or ``#nobot`` in the profile
+        description/bio.
+
+        https://github.com/snarfed/bridgy-fed/issues/666
+        """
+        if not self.obj or not self.obj.as1:
+            return None
+
+        for field in 'summary', 'displayName':
+            val = self.obj.as1.get(field)
+            for tag in OPT_OUT_TAGS:
+                if val and tag in val:
+                    return 'opt-out'
+
         return None
 
     def handle_as(self, to_proto):
@@ -991,6 +1017,7 @@ class Follower(ndb.Model):
 
         for f, u in zip(followers, users):
             f.user = u
+        followers = [f for f in followers if f.user.status != 'opt-out']
 
         return followers, before, after
 

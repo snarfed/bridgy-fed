@@ -211,12 +211,31 @@ class UserTest(TestCase):
         user = g.user.key.get()
         self.assertFalse(hasattr(user, '_obj'))
         self.assertFalse(hasattr(alice, '_obj'))
-        self.assertFalse(hasattr(bob, '_obj'))
+        self.assertIsNone(bob._obj)
 
         User.load_multi([user, alice, bob])
         self.assertIsNotNone(user._obj)
         self.assertIsNone(alice._obj)
         self.assertIsNone(bob._obj)
+
+    def test_status(self):
+        self.assertIsNone(g.user.status)
+
+        user = self.make_user('fake:user', cls=Fake, obj_as1={
+            'summary': 'I like this',
+        })
+        self.assertIsNone(user.status)
+
+        user.obj.our_as1.update({
+            'summary': 'well #nobot yeah',
+        })
+        self.assertEqual('opt-out', user.status)
+
+        user.obj.our_as1.update({
+            'summary': '🤷',
+            'displayName': 'well #nobridge yeah',
+        })
+        self.assertEqual('opt-out', user.status)
 
 
 class ObjectTest(TestCase):

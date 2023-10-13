@@ -214,11 +214,17 @@ class Protocol:
           valid :class:`User` id for this protocol.
         """
         if cls == Protocol:
-            return Protocol.for_id(id).key_for(id)
+            proto = Protocol.for_id(id)
+            return proto.key_for(id) if proto else None
 
         # load user so that we follow use_instead
         existing = cls.get_by_id(id)
-        return existing.key if existing else cls(id=id).key
+        if existing:
+            if existing.status == 'opt-out':
+                return None
+            return existing.key
+
+        return cls(id=id).key
 
     @staticmethod
     def for_id(id):
@@ -330,10 +336,12 @@ class Protocol:
 
         # step 2: look for matching User in the datastore
         for proto in candidates:
-            user = proto.query(proto.handle == handle).get(keys_only=True)
+            user = proto.query(proto.handle == handle).get()
             if user:
-                logger.info(f'  user {user} owns handle {handle}')
-                return (proto, user.id())
+                if user.status == 'opt-out':
+                    return (None, None)
+                logger.info(f'  user {user.key} owns handle {handle}')
+                return (proto, user.key.id())
 
         # step 3: resolve handle to id
         for proto in candidates:
@@ -361,7 +369,7 @@ class Protocol:
         owner = as1.get_owner(obj.as1)
         if owner:
             return cls.key_for(owner)
-        elif default_g_user and g.user:
+        elif default_g_user and g.user and g.user.status != 'opt-out':
             return g.user.key
 
     @classmethod
@@ -534,6 +542,7 @@ class Protocol:
             error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
 
         # add owner(s)
+        # (actor_key returns None if the user is opted out)
         actor_key = from_cls.actor_key(obj, default_g_user=False)
         if actor_key:
             obj.add('users', actor_key)
