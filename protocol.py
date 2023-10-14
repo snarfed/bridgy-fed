@@ -373,7 +373,7 @@ class Protocol:
             return g.user.key
 
     @classmethod
-    def send(to_cls, obj, url, orig_obj=None):
+    def send(to_cls, obj, url, orig_obj=None, log_data=True):
         """Sends an outgoing activity.
 
         To be implemented by subclasses.
@@ -383,6 +383,7 @@ class Protocol:
           url (str): destination URL to send to
           orig_obj (models.Object): the "original object" that this object
             refers to, eg replies to or reposts or likes
+          log_data (bool): whether to log full data object
 
         Returns:
           bool: True if the activity is sent successfully, False if it is
@@ -832,16 +833,18 @@ class Protocol:
         )
         logger.info(f'Delivering to: {obj.undelivered}')
 
+        log_data = True
         errors = []  # stores (target URL, code, body) tuples
 
         # deliver to all targets, in parallel, with a thread pool
         with ThreadPoolExecutor(max_workers=DELIVER_THREADS,
                                 thread_name_prefix='deliver') as executor:
             results = []
+            log_data = True
 
             for target, orig_obj in sorted_targets:
                 @copy_current_request_context
-                def deliver_one(target, orig_obj, g_user):
+                def deliver_one(target, orig_obj, g_user, log_data):
                     """Runs on a separate thread!
 
                     Note that this has to be defined *inside* the loop, once per
@@ -857,7 +860,8 @@ class Protocol:
 
                     with ndb_client.context():
                         try:
-                            sent = protocol.send(obj, target.uri, orig_obj=orig_obj)
+                            sent = protocol.send(obj, target.uri, orig_obj=orig_obj,
+                                                 log_data=log_data)
                             if sent:
                                 obj.add('delivered', target)
                             obj.remove('undelivered', target)
@@ -871,7 +875,9 @@ class Protocol:
 
                         obj.put()
 
-                results.append(executor.submit(deliver_one, target, orig_obj, g.user))
+                results.append(executor.submit(deliver_one, target, orig_obj,
+                                               g.user, log_data))
+                log_data = False
 
             # re-raise any exception that were raised
             for r in results:
