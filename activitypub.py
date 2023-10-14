@@ -206,7 +206,7 @@ class ActivityPub(User, Protocol):
         elif not activity.get('actor'):
             logger.warning('Outgoing AP activity has no actor!')
 
-        return signed_post(url, log_data=True, data=activity).ok
+        return signed_post(url, log_data=log_data, data=activity).ok
 
     @classmethod
     def fetch(cls, obj, **kwargs):

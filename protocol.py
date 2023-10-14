@@ -833,7 +833,6 @@ class Protocol:
         )
         logger.info(f'Delivering to: {obj.undelivered}')
 
-        log_data = True
         errors = []  # stores (target URL, code, body) tuples
 
         # deliver to all targets, in parallel, with a thread pool
