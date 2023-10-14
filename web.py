@@ -445,13 +445,11 @@ class Web(User, Protocol):
         else:
             logger.debug(f'Not hydrating actor or author due to source_protocol {obj.source_protocol}')
 
-        util.d(obj_as1)
         html = microformats2.activities_to_html([obj_as1])
 
         # add HTML meta redirect to source page. should trigger for end users in
         # browsers but not for webmention receivers (hopefully).
         url = util.get_url(obj_as1)
-        util.d(url)
         if url:
             utf8 = '<meta charset="utf-8">'
             refresh = f'<meta http-equiv="refresh" content="0;url={url}">'
