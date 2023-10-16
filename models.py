@@ -760,10 +760,11 @@ class Object(StringIdModel):
             obj.new = False
             orig_as1 = obj.as1
             if orig_as1:
+                authors_actors = (as1.get_ids(orig_as1, 'author') +
+                                  as1.get_ids(orig_as1, 'actor'))
                 if not actor:
                     logger.warning(f'Cowardly refusing to overwrite {id} without checking actor')
-                elif actor not in (as1.get_ids(orig_as1, 'author') +
-                                   as1.get_ids(orig_as1, 'actor')):
+                elif actor not in authors_actors:
                     logger.warning(f"actor {actor} isn't {id}'s author or actor {authors_actors}")
         else:
             obj = Object(id=id)
