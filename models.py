@@ -740,12 +740,17 @@ class Object(StringIdModel):
 
     @classmethod
     @ndb.transactional()
-    def get_or_create(cls, id, **props):
+    def get_or_create(cls, id, actor=None, **props):
         """Returns an :class:`Object` with the given property values.
 
         If a matching :class:`Object` doesn't exist in the datastore, creates it
         first. Only populates non-False/empty property values in props into the
         object. Also populates the :attr:`new` and :attr:`changed` properties.
+
+        Args:
+          actor (str): if a matching :class:`Object` already exists, its
+            `author` or `actor` must contain this actor id. Implements basic
+            authorization for updates and deletes.
 
         Returns:
           Object:
@@ -754,6 +759,12 @@ class Object(StringIdModel):
         if obj:
             obj.new = False
             orig_as1 = obj.as1
+            if orig_as1:
+                if not actor:
+                    logger.warning(f'Cowardly refusing to overwrite {id} without checking actor')
+                elif actor not in (as1.get_ids(orig_as1, 'author') +
+                                   as1.get_ids(orig_as1, 'actor')):
+                    logger.warning(f"actor {actor} isn't {id}'s author or actor {authors_actors}")
         else:
             obj = Object(id=id)
             obj.new = True

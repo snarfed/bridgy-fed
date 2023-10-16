@@ -1,5 +1,6 @@
 """Unit tests for protocol.py."""
 import copy
+import logging
 from unittest import skip
 from unittest.mock import patch
 
@@ -543,6 +544,30 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('OK', Fake.receive_as1(post_as1))
         self.assertEqual(1, len(Fake.sent))
         self.assertEqual('shared:target', Fake.sent[0][1])
+
+    def test_update_post_wrong_actor_error(self):
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+        }
+        self.store_object(id='fake:post', our_as1=post_as1)
+
+        orig_disable_level = logging.root.manager.disable
+        logging.disable(logging.NOTSET)
+        with self.assertRaises(NoContent), self.assertLogs() as logs:
+            Fake.receive_as1({
+                'id': 'fake:update',
+                'objectType': 'activity',
+                'verb': 'update',
+                'actor': 'fake:other',
+                'object': post_as1,
+            })
+        logging.disable(orig_disable_level)
+
+        self.assertIn(
+            "WARNING:models:actor fake:other isn't fake:post's author or actor ['fake:user']",
+            logs.output)
 
     def test_update_post(self):
         self.make_followers()
