@@ -31,7 +31,7 @@ extras==1.0.0
 feedgen==0.9.0
 feedparser==6.0.10
 fixtures==4.1.0
-Flask==2.3.3
+Flask==3.0.0
 Flask-Caching==2.1.0
 flask-gae-static==1.0
 flask-sock==0.7.0
