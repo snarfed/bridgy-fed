@@ -432,6 +432,7 @@ def poll_notifications():
             common.create_task(queue='receive', obj=obj.key.urlsafe(),
                                # TODO: should this be the receiving user?
                                # or the sending user?
-                               user=user.key.urlsafe())
+                               user=user.key.urlsafe(),
+                               authed_as=notif['author']['did'])
 
     return 'OK'

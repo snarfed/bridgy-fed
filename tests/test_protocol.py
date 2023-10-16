@@ -1386,7 +1386,7 @@ class ProtocolReceiveTest(TestCase):
                            )
         self.assertEqual(2, Follower.query().count())
 
-    def test_task_handler(self):
+    def test_receive_task_handler(self):
         note = {
             'id': 'fake:post',
             'objectType': 'note',
@@ -1398,6 +1398,25 @@ class ProtocolReceiveTest(TestCase):
         self.client.post('/queue/receive', data={'obj': obj.key.urlsafe()})
         obj = Object.get_by_id('fake:post#bridgy-fed-create')
         self.assertEqual('ignored', obj.status)
+
+    def test_receive_task_handler_authed_as(self):
+        note = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:other',
+        }
+        obj = self.store_object(id='fake:post', our_as1=note,
+                                source_protocol='fake')
+
+        with self.assertLogs() as logs:
+            self.client.post('/queue/receive', data={
+                'obj': obj.key.urlsafe(),
+                'authed_as': 'fake:eve',
+            })
+
+        self.assertIn(
+            "WARNING:protocol:actor fake:other isn't authed user fake:eve",
+            logs.output)
 
     def test_g_user_opted_out(self):
         self.make_followers()

@@ -1134,10 +1134,13 @@ class Protocol:
 def receive_task():
     """Task handler for a newly received :class:`models.Object`.
 
+    Calls :meth:`Protocol.receive` with the form parameters.
+
     Parameters:
       obj (google.cloud.ndb.key.Key): :class:`models.Object` to handle
       user (google.cloud.ndb.key.Key): :class:`models.User` this activity is on
         behalf of. This user will be loaded into ``g.user``
+      authed_as (str): passed to :meth:`Protocol.receive`
 
     TODO: migrate incoming webmentions and AP inbox deliveries to this. The
     difficulty is that parts of :meth:`protocol.Protocol.receive` depend on
@@ -1146,15 +1149,16 @@ def receive_task():
     :meth:`Protocol.receive` now loads), HTTP request details, etc. See stash
     for attempt at this for :class:`web.Web`.
     """
-    logger.info(f'Params: {list(request.form.items())}')
+    form = request.form.to_dict()
+    logger.info(f'Params: {list(form.items())}')
 
-    obj = ndb.Key(urlsafe=request.form['obj']).get()
+    obj = ndb.Key(urlsafe=form.pop('obj')).get()
     assert obj
-    if user_key := request.form.get('user'):
+    if user_key := form.pop('user', None):
         g.user = ndb.Key(urlsafe=user_key).get()
 
     try:
-        return PROTOCOLS[obj.source_protocol].receive(obj)
+        return PROTOCOLS[obj.source_protocol].receive(obj, **form)
     except ValueError as e:
         logger.warning(e, exc_info=True)
         error(e, status=304)
