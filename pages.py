@@ -13,7 +13,12 @@ from google.cloud.ndb.stats import KindStat
 from granary import as1, as2, atom, microformats2, rss
 import humanize
 from oauth_dropins.webutil import flask_util, logs, util
-from oauth_dropins.webutil.flask_util import error, flash, redirect
+from oauth_dropins.webutil.flask_util import (
+    canonicalize_request_domain,
+    error,
+    flash,
+    redirect,
+)
 
 import common
 from common import DOMAIN_RE
@@ -82,6 +87,7 @@ def load_user(protocol, id):
 
 
 @app.route('/')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 @flask_util.cached(cache, datetime.timedelta(days=1))
 def front_page():
     """View for the front page."""
@@ -89,6 +95,7 @@ def front_page():
 
 
 @app.route('/docs')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 @flask_util.cached(cache, datetime.timedelta(days=1))
 def docs():
     """View for the docs page."""
@@ -98,6 +105,7 @@ def docs():
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>')
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/feed')
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>/<any(followers,following):collection>')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def web_user_redirects(**kwargs):
     path = request.url.removeprefix(request.root_url).removeprefix('user/')
     return redirect(f'/web/{path}', code=301)
@@ -107,6 +115,7 @@ def web_user_redirects(**kwargs):
 # WARNING: this overrides the /ap/... actor URL route in activitypub.py, *only*
 # for handles with leading @ character. be careful when changing this route!
 @app.get(f'/ap/@<id>', defaults={'protocol': 'ap'})
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def profile(protocol, id):
     load_user(protocol, id)
     query = Object.query(Object.users == g.user.key)
@@ -116,6 +125,7 @@ def profile(protocol, id):
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/home')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def home(protocol, id):
     load_user(protocol, id)
     query = Object.query(Object.feed == g.user.key)
@@ -127,6 +137,7 @@ def home(protocol, id):
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/notifications')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def notifications(protocol, id):
     load_user(protocol, id)
 
@@ -144,6 +155,7 @@ def notifications(protocol, id):
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/<any(followers,following):collection>')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def followers_or_following(protocol, id, collection):
     load_user(protocol, id)
 
@@ -175,6 +187,7 @@ def count_followers():
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/feed')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def feed(protocol, id):
     load_user(protocol, id)
     query = Object.query(Object.feed == g.user.key)
@@ -253,6 +266,7 @@ def serve_feed(*, objects, format, title, as_snippets=False, quiet=False):
 
 
 @app.get('/bridge-user')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 @flask_util.cached(cache, datetime.timedelta(days=1))
 def bridge_user_page():
     return render_template('bridge_user.html')
@@ -388,6 +402,7 @@ def fetch_objects(query, by=None):
 
 
 @app.get('/stats')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def stats():
     def count(kind):
         return humanize.intcomma(
@@ -402,6 +417,7 @@ def stats():
 
 
 @app.get('/.well-known/nodeinfo')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 @flask_util.cached(cache, datetime.timedelta(days=1))
 def nodeinfo_jrd():
     """
@@ -418,6 +434,7 @@ def nodeinfo_jrd():
 
 
 @app.get('/nodeinfo.json')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 @flask_util.cached(cache, datetime.timedelta(days=1))
 def nodeinfo():
     """
@@ -467,6 +484,7 @@ def nodeinfo():
 
 
 @app.get('/log')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 @flask_util.cached(cache, logs.CACHE_TIME)
 def log():
     return logs.log()
