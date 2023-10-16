@@ -1342,6 +1342,22 @@ class ActivityPubTest(TestCase):
         self.assertEqual(204, got.status_code)
         self.assertEqual(0, Follower.query().count())
 
+    def test_inbox_http_sig_is_not_actor_author(self, mock_head, mock_get, mock_post):
+        mock_get.side_effect = [
+            self.as2_resp(ACTOR),  # author
+        ]
+
+        with self.assertLogs() as logs:
+            got = self.post('/user.com/inbox', json={
+                **NOTE_OBJECT,
+                'author': 'https://alice',
+            })
+            self.assertEqual(204, got.status_code, got.get_data(as_text=True))
+
+        self.assertIn(
+            "WARNING:protocol:actor https://alice isn't authed user http://my/key/id",
+            logs.output)
+
     def test_followers_collection_unknown_user(self, *_):
         resp = self.client.get('/nope.com/followers')
         self.assertEqual(404, resp.status_code)

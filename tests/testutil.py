@@ -132,14 +132,14 @@ class Fake(User, protocol.Protocol):
         return 'shared:target' if shared else f'{obj.key.id()}:target'
 
     @classmethod
-    def receive(cls, obj):
+    def receive(cls, obj, **kwargs):
         assert isinstance(obj, Object)
-        return super().receive(obj=obj)
+        return super().receive(obj=obj, **kwargs)
 
     @classmethod
-    def receive_as1(cls, our_as1):
+    def receive_as1(cls, our_as1, **kwargs):
         assert isinstance(our_as1, dict)
-        return super().receive(Object(id=our_as1['id'], our_as1=our_as1))
+        return super().receive(Object(id=our_as1['id'], our_as1=our_as1), **kwargs)
 
 
 class OtherFake(Fake):
@@ -495,7 +495,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             with super().assertLogs() as logs:
                 yield logs
         finally:
-            logging.disable(orig_disable_level)
             # emit logs that were captured
             for record in logs.records:
-                logging.getLogger().handle(record)
+                if record.levelno >= orig_disable_level:
+                    logging.root.handle(record)
+            logging.disable(orig_disable_level)

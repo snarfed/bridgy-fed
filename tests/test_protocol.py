@@ -553,8 +553,6 @@ class ProtocolReceiveTest(TestCase):
         }
         self.store_object(id='fake:post', our_as1=post_as1)
 
-        orig_disable_level = logging.root.manager.disable
-        logging.disable(logging.NOTSET)
         with self.assertRaises(NoContent), self.assertLogs() as logs:
             Fake.receive_as1({
                 'id': 'fake:update',
@@ -563,7 +561,6 @@ class ProtocolReceiveTest(TestCase):
                 'actor': 'fake:other',
                 'object': post_as1,
             })
-        logging.disable(orig_disable_level)
 
         self.assertIn(
             "WARNING:models:actor fake:other isn't fake:post's author or actor ['fake:user']",
@@ -1415,3 +1412,22 @@ class ProtocolReceiveTest(TestCase):
             })
 
         self.assertEqual([], Fake.sent)
+
+    def test_like_not_authed_as_actor(self):
+        Fake.fetchable['fake:post'] = {
+            'objectType': 'note',
+            'author': 'fake:bob',
+        }
+
+        with self.assertLogs() as logs:
+            Fake.receive_as1({
+                'id': 'fake:like',
+                'objectType': 'activity',
+                'verb': 'like',
+                'actor': 'fake:user',
+                'object': 'fake:post',
+            }, authed_as='fake:other')
+
+        self.assertIn(
+            "WARNING:protocol:actor fake:user isn't authed user fake:other",
+            logs.output)

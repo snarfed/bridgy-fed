@@ -1637,6 +1637,27 @@ class WebTest(TestCase):
                            labels=['user', 'activity'],
                            )
 
+    def test_like_actor_is_not_source_domain(self, mock_get, mock_post):
+        like_html = LIKE_HTML.replace(
+            'class="p-author h-card" href="https://user.com/"',
+            'class="p-author h-card" href="https://eve.com/"')
+        mock_get.side_effect = [
+            requests_response(like_html, url='https://user.com/like'),
+            TOOT_AS2,
+            ACTOR,
+        ]
+
+        with self.assertLogs() as logs:
+            got = self.client.post('/queue/webmention', data={
+                'source': 'https://user.com/like',
+                'target': 'https://fed.brid.gy/',
+            })
+            self.assertEqual(200, got.status_code)
+
+        self.assertIn(
+            "WARNING:models:actor https://user.com/ isn't https://user.com/like's author or actor ['https://eve.com/']",
+            logs.output)
+
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
         g.user.has_redirects = False
         g.user.put()

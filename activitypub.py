@@ -328,13 +328,17 @@ class ActivityPub(User, Protocol):
     def verify_signature(cls, activity):
         """Verifies the current request's HTTP Signature.
 
-        Raises :class:`werkzeug.exceptions.HTTPError` if the
-        signature is missing or invalid, otherwise does nothing and returns None.
+        Raises :class:`werkzeug.exceptions.HTTPError` if the signature is
+        missing or invalid, otherwise does nothing and returns the id of the
+        actor whose key signed the request.
 
         Logs details of the result.
 
         Args:
           activity (dict): AS2 activity
+
+        Returns:
+          str: signing AP actor id
         """
         headers = dict(request.headers)  # copy so we can modify below
         sig = headers.get('Signature')
@@ -407,6 +411,8 @@ class ActivityPub(User, Protocol):
             logger.info('HTTP Signature verified!')
         else:
             error('HTTP Signature verification failed', status=401)
+
+        return keyId
 
 
 def signed_get(url, **kwargs):
@@ -838,7 +844,7 @@ def inbox(protocol=None, id=None):
                 actor_obj = ActivityPub.load(actor_id)
                 ActivityPub.get_or_create(actor_id, direct=True, obj=actor_obj)
 
-    ActivityPub.verify_signature(activity)
+    authed_as = ActivityPub.verify_signature(activity)
 
     # check that this activity is public. only do this for creates, not likes,
     # follows, or other activity types, since Mastodon doesn't currently mark
@@ -861,7 +867,7 @@ def inbox(protocol=None, id=None):
         activity.setdefault('url', f'{follower_url}#followed-{followee_url}')
 
     obj = Object(id=activity.get('id'), as2=redirect_unwrap(activity))
-    return ActivityPub.receive(obj)
+    return ActivityPub.receive(obj, authed_as=authed_as)
 
 
 # protocol in subdomain

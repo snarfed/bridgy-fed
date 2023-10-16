@@ -479,7 +479,7 @@ class Protocol:
                                         DOMAIN_BLOCKLIST + DOMAINS)
 
     @classmethod
-    def receive(from_cls, obj):
+    def receive(from_cls, obj, authed_as=None):
         """Handles an incoming activity.
 
         If ``obj``'s key is unset, ``obj.as1``'s id field is used. If both are
@@ -528,9 +528,13 @@ class Protocol:
                     logger.info(msg)
                     return msg, 204
 
+        # authorization check
+        actor = as1.get_owner(obj.as1)
+        if authed_as and actor != authed_as:
+            logger.warning(f"actor {actor} isn't authed user {authed_as}")
+
         # write Object to datastore
         orig = obj
-        actor = as1.get_owner(orig.as1)
         obj = Object.get_or_create(id, **orig.to_dict(), actor=actor)
         if orig.new is not None:
             obj.new = orig.new
