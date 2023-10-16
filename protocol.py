@@ -10,6 +10,7 @@ from google.cloud import ndb
 from google.cloud.ndb import OR
 from granary import as1
 from oauth_dropins.webutil.appengine_config import ndb_client
+from oauth_dropins.webutil.flask_util import cloud_tasks_only
 import werkzeug.exceptions
 
 import common
@@ -1131,6 +1132,7 @@ class Protocol:
 
 
 @app.post('/queue/receive')
+@cloud_tasks_only
 def receive_task():
     """Task handler for a newly received :class:`models.Object`.
 

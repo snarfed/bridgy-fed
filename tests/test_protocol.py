@@ -8,7 +8,7 @@ from arroba.tests.testutil import dns_answer
 from flask import g
 from google.cloud import ndb
 from granary import as2
-from oauth_dropins.webutil.flask_util import NoContent
+from oauth_dropins.webutil.flask_util import CLOUD_TASKS_QUEUE_HEADER, NoContent
 from oauth_dropins.webutil.testutil import requests_response
 import requests
 
@@ -1395,7 +1395,8 @@ class ProtocolReceiveTest(TestCase):
         obj = self.store_object(id='fake:post', our_as1=note,
                                 source_protocol='fake')
 
-        self.client.post('/queue/receive', data={'obj': obj.key.urlsafe()})
+        self.client.post('/queue/receive', data={'obj': obj.key.urlsafe()},
+                         headers={CLOUD_TASKS_QUEUE_HEADER: ''})
         obj = Object.get_by_id('fake:post#bridgy-fed-create')
         self.assertEqual('ignored', obj.status)
 
@@ -1412,7 +1413,7 @@ class ProtocolReceiveTest(TestCase):
             self.client.post('/queue/receive', data={
                 'obj': obj.key.urlsafe(),
                 'authed_as': 'fake:eve',
-            })
+            }, headers={CLOUD_TASKS_QUEUE_HEADER: ''})
 
         self.assertIn(
             "WARNING:protocol:actor fake:other isn't authed user fake:eve",
