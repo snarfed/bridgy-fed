@@ -1,4 +1,5 @@
 """Common test utility code."""
+import contextlib
 import copy
 from datetime import datetime
 import logging
@@ -480,3 +481,21 @@ class TestCase(unittest.TestCase, testutil.Asserts):
     def assert_equals(self, expected, actual, msg=None, ignore=(), **kwargs):
         return super().assert_equals(
             expected, actual, msg=msg, ignore=tuple(ignore) + ('@context',), **kwargs)
+
+    @contextlib.contextmanager
+    def assertLogs(self):
+        """Wraps :meth:`unittest.TestCase.assertLogs` and enables/disables logs.
+
+        Works around ``oauth_dropins.webutil.tests.__init__``.
+        """
+        orig_disable_level = logging.root.manager.disable
+        logging.disable(logging.NOTSET)
+
+        try:
+            with super().assertLogs() as logs:
+                yield logs
+        finally:
+            logging.disable(orig_disable_level)
+            # emit logs that were captured
+            for record in logs.records:
+                logging.getLogger().handle(record)
