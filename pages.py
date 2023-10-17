@@ -225,10 +225,10 @@ def serve_feed(*, objects, format, title, as_snippets=False, quiet=False):
             'content': f'{obj.actor_link(image=False)} {obj.phrase} {obj.content}',
             'content_is_html': True,
             'updated': obj.updated.isoformat(),
+            'url': as1.get_url(obj.as1) or as1.get_url(as1.get_object(obj.as1)),
         } for obj in objects]
     else:
         activities = [obj.as1 for obj in objects]
-
 
     # hydrate authors, actors, objects from stored Objects
     fields = 'author', 'actor', 'object'
