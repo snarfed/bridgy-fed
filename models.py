@@ -618,7 +618,7 @@ class Object(StringIdModel):
                        else 'author' if type not in as1.ACTOR_TYPES
                        else None)
         if owner_field and owner:
-            logger.info(f'Replacing {owner_field} {obj.get(owner_field)}...')
+            # logger.debug(f'Replacing {owner_field} {obj.get(owner_field)}...')
 
             # load matching user, if any
             user = User.get_for_copy(owner)
@@ -633,7 +633,7 @@ class Object(StringIdModel):
             else:
                 obj[owner_field] = owner
 
-            logger.info(f'  with {obj[owner_field]}')
+            # logger.debug(f'  with {obj[owner_field]}')
 
         return obj
 

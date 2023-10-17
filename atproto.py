@@ -134,7 +134,7 @@ class ATProto(User, Protocol):
         if id.startswith('did:'):
             return None
 
-        logger.info(f'Finding ATProto PDS for {id}')
+        # logger.debug(f'Finding ATProto PDS for {id}')
         if id.startswith('https://bsky.app/'):
             return cls.target_for(Object(id=bluesky.web_url_to_at_uri(id)))
 
@@ -398,7 +398,6 @@ def poll_notifications():
     repos = {r.key.id(): r for r in AtpRepo.query()}
     logger.info(f'Got {len(repos)} repos')
 
-    repo_dids = []
     users = itertools.chain(*(cls.query(cls.atproto_did.IN(list(repos)))
                               for cls in set(PROTOCOLS.values())
                               if cls and cls != ATProto))
@@ -408,6 +407,8 @@ def poll_notifications():
                     headers={'User-Agent': USER_AGENT})
 
     for user in users:
+        logging.debug(f'Fetching notifs for {user.key.id()}')
+
         # TODO: store and use cursor
         # seenAt would be easier, but they don't support it yet
         # https://github.com/bluesky-social/atproto/issues/1636
@@ -417,7 +418,7 @@ def poll_notifications():
                                           privkey=repo.signing_key)
         resp = client.app.bsky.notification.listNotifications()
         for notif in resp['notifications']:
-            logger.info(f'Got {notif["reason"]} from {notif["author"]["handle"]} {notif["uri"]} {notif["cid"]}')
+            logger.debug(f'Got {notif["reason"]} from {notif["author"]["handle"]} {notif["uri"]} {notif["cid"]} : {json_dumps(notif, indent=2)}')
 
             # TODO: verify sig. skipping this for now because we're getting
             # these from the AppView, which is trusted, specifically we expect

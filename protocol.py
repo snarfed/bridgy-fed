@@ -1073,8 +1073,6 @@ class Protocol:
         """
         assert local or remote is not False
 
-        logger.info(f'Loading Object {id} local={local} remote={remote}')
-
         if remote is not True:
             with objects_cache_lock:
                 cached = objects_cache.get(id)
@@ -1100,9 +1098,9 @@ class Protocol:
                     return obj
 
         if remote is True:
-            logger.info('  remote=True, forced refresh requested')
+            logger.debug(f'Loading Object {id} local={local} remote={remote}, forced refresh requested')
         elif remote is False:
-            logger.info(f'  remote=False, {"empty" if obj else "not"} in datastore')
+            logger.debug(f'Loading Object {id} local={local} remote={remote} {"empty" if obj else "not"} in datastore')
             return obj
 
         if obj:
