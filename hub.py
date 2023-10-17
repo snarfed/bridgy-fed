@@ -23,7 +23,8 @@ from oauth_dropins.webutil import (
 )
 import requests
 
-import atproto  # atproto-poll-notifs task handler
+# all protocols, and atproto-poll-notifs task handler
+import activitypub, atproto, web
 from common import USER_AGENT
 import models
 
