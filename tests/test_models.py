@@ -659,12 +659,11 @@ class ObjectTest(TestCase):
 
     def test_clear(self):
         ab = {'a': 'b'}
-        obj = Object(our_as1=ab, as2=ab, mf2=ab, bsky=ab)
+        obj = Object(our_as1=ab, as2=ab, mf2=ab)
         obj.clear()
         self.assertIsNone(obj.our_as1)
         self.assertIsNone(obj.as2)
         self.assertIsNone(obj.mf2)
-        self.assertIsNone(obj.bsky)
 
     def test_validate_id(self):
         # DID repo ids

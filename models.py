@@ -757,7 +757,7 @@ class Object(StringIdModel):
             obj = Object(id=id)
             obj.new = True
 
-        if set(props.keys()) & set(('our_as1', 'as2', 'mf2', 'bsky', 'raw')):
+        if set(props.keys()) & set(('our_as1', 'as2', 'mf2', 'raw')):
             obj.clear()
         obj.populate(**{
             k: v for k, v in props.items()
@@ -796,8 +796,11 @@ class Object(StringIdModel):
             getattr(self, prop).remove(val)
 
     def clear(self):
-        """Clears all data properties."""
-        for prop in 'our_as1', 'as2', 'bsky', 'mf2', 'raw':
+        """Clears all data properties.
+
+        TODO: remove?
+        """
+        for prop in 'our_as1', 'as2', 'mf2', 'raw':
             val = getattr(self, prop, None)
             # TODO: delete entirely?
             # if val:
