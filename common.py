@@ -254,7 +254,9 @@ def create_task(queue, **params):
 
     if appengine_info.LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')
-        return app.test_client().post(path, data=params)
+        return
+        return app.test_client().post(
+            path, data=params, headers={flask_util.CLOUD_TASKS_QUEUE_HEADER: ''})
 
         # # alternative: run inline in this request context
         # request.form = params

@@ -70,6 +70,7 @@ app.add_url_rule('/queue/atproto-poll-notifs',
                  methods=['POST'])
 
 @app.post('/queue/atproto-commit')
+@flask_util.cloud_tasks_only
 def atproto_commit():
     """Handler for atproto-commit tasks.
 

@@ -14,7 +14,7 @@ import mf2util
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil import appengine_info
-from oauth_dropins.webutil.flask_util import error, flash
+from oauth_dropins.webutil.flask_util import cloud_tasks_only, error, flash
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from oauth_dropins.webutil import webmention
 from requests import HTTPError, RequestException
@@ -528,6 +528,7 @@ def webmention_interactive():
 
 
 @app.post('/queue/webmention')
+@cloud_tasks_only
 def webmention_task():
     """Handles inbound webmention task."""
     logger.info(f'Params: {list(request.form.items())}')
