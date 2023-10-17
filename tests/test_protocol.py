@@ -1386,6 +1386,36 @@ class ProtocolReceiveTest(TestCase):
                            )
         self.assertEqual(2, Follower.query().count())
 
+    def test_replace_actor_copies_with_originals(self):
+        Fake.fetchable = {
+            'fake:alice': {},
+            'fake:bob': {},
+        }
+
+        follow = {
+            'id': 'fake:follow',
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'fake:alice',
+            'object': 'fake:bob',
+        }
+
+        # no matching copy users
+        Fake.receive(Object(id='fake:follow', our_as1=follow, source_protocol='fake'))
+        self.assert_equals(follow, Object.get_by_id('fake:follow').our_as1)
+
+        # matching copy users
+        self.make_user('other:alice', cls=OtherFake,
+                       copies=[Target(uri='fake:alice', protocol='fake')])
+        self.make_user('other:bob', cls=OtherFake,
+                       copies=[Target(uri='fake:bob', protocol='fake')])
+        Fake.receive(Object(id='fake:follow', our_as1=follow, source_protocol='fake'))
+        self.assert_equals({
+            **follow,
+            'actor': 'other:alice',
+            'object': 'other:bob',
+        }, Object.get_by_id('fake:follow').our_as1)
+
     def test_receive_task_handler(self):
         note = {
             'id': 'fake:post',

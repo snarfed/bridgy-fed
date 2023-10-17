@@ -18,7 +18,7 @@ from oauth_dropins.webutil.testutil import NOW, requests_response
 from oauth_dropins.webutil import util
 
 # import first so that Fake is defined before URL routes are registered
-from .testutil import Fake, TestCase
+from .testutil import Fake, OtherFake, TestCase
 
 from atproto import ATProto
 from models import Follower, Object, OBJECT_EXPIRE_AGE, Target, User
@@ -579,30 +579,8 @@ class ObjectTest(TestCase):
             'object': 'http://example.com/original/post',
         }
 
-        # no user
         obj = Object(id='at://did:plc:foo/co.ll/123', bsky=like_bsky)
         self.assert_equals(like_as1, obj.as1)
-
-        # matching user without Object
-        user = Fake(id='fake:user',
-                    copies=[Target(uri='did:plc:foo', protocol='atproto')])
-        user.put()
-        self.assertEqual({
-            **like_as1,
-            'actor': 'fake:user',
-        }, obj.as1)
-
-        # matching user with Object
-        user.obj = self.store_object(id='at://did:plc:foo/profile/self',
-                                     our_as1={'foo': 'bar'})
-        user.put()
-        self.assertEqual({
-            **like_as1,
-            'actor': {
-                'id': 'fake:user',
-                'foo': 'bar',
-            },
-        }, obj.as1)
 
     def test_as1_from_mf2_uses_url_as_id(self):
         obj = Object(mf2={
@@ -734,6 +712,83 @@ class ObjectTest(TestCase):
             'object': {},
         }, obj.key.get().as2)
 
+    def test_replace_copies_with_originals_empty(self):
+        obj = Object()
+        obj.replace_copies_with_originals()
+        self.assertIsNone(obj.as1)
+
+    def test_replace_copies_with_originals_follow(self):
+        follow = {
+            'id': 'fake:follow',
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'fake:alice',
+            'object': 'fake:bob',
+        }
+        obj = Object(our_as1=follow, source_protocol='fake')
+
+        # no matching copy users
+        obj.replace_copies_with_originals()
+        self.assert_equals(follow, obj.our_as1)
+
+        # matching copy users
+        self.make_user('other:alice', cls=OtherFake,
+                       copies=[Target(uri='fake:alice', protocol='fake')])
+        self.make_user('other:bob', cls=OtherFake,
+                       copies=[Target(uri='fake:bob', protocol='fake')])
+        obj.replace_copies_with_originals()
+        self.assert_equals({
+            **follow,
+            'actor': 'other:alice',
+            'object': {'id': 'other:bob'},
+        }, obj.our_as1)
+
+    def test_replace_copies_with_originals_reply(self):
+        reply = {
+            'objectType': 'activity',
+            'verb': 'create',
+            'object': {
+                'id': 'fake:reply',
+                'objectType': 'note',
+                'inReplyTo': 'fake:post',
+                'author': 'fake:alice',
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': 'fake:bob',
+                }],
+            },
+        }
+        obj = Object(our_as1=reply, source_protocol='fake')
+
+        # no matching copy users or objects
+        obj.replace_copies_with_originals()
+        self.assert_equals(reply, obj.our_as1)
+
+        # matching copies
+        self.make_user('other:alice', cls=OtherFake,
+                       copies=[Target(uri='fake:alice', protocol='fake')])
+        self.make_user('other:bob', cls=OtherFake,
+                       copies=[Target(uri='fake:bob', protocol='fake')])
+        self.store_object(id='other:post',
+                          copies=[Target(uri='fake:post', protocol='fake')])
+        self.store_object(id='other:reply',
+                          copies=[Target(uri='fake:reply', protocol='fake')])
+
+        obj.replace_copies_with_originals()
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'create',
+            'object': {
+                'id': 'other:reply',
+                'objectType': 'note',
+                'inReplyTo': 'other:post',
+                'author': 'other:alice',
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': 'other:bob',
+                }],
+            },
+        }, obj.our_as1)
 
 class FollowerTest(TestCase):
 

@@ -1,4 +1,5 @@
 """Datastore model classes."""
+import copy
 from datetime import timedelta, timezone
 import itertools
 import json
@@ -614,26 +615,12 @@ class Object(StringIdModel):
 
         # populate actor/author if necessary and available
         type = obj.get('objectType')
-        owner_field = ('actor' if type == 'activity'
+        field = ('actor' if type == 'activity'
                        else 'author' if type not in as1.ACTOR_TYPES
                        else None)
-        if owner_field and owner:
-            # logger.debug(f'Replacing {owner_field} {obj.get(owner_field)}...')
-
-            # load matching user, if any
-            user = User.get_for_copy(owner)
-            if user:
-                if user.obj and user.obj.as1:
-                    obj[owner_field] = {
-                        **user.obj.as1,
-                        'id': user.key.id(),
-                    }
-                else:
-                    obj[owner_field] = user.key.id()
-            else:
-                obj[owner_field] = owner
-
-            # logger.debug(f'  with {obj[owner_field]}')
+        if field and owner:
+            # logger.debug(f'Replacing {field} {obj.get(field)} with {owner}')
+            obj[field] = owner
 
         return obj
 
@@ -927,6 +914,67 @@ class Object(StringIdModel):
           <img class="profile" src="{img_url}" {'width="32"' if sized else ''}/>
           {util.ellipsize(name, chars=40)}
         </a>"""
+
+    def replace_copies_with_originals(self):
+        """Replaces ids copied from other protocols with their original ids.
+
+        Specifically, replaces these AS1 fields in place:
+
+        * ``actor``
+        * ``author``
+        * ``object``
+        * ``object.actor``
+        * ``object.author``
+        * ``object.id``
+        * ``object.inReplyTo``
+        * ``tags.[objectType=mention].url``
+
+        Looks up values in :attr:`User.copies` and :attr:`Object.copies` and
+        replaces with their key ids.
+        """
+        if not self.as1 or not self.source_protocol:
+            return
+
+        outer_obj = copy.deepcopy(self.as1)
+        inner_obj = outer_obj['object'] = as1.get_object(outer_obj)
+        fields = 'actor', 'author', 'inReplyTo'
+        mention_tags = [t for t in (as1.get_objects(outer_obj, 'tags')
+                                    + as1.get_objects(inner_obj, 'tags'))
+                        if t.get('objectType') == 'mention']
+
+        # batch lookup matching users
+        ids = util.trim_nulls(
+            [outer_obj.get(f) for f in fields]
+            + [inner_obj.get(f) for f in fields]
+            + [inner_obj.get('id')]
+            + [m.get('url') for m in mention_tags])
+        origs = (User.get_for_copies(ids)
+                 + Object.query(Object.copies.uri.IN(ids)).fetch())
+
+        replaced = False
+        def replace(obj, field):
+            val = obj.get(field)
+            if val:
+                for orig in origs:
+                    target = Target(uri=val, protocol=self.source_protocol)
+                    if target in orig.copies:
+                        logger.debug(
+                            f'Replacing copy {target} with original {orig.key.id()}')
+                        obj[field] = orig.key.id()
+                        nonlocal replaced
+                        replaced = True
+
+        for obj in outer_obj, inner_obj:
+            for field in 'actor', 'author', 'inReplyTo':
+                replace(obj, field)
+
+        replace(inner_obj, 'id')
+
+        for tag in mention_tags:
+            replace(tag, 'url')
+
+        if replaced:
+            self.our_as1 = outer_obj
 
 
 class Follower(ndb.Model):
