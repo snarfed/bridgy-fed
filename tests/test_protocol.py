@@ -1395,6 +1395,15 @@ class ProtocolReceiveTest(TestCase):
         obj = self.store_object(id='fake:post', our_as1=note,
                                 source_protocol='fake')
 
+        create = {
+            'id': 'fake:post#bridgy-fed-create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': note,
+        }
+        obj = self.store_object(id='fake:post#bridgy-fed-create',
+                                source_protocol='fake', our_as1=create)
+
         self.client.post('/queue/receive', data={'obj': obj.key.urlsafe()},
                          headers={CLOUD_TASKS_QUEUE_HEADER: ''})
         obj = Object.get_by_id('fake:post#bridgy-fed-create')

@@ -1154,6 +1154,8 @@ def receive_task():
 
     obj = ndb.Key(urlsafe=form.pop('obj')).get()
     assert obj
+    obj.new = True
+
     if user_key := form.pop('user', None):
         g.user = ndb.Key(urlsafe=user_key).get()
 
