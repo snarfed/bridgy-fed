@@ -272,7 +272,7 @@ class ATProto(User, Protocol):
 
         type = as1.object_type(obj.as1)
         if type in ('accept', 'undo'):
-            logger.info(f'Skipping sending to {url}')
+            logger.info(f'Skipping unsupported type {type}, not writing to repo')
             return False
         elif type == 'post':
             type = as1.object_type(as1.get_object(obj.as1))

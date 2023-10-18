@@ -194,7 +194,7 @@ class ActivityPub(User, Protocol):
         who we're delivering to and its id is populated into ``cc``.
         """
         if to_cls.is_blocklisted(url):
-            logger.info(f'Skipping sending to {url}')
+            logger.info(f'Skipping sending to blocklisted {url}')
             return False
 
         orig_as2 = orig_obj.as_as2() if orig_obj else None
@@ -202,6 +202,7 @@ class ActivityPub(User, Protocol):
                                               orig_obj=orig_as2)
 
         if g.user:
+            logger.debug(f'Overwriting actor with g.user {g.user.ap_actor()}')
             activity['actor'] = g.user.ap_actor()
         elif not activity.get('actor'):
             logger.warning('Outgoing AP activity has no actor!')

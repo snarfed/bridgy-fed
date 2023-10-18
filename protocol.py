@@ -706,6 +706,7 @@ class Protocol:
             if not to_id or not from_id:
                 error(f'Follow activity requires object(s). Got: {obj.as1}')
 
+            logger.info(f'Follow {from_id} => {to_id}')
             to_cls = Protocol.for_id(to_id)
             if not to_cls:
                 error(f"Couldn't determine protocol for {to_id}")

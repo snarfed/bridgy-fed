@@ -316,10 +316,15 @@ class Web(User, Protocol):
         # to followers, we just update our stored objects (elsewhere) and web
         # users consume them via feeds.
         verb = obj.as1.get('verb')
-        if (verb in ('accept', 'undo')
-                or url not in as1.targets(obj.as1)
-                or to_cls.is_blocklisted(url)):
-            logger.info(f'Skipping sending to {url}')
+
+        if verb in ('accept', 'undo'):
+            logger.info(f'Skipping sending {verb} (not supported in webmention/mf2) to {url}')
+            return False
+        elif url not in as1.targets(obj.as1):
+            logger.info(f'Skipping sending to {url} , not a target in the object')
+            return False
+        elif to_cls.is_blocklisted(url):
+            logger.info(f'Skipping sending to blocklisted {url}')
             return False
 
         source_url = obj.proxy_url()
