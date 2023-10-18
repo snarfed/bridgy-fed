@@ -1120,6 +1120,8 @@ class Protocol:
         if not fetched:
             return None
 
+        obj.replace_copies_with_originals()
+
         if obj.new is False:
             obj.changed = obj.activity_changed(orig_as1)
 

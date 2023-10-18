@@ -287,6 +287,32 @@ class ProtocolTest(TestCase):
         with self.assertRaises(AssertionError):
             Fake.load('nope', local=False, remote=False)
 
+    def test_load_replace_copies_with_originals(self):
+        follow = {
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'fake:alice',
+            'object': 'fake:bob',
+        }
+        Fake.fetchable = {
+            'fake:follow': follow,
+        }
+
+        # no matching copy users
+        obj = Fake.load('fake:follow', remote=True)
+        self.assert_equals(follow, obj.our_as1)
+
+        # matching copy user
+        self.make_user('other:bob', cls=OtherFake,
+                       copies=[Target(uri='fake:bob', protocol='fake')])
+
+        obj = Fake.load('fake:follow', remote=True)
+        self.assert_equals({
+            **follow,
+            'id': 'fake:follow',
+            'object': {'id': 'other:bob'},
+        }, obj.our_as1)
+
     def test_actor_key(self):
         user = self.make_user(id='fake:a', cls=Fake)
         a_key = user.key

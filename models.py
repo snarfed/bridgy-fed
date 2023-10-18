@@ -951,6 +951,9 @@ class Object(StringIdModel):
             + [as1.get_object(inner_obj, f).get('id') for f in fields]
             + [inner_obj.get('id')]
             + [m.get('url') for m in mention_tags])
+        if not ids:
+            return
+
         origs = (User.get_for_copies(ids)
                  + Object.query(Object.copies.uri.IN(ids)).fetch())
 
