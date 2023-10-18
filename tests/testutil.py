@@ -104,14 +104,14 @@ class Fake(User, protocol.Protocol):
 
     @classmethod
     def send(cls, obj, url, orig_obj=None, log_data=True):
-        logger.info(f'Fake.send {url}')
+        logger.info(f'{cls.__name__}.send {url}')
         cls.sent.append((obj, url))
         return True
 
     @classmethod
     def fetch(cls, obj,  **kwargs):
         id = obj.key.id()
-        logger.info(f'Fake.fetch {id}')
+        logger.info(f'{cls.__name__}.fetch {id}')
         cls.fetched.append(id)
 
         if id in cls.fetchable:
@@ -122,8 +122,8 @@ class Fake(User, protocol.Protocol):
 
     @classmethod
     def serve(cls, obj):
-        logger.info(f'Fake.load {obj.key.id()}')
-        return (f'Fake object {obj.key.id()}',
+        logger.info(f'{cls.__name__}.load {obj.key.id()}')
+        return (f'{cls.__name__} object {obj.key.id()}',
                 {'Accept': 'fake/protocol'})
 
     @classmethod
