@@ -60,7 +60,10 @@ def redir(to):
     if not util.is_web(to):
         error(f'Expected fully qualified URL; got {to}')
 
-    to_domain = urllib.parse.urlparse(to).hostname
+    try:
+        to_domain = urllib.parse.urlparse(to).hostname
+    except ValueError as e:
+        error(f'Invalid URL {to} : {e}')
 
     # check conneg
     accept_as2 = False

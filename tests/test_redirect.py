@@ -65,6 +65,10 @@ class RedirectTest(testutil.TestCase):
         got = self.client.get(r'/r/https://v2.jacky.wtf\"')
         self.assertEqual(404, got.status_code)
 
+    def test_redirect_url_parse_value_error(self):
+        got = self.client.get(r'/r/https:/[DOMAIN]/')
+        self.assertEqual(400, got.status_code)
+
     def test_as2(self):
         self._test_as2(as2.CONTENT_TYPE)
 
