@@ -22,7 +22,7 @@ from werkzeug.exceptions import BadGateway
 from .testutil import Fake, TestCase
 
 import activitypub
-from activitypub import ActivityPub, postprocess_as2
+from activitypub import ActivityPub, default_signature_user, postprocess_as2
 import common
 from models import Follower, Object
 import protocol
@@ -1864,6 +1864,17 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual(
             first['auth'].header_signer.sign(first['headers'], method='GET', path='/'),
             second['auth'].header_signer.sign(second['headers'], method='GET', path='/'))
+
+    @patch('requests.post', return_value=requests_response(status=200))
+    def test_signed_post_g_user_is_activitypub_so_use_default_user(self, mock_post):
+        g.user = ActivityPub(id='http://feddy')
+        activitypub.signed_post('https://url')
+
+        self.assertEqual(1, len(mock_post.call_args_list))
+        args, kwargs = mock_post.call_args_list[0]
+        self.assertEqual(('https://url',), args)
+        rsa_key = kwargs['auth'].header_signer._rsa._key
+        self.assertEqual(default_signature_user().private_pem(), rsa_key.exportKey())
 
     @patch('requests.post')
     def test_signed_post_ignores_redirect(self, mock_post):

@@ -46,10 +46,7 @@ if (appengine_info.LOCAL_SERVER
 def init_globals():
     """Set request globals.
 
-    * g.user: Current internal user we're operating on behalf of.
-      TODO: is this the "receiving" user for a given activity? or the sending
-      user? webmentions use sending; AP uses receiving. but "receiving" isn't well
-      defined in general, so should we standardize on sending user?
+    * g.user: current *actor* internal user we're operating on behalf of
     """
     g.user = None
 

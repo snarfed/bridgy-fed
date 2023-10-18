@@ -584,17 +584,14 @@ class ATProtoTest(TestCase):
         like_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.like/123')
         self.assertEqual(like, like_obj.bsky)
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
-                         obj=like_obj.key.urlsafe(), user=user_a.key.urlsafe(),
-                         authed_as='did:plc:eve')
+                         obj=like_obj.key.urlsafe(), authed_as='did:plc:eve')
 
         reply_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.post/456')
         self.assertEqual(reply, reply_obj.bsky)
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
-                         obj=reply_obj.key.urlsafe(), user=user_a.key.urlsafe(),
-                         authed_as='did:plc:eve')
+                         obj=reply_obj.key.urlsafe(), authed_as='did:plc:eve')
 
         follow_obj = Object.get_by_id('at://did:plc:d/app.bsky.graph.follow/789')
         self.assertEqual(follow, follow_obj.bsky)
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
-                         obj=follow_obj.key.urlsafe(), user=user_c.key.urlsafe(),
-                         authed_as='did:plc:a')
+                         obj=follow_obj.key.urlsafe(), authed_as='did:plc:a')

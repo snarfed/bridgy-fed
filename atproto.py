@@ -428,9 +428,9 @@ def poll_notifications():
             obj.put()
 
             common.create_task(queue='receive', obj=obj.key.urlsafe(),
-                               # TODO: should this be the receiving user?
-                               # or the sending user?
-                               user=user.key.urlsafe(),
                                authed_as=notif['author']['did'])
+            # note that we don't pass a user param above. it's the acting user,
+            # which is different for every notif, and may not actually have a BF
+            # User yet.
 
     return 'OK'

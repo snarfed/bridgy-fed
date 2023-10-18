@@ -556,6 +556,8 @@ class Protocol:
         actor_key = from_cls.actor_key(obj, default_g_user=False)
         if actor_key:
             obj.add('users', actor_key)
+            if not g.user:
+                g.user = from_cls.get_or_create(id=actor_key.id())
 
         inner_obj_as1 = as1.get_object(obj.as1)
         if obj.as1.get('verb') in ('post', 'update', 'delete'):
@@ -667,6 +669,9 @@ class Protocol:
     def handle_follow(from_cls, obj):
         """Handles an incoming follow activity.
 
+        Sends an ``Accept`` back, but doesn't send the ``Follow`` itself. That
+        happens in :meth:`deliver`.
+
         Args:
           obj (models.Object): follow activity
         """
@@ -705,6 +710,7 @@ class Protocol:
             to_id = to_as1.get('id')
             if not to_id or not from_id:
                 error(f'Follow activity requires object(s). Got: {obj.as1}')
+            from_user = from_cls.get_or_create(id=from_key.id(), obj=from_obj)
 
             logger.info(f'Follow {from_id} => {to_id}')
             to_cls = Protocol.for_id(to_id)
@@ -1164,6 +1170,7 @@ def receive_task():
 
     if user_key := form.pop('user', None):
         g.user = ndb.Key(urlsafe=user_key).get()
+        logger.info(f'setting g.user to {g.user.key}')
 
     try:
         return PROTOCOLS[obj.source_protocol].receive(obj, **form)

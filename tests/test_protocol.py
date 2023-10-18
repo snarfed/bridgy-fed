@@ -424,7 +424,7 @@ class ProtocolReceiveTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        g.user = self.user = self.make_user('fake:user', cls=Fake, obj_id='fake:user')
+        self.user = self.make_user('fake:user', cls=Fake, obj_id='fake:user')
         self.alice = self.make_user('fake:alice', cls=Fake, obj_id='fake:alice')
         self.bob = self.make_user('fake:bob', cls=Fake, obj_id='fake:bob')
 
@@ -465,7 +465,7 @@ class ProtocolReceiveTest(TestCase):
                                  our_as1=create_as1,
                                  delivered=['shared:target'],
                                  type='post',
-                                 users=[g.user.key],
+                                 users=[self.user.key],
                                  notify=[],
                                  )
 
@@ -499,7 +499,7 @@ class ProtocolReceiveTest(TestCase):
                                  },
                                  delivered=['shared:target'],
                                  type='post',
-                                 users=[g.user.key],
+                                 users=[self.user.key],
                                  notify=[],
                                  )
 
@@ -522,7 +522,7 @@ class ProtocolReceiveTest(TestCase):
                                  status='complete',
                                  delivered=['shared:target'],
                                  type='post',
-                                 users=[g.user.key],
+                                 users=[self.user.key],
                                  ignore=['our_as1'],
                                  )
 
@@ -544,14 +544,14 @@ class ProtocolReceiveTest(TestCase):
                                  status='complete',
                                  delivered=['shared:target'],
                                  type='post',
-                                 users=[g.user.key],
+                                 users=[self.user.key],
                                  ignore=['our_as1'],
                                  )
 
         self.assertEqual([(obj, 'shared:target')], Fake.sent)
 
     def test_create_post_use_instead(self):
-        self.make_user('fake:instead', cls=Fake, use_instead=g.user.key, obj_mf2={
+        self.make_user('fake:instead', cls=Fake, use_instead=self.user.key, obj_mf2={
             'type': ['h-card'],
             'properties': {
                 # this is the key part to test; Object.as1 uses this as id
@@ -620,7 +620,7 @@ class ProtocolReceiveTest(TestCase):
                                  our_as1=update_as1,
                                  delivered=['shared:target'],
                                  type='update',
-                                 users=[g.user.key],
+                                 users=[self.user.key],
                                  notify=[],
                                  )
 
@@ -698,7 +698,7 @@ class ProtocolReceiveTest(TestCase):
                                  our_as1=create_as1,
                                  delivered=['fake:post:target'],
                                  type='post',
-                                 users=[g.user.key, self.alice.key],
+                                 users=[self.user.key, self.alice.key],
                                  notify=[self.bob.key],
                                  )
 
@@ -807,7 +807,7 @@ class ProtocolReceiveTest(TestCase):
                                  our_as1=update_as1,
                                  delivered=['fake:post:target'],
                                  type='update',
-                                 users=[g.user.key, self.alice.key],
+                                 users=[self.user.key, self.alice.key],
                                  notify=[self.bob.key],
                                  )
         self.assertEqual([(obj, 'fake:post:target')], Fake.sent)
@@ -840,7 +840,7 @@ class ProtocolReceiveTest(TestCase):
                                  },
                                  delivered=['fake:post:target', 'shared:target'],
                                  type='share',
-                                 users=[g.user.key],
+                                 users=[self.user.key],
                                  notify=[self.bob.key],
                                  feed=[self.alice.key, self.bob.key],
                                  )
@@ -866,7 +866,7 @@ class ProtocolReceiveTest(TestCase):
                                  our_as1=repost_as1,
                                  delivered=[],
                                  type='share',
-                                 users=[g.user.key],
+                                 users=[self.user.key],
                                  )
         self.assertEqual([], Fake.sent)
 
@@ -886,7 +886,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('OK', Fake.receive_as1(like_as1))
 
         like_obj = self.assert_object('fake:like',
-                                      users=[g.user.key],
+                                      users=[self.user.key],
                                       notify=[self.bob.key],
                                       status='complete',
                                       our_as1=like_as1,
@@ -954,7 +954,6 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([(obj, 'shared:target')], Fake.sent)
 
     def test_delete_no_followers_no_stored_object(self):
-        g.user = None  # should use activity's actor
         delete_as1 = {
             'id': 'fake:delete',
             'objectType': 'activity',
@@ -982,8 +981,6 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
 
     def test_delete_actor(self):
-        g.user = None
-
         follower = Follower.get_or_create(to=self.user, from_=self.alice)
         followee = Follower.get_or_create(to=self.alice, from_=self.bob)
         other = Follower.get_or_create(to=self.user, from_=self.bob)
@@ -1057,7 +1054,7 @@ class ProtocolReceiveTest(TestCase):
                                  delivered=['target:2'],
                                  failed=['target:1'],
                                  type='post',
-                                 users=[g.user.key],
+                                 users=[self.user.key],
                                  )
 
         self.assertEqual(['fail', 'sent'], sent)
@@ -1093,7 +1090,7 @@ class ProtocolReceiveTest(TestCase):
         update_as1['actor'] = update_as1['object']
         update_obj = self.assert_object(
             id,
-            users=[g.user.key],
+            users=[self.user.key],
             status='complete',
             our_as1=update_as1,
             delivered=['shared:target'],
@@ -1141,7 +1138,7 @@ class ProtocolReceiveTest(TestCase):
                                  },
                                  delivered=['fake:alice:target', 'fake:bob:target'],
                                  type='post',
-                                 users=[g.user.key],
+                                 users=[self.user.key],
                                  notify=[self.alice.key, self.bob.key],
                                  )
 
@@ -1151,13 +1148,8 @@ class ProtocolReceiveTest(TestCase):
     def test_follow(self):
         self._test_follow()
 
-    def test_follow_no_g_user(self):
-        """No user from request, eg delivered to our ActivityPub shared inbox."""
-        g.user = None
-        self.test_follow()
-
     def test_follow_existing_inactive(self):
-        follower = Follower.get_or_create(to=g.user, from_=self.alice,
+        follower = Follower.get_or_create(to=self.user, from_=self.alice,
                                           status='inactive')
         self._test_follow()
 
@@ -1257,10 +1249,10 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
 
     def test_stop_following(self):
-        follower = Follower.get_or_create(to=g.user, from_=self.alice)
+        follower = Follower.get_or_create(to=self.user, from_=self.alice)
 
-        g.user.obj.our_as1 = {'id': 'fake:user'}
-        g.user.obj.put()
+        self.user.obj.our_as1 = {'id': 'fake:user'}
+        self.user.obj.put()
 
         stop_as1 = {
             'id': 'fake:stop-following',
@@ -1285,8 +1277,8 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([(stop_obj, 'fake:user:target')], Fake.sent)
 
     def test_stop_following_doesnt_exist(self):
-        g.user.obj.our_as1 = {'id': 'fake:user'}
-        g.user.obj.put()
+        self.user.obj.our_as1 = {'id': 'fake:user'}
+        self.user.obj.put()
 
         self.assertEqual('OK', Fake.receive_as1({
             'id': 'fake:stop-following',
@@ -1304,11 +1296,11 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('fake:user:target', target)
 
     def test_stop_following_inactive(self):
-        follower = Follower.get_or_create(to=g.user, from_=self.alice,
+        follower = Follower.get_or_create(to=self.user, from_=self.alice,
                                           status='inactive')
         Fake.fetchable['fake:alice'] = {}
-        g.user.obj.our_as1 = {'id': 'fake:user'}
-        g.user.obj.put()
+        self.user.obj.our_as1 = {'id': 'fake:user'}
+        self.user.obj.put()
 
         self.assertEqual('OK', Fake.receive_as1({
             'id': 'fake:stop-following',
@@ -1510,8 +1502,8 @@ class ProtocolReceiveTest(TestCase):
 
     def test_g_user_opted_out(self):
         self.make_followers()
-        g.user.obj.our_as1 = {'summary': '#nobot'}
-        g.user.obj.put()
+        self.user.obj.our_as1 = {'summary': '#nobot'}
+        self.user.obj.put()
 
         with self.assertRaises(NoContent):
             Fake.receive_as1({

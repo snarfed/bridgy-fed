@@ -445,7 +445,10 @@ def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
         headers = {}
 
     # prepare HTTP Signature and headers
-    user = g.user or default_signature_user()
+    user = g.user
+    if not user or isinstance(user, ActivityPub):
+        # ActivityPub users are remote, so we don't have their keys
+        user = default_signature_user()
 
     if data:
         if log_data:
