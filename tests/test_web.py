@@ -486,7 +486,7 @@ class WebTest(TestCase):
         orig_count = Object.query().count()
 
         for data in b'', {'source': 'bad'}, {'source': 'https://'}:
-            got = self.client.post('/webmention', data=data)
+            got = self.post('/webmention', data=data)
             self.assertEqual(400, got.status_code)
             self.assertEqual(orig_count, Object.query().count())
 
@@ -524,7 +524,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         }
-        got = self.client.post('/webmention', data=params)
+        got = self.post('/webmention', data=params)
 
         self.assertEqual(202, got.status_code)
         self.assert_task(mock_create_task, 'webmention', '/queue/webmention',
@@ -533,7 +533,7 @@ class WebTest(TestCase):
     def test_no_user(self, mock_get, mock_post):
         orig_count = Object.query().count()
 
-        got = self.client.post('/webmention', data={'source': 'https://nope.com/post'})
+        got = self.post('/webmention', data={'source': 'https://nope.com/post'})
         self.assertEqual(400, got.status_code)
         self.assertEqual(orig_count, Object.query().count())
 
@@ -544,7 +544,7 @@ class WebTest(TestCase):
             requests_response(REPLY_HTML, status=405),
         )
 
-        got = self.client.post('/queue/webmention',
+        got = self.post('/queue/webmention',
                                data={'source': 'https://user.com/post'})
         self.assertEqual(502, got.status_code)
         self.assertEqual(orig_count, Object.query().count())
@@ -559,7 +559,7 @@ class WebTest(TestCase):
 </body>
 </html>""", url='https://user.com/post')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -576,7 +576,7 @@ class WebTest(TestCase):
 </body>
 </html>""", url='https://user.com/')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/',
             'target': 'https://fed.brid.gy/',
         })
@@ -592,7 +592,7 @@ class WebTest(TestCase):
 <a href="http://localhost/"></a>
 </html>""", url='https://user.com/post')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -609,7 +609,7 @@ class WebTest(TestCase):
             ValueError('foo bar'),  # HTML fetch
         )
 
-        got = self.client.post('/queue/webmention',
+        got = self.post('/queue/webmention',
                                data={'source': 'https://user.com/reply'})
         self.assertEqual(204, got.status_code)
 
@@ -640,7 +640,7 @@ class WebTest(TestCase):
             requests.Timeout('foo bar'),
         ]
 
-        got = self.client.post('/queue/webmention',
+        got = self.post('/queue/webmention',
                                data={'source': 'https://user.com/reply'})
         self.assertEqual(204, got.status_code)
 
@@ -657,7 +657,7 @@ class WebTest(TestCase):
             no_content_type,  # https://user.com/ webmention discovery
             no_content_type,  # http://not/fediverse webmention discovery
         )
-        got = self.client.post('/queue/webmention',
+        got = self.post('/queue/webmention',
                                data={'source': 'https://user.com/reply'})
         self.assertEqual(204, got.status_code)
         mock_post.assert_not_called()
@@ -669,7 +669,7 @@ class WebTest(TestCase):
             REPLY_HTML.replace('<a href="http://localhost/"></a>', ''),
             url='https://user.com/reply')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -684,7 +684,7 @@ class WebTest(TestCase):
                                '<a href="http://localhost"></a>'),
             content_type=CONTENT_TYPE_HTML, url='https://user.com/reply')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -694,7 +694,7 @@ class WebTest(TestCase):
         mock_get.side_effect = ACTIVITYPUB_GETS
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -739,7 +739,7 @@ class WebTest(TestCase):
         mock_get.side_effect = ACTIVITYPUB_GETS
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -757,7 +757,7 @@ class WebTest(TestCase):
         mock_get.side_effect = [REPOST, TOOT_AS2, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
@@ -773,7 +773,7 @@ class WebTest(TestCase):
 
         mock_get.side_effect = ACTIVITYPUB_GETS
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -786,7 +786,7 @@ class WebTest(TestCase):
         mock_get.side_effect = ACTIVITYPUB_GETS
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
             'force': '',
@@ -818,7 +818,7 @@ class WebTest(TestCase):
         ]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -852,7 +852,7 @@ class WebTest(TestCase):
         ]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
@@ -899,7 +899,7 @@ class WebTest(TestCase):
         ]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
@@ -925,7 +925,7 @@ class WebTest(TestCase):
             LIKE,
         ]
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/like',
             'target': 'https://fed.brid.gy/',
         })
@@ -955,7 +955,7 @@ class WebTest(TestCase):
   <a href="http://localhost/"></a>
 """), url='https://user.com/post')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/multiple',
             'target': 'https://fed.brid.gy/',
         })
@@ -989,7 +989,7 @@ class WebTest(TestCase):
         mock_get.side_effect = [missing_url, TOOT_AS2, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
@@ -1016,7 +1016,7 @@ class WebTest(TestCase):
         mock_get.side_effect = [repost, ACTOR, TOOT_AS2, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
@@ -1043,7 +1043,7 @@ class WebTest(TestCase):
         ]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
@@ -1076,7 +1076,7 @@ class WebTest(TestCase):
             ACTOR,
         ]
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -1113,7 +1113,7 @@ class WebTest(TestCase):
         ]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://www.user.com/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -1137,7 +1137,7 @@ class WebTest(TestCase):
         mock_post.return_value = requests_response('abc xyz')
         self.make_followers()
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -1174,7 +1174,7 @@ class WebTest(TestCase):
 
         self.make_followers()
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -1221,7 +1221,7 @@ class WebTest(TestCase):
             to=g.user,
             from_=self.make_user('http://a', cls=ActivityPub,
                                  obj_as2={'inbox': 'https://inbox'}))
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -1239,7 +1239,7 @@ class WebTest(TestCase):
         mock_get.side_effect = [FOLLOW, ACTOR, WEBMENTION_REL_LINK]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
@@ -1293,7 +1293,7 @@ class WebTest(TestCase):
         ]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
@@ -1314,7 +1314,7 @@ class WebTest(TestCase):
 
         mock_get.side_effect = [follow, ACTOR]
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
@@ -1325,7 +1325,7 @@ class WebTest(TestCase):
         mock_get.side_effect = [FOLLOW_FRAGMENT, ACTOR]
         mock_post.return_value = requests_response('abc xyz')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/follow#2',
             'target': 'https://fed.brid.gy/',
         })
@@ -1377,7 +1377,7 @@ class WebTest(TestCase):
         ]
         mock_post.return_value = requests_response('unused')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
@@ -1432,7 +1432,7 @@ class WebTest(TestCase):
             FOLLOW_FRAGMENT_HTML, url='https://user.com/follow',
             content_type=CONTENT_TYPE_HTML)
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/follow#3',
             'target': 'https://fed.brid.gy/',
         })
@@ -1450,7 +1450,7 @@ class WebTest(TestCase):
 
         self.make_followers()
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -1480,7 +1480,7 @@ class WebTest(TestCase):
         mock_get.side_effect = [
             requests_response('"unused"', status=410, url='http://final/delete'),
         ]
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -1494,7 +1494,7 @@ class WebTest(TestCase):
         Object(id='https://user.com/post#bridgy-fed-create',
                mf2=NOTE_MF2, status='in progress')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
@@ -1506,7 +1506,7 @@ class WebTest(TestCase):
         mock_post.return_value = requests_response(
             'abc xyz', status=405, url='https://mas.to/inbox')
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
@@ -1547,7 +1547,7 @@ class WebTest(TestCase):
         repost_resp = requests_response(repost_html, url='https://user.com/repost')
         mock_get.side_effect = [repost_resp]
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
@@ -1566,7 +1566,7 @@ class WebTest(TestCase):
         Follower.get_or_create(to=g.user, from_=self.make_user(
             'http://ddd', cls=ActivityPub, obj_as2={'inbox': 'https://inbox'}))
 
-        got = self.client.post('/queue/webmention', data={
+        got = self.post('/queue/webmention', data={
             'source': 'https://user.com/',
             'target': 'https://fed.brid.gy/',
         })
@@ -1648,7 +1648,7 @@ class WebTest(TestCase):
         ]
 
         with self.assertLogs() as logs:
-            got = self.client.post('/queue/webmention', data={
+            got = self.post('/queue/webmention', data={
                 'source': 'https://user.com/like',
                 'target': 'https://fed.brid.gy/',
             })
@@ -1865,7 +1865,7 @@ http://this/404s
                               content_type=CONTENT_TYPE_HTML),
         )
 
-        got = self.client.post('/web-site', data={'url': 'https://user.com/'})
+        got = self.post('/web-site', data={'url': 'https://user.com/'})
         self.assert_equals(302, got.status_code)
         self.assert_equals('/web/user.com', got.headers['Location'])
 
@@ -1879,7 +1879,7 @@ http://this/404s
             requests_response(''),
         )
 
-        got = self.client.post('/web-site', data={'url': 'https://☃.net/'})
+        got = self.post('/web-site', data={'url': 'https://☃.net/'})
         self.assert_equals(302, got.status_code)
         self.assert_equals('/web/%E2%98%83.net', got.headers['Location'])
         self.assertIsNotNone(Web.get_by_id('☃.net'))
@@ -1890,21 +1890,21 @@ http://this/404s
             requests_response(''),
         )
 
-        got = self.client.post('/web-site', data={'url': 'https://AbC.oRg/'})
+        got = self.post('/web-site', data={'url': 'https://AbC.oRg/'})
         self.assert_equals(302, got.status_code)
         self.assert_equals('/web/abc.org', got.headers['Location'])
         self.assertIsNotNone(Web.get_by_id('abc.org'))
         self.assertIsNone(Web.get_by_id('AbC.oRg'))
 
     def test_check_web_site_bad_url(self, _, __):
-        got = self.client.post('/web-site', data={'url': '!!!'})
+        got = self.post('/web-site', data={'url': '!!!'})
         self.assert_equals(400, got.status_code)
         self.assertEqual(['!!! is not a valid or supported web site'],
                          get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
     def test_check_web_site_bridgy_fed_domain(self, _, __):
-        got = self.client.post('/web-site', data={'url': 'https://fed.brid.gy/foo'})
+        got = self.post('/web-site', data={'url': 'https://fed.brid.gy/foo'})
         self.assert_equals(400, got.status_code)
         self.assertEqual(
             ['https://fed.brid.gy/foo is not a valid or supported web site'],
@@ -1912,7 +1912,7 @@ http://this/404s
         self.assertEqual(1, Web.query().count())
 
     def test_check_web_site_blocklisted(self, _, __):
-        got = self.client.post('/web-site', data={'url': 'https://t.co/'})
+        got = self.post('/web-site', data={'url': 'https://t.co/'})
         self.assert_equals(400, got.status_code)
         self.assertEqual(['https://t.co/ is not a valid or supported web site'],
                          get_flashed_messages())
@@ -1925,7 +1925,7 @@ http://this/404s
             requests_response('', status=503),
         )
 
-        got = self.client.post('/web-site', data={'url': 'https://orig.co/'})
+        got = self.post('/web-site', data={'url': 'https://orig.co/'})
         self.assert_equals(200, got.status_code, got.headers)
         self.assertTrue(get_flashed_messages()[0].startswith(
             "Couldn't connect to https://orig.co/: "))

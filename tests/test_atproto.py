@@ -27,12 +27,11 @@ from oauth_dropins.webutil.util import json_dumps, json_loads, trim_nulls
 import atproto
 from atproto import ATProto
 import common
+import hub
 from models import Object, Target
 import protocol
 from .testutil import Fake, TestCase
 from . import test_activitypub
-
-from hub import app
 
 DID_DOC = {
     'id': 'did:plc:foo',
@@ -549,8 +548,7 @@ class ATProtoTest(TestCase):
             }),
         ]
 
-        client = app.test_client()
-        resp = client.post('/queue/atproto-poll-notifs')
+        resp = self.post('/queue/atproto-poll-notifs', client=hub.app.test_client())
         self.assertEqual(200, resp.status_code)
 
         expected_list_notifs = call(

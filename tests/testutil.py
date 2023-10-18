@@ -24,7 +24,7 @@ from granary.tests.test_as1 import (
     MENTION,
     NOTE,
 )
-from oauth_dropins.webutil import testutil, util
+from oauth_dropins.webutil import flask_util, testutil, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.testutil import requests_response
@@ -263,6 +263,13 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         result.errors = prune(result.errors)
         result.failures = prune(result.failures)
         return result
+
+    def post(self, url, client=None, **kwargs):
+        """Adds Cloud tasks header to ``self.client.post``."""
+        if client is None:
+            client = self.client
+        kwargs.setdefault('headers', {})[flask_util.CLOUD_TASKS_QUEUE_HEADER] = ''
+        return client.post(url, **kwargs)
 
     # TODO: switch default to Fake, start using that more
     def make_user(self, id, cls=Web, **kwargs):

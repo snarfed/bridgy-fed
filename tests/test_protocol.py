@@ -1434,8 +1434,8 @@ class ProtocolReceiveTest(TestCase):
         obj = self.store_object(id='fake:post#bridgy-fed-create',
                                 source_protocol='fake', our_as1=create)
 
-        self.client.post('/queue/receive', data={'obj': obj.key.urlsafe()},
-                         headers={CLOUD_TASKS_QUEUE_HEADER: ''})
+        resp = self.post('/queue/receive', data={'obj': obj.key.urlsafe()})
+        self.assertEqual(204, resp.status_code)
         obj = Object.get_by_id('fake:post#bridgy-fed-create')
         self.assertEqual('ignored', obj.status)
 
