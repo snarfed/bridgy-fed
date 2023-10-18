@@ -119,10 +119,19 @@ class ATProto(User, Protocol):
 
     @classmethod
     def target_for(cls, obj, shared=False):
-        """Returns the PDS URL for the given object, or None.
+        """Returns our base URL as the PDS target for the given object.
 
-        If the repo DID/handle doesn't exist in the PLC directory, defaults to
-        returning Bridgy Fed's URL as the PDS.
+        ATProto delivery is indirect. We write all records to the user's local
+        repo that we host, then BGSes and other subscribers receive them via the
+        subscribeRepos event streams. So, we use a single target, our base URL
+        (eg ``https://fed.brid.gy/``) as the PDS URL, for all objects/activities.
+        """
+        if cls.owns_id(obj.key.id()) is not False:
+            return common.host_url()
+
+    @classmethod
+    def pds_for(cls, obj):
+        """Returns the PDS URL for the given object, or None.
 
         Args:
           obj (Object)
@@ -131,12 +140,19 @@ class ATProto(User, Protocol):
           str:
         """
         id = obj.key.id()
+        # logger.debug(f'Finding ATProto PDS for {id}')
+
         if id.startswith('did:'):
+            if obj.raw:
+                for service in obj.raw.get('service', []):
+                    if service.get('id') in ('#atproto_pds', f'{id}#atproto_pds'):
+                        return service.get('serviceEndpoint')
+
+            logger.info(f"{id}'s DID doc has no ATProto PDS")
             return None
 
-        # logger.debug(f'Finding ATProto PDS for {id}')
         if id.startswith('https://bsky.app/'):
-            return cls.target_for(Object(id=bluesky.web_url_to_at_uri(id)))
+            return cls.pds_for(Object(id=bluesky.web_url_to_at_uri(id)))
 
         if id.startswith('at://'):
             repo, collection, rkey = parse_at_uri(id)
@@ -145,14 +161,14 @@ class ATProto(User, Protocol):
                 # repo is a handle; resolve it
                 repo_did = did.resolve_handle(repo, get_fn=util.requests_get)
                 if repo_did:
-                    return cls.target_for(Object(id=id.replace(
+                    return cls.pds_for(Object(id=id.replace(
                         f'at://{repo}', f'at://{repo_did}')))
                 else:
                     return None
 
             did_obj = ATProto.load(repo)
             if did_obj:
-                return cls._pds_for(did_obj)
+                return cls.pds_for(did_obj)
             # TODO: what should we do if the DID doesn't exist? should we return
             # None here? or do we need this path to return BF's URL so that we
             # then create the DID for non-ATP users on demand?
@@ -164,27 +180,8 @@ class ATProto(User, Protocol):
                 if user_key:
                     user = user_key.get()
                     if user and user.atproto_did:
-                        return cls.target_for(Object(id=f'at://{user.atproto_did}'))
+                        return cls.pds_for(Object(id=f'at://{user.atproto_did}'))
 
-        return common.host_url()
-
-    @classmethod
-    def _pds_for(cls, did_obj):
-        """
-        Args:
-          did_obj (Object)
-
-        Returns:
-          str: PDS URL, or None
-        """
-        assert did_obj.key.id().startswith('did:')
-
-        for service in did_obj.raw.get('service', []):
-            if service.get('id') in ('#atproto_pds',
-                                     f'{did_obj.key.id()}#atproto_pds'):
-                return service.get('serviceEndpoint')
-
-        logger.info(f"{did_obj.key.id()}'s DID doc has no ATProto PDS")
         return None
 
     def is_blocklisted(url):
@@ -292,7 +289,7 @@ class ATProto(User, Protocol):
         assert user.atproto_did
         logger.info(f'{user.key} is {user.atproto_did}')
         did_doc = to_cls.load(user.atproto_did)
-        pds = to_cls._pds_for(did_doc)
+        pds = to_cls.pds_for(did_doc)
         if not pds or pds.rstrip('/') != url.rstrip('/'):
             logger.warning(f'{from_key} {user.atproto_did} PDS {pds} is not us')
             return False
@@ -358,7 +355,7 @@ class ATProto(User, Protocol):
                 util.interpret_http_exception(e)
                 return False
 
-        pds = cls.target_for(obj)
+        pds = cls.pds_for(obj)
         if not pds:
             return False
 

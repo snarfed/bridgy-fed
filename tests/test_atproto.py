@@ -123,41 +123,45 @@ class ATProtoTest(TestCase):
     def test_handle_to_id_not_found(self, *_):
         self.assertIsNone(ATProto.handle_to_id('han.dull'))
 
-    def test_target_for_did_doc(self):
-        self.assertIsNone(ATProto.target_for(Object(id='did:plc:foo')))
+    def test_pds_for_did_no_doc(self):
+        self.assertIsNone(ATProto.pds_for(Object(id='did:plc:foo')))
 
-    def test_target_for_stored_did(self):
+    def test_pds_for_stored_did(self):
+        obj = self.store_object(id='did:plc:foo', raw=DID_DOC)
+        got = ATProto.pds_for(obj)
+        self.assertEqual('https://some.pds', got)
+
+    def test_pds_for_record_stored_did(self):
         self.store_object(id='did:plc:foo', raw=DID_DOC)
-        got = ATProto.target_for(Object(id='at://did:plc:foo/co.ll/123'))
+        got = ATProto.pds_for(Object(id='at://did:plc:foo/co.ll/123'))
         self.assertEqual('https://some.pds', got)
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
-    def test_target_for_fetch_did(self, mock_get):
-        got = ATProto.target_for(Object(id='at://did:plc:foo/co.ll/123'))
+    def test_pds_for_fetch_did(self, mock_get):
+        got = ATProto.pds_for(Object(id='at://did:plc:foo/co.ll/123'))
         self.assertEqual('https://some.pds', got)
 
-    def test_target_for_user_with_stored_did(self):
+    def test_pds_for_user_with_stored_did(self):
         self.store_object(id='did:plc:foo', raw=DID_DOC)
         self.make_user('fake:user', cls=Fake, atproto_did='did:plc:foo')
-        got = ATProto.target_for(Object(id='fake:post', our_as1={
+        got = ATProto.pds_for(Object(id='fake:post', our_as1={
             **POST_AS,
             'actor': 'fake:user',
         }))
         self.assertEqual('https://some.pds', got)
 
-    def test_target_for_user_no_stored_did(self):
+    def test_pds_for_user_no_stored_did(self):
         self.make_user('fake:user', cls=Fake)
-        got = ATProto.target_for(Object(id='fake:post', our_as1={
+        self.assertIsNone(ATProto.pds_for(Object(id='fake:post', our_as1={
             **POST_AS,
             'actor': 'fake:user',
-        }))
-        self.assertEqual('http://localhost/', got)
+        })))
 
-    def test_target_for_bsky_app_url_did_stored(self):
+    def test_pds_for_bsky_app_url_did_stored(self):
         self.store_object(id='did:plc:foo', raw=DID_DOC)
         self.make_user('fake:user', cls=Fake, atproto_did='did:plc:foo')
 
-        got = ATProto.target_for(Object(
+        got = ATProto.pds_for(Object(
             id='https://bsky.app/profile/did:plc:foo/post/123'))
         self.assertEqual('https://some.pds', got)
 
@@ -168,8 +172,8 @@ class ATProtoTest(TestCase):
         # fetching DID doc
         requests_response(DID_DOC),
     ])
-    def test_target_for_bsky_app_url_resolve_handle(self, mock_get, _):
-        got = ATProto.target_for(Object(
+    def test_pds_for_bsky_app_url_resolve_handle(self, mock_get, _):
+        got = ATProto.pds_for(Object(
             id='https://bsky.app/profile/baz.com/post/123'))
         self.assertEqual('https://some.pds', got)
 
@@ -177,6 +181,11 @@ class ATProtoTest(TestCase):
             self.req('https://baz.com/.well-known/atproto-did'),
             self.req('https://plc.local/did:plc:foo'),
         ))
+
+    def test_target_for_user_no_stored_did(self):
+        self.assertEqual('http://localhost/', ATProto.target_for(
+            Object(id='at://foo')))
+        self.assertIsNone(ATProto.target_for(Object(id='fake:post')))
 
     @patch('requests.get', return_value=requests_response({'foo': 'bar'}))
     def test_fetch_did_plc(self, mock_get):
