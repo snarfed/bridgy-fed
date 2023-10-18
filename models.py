@@ -947,8 +947,8 @@ class Object(StringIdModel):
 
         # batch lookup matching users
         ids = util.trim_nulls(
-            [outer_obj.get(f) for f in fields]
-            + [inner_obj.get(f) for f in fields]
+            [as1.get_object(outer_obj, f).get('id') for f in fields]
+            + [as1.get_object(inner_obj, f).get('id') for f in fields]
             + [inner_obj.get('id')]
             + [m.get('url') for m in mention_tags])
         origs = (User.get_for_copies(ids)
@@ -956,7 +956,7 @@ class Object(StringIdModel):
 
         replaced = False
         def replace(obj, field):
-            val = obj.get(field)
+            val = as1.get_object(obj, field).get('id')
             if val:
                 for orig in origs:
                     target = Target(uri=val, protocol=self.source_protocol)

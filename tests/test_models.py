@@ -750,7 +750,9 @@ class ObjectTest(TestCase):
                 'id': 'fake:reply',
                 'objectType': 'note',
                 'inReplyTo': 'fake:post',
-                'author': 'fake:alice',
+                'author': {
+                    'id': 'fake:alice',
+                },
                 'tags': [{
                     'objectType': 'mention',
                     'url': 'fake:bob',

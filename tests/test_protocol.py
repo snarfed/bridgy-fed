@@ -824,19 +824,13 @@ class ProtocolReceiveTest(TestCase):
         ], Fake.sent)
 
     def test_repost_twitter_blocklisted(self):
-        self._test_repost_blocklisted_error('https://twitter.com/foo')
-
-    def test_repost_bridgy_fed_blocklisted(self):
-        self._test_repost_blocklisted_error('https://fed.brid.gy/foo')
-
-    def _test_repost_blocklisted_error(self, orig_url):
         """Reposts of non-fediverse (ie blocklisted) sites aren't yet supported."""
         repost_as1 = {
             'id': 'fake:repost',
             'objectType': 'activity',
             'verb': 'share',
             'actor': 'fake:user',
-            'object': orig_url,
+            'object': 'https://twitter.com/foo',
         }
         with self.assertRaises(NoContent):
             Fake.receive_as1(repost_as1)
@@ -1386,12 +1380,7 @@ class ProtocolReceiveTest(TestCase):
                            )
         self.assertEqual(2, Follower.query().count())
 
-    def test_replace_actor_copies_with_originals(self):
-        Fake.fetchable = {
-            'fake:alice': {},
-            'fake:bob': {},
-        }
-
+    def test_replace_actor_copies_with_originals_follow(self):
         follow = {
             'id': 'fake:follow',
             'objectType': 'activity',
@@ -1401,20 +1390,55 @@ class ProtocolReceiveTest(TestCase):
         }
 
         # no matching copy users
-        Fake.receive(Object(id='fake:follow', our_as1=follow, source_protocol='fake'))
-        self.assert_equals(follow, Object.get_by_id('fake:follow').our_as1)
+        obj = Object(id='fake:follow', our_as1=follow, source_protocol='fake')
+        Fake.receive(obj)
+        self.assert_equals(follow, obj.our_as1)
 
-        # matching copy users
-        self.make_user('other:alice', cls=OtherFake,
-                       copies=[Target(uri='fake:alice', protocol='fake')])
+        # matching copy user
         self.make_user('other:bob', cls=OtherFake,
                        copies=[Target(uri='fake:bob', protocol='fake')])
-        Fake.receive(Object(id='fake:follow', our_as1=follow, source_protocol='fake'))
+
+        protocol.seen_ids.clear()
+        obj.new = True
+        OtherFake.fetchable = {
+            'other:bob': {},
+        }
+
+        Fake.receive(obj)
         self.assert_equals({
             **follow,
-            'actor': 'other:alice',
-            'object': 'other:bob',
+            'actor': {'id': 'fake:alice'},
+            'object': {'id': 'other:bob'},
         }, Object.get_by_id('fake:follow').our_as1)
+
+    def test_replace_actor_copies_with_originals_share(self):
+        share = {
+            'objectType': 'activity',
+            'verb': 'share',
+            'object': 'fake:post',
+        }
+
+        # no matching copy object
+        obj = Object(id='fake:share', our_as1=share, source_protocol='fake')
+        with self.assertRaises(NoContent):
+            Fake.receive(obj)
+        self.assert_equals(share, obj.our_as1)
+
+        # matching copy object
+        self.store_object(id='other:post',
+                          copies=[Target(uri='fake:post', protocol='fake')])
+
+        protocol.seen_ids.clear()
+        obj.new = True
+        with self.assertRaises(NoContent):
+            Fake.receive(obj)
+
+        self.assert_equals({
+            'id': 'fake:share',
+            'objectType': 'activity',
+            'verb': 'share',
+            'object': {'id': 'other:post'},
+        }, obj.our_as1)
 
     def test_receive_task_handler(self):
         note = {

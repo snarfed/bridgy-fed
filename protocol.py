@@ -534,6 +534,9 @@ class Protocol:
         if authed_as and actor != authed_as:
             logger.warning(f"actor {actor} isn't authed user {authed_as}")
 
+        # update copy ids to originals
+        obj.replace_copies_with_originals()
+
         # write Object to datastore
         orig = obj
         obj = Object.get_or_create(id, **orig.to_dict(), actor=actor)
@@ -567,7 +570,6 @@ class Protocol:
 
         # store inner object
         inner_obj_id = inner_obj_as1.get('id')
-        inner_obj = None
         if obj.type in ('post', 'update') and inner_obj_as1.keys() > set(['id']):
             Object.get_or_create(inner_obj_id, our_as1=inner_obj_as1,
                                  source_protocol=from_cls.LABEL, actor=actor)
@@ -639,11 +641,13 @@ class Protocol:
             if actor_obj and actor_obj.as1:
                 obj.our_as1 = {**obj.as1, 'actor': actor_obj.as1}
 
+
         # fetch object if necessary so we can render it in feeds
-        if obj.type == 'share' and inner_obj_as1.keys() == set(['id']):
-            if not inner_obj and from_cls.owns_id(inner_obj_id):
-                logger.info('Fetching object so we can render it in feeds')
-                inner_obj = from_cls.load(inner_obj_id)
+        if (obj.type == 'share'
+                and inner_obj_as1.keys() == set(['id'])
+                and from_cls.owns_id(inner_obj_id)):
+            logger.info('Fetching object so we can render it in feeds')
+            inner_obj = from_cls.load(inner_obj_id)
             if inner_obj and inner_obj.as1:
                 obj.our_as1 = {
                     **obj.as1,
@@ -927,7 +931,6 @@ class Protocol:
             if origs:
                 target_uris |= origs
                 logger.info(f'Added originals: {origs}')
-
 
         orig_obj = None
         targets = {}  # maps Target to Object or None
