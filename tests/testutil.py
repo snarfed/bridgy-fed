@@ -14,6 +14,7 @@ import warnings
 import arroba.util
 from arroba.util import datetime_to_tid
 from bs4 import MarkupResemblesLocatorWarning
+from Crypto.PublicKey import RSA
 import dag_cbor.random
 from flask import g
 from google.cloud import ndb
@@ -32,9 +33,9 @@ import requests
 
 # other modules are imported _after_ Fake etc classes is defined so that it's in
 # PROTOCOLS when URL routes are registered.
-from common import TASKS_LOCATION
+from common import long_to_base64, TASKS_LOCATION
 import models
-from models import Object, PROTOCOLS, Target, User
+from models import KEY_BITS, Object, PROTOCOLS, Target, User
 import protocol
 
 logger = logging.getLogger(__name__)
@@ -160,22 +161,23 @@ class OtherFake(Fake):
         return f'{obj.key.id()}:target'
 
 
-# used in TestCase.make_user() to reuse keys across Users since they're
-# expensive to generate
-requests.post(f'http://{ndb_client.host}/reset')
-with ndb_client.context():
-    global_user = Fake.get_or_create('fake:user')
-
-
 # import other modules that register Flask handlers *after* Fake is defined
 models.reset_protocol_properties()
 
 import app
+import activitypub
 from activitypub import ActivityPub, CONNEG_HEADERS_AS2_HTML
 from atproto import ATProto
 import common
 from web import Web
 from flask_app import app, cache, init_globals
+
+
+# used in TestCase.make_user() to reuse keys across Users since they're
+# expensive to generate.
+requests.post(f'http://{ndb_client.host}/reset')
+with ndb_client.context():
+    global_user = activitypub._DEFAULT_SIGNATURE_USER = Fake.get_or_create('fake:user')
 
 
 class TestCase(unittest.TestCase, testutil.Asserts):
