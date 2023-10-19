@@ -109,6 +109,9 @@ class Web(User, Protocol):
 
     profile_id = web_url
 
+    def is_web_url(self, url):
+        return super().is_web_url(url, ignore_www=True)
+
     def ap_address(self):
         """Returns this user's ActivityPub address, eg ``@foo.com@foo.com``.
 

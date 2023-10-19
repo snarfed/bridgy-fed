@@ -5,6 +5,7 @@ import itertools
 import json
 import logging
 import random
+import re
 from threading import Lock
 from urllib.parse import quote, urlparse
 
@@ -413,11 +414,12 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """
         raise NotImplementedError()
 
-    def is_web_url(self, url):
+    def is_web_url(self, url, ignore_www=False):
         """Returns True if the given URL is this user's web URL (homepage).
 
         Args:
           url (str)
+          ignore_www (bool): if True, ignores ``www.`` subdomains
 
         Returns:
           bool:
@@ -426,11 +428,13 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             return False
 
         url = url.strip().rstrip('/')
+        url = re.sub(r'^(https?://)www\.', r'\1', url)
         parsed_url = urlparse(url)
         if parsed_url.scheme not in ('http', 'https', ''):
             return False
 
         this = self.web_url().rstrip('/')
+        this = re.sub(r'^(https?://)www\.', r'\1', this)
         parsed_this = urlparse(this)
 
         return (url == this or url == parsed_this.netloc or

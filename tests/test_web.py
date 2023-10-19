@@ -1838,6 +1838,11 @@ http://this/404s
     def test_web_url(self, _, __):
         self.assertEqual('https://user.com/', g.user.web_url())
 
+    def test_is_web_url(self, *_):
+        self.assertTrue(g.user.is_web_url('https://user.com/'))
+        self.assertTrue(g.user.is_web_url('https://www.user.com/'))
+        self.assertFalse(g.user.is_web_url('https://other.com/'))
+
     def test_ap_address(self, *_):
         self.assertEqual('@user.com@user.com', g.user.ap_address())
 
