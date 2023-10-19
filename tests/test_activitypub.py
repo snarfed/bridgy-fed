@@ -449,7 +449,9 @@ class ActivityPubTest(TestCase):
         resp = self.post('/ap/sharedInbox', json=note)
         self.assertEqual(400, resp.status_code)
 
-    def test_inbox_no_matching_protocol(self, *_):
+    def test_inbox_no_matching_protocol(self, mock_head, mock_get, mock_post):
+        # TODO: remove
+        mock_get.return_value = self.as2_resp(ACTOR)
         resp = self.post('/foo.json/inbox', json=NOTE)
         self.assertEqual(400, resp.status_code)
 
@@ -687,13 +689,12 @@ class ActivityPubTest(TestCase):
                            object_ids=['https://user.com/orig'])
 
     def test_shared_inbox_repost_of_fediverse(self, mock_head, mock_get, mock_post):
-        Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']),
-                               from_=self.user)
+        to = self.make_user(ACTOR['id'], cls=ActivityPub)
+        Follower.get_or_create(to=to, from_=self.user)
         baz = self.make_user('fake:baz', cls=Fake, obj_id='fake:baz')
-        Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']), from_=baz)
+        Follower.get_or_create(to=to, from_=baz)
         baj = self.make_user('fake:baj', cls=Fake, obj_id='fake:baj')
-        Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']),
-                               from_=baj, status='inactive')
+        Follower.get_or_create(to=to, from_=baj, status='inactive')
 
         mock_head.return_value = requests_response(url='http://target')
         mock_get.side_effect = [
@@ -752,7 +753,7 @@ class ActivityPubTest(TestCase):
                            object_ids=['http://nope.com/post'])
 
     def test_inbox_not_public(self, mock_head, mock_get, mock_post):
-        Follower.get_or_create(to=ActivityPub.get_or_create(ACTOR['id']),
+        Follower.get_or_create(to=self.make_user(ACTOR['id'], cls=ActivityPub),
                                from_=self.user)
 
         mock_head.return_value = requests_response(url='http://target')
@@ -983,7 +984,7 @@ class ActivityPubTest(TestCase):
 
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
         follower = Follower(to=self.user.key,
-                            from_=ActivityPub.get_or_create(ACTOR['id']).key,
+                            from_=ActivityPub(id=ACTOR['id']).key,
                             status='active')
         follower.put()
 
@@ -1000,9 +1001,10 @@ class ActivityPubTest(TestCase):
         self.assertEqual('inactive', follower.key.get().status)
 
     def test_inbox_follow_inactive(self, mock_head, mock_get, mock_post):
-        follower = Follower.get_or_create(to=self.user,
-                                          from_=ActivityPub.get_or_create(ACTOR['id']),
-                                          status='inactive')
+        follower = Follower.get_or_create(
+            to=self.user,
+            from_=self.make_user(ACTOR['id'], cls=ActivityPub),
+            status='inactive')
 
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
@@ -1188,14 +1190,14 @@ class ActivityPubTest(TestCase):
         mock_common_log.assert_any_call('Returning 401: No HTTP Signature', exc_info=None)
 
     def test_delete_actor(self, *mocks):
-        follower = Follower.get_or_create(
-            to=self.user, from_=ActivityPub.get_or_create(DELETE['actor']))
-        followee = Follower.get_or_create(
-            to=ActivityPub.get_or_create(DELETE['actor']),
-            from_=Fake.get_or_create('snarfed.org'))
+        deleted = self.make_user(DELETE['actor'], cls=ActivityPub)
+        follower = Follower.get_or_create(to=self.user, from_=deleted)
+        followee = Follower.get_or_create(to=deleted, from_=Fake(id='fake:user'))
+
         # other unrelated follower
-        other = Follower.get_or_create(
-            to=self.user, from_=ActivityPub.get_or_create('https://mas.to/users/other'))
+        other = self.make_user('https://mas.to/users/other', cls=ActivityPub)
+        other = Follower.get_or_create(to=self.user, from_=other)
+
         self.assertEqual(3, Follower.query().count())
 
         got = self.post('/ap/sharedInbox', json=DELETE)

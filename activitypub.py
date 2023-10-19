@@ -384,7 +384,8 @@ class ActivityPub(User, Protocol):
             if (activity.get('type') == 'Delete' and obj_id
                     and keyId == fragmentless(obj_id)):
                 logger.info('Object/actor being deleted is also keyId')
-                key_actor = Object(id=keyId, source_protocol='activitypub', deleted=True)
+                key_actor = Object.get_or_create(
+                    id=keyId, source_protocol='activitypub', deleted=True)
                 key_actor.put()
             else:
                 raise

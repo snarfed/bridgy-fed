@@ -154,9 +154,9 @@ class FollowTest(TestCase):
 
     def test_callback_address(self, mock_get, mock_post):
         mock_get.side_effect = (
-            # oauth-dropins indieauth https://alice.com fetch for user json
-            requests_response(''),
+            requests_response(''),  # indieauth https://alice.com fetch for user json
             WEBFINGER,
+            self.as2_resp(FOLLOWEE),
             self.as2_resp(FOLLOWEE),
         )
         mock_post.side_effect = (
@@ -173,7 +173,8 @@ class FollowTest(TestCase):
 
     def test_callback_url(self, mock_get, mock_post):
         mock_get.side_effect = (
-            requests_response(''),
+            requests_response(''),  # indieauth https://alice.com fetch for user json
+            self.as2_resp(FOLLOWEE),
             self.as2_resp(FOLLOWEE),
         )
         mock_post.side_effect = (
@@ -233,6 +234,7 @@ class FollowTest(TestCase):
         }
         mock_get.side_effect = (
             requests_response(''),
+            self.as2_resp(followee),
             self.as2_resp(followee),
         )
         mock_post.side_effect = (
@@ -304,6 +306,7 @@ class FollowTest(TestCase):
         mock_get.side_effect = (
             requests_response(''),
             self.as2_resp(FOLLOWEE),
+            self.as2_resp(FOLLOWEE),
         )
         mock_post.side_effect = (
             requests_response('me=https://alice.com'),
@@ -349,6 +352,7 @@ class FollowTest(TestCase):
         mock_get.side_effect = (
             requests_response(''),
             self.as2_resp(followee),
+            self.as2_resp(followee),
         )
         mock_post.side_effect = (
             requests_response('me=https://alice.com'),
@@ -370,6 +374,7 @@ class FollowTest(TestCase):
 
     def test_indieauthed_session(self, mock_get, mock_post):
         mock_get.side_effect = (
+            self.as2_resp(FOLLOWEE),
             self.as2_resp(FOLLOWEE),
         )
         mock_post.side_effect = (

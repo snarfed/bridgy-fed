@@ -224,7 +224,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     @classmethod
     @ndb.transactional()
     def get_or_create(cls, id, propagate=False, **kwargs):
-        """Loads and returns a :class:`User`\. Creates it if necessary.
+        """Loads and returns a :class:`User`. Creates it if necessary.
 
         Args:
           propagate (bool): whether to create copies of this user in push-based
@@ -245,9 +245,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         else:
             user = cls(id=id, **kwargs)
 
-        if propagate:
-            # force refresh user profile
-            user.obj = cls.load(user.profile_id(), remote=True)
+        # load user profile object, refreshing if necessary
+        user.obj = cls.load(user.profile_id(), remote=True if propagate else None)
 
         if propagate and cls.LABEL != 'atproto' and not user.atproto_did:
             PROTOCOLS['atproto'].create_for(user)
@@ -750,7 +749,7 @@ class Object(StringIdModel):
                 authorized = (as1.get_ids(orig_as1, 'author') +
                               as1.get_ids(orig_as1, 'actor'))
                 if not actor:
-                    logger.warning(f'Cowardly refusing to overwrite {id} without checking actor')
+                    logger.warning(f'would cowardly refuse to overwrite {id} without checking actor')
                 elif actor not in authorized + [id]:
                     logger.warning(f"actor {actor} isn't {id}'s author or actor {authorized}")
         else:

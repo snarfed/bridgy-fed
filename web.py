@@ -181,14 +181,14 @@ class Web(User, Protocol):
         logger.info(f'Verifying {domain}')
 
         if domain.startswith('www.') and domain not in WWW_DOMAINS:
-            # if root domain redirects to www, use root domain instead
+            # if root domain serves ok, use it instead
             # https://github.com/snarfed/bridgy-fed/issues/314
             root = domain.removeprefix("www.")
             root_site = f'https://{root}/'
             try:
                 resp = util.requests_get(root_site, gateway=False)
                 if resp.ok and self.is_web_url(resp.url):
-                    logger.info(f'{root_site} redirects to {resp.url} ; using {root} instead')
+                    logger.info(f'{root_site} serves ok ; using {root} instead')
                     root_user = Web.get_or_create(root)
                     self.use_instead = root_user.key
                     self.put()
@@ -321,7 +321,7 @@ class Web(User, Protocol):
             logger.info(f'Skipping sending {verb} (not supported in webmention/mf2) to {url}')
             return False
         elif url not in as1.targets(obj.as1):
-            logger.info(f'Skipping sending to {url} , not a target in the object')
+            # logger.info(f'Skipping sending to {url} , not a target in the object')
             return False
         elif to_cls.is_blocklisted(url):
             logger.info(f'Skipping sending to blocklisted {url}')
@@ -478,8 +478,8 @@ def check_web_site():
         flash(f'{url} is not a valid or supported web site')
         return render_template('enter_web_site.html'), 400
 
-    g.user = Web.get_or_create(domain, direct=True)
     try:
+        g.user = Web.get_or_create(domain, direct=True)
         g.user = g.user.verify()
     except BaseException as e:
         code, body = util.interpret_http_exception(e)

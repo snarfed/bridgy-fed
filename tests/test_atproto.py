@@ -84,7 +84,7 @@ class ATProtoTest(TestCase):
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_get_or_create(self, _):
-        user = ATProto.get_or_create('did:plc:foo')
+        user = self.make_user('did:plc:foo', cls=ATProto)
         self.assertEqual('han.dull', user.key.get().handle)
 
     def test_put_blocks_atproto_did(self):

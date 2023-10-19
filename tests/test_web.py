@@ -465,18 +465,24 @@ class WebTest(TestCase):
             with self.assertRaises(AssertionError):
                 Web(id=bad).put()
 
-    def test_get_or_create_lower_cases_domain(self, *_):
+    def test_get_or_create_lower_cases_domain(self, mock_get, mock_post):
+        mock_get.return_value = requests_response('')
+
         user = Web.get_or_create('AbC.oRg')
         self.assertEqual('abc.org', user.key.id())
         self.assert_entities_equal(user, Web.get_by_id('abc.org'))
         self.assertIsNone(Web.get_by_id('AbC.oRg'))
 
-    def test_get_or_create_unicode_domain(self, *_):
+    def test_get_or_create_unicode_domain(self, mock_get, mock_post):
+        mock_get.return_value = requests_response('')
+
         user = Web.get_or_create('☃.net')
         self.assertEqual('☃.net', user.key.id())
         self.assert_entities_equal(user, Web.get_by_id('☃.net'))
 
-    def test_get_or_create_scripts_leading_trailing_dots(self, *_):
+    def test_get_or_create_scripts_leading_trailing_dots(self, mock_get, mock_post):
+        mock_get.return_value = requests_response('')
+
         user = Web.get_or_create('..foo.bar.')
         self.assertEqual('foo.bar', user.key.id())
         self.assert_entities_equal(user, Web.get_by_id('foo.bar'))
@@ -1861,8 +1867,7 @@ http://this/404s
         redir = 'http://localhost/.well-known/webfinger?resource=acct:user.com@user.com'
         mock_get.side_effect = (
             requests_response('', status=302, redirected_url=redir),
-            requests_response(ACTOR_HTML, url='https://user.com/',
-                              content_type=CONTENT_TYPE_HTML),
+            ACTOR_HTML_RESP,
         )
 
         got = self.post('/web-site', data={'url': 'https://user.com/'})
@@ -1877,6 +1882,7 @@ http://this/404s
         mock_get.side_effect = (
             requests_response(''),
             requests_response(''),
+            requests_response(''),
         )
 
         got = self.post('/web-site', data={'url': 'https://☃.net/'})
@@ -1886,6 +1892,7 @@ http://this/404s
 
     def test_check_web_site_lower_cases_domain(self, mock_get, _):
         mock_get.side_effect = (
+            requests_response(''),
             requests_response(''),
             requests_response(''),
         )
@@ -1918,12 +1925,21 @@ http://this/404s
                          get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
-    def test_check_web_site_fetch_fails(self, mock_get, _):
+    def test_check_webfinger_redirects_then_fails(self, mock_get, _):
         redir = 'http://localhost/.well-known/webfinger?resource=acct:orig@orig'
         mock_get.side_effect = (
+            ACTOR_HTML_RESP,
             requests_response('', status=302, redirected_url=redir),
             requests_response('', status=503),
         )
+
+        got = self.post('/web-site', data={'url': 'https://orig.co/'})
+        self.assert_equals(200, got.status_code, got.headers)
+        self.assertTrue(get_flashed_messages()[0].startswith(
+            "Couldn't connect to https://orig.co/: "))
+
+    def test_check_web_site_fetch_fails(self, mock_get, _):
+        mock_get.return_value = requests_response('', status=503)
 
         got = self.post('/web-site', data={'url': 'https://orig.co/'})
         self.assert_equals(200, got.status_code, got.headers)
