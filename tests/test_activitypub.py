@@ -440,19 +440,12 @@ class ActivityPubTest(TestCase):
         }
         self._test_inbox_reply(reply, mock_head, mock_get, mock_post)
 
-        self.assert_user(ActivityPub, 'https://mas.to/actor',
-                         obj_as2=LIKE_ACTOR, direct=True)
+        self.assert_user(ActivityPub, 'https://mas.to/actor', obj_as2=LIKE_ACTOR)
 
     def test_inbox_activity_without_id(self, *_):
         note = copy.deepcopy(NOTE)
         del note['id']
         resp = self.post('/ap/sharedInbox', json=note)
-        self.assertEqual(400, resp.status_code)
-
-    def test_inbox_no_matching_protocol(self, mock_head, mock_get, mock_post):
-        # TODO: remove
-        mock_get.return_value = self.as2_resp(ACTOR)
-        resp = self.post('/foo.json/inbox', json=NOTE)
         self.assertEqual(400, resp.status_code)
 
     def test_inbox_reply_object(self, mock_head, mock_get, mock_post):
@@ -809,8 +802,7 @@ class ActivityPubTest(TestCase):
         mock_get.return_value = self.as2_resp(LIKE_ACTOR)
 
         self.test_inbox_like()
-        self.assert_user(ActivityPub, 'https://mas.to/actor',
-                         obj_as2=LIKE_ACTOR, direct=True)
+        self.assert_user(ActivityPub, 'https://mas.to/actor', obj_as2=LIKE_ACTOR)
 
     def test_inbox_like_no_object_error(self, *_):
         Fake.fetchable = {'fake:user': {'id': 'fake:user'}}

@@ -198,13 +198,9 @@ class ActivityPub(User, Protocol):
             return False
 
         orig_as2 = orig_obj.as_as2() if orig_obj else None
-        activity = obj.as2 or postprocess_as2(as2.from_as1(obj.as1),
-                                              orig_obj=orig_as2)
+        activity = obj.as2 or postprocess_as2(obj.as_as2(), orig_obj=orig_as2)
 
-        if g.user:
-            logger.debug(f'Overwriting actor with g.user {g.user.ap_actor()}')
-            activity['actor'] = g.user.ap_actor()
-        elif not activity.get('actor'):
+        if not activity.get('actor'):
             logger.warning('Outgoing AP activity has no actor!')
 
         return signed_post(url, log_data=log_data, data=activity).ok
@@ -666,8 +662,10 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
             if not name.startswith('#'):
                 tag['name'] = f'#{name}'
 
-    activity['object'] = postprocess_as2(activity.get('object'), orig_obj=orig_obj,
-                                         wrap=type in ('Create', 'Update', 'Delete'))
+    activity['object'] = postprocess_as2(
+        activity.get('object'),
+        orig_obj=orig_obj,
+        wrap=wrap and type in ('Create', 'Update', 'Delete'))
 
     return util.trim_nulls(activity)
 
@@ -823,31 +821,6 @@ def inbox(protocol=None, id=None):
     actor = as1.get_object(activity, 'actor')
     actor_id = actor.get('id')
     logger.info(f'Got {type} from {actor_id}: {json_dumps(activity, indent=2)}')
-
-    # load receiving user
-    obj_id = as1.get_object(redirect_unwrap(activity)).get('id')
-    to_proto = PROTOCOLS[protocol] if protocol else Protocol.for_request(fed='web')
-    if not to_proto and type == 'Follow':
-        to_proto = Protocol.for_id(obj_id)
-
-    if to_proto:
-        logger.info(f'To protocol {to_proto.LABEL}')
-        to_user_id = None
-        if id:
-            to_user_id = id
-        else:
-            to_key = to_proto.key_for(obj_id)
-            if to_key:
-                to_user_id = to_key.id()
-
-        if to_user_id:
-            g.user = to_proto.get_or_create(to_user_id, direct=False)
-            logger.info(f'Setting g.user to {g.user.key}')
-            if not g.user.direct and actor_id:
-                # this is a deliberate interaction with an indirect receiving user;
-                # create a local AP User for the sending user
-                actor_obj = ActivityPub.load(actor_id)
-                ActivityPub.get_or_create(actor_id, direct=True, obj=actor_obj)
 
     authed_as = ActivityPub.verify_signature(activity)
 

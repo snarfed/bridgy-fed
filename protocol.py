@@ -643,7 +643,6 @@ class Protocol:
             if actor_obj and actor_obj.as1:
                 obj.our_as1 = {**obj.as1, 'actor': actor_obj.as1}
 
-
         # fetch object if necessary so we can render it in feeds
         if (obj.type == 'share'
                 and inner_obj_as1.keys() == set(['id'])
@@ -753,7 +752,15 @@ class Protocol:
                 'actor': to_id,
                 'object': obj.as1,
             })
+
+            # TODO: ugly, brittle. dangerous. remove once postprocess_as2 no
+            # longer depends on g.user!
+            # https://github.com/snarfed/bridgy-fed/issues/690
+            orig_g_user = g.user
+            g.user = to_user
             sent = from_cls.send(accept, from_target)
+            g.user = orig_g_user
+
             if sent:
                 accept.populate(
                     delivered=[Target(protocol=from_cls.LABEL, uri=from_target)],
