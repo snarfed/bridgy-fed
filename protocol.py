@@ -517,17 +517,18 @@ class Protocol:
         # short circuit if we've already seen this activity id.
         # (don't do this for bare objects since we need to check further down
         # whether they've been updated since we saw them last.)
-        if obj.as1.get('objectType') == 'activity':
+        if obj.as1.get('objectType') == 'activity' and 'force' not in request.values:
             with seen_ids_lock:
                 already_seen = id in seen_ids
                 seen_ids[id] = True
-                if (already_seen
-                        or (obj.new is False and obj.changed is False)
-                        or (obj.new is None and obj.changed is None
-                            and from_cls.load(id, remote=False))):
-                    msg = f'Already handled this activity {id}'
-                    logger.info(msg)
-                    return msg, 204
+
+            if (already_seen
+                    or (obj.new is False and obj.changed is False)
+                    or (obj.new is None and obj.changed is None
+                        and from_cls.load(id, remote=False))):
+                msg = f'Already handled this activity {id}'
+                logger.info(msg)
+                return msg, 204
 
         # authorization check
         actor = as1.get_owner(obj.as1)
@@ -1040,7 +1041,6 @@ class Protocol:
 
             if feed_obj:
                 feed_obj.put()
-
 
         # de-dupe targets, discard same-domain
         candidates = {t.uri: (t, obj) for t, obj in targets.items()}
