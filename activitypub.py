@@ -395,13 +395,17 @@ class ActivityPub(User, Protocol):
         if not key:
             error(f'No public key for {keyId}', status=401)
 
-        logger.info(f'Verifying signature for {request.path} with key {key}')
+        # can't use request.full_path because it includes a trailing ? even if
+        # it wasn't in the request. https://github.com/pallets/flask/issues/2867
+        path_query = request.url.removeprefix(request.host_url.rstrip('/'))
+        logger.info(f'Verifying signature for {path_query} with key {key}')
         try:
             verified = HeaderVerifier(headers, key,
                                       required_headers=['Digest'],
                                       method=request.method,
-                                      path=request.path,
-                                      sign_header='signature').verify()
+                                      path=path_query,
+                                      sign_header='signature',
+                                      ).verify()
         except BaseException as e:
             error(f'HTTP Signature verification failed: {e}', status=401)
 
