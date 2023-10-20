@@ -246,8 +246,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         else:
             user = cls(id=id, **kwargs)
 
-        # load user profile object, refreshing if necessary
-        user.obj = cls.load(user.profile_id(), remote=True if propagate else None)
+        # load and propagate user and profile object
+        if not user.obj_key:
+            user.obj = cls.load(user.profile_id())
 
         if propagate and cls.LABEL != 'atproto' and not user.atproto_did:
             PROTOCOLS['atproto'].create_for(user)

@@ -90,13 +90,6 @@ class UserTest(TestCase):
 
         mock_create_task.assert_called()
 
-    def test_get_or_create_propagate_reloads_existing_profile_object(self):
-        self.store_object(id='fake:user', our_as1={
-            'objectType': 'person',
-            'foo': 'bar',
-        })
-        self.test_get_or_create_propagate()
-
     def test_validate_atproto_did(self):
         user = Fake()
 

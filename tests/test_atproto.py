@@ -393,7 +393,6 @@ class ATProtoTest(TestCase):
            return_value=requests_response('OK'))  # create DID on PLC
     def test_send_new_repo_includes_user_profile(self, mock_post, mock_create_task,
                                                  _, __):
-        user = self.make_user(id='fake:user', cls=Fake)
         Fake.fetchable = {'fake:user': ACTOR_AS}
 
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
@@ -403,6 +402,7 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
 
         # check profile, record
+        user = Fake.get_by_id('fake:user')
         did = user.key.get().atproto_did
         repo = self.storage.load_repo(did)
         profile = repo.get_record('app.bsky.actor.profile', 'self')
