@@ -243,6 +243,12 @@ AS2_CREATE = {
 <a class="u-in-reply-to" href="http://not/fediverse"></a>
 <a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a href="http://localhost/"></a>""",
+        'contentMap': {
+            'en': """\
+<a class="u-in-reply-to" href="http://not/fediverse"></a>
+<a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
+<a href="http://localhost/"></a>""",
+        },
         'inReplyTo': 'https://mas.to/toot/id',
         'to': [as2.PUBLIC_AUDIENCE],
         'cc': [
@@ -347,6 +353,7 @@ NOTE_AS2 = {
     'attributedTo': 'http://localhost/user.com',
     'name': 'hello i am a post',
     'content': 'hello i am a post',
+    'contentMap': {'en': 'hello i am a post'},
     'to': [as2.PUBLIC_AUDIENCE],
 }
 CREATE_AS1 = {
@@ -968,7 +975,7 @@ class WebTest(TestCase):
         self.assertEqual(200, got.status_code)
 
         inboxes = ['https://inbox/', 'https://public/inbox', 'https://shared/inbox']
-        self.assert_deliveries(mock_post, inboxes, {
+        expected = {
             **NOTE_AS2,
             'attributedTo': None,
             'type': 'Create',
@@ -979,7 +986,9 @@ class WebTest(TestCase):
                 'targetUrl': 'http://bob.com/post',
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
             },
-        })
+        }
+        del expected['contentMap']
+        self.assert_deliveries(mock_post, inboxes, expected)
 
     def test_create_default_url_to_wm_source(self, mock_get, mock_post):
         """Source post has no u-url. AS2 id should default to webmention source."""

@@ -1666,10 +1666,13 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals({
             'id': 'http://localhost/r/xyz',
             'type': 'Note',
+            'content': 'foo',
+            'contentMap': {'en': 'foo'},
             'to': [as2.PUBLIC_AUDIENCE],
         }, postprocess_as2({
             'id': 'xyz',
             'type': 'Note',
+            'content': 'foo',
         }))
 
     def test_postprocess_as2_hashtag(self):
