@@ -183,7 +183,7 @@ class ATProtoTest(TestCase):
         ))
 
     def test_target_for_user_no_stored_did(self):
-        self.assertEqual('http://localhost/', ATProto.target_for(
+        self.assertEqual('https://atproto.brid.gy/', ATProto.target_for(
             Object(id='at://foo')))
         self.assertIsNone(ATProto.target_for(Object(id='fake:post')))
 
@@ -333,7 +333,7 @@ class ATProtoTest(TestCase):
             'actor': 'fake:user',
         })
 
-        self.assertTrue(ATProto.send(obj, 'http://localhost/'))
+        self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
 
         # check DID doc
         user = user.key.get()
@@ -341,7 +341,7 @@ class ATProtoTest(TestCase):
         self.assertEqual([Target(uri=user.atproto_did, protocol='atproto')],
                          user.copies)
         did_obj = ATProto.load(user.atproto_did)
-        self.assertEqual('http://localhost/',
+        self.assertEqual('https://atproto.brid.gy/',
                          did_obj.raw['service'][0]['serviceEndpoint'])
 
         # check repo, record
@@ -374,7 +374,7 @@ class ATProtoTest(TestCase):
                 'services': {
                     'atproto_pds': {
                         'type': 'AtprotoPersonalDataServer',
-                        'endpoint': 'http://localhost/',
+                        'endpoint': 'https://atproto.brid.gy/',
                     }
                 },
                 'prev': None,
@@ -400,7 +400,7 @@ class ATProtoTest(TestCase):
             **POST_AS,
             'actor': 'fake:user',
         })
-        self.assertTrue(ATProto.send(obj, 'http://localhost/'))
+        self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
 
         # check profile, record
         did = user.key.get().atproto_did
@@ -431,7 +431,7 @@ class ATProtoTest(TestCase):
         user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:foo')
 
         did_doc = copy.deepcopy(DID_DOC)
-        did_doc['service'][0]['serviceEndpoint'] = 'http://localhost/'
+        did_doc['service'][0]['serviceEndpoint'] = 'https://atproto.brid.gy/'
         self.store_object(id='did:plc:foo', raw=did_doc)
         Repo.create(self.storage, 'did:plc:foo', signing_key=KEY)
 
@@ -439,7 +439,7 @@ class ATProtoTest(TestCase):
             **POST_AS,
             'actor': 'fake:user',
         })
-        self.assertTrue(ATProto.send(obj, 'http://localhost/'))
+        self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
 
         # check repo, record
         repo = self.storage.load_repo(user.atproto_did)
@@ -468,7 +468,7 @@ class ATProtoTest(TestCase):
             'content': 'foo',
             'actor': 'fake:user',
         })
-        self.assertFalse(ATProto.send(obj, 'http://localhost/'))
+        self.assertFalse(ATProto.send(obj, 'https://atproto.brid.gy/'))
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())
         mock_create_task.assert_not_called()
@@ -476,7 +476,7 @@ class ATProtoTest(TestCase):
     @patch.object(tasks_client, 'create_task')
     def test_send_ignore_accept(self, mock_create_task):
         obj = Object(id='fake:accept', as2=test_activitypub.ACCEPT)
-        self.assertFalse(ATProto.send(obj, 'http://localhost/'))
+        self.assertFalse(ATProto.send(obj, 'https://atproto.brid.gy/'))
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())
         mock_create_task.assert_not_called()

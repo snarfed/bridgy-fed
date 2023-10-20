@@ -350,7 +350,7 @@ class ProtocolTest(TestCase):
 
     def test_targets_checks_blocklisted_per_protocol(self):
         """_targets should call the target protocol's is_blocklisted()."""
-        # non-ATProto account, ATProto target (PDS) is http://localhost,
+        # non-ATProto account, ATProto target (PDS) is atproto.brid.gy
         # shouldn't be blocklisted
         user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:foo')
         did_doc = copy.deepcopy(DID_DOC)
@@ -374,7 +374,7 @@ class ProtocolTest(TestCase):
         })
         self.assertCountEqual([
             Target(protocol='fake', uri='fake:post:target'),
-            Target(protocol='atproto', uri='http://localhost/'),
+            Target(protocol='atproto', uri='https://atproto.brid.gy/'),
         ], Protocol.targets(obj).keys())
 
     @patch('requests.get', return_value=requests_response({}))

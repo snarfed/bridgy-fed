@@ -29,6 +29,7 @@ from common import (
     add,
     DOMAIN_BLOCKLIST,
     DOMAIN_RE,
+    DOMAINS,
     error,
     USER_AGENT,
 )
@@ -57,6 +58,7 @@ class ATProto(User, Protocol):
     """
     ABBREV = 'atproto'
     LOGO_HTML = '<img src="/static/atproto_logo.png">'
+    PDS_URL = f'https://{ABBREV}{common.SUPERDOMAIN}/'
 
     def _pre_put_hook(self):
         """Validate id, require did:plc or non-blocklisted did:web.
@@ -119,15 +121,15 @@ class ATProto(User, Protocol):
 
     @classmethod
     def target_for(cls, obj, shared=False):
-        """Returns our base URL as the PDS target for the given object.
+        """Returns our PDS URL as the target for the given object.
 
         ATProto delivery is indirect. We write all records to the user's local
         repo that we host, then BGSes and other subscribers receive them via the
         subscribeRepos event streams. So, we use a single target, our base URL
-        (eg ``https://fed.brid.gy/``) as the PDS URL, for all objects/activities.
+        (eg ``https://atproto.brid.gy/``) as the PDS URL, for all activities.
         """
         if cls.owns_id(obj.key.id()) is not False:
-            return common.host_url()
+            return cls.PDS_URL
 
     @classmethod
     def pds_for(cls, obj):
@@ -205,7 +207,7 @@ class ATProto(User, Protocol):
         # create new DID, repo
         logger.info(f'Creating new did:plc for {user.key}')
         did_plc = did.create_plc(user.handle_as('atproto'),
-                                 pds_url=common.host_url(),
+                                 pds_url=cls.PDS_URL,
                                  post_fn=util.requests_post)
 
         Object.get_or_create(did_plc.did, raw=did_plc.doc)
@@ -266,7 +268,7 @@ class ATProto(User, Protocol):
         through ``subscribeRepos`` and then deliver it to AppView(s), which will
         notify recipients as necessary.
         """
-        if url.rstrip('/') != common.host_url().rstrip('/'):
+        if util.domain_from_link(url) not in DOMAINS:
             logger.info(f'Target PDS {url} is not us')
             return False
 
@@ -290,7 +292,7 @@ class ATProto(User, Protocol):
         logger.info(f'{user.key} is {user.atproto_did}')
         did_doc = to_cls.load(user.atproto_did)
         pds = to_cls.pds_for(did_doc)
-        if not pds or pds.rstrip('/') != url.rstrip('/'):
+        if not pds or util.domain_from_link(pds) not in DOMAINS:
             logger.warning(f'{from_key} {user.atproto_did} PDS {pds} is not us')
             return False
 
