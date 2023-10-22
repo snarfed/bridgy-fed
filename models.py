@@ -15,6 +15,7 @@ from Crypto.PublicKey import RSA
 from flask import g, request
 from google.cloud import ndb
 from granary import as1, as2, bluesky, microformats2
+from granary.source import html_to_text
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import error
@@ -335,9 +336,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             return None
 
         for field in 'summary', 'displayName':
-            val = self.obj.as1.get(field)
+            text = html_to_text(self.obj.as1.get(field, ''))
             for tag in OPT_OUT_TAGS:
-                if val and tag in val:
+                if tag in text:
                     return 'opt-out'
 
         return None

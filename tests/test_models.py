@@ -226,7 +226,8 @@ class UserTest(TestCase):
 
         user.obj.our_as1.update({
             'summary': '🤷',
-            'displayName': 'well #nobridge yeah',
+            # This is Mastodon's HTML around hashtags
+            'displayName': '<a href="..." class="hashtag">#<span>nobridge</span></a>',
         })
         self.assertEqual('opt-out', user.status)
 
