@@ -465,7 +465,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
           str
         """
         # must match the URL route for activitypub.actor()
-        url = self.subdomain_url(f'/ap/{self.key.id()}')
+        url = common.subdomain_wrap(self, f'/ap/{self.key.id()}')
         if rest:
             url += f'/{rest.lstrip("/")}'
         return url
@@ -874,7 +874,7 @@ class Object(StringIdModel):
         if not self.source_protocol:
             logger.warning(f'!!! No source_protocol for {id} !!!')
         protocol = PROTOCOLS.get(self.source_protocol) or Protocol
-        return protocol.subdomain_url(f'convert/web/{id}')
+        return common.subdomain_wrap(protocol, f'convert/web/{id}')
 
     def actor_link(self, image=True, sized=False):
         """Returns a pretty HTML link with the actor's name and picture.

@@ -5,6 +5,7 @@ import logging
 import re
 import threading
 import urllib.parse
+from urllib.parse import urljoin
 
 import cachetools
 from Crypto.Util import number
@@ -97,7 +98,7 @@ def host_url(path_query=None):
         base = f'https://{PRIMARY_DOMAIN}'
 
     assert base
-    return urllib.parse.urljoin(base, path_query)
+    return urljoin(base, path_query)
 
 
 def error(msg, status=400, exc_info=None, **kwargs):
@@ -154,6 +155,21 @@ def redirect_wrap(url):
         return url
 
     return host_url('/r/') + url
+
+
+def subdomain_wrap(proto, path=None):
+    """Returns the URL for a given path on this protocol's subdomain.
+
+    Eg for the path ``foo/bar`` on ActivityPub, returns
+    ``https://ap.brid.gy/foo/bar``.
+
+    Args:
+      proto (subclass of :class:`protocol.Protocol`)
+
+    Returns:
+      str: URL
+    """
+    return urljoin(f'https://{proto.ABBREV or "fed"}{SUPERDOMAIN}/', path)
 
 
 def redirect_unwrap(val):

@@ -137,7 +137,7 @@ class Webfinger(flask_util.XrdOrJrd):
                 # https://www.w3.org/TR/activitypub/#sharedInbox
                 'rel': 'sharedInbox',
                 'type': as2.CONTENT_TYPE,
-                'href': cls.subdomain_url('/ap/sharedInbox'),
+                'href': common.subdomain_wrap(cls, '/ap/sharedInbox'),
             },
 
             # remote follow

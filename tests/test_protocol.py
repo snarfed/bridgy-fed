@@ -81,11 +81,6 @@ class ProtocolTest(TestCase):
                 with app.test_request_context('/foo', base_url=url):
                     self.assertEqual(expected, Protocol.for_request(fed=Fake))
 
-    def test_subdomain_url(self):
-        self.assertEqual('https://fa.brid.gy/', Fake.subdomain_url())
-        self.assertEqual('https://fa.brid.gy/foo?bar', Fake.subdomain_url('foo?bar'))
-        self.assertEqual('https://fed.brid.gy/', UIProtocol.subdomain_url())
-
     def test_for_id(self):
         for id, expected in [
                 (None, None),

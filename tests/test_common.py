@@ -6,6 +6,7 @@ from .testutil import Fake, TestCase
 
 import common
 from flask_app import app
+from ui import UIProtocol
 from web import Web
 
 
@@ -52,6 +53,14 @@ class CommonTest(TestCase):
         self.assertIsNone(common.redirect_unwrap(None))
         for obj in '', {}, []:
             self.assertEqual(obj, common.redirect_unwrap(obj))
+
+    def test_subdomain_wrap(self):
+        self.assertEqual('https://fa.brid.gy/',
+                         common.subdomain_wrap(Fake))
+        self.assertEqual('https://fa.brid.gy/foo?bar',
+                         common.subdomain_wrap(Fake, 'foo?bar'))
+        self.assertEqual('https://fed.brid.gy/',
+                         common.subdomain_wrap(UIProtocol))
 
     def test_unwrap_protocol_subdomain(self):
         self.assert_equals({

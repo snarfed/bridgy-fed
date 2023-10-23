@@ -29,6 +29,7 @@ from common import (
     host_url,
     redirect_unwrap,
     redirect_wrap,
+    subdomain_wrap,
 )
 from models import Follower, Object, PROTOCOLS, User
 from protocol import Protocol
@@ -781,7 +782,7 @@ def actor(handle_or_id):
         'following': g.user.ap_actor('following'),
         'followers': g.user.ap_actor('followers'),
         'endpoints': {
-            'sharedInbox': cls.subdomain_url('/ap/sharedInbox'),
+            'sharedInbox': subdomain_wrap(cls, '/ap/sharedInbox'),
         },
         # add this if we ever change the Web actor ids to be /web/[id]
         # 'alsoKnownAs': [host_url(id)],

@@ -13,7 +13,7 @@ from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 
 from activitypub import ActivityPub
-from common import CACHE_TIME, LOCAL_DOMAINS, SUPERDOMAIN
+from common import CACHE_TIME, LOCAL_DOMAINS, subdomain_wrap, SUPERDOMAIN
 from flask_app import app, cache
 from models import Object, PROTOCOLS
 from protocol import Protocol
@@ -109,7 +109,7 @@ def convert(dest, _, src=None):
 def render_redirect():
     """Redirect from old /render?id=... endpoint to /convert/..."""
     id = flask_util.get_required_param('id')
-    return redirect(ActivityPub.subdomain_url(f'/convert/web/{id}'), code=301)
+    return redirect(subdomain_wrap(ActivityPub, f'/convert/web/{id}'), code=301)
 
 
 @app.get(f'/convert/<any({",".join(SOURCES)}):src>/<any({",".join(DESTS)}):dest>/<path:_>')
@@ -130,4 +130,4 @@ def convert_source_path_redirect(src, dest, _):
         request.url = request.url.replace(f'/{src}/', '/')
         return convert(dest, None, src)
 
-    return redirect(PROTOCOLS[src].subdomain_url(new_path), code=301)
+    return redirect(subdomain_wrap(PROTOCOLS[src], new_path), code=301)

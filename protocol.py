@@ -115,21 +115,6 @@ class Protocol:
             return PROTOCOLS.get(label)
 
     @classmethod
-    def subdomain_url(cls, path=None):
-        """Returns the URL for a given path on this protocol's subdomain.
-
-        Eg for the path ``foo/bar`` on ActivityPub, returns
-        ``https://ap.brid.gy/foo/bar``.
-
-        Args:
-          path (str)
-
-        Returns:
-          str: URL
-        """
-        return urljoin(f'https://{cls.ABBREV or "fed"}{common.SUPERDOMAIN}/', path)
-
-    @classmethod
     def owns_id(cls, id):
         """Returns whether this protocol owns the id, or None if it's unclear.
 
