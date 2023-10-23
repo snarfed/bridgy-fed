@@ -249,6 +249,9 @@ def serve_feed(*, objects, format, title, as_snippets=False, quiet=False):
 
     tasklets.wait_all(gets)
 
+    actor = (g.user.obj.as1 if g.user.obj and g.user.obj.as1
+             else {'displayName': g.user.readable_id, 'url': g.user.web_url()})
+
     # TODO: inject/merge common.pretty_link into microformats2.render_content
     # (specifically into hcard_to_html) somehow to convert Mastodon URLs to @-@
     # syntax. maybe a fediverse kwarg down through the call chain?
@@ -256,12 +259,12 @@ def serve_feed(*, objects, format, title, as_snippets=False, quiet=False):
         entries = [microformats2.object_to_html(a) for a in activities]
         return render_template('feed.html', **TEMPLATE_VARS, **locals())
     elif format == 'atom':
-        body = atom.activities_to_atom(activities, actor=g.user.obj.as1,
-                                       title=title, request_url=request.url)
+        body = atom.activities_to_atom(activities, actor=actor, title=title,
+                                       request_url=request.url)
         return body, {'Content-Type': atom.CONTENT_TYPE}
     elif format == 'rss':
-        body = rss.from_activities(activities, actor=g.user.obj.as1,
-                                   title=title, feed_url=request.url)
+        body = rss.from_activities(activities, actor=actor, title=title,
+                                   feed_url=request.url)
         return body, {'Content-Type': rss.CONTENT_TYPE}
 
 

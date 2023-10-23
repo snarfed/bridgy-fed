@@ -341,6 +341,11 @@ class PagesTest(TestCase):
         self.assert_equals(atom.CONTENT_TYPE, got.headers['Content-Type'])
         self.assert_equals([], atom.atom_to_activities(got.text))
 
+    def test_feed_atom_empty_g_user_without_obj(self):
+        self.user.obj_key = None
+        self.user.put()
+        self.test_feed_atom_empty()
+
     def test_feed_atom(self):
         self.add_objects()
         got = self.client.get('/web/user.com/feed?format=atom')
