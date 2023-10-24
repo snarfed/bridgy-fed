@@ -589,8 +589,6 @@ class Object(StringIdModel):
         # if bool(self.as2) + bool(self.bsky) + bool(self.mf2) > 1:
         #     logger.warning(f'{self.key} has multiple! {bool(self.as2)} {bool(self.bsky)} {bool(self.mf2)}')
 
-        owner = None
-
         if self.our_as1:
             obj = self.our_as1
 
@@ -599,7 +597,7 @@ class Object(StringIdModel):
 
         elif self.bsky:
             owner, _, _ = parse_at_uri(self.key.id())
-            ATProto = PROTOCOLS['atproto']
+            ATProto = PROTOCOLS['atproto']  # TODO: circular import :( ???
             handle = ATProto(id=owner).handle
             obj = bluesky.to_as1(self.bsky, repo_did=owner, repo_handle=handle,
                                  pds=ATProto.target_for(self))
@@ -620,15 +618,6 @@ class Object(StringIdModel):
         # populate id if necessary
         if self.key:
             obj.setdefault('id', self.key.id())
-
-        # populate actor/author if necessary and available
-        type = obj.get('objectType')
-        field = ('actor' if type == 'activity'
-                       else 'author' if type not in as1.ACTOR_TYPES
-                       else None)
-        if field and owner:
-            # logger.debug(f'Replacing {field} {obj.get(field)} with {owner}')
-            obj[field] = owner
 
         return obj
 
