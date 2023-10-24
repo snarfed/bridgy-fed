@@ -400,7 +400,10 @@ class ObjectTest(TestCase):
         # check that it's a separate copy of the entity in the cache
         # https://github.com/snarfed/bridgy-fed/issues/558#issuecomment-1603203927
         loaded.our_as1 = {'a': 'b'}
-        self.assertEqual({'x': 'y'}, Protocol.load('foo').our_as1)
+        self.assertEqual({
+            'id': 'foo',
+            'x': 'y',
+        }, Protocol.load('foo').our_as1)
 
     def test_put_cached_makes_copy(self):
         obj = Object(id='foo', our_as1={'x': 'y'})
@@ -408,7 +411,10 @@ class ObjectTest(TestCase):
         obj.our_as1 = {'a': 'b'}
         # don't put()
 
-        self.assertEqual({'x': 'y'}, Fake.load('foo').our_as1)
+        self.assertEqual({
+            'id': 'foo',
+            'x': 'y',
+        }, Fake.load('foo').our_as1)
 
     def test_get_by_id_cached_makes_copy(self):
         obj = Object(id='foo', our_as1={'x': 'y'})
@@ -419,7 +425,10 @@ class ObjectTest(TestCase):
         # check that it's a separate copy of the entity in the cache
         # https://github.com/snarfed/bridgy-fed/issues/558#issuecomment-1603203927
         loaded.our_as1 = {'a': 'b'}
-        self.assertEqual({'x': 'y'}, Protocol.load('foo').our_as1)
+        self.assertEqual({
+            'id': 'foo',
+            'x': 'y',
+        }, Protocol.load('foo').our_as1)
 
     def test_actor_link(self):
         for expected, as2 in (
@@ -705,12 +714,12 @@ class ObjectTest(TestCase):
             'object': {},
         }, obj.key.get().as2)
 
-    def test_replace_copies_with_originals_empty(self):
+    def test_resolve_ids_empty(self):
         obj = Object()
-        obj.replace_copies_with_originals()
+        obj.resolve_ids()
         self.assertIsNone(obj.as1)
 
-    def test_replace_copies_with_originals_follow(self):
+    def test_resolve_ids_copies_follow(self):
         follow = {
             'id': 'fake:follow',
             'objectType': 'activity',
@@ -721,7 +730,7 @@ class ObjectTest(TestCase):
         obj = Object(our_as1=follow, source_protocol='fake')
 
         # no matching copy users
-        obj.replace_copies_with_originals()
+        obj.resolve_ids()
         self.assert_equals(follow, obj.our_as1)
 
         # matching copy users
@@ -729,14 +738,14 @@ class ObjectTest(TestCase):
                        copies=[Target(uri='fake:alice', protocol='fake')])
         self.make_user('other:bob', cls=OtherFake,
                        copies=[Target(uri='fake:bob', protocol='fake')])
-        obj.replace_copies_with_originals()
+        obj.resolve_ids()
         self.assert_equals({
             **follow,
             'actor': 'other:alice',
             'object': {'id': 'other:bob'},
         }, obj.our_as1)
 
-    def test_replace_copies_with_originals_reply(self):
+    def test_resolve_ids_copies_reply(self):
         reply = {
             'objectType': 'activity',
             'verb': 'create',
@@ -756,7 +765,7 @@ class ObjectTest(TestCase):
         obj = Object(our_as1=reply, source_protocol='fake')
 
         # no matching copy users or objects
-        obj.replace_copies_with_originals()
+        obj.resolve_ids()
         self.assert_equals(reply, obj.our_as1)
 
         # matching copies
@@ -769,7 +778,7 @@ class ObjectTest(TestCase):
         self.store_object(id='other:reply',
                           copies=[Target(uri='fake:reply', protocol='fake')])
 
-        obj.replace_copies_with_originals()
+        obj.resolve_ids()
         self.assert_equals({
             'objectType': 'activity',
             'verb': 'create',
@@ -784,6 +793,39 @@ class ObjectTest(TestCase):
                 }],
             },
         }, obj.our_as1)
+
+    def test_resolve_ids_subdomain_urls(self):
+        obj = Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'create',
+            'id': 'https://fa.brid.gy/web/foo.com',
+            'object': {
+                'id': 'https://web.brid.gy/fa/fake:reply',
+                'inReplyTo': 'https://ap.brid.gy/fa/fake:post',
+                'author': 'https://atproto.brid.gy/ap/did:plc:123',
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': 'https://ap.brid.gy/atproto/http://inst.com/@me',
+                }],
+            },
+        }, source_protocol='fake')
+
+        obj.resolve_ids()
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'create',
+            'id': 'https://foo.com/',
+            'object': {
+                'id': 'fake:reply',
+                'inReplyTo': 'fake:post',
+                'author': 'did:plc:123',
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': 'http://inst.com/@me',
+                }],
+            },
+        }, obj.our_as1)
+
 
 class FollowerTest(TestCase):
 

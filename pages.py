@@ -364,7 +364,7 @@ def fetch_objects(query, by=None):
             content = util.parse_html(content).get_text()
 
         urls = as1.object_urls(inner_obj)
-        id = common.redirect_unwrap(inner_obj.get('id', ''))
+        id = common.unwrap(inner_obj.get('id', ''))
         url = urls[0] if urls else id
         if (type == 'update' and
             (obj.users and (g.user.is_web_url(id)

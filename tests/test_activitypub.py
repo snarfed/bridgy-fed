@@ -228,7 +228,7 @@ ACCEPT = {
         'id': 'https://mas.to/6d1a',
         'object': 'http://localhost/user.com',
         'actor': 'https://mas.to/users/swentel',
-        'url': 'https://mas.to/users/swentel#followed-https://user.com/',
+        'url': 'https://mas.to/users/swentel#followed-user.com',
         'to': ['https://www.w3.org/ns/activitystreams#Public'],
     },
    'to': ['https://www.w3.org/ns/activitystreams#Public'],
@@ -615,6 +615,11 @@ class ActivityPubTest(TestCase):
         expected_obj = {
             **as2.to_as1(NOTE_OBJECT),
             'author': {'id': 'https://masto.foo/@author'},
+            'cc': [
+                {'id': 'https://mas.to/author/followers'},
+                {'id': 'https://masto.foo/@other'},
+                {'id': 'target'},
+            ],
         }
         self.assert_object(NOTE_OBJECT['id'],
                            source_protocol='activitypub',
@@ -622,7 +627,7 @@ class ActivityPubTest(TestCase):
                            type='note',
                            feed=[self.user.key, baz.key])
 
-        expected_create = as2.to_as1(common.redirect_unwrap(NOTE))
+        expected_create = as2.to_as1(common.unwrap(NOTE))
         expected_create.update({
             'actor': as2.to_as1(ACTOR),
             'object': expected_obj,
@@ -819,7 +824,7 @@ class ActivityPubTest(TestCase):
 
         follow = {
             **FOLLOW_WITH_ACTOR,
-            'url': 'https://mas.to/users/swentel#followed-https://user.com/',
+            'url': 'https://mas.to/users/swentel#followed-user.com',
         }
         self.assert_object('https://mas.to/6d1a',
                            users=[self.swentel_key],
@@ -839,7 +844,9 @@ class ActivityPubTest(TestCase):
                 'url': FOLLOW['object'],
             },
         }
-        self._test_inbox_follow_accept(follow, ACCEPT, 200, *mocks)
+        accept = copy.deepcopy(ACCEPT)
+        accept['object']['url'] = 'https://mas.to/users/swentel#followed-https://user.com/'
+        self._test_inbox_follow_accept(follow, accept, 200, *mocks)
 
         follow.update({
             'actor': ACTOR,
@@ -859,7 +866,7 @@ class ActivityPubTest(TestCase):
         self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, 200, *mocks,
                                        inbox_path='/ap/sharedInbox')
 
-        url = 'https://mas.to/users/swentel#followed-https://user.com/'
+        url = 'https://mas.to/users/swentel#followed-user.com'
         self.assert_object('https://mas.to/6d1a',
                            users=[self.swentel_key],
                            notify=[self.user.key],
@@ -879,7 +886,7 @@ class ActivityPubTest(TestCase):
         self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, 502,
                                        mock_head, mock_get, mock_post)
 
-        url = 'https://mas.to/users/swentel#followed-https://user.com/'
+        url = 'https://mas.to/users/swentel#followed-user.com'
         self.assert_object('https://mas.to/6d1a',
                            users=[self.swentel_key],
                            notify=[self.user.key],
@@ -971,7 +978,7 @@ class ActivityPubTest(TestCase):
 
         # double check that follow Object doesn't have www
         self.assertEqual('active', follower.status)
-        self.assertEqual('https://mas.to/users/swentel#followed-https://user.com/',
+        self.assertEqual('https://mas.to/users/swentel#followed-user.com',
                          follower.follow.get().as2['url'])
 
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
@@ -1086,11 +1093,13 @@ class ActivityPubTest(TestCase):
         self.assertEqual(204, got.status_code)
         mock_post.assert_not_called()
 
+        expected = {
+            **as2.to_as1(bad),
+            'actor': as2.to_as1(ACTOR),
+            'object': 'https://Testing – Brid.gy – Post to Mastodon 3/',
+        }
         self.assert_object(id,
-                           our_as1={
-                               **as2.to_as1(bad),
-                               'actor': as2.to_as1(ACTOR),
-                           },
+                           our_as1=expected,
                            users=[self.swentel_key],
                            source_protocol='activitypub',
                            status='ignored',

@@ -27,7 +27,7 @@ from oauth_dropins.webutil.models import (
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
-from common import add, base64_to_long, long_to_base64, redirect_unwrap
+from common import add, base64_to_long, long_to_base64, unwrap
 import ids
 
 # maps string label to Protocol subclass. populated by ProtocolUserMeta.
@@ -53,7 +53,6 @@ OBJECT_EXPIRE_AGE = timedelta(days=90)
 
 OPT_OUT_TAGS = frozenset(('#nobot', '#nobridge'))
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -68,8 +67,8 @@ class Target(ndb.Model):
       ATProto user DIDs, etc.
 
     Used in :class:`google.cloud.ndb.model.StructuredProperty`\s inside
-    :class:`Object` and :class:`User`\;
-    not stored as top-level entities in the datastore.
+    :class:`Object` and :class:`User`; not stored as top-level entities in the
+    datastore.
 
     ndb implements this by hoisting each property here into a corresponding
     property on the parent entity, prefixed by the StructuredProperty name
@@ -114,6 +113,10 @@ def reset_protocol_properties():
         'protocol', choices=list(PROTOCOLS.keys()), required=True)
     Object.source_protocol = ndb.StringProperty(
         'source_protocol', choices=list(PROTOCOLS.keys()))
+
+    abbrevs = f'({"|".join(PROTOCOLS.keys())}|fed)'
+    common.SUBDOMAIN_BASE_URL_RE = re.compile(
+        rf'^https?://({abbrevs}\.brid\.gy|localhost(:8080)?)/(convert/|r/)?({abbrevs}/)?')
 
 
 def _validate_atproto_did(prop, val):
@@ -589,10 +592,10 @@ class Object(StringIdModel):
         owner = None
 
         if self.our_as1:
-            obj = redirect_unwrap(self.our_as1)
+            obj = self.our_as1
 
         elif self.as2:
-            obj = as2.to_as1(redirect_unwrap(self.as2))
+            obj = as2.to_as1(unwrap(self.as2))
 
         elif self.bsky:
             owner, _, _ = parse_at_uri(self.key.id())
@@ -640,7 +643,7 @@ class Object(StringIdModel):
 
     def _object_ids(self):  # id(s) of inner objects
         if self.as1:
-            return redirect_unwrap(as1.get_ids(self.as1, 'object'))
+            return unwrap(as1.get_ids(self.as1, 'object'))
 
     object_ids = ndb.ComputedProperty(_object_ids, repeated=True)
 
@@ -923,10 +926,19 @@ class Object(StringIdModel):
           {util.ellipsize(name, chars=40)}
         </a>"""
 
-    def replace_copies_with_originals(self):
-        """Replaces ids copied from other protocols with their original ids.
+    def resolve_ids(self):
+        """Resolves "copy" ids, subdomain ids, etc with their originals.
 
-        Specifically, replaces these AS1 fields in place:
+        Specifically, resolves:
+
+        * ids in :class:`User.copies` and :class:`Object.copies`, eg ATProto
+          records and Nostr events that we bridged, to the ids of their
+          original objects in their source protocol, eg
+          ``at://did:plc:abc/app.bsky.feed.post/123`` => ``https://mas.to/@user/456``.
+        * Bridgy Fed subdomain URLs to the ids embedded inside them, eg
+          ``https://atproto.brid.gy/ap/did:plc:xyz`` => ``did:plc:xyz``
+
+        ...in these AS1 fields, in place:
 
         * ``actor``
         * ``author``
@@ -936,16 +948,17 @@ class Object(StringIdModel):
         * ``object.id``
         * ``object.inReplyTo``
         * ``tags.[objectType=mention].url``
-
-        Looks up values in :attr:`User.copies` and :attr:`Object.copies` and
-        replaces with their key ids.
         """
         if not self.as1 or not self.source_protocol:
             return
 
-        outer_obj = copy.deepcopy(self.as1)
+        # extract ids, strip Bridgy Fed subdomain URLs
+        outer_obj = unwrap(self.as1)
+        if outer_obj != self.as1:
+            self.our_as1 = util.trim_nulls(outer_obj)
+
         inner_obj = outer_obj['object'] = as1.get_object(outer_obj)
-        fields = 'actor', 'author', 'inReplyTo'
+        fields = ['actor', 'author', 'inReplyTo']
         mention_tags = [t for t in (as1.get_objects(outer_obj, 'tags')
                                     + as1.get_objects(inner_obj, 'tags'))
                         if t.get('objectType') == 'mention']
@@ -963,6 +976,7 @@ class Object(StringIdModel):
                  + Object.query(Object.copies.uri.IN(ids)).fetch())
 
         replaced = False
+
         def replace(obj, field):
             val = as1.get_object(obj, field).get('id')
             if val:
@@ -976,7 +990,7 @@ class Object(StringIdModel):
                         replaced = True
 
         for obj in outer_obj, inner_obj:
-            for field in 'actor', 'author', 'inReplyTo':
+            for field in fields:
                 replace(obj, field)
 
         replace(inner_obj, 'id')
@@ -985,7 +999,7 @@ class Object(StringIdModel):
             replace(tag, 'url')
 
         if replaced:
-            self.our_as1 = outer_obj
+            self.our_as1 = util.trim_nulls(outer_obj)
 
 
 class Follower(ndb.Model):

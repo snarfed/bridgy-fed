@@ -49,10 +49,10 @@ class CommonTest(TestCase):
         self.assertEqual('http://ap.brid.gy/r/http://foo',
                          common.redirect_wrap('http://ap.brid.gy/r/http://foo'))
 
-    def test_redirect_unwrap_empty(self):
-        self.assertIsNone(common.redirect_unwrap(None))
+    def test_unwrap_empty(self):
+        self.assertIsNone(common.unwrap(None))
         for obj in '', {}, []:
-            self.assertEqual(obj, common.redirect_unwrap(obj))
+            self.assertEqual(obj, common.unwrap(obj))
 
     def test_subdomain_wrap(self):
         self.assertEqual('https://fa.brid.gy/',
@@ -63,40 +63,29 @@ class CommonTest(TestCase):
                          common.subdomain_wrap(UIProtocol))
 
     def test_unwrap_protocol_subdomain(self):
-        self.assert_equals({
-            'type': 'Like',
-            'object': 'http://foo',
-        }, common.redirect_unwrap({
-            'type': 'Like',
-            'object': 'https://ap.brid.gy/r/http://foo',
-        }))
+        for input, expected in [
+                ('https://fa.brid.gy/', ''),
+                ('https://fa.brid.gy/ap/fake:foo', 'fake:foo'),
+                ('https://atproto.brid.gy/convert/ap/did:plc:123', 'did:plc:123'),
+        ]:
+            self.assertEqual(expected, common.unwrap(input))
 
-    def test_unwrap_not_web(self):
-        bad = {
-            'type': 'Like',
-            'object': 'http://localhost/r/foo bar',
-        }
-        self.assert_equals(bad, common.redirect_unwrap(bad))
+    def test_unwrap_protocol_subdomain_object(self):
+        self.assert_equals(
+            {'object': 'http://foo'},
+            common.unwrap({'object': 'https://ap.brid.gy/r/http://foo',}))
+        self.assert_equals(
+            {'object': {'id': 'https://foo.com/'}},
+            common.unwrap({'object': {'id': 'https://fa.brid.gy/foo.com'}}))
 
     def test_unwrap_local_actor_urls(self):
         self.assert_equals(
             {'object': 'https://foo.com/'},
-            common.redirect_unwrap({'object': 'http://localhost/foo.com'}))
+            common.unwrap({'object': 'http://localhost/foo.com'}))
 
         self.assert_equals(
             {'object': {'id': 'https://foo.com/'}},
-            common.redirect_unwrap({'object': {'id': 'http://localhost/foo.com'}}))
-
-    def test_unwrap_protocol_subdomains(self):
-        self.assert_equals(
-            {'object': 'http://foo.com/bar'},
-            common.redirect_unwrap(
-                {'object': 'https://atproto.brid.gy/r/http://foo.com/bar'}))
-
-        self.assert_equals(
-            {'object': {'id': 'https://foo.com/'}},
-            common.redirect_unwrap(
-                {'object': {'id': 'https://fa.brid.gy/foo.com'}}))
+            common.unwrap({'object': {'id': 'http://localhost/foo.com'}}))
 
     def test_host_url(self):
         with app.test_request_context():

@@ -65,6 +65,10 @@ DOMAIN_BLOCKLIST = (
     'twitter.com',
 )
 
+# populated in models.reset_protocol_properties
+SUBDOMAIN_BASE_URL_RE = None
+ID_FIELDS = ['id', 'object', 'actor', 'author', 'inReplyTo', 'url']
+
 CACHE_TIME = timedelta(seconds=60)
 
 USER_AGENT = 'Bridgy Fed (https://fed.brid.gy/)'
@@ -172,8 +176,8 @@ def subdomain_wrap(proto, path=None):
     return urljoin(f'https://{proto.ABBREV or "fed"}{SUPERDOMAIN}/', path)
 
 
-def redirect_unwrap(val):
-    """Removes our redirect wrapping from a URL, if it's there.
+def unwrap(val, field=None):
+    """Removes our subdomain/redirect wrapping from a URL, if it's there.
 
     ``val`` may be a string, dict, or list. dicts and lists are unwrapped
     recursively.
@@ -182,29 +186,22 @@ def redirect_unwrap(val):
 
     Args:
       val (str or dict or list)
+      field (str): optional field name for this value
 
     Returns:
       str: unwrapped url
     """
     if isinstance(val, dict):
-        return {k: redirect_unwrap(v) for k, v in val.items()}
+        return {f: unwrap(v, field=f) for f, v in val.items()}
 
     elif isinstance(val, list):
-        return [redirect_unwrap(v) for v in val]
+        return [unwrap(v) for v in val]
 
     elif isinstance(val, str):
-        for domain in DOMAINS:
-            for scheme in 'http', 'https':
-                base = f'{scheme}://{domain}/'
-                redirect_prefix = f'{base}r/'
-                if val.startswith(redirect_prefix):
-                    unwrapped = val.removeprefix(redirect_prefix)
-                    if util.is_web(unwrapped):
-                        return unwrapped
-                elif val.startswith(base):
-                    path = val.removeprefix(base)
-                    if re.match(DOMAIN_RE, path):
-                        return f'https://{path}/'
+        unwrapped = SUBDOMAIN_BASE_URL_RE.sub('', val)
+        if field in ID_FIELDS and re.fullmatch(DOMAIN_RE, unwrapped):
+            unwrapped = f'https://{unwrapped}/'
+        return unwrapped
 
     return val
 
@@ -270,7 +267,6 @@ def create_task(queue, **params):
 
     if appengine_info.LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')
-        return
         return app.test_client().post(
             path, data=params, headers={flask_util.CLOUD_TASKS_QUEUE_HEADER: ''})
 

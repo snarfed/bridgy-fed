@@ -27,9 +27,9 @@ from common import (
     DOMAIN_RE,
     error,
     host_url,
-    redirect_unwrap,
     redirect_wrap,
     subdomain_wrap,
+    unwrap,
 )
 from models import Follower, Object, PROTOCOLS, User
 from protocol import Protocol
@@ -543,6 +543,8 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     # actors. wrap in our domain if necessary, then compact to just string id
     # for compatibility, since many other AP implementations choke on objects.
     # https://github.com/snarfed/bridgy-fed/issues/658
+    # TODO: expand this to general purpose compact() function and use elsewhere,
+    # eg in models.resolve_id
     for field in 'actor', 'attributedTo', 'author':
         actors = as1.get_objects(activity, field)
         if wrap:
@@ -850,11 +852,11 @@ def inbox(protocol=None, id=None):
         #
         # so, set a synthetic URL based on the follower's profile.
         # https://github.com/snarfed/bridgy-fed/issues/336
-        follower_url = redirect_unwrap(util.get_url(activity, 'actor'))
-        followee_url = redirect_unwrap(util.get_url(activity, 'object'))
+        follower_url = unwrap(util.get_url(activity, 'actor'))
+        followee_url = unwrap(util.get_url(activity, 'object'))
         activity.setdefault('url', f'{follower_url}#followed-{followee_url}')
 
-    obj = Object(id=activity.get('id'), as2=redirect_unwrap(activity))
+    obj = Object(id=activity.get('id'), as2=unwrap(activity))
     return ActivityPub.receive(obj, authed_as=authed_as)
 
 

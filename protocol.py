@@ -521,7 +521,7 @@ class Protocol:
             logger.warning(f"actor {actor} isn't authed user {authed_as}")
 
         # update copy ids to originals
-        obj.replace_copies_with_originals()
+        obj.resolve_ids()
 
         # write Object to datastore
         orig = obj
@@ -1119,7 +1119,7 @@ class Protocol:
         if not fetched:
             return None
 
-        obj.replace_copies_with_originals()
+        obj.resolve_ids()
 
         if obj.new is False:
             obj.changed = obj.activity_changed(orig_as1)

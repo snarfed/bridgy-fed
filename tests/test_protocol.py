@@ -165,7 +165,10 @@ class ProtocolTest(TestCase):
         Fake.fetchable['foo'] = {'x': 'y'}
 
         loaded = Fake.load('foo')
-        self.assert_equals({'x': 'y'}, loaded.our_as1)
+        self.assertEqual({
+            'id': 'foo',
+            'x': 'y',
+        }, loaded.our_as1)
         self.assertFalse(loaded.changed)
         self.assertTrue(loaded.new)
 
@@ -176,7 +179,10 @@ class ProtocolTest(TestCase):
         self.store_object(id='foo', our_as1={'x': 'y'})
 
         loaded = Fake.load('foo')
-        self.assert_equals({'x': 'y'}, loaded.our_as1)
+        self.assertEqual({
+            'id': 'foo',
+            'x': 'y',
+        }, loaded.our_as1)
         self.assertFalse(loaded.changed)
         self.assertFalse(loaded.new)
 
@@ -201,7 +207,10 @@ class ProtocolTest(TestCase):
         # check that it's a separate copy of the entity in the cache
         # https://github.com/snarfed/bridgy-fed/issues/558#issuecomment-1603203927
         loaded.our_as1 = {'a': 'b'}
-        self.assertEqual({'x': 'y'}, Protocol.load('foo').our_as1)
+        self.assertEqual({
+            'id': 'foo',
+            'x': 'y',
+        }, Protocol.load('foo').our_as1)
 
     def test_load_remote_true_existing_empty(self):
         Fake.fetchable['foo'] = {'x': 'y'}
@@ -249,7 +258,10 @@ class ProtocolTest(TestCase):
         Fake.fetchable['foo'] = {'content': 'new'}
 
         loaded = Fake.load('foo', remote=True)
-        self.assert_equals({'content': 'new'}, loaded.our_as1)
+        self.assertEqual({
+            'id': 'foo',
+            'content': 'new',
+        }, loaded.our_as1)
         self.assertTrue(loaded.changed)
         self.assertFalse(loaded.new)
         self.assertEqual(['foo'], Fake.fetched)
@@ -282,7 +294,7 @@ class ProtocolTest(TestCase):
         with self.assertRaises(AssertionError):
             Fake.load('nope', local=False, remote=False)
 
-    def test_load_replace_copies_with_originals(self):
+    def test_load_resolve_ids(self):
         follow = {
             'objectType': 'activity',
             'verb': 'follow',
