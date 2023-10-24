@@ -733,7 +733,8 @@ def postprocess_as2_actor(actor, wrap=True):
         if att.get('type') == 'PropertyValue':
             val = att.get('value', '')
             link = util.parse_html(val).find('a')
-            if url and (val == url or link.get('href') == url):
+            if url and url.rstrip('/') in [val.rstrip('/'),
+                                           link.get('href').rstrip('/')]:
                 att['name'] = 'Web site'
 
     # required by pixelfed. https://github.com/snarfed/bridgy-fed/issues/39

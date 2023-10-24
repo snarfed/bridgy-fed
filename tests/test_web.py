@@ -70,7 +70,7 @@ ACTOR_AS2_USER = {
     'attachment': [{
         'name': 'Ms. ☕ Baz',
         'type': 'PropertyValue',
-        'value': '<a rel="me" href="https://user.com/"><span class="invisible">https://</span>user.com<span class="invisible">/</span></a>',
+        'value': '<a rel="me" href="https://user.com"><span class="invisible">https://</span>user.com</a>',
     }],
 }
 ACTOR_AS2_FULL = {
@@ -82,7 +82,7 @@ ACTOR_AS2_FULL = {
     'attachment': [{
         'name': 'Web site',
         'type': 'PropertyValue',
-        'value': '<a rel="me" href="https://user.com/"><span class="invisible">https://</span>user.com<span class="invisible">/</span></a>',
+        'value': '<a rel="me" href="https://user.com"><span class="invisible">https://</span>user.com</a>',
     }],
     'inbox': 'http://localhost/user.com/inbox',
     'outbox': 'http://localhost/user.com/outbox',

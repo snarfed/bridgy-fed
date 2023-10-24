@@ -213,7 +213,7 @@ class FollowTest(TestCase):
                 'attachment': [{
                     'type': 'PropertyValue',
                     'name': 'Link',
-                    'value': '<a rel="me" href="https://bar/url"><span class="invisible">https://</span>bar/url<span class="invisible"></span></a>',
+                    'value': '<a rel="me" href="https://bar/url"><span class="invisible">https://</span>bar/url</a>',
                 }],
             },
         }

@@ -70,7 +70,7 @@ ACTOR_BASE_FULL = {
     'attachment': [{
         'name': 'Web site',
         'type': 'PropertyValue',
-        'value': '<a rel="me" href="https://user.com/"><span class="invisible">https://</span>user.com<span class="invisible">/</span></a>',
+        'value': '<a rel="me" href="https://user.com"><span class="invisible">https://</span>user.com</a>',
     }],
 }
 ACTOR_FAKE = {
@@ -1726,20 +1726,20 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals([{
             'type': 'PropertyValue',
             'name': 'Mrs. ☕ Foo',
-            'value': '<a rel="me" href="https://user.com/about-me"><span class="invisible">https://</span>user.com/about-me<span class="invisible"></span></a>',
+            'value': '<a rel="me" href="https://user.com/about-me"><span class="invisible">https://</span>user.com/about-me</a>',
 
         }, {
             'type': 'PropertyValue',
             'name': 'Web site',
-            'value': '<a rel="me" href="https://user.com/"><span class="invisible">https://</span>user.com<span class="invisible">/</span></a>',
+            'value': '<a rel="me" href="https://user.com"><span class="invisible">https://</span>user.com</a>',
         }, {
             'type': 'PropertyValue',
             'name': 'one text',
-            'value': '<a rel="me" href="http://one"><span class="invisible">http://</span>one<span class="invisible"></span></a>',
+            'value': '<a rel="me" href="http://one"><span class="invisible">http://</span>one</a>',
         }, {
             'type': 'PropertyValue',
             'name': 'two title',
-            'value': '<a rel="me" href="https://two"><span class="invisible">https://</span>two<span class="invisible"></span></a>',
+            'value': '<a rel="me" href="https://two"><span class="invisible">https://</span>two</a>',
         }], got['attachment'])
 
     def test_postprocess_as2_preserves_preferredUsername(self):
@@ -1753,7 +1753,7 @@ class ActivityPubUtilsTest(TestCase):
             'attachment': [{
                 'type': 'PropertyValue',
                 'name': 'nick',
-                'value': '<a rel="me" href="https://user.com/about-me"><span class="invisible">https://</span>user.com/about-me<span class="invisible"></span></a>',
+                'value': '<a rel="me" href="https://user.com/about-me"><span class="invisible">https://</span>user.com/about-me</a>',
             }],
         })['preferredUsername'])
 
