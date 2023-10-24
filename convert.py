@@ -102,7 +102,7 @@ def convert(dest, _, src=None):
         return '', 410
 
     # convert and serve
-    return dest_cls.serve(obj)
+    return dest_cls.convert(obj), {'Content-Type': dest_cls.CONTENT_TYPE}
 
 
 @app.get('/render')

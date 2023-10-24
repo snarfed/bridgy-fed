@@ -1975,10 +1975,9 @@ class ActivityPubUtilsTest(TestCase):
         self.assertIsNone(obj.as1)
 
     @skip
-    def test_serve(self):
+    def test_convert(self):
         obj = Object(id='http://orig', as2=LIKE)
-        self.assertEqual((LIKE_WRAPPED, {'Content-Type': 'application/activity+json'}),
-                         ActivityPub.serve(obj))
+        self.assertEqual(LIKE_WRAPPED, ActivityPub.convert(obj))
 
     def test_postprocess_as2_idempotent(self):
         g.user = self.make_user('foo.com')

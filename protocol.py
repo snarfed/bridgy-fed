@@ -61,10 +61,13 @@ class Protocol:
       OTHER_LABELS (list of str): label aliases
       ABBREV (str): lower case abbreviation, used in URL paths
       LOGO_HTML (str): logo emoji or ``<img>`` tag
+      CONTENT_TYPE (str): MIME type of this protocol's native data format,
+        appropriate for the ``Content-Type`` HTTP header.
     """
     ABBREV = None
     OTHER_LABELS = ()
     LOGO_HTML = ''
+    CONTENT_TYPE = None
 
     def __init__(self):
         assert False
@@ -407,12 +410,11 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def serve(cls, obj):
-        """Returns this protocol's Flask response for a given :class:`Object`.
+    def convert(cls, obj):
+        """Converts an :class:`Object` to this protocol's data format.
 
-        For example, an HTML string and ``text/html`` for :class:`Web`,
-        or a dict with AS2 JSON and ``application/activity+json`` for
-        :class:`ActivityPub`.
+        For example, an HTML string for :class:`Web`, or a dict with AS2 JSON
+        and ``application/activity+json`` for :class:`ActivityPub`.
 
         To be implemented by subclasses.
 
@@ -420,8 +422,7 @@ class Protocol:
           obj (models.Object):
 
         Returns:
-          (str, dict): (response body, HTTP headers) tuple appropriate to be
-          returned from a Flask handler
+          converted object data
         """
         raise NotImplementedError()
 

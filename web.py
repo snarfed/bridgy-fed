@@ -69,6 +69,7 @@ class Web(User, Protocol):
     ABBREV = 'web'
     OTHER_LABELS = ('webmention',)
     LOGO_HTML = '🕸️'
+    CONTENT_TYPE = common.CONTENT_TYPE_HTML
 
     has_redirects = ndb.BooleanProperty()
     redirects_error = ndb.TextProperty()
@@ -437,8 +438,15 @@ class Web(User, Protocol):
         return True
 
     @classmethod
-    def serve(cls, obj):
-        """Serves an :class:`Object` as HTML."""
+    def convert(cls, obj):
+        """Converts a :class:`Object` to HTML.
+
+        Args:
+          obj (models.Object)
+
+        Returns:
+          str:
+        """
         obj_as1 = obj.as1
 
         from_proto = PROTOCOLS.get(obj.source_protocol)
@@ -463,7 +471,7 @@ class Web(User, Protocol):
             refresh = f'<meta http-equiv="refresh" content="0;url={url}">'
             html = html.replace(utf8, utf8 + '\n' + refresh)
 
-        return html, {'Content-Type': common.CONTENT_TYPE_HTML}
+        return html
 
 
 @app.get('/web-site')

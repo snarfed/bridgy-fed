@@ -64,6 +64,7 @@ class ActivityPub(User, Protocol):
     """
     ABBREV = 'ap'
     LOGO_HTML = '<img src="/static/fediverse_logo.svg">'
+    CONTENT_TYPE = as2.CONTENT_TYPE
 
     def _pre_put_hook(self):
         """Validate id, require URL, don't allow Bridgy Fed domains.
@@ -317,10 +318,16 @@ class ActivityPub(User, Protocol):
         return False
 
     @classmethod
-    def serve(cls, obj):
-        """Serves a :class:`models.Object` as AS2."""
-        return (postprocess_as2(as2.from_as1(obj.as1)),
-                {'Content-Type': as2.CONTENT_TYPE})
+    def convert(cls, obj):
+        """Convert a :class:`models.Object` to AS2.
+
+        Args:
+          obj (models.Object)
+
+        Returns:
+          dict: AS2 JSON
+        """
+        return postprocess_as2(as2.from_as1(obj.as1))
 
     @classmethod
     def verify_signature(cls, activity):

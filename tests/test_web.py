@@ -2269,9 +2269,8 @@ class WebUtilTest(TestCase):
                     'target': 'https://user.com/post',
                 }, kwargs['data'])
 
-    def test_serve(self, _, __):
+    def test_convert(self, _, __):
         obj = Object(id='http://orig', mf2=ACTOR_MF2)
-        html, headers = Web.serve(obj)
         self.assert_multiline_equals("""\
 <!DOCTYPE html>
 <html>
@@ -2284,8 +2283,7 @@ class WebUtilTest(TestCase):
   </span>
 </body>
 </html>
-""", html, ignore_blanks=True)
-        self.assertEqual({'Content-Type': 'text/html; charset=utf-8'}, headers)
+""", Web.convert(obj), ignore_blanks=True)
 
     def test_target_for(self, _, __):
         self.assertIsNone(Web.target_for(Object(id='x', source_protocol='web')))

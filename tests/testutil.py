@@ -64,6 +64,7 @@ COMMENT = {
 
 class Fake(User, protocol.Protocol):
     ABBREV = 'fa'
+    CONTENT_TYPE = 'fa/ke'
 
     # maps string ids to dict AS1 objects that can be fetched
     fetchable = {}
@@ -122,10 +123,9 @@ class Fake(User, protocol.Protocol):
         return False
 
     @classmethod
-    def serve(cls, obj):
-        logger.info(f'{cls.__name__}.load {obj.key.id()}')
-        return (f'{cls.__name__} object {obj.key.id()}',
-                {'Accept': 'fake/protocol'})
+    def convert(cls, obj):
+        logger.info(f'{cls.__name__}.convert {obj.key.id()}')
+        return obj.as1
 
     @classmethod
     def target_for(cls, obj, shared=False):

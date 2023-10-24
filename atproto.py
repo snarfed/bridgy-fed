@@ -59,6 +59,7 @@ class ATProto(User, Protocol):
     ABBREV = 'atproto'
     LOGO_HTML = '<img src="/static/atproto_logo.png">'
     PDS_URL = f'https://{ABBREV}{common.SUPERDOMAIN}/'
+    CONTENT_TYPE = 'application/json'
 
     def _pre_put_hook(self):
         """Validate id, require did:plc or non-blocklisted did:web.
@@ -374,16 +375,21 @@ class ATProto(User, Protocol):
         return True
 
     @classmethod
-    def serve(cls, obj):
-        """Serves a :class:`models.Object` as AS2.
+    def convert(cls, obj):
+        """Converts a :class:`models.Object` to ``app.bsky.*`` lexicon JSON.
 
-        This is minimally implemented to serve ``app.bsky.*`` lexicon data, but
-        BGSes and other clients will generally receive ATProto commits via
-        ``com.atproto.sync.subscribeRepos`` subscriptions, not BF-specific
-        ``/convert/...`` HTTP requests, so this should never be used in
-        practice.
+        This is implemented, but BGSes and other clients will generally receive
+        ATProto commits via ``com.atproto.sync.subscribeRepos`` subscriptions,
+        not BF-specific ``/convert/...`` HTTP requests, so in practice, this
+        should be used rarely, if ever.
+
+        Args:
+          obj (models.Object)
+
+        Returns:
+          dict: JSON object
         """
-        return bluesky.from_as1(obj.as1), {'Content-Type': 'application/json'}
+        return bluesky.from_as1(obj.as1)
 
 
 # URL route is registered in hub.py

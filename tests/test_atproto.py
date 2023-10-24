@@ -233,16 +233,14 @@ class ATProtoTest(TestCase):
             },
         )
 
-    def test_serve(self):
+    def test_convert(self):
         obj = self.store_object(id='http://orig', our_as1=ACTOR_AS)
         expected = trim_nulls({
             **ACTOR_PROFILE_BSKY,
             'avatar': None,
             'banner': None,
         })
-        self.assertEqual(
-            (expected, {'Content-Type': 'application/json'}),
-            ATProto.serve(obj))
+        self.assertEqual(expected, ATProto.convert(obj))
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):
