@@ -4,7 +4,7 @@ https://fed.brid.gy/docs#translate
 """
 import re
 
-from common import host_url, SUPERDOMAIN
+from common import subdomain_wrap, SUPERDOMAIN
 
 
 def convert_id(*, id, from_proto, to_proto):
@@ -32,7 +32,7 @@ def convert_id(*, id, from_proto, to_proto):
             user = from_proto.get_for_copy(id)
             return user.key.id() if user else None
         case (_, 'activitypub'):
-            return host_url(f'{from_proto.ABBREV}/ap/{id}')
+            return subdomain_wrap(from_proto, f'/ap/{id}')
         case ('activitypub', 'web'):
             return id
         # fake protocol is only for unit tests

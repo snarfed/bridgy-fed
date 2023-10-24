@@ -176,7 +176,7 @@ class UserTest(TestCase):
         user = self.make_user('fake:user', cls=Fake)
         self.assertEqual('fake:user', user.id_as(Fake))
         self.assertEqual('fake:user', user.id_as('fake'))
-        self.assertEqual('http://localhost/fa/ap/fake:user', user.id_as('ap'))
+        self.assertEqual('https://fa.brid.gy/ap/fake:user', user.id_as('ap'))
 
     def test_handle_as(self):
         user = self.make_user('fake:user', cls=Fake)
