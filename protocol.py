@@ -38,7 +38,7 @@ SUPPORTED_TYPES = (
     'video',
 )
 
-DELIVER_THREADS = 30
+DELIVER_THREADS = 10
 
 # activity ids that we've already handled and can now ignore.
 # used in Protocol.receive
