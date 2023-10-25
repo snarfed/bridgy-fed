@@ -531,9 +531,9 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
        ``attributedTo``
     """
     if not activity or isinstance(activity, str):
-        return activity
+        return redirect_wrap(activity) if wrap else activity
     elif activity.keys() == {'id'}:
-        return activity['id']
+        return redirect_wrap(activity['id']) if wrap else activity['id']
 
     type = activity.get('type')
 
@@ -618,9 +618,6 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         activity['id'] = util.get_first(activity, 'url')
 
     if wrap:
-        # Deletes' object is our own id
-        if type == 'Delete':
-            activity['object'] = redirect_wrap(activity['object'])
         activity['id'] = redirect_wrap(activity.get('id'))
         activity['url'] = [redirect_wrap(u) for u in util.get_list(activity, 'url')]
         if len(activity['url']) == 1:
