@@ -317,7 +317,7 @@ class ProtocolTest(TestCase):
         self.assert_equals({
             **follow,
             'id': 'fake:follow',
-            'object': {'id': 'other:bob'},
+            'object': 'other:bob',
         }, obj.our_as1)
 
     def test_actor_key(self):
@@ -1432,8 +1432,8 @@ class ProtocolReceiveTest(TestCase):
         Fake.receive(obj)
         self.assert_equals({
             **follow,
-            'actor': {'id': 'fake:alice'},
-            'object': {'id': 'other:bob'},
+            'actor': 'fake:alice',
+            'object': 'other:bob',
         }, Object.get_by_id('fake:follow').our_as1)
 
     def test_replace_actor_copies_with_originals_share(self):
@@ -1462,7 +1462,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:share',
             'objectType': 'activity',
             'verb': 'share',
-            'object': {'id': 'other:post'},
+            'object': 'other:post',
         }, obj.our_as1)
 
     def test_receive_task_handler(self):

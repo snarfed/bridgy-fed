@@ -742,7 +742,7 @@ class ObjectTest(TestCase):
         self.assert_equals({
             **follow,
             'actor': 'other:alice',
-            'object': {'id': 'other:bob'},
+            'object': 'other:bob',
         }, obj.our_as1)
 
     def test_resolve_ids_copies_reply(self):

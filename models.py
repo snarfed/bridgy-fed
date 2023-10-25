@@ -983,6 +983,8 @@ class Object(StringIdModel):
                 replace(obj, field)
 
         replace(inner_obj, 'id')
+        if inner_obj.keys() == {'id'}:
+            outer_obj['object'] = inner_obj['id']
 
         for tag in mention_tags:
             replace(tag, 'url')
