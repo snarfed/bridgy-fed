@@ -1432,7 +1432,7 @@ class ProtocolReceiveTest(TestCase):
         Fake.receive(obj)
         self.assert_equals({
             **follow,
-            'actor': 'fake:alice',
+            'actor': {'id': 'fake:alice'},
             'object': 'other:bob',
         }, Object.get_by_id('fake:follow').our_as1)
 

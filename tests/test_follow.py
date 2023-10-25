@@ -35,13 +35,14 @@ FOLLOWEE = {
     'id': 'https://bar/id',
     'url': 'https://bar/url',
     'inbox': 'http://bar/inbox',
+    'outbox': 'http://bar/outbox',
 }
 FOLLOW_ADDRESS = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Follow',
     'id': f'http://localhost/web/alice.com/following#2022-01-02T03:04:05-@foo@bar',
     'actor': 'http://localhost/alice.com',
-    'object': FOLLOWEE,
+    'object': FOLLOWEE['id'],
     'to': [as2.PUBLIC_AUDIENCE],
 }
 FOLLOW_URL = copy.deepcopy(FOLLOW_ADDRESS)
@@ -188,10 +189,7 @@ class FollowTest(TestCase):
         self.check('https://bar/actor', resp, FOLLOW_URL, mock_get, mock_post)
 
     def test_callback_stored_followee_with_our_as1(self, mock_get, mock_post):
-        self.store_object(id='https://bar/id', our_as1=as2.to_as1({
-            **FOLLOWEE,
-            # 'id': 'https://bar/actor',
-        }))
+        self.store_object(id='https://bar/id', our_as1=as2.to_as1(FOLLOWEE))
 
         mock_get.side_effect = (
             requests_response(''),
@@ -208,14 +206,7 @@ class FollowTest(TestCase):
         follow_with_profile_link = {
             **FOLLOW_URL,
             'id': f'http://localhost/web/alice.com/following#2022-01-02T03:04:05-https://bar/id',
-            'object': {
-                **FOLLOWEE,
-                'attachment': [{
-                    'type': 'PropertyValue',
-                    'name': 'Link',
-                    'value': '<a rel="me" href="https://bar/url"><span class="invisible">https://</span>bar/url</a>',
-                }],
-            },
+            'object': 'https://bar/id',
         }
         self.check('https://bar/id', resp, follow_with_profile_link, mock_get,
                    mock_post, fetched_followee=False)
@@ -246,9 +237,7 @@ class FollowTest(TestCase):
         state = util.encode_oauth_state(self.state)
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
 
-        expected_follow = copy.deepcopy(FOLLOW_URL)
-        expected_follow['object'] = followee
-        self.check('https://bar/actor', resp, expected_follow, mock_get, mock_post)
+        self.check('https://bar/actor', resp, FOLLOW_URL, mock_get, mock_post)
 
     def check(self, input, resp, expected_follow, mock_get, mock_post,
               fetched_followee=True):
@@ -321,18 +310,14 @@ class FollowTest(TestCase):
 
         id = 'http://localhost/web/www.alice.com/following#2022-01-02T03:04:05-https://bar/actor'
         expected_follow = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'type': 'Follow',
+            **FOLLOW_URL,
             'id': id,
             'actor': 'http://localhost/www.alice.com',
-            'object': FOLLOWEE,
-            'to': [as2.PUBLIC_AUDIENCE],
         }
         followee = ActivityPub(id='https://bar/id').key
         follow_obj = self.assert_object(
             id, users=[user.key, followee], status='complete',
-            labels=['user', 'activity'], source_protocol='ui', as2=expected_follow,
-            as1=as2.to_as1(expected_follow))
+            labels=['user', 'activity'], source_protocol='ui', as2=expected_follow)
 
         followers = Follower.query().fetch()
         self.assert_entities_equal(
@@ -363,11 +348,7 @@ class FollowTest(TestCase):
         state = util.encode_oauth_state(self.state)
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
 
-        expected_follow = {
-            **FOLLOW_URL,
-            'object': followee,
-        }
-        self.check('https://bar/actor', resp, expected_follow, mock_get, mock_post)
+        self.check('https://bar/actor', resp, FOLLOW_URL, mock_get, mock_post)
         self.assertEqual(
             [f'Followed <a href="https://bar/url">https://bar/actor</a>.'],
             get_flashed_messages())

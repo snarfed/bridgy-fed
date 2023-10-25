@@ -160,18 +160,6 @@ class UserTest(TestCase):
     def test_handle(self):
         self.assertEqual('y.z', g.user.handle)
 
-    def test_as2(self):
-        self.assertEqual({}, g.user.as2())
-
-        obj = Object(id='foo')
-        g.user.obj_key = obj.key  # doesn't exist
-        self.assertEqual({}, g.user.as2())
-
-        del g.user._obj
-        obj.as2 = {'foo': 'bar'}
-        obj.put()
-        self.assertEqual({'foo': 'bar'}, g.user.as2())
-
     def test_id_as(self):
         user = self.make_user('fake:user', cls=Fake)
         self.assertEqual('fake:user', user.id_as(Fake))
@@ -531,26 +519,6 @@ class ObjectTest(TestCase):
         obj.our_as1 = {'foo': 'bar'}
         obj.put()
         self.assertEqual(['user'], obj.labels)
-
-    def test_as_as2(self):
-        obj = Object()
-        self.assertEqual({}, obj.as_as2())
-
-        obj.our_as1 = {}
-        self.assertEqual({}, obj.as_as2())
-
-        obj.our_as1 = {
-            'objectType': 'person',
-            'foo': 'bar',
-        }
-        self.assertEqual({
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'type': 'Person',
-            'foo': 'bar',
-        }, obj.as_as2())
-
-        obj.as2 = {'baz': 'biff'}
-        self.assertEqual({'baz': 'biff'}, obj.as_as2())
 
     def test_as1_from_as2(self):
         self.assert_equals({

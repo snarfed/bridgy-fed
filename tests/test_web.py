@@ -62,17 +62,6 @@ ACTOR_AS2 = {
     'inbox': 'http://localhost/user.com/inbox',
     'outbox': 'http://localhost/user.com/outbox',
 }
-ACTOR_AS2_USER = {
-    'type': 'Person',
-    'id': 'https://user.com/',
-    'url': 'https://user.com/',
-    'name': 'Ms. ☕ Baz',
-    'attachment': [{
-        'name': 'Ms. ☕ Baz',
-        'type': 'PropertyValue',
-        'value': '<a rel="me" href="https://user.com"><span class="invisible">https://</span>user.com</a>',
-    }],
-}
 ACTOR_AS2_FULL = {
     **ACTOR_AS2,
     '@context': [
@@ -931,8 +920,8 @@ class WebTest(TestCase):
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals(AS2_CREATE, json_loads(kwargs['data']))
 
-    def test_like_stored_object_without_as2(self, mock_get, mock_post):
-        Object(id='https://mas.to/toot', mf2=NOTE_MF2, source_protocol='ap').put()
+    def test_like_stored_object(self, mock_get, mock_post):
+        Object(id='https://mas.to/toot', source_protocol='ap').put()
         Object(id='https://user.com/', mf2=ACTOR_MF2).put()
         mock_get.side_effect = [
             LIKE,
@@ -1608,15 +1597,20 @@ class WebTest(TestCase):
                                expected_as2)
 
         # updated Web user
-        self.assert_user(Web, 'user.com',
-                         obj_as2={
-                             **ACTOR_AS2_USER,
-                             'updated': '2022-01-02T03:04:05+00:00',
-                         },
-                         direct=True,
-                         has_redirects=True,
-                         )
-
+        expected_actor_as2 = {
+            'type': 'Person',
+            'id': 'https://user.com/',
+            'url': 'https://user.com/',
+            'name': 'Ms. ☕ Baz',
+            'attachment': [{
+                'name': 'Ms. ☕ Baz',
+                'type': 'PropertyValue',
+                'value': '<a rel="me" href="https://user.com"><span class="invisible">https://</span>user.com</a>',
+            }],
+            'updated': '2022-01-02T03:04:05+00:00',
+        }
+        self.assert_user(Web, 'user.com', obj_as2=expected_actor_as2, direct=True,
+                         has_redirects=True)
 
         # homepage object
         actor = {
@@ -1841,7 +1835,7 @@ http://this/404s
         # preferredUsername stays y.z despite user's username. since Mastodon
         # queries Webfinger for preferredUsername@fed.brid.gy
         # https://github.com/snarfed/bridgy-fed/issues/77#issuecomment-949955109
-        postprocessed = postprocess_as2(g.user.as2())
+        postprocessed = ActivityPub.convert(g.user.obj)
         self.assertEqual('user.com', postprocessed['preferredUsername'])
 
     def test_web_url(self, _, __):

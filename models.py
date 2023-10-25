@@ -306,10 +306,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         for u in users:
             u._obj = keys_to_objs.get(u.obj_key)
 
-    def as2(self):
-        """Returns this user as an AS2 actor."""
-        return self.obj.as_as2() if self.obj else {}
-
     @ndb.ComputedProperty
     def handle(self):
         """This user's unique, human-chosen handle, eg ``@me@snarfed.org``.
@@ -540,6 +536,7 @@ class Object(StringIdModel):
     # choices is populated in app, after all User subclasses are created,
     # so that PROTOCOLS is fully populated
     # TODO: remove? is this redundant with the protocol-specific data fields below?
+    # TODO: otherwise, nail down whether this is ABBREV or LABEL
     source_protocol = ndb.StringProperty(choices=[])
     labels = ndb.StringProperty(repeated=True, choices=LABELS)
 
@@ -805,10 +802,6 @@ class Object(StringIdModel):
             with self.lock:
                 setattr(self, prop, None)
 
-    def as_as2(self):
-        """Returns this object as an AS2 dict."""
-        return self.as2 or as2.from_as1(self.as1) or {}
-
     def as_bsky(self, fetch_blobs=False):
         """Returns this object as a Bluesky record.
 
@@ -938,13 +931,16 @@ class Object(StringIdModel):
         * ``object.inReplyTo``
         * ``tags.[objectType=mention].url``
         """
-        if not self.as1 or not self.source_protocol:
+        if not self.as1:
             return
 
         # extract ids, strip Bridgy Fed subdomain URLs
         outer_obj = unwrap(self.as1)
         if outer_obj != self.as1:
             self.our_as1 = util.trim_nulls(outer_obj)
+
+        if not self.source_protocol:
+            return
 
         inner_obj = outer_obj['object'] = as1.get_object(outer_obj)
         fields = ['actor', 'author', 'inReplyTo']

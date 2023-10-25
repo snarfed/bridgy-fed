@@ -1974,10 +1974,31 @@ class ActivityPubUtilsTest(TestCase):
         self.assertFalse(ActivityPub.fetch(obj))
         self.assertIsNone(obj.as1)
 
-    @skip
     def test_convert(self):
-        obj = Object(id='http://orig', as2=LIKE)
-        self.assertEqual(LIKE_WRAPPED, ActivityPub.convert(obj))
+        obj = Object()
+        self.assertEqual({}, ActivityPub.convert(obj))
+
+        obj.our_as1 = {}
+        self.assertEqual({}, ActivityPub.convert(obj))
+
+        obj = Object(id='http://orig', our_as1={
+            'id': 'http://user.com/like',
+            'objectType': 'activity',
+            'verb': 'like',
+            'actor': 'https://user.com/',
+            'object': 'https://mas.to/post',
+        })
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'http://localhost/r/http://user.com/like',
+            'type': 'Like',
+            'actor': 'http://localhost/user.com',
+            'object': 'https://mas.to/post',
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        }, ActivityPub.convert(obj))
+
+        obj.as2 = {'baz': 'biff'}
+        self.assertEqual({'baz': 'biff'}, ActivityPub.convert(obj))
 
     def test_postprocess_as2_idempotent(self):
         g.user = self.make_user('foo.com')

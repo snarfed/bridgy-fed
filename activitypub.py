@@ -93,7 +93,7 @@ class ActivityPub(User, Protocol):
     def handle(self):
         """Returns this user's ActivityPub address, eg ``@user@foo.com``."""
         if self.obj and self.obj.as1:
-            addr = as2.address(self.as2())
+            addr = as2.address(self.convert(self.obj))
             if addr:
                 return addr
 
@@ -179,7 +179,7 @@ class ActivityPub(User, Protocol):
 
             logger.info(f'{obj.key} type {obj.type} is not an actor and has no author or actor with inbox')
 
-        actor = obj.as_as2()
+        actor = ActivityPub.convert(obj)
 
         if shared:
             shared_inbox = actor.get('endpoints', {}).get('sharedInbox')
@@ -199,9 +199,7 @@ class ActivityPub(User, Protocol):
             logger.info(f'Skipping sending to blocklisted {url}')
             return False
 
-        orig_as2 = orig_obj.as_as2() if orig_obj else None
-        activity = obj.as2 or postprocess_as2(obj.as_as2(), orig_obj=orig_as2)
-
+        activity = to_cls.convert(obj, orig_obj=to_cls.convert(orig_obj))
         if not activity.get('actor'):
             logger.warning('Outgoing AP activity has no actor!')
 
@@ -318,7 +316,7 @@ class ActivityPub(User, Protocol):
         return False
 
     @classmethod
-    def convert(cls, obj):
+    def convert(cls, obj, **kwargs):
         """Convert a :class:`models.Object` to AS2.
 
         Args:
@@ -326,8 +324,17 @@ class ActivityPub(User, Protocol):
 
         Returns:
           dict: AS2 JSON
+          kwargs: passed through to :func:`postprocess_as2`
         """
-        return postprocess_as2(as2.from_as1(obj.as1))
+        if not obj:
+            return {}
+
+        if obj.as2:
+            return obj.as2
+        elif obj.source_protocol in ('ap', 'activitypub'):
+            return as2.from_as1(obj.as1)
+
+        return postprocess_as2(as2.from_as1(obj.as1), **kwargs)
 
     @classmethod
     def verify_signature(cls, activity):
@@ -399,7 +406,8 @@ class ActivityPub(User, Protocol):
         elif not key_actor or not key_actor.as1:
             error(f"Couldn't load {keyId} to verify signature", status=401)
 
-        key = key_actor.as_as2().get('publicKey', {}).get('publicKeyPem')
+        # don't ActivityPub.convert since we don't want to postprocess_as2
+        key = as2.from_as1(key_actor.as1).get('publicKey', {}).get('publicKeyPem')
         if not key:
             error(f'No public key for {keyId}', status=401)
 
@@ -524,8 +532,9 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     """
     if not activity or isinstance(activity, str):
         return activity
+    elif activity.keys() == {'id'}:
+        return activity['id']
 
-    assert g.user
     type = activity.get('type')
 
     # actor objects
@@ -681,10 +690,12 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     if content := obj_or_activity.get('content'):
         obj_or_activity.setdefault('contentMap', {'en': content})
 
-    activity['object'] = postprocess_as2(
-        activity.get('object'),
-        orig_obj=orig_obj,
-        wrap=wrap and type in ('Create', 'Update', 'Delete'))
+    activity['object'] = [
+        postprocess_as2(o, orig_obj=orig_obj,
+                        wrap=wrap and type in ('Create', 'Update', 'Delete'))
+        for o in as1.get_objects(activity)]
+    if len(activity['object']) == 1:
+        activity['object'] = activity['object'][0]
 
     return util.trim_nulls(activity)
 
@@ -712,28 +723,26 @@ def postprocess_as2_actor(actor, wrap=True):
     urls = util.get_list(actor, 'url')
     if not urls and url:
         urls = [url]
-
-    domain = util.domain_from_link(urls[0], minimize=False)
-    if wrap:
+    if urls and wrap:
         urls[0] = redirect_wrap(urls[0])
 
     id = actor.get('id')
     if g.user and (not id or g.user.is_web_url(id)):
         actor['id'] = g.user.ap_actor()
 
-    actor.update({
-        'url': urls if len(urls) > 1 else urls[0],
-        # required by ActivityPub
-        # https://www.w3.org/TR/activitypub/#actor-objects
-        'inbox': g.user.ap_actor('inbox'),
-        'outbox': g.user.ap_actor('outbox'),
-    })
+    actor['url'] = urls[0] if len(urls) == 1 else urls
+    # required by ActivityPub
+    # https://www.w3.org/TR/activitypub/#actor-objects
+    actor.setdefault('inbox', g.user.ap_actor('inbox'))
+    actor.setdefault('outbox', g.user.ap_actor('outbox'))
 
     # TODO: genericize (see line 752 in actor())
     if g.user.LABEL != 'atproto':
         # This has to be the domain for Mastodon interop/Webfinger discovery!
         # See related comment in actor() below.
-        actor['preferredUsername'] = domain
+        assert urls
+        actor['preferredUsername'] = util.domain_from_link(
+            unwrap(urls[0]), minimize=False)
 
     # Override the label for their home page to be "Web site"
     for att in util.get_list(actor, 'attachment'):
@@ -780,7 +789,7 @@ def actor(handle_or_id):
     if not g.user.obj or not g.user.obj.as1:
         g.user.obj = cls.load(g.user.profile_id(), gateway=True)
 
-    actor = g.user.as2() or {
+    actor = ActivityPub.convert(g.user.obj) or {
         '@context': [as2.CONTEXT],
         'type': 'Person',
     }
@@ -893,7 +902,7 @@ def follower_collection(id, collection):
     page = {
         'type': 'CollectionPage',
         'partOf': request.base_url,
-        'items': util.trim_nulls([f.user.as2() for f in followers]),
+        'items': util.trim_nulls([ActivityPub.convert(f.user.obj) for f in followers]),
     }
     if new_before:
         page['next'] = f'{request.base_url}?before={new_before}'

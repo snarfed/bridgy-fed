@@ -456,7 +456,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         obj_as2 = props.pop('obj_as2', None)
         if obj_as2:
-            self.assert_equals(obj_as2, got.as2())
+            self.assert_equals(obj_as2, as2.from_as1(got.obj.as1))
 
         # generated, computed, etc
         ignore = ['created', 'mod', 'handle', 'obj_key', 'private_exponent',
