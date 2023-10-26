@@ -426,6 +426,50 @@ class ProtocolTest(TestCase):
             Target(uri='other:bob:target', protocol='otherfake'),
         ], Protocol.targets(obj).keys())
 
+    def test_convert_wrap_follow(self):
+        self.assert_equals({
+            'id': 'https://fa.brid.gy/convert/other/fake:follow',
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'https://fa.brid.gy/convert/other/fake:alice',
+            'object': 'https://fa.brid.gy/convert/other/fake:bob',
+        }, OtherFake.convert_wrap({
+            'id': 'fake:follow',
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'fake:alice',
+            'object': 'fake:bob',
+        }))
+
+    def test_wrap_reply(self):
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'create',
+            'object': {
+                'id': 'https://fa.brid.gy/convert/other/fake:reply',
+                'objectType': 'note',
+                'inReplyTo': 'https://fa.brid.gy/convert/other/fake:post',
+                'author': 'https://fa.brid.gy/convert/other/fake:alice',
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': 'https://fa.brid.gy/convert/other/fake:bob',
+                }],
+            },
+        }, OtherFake.convert_wrap({
+            'objectType': 'activity',
+            'verb': 'create',
+            'object': {
+                'id': 'fake:reply',
+                'objectType': 'note',
+                'inReplyTo': 'fake:post',
+                'author': {'id': 'fake:alice'},
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': 'fake:bob',
+                }],
+            },
+        }))
+
 
 class ProtocolReceiveTest(TestCase):
 

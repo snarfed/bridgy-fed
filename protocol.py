@@ -1,5 +1,6 @@
 """Base protocol class and common code."""
 from concurrent.futures import ThreadPoolExecutor
+import copy
 import logging
 import threading
 from urllib.parse import urljoin
@@ -14,7 +15,7 @@ from oauth_dropins.webutil.flask_util import cloud_tasks_only
 import werkzeug.exceptions
 
 import common
-from common import add, DOMAIN_BLOCKLIST, DOMAINS, error
+from common import add, DOMAIN_BLOCKLIST, DOMAINS, error, subdomain_wrap
 from flask_app import app
 from models import Follower, Object, PROTOCOLS, Target, User
 from oauth_dropins.webutil import util
@@ -464,6 +465,66 @@ class Protocol:
         """
         return util.domain_or_parent_in(util.domain_from_link(url),
                                         DOMAIN_BLOCKLIST + DOMAINS)
+
+    @classmethod
+    def convert_wrap(to_cls, obj):
+        """Wraps ids and actors in an AS1 object in subdomain convert URLs.
+
+        Infers source protocol for each id value separately.
+
+        For example, if ``proto`` is :class:`ActivityPub`, the ATProto URI
+        ``at://did:plc:abc/coll/123`` will be converted to
+        ``https://atproto.brid.gy/ap/at://did:plc:abc/coll/123``.
+
+        Wraps these AS1 fields:
+
+        * ``id``
+        * ``actor``
+        * ``author``
+        * ``object``
+        * ``object.actor``
+        * ``object.author``
+        * ``object.id``
+        * ``object.inReplyTo``
+        * ``tags.[objectType=mention].url``
+
+        Duplicates much of :meth:`models.Object.resolve_ids`!
+
+        Args:
+          to_proto (Protocol subclass)
+          obj (dict): AS1 object or activity
+
+        Returns:
+          dict: wrapped version of ``obj``
+        """
+        outer_obj = copy.deepcopy(obj)
+        inner_obj = outer_obj['object'] = as1.get_object(outer_obj)
+
+        def convert(elem, field):
+            elem[field] = as1.get_object(elem, field)
+            val = elem[field].get('id')
+            if val and util.domain_from_link(val) not in DOMAINS:
+                from_proto = Protocol.for_id(val)
+                if from_proto != to_cls:
+                    elem[field]['id'] = subdomain_wrap(
+                        from_proto, f'convert/{to_cls.ABBREV}/{val}')
+                    if elem[field].keys() == {'id'}:
+                        elem[field] = elem[field]['id']
+
+        for o in outer_obj, inner_obj:
+            for field in ('actor', 'author', 'id', 'inReplyTo'):
+                convert(o, field)
+
+        for tag in (as1.get_objects(outer_obj, 'tags')
+                    + as1.get_objects(inner_obj, 'tags')):
+            if tag.get('objectType') == 'mention':
+                convert(tag, 'url')
+
+        outer_obj = util.trim_nulls(outer_obj)
+        if outer_obj['object'].keys() == {'id'}:
+            outer_obj['object'] = inner_obj['id']
+
+        return outer_obj
 
     @classmethod
     def receive(from_cls, obj, authed_as=None):

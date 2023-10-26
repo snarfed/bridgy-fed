@@ -173,7 +173,8 @@ def subdomain_wrap(proto, path=None):
     Returns:
       str: URL
     """
-    return urljoin(f'https://{proto.ABBREV or "fed"}{SUPERDOMAIN}/', path)
+    subdomain = proto.ABBREV if proto and proto.ABBREV else 'fed'
+    return urljoin(f'https://{subdomain}{SUPERDOMAIN}/', path)
 
 
 def unwrap(val, field=None):

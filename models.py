@@ -922,6 +922,7 @@ class Object(StringIdModel):
 
         ...in these AS1 fields, in place:
 
+        * ``id``
         * ``actor``
         * ``author``
         * ``object``
@@ -930,6 +931,8 @@ class Object(StringIdModel):
         * ``object.id``
         * ``object.inReplyTo``
         * ``tags.[objectType=mention].url``
+
+        Duplicates much of :func:`common.wrap`!
         """
         if not self.as1:
             return
