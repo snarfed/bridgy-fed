@@ -81,7 +81,7 @@ pycryptodome==3.19.0
 pyjwt==2.8.0
 pymemcache==4.0.0
 pyparsing==3.1.1
-pyrsistent==0.19.3
+pyrsistent==0.20.0
 python-dateutil==2.8.2
 python-tumblpy==1.1.4
 pytz==2023.3.post1
