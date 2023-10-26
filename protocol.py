@@ -467,7 +467,7 @@ class Protocol:
                                         DOMAIN_BLOCKLIST + DOMAINS)
 
     @classmethod
-    def convert_wrap(to_cls, obj):
+    def translate_ids(to_cls, obj):
         """Wraps ids and actors in an AS1 object in subdomain convert URLs.
 
         Infers source protocol for each id value separately.

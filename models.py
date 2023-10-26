@@ -354,7 +354,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if isinstance(to_proto, str):
             to_proto = PROTOCOLS[to_proto]
 
-        return ids.convert_handle(handle=self.handle, from_proto=self.__class__,
+        return ids.translate_handle(handle=self.handle, from_proto=self.__class__,
                                   to_proto=to_proto)
 
     def id_as(self, to_proto):
@@ -369,8 +369,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if isinstance(to_proto, str):
             to_proto = PROTOCOLS[to_proto]
 
-        return ids.convert_id(id=self.key.id(), from_proto=self.__class__,
-                                  to_proto=to_proto)
+        return ids.translate_user_id(id=self.key.id(), from_proto=self.__class__,
+                                     to_proto=to_proto)
 
     def handle_or_id(self):
         """Returns handle if we know it, otherwise id."""

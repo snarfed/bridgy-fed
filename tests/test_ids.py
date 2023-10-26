@@ -1,14 +1,14 @@
 """Unit tests for ids.py."""
 from activitypub import ActivityPub
 from atproto import ATProto
-from ids import convert_handle, convert_id
+from ids import translate_handle, translate_user_id
 from models import Target
 from web import Web
 from .testutil import Fake, TestCase
 
 
 class IdsTest(TestCase):
-    def test_convert_id(self):
+    def test_translate_user_id(self):
         Web(id='user.com', atproto_did='did:plc:123',
             copies=[Target(uri='did:plc:123', protocol='atproto')]).put()
         ActivityPub(id='https://inst/user', atproto_did='did:plc:456',
@@ -35,22 +35,22 @@ class IdsTest(TestCase):
             (Web, 'user.com', Web, 'user.com'),
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
-                self.assertEqual(expected, convert_id(
+                self.assertEqual(expected, translate_user_id(
                     id=id, from_proto=from_, to_proto=to))
 
-    def test_convert_id_no_atproto_did_stored(self):
+    def test_translate_user_id_no_atproto_did_stored(self):
         for proto, id in [
             (Web, 'user.com'),
             (ActivityPub, 'https://instance/user'),
             (Fake, 'fake:user'),
         ]:
             with self.subTest(proto=proto.LABEL):
-                self.assertIsNone(convert_id(
+                self.assertIsNone(translate_user_id(
                     id=id, from_proto=proto, to_proto=ATProto))
-                self.assertIsNone(convert_id(
+                self.assertIsNone(translate_user_id(
                     id='did:plc:123', from_proto=ATProto, to_proto=proto))
 
-    def test_convert_handle(self):
+    def test_translate_handle(self):
         for from_, handle, to, expected in [
             # basic
             (Web, 'user.com', ActivityPub, '@user.com@web.brid.gy'),
@@ -84,5 +84,5 @@ class IdsTest(TestCase):
             (Fake, 'fake:handle:user', Web, 'fake:handle:user'),
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
-                self.assertEqual(expected, convert_handle(
+                self.assertEqual(expected, translate_handle(
                     handle=handle, from_proto=from_, to_proto=to))

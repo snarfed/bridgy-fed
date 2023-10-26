@@ -426,14 +426,14 @@ class ProtocolTest(TestCase):
             Target(uri='other:bob:target', protocol='otherfake'),
         ], Protocol.targets(obj).keys())
 
-    def test_convert_wrap_follow(self):
+    def test_translate_ids_follow(self):
         self.assert_equals({
             'id': 'https://fa.brid.gy/convert/other/fake:follow',
             'objectType': 'activity',
             'verb': 'follow',
             'actor': 'https://fa.brid.gy/convert/other/fake:alice',
             'object': 'https://fa.brid.gy/convert/other/fake:bob',
-        }, OtherFake.convert_wrap({
+        }, OtherFake.translate_ids({
             'id': 'fake:follow',
             'objectType': 'activity',
             'verb': 'follow',
@@ -441,7 +441,7 @@ class ProtocolTest(TestCase):
             'object': 'fake:bob',
         }))
 
-    def test_wrap_reply(self):
+    def test_translate_ids_reply(self):
         self.assert_equals({
             'objectType': 'activity',
             'verb': 'create',
@@ -455,7 +455,7 @@ class ProtocolTest(TestCase):
                     'url': 'https://fa.brid.gy/convert/other/fake:bob',
                 }],
             },
-        }, OtherFake.convert_wrap({
+        }, OtherFake.translate_ids({
             'objectType': 'activity',
             'verb': 'create',
             'object': {

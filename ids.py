@@ -1,4 +1,4 @@
-"""Convert ids and handles between protocols.
+"""Translates user ids, handles, and object ids between protocols.
 
 https://fed.brid.gy/docs#translate
 """
@@ -7,8 +7,8 @@ import re
 from common import subdomain_wrap, SUPERDOMAIN
 
 
-def convert_id(*, id, from_proto, to_proto):
-    """Converts an id from one protocol to another.
+def translate_user_id(*, id, from_proto, to_proto):
+    """Translate a user id from one protocol to another.
 
     Args:
       id (str)
@@ -44,8 +44,8 @@ def convert_id(*, id, from_proto, to_proto):
     assert False, (id, from_proto, to_proto)
 
 
-def convert_handle(*, handle, from_proto, to_proto):
-    """Converts a handle from one protocol to another.
+def translate_handle(*, handle, from_proto, to_proto):
+    """Translates a user handle from one protocol to another.
 
     Args:
       handle (str)
