@@ -15,8 +15,6 @@ from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.appengine_info import DEBUG
 
-from flask_app import app
-
 logger = logging.getLogger(__name__)
 
 # allow hostname chars (a-z, 0-9, -), allow arbitrary unicode (eg ☃.net), don't
@@ -268,6 +266,7 @@ def create_task(queue, **params):
 
     if appengine_info.LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')
+        from flask_app import app
         return app.test_client().post(
             path, data=params, headers={flask_util.CLOUD_TASKS_QUEUE_HEADER: ''})
 
