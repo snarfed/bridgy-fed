@@ -377,6 +377,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
     @classmethod
     def as2_req(cls, url, **kwargs):
+        kwargs.setdefault('data', None)
         headers = {
             'Date': 'Sun, 02 Jan 2022 03:04:05 GMT',
             'Host': util.domain_from_link(url, minimize=False),
@@ -385,8 +386,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             **CONNEG_HEADERS_AS2_HTML,
             **kwargs.pop('headers', {}),
         }
-        return cls.req(url, data=None, auth=ANY, headers=headers,
-                       allow_redirects=False, **kwargs)
+        return cls.req(url, auth=ANY, headers=headers, allow_redirects=False, **kwargs)
 
     @classmethod
     def as2_resp(cls, obj):
