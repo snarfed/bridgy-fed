@@ -189,7 +189,7 @@ REPOST = {
   'actor': ACTOR['id'],
   'object': NOTE_OBJECT['id'],
   'published': '2023-02-08T17:44:16Z',
-  'to': ['https://www.w3.org/ns/activitystreams#Public'],
+  'to': [as2.PUBLIC_AUDIENCE],
 }
 REPOST_FULL = {
     **REPOST,
@@ -229,9 +229,9 @@ ACCEPT = {
         'object': 'http://localhost/user.com',
         'actor': 'https://mas.to/users/swentel',
         'url': 'https://mas.to/users/swentel#followed-user.com',
-        'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        'to': [as2.PUBLIC_AUDIENCE],
     },
-   'to': ['https://www.w3.org/ns/activitystreams#Public'],
+   'to': [as2.PUBLIC_AUDIENCE],
 }
 
 UNDO_FOLLOW_WRAPPED = {
@@ -1692,7 +1692,7 @@ class ActivityPubUtilsTest(TestCase):
                 {'type': 'Hashtag', 'name': '#baz', 'href': 'http://localhost/hashtag/baz'},
                 {'type': 'Mention', 'href': 'foo'},
             ],
-            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'to': [as2.PUBLIC_AUDIENCE],
             'cc': ['foo'],
         }, postprocess_as2({
             'tag': [
@@ -1994,7 +1994,7 @@ class ActivityPubUtilsTest(TestCase):
             'type': 'Like',
             'actor': 'http://localhost/user.com',
             'object': 'https://mas.to/post',
-            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'to': [as2.PUBLIC_AUDIENCE],
         }, ActivityPub.convert(obj))
 
         obj.as2 = {'baz': 'biff'}
