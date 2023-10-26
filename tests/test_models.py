@@ -21,6 +21,7 @@ from oauth_dropins.webutil import util
 from .testutil import Fake, OtherFake, TestCase
 
 from atproto import ATProto
+import models
 from models import Follower, Object, OBJECT_EXPIRE_AGE, Target, User
 import protocol
 from protocol import Protocol
@@ -98,13 +99,6 @@ class UserTest(TestCase):
 
         user.atproto_did = 'did:plc:123'
         user.atproto_did = None
-
-    def test_get_for_copies(self):
-        self.assertEqual([], User.get_for_copies(['did:plc:foo']))
-
-        target = Target(uri='did:plc:foo', protocol='atproto')
-        fake_user = self.make_user('fake:user', cls=Fake, copies=[target])
-        self.assertEqual([fake_user], User.get_for_copies(['did:plc:foo']))
 
     def test_get_or_create_use_instead(self):
         user = Fake.get_or_create('a.b')
@@ -793,6 +787,17 @@ class ObjectTest(TestCase):
                 }],
             },
         }, obj.our_as1)
+
+    def test_get_for_copies(self):
+        self.assertEqual([], models.get_for_copies(['foo', 'did:plc:bar']))
+
+        obj = self.store_object(id='fake:post',
+                                copies=[Target(uri='other:foo', protocol='other')])
+        user = self.make_user('other:user', cls=OtherFake,
+                              copies=[Target(uri='fake:bar', protocol='fake')])
+
+        self.assert_entities_equal(
+            [obj, user], models.get_for_copies(['other:foo', 'fake:bar', 'baz']))
 
 
 class FollowerTest(TestCase):

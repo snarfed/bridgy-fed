@@ -12,14 +12,14 @@ from google.cloud.ndb import OR
 from granary import as1
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.flask_util import cloud_tasks_only
+from oauth_dropins.webutil import util
+from oauth_dropins.webutil.util import json_dumps, json_loads
 import werkzeug.exceptions
 
 import common
 from common import add, DOMAIN_BLOCKLIST, DOMAINS, error, subdomain_wrap
 from flask_app import app
-from models import Follower, Object, PROTOCOLS, Target, User
-from oauth_dropins.webutil import util
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from models import Follower, get_for_copies, Object, PROTOCOLS, Target, User
 
 SUPPORTED_TYPES = (
     'accept',
@@ -988,8 +988,7 @@ class Protocol:
         logger.info(f'Raw targets: {target_uris}')
 
         if target_uris:
-            origs = {u.key.id() for u in User.get_for_copies(target_uris)} | \
-                {o.key.id() for o in Object.query(Object.copies.uri.IN(target_uris))}
+            origs = {key.id() for key in get_for_copies(target_uris, keys_only=True)}
             if origs:
                 target_uris |= origs
                 logger.info(f'Added originals: {origs}')

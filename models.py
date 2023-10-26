@@ -197,35 +197,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         return user
 
-    @staticmethod
-    def get_for_copy(copy_id):
-        """Fetches a user with a given id in copies.
-
-        Thin wrapper around :meth:`User.get_copies` that returns the first
-        matching :class:`User`.
-        """
-        users = User.get_for_copies([copy_id])
-        if users:
-            return users[0]
-
-    @staticmethod
-    def get_for_copies(copy_ids):
-        """Fetches users (across all protocols) for a given set of copies.
-
-        Args:
-          copy_ids (sequence of str)
-
-        Returns:
-          sequence of :class:`User` subclass instances
-        """
-        assert copy_ids
-        return list(itertools.chain(*(
-            cls.query(cls.copies.uri.IN(copy_ids))
-            for cls in set(PROTOCOLS.values()) if cls)))
-
-        # TODO: default to looking up copy_ids as key ids, across protocols? is
-        # that useful anywhere?
-
     @classmethod
     @ndb.transactional()
     def get_or_create(cls, id, propagate=False, **kwargs):
@@ -960,9 +931,8 @@ class Object(StringIdModel):
         if not ids:
             return
 
-        origs = (User.get_for_copies(ids)
-                 + Object.query(Object.copies.uri.IN(ids)).fetch())
 
+        origs = get_for_copies(ids)
         replaced = False
 
         def replace(obj, field):
@@ -1165,3 +1135,44 @@ def fetch_page(query, model_class, by=None):
         new_before = new_before.isoformat()
 
     return results, new_before, new_after
+
+
+def get_for_copy(copy_id, keys_only=None):
+    """Fetches a user or object with a given id in copies.
+
+    Thin wrapper around :func:`get_copies` that returns the first
+    matching result.
+
+    Args:
+      copy_id (str)
+      keys_only (bool): passed through to :class:`google.cloud.ndb.Query`
+
+    Returns:
+      User or Object:
+    """
+    got = get_for_copies([copy_id], keys_only=keys_only)
+    if got:
+        return got[0]
+
+
+def get_for_copies(copy_ids, keys_only=None):
+    """Fetches users (across all protocols) for a given set of copies.
+
+    Args:
+      copy_ids (sequence of str)
+      keys_only (bool): passed through to :class:`google.cloud.ndb.Query`
+
+    Returns:
+      sequence of User and/or Object
+    """
+    assert copy_ids
+
+    classes = set(cls for cls in PROTOCOLS.values() if cls)
+    classes.add(Object)
+
+    return list(itertools.chain(*(
+        cls.query(cls.copies.uri.IN(copy_ids)).iter(keys_only=keys_only)
+        for cls in classes)))
+
+    # TODO: default to looking up copy_ids as key ids, across protocols? is
+    # that useful anywhere?

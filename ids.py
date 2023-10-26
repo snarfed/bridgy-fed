@@ -5,6 +5,7 @@ https://fed.brid.gy/docs#translate
 import re
 
 from common import subdomain_wrap, SUPERDOMAIN
+import models
 
 
 def translate_user_id(*, id, from_proto, to_proto):
@@ -29,7 +30,7 @@ def translate_user_id(*, id, from_proto, to_proto):
             user = from_proto.get_by_id(id)
             return user.atproto_did if user else None
         case ('atproto', _):
-            user = from_proto.get_for_copy(id)
+            user = models.get_for_copy(id)
             return user.key.id() if user else None
         case (_, 'activitypub'):
             return subdomain_wrap(from_proto, f'/ap/{id}')
