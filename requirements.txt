@@ -111,3 +111,4 @@ websockets==12.0
 Werkzeug==3.0.1
 wrapt==1.15.0
 wsproto==1.2.0
+setuptools>=65.5.1 # not directly required, pinned by Snyk to avoid a vulnerability
