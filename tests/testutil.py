@@ -77,32 +77,33 @@ class Fake(User, protocol.Protocol):
 
     @ndb.ComputedProperty
     def handle(self):
-        return self.key.id().replace('fake:', 'fake:handle:')
+        return self.key.id().replace(f'{self.LABEL}:', f'{self.LABEL}:handle:')
 
     def web_url(self):
         return self.key.id()
 
     @classmethod
     def owns_id(cls, id):
-        if id.startswith('nope') or id == 'fake:nope':
+        if id.startswith('nope') or id == f'{cls.LABEL}:nope':
             return False
 
-        return ((id.startswith('fake:') and not id.startswith('fake:handle:'))
+        return ((id.startswith(f'{cls.LABEL}:')
+                 and not id.startswith(f'{cls.LABEL}:handle:'))
                 or id in cls.fetchable)
 
     @classmethod
     def owns_handle(cls, handle):
-        return handle.startswith('fake:handle:')
+        return handle.startswith(f'{cls.LABEL}:handle:')
 
     @classmethod
     def handle_to_id(cls, handle):
-        if handle == 'fake:handle:nope':
+        if handle == f'{cls.LABEL}:handle:nope':
             return None
-        return handle.replace('fake:handle:', 'fake:')
+        return handle.replace(f'{cls.LABEL}:handle:', f'{cls.LABEL}:')
 
     @classmethod
     def is_blocklisted(cls, url):
-        return url.startswith('fake:blocklisted')
+        return url.startswith(f'{cls.LABEL}:blocklisted')
 
     @classmethod
     def send(cls, obj, url, orig_obj=None, log_data=True):
@@ -145,15 +146,11 @@ class Fake(User, protocol.Protocol):
 
 class OtherFake(Fake):
     """Different class because the same-protocol check special cases Fake."""
-    ABBREV = 'other'
+    LABEL = ABBREV = 'other'
 
     fetchable = {}
     sent = []
     fetched = []
-
-    @classmethod
-    def owns_id(cls, id):
-        return id.startswith('other:')
 
     @classmethod
     def target_for(cls, obj, shared=False):

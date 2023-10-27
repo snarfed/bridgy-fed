@@ -423,16 +423,16 @@ class ProtocolTest(TestCase):
             Target(uri='fake:post:target', protocol='fake'),
             Target(uri='fake:alice:target', protocol='fake'),
             Target(uri='fake:bob:target', protocol='fake'),
-            Target(uri='other:bob:target', protocol='otherfake'),
+            Target(uri='other:bob:target', protocol='other'),
         ], Protocol.targets(obj).keys())
 
     def test_translate_ids_follow(self):
         self.assert_equals({
-            'id': 'https://fa.brid.gy/convert/other/fake:follow',
+            'id': 'other:fa:fake:follow',
             'objectType': 'activity',
             'verb': 'follow',
-            'actor': 'https://fa.brid.gy/convert/other/fake:alice',
-            'object': 'https://fa.brid.gy/convert/other/fake:bob',
+            'actor': 'other:fa:fake:alice',
+            'object': 'other:fa:fake:bob',
         }, OtherFake.translate_ids({
             'id': 'fake:follow',
             'objectType': 'activity',
@@ -446,13 +446,13 @@ class ProtocolTest(TestCase):
             'objectType': 'activity',
             'verb': 'create',
             'object': {
-                'id': 'https://fa.brid.gy/convert/other/fake:reply',
+                'id': 'other:fa:fake:reply',
                 'objectType': 'note',
-                'inReplyTo': 'https://fa.brid.gy/convert/other/fake:post',
-                'author': 'https://fa.brid.gy/convert/other/fake:alice',
+                'inReplyTo': 'other:fa:fake:post',
+                'author': 'other:fa:fake:alice',
                 'tags': [{
                     'objectType': 'mention',
-                    'url': 'https://fa.brid.gy/convert/other/fake:bob',
+                    'url': 'other:fa:fake:bob',
                 }],
             },
         }, OtherFake.translate_ids({
@@ -467,6 +467,30 @@ class ProtocolTest(TestCase):
                     'objectType': 'mention',
                     'url': 'fake:bob',
                 }],
+            },
+        }))
+
+    def test_translate_ids_copies(self):
+        self.store_object(id='fake:post',
+                          copies=[Target(uri='other:post', protocol='other')])
+        self.make_user('other:user', cls=OtherFake,
+                       copies=[Target(uri='fake:user', protocol='fake')])
+
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'create',
+            'actor': 'other:fa:fake:user',
+            'object': {
+                'id': 'other:fa:fake:reply',
+                'inReplyTo': 'other:fa:fake:post',
+            },
+        }, OtherFake.translate_ids({
+            'objectType': 'activity',
+            'verb': 'create',
+            'actor': 'fake:user',
+            'object': {
+                'id': 'fake:reply',
+                'inReplyTo': 'fake:post',
             },
         }))
 

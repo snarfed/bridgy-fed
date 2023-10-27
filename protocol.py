@@ -19,6 +19,7 @@ import werkzeug.exceptions
 import common
 from common import add, DOMAIN_BLOCKLIST, DOMAINS, error, subdomain_wrap
 from flask_app import app
+from ids import translate_object_id
 from models import Follower, get_for_copies, Object, PROTOCOLS, Target, User
 
 SUPPORTED_TYPES = (
@@ -500,25 +501,25 @@ class Protocol:
         outer_obj = copy.deepcopy(obj)
         inner_obj = outer_obj['object'] = as1.get_object(outer_obj)
 
-        def convert(elem, field):
+        def translate(elem, field):
             elem[field] = as1.get_object(elem, field)
-            val = elem[field].get('id')
-            if val and util.domain_from_link(val) not in DOMAINS:
-                from_proto = Protocol.for_id(val)
-                if from_proto != to_cls:
-                    elem[field]['id'] = subdomain_wrap(
-                        from_proto, f'convert/{to_cls.ABBREV}/{val}')
+            id = elem[field].get('id')
+            if id and util.domain_from_link(id) not in DOMAINS:
+                from_cls = Protocol.for_id(id)
+                if from_cls != to_cls:
+                    elem[field]['id'] = translate_object_id(
+                        id=id, from_proto=from_cls, to_proto=to_cls)
                     if elem[field].keys() == {'id'}:
                         elem[field] = elem[field]['id']
 
         for o in outer_obj, inner_obj:
             for field in ('actor', 'author', 'id', 'inReplyTo'):
-                convert(o, field)
+                translate(o, field)
 
         for tag in (as1.get_objects(outer_obj, 'tags')
                     + as1.get_objects(inner_obj, 'tags')):
             if tag.get('objectType') == 'mention':
-                convert(tag, 'url')
+                translate(tag, 'url')
 
         outer_obj = util.trim_nulls(outer_obj)
         if outer_obj['object'].keys() == {'id'}:

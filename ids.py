@@ -39,10 +39,12 @@ def translate_user_id(*, id, from_proto, to_proto):
             return subdomain_wrap(from_proto, f'/ap/{id}')
         case 'activitypub', 'web':
             return id
-        # fake protocol is only for unit tests
+        # only for unit tests
         case _, 'fake':
             return f'fake:{id}'
-        case 'fake', _:
+        case _, 'other':
+            return f'other:{id}'
+        case 'fake' | 'other', _:
             return id
 
     assert False, (id, from_proto, to_proto)
@@ -82,8 +84,11 @@ def translate_handle(*, handle, from_proto, to_proto):
             return f'instance/@user'  # TODO
         case _, 'web':
             return handle
+        # only for unit tests
         case _, 'fake':
             return f'fake:handle:{handle}'
+        case _, 'other':
+            return f'other:handle:{handle}'
 
     assert False, (id, from_proto, to_proto)
 
@@ -119,10 +124,13 @@ def translate_object_id(*, id, from_proto, to_proto):
             logger.warning(f"Can't translate {id} to {to_proto} , haven't copied it to/from there yet!")
             return id
 
-        case _, 'fake':
-            return f'fake:{from_proto.ABBREV}:{id}'
-
         case _, 'activitypub' | 'web':
             return subdomain_wrap(from_proto, f'convert/{to_proto.ABBREV}/{id}')
+
+        # only for unit tests
+        case _, 'fake':
+            return f'fake:{from_proto.ABBREV}:{id}'
+        case _, 'other':
+            return f'other:{from_proto.ABBREV}:{id}'
 
     assert False, (id, from_proto, to_proto)
