@@ -4,7 +4,7 @@ from hashlib import sha256
 import itertools
 import logging
 import re
-from urllib.parse import quote_plus, urljoin
+from urllib.parse import quote_plus, urljoin, urlparse
 
 from flask import abort, g, request
 from google.cloud import ndb
@@ -117,7 +117,12 @@ class ActivityPub(User, Protocol):
 
         https://www.w3.org/TR/activitypub/#obj-id
         """
-        if util.is_web(id) and not cls.is_blocklisted(id):
+        if (util.is_web(id)
+                and not cls.is_blocklisted(id)
+                # heuristic: assume no actor is the root path on its host. this
+                # lets us assume home pages are Web users without making any
+                # network requests.
+                and urlparse(id).path not in ('', '/')):
             return None
 
         return False
