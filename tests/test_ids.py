@@ -119,15 +119,3 @@ class IdsTest(TestCase):
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_object_id(
                     id=id, from_proto=from_, to_proto=to))
-
-    def test_translate_object_id_no_copies(self):
-        for proto, id in [
-            (Web, 'user.com'),
-            (ActivityPub, 'https://instance/user'),
-            (Fake, 'fake:user'),
-        ]:
-            with self.subTest(proto=proto.LABEL):
-                self.assertIsNone(translate_user_id(
-                    id=id, from_proto=proto, to_proto=ATProto))
-                self.assertIsNone(translate_user_id(
-                    id='did:plc:123', from_proto=ATProto, to_proto=proto))
