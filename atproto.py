@@ -418,9 +418,9 @@ def poll_notifications():
         # seenAt would be easier, but they don't support it yet
         # https://github.com/bluesky-social/atproto/issues/1636
         repo = repos[user.atproto_did]
-        client.access_token = service_jwt(os.environ['APPVIEW_HOST'],
-                                          repo_did=user.atproto_did,
-                                          privkey=repo.signing_key)
+        client.session['accessJwt'] = service_jwt(os.environ['APPVIEW_HOST'],
+                                                  repo_did=user.atproto_did,
+                                                  privkey=repo.signing_key)
         resp = client.app.bsky.notification.listNotifications()
         for notif in resp['notifications']:
             logger.debug(f'Got {notif["reason"]} from {notif["author"]["handle"]} {notif["uri"]} {notif["cid"]} : {json_dumps(notif, indent=2)}')
