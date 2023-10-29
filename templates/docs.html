@@ -235,7 +235,7 @@ Create a <a href="https://indieweb.org/post">post</a> with the <a href="https://
 
 <pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
   &lt;p class="<span class='keyword'>e-content</span>"&gt;<span class='value'>Two naked tags walk into a bar. The bartender exclaims, "Hey, you can't come in here without microformats, this is a classy joint!"</span>&lt;/p&gt;
-  &lt;a class="<span class='keyword'>u-bridgy-fed</span>" href="<a href='https://fed.brid.gy/'>https://fed.brid.gy/</a>"&gt;&lt;/a&gt;
+  &lt;a class="<span class='keyword'>u-bridgy-fed</span>" href="<a href='https://fed.brid.gy/'>https://fed.brid.gy/</a>" hidden="from-humans"&gt;&lt;/a&gt;
 &lt;/div&gt;
 </pre>
 </p>
@@ -243,7 +243,8 @@ Create a <a href="https://indieweb.org/post">post</a> with the <a href="https://
 <p><a href="https://docs.joinmastodon.org/spec/activitypub/#sanitization">Mastodon preserves HTML links and line breaks, but removes all other formatting and tags.</a> Other fediverse sites vary in their HTML handling.
 </p>
 
-<p>Then, include a link (optionally blank) to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post and <a href="#setup">send Bridgy Fed a webmention</a>. That webmention will trigger Bridgy Fed to forward your post into the fediverse. Your web server may send the webmention automatically if it supports them, or <a href="https://indieweb.org/Webmention#Manual_Webmentions">you can send it manually.</a>
+<p>Then, include a link (optionally blank, and if so with a <code>hidden</code> attribute to be kind to screen readers and keyboard navigation users) 
+  to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in that post and <a href="#setup">send Bridgy Fed a webmention</a>. That webmention will trigger Bridgy Fed to forward your post into the fediverse. Your web server may send the webmention automatically if it supports them, or <a href="https://indieweb.org/Webmention#Manual_Webmentions">you can send it manually.</a>
 </p>
 
 <p>(The <code>u-bridgy-fed</code> class isn't strictly necessary, but it's useful in some cases to prevent microformats2 parsers from <a href="https://microformats.org/wiki/microformats2-implied-properties#hyperlink_and_url_property">interpreting the link as an implied <code>u-url</code></a>.)
@@ -292,7 +293,7 @@ Put the reply in a new post on your web site, and include a link to the fedivers
 <pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
   &lt;p class="<span class='keyword'>e-content</span>"&gt;<span class='value'>Highly entertaining. Please subscribe me to your newsletter.</span>&lt;/p&gt;
   &lt;a class="<span class='keyword'>u-in-reply-to</span>" href="<a href='https://indieweb.social/@tchambers/109243684867780200'>https://indieweb.social/@tchambers/109243684867780200</a>"&gt;&lt;/a&gt;
-  &lt;a class="<span class='keyword'>u-bridgy-fed</span>" href="<a href='https://fed.brid.gy/'>https://fed.brid.gy/</a>"&gt;&lt;/a&gt;
+  &lt;a class="<span class='keyword'>u-bridgy-fed</span>" href="<a href='https://fed.brid.gy/'>https://fed.brid.gy/</a>" hidden="from-humans"&gt;&lt;/a&gt;
 &lt;/div&gt;
 </pre>
 </p>
@@ -322,7 +323,7 @@ Put the reply in a new post on your web site, and include a link to the fedivers
 
 <pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
   I'm now following &lt;a class="<span class='keyword'>u-follow-of</span>" href="<a href='https://mastodon.social/@adactio'>https://mastodon.social/@adactio</a>"&gt;@adactio@mastodon.social&lt;/a&gt;!
-  &lt;a class="<span class='keyword'>u-bridgy-fed</span>" href="<a href='https://fed.brid.gy/'>https://fed.brid.gy/</a>"&gt;&lt;/a&gt;
+  &lt;a class="<span class='keyword'>u-bridgy-fed</span>" href="<a href='https://fed.brid.gy/'>https://fed.brid.gy/</a>" hidden="from-humans"&gt;&lt;/a&gt;
 &lt;/div&gt;
 </pre>
 
