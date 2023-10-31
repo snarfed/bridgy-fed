@@ -1655,3 +1655,27 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
+
+    def test_send_task_handler(self):
+        self.make_followers()
+
+        note = self.store_object(id='fake:note', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+        })
+        target = Target(uri='shared:target', protocol='fake')
+        create = self.store_object(id='fake:create', undelivered=[target], our_as1={
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'object': note.as1,
+        })
+        resp = self.client.post('/queue/send', data={
+            'protocol': 'fake',
+            'obj': create.key.urlsafe(),
+            'orig_obj': note.key.urlsafe(),
+            'url': 'shared:target',
+            'user': self.user.key.urlsafe(),
+        }, headers={CLOUD_TASKS_QUEUE_HEADER: ''})
+        self.assertEqual(200, resp.status_code)
