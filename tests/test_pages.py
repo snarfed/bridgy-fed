@@ -14,6 +14,7 @@ from oauth_dropins.webutil.testutil import requests_response
 from .testutil import Fake, TestCase, ACTOR, COMMENT, MENTION, NOTE
 
 from activitypub import ActivityPub
+import common
 from models import Object, Follower, Target
 from web import Web
 
@@ -386,6 +387,8 @@ class PagesTest(TestCase):
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
     def test_bridge_user(self, mock_post, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+
         Fake.fetchable = {
             'fake:user': {
                 **ACTOR_AS,

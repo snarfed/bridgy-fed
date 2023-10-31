@@ -194,7 +194,7 @@ class ActivityPub(User, Protocol):
         return actor.get('publicInbox') or actor.get('inbox')
 
     @classmethod
-    def send(to_cls, obj, url, orig_obj=None, log_data=True):
+    def send(to_cls, obj, url, orig_obj=None):
         """Delivers an activity to an inbox URL.
 
         If ``obj.recipient_obj`` is set, it's interpreted as the receiving actor
@@ -208,7 +208,7 @@ class ActivityPub(User, Protocol):
         if not activity.get('actor'):
             logger.warning('Outgoing AP activity has no actor!')
 
-        return signed_post(url, log_data=log_data, data=activity).ok
+        return signed_post(url, data=activity).ok
 
     @classmethod
     def fetch(cls, obj, **kwargs):
@@ -447,7 +447,7 @@ def signed_post(url, **kwargs):
     return signed_request(util.requests_post, url, **kwargs)
 
 
-def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
+def signed_request(fn, url, data=None, headers=None, **kwargs):
     """Wraps ``requests.*`` and adds HTTP Signature.
 
     If the current session has a user (ie in ``g.user``), signs with that user's
@@ -457,7 +457,6 @@ def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
       fn (callable): :func:`util.requests_get` or  :func:`util.requests_post`
       url (str):
       data (dict): optional AS2 object
-      log_data (bool): whether to log full data object
       kwargs: passed through to requests
 
     Returns:
@@ -473,8 +472,7 @@ def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
         user = default_signature_user()
 
     if data:
-        if log_data:
-            logger.info(f'Sending AS2 object: {json_dumps(data, indent=2)}')
+        logger.info(f'Sending AS2 object: {json_dumps(data, indent=2)}')
         data = json_dumps(data).encode()
 
     headers = {
@@ -511,7 +509,7 @@ def signed_request(fn, url, data=None, log_data=True, headers=None, **kwargs):
     if resp.is_redirect and fn == util.requests_get:
         new_url = urljoin(url, resp.headers['Location'])
         return signed_request(fn, new_url, data=data, headers=headers,
-                              log_data=log_data, **kwargs)
+                              **kwargs)
 
     type = common.content_type(resp)
     if (type and type != 'text/html' and

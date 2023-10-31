@@ -58,6 +58,7 @@ class ATProtoTest(TestCase):
     def setUp(self):
         super().setUp()
         self.storage = DatastoreStorage()
+        common.RUN_TASKS_INLINE = False
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_put_validates_id(self, mock_get):

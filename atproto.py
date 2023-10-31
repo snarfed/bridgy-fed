@@ -257,7 +257,7 @@ class ATProto(User, Protocol):
         user.put()
 
     @classmethod
-    def send(to_cls, obj, url, orig_obj=None, log_data=True):
+    def send(to_cls, obj, url, orig_obj=None):
         """Creates a record if we own its repo.
 
         Creates the repo first if it doesn't exist.
@@ -311,11 +311,8 @@ class ATProto(User, Protocol):
         ndb.transactional()
         def write():
             tid = next_tid()
-            log_msg = f'Storing ATProto app.bsky.feed.post {tid}'
-            if log_data:
-                log_msg += ': ' + json_dumps(dag_json.encode(record).decode(),
-                                             indent=2)
-            logger.info(log_msg)
+            logger.info(f'Storing ATProto app.bsky.feed.post {tid}: ' +
+                        json_dumps(dag_json.encode(record).decode(), indent=2))
 
             repo.apply_writes(
                 [Write(action=Action.CREATE, collection='app.bsky.feed.post',

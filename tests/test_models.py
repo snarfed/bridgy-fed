@@ -21,6 +21,7 @@ from oauth_dropins.webutil import util
 from .testutil import Fake, OtherFake, TestCase
 
 from atproto import ATProto
+import common
 import models
 from models import Follower, Object, OBJECT_EXPIRE_AGE, Target, User
 import protocol
@@ -58,13 +59,14 @@ class UserTest(TestCase):
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
     def test_get_or_create_propagate(self, mock_post, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+
         Fake.fetchable = {
             'fake:user': {
                 **ACTOR_AS,
                 'image': None,  # don't try to fetch as blob
             },
         }
-
         user = Fake.get_or_create('fake:user', propagate=True)
 
         # check that profile was fetched remotely

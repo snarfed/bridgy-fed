@@ -525,7 +525,7 @@ class ActivityPubTest(TestCase):
         mock_post.return_value = requests_response()
 
         got = self.post('/ap/web/user.com/inbox', json=reply)
-        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(202, got.status_code, got.get_data(as_text=True))
         self.assert_req(mock_get, 'https://user.com/post')
 
         convert_id = reply['id'].replace('://', ':/')
@@ -555,11 +555,9 @@ class ActivityPubTest(TestCase):
         }
         got = self.post('/ap/fake:user/inbox', json=reply,
                         base_url='https://fa.brid.gy/')
-        self.assertEqual(200, got.status_code)
-
-        [(obj, target)] = Fake.sent
-        self.assertEqual('fake:my-reply#bridgy-fed-create', obj.our_as1['id'])
-        self.assertEqual('fake:post:target', target)
+        self.assertEqual(202, got.status_code)
+        self.assertEqual([('fake:my-reply#bridgy-fed-create', 'fake:post:target')],
+                         Fake.sent)
 
     def test_inbox_reply_to_self_domain(self, *mocks):
         self._test_inbox_ignore_reply_to('http://localhost/mas.to', *mocks)
@@ -610,7 +608,7 @@ class ActivityPubTest(TestCase):
         mock_post.return_value = requests_response()
 
         got = self.post(path, json=NOTE)
-        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(202, got.status_code, got.get_data(as_text=True))
 
         expected_obj = {
             **as2.to_as1(NOTE_OBJECT),
@@ -659,7 +657,7 @@ class ActivityPubTest(TestCase):
         repost = copy.deepcopy(REPOST_FULL)
         repost['object'] = f'http://localhost/r/{orig_url}'
         got = self.post('/user.com/inbox', json=repost)
-        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(202, got.status_code, got.get_data(as_text=True))
 
         convert_id = REPOST['id'].replace('://', ':/')
         self.assert_req(
@@ -705,7 +703,7 @@ class ActivityPubTest(TestCase):
         ]
 
         got = self.post('/ap/sharedInbox', json=REPOST)
-        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(202, got.status_code, got.get_data(as_text=True))
 
         mock_post.assert_not_called()  # no webmention
 
@@ -735,7 +733,7 @@ class ActivityPubTest(TestCase):
             **LIKE,
             'object': 'http://nope.com/post',
         })
-        self.assertEqual(204, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         self.assert_object('http://mas.to/like#ok',
                            # no nope.com Web user key since it didn't exist
@@ -778,7 +776,7 @@ class ActivityPubTest(TestCase):
         mock_post.return_value = requests_response()
 
         got = self.post('/user.com/inbox', json=LIKE)
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         self.assertIn(self.as2_req('https://mas.to/actor'), mock_get.mock_calls)
         self.assertIn(self.req('https://user.com/post'), mock_get.mock_calls)
@@ -820,7 +818,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(400, got.status_code)
 
     def test_inbox_follow_accept_with_id(self, *mocks):
-        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, 200, *mocks)
+        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, *mocks)
 
         follow = {
             **FOLLOW_WITH_ACTOR,
@@ -846,7 +844,7 @@ class ActivityPubTest(TestCase):
         }
         accept = copy.deepcopy(ACCEPT)
         accept['object']['url'] = 'https://mas.to/users/swentel#followed-https://user.com/'
-        self._test_inbox_follow_accept(follow, accept, 200, *mocks)
+        self._test_inbox_follow_accept(follow, accept, *mocks)
 
         follow.update({
             'actor': ACTOR,
@@ -863,7 +861,7 @@ class ActivityPubTest(TestCase):
                            object_ids=[FOLLOW['object']])
 
     def test_inbox_follow_accept_shared_inbox(self, *mocks):
-        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, 200, *mocks,
+        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, *mocks,
                                        inbox_path='/ap/sharedInbox')
 
         url = 'https://mas.to/users/swentel#followed-user.com'
@@ -883,7 +881,7 @@ class ActivityPubTest(TestCase):
             requests_response(),         # AP Accept
             requests.ConnectionError(),  # webmention
         ]
-        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, 502,
+        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT,
                                        mock_head, mock_get, mock_post)
 
         url = 'https://mas.to/users/swentel#followed-user.com'
@@ -898,9 +896,8 @@ class ActivityPubTest(TestCase):
                            type='follow',
                            object_ids=[FOLLOW['object']])
 
-    def _test_inbox_follow_accept(self, follow_as2, accept_as2, expected_status,
-                                  mock_head, mock_get, mock_post,
-                                  inbox_path='/user.com/inbox'):
+    def _test_inbox_follow_accept(self, follow_as2, accept_as2, mock_head,
+                                  mock_get, mock_post, inbox_path='/user.com/inbox'):
         # this should makes us make the follower ActivityPub as direct=True
         self.user.direct = False
         self.user.put()
@@ -915,7 +912,7 @@ class ActivityPubTest(TestCase):
             mock_post.return_value = requests_response()
 
         got = self.post(inbox_path, json=follow_as2)
-        self.assertEqual(expected_status, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         mock_get.assert_has_calls((
             self.as2_req(FOLLOW['actor']),
@@ -962,7 +959,7 @@ class ActivityPubTest(TestCase):
         mock_post.return_value = requests_response()
 
         got = self.post('/user.com/inbox', json=FOLLOW_WRAPPED)
-        self.assertEqual(204, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         follower = Follower.query().get()
         self.assert_entities_equal(
@@ -994,7 +991,7 @@ class ActivityPubTest(TestCase):
         mock_post.return_value = requests_response()
 
         got = self.post('/user.com/inbox', json=UNDO_FOLLOW_WRAPPED)
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         # check that the Follower is now inactive
         self.assertEqual('inactive', follower.key.get().status)
@@ -1014,7 +1011,7 @@ class ActivityPubTest(TestCase):
         mock_post.return_value = requests_response()
 
         got = self.post('/user.com/inbox', json=FOLLOW_WRAPPED)
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         # check that the Follower is now active
         self.assertEqual('active', follower.key.get().status)
@@ -1028,7 +1025,7 @@ class ActivityPubTest(TestCase):
         mock_post.return_value = requests_response()
 
         got = self.post('/user.com/inbox', json=UNDO_FOLLOW_WRAPPED)
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
     def test_inbox_undo_follow_inactive(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/')
@@ -1043,7 +1040,7 @@ class ActivityPubTest(TestCase):
                                           status='inactive')
 
         got = self.post('/user.com/inbox', json=UNDO_FOLLOW_WRAPPED)
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
         self.assertEqual('inactive', follower.key.get().status)
 
     def test_inbox_undo_follow_composite_object(self, mock_head, mock_get, mock_post):
@@ -1061,7 +1058,7 @@ class ActivityPubTest(TestCase):
         undo_follow = copy.deepcopy(UNDO_FOLLOW_WRAPPED)
         undo_follow['object']['object'] = {'id': undo_follow['object']['object']}
         got = self.post('/user.com/inbox', json=undo_follow)
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
         self.assertEqual('inactive', follower.key.get().status)
 
     def test_inbox_unsupported_type(self, *_):
@@ -1307,7 +1304,7 @@ class ActivityPubTest(TestCase):
         ]
 
         got = self.post('/user.com/inbox', json=LIKE)
-        self.assertEqual(502, got.status_code)
+        self.assertEqual(202, got.status_code)
 
     def test_inbox_no_webmention_endpoint(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [
@@ -1321,7 +1318,7 @@ class ActivityPubTest(TestCase):
         ]
 
         got = self.post('/user.com/inbox', json=LIKE)
-        self.assertEqual(204, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         self.assert_object('http://mas.to/like#ok',
                            notify=[self.user.key],

@@ -14,6 +14,7 @@ from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.appengine_info import DEBUG
+from oauth_dropins.webutil import flask_util
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,7 @@ USER_AGENT = 'Bridgy Fed (https://fed.brid.gy/)'
 util.set_user_agent(USER_AGENT)
 
 TASKS_LOCATION = 'us-central1'
+RUN_TASKS_INLINE = False  # overridden by unit tests
 
 
 def base64_to_long(x):
@@ -264,7 +266,7 @@ def create_task(queue, **params):
     assert queue
     path = f'/queue/{queue}'
 
-    if appengine_info.LOCAL_SERVER:
+    if RUN_TASKS_INLINE or appengine_info.LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')
         from flask_app import app
         return app.test_client().post(
@@ -283,7 +285,7 @@ def create_task(queue, **params):
             'app_engine_http_request': {
                 'http_method': 'POST',
                 'relative_uri': path,
-                'body': urllib.parse.urlencode(params).encode(),
+                'body': urllib.parse.urlencode(sorted(params.items())).encode(),
                 'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
             },
         })

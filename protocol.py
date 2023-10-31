@@ -1,16 +1,14 @@
 """Base protocol class and common code."""
-from concurrent.futures import ThreadPoolExecutor
 import copy
 import logging
 import threading
 from urllib.parse import urljoin
 
 from cachetools import LRUCache
-from flask import copy_current_request_context, g, request
+from flask import g, request
 from google.cloud import ndb
 from google.cloud.ndb import OR
 from granary import as1
-from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.flask_util import cloud_tasks_only
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -39,8 +37,6 @@ SUPPORTED_TYPES = (
     'update',
     'video',
 )
-
-DELIVER_THREADS = 10
 
 # activity ids that we've already handled and can now ignore.
 # used in Protocol.receive
@@ -364,7 +360,7 @@ class Protocol:
             return g.user.key
 
     @classmethod
-    def send(to_cls, obj, url, orig_obj=None, log_data=True):
+    def send(to_cls, obj, url, orig_obj=None):
         """Sends an outgoing activity.
 
         To be implemented by subclasses.
@@ -374,7 +370,6 @@ class Protocol:
           url (str): destination URL to send to
           orig_obj (models.Object): the "original object" that this object
             refers to, eg replies to or reposts or likes
-          log_data (bool): whether to log full data object
 
         Returns:
           bool: True if the activity is sent successfully, False if it is
@@ -895,7 +890,7 @@ class Protocol:
         if not targets:
             obj.status = 'ignored'
             obj.put()
-            error('No targets', status=204)
+            error('No targets, nothing to do ¯\_(ツ)_/¯', status=204)
 
         sorted_targets = sorted(targets.items(), key=lambda t: t[0].uri)
         obj.populate(
@@ -904,71 +899,18 @@ class Protocol:
             failed=[],
             undelivered=[t for t, _ in sorted_targets],
         )
+        obj.put()
         logger.info(f'Delivering to: {obj.undelivered}')
 
-        errors = []  # stores (target URL, code, body) tuples
+        # enqueue send task for each targets
+        for i, (target, orig_obj) in enumerate(sorted_targets):
+            orig_obj = orig_obj.key.urlsafe() if orig_obj else ''
+            user = g.user.key.urlsafe() if g.user else ''
+            common.create_task(queue='send', obj=obj.key.urlsafe(),
+                               url=target.uri, protocol=target.protocol,
+                               orig_obj=orig_obj, user=user)
 
-        # deliver to all targets, in parallel, with a thread pool
-        with ThreadPoolExecutor(max_workers=DELIVER_THREADS,
-                                thread_name_prefix='deliver') as executor:
-            results = []
-            log_data = True
-
-            for target, orig_obj in sorted_targets:
-                @copy_current_request_context
-                def deliver_one(target, orig_obj, g_user, log_data):
-                    """Runs on a separate thread!
-
-                    Note that this has to be defined *inside* the loop, once per
-                    target, since @copy_current_request_context copies when the
-                    function is defined, and we need a fresh copy of the request
-                    context for each call/thread.
-
-                    https://www.kingname.info/2023/01/14/nested-thread-in-flask/
-                    """
-                    assert target.uri
-                    protocol = PROTOCOLS[target.protocol]
-                    g.user = g_user
-
-                    with ndb_client.context():
-                        try:
-                            sent = protocol.send(obj, target.uri, orig_obj=orig_obj,
-                                                 log_data=log_data)
-                            if sent:
-                                obj.add('delivered', target)
-                            obj.remove('undelivered', target)
-                        except BaseException as e:
-                            code, body = util.interpret_http_exception(e)
-                            if not code and not body:
-                                raise
-                            obj.add('failed', target)
-                            obj.remove('undelivered', target)
-                            errors.append((target.uri, code, body))
-
-                        obj.put()
-
-                results.append(executor.submit(deliver_one, target, orig_obj,
-                                               g.user, log_data))
-                log_data = False
-
-            # re-raise any exception that were raised
-            for r in results:
-                r.result()
-
-        # Pass the response status code and body through as our response
-        if obj.delivered:
-            ret = 'OK'
-            obj.status = 'complete'
-        elif errors:
-            ret = f'Delivery failed: {errors}', 502
-            obj.status = 'failed'
-        else:
-            ret = r'Nothing to do ¯\_(ツ)_/¯', 204
-            obj.status = 'ignored'
-
-        obj.put()
-        logger.info(f'Returning {ret}')
-        return ret
+        return 'OK', 202
 
     @classmethod
     def targets(cls, obj):
@@ -1203,9 +1145,9 @@ def receive_task():
     Calls :meth:`Protocol.receive` with the form parameters.
 
     Parameters:
-      obj (google.cloud.ndb.key.Key): :class:`models.Object` to handle
-      user (google.cloud.ndb.key.Key): :class:`models.User` this activity is on
-        behalf of. This user will be loaded into ``g.user``
+      obj (url-safe google.cloud.ndb.key.Key): :class:`models.Object` to handle
+      user (url-safe google.cloud.ndb.key.Key): :class:`models.User` this
+        activity is on behalf of. This user will be loaded into ``g.user``
       authed_as (str): passed to :meth:`Protocol.receive`
 
     TODO: migrate incoming webmentions and AP inbox deliveries to this. The
@@ -1231,3 +1173,73 @@ def receive_task():
     except ValueError as e:
         logger.warning(e, exc_info=True)
         error(e, status=304)
+
+
+@app.post('/queue/send')
+@cloud_tasks_only
+def send_task():
+    """Task handler for sending an activity to a single specific destination.
+
+    Calls :meth:`Protocol.send` with the form parameters.
+
+    Parameters:
+      protocol (str): :class:`Protocol` to send to
+      url (str): destination URL to send to
+      obj (url-safe google.cloud.ndb.key.Key): :class:`models.Object` to send
+      orig_obj (url-safe google.cloud.ndb.key.Key): optional "original object"
+        :class:`models.Object` that this object refers to, eg replies to or
+        reposts or likes
+      user (url-safe google.cloud.ndb.key.Key): :class:`models.User` this
+        activity is on behalf of. This user will be loaded into ``g.user``
+    """
+    form = request.form.to_dict()
+    logger.info(f'Params: {list(form.items())}')
+
+    # prepare
+    url = form['url']
+    protocol = form['protocol']
+    target = Target(uri=url, protocol=protocol)
+
+    obj = ndb.Key(urlsafe=form['obj']).get()
+    if target not in obj.undelivered and target not in obj.failed:
+        logger.info(f"{url} not in {obj.key.id()} undelivered or failed, giving up")
+        return '¯\_(ツ)_/¯', 204
+
+    if user_key := form.get('user'):
+        g.user = ndb.Key(urlsafe=user_key).get()
+    orig_obj = (ndb.Key(urlsafe=form['orig_obj']).get()
+                if form.get('orig_obj') else None)
+
+    # send
+    sent = None
+    try:
+        sent = PROTOCOLS[protocol].send(obj, url, orig_obj=orig_obj)
+    except BaseException as e:
+        code, body = util.interpret_http_exception(e)
+        if not code and not body:
+            logger.info(str(e), exc_info=True)
+
+    # write results to Object
+    @ndb.transactional()
+    def update_object(obj_key):
+        obj = obj_key.get()
+        if target in obj.undelivered:
+            obj.remove('undelivered', target)
+
+        if sent is None:
+            obj.add('failed', target)
+        else:
+            if target in obj.failed:
+                obj.remove('failed', target)
+            if sent:
+                obj.add('delivered', target)
+
+        if not obj.undelivered:
+            obj.status = ('complete' if obj.delivered
+                          else 'failed' if obj.failed
+                          else 'ignored')
+        obj.put()
+
+    update_object(obj.key)
+
+    return '', 200 if sent else 304

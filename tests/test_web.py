@@ -16,6 +16,7 @@ from werkzeug.exceptions import BadGateway, BadRequest
 from . import testutil
 
 from activitypub import ActivityPub, postprocess_as2
+import common
 from common import CONTENT_TYPE_HTML
 from models import Follower, Object
 from web import TASKS_LOCATION, Web
@@ -520,6 +521,7 @@ class WebTest(TestCase):
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_make_task(self, mock_create_task, mock_get, mock_post):
+        common.RUN_TASKS_INLINE = False
         mock_get.side_effect = [NOTE, ACTOR]
 
         params = {
@@ -700,7 +702,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('https://user.com/reply'),
@@ -745,7 +747,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         self.assertEqual(1, mock_post.call_count)
         args, kwargs = mock_post.call_args
@@ -763,7 +765,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], REPOST_AS2,
                                ignore=['cc'])
 
@@ -793,7 +795,7 @@ class WebTest(TestCase):
             'target': 'https://fed.brid.gy/',
             'force': '',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
@@ -824,7 +826,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('https://user.com/reply'),
@@ -858,7 +860,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('https://user.com/repost'),
@@ -905,7 +907,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/reply',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('https://user.com/reply'),
@@ -961,7 +963,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/multiple',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         inboxes = ['https://inbox/', 'https://public/inbox', 'https://shared/inbox']
         expected = {
@@ -997,7 +999,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
@@ -1024,7 +1026,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
@@ -1051,7 +1053,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/repost',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         repost_mf2 = copy.deepcopy(REPOST_MF2)
         repost_mf2['properties']['author'] = ['https://user.com/']
@@ -1084,7 +1086,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         inboxes = ['https://inbox/', 'https://public/inbox', 'https://shared/inbox']
         self.assert_object('https://user.com/post#bridgy-fed-create',
@@ -1121,7 +1123,7 @@ class WebTest(TestCase):
             'source': 'https://www.user.com/post',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('https://www.user.com/post'),
@@ -1145,7 +1147,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('https://user.com/post'),
@@ -1182,7 +1184,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('https://user.com/post'),
@@ -1229,7 +1231,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         self.assertEqual(('https://inbox/',), mock_post.call_args[0])
         create = copy.deepcopy(CREATE_AS2)
@@ -1247,7 +1249,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('https://user.com/follow'),
@@ -1301,7 +1303,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://mas.to/inbox',), args)
@@ -1333,7 +1335,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/follow#2',
             'target': 'https://fed.brid.gy/',
         })
-        self.assert_equals(200, got.status_code)
+        self.assert_equals(202, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('https://user.com/follow'),
@@ -1385,7 +1387,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('https://user.com/follow'),
@@ -1458,7 +1460,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/post',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code, got.text)
+        self.assertEqual(202, got.status_code, got.text)
 
         inboxes = ('https://inbox/', 'https://public/inbox', 'https://shared/inbox')
         self.assert_deliveries(mock_post, inboxes, DELETE_AS2)
@@ -1514,11 +1516,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/follow',
             'target': 'https://fed.brid.gy/',
         })
-        body = got.get_data(as_text=True)
-        self.assertEqual(502, got.status_code, body)
-        self.assertIn(
-            '405 Client Error: None for url: https://mas.to/inbox ; abc xyz',
-            body)
+        self.assertEqual(202, got.status_code)
 
         mock_get.assert_has_calls((
             self.req('https://user.com/follow'),
@@ -1574,7 +1572,7 @@ class WebTest(TestCase):
             'source': 'https://user.com/',
             'target': 'https://fed.brid.gy/',
         })
-        self.assertEqual(200, got.status_code)
+        self.assertEqual(202, got.status_code)
         mock_get.assert_has_calls((
             self.req('https://user.com/'),
         ))
@@ -1661,7 +1659,7 @@ class WebTest(TestCase):
                 'source': 'https://user.com/like',
                 'target': 'https://fed.brid.gy/',
             })
-            self.assertEqual(200, got.status_code)
+            self.assertEqual(202, got.status_code)
 
         self.assertIn(
             "WARNING:models:actor https://user.com/ isn't https://user.com/like's author or actor ['https://eve.com/']",

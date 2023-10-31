@@ -106,9 +106,9 @@ class Fake(User, protocol.Protocol):
         return url.startswith(f'{cls.LABEL}:blocklisted')
 
     @classmethod
-    def send(cls, obj, url, orig_obj=None, log_data=True):
+    def send(cls, obj, url, orig_obj=None):
         logger.info(f'{cls.__name__}.send {url}')
-        cls.sent.append((obj, url))
+        cls.sent.append((obj.key.id(), url))
         return True
 
     @classmethod
@@ -185,6 +185,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         appengine_info.APP_ID = 'my-app'
         appengine_info.LOCAL_SERVER = False
+        common.RUN_TASKS_INLINE = True
         app.testing = True
         cache.clear()
         protocol.seen_ids.clear()
@@ -477,7 +478,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                 'app_engine_http_request': {
                     'http_method': 'POST',
                     'relative_uri': path,
-                    'body': urlencode(params).encode(),
+                    'body': urlencode(sorted(params.items())).encode(),
                     'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
                 },
             },
