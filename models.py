@@ -813,6 +813,7 @@ class Object(StringIdModel):
                 else bool(self.as1) != bool(other_as1))
 
     def proxy_url(self):
+        # TODO: replace with ids.translate_object_id?
         """Returns the Bridgy Fed proxy URL to render this post as HTML.
 
         Note that some webmention receivers are struggling with the ``%23``\s
@@ -903,7 +904,8 @@ class Object(StringIdModel):
         * ``object.inReplyTo``
         * ``tags.[objectType=mention].url``
 
-        Duplicates much of :func:`common.wrap`!
+        This is the inverse of :meth:`protocol.Protocol.translate_ids`. Much of the
+        same logic is duplicated there!
         """
         if not self.as1:
             return

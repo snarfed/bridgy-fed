@@ -484,7 +484,8 @@ class Protocol:
         * ``object.inReplyTo``
         * ``tags.[objectType=mention].url``
 
-        Duplicates much of :meth:`models.Object.resolve_ids`!
+        This is the inverse of :meth:`models.Object.resolve_ids`. Much of the
+        same logic is duplicated there!
 
         Args:
           to_proto (Protocol subclass)
@@ -501,11 +502,13 @@ class Protocol:
             id = elem[field].get('id')
             if id and util.domain_from_link(id) not in DOMAINS:
                 from_cls = Protocol.for_id(id)
-                if from_cls != to_cls:
+                # TODO: what if from_cls is None? relax translate_object_id,
+                # make it a noop if we don't know enough about from/to?
+                if from_cls and from_cls != to_cls:
                     elem[field]['id'] = translate_object_id(
                         id=id, from_proto=from_cls, to_proto=to_cls)
-                    if elem[field].keys() == {'id'}:
-                        elem[field] = elem[field]['id']
+            if elem[field].keys() == {'id'}:
+                elem[field] = elem[field]['id']
 
         for o in outer_obj, inner_obj:
             for field in ('actor', 'author', 'id', 'inReplyTo'):
@@ -517,7 +520,7 @@ class Protocol:
                 translate(tag, 'url')
 
         outer_obj = util.trim_nulls(outer_obj)
-        if outer_obj['object'].keys() == {'id'}:
+        if outer_obj.get('object', {}).keys() == {'id'}:
             outer_obj['object'] = inner_obj['id']
 
         return outer_obj
@@ -930,6 +933,7 @@ class Protocol:
         target_uris = set(as1.targets(obj.as1))
         logger.info(f'Raw targets: {target_uris}')
 
+        # TODO: remove this? seems unnecessary now that receive calls resolve_ids?
         if target_uris:
             origs = {key.id() for key in get_for_copies(target_uris, keys_only=True)}
             if origs:
