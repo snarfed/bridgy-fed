@@ -21,11 +21,6 @@ logger = logging.getLogger(__name__)
 # logging.getLogger('lexrpc').setLevel(logging.INFO)
 logging.getLogger('negotiator').setLevel(logging.WARNING)
 
-# add thread name to log prefix so we can trace log messages in
-# Protocol.deliver, which is parallelized across threads
-logging.getLogger().handlers[0].setFormatter(
-    logging.Formatter(fmt='%(levelname)s:%(name)s:%(threadName)s:%(message)s'))
-
 app_dir = Path(__file__).parent
 
 
