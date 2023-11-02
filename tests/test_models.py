@@ -217,6 +217,7 @@ class UserTest(TestCase):
 
     def test_get_copy(self):
         user = Fake(id='x')
+        self.assertEqual('x', user.get_copy(Fake))
         self.assertIsNone(user.get_copy(OtherFake))
 
         user.copies.append(Target(uri='fake:foo', protocol='fake'))
@@ -814,6 +815,9 @@ class ObjectTest(TestCase):
     def test_get_copy(self):
         obj = Object(id='x')
         self.assertIsNone(obj.get_copy(Fake))
+
+        obj.source_protocol = 'other'
+        self.assertEqual('x', obj.get_copy(OtherFake))
 
         obj.copies = [Target(uri='other:foo', protocol='other')]
         self.assertIsNone(obj.get_copy(Fake))

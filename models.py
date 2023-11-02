@@ -146,6 +146,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     # Proxy copies of this user elsewhere, eg DIDs for ATProto records, bech32
     # npub Nostr ids, etc. Similar to rel-me links in microformats2, alsoKnownAs
     # in DID docs (and now AS2), etc.
+    # TODO: switch to using Object.copies on the user profile object?
     copies = ndb.StructuredProperty(Target, repeated=True)
 
     # whether this user signed up or otherwise explicitly, deliberately
@@ -470,7 +471,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     def get_copy(self, proto):
         """Returns the id for the copy of this user in a given protocol.
 
-        ...or None if no such copy exists.
+        ...or None if no such copy exists. If ``proto`` is this user, returns
+        this user's key id.
 
         Args:
           proto: :class:`Protocol` subclass
@@ -478,6 +480,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Returns:
           str:
         """
+        if isinstance(self, proto):
+            return self.key.id()
+
         for copy in self.copies:
             if copy.protocol in (proto.LABEL, proto.ABBREV):
                 return copy.uri
@@ -898,7 +903,8 @@ class Object(StringIdModel):
     def get_copy(self, proto):
         """Returns the id for the copy of this object in a given protocol.
 
-        ...or None if no such copy exists.
+        ...or None if no such copy exists. If ``proto`` is ``source_protocol``,
+        returns this object's key id.
 
         Args:
           proto: :class:`Protocol` subclass
@@ -906,12 +912,18 @@ class Object(StringIdModel):
         Returns:
           str:
         """
+        if self.source_protocol in (proto.LABEL, proto.ABBREV):
+            return self.key.id()
+
         for copy in self.copies:
             if copy.protocol in (proto.LABEL, proto.ABBREV):
                 return copy.uri
 
     def resolve_ids(self):
         """Resolves "copy" ids, subdomain ids, etc with their originals.
+
+        The end result is that all ids are original "source" ids, ie in the
+        protocol that they first came from.
 
         Specifically, resolves:
 
@@ -934,8 +946,8 @@ class Object(StringIdModel):
         * ``object.inReplyTo``
         * ``tags.[objectType=mention].url``
 
-        This is the inverse of :meth:`protocol.Protocol.translate_ids`. Much of the
-        same logic is duplicated there!
+        :meth:`protocol.Protocol.translate_ids` is partly the inverse of this.
+        Much of the same logic is duplicated there!
         """
         if not self.as1:
             return
@@ -962,7 +974,6 @@ class Object(StringIdModel):
             + [m.get('url') for m in mention_tags])
         if not ids:
             return
-
 
         origs = get_originals(ids)
         replaced = False
