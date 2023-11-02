@@ -94,7 +94,7 @@ sgmllib3k==1.0.0
 simple-websocket==1.0.0
 six==1.16.0
 soupsieve==2.5
-testtools==2.6.0
+testtools==2.7.1
 tlslite-ng==0.7.6
 tweepy==4.14.0
 # v4.6.0 breaks bases (which multiformats etc use)
