@@ -424,11 +424,11 @@ class ProtocolTest(TestCase):
 
     def test_translate_ids_follow(self):
         self.assert_equals({
-            'id': 'other:fa:fake:follow',
+            'id': 'other:o:fa:fake:follow',
             'objectType': 'activity',
             'verb': 'follow',
-            'actor': 'other:fa:fake:alice',
-            'object': 'other:fa:fake:bob',
+            'actor': 'other:u:fake:alice',
+            'object': 'other:u:fake:bob',
         }, OtherFake.translate_ids({
             'id': 'fake:follow',
             'objectType': 'activity',
@@ -442,13 +442,13 @@ class ProtocolTest(TestCase):
             'objectType': 'activity',
             'verb': 'create',
             'object': {
-                'id': 'other:fa:fake:reply',
+                'id': 'other:o:fa:fake:reply',
                 'objectType': 'note',
-                'inReplyTo': 'other:fa:fake:post',
-                'author': 'other:fa:fake:alice',
+                'inReplyTo': 'other:o:fa:fake:post',
+                'author': 'other:u:fake:alice',
                 'tags': [{
                     'objectType': 'mention',
-                    'url': 'other:fa:fake:bob',
+                    'url': 'other:u:fake:bob',
                 }],
             },
         }, OtherFake.translate_ids({
@@ -475,10 +475,10 @@ class ProtocolTest(TestCase):
         self.assert_equals({
             'objectType': 'activity',
             'verb': 'create',
-            'actor': 'other:fa:fake:user',
+            'actor': 'other:user',
             'object': {
-                'id': 'other:fa:fake:reply',
-                'inReplyTo': 'other:fa:fake:post',
+                'id': 'other:o:fa:fake:reply',
+                'inReplyTo': 'other:post',
             },
         }, OtherFake.translate_ids({
             'objectType': 'activity',

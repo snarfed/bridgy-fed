@@ -213,6 +213,7 @@ class ATProto(User, Protocol):
 
         Object.get_or_create(did_plc.did, raw=did_plc.doc)
         user.atproto_did = did_plc.did
+        # TODO: move this to ATProto.get_or_create?
         add(user.copies, Target(uri=did_plc.did, protocol='atproto'))
         handle = user.handle_as('atproto')
 

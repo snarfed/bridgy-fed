@@ -28,24 +28,32 @@ def translate_user_id(*, id, from_proto, to_proto):
     if from_proto == to_proto:
         return id
 
+    def copy_or_original():
+        if user := from_proto.get_by_id(id):
+            if copy := user.get_copy(to_proto):
+                return copy
+        if orig := models.get_original(id):
+            if isinstance(orig, to_proto):
+                return orig.key.id()
+
     match from_proto.LABEL, to_proto.LABEL:
-        case _, 'atproto':
-            user = from_proto.get_by_id(id)
-            return user.atproto_did if user else None
-        case 'atproto', _:
-            user = models.get_original(id)
-            return user.key.id() if user else None
+        case ('atproto', _) | (_, 'atproto'):
+            if found := copy_or_original():
+                return found
+            logger.warning(f"Can't translate user id {id} to {to_proto} , haven't copied it to/from there yet!")
+            return None
         case _, 'activitypub':
             return subdomain_wrap(from_proto, f'/ap/{id}')
         case 'activitypub', 'web':
             return id
+
         # only for unit tests
         case _, 'fake':
-            return f'fake:{id}'
+            return copy_or_original() or f'fake:u:{id}'
         case _, 'other':
-            return f'other:{id}'
+            return copy_or_original() or f'other:u:{id}'
         case 'fake' | 'other', _:
-            return id
+            return copy_or_original() or id
 
     assert False, (id, from_proto, to_proto)
 
@@ -110,18 +118,18 @@ def translate_object_id(*, id, from_proto, to_proto):
     if from_proto == to_proto:
         return id
 
-    # fall back subdomain-wrapped /convert/ URLs
+    def copy_or_original():
+        if obj := from_proto.load(id, remote=False):
+            if copy := obj.get_copy(to_proto):
+                return copy
+        if orig := models.get_original(id):
+            return orig.key.id()
+
     match from_proto.LABEL, to_proto.LABEL:
         case ('atproto' | 'nostr', _) | (_, 'atproto' | 'nostr'):
-            obj = from_proto.load(id, remote=False)
-            if obj:
-                for copy in obj.copies:
-                    if copy.protocol in (to_proto.LABEL, to_proto.ABBREV):
-                        return copy.uri
-            orig = models.get_original(id)
-            if orig:
-                return orig.key.id()
-            logger.warning(f"Can't translate {id} to {to_proto} , haven't copied it to/from there yet!")
+            if found := copy_or_original():
+                return found
+            logger.warning(f"Can't translate object id {id} to {to_proto} , haven't copied it to/from there yet!")
             return id
 
         case _, 'activitypub' | 'web':
@@ -129,8 +137,8 @@ def translate_object_id(*, id, from_proto, to_proto):
 
         # only for unit tests
         case _, 'fake':
-            return f'fake:{from_proto.ABBREV}:{id}'
+            return copy_or_original() or f'fake:o:{from_proto.ABBREV}:{id}'
         case _, 'other':
-            return f'other:{from_proto.ABBREV}:{id}'
+            return copy_or_original() or f'other:o:{from_proto.ABBREV}:{id}'
 
     assert False, (id, from_proto, to_proto)

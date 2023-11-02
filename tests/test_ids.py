@@ -19,7 +19,7 @@ class IdsTest(TestCase):
         for from_, id, to, expected in [
             (ActivityPub, 'https://inst/user', ActivityPub, 'https://inst/user'),
             (ActivityPub, 'https://inst/user', ATProto, 'did:plc:456'),
-            (ActivityPub, 'https://inst/user', Fake, 'fake:https://inst/user'),
+            (ActivityPub, 'https://inst/user', Fake, 'fake:u:https://inst/user'),
             (ActivityPub, 'https://inst/user', Web, 'https://inst/user'),
             (ATProto, 'did:plc:123', Web, 'user.com'),
             (ATProto, 'did:plc:456', ActivityPub, 'https://inst/user'),
@@ -31,14 +31,14 @@ class IdsTest(TestCase):
             (Fake, 'fake:user', Web, 'fake:user'),
             (Web, 'user.com', ActivityPub, 'https://web.brid.gy/ap/user.com'),
             (Web, 'user.com', ATProto, 'did:plc:123'),
-            (Web, 'user.com', Fake, 'fake:user.com'),
+            (Web, 'user.com', Fake, 'fake:u:user.com'),
             (Web, 'user.com', Web, 'user.com'),
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_user_id(
                     id=id, from_proto=from_, to_proto=to))
 
-    def test_translate_user_id_no_atproto_did_stored(self):
+    def test_translate_user_id_no_copy_did_stored(self):
         for proto, id in [
             (Web, 'user.com'),
             (ActivityPub, 'https://instance/user'),
@@ -98,7 +98,7 @@ class IdsTest(TestCase):
         for from_, id, to, expected in [
             (ActivityPub, 'https://inst/post', ActivityPub, 'https://inst/post'),
             (ActivityPub, 'https://inst/post', ATProto, 'at://did/ap/post'),
-            (ActivityPub, 'https://inst/post', Fake, 'fake:ap:https://inst/post'),
+            (ActivityPub, 'https://inst/post', Fake, 'fake:o:ap:https://inst/post'),
             (ActivityPub, 'https://inst/post',
              Web, 'https://ap.brid.gy/convert/web/https:/inst/post'),
             (ATProto, 'at://did/web/post', Web, 'http://post'),
@@ -113,7 +113,7 @@ class IdsTest(TestCase):
             (Web, 'http://post',
              ActivityPub, 'https://web.brid.gy/convert/ap/http:/post'),
             (Web, 'http://post', ATProto, 'at://did/web/post'),
-            (Web, 'http://post', Fake, 'fake:web:http://post'),
+            (Web, 'http://post', Fake, 'fake:o:web:http://post'),
             (Web, 'http://post', Web, 'http://post'),
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):

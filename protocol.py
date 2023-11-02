@@ -17,7 +17,7 @@ import werkzeug.exceptions
 import common
 from common import add, DOMAIN_BLOCKLIST, DOMAINS, error, subdomain_wrap
 from flask_app import app
-from ids import translate_object_id
+from ids import translate_object_id, translate_user_id
 from models import Follower, get_originals, Object, PROTOCOLS, Target, User
 
 SUPPORTED_TYPES = (
@@ -497,7 +497,7 @@ class Protocol:
         outer_obj = copy.deepcopy(obj)
         inner_obj = outer_obj['object'] = as1.get_object(outer_obj)
 
-        def translate(elem, field):
+        def translate(elem, field, fn):
             elem[field] = as1.get_object(elem, field)
             id = elem[field].get('id')
             if id and util.domain_from_link(id) not in DOMAINS:
@@ -505,19 +505,26 @@ class Protocol:
                 # TODO: what if from_cls is None? relax translate_object_id,
                 # make it a noop if we don't know enough about from/to?
                 if from_cls and from_cls != to_cls:
-                    elem[field]['id'] = translate_object_id(
-                        id=id, from_proto=from_cls, to_proto=to_cls)
+                    elem[field]['id'] = fn(id=id, from_proto=from_cls, to_proto=to_cls)
             if elem[field].keys() == {'id'}:
                 elem[field] = elem[field]['id']
 
-        for o in outer_obj, inner_obj:
-            for field in ('actor', 'author', 'id', 'inReplyTo'):
-                translate(o, field)
+        type = as1.object_type(outer_obj)
+        translate(outer_obj, 'id',
+                  translate_user_id if type in as1.ACTOR_TYPES
+                  else translate_object_id)
 
-        for tag in (as1.get_objects(outer_obj, 'tags')
-                    + as1.get_objects(inner_obj, 'tags')):
-            if tag.get('objectType') == 'mention':
-                translate(tag, 'url')
+        translate(inner_obj, 'id',
+                  translate_user_id if type in ('follow', 'stop-following')
+                  else translate_object_id)
+
+        for o in outer_obj, inner_obj:
+            translate(o, 'inReplyTo', translate_object_id)
+            for field in 'actor', 'author':
+                translate(o, field, translate_user_id)
+            for tag in as1.get_objects(o, 'tags'):
+                if tag.get('objectType') == 'mention':
+                    translate(tag, 'url', translate_user_id)
 
         outer_obj = util.trim_nulls(outer_obj)
         if outer_obj.get('object', {}).keys() == {'id'}:
