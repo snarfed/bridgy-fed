@@ -7,5 +7,6 @@ Disallow: /convert/
 Disallow: /nostr/
 Disallow: /recent
 Disallow: /r/
+Disallow: /render
 Disallow: /user/
 Disallow: /web/
