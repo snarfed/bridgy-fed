@@ -18,7 +18,7 @@ import common
 from common import add, DOMAIN_BLOCKLIST, DOMAINS, error, subdomain_wrap
 from flask_app import app
 from ids import translate_object_id
-from models import Follower, get_for_copies, Object, PROTOCOLS, Target, User
+from models import Follower, get_originals, Object, PROTOCOLS, Target, User
 
 SUPPORTED_TYPES = (
     'accept',
@@ -935,7 +935,7 @@ class Protocol:
 
         # TODO: remove this? seems unnecessary now that receive calls resolve_ids?
         if target_uris:
-            origs = {key.id() for key in get_for_copies(target_uris, keys_only=True)}
+            origs = {key.id() for key in get_originals(target_uris, keys_only=True)}
             if origs:
                 target_uris |= origs
                 logger.info(f'Added originals: {origs}')

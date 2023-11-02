@@ -790,8 +790,8 @@ class ObjectTest(TestCase):
             },
         }, obj.our_as1)
 
-    def test_get_for_copies(self):
-        self.assertEqual([], models.get_for_copies(['foo', 'did:plc:bar']))
+    def test_get_originals(self):
+        self.assertEqual([], models.get_originals(['foo', 'did:plc:bar']))
 
         obj = self.store_object(id='fake:post',
                                 copies=[Target(uri='other:foo', protocol='other')])
@@ -799,7 +799,7 @@ class ObjectTest(TestCase):
                               copies=[Target(uri='fake:bar', protocol='fake')])
 
         self.assert_entities_equal(
-            [obj, user], models.get_for_copies(['other:foo', 'fake:bar', 'baz']))
+            [obj, user], models.get_originals(['other:foo', 'fake:bar', 'baz']))
 
 
 class FollowerTest(TestCase):

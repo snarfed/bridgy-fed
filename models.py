@@ -934,7 +934,7 @@ class Object(StringIdModel):
             return
 
 
-        origs = get_for_copies(ids)
+        origs = get_originals(ids)
         replaced = False
 
         def replace(obj, field):
@@ -1139,7 +1139,7 @@ def fetch_page(query, model_class, by=None):
     return results, new_before, new_after
 
 
-def get_for_copy(copy_id, keys_only=None):
+def get_original(copy_id, keys_only=None):
     """Fetches a user or object with a given id in copies.
 
     Thin wrapper around :func:`get_copies` that returns the first
@@ -1152,12 +1152,12 @@ def get_for_copy(copy_id, keys_only=None):
     Returns:
       User or Object:
     """
-    got = get_for_copies([copy_id], keys_only=keys_only)
+    got = get_originals([copy_id], keys_only=keys_only)
     if got:
         return got[0]
 
 
-def get_for_copies(copy_ids, keys_only=None):
+def get_originals(copy_ids, keys_only=None):
     """Fetches users (across all protocols) for a given set of copies.
 
     Args:
