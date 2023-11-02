@@ -34,12 +34,12 @@ from .testutil import Fake, TestCase
 from . import test_activitypub
 
 DID_DOC = {
-    'id': 'did:plc:foo',
+    'id': 'did:plc:user',
     'alsoKnownAs': ['at://han.dull'],
     'verificationMethod': [{
-        'id': 'did:plc:foo#atproto',
+        'id': 'did:plc:user#atproto',
         'type': 'Multikey',
-        'controller': 'did:plc:foo',
+        'controller': 'did:plc:user',
         'publicKeyMultibase': 'did:key:xyz',
     }],
     'service': [{
@@ -77,15 +77,15 @@ class ATProtoTest(TestCase):
                 ATProto(id=bad).put()
 
         ATProto(id='did:web:foo.com').put()
-        ATProto(id='did:plc:foo').put()
+        ATProto(id='did:plc:user').put()
 
     def test_handle(self):
-        self.store_object(id='did:plc:foo', raw=DID_DOC)
-        self.assertEqual('han.dull', ATProto(id='did:plc:foo').handle)
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.assertEqual('han.dull', ATProto(id='did:plc:user').handle)
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_get_or_create(self, _):
-        user = self.make_user('did:plc:foo', cls=ATProto)
+        user = self.make_user('did:plc:user', cls=ATProto)
         self.assertEqual('han.dull', user.key.get().handle)
 
     def test_put_blocks_atproto_did(self):
@@ -97,8 +97,8 @@ class ATProtoTest(TestCase):
         self.assertFalse(ATProto.owns_id('https://bar.baz/biff'))
         self.assertFalse(ATProto.owns_id('e45fab982'))
 
-        self.assertTrue(ATProto.owns_id('at://did:plc:foo/bar/123'))
-        self.assertTrue(ATProto.owns_id('did:plc:foo'))
+        self.assertTrue(ATProto.owns_id('at://did:plc:user/bar/123'))
+        self.assertTrue(ATProto.owns_id('did:plc:user'))
         self.assertTrue(ATProto.owns_id('did:web:bar.com'))
         self.assertTrue(ATProto.owns_id(
             'https://bsky.app/profile/snarfed.org/post/3k62u4ht77f2z'))
@@ -114,9 +114,9 @@ class ATProtoTest(TestCase):
         self.assertFalse(ATProto.owns_handle('foo@bar.com'))
 
     def test_handle_to_id(self):
-        self.store_object(id='did:plc:foo', raw=DID_DOC)
-        self.make_user('did:plc:foo', cls=ATProto)
-        self.assertEqual('did:plc:foo', ATProto.handle_to_id('han.dull'))
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.make_user('did:plc:user', cls=ATProto)
+        self.assertEqual('did:plc:user', ATProto.handle_to_id('han.dull'))
 
     @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
     # resolving handle, HTTPS method, not found
@@ -125,26 +125,26 @@ class ATProtoTest(TestCase):
         self.assertIsNone(ATProto.handle_to_id('han.dull'))
 
     def test_pds_for_did_no_doc(self):
-        self.assertIsNone(ATProto.pds_for(Object(id='did:plc:foo')))
+        self.assertIsNone(ATProto.pds_for(Object(id='did:plc:user')))
 
     def test_pds_for_stored_did(self):
-        obj = self.store_object(id='did:plc:foo', raw=DID_DOC)
+        obj = self.store_object(id='did:plc:user', raw=DID_DOC)
         got = ATProto.pds_for(obj)
         self.assertEqual('https://some.pds', got)
 
     def test_pds_for_record_stored_did(self):
-        self.store_object(id='did:plc:foo', raw=DID_DOC)
-        got = ATProto.pds_for(Object(id='at://did:plc:foo/co.ll/123'))
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        got = ATProto.pds_for(Object(id='at://did:plc:user/co.ll/123'))
         self.assertEqual('https://some.pds', got)
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_pds_for_fetch_did(self, mock_get):
-        got = ATProto.pds_for(Object(id='at://did:plc:foo/co.ll/123'))
+        got = ATProto.pds_for(Object(id='at://did:plc:user/co.ll/123'))
         self.assertEqual('https://some.pds', got)
 
     def test_pds_for_user_with_stored_did(self):
-        self.store_object(id='did:plc:foo', raw=DID_DOC)
-        self.make_user('fake:user', cls=Fake, atproto_did='did:plc:foo')
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.make_user('fake:user', cls=Fake, atproto_did='did:plc:user')
         got = ATProto.pds_for(Object(id='fake:post', our_as1={
             **POST_AS,
             'actor': 'fake:user',
@@ -159,17 +159,17 @@ class ATProtoTest(TestCase):
         })))
 
     def test_pds_for_bsky_app_url_did_stored(self):
-        self.store_object(id='did:plc:foo', raw=DID_DOC)
-        self.make_user('fake:user', cls=Fake, atproto_did='did:plc:foo')
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.make_user('fake:user', cls=Fake, atproto_did='did:plc:user')
 
         got = ATProto.pds_for(Object(
-            id='https://bsky.app/profile/did:plc:foo/post/123'))
+            id='https://bsky.app/profile/did:plc:user/post/123'))
         self.assertEqual('https://some.pds', got)
 
     @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
     @patch('requests.get', side_effect=[
         # resolving handle, HTTPS method
-        requests_response('did:plc:foo', content_type='text/plain'),
+        requests_response('did:plc:user', content_type='text/plain'),
         # fetching DID doc
         requests_response(DID_DOC),
     ])
@@ -180,7 +180,7 @@ class ATProtoTest(TestCase):
 
         mock_get.assert_has_calls((
             self.req('https://baz.com/.well-known/atproto-did'),
-            self.req('https://plc.local/did:plc:foo'),
+            self.req('https://plc.local/did:plc:user'),
         ))
 
     def test_target_for_user_no_stored_did(self):
@@ -245,34 +245,34 @@ class ATProtoTest(TestCase):
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):
-        user = self.make_user('did:plc:foo', cls=ATProto)
-        self.assertEqual('https://bsky.app/profile/did:plc:foo', user.web_url())
+        user = self.make_user('did:plc:user', cls=ATProto)
+        self.assertEqual('https://bsky.app/profile/did:plc:user', user.web_url())
 
-        self.store_object(id='did:plc:foo', raw=DID_DOC)
+        self.store_object(id='did:plc:user', raw=DID_DOC)
         self.assertEqual('https://bsky.app/profile/han.dull', user.web_url())
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_handle_or_id(self, mock_get):
-        user = self.make_user('did:plc:foo', cls=ATProto)
+        user = self.make_user('did:plc:user', cls=ATProto)
         self.assertIsNone(user.handle)
-        self.assertEqual('did:plc:foo', user.handle_or_id())
+        self.assertEqual('did:plc:user', user.handle_or_id())
 
-        self.store_object(id='did:plc:foo', raw=DID_DOC)
+        self.store_object(id='did:plc:user', raw=DID_DOC)
         self.assertEqual('han.dull', user.handle)
         self.assertEqual('han.dull', user.handle_or_id())
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_ap_address(self, mock_get):
-        user = self.make_user('did:plc:foo', cls=ATProto)
-        self.assertEqual('@did:plc:foo@atproto.brid.gy', user.ap_address())
+        user = self.make_user('did:plc:user', cls=ATProto)
+        self.assertEqual('@did:plc:user@atproto.brid.gy', user.ap_address())
 
-        self.store_object(id='did:plc:foo', raw=DID_DOC)
+        self.store_object(id='did:plc:user', raw=DID_DOC)
         self.assertEqual('@han.dull@atproto.brid.gy', user.ap_address())
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_profile_id(self, mock_get):
-        self.assertEqual('at://did:plc:foo/app.bsky.actor.profile/self',
-                         self.make_user('did:plc:foo', cls=ATProto).profile_id())
+        self.assertEqual('at://did:plc:user/app.bsky.actor.profile/self',
+                         self.make_user('did:plc:user', cls=ATProto).profile_id())
 
     @patch('atproto.DEBUG', new=False)
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
@@ -427,12 +427,12 @@ class ATProtoTest(TestCase):
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_existing_repo(self, mock_create_task):
-        user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:foo')
+        user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:user')
 
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = 'https://atproto.brid.gy/'
-        self.store_object(id='did:plc:foo', raw=did_doc)
-        Repo.create(self.storage, 'did:plc:foo', signing_key=KEY)
+        self.store_object(id='did:plc:user', raw=did_doc)
+        Repo.create(self.storage, 'did:plc:user', signing_key=KEY)
 
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
             **POST_AS,
@@ -460,8 +460,8 @@ class ATProtoTest(TestCase):
 
     @patch.object(tasks_client, 'create_task')
     def test_send_did_doc_not_our_repo(self, mock_create_task):
-        self.store_object(id='did:plc:foo', raw=DID_DOC)  # uses https://some.pds
-        user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:foo')
+        self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
+        user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:user')
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
             'objectType': 'note',
             'content': 'foo',
