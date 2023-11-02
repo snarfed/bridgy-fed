@@ -215,6 +215,16 @@ class UserTest(TestCase):
         })
         self.assertEqual('opt-out', user.status)
 
+    def test_get_copy(self):
+        user = Fake(id='x')
+        self.assertIsNone(user.get_copy(OtherFake))
+
+        user.copies.append(Target(uri='fake:foo', protocol='fake'))
+        self.assertIsNone(user.get_copy(OtherFake))
+
+        user.copies = [Target(uri='other:foo', protocol='other')]
+        self.assertEqual('other:foo', user.get_copy(OtherFake))
+
 
 class ObjectTest(TestCase):
     def setUp(self):
@@ -800,6 +810,16 @@ class ObjectTest(TestCase):
 
         self.assert_entities_equal(
             [obj, user], models.get_originals(['other:foo', 'fake:bar', 'baz']))
+
+    def test_get_copy(self):
+        obj = Object(id='x')
+        self.assertIsNone(obj.get_copy(Fake))
+
+        obj.copies = [Target(uri='other:foo', protocol='other')]
+        self.assertIsNone(obj.get_copy(Fake))
+
+        obj.copies.append(Target(uri='fake:foo', protocol='fake'))
+        self.assertEqual('fake:foo', obj.get_copy(Fake))
 
 
 class FollowerTest(TestCase):

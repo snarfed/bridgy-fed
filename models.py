@@ -467,6 +467,21 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         return path
 
+    def get_copy(self, proto):
+        """Returns the id for the copy of this user in a given protocol.
+
+        ...or None if no such copy exists.
+
+        Args:
+          proto: :class:`Protocol` subclass
+
+        Returns:
+          str:
+        """
+        for copy in self.copies:
+            if copy.protocol in (proto.LABEL, proto.ABBREV):
+                return copy.uri
+
     def user_link(self):
         """Returns a pretty link to the external user with name and profile picture."""
         actor = self.obj.as1 if self.obj and self.obj.as1 else {}
@@ -880,6 +895,21 @@ class Object(StringIdModel):
           {util.ellipsize(name, chars=40)}
         </a>"""
 
+    def get_copy(self, proto):
+        """Returns the id for the copy of this object in a given protocol.
+
+        ...or None if no such copy exists.
+
+        Args:
+          proto: :class:`Protocol` subclass
+
+        Returns:
+          str:
+        """
+        for copy in self.copies:
+            if copy.protocol in (proto.LABEL, proto.ABBREV):
+                return copy.uri
+
     def resolve_ids(self):
         """Resolves "copy" ids, subdomain ids, etc with their originals.
 
@@ -1145,6 +1175,8 @@ def get_original(copy_id, keys_only=None):
     Thin wrapper around :func:`get_copies` that returns the first
     matching result.
 
+    Also see :Object:`get_copy` and :User:`get_copy`.
+
     Args:
       copy_id (str)
       keys_only (bool): passed through to :class:`google.cloud.ndb.Query`
@@ -1159,6 +1191,8 @@ def get_original(copy_id, keys_only=None):
 
 def get_originals(copy_ids, keys_only=None):
     """Fetches users (across all protocols) for a given set of copies.
+
+    Also see :Object:`get_copy` and :User:`get_copy`.
 
     Args:
       copy_ids (sequence of str)
