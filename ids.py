@@ -36,8 +36,13 @@ def translate_user_id(*, id, from_proto, to_proto):
     if from_proto == to_proto:
         return id
 
+    # follow use_instead
+    user = from_proto.get_by_id(id)
+    if user:
+        id = user.key.id()
+
     def copy_or_original():
-        if user := from_proto.get_by_id(id):
+        if user:
             if copy := user.get_copy(to_proto):
                 return copy
         if orig := models.get_original(id):

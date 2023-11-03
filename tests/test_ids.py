@@ -58,6 +58,22 @@ class IdsTest(TestCase):
                 self.assertIsNone(translate_user_id(
                     id='did:plc:123', from_proto=ATProto, to_proto=proto))
 
+    def test_translate_user_id_use_instead(self):
+        did = Target(uri='did:plc:123', protocol='atproto')
+        user = self.make_user('user.com', cls=Web, copies=[did])
+        self.make_user('www.user.com', cls=Web, use_instead=user.key)
+
+        for proto, expected in [
+            (ATProto, 'did:plc:123'),
+            (ActivityPub, 'http://localhost/user.com'),
+            (Fake, 'fake:u:user.com'),
+        ]:
+            with self.subTest(proto=proto.LABEL):
+                self.assertEqual(expected, translate_user_id(
+                    id='www.user.com', from_proto=Web, to_proto=proto))
+                self.assertEqual(expected, translate_user_id(
+                    id='https://www.user.com/', from_proto=Web, to_proto=proto))
+
     def test_translate_handle(self):
         for from_, handle, to, expected in [
             # basic
