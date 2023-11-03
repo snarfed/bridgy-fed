@@ -42,6 +42,9 @@ def translate_user_id(*, id, from_proto, to_proto):
                 return found
             logger.warning(f"Can't translate user id {id} to {to_proto} , haven't copied it to/from there yet!")
             return None
+        case 'web', 'activitypub':
+            # for historical backward compatibility
+            return f'https://fed.brid.gy/{id}'
         case _, 'activitypub':
             return subdomain_wrap(from_proto, f'/ap/{id}')
         case 'activitypub', 'web':

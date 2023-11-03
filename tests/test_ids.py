@@ -29,7 +29,7 @@ class IdsTest(TestCase):
             (Fake, 'fake:user', ATProto, 'did:plc:789'),
             (Fake, 'fake:user', Fake, 'fake:user'),
             (Fake, 'fake:user', Web, 'fake:user'),
-            (Web, 'user.com', ActivityPub, 'https://web.brid.gy/ap/user.com'),
+            (Web, 'user.com', ActivityPub, 'https://fed.brid.gy/user.com'),
             (Web, 'user.com', ATProto, 'did:plc:123'),
             (Web, 'user.com', Fake, 'fake:u:user.com'),
             (Web, 'user.com', Web, 'user.com'),
