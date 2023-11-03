@@ -6,7 +6,7 @@ import logging
 import re
 from urllib.parse import quote_plus, urljoin, urlparse
 
-from flask import abort, g, request
+from flask import abort, g, redirect, request
 from google.cloud import ndb
 from google.cloud.ndb.query import OR
 from granary import as1, as2
@@ -27,6 +27,8 @@ from common import (
     DOMAIN_RE,
     error,
     host_url,
+    LOCAL_DOMAINS,
+    PRIMARY_DOMAIN,
     redirect_wrap,
     subdomain_wrap,
     unwrap,
@@ -772,6 +774,11 @@ def actor(handle_or_id):
     cls = Protocol.for_request(fed='web')
     if not cls:
         error(f"Couldn't determine protocol", status=404)
+    elif cls == web.Web and (request.path.startswith('/ap/') or
+                             request.host not in LOCAL_DOMAINS + (PRIMARY_DOMAIN,)):
+        # we started out with web users' AP ids as fed.brid.gy/[domain], so we
+        # need to preserve those for backward compatibility
+        return redirect(subdomain_wrap(None, f'/{handle_or_id}'), code=301)
 
     if cls.owns_id(handle_or_id) is False:
         if cls.owns_handle(handle_or_id) is False:

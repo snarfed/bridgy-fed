@@ -429,6 +429,16 @@ class ActivityPubTest(TestCase):
                                base_url='https://bridgy-federated.appspot.com/')
         self.assertEqual(404, resp.status_code)
 
+    def test_actor_web_redirects(self, *_):
+        for path, base_url in [
+                ('/ap/user.com', None),
+                ('/ap/user.com', 'https://web.brid.gy/'),
+                ('/user.com', 'https://web.brid.gy/'),
+        ]:
+            resp = self.client.get(path, base_url=base_url)
+            self.assertEqual(301, resp.status_code)
+            self.assertEqual('https://fed.brid.gy/user.com', resp.headers['Location'])
+
     def test_individual_inbox_no_user(self, mock_head, mock_get, mock_post):
         self.user.key.delete()
 
