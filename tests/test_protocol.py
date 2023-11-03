@@ -440,7 +440,7 @@ class ProtocolTest(TestCase):
     def test_translate_ids_reply(self):
         self.assert_equals({
             'objectType': 'activity',
-            'verb': 'create',
+            'verb': 'post',
             'object': {
                 'id': 'other:o:fa:fake:reply',
                 'objectType': 'note',
@@ -453,7 +453,7 @@ class ProtocolTest(TestCase):
             },
         }, OtherFake.translate_ids({
             'objectType': 'activity',
-            'verb': 'create',
+            'verb': 'post',
             'object': {
                 'id': 'fake:reply',
                 'objectType': 'note',
@@ -466,6 +466,25 @@ class ProtocolTest(TestCase):
             },
         }))
 
+    def test_translate_ids_update_profile(self):
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'other:u:fake:alice',
+            'object': {
+                'objectType': 'person',
+                'id': 'other:u:fake:alice',
+            },
+        }, OtherFake.translate_ids({
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'fake:alice',
+            'object': {
+                'objectType': 'person',
+                'id': 'fake:alice',
+            },
+        }))
+
     def test_translate_ids_copies(self):
         self.store_object(id='fake:post',
                           copies=[Target(uri='other:post', protocol='other')])
@@ -474,7 +493,7 @@ class ProtocolTest(TestCase):
 
         self.assert_equals({
             'objectType': 'activity',
-            'verb': 'create',
+            'verb': 'post',
             'actor': 'other:user',
             'object': {
                 'id': 'other:o:fa:fake:reply',
@@ -482,7 +501,7 @@ class ProtocolTest(TestCase):
             },
         }, OtherFake.translate_ids({
             'objectType': 'activity',
-            'verb': 'create',
+            'verb': 'post',
             'actor': 'fake:user',
             'object': {
                 'id': 'fake:reply',

@@ -494,6 +494,9 @@ class Protocol:
         Returns:
           dict: wrapped version of ``obj``
         """
+        if not obj:
+            return obj
+
         outer_obj = copy.deepcopy(obj)
         inner_obj = outer_obj['object'] = as1.get_object(outer_obj)
 
@@ -514,9 +517,10 @@ class Protocol:
                   translate_user_id if type in as1.ACTOR_TYPES
                   else translate_object_id)
 
+        inner_is_actor = (as1.object_type(inner_obj) in as1.ACTOR_TYPES
+                          or type in ('follow', 'stop-following'))
         translate(inner_obj, 'id',
-                  translate_user_id if type in ('follow', 'stop-following')
-                  else translate_object_id)
+                  translate_user_id if inner_is_actor else translate_object_id)
 
         for o in outer_obj, inner_obj:
             translate(o, 'inReplyTo', translate_object_id)
