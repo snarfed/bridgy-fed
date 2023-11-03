@@ -488,6 +488,18 @@ class ObjectTest(TestCase):
   Alice
 </a>""", obj.actor_link(sized=True))
 
+    def test_actor_link_composite_url(self):
+        obj = Object(id='x', our_as1={
+            'actor': {
+                'url': {
+                    'value': 'https://mas.to/@foo',
+                }
+            },
+        })
+        self.assert_multiline_equals(
+            '<a class="h-card u-author" href="https://mas.to/@foo">mas.to/@foo</a>',
+            obj.actor_link(image=False))
+
     def test_put_updates_load_cache(self):
         obj = Object(id='x', as2={})
         obj.put()

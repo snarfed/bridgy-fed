@@ -862,7 +862,7 @@ class Object(StringIdModel):
         elif set(actor.keys()) == {'id'}:
             return common.pretty_link(actor['id'], attrs=attrs)
 
-        url = util.get_first(actor, 'url') or ''
+        url = as1.get_url(actor)
         name = actor.get('displayName') or actor.get('username') or ''
         img_url = util.get_url(actor, 'image')
         if not image or not img_url:
