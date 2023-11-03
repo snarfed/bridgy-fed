@@ -2285,6 +2285,34 @@ class WebUtilTest(TestCase):
 </html>
 """, Web.convert(obj), ignore_blanks=True)
 
+    def test_convert_translates_ids(self, *_):
+        self.store_object(id='http://fed/post', source_protocol='activitypub')
+
+        self.assert_multiline_in("""\
+<article class="h-entry">
+<span class="p-uid">https://fa.brid.gy/convert/web/fake:reply</span>
+<span class="p-author h-card">
+  <data class="p-uid" value="fake:alice"></data>
+  <span class="p-name">Ms. Alice</span>
+</span>
+<span class="p-name"></span>
+<div class="">
+</div>
+<a class="u-in-reply-to" href="https://ap.brid.gy/convert/web/http:/fed/post"></a>
+</article>""", Web.convert(Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'id': 'fake:reply',
+                'objectType': 'note',
+                'inReplyTo': 'http://fed/post',
+                'author': {
+                    'id': 'fake:alice',
+                    'displayName': 'Ms. Alice',
+                },
+            },
+        })), ignore_blanks=True)
+
     def test_target_for(self, _, __):
         self.assertIsNone(Web.target_for(Object(id='x', source_protocol='web')))
 

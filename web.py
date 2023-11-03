@@ -447,8 +447,10 @@ class Web(User, Protocol):
         Returns:
           str:
         """
-        obj_as1 = obj.as1
+        if not obj or not obj.as1:
+            return ''
 
+        obj_as1 = obj.as1
         from_proto = PROTOCOLS.get(obj.source_protocol)
         if from_proto:
             # fill in author/actor if available
@@ -461,7 +463,7 @@ class Web(User, Protocol):
         else:
             logger.debug(f'Not hydrating actor or author due to source_protocol {obj.source_protocol}')
 
-        html = microformats2.activities_to_html([obj_as1])
+        html = microformats2.activities_to_html([cls.translate_ids(obj_as1)])
 
         # add HTML meta redirect to source page. should trigger for end users in
         # browsers but not for webmention receivers (hopefully).

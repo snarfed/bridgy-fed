@@ -328,10 +328,10 @@ class ActivityPub(User, Protocol):
 
         Args:
           obj (models.Object)
+          kwargs: passed through to :func:`postprocess_as2`
 
         Returns:
           dict: AS2 JSON
-          kwargs: passed through to :func:`postprocess_as2`
         """
         if not obj:
             return {}

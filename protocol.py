@@ -413,13 +413,15 @@ class Protocol:
         For example, an HTML string for :class:`Web`, or a dict with AS2 JSON
         and ``application/activity+json`` for :class:`ActivityPub`.
 
-        To be implemented by subclasses.
+        To be implemented by subclasses. Implementations should generally call
+        :meth:`Protocol.translate_ids` (as their own class) before converting to
+        their format.
 
         Args:
           obj (models.Object):
 
         Returns:
-          converted object data
+          converted object in the protocol's native format, often a dict
         """
         raise NotImplementedError()
 
@@ -489,11 +491,12 @@ class Protocol:
 
         Args:
           to_proto (Protocol subclass)
-          obj (dict): AS1 object or activity
+          obj (dict): AS1 object or activity (not :class:`models.Object`!)
 
         Returns:
           dict: wrapped version of ``obj``
         """
+        assert to_cls != Protocol
         if not obj:
             return obj
 
