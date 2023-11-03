@@ -4,6 +4,7 @@ https://fed.brid.gy/docs#translate
 """
 import logging
 import re
+from urllib.parse import urlparse
 
 from common import subdomain_wrap, SUPERDOMAIN
 import models
@@ -24,6 +25,11 @@ def translate_user_id(*, id, from_proto, to_proto):
     """
     assert id and from_proto and to_proto
     assert from_proto.owns_id(id) is not False
+
+    parsed = urlparse(id)
+    if from_proto.LABEL == 'web' and parsed.path.strip('/') == '':
+        # home page; replace with domain
+        id = parsed.netloc
 
     if from_proto == to_proto:
         return id

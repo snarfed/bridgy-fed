@@ -30,9 +30,12 @@ class IdsTest(TestCase):
             (Fake, 'fake:user', Fake, 'fake:user'),
             (Fake, 'fake:user', Web, 'fake:user'),
             (Web, 'user.com', ActivityPub, 'https://fed.brid.gy/user.com'),
+            (Web, 'https://user.com/', ActivityPub, 'https://fed.brid.gy/user.com'),
             (Web, 'user.com', ATProto, 'did:plc:123'),
+            (Web, 'https://user.com', ATProto, 'did:plc:123'),
             (Web, 'user.com', Fake, 'fake:u:user.com'),
             (Web, 'user.com', Web, 'user.com'),
+            (Web, 'https://user.com/', Web, 'user.com'),
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_user_id(
