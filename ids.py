@@ -4,9 +4,11 @@ https://fed.brid.gy/docs#translate
 """
 import logging
 import re
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
-from common import subdomain_wrap, SUPERDOMAIN
+from flask import request
+
+from common import subdomain_wrap, LOCAL_DOMAINS, PRIMARY_DOMAIN, SUPERDOMAIN
 import models
 
 logger = logging.getLogger(__name__)
@@ -48,11 +50,16 @@ def translate_user_id(*, id, from_proto, to_proto):
                 return found
             logger.warning(f"Can't translate user id {id} to {to_proto} , haven't copied it to/from there yet!")
             return None
+
         case 'web', 'activitypub':
-            # for historical backward compatibility
-            return f'https://fed.brid.gy/{id}'
+            # special case web => AP for historical backward compatibility
+            base = (request.host_url if request.host in LOCAL_DOMAINS
+                    else f'https://{PRIMARY_DOMAIN}/')
+            return urljoin(base, id)
+
         case _, 'activitypub':
             return subdomain_wrap(from_proto, f'/ap/{id}')
+
         case 'activitypub', 'web':
             return id
 
@@ -90,17 +97,21 @@ def translate_handle(*, handle, from_proto, to_proto):
                 return f'@{handle}@{from_proto.ABBREV}{SUPERDOMAIN}'
             else:  # enhanced (TODO)
                 return f'@{handle}@{handle}'
+
         case _, 'atproto' | 'nostr':
             handle = handle.lstrip('@').replace('@', '.')
             if True:  # basic
                 return f'{handle}.{from_proto.ABBREV}{SUPERDOMAIN}'
             else:  # enhanced (TODO)
                 return handle
+
         case 'activitypub', 'web':
             user, instance = handle.lstrip('@').split('@')
             return f'instance/@user'  # TODO
+
         case _, 'web':
             return handle
+
         # only for unit tests
         case _, 'fake':
             return f'fake:handle:{handle}'
@@ -140,6 +151,12 @@ def translate_object_id(*, id, from_proto, to_proto):
                 return found
             logger.warning(f"Can't translate object id {id} to {to_proto} , haven't copied it to/from there yet!")
             return id
+
+        case 'web', 'activitypub':
+            # special case web => AP for historical backward compatibility
+            base = (request.host_url if request.host in LOCAL_DOMAINS
+                    else f'https://{PRIMARY_DOMAIN}')
+            return urljoin(base, f'/r/{id}')
 
         case _, 'activitypub' | 'web':
             return subdomain_wrap(from_proto, f'convert/{to_proto.ABBREV}/{id}')

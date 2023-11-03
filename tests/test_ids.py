@@ -1,6 +1,7 @@
 """Unit tests for ids.py."""
 from activitypub import ActivityPub
 from atproto import ATProto
+from flask_app import app
 from ids import translate_handle, translate_object_id, translate_user_id
 from models import Target
 from web import Web
@@ -29,8 +30,8 @@ class IdsTest(TestCase):
             (Fake, 'fake:user', ATProto, 'did:plc:789'),
             (Fake, 'fake:user', Fake, 'fake:user'),
             (Fake, 'fake:user', Web, 'fake:user'),
-            (Web, 'user.com', ActivityPub, 'https://fed.brid.gy/user.com'),
-            (Web, 'https://user.com/', ActivityPub, 'https://fed.brid.gy/user.com'),
+            (Web, 'user.com', ActivityPub, 'http://localhost/user.com'),
+            (Web, 'https://user.com/', ActivityPub, 'http://localhost/user.com'),
             (Web, 'user.com', ATProto, 'did:plc:123'),
             (Web, 'https://user.com', ATProto, 'did:plc:123'),
             (Web, 'user.com', Fake, 'fake:u:user.com'),
@@ -40,6 +41,10 @@ class IdsTest(TestCase):
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_user_id(
                     id=id, from_proto=from_, to_proto=to))
+
+        with app.test_request_context('/', base_url='https://web.brid.gy/'):
+            self.assertEqual('https://fed.brid.gy/user.com', translate_user_id(
+                    id='user.com', from_proto=Web, to_proto=ActivityPub))
 
     def test_translate_user_id_no_copy_did_stored(self):
         for proto, id in [
@@ -113,8 +118,7 @@ class IdsTest(TestCase):
             (Fake, 'fake:post', ATProto, 'at://did/fa/post'),
             (Fake, 'fake:post', Fake, 'fake:post'),
             (Fake, 'fake:post', Web, 'https://fa.brid.gy/convert/web/fake:post'),
-            (Web, 'http://post',
-             ActivityPub, 'https://web.brid.gy/convert/ap/http:/post'),
+            (Web, 'http://post', ActivityPub, 'http://localhost/r/http://post'),
             (Web, 'http://post', ATProto, 'at://did/web/post'),
             (Web, 'http://post', Fake, 'fake:o:web:http://post'),
             (Web, 'http://post', Web, 'http://post'),
@@ -122,3 +126,8 @@ class IdsTest(TestCase):
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_object_id(
                     id=id, from_proto=from_, to_proto=to))
+
+        with app.test_request_context('/', base_url='https://web.brid.gy/'):
+            got = translate_object_id(id='http://post', from_proto=Web,
+                                      to_proto=ActivityPub)
+            self.assertEqual('https://fed.brid.gy/r/http://post', got)
