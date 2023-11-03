@@ -382,6 +382,8 @@ ACTIVITYPUB_GETS = [
     NOT_FEDIVERSE,  # Web
     TOOT_AS2,       # AP
     ACTOR,
+    NOT_FEDIVERSE,  # AP
+    NOT_FEDIVERSE,  # Web
 ]
 
 
@@ -819,6 +821,8 @@ class WebTest(TestCase):
             NOT_FEDIVERSE,  # Web
             self.as2_resp(toot_as2_data),  # AP
             ACTOR,
+            NOT_FEDIVERSE,  # AP
+            NOT_FEDIVERSE,  # Web
         ]
         mock_post.return_value = requests_response('abc xyz')
 
@@ -900,6 +904,8 @@ class WebTest(TestCase):
             TOOT_HTML,      # AP
             TOOT_AS2,       # AP via rel-alternate
             ACTOR,
+            NOT_FEDIVERSE,  # AP
+            NOT_FEDIVERSE,  # Web
         ]
         mock_post.return_value = requests_response('abc xyz')
 
@@ -1827,6 +1833,8 @@ http://this/404s
 </a>
 </body>
 """, url='https://user.com/'),
+            NOT_FEDIVERSE,
+            NOT_FEDIVERSE,
         ]
         self._test_verify(True, True, {})
 

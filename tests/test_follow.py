@@ -189,7 +189,8 @@ class FollowTest(TestCase):
         self.check('https://bar/actor', resp, FOLLOW_URL, mock_get, mock_post)
 
     def test_callback_stored_followee_with_our_as1(self, mock_get, mock_post):
-        self.store_object(id='https://bar/id', our_as1=as2.to_as1(FOLLOWEE))
+        self.store_object(id='https://bar/id', our_as1=as2.to_as1(FOLLOWEE),
+                          source_protocol='activitypub')
 
         mock_get.side_effect = (
             requests_response(''),

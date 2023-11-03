@@ -21,7 +21,7 @@ COMMENT_AS2 = {
     'url': 'https://web.brid.gy/r/https://fake.com/123456',
     'name': 'A ☕ reply',
     'contentMap': {'en': COMMENT['content']},
-    'inReplyTo': 'https://fake.com/123',
+    'inReplyTo': 'https://fed.brid.gy/r/https://fake.com/123',
 }
 HTML = """\
 <!DOCTYPE html>
@@ -241,14 +241,16 @@ A ☕ reply
         # self.assertEqual(f'https://ap.brid.gy/convert/web/https:/foo%3Fbar%23baz',
         #                  resp.headers['Location'])
 
-    def test_web_to_activitypub_object(self):
-        url = 'https://user.com/bar?baz=baj&biff'
+    @patch('requests.get')
+    def test_web_to_activitypub_object(self, mock_get):
+        mock_get.return_value = requests_response(HTML)
+
         self.make_user('user.com')
 
+        url = 'https://user.com/bar?baz=baj&biff'
         Object(id=url, mf2=parse_mf2(HTML)['items'][0]).put()
 
-        resp = self.client.get(f'/convert/ap/{url}',
-                               base_url='https://web.brid.gy/')
+        resp = self.client.get(f'/convert/ap/{url}', base_url='https://web.brid.gy/')
         self.assertEqual(200, resp.status_code)
         self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
 
@@ -270,8 +272,11 @@ A ☕ reply
                                base_url='https://web.brid.gy/')
         self.assertEqual(400, resp.status_code)
 
-    def test_web_to_activitypub_url_decode(self):
+    @patch('requests.get')
+    def test_web_to_activitypub_url_decode(self, mock_get):
         """https://github.com/snarfed/bridgy-fed/issues/581"""
+        mock_get.return_value = requests_response(HTML)
+
         self.make_user('user.com')
         self.store_object(id='http://user.com/a#b', mf2=parse_mf2(HTML)['items'][0])
 

@@ -19,6 +19,7 @@ from .test_web import (
     ACTOR_HTML,
     REPOST_AS2,
     REPOST_HTML,
+    TOOT_AS2,
 )
 
 REPOST_AS2 = {
@@ -89,7 +90,11 @@ class RedirectTest(testutil.TestCase):
 
     @patch('requests.get')
     def test_as2_fetch_post(self, mock_get):
-        mock_get.return_value = requests_response(REPOST_HTML)
+        mock_get.side_effect = [
+            requests_response(REPOST_HTML),
+            TOOT_AS2,
+            TOOT_AS2,
+        ]
 
         resp = self.client.get('/r/https://user.com/repost',
                                headers={'Accept': as2.CONTENT_TYPE})
@@ -98,8 +103,12 @@ class RedirectTest(testutil.TestCase):
 
     @patch('requests.get')
     def test_as2_fetch_post_no_backlink(self, mock_get):
-        mock_get.return_value = requests_response(
-            REPOST_HTML.replace('<a href="http://localhost/"></a>', ''))
+        mock_get.side_effect = [
+            requests_response(
+                REPOST_HTML.replace('<a href="http://localhost/"></a>', '')),
+            TOOT_AS2,
+            TOOT_AS2,
+        ]
 
         resp = self.client.get('/r/https://user.com/repost',
                                headers={'Accept': as2.CONTENT_TYPE})

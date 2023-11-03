@@ -412,7 +412,10 @@ class ActivityPubTest(TestCase):
         }, got.json, ignore=['publicKeyPem'])
 
     def test_actor_handle_new_user(self, _, __, ___):
-        Fake.fetchable['fake:user'] = as2.to_as1(ACTOR)
+        Fake.fetchable['fake:user'] = as2.to_as1({
+            **ACTOR,
+            'id': 'fake:user',
+        })
         got = self.client.get('/ap/fake:handle:user', base_url='https://fa.brid.gy/')
         self.assertEqual(200, got.status_code)
         self.assert_equals({
@@ -1987,24 +1990,27 @@ class ActivityPubUtilsTest(TestCase):
         obj.our_as1 = {}
         self.assertEqual({}, ActivityPub.convert(obj))
 
-        obj = Object(id='http://orig', our_as1={
-            'id': 'http://user.com/like',
-            'objectType': 'activity',
-            'verb': 'like',
-            'actor': 'https://user.com/',
-            'object': 'https://mas.to/post',
-        })
-        self.assertEqual({
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': 'http://localhost/r/http://user.com/like',
-            'type': 'Like',
-            'actor': 'http://localhost/user.com',
-            'object': 'https://mas.to/post',
-            'to': [as2.PUBLIC_AUDIENCE],
-        }, ActivityPub.convert(obj))
-
         obj.as2 = {'baz': 'biff'}
         self.assertEqual({'baz': 'biff'}, ActivityPub.convert(obj))
+
+        # prevent HTTP fetch to infer protocol
+        self.store_object(id='https://mas.to/thing', source_protocol='activitypub')
+        obj.as2 = None
+        obj.our_as1 = {
+            'id': 'fake:like',
+            'objectType': 'activity',
+            'verb': 'like',
+            'actor': 'fake:user',
+            'object': 'https://mas.to/thing',
+        }
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'https://fa.brid.gy/convert/ap/fake:like',
+            'type': 'Like',
+            'actor': 'https://fa.brid.gy/ap/fake:user',
+            'object': 'https://mas.to/thing',
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, ActivityPub.convert(obj))
 
     def test_postprocess_as2_idempotent(self):
         g.user = self.make_user('foo.com')
@@ -2127,6 +2133,8 @@ class ActivityPubUtilsTest(TestCase):
 
     @patch('requests.get')
     def test_target_for_author_is_object_id(self, mock_get):
+        mock_get.return_value = HTML
+
         obj = self.store_object(id='http://the/author', our_as1={
             'author': 'http://the/author',
         })
@@ -2138,3 +2146,28 @@ class ActivityPubUtilsTest(TestCase):
         self.assertFalse(ActivityPub.send(Object(as2=NOTE),
                                           'https://fed.brid.gy/ap/sharedInbox'))
         mock_post.assert_not_called()
+
+    @patch('requests.post')
+    def test_send_convert_ids(self, mock_post):
+        mock_post.return_value = requests_response()
+
+        like = Object(our_as1={
+            'id': 'fake:like',
+            'objectType': 'activity',
+            'verb': 'like',
+            'object': 'fake:post',
+            'actor': 'fake:user',
+        })
+        self.assertTrue(ActivityPub.send(like, 'https://inbox'))
+
+        self.assertEqual(1, len(mock_post.call_args_list))
+        args, kwargs = mock_post.call_args_list[0]
+        self.assertEqual(('https://inbox',), args)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'https://fa.brid.gy/convert/ap/fake:like',
+            'type': 'Like',
+            'object': 'https://fa.brid.gy/convert/ap/fake:post',
+            'actor': 'https://fa.brid.gy/ap/fake:user',
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, json_loads(kwargs['data']))
