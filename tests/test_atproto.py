@@ -60,6 +60,16 @@ class ATProtoTest(TestCase):
         self.storage = DatastoreStorage()
         common.RUN_TASKS_INLINE = False
 
+    def make_user_and_repo(self):
+        user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:user')
+
+        did_doc = copy.deepcopy(DID_DOC)
+        did_doc['service'][0]['serviceEndpoint'] = 'https://atproto.brid.gy/'
+        self.store_object(id='did:plc:user', raw=did_doc)
+        Repo.create(self.storage, 'did:plc:user', signing_key=KEY)
+
+        return user
+
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_put_validates_id(self, mock_get):
         for bad in (
@@ -234,14 +244,65 @@ class ATProtoTest(TestCase):
             },
         )
 
-    def test_convert(self):
-        obj = self.store_object(id='http://orig', our_as1=ACTOR_AS)
-        expected = trim_nulls({
-            **ACTOR_PROFILE_BSKY,
-            'avatar': None,
-            'banner': None,
-        })
-        self.assertEqual(expected, ATProto.convert(obj))
+    def test_convert_bsky_pass_through(self):
+        self.assertEqual({
+            'foo': 'bar',
+        }, ATProto.convert(Object(bsky={
+            'foo': 'bar',
+        })))
+
+    def test_convert_blobs_false(self):
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'person',
+            'id': 'did:web:alice.com',
+            'displayName': 'Alice',
+            'image': [{'url': 'http://my/pic'}],
+        })))
+
+    @patch('requests.get', return_value=requests_response(
+        'blob contents', content_type='image/png'))
+    def test_convert_fetch_blobs_true(self, mock_get):
+        cid = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'avatar': {
+                '$type': 'blob',
+                'ref': cid,
+                'mimeType': 'image/png',
+                'size': 13,
+            },
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'person',
+            'id': 'did:web:alice.com',
+            'displayName': 'Alice',
+            'image': [{'url': 'http://my/pic'}],
+        }), fetch_blobs=True))
+
+        mock_get.assert_has_calls([self.req('http://my/pic')])
+
+    def test_convert_fetch_blobs_true_existing_atp_remote_blob(self):
+        cid = 'bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq'
+        AtpRemoteBlob(id='http://my/pic', cid=cid, size=8).put()
+
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'avatar': {
+                '$type': 'blob',
+                'ref': CID.decode(cid),
+                'mimeType': 'application/octet-stream',
+                'size': 8,
+            },
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'person',
+            'id': 'did:web:alice.com',
+            'displayName': 'Alice',
+            'image': [{'url': 'http://my/pic'}],
+        }), fetch_blobs=True))
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):
@@ -427,13 +488,7 @@ class ATProtoTest(TestCase):
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_existing_repo(self, mock_create_task):
-        user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:user')
-
-        did_doc = copy.deepcopy(DID_DOC)
-        did_doc['service'][0]['serviceEndpoint'] = 'https://atproto.brid.gy/'
-        self.store_object(id='did:plc:user', raw=did_doc)
-        Repo.create(self.storage, 'did:plc:user', signing_key=KEY)
-
+        user = self.make_user_and_repo()
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
             **POST_AS,
             'actor': 'fake:user',
@@ -479,6 +534,71 @@ class ATProtoTest(TestCase):
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())
         mock_create_task.assert_not_called()
+
+    @patch.object(tasks_client, 'create_task')
+    def test_send_translates_ids(self, mock_create_task):
+        user = self.make_user_and_repo()
+        alice = self.make_user(
+            id='fake:alice', cls=Fake, atproto_did='did:plc:alice',
+            copies=[Target(uri='did:alice', protocol='atproto')])
+        post = self.store_object(
+            id='fake:post', source_protocol='fake',
+            copies=[Target(uri='at://did/coll/post', protocol='atproto')])
+
+        reply = Object(id='fake:reply', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'id': 'fake:reply',
+                'objectType': 'note',
+                'inReplyTo': 'fake:post',
+                'author': 'fake:user',
+                'content': 'foo',
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': 'fake:alice',
+                }, {
+                    'objectType': 'mention',
+                    'url': 'fake:bob',  # no ATProto user, should be dropped
+                }],
+            },
+        })
+        self.assertTrue(ATProto.send(reply, 'https://atproto.brid.gy/'))
+
+        repo = self.storage.load_repo(user.atproto_did)
+        record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
+        self.assertEqual({
+            '$type': 'app.bsky.feed.post',
+            # 'text': 'I hereby reply to this',
+            'createdAt': '',
+            'text': 'foo',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'root': {
+                    '$type': 'com.atproto.repo.strongRef',
+                    'uri': '',
+                    'cid': 'TODO',
+                },
+                'parent': {
+                    '$type': 'com.atproto.repo.strongRef',
+                    'uri': 'at://did/coll/post',
+                    'cid': 'TODO',
+                },
+            },
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#mention',
+                    'did': 'did:alice',
+                }],
+            }],
+        }, record)
+
+        at_uri = f'at://did:plc:user/app.bsky.feed.post/{arroba.util._tid_last}'
+        self.assertEqual([Target(uri=at_uri, protocol='atproto')],
+                         Object.get_by_id(id='fake:reply').copies)
+
+        mock_create_task.assert_called()
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get')
@@ -575,11 +695,6 @@ class ATProtoTest(TestCase):
         assert mock_get.call_args_list[2].kwargs['headers'].pop('Authorization')
         self.assertEqual(expected_list_notifs, mock_get.call_args_list[2])
 
-        # TODO: to convert like back to AS1, we need some mapping from the
-        # original post's URI/CID to its original non-ATP URL, right? add a new
-        # AS1 field? store it in datastore?
-        # ANSWER: add `copies` repeated Target property to Object to map
-        #
         like_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.like/123')
         self.assertEqual(like, like_obj.bsky)
         self.assert_task(mock_create_task, 'receive', '/queue/receive',

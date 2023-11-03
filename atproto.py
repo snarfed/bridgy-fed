@@ -8,7 +8,7 @@ import os
 import re
 
 from arroba import did
-from arroba.datastore_storage import AtpRepo, DatastoreStorage
+from arroba.datastore_storage import AtpRemoteBlob, AtpRepo, DatastoreStorage
 from arroba.repo import Repo, Write
 import arroba.server
 from arroba.storage import Action, CommitData
@@ -238,7 +238,7 @@ class ATProto(User, Protocol):
         initial_writes = None
         if user.obj and user.obj.as1:
             # create user profile
-            profile = user.obj.as_bsky(fetch_blobs=True)
+            profile = cls.convert(user.obj, fetch_blobs=True)
             profile_json = json_dumps(dag_json.encode(profile).decode(), indent=2)
             logger.info(f'Storing ATProto app.bsky.actor.profile self: {profile_json}')
             initial_writes = [Write(
@@ -304,7 +304,7 @@ class ATProto(User, Protocol):
         repo.callback = lambda _: common.create_task(queue='atproto-commit')
 
         # create record and commit
-        record = obj.as_bsky(fetch_blobs=True)
+        record = to_cls.convert(obj, fetch_blobs=True)
         type = record['$type']
         lex_type = LEXICONS[type]['type']
         assert lex_type == 'record', f"Can't store {type} object of type {lex_type}"
@@ -373,21 +373,34 @@ class ATProto(User, Protocol):
         return True
 
     @classmethod
-    def convert(cls, obj):
+    def convert(cls, obj, fetch_blobs=False):
         """Converts a :class:`models.Object` to ``app.bsky.*`` lexicon JSON.
-
-        This is implemented, but BGSes and other clients will generally receive
-        ATProto commits via ``com.atproto.sync.subscribeRepos`` subscriptions,
-        not BF-specific ``/convert/...`` HTTP requests, so in practice, this
-        should be used rarely, if ever.
 
         Args:
           obj (models.Object)
+          fetch_blobs (bool): whether to fetch images and other blobs, store
+            them in :class:`arroba.datastore_storage.AtpRemoteBlob`\s if they
+            don't already exist, and fill them into the returned object.
 
         Returns:
           dict: JSON object
         """
-        return bluesky.from_as1(obj.as1)
+        if obj.bsky:
+            return obj.bsky
+
+        if not obj.as1:
+            return {}
+
+        blobs = {}  # maps str URL to dict blob object
+        if fetch_blobs:
+            for o in obj.as1, as1.get_object(obj.as1):
+                for url in util.get_urls(o, 'image'):
+                    if url not in blobs:
+                        blob = AtpRemoteBlob.get_or_create(
+                            url=url, get_fn=util.requests_get)
+                        blobs[url] = blob.as_object()
+
+        return bluesky.from_as1(cls.translate_ids(obj.as1), blobs=blobs)
 
 
 # URL route is registered in hub.py

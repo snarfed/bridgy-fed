@@ -582,59 +582,6 @@ class ObjectTest(TestCase):
         self.assertNotIn('id', obj.as1['actor'])
         self.assertEqual(['c', 'd'], obj.as1['object'])
 
-    def test_as_bsky_blobs_false(self):
-        self.assertEqual({
-            '$type': 'app.bsky.actor.profile',
-            'displayName': 'Alice',
-        }, Object(our_as1={
-            'objectType': 'person',
-            'id': 'did:web:alice.com',
-            'displayName': 'Alice',
-            'image': [{'url': 'http://my/pic'}],
-        }).as_bsky())
-
-    @patch('requests.get', return_value=requests_response(
-        'blob contents', content_type='image/png'))
-    def test_as_bsky_fetch_blobs_true(self, mock_get):
-        cid = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
-        self.assertEqual({
-            '$type': 'app.bsky.actor.profile',
-            'displayName': 'Alice',
-            'avatar': {
-                '$type': 'blob',
-                'ref': cid,
-                'mimeType': 'image/png',
-                'size': 13,
-            },
-        }, Object(our_as1={
-            'objectType': 'person',
-            'id': 'did:web:alice.com',
-            'displayName': 'Alice',
-            'image': [{'url': 'http://my/pic'}],
-        }).as_bsky(fetch_blobs=True))
-
-        mock_get.assert_has_calls([self.req('http://my/pic')])
-
-    def test_as_bsky_fetch_blobs_true_existing_atp_remote_blob(self):
-        cid = 'bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq'
-        AtpRemoteBlob(id='http://my/pic', cid=cid, size=8).put()
-
-        self.assertEqual({
-            '$type': 'app.bsky.actor.profile',
-            'displayName': 'Alice',
-            'avatar': {
-                '$type': 'blob',
-                'ref': CID.decode(cid),
-                'mimeType': 'application/octet-stream',
-                'size': 8,
-            },
-        }, Object(our_as1={
-            'objectType': 'person',
-            'id': 'did:web:alice.com',
-            'displayName': 'Alice',
-            'image': [{'url': 'http://my/pic'}],
-        }).as_bsky(fetch_blobs=True))
-
     def test_clear(self):
         ab = {'a': 'b'}
         obj = Object(our_as1=ab, as2=ab, mf2=ab)

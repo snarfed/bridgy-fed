@@ -9,7 +9,6 @@ import re
 from threading import Lock
 from urllib.parse import quote, urlparse
 
-from arroba.datastore_storage import AtpRemoteBlob
 from arroba.util import parse_at_uri
 from Crypto.PublicKey import RSA
 from flask import g, request
@@ -792,31 +791,6 @@ class Object(StringIdModel):
             #     logger.warning(f'Wiping out existing {prop}: {json_dumps(val, indent=2)}')
             with self.lock:
                 setattr(self, prop, None)
-
-    def as_bsky(self, fetch_blobs=False):
-        """Returns this object as a Bluesky record.
-
-        Args:
-          fetch_blobs (bool): whether to fetch images and other blobs, store
-            them in :class:`arroba.datastore_storage.AtpRemoteBlob`\s if they
-            don't already exist, and fill them into the returned object.
-        """
-        if self.bsky:
-            return self.bsky
-
-        elif self.as1:
-            blobs = {}  # maps str URL to dict blob object
-            if fetch_blobs:
-                for obj in self.as1, as1.get_object(self.as1):
-                    for url in util.get_urls(self.as1, 'image'):
-                        if url not in blobs:
-                            blob = AtpRemoteBlob.get_or_create(
-                                url=url, get_fn=util.requests_get)
-                            blobs[url] = blob.as_object()
-
-            return bluesky.from_as1(self.as1, blobs=blobs)
-
-        return {}
 
     def activity_changed(self, other_as1):
         """Returns True if this activity is meaningfully changed from ``other_as1``.
