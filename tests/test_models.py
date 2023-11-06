@@ -361,15 +361,6 @@ class ObjectTest(TestCase):
         self.assertTrue(obj.activity_changed({}))
         self.assertTrue(obj.activity_changed({'content': 'x'}))
 
-    def test_proxy_url(self):
-        obj = Object(id='abc', source_protocol='activitypub')
-        self.assertEqual('https://ap.brid.gy/convert/web/abc',
-                         obj.proxy_url())
-
-        obj = Object(id='ab#c', source_protocol='ui')
-        self.assertEqual('https://fed.brid.gy/convert/web/ab%23c',
-                         obj.proxy_url())
-
     def test_put(self):
         with self.assertRaises(AssertionError):
             Object(id='x^^y').put()

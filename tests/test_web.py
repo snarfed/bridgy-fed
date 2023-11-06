@@ -2225,7 +2225,8 @@ class WebUtilTest(TestCase):
 
     def test_send_no_endpoint(self, mock_get, mock_post):
         mock_get.return_value = WEBMENTION_NO_REL_LINK
-        obj = Object(id='http://mas.to/like#ok', as2=test_activitypub.LIKE)
+        obj = Object(id='http://mas.to/like#ok', as2=test_activitypub.LIKE,
+                     source_protocol='activitypub')
 
         self.assertFalse(Web.send(obj, 'https://user.com/post'))
 

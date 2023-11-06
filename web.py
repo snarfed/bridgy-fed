@@ -4,7 +4,7 @@ import difflib
 import logging
 import re
 import urllib.parse
-from urllib.parse import urlencode, urljoin, urlparse
+from urllib.parse import quote, urlencode, urljoin, urlparse
 
 from flask import g, redirect, render_template, request
 from google.cloud import ndb
@@ -23,6 +23,7 @@ from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 import common
 from common import add, DOMAIN_RE
 from flask_app import app, cache
+from ids import translate_object_id
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
 
@@ -331,7 +332,9 @@ class Web(User, Protocol):
             logger.info(f'Skipping sending to blocklisted {url}')
             return False
 
-        source_url = obj.proxy_url()
+        source_id = translate_object_id(
+            id=obj.key.id(), from_proto=PROTOCOLS[obj.source_protocol], to_proto=Web)
+        source_url = quote(source_id, safe=':/%+')
         logger.info(f'Sending webmention from {source_url} to {url}')
 
         endpoint = common.webmention_discover(url).endpoint

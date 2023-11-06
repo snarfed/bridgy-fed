@@ -705,7 +705,6 @@ class Object(StringIdModel):
         Only needed for compatibility with historical URL paths, we're now back
         to URL-encoding ``#``\s instead.
         https://github.com/snarfed/bridgy-fed/issues/469
-        See :meth:`proxy_url` for the inverse.
         """
         return super().get_by_id(id.replace('^^', '#'))
 
@@ -805,27 +804,6 @@ class Object(StringIdModel):
         return (as1.activity_changed(self.as1, other_as1)
                 if self.as1 and other_as1
                 else bool(self.as1) != bool(other_as1))
-
-    def proxy_url(self):
-        # TODO: replace with ids.translate_object_id?
-        """Returns the Bridgy Fed proxy URL to render this post as HTML.
-
-        Note that some webmention receivers are struggling with the ``%23``\s
-        (URL-encoded ``#``\s) in these paths:
-
-        * https://github.com/snarfed/bridgy-fed/issues/469
-        * https://github.com/pfefferle/wordpress-webmention/issues/359
-
-        See :meth:`get_by_id()` for the inverse.
-        """
-        # TODO: fix this circular import
-        from protocol import Protocol
-
-        id = quote(self.key.id(), safe=':/')
-        if not self.source_protocol:
-            logger.warning(f'!!! No source_protocol for {id} !!!')
-        protocol = PROTOCOLS.get(self.source_protocol) or Protocol
-        return common.subdomain_wrap(protocol, f'convert/web/{id}')
 
     def actor_link(self, image=True, sized=False):
         """Returns a pretty HTML link with the actor's name and picture.
