@@ -126,7 +126,7 @@ class Fake(User, protocol.Protocol):
     @classmethod
     def convert(cls, obj):
         logger.info(f'{cls.__name__}.convert {obj.key.id()}')
-        return obj.as1
+        return cls.translate_ids(obj.as1)
 
     @classmethod
     def target_for(cls, obj, shared=False):
@@ -147,6 +147,7 @@ class Fake(User, protocol.Protocol):
 class OtherFake(Fake):
     """Different class because the same-protocol check special cases Fake."""
     LABEL = ABBREV = 'other'
+    CONTENT_TYPE = 'ot/her'
 
     fetchable = {}
     sent = []

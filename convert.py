@@ -50,30 +50,25 @@ def convert(dest, _, src=None):
     # guarantee us the same query param string as in the original URL, and we
     # want exactly the same thing since we're looking up the URL's Object by id
     path_prefix = f'convert/{dest}/'
-    url = unquote(request.url.removeprefix(request.root_url).removeprefix(path_prefix))
+    id = unquote(request.url.removeprefix(request.root_url).removeprefix(path_prefix))
 
     # our redirects evidently collapse :// down to :/ , maybe to prevent URL
     # parsing bugs? if that happened to this URL, expand it back to ://
-    url = re.sub(r'^(https?:/)([^/])', r'\1/\2', url)
+    id = re.sub(r'^(https?:/)([^/])', r'\1/\2', id)
 
-    # STATE: genericize all this below (and above?)
-
-    if not util.is_web(url):
-        error(f'Expected fully qualified URL; got {url}')
-
-    logger.info(f'Converting from {src} to {dest}: {url}')
+    logger.info(f'Converting from {src_cls.LABEL} to {dest}: {id}')
 
     # require g.user for AP since postprocess_as2 currently needs it. ugh
     if dest_cls == ActivityPub:
-        domain = util.domain_from_link(url, minimize=False)
+        domain = util.domain_from_link(id, minimize=False)
         g.user = Web.get_by_id(domain)
         if not g.user:
             error(f'No web user found for {domain}')
 
     # load, and maybe fetch. if it's a post/update, redirect to inner object.
-    obj = src_cls.load(url)
+    obj = src_cls.load(id)
     if not obj:
-        error(f"Couldn't load {url}", status=404)
+        error(f"Couldn't load {id}", status=404)
     elif not obj.as1:
         error(f'Stored object for {id} has no data', status=404)
 
@@ -81,8 +76,7 @@ def convert(dest, _, src=None):
     if type in ('post', 'update', 'delete'):
         obj_id = as1.get_object(obj.as1).get('id')
         if obj_id:
-            # TODO: PROTOCOLS[src].load() this instead?
-            obj_obj = Object.get_by_id(obj_id)
+            obj_obj = src_cls.load(obj_id, remote=False)
             if (obj_obj and obj_obj.as1
                     and not obj_obj.as1.keys() <= set(['id', 'url', 'objectType'])):
                 logger.info(f'{type} activity, redirecting to Object {obj_id}')

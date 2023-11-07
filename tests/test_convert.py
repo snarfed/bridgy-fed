@@ -7,7 +7,7 @@ from granary import as2
 from granary.tests.test_as1 import ACTOR, COMMENT, DELETE_OF_ID, UPDATE
 from models import Object
 from oauth_dropins.webutil.testutil import requests_response
-from oauth_dropins.webutil.util import parse_mf2
+from oauth_dropins.webutil.util import json_loads, parse_mf2
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
@@ -84,10 +84,16 @@ class ConvertTest(testutil.TestCase):
                                base_url='https://ap.brid.gy/')
         self.assertEqual(404, resp.status_code)
 
-    def test_url_not_web(self):
-        resp = self.client.get('/convert/web/git+ssh://foo/bar',
-                               base_url='https://ap.brid.gy/')
-        self.assertEqual(400, resp.status_code)
+    def test_fake_to_other(self):
+        self.store_object(id='fake:post', our_as1={'foo': 'bar'})
+        resp = self.client.get('/convert/other/fake:post',
+                               base_url='https://fa.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(OtherFake.CONTENT_TYPE, resp.content_type)
+        self.assertEqual({
+            'id': 'other:o:fa:fake:post',
+            'foo': 'bar',
+        }, json_loads(resp.get_data()))
 
     def test_activitypub_to_web_object(self):
         url = 'https://user.com/bar?baz=baj&biff'
