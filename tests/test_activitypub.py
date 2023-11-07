@@ -541,7 +541,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(202, got.status_code, got.get_data(as_text=True))
         self.assert_req(mock_get, 'https://user.com/post')
 
-        convert_id = reply['id'].replace('://', ':/')
+        convert_id = reply['id']
         if reply['type'] != 'Create':
             convert_id += '%23bridgy-fed-create'
 
@@ -672,14 +672,13 @@ class ActivityPubTest(TestCase):
         got = self.post('/user.com/inbox', json=repost)
         self.assertEqual(202, got.status_code, got.get_data(as_text=True))
 
-        convert_id = REPOST['id'].replace('://', ':/')
         self.assert_req(
             mock_post,
             'https://user.com/webmention',
             headers={'Accept': '*/*'},
             allow_redirects=False,
             data={
-                'source': f'https://ap.brid.gy/convert/web/{convert_id}',
+                'source': f'https://ap.brid.gy/convert/web/{REPOST["id"]}',
                 'target': orig_url,
             },
         )
@@ -797,7 +796,7 @@ class ActivityPubTest(TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'https://ap.brid.gy/convert/web/http:/mas.to/like%23ok',
+            'source': 'https://ap.brid.gy/convert/web/http://mas.to/like%23ok',
             'target': 'https://user.com/post',
         }, kwargs['data'])
 
@@ -941,7 +940,7 @@ class ActivityPubTest(TestCase):
         args, kwargs = mock_post.call_args_list[1]
         self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'https://ap.brid.gy/convert/web/https:/mas.to/6d1a',
+            'source': 'https://ap.brid.gy/convert/web/https://mas.to/6d1a',
             'target': 'https://user.com/',
         }, kwargs['data'])
 

@@ -13,6 +13,9 @@ import models
 
 logger = logging.getLogger(__name__)
 
+# Protocols to check User.copies and Object.copies before translating
+COPIES_PROTOCOLS = ('atproto', 'fake', 'other', 'nostr')
+
 
 def translate_user_id(*, id, from_proto, to_proto):
     """Translate a user id from one protocol to another.
@@ -41,7 +44,7 @@ def translate_user_id(*, id, from_proto, to_proto):
     if user:
         id = user.key.id()
 
-    def copy_or_original():
+    if from_proto.LABEL in COPIES_PROTOCOLS or to_proto.LABEL in COPIES_PROTOCOLS:
         if user:
             if copy := user.get_copy(to_proto):
                 return copy
@@ -50,10 +53,8 @@ def translate_user_id(*, id, from_proto, to_proto):
                 return orig.key.id()
 
     match from_proto.LABEL, to_proto.LABEL:
-        case ('atproto', _) | (_, 'atproto'):
-            if found := copy_or_original():
-                return found
-            logger.warning(f"Can't translate user id {id} to {to_proto} , haven't copied it to/from there yet!")
+        case _, 'atproto' | 'nostr':
+            logger.warning(f"Can't translate user id {id} to {to_proto.LABEL} , haven't copied it there yet!")
             return None
 
         case 'web', 'activitypub':
@@ -62,19 +63,17 @@ def translate_user_id(*, id, from_proto, to_proto):
                     else f'https://{PRIMARY_DOMAIN}/')
             return urljoin(base, id)
 
-        case _, 'activitypub':
-            return subdomain_wrap(from_proto, f'/ap/{id}')
-
         case 'activitypub', 'web':
             return id
 
+        case _, 'activitypub' | 'web':
+            return subdomain_wrap(from_proto, f'/{to_proto.ABBREV}/{id}')
+
         # only for unit tests
-        case _, 'fake':
-            return copy_or_original() or f'fake:u:{id}'
-        case _, 'other':
-            return copy_or_original() or f'other:u:{id}'
+        case _, 'fake' | 'other':
+            return f'{to_proto.LABEL}:u:{id}'
         case 'fake' | 'other', _:
-            return copy_or_original() or id
+            return id
 
     assert False, (id, from_proto, to_proto)
 
@@ -143,7 +142,7 @@ def translate_object_id(*, id, from_proto, to_proto):
     if from_proto == to_proto:
         return id
 
-    def copy_or_original():
+    if from_proto.LABEL in COPIES_PROTOCOLS or to_proto.LABEL in COPIES_PROTOCOLS:
         if obj := from_proto.load(id, remote=False):
             if copy := obj.get_copy(to_proto):
                 return copy
@@ -151,10 +150,8 @@ def translate_object_id(*, id, from_proto, to_proto):
             return orig.key.id()
 
     match from_proto.LABEL, to_proto.LABEL:
-        case ('atproto' | 'nostr', _) | (_, 'atproto' | 'nostr'):
-            if found := copy_or_original():
-                return found
-            logger.warning(f"Can't translate object id {id} to {to_proto} , haven't copied it to/from there yet!")
+        case _, 'atproto' | 'nostr':
+            logger.warning(f"Can't translate object id {id} to {to_proto.LABEL} , haven't copied it there yet!")
             return id
 
         case 'web', 'activitypub':
@@ -164,12 +161,10 @@ def translate_object_id(*, id, from_proto, to_proto):
             return urljoin(base, f'/r/{id}')
 
         case _, 'activitypub' | 'web':
-            return subdomain_wrap(from_proto, f'convert/{to_proto.ABBREV}/{id}')
+            return subdomain_wrap(from_proto, f'/convert/{to_proto.ABBREV}/{id}')
 
         # only for unit tests
-        case _, 'fake':
-            return copy_or_original() or f'fake:o:{from_proto.ABBREV}:{id}'
-        case _, 'other':
-            return copy_or_original() or f'other:o:{from_proto.ABBREV}:{id}'
+        case _, 'fake' | 'other':
+            return f'{to_proto.LABEL}:o:{from_proto.ABBREV}:{id}'
 
     assert False, (id, from_proto, to_proto)

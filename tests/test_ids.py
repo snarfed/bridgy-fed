@@ -22,14 +22,19 @@ class IdsTest(TestCase):
             (ActivityPub, 'https://inst/user', ATProto, 'did:plc:456'),
             (ActivityPub, 'https://inst/user', Fake, 'fake:u:https://inst/user'),
             (ActivityPub, 'https://inst/user', Web, 'https://inst/user'),
+            (ATProto, 'did:plc:456', ATProto, 'did:plc:456'),
+            # copies
             (ATProto, 'did:plc:123', Web, 'user.com'),
             (ATProto, 'did:plc:456', ActivityPub, 'https://inst/user'),
-            (ATProto, 'did:plc:456', ATProto, 'did:plc:456'),
             (ATProto, 'did:plc:789', Fake, 'fake:user'),
+            # no copies
+            (ATProto, 'did:plc:x', Web, 'https://atproto.brid.gy/web/did:plc:x'),
+            (ATProto, 'did:plc:x', ActivityPub, 'https://atproto.brid.gy/ap/did:plc:x'),
+            (ATProto, 'did:plc:x', Fake, 'fake:u:did:plc:x'),
             (Fake, 'fake:user', ActivityPub, 'https://fa.brid.gy/ap/fake:user'),
             (Fake, 'fake:user', ATProto, 'did:plc:789'),
             (Fake, 'fake:user', Fake, 'fake:user'),
-            (Fake, 'fake:user', Web, 'fake:user'),
+            (Fake, 'fake:user', Web, 'https://fa.brid.gy/web/fake:user'),
             (Web, 'user.com', ActivityPub, 'http://localhost/user.com'),
             (Web, 'https://user.com/', ActivityPub, 'http://localhost/user.com'),
             (Web, 'user.com', ATProto, 'did:plc:123'),
@@ -55,8 +60,6 @@ class IdsTest(TestCase):
             with self.subTest(proto=proto.LABEL):
                 self.assertIsNone(translate_user_id(
                     id=id, from_proto=proto, to_proto=ATProto))
-                self.assertIsNone(translate_user_id(
-                    id='did:plc:123', from_proto=ATProto, to_proto=proto))
 
     def test_translate_user_id_use_instead(self):
         did = Target(uri='did:plc:123', protocol='atproto')
@@ -124,11 +127,16 @@ class IdsTest(TestCase):
             (ActivityPub, 'https://inst/post', ATProto, 'at://did/ap/post'),
             (ActivityPub, 'https://inst/post', Fake, 'fake:o:ap:https://inst/post'),
             (ActivityPub, 'https://inst/post',
-             Web, 'https://ap.brid.gy/convert/web/https:/inst/post'),
+             Web, 'https://ap.brid.gy/convert/web/https://inst/post'),
+            (ATProto, 'at://did/atp/post', ATProto, 'at://did/atp/post'),
+            # copies
             (ATProto, 'at://did/web/post', Web, 'http://post'),
             (ATProto, 'at://did/ap/post', ActivityPub, 'https://inst/post'),
-            (ATProto, 'at://did/atp/post', ATProto, 'at://did/atp/post'),
             (ATProto, 'at://did/fa/post', Fake, 'fake:post'),
+            # no copies
+            (ATProto, 'did:plc:x', Web, 'https://atproto.brid.gy/convert/web/did:plc:x'),
+            (ATProto, 'did:plc:x', ActivityPub, 'https://atproto.brid.gy/convert/ap/did:plc:x'),
+            (ATProto, 'did:plc:x', Fake, 'fake:o:atproto:did:plc:x'),
             (Fake, 'fake:post',
              ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post'),
             (Fake, 'fake:post', ATProto, 'at://did/fa/post'),

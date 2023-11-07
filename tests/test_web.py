@@ -2219,7 +2219,7 @@ class WebUtilTest(TestCase):
         args, kwargs = mock_post.call_args
         self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'https://fed.brid.gy/convert/web/http:/mas.to/like%23ok',
+            'source': 'https://fed.brid.gy/convert/web/http://mas.to/like%23ok',
             'target': 'https://user.com/post',
         }, kwargs['data'])
 
@@ -2266,7 +2266,7 @@ class WebUtilTest(TestCase):
                 args, kwargs = mock_post.call_args
                 self.assertEqual(('https://user.com/webmention',), args)
                 self.assertEqual({
-                    'source': 'https://fed.brid.gy/convert/web/http:/mas.to/like%23ok',
+                    'source': 'https://fed.brid.gy/convert/web/http://mas.to/like%23ok',
                     'target': 'https://user.com/post',
                 }, kwargs['data'])
 
@@ -2293,13 +2293,13 @@ class WebUtilTest(TestCase):
 <article class="h-entry">
 <span class="p-uid">https://fa.brid.gy/convert/web/fake:reply</span>
 <span class="p-author h-card">
-  <data class="p-uid" value="fake:alice"></data>
+  <data class="p-uid" value="https://fa.brid.gy/web/fake:alice"></data>
   <span class="p-name">Ms. Alice</span>
 </span>
 <span class="p-name"></span>
 <div class="">
 </div>
-<a class="u-in-reply-to" href="https://ap.brid.gy/convert/web/http:/fed/post"></a>
+<a class="u-in-reply-to" href="https://ap.brid.gy/convert/web/http://fed/post"></a>
 </article>""", Web.convert(Object(our_as1={
             'objectType': 'activity',
             'verb': 'post',
