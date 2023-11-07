@@ -11,6 +11,7 @@ from oauth_dropins.webutil.util import parse_mf2
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
+from .testutil import Fake, OtherFake
 
 from common import CONTENT_TYPE_HTML
 

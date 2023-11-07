@@ -21,21 +21,8 @@ from web import Web
 
 logger = logging.getLogger(__name__)
 
-SOURCES = frozenset((
-    ActivityPub.ABBREV,
-    ActivityPub.LABEL,
-    Web.ABBREV,
-    Web.LABEL,
-))
-DESTS = frozenset((
-    ActivityPub.ABBREV,
-    ActivityPub.LABEL,
-    Web.ABBREV,
-    Web.LABEL,
-))
 
-
-@app.get(f'/convert/<any({",".join(DESTS)}):dest>/<path:_>')
+@app.get(f'/convert/<dest>/<path:_>')
 @flask_util.cached(cache, CACHE_TIME, headers=['Accept'])
 def convert(dest, _, src=None):
     """Converts data from one protocol to another and serves it.
@@ -52,9 +39,12 @@ def convert(dest, _, src=None):
         src_cls = PROTOCOLS[src]
     else:
         src_cls = Protocol.for_request(fed=Protocol)
-
     if not src_cls:
         error(f'Unknown protocol {request.host.removesuffix(SUPERDOMAIN)}', status=404)
+
+    dest_cls = PROTOCOLS.get(dest)
+    if not dest_cls:
+        error('Unknown protocol {dest}', status=404)
 
     # don't use urllib.parse.urlencode(request.args) because that doesn't
     # guarantee us the same query param string as in the original URL, and we
@@ -66,13 +56,14 @@ def convert(dest, _, src=None):
     # parsing bugs? if that happened to this URL, expand it back to ://
     url = re.sub(r'^(https?:/)([^/])', r'\1/\2', url)
 
+    # STATE: genericize all this below (and above?)
+
     if not util.is_web(url):
         error(f'Expected fully qualified URL; got {url}')
 
     logger.info(f'Converting from {src} to {dest}: {url}')
 
     # require g.user for AP since postprocess_as2 currently needs it. ugh
-    dest_cls = PROTOCOLS[dest]
     if dest_cls == ActivityPub:
         domain = util.domain_from_link(url, minimize=False)
         g.user = Web.get_by_id(domain)
@@ -112,7 +103,7 @@ def render_redirect():
     return redirect(subdomain_wrap(ActivityPub, f'/convert/web/{id}'), code=301)
 
 
-@app.get(f'/convert/<any({",".join(SOURCES)}):src>/<any({",".join(DESTS)}):dest>/<path:_>')
+@app.get(f'/convert/<src>/<dest>/<path:_>')
 def convert_source_path_redirect(src, dest, _):
     """Old route that included source protocol in path instead of subdomain.
 
