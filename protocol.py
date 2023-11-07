@@ -1178,16 +1178,18 @@ def receive_task():
     form = request.form.to_dict()
     logger.info(f'Params: {list(form.items())}')
 
-    obj = ndb.Key(urlsafe=form.pop('obj')).get()
+    obj = ndb.Key(urlsafe=form['obj']).get()
     assert obj
     obj.new = True
 
-    if user_key := form.pop('user', None):
+    if user_key := form.get('user'):
         g.user = ndb.Key(urlsafe=user_key).get()
         logger.info(f'setting g.user to {g.user.key}')
 
+    authed_as = form.get('authed_as')
+
     try:
-        return PROTOCOLS[obj.source_protocol].receive(obj, **form)
+        return PROTOCOLS[obj.source_protocol].receive(obj=obj, authed_as=authed_as)
     except ValueError as e:
         logger.warning(e, exc_info=True)
         error(e, status=304)
@@ -1219,7 +1221,8 @@ def send_task():
     target = Target(uri=url, protocol=protocol)
 
     obj = ndb.Key(urlsafe=form['obj']).get()
-    if target not in obj.undelivered and target not in obj.failed:
+    if (target not in obj.undelivered and target not in obj.failed
+        and 'force' not in request.values):
         logger.info(f"{url} not in {obj.key.id()} undelivered or failed, giving up")
         return '¯\_(ツ)_/¯', 204
 
