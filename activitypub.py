@@ -527,8 +527,8 @@ def signed_request(fn, url, data=None, headers=None, **kwargs):
 def postprocess_as2(activity, orig_obj=None, wrap=True):
     """Prepare an AS2 object to be served or sent via ActivityPub.
 
-    ``g.user`` is required. Populates it into the ``actor.id`` and ``publicKey``
-    fields.
+    ``g.user`` is required (in ``postprocess_as2_actor``). It's populated it
+    into the ``actor.id`` and ``publicKey`` fields.
 
     Args:
       activity (dict): AS2 object or activity

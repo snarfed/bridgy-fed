@@ -13,6 +13,7 @@ from oauth_dropins.webutil.util import json_loads, parse_mf2
 from . import testutil
 from .testutil import Fake, OtherFake
 
+from activitypub import ActivityPub
 from common import CONTENT_TYPE_HTML
 
 COMMENT_AS2 = {
@@ -93,6 +94,24 @@ class ConvertTest(testutil.TestCase):
         self.assertEqual({
             'id': 'other:o:fa:fake:post',
             'foo': 'bar',
+        }, json_loads(resp.get_data()))
+
+    def test_fake_to_activitypub(self):
+        self.make_user('fake:alice', cls=Fake)
+        self.store_object(id='fake:post', our_as1={
+            'actor': 'fake:alice',
+            'foo': 'bar',
+        })
+        resp = self.client.get('/convert/ap/fake:post',
+                               base_url='https://fa.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(ActivityPub.CONTENT_TYPE, resp.content_type)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'https://fa.brid.gy/convert/ap/fake:post',
+            'actor': 'https://fa.brid.gy/ap/fake:alice',
+            'foo': 'bar',
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
         }, json_loads(resp.get_data()))
 
     def test_activitypub_to_web_object(self):
@@ -274,7 +293,10 @@ A ☕ reply
         self.assertEqual(200, resp.status_code)
         self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
 
-    def test_web_to_activitypub_no_user(self):
+    @patch('requests.get')
+    def test_web_to_activitypub_no_user(self, mock_get):
+        mock_get.return_value = requests_response(HTML)  # protocol inference
+
         resp = self.client.get(f'/convert/ap/http://nope.com/post',
                                base_url='https://web.brid.gy/')
         self.assertEqual(400, resp.status_code)

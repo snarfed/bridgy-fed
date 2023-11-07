@@ -245,14 +245,13 @@ class Web(User, Protocol):
 
         If id is a domain, uses it as is. If it's a home page URL or fed.brid.gy
         or web.brid.gy AP actor URL, extracts the domain and uses that.
-        Otherwise, raises AssertionError.
+        Otherwise, returns None.
 
         Args:
-          id: str
+          id (str)
 
-        Raises:
-          ValueError
-          AssertionError
+        Returns:
+        ndb.Key or None:
         """
         if not id:
             return None
