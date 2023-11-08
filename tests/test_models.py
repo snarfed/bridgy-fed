@@ -233,8 +233,12 @@ class UserTest(TestCase):
         Follower(from_=g.user.key, to=Fake(id='b').key).put()
         Follower(from_=Fake(id='c').key, to=g.user.key).put()
 
-        del g.user
+        # still cached
         user = Web.get_by_id('y.z')
+        self.assertEqual((0, 0), user.count_followers())
+
+        User.count_followers.cache.clear()
+        del g.user
         self.assertEqual((1, 2), user.count_followers())
 
 

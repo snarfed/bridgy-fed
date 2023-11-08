@@ -10,6 +10,7 @@ from threading import Lock
 from urllib.parse import quote, urlparse
 
 from arroba.util import parse_at_uri
+import cachetools
 from Crypto.PublicKey import RSA
 from flask import g, request
 from google.cloud import ndb
@@ -495,7 +496,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
   <img src="{img}" class="profile">
   {self.name()}</a>"""
 
-    # TODO: cache?
+    @cachetools.cached(cachetools.TTLCache(50000, 60 * 60 * 2),  # 2h expiration
+                       key=lambda user: user.key.id(), lock=Lock())
     def count_followers(self):
         """Counts this user's followers and followings.
 

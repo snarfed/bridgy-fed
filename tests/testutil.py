@@ -192,6 +192,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         protocol.seen_ids.clear()
         protocol.objects_cache.clear()
         common.webmention_discover.cache.clear()
+        User.count_followers.cache.clear()
 
         for cls in Fake, OtherFake:
             cls.fetchable = {}

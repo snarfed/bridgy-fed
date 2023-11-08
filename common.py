@@ -232,8 +232,7 @@ def webmention_endpoint_cache_key(url):
 
 @cachetools.cached(cachetools.TTLCache(50000, 60 * 60 * 2),  # 2h expiration
                    key=webmention_endpoint_cache_key,
-                   lock=threading.Lock(),
-                   info=True)
+                   lock=threading.Lock())
 def webmention_discover(url, **kwargs):
     """Thin caching wrapper around :func:`oauth_dropins.webutil.webmention.discover`."""
     return webmention.discover(url, **kwargs)
