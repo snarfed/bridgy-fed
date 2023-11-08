@@ -927,18 +927,13 @@ def follower_collection(id, collection):
         return page, {'Content-Type': as2.CONTENT_TYPE}
 
     # collection
-    prop = Follower.to if collection == 'followers' else Follower.from_
-    count = Follower.query(
-        Follower.status == 'active',
-        prop == g.user.key,
-    ).count()  # TODO: cache, unify with pages.count_followers
-
+    num_followers, num_following = g.user.count_followers()
     collection = {
         '@context': 'https://www.w3.org/ns/activitystreams',
         'id': request.base_url,
         'type': 'Collection',
         'summary': f"{id}'s {collection}",
-        'totalItems': count,
+        'totalItems': num_followers if collection == 'followers' else num_following,
         'first': page,
     }
     logger.info(f'Returning {json_dumps(collection, indent=2)}')

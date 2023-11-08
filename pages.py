@@ -121,7 +121,7 @@ def profile(protocol, id):
     load_user(protocol, id)
     query = Object.query(Object.users == g.user.key)
     objects, before, after = fetch_objects(query, by=Object.updated)
-    num_followers, num_following = count_followers()
+    num_followers, num_following = g.user.count_followers()
     return render_template('profile.html', **TEMPLATE_VARS, **locals())
 
 
@@ -161,7 +161,7 @@ def followers_or_following(protocol, id, collection):
     load_user(protocol, id)
 
     followers, before, after = Follower.fetch_page(collection)
-    num_followers, num_following = count_followers()
+    num_followers, num_following = g.user.count_followers()
     return render_template(
         f'{collection}.html',
         address=request.args.get('address'),
@@ -170,22 +170,6 @@ def followers_or_following(protocol, id, collection):
         **TEMPLATE_VARS,
         **locals(),
     )
-
-
-# TODO: cache?
-def count_followers():
-    start = time.time()
-    num_followers = Follower.query(Follower.to == g.user.key,
-                                   Follower.status == 'active')\
-                            .count()
-    end = time.time()
-    logger.info(f"Loading {g.user.key.id()}'s followers took {end - start}s")
-
-    num_following = Follower.query(Follower.from_ == g.user.key,
-                                   Follower.status == 'active')\
-                            .count()
-
-    return num_followers, num_following
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/feed')

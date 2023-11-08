@@ -495,6 +495,21 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
   <img src="{img}" class="profile">
   {self.name()}</a>"""
 
+    # TODO: cache?
+    def count_followers(self):
+        """Counts this user's followers and followings.
+
+        Returns:
+          (int, int) tuple: (number of followers, number following)
+        """
+        num_followers = Follower.query(Follower.to == self.key,
+                                       Follower.status == 'active')\
+                                .count()
+        num_following = Follower.query(Follower.from_ == self.key,
+                                       Follower.status == 'active')\
+                                .count()
+        return num_followers, num_following
+
 
 class Object(StringIdModel):
     """An activity or other object, eg actor.

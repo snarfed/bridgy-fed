@@ -226,6 +226,17 @@ class UserTest(TestCase):
         user.copies = [Target(uri='other:foo', protocol='other')]
         self.assertEqual('other:foo', user.get_copy(OtherFake))
 
+    def test_count_followers(self):
+        self.assertEqual((0, 0), g.user.count_followers())
+
+        Follower(from_=g.user.key, to=Fake(id='a').key).put()
+        Follower(from_=g.user.key, to=Fake(id='b').key).put()
+        Follower(from_=Fake(id='c').key, to=g.user.key).put()
+
+        del g.user
+        user = Web.get_by_id('y.z')
+        self.assertEqual((1, 2), user.count_followers())
+
 
 class ObjectTest(TestCase):
     def setUp(self):
