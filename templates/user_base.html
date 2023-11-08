@@ -71,10 +71,10 @@
   <a class="left-tab"></a>
   <a href="{{ g.user.user_page_path() }}"
      {% if tab == 'profile' %}class="active-tab"{% endif %}
-     >👤 Profile</a><a
+     >👤 Profile</a>{% if g.user.LABEL == 'web' %}<a
    href="{{ g.user.user_page_path('home') }}"
      {% if tab == 'home' %}class="active-tab"{% endif %}
-     >🏠 Feed</a><a
+     >🏠 Feed</a>{% endif %}<a
    href="{{ g.user.user_page_path('notifications') }}"
      {% if tab == 'notifications' %}class="active-tab"{% endif %}
      >🔔 Notifications</a>
