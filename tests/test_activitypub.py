@@ -89,8 +89,8 @@ ACTOR_FAKE = {
     'preferredUsername': 'fake:user',
     'summary': '',
     'publicKey': {
-        'id': 'https://fa.brid.gy/fake#key',
-        'owner': 'https://fa.brid.gy/fake',
+        'id': 'https://fa.brid.gy/ap/fake:user#key',
+        'owner': 'https://fa.brid.gy/ap/fake:user',
         'publicKeyPem': 'populated in setUp()',
     },
 }
