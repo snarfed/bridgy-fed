@@ -545,25 +545,32 @@ class ATProtoTest(TestCase):
             id='fake:post', source_protocol='fake',
             copies=[Target(uri='at://did/coll/post', protocol='atproto')])
 
-        reply = Object(id='fake:reply', source_protocol='fake', our_as1={
+        reply_as1 = {
+            'id': 'fake:reply',
+            'objectType': 'note',
+            'inReplyTo': 'fake:post',
+            'author': 'fake:user',
+            'content': 'foo',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'fake:alice',
+            }, {
+                'objectType': 'mention',
+                'url': 'fake:bob',  # no ATProto user, should be dropped
+            }],
+        }
+        reply = self.store_object(id='fake:reply', source_protocol='fake',
+                                  our_as1=reply_as1)
+
+        create_as1 = {
             'objectType': 'activity',
             'verb': 'post',
-            'object': {
-                'id': 'fake:reply',
-                'objectType': 'note',
-                'inReplyTo': 'fake:post',
-                'author': 'fake:user',
-                'content': 'foo',
-                'tags': [{
-                    'objectType': 'mention',
-                    'url': 'fake:alice',
-                }, {
-                    'objectType': 'mention',
-                    'url': 'fake:bob',  # no ATProto user, should be dropped
-                }],
-            },
-        })
-        self.assertTrue(ATProto.send(reply, 'https://atproto.brid.gy/'))
+            'object': reply_as1,
+        }
+        create = self.store_object(id='fake:reply:post', source_protocol='fake',
+                                   our_as1=create_as1)
+
+        self.assertTrue(ATProto.send(create, 'https://atproto.brid.gy/'))
 
         repo = self.storage.load_repo(user.atproto_did)
         record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
@@ -595,6 +602,7 @@ class ATProtoTest(TestCase):
         }, record)
 
         at_uri = f'at://did:plc:user/app.bsky.feed.post/{arroba.util._tid_last}'
+        self.assertEqual([], Object.get_by_id(id='fake:reply:post').copies)
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:reply').copies)
 
