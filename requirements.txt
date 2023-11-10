@@ -47,7 +47,7 @@ google-cloud-logging==3.8.0
 google-cloud-ndb==2.2.2
 google-cloud-tasks==2.14.2
 googleapis-common-protos==1.61.0
-grpc-google-iam-v1==0.12.6
+grpc-google-iam-v1==0.12.7
 grpcio==1.59.2
 grpcio-status==1.59.2
 gunicorn==21.2.0
