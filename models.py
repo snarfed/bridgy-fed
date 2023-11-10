@@ -604,7 +604,7 @@ class Object(StringIdModel):
             ATProto = PROTOCOLS['atproto']  # TODO: circular import :( ???
             handle = ATProto(id=owner).handle
             obj = bluesky.to_as1(self.bsky, repo_did=owner, repo_handle=handle,
-                                 pds=ATProto.target_for(self))
+                                 uri=self.key.id(), pds=ATProto.target_for(self))
 
         elif self.mf2:
             obj = microformats2.json_to_object(self.mf2,

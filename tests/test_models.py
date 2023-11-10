@@ -563,19 +563,19 @@ class ObjectTest(TestCase):
         like_bsky = {
             '$type': 'app.bsky.feed.like',
             'subject': {
-                'uri': 'http://example.com/original/post',
+                'uri': 'at://did:plc:alice/post/123',
                 'cid': 'TODO',
             },
         }
         like_as1 = {
             'objectType': 'activity',
             'verb': 'like',
-            'id': 'at://did:plc:foo/co.ll/123',
+            'id': 'at://did:plc:foo/like/123',
             'actor': 'did:plc:foo',
-            'object': 'http://example.com/original/post',
+            'object': 'at://did:plc:alice/post/123',
         }
 
-        obj = Object(id='at://did:plc:foo/co.ll/123', bsky=like_bsky)
+        obj = Object(id='at://did:plc:foo/like/123', bsky=like_bsky)
         self.assert_equals(like_as1, obj.as1)
 
     def test_as1_from_mf2_uses_url_as_id(self):
