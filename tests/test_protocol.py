@@ -864,6 +864,41 @@ class ProtocolReceiveTest(TestCase):
             (obj.key.id(), 'other:eve:target'),
         ], OtherFake.sent)
 
+    def test_reply_skips_mention_of_original_post_author(self):
+        bob = self.store_object(id='fake:bob', our_as1={'foo': 1})
+        eve = self.store_object(id='fake:eve', our_as1={'foo': 2})
+
+        reply_as1 = {
+            'id': 'other:reply',
+            'objectType': 'note',
+            'inReplyTo': 'fake:post',
+            'author': 'other:alice',
+            'content': 'foo',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'fake:eve',
+            }, {
+                'objectType': 'mention',
+                'url': 'fake:bob',
+            }],
+        }
+        Fake.fetchable = {
+            'fake:post': {
+                'objectType': 'note',
+                'id': 'fake:post',
+                'author': 'fake:bob',
+            },
+        }
+        self.assertEqual(('OK', 202), Fake.receive_as1(reply_as1))
+
+        obj = Object.get_by_id('other:reply#bridgy-fed-create')
+        self.assertEqual([Fake(id='fake:bob').key], obj.notify)
+        self.assertEqual([
+            # bob shouldn't be here, we should suppress the mention
+            (obj.key.id(), 'fake:eve:target'),
+            (obj.key.id(), 'fake:post:target'),
+        ], Fake.sent)
+
     def test_update_reply(self):
         self.make_followers()
 

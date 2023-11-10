@@ -956,9 +956,13 @@ class Protocol:
 
         orig_obj = None
         targets = {}  # maps Target to Object or None
-        in_reply_to = as1.get_object(obj.as1).get('inReplyTo')
-        is_self_reply = False
         owner = as1.get_owner(obj.as1)
+
+        in_reply_to_owner = None
+        if in_reply_to := as1.get_object(obj.as1).get('inReplyTo'):
+            if in_reply_to_obj := Protocol.for_id(in_reply_to).load(in_reply_to):
+                in_reply_to_owner = as1.get_owner(in_reply_to_obj.as1)
+        is_self_reply = False
 
         for id in sorted(target_uris):
             protocol = Protocol.for_id(id)
@@ -970,6 +974,9 @@ class Protocol:
                 continue
             elif protocol.is_blocklisted(id):
                 logger.info(f'{id} is blocklisted')
+                continue
+            elif id == in_reply_to_owner:
+                logger.info(f'Skipping mention of in-reply-to author')
                 continue
 
             orig_obj = protocol.load(id)
