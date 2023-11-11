@@ -373,7 +373,10 @@ UPDATE_AS2['object']['updated'] = NOW.isoformat()
 
 NOT_FEDIVERSE = requests_response("""\
 <html>
-<body>foo</body>
+<body class="h-entry">
+<a class="u-author h-card" href="https://not/">Mr. Not</a>
+<div class="e-content">foo</div>
+</body>
 </html>
 """, url='http://not/fediverse')
 ACTIVITYPUB_GETS = [
@@ -382,8 +385,6 @@ ACTIVITYPUB_GETS = [
     NOT_FEDIVERSE,  # Web
     TOOT_AS2,       # AP
     ACTOR,
-    NOT_FEDIVERSE,  # AP
-    NOT_FEDIVERSE,  # Web
 ]
 
 
@@ -609,14 +610,15 @@ class WebTest(TestCase):
     def test_bad_target_url(self, mock_get, mock_post):
         mock_get.side_effect = (
             requests_response(
-                REPLY_HTML.replace('https://mas.to/toot', 'bad:nope'),
+                REPLY_HTML.replace('https://mas.to/toot', 'bad:nope')\
+                          .replace('http://not/fediverse', ''),
                 content_type=CONTENT_TYPE_HTML, url='https://user.com/reply'),
             ValueError('foo bar'),  # AS2 fetch
             ValueError('foo bar'),  # HTML fetch
         )
 
         got = self.post('/queue/webmention',
-                               data={'source': 'https://user.com/reply'})
+                        data={'source': 'https://user.com/reply'})
         self.assertEqual(204, got.status_code)
 
         self.assert_object('https://user.com/reply',

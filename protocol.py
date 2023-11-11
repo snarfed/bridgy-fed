@@ -958,10 +958,13 @@ class Protocol:
         targets = {}  # maps Target to Object or None
         owner = as1.get_owner(obj.as1)
 
-        in_reply_to_owner = None
-        if in_reply_to := as1.get_object(obj.as1).get('inReplyTo'):
-            if in_reply_to_obj := Protocol.for_id(in_reply_to).load(in_reply_to):
-                in_reply_to_owner = as1.get_owner(in_reply_to_obj.as1)
+        in_reply_to_owners = []
+        in_reply_tos = util.get_list(as1.get_object(obj.as1), 'inReplyTo')
+        for in_reply_to in in_reply_tos:
+            if protocol := Protocol.for_id(in_reply_to):
+                if in_reply_to_obj := protocol.load(in_reply_to):
+                    if reply_owner := as1.get_owner(in_reply_to_obj.as1):
+                        in_reply_to_owners.append(reply_owner)
         is_self_reply = False
 
         for id in sorted(target_uris):
@@ -975,7 +978,7 @@ class Protocol:
             elif protocol.is_blocklisted(id):
                 logger.info(f'{id} is blocklisted')
                 continue
-            elif id == in_reply_to_owner:
+            elif id in in_reply_to_owners:
                 logger.info(f'Skipping mention of in-reply-to author')
                 continue
 
@@ -1011,7 +1014,7 @@ class Protocol:
             logger.info("Can't tell who this is from! Skipping followers.")
             return targets
 
-        is_reply = obj.type == 'comment' or in_reply_to
+        is_reply = obj.type == 'comment' or in_reply_tos
         if (obj.type in ('post', 'update', 'delete', 'share')
                 and (is_self_reply or not is_reply)):
             logger.info(f'Delivering to followers of {user_key}')

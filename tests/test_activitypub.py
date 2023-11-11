@@ -573,23 +573,16 @@ class ActivityPubTest(TestCase):
                          Fake.sent)
 
     def test_inbox_reply_to_self_domain(self, *mocks):
-        self._test_inbox_ignore_reply_to('http://localhost/mas.to', *mocks)
+        self._test_inbox_ignore_reply_to('http://localhost/user.com', *mocks)
 
-    def test_inbox_reply_to_in_blocklist(self, *mocks):
-        self._test_inbox_ignore_reply_to('https://twitter.com/foo', *mocks)
+    def test_inbox_reply_to_in_blocklist(self, mock_head, mock_get, mock_post):
+        mock_get.return_value = HTML
+        self._test_inbox_ignore_reply_to('https://twitter.com/foo',
+                                         mock_head, mock_get, mock_post)
 
     def _test_inbox_ignore_reply_to(self, reply_to, mock_head, mock_get, mock_post):
         reply = copy.deepcopy(REPLY_OBJECT)
         reply['inReplyTo'] = reply_to
-
-        mock_head.return_value = requests_response(url='http://mas.to/')
-        mock_get.side_effect = [
-            # actor fetch
-            self.as2_resp(ACTOR),
-            # protocol inference
-            requests_response(test_web.NOTE_HTML),
-            requests_response(test_web.NOTE_HTML),
-        ]
 
         got = self.post('/user.com/inbox', json=reply)
         self.assertEqual(204, got.status_code, got.get_data(as_text=True))
