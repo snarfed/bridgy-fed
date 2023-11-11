@@ -406,10 +406,11 @@ class ATProtoTest(TestCase):
 
         # check repo, record
         repo = self.storage.load_repo(user.atproto_did)
-        record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        record = repo.get_record('app.bsky.feed.post', last_tid)
         self.assertEqual(POST_BSKY, record)
 
-        at_uri = f'at://{user.atproto_did}/app.bsky.feed.post/{arroba.util._tid_last}'
+        at_uri = f'at://{user.atproto_did}/app.bsky.feed.post/{last_tid}'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:post').copies)
 
@@ -477,10 +478,11 @@ class ATProtoTest(TestCase):
                 'size': 13,
             },
         }, profile)
-        record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        record = repo.get_record('app.bsky.feed.post', last_tid)
         self.assertEqual(POST_BSKY, record)
 
-        at_uri = f'at://{did}/app.bsky.feed.post/{arroba.util._tid_last}'
+        at_uri = f'at://{did}/app.bsky.feed.post/{last_tid}'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:post').copies)
 
@@ -497,10 +499,11 @@ class ATProtoTest(TestCase):
 
         # check repo, record
         repo = self.storage.load_repo(user.atproto_did)
-        record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        record = repo.get_record('app.bsky.feed.post', last_tid)
         self.assertEqual(POST_BSKY, record)
 
-        at_uri = f'at://{user.atproto_did}/app.bsky.feed.post/{arroba.util._tid_last}'
+        at_uri = f'at://{user.atproto_did}/app.bsky.feed.post/{last_tid}'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:post').copies)
 
@@ -573,7 +576,8 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.send(create, 'https://atproto.brid.gy/'))
 
         repo = self.storage.load_repo(user.atproto_did)
-        record = repo.get_record('app.bsky.feed.post', arroba.util._tid_last)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        record = repo.get_record('app.bsky.feed.post', last_tid)
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
             # 'text': 'I hereby reply to this',
@@ -601,7 +605,7 @@ class ATProtoTest(TestCase):
             }],
         }, record)
 
-        at_uri = f'at://did:plc:user/app.bsky.feed.post/{arroba.util._tid_last}'
+        at_uri = f'at://did:plc:user/app.bsky.feed.post/{last_tid}'
         self.assertEqual([], Object.get_by_id(id='fake:reply:post').copies)
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:reply').copies)
