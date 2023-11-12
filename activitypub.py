@@ -394,7 +394,7 @@ class ActivityPub(User, Protocol):
             error('Missing Digest header, required for HTTP Signature', status=401)
 
         expected = b64encode(sha256(request.data).digest()).decode()
-        if digest.removeprefix('SHA-256=') != expected:
+        if digest.removeprefix('SHA-256=').removeprefix('sha-256=') != expected:
             error('Invalid Digest header, required for HTTP Signature', status=401)
 
         try:
