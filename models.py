@@ -301,6 +301,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Currently just looks for ``#nobridge`` or ``#nobot`` in the profile
         description/bio.
 
+        Duplicates ``util.is_opt_out`` in Bridgy!
+
         https://github.com/snarfed/bridgy-fed/issues/666
         """
         if not self.obj or not self.obj.as1:
