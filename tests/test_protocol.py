@@ -380,48 +380,6 @@ class ProtocolTest(TestCase):
             Target(protocol='atproto', uri='https://atproto.brid.gy/'),
         ], Protocol.targets(obj).keys())
 
-    @patch('requests.get', return_value=requests_response({}))
-    def test_targets_converts_copies_to_originals(self, mock_get):
-        """targets should convert User/Object.copies to their originals."""
-        alice = self.make_user('fake:alice', cls=Fake,
-                               copies=[Target(uri='did:plc:alice', protocol='atproto')])
-        bob = self.make_user(
-            'fake:bob', cls=OtherFake,
-            copies=[Target(uri='other:bob', protocol='other')])
-        obj = self.store_object(
-            id='fake:post', our_as1={'foo': 9},
-            copies=[Target(uri='at://did:plc:eve/post/789', protocol='fake')])
-
-        Fake.fetchable = {
-            'fake:alice': {'foo': 1},
-            'fake:bob': {'foo': 2},
-        }
-        OtherFake.fetchable = {
-            'other:bob': {'foo': 3},
-        }
-
-        obj = Object(our_as1={
-            'id': 'other:reply',
-            'objectType': 'note',
-            'inReplyTo': [
-                'at://did:web:unknown/post/123',
-                'at://did:plc:eve/post/789',
-            ],
-            'tags': [{
-                'objectType': 'mention',
-                'url': 'did:plc:alice',
-            }, {
-                'objectType': 'mention',
-                'url': 'other:bob',
-            }],
-        })
-        self.assertCountEqual([
-            Target(uri='fake:post:target', protocol='fake'),
-            Target(uri='fake:alice:target', protocol='fake'),
-            Target(uri='fake:bob:target', protocol='fake'),
-            Target(uri='other:bob:target', protocol='other'),
-        ], Protocol.targets(obj).keys())
-
     def test_translate_ids_follow(self):
         self.assert_equals({
             'id': 'other:o:fa:fake:follow',
@@ -1518,7 +1476,7 @@ class ProtocolReceiveTest(TestCase):
                            )
         self.assertEqual(2, Follower.query().count())
 
-    def test_replace_actor_copies_with_originals_follow(self):
+    def test_resolve_ids_follow(self):
         follow = {
             'id': 'fake:follow',
             'objectType': 'activity',
@@ -1529,7 +1487,7 @@ class ProtocolReceiveTest(TestCase):
 
         # no matching copy users
         obj = Object(id='fake:follow', our_as1=follow, source_protocol='fake')
-        Fake.receive(obj)
+        self.assertEqual(('OK', 202), Fake.receive(obj))
         self.assert_equals(follow, obj.our_as1)
 
         # matching copy user
@@ -1542,14 +1500,14 @@ class ProtocolReceiveTest(TestCase):
             'other:bob': {},
         }
 
-        Fake.receive(obj)
+        self.assertEqual(('OK', 202), Fake.receive(obj))
         self.assert_equals({
             **follow,
             'actor': {'id': 'fake:alice'},
             'object': 'other:bob',
         }, Object.get_by_id('fake:follow').our_as1)
 
-    def test_replace_actor_copies_with_originals_share(self):
+    def test_resolve_ids_share(self):
         share = {
             'objectType': 'activity',
             'verb': 'share',
@@ -1577,6 +1535,60 @@ class ProtocolReceiveTest(TestCase):
             'verb': 'share',
             'object': 'other:post',
         }, obj.our_as1)
+
+    def test_resolve_ids_reply(self):
+        reply = {
+            'id': 'other:reply',
+            'objectType': 'note',
+            'inReplyTo': [
+                'other:unknown-post',
+                'other:post',
+            ],
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'other:alice',
+            }, {
+                'objectType': 'mention',
+                'url': 'other:bob',
+            }],
+        }
+
+        # no matching copies
+        obj = Object(id='other:reply', our_as1=reply, source_protocol='other')
+        with self.assertRaises(NoContent):
+            Fake.receive(obj)
+        self.assert_equals(reply, obj.our_as1)
+
+        # matching copies
+        self.make_user(
+            'fake:alice', cls=Fake,
+            copies=[Target(uri='other:alice', protocol='other')])
+        self.make_user(
+            'fake:bob', cls=Fake,
+            copies=[Target(uri='other:bob', protocol='other')])
+        self.store_object(
+            id='fake:post', our_as1={'foo': 9}, source_protocol='fake',
+            copies=[Target(uri='other:post', protocol='other')])
+
+        protocol.seen_ids.clear()
+        obj.new = True
+        self.assertEqual(('OK', 202), Fake.receive(obj))
+        self.assertEqual({
+            'id': 'other:reply',
+            'objectType': 'note',
+            'inReplyTo': [
+                'other:unknown-post',
+                'fake:post',
+            ],
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'fake:alice',
+            }, {
+                'objectType': 'mention',
+                'url': 'fake:bob',
+            }],
+            'updated': '2022-01-02T03:04:05+00:00',
+        }, obj.key.get().our_as1)
 
     def test_receive_task_handler(self):
         note = {

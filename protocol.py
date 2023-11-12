@@ -907,7 +907,7 @@ class Protocol:
         if not targets:
             obj.status = 'ignored'
             obj.put()
-            error('No targets, nothing to do ¯\_(ツ)_/¯', status=204)
+            error(r'No targets, nothing to do ¯\_(ツ)_/¯', status=204)
 
         sorted_targets = sorted(targets.items(), key=lambda t: t[0].uri)
         obj.populate(
@@ -946,14 +946,6 @@ class Protocol:
 
         target_uris = set(as1.targets(obj.as1))
         logger.info(f'Raw targets: {target_uris}')
-
-        # TODO: remove this? seems unnecessary now that receive calls resolve_ids?
-        if target_uris:
-            origs = {key.id() for key in get_originals(target_uris, keys_only=True)}
-            if origs:
-                target_uris |= origs
-                logger.info(f'Added originals: {origs}')
-
         orig_obj = None
         targets = {}  # maps Target to Object or None
         owner = as1.get_owner(obj.as1)
@@ -1234,7 +1226,7 @@ def send_task():
     if (target not in obj.undelivered and target not in obj.failed
         and 'force' not in request.values):
         logger.info(f"{url} not in {obj.key.id()} undelivered or failed, giving up")
-        return '¯\_(ツ)_/¯', 204
+        return r'¯\_(ツ)_/¯', 204
 
     if user_key := form.get('user'):
         g.user = ndb.Key(urlsafe=user_key).get()
