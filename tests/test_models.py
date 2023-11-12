@@ -734,6 +734,30 @@ class ObjectTest(TestCase):
             },
         }, obj.our_as1)
 
+    def test_resolve_ids_multiple_in_reply_to(self):
+        note = {
+            'id': 'fake:note',
+            'objectType': 'note',
+            'inReplyTo': ['fake:a', 'fake:b'],
+        }
+        obj = Object(our_as1=note, source_protocol='fake')
+
+        # no matching copy users or objects
+        obj.resolve_ids()
+        self.assert_equals(note, obj.our_as1)
+
+        # matching copies
+        self.store_object(id='other:a',
+                          copies=[Target(uri='fake:a', protocol='fa')])
+        self.store_object(id='other:b',
+                          copies=[Target(uri='fake:b', protocol='fake')])
+        obj.resolve_ids()
+        self.assert_equals({
+            'id': 'fake:note',
+            'objectType': 'note',
+            'inReplyTo': ['other:a', 'other:b'],
+        }, obj.our_as1)
+
     def test_resolve_ids_subdomain_urls(self):
         obj = Object(our_as1={
             'objectType': 'activity',

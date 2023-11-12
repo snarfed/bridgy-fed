@@ -934,46 +934,58 @@ class Object(StringIdModel):
 
         inner_obj = outer_obj['object'] = as1.get_object(outer_obj)
         fields = ['actor', 'author', 'inReplyTo']
-        mention_tags = [t for t in (as1.get_objects(outer_obj, 'tags')
-                                    + as1.get_objects(inner_obj, 'tags'))
-                        if t.get('objectType') == 'mention']
 
-        # batch lookup matching users
-        ids = util.trim_nulls(
-            [as1.get_object(outer_obj, f).get('id') for f in fields]
-            + [as1.get_object(inner_obj, f).get('id') for f in fields]
-            + [inner_obj.get('id')]
-            + [m.get('url') for m in mention_tags])
+        # collect relevant ids
+        ids = [inner_obj.get('id')]
+        for obj in outer_obj, inner_obj:
+            for tag in as1.get_objects(obj, 'tags'):
+                if tag.get('objectType') == 'mention':
+                    ids.append(tag.get('url'))
+            for field in fields:
+                for val in as1.get_objects(obj, field):
+                    ids.append(val.get('id'))
+
+        ids = util.trim_nulls(ids)
         if not ids:
             return
 
-        origs = get_originals(ids)
+        # batch lookup matching users
+        origs = {}  # maps str copy URI to str original URI
+        for obj in get_originals(ids):
+            for copy in obj.copies:
+                if copy.protocol in (self_proto.LABEL, self_proto.ABBREV):
+                    origs[copy.uri] = obj.key.id()
+
+        logger.debug(f'Replacing copies with originals: {origs}')
         replaced = False
 
-        def replace(obj, field):
-            val = as1.get_object(obj, field).get('id')
-            if not val:
-                return
-            for orig in origs:
-                for target in orig.copies:
-                    if (target.protocol in (self_proto.LABEL, self_proto.ABBREV)
-                            and target.uri == val):
-                        logger.debug(
-                            f'Replacing copy {target} with original {orig.key.id()}')
-                        obj[field] = orig.key.id()
-                        nonlocal replaced
-                        replaced = True
+        def replace(val):
+            id = val.get('id') if isinstance(val, dict) else val
+            orig = origs.get(id)
+            if not orig:
+                return val
 
+            nonlocal replaced
+            replaced = True
+            if isinstance(val, dict) and val.keys() > {'id'}:
+                val['id'] = orig
+                return val
+            else:
+                return orig
+
+        # actually replace ids
         for obj in outer_obj, inner_obj:
+            for tag in as1.get_objects(obj, 'tags'):
+                if tag.get('objectType') == 'mention':
+                    tag['url'] = replace(tag.get('url'))
             for field in fields:
-                replace(obj, field)
+                obj[field] = [replace(val) for val in util.get_list(obj, field)]
+                if len(obj[field]) == 1:
+                    obj[field] = obj[field][0]
 
-        replace(inner_obj, 'id')
-        if inner_obj.keys() == {'id'}:
-            outer_obj['object'] = inner_obj['id']
-
-        for tag in mention_tags:
-            replace(tag, 'url')
+        outer_obj['object'] = replace(inner_obj)
+        if util.trim_nulls(outer_obj['object']).keys() == {'id'}:
+            outer_obj['object'] = outer_obj['object']['id']
 
         if replaced:
             self.our_as1 = util.trim_nulls(outer_obj)
