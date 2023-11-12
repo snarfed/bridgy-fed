@@ -677,7 +677,7 @@ class ObjectTest(TestCase):
         self.make_user('other:alice', cls=OtherFake,
                        copies=[Target(uri='fake:alice', protocol='fake')])
         self.make_user('other:bob', cls=OtherFake,
-                       copies=[Target(uri='fake:bob', protocol='fake')])
+                       copies=[Target(uri='fake:bob', protocol='fa')])
         obj.resolve_ids()
         self.assert_equals({
             **follow,
@@ -714,7 +714,7 @@ class ObjectTest(TestCase):
         self.make_user('other:bob', cls=OtherFake,
                        copies=[Target(uri='fake:bob', protocol='fake')])
         self.store_object(id='other:post',
-                          copies=[Target(uri='fake:post', protocol='fake')])
+                          copies=[Target(uri='fake:post', protocol='fa')])
         self.store_object(id='other:reply',
                           copies=[Target(uri='fake:reply', protocol='fake')])
 

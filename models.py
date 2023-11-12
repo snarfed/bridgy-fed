@@ -928,7 +928,8 @@ class Object(StringIdModel):
         if outer_obj != self.as1:
             self.our_as1 = util.trim_nulls(outer_obj)
 
-        if not self.source_protocol:
+        self_proto = PROTOCOLS.get(self.source_protocol)
+        if not self_proto:
             return
 
         inner_obj = outer_obj['object'] = as1.get_object(outer_obj)
@@ -951,10 +952,12 @@ class Object(StringIdModel):
 
         def replace(obj, field):
             val = as1.get_object(obj, field).get('id')
-            if val:
-                for orig in origs:
-                    target = Target(uri=val, protocol=self.source_protocol)
-                    if target in orig.copies:
+            if not val:
+                return
+            for orig in origs:
+                for target in orig.copies:
+                    if (target.protocol in (self_proto.LABEL, self_proto.ABBREV)
+                            and target.uri == val):
                         logger.debug(
                             f'Replacing copy {target} with original {orig.key.id()}')
                         obj[field] = orig.key.id()

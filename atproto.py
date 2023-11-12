@@ -326,7 +326,7 @@ class ATProto(User, Protocol):
                        rkey=tid, record=record)])
 
             at_uri = f'at://{user.atproto_did}/app.bsky.feed.post/{tid}'
-            base_obj.add('copies', Target(uri=at_uri, protocol=to_cls.ABBREV))
+            base_obj.add('copies', Target(uri=at_uri, protocol=to_cls.LABEL))
             base_obj.put()
 
         write()
