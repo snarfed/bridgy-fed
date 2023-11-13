@@ -1602,7 +1602,6 @@ class ProtocolReceiveTest(TestCase):
                 'objectType': 'mention',
                 'url': 'fake:bob',
             }],
-            'updated': '2022-01-02T03:04:05+00:00',
         }, obj.key.get().our_as1)
 
     def test_receive_task_handler(self):
