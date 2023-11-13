@@ -951,7 +951,7 @@ class Protocol:
         owner = as1.get_owner(obj.as1)
 
         in_reply_to_owners = []
-        in_reply_tos = util.get_list(as1.get_object(obj.as1), 'inReplyTo')
+        in_reply_tos = as1.get_ids(as1.get_object(obj.as1), 'inReplyTo')
         for in_reply_to in in_reply_tos:
             if protocol := Protocol.for_id(in_reply_to):
                 if in_reply_to_obj := protocol.load(in_reply_to):

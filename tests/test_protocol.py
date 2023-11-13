@@ -380,6 +380,24 @@ class ProtocolTest(TestCase):
             Target(protocol='atproto', uri='https://atproto.brid.gy/'),
         ], Protocol.targets(obj).keys())
 
+    def test_targets_composite_inreplyto(self):
+        Fake.fetchable['fake:post'] = {
+            'objectType': 'note',
+        }
+        self.assertEqual({Target(protocol='fake', uri='fake:post:target')},
+                         Fake.targets(Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'id': 'other:reply',
+                'objectType': 'note',
+                'inReplyTo': {
+                    'id': 'fake:post',
+                    'url': 'http://foo',
+                },
+            },
+        })).keys())
+
     def test_translate_ids_follow(self):
         self.assert_equals({
             'id': 'other:o:fa:fake:follow',
