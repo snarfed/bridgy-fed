@@ -823,8 +823,6 @@ class WebTest(TestCase):
             NOT_FEDIVERSE,  # Web
             self.as2_resp(toot_as2_data),  # AP
             ACTOR,
-            NOT_FEDIVERSE,  # AP
-            NOT_FEDIVERSE,  # Web
         ]
         mock_post.return_value = requests_response('abc xyz')
 
@@ -906,8 +904,6 @@ class WebTest(TestCase):
             TOOT_HTML,      # AP
             TOOT_AS2,       # AP via rel-alternate
             ACTOR,
-            NOT_FEDIVERSE,  # AP
-            NOT_FEDIVERSE,  # Web
         ]
         mock_post.return_value = requests_response('abc xyz')
 

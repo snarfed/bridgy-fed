@@ -1100,10 +1100,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('inactive', followee.key.get().status)
         self.assertEqual('active', other.key.get().status)
 
-        self.assert_object('fake:alice',
-                           deleted=True,
-                           source_protocol=None,
-                           )
+        self.assert_object('fake:alice', deleted=True, source_protocol='fake')
 
     @patch.object(Fake, 'send')
     @patch.object(Fake, 'target_for')

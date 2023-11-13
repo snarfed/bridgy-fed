@@ -289,7 +289,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                       or util.get_url((obj_mf2 or {}), 'properties')
                       or str(self.last_make_user_id))
             self.last_make_user_id += 1
-        obj_key = Object(id=obj_id, our_as1=obj_as1, as2=obj_as2, mf2=obj_mf2).put()
+        obj_key = Object(id=obj_id, our_as1=obj_as1, as2=obj_as2, mf2=obj_mf2,
+                         source_protocol=cls.LABEL).put()
 
         user = cls(id=id,
                    direct=True,

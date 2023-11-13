@@ -901,7 +901,6 @@ class Protocol:
           obj (models.Object): activity to deliver
         """
         # find delivery targets
-        # sort targets so order is deterministic for tests, debugging, etc
         targets = from_cls.targets(obj)  # maps Target to Object or None
 
         if not targets:
@@ -909,6 +908,7 @@ class Protocol:
             obj.put()
             error(r'No targets, nothing to do ¯\_(ツ)_/¯', status=204)
 
+        # sort targets so order is deterministic for tests, debugging, etc
         sorted_targets = sorted(targets.items(), key=lambda t: t[0].uri)
         obj.populate(
             status='in progress',
@@ -944,7 +944,7 @@ class Protocol:
         """
         logger.info('Finding recipients and their targets')
 
-        target_uris = set(as1.targets(obj.as1))
+        target_uris = sorted(set(as1.targets(obj.as1)))
         logger.info(f'Raw targets: {target_uris}')
         orig_obj = None
         targets = {}  # maps Target to Object or None
