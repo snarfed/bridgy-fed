@@ -420,6 +420,7 @@ def poll_notifications():
     repos = {r.key.id(): r for r in AtpRepo.query()}
     logger.info(f'Got {len(repos)} repos')
 
+    # TODO: switch from atproto_did to copies
     users = itertools.chain(*(cls.query(cls.atproto_did.IN(list(repos)))
                               for cls in set(PROTOCOLS.values())
                               if cls and cls != ATProto))

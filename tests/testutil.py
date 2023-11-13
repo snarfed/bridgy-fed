@@ -40,6 +40,8 @@ import protocol
 
 logger = logging.getLogger(__name__)
 
+ATPROTO_KEY = arroba.util.new_key(2349823483510)  # deterministic seed
+
 NOTE = {
     **NOTE,
     # bare string author id

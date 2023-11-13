@@ -30,7 +30,7 @@ import common
 import hub
 from models import Object, Target
 import protocol
-from .testutil import Fake, TestCase
+from .testutil import ATPROTO_KEY, Fake, TestCase
 from . import test_activitypub
 
 DID_DOC = {
@@ -50,8 +50,6 @@ DID_DOC = {
 }
 BLOB_CID = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
 
-KEY = arroba.util.new_key(2349823483510)  # deterministic seed
-
 
 class ATProtoTest(TestCase):
 
@@ -66,7 +64,7 @@ class ATProtoTest(TestCase):
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = 'https://atproto.brid.gy/'
         self.store_object(id='did:plc:user', raw=did_doc)
-        Repo.create(self.storage, 'did:plc:user', signing_key=KEY)
+        Repo.create(self.storage, 'did:plc:user', signing_key=ATPROTO_KEY)
 
         return user
 
@@ -619,8 +617,8 @@ class ATProtoTest(TestCase):
         user_b = self.make_user(id='fake:user-c', cls=Fake, atproto_did=f'did:plc:b')
         user_c = self.make_user(id='fake:user-b', cls=Fake, atproto_did=f'did:plc:c')
 
-        Repo.create(self.storage, 'did:plc:a', signing_key=KEY)
-        Repo.create(self.storage, 'did:plc:c', signing_key=KEY)
+        Repo.create(self.storage, 'did:plc:a', signing_key=ATPROTO_KEY)
+        Repo.create(self.storage, 'did:plc:c', signing_key=ATPROTO_KEY)
 
         like = {
             '$type': 'app.bsky.feed.like',
