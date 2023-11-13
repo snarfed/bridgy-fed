@@ -1,10 +1,10 @@
 """Base protocol class and common code."""
 import copy
 import logging
-import threading
+from threading import Lock
 from urllib.parse import urljoin
 
-from cachetools import LRUCache
+from cachetools import cached, LRUCache
 from flask import g, request
 from google.cloud import ndb
 from google.cloud.ndb import OR
@@ -41,11 +41,11 @@ SUPPORTED_TYPES = (
 # activity ids that we've already handled and can now ignore.
 # used in Protocol.receive
 seen_ids = LRUCache(100000)
-seen_ids_lock = threading.Lock()
+seen_ids_lock = Lock()
 
 # objects that have been loaded in Protocol.load
 objects_cache = LRUCache(5000)
-objects_cache_lock = threading.Lock()
+objects_cache_lock = Lock()
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +213,7 @@ class Protocol:
 
         return cls(id=id).key
 
+    @cached(LRUCache(20000), lock=Lock())
     @staticmethod
     def for_id(id):
         """Returns the protocol for a given id.

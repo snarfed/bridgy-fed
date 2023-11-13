@@ -193,6 +193,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         cache.clear()
         protocol.seen_ids.clear()
         protocol.objects_cache.clear()
+        protocol.Protocol.for_id.cache.clear()
         common.webmention_discover.cache.clear()
         User.count_followers.cache.clear()
 
