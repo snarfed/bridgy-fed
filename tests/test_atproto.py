@@ -487,7 +487,7 @@ class ATProtoTest(TestCase):
         mock_create_task.assert_called()
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    def test_send_existing_repo(self, mock_create_task):
+    def test_send_note_existing_repo(self, mock_create_task):
         user = self.make_user_and_repo()
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
             **POST_AS,
@@ -504,6 +504,96 @@ class ATProtoTest(TestCase):
         at_uri = f'at://{user.atproto_did}/app.bsky.feed.post/{last_tid}'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:post').copies)
+
+        mock_create_task.assert_called()
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_like(self, mock_create_task):
+        user = self.make_user_and_repo()
+        obj = self.store_object(id='fake:like', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'id': 'fake:like',
+            'actor': 'fake:user',
+            'object': 'at://did/app.bsky.feed.post/tid',
+        })
+        self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
+
+        # check repo, record
+        repo = self.storage.load_repo(user.atproto_did)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        record = repo.get_record('app.bsky.feed.like', last_tid)
+        self.assertEqual({
+            '$type': 'app.bsky.feed.like',
+            'subject': {
+                'uri': 'at://did/app.bsky.feed.post/tid',
+                'cid': 'TODO',
+            },
+            'createdAt': '',
+        }, record)
+
+        at_uri = f'at://{user.atproto_did}/app.bsky.feed.like/{last_tid}'
+        self.assertEqual([Target(uri=at_uri, protocol='atproto')],
+                         Object.get_by_id(id='fake:like').copies)
+
+        mock_create_task.assert_called()
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_repost(self, mock_create_task):
+        user = self.make_user_and_repo()
+        obj = self.store_object(id='fake:repost', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'id': 'fake:repost',
+            'actor': 'fake:user',
+            'object': 'at://did/app.bsky.feed.post/tid',
+        })
+        self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
+
+        # check repo, record
+        repo = self.storage.load_repo(user.atproto_did)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        record = repo.get_record('app.bsky.feed.repost', last_tid)
+        self.assertEqual({
+            '$type': 'app.bsky.feed.repost',
+            'subject': {
+                'uri': 'at://did/app.bsky.feed.post/tid',
+                'cid': 'TODO',
+            },
+            'createdAt': '',
+        }, record)
+
+        at_uri = f'at://{user.atproto_did}/app.bsky.feed.repost/{last_tid}'
+        self.assertEqual([Target(uri=at_uri, protocol='atproto')],
+                         Object.get_by_id(id='fake:repost').copies)
+
+        mock_create_task.assert_called()
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_follow(self, mock_create_task):
+        user = self.make_user_and_repo()
+        obj = self.store_object(id='fake:follow', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'id': 'fake:follow',
+            'actor': 'fake:user',
+            'object': 'did:plc:bob',
+        })
+        self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
+
+        # check repo, record
+        repo = self.storage.load_repo(user.atproto_did)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        record = repo.get_record('app.bsky.graph.follow', last_tid)
+        self.assertEqual({
+            '$type': 'app.bsky.graph.follow',
+            'subject': 'did:plc:bob',
+            'createdAt': '',
+        }, record)
+
+        at_uri = f'at://{user.atproto_did}/app.bsky.graph.follow/{last_tid}'
+        self.assertEqual([Target(uri=at_uri, protocol='atproto')],
+                         Object.get_by_id(id='fake:follow').copies)
 
         mock_create_task.assert_called()
 

@@ -276,17 +276,17 @@ class ATProto(User, Protocol):
 
         type = as1.object_type(obj.as1)
         base_obj = obj
-        if type in ('accept', 'undo'):
-            logger.info(f'Skipping unsupported type {type}, not writing to repo')
-            return False
-        elif type in ('post', 'update', 'delete'):
+        if type in ('post', 'update', 'delete'):
             obj_as1 = as1.get_object(obj.as1)
             type = as1.object_type(obj_as1)
             base_obj = PROTOCOLS[obj.source_protocol].load(obj_as1['id'])
             if not base_obj:
                 base_obj = obj
 
-        assert type in ('note', 'article')
+        collection = bluesky.AS1_TO_COLLECTION.get(type)
+        if not collection:
+            logger.info(f'Skipping unsupported type {type}, not writing to repo')
+            return False
 
         from_cls = PROTOCOLS[obj.source_protocol]
         from_key = from_cls.actor_key(obj)
@@ -318,14 +318,13 @@ class ATProto(User, Protocol):
         ndb.transactional()
         def write():
             tid = next_tid()
-            logger.info(f'Storing ATProto app.bsky.feed.post {tid}: ' +
+            logger.info(f'Storing ATProto {collection} {tid}: ' +
                         json_dumps(dag_json.encode(record).decode(), indent=2))
 
-            repo.apply_writes(
-                [Write(action=Action.CREATE, collection='app.bsky.feed.post',
-                       rkey=tid, record=record)])
+            repo.apply_writes([Write(action=Action.CREATE, collection=collection,
+                                     rkey=tid, record=record)])
 
-            at_uri = f'at://{user.atproto_did}/app.bsky.feed.post/{tid}'
+            at_uri = f'at://{user.atproto_did}/{collection}/{tid}'
             base_obj.add('copies', Target(uri=at_uri, protocol=to_cls.LABEL))
             base_obj.put()
 
