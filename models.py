@@ -820,7 +820,8 @@ class Object(StringIdModel):
         Args:
           other_as1 (dict): AS1 object, or none
         """
-        return (as1.activity_changed(self.as1, other_as1)
+        # ignore inReplyTo since we translate it between protocols
+        return (as1.activity_changed(self.as1, other_as1, inReplyTo=False)
                 if self.as1 and other_as1
                 else bool(self.as1) != bool(other_as1))
 
