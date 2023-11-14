@@ -488,7 +488,7 @@ def poll_posts():
                     headers={'User-Agent': USER_AGENT})
 
     for user in users:
-        logging.debug(f'Fetching notifs for {user.key.id()}')
+        logging.debug(f'Fetching posts for {user.key.id()}')
 
         # TODO: store and use cursor
         # seenAt would be easier, but they don't support it yet

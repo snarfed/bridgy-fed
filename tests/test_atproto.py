@@ -529,7 +529,7 @@ class ATProtoTest(TestCase):
                 'uri': 'at://did/app.bsky.feed.post/tid',
                 'cid': 'TODO',
             },
-            'createdAt': '',
+            'createdAt': '2022-01-02T03:04:05+00:00',
         }, record)
 
         at_uri = f'at://{user.atproto_did}/app.bsky.feed.like/{last_tid}'
@@ -560,7 +560,7 @@ class ATProtoTest(TestCase):
                 'uri': 'at://did/app.bsky.feed.post/tid',
                 'cid': 'TODO',
             },
-            'createdAt': '',
+            'createdAt': '2022-01-02T03:04:05+00:00',
         }, record)
 
         at_uri = f'at://{user.atproto_did}/app.bsky.feed.repost/{last_tid}'
@@ -588,7 +588,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.graph.follow',
             'subject': 'did:plc:bob',
-            'createdAt': '',
+            'createdAt': '2022-01-02T03:04:05+00:00',
         }, record)
 
         at_uri = f'at://{user.atproto_did}/app.bsky.graph.follow/{last_tid}'
@@ -668,8 +668,7 @@ class ATProtoTest(TestCase):
         record = repo.get_record('app.bsky.feed.post', last_tid)
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
-            # 'text': 'I hereby reply to this',
-            'createdAt': '',
+            'createdAt': '2022-01-02T03:04:05+00:00',
             'text': 'foo',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
