@@ -415,9 +415,13 @@ def poll_notifications():
     Uses the ``listNotifications`` endpoint, which is intended for end users. 🤷
 
     https://github.com/bluesky-social/atproto/discussions/1538
+
+    TODO: unify with poll_posts
     """
     repos = {r.key.id(): r for r in AtpRepo.query()}
     logger.info(f'Got {len(repos)} repos')
+    if not repos:
+        return
 
     # TODO: switch from atproto_did to copies
     users = itertools.chain(*(cls.query(cls.atproto_did.IN(list(repos)))
@@ -454,6 +458,65 @@ def poll_notifications():
 
             common.create_task(queue='receive', obj=obj.key.urlsafe(),
                                authed_as=notif['author']['did'])
+            # note that we don't pass a user param above. it's the acting user,
+            # which is different for every notif, and may not actually have a BF
+            # User yet.
+
+    return 'OK'
+
+
+# URL route is registered in hub.py
+def poll_posts():
+    """Fetches and enqueueus new posts from the AppView for our users.
+
+    Uses the ``getTimeline`` endpoint, which is intended for end users. 🤷
+
+    TODO: unify with poll_notifications
+    """
+    repos = {r.key.id(): r for r in AtpRepo.query()}
+    logger.info(f'Got {len(repos)} repos')
+    if not repos:
+        return
+
+    # TODO: switch from atproto_did to copies
+    users = itertools.chain(*(cls.query(cls.atproto_did.IN(list(repos)))
+                              for cls in set(PROTOCOLS.values())
+                              if cls and cls != ATProto))
+
+    # TODO: convert to Session for connection pipelining!
+    client = Client(f'https://{os.environ["APPVIEW_HOST"]}',
+                    headers={'User-Agent': USER_AGENT})
+
+    for user in users:
+        logging.debug(f'Fetching notifs for {user.key.id()}')
+
+        # TODO: store and use cursor
+        # seenAt would be easier, but they don't support it yet
+        # https://github.com/bluesky-social/atproto/issues/1636
+        repo = repos[user.atproto_did]
+        client.session['accessJwt'] = service_jwt(os.environ['APPVIEW_HOST'],
+                                                  repo_did=user.atproto_did,
+                                                  privkey=repo.signing_key)
+        resp = client.app.bsky.feed.getTimeline()
+        for item in resp['feed']:
+            uri = item['post']['uri']
+            logger.debug(f'Got {uri}: {json_dumps(item, indent=2)}')
+
+            # TODO: handle reposts once we have a URI for them
+            # https://github.com/bluesky-social/atproto/issues/1811
+            #
+            # TODO: verify sig. skipping this for now because we're getting
+            # these from the AppView, which is trusted, specifically we expect
+            # the BGS and/or the AppView already checked sigs.
+            obj = Object.get_or_create(id=uri, bsky=item['post'],
+                                       source_protocol=ATProto.ABBREV)
+            if not obj.status:
+                obj.status = 'new'
+            obj.add('feed', user.key)
+            obj.put()
+
+            common.create_task(queue='receive', obj=obj.key.urlsafe(),
+                               authed_as=user.atproto_did)
             # note that we don't pass a user param above. it's the acting user,
             # which is different for every notif, and may not actually have a BF
             # User yet.

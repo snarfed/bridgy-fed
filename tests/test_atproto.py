@@ -3,7 +3,7 @@ import base64
 import copy
 import logging
 from unittest import skip
-from unittest.mock import call, MagicMock, patch
+from unittest.mock import ANY, call, MagicMock, patch
 
 from arroba.datastore_storage import AtpBlock, AtpRemoteBlob, AtpRepo, DatastoreStorage
 from arroba.did import encode_did_key
@@ -704,8 +704,8 @@ class ATProtoTest(TestCase):
     @patch('requests.get')
     def test_poll_notifications(self, mock_get, mock_create_task):
         user_a = self.make_user(id='fake:user-a', cls=Fake, atproto_did=f'did:plc:a')
-        user_b = self.make_user(id='fake:user-c', cls=Fake, atproto_did=f'did:plc:b')
-        user_c = self.make_user(id='fake:user-b', cls=Fake, atproto_did=f'did:plc:c')
+        user_b = self.make_user(id='fake:user-b', cls=Fake, atproto_did=f'did:plc:b')
+        user_c = self.make_user(id='fake:user-c', cls=Fake, atproto_did=f'did:plc:c')
 
         Repo.create(self.storage, 'did:plc:a', signing_key=ATPROTO_KEY)
         Repo.create(self.storage, 'did:plc:c', signing_key=ATPROTO_KEY)
@@ -809,3 +809,92 @@ class ATProtoTest(TestCase):
         self.assertEqual(follow, follow_obj.bsky)
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
                          obj=follow_obj.key.urlsafe(), authed_as='did:plc:a')
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch('requests.get')
+    def test_poll_posts(self, mock_get, mock_create_task):
+        user_a = self.make_user(id='fake:user-a', cls=Fake, atproto_did=f'did:plc:a')
+        user_b = self.make_user(id='fake:user-b', cls=Fake, atproto_did=f'did:plc:b')
+        user_c = self.make_user(id='fake:user-c', cls=Fake, atproto_did=f'did:plc:c')
+        Repo.create(self.storage, 'did:plc:a', signing_key=ATPROTO_KEY)
+        Repo.create(self.storage, 'did:plc:b', signing_key=ATPROTO_KEY)
+        Repo.create(self.storage, 'did:plc:c', signing_key=ATPROTO_KEY)
+
+        post_view = {
+            '$type': 'app.bsky.feed.defs#postView',
+            'uri': 'at://did:web:alice.com/app.bsky.feed.post/123',
+            'cid': 'TODO',
+            'record': {
+                '$type': 'app.bsky.feed.post',
+                'text': 'My original post',
+                'createdAt': '2007-07-07T03:04:05',
+            },
+            'author': {
+                '$type': 'app.bsky.actor.defs#profileViewBasic',
+                'did': 'did:web:alice.com',
+                'handle': 'alice.com',
+            },
+        }
+
+        mock_get.side_effect = [
+            requests_response({
+                'cursor': '...',
+                'feed': [{
+                    '$type': 'app.bsky.feed.defs#feedViewPost',
+                    'post': post_view,
+                }],
+            }),
+            requests_response({
+                **DID_DOC,
+                'id': 'did:plc:alice.com',
+            }),
+            requests_response({
+                'cursor': '...',
+                'feed': [],
+            }),
+            requests_response({
+                'cursor': '...',
+                'feed': [{
+                    '$type': 'app.bsky.feed.defs#feedViewPost',
+                    'post': post_view,
+                    'reason': {
+                        '$type': 'app.bsky.feed.defs#reasonRepost',
+                        'by': {
+                            '$type': 'app.bsky.actor.defs#profileViewBasic',
+                            'did': 'did:web:bob.com',
+                            'handle': 'bob.com',
+                        },
+                        'indexedAt': '2022-01-02T03:04:05+00:00',
+                    },
+                }],
+            }),
+        ]
+
+        resp = self.post('/queue/atproto-poll-posts', client=hub.app.test_client())
+        self.assertEqual(200, resp.status_code)
+
+        get_timeline = call(
+            'https://api.bsky-sandbox.dev/xrpc/app.bsky.feed.getTimeline',
+            json=None,
+            headers={
+                'Content-Type': 'application/json',
+                'User-Agent': common.USER_AGENT,
+                'Authorization': ANY,
+            })
+        self.assertEqual([
+            get_timeline,
+            self.req('https://alice.com/.well-known/did.json'),
+            get_timeline,
+            get_timeline,
+        ], mock_get.call_args_list)
+
+        post_obj = Object.get_by_id('at://did:web:alice.com/app.bsky.feed.post/123')
+        self.assertEqual(post_view, post_obj.bsky)
+        self.assert_task(mock_create_task, 'receive', '/queue/receive',
+                         obj=post_obj.key.urlsafe(), authed_as='did:plc:a')
+
+        # TODO
+        # repost_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.post/456')
+        # self.assertEqual(repost, repost_obj.bsky)
+        # self.assert_task(mock_create_task, 'receive', '/queue/receive',
+        #                  obj=repost_obj.key.urlsafe(), authed_as='did:plc:eve')
