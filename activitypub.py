@@ -370,7 +370,7 @@ class ActivityPub(User, Protocol):
             error('No HTTP Signature', status=401)
 
         logger.info('Verifying HTTP Signature')
-        logger.info(f'Headers: {json_dumps(headers, indent=2)}')
+        # logger.info(f'Headers: {json_dumps(headers, indent=2)}')
 
         # parse_signature_header lower-cases all keys
         sig_fields = parse_signature_header(sig)
