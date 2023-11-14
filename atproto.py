@@ -499,16 +499,18 @@ def poll_posts():
                                                   privkey=repo.signing_key)
         resp = client.app.bsky.feed.getTimeline()
         for item in resp['feed']:
-            uri = item['post']['uri']
-            logger.debug(f'Got {uri}: {json_dumps(item, indent=2)}')
-
             # TODO: handle reposts once we have a URI for them
             # https://github.com/bluesky-social/atproto/issues/1811
-            #
+            if item.get('reason'):
+                continue
+
+            post = item['post']
+            logger.debug(f'Got {post["uri"]}: {json_dumps(item, indent=2)}')
+
             # TODO: verify sig. skipping this for now because we're getting
             # these from the AppView, which is trusted, specifically we expect
             # the BGS and/or the AppView already checked sigs.
-            obj = Object.get_or_create(id=uri, bsky=item['post'],
+            obj = Object.get_or_create(id=post['uri'], bsky=post['record'],
                                        source_protocol=ATProto.ABBREV)
             if not obj.status:
                 obj.status = 'new'

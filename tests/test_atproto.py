@@ -820,15 +820,16 @@ class ATProtoTest(TestCase):
         Repo.create(self.storage, 'did:plc:b', signing_key=ATPROTO_KEY)
         Repo.create(self.storage, 'did:plc:c', signing_key=ATPROTO_KEY)
 
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'My original post',
+            'createdAt': '2007-07-07T03:04:05',
+        }
         post_view = {
             '$type': 'app.bsky.feed.defs#postView',
             'uri': 'at://did:web:alice.com/app.bsky.feed.post/123',
             'cid': 'TODO',
-            'record': {
-                '$type': 'app.bsky.feed.post',
-                'text': 'My original post',
-                'createdAt': '2007-07-07T03:04:05',
-            },
+            'record': post,
             'author': {
                 '$type': 'app.bsky.actor.defs#profileViewBasic',
                 'did': 'did:web:alice.com',
@@ -889,7 +890,7 @@ class ATProtoTest(TestCase):
         ], mock_get.call_args_list)
 
         post_obj = Object.get_by_id('at://did:web:alice.com/app.bsky.feed.post/123')
-        self.assertEqual(post_view, post_obj.bsky)
+        self.assertEqual(post, post_obj.bsky)
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
                          obj=post_obj.key.urlsafe(), authed_as='did:plc:a')
 
