@@ -37,10 +37,6 @@ from models import Follower, Object, User
 from protocol import Protocol
 import webfinger
 
-# TODO: remove this. we only need it to make sure Web is registered in PROTOCOLS
-# before the URL route registrations below.
-import web
-
 logger = logging.getLogger(__name__)
 
 CONNEG_HEADERS_AS2_HTML = {
@@ -776,8 +772,9 @@ def actor(handle_or_id):
     cls = Protocol.for_request(fed='web')
     if not cls:
         error(f"Couldn't determine protocol", status=404)
-    elif cls == web.Web and (request.path.startswith('/ap/') or
-                             request.host not in LOCAL_DOMAINS + (PRIMARY_DOMAIN,)):
+    elif (cls.LABEL == 'web' and
+          (request.path.startswith('/ap/')
+           or request.host not in LOCAL_DOMAINS + (PRIMARY_DOMAIN,))):
         # we started out with web users' AP ids as fed.brid.gy/[domain], so we
         # need to preserve those for backward compatibility
         return redirect(subdomain_wrap(None, f'/{handle_or_id}'), code=301)
