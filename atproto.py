@@ -274,6 +274,14 @@ class ATProto(User, Protocol):
             logger.info(f'Target PDS {url} is not us')
             return False
 
+        # convert to Bluesky record; short circuits on error
+        try:
+            record = to_cls.convert(obj, fetch_blobs=True)
+        except ValueError as e:
+            logger.info(f'Skipping due to {e}')
+            return False
+
+        # determine "base" object, if any
         type = as1.object_type(obj.as1)
         base_obj = obj
         if type in ('post', 'update', 'delete'):
@@ -283,11 +291,7 @@ class ATProto(User, Protocol):
             if not base_obj:
                 base_obj = obj
 
-        collection = bluesky.AS1_TO_COLLECTION.get(type)
-        if not collection:
-            logger.info(f'Skipping unsupported type {type}, not writing to repo')
-            return False
-
+        # find user
         from_cls = PROTOCOLS[obj.source_protocol]
         from_key = from_cls.actor_key(obj)
         if not from_key:
@@ -309,8 +313,7 @@ class ATProto(User, Protocol):
         assert repo
         repo.callback = lambda _: common.create_task(queue='atproto-commit')
 
-        # create record and commit
-        record = to_cls.convert(obj, fetch_blobs=True)
+        # write commit
         type = record['$type']
         lex_type = LEXICONS[type]['type']
         assert lex_type == 'record', f"Can't store {type} object of type {lex_type}"
@@ -318,13 +321,13 @@ class ATProto(User, Protocol):
         ndb.transactional()
         def write():
             tid = next_tid()
-            logger.info(f'Storing ATProto {collection} {tid}: ' +
+            logger.info(f'Storing ATProto {type} {tid}: ' +
                         json_dumps(dag_json.encode(record).decode(), indent=2))
 
-            repo.apply_writes([Write(action=Action.CREATE, collection=collection,
+            repo.apply_writes([Write(action=Action.CREATE, collection=type,
                                      rkey=tid, record=record)])
 
-            at_uri = f'at://{user.atproto_did}/{collection}/{tid}'
+            at_uri = f'at://{user.atproto_did}/{type}/{tid}'
             base_obj.add('copies', Target(uri=at_uri, protocol=to_cls.LABEL))
             base_obj.put()
 
