@@ -50,7 +50,6 @@ objects_cache_lock = Lock()
 logger = logging.getLogger(__name__)
 
 
-# TODO: merge Protocol and User classes?
 class Protocol:
     """Base protocol class. Not to be instantiated; classmethods only.
 
@@ -652,10 +651,8 @@ class Protocol:
                 error(f'Undo of Follow requires actor id and object id. Got: {actor_id} {inner_obj_id} {obj.as1}')
 
             # deactivate Follower
-            # TODO: avoid import?
-            from web import Web
             from_ = from_cls.key_for(actor_id)
-            to_cls = Protocol.for_id(inner_obj_id) or Web
+            to_cls = Protocol.for_id(inner_obj_id)
             to = to_cls.key_for(inner_obj_id)
             follower = Follower.query(Follower.to == to,
                                       Follower.from_ == from_,
@@ -1149,9 +1146,10 @@ class Protocol:
         if obj.new is False:
             obj.changed = obj.activity_changed(orig_as1)
 
-        obj.source_protocol = cls.LABEL
-        # TODO: drop this?
-        obj.put()
+        if obj.source_protocol not in (cls.LABEL, cls.ABBREV):
+            assert not obj.source_protocol
+            obj.source_protocol = cls.LABEL
+            obj.put()
 
         with objects_cache_lock:
             objects_cache[id] = obj

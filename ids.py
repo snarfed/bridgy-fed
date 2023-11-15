@@ -111,7 +111,8 @@ def translate_handle(*, handle, from_proto, to_proto):
 
         case 'activitypub', 'web':
             user, instance = handle.lstrip('@').split('@')
-            return f'instance/@user'  # TODO
+            # TODO: get this from the actor object's url field?
+            return f'https://{instance}/@{user}'
 
         case _, 'web':
             return handle

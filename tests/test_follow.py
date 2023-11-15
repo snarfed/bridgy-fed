@@ -15,6 +15,7 @@ from .testutil import Fake, TestCase
 
 from activitypub import ActivityPub
 from models import Follower, Object
+from web import Web
 
 WEBFINGER = requests_response({
     'subject': 'acct:foo@bar',
@@ -61,7 +62,7 @@ class RemoteFollowTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.make_user('user.com')
+        self.make_user('user.com', cls=Web)
 
     def test_no_domain(self, _):
         got = self.client.post('/remote-follow?address=@foo@bar&protocol=web')
@@ -135,7 +136,7 @@ class FollowTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('alice.com')
+        self.user = self.make_user('alice.com', cls=Web)
         self.state = {
             'endpoint': 'http://auth/endpoint',
             'me': 'https://alice.com',
@@ -289,7 +290,7 @@ class FollowTest(TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_callback_user_use_instead(self, mock_get, mock_post):
-        user = self.make_user('www.alice.com')
+        user = self.make_user('www.alice.com', cls=Web)
         self.user.use_instead = user.key
         self.user.put()
 
@@ -395,7 +396,7 @@ class UnfollowTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('alice.com')
+        self.user = self.make_user('alice.com', cls=Web)
         self.follower = Follower.get_or_create(
             from_=self.user,
             to=self.make_user('https://bar/id', cls=ActivityPub, obj_as2=FOLLOWEE),
@@ -484,7 +485,7 @@ class UnfollowTest(TestCase):
         self.assertEqual('https://alice.com', session['indieauthed-me'])
 
     def test_callback_user_use_instead(self, mock_get, mock_post):
-        user = self.make_user('www.alice.com')
+        user = self.make_user('www.alice.com', cls=Web)
         self.user.use_instead = user.key
         self.user.put()
 

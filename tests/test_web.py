@@ -396,7 +396,7 @@ class WebTest(TestCase):
 
         obj = Object(id='https://user.com/', mf2=ACTOR_MF2, source_protocol='web')
         obj.put()
-        g.user = self.make_user('user.com', has_redirects=True, obj=obj)
+        g.user = self.make_user('user.com', cls=Web, has_redirects=True, obj=obj)
 
         self.mrs_foo = ndb.Key(ActivityPub, 'https://mas.to/mrs-foo')
 
@@ -1113,7 +1113,7 @@ class WebTest(TestCase):
             },
         }
         g.user.obj.put()
-        self.make_user('www.user.com', use_instead=g.user.key)
+        self.make_user('www.user.com', cls=Web, use_instead=g.user.key)
         self.make_followers()
 
         note_html = NOTE_HTML.replace('https://user.com/', 'https://www.user.com/')
@@ -1774,7 +1774,7 @@ http://this/404s
         })
 
     def test_verify_www_redirect(self, mock_get, _):
-        www_user = self.make_user('www.user.com')
+        www_user = self.make_user('www.user.com', cls=Web)
 
         empty = requests_response('')
         mock_get.side_effect = [

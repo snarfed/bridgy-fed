@@ -276,8 +276,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         kwargs.setdefault('headers', {})[flask_util.CLOUD_TASKS_QUEUE_HEADER] = ''
         return client.post(url, **kwargs)
 
-    # TODO: switch default to Fake, start using that more
-    def make_user(self, id, cls=Web, **kwargs):
+    def make_user(self, id, cls, **kwargs):
         """Reuse RSA key across Users because generating it is expensive."""
         obj_key = None
 

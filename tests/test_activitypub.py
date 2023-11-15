@@ -299,7 +299,8 @@ class ActivityPubTest(TestCase):
         super().setUp()
         self.request_context.push()
 
-        self.user = self.make_user('user.com', has_hcard=True, has_redirects=True,
+        self.user = self.make_user('user.com', cls=Web, has_hcard=True,
+                                   has_redirects=True,
                                    obj_as2={**ACTOR, 'id': 'https://user.com/'})
         self.swentel_key = ndb.Key(ActivityPub, 'https://mas.to/users/swentel')
         self.masto_actor_key = ndb.Key(ActivityPub, 'https://mas.to/actor')
@@ -952,7 +953,7 @@ class ActivityPubTest(TestCase):
                          has_hcard=True, has_redirects=True)
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
-        self.make_user('www.user.com', use_instead=self.user.key)
+        self.make_user('www.user.com', cls=Web, use_instead=self.user.key)
 
         mock_head.return_value = requests_response(url='https://www.user.com/')
         mock_get.side_effect = [
@@ -1573,7 +1574,7 @@ class ActivityPubTest(TestCase):
 class ActivityPubUtilsTest(TestCase):
     def setUp(self):
         super().setUp()
-        g.user = self.make_user('user.com', has_hcard=True, obj_as2=ACTOR)
+        g.user = self.make_user('user.com', cls=Web, has_hcard=True, obj_as2=ACTOR)
 
     def test_put_validates_id(self, *_):
         for bad in (
@@ -1764,80 +1765,6 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual(['https://masto.foo/@other'],
                          postprocess_as2(obj)['cc'])
 
-    # TODO: make these generic and use Fake
-    @patch('requests.get')
-    def test_load_http(self, mock_get):
-        mock_get.return_value = AS2
-
-        id = 'http://the/id'
-        self.assertIsNone(Object.get_by_id(id))
-
-        # first time fetches over HTTP
-        got = ActivityPub.load(id)
-        self.assert_equals(id, got.key.id())
-        self.assert_equals(AS2_OBJ, got.as2)
-        mock_get.assert_has_calls([self.as2_req(id)])
-
-        # second time is in cache
-        got.key.delete()
-        mock_get.reset_mock()
-
-        got = ActivityPub.load(id)
-        self.assert_equals(id, got.key.id())
-        self.assert_equals(AS2_OBJ, got.as2)
-        mock_get.assert_not_called()
-
-    @patch('requests.get')
-    def test_load_datastore(self, mock_get):
-        id = 'http://the/id'
-        stored = Object(id=id, as2=AS2_OBJ)
-        stored.put()
-        protocol.objects_cache.clear()
-
-        # first time loads from datastore
-        got = ActivityPub.load(id)
-        self.assert_entities_equal(stored, got)
-        mock_get.assert_not_called()
-
-        # second time is in cache
-        stored.key.delete()
-        got = ActivityPub.load(id)
-        self.assert_entities_equal(stored, got)
-        mock_get.assert_not_called()
-
-    @patch('requests.get')
-    def test_load_preserves_fragment(self, mock_get):
-        stored = Object(id='http://the/id#frag', as2=AS2_OBJ)
-        stored.put()
-        protocol.objects_cache.clear()
-
-        got = ActivityPub.load('http://the/id#frag')
-        self.assert_entities_equal(stored, got)
-        mock_get.assert_not_called()
-
-    @patch('requests.get')
-    def test_load_datastore_no_as2(self, mock_get):
-        """If the stored Object has no as2, we should fall back to HTTP."""
-        id = 'http://the/id'
-        stored = Object(id=id, as2={}, status='in progress')
-        stored.put()
-        protocol.objects_cache.clear()
-
-        mock_get.return_value = AS2
-        got = ActivityPub.load(id)
-        mock_get.assert_has_calls([self.as2_req(id)])
-
-        self.assert_equals(id, got.key.id())
-        self.assert_equals(AS2_OBJ, got.as2)
-        mock_get.assert_has_calls([self.as2_req(id)])
-
-        self.assert_object(id,
-                           as2=AS2_OBJ,
-                           as1={**AS2_OBJ, 'id': id},
-                           source_protocol='activitypub',
-                           # check that it reused our original Object
-                           status='in progress')
-
     @patch('requests.get')
     def test_signed_get_redirects_manually_with_new_sig_headers(self, mock_get):
         mock_get.side_effect = [
@@ -2005,15 +1932,14 @@ class ActivityPubUtilsTest(TestCase):
         }, ActivityPub.convert(obj))
 
     def test_postprocess_as2_idempotent(self):
-        g.user = self.make_user('foo.com')
+        g.user = self.make_user('foo.com', cls=Web)
 
         for obj in (ACTOR, REPLY_OBJECT, REPLY_OBJECT_WRAPPED, REPLY,
                     NOTE_OBJECT, NOTE, MENTION_OBJECT, MENTION, LIKE,
                     LIKE_WRAPPED, REPOST, FOLLOW, FOLLOW_WRAPPED, ACCEPT,
                     UNDO_FOLLOW_WRAPPED, DELETE, UPDATE_NOTE,
-                    # TODO: these currently fail
-                    # LIKE_WITH_ACTOR, REPOST_FULL, FOLLOW_WITH_ACTOR,
-                    # FOLLOW_WRAPPED_WITH_ACTOR, FOLLOW_WITH_OBJECT, UPDATE_PERSON,
+                    LIKE_WITH_ACTOR, REPOST_FULL, FOLLOW_WITH_ACTOR,
+                    FOLLOW_WRAPPED_WITH_ACTOR, FOLLOW_WITH_OBJECT, UPDATE_PERSON,
                     ):
             with self.subTest(obj=obj):
                 obj = copy.deepcopy(obj)

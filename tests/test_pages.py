@@ -43,7 +43,7 @@ class PagesTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('user.com')
+        self.user = self.make_user('user.com', cls=Web)
 
     def test_user(self):
         got = self.client.get('/web/user.com', base_url='https://fed.brid.gy/')
@@ -114,7 +114,7 @@ class PagesTest(TestCase):
         self.assert_equals('/web/user.com', got.headers['Location'])
 
     def test_user_use_instead(self):
-        self.make_user('bar.com', use_instead=self.user.key)
+        self.make_user('bar.com', cls=Web, use_instead=self.user.key)
 
         got = self.client.get('/web/bar.com')
         self.assert_equals(302, got.status_code)

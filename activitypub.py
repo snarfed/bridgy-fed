@@ -156,10 +156,6 @@ class ActivityPub(User, Protocol):
     @classmethod
     def target_for(cls, obj, shared=False):
         """Returns ``obj``'s or its author's/actor's inbox, if available."""
-        # TODO: we have entities in prod that fail this, eg
-        # https://indieweb.social/users/bismark has source_protocol webmention
-        # assert obj.source_protocol in (cls.LABEL, cls.ABBREV, 'ui', None), str(obj)
-
         if not obj.as1:
             return None
 

@@ -27,7 +27,6 @@ class Activity(StringIdModel):
     source_atom = ndb.TextProperty()
     target_as2 = ndb.TextProperty()  # JSON
 
-    # TODO: uncomment
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 

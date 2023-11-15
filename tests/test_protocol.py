@@ -12,6 +12,7 @@ from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.flask_util import CLOUD_TASKS_QUEUE_HEADER, NoContent
 from oauth_dropins.webutil.testutil import requests_response
 import requests
+from werkzeug.exceptions import BadRequest
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, OtherFake, TestCase
@@ -25,7 +26,6 @@ import protocol
 from protocol import Protocol
 from ui import UIProtocol
 from web import Web
-from werkzeug.exceptions import BadRequest
 
 from .test_activitypub import ACTOR
 from .test_atproto import DID_DOC
@@ -36,7 +36,7 @@ class ProtocolTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('foo.com', has_hcard=True)
+        self.user = self.make_user('foo.com', cls=Web, has_hcard=True)
         g.user = None
 
     def tearDown(self):
@@ -210,12 +210,14 @@ class ProtocolTest(TestCase):
 
     def test_load_remote_true_existing_empty(self):
         Fake.fetchable['foo'] = {'x': 'y'}
-        Object(id='foo').put()
+        Object(id='foo', our_as1={}, status='in progress').put()
 
         loaded = Fake.load('foo', remote=True)
         self.assertEqual({'id': 'foo', 'x': 'y'}, loaded.as1)
         self.assertTrue(loaded.changed)
         self.assertFalse(loaded.new)
+        # check that it merged in fields like status
+        self.assertEqual('in progress', loaded.status)
         self.assertEqual(['foo'], Fake.fetched)
 
     def test_load_remote_true_new_empty(self):
@@ -315,6 +317,12 @@ class ProtocolTest(TestCase):
             'id': 'fake:follow',
             'object': 'other:bob',
         }, obj.our_as1)
+
+    def test_load_preserves_fragment(self):
+        stored = self.store_object(id='http://the/id#frag', our_as1={'foo': 'bar'})
+        got = ActivityPub.load('http://the/id#frag')
+        self.assert_entities_equal(stored, got)
+        self.assertEqual([], Fake.fetched)
 
     def test_actor_key(self):
         user = self.make_user(id='fake:a', cls=Fake)

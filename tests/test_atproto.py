@@ -967,7 +967,7 @@ class ATProtoTest(TestCase):
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
                          obj=post_obj.key.urlsafe(), authed_as='did:plc:a')
 
-        # TODO
+        # TODO: https://github.com/snarfed/bridgy-fed/issues/728
         # repost_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.post/456')
         # self.assertEqual(repost, repost_obj.bsky)
         # self.assert_task(mock_create_task, 'receive', '/queue/receive',

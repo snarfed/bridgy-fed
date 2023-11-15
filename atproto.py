@@ -449,7 +449,6 @@ def poll_notifications():
                               for cls in set(PROTOCOLS.values())
                               if cls and cls != ATProto))
 
-    # TODO: convert to Session for connection pipelining!
     client = Client(f'https://{os.environ["APPVIEW_HOST"]}',
                     headers={'User-Agent': USER_AGENT})
 
@@ -504,7 +503,6 @@ def poll_posts():
                               for cls in set(PROTOCOLS.values())
                               if cls and cls != ATProto))
 
-    # TODO: convert to Session for connection pipelining!
     client = Client(f'https://{os.environ["APPVIEW_HOST"]}',
                     headers={'User-Agent': USER_AGENT})
 

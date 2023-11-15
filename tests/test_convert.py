@@ -15,6 +15,7 @@ from .testutil import Fake, OtherFake
 
 from activitypub import ActivityPub
 from common import CONTENT_TYPE_HTML
+from web import Web
 
 COMMENT_AS2 = {
     **as2.from_as1(COMMENT),
@@ -271,7 +272,7 @@ A ☕ reply
     def test_web_to_activitypub_object(self, mock_get):
         mock_get.return_value = requests_response(HTML)
 
-        self.make_user('user.com')
+        self.make_user('user.com', cls=Web)
 
         url = 'https://user.com/bar?baz=baj&biff'
         Object(id=url, mf2=parse_mf2(HTML)['items'][0]).put()
@@ -284,7 +285,7 @@ A ☕ reply
     def test_web_to_activitypub_fetch(self, mock_get):
         mock_get.return_value = requests_response(HTML)
         url = 'https://user.com/bar?baz=baj&biff'
-        self.make_user('user.com')
+        self.make_user('user.com', cls=Web)
 
         Object(id=url, mf2=parse_mf2(HTML)['items'][0]).put()
 
@@ -306,7 +307,7 @@ A ☕ reply
         """https://github.com/snarfed/bridgy-fed/issues/581"""
         mock_get.return_value = requests_response(HTML)
 
-        self.make_user('user.com')
+        self.make_user('user.com', cls=Web)
         self.store_object(id='http://user.com/a#b', mf2=parse_mf2(HTML)['items'][0])
 
         resp = self.client.get(f'/convert/ap/http://user.com/a%23b',

@@ -4,8 +4,8 @@ from atproto import ATProto
 from flask_app import app
 from ids import translate_handle, translate_object_id, translate_user_id
 from models import Target
-from web import Web
 from .testutil import Fake, TestCase
+from web import Web
 
 
 class IdsTest(TestCase):
@@ -92,7 +92,7 @@ class IdsTest(TestCase):
             (ActivityPub, '@user@instance', ActivityPub, '@user@instance'),
             (ActivityPub, '@user@instance', ATProto, 'user.instance.ap.brid.gy'),
             (ActivityPub, '@user@instance', Fake, 'fake:handle:@user@instance'),
-            (ActivityPub, '@user@instance', Web, 'instance/@user'),
+            (ActivityPub, '@user@instance', Web, 'https://instance/@user'),
             # # # TODO: enhanced
             # (ActivityPub, '@user@instance', Web, 'https://instance/user'),
             # (ActivityPub, '@user@instance', Fake,

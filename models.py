@@ -544,8 +544,7 @@ class Object(StringIdModel):
     status = ndb.StringProperty(choices=STATUSES)
     # choices is populated in app, after all User subclasses are created,
     # so that PROTOCOLS is fully populated
-    # TODO: remove? is this redundant with the protocol-specific data fields below?
-    # TODO: otherwise, nail down whether this is ABBREV or LABEL
+    # TODO: nail down whether this is ABBREV or LABEL
     source_protocol = ndb.StringProperty(choices=[])
     labels = ndb.StringProperty(repeated=True, choices=LABELS)
 
@@ -588,13 +587,6 @@ class Object(StringIdModel):
 
     @ComputedJsonProperty
     def as1(self):
-        # TODO: bring back log or assert? we have prod entities that currently
-        # fail this though.
-        # assert (self.as2 is not None) ^ (self.bsky is not None) ^ (self.mf2 is not None), \
-        #     f'{self.as2} {self.bsky} {self.mf2}'
-        # if bool(self.as2) + bool(self.bsky) + bool(self.mf2) > 1:
-        #     logger.warning(f'{self.key} has multiple! {bool(self.as2)} {bool(self.bsky)} {bool(self.mf2)}')
-
         if self.our_as1:
             obj = self.our_as1
 
@@ -603,7 +595,7 @@ class Object(StringIdModel):
 
         elif self.bsky:
             owner, _, _ = parse_at_uri(self.key.id())
-            ATProto = PROTOCOLS['atproto']  # TODO: circular import :( ???
+            ATProto = PROTOCOLS['atproto']
             handle = ATProto(id=owner).handle
             obj = bluesky.to_as1(self.bsky, repo_did=owner, repo_handle=handle,
                                  uri=self.key.id(), pds=ATProto.target_for(self))

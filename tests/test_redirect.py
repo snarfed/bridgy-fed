@@ -33,7 +33,7 @@ class RedirectTest(testutil.TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('user.com')
+        self.user = self.make_user('user.com', cls=Web)
 
     def test_redirect(self):
         got = self.client.get('/r/https://user.com/bar?baz=baj&biff')
