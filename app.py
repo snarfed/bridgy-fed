@@ -6,10 +6,18 @@ registered.
 from flask_app import app
 
 # import all modules to register their Flask handlers
-import atproto, convert, follow, pages, redirect, superfeedr, ui, webfinger, web
-# import after others because it has URL routes that use PROTOCOLS
-# TODO: figure out a better way
-import activitypub
+import (
+    activitypub,
+    atproto,
+    convert,
+    follow,
+    pages,
+    redirect,
+    superfeedr,
+    ui,
+    webfinger,
+    web,
+)
 
 import models
 models.reset_protocol_properties()

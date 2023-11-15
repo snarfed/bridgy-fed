@@ -33,7 +33,7 @@ from common import (
     subdomain_wrap,
     unwrap,
 )
-from models import Follower, Object, PROTOCOLS, User
+from models import Follower, Object, User
 from protocol import Protocol
 import webfinger
 
@@ -841,10 +841,10 @@ def actor(handle_or_id):
 # source protocol in subdomain
 @app.post(f'/ap/<id>/inbox')
 # source protocol in path; primarily for backcompat
-@app.post(f'/ap/<any({",".join(PROTOCOLS)}):protocol>/<id>/inbox')
+@app.post(f'/ap/<protocol>/<id>/inbox')
 # special case Web users without /ap/web/ prefix, for backward compatibility
-@app.post('/inbox', defaults={'protocol': 'web'})
-@app.post(f'/<regex("{DOMAIN_RE}"):id>/inbox', defaults={'protocol': 'web'})
+@app.post('/inbox')
+@app.post(f'/<regex("{DOMAIN_RE}"):id>/inbox')
 def inbox(protocol=None, id=None):
     """Handles ActivityPub inbox delivery."""
     # parse and validate AS2 activity
