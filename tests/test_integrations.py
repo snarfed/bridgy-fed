@@ -14,7 +14,7 @@ from models import Target
 
 from .testutil import ATPROTO_KEY, TestCase
 from . import test_atproto
-from .test_web import WebTest
+from . import test_web
 
 DID_DOC = {
     **test_atproto.DID_DOC,
@@ -90,7 +90,7 @@ class IntegrationTests(TestCase):
         self.assertEqual(200, resp.status_code)
 
         g.user = alice
-        WebTest().assert_deliveries(mock_post, ['http://inst/bob/inbox'], data={
+        test_web.WebTest().assert_deliveries(mock_post, ['http://inst/bob/inbox'], data={
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
             'id': 'https://atproto.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/456#bridgy-fed-create',
