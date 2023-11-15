@@ -231,7 +231,10 @@ class ATProtoTest(TestCase):
         self.store_object(id='did:plc:abc', raw=DID_DOC)
         obj = Object(id='at://did:plc:abc/app.bsky.feed.post/123')
         self.assertTrue(ATProto.fetch(obj))
-        self.assertEqual({'foo': 'bar'}, obj.bsky)
+        self.assertEqual({
+            'foo': 'bar',
+            'cid': 'bafy...',
+        }, obj.bsky)
         # eg https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
         mock_get.assert_called_once_with(
             'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
@@ -247,6 +250,65 @@ class ATProtoTest(TestCase):
             'foo': 'bar',
         }, ATProto.convert(Object(bsky={
             'foo': 'bar',
+        })))
+
+    def test_convert_populate_cid(self):
+        self.store_object(id='did:plc:bob', raw={
+            **DID_DOC,
+            'id': 'did:plc:bob',
+        })
+        self.store_object(id='at://did:plc:bob/app.bsky.feed.post/tid', bsky={
+            '$type': 'app.bsky.feed.post',
+            'cid': 'my sidd',
+        })
+
+        self.assertEqual({
+            '$type': 'app.bsky.feed.like',
+            'subject': {
+                'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
+                'cid': 'my sidd',
+            },
+            'createdAt': '2022-01-02T03:04:05+00:00',
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'object': 'at://did:plc:bob/app.bsky.feed.post/tid',
+        })))
+
+        self.assertEqual({
+            '$type': 'app.bsky.feed.repost',
+            'subject': {
+                'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
+                'cid': 'my sidd',
+            },
+            'createdAt': '2022-01-02T03:04:05+00:00',
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'object': 'at://did:plc:bob/app.bsky.feed.post/tid',
+        })))
+
+        self.assertEqual({
+            '$type': 'app.bsky.feed.post',
+            'text': 'foo',
+            'createdAt': '2022-01-02T03:04:05+00:00',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'root': {
+                    '$type': 'com.atproto.repo.strongRef',
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
+                    'cid': 'my sidd',
+                },
+                'parent': {
+                    '$type': 'com.atproto.repo.strongRef',
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
+                    'cid': 'my sidd',
+                },
+            },
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'comment',
+            'content': 'foo',
+            'inReplyTo': 'at://did:plc:bob/app.bsky.feed.post/tid',
         })))
 
     def test_convert_blobs_false(self):
@@ -510,14 +572,26 @@ class ATProtoTest(TestCase):
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_like(self, mock_create_task):
         user = self.make_user_and_repo()
-        obj = self.store_object(id='fake:like', source_protocol='fake', our_as1={
+        self.store_object(id='did:plc:bob', raw={
+            **DID_DOC,
+            'id': 'did:plc:bob',
+        })
+
+        post_obj = self.store_object(id='at://did:plc:bob/app.bsky.feed.post/tid',
+                                     source_protocol='atproto', bsky={
+            '$type': 'app.bsky.feed.post',
+            'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
+            'cid': 'bafyCID',
+        })
+
+        like_obj = self.store_object(id='fake:like', source_protocol='fake', our_as1={
             'objectType': 'activity',
             'verb': 'like',
             'id': 'fake:like',
             'actor': 'fake:user',
-            'object': 'at://did/app.bsky.feed.post/tid',
+            'object': 'at://did:plc:bob/app.bsky.feed.post/tid',
         })
-        self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
+        self.assertTrue(ATProto.send(like_obj, 'https://atproto.brid.gy/'))
 
         # check repo, record
         repo = self.storage.load_repo(user.atproto_did)
@@ -526,8 +600,8 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.feed.like',
             'subject': {
-                'uri': 'at://did/app.bsky.feed.post/tid',
-                'cid': 'TODO',
+                'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
+                'cid': 'bafyCID',
             },
             'createdAt': '2022-01-02T03:04:05+00:00',
         }, record)
@@ -674,7 +748,7 @@ class ATProtoTest(TestCase):
                 '$type': 'app.bsky.feed.post#replyRef',
                 'root': {
                     '$type': 'com.atproto.repo.strongRef',
-                    'uri': '',
+                    'uri': 'at://did/coll/post',
                     'cid': 'TODO',
                 },
                 'parent': {

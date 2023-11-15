@@ -374,7 +374,10 @@ class ATProto(User, Protocol):
         ret = client.com.atproto.repo.getRecord(
             repo=repo, collection=collection, rkey=rkey)
         # TODO: verify sig?
-        obj.bsky = ret['value']
+        obj.bsky = {
+            **ret['value'],
+            'cid': ret.get('cid'),
+        }
         return True
 
     @classmethod
@@ -405,7 +408,22 @@ class ATProto(User, Protocol):
                             url=url, get_fn=util.requests_get)
                         blobs[url] = blob.as_object()
 
-        return bluesky.from_as1(cls.translate_ids(obj.as1), blobs=blobs)
+        ret = bluesky.from_as1(cls.translate_ids(obj.as1), blobs=blobs)
+
+        # fill in CIDs from Objects
+        def populate_cid(strong_ref):
+            if uri := strong_ref.get('uri'):
+                if ref_obj := ATProto.load(uri, remote=False):
+                    strong_ref['cid'] = ref_obj.bsky.get('cid')
+
+        match ret.get('$type'):
+            case 'app.bsky.feed.like' |  'app.bsky.feed.repost':
+                populate_cid(ret['subject'])
+            case 'app.bsky.feed.post' if ret.get('reply'):
+                populate_cid(ret['reply']['root'])
+                populate_cid(ret['reply']['parent'])
+
+        return ret
 
 
 # URL route is registered in hub.py
