@@ -40,11 +40,14 @@ class IntegrationTests(TestCase):
 
         storage = DatastoreStorage()
         Repo.create(storage, 'did:plc:bob', signing_key=ATPROTO_KEY)
-        bob = self.make_user(id='http://inst/bob', cls=ActivityPub,
-                             atproto_did='did:plc:bob', obj_as2={
-                                 'id': 'http://inst/bob',
-                                 'inbox': 'http://inst/bob/inbox',
-                             })
+        bob = self.make_user(
+            id='http://inst/bob',
+            cls=ActivityPub,
+            copies=[Target(uri='did:plc:bob', protocol='atproto')],
+            obj_as2={
+                'id': 'http://inst/bob',
+                'inbox': 'http://inst/bob/inbox',
+            })
 
         self.store_object(id='http://inst/post', source_protocol='activitypub',
                           our_as1={

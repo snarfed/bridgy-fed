@@ -119,12 +119,6 @@ def reset_protocol_properties():
         rf'^https?://({abbrevs}\.brid\.gy|localhost(:8080)?)/(convert/|r/)?({abbrevs}/)?')
 
 
-def _validate_atproto_did(prop, val):
-    if not val.startswith('did:plc:'):
-        raise ValueError(f'Expected did:plc, got {val}')
-    return val
-
-
 class User(StringIdModel, metaclass=ProtocolUserMeta):
     """Abstract base class for a Bridgy Fed user.
 
@@ -141,7 +135,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     obj_key = ndb.KeyProperty(kind='Object')  # user profile
     mod = ndb.StringProperty()
     use_instead = ndb.KeyProperty()
-    atproto_did = ndb.StringProperty(validator=_validate_atproto_did)
 
     # Proxy copies of this user elsewhere, eg DIDs for ATProto records, bech32
     # npub Nostr ids, etc. Similar to rel-me links in microformats2, alsoKnownAs
@@ -226,8 +219,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if not user.obj_key:
             user.obj = cls.load(user.profile_id())
 
-        if propagate and cls.LABEL != 'atproto' and not user.atproto_did:
-            PROTOCOLS['atproto'].create_for(user)
+        ATProto = PROTOCOLS['atproto']
+        if propagate and cls.LABEL != 'atproto' and not user.get_copy(ATProto):
+            ATProto.create_for(user)
 
         # generate keys for all protocols _except_ our own
         #

@@ -75,9 +75,8 @@ class UserTest(TestCase):
         # check user, repo
         user = Fake.get_by_id('fake:user')
         self.assertEqual('fake:handle:user', user.handle)
-        self.assertEqual([Target(uri=user.atproto_did, protocol='atproto')],
-                         user.copies)
-        repo = arroba.server.storage.load_repo(user.atproto_did)
+        did = user.get_copy(ATProto)
+        repo = arroba.server.storage.load_repo(did)
 
         # check profile record
         profile = repo.get_record('app.bsky.actor.profile', 'self')
@@ -87,20 +86,11 @@ class UserTest(TestCase):
             'description': 'hi there',
         }, profile)
 
-        uri = at_uri(user.atproto_did, 'app.bsky.actor.profile', 'self')
+        uri = at_uri(did, 'app.bsky.actor.profile', 'self')
         self.assertEqual([Target(uri=uri, protocol='atproto')],
                          Object.get_by_id(id='fake:user').copies)
 
         mock_create_task.assert_called()
-
-    def test_validate_atproto_did(self):
-        user = Fake()
-
-        with self.assertRaises(ValueError):
-            user.atproto_did = 'did:foo:bar'
-
-        user.atproto_did = 'did:plc:123'
-        user.atproto_did = None
 
     def test_get_or_create_use_instead(self):
         user = Fake.get_or_create('a.b')

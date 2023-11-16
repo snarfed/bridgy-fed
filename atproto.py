@@ -62,10 +62,7 @@ class ATProto(User, Protocol):
     CONTENT_TYPE = 'application/json'
 
     def _pre_put_hook(self):
-        """Validate id, require did:plc or non-blocklisted did:web.
-
-        Also check that the ``atproto_did`` property isn't set.
-        """
+        """Validate id, require did:plc or non-blocklisted did:web."""
         super()._pre_put_hook()
         id = self.key.id()
         assert id
@@ -78,9 +75,6 @@ class ATProto(User, Protocol):
                     and not Protocol.is_blocklisted(domain)), domain
         else:
             assert False, f'{id} is not valid did:plc or did:web'
-
-        assert not self.atproto_did, \
-            f"{self.key} shouldn't have atproto_did {self.atproto_did}"
 
     @ndb.ComputedProperty
     def handle(self):
@@ -177,13 +171,11 @@ class ATProto(User, Protocol):
             # then create the DID for non-ATP users on demand?
 
         if obj.as1:
-            owner = as1.get_owner(obj.as1)
-            if owner:
-                user_key = Protocol.key_for(owner)
-                if user_key:
-                    user = user_key.get()
-                    if user and user.atproto_did:
-                        return cls.pds_for(Object(id=f'at://{user.atproto_did}'))
+            if owner := as1.get_owner(obj.as1):
+                if user_key := Protocol.key_for(owner):
+                    if user := user_key.get():
+                        if owner_did := user.get_copy(ATProto):
+                            return cls.pds_for(Object(id=f'at://{owner_did}'))
 
         return None
 
@@ -202,7 +194,7 @@ class ATProto(User, Protocol):
         """
         assert not isinstance(user, ATProto)
 
-        if user.atproto_did:
+        if user.get_copy(ATProto):
             return
 
         # create new DID, repo
@@ -212,7 +204,6 @@ class ATProto(User, Protocol):
                                  post_fn=util.requests_post)
 
         Object.get_or_create(did_plc.did, raw=did_plc.doc)
-        user.atproto_did = did_plc.did
         # TODO: move this to ATProto.get_or_create?
         add(user.copies, Target(uri=did_plc.did, protocol='atproto'))
         handle = user.handle_as('atproto')
@@ -244,12 +235,12 @@ class ATProto(User, Protocol):
             initial_writes = [Write(
                 action=Action.CREATE, collection='app.bsky.actor.profile',
                 rkey='self', record=profile)]
-            uri = at_uri(user.atproto_did, 'app.bsky.actor.profile', 'self')
+            uri = at_uri(did_plc.did, 'app.bsky.actor.profile', 'self')
             user.obj.add('copies', Target(uri=uri, protocol='atproto'))
             user.obj.put()
 
         repo = Repo.create(
-            arroba.server.storage, user.atproto_did, handle=handle,
+            arroba.server.storage, did_plc.did, handle=handle,
             callback=lambda _: common.create_task(queue='atproto-commit'),
             initial_writes=initial_writes,
             signing_key=did_plc.signing_key,
@@ -300,16 +291,17 @@ class ATProto(User, Protocol):
 
         # load user
         user = from_cls.get_or_create(from_key.id(), propagate=True)
-        assert user.atproto_did
-        logger.info(f'{user.key} is {user.atproto_did}')
-        did_doc = to_cls.load(user.atproto_did)
+        did = user.get_copy(ATProto)
+        assert did
+        logger.info(f'{user.key} is {did}')
+        did_doc = to_cls.load(did)
         pds = to_cls.pds_for(did_doc)
         if not pds or util.domain_from_link(pds) not in DOMAINS:
-            logger.warning(f'{from_key} {user.atproto_did} PDS {pds} is not us')
+            logger.warning(f'{from_key} {did} PDS {pds} is not us')
             return False
 
         # load repo
-        repo = arroba.server.storage.load_repo(user.atproto_did)
+        repo = arroba.server.storage.load_repo(did)
         assert repo
         repo.callback = lambda _: common.create_task(queue='atproto-commit')
 
@@ -327,7 +319,7 @@ class ATProto(User, Protocol):
             repo.apply_writes([Write(action=Action.CREATE, collection=type,
                                      rkey=tid, record=record)])
 
-            at_uri = f'at://{user.atproto_did}/{type}/{tid}'
+            at_uri = f'at://{did}/{type}/{tid}'
             base_obj.add('copies', Target(uri=at_uri, protocol=to_cls.LABEL))
             base_obj.put()
 
@@ -444,8 +436,7 @@ def poll_notifications():
     if not repos:
         return
 
-    # TODO: switch from atproto_did to copies
-    users = itertools.chain(*(cls.query(cls.atproto_did.IN(list(repos)))
+    users = itertools.chain(*(cls.query(cls.copies.uri.IN(list(repos)))
                               for cls in set(PROTOCOLS.values())
                               if cls and cls != ATProto))
 
@@ -458,9 +449,10 @@ def poll_notifications():
         # TODO: store and use cursor
         # seenAt would be easier, but they don't support it yet
         # https://github.com/bluesky-social/atproto/issues/1636
-        repo = repos[user.atproto_did]
+        did = user.get_copy(ATProto)
+        repo = repos[did]
         client.session['accessJwt'] = service_jwt(os.environ['APPVIEW_HOST'],
-                                                  repo_did=user.atproto_did,
+                                                  repo_did=did,
                                                   privkey=repo.signing_key)
         resp = client.app.bsky.notification.listNotifications()
         for notif in resp['notifications']:
@@ -498,8 +490,7 @@ def poll_posts():
     if not repos:
         return
 
-    # TODO: switch from atproto_did to copies
-    users = itertools.chain(*(cls.query(cls.atproto_did.IN(list(repos)))
+    users = itertools.chain(*(cls.query(cls.copies.uri.IN(list(repos)))
                               for cls in set(PROTOCOLS.values())
                               if cls and cls != ATProto))
 
@@ -512,9 +503,10 @@ def poll_posts():
         # TODO: store and use cursor
         # seenAt would be easier, but they don't support it yet
         # https://github.com/bluesky-social/atproto/issues/1636
-        repo = repos[user.atproto_did]
+        did = user.get_copy(ATProto)
+        repo = repos[did]
         client.session['accessJwt'] = service_jwt(os.environ['APPVIEW_HOST'],
-                                                  repo_did=user.atproto_did,
+                                                  repo_did=did,
                                                   privkey=repo.signing_key)
         resp = client.app.bsky.feed.getTimeline()
         for item in resp['feed']:
@@ -536,8 +528,7 @@ def poll_posts():
             obj.add('feed', user.key)
             obj.put()
 
-            common.create_task(queue='receive', obj=obj.key.urlsafe(),
-                               authed_as=user.atproto_did)
+            common.create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=did)
             # note that we don't pass a user param above. it's the acting user,
             # which is different for every notif, and may not actually have a BF
             # User yet.

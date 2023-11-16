@@ -363,7 +363,10 @@ class ProtocolTest(TestCase):
         """_targets should call the target protocol's is_blocklisted()."""
         # non-ATProto account, ATProto target (PDS) is atproto.brid.gy
         # shouldn't be blocklisted
-        user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:foo')
+        user = self.make_user(
+            id='fake:user', cls=Fake,
+            copies=[Target(uri='did:plc:foo', protocol='atproto')])
+
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = 'http://localhost/'
         self.store_object(id='did:plc:foo', raw=did_doc)

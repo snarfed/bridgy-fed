@@ -59,7 +59,8 @@ class ATProtoTest(TestCase):
         common.RUN_TASKS_INLINE = False
 
     def make_user_and_repo(self):
-        user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:user')
+        user = self.make_user(id='fake:user', cls=Fake,
+                              copies=[Target(uri='did:plc:user', protocol='atproto')])
 
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = 'https://atproto.brid.gy/'
@@ -95,10 +96,6 @@ class ATProtoTest(TestCase):
     def test_get_or_create(self, _):
         user = self.make_user('did:plc:user', cls=ATProto)
         self.assertEqual('han.dull', user.key.get().handle)
-
-    def test_put_blocks_atproto_did(self):
-        with self.assertRaises(AssertionError):
-            ATProto(id='did:plc:123', atproto_did='did:plc:456').put()
 
     def test_owns_id(self):
         self.assertFalse(ATProto.owns_id('http://foo'))
@@ -152,7 +149,8 @@ class ATProtoTest(TestCase):
 
     def test_pds_for_user_with_stored_did(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)
-        self.make_user('fake:user', cls=Fake, atproto_did='did:plc:user')
+        self.make_user('fake:user', cls=Fake,
+                       copies=[Target(uri='did:plc:user', protocol='atproto')])
         got = ATProto.pds_for(Object(id='fake:post', our_as1={
             **POST_AS,
             'actor': 'fake:user',
@@ -168,7 +166,8 @@ class ATProtoTest(TestCase):
 
     def test_pds_for_bsky_app_url_did_stored(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)
-        self.make_user('fake:user', cls=Fake, atproto_did='did:plc:user')
+        self.make_user('fake:user', cls=Fake,
+                       copies=[Target(uri='did:plc:user', protocol='atproto')])
 
         got = ATProto.pds_for(Object(
             id='https://bsky.app/profile/did:plc:user/post/123'))
@@ -412,15 +411,14 @@ class ATProtoTest(TestCase):
         ATProto.create_for(user)
 
         # check user, repo
-        user = user.key.get()
-        self.assertEqual([Target(uri=user.atproto_did, protocol='atproto')],
-                         user.copies)
-        repo = arroba.server.storage.load_repo(user.atproto_did)
+        did = user.key.get().get_copy(ATProto)
+        self.assertEqual([Target(uri=did, protocol='atproto')], user.copies)
+        repo = arroba.server.storage.load_repo(did)
 
         # check DNS record
         zone.resource_record_set.assert_called_with(
             name='_atproto.fake:handle:user.fa.brid.gy.', record_type='TXT',
-            ttl=atproto.DNS_TTL, rrdatas=[f'"did={user.atproto_did}"'])
+            ttl=atproto.DNS_TTL, rrdatas=[f'"did={did}"'])
 
         # check profile record
         profile = repo.get_record('app.bsky.actor.profile', 'self')
@@ -436,7 +434,7 @@ class ATProtoTest(TestCase):
             },
         }, profile)
 
-        uri = arroba.util.at_uri(user.atproto_did, 'app.bsky.actor.profile', 'self')
+        uri = arroba.util.at_uri(did, 'app.bsky.actor.profile', 'self')
         self.assertEqual([Target(uri=uri, protocol='atproto')],
                          Object.get_by_id(id='fake:user').copies)
 
@@ -457,28 +455,27 @@ class ATProtoTest(TestCase):
 
         # check DID doc
         user = user.key.get()
-        assert user.atproto_did
-        self.assertEqual([Target(uri=user.atproto_did, protocol='atproto')],
-                         user.copies)
-        did_obj = ATProto.load(user.atproto_did)
+        did = user.get_copy(ATProto)
+        assert did
+        self.assertEqual([Target(uri=did, protocol='atproto')], user.copies)
+        did_obj = ATProto.load(did)
         self.assertEqual('https://atproto.brid.gy/',
                          did_obj.raw['service'][0]['serviceEndpoint'])
 
         # check repo, record
-        repo = self.storage.load_repo(user.atproto_did)
+        repo = self.storage.load_repo(did)
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         record = repo.get_record('app.bsky.feed.post', last_tid)
         self.assertEqual(POST_BSKY, record)
 
-        at_uri = f'at://{user.atproto_did}/app.bsky.feed.post/{last_tid}'
+        at_uri = f'at://{did}/app.bsky.feed.post/{last_tid}'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:post').copies)
 
         # check PLC directory call to create did:plc
-        self.assertEqual((f'https://plc.local/{user.atproto_did}',),
-                         mock_post.call_args.args)
+        self.assertEqual((f'https://plc.local/{did}',), mock_post.call_args.args)
         genesis_op = mock_post.call_args.kwargs['json']
-        self.assertEqual(user.atproto_did, genesis_op.pop('did'))
+        self.assertEqual(did, genesis_op.pop('did'))
         genesis_op['sig'] = base64.urlsafe_b64decode(genesis_op['sig'])
         assert arroba.util.verify_sig(genesis_op, repo.rotation_key.public_key())
 
@@ -524,7 +521,7 @@ class ATProtoTest(TestCase):
 
         # check profile, record
         user = Fake.get_by_id('fake:user')
-        did = user.key.get().atproto_did
+        did = user.key.get().get_copy(ATProto)
         repo = self.storage.load_repo(did)
         profile = repo.get_record('app.bsky.actor.profile', 'self')
         self.assertEqual({
@@ -558,12 +555,13 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
 
         # check repo, record
-        repo = self.storage.load_repo(user.atproto_did)
+        did = user.key.get().get_copy(ATProto)
+        repo = self.storage.load_repo(did)
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         record = repo.get_record('app.bsky.feed.post', last_tid)
         self.assertEqual(POST_BSKY, record)
 
-        at_uri = f'at://{user.atproto_did}/app.bsky.feed.post/{last_tid}'
+        at_uri = f'at://{did}/app.bsky.feed.post/{last_tid}'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:post').copies)
 
@@ -594,7 +592,8 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.send(like_obj, 'https://atproto.brid.gy/'))
 
         # check repo, record
-        repo = self.storage.load_repo(user.atproto_did)
+        did = user.get_copy(ATProto)
+        repo = self.storage.load_repo(did)
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         record = repo.get_record('app.bsky.feed.like', last_tid)
         self.assertEqual({
@@ -606,7 +605,7 @@ class ATProtoTest(TestCase):
             'createdAt': '2022-01-02T03:04:05+00:00',
         }, record)
 
-        at_uri = f'at://{user.atproto_did}/app.bsky.feed.like/{last_tid}'
+        at_uri = f'at://{did}/app.bsky.feed.like/{last_tid}'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:like').copies)
 
@@ -625,7 +624,8 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
 
         # check repo, record
-        repo = self.storage.load_repo(user.atproto_did)
+        did = user.get_copy(ATProto)
+        repo = self.storage.load_repo(did)
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         record = repo.get_record('app.bsky.feed.repost', last_tid)
         self.assertEqual({
@@ -637,7 +637,7 @@ class ATProtoTest(TestCase):
             'createdAt': '2022-01-02T03:04:05+00:00',
         }, record)
 
-        at_uri = f'at://{user.atproto_did}/app.bsky.feed.repost/{last_tid}'
+        at_uri = f'at://{did}/app.bsky.feed.repost/{last_tid}'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:repost').copies)
 
@@ -656,7 +656,8 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
 
         # check repo, record
-        repo = self.storage.load_repo(user.atproto_did)
+        did = user.get_copy(ATProto)
+        repo = self.storage.load_repo(did)
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         record = repo.get_record('app.bsky.graph.follow', last_tid)
         self.assertEqual({
@@ -665,7 +666,7 @@ class ATProtoTest(TestCase):
             'createdAt': '2022-01-02T03:04:05+00:00',
         }, record)
 
-        at_uri = f'at://{user.atproto_did}/app.bsky.graph.follow/{last_tid}'
+        at_uri = f'at://{did}/app.bsky.graph.follow/{last_tid}'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:follow').copies)
 
@@ -681,7 +682,8 @@ class ATProtoTest(TestCase):
     @patch.object(tasks_client, 'create_task')
     def test_send_did_doc_not_our_repo(self, mock_create_task):
         self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
-        user = self.make_user(id='fake:user', cls=Fake, atproto_did='did:plc:user')
+        user = self.make_user(id='fake:user', cls=Fake,
+                              copies=[Target(uri='did:plc:user', protocol='atproto')])
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
             'objectType': 'note',
             'content': 'foo',
@@ -703,9 +705,8 @@ class ATProtoTest(TestCase):
     @patch.object(tasks_client, 'create_task')
     def test_send_translates_ids(self, mock_create_task):
         user = self.make_user_and_repo()
-        alice = self.make_user(
-            id='fake:alice', cls=Fake, atproto_did='did:plc:alice',
-            copies=[Target(uri='did:alice', protocol='atproto')])
+        alice = self.make_user(id='fake:alice', cls=Fake,
+                               copies=[Target(uri='did:alice', protocol='atproto')])
         post = self.store_object(
             id='fake:post', source_protocol='fake',
             copies=[Target(uri='at://did/coll/post', protocol='atproto')])
@@ -737,7 +738,7 @@ class ATProtoTest(TestCase):
 
         self.assertTrue(ATProto.send(create, 'https://atproto.brid.gy/'))
 
-        repo = self.storage.load_repo(user.atproto_did)
+        repo = self.storage.load_repo(user.get_copy(ATProto))
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         record = repo.get_record('app.bsky.feed.post', last_tid)
         self.assertEqual({
@@ -776,9 +777,12 @@ class ATProtoTest(TestCase):
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get')
     def test_poll_notifications(self, mock_get, mock_create_task):
-        user_a = self.make_user(id='fake:user-a', cls=Fake, atproto_did=f'did:plc:a')
-        user_b = self.make_user(id='fake:user-b', cls=Fake, atproto_did=f'did:plc:b')
-        user_c = self.make_user(id='fake:user-c', cls=Fake, atproto_did=f'did:plc:c')
+        user_a = self.make_user(id='fake:user-a', cls=Fake,
+                                copies=[Target(uri='did:plc:a', protocol='atproto')])
+        user_b = self.make_user(id='fake:user-b', cls=Fake,
+                                copies=[Target(uri='did:plc:b', protocol='atproto')])
+        user_c = self.make_user(id='fake:user-c', cls=Fake,
+                                copies=[Target(uri='did:plc:c', protocol='atproto')])
 
         Repo.create(self.storage, 'did:plc:a', signing_key=ATPROTO_KEY)
         Repo.create(self.storage, 'did:plc:c', signing_key=ATPROTO_KEY)
@@ -886,9 +890,12 @@ class ATProtoTest(TestCase):
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get')
     def test_poll_posts(self, mock_get, mock_create_task):
-        user_a = self.make_user(id='fake:user-a', cls=Fake, atproto_did=f'did:plc:a')
-        user_b = self.make_user(id='fake:user-b', cls=Fake, atproto_did=f'did:plc:b')
-        user_c = self.make_user(id='fake:user-c', cls=Fake, atproto_did=f'did:plc:c')
+        user_a = self.make_user(id='fake:user-a', cls=Fake,
+                                copies=[Target(uri='did:plc:a', protocol='atproto')])
+        user_b = self.make_user(id='fake:user-b', cls=Fake,
+                                copies=[Target(uri='did:plc:b', protocol='atproto')])
+        user_c = self.make_user(id='fake:user-c', cls=Fake,
+                                copies=[Target(uri='did:plc:c', protocol='atproto')])
         Repo.create(self.storage, 'did:plc:a', signing_key=ATPROTO_KEY)
         Repo.create(self.storage, 'did:plc:b', signing_key=ATPROTO_KEY)
         Repo.create(self.storage, 'did:plc:c', signing_key=ATPROTO_KEY)

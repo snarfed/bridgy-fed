@@ -14,6 +14,7 @@ from oauth_dropins.webutil.testutil import requests_response
 from .testutil import Fake, TestCase, ACTOR, COMMENT, MENTION, NOTE
 
 from activitypub import ActivityPub
+from atproto import ATProto
 import common
 from models import Object, Follower, Target
 from web import Web
@@ -405,9 +406,8 @@ class PagesTest(TestCase):
         # check user, repo
         user = Fake.get_by_id('fake:user')
         self.assertEqual('fake:handle:user', user.handle)
-        self.assertEqual([Target(uri=user.atproto_did, protocol='atproto')],
-                         user.copies)
-        repo = arroba.server.storage.load_repo(user.atproto_did)
+        did = user.get_copy(ATProto)
+        repo = arroba.server.storage.load_repo(did)
 
         # check profile
         profile = repo.get_record('app.bsky.actor.profile', 'self')
@@ -417,7 +417,7 @@ class PagesTest(TestCase):
             'description': 'hi there',
         }, profile)
 
-        at_uri = f'at://{user.atproto_did}/app.bsky.actor.profile/self'
+        at_uri = f'at://{did}/app.bsky.actor.profile/self'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:user').copies)
 

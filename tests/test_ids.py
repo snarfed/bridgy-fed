@@ -10,11 +10,11 @@ from web import Web
 
 class IdsTest(TestCase):
     def test_translate_user_id(self):
-        Web(id='user.com', atproto_did='did:plc:123',
+        Web(id='user.com',
             copies=[Target(uri='did:plc:123', protocol='atproto')]).put()
-        ActivityPub(id='https://inst/user', atproto_did='did:plc:456',
+        ActivityPub(id='https://inst/user',
                     copies=[Target(uri='did:plc:456', protocol='atproto')]).put()
-        Fake(id='fake:user', atproto_did='did:plc:789',
+        Fake(id='fake:user',
              copies=[Target(uri='did:plc:789', protocol='atproto')]).put()
 
         for from_, id, to, expected in [
