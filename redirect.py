@@ -87,8 +87,7 @@ def redir(to):
         if domain:
             if domain in DOMAIN_ALLOWLIST:
                 break
-            g.user = Web.get_by_id(domain)
-            if g.user:
+            if Web.get_by_id(domain):
                 logger.info(f'Found web user for domain {domain}')
                 break
     else:

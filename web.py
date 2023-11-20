@@ -494,8 +494,8 @@ def check_web_site():
         return render_template('enter_web_site.html'), 400
 
     try:
-        g.user = Web.get_or_create(domain, direct=True)
-        g.user = g.user.verify()
+        user = Web.get_or_create(domain, direct=True)
+        user = user.verify()
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if code:
@@ -503,8 +503,8 @@ def check_web_site():
             return render_template('enter_web_site.html')
         raise
 
-    g.user.put()
-    return redirect(g.user.user_page_path())
+    user.put()
+    return redirect(user.user_page_path())
 
 
 @app.post('/webmention')
@@ -524,8 +524,8 @@ def webmention_external():
     if not domain:
         error(f'Bad source URL {source}')
 
-    g.user = Web.get_by_id(domain)
-    if not g.user:
+    user = Web.get_by_id(domain)
+    if not user:
         error(f'No user found for domain {domain}')
 
     return common.create_task('webmention', **request.form)
@@ -537,14 +537,17 @@ def webmention_interactive():
 
     ...eg the update profile button on user pages.
     """
+    source = flask_util.get_required_param('source').strip()
+
     try:
         webmention_external()
-        flash(f'Updating fediverse profile from <a href="{g.user.web_url()}">{g.user.key.id()}</a>...')
+        user = Web(id=util.domain_from_link(source, minimize=False))
+        flash(f'Updating fediverse profile from <a href="{user.web_url()}">{user.key.id()}</a>...')
+        return redirect(user.user_page_path(), code=302)
+
     except HTTPException as e:
         flash(util.linkify(str(e.description), pretty=True))
-
-    path = g.user.user_page_path() if g.user else '/'
-    return redirect(path, code=302)
+        return redirect('/', code=302)
 
 
 @app.post('/queue/webmention')
@@ -558,9 +561,9 @@ def webmention_task():
     domain = util.domain_from_link(source, minimize=False)
     logger.info(f'webmention from {domain}')
 
-    g.user = Web.get_by_id(domain)
-    logger.info(f'User: {g.user.key}')
-    if not g.user:
+    user = Web.get_by_id(domain)
+    logger.info(f'User: {user.key}')
+    if not user:
         error(f'No user found for domain {domain}', status=304)
 
     # fetch source page
@@ -585,7 +588,7 @@ def webmention_task():
             'id': id,
             'objectType': 'activity',
             'verb': 'delete',
-            'actor': g.user.web_url(),
+            'actor': user.web_url(),
             'object': source,
         })
 
@@ -595,27 +598,27 @@ def webmention_task():
         authors = obj.mf2['properties'].setdefault('author', [])
         author_urls = microformats2.get_string_urls(authors)
         if not author_urls:
-            authors.append(g.user.web_url())
-        elif not g.user.is_web_url(author_urls[0]):
-            logger.info(f'Overriding author {author_urls[0]} with {g.user.web_url()}')
+            authors.append(user.web_url())
+        elif not user.is_web_url(author_urls[0]):
+            logger.info(f'Overriding author {author_urls[0]} with {user.web_url()}')
             if isinstance(authors[0], dict):
-                authors[0]['properties']['url'] = [g.user.web_url()]
+                authors[0]['properties']['url'] = [user.web_url()]
             else:
-                authors[0] = g.user.web_url()
+                authors[0] = user.web_url()
 
     # if source is home page, update Web user and send an actor Update to
     # followers' instances
-    if g.user and (g.user.key.id() == obj.key.id()
-                   or g.user.is_web_url(obj.key.id())):
+    if user and (user.key.id() == obj.key.id()
+                   or user.is_web_url(obj.key.id())):
         logger.info(f'Converted to AS1: {obj.type}: {json_dumps(obj.as1, indent=2)}')
         obj.put()
-        g.user.obj = obj
-        g.user.put()
+        user.obj = obj
+        user.put()
 
         logger.info('Wrapping in Update for home page user profile')
         actor_as1 = {
             **obj.as1,
-            'id': g.user.web_url(),
+            'id': user.web_url(),
             'updated': util.now().isoformat(),
         }
         id = common.host_url(f'{obj.key.id()}#update-{util.now().isoformat()}')
@@ -623,7 +626,7 @@ def webmention_task():
             'objectType': 'activity',
             'verb': 'update',
             'id': id,
-            'actor': g.user.web_url(),
+            'actor': user.web_url(),
             'object': actor_as1,
         })
 
