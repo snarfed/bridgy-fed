@@ -124,7 +124,7 @@ def web_user_redirects(**kwargs):
 def profile(protocol, id):
     user = load_user(protocol, id)
     query = Object.query(Object.users == user.key)
-    objects, before, after = fetch_objects(query, by=Object.updated)
+    objects, before, after = fetch_objects(query, by=Object.updated, user=user)
     num_followers, num_following = user.count_followers()
     return render_template('profile.html', **TEMPLATE_VARS, **locals())
 
@@ -134,7 +134,7 @@ def profile(protocol, id):
 def home(protocol, id):
     user = load_user(protocol, id)
     query = Object.query(Object.feed == user.key)
-    objects, before, after = fetch_objects(query, by=Object.created)
+    objects, before, after = fetch_objects(query, by=Object.created, user=user)
 
     # this calls Object.actor_link serially for each object, which loads the
     # actor from the datastore if necessary. TODO: parallelize those fetches
@@ -147,7 +147,7 @@ def notifications(protocol, id):
     user = load_user(protocol, id)
 
     query = Object.query(Object.notify == user.key)
-    objects, before, after = fetch_objects(query, by=Object.updated)
+    objects, before, after = fetch_objects(query, by=Object.updated, user=user)
 
     format = request.args.get('format')
     if format:
@@ -180,7 +180,7 @@ def followers_or_following(protocol, id, collection):
 def feed(protocol, id):
     user = load_user(protocol, id)
     query = Object.query(Object.feed == user.key)
-    objects, _, _ = fetch_objects(query, by=Object.created)
+    objects, _, _ = fetch_objects(query, by=Object.created, user=user)
     return serve_feed(objects=objects, format=request.args.get('format', 'html'),
                       user=user, title=f'Bridgy Fed feed for {id}')
 
