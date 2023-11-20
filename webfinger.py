@@ -79,27 +79,27 @@ class Webfinger(flask_util.XrdOrJrd):
         # only allow indirect users if this id is "on" a brid.gy subdomain,
         # eg user.com@bsky.brid.gy but not user.com@user.com
         if allow_indirect:
-            g.user = cls.get_or_create(id)
+            user = cls.get_or_create(id)
         else:
-            g.user = cls.get_by_id(id)
-            if g.user and not g.user.direct:
-                error(f"{g.user.key} hasn't signed up yet", status=404)
+            user = cls.get_by_id(id)
+            if user and not user.direct:
+                error(f"{user.key} hasn't signed up yet", status=404)
 
-        if not g.user:
+        if not user:
             error(f'No {cls.LABEL} user found for {id}', status=404)
 
-        actor = g.user.obj.as1 if g.user.obj and g.user.obj.as1 else {}
-        logger.info(f'Generating WebFinger data for {g.user.key}')
+        actor = user.obj.as1 if user.obj and user.obj.as1 else {}
+        logger.info(f'Generating WebFinger data for {user.key}')
         logger.info(f'AS1 actor: {actor}')
         urls = util.dedupe_urls(util.get_list(actor, 'urls') +
                                 util.get_list(actor, 'url') +
-                                [g.user.web_url()])
+                                [user.web_url()])
         logger.info(f'URLs: {urls}')
         canonical_url = urls[0]
 
         # generate webfinger content
         data = util.trim_nulls({
-            'subject': 'acct:' + g.user.ap_address().lstrip('@'),
+            'subject': 'acct:' + user.ap_address().lstrip('@'),
             'aliases': urls,
             'links':
             [{
@@ -126,13 +126,13 @@ class Webfinger(flask_util.XrdOrJrd):
                 # WARNING: in python 2 sometimes request.host_url lost port,
                 # http://localhost:8080 would become just http://localhost. no
                 # clue how or why. pay attention here if that happens again.
-                'href': g.user.ap_actor(),
+                'href': user.ap_actor(),
             }, {
                 # AP reads this and sharedInbox from the AS2 actor, not
                 # webfinger, so strictly speaking, it's probably not needed here.
                 'rel': 'inbox',
                 'type': as2.CONTENT_TYPE,
-                'href': g.user.ap_actor('inbox'),
+                'href': user.ap_actor('inbox'),
             }, {
                 # https://www.w3.org/TR/activitypub/#sharedInbox
                 'rel': 'sharedInbox',
@@ -147,11 +147,11 @@ class Webfinger(flask_util.XrdOrJrd):
                 'rel': 'http://ostatus.org/schema/1.0/subscribe',
                 # always use fed.brid.gy for UI pages, not protocol subdomain
                 # TODO: switch to:
-                # 'template': common.host_url(g.user.user_page_path('?url={uri}')),
+                # 'template': common.host_url(user.user_page_path('?url={uri}')),
                 # the problem is that user_page_path() uses handle_or_id, which uses
                 # custom username instead of domain, which may not be unique
                 'template': f'https://{common.PRIMARY_DOMAIN}' +
-                            g.user.user_page_path('?url={uri}'),
+                            user.user_page_path('?url={uri}'),
             }]
         })
 

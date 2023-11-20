@@ -33,23 +33,23 @@ def remote_follow():
         error(f'Unknown protocol {request.values["protocol"]}')
 
     domain = request.values['domain']
-    g.user = cls.get_by_id(domain)
-    if not g.user:
+    user = cls.get_by_id(domain)
+    if not user:
         error(f'No web user found for domain {domain}')
 
     addr = request.values['address']
     resp = webfinger.fetch(addr)
     if resp is None:
-        return redirect(g.user.user_page_path())
+        return redirect(user.user_page_path())
 
     for link in resp.get('links', []):
         if link.get('rel') == webfinger.SUBSCRIBE_LINK_REL:
             template = link.get('template')
             if template and '{uri}' in template:
-                return redirect(template.replace('{uri}', g.user.ap_address()))
+                return redirect(template.replace('{uri}', user.ap_address()))
 
     flash(f"Couldn't find remote follow link for {addr}")
-    return redirect(g.user.user_page_path())
+    return redirect(user.user_page_path())
 
 
 class FollowStart(indieauth.Start):
@@ -89,8 +89,8 @@ class FollowCallback(indieauth.Callback):
 
         domain = util.domain_from_link(me)
         # Web is hard-coded here since this is IndieAuth
-        g.user = Web.get_by_id(domain)
-        if not g.user:
+        user = Web.get_by_id(domain)
+        if not user:
             error(f'No web user for domain {domain}')
 
         addr = state
@@ -100,46 +100,47 @@ class FollowCallback(indieauth.Callback):
         as2_url = state if util.is_web(state) else webfinger.fetch_actor_url(addr)
         if not as2_url:
             flash(f"Couldn't find ActivityPub profile link for {addr}")
-            return redirect(g.user.user_page_path('following'))
+            return redirect(user.user_page_path('following'))
 
         # TODO(#512): follower will always be Web here, but we should generalize
         # followee support in UI and here across protocols
         followee = ActivityPub.load(as2_url)
         if not followee:
             flash(f"Couldn't load {as2_url} as AS2")
-            return redirect(g.user.user_page_path('following'))
+            return redirect(user.user_page_path('following'))
 
         followee_id = followee.as1.get('id')
         followee_as2 = ActivityPub.convert(followee)
         inbox = followee_as2.get('inbox')
         if not followee_id or not inbox:
             flash(f"AS2 profile {as2_url} missing id or inbox")
-            return redirect(g.user.user_page_path('following'))
+            return redirect(user.user_page_path('following'))
 
         timestamp = NOW.replace(microsecond=0, tzinfo=None).isoformat()
-        follow_id = common.host_url(g.user.user_page_path(f'following#{timestamp}-{addr}'))
+        follow_id = common.host_url(user.user_page_path(f'following#{timestamp}-{addr}'))
         follow_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Follow',
             'id': follow_id,
             'object': followee_id,
-            'actor': g.user.ap_actor(),
+            'actor': user.ap_actor(),
             'to': [as2.PUBLIC_AUDIENCE],
         }
         followee_user = ActivityPub.get_or_create(followee_id, obj=followee)
-        follow_obj = Object(id=follow_id, users=[g.user.key, followee_user.key],
+        follow_obj = Object(id=follow_id, users=[user.key, followee_user.key],
                             labels=['user'], source_protocol='ui', status='complete',
                             as2=follow_as2)
+        g.user = user
         ActivityPub.send(follow_obj, inbox)
 
-        Follower.get_or_create(from_=g.user, to=followee_user, status='active',
+        Follower.get_or_create(from_=user, to=followee_user, status='active',
                                follow=follow_obj.key)
         follow_obj.put()
 
         url = as1.get_url(followee.as1) or followee_id
         link = common.pretty_link(url, text=addr)
         flash(f'Followed {link}.')
-        return redirect(g.user.user_page_path('following'))
+        return redirect(user.user_page_path('following'))
 
 
 class UnfollowStart(indieauth.Start):
@@ -160,7 +161,7 @@ class UnfollowStart(indieauth.Start):
         except Exception as e:
             if util.is_connection_failure(e) or util.interpret_http_exception(e)[0]:
                 flash(f"Couldn't fetch your web site: {e}")
-                return redirect(g.user.user_page_path('following'))
+                return redirect(user.user_page_path('following'))
             raise
 
 
@@ -176,8 +177,8 @@ class UnfollowCallback(indieauth.Callback):
 
         domain = util.domain_from_link(me)
         # Web is hard-coded here since this is IndieAuth
-        g.user = Web.get_by_id(domain)
-        if not g.user:
+        user = Web.get_by_id(domain)
+        if not user:
             error(f'No web user for domain {domain}')
 
         if util.is_int(state):
@@ -200,23 +201,24 @@ class UnfollowCallback(indieauth.Callback):
         inbox = ActivityPub.convert(followee.obj).get('inbox')
         if not inbox:
             flash(f"AS2 profile {followee_id} missing inbox")
-            return redirect(g.user.user_page_path('following'))
+            return redirect(user.user_page_path('following'))
 
         timestamp = NOW.replace(microsecond=0, tzinfo=None).isoformat()
-        unfollow_id = common.host_url(g.user.user_page_path(f'following#undo-{timestamp}-{followee_id}'))
+        unfollow_id = common.host_url(user.user_page_path(f'following#undo-{timestamp}-{followee_id}'))
         unfollow_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Undo',
             'id': unfollow_id,
-            'actor': g.user.ap_actor(),
+            'actor': user.ap_actor(),
             'object': follower.follow.get().as2 if follower.follow else None,
         }
 
         # don't include the followee User who's being unfollowed in the users
         # property, since we don't want to notify or show them. (standard social
         # network etiquette.)
-        obj = Object(id=unfollow_id, users=[g.user.key], labels=['user'],
+        obj = Object(id=unfollow_id, users=[user.key], labels=['user'],
                      source_protocol='ui', status='complete', as2=unfollow_as2)
+        g.user = user
         ActivityPub.send(obj, inbox)
 
         follower.status = 'inactive'
@@ -225,7 +227,7 @@ class UnfollowCallback(indieauth.Callback):
 
         link = common.pretty_link(as1.get_url(followee.obj.as1) or followee_id)
         flash(f'Unfollowed {link}.')
-        return redirect(g.user.user_page_path('following'))
+        return redirect(user.user_page_path('following'))
 
 
 app.add_url_rule('/follow/start',
