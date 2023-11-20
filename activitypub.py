@@ -787,21 +787,22 @@ def actor(handle_or_id):
         id = handle_or_id
 
     assert id
-    g.user = cls.get_or_create(id)
-    if not g.user.obj or not g.user.obj.as1:
-        g.user.obj = cls.load(g.user.profile_id(), gateway=True)
+    user = cls.get_or_create(id)
+    if not user.obj or not user.obj.as1:
+        user.obj = cls.load(user.profile_id(), gateway=True)
 
-    actor = ActivityPub.convert(g.user.obj) or {
+    g.user = user
+    actor = ActivityPub.convert(user.obj) or {
         '@context': [as2.CONTEXT],
         'type': 'Person',
     }
     actor = postprocess_as2(actor)
     actor.update({
-        'id': g.user.ap_actor(),
-        'inbox': g.user.ap_actor('inbox'),
-        'outbox': g.user.ap_actor('outbox'),
-        'following': g.user.ap_actor('following'),
-        'followers': g.user.ap_actor('followers'),
+        'id': user.ap_actor(),
+        'inbox': user.ap_actor('inbox'),
+        'outbox': user.ap_actor('outbox'),
+        'following': user.ap_actor('following'),
+        'followers': user.ap_actor('followers'),
         'endpoints': {
             'sharedInbox': subdomain_wrap(cls, '/ap/sharedInbox'),
         },
