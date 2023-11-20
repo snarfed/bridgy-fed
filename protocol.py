@@ -340,15 +340,11 @@ class Protocol:
         return (None, None)
 
     @classmethod
-    def actor_key(cls, obj, default_g_user=True):
+    def actor_key(cls, obj):
         """Returns the :class:`User`: key for a given object's author or actor.
-
-        If obj has no author or actor, defaults to g.user if it's set and
-        ``default_g_user`` is True, otherwise None.
 
         Args:
           obj (models.Object)
-          default_g_user (bool)
 
         Returns:
           google.cloud.ndb.key.Key or None:
@@ -356,8 +352,6 @@ class Protocol:
         owner = as1.get_owner(obj.as1)
         if owner:
             return cls.key_for(owner)
-        elif default_g_user and g.user and g.user.status != 'opt-out':
-            return g.user.key
 
     @classmethod
     def send(to_cls, obj, url, orig_obj=None):
@@ -614,7 +608,7 @@ class Protocol:
 
         # add owner(s)
         # (actor_key returns None if the user is opted out)
-        actor_key = from_cls.actor_key(obj, default_g_user=False)
+        actor_key = from_cls.actor_key(obj)
         if actor_key:
             obj.add('users', actor_key)
             if not g.user:
@@ -991,7 +985,7 @@ class Protocol:
 
             logger.info(f'Target for {id} is {target}')
             targets[Target(protocol=protocol.LABEL, uri=target)] = orig_obj
-            orig_user = protocol.actor_key(orig_obj, default_g_user=False)
+            orig_user = protocol.actor_key(orig_obj)
             if orig_user:
                 logger.info(f'Recipient is {orig_user}')
                 obj.add('notify', orig_user)
@@ -999,7 +993,7 @@ class Protocol:
         logger.info(f'Direct targets: {targets.keys()}')
 
         # deliver to followers, if appropriate
-        user_key = cls.actor_key(obj, default_g_user=False)
+        user_key = cls.actor_key(obj)
         if not user_key:
             logger.info("Can't tell who this is from! Skipping followers.")
             return targets

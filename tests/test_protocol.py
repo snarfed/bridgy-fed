@@ -339,12 +339,7 @@ class ProtocolTest(TestCase):
         ]:
             self.assertEqual(expected, Fake.actor_key(obj))
 
-        g.user = user
-        self.assertEqual(a_key, Fake.actor_key(Object()))
-        self.assertIsNone(Fake.actor_key(Object(), default_g_user=False))
-
-        g.user.obj.our_as1 = {'summary': '#nobot'}
-        self.assertIsNone(Fake.actor_key(Object(), default_g_user=True))
+        self.assertIsNone(Fake.actor_key(Object()))
 
     def test_key_for(self):
         self.assertEqual(self.user.key, Protocol.key_for(self.user.key.id()))
