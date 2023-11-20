@@ -13,7 +13,6 @@ from web import Web
 class CommonTest(TestCase):
     def setUp(self):
         super().setUp()
-        g.user = Fake(id='user.com')
 
     def test_pretty_link(self):
         for expected, url, text in (

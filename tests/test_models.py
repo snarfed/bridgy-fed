@@ -36,7 +36,7 @@ class UserTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        g.user = self.make_user('y.z', cls=Web)
+        self.user = self.make_user('y.z', cls=Web)
 
     def test_get_or_create(self):
         user = Fake.get_or_create('fake:user')
@@ -94,57 +94,57 @@ class UserTest(TestCase):
 
     def test_get_or_create_use_instead(self):
         user = Fake.get_or_create('a.b')
-        user.use_instead = g.user.key
+        user.use_instead = self.user.key
         user.put()
 
         self.assertEqual('y.z', Fake.get_or_create('a.b').key.id())
 
     def test_public_pem(self):
-        pem = g.user.public_pem()
+        pem = self.user.public_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN PUBLIC KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END PUBLIC KEY-----'), pem)
 
     def test_private_pem(self):
-        pem = g.user.private_pem()
+        pem = self.user.private_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN RSA PRIVATE KEY-----\n'), pem)
         self.assertTrue(pem.decode().endswith('-----END RSA PRIVATE KEY-----'), pem)
 
     def test_user_page_path(self):
-        self.assertEqual('/web/y.z', g.user.user_page_path())
-        self.assertEqual('/web/y.z/followers', g.user.user_page_path('followers'))
+        self.assertEqual('/web/y.z', self.user.user_page_path())
+        self.assertEqual('/web/y.z/followers', self.user.user_page_path('followers'))
         self.assertEqual('/fa/foo', self.make_user('foo', cls=Fake).user_page_path())
 
     def test_user_link(self):
         self.assert_multiline_equals("""\
 <a class="h-card u-author" href="https://y.z/">
   <img src="" class="profile">
-  y.z</a>""", g.user.user_link())
+  y.z</a>""", self.user.user_link())
 
-        g.user.obj = Object(id='a', as2=ACTOR)
+        self.user.obj = Object(id='a', as2=ACTOR)
         self.assert_multiline_equals("""\
 <a class="h-card u-author" href="https://y.z/">
 <img src="https://user.com/me.jpg" class="profile">
-  Mrs. ☕ Foo</a>""", g.user.user_link())
+  Mrs. ☕ Foo</a>""", self.user.user_link())
 
     def test_is_web_url(self):
         for url in 'y.z', '//y.z', 'http://y.z', 'https://y.z':
-            self.assertTrue(g.user.is_web_url(url), url)
+            self.assertTrue(self.user.is_web_url(url), url)
 
         for url in (None, '', 'user', 'com', 'com.user', 'ftp://y.z',
                     'https://user', '://y.z'):
-            self.assertFalse(g.user.is_web_url(url), url)
+            self.assertFalse(self.user.is_web_url(url), url)
 
     def test_name(self):
-        self.assertEqual('y.z', g.user.name())
+        self.assertEqual('y.z', self.user.name())
 
-        g.user.obj = Object(id='a', as2={'id': 'abc'})
-        self.assertEqual('y.z', g.user.name())
+        self.user.obj = Object(id='a', as2={'id': 'abc'})
+        self.assertEqual('y.z', self.user.name())
 
-        g.user.obj = Object(id='a', as2={'name': 'alice'})
-        self.assertEqual('alice', g.user.name())
+        self.user.obj = Object(id='a', as2={'name': 'alice'})
+        self.assertEqual('alice', self.user.name())
 
     def test_handle(self):
-        self.assertEqual('y.z', g.user.handle)
+        self.assertEqual('y.z', self.user.handle)
 
     def test_id_as(self):
         user = self.make_user('fake:user', cls=Fake)
@@ -175,7 +175,7 @@ class UserTest(TestCase):
         bob = Fake(id='bob.com', obj_key=Object(id='bob').key)
         bob.put()
 
-        user = g.user.key.get()
+        user = self.user.key.get()
         self.assertFalse(hasattr(user, '_obj'))
         self.assertFalse(hasattr(alice, '_obj'))
         self.assertIsNone(bob._obj)
@@ -186,7 +186,7 @@ class UserTest(TestCase):
         self.assertIsNone(bob._obj)
 
     def test_status(self):
-        self.assertIsNone(g.user.status)
+        self.assertIsNone(self.user.status)
 
         user = self.make_user('fake:user', cls=Fake, obj_as1={
             'summary': 'I like this',
@@ -217,25 +217,25 @@ class UserTest(TestCase):
         self.assertEqual('other:foo', user.get_copy(OtherFake))
 
     def test_count_followers(self):
-        self.assertEqual((0, 0), g.user.count_followers())
+        self.assertEqual((0, 0), self.user.count_followers())
 
-        Follower(from_=g.user.key, to=Fake(id='a').key).put()
-        Follower(from_=g.user.key, to=Fake(id='b').key).put()
-        Follower(from_=Fake(id='c').key, to=g.user.key).put()
+        Follower(from_=self.user.key, to=Fake(id='a').key).put()
+        Follower(from_=self.user.key, to=Fake(id='b').key).put()
+        Follower(from_=Fake(id='c').key, to=self.user.key).put()
 
         # still cached
         user = Web.get_by_id('y.z')
         self.assertEqual((0, 0), user.count_followers())
 
         User.count_followers.cache.clear()
-        del g.user
+        del self.user
         self.assertEqual((1, 2), user.count_followers())
 
 
 class ObjectTest(TestCase):
     def setUp(self):
         super().setUp()
-        g.user = None
+        self.user = None
 
     def test_target_hashable(self):
         target = Target(protocol='ui', uri='http://foo')
@@ -448,9 +448,10 @@ class ObjectTest(TestCase):
             Object(id='x', our_as1={'actor': {'id': 'http://foo'}}).actor_link())
 
     def test_actor_link_user(self):
-        g.user = Fake(id='fake:user', obj=Object(id='a', as2={"name": "Alice"}))
-        obj = Object(id='x', source_protocol='ui', users=[g.user.key])
+        self.user = Fake(id='fake:user', obj=Object(id='a', as2={"name": "Alice"}))
+        obj = Object(id='x', source_protocol='ui', users=[self.user.key])
 
+        g.user = self.user
         got = obj.actor_link()
         self.assertIn('href="fake:user">', got)
         self.assertIn('Alice', got)
@@ -809,7 +810,7 @@ class FollowerTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        g.user = self.make_user('foo', cls=Fake)
+        self.user = self.make_user('foo', cls=Fake)
         self.other_user = self.make_user('bar', cls=Fake)
 
     def test_from_to_same_type_fails(self):
@@ -820,22 +821,22 @@ class FollowerTest(TestCase):
             Follower.get_or_create(from_=Web(id='foo.com'), to=Web(id='bar.com'))
 
     def test_get_or_create(self):
-        follower = Follower.get_or_create(from_=g.user, to=self.other_user)
+        follower = Follower.get_or_create(from_=self.user, to=self.other_user)
 
-        self.assertEqual(g.user.key, follower.from_)
+        self.assertEqual(self.user.key, follower.from_)
         self.assertEqual(self.other_user.key, follower.to)
         self.assertEqual(1, Follower.query().count())
 
-        follower2 = Follower.get_or_create(from_=g.user, to=self.other_user)
+        follower2 = Follower.get_or_create(from_=self.user, to=self.other_user)
         self.assert_entities_equal(follower, follower2)
         self.assertEqual(1, Follower.query().count())
 
-        Follower.get_or_create(to=g.user, from_=self.other_user)
-        Follower.get_or_create(from_=g.user, to=self.make_user('baz', cls=Fake))
+        Follower.get_or_create(to=self.user, from_=self.other_user)
+        Follower.get_or_create(from_=self.user, to=self.make_user('baz', cls=Fake))
         self.assertEqual(3, Follower.query().count())
 
         # check that kwargs get set on existing entity
-        follower = Follower.get_or_create(from_=g.user, to=self.other_user,
+        follower = Follower.get_or_create(from_=self.user, to=self.other_user,
                                           status='inactive')
         got = follower.key.get()
         self.assertEqual('inactive', got.status)

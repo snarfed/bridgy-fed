@@ -37,7 +37,6 @@ class ProtocolTest(TestCase):
     def setUp(self):
         super().setUp()
         self.user = self.make_user('foo.com', cls=Web, has_hcard=True)
-        g.user = None
 
     def tearDown(self):
         PROTOCOLS.pop('greedy', None)
@@ -1024,7 +1023,6 @@ class ProtocolReceiveTest(TestCase):
         })
 
     def test_delete(self):
-        g.user = None  # should use activity's actor
         self.make_followers()
 
         post_as1 = {

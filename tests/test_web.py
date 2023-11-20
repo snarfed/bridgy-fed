@@ -396,7 +396,7 @@ class WebTest(TestCase):
 
         obj = Object(id='https://user.com/', mf2=ACTOR_MF2, source_protocol='web')
         obj.put()
-        g.user = self.make_user('user.com', cls=Web, has_redirects=True, obj=obj)
+        self.user = self.make_user('user.com', cls=Web, has_redirects=True, obj=obj)
 
         self.mrs_foo = ndb.Key(ActivityPub, 'https://mas.to/mrs-foo')
 
@@ -408,7 +408,7 @@ class WebTest(TestCase):
         for args, kwargs in mock_post.call_args_list:
             self.assertEqual(as2.CONTENT_TYPE, kwargs['headers']['Content-Type'])
             rsa_key = kwargs['auth'].header_signer._rsa._key
-            self.assertEqual(g.user.private_pem(), rsa_key.exportKey())
+            self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
             calls[args[0]] = json_loads(kwargs['data'])
 
         for inbox in inboxes:
@@ -445,7 +445,7 @@ class WebTest(TestCase):
             }),
         ]:
             from_ = self.make_user(id, cls=ActivityPub, obj_as2=actor)
-            f = Follower.get_or_create(to=g.user, from_=from_, **kwargs)
+            f = Follower.get_or_create(to=self.user, from_=from_, **kwargs)
             if f.status != 'inactive':
                 self.followers.append(from_.key)
 
@@ -497,30 +497,30 @@ class WebTest(TestCase):
             self.assertEqual(orig_count, Object.query().count())
 
     def test_username(self, *mocks):
-        self.assertEqual('user.com', g.user.username())
+        self.assertEqual('user.com', self.user.username())
 
-        g.user.obj = Object(id='a', as2={
+        self.user.obj = Object(id='a', as2={
             'type': 'Person',
             'name': 'foo',
             'url': ['bar'],
             'preferredUsername': 'baz',
         })
-        g.user.direct = True
-        self.assertEqual('user.com', g.user.username())
+        self.user.direct = True
+        self.assertEqual('user.com', self.user.username())
 
         # bad acct: URI, util.parse_acct_uri raises ValueError
         # https://console.cloud.google.com/errors/detail/CPLmrpzFs4qTUA;time=P30D?project=bridgy-federated
-        g.user.obj.as2['url'].append('acct:@user.com')
-        self.assertEqual('user.com', g.user.username())
+        self.user.obj.as2['url'].append('acct:@user.com')
+        self.assertEqual('user.com', self.user.username())
 
-        g.user.obj.as2['url'].append('acct:alice@foo.com')
-        self.assertEqual('user.com', g.user.username())
+        self.user.obj.as2['url'].append('acct:alice@foo.com')
+        self.assertEqual('user.com', self.user.username())
 
-        g.user.obj.as2['url'].append('acct:alice@user.com')
-        self.assertEqual('alice', g.user.username())
+        self.user.obj.as2['url'].append('acct:alice@user.com')
+        self.assertEqual('alice', self.user.username())
 
-        g.user.direct = False
-        self.assertEqual('user.com', g.user.username())
+        self.user.direct = False
+        self.assertEqual('user.com', self.user.username())
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_make_task(self, mock_create_task, mock_get, mock_post):
@@ -634,7 +634,7 @@ class WebTest(TestCase):
                            labels=['activity', 'user'],
                            ignore=['our_as1'],
                            status='ignored',
-                           users=[g.user.key],
+                           users=[self.user.key],
                            )
 
     def test_target_fetch_fails(self, mock_get, mock_post):
@@ -725,7 +725,7 @@ class WebTest(TestCase):
                            )
         author = ndb.Key(ActivityPub, 'https://mas.to/author')
         self.assert_object('https://user.com/reply#bridgy-fed-create',
-                           users=[g.user.key],
+                           users=[self.user.key],
                            notify=[author],
                            source_protocol='web',
                            status='complete',
@@ -879,12 +879,12 @@ class WebTest(TestCase):
         for args, kwargs in mock_get.call_args_list[1:]:
             with self.subTest(url=args[0]):
                 rsa_key = kwargs['auth'].header_signer._rsa._key
-                self.assertEqual(g.user.private_pem(), rsa_key.exportKey())
+                self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
 
         mf2 = util.parse_mf2(html)['items'][0]
         author_key = ndb.Key('ActivityPub', 'https://mas.to/author')
         self.assert_object('https://user.com/repost',
-                           users=[g.user.key],
+                           users=[self.user.key],
                            notify=[author_key],
                            feed=self.followers,
                            source_protocol='web',
@@ -945,7 +945,7 @@ class WebTest(TestCase):
         mock_post.assert_not_called()
 
         self.assert_object('https://user.com/like',
-                           users=[g.user.key],
+                           users=[self.user.key],
                            source_protocol='web',
                            mf2=LIKE_MF2,
                            type='like',
@@ -1062,7 +1062,7 @@ class WebTest(TestCase):
         repost_mf2 = copy.deepcopy(REPOST_MF2)
         repost_mf2['properties']['author'] = ['https://user.com/']
         self.assert_object('https://user.com/repost',
-                           users=[g.user.key],
+                           users=[self.user.key],
                            source_protocol='web',
                            mf2=repost_mf2,  # includes author https://user.com/
                            type='share',
@@ -1094,7 +1094,7 @@ class WebTest(TestCase):
 
         inboxes = ['https://inbox/', 'https://public/inbox', 'https://shared/inbox']
         self.assert_object('https://user.com/post#bridgy-fed-create',
-                           users=[g.user.key],
+                           users=[self.user.key],
                            source_protocol='web',
                            our_as1=CREATE_AS1,
                            type='post',
@@ -1104,7 +1104,7 @@ class WebTest(TestCase):
                            )
 
     def test_create_post_use_instead_strip_www(self, mock_get, mock_post):
-        g.user.obj.mf2 = {
+        self.user.obj.mf2 = {
             'type': ['h-card'],
             'properties': {
                 # this is the key part to test; Object.as1 uses this as id
@@ -1112,8 +1112,8 @@ class WebTest(TestCase):
                 'name': ['Ms. ☕ Baz'],
             },
         }
-        g.user.obj.put()
-        self.make_user('www.user.com', cls=Web, use_instead=g.user.key)
+        self.user.obj.put()
+        self.make_user('www.user.com', cls=Web, use_instead=self.user.key)
         self.make_followers()
 
         note_html = NOTE_HTML.replace('https://user.com/', 'https://www.user.com/')
@@ -1166,7 +1166,7 @@ class WebTest(TestCase):
                            source_protocol='web',
                            )
         self.assert_object('https://user.com/post#bridgy-fed-create',
-                           users=[g.user.key],
+                           users=[self.user.key],
                            source_protocol='web',
                            status='complete',
                            our_as1=CREATE_AS1,
@@ -1180,7 +1180,7 @@ class WebTest(TestCase):
 
         mf2 = copy.deepcopy(NOTE_MF2)
         mf2['properties']['content'] = 'different'
-        Object(id='https://user.com/post', users=[g.user.key], mf2=mf2).put()
+        Object(id='https://user.com/post', users=[self.user.key], mf2=mf2).put()
 
         self.make_followers()
 
@@ -1208,7 +1208,7 @@ class WebTest(TestCase):
         }
         self.assert_object(
             f'https://user.com/post#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-            users=[g.user.key],
+            users=[self.user.key],
             source_protocol='web',
             status='complete',
             our_as1=update_as1,
@@ -1228,7 +1228,7 @@ class WebTest(TestCase):
         mock_post.return_value = requests_response('abc xyz ')
 
         Follower.get_or_create(
-            to=g.user,
+            to=self.user,
             from_=self.make_user('http://a', cls=ActivityPub,
                                  obj_as2={'inbox': 'https://inbox'}))
         got = self.post('/queue/webmention', data={
@@ -1263,7 +1263,7 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
 
         obj = self.assert_object('https://user.com/follow',
-                                 users=[g.user.key],
+                                 users=[self.user.key],
                                  notify=[self.mrs_foo],
                                  source_protocol='web',
                                  status='complete',
@@ -1283,13 +1283,13 @@ class WebTest(TestCase):
 
         followers = Follower.query().fetch()
         self.assertEqual(1, len(followers))
-        self.assertEqual(g.user.key, followers[0].from_)
+        self.assertEqual(self.user.key, followers[0].from_)
         self.assertEqual(to.key, followers[0].to)
         self.assert_equals(obj.key, followers[0].follow)
 
     def test_follow_no_actor(self, mock_get, mock_post):
-        g.user.obj_key = Object(id='a', as2=ACTOR_AS2).put()
-        g.user.put()
+        self.user.obj_key = Object(id='a', as2=ACTOR_AS2).put()
+        self.user.put()
 
         html = FOLLOW_HTML.replace(
             '<a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>', '')
@@ -1350,7 +1350,7 @@ class WebTest(TestCase):
                                FOLLOW_FRAGMENT_AS2)
 
         self.assert_object('https://user.com/follow#2',
-                           users=[g.user.key],
+                           users=[self.user.key],
                            notify=[self.mrs_foo],
                            source_protocol='web',
                            status='complete',
@@ -1363,7 +1363,7 @@ class WebTest(TestCase):
 
         followers = Follower.query().fetch()
         self.assert_equals(1, len(followers))
-        self.assert_equals(g.user.key, followers[0].from_)
+        self.assert_equals(self.user.key, followers[0].from_)
         self.assert_equals(ActivityPub(id='https://mas.to/mrs-foo').key,
                            followers[0].to)
 
@@ -1411,7 +1411,7 @@ class WebTest(TestCase):
         mf2 = util.parse_mf2(html)['items'][0]
         mr_biff = ndb.Key(ActivityPub, 'https://mas.to/mr-biff')
         obj = self.assert_object('https://user.com/follow',
-                                 users=[g.user.key],
+                                 users=[self.user.key],
                                  notify=[self.mrs_foo, mr_biff],
                                  source_protocol='web',
                                  status='complete',
@@ -1427,12 +1427,12 @@ class WebTest(TestCase):
         followers = Follower.query().fetch()
         self.assertEqual(2, len(followers))
 
-        self.assertEqual(g.user.key, followers[0].from_)
+        self.assertEqual(self.user.key, followers[0].from_)
         self.assertEqual(ActivityPub(id='https://mas.to/mr-biff').key,
                          followers[0].to)
         self.assert_equals(obj.key, followers[0].follow)
 
-        self.assertEqual(g.user.key, followers[1].from_)
+        self.assertEqual(self.user.key, followers[1].from_)
         self.assertEqual(ActivityPub(id='https://mas.to/mrs-foo').key,
                          followers[1].to)
         self.assert_equals(obj.key, followers[1].follow)
@@ -1470,7 +1470,7 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, inboxes, DELETE_AS2)
 
         self.assert_object('https://user.com/post#bridgy-fed-delete',
-                           users=[g.user.key],
+                           users=[self.user.key],
                            source_protocol='web',
                            status='complete',
                            our_as1={
@@ -1530,7 +1530,7 @@ class WebTest(TestCase):
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
 
         self.assert_object('https://user.com/follow',
-                           users=[g.user.key],
+                           users=[self.user.key],
                            notify=[self.mrs_foo],
                            source_protocol='web',
                            status='failed',
@@ -1563,13 +1563,13 @@ class WebTest(TestCase):
     def test_update_profile(self, mock_get, mock_post):
         mock_get.side_effect = [ACTOR_HTML_RESP]
         mock_post.return_value = requests_response('abc xyz')
-        Follower.get_or_create(to=g.user, from_=self.make_user(
+        Follower.get_or_create(to=self.user, from_=self.make_user(
             'http://ccc', cls=ActivityPub, obj_as2={
                 'endpoints': {
                     'sharedInbox': 'https://shared/inbox',
                 },
             }))
-        Follower.get_or_create(to=g.user, from_=self.make_user(
+        Follower.get_or_create(to=self.user, from_=self.make_user(
             'http://ddd', cls=ActivityPub, obj_as2={'inbox': 'https://inbox'}))
 
         got = self.post('/queue/webmention', data={
@@ -1638,7 +1638,7 @@ class WebTest(TestCase):
             'object': actor,
         }
         self.assert_object(id,
-                           users=[g.user.key],
+                           users=[self.user.key],
                            source_protocol='web',
                            status='complete',
                            our_as1=expected_as1,
@@ -1670,23 +1670,23 @@ class WebTest(TestCase):
             logs.output)
 
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
-        g.user.has_redirects = False
-        g.user.put()
+        self.user.has_redirects = False
+        self.user.put()
 
-        got = g.user.verify()
-        self.assertEqual(g.user.key, got.key)
+        got = self.user.verify()
+        self.assertEqual(self.user.key, got.key)
 
         with self.subTest(redirects=redirects, hcard=hcard, actor=actor,
                           redirects_error=redirects_error):
-            self.assert_equals(redirects, bool(g.user.has_redirects))
-            self.assert_equals(hcard, bool(g.user.has_hcard))
+            self.assert_equals(redirects, bool(self.user.has_redirects))
+            self.assert_equals(hcard, bool(self.user.has_hcard))
             if actor is None:
-                assert not g.user.obj or not g.user.obj.as1
+                assert not self.user.obj or not self.user.obj.as1
             else:
-                got = {k: v for k, v in g.user.obj.as1.items()
+                got = {k: v for k, v in self.user.obj.as1.items()
                        if k in actor}
                 self.assert_equals(actor, got)
-            self.assert_equals(redirects_error, g.user.redirects_error)
+            self.assert_equals(redirects_error, self.user.redirects_error)
 
     def test_verify_neither(self, mock_get, _):
         empty = requests_response('')
@@ -1839,41 +1839,42 @@ http://this/404s
         # preferredUsername stays y.z despite user's username. since Mastodon
         # queries Webfinger for preferredUsername@fed.brid.gy
         # https://github.com/snarfed/bridgy-fed/issues/77#issuecomment-949955109
-        postprocessed = ActivityPub.convert(g.user.obj)
+        g.user = self.user
+        postprocessed = ActivityPub.convert(self.user.obj)
         self.assertEqual('user.com', postprocessed['preferredUsername'])
 
     def test_web_url(self, _, __):
-        self.assertEqual('https://user.com/', g.user.web_url())
+        self.assertEqual('https://user.com/', self.user.web_url())
 
     def test_is_web_url(self, *_):
-        self.assertTrue(g.user.is_web_url('https://user.com/'))
-        self.assertTrue(g.user.is_web_url('https://www.user.com/'))
-        self.assertFalse(g.user.is_web_url('https://other.com/'))
+        self.assertTrue(self.user.is_web_url('https://user.com/'))
+        self.assertTrue(self.user.is_web_url('https://www.user.com/'))
+        self.assertFalse(self.user.is_web_url('https://other.com/'))
 
     def test_ap_address(self, *_):
-        self.assertEqual('@user.com@user.com', g.user.ap_address())
+        self.assertEqual('@user.com@user.com', self.user.ap_address())
 
-        g.user.obj = Object(id='a', as2={'type': 'Person'})
-        self.assertEqual('@user.com@user.com', g.user.ap_address())
+        self.user.obj = Object(id='a', as2={'type': 'Person'})
+        self.assertEqual('@user.com@user.com', self.user.ap_address())
 
-        g.user.obj.as2 = {'url': 'http://foo'}
-        self.assertEqual('@user.com@user.com', g.user.ap_address())
+        self.user.obj.as2 = {'url': 'http://foo'}
+        self.assertEqual('@user.com@user.com', self.user.ap_address())
 
-        g.user.obj.as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@user.com']}
-        self.assertEqual('@baz@user.com', g.user.ap_address())
+        self.user.obj.as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@user.com']}
+        self.assertEqual('@baz@user.com', self.user.ap_address())
 
-        g.user.direct = False
-        self.assertEqual('@user.com@web.brid.gy', g.user.ap_address())
+        self.user.direct = False
+        self.assertEqual('@user.com@web.brid.gy', self.user.ap_address())
 
     def test_ap_actor(self, *_):
-        self.assertEqual('http://localhost/user.com', g.user.ap_actor())
+        self.assertEqual('http://localhost/user.com', self.user.ap_actor())
 
-        g.user.direct = False
-        self.assertEqual('http://localhost/user.com', g.user.ap_actor())
-        self.assertEqual('http://localhost/user.com/inbox', g.user.ap_actor('inbox'))
+        self.user.direct = False
+        self.assertEqual('http://localhost/user.com', self.user.ap_actor())
+        self.assertEqual('http://localhost/user.com/inbox', self.user.ap_actor('inbox'))
 
     def test_handle_as(self, *_):
-        self.assertEqual('user.com.web.brid.gy', g.user.handle_as('atproto'))
+        self.assertEqual('user.com.web.brid.gy', self.user.handle_as('atproto'))
 
     def test_check_web_site(self, mock_get, _):
         redir = 'http://localhost/.well-known/webfinger?resource=acct:user.com@user.com'
@@ -1965,7 +1966,7 @@ class WebUtilTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        g.user = self.make_user('user.com', cls=Web)
+        self.user = self.make_user('user.com', cls=Web)
 
     def test_key_for(self, *_):
         for id in 'user.com', 'http://user.com', 'https://user.com/':
@@ -1979,11 +1980,11 @@ class WebUtilTest(TestCase):
         self.assertEqual(Web(id='foo.com').key, Web.key_for('foo.com'))
 
     def test_key_for_use_instead(self, *_):
-        Web(id='www.user.com', use_instead=g.user.key).put()
-        self.assertEqual(g.user.key, Web.key_for('www.user.com'))
+        Web(id='www.user.com', use_instead=self.user.key).put()
+        self.assertEqual(self.user.key, Web.key_for('www.user.com'))
 
     def test_handle(self, *_):
-        self.assertEqual('user.com', g.user.handle)
+        self.assertEqual('user.com', self.user.handle)
 
     def test_owns_id(self, *_):
         self.assertIsNone(Web.owns_id('http://foo.com'))
@@ -1994,10 +1995,10 @@ class WebUtilTest(TestCase):
         self.assertFalse(Web.owns_id('e45fab982'))
 
         self.assertFalse(Web.owns_id('user.com'))
-        g.user.has_redirects = True
-        g.user.put()
+        self.user.has_redirects = True
+        self.user.put()
         self.assertTrue(Web.owns_id('user.com'))
-        g.user.key.delete()
+        self.user.key.delete()
         self.assertIsNone(Web.owns_id('user.com'))
 
         self.assertFalse(Web.owns_id('https://twitter.com/foo'))
@@ -2169,7 +2170,7 @@ class WebUtilTest(TestCase):
     def test_send_note_does_nothing(self, mock_get, mock_post):
         Follower.get_or_create(
             to=self.make_user('https://mas.to/bob', cls=ActivityPub),
-            from_=g.user)
+            from_=self.user)
 
         self.assertFalse(Web.send(
             Object(id='http://mas.to/note', as2=test_activitypub.NOTE),
@@ -2180,7 +2181,7 @@ class WebUtilTest(TestCase):
     def test_send_unrelated_repost_does_nothing(self, mock_get, mock_post):
         Follower.get_or_create(
             to=self.make_user('https://mas.to/bob', cls=ActivityPub),
-            from_=g.user)
+            from_=self.user)
 
         self.assertFalse(Web.send(
             Object(id='http://mas.to/note', as2={
@@ -2194,7 +2195,7 @@ class WebUtilTest(TestCase):
     def test_send_unrelated_reply_does_nothing(self, mock_get, mock_post):
         Follower.get_or_create(
             to=self.make_user('https://mas.to/bob', cls=ActivityPub),
-            from_=g.user)
+            from_=self.user)
 
         self.assertFalse(Web.send(
             Object(id='http://mas.to/note', as2={
