@@ -92,8 +92,9 @@ class IntegrationTests(TestCase):
         resp = self.post('/queue/atproto-poll-notifs', client=hub.app.test_client())
         self.assertEqual(200, resp.status_code)
 
-        g.user = alice
-        test_web.WebTest().assert_deliveries(mock_post, ['http://inst/bob/inbox'], data={
+        web_test = test_web.WebTest()
+        web_test.user = alice
+        web_test.assert_deliveries(mock_post, ['http://inst/bob/inbox'], data={
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
             'id': 'https://atproto.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/456#bridgy-fed-create',
