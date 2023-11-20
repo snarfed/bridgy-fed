@@ -1048,14 +1048,15 @@ class Follower(ndb.Model):
         return follower
 
     @staticmethod
-    def fetch_page(collection):
-        """Fetches a page of Followers for the current user.
+    def fetch_page(collection, user):
+        """Fetches a page of :class:`Follower`s for a given user.
 
         Wraps :func:`fetch_page`. Paging uses the ``before`` and ``after`` query
         parameters, if available in the request.
 
         Args:
           collection (str): ``followers`` or ``following``
+          user (User)
 
         Returns:
           (list of Follower, str, str) tuple: results, annotated with an extra
@@ -1068,7 +1069,7 @@ class Follower(ndb.Model):
         filter_prop = Follower.to if collection == 'followers' else Follower.from_
         query = Follower.query(
             Follower.status == 'active',
-            filter_prop == g.user.key,
+            filter_prop == user.key,
         ).order(-Follower.updated)
 
         followers, before, after = fetch_page(query, Follower, by=Follower.updated)

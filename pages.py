@@ -53,6 +53,9 @@ def load_user(protocol, id):
       protocol (str):
       id (str):
 
+    Returns:
+      models.User:
+
     Raises:
       :class:`werkzeug.exceptions.HTTPException` on error or redirect
     """
@@ -85,6 +88,7 @@ def load_user(protocol, id):
         error(f'{protocol} user {id} not found', status=404)
 
     assert not g.user.use_instead
+    return g.user
 
 
 @app.route('/')
@@ -158,9 +162,9 @@ def notifications(protocol, id):
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/<any(followers,following):collection>')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def followers_or_following(protocol, id, collection):
-    load_user(protocol, id)
+    user = load_user(protocol, id)
 
-    followers, before, after = Follower.fetch_page(collection)
+    followers, before, after = Follower.fetch_page(collection, user)
     num_followers, num_following = g.user.count_followers()
     return render_template(
         f'{collection}.html',
