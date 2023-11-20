@@ -895,12 +895,12 @@ def follower_collection(id, collection):
     """
     protocol = Protocol.for_request(fed='web')
     assert protocol
-    g.user = protocol.get_by_id(id)
-    if not g.user:
+    user = protocol.get_by_id(id)
+    if not user:
         return f'{protocol} user {id} not found', 404
 
     # page
-    followers, new_before, new_after = Follower.fetch_page(collection)
+    followers, new_before, new_after = Follower.fetch_page(collection, user=user)
     page = {
         'type': 'CollectionPage',
         'partOf': request.base_url,
@@ -920,7 +920,7 @@ def follower_collection(id, collection):
         return page, {'Content-Type': as2.CONTENT_TYPE}
 
     # collection
-    num_followers, num_following = g.user.count_followers()
+    num_followers, num_following = user.count_followers()
     collection = {
         '@context': 'https://www.w3.org/ns/activitystreams',
         'id': request.base_url,

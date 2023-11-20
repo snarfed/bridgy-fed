@@ -4,8 +4,8 @@
 {% block subtabs %}
 <div class="row">
   Subscribe:
-  <a href="{{ g.user.user_page_path('notifications?format=html') }}">HTML</a>
-  &middot; <a href="{{ g.user.user_page_path('notifications?format=atom') }}">Atom</a>
-  &middot; <a href="{{ g.user.user_page_path('notifications?format=rss') }}">RSS</a>
+  <a href="{{ user.user_page_path('notifications?format=html') }}">HTML</a>
+  &middot; <a href="{{ user.user_page_path('notifications?format=atom') }}">Atom</a>
+  &middot; <a href="{{ user.user_page_path('notifications?format=rss') }}">RSS</a>
 </div>
 {% endblock subtabs %}

@@ -47,7 +47,7 @@ TEMPLATE_VARS = {
 
 
 def load_user(protocol, id):
-    """Loads the current request's user into `g.user`.
+    """Loads and returns the current request's user.
 
     Args:
       protocol (str):
@@ -64,31 +64,31 @@ def load_user(protocol, id):
         id = '@' + id
 
     cls = PROTOCOLS[protocol]
-    g.user = cls.get_by_id(id)
+    user = cls.get_by_id(id)
 
     if protocol != 'web':
-        if not g.user:
-            g.user = cls.query(OR(cls.handle == id,
+        if not user:
+            user = cls.query(OR(cls.handle == id,
                                   cls.readable_id == id),
                                ).get()
-            if g.user and g.user.use_instead:
-                g.user = g.user.use_instead.get()
+            if user and user.use_instead:
+                user = user.use_instead.get()
 
-        if g.user and id not in (g.user.key.id(), g.user.handle):
-            error('', status=302, location=g.user.user_page_path())
+        if user and id not in (user.key.id(), user.handle):
+            error('', status=302, location=user.user_page_path())
 
-    elif g.user and id != g.user.key.id():  # use_instead redirect
-        error('', status=302, location=g.user.user_page_path())
+    elif user and id != user.key.id():  # use_instead redirect
+        error('', status=302, location=user.user_page_path())
 
-    if not g.user or not g.user.direct or g.user.status == 'opt-out':
+    if not user or not user.direct or user.status == 'opt-out':
         # TODO: switch back to USER_NOT_FOUND_HTML
         # not easy via exception/abort because this uses Werkzeug's built in
         # NotFound exception subclass, and we'd need to make it implement
         # get_body to return arbitrary HTML.
         error(f'{protocol} user {id} not found', status=404)
 
-    assert not g.user.use_instead
-    return g.user
+    assert not user.use_instead
+    return user
 
 
 @app.route('/')
@@ -122,18 +122,18 @@ def web_user_redirects(**kwargs):
 @app.get(f'/ap/@<id>', defaults={'protocol': 'ap'})
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def profile(protocol, id):
-    load_user(protocol, id)
-    query = Object.query(Object.users == g.user.key)
+    user = load_user(protocol, id)
+    query = Object.query(Object.users == user.key)
     objects, before, after = fetch_objects(query, by=Object.updated)
-    num_followers, num_following = g.user.count_followers()
+    num_followers, num_following = user.count_followers()
     return render_template('profile.html', **TEMPLATE_VARS, **locals())
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/home')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def home(protocol, id):
-    load_user(protocol, id)
-    query = Object.query(Object.feed == g.user.key)
+    user = load_user(protocol, id)
+    query = Object.query(Object.feed == user.key)
     objects, before, after = fetch_objects(query, by=Object.created)
 
     # this calls Object.actor_link serially for each object, which loads the
@@ -144,15 +144,15 @@ def home(protocol, id):
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/notifications')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def notifications(protocol, id):
-    load_user(protocol, id)
+    user = load_user(protocol, id)
 
-    query = Object.query(Object.notify == g.user.key)
+    query = Object.query(Object.notify == user.key)
     objects, before, after = fetch_objects(query, by=Object.updated)
 
     format = request.args.get('format')
     if format:
         return serve_feed(objects=objects, format=format, as_snippets=True,
-                          title=f'Bridgy Fed notifications for {id}',
+                          user=user, title=f'Bridgy Fed notifications for {id}',
                           quiet=request.args.get('quiet'))
 
     # notifications tab UI page
@@ -163,9 +163,8 @@ def notifications(protocol, id):
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def followers_or_following(protocol, id, collection):
     user = load_user(protocol, id)
-
     followers, before, after = Follower.fetch_page(collection, user)
-    num_followers, num_following = g.user.count_followers()
+    num_followers, num_following = user.count_followers()
     return render_template(
         f'{collection}.html',
         address=request.args.get('address'),
@@ -179,19 +178,20 @@ def followers_or_following(protocol, id, collection):
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/feed')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def feed(protocol, id):
-    load_user(protocol, id)
-    query = Object.query(Object.feed == g.user.key)
+    user = load_user(protocol, id)
+    query = Object.query(Object.feed == user.key)
     objects, _, _ = fetch_objects(query, by=Object.created)
     return serve_feed(objects=objects, format=request.args.get('format', 'html'),
-                      title=f'Bridgy Fed feed for {id}')
+                      user=user, title=f'Bridgy Fed feed for {id}')
 
 
-def serve_feed(*, objects, format, title, as_snippets=False, quiet=False):
+def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
     """Generates a feed based on :class:`Object`s.
 
     Args:
       objects (sequence of models.Object)
       format (str): ``html``, ``atom``, or ``rss``
+      user (models.User)
       title (str)
       as_snippets (bool): if True, render short snippets for objects instead of
         full contents
@@ -239,8 +239,8 @@ def serve_feed(*, objects, format, title, as_snippets=False, quiet=False):
 
     tasklets.wait_all(gets)
 
-    actor = (g.user.obj.as1 if g.user.obj and g.user.obj.as1
-             else {'displayName': g.user.readable_id, 'url': g.user.web_url()})
+    actor = (user.obj.as1 if user.obj and user.obj.as1
+             else {'displayName': user.readable_id, 'url': user.web_url()})
 
     # TODO: inject/merge common.pretty_link into microformats2.render_content
     # (specifically into hcard_to_html) somehow to convert Mastodon URLs to @-@
@@ -291,7 +291,7 @@ def bridge_user():
     return render_template('bridge_user.html')
 
 
-def fetch_objects(query, by=None):
+def fetch_objects(query, by=None, user=None):
     """Fetches a page of :class:`models.Object` entities from a datastore query.
 
     Wraps :func:`models.fetch_page` and adds attributes to the returned
@@ -301,6 +301,7 @@ def fetch_objects(query, by=None):
       query (ndb.Query)
       by (ndb.model.Property): either :attr:`models.Object.updated` or
         :attr:`models.Object.created`
+      user (models.User): current user
 
     Returns:
       (list of models.Object, str, str) tuple:
@@ -357,7 +358,7 @@ def fetch_objects(query, by=None):
         id = common.unwrap(inner_obj.get('id', ''))
         url = urls[0] if urls else id
         if (type == 'update' and
-            (obj.users and (g.user.is_web_url(id)
+            (obj.users and (user.is_web_url(id)
                             or id.strip('/') == obj.users[0].id())
              or obj.domains and id.strip('/') == f'https://{obj.domains[0]}')):
             obj.phrase = 'updated'
