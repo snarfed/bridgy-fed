@@ -730,13 +730,9 @@ def postprocess_as2_actor(actor, wrap=True):
     actor.setdefault('inbox', g.user.ap_actor('inbox'))
     actor.setdefault('outbox', g.user.ap_actor('outbox'))
 
-    # TODO: genericize (see line 752 in actor())
-    if g.user.LABEL != 'atproto':
-        # This has to be the domain for Mastodon interop/Webfinger discovery!
-        # See related comment in actor() below.
-        assert urls
-        actor['preferredUsername'] = util.domain_from_link(
-            unwrap(urls[0]), minimize=False)
+    # This has to be the domain for Mastodon interop/Webfinger discovery!
+    # See related comment in actor() below.
+    actor['preferredUsername'] = g.user.handle_as(ActivityPub).strip('@').split('@')[0]
 
     # Override the label for their home page to be "Web site"
     for att in util.get_list(actor, 'attachment'):
@@ -806,10 +802,7 @@ def actor(handle_or_id):
         },
         # add this if we ever change the Web actor ids to be /web/[id]
         # 'alsoKnownAs': [host_url(id)],
-    })
 
-    # TODO: genericize (see line 690 in postprocess_as2)
-    if cls.LABEL != 'atproto':
         # This has to be the id (domain for Web) for Mastodon etc interop! It
         # seems like it should be the custom username from the acct: u-url in
         # their h-card, but that breaks Mastodon's Webfinger discovery.
@@ -818,7 +811,8 @@ def actor(handle_or_id):
         # https://docs.joinmastodon.org/spec/webfinger/#mastodons-requirements-for-webfinger
         # https://github.com/snarfed/bridgy-fed/issues/302#issuecomment-1324305460
         # https://github.com/snarfed/bridgy-fed/issues/77
-        actor['preferredUsername'] = id
+        'preferredUsername': user.handle_as(ActivityPub).strip('@').split('@')[0],
+    })
 
     logger.info(f'Returning: {json_dumps(actor, indent=2)}')
     return actor, {

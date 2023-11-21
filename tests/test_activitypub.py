@@ -86,7 +86,7 @@ ACTOR_FAKE = {
     'following': 'https://fa.brid.gy/ap/fake:user/following',
     'followers': 'https://fa.brid.gy/ap/fake:user/followers',
     'endpoints': {'sharedInbox': 'https://fa.brid.gy/ap/sharedInbox'},
-    'preferredUsername': 'fake:user',
+    'preferredUsername': 'fake:handle:user',
     'summary': '',
     'publicKey': {
         'id': 'https://fa.brid.gy/ap/fake:user#key',
@@ -1661,7 +1661,7 @@ class ActivityPubUtilsTest(TestCase):
         }))
 
     def test_postprocess_as2_actor_attributedTo_author(self):
-        g.user = Fake(id='site')
+        g.user = Fake(id='fake:site')
         self.assert_equals({
             'actor': 'baj',
             'attributedTo': ['bar', 'baz'],
