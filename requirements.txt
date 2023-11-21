@@ -74,7 +74,7 @@ praw==7.7.1
 prawcore==2.4.0
 proto-plus==1.22.3
 protobuf==4.24.3
-pyasn1==0.5.0
+pyasn1==0.5.1
 pyasn1-modules==0.3.0
 pycparser==2.21
 pycryptodome==3.19.0
