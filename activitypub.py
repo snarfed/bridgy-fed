@@ -605,8 +605,6 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         activity['object'] = orig_id
     elif not id:
         obj['id'] = util.get_first(obj, 'url') or orig_id
-    elif g.user and g.user.is_web_url(id):
-        obj['id'] = g.user.ap_actor()
 
     # for Accepts
     if g.user and g.user.is_web_url(as1.get_object(obj).get('id')):

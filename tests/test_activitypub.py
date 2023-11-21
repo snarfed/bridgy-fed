@@ -1574,7 +1574,7 @@ class ActivityPubTest(TestCase):
 class ActivityPubUtilsTest(TestCase):
     def setUp(self):
         super().setUp()
-        g.user = self.make_user('user.com', cls=Web, has_hcard=True, obj_as2=ACTOR)
+        self.user = self.make_user('user.com', cls=Web, has_hcard=True, obj_as2=ACTOR)
 
     def test_put_validates_id(self, *_):
         for bad in (
@@ -1706,6 +1706,7 @@ class ActivityPubUtilsTest(TestCase):
         }))
 
     def test_postprocess_as2_url_attachments(self):
+        g.user = self.user
         got = postprocess_as2(as2.from_as1({
             'objectType': 'person',
             'urls': [
@@ -1748,6 +1749,7 @@ class ActivityPubUtilsTest(TestCase):
         # preferredUsername stays y.z despite user's username. since Mastodon
         # queries Webfinger for preferredUsername@fed.brid.gy
         # https://github.com/snarfed/bridgy-fed/issues/77#issuecomment-949955109
+        g.user = self.user
         self.assertEqual('user.com', postprocess_as2({
             'type': 'Person',
             'url': 'https://user.com/about-me',
@@ -1817,6 +1819,7 @@ class ActivityPubUtilsTest(TestCase):
                               allow_redirects=False),
         ]
 
+        g.user = self.user
         resp = activitypub.signed_post('https://first')
         mock_post.assert_called_once()
         self.assertEqual(302, resp.status_code)
@@ -1922,6 +1925,7 @@ class ActivityPubUtilsTest(TestCase):
             'actor': 'fake:user',
             'object': 'https://mas.to/thing',
         }
+        g.user = self.user
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': 'https://fa.brid.gy/convert/ap/fake:like',
@@ -1932,7 +1936,7 @@ class ActivityPubUtilsTest(TestCase):
         }, ActivityPub.convert(obj))
 
     def test_postprocess_as2_idempotent(self):
-        g.user = self.make_user('foo.com', cls=Web)
+        g.user = self.user
 
         for obj in (ACTOR, REPLY_OBJECT, REPLY_OBJECT_WRAPPED, REPLY,
                     NOTE_OBJECT, NOTE, MENTION_OBJECT, MENTION, LIKE,
@@ -2057,6 +2061,7 @@ class ActivityPubUtilsTest(TestCase):
             'author': 'http://the/author',
         })
         # test is that we short circuit out instead of infinite recursion
+        g.user = self.user
         self.assertIsNone(ActivityPub.target_for(obj))
 
     @patch('requests.post')
@@ -2076,6 +2081,7 @@ class ActivityPubUtilsTest(TestCase):
             'object': 'fake:post',
             'actor': 'fake:user',
         })
+        g.user = self.user
         self.assertTrue(ActivityPub.send(like, 'https://inbox'))
 
         self.assertEqual(1, len(mock_post.call_args_list))
