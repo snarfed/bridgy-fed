@@ -41,6 +41,7 @@ ACTOR = {
     'icon': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
     'image': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
 }
+ACTOR_AS1 = as2.to_as1(ACTOR)
 ACTOR_BASE = {
     '@context': [
         'https://www.w3.org/ns/activitystreams',
@@ -301,7 +302,7 @@ class ActivityPubTest(TestCase):
 
         self.user = self.make_user('user.com', cls=Web, has_hcard=True,
                                    has_redirects=True,
-                                   obj_as2={**ACTOR, 'id': 'https://user.com/'})
+                                   obj_as1={**ACTOR_AS1, 'id': 'https://user.com/'})
         self.swentel_key = ndb.Key(ActivityPub, 'https://mas.to/users/swentel')
         self.masto_actor_key = ndb.Key(ActivityPub, 'https://mas.to/actor')
 
@@ -366,7 +367,10 @@ class ActivityPubTest(TestCase):
         self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
         self.assertEqual({
             **ACTOR_BASE,
-            '@context': ['https://w3id.org/security/v1'],
+            '@context': [
+                'https://www.w3.org/ns/activitystreams',
+                'https://w3id.org/security/v1',
+            ],
             'name': 'Mrs. ☕ Foo',
             'icon': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
             'image': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
@@ -573,8 +577,10 @@ class ActivityPubTest(TestCase):
         self.assertEqual([('fake:my-reply#bridgy-fed-create', 'fake:post:target')],
                          Fake.sent)
 
-    def test_inbox_reply_to_self_domain(self, *mocks):
-        self._test_inbox_ignore_reply_to('http://localhost/user.com', *mocks)
+    def test_inbox_reply_to_self_domain(self, mock_head, mock_get, mock_post):
+        mock_get.return_value = test_web.ACTOR_HTML_RESP
+        self._test_inbox_ignore_reply_to('http://localhost/user.com',
+                                         mock_head, mock_get, mock_post)
 
     def test_inbox_reply_to_in_blocklist(self, mock_head, mock_get, mock_post):
         mock_get.return_value = HTML
@@ -866,8 +872,9 @@ class ActivityPubTest(TestCase):
                            type='follow',
                            object_ids=[FOLLOW['object']])
 
-    def test_inbox_follow_accept_shared_inbox(self, *mocks):
-        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, *mocks,
+    def test_inbox_follow_accept_shared_inbox(self, mock_head, mock_get, mock_post):
+        self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT,
+                                       mock_head, mock_get, mock_post,
                                        inbox_path='/ap/sharedInbox')
 
         url = 'https://mas.to/users/swentel#followed-user.com'
@@ -910,8 +917,8 @@ class ActivityPubTest(TestCase):
 
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
-            # source actor
-            self.as2_resp(ACTOR),
+            self.as2_resp(ACTOR),  # source actor
+            test_web.ACTOR_HTML_RESP,
             WEBMENTION_DISCOVERY,
         ]
         if not mock_post.return_value and not mock_post.side_effect:
@@ -959,6 +966,8 @@ class ActivityPubTest(TestCase):
         mock_get.side_effect = [
             # source actor
             self.as2_resp(ACTOR),
+            # target user
+            test_web.ACTOR_HTML_RESP,
             # target post webmention discovery
             requests_response('<html></html>'),
         ]
@@ -992,6 +1001,7 @@ class ActivityPubTest(TestCase):
 
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
+            test_web.ACTOR_HTML_RESP,
             WEBMENTION_DISCOVERY,
         ]
         mock_post.return_value = requests_response()
@@ -1012,6 +1022,7 @@ class ActivityPubTest(TestCase):
         mock_get.side_effect = [
             # source actor
             self.as2_resp(FOLLOW_WITH_ACTOR['actor']),
+            test_web.ACTOR_HTML_RESP,
             WEBMENTION_DISCOVERY,
         ]
         mock_post.return_value = requests_response()
@@ -1026,6 +1037,7 @@ class ActivityPubTest(TestCase):
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
+            test_web.ACTOR_HTML_RESP,
             WEBMENTION_DISCOVERY,
         ]
         mock_post.return_value = requests_response()
@@ -1037,6 +1049,7 @@ class ActivityPubTest(TestCase):
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
+            test_web.ACTOR_HTML_RESP,
             WEBMENTION_DISCOVERY,
         ]
         mock_post.return_value = requests_response()
@@ -1053,6 +1066,7 @@ class ActivityPubTest(TestCase):
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
+            test_web.ACTOR_HTML_RESP,
             WEBMENTION_DISCOVERY,
         ]
         mock_post.return_value = requests_response()
