@@ -938,12 +938,12 @@ def outbox(id):
     if not protocol:
         error(f"Couldn't determine protocol", status=404)
 
-    user = protocol.get_by_id(id)
-    if not user:
+    g.user = protocol.get_by_id(id)
+    if not g.user:
         error(f'User {id} not found', status=404)
 
-    query = Object.query(Object.users == user.key)
-    objects, before, after = fetch_objects(query, by=Object.updated, user=user)
+    query = Object.query(Object.users == g.user.key)
+    objects, before, after = fetch_objects(query, by=Object.updated, user=g.user)
 
     return {
             '@context': 'https://www.w3.org/ns/activitystreams',
