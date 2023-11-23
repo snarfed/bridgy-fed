@@ -158,6 +158,14 @@ class UserTest(TestCase):
         self.assertEqual('fake:handle:user', user.handle_as('fake'))
         self.assertEqual('@fake:handle:user@fa.brid.gy', user.handle_as('ap'))
 
+    def test_handle_as_web_custom_username(self, *_):
+        self.user.obj.our_as1 = {
+            'objectType': 'person',
+            'url': 'acct:alice@y.z',
+        }
+        self.assertEqual('alice', self.user.username())
+        self.assertEqual('@y.z@web.brid.gy', self.user.handle_as('ap'))
+
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_ap_actor(self, mock_get):
         user = self.make_user('did:plc:abc', cls=ATProto)

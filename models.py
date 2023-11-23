@@ -322,8 +322,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if isinstance(to_proto, str):
             to_proto = PROTOCOLS[to_proto]
 
-        return ids.translate_handle(handle=self.handle, from_proto=self.__class__,
-                                  to_proto=to_proto)
+        # override web users to always use domain instead of custom username
+        handle = self.key.id() if self.LABEL == 'web' else self.handle
+
+        return ids.translate_handle(handle=handle, from_proto=self.__class__,
+                                    to_proto=to_proto)
 
     def id_as(self, to_proto):
         """Returns this user's id in a different protocol.
