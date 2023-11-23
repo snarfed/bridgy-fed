@@ -24,7 +24,7 @@ from activitypub import ActivityPub
 import common
 from common import DOMAIN_RE
 from flask_app import app, cache
-from models import fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS
+from models import fetch_objects, fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS
 from protocol import Protocol
 
 # precompute this because we get a ton of requests for non-existing users
@@ -289,110 +289,6 @@ def bridge_user():
 
     flash(f'Bridging <a href="{user.web_url()}">{user.handle}</a> into Bluesky. <a href="https://bsky.app/search">Try searching for them</a> in a minute!')
     return render_template('bridge_user.html')
-
-
-def fetch_objects(query, by=None, user=None):
-    """Fetches a page of :class:`models.Object` entities from a datastore query.
-
-    Wraps :func:`models.fetch_page` and adds attributes to the returned
-    :class:`models.Object` entities for rendering in ``objects.html``.
-
-    Args:
-      query (ndb.Query)
-      by (ndb.model.Property): either :attr:`models.Object.updated` or
-        :attr:`models.Object.created`
-      user (models.User): current user
-
-    Returns:
-      (list of models.Object, str, str) tuple:
-      (results, new ``before`` query param, new ``after`` query param)
-      to fetch the previous and next pages, respectively
-    """
-    assert by is Object.updated or by is Object.created
-    objects, new_before, new_after = fetch_page(query, Object, by=by)
-    objects = [o for o in objects if not o.deleted]
-
-    # synthesize human-friendly content for objects
-    for i, obj in enumerate(objects):
-        if obj.deleted:
-            continue
-
-        obj_as1 = obj.as1
-        inner_obj = as1.get_object(obj_as1)
-
-        # synthesize text snippet
-        type = as1.object_type(obj_as1)
-        if type == 'post':
-            inner_type = inner_obj.get('objectType')
-            if inner_type:
-                type = inner_type
-
-        phrases = {
-            'article': 'posted',
-            'comment': 'replied',
-            'delete': 'deleted',
-            'follow': 'followed',
-            'invite': 'is invited to',
-            'issue': 'filed issue',
-            'like': 'liked',
-            'note': 'posted',
-            'post': 'posted',
-            'repost': 'reposted',
-            'rsvp-interested': 'is interested in',
-            'rsvp-maybe': 'might attend',
-            'rsvp-no': 'is not attending',
-            'rsvp-yes': 'is attending',
-            'share': 'reposted',
-            'stop-following': 'unfollowed',
-            'update': 'updated',
-        }
-        obj.phrase = phrases.get(type)
-
-        content = (inner_obj.get('content')
-                   or inner_obj.get('displayName')
-                   or inner_obj.get('summary'))
-        if content:
-            content = util.parse_html(content).get_text()
-
-        urls = as1.object_urls(inner_obj)
-        id = common.unwrap(inner_obj.get('id', ''))
-        url = urls[0] if urls else id
-        if (type == 'update' and
-            (obj.users and (user.is_web_url(id)
-                            or id.strip('/') == obj.users[0].id())
-             or obj.domains and id.strip('/') == f'https://{obj.domains[0]}')):
-            obj.phrase = 'updated'
-            obj_as1.update({
-                'content': 'their profile',
-                'url': id,
-            })
-        elif url:
-            # heuristics for sniffing Mastodon and similar fediverse URLs and
-            # converting them to more friendly @-names
-            # TODO: standardize this into granary.as2 somewhere?
-            if not content:
-                fedi_url = re.match(
-                    r'https://[^/]+/(@|users/)([^/@]+)(@[^/@]+)?(/(?:statuses/)?[0-9]+)?', url)
-                if fedi_url:
-                    content = '@' + fedi_url.group(2)
-                    if fedi_url.group(4):
-                        content += "'s post"
-            content = common.pretty_link(url, text=content)
-
-        obj.content = (obj_as1.get('content')
-                       or obj_as1.get('displayName')
-                       or obj_as1.get('summary'))
-        obj.url = util.get_first(obj_as1, 'url')
-
-        if type in ('like', 'follow', 'repost', 'share') or not obj.content:
-            if obj.url:
-                obj.phrase = common.pretty_link(obj.url, text=obj.phrase,
-                                                attrs={'class': 'u-url'})
-            if content:
-                obj.content = content
-                obj.url = url
-
-    return objects, new_before, new_after
 
 
 @app.get('/stats')
