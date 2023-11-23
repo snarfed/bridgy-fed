@@ -1550,25 +1550,44 @@ class ActivityPubTest(TestCase):
             'items': [ACTOR],
         }, resp.json)
 
-    def test_outbox_fake(self, *_):
-        self.make_user('foo.com', cls=Fake)
-        resp = self.client.get(f'/ap/foo.com/outbox',
+    def test_outbox_fake_empty(self, *_):
+        self.make_user('fake:foo', cls=Fake)
+        resp = self.client.get(f'/ap/fake:foo/outbox',
                                base_url='https://fa.brid.gy')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': 'https://fa.brid.gy/ap/foo.com/outbox',
-            'summary': "foo.com's outbox",
+            'id': 'https://fa.brid.gy/ap/fake:foo/outbox',
+            'summary': "fake:foo's outbox",
             'type': 'OrderedCollection',
-            'totalItems': 0,
             'first': {
                 'type': 'CollectionPage',
-                'partOf': 'https://fa.brid.gy/ap/foo.com/outbox',
+                'partOf': 'https://fa.brid.gy/ap/fake:foo/outbox',
                 'items': [],
             },
         }, resp.json)
 
-    def test_outbox_web(self, *_):
+    def test_outbox_fake_objects(self, *_):
+        user = self.make_user('fake:foo', cls=Fake)
+        for i, obj in enumerate([REPLY, MENTION, LIKE, DELETE]):
+            self.store_object(id=str(i), users=[user.key], as2=obj)
+
+        resp = self.client.get(f'/ap/fake:foo/outbox',
+                               base_url='https://fa.brid.gy')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'https://fa.brid.gy/ap/fake:foo/outbox',
+            'summary': "fake:foo's outbox",
+            'type': 'OrderedCollection',
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': 'https://fa.brid.gy/ap/fake:foo/outbox',
+                'items': [DELETE, LIKE, MENTION, REPLY],
+            },
+        }, resp.json)
+
+    def test_outbox_web_empty(self, *_):
         resp = self.client.get(f'/user.com/outbox')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
@@ -1576,7 +1595,6 @@ class ActivityPubTest(TestCase):
             'id': 'http://localhost/user.com/outbox',
             'summary': "user.com's outbox",
             'type': 'OrderedCollection',
-            'totalItems': 0,
             'first': {
                 'type': 'CollectionPage',
                 'partOf': 'http://localhost/user.com/outbox',

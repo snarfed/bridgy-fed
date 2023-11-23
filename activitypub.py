@@ -33,7 +33,7 @@ from common import (
     subdomain_wrap,
     unwrap,
 )
-from models import Follower, Object, User
+from models import fetch_objects, Follower, Object, User
 from protocol import Protocol
 import webfinger
 
@@ -932,18 +932,29 @@ def follower_collection(id, collection):
 @app.get(f'/ap/web/<regex("{DOMAIN_RE}"):id>/outbox')
 # special case Web users without /ap/web/ prefix, for backward compatibility
 @app.get(f'/<regex("{DOMAIN_RE}"):id>/outbox')
+@flask_util.cached(cache, CACHE_TIME)
 def outbox(id):
     protocol = Protocol.for_request(fed='web')
-    assert protocol
+    if not protocol:
+        error(f"Couldn't determine protocol", status=404)
+
+    user = protocol.get_by_id(id)
+    if not user:
+        error(f'User {id} not found', status=404)
+
+    query = Object.query(Object.users == user.key)
+    objects, before, after = fetch_objects(query, by=Object.updated, user=user)
+
     return {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': request.url,
             'summary': f"{id}'s outbox",
             'type': 'OrderedCollection',
-            'totalItems': 0,
+            # TODO. needs to handle deleted
+            # 'totalItems': query.count(),
             'first': {
                 'type': 'CollectionPage',
                 'partOf': request.base_url,
-                'items': [],
+                'items': [ActivityPub.convert(obj) for obj in objects],
             },
         }, {'Content-Type': as2.CONTENT_TYPE}
