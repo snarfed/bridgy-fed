@@ -730,8 +730,14 @@ def postprocess_as2_actor(actor, wrap=True):
     actor.setdefault('inbox', g.user.ap_actor('inbox'))
     actor.setdefault('outbox', g.user.ap_actor('outbox'))
 
-    # This has to be the domain for Mastodon interop/Webfinger discovery!
-    # See related comment in actor() below.
+    # This has to be the id (domain for Web) for Mastodon etc interop! It
+    # seems like it should be the custom username from the acct: u-url in
+    # their h-card, but that breaks Mastodon's Webfinger discovery.
+    # Background:
+    # https://docs.joinmastodon.org/spec/activitypub/#properties-used-1
+    # https://docs.joinmastodon.org/spec/webfinger/#mastodons-requirements-for-webfinger
+    # https://github.com/snarfed/bridgy-fed/issues/302#issuecomment-1324305460
+    # https://github.com/snarfed/bridgy-fed/issues/77
     actor['preferredUsername'] = g.user.handle_as(ActivityPub).strip('@').split('@')[0]
 
     # Override the label for their home page to be "Web site"
@@ -802,16 +808,6 @@ def actor(handle_or_id):
         },
         # add this if we ever change the Web actor ids to be /web/[id]
         # 'alsoKnownAs': [host_url(id)],
-
-        # This has to be the id (domain for Web) for Mastodon etc interop! It
-        # seems like it should be the custom username from the acct: u-url in
-        # their h-card, but that breaks Mastodon's Webfinger discovery.
-        # Background:
-        # https://docs.joinmastodon.org/spec/activitypub/#properties-used-1
-        # https://docs.joinmastodon.org/spec/webfinger/#mastodons-requirements-for-webfinger
-        # https://github.com/snarfed/bridgy-fed/issues/302#issuecomment-1324305460
-        # https://github.com/snarfed/bridgy-fed/issues/77
-        'preferredUsername': user.handle_as(ActivityPub).strip('@').split('@')[0],
     })
 
     logger.info(f'Returning: {json_dumps(actor, indent=2)}')

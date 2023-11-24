@@ -52,7 +52,7 @@ class PagesTest(TestCase):
 
     def test_user_fake(self):
         self.make_user('fake:foo', cls=Fake)
-        got = self.client.get('/fa/fake:foo')
+        got = self.client.get('/fake/fake:foo')
         self.assert_equals(200, got.status_code)
 
     def test_user_page_handle(self):
@@ -186,7 +186,7 @@ class PagesTest(TestCase):
 
     def test_home_fake(self):
         self.make_user('fake:foo', cls=Fake)
-        got = self.client.get('/fa/fake:foo/home')
+        got = self.client.get('/fake/fake:foo/home')
         self.assert_equals(200, got.status_code)
 
     def test_home_objects(self):
@@ -196,7 +196,7 @@ class PagesTest(TestCase):
 
     def test_notifications_fake(self):
         self.make_user('fake:foo', cls=Fake)
-        got = self.client.get('/fa/fake:foo/notifications')
+        got = self.client.get('/fake/fake:foo/notifications')
         self.assert_equals(200, got.status_code)
 
     def test_notifications_objects(self):
@@ -229,7 +229,7 @@ class PagesTest(TestCase):
 
     def test_followers_fake(self):
         self.make_user('fake:foo', cls=Fake)
-        got = self.client.get('/fa/fake:foo/followers')
+        got = self.client.get('/fake/fake:foo/followers')
         self.assert_equals(200, got.status_code)
 
     def test_followers_empty(self):
@@ -273,7 +273,7 @@ class PagesTest(TestCase):
 
     def test_following_fake(self):
         self.make_user('fake:foo', cls=Fake)
-        got = self.client.get('/fa/fake:foo/following')
+        got = self.client.get('/fake/fake:foo/following')
         self.assert_equals(200, got.status_code)
 
     def test_following_user_not_found(self):
@@ -304,7 +304,7 @@ class PagesTest(TestCase):
 
     def test_feed_fake(self):
         self.make_user('fake:foo', cls=Fake)
-        got = self.client.get('/fa/fake:foo/feed')
+        got = self.client.get('/fake/fake:foo/feed')
         self.assert_equals(200, got.status_code)
 
     def test_feed_html_empty(self):
