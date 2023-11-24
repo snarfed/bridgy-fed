@@ -875,7 +875,8 @@ def inbox(protocol=None, id=None):
 # source protocol in path; primarily for backcompat
 @app.get(f'/ap/web/<regex("{DOMAIN_RE}"):id>/<any(followers,following):collection>')
 # special case Web users without /ap/web/ prefix, for backward compatibility
-@app.get(f'/<regex("{DOMAIN_RE}"):id>/<any(followers,following):collection>')
+@app.route(f'/<regex("{DOMAIN_RE}"):id>/<any(followers,following):collection>',
+           methods=['GET', 'HEAD'])
 @flask_util.cached(cache, CACHE_TIME)
 def follower_collection(id, collection):
     """ActivityPub Followers and Following collections.
@@ -891,6 +892,9 @@ def follower_collection(id, collection):
     user = protocol.get_by_id(id)
     if not user:
         return f'{protocol} user {id} not found', 404
+
+    if request.method == 'HEAD':
+        return '', {'Content-Type': as2.CONTENT_TYPE}
 
     # page
     followers, new_before, new_after = Follower.fetch_page(collection, user=user)
@@ -931,7 +935,7 @@ def follower_collection(id, collection):
 # source protocol in path; primarily for backcompat
 @app.get(f'/ap/web/<regex("{DOMAIN_RE}"):id>/outbox')
 # special case Web users without /ap/web/ prefix, for backward compatibility
-@app.get(f'/<regex("{DOMAIN_RE}"):id>/outbox')
+@app.route(f'/<regex("{DOMAIN_RE}"):id>/outbox', methods=['GET', 'HEAD'])
 @flask_util.cached(cache, CACHE_TIME)
 def outbox(id):
     """Serves a user's AP outbox.
@@ -945,6 +949,9 @@ def outbox(id):
     g.user = protocol.get_by_id(id)
     if not g.user:
         error(f'User {id} not found', status=404)
+
+    if request.method == 'HEAD':
+        return '', {'Content-Type': as2.CONTENT_TYPE}
 
     query = Object.query(Object.users == g.user.key)
     objects, new_before, new_after = fetch_objects(query, by=Object.updated,

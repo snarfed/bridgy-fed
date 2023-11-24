@@ -1558,6 +1558,11 @@ class ActivityPubTest(TestCase):
             'items': [ACTOR],
         }, resp.json)
 
+    def test_following_collection_head(self, *_):
+        resp = self.client.head(f'/user.com/following')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual('', resp.get_data(as_text=True))
+
     def test_outbox_fake_empty(self, *_):
         self.make_user('fake:foo', cls=Fake)
         resp = self.client.get(f'/ap/fake:foo/outbox',
@@ -1640,6 +1645,11 @@ class ActivityPubTest(TestCase):
                 'items': [],
             },
         }, resp.json)
+
+    def test_outbox_web_head(self, *_):
+        resp = self.client.head(f'/user.com/outbox')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual('', resp.get_data(as_text=True))
 
 
 class ActivityPubUtilsTest(TestCase):
