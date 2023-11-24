@@ -1741,19 +1741,6 @@ class ActivityPubUtilsTest(TestCase):
             'image': [{'url': 'http://r/foo'}, {'url': 'http://r/bar'}],
         }))
 
-    def test_postprocess_as2_actor_attributedTo_author(self):
-        g.user = Fake(id='fake:site')
-        self.assert_equals({
-            'actor': 'baj',
-            'attributedTo': ['bar', 'baz'],
-            'author': 'biff',
-            'to': [as2.PUBLIC_AUDIENCE],
-        }, postprocess_as2({
-            'attributedTo': [{'id': 'bar'}, {'id': 'baz'}],
-            'actor': {'id': 'baj'},
-            'author': {'id': 'biff'},
-        }))
-
     def test_postprocess_as2_note(self):
         self.assert_equals({
             'id': 'http://localhost/r/xyz',
@@ -2015,6 +2002,18 @@ class ActivityPubUtilsTest(TestCase):
             'object': 'https://mas.to/thing',
             'to': [as2.PUBLIC_AUDIENCE],
         }, ActivityPub.convert(obj))
+
+    def test_convert_compact_actor_attributedTo_author(self):
+        obj = Object(our_as1={
+            'actor': {'id': 'baj'},
+            'author': [{'id': 'bar'}],
+            'object': {'author': {'id': 'biff'}},
+        })
+        self.assert_equals({
+            'actor': 'baj',
+            'attributedTo': 'bar',
+            'object': {'attributedTo': 'biff'},
+        }, ActivityPub.convert(obj), ignore=['to'])
 
     def test_postprocess_as2_idempotent(self):
         g.user = self.user

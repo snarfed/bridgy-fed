@@ -325,15 +325,24 @@ class ActivityPub(User, Protocol):
         Returns:
           dict: AS2 JSON
         """
-        if not obj:
+        if not obj or not obj.as1:
             return {}
-
         if obj.as2:
             return obj.as2
 
         translated = cls.translate_ids(obj.as1)
-        if translated:
-            translated['actor'] = as1.get_object(translated, 'actor').get('id')
+
+        # compact actors to just string id for compatibility, since many other
+        # AP implementations choke on objects.
+        # https://github.com/snarfed/bridgy-fed/issues/658
+        #
+        # TODO: expand this to general purpose compact() function and use elsewhere,
+        # eg in models.resolve_id
+        for o in translated, as1.get_object(translated):
+            for field in 'actor', 'attributedTo', 'author':
+                actors = as1.get_objects(o, field)
+                ids = [a['id'] for a in actors if a.get('id')]
+                o[field] = ids[0] if len(ids) == 1 else ids
 
         converted = as2.from_as1(translated)
         if obj.source_protocol in ('ap', 'activitypub'):
@@ -558,18 +567,6 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
                              ['https://w3id.org/security/v1']),
             })
         return activity
-
-    # actors. wrap in our domain if necessary, then compact to just string id
-    # for compatibility, since many other AP implementations choke on objects.
-    # https://github.com/snarfed/bridgy-fed/issues/658
-    # TODO: expand this to general purpose compact() function and use elsewhere,
-    # eg in models.resolve_id
-    for field in 'actor', 'attributedTo', 'author':
-        actors = as1.get_objects(activity, field)
-        if wrap:
-            actors = [postprocess_as2_actor(actor, wrap=wrap) for actor in actors]
-        ids = [a['id'] for a in actors if a.get('id')]
-        activity[field] = ids[0] if len(ids) == 1 else ids
 
     # inReplyTo: singly valued, prefer id over url
     # TODO: ignore orig_obj, do for all inReplyTo
