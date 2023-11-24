@@ -166,6 +166,15 @@ class UserTest(TestCase):
         self.assertEqual('alice', self.user.username())
         self.assertEqual('@y.z@web.brid.gy', self.user.handle_as('ap'))
 
+    def test_handle_as_None(self):
+        class NoHandle(Fake):
+            @ndb.ComputedProperty
+            def handle(self):
+                return None
+
+        user = NoHandle()
+        self.assertIsNone(user.handle_as(OtherFake))
+
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_ap_actor(self, mock_get):
         user = self.make_user('did:plc:abc', cls=ATProto)

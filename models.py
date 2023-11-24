@@ -324,6 +324,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         # override web users to always use domain instead of custom username
         handle = self.key.id() if self.LABEL == 'web' else self.handle
+        if not handle:
+            return None
 
         return ids.translate_handle(handle=handle, from_proto=self.__class__,
                                     to_proto=to_proto)
