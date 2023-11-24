@@ -738,7 +738,9 @@ def postprocess_as2_actor(actor, wrap=True):
     # https://docs.joinmastodon.org/spec/webfinger/#mastodons-requirements-for-webfinger
     # https://github.com/snarfed/bridgy-fed/issues/302#issuecomment-1324305460
     # https://github.com/snarfed/bridgy-fed/issues/77
-    actor['preferredUsername'] = g.user.handle_as(ActivityPub).strip('@').split('@')[0]
+    handle = g.user.handle_as(ActivityPub)
+    if handle:
+        actor['preferredUsername'] = handle.strip('@').split('@')[0]
 
     # Override the label for their home page to be "Web site"
     for att in util.get_list(actor, 'attachment'):
@@ -942,15 +944,15 @@ def outbox(id):
     objects, before, after = fetch_objects(query, by=Object.updated, user=g.user)
 
     return {
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': request.url,
-            'summary': f"{id}'s outbox",
-            'type': 'OrderedCollection',
-            # TODO. needs to handle deleted
-            # 'totalItems': query.count(),
-            'first': {
-                'type': 'CollectionPage',
-                'partOf': request.base_url,
-                'items': [ActivityPub.convert(obj) for obj in objects],
-            },
-        }, {'Content-Type': as2.CONTENT_TYPE}
+        '@context': 'https://www.w3.org/ns/activitystreams',
+        'id': request.url,
+        'summary': f"{id}'s outbox",
+        'type': 'OrderedCollection',
+        # TODO. needs to handle deleted
+        # 'totalItems': query.count(),
+        'first': {
+            'type': 'CollectionPage',
+            'partOf': request.base_url,
+            'items': [ActivityPub.convert(obj) for obj in objects],
+        },
+    }, {'Content-Type': as2.CONTENT_TYPE}

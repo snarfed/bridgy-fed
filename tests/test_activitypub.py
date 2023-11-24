@@ -23,6 +23,7 @@ from .testutil import Fake, TestCase
 
 import activitypub
 from activitypub import ActivityPub, default_signature_user, postprocess_as2
+from atproto import ATProto
 import common
 from models import Follower, Object
 import protocol
@@ -427,6 +428,13 @@ class ActivityPubTest(TestCase):
             **ACTOR,
             **ACTOR_FAKE,
         }, got.json, ignore=['publicKeyPem'])
+
+    def test_actor_no_handle(self, *_):
+        self.store_object(id='did:plc:user', raw={'foo': 'bar'})
+        self.make_user('did:plc:user', cls=ATProto)
+        got = self.client.get('/ap/did:plc:user', base_url='https://atproto.brid.gy/')
+        self.assertEqual(200, got.status_code)
+        self.assertNotIn('preferredUsername', got.json)
 
     def test_actor_handle_user_fetch_fails(self, _, __, ___):
         got = self.client.get('/ap/fake/fake:handle:nope')

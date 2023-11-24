@@ -79,12 +79,11 @@ class ATProto(User, Protocol):
     @ndb.ComputedProperty
     def handle(self):
         """Returns handle if the DID document includes one, otherwise None."""
-        did_obj = ATProto.load(self.key.id())
-        if did_obj:
-            handle, _, _ = parse_at_uri(
-                util.get_first(did_obj.raw, 'alsoKnownAs', ''))
-            if handle:
-                return handle
+        if did_obj := ATProto.load(self.key.id()):
+            if aka := util.get_first(did_obj.raw, 'alsoKnownAs', ''):
+                handle, _, _ = parse_at_uri(aka)
+                if handle:
+                    return handle
 
     def web_url(self):
         return bluesky.Bluesky.user_url(self.handle_or_id())
