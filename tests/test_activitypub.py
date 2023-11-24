@@ -22,7 +22,12 @@ from werkzeug.exceptions import BadGateway
 from .testutil import Fake, TestCase
 
 import activitypub
-from activitypub import ActivityPub, default_signature_user, postprocess_as2
+from activitypub import (
+    ActivityPub,
+    default_signature_user,
+    postprocess_as2,
+    postprocess_as2_actor,
+)
 from atproto import ATProto
 import common
 from models import Follower, Object
@@ -1773,9 +1778,9 @@ class ActivityPubUtilsTest(TestCase):
             ],
         }))
 
-    def test_postprocess_as2_url_attachments(self):
+    def test_postprocess_as2_actor_url_attachments(self):
         g.user = self.user
-        got = postprocess_as2(as2.from_as1({
+        got = postprocess_as2_actor(as2.from_as1({
             'objectType': 'person',
             'urls': [
                 {
@@ -1813,12 +1818,12 @@ class ActivityPubUtilsTest(TestCase):
             'value': '<a rel="me" href="https://two"><span class="invisible">https://</span>two</a>',
         }], got['attachment'])
 
-    def test_postprocess_as2_preserves_preferredUsername(self):
+    def test_postprocess_as2_actor_preserves_preferredUsername(self):
         # preferredUsername stays y.z despite user's username. since Mastodon
         # queries Webfinger for preferredUsername@fed.brid.gy
         # https://github.com/snarfed/bridgy-fed/issues/77#issuecomment-949955109
         g.user = self.user
-        self.assertEqual('user.com', postprocess_as2({
+        self.assertEqual('user.com', postprocess_as2_actor({
             'type': 'Person',
             'url': 'https://user.com/about-me',
             'preferredUsername': 'nick',

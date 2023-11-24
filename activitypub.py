@@ -336,8 +336,8 @@ class ActivityPub(User, Protocol):
         # AP implementations choke on objects.
         # https://github.com/snarfed/bridgy-fed/issues/658
         #
-        # TODO: expand this to general purpose compact() function and use elsewhere,
-        # eg in models.resolve_id
+        # TODO: expand this to general purpose compact() function and use
+        # elsewhere, eg in models.resolve_id
         for o in translated, as1.get_object(translated):
             for field in 'actor', 'attributedTo', 'author':
                 actors = as1.get_objects(o, field)
@@ -345,8 +345,15 @@ class ActivityPub(User, Protocol):
                 o[field] = ids[0] if len(ids) == 1 else ids
 
         converted = as2.from_as1(translated)
+
         if obj.source_protocol in ('ap', 'activitypub'):
             return converted
+
+        if converted.get('type') == 'Person':
+            return postprocess_as2_actor(converted)
+
+        if as1.get_object(converted).get('type') == 'Person':
+            converted['object'] = postprocess_as2_actor(converted['object'])
 
         return postprocess_as2(converted, **kwargs)
 
@@ -549,25 +556,6 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
 
     type = activity.get('type')
 
-    # actor objects
-    if type == 'Person':
-        postprocess_as2_actor(activity)
-        if g.user and not activity.get('publicKey'):
-            # underspecified, inferred from this issue and Mastodon's implementation:
-            # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
-            # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
-            actor_url = g.user.ap_actor()
-            activity.update({
-                'publicKey': {
-                    'id': f'{actor_url}#key',
-                    'owner': actor_url,
-                    'publicKeyPem': g.user.public_pem().decode(),
-                },
-                '@context': (util.get_list(activity, '@context') +
-                             ['https://w3id.org/security/v1']),
-            })
-        return activity
-
     # inReplyTo: singly valued, prefer id over url
     # TODO: ignore orig_obj, do for all inReplyTo
     orig_id = orig_obj.get('id') if orig_obj else None
@@ -714,7 +702,7 @@ def postprocess_as2_actor(actor, wrap=True):
             return g.user.ap_actor()
         return redirect_wrap(actor)
 
-    url = g.user.web_url() if g.user else None
+    url = g.user.web_url()
     urls = util.get_list(actor, 'url')
     if not urls and url:
         urls = [url]
@@ -722,7 +710,7 @@ def postprocess_as2_actor(actor, wrap=True):
         urls[0] = redirect_wrap(urls[0])
 
     id = actor.get('id')
-    if g.user and (not id or g.user.is_web_url(id)):
+    if not id or g.user.is_web_url(id):
         actor['id'] = g.user.ap_actor()
 
     actor['url'] = urls[0] if len(urls) == 1 else urls
@@ -754,6 +742,22 @@ def postprocess_as2_actor(actor, wrap=True):
 
     # required by pixelfed. https://github.com/snarfed/bridgy-fed/issues/39
     actor.setdefault('summary', '')
+
+    if not actor.get('publicKey'):
+        # underspecified, inferred from this issue and Mastodon's implementation:
+        # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
+        # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
+        actor_url = g.user.ap_actor()
+        actor.update({
+            'publicKey': {
+                'id': f'{actor_url}#key',
+                'owner': actor_url,
+                'publicKeyPem': g.user.public_pem().decode(),
+            },
+            '@context': (util.get_list(actor, '@context') +
+                         ['https://w3id.org/security/v1']),
+        })
+
     return actor
 
 
@@ -799,7 +803,7 @@ def actor(handle_or_id):
         '@context': [as2.CONTEXT],
         'type': 'Person',
     }
-    actor = postprocess_as2(actor)
+    actor = postprocess_as2_actor(actor)
     actor.update({
         'id': user.ap_actor(),
         'inbox': user.ap_actor('inbox'),

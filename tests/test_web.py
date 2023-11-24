@@ -1592,6 +1592,7 @@ class WebTest(TestCase):
                 **ACTOR_AS2,
                 'attachment': ACTOR_AS2_FULL['attachment'],
                 'updated': NOW.isoformat(),
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         }
