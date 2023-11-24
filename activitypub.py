@@ -331,11 +331,15 @@ class ActivityPub(User, Protocol):
         if obj.as2:
             return obj.as2
 
-        translated = as2.from_as1(cls.translate_ids(obj.as1))
-        if obj.source_protocol in ('ap', 'activitypub'):
-            return translated
+        translated = cls.translate_ids(obj.as1)
+        if translated:
+            translated['actor'] = as1.get_object(translated, 'actor').get('id')
 
-        return postprocess_as2(translated, **kwargs)
+        converted = as2.from_as1(translated)
+        if obj.source_protocol in ('ap', 'activitypub'):
+            return converted
+
+        return postprocess_as2(converted, **kwargs)
 
     @classmethod
     def verify_signature(cls, activity):
