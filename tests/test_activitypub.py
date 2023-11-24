@@ -1568,6 +1568,7 @@ class ActivityPubTest(TestCase):
             'id': 'https://fa.brid.gy/ap/fake:foo/outbox',
             'summary': "fake:foo's outbox",
             'type': 'OrderedCollection',
+            'totalItems': 0,
             'first': {
                 'type': 'CollectionPage',
                 'partOf': 'https://fa.brid.gy/ap/fake:foo/outbox',
@@ -1575,24 +1576,53 @@ class ActivityPubTest(TestCase):
             },
         }, resp.json)
 
+    def store_outbox_objects(self, user):
+        for i, obj in enumerate([REPLY, MENTION, LIKE, DELETE]):
+            self.store_object(id=obj['id'], users=[user.key], as2=obj)
+
+    @patch('models.PAGE_SIZE', 2)
     def test_outbox_fake_objects(self, *_):
         user = self.make_user('fake:foo', cls=Fake)
-        for i, obj in enumerate([REPLY, MENTION, LIKE, DELETE]):
-            self.store_object(id=str(i), users=[user.key], as2=obj)
+        self.store_outbox_objects(user)
 
         resp = self.client.get(f'/ap/fake:foo/outbox',
                                base_url='https://fa.brid.gy')
         self.assertEqual(200, resp.status_code)
+
+        after = Object.get_by_id(LIKE['id']).updated.isoformat()
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': 'https://fa.brid.gy/ap/fake:foo/outbox',
             'summary': "fake:foo's outbox",
             'type': 'OrderedCollection',
+            'totalItems': 4,
             'first': {
                 'type': 'CollectionPage',
                 'partOf': 'https://fa.brid.gy/ap/fake:foo/outbox',
-                'items': [DELETE, LIKE, MENTION, REPLY],
+                'items': [DELETE, LIKE],
+                'next': f'https://fa.brid.gy/ap/fake:foo/outbox?before={after}',
             },
+        }, resp.json)
+
+    @patch('models.PAGE_SIZE', 2)
+    def test_outbox_fake_objects_page(self, *_):
+        user = self.make_user('fake:foo', cls=Fake)
+        self.store_outbox_objects(user)
+
+        after = datetime(1900, 1, 1).isoformat()
+        resp = self.client.get(f'/ap/fake:foo/outbox?after={after}',
+                               base_url='https://fa.brid.gy')
+        self.assertEqual(200, resp.status_code)
+
+        prev = Object.get_by_id(MENTION['id']).updated.isoformat()
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': f'https://fa.brid.gy/ap/fake:foo/outbox?after={after}',
+            'type': 'CollectionPage',
+            'partOf': 'https://fa.brid.gy/ap/fake:foo/outbox',
+            'prev': f'https://fa.brid.gy/ap/fake:foo/outbox?after={prev}',
+            'next': f'https://fa.brid.gy/ap/fake:foo/outbox?before={after}',
+            'items': [MENTION, REPLY],
         }, resp.json)
 
     def test_outbox_web_empty(self, *_):
@@ -1603,6 +1633,7 @@ class ActivityPubTest(TestCase):
             'id': 'http://localhost/user.com/outbox',
             'summary': "user.com's outbox",
             'type': 'OrderedCollection',
+            'totalItems': 0,
             'first': {
                 'type': 'CollectionPage',
                 'partOf': 'http://localhost/user.com/outbox',

@@ -883,6 +883,8 @@ def follower_collection(id, collection):
     * https://www.w3.org/TR/activitypub/#followers
     * https://www.w3.org/TR/activitypub/#collections
     * https://www.w3.org/TR/activitystreams-core/#paging
+
+    TODO: unify page generation with outbox()
     """
     protocol = Protocol.for_request(fed='web')
     assert protocol
@@ -932,6 +934,10 @@ def follower_collection(id, collection):
 @app.get(f'/<regex("{DOMAIN_RE}"):id>/outbox')
 @flask_util.cached(cache, CACHE_TIME)
 def outbox(id):
+    """Serves a user's AP outbox.
+
+    TODO: unify page generation with follower_collection()
+    """
     protocol = Protocol.for_request(fed='web')
     if not protocol:
         error(f"Couldn't determine protocol", status=404)
@@ -941,18 +947,34 @@ def outbox(id):
         error(f'User {id} not found', status=404)
 
     query = Object.query(Object.users == g.user.key)
-    objects, before, after = fetch_objects(query, by=Object.updated, user=g.user)
+    objects, new_before, new_after = fetch_objects(query, by=Object.updated,
+                                                   user=g.user)
 
+    # page
+    page = {
+        'type': 'CollectionPage',
+        'partOf': request.base_url,
+        'items': util.trim_nulls([ActivityPub.convert(obj) for obj in objects]),
+    }
+    if new_before:
+        page['next'] = f'{request.base_url}?before={new_before}'
+    if new_after:
+        page['prev'] = f'{request.base_url}?after={new_after}'
+
+    if 'before' in request.args or 'after' in request.args:
+        page.update({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': request.url,
+        })
+        logger.info(f'Returning {json_dumps(page, indent=2)}')
+        return page, {'Content-Type': as2.CONTENT_TYPE}
+
+    # collection
     return {
         '@context': 'https://www.w3.org/ns/activitystreams',
         'id': request.url,
-        'summary': f"{id}'s outbox",
         'type': 'OrderedCollection',
-        # TODO. needs to handle deleted
-        # 'totalItems': query.count(),
-        'first': {
-            'type': 'CollectionPage',
-            'partOf': request.base_url,
-            'items': [ActivityPub.convert(obj) for obj in objects],
-        },
+        'summary': f"{id}'s outbox",
+        'totalItems': query.count(),
+        'first': page,
     }, {'Content-Type': as2.CONTENT_TYPE}
