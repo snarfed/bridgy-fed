@@ -107,6 +107,7 @@ REPLY_OBJECT = {
     'content': 'A ☕ reply',
     'id': 'http://mas.to/reply/id',
     'url': 'http://mas.to/reply',
+    'author': 'https://mas.to/users/swentel',
     'inReplyTo': 'https://user.com/post',
     'to': [as2.PUBLIC_AUDIENCE],
 }
@@ -491,7 +492,10 @@ class ActivityPubTest(TestCase):
             'http://mas.to/reply/id#bridgy-fed-create',
             source_protocol='activitypub',
             our_as1={
-                **as2.to_as1(REPLY),
+                **as2.to_as1({
+                    **REPLY,
+                    'actor': ACTOR,
+                }),
                 'id': 'http://mas.to/reply/id#bridgy-fed-create',
                 'published': '2022-01-02T03:04:05+00:00',
             },
@@ -499,6 +503,7 @@ class ActivityPubTest(TestCase):
             delivered=['https://user.com/post'],
             type='post',
             notify=[self.user.key],
+            users=[self.swentel_key],
         )
 
     def test_inbox_reply_object_wrapped(self, mock_head, mock_get, mock_post):
@@ -513,7 +518,10 @@ class ActivityPubTest(TestCase):
             'http://mas.to/reply/id#bridgy-fed-create',
             source_protocol='activitypub',
             our_as1={
-                **as2.to_as1(REPLY),
+                **as2.to_as1({
+                    **REPLY,
+                    'actor': ACTOR,
+                }),
                 'id': 'http://mas.to/reply/id#bridgy-fed-create',
                 'published': '2022-01-02T03:04:05+00:00',
             },
@@ -521,6 +529,7 @@ class ActivityPubTest(TestCase):
             delivered=['https://user.com/post'],
             type='post',
             notify=[self.user.key],
+            users=[self.swentel_key],
         )
 
     def test_inbox_reply_create_activity(self, mock_head, mock_get, mock_post):
@@ -528,10 +537,7 @@ class ActivityPubTest(TestCase):
 
         self.assert_object('http://mas.to/reply/id',
                            source_protocol='activitypub',
-                           our_as1=as2.to_as1({
-                               **REPLY_OBJECT,
-                               'author': None,
-                           }),
+                           our_as1=as2.to_as1(REPLY_OBJECT),
                            type='comment')
         # sent activity
         self.assert_object(
@@ -542,12 +548,14 @@ class ActivityPubTest(TestCase):
             delivered=['https://user.com/post'],
             type='post',
             notify=[self.user.key],
+            users=[self.swentel_key],
         )
 
     def _test_inbox_reply(self, reply, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/post')
         mock_get.side_effect = (
-            (list(mock_get.side_effect) if mock_get.side_effect else [])
+            (list(mock_get.side_effect) if mock_get.side_effect
+             else [self.as2_resp(ACTOR)])
             + [
                 requests_response(test_web.NOTE_HTML),
                 requests_response(test_web.NOTE_HTML),
@@ -574,7 +582,9 @@ class ActivityPubTest(TestCase):
             },
         )
 
-    def test_inbox_reply_protocol_subdomain(self, reply, *_):
+    def test_inbox_reply_protocol_subdomain(self, mock_head, mock_get, mock_post):
+        mock_get.return_value = self.as2_resp(ACTOR)
+
         Fake.fetchable['fake:post'] = as2.to_as1({
             **NOTE_OBJECT,
             'id': 'fake:post',
@@ -584,6 +594,7 @@ class ActivityPubTest(TestCase):
             'id': 'fake:my-reply',
             'inReplyTo': 'fake:post',
         }
+
         got = self.post('/ap/fake:user/inbox', json=reply,
                         base_url='https://fa.brid.gy/')
         self.assertEqual(202, got.status_code)

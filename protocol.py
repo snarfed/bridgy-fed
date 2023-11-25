@@ -607,12 +607,18 @@ class Protocol:
             error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
 
         # add owner(s)
-        # (actor_key returns None if the user is opted out)
+        owner = as1.get_owner(obj.as1)
+        if not owner:
+            error(r'Activity missing actor or author', status=400)
+
         actor_key = from_cls.actor_key(obj)
-        if actor_key:
-            obj.add('users', actor_key)
-            if not g.user:
-                g.user = from_cls.get_or_create(id=actor_key.id())
+        # actor_key returns None if the user is opted out
+        if not actor_key:
+            error(r'Actor {owner} is opted out', status=204)
+
+        obj.add('users', actor_key)
+        if not g.user:
+            g.user = from_cls.get_or_create(id=actor_key.id())
 
         inner_obj_as1 = as1.get_object(obj.as1)
         if obj.as1.get('verb') in ('post', 'update', 'delete'):

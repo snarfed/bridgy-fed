@@ -570,7 +570,7 @@ class ProtocolReceiveTest(TestCase):
                                  },
                                  delivered=['shared:target'],
                                  type='post',
-                                 users=[self.user.key],
+                                 users=[Fake(id='fake:user').key],
                                  notify=[],
                                  )
 
@@ -704,6 +704,7 @@ class ProtocolReceiveTest(TestCase):
         post_as1 = {
             'id': 'fake:post',
             'objectType': 'note',
+            'author': 'fake:alice',
             'content': 'first',
         }
         self.store_object(id='fake:post', our_as1=post_as1)
@@ -727,12 +728,12 @@ class ProtocolReceiveTest(TestCase):
                                      'objectType': 'activity',
                                      'verb': 'update',
                                      'id': update_id,
+                                     'actor': 'fake:alice',
                                      'object': post_as1,
                                  },
                                  delivered=[],
                                  type='update',
-                                 # post has no author
-                                 users=[],
+                                 users=[Fake(id='fake:alice').key],
                                  notify=[],
                                  )
 
@@ -1096,6 +1097,7 @@ class ProtocolReceiveTest(TestCase):
                 'objectType': 'activity',
                 'verb': 'delete',
                 'id': 'fake:delete',
+                'actor': 'fake:alice',
                 'object': 'fake:alice',
             })
 
@@ -1529,6 +1531,7 @@ class ProtocolReceiveTest(TestCase):
     def test_resolve_ids_share(self):
         share = {
             'objectType': 'activity',
+            'actor': 'fake:alice',
             'verb': 'share',
             'object': 'fake:post',
         }
@@ -1551,6 +1554,7 @@ class ProtocolReceiveTest(TestCase):
         self.assert_equals({
             'id': 'fake:share',
             'objectType': 'activity',
+            'actor': 'fake:alice',
             'verb': 'share',
             'object': 'other:post',
         }, obj.our_as1)
@@ -1558,6 +1562,7 @@ class ProtocolReceiveTest(TestCase):
     def test_resolve_ids_reply(self):
         reply = {
             'id': 'other:reply',
+            'actor': 'other:eve',
             'objectType': 'note',
             'inReplyTo': [
                 'other:unknown-post',
@@ -1595,6 +1600,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual({
             'id': 'other:reply',
             'objectType': 'note',
+            'actor': 'other:eve',
             'inReplyTo': [
                 'other:unknown-post',
                 'fake:post',
