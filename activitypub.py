@@ -91,7 +91,7 @@ class ActivityPub(User, Protocol):
     def handle(self):
         """Returns this user's ActivityPub address, eg ``@user@foo.com``."""
         if self.obj and self.obj.as1:
-            addr = as2.address(self.convert(self.obj))
+            addr = as2.address(self.convert(self.obj, from_user=self))
             if addr:
                 return addr
 
@@ -912,7 +912,8 @@ def follower_collection(id, collection):
     page = {
         'type': 'CollectionPage',
         'partOf': request.base_url,
-        'items': util.trim_nulls([ActivityPub.convert(f.user.obj) for f in followers]),
+        'items': util.trim_nulls([ActivityPub.convert(f.user.obj, from_user=f.user)
+                                  for f in followers]),
     }
     if new_before:
         page['next'] = f'{request.base_url}?before={new_before}'
@@ -972,7 +973,8 @@ def outbox(id):
     page = {
         'type': 'CollectionPage',
         'partOf': request.base_url,
-        'items': util.trim_nulls([ActivityPub.convert(obj) for obj in objects]),
+        'items': util.trim_nulls([ActivityPub.convert(obj, from_user=user)
+                                  for obj in objects]),
     }
     if new_before:
         page['next'] = f'{request.base_url}?before={new_before}'
