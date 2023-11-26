@@ -315,12 +315,14 @@ class ActivityPub(User, Protocol):
         return False
 
     @classmethod
-    def convert(cls, obj, **kwargs):
+    def convert(cls, obj, orig_obj=None):
         """Convert a :class:`models.Object` to AS2.
 
         Args:
           obj (models.Object)
-          kwargs: passed through to :func:`postprocess_as2`
+          orig_obj (dict): AS2 object, optional. The target of activity's
+            ``inReplyTo`` or ``Like``/``Announce``/etc object, if any. Passed
+            through to :func:`postprocess_as2`.
 
         Returns:
           dict: AS2 JSON
@@ -355,7 +357,7 @@ class ActivityPub(User, Protocol):
         if as1.get_object(converted).get('type') == 'Person':
             converted['object'] = postprocess_as2_actor(converted['object'])
 
-        return postprocess_as2(converted, **kwargs)
+        return postprocess_as2(converted, orig_obj=orig_obj)
 
     @classmethod
     def verify_signature(cls, activity):
