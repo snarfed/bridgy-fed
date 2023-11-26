@@ -631,7 +631,7 @@ def webmention_task():
         })
 
     try:
-        return Web.receive(obj)
+        return Web.receive(obj, authed_as=user)
     except ValueError as e:
         logger.warning(e, exc_info=True)
         error(e, status=304)
