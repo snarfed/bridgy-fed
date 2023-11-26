@@ -358,7 +358,9 @@ class ActivityPub(User, Protocol):
             converted['object'] = postprocess_as2_actor(converted['object'],
                                                         user=from_user)
 
-        return postprocess_as2(converted, orig_obj=orig_obj)
+        return postprocess_as2(converted, orig_obj=orig_obj,
+                               # TODO: remove
+                               from_user=from_user)
 
     @classmethod
     def verify_signature(cls, activity):
@@ -469,14 +471,12 @@ def signed_post(url, from_user, **kwargs):
 def signed_request(fn, url, data=None, headers=None, from_user=None, **kwargs):
     """Wraps ``requests.*`` and adds HTTP Signature.
 
-    If the current session has a user (ie in ``g.user``), signs with that user's
-    key. Otherwise, uses the default user snarfed.org.
-
     Args:
       fn (callable): :func:`util.requests_get` or  :func:`util.requests_post`
       url (str):
       data (dict): optional AS2 object
-      from_user (models.User): user to sign request as; optional
+      from_user (models.User): user to sign request as; optional. If not
+        provided, uses the default user ``@snarfed.org@snarfed.org``.
       kwargs: passed through to requests
 
     Returns:
@@ -539,7 +539,9 @@ def signed_request(fn, url, data=None, headers=None, from_user=None, **kwargs):
     return resp
 
 
-def postprocess_as2(activity, orig_obj=None, wrap=True):
+def postprocess_as2(activity, orig_obj=None, wrap=True,
+                    # TODO: remove
+                    from_user=None):
     """Prepare an AS2 object to be served or sent via ActivityPub.
 
     Args:
@@ -596,8 +598,8 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         obj['id'] = util.get_first(obj, 'url') or orig_id
 
     # for Accepts
-    if g.user and g.user.is_web_url(as1.get_object(obj).get('id')):
-        obj['object'] = g.user.ap_actor()
+    if from_user and from_user.is_web_url(as1.get_object(obj).get('id')):
+        obj['object'] = from_user.ap_actor()
 
     # id is required for most things. default to url if it's not set.
     if not activity.get('id'):
@@ -675,7 +677,9 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
 
     activity['object'] = [
         postprocess_as2(o, orig_obj=orig_obj,
-                        wrap=wrap and type in ('Create', 'Update', 'Delete'))
+                        wrap=wrap and type in ('Create', 'Update', 'Delete'),
+                        # TODO: remove
+                        from_user=from_user)
         for o in as1.get_objects(activity)]
     if len(activity['object']) == 1:
         activity['object'] = activity['object'][0]
@@ -950,16 +954,16 @@ def outbox(id):
     if not protocol:
         error(f"Couldn't determine protocol", status=404)
 
-    g.user = protocol.get_by_id(id)
-    if not g.user:
+    user = protocol.get_by_id(id)
+    if not user:
         error(f'User {id} not found', status=404)
 
     if request.method == 'HEAD':
         return '', {'Content-Type': as2.CONTENT_TYPE}
 
-    query = Object.query(Object.users == g.user.key)
+    query = Object.query(Object.users == user.key)
     objects, new_before, new_after = fetch_objects(query, by=Object.updated,
-                                                   user=g.user)
+                                                   user=user)
 
     # page
     page = {

@@ -600,8 +600,6 @@ class Protocol:
         from_user = from_cls.get_or_create(id=actor)
         if from_user.status == 'opt-out':
             error(r'Actor {actor} is opted out', status=204)
-        if not g.user:
-            g.user = from_user
 
         # update copy ids to originals
         obj.resolve_ids()
@@ -811,14 +809,7 @@ class Protocol:
                 'object': obj.as1,
             })
 
-            # TODO: ugly, brittle. dangerous. remove once postprocess_as2 no
-            # longer depends on g.user!
-            # https://github.com/snarfed/bridgy-fed/issues/690
-            orig_g_user = g.user
-            g.user = to_user
             sent = from_cls.send(accept, from_target, from_user=to_user)
-            g.user = orig_g_user
-
             if sent:
                 accept.populate(
                     delivered=[Target(protocol=from_cls.LABEL, uri=from_target)],
@@ -1165,16 +1156,13 @@ def receive_task():
 
     Parameters:
       obj (url-safe google.cloud.ndb.key.Key): :class:`models.Object` to handle
-      user (url-safe google.cloud.ndb.key.Key): :class:`models.User` this
-        activity is on behalf of. This user will be loaded into ``g.user``
       authed_as (str): passed to :meth:`Protocol.receive`
 
     TODO: migrate incoming webmentions and AP inbox deliveries to this. The
     difficulty is that parts of :meth:`protocol.Protocol.receive` depend on
     setup in :func:`web.webmention` and :func:`activitypub.inbox`, eg
-    :class:`models.Object` with ``new`` and ``changed``, ``g.user`` (which
-    :meth:`Protocol.receive` now loads), HTTP request details, etc. See stash
-    for attempt at this for :class:`web.Web`.
+    :class:`models.Object` with ``new`` and ``changed``, HTTP request details,
+    etc. See stash for attempt at this for :class:`web.Web`.
     """
     form = request.form.to_dict()
     logger.info(f'Params: {list(form.items())}')
@@ -1182,10 +1170,6 @@ def receive_task():
     obj = ndb.Key(urlsafe=form['obj']).get()
     assert obj
     obj.new = True
-
-    if user_key := form.get('user'):
-        g.user = ndb.Key(urlsafe=user_key).get()
-        logger.info(f'setting g.user to {g.user.key}')
 
     authed_as = form.get('authed_as')
 
@@ -1231,7 +1215,7 @@ def send_task():
 
     user = None
     if user_key := form.get('user'):
-        g.user = user = ndb.Key(urlsafe=user_key).get()
+        user = ndb.Key(urlsafe=user_key).get()
     orig_obj = (ndb.Key(urlsafe=form['orig_obj']).get()
                 if form.get('orig_obj') else None)
 

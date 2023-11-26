@@ -130,7 +130,6 @@ class FollowCallback(indieauth.Callback):
         follow_obj = Object(id=follow_id, users=[user.key, followee_user.key],
                             labels=['user'], source_protocol='ui', status='complete',
                             as2=follow_as2)
-        g.user = user
         ActivityPub.send(follow_obj, inbox, from_user=user)
 
         Follower.get_or_create(from_=user, to=followee_user, status='active',
@@ -218,7 +217,6 @@ class UnfollowCallback(indieauth.Callback):
         # network etiquette.)
         obj = Object(id=unfollow_id, users=[user.key], labels=['user'],
                      source_protocol='ui', status='complete', as2=unfollow_as2)
-        g.user = user
         ActivityPub.send(obj, inbox, from_user=user)
 
         follower.status = 'inactive'

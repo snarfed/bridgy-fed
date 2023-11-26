@@ -1834,7 +1834,6 @@ class ActivityPubUtilsTest(TestCase):
         # preferredUsername stays y.z despite user's username. since Mastodon
         # queries Webfinger for preferredUsername@fed.brid.gy
         # https://github.com/snarfed/bridgy-fed/issues/77#issuecomment-949955109
-        g.user = self.user
         self.assertEqual('user.com', postprocess_as2_actor({
             'type': 'Person',
             'url': 'https://user.com/about-me',
@@ -2008,7 +2007,6 @@ class ActivityPubUtilsTest(TestCase):
             'actor': 'fake:user',
             'object': 'https://mas.to/thing',
         }
-        g.user = self.user
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': 'https://fa.brid.gy/convert/ap/fake:like',
@@ -2031,8 +2029,6 @@ class ActivityPubUtilsTest(TestCase):
         }, ActivityPub.convert(obj), ignore=['to'])
 
     def test_postprocess_as2_idempotent(self):
-        g.user = self.user
-
         for obj in (ACTOR, REPLY_OBJECT, REPLY_OBJECT_WRAPPED, REPLY,
                     NOTE_OBJECT, NOTE, MENTION_OBJECT, MENTION, LIKE,
                     LIKE_WRAPPED, REPOST, FOLLOW, FOLLOW_WRAPPED, ACCEPT,
@@ -2156,7 +2152,6 @@ class ActivityPubUtilsTest(TestCase):
             'author': 'http://the/author',
         })
         # test is that we short circuit out instead of infinite recursion
-        g.user = self.user
         self.assertIsNone(ActivityPub.target_for(obj))
 
     @patch('requests.post')

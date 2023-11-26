@@ -470,9 +470,6 @@ def poll_notifications():
 
             common.create_task(queue='receive', obj=obj.key.urlsafe(),
                                authed_as=notif['author']['did'])
-            # note that we don't pass a user param above. it's the acting user,
-            # which is different for every notif, and may not actually have a BF
-            # User yet.
 
     return 'OK'
 
@@ -529,8 +526,5 @@ def poll_posts():
             obj.put()
 
             common.create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=did)
-            # note that we don't pass a user param above. it's the acting user,
-            # which is different for every notif, and may not actually have a BF
-            # User yet.
 
     return 'OK'
