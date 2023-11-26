@@ -495,6 +495,17 @@ class WebTest(TestCase):
         self.assert_entities_equal(user, Web.get_by_id('foo.bar'))
         self.assertIsNone(Web.get_by_id('..foo.bar.'))
 
+    def test_get_or_create_existing(self, *_):
+        user = Web.get_or_create('user.com')
+        self.assertEqual('user.com', user.key.id())
+        self.assert_entities_equal(user, self.user)
+
+    def test_get_or_create_existing_opted_out(self, *_):
+        self.user.obj.mf2['properties']['summary'] = '#nobridge'
+        self.user.obj.put()
+        self.user.put()
+        self.assertIsNone(Web.get_or_create('user.com'))
+
     def test_bad_source_url(self, *mocks):
         orig_count = Object.query().count()
 

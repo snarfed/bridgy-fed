@@ -94,7 +94,11 @@ class Web(User, Protocol):
         Normalizing currently consists of lower casing and removing leading and
         trailing dots.
         """
-        domain = cls.key_for(id).id().lower().strip('.')
+        key = cls.key_for(id)
+        if not key:
+            return None  # opted out
+
+        domain = key.id().lower().strip('.')
         return super().get_or_create(domain, **kwargs)
 
     @ndb.ComputedProperty
