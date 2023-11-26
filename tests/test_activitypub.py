@@ -461,6 +461,14 @@ class ActivityPubTest(TestCase):
             self.assertEqual(301, resp.status_code)
             self.assertEqual('https://fed.brid.gy/user.com', resp.headers['Location'])
 
+    def test_actor_opted_out(self, *_):
+        self.user.obj.our_as1['summary'] = '#nobridge'
+        self.user.obj.put()
+        self.user.put()
+
+        got = self.client.get('/user.com')
+        self.assertEqual(404, got.status_code)
+
     def test_individual_inbox_no_user(self, mock_head, mock_get, mock_post):
         self.user.key.delete()
 

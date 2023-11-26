@@ -797,6 +797,9 @@ def actor(handle_or_id):
 
     assert id
     user = cls.get_or_create(id)
+    if not user:
+        error(f'{cls.LABEL} user {id} not found', status=404)
+
     if not user.obj or not user.obj.as1:
         user.obj = cls.load(user.profile_id(), gateway=True)
         if user.obj:
