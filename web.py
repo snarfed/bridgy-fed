@@ -94,7 +94,8 @@ class Web(User, Protocol):
         Normalizing currently consists of lower casing and removing leading and
         trailing dots.
         """
-        return super().get_or_create(id.lower().strip('.'), **kwargs)
+        domain = cls.key_for(id).id().lower().strip('.')
+        return super().get_or_create(domain, **kwargs)
 
     @ndb.ComputedProperty
     def handle(self):
@@ -307,7 +308,7 @@ class Web(User, Protocol):
         return obj.key.id()
 
     @classmethod
-    def send(to_cls, obj, url, orig_obj=None, **kwargs):
+    def send(to_cls, obj, url, from_user=None, orig_obj=None, **kwargs):
         """Sends a webmention to a given target URL.
 
         See :meth:`Protocol.send` for details.
@@ -440,11 +441,12 @@ class Web(User, Protocol):
         return True
 
     @classmethod
-    def convert(cls, obj):
+    def convert(cls, obj, from_user=None):
         """Converts a :class:`Object` to HTML.
 
         Args:
           obj (models.Object)
+          from_user (models.User): user (actor) this activity/object is from
 
         Returns:
           str:
@@ -608,8 +610,7 @@ def webmention_task():
 
     # if source is home page, update Web user and send an actor Update to
     # followers' instances
-    if user and (user.key.id() == obj.key.id()
-                   or user.is_web_url(obj.key.id())):
+    if user.key.id() == obj.key.id() or user.is_web_url(obj.key.id()):
         logger.info(f'Converted to AS1: {obj.type}: {json_dumps(obj.as1, indent=2)}')
         obj.put()
         user.obj = obj
@@ -631,7 +632,7 @@ def webmention_task():
         })
 
     try:
-        return Web.receive(obj, authed_as=user)
+        return Web.receive(obj, authed_as=f'https://{domain}/')
     except ValueError as e:
         logger.warning(e, exc_info=True)
         error(e, status=304)

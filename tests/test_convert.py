@@ -300,7 +300,11 @@ A ☕ reply
 
         resp = self.client.get(f'/convert/ap/http://nope.com/post',
                                base_url='https://web.brid.gy/')
-        self.assertEqual(400, resp.status_code)
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            **COMMENT_AS2,
+            'attributedTo': 'https://fed.brid.gy/nope.com',
+        }, resp.json, ignore=['to'])
 
     @patch('requests.get')
     def test_web_to_activitypub_url_decode(self, mock_get):

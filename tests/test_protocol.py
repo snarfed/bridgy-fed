@@ -1132,7 +1132,7 @@ class ProtocolReceiveTest(TestCase):
         }
 
         sent = []
-        def send(obj, url, orig_obj=None):
+        def send(obj, url, from_user=None, orig_obj=None):
             self.assertEqual(create_as1, obj.as1)
             if not sent:
                 self.assertEqual('target:1', url)

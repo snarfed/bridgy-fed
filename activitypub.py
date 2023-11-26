@@ -188,7 +188,7 @@ class ActivityPub(User, Protocol):
         return actor.get('publicInbox') or actor.get('inbox')
 
     @classmethod
-    def send(to_cls, obj, url, orig_obj=None):
+    def send(to_cls, obj, url, from_user=None, orig_obj=None):
         """Delivers an activity to an inbox URL.
 
         If ``obj.recipient_obj`` is set, it's interpreted as the receiving actor
@@ -198,11 +198,10 @@ class ActivityPub(User, Protocol):
             logger.info(f'Skipping sending to blocklisted {url}')
             return False
 
-        activity = to_cls.convert(obj, orig_obj=to_cls.convert(orig_obj))
-        if not activity.get('actor'):
-            logger.warning('Outgoing AP activity has no actor!')
+        activity = to_cls.convert(obj, from_user=from_user,
+                                  orig_obj=to_cls.convert(orig_obj))
 
-        return signed_post(url, data=activity).ok
+        return signed_post(url, data=activity, from_user=from_user).ok
 
     @classmethod
     def fetch(cls, obj, **kwargs):
@@ -315,7 +314,7 @@ class ActivityPub(User, Protocol):
         return False
 
     @classmethod
-    def convert(cls, obj, orig_obj=None):
+    def convert(cls, obj, orig_obj=None, from_user=None):
         """Convert a :class:`models.Object` to AS2.
 
         Args:
@@ -323,6 +322,7 @@ class ActivityPub(User, Protocol):
           orig_obj (dict): AS2 object, optional. The target of activity's
             ``inReplyTo`` or ``Like``/``Announce``/etc object, if any. Passed
             through to :func:`postprocess_as2`.
+          from_user (models.User): user (actor) this activity/object is from
 
         Returns:
           dict: AS2 JSON
@@ -351,11 +351,12 @@ class ActivityPub(User, Protocol):
         if obj.source_protocol in ('ap', 'activitypub'):
             return converted
 
-        if converted.get('type') == 'Person':
-            return postprocess_as2_actor(converted)
+        if as1.object_type(obj.as1) in as1.ACTOR_TYPES:
+            return postprocess_as2_actor(converted, user=from_user)
 
-        if as1.get_object(converted).get('type') == 'Person':
-            converted['object'] = postprocess_as2_actor(converted['object'])
+        if as1.object_type(as1.get_object(obj.as1)) in as1.ACTOR_TYPES:
+            converted['object'] = postprocess_as2_actor(converted['object'],
+                                                        user=from_user)
 
         return postprocess_as2(converted, orig_obj=orig_obj)
 
@@ -456,16 +457,16 @@ class ActivityPub(User, Protocol):
         return keyId
 
 
-def signed_get(url, **kwargs):
-    return signed_request(util.requests_get, url, **kwargs)
+def signed_get(url, from_user=None, **kwargs):
+    return signed_request(util.requests_get, url, from_user=from_user, **kwargs)
 
 
-def signed_post(url, **kwargs):
-    assert g.user
-    return signed_request(util.requests_post, url, **kwargs)
+def signed_post(url, from_user, **kwargs):
+    assert from_user
+    return signed_request(util.requests_post, url, from_user=from_user, **kwargs)
 
 
-def signed_request(fn, url, data=None, headers=None, **kwargs):
+def signed_request(fn, url, data=None, headers=None, from_user=None, **kwargs):
     """Wraps ``requests.*`` and adds HTTP Signature.
 
     If the current session has a user (ie in ``g.user``), signs with that user's
@@ -475,6 +476,7 @@ def signed_request(fn, url, data=None, headers=None, **kwargs):
       fn (callable): :func:`util.requests_get` or  :func:`util.requests_post`
       url (str):
       data (dict): optional AS2 object
+      from_user (models.User): user to sign request as; optional
       kwargs: passed through to requests
 
     Returns:
@@ -484,10 +486,9 @@ def signed_request(fn, url, data=None, headers=None, **kwargs):
         headers = {}
 
     # prepare HTTP Signature and headers
-    user = g.user
-    if not user or isinstance(user, ActivityPub):
+    if not from_user or isinstance(from_user, ActivityPub):
         # ActivityPub users are remote, so we don't have their keys
-        user = default_signature_user()
+        from_user = default_signature_user()
 
     if data:
         logger.info(f'Sending AS2 object: {json_dumps(data, indent=2)}')
@@ -506,14 +507,14 @@ def signed_request(fn, url, data=None, headers=None, **kwargs):
         'Digest': f'SHA-256={b64encode(sha256(data or b"").digest()).decode()}',
     }
 
-    logger.info(f"Signing with {user.key}'s key")
+    logger.info(f"Signing with {from_user.key}'s key")
     # (request-target) is a special HTTP Signatures header that some fediverse
     # implementations require, eg Peertube.
     # https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.3
     # https://www.w3.org/wiki/SocialCG/ActivityPub/Authentication_Authorization#Signing_requests_using_HTTP_Signatures
     # https://docs.joinmastodon.org/spec/security/#http
-    key_id = f'{user.ap_actor()}#key'
-    auth = HTTPSignatureAuth(secret=user.private_pem(), key_id=key_id,
+    key_id = f'{from_user.ap_actor()}#key'
+    auth = HTTPSignatureAuth(secret=from_user.private_pem(), key_id=key_id,
                              algorithm='rsa-sha256', sign_header='signature',
                              headers=HTTP_SIG_HEADERS)
 
@@ -540,9 +541,6 @@ def signed_request(fn, url, data=None, headers=None, **kwargs):
 
 def postprocess_as2(activity, orig_obj=None, wrap=True):
     """Prepare an AS2 object to be served or sent via ActivityPub.
-
-    ``g.user`` is required (in ``postprocess_as2_actor``). It's populated it
-    into the ``actor.id`` and ``publicKey`` fields.
 
     Args:
       activity (dict): AS2 object or activity
@@ -685,7 +683,7 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     return util.trim_nulls(activity)
 
 
-def postprocess_as2_actor(actor, wrap=True):
+def postprocess_as2_actor(actor, user=None, wrap=True):
     """Prepare an AS2 actor object to be served or sent via ActivityPub.
 
     Modifies actor in place.
@@ -699,12 +697,10 @@ def postprocess_as2_actor(actor, wrap=True):
     """
     if not actor:
         return actor
-    elif isinstance(actor, str):
-        if g.user and g.user.is_web_url(actor):
-            return g.user.ap_actor()
-        return redirect_wrap(actor)
 
-    url = g.user.web_url()
+    assert isinstance(actor, dict)
+
+    url = user.web_url()
     urls = util.get_list(actor, 'url')
     if not urls and url:
         urls = [url]
@@ -712,14 +708,14 @@ def postprocess_as2_actor(actor, wrap=True):
         urls[0] = redirect_wrap(urls[0])
 
     id = actor.get('id')
-    if not id or g.user.is_web_url(id):
-        actor['id'] = g.user.ap_actor()
+    if not id or user.is_web_url(id):
+        actor['id'] = user.ap_actor()
 
     actor['url'] = urls[0] if len(urls) == 1 else urls
     # required by ActivityPub
     # https://www.w3.org/TR/activitypub/#actor-objects
-    actor.setdefault('inbox', g.user.ap_actor('inbox'))
-    actor.setdefault('outbox', g.user.ap_actor('outbox'))
+    actor.setdefault('inbox', user.ap_actor('inbox'))
+    actor.setdefault('outbox', user.ap_actor('outbox'))
 
     # This has to be the id (domain for Web) for Mastodon etc interop! It
     # seems like it should be the custom username from the acct: u-url in
@@ -729,7 +725,7 @@ def postprocess_as2_actor(actor, wrap=True):
     # https://docs.joinmastodon.org/spec/webfinger/#mastodons-requirements-for-webfinger
     # https://github.com/snarfed/bridgy-fed/issues/302#issuecomment-1324305460
     # https://github.com/snarfed/bridgy-fed/issues/77
-    handle = g.user.handle_as(ActivityPub)
+    handle = user.handle_as(ActivityPub)
     if handle:
         actor['preferredUsername'] = handle.strip('@').split('@')[0]
 
@@ -749,12 +745,12 @@ def postprocess_as2_actor(actor, wrap=True):
         # underspecified, inferred from this issue and Mastodon's implementation:
         # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
         # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
-        actor_url = g.user.ap_actor()
+        actor_url = user.ap_actor()
         actor.update({
             'publicKey': {
                 'id': f'{actor_url}#key',
                 'owner': actor_url,
-                'publicKeyPem': g.user.public_pem().decode(),
+                'publicKeyPem': user.public_pem().decode(),
             },
             '@context': (util.get_list(actor, '@context') +
                          ['https://w3id.org/security/v1']),
@@ -799,13 +795,14 @@ def actor(handle_or_id):
     user = cls.get_or_create(id)
     if not user.obj or not user.obj.as1:
         user.obj = cls.load(user.profile_id(), gateway=True)
+        if user.obj:
+            user.obj.put()
 
-    g.user = user
-    actor = ActivityPub.convert(user.obj) or {
+    actor = ActivityPub.convert(user.obj, from_user=user) or {
         '@context': [as2.CONTEXT],
         'type': 'Person',
     }
-    actor = postprocess_as2_actor(actor)
+    actor = postprocess_as2_actor(actor, user=user)
     actor.update({
         'id': user.ap_actor(),
         'inbox': user.ap_actor('inbox'),

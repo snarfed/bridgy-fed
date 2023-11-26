@@ -248,7 +248,7 @@ class ATProto(User, Protocol):
         user.put()
 
     @classmethod
-    def send(to_cls, obj, url, orig_obj=None):
+    def send(to_cls, obj, url, from_user=None, orig_obj=None):
         """Creates a record if we own its repo.
 
         Creates the repo first if it doesn't exist.
@@ -375,7 +375,7 @@ class ATProto(User, Protocol):
         return True
 
     @classmethod
-    def convert(cls, obj, fetch_blobs=False):
+    def convert(cls, obj, fetch_blobs=False, from_user=None):
         """Converts a :class:`models.Object` to ``app.bsky.*`` lexicon JSON.
 
         Args:
@@ -383,6 +383,7 @@ class ATProto(User, Protocol):
           fetch_blobs (bool): whether to fetch images and other blobs, store
             them in :class:`arroba.datastore_storage.AtpRemoteBlob`\s if they
             don't already exist, and fill them into the returned object.
+          from_user (models.User): user (actor) this activity/object is from
 
         Returns:
           dict: JSON object

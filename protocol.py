@@ -354,7 +354,7 @@ class Protocol:
             return cls.key_for(owner)
 
     @classmethod
-    def send(to_cls, obj, url, orig_obj=None):
+    def send(to_cls, obj, url, from_user=None, orig_obj=None):
         """Sends an outgoing activity.
 
         To be implemented by subclasses.
@@ -362,6 +362,7 @@ class Protocol:
         Args:
           obj (models.Object): with activity to send
           url (str): destination URL to send to
+          from_user (models.User): user (actor) this activity is from
           orig_obj (models.Object): the "original object" that this object
             refers to, eg replies to or reposts or likes
 
@@ -401,7 +402,7 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def convert(cls, obj):
+    def convert(cls, obj, from_user=None):
         """Converts an :class:`Object` to this protocol's data format.
 
         For example, an HTML string for :class:`Web`, or a dict with AS2 JSON
@@ -413,6 +414,7 @@ class Protocol:
 
         Args:
           obj (models.Object):
+          from_user (models.User): user (actor) this activity/object is from
 
         Returns:
           converted object in the protocol's native format, often a dict
@@ -542,6 +544,7 @@ class Protocol:
 
         Args:
           obj (models.Object)
+          authed_as (str): authenticated actor id who sent this activity
 
         Returns:
           (str, int) tuple: (response body, HTTP status code) Flask response
@@ -584,10 +587,21 @@ class Protocol:
                 logger.info(msg)
                 return msg, 204
 
-        # authorization check
+        # load actor user, check authorization
         actor = as1.get_owner(obj.as1)
-        if authed_as and actor != authed_as:
-            logger.warning(f"actor {actor} isn't authed user {authed_as}")
+        if not actor:
+            error(r'Activity missing actor or author', status=400)
+
+        if authed_as:
+            assert isinstance(authed_as, str)
+            if actor != authed_as:
+                logger.warning(f"actor {actor} isn't authed user {authed_as}")
+
+        from_user = from_cls.get_or_create(id=actor)
+        if from_user.status == 'opt-out':
+            error(r'Actor {actor} is opted out', status=204)
+        if not g.user:
+            g.user = from_user
 
         # update copy ids to originals
         obj.resolve_ids()
@@ -602,31 +616,16 @@ class Protocol:
 
         # if this is a post, ie not an activity, wrap it in a create or update
         obj = from_cls.handle_bare_object(obj)
+        obj.add('users', from_user.key)
 
         if obj.type not in SUPPORTED_TYPES:
             error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
 
-        # add owner(s)
-        owner = as1.get_owner(obj.as1)
-        if not owner:
-            error(r'Activity missing actor or author', status=400)
-
-        actor_key = from_cls.actor_key(obj)
-        # actor_key returns None if the user is opted out
-        if not actor_key:
-            error(r'Actor {owner} is opted out', status=204)
-
-        obj.add('users', actor_key)
-        if not g.user:
-            g.user = from_cls.get_or_create(id=actor_key.id())
-
         inner_obj_as1 = as1.get_object(obj.as1)
         if obj.as1.get('verb') in ('post', 'update', 'delete'):
-            inner_actor = as1.get_owner(inner_obj_as1)
-            if inner_actor:
-                user_key = from_cls.key_for(inner_actor)
-                if user_key:
-                    obj.add('users', user_key)
+            if inner_owner := as1.get_owner(inner_obj_as1):
+                if inner_owner_key := from_cls.key_for(inner_owner):
+                    obj.add('users', inner_owner_key)
 
         obj.source_protocol = from_cls.LABEL
         obj.put()
@@ -721,7 +720,7 @@ class Protocol:
             from_cls.handle_follow(obj)
 
         # deliver to targets
-        return from_cls.deliver(obj)
+        return from_cls.deliver(obj, from_user=from_user)
 
     @classmethod
     def handle_follow(from_cls, obj):
@@ -817,7 +816,7 @@ class Protocol:
             # https://github.com/snarfed/bridgy-fed/issues/690
             orig_g_user = g.user
             g.user = to_user
-            sent = from_cls.send(accept, from_target)
+            sent = from_cls.send(accept, from_target, from_user=to_user)
             g.user = orig_g_user
 
             if sent:
@@ -892,11 +891,12 @@ class Protocol:
         error(f'{obj.key.id()} is unchanged, nothing to do', status=204)
 
     @classmethod
-    def deliver(from_cls, obj):
+    def deliver(from_cls, obj, from_user):
         """Delivers an activity to its external recipients.
 
         Args:
           obj (models.Object): activity to deliver
+          from_user (models.User): user (actor) this activity is from
         """
         # find delivery targets
         targets = from_cls.targets(obj)  # maps Target to Object or None
@@ -918,9 +918,9 @@ class Protocol:
         logger.info(f'Delivering to: {obj.undelivered}')
 
         # enqueue send task for each targets
+        user = from_user.key.urlsafe()
         for i, (target, orig_obj) in enumerate(sorted_targets):
             orig_obj = orig_obj.key.urlsafe() if orig_obj else ''
-            user = g.user.key.urlsafe() if g.user else ''
             common.create_task(queue='send', obj=obj.key.urlsafe(),
                                url=target.uri, protocol=target.protocol,
                                orig_obj=orig_obj, user=user)
@@ -1210,8 +1210,8 @@ def send_task():
       orig_obj (url-safe google.cloud.ndb.key.Key): optional "original object"
         :class:`models.Object` that this object refers to, eg replies to or
         reposts or likes
-      user (url-safe google.cloud.ndb.key.Key): :class:`models.User` this
-        activity is on behalf of. This user will be loaded into ``g.user``
+      user (url-safe google.cloud.ndb.key.Key): :class:`models.User` (actor)
+        this activity is from
     """
     form = request.form.to_dict()
     logger.info(f'Params: {list(form.items())}')
@@ -1229,15 +1229,16 @@ def send_task():
         logger.info(f"{url} not in {obj.key.id()} undelivered or failed, giving up")
         return r'¯\_(ツ)_/¯', 204
 
+    user = None
     if user_key := form.get('user'):
-        g.user = ndb.Key(urlsafe=user_key).get()
+        g.user = user = ndb.Key(urlsafe=user_key).get()
     orig_obj = (ndb.Key(urlsafe=form['orig_obj']).get()
                 if form.get('orig_obj') else None)
 
     # send
     sent = None
     try:
-        sent = PROTOCOLS[protocol].send(obj, url, orig_obj=orig_obj)
+        sent = PROTOCOLS[protocol].send(obj, url, from_user=user, orig_obj=orig_obj)
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if not code and not body:

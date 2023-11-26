@@ -79,22 +79,6 @@ def convert(dest, _, src=None):
     if obj.deleted or type == 'delete':
         return '', 410
 
-    # load g.user for AP since postprocess_as2 currently needs it. ugh.
-    if dest_cls == ActivityPub:
-        actor_id = as1.get_owner(obj.as1)
-        if not actor_id and src_cls == Web:
-            actor_id = util.domain_from_link(id, minimize=False)
-        if not actor_id:
-            error(f"Couldn't determine actor id for {obj.as1}")
-
-        user_key = src_cls.key_for(actor_id)
-        if not user_key:
-            error(f"Couldn't determine {src_cls.LABEL} key for {actor_id}")
-
-        g.user = user_key.get()
-        if not g.user:
-            error(f'No {src_cls.LABEL} user found for {actor_id}')
-
     # convert and serve
     return dest_cls.convert(obj), {'Content-Type': dest_cls.CONTENT_TYPE}
 

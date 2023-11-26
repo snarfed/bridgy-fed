@@ -1105,7 +1105,9 @@ class ActivityPubTest(TestCase):
         self.assertEqual(202, got.status_code)
         self.assertEqual('inactive', follower.key.get().status)
 
-    def test_inbox_unsupported_type(self, *_):
+    def test_inbox_unsupported_type(self, mock_head, mock_get, mock_post):
+        mock_get.return_value = self.as2_resp(ACTOR)
+
         got = self.post('/user.com/inbox', json={
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'https://xoxo.zone/users/aaronpk#follows/40',
@@ -1790,7 +1792,6 @@ class ActivityPubUtilsTest(TestCase):
         }))
 
     def test_postprocess_as2_actor_url_attachments(self):
-        g.user = self.user
         got = postprocess_as2_actor(as2.from_as1({
             'objectType': 'person',
             'urls': [
@@ -1808,7 +1809,7 @@ class ActivityPubUtilsTest(TestCase):
                     'displayName': 'two title',
                 },
             ]
-        }))
+        }), user=self.user)
 
         self.assert_equals([{
             'type': 'PropertyValue',
@@ -1843,7 +1844,7 @@ class ActivityPubUtilsTest(TestCase):
                 'name': 'nick',
                 'value': '<a rel="me" href="https://user.com/about-me"><span class="invisible">https://</span>user.com/about-me</a>',
             }],
-        })['preferredUsername'])
+        }, user=self.user)['preferredUsername'])
 
     def test_postprocess_as2_mentions_into_cc(self):
         obj = copy.deepcopy(MENTION_OBJECT)
@@ -1886,9 +1887,8 @@ class ActivityPubUtilsTest(TestCase):
             second['auth'].header_signer.sign(second['headers'], method='GET', path='/'))
 
     @patch('requests.post', return_value=requests_response(status=200))
-    def test_signed_post_g_user_is_activitypub_so_use_default_user(self, mock_post):
-        g.user = ActivityPub(id='http://feddy')
-        activitypub.signed_post('https://url')
+    def test_signed_post_from_user_is_activitypub_so_use_default_user(self, mock_post):
+        activitypub.signed_post('https://url', from_user=ActivityPub(id='http://fed'))
 
         self.assertEqual(1, len(mock_post.call_args_list))
         args, kwargs = mock_post.call_args_list[0]
@@ -1903,8 +1903,7 @@ class ActivityPubUtilsTest(TestCase):
                               allow_redirects=False),
         ]
 
-        g.user = self.user
-        resp = activitypub.signed_post('https://first')
+        resp = activitypub.signed_post('https://first', from_user=self.user)
         mock_post.assert_called_once()
         self.assertEqual(302, resp.status_code)
 
@@ -2177,8 +2176,7 @@ class ActivityPubUtilsTest(TestCase):
             'object': 'fake:post',
             'actor': 'fake:user',
         })
-        g.user = self.user
-        self.assertTrue(ActivityPub.send(like, 'https://inbox'))
+        self.assertTrue(ActivityPub.send(like, 'https://inbox', from_user=self.user))
 
         self.assertEqual(1, len(mock_post.call_args_list))
         args, kwargs = mock_post.call_args_list[0]

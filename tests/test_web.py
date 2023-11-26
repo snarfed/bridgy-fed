@@ -480,6 +480,13 @@ class WebTest(TestCase):
         self.assertEqual('☃.net', user.key.id())
         self.assert_entities_equal(user, Web.get_by_id('☃.net'))
 
+    def test_get_or_create_home_page_url(self, mock_get, mock_post):
+        mock_get.return_value = requests_response('')
+
+        user = Web.get_or_create('https://foo.com/')
+        self.assertEqual('foo.com', user.key.id())
+        self.assert_entities_equal(user, Web.get_by_id('foo.com'))
+
     def test_get_or_create_scripts_leading_trailing_dots(self, mock_get, mock_post):
         mock_get.return_value = requests_response('')
 
@@ -931,6 +938,7 @@ class WebTest(TestCase):
         Object(id='https://user.com/', mf2=ACTOR_MF2).put()
         mock_get.side_effect = [
             LIKE,
+            ACTOR_HTML_RESP,
         ]
 
         got = self.post('/queue/webmention', data={
@@ -1840,8 +1848,7 @@ http://this/404s
         # preferredUsername stays y.z despite user's username. since Mastodon
         # queries Webfinger for preferredUsername@fed.brid.gy
         # https://github.com/snarfed/bridgy-fed/issues/77#issuecomment-949955109
-        g.user = self.user
-        postprocessed = ActivityPub.convert(self.user.obj)
+        postprocessed = ActivityPub.convert(self.user.obj, from_user=self.user)
         self.assertEqual('user.com', postprocessed['preferredUsername'])
 
     def test_web_url(self, _, __):
@@ -2284,7 +2291,7 @@ class WebUtilTest(TestCase):
   </span>
 </body>
 </html>
-""", Web.convert(obj), ignore_blanks=True)
+""", Web.convert(obj, from_user=None), ignore_blanks=True)
 
     def test_convert_translates_ids(self, *_):
         self.store_object(id='http://fed/post', source_protocol='activitypub')
@@ -2312,7 +2319,7 @@ class WebUtilTest(TestCase):
                     'displayName': 'Ms. Alice',
                 },
             },
-        })), ignore_blanks=True)
+        }), from_user=None), ignore_blanks=True)
 
     def test_target_for(self, _, __):
         self.assertIsNone(Web.target_for(Object(id='x', source_protocol='web')))

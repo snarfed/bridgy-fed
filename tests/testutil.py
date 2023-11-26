@@ -108,7 +108,7 @@ class Fake(User, protocol.Protocol):
         return url.startswith(f'{cls.LABEL}:blocklisted')
 
     @classmethod
-    def send(cls, obj, url, orig_obj=None):
+    def send(cls, obj, url, from_user=None, orig_obj=None):
         logger.info(f'{cls.__name__}.send {url}')
         cls.sent.append((obj.key.id(), url))
         return True
@@ -126,8 +126,8 @@ class Fake(User, protocol.Protocol):
         return False
 
     @classmethod
-    def convert(cls, obj):
-        logger.info(f'{cls.__name__}.convert {obj.key.id()}')
+    def convert(cls, obj, from_user=None):
+        logger.info(f'{cls.__name__}.convert {obj.key.id()} {from_user}')
         return cls.translate_ids(obj.as1)
 
     @classmethod
