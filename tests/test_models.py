@@ -468,8 +468,7 @@ class ObjectTest(TestCase):
         self.user = Fake(id='fake:user', obj=Object(id='a', as2={"name": "Alice"}))
         obj = Object(id='x', source_protocol='ui', users=[self.user.key])
 
-        g.user = self.user
-        got = obj.actor_link()
+        got = obj.actor_link(user=self.user)
         self.assertIn('href="fake:user">', got)
         self.assertIn('Alice', got)
 

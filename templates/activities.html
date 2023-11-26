@@ -4,7 +4,7 @@
 {% for obj in objects %}
 <li class="row h-entry">
   <div class="e-content col-xs-{{ 5 if show_users else 8 }}">
-    {{ obj.actor_link()|safe }}
+    {{ obj.actor_link(user=user)|safe }}
     {{ obj.phrase|safe }}
     <a target="_blank" href="{{ obj.url }}" class="u-url">
       {{ obj.content|default('--', true)|striptags|truncate(50) }}

@@ -111,7 +111,7 @@ def error(msg, status=400, exc_info=None, **kwargs):
     abort(status, response=make_response({'error': msg}, status), **kwargs)
 
 
-def pretty_link(url, text=None, **kwargs):
+def pretty_link(url, text=None, user=None, **kwargs):
     """Wrapper around :func:`oauth_dropins.webutil.util.pretty_link` that converts Mastodon user URLs to @-@ handles.
 
     Eg for URLs like https://mastodon.social/@foo and
@@ -121,10 +121,11 @@ def pretty_link(url, text=None, **kwargs):
     Args:
       url (str)
       text (str)
+      user (models.User): current user
       kwargs: passed through to :func:`oauth_dropins.webutil.util.pretty_link`
     """
-    if g.user and g.user.is_web_url(url):
-        return g.user.user_link()
+    if user and user.is_web_url(url):
+        return user.user_link()
 
     if text is None:
         match = re.match(r'https?://([^/]+)/(@|users/)([^/]+)$', url)

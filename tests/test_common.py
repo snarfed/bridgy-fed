@@ -11,8 +11,6 @@ from web import Web
 
 
 class CommonTest(TestCase):
-    def setUp(self):
-        super().setUp()
 
     def test_pretty_link(self):
         for expected, url, text in (
@@ -26,15 +24,13 @@ class CommonTest(TestCase):
             self.assertIn(expected, common.pretty_link(url, text=text))
 
         self.assertEqual('<a href="http://foo">foo</a>',
-
                          common.pretty_link('http://foo'))
 
         # current user's homepage gets converted to BF user page
-        g.user = Web(id='user.com')
         self.assert_multiline_equals("""\
 <a class="h-card u-author" href="https://user.com/">
   <img src="" class="profile">
-  user.com</a>""", common.pretty_link('https://user.com/'))
+  user.com</a>""", common.pretty_link('https://user.com/', user=Web(id='user.com')))
 
     def test_redirect_wrap_empty(self):
         self.assertIsNone(common.redirect_wrap(None))

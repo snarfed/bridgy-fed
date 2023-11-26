@@ -170,7 +170,7 @@ from activitypub import ActivityPub, CONNEG_HEADERS_AS2_HTML
 from atproto import ATProto
 import common
 from web import Web
-from flask_app import app, cache, init_globals
+from flask_app import app, cache
 
 
 # used in TestCase.make_user() to reuse keys across Users since they're
@@ -227,7 +227,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         self.app_context = app.app_context()
         self.app_context.push()
-        init_globals()
 
         self.request_context = app.test_request_context('/')
         self.request_context.push()

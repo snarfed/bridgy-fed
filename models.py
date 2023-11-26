@@ -816,23 +816,24 @@ class Object(StringIdModel):
                 if self.as1 and other_as1
                 else bool(self.as1) != bool(other_as1))
 
-    def actor_link(self, image=True, sized=False):
+    def actor_link(self, image=True, sized=False, user=None):
         """Returns a pretty HTML link with the actor's name and picture.
 
         Args:
           image (bool): whether to include an ``img`` tag with the actor's picture
           sized (bool): whether to set an explicit (``width=32``) size on the
             profile picture ``img` tag
+          user (User): current user
 
         Returns:
           str:
         """
         attrs = {'class': 'h-card u-author'}
 
-        if (self.source_protocol in ('web', 'webmention', 'ui') and g.user
-                and (g.user.key in self.users or g.user.key.id() in self.domains)):
+        if (self.source_protocol in ('web', 'webmention', 'ui')
+                and (user.key in self.users or user.key.id() in self.domains)):
             # outbound; show a nice link to the user
-            return g.user.user_link()
+            return user.user_link()
 
         actor = None
         if self.as1:
@@ -849,13 +850,13 @@ class Object(StringIdModel):
         if not actor:
             return ''
         elif set(actor.keys()) == {'id'}:
-            return common.pretty_link(actor['id'], attrs=attrs)
+            return common.pretty_link(actor['id'], attrs=attrs, user=user)
 
         url = as1.get_url(actor)
         name = actor.get('displayName') or actor.get('username') or ''
         img_url = util.get_url(actor, 'image')
         if not image or not img_url:
-            return common.pretty_link(url, text=name, attrs=attrs)
+            return common.pretty_link(url, text=name, attrs=attrs, user=user)
 
         return f"""\
         <a class="h-card u-author" href="{url}" title="{name}">
@@ -1175,7 +1176,7 @@ def fetch_objects(query, by=None, user=None):
                     content = '@' + fedi_url.group(2)
                     if fedi_url.group(4):
                         content += "'s post"
-            content = common.pretty_link(url, text=content)
+            content = common.pretty_link(url, text=content, user=user)
 
         obj.content = (obj_as1.get('content')
                        or obj_as1.get('displayName')
@@ -1184,8 +1185,8 @@ def fetch_objects(query, by=None, user=None):
 
         if type in ('like', 'follow', 'repost', 'share') or not obj.content:
             if obj.url:
-                obj.phrase = common.pretty_link(obj.url, text=obj.phrase,
-                                                attrs={'class': 'u-url'})
+                obj.phrase = common.pretty_link(
+                    obj.url, text=obj.phrase, attrs={'class': 'u-url'}, user=user)
             if content:
                 obj.content = content
                 obj.url = url
