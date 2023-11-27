@@ -33,6 +33,7 @@ HTML = """\
 <meta http-equiv="refresh" content="0;url=https://fake.com/123456"></head>
 <body class="">
 <article class="h-entry">
+  <span class="p-uid">tag:fake.com:123456</span>
   <time class="dt-published" datetime="2012-12-05T00:58:26+00:00">2012-12-05T00:58:26+00:00</time>
   <a class="u-url" href="https://fake.com/123456">fake.com/123456</a>
   <div class="e-content p-name">
@@ -43,6 +44,7 @@ HTML = """\
 </body>
 </html>
 """
+HTML_NO_ID = HTML.replace('<span class="p-uid">tag:fake.com:123456</span>', '')
 AUTHOR_HTML = """\
 <!DOCTYPE html>
 <html>
@@ -269,12 +271,12 @@ A ☕ reply
 
     @patch('requests.get')
     def test_web_to_activitypub_object(self, mock_get):
-        mock_get.return_value = requests_response(HTML)
+        mock_get.return_value = requests_response(HTML_NO_ID)
 
         self.make_user('user.com', cls=Web)
 
         url = 'https://user.com/bar?baz=baj&biff'
-        Object(id=url, mf2=parse_mf2(HTML)['items'][0]).put()
+        Object(id=url, mf2=parse_mf2(HTML_NO_ID)['items'][0]).put()
 
         resp = self.client.get(f'/convert/ap/{url}', base_url='https://web.brid.gy/')
         self.assertEqual(200, resp.status_code)
@@ -282,11 +284,11 @@ A ☕ reply
 
     @patch('requests.get')
     def test_web_to_activitypub_fetch(self, mock_get):
-        mock_get.return_value = requests_response(HTML)
+        mock_get.return_value = requests_response(HTML)  # protocol inference
         url = 'https://user.com/bar?baz=baj&biff'
         self.make_user('user.com', cls=Web)
 
-        Object(id=url, mf2=parse_mf2(HTML)['items'][0]).put()
+        Object(id=url, mf2=parse_mf2(HTML_NO_ID)['items'][0]).put()
 
         resp = self.client.get(f'/convert/ap/{url}',
                                base_url='https://web.brid.gy/')
@@ -308,10 +310,11 @@ A ☕ reply
     @patch('requests.get')
     def test_web_to_activitypub_url_decode(self, mock_get):
         """https://github.com/snarfed/bridgy-fed/issues/581"""
-        mock_get.return_value = requests_response(HTML)
+        mock_get.return_value = requests_response(HTML_NO_ID)
 
         self.make_user('user.com', cls=Web)
-        self.store_object(id='http://user.com/a#b', mf2=parse_mf2(HTML)['items'][0])
+        self.store_object(id='http://user.com/a#b',
+                          mf2=parse_mf2(HTML_NO_ID)['items'][0])
 
         resp = self.client.get(f'/convert/ap/http://user.com/a%23b',
                                base_url='https://web.brid.gy/')
