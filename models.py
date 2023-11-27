@@ -180,14 +180,20 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         logger.info(f'Wrote {self.key}')
 
     @classmethod
-    def get_by_id(cls, id):
-        """Override :meth:`google.cloud.ndb.model.Model.get_by_id` to follow the
-        ``use_instead`` property.
+    def get_by_id(cls, id, allow_opt_out=False):
+        """Override to follow ``use_instead`` property and ``opt-out` status.
+
+        Returns None if the user is opted out.
         """
         user = cls._get_by_id(id)
-        if user and user.use_instead:
+        if not user:
+            return None
+        elif user.use_instead:
             logger.info(f'{user.key} use_instead => {user.use_instead}')
             return user.use_instead.get()
+        elif user.status == 'opt-out' and not allow_opt_out:
+            logger.info(f'{user.key} is opted out')
+            return None
 
         return user
 
@@ -204,7 +210,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
           User: existing or new user, or None if the user is opted out
         """
         assert cls != User
-        user = cls.get_by_id(id)
+        user = cls.get_by_id(id, allow_opt_out=True)
         if user:
             if user.status == 'opt-out':
                 return None

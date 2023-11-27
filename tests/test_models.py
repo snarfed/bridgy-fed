@@ -38,6 +38,14 @@ class UserTest(TestCase):
         super().setUp()
         self.user = self.make_user('y.z', cls=Web)
 
+    def test_get_by_id_opted_out(self):
+        self.assert_entities_equal(self.user, Web.get_by_id('y.z'))
+
+        self.user.obj.our_as1 = {'summary': '#nobridge'}
+        self.user.obj.put()
+        self.user.put()
+        self.assertIsNone(Web.get_by_id('y.z'))
+
     def test_get_or_create(self):
         user = Fake.get_or_create('fake:user')
 
