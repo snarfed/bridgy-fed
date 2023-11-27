@@ -1589,6 +1589,13 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, resp.status_code)
         self.assertEqual('', resp.get_data(as_text=True))
 
+    def test_following_collection_opted_out(self, *_):
+        self.user.obj.our_as1['summary'] = '#nobridge'
+        self.user.obj.put()
+        self.user.put()
+        resp = self.client.get(f'/user.com/following', base_url='https://web.brid.gy')
+        self.assertEqual(404, resp.status_code)
+
     def test_outbox_fake_empty(self, *_):
         self.make_user('fake:foo', cls=Fake)
         resp = self.client.get(f'/ap/fake:foo/outbox',
@@ -1676,6 +1683,14 @@ class ActivityPubTest(TestCase):
         resp = self.client.head(f'/user.com/outbox')
         self.assertEqual(200, resp.status_code)
         self.assertEqual('', resp.get_data(as_text=True))
+
+    def test_outbox_opted_out(self, *_):
+        self.user.obj.our_as1['summary'] = '#nobridge'
+        self.user.obj.put()
+        self.user.put()
+        resp = self.client.get(f'/ap/user.com/outbox',
+                               base_url='https://web.brid.gy')
+        self.assertEqual(404, resp.status_code)
 
 
 class ActivityPubUtilsTest(TestCase):

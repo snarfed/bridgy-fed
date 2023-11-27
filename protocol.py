@@ -204,7 +204,7 @@ class Protocol:
             return proto.key_for(id) if proto else None
 
         # load user so that we follow use_instead
-        existing = cls.get_by_id(id)
+        existing = cls.get_by_id(id, allow_opt_out=True)
         if existing:
             if existing.status == 'opt-out':
                 return None
@@ -598,7 +598,7 @@ class Protocol:
                 logger.warning(f"actor {actor} isn't authed user {authed_as}")
 
         from_user = from_cls.get_or_create(id=actor)
-        if not from_user or from_user.status == 'opt-out':
+        if not from_user:
             error(f'Actor {actor} is opted out', status=204)
 
         # update copy ids to originals

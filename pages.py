@@ -80,7 +80,7 @@ def load_user(protocol, id):
     elif user and id != user.key.id():  # use_instead redirect
         error('', status=302, location=user.user_page_path())
 
-    if not user or not user.direct or user.status == 'opt-out':
+    if not user or not user.direct:
         # TODO: switch back to USER_NOT_FOUND_HTML
         # not easy via exception/abort because this uses Werkzeug's built in
         # NotFound exception subclass, and we'd need to make it implement
