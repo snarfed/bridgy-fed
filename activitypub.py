@@ -351,16 +351,22 @@ class ActivityPub(User, Protocol):
         if obj.source_protocol in ('ap', 'activitypub'):
             return converted
 
+        # special cases where obj or obj['object'] or obj['object']['object']
+        # are an actor
         if as1.object_type(obj.as1) in as1.ACTOR_TYPES:
             return postprocess_as2_actor(converted, user=from_user)
 
-        if as1.object_type(as1.get_object(obj.as1)) in as1.ACTOR_TYPES:
+        inner_obj = as1.get_object(obj.as1)
+        if as1.object_type(inner_obj) in as1.ACTOR_TYPES:
             converted['object'] = postprocess_as2_actor(converted['object'],
                                                         user=from_user)
 
-        return postprocess_as2(converted, orig_obj=orig_obj,
-                               # TODO: remove
-                               from_user=from_user)
+        # eg Accept of a Follow
+        if from_user and from_user.is_web_url(as1.get_object(inner_obj).get('id')):
+            converted['object']['object'] = from_user.ap_actor()
+
+        # convert!
+        return postprocess_as2(converted, orig_obj=orig_obj)
 
     @classmethod
     def verify_signature(cls, activity):
@@ -539,9 +545,7 @@ def signed_request(fn, url, data=None, headers=None, from_user=None, **kwargs):
     return resp
 
 
-def postprocess_as2(activity, orig_obj=None, wrap=True,
-                    # TODO: remove
-                    from_user=None):
+def postprocess_as2(activity, orig_obj=None, wrap=True):
     """Prepare an AS2 object to be served or sent via ActivityPub.
 
     Args:
@@ -596,10 +600,6 @@ def postprocess_as2(activity, orig_obj=None, wrap=True,
         activity['object'] = orig_id
     elif not id:
         obj['id'] = util.get_first(obj, 'url') or orig_id
-
-    # for Accepts
-    if from_user and from_user.is_web_url(as1.get_object(obj).get('id')):
-        obj['object'] = from_user.ap_actor()
 
     # id is required for most things. default to url if it's not set.
     if not activity.get('id'):
@@ -677,9 +677,7 @@ def postprocess_as2(activity, orig_obj=None, wrap=True,
 
     activity['object'] = [
         postprocess_as2(o, orig_obj=orig_obj,
-                        wrap=wrap and type in ('Create', 'Update', 'Delete'),
-                        # TODO: remove
-                        from_user=from_user)
+                        wrap=wrap and type in ('Create', 'Update', 'Delete'))
         for o in as1.get_objects(activity)]
     if len(activity['object']) == 1:
         activity['object'] = activity['object'][0]
