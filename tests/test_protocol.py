@@ -1416,7 +1416,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([('fake:stop-following', 'fake:user:target')], Fake.sent)
 
     @skip
-    def test_receive_from_bridgy_fed_domain_fails(self):
+    def test_from_bridgy_fed_domain_fails(self):
         with self.assertRaises(BadRequest):
             Fake.receive_as1({
                 'id': 'https://fed.brid.gy/r/foo',
@@ -1496,6 +1496,25 @@ class ProtocolReceiveTest(TestCase):
                                    ndb.Key(Fake, 'http://x.com/eve')],
                            )
         self.assertEqual(2, Follower.query().count())
+
+    def test_opted_out(self):
+        self.user.obj.our_as1 = {
+            'id': 'fake:user',
+            'summary': '#nobridge',
+        }
+        self.user.obj.put()
+
+        with self.assertRaises(NoContent):
+            Fake.receive_as1({
+                'id': 'fake:post',
+                'objectType': 'activity',
+                'verb': 'post',
+                'actor': 'fake:user',
+                'object': {
+                    'id': 'fake:note',
+                    'content': 'foo',
+                },
+            })
 
     def test_resolve_ids_follow(self):
         follow = {

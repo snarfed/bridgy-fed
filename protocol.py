@@ -590,7 +590,7 @@ class Protocol:
         # load actor user, check authorization
         actor = as1.get_owner(obj.as1)
         if not actor:
-            error(r'Activity missing actor or author', status=400)
+            error('Activity missing actor or author', status=400)
 
         if authed_as:
             assert isinstance(authed_as, str)
@@ -598,8 +598,8 @@ class Protocol:
                 logger.warning(f"actor {actor} isn't authed user {authed_as}")
 
         from_user = from_cls.get_or_create(id=actor)
-        if from_user.status == 'opt-out':
-            error(r'Actor {actor} is opted out', status=204)
+        if not from_user or from_user.status == 'opt-out':
+            error(f'Actor {actor} is opted out', status=204)
 
         # update copy ids to originals
         obj.resolve_ids()
