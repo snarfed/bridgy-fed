@@ -2126,6 +2126,20 @@ class WebUtilTest(TestCase):
             'url': 'https://user.com/post',
         }, obj.mf2)
 
+    def test_load_id_is_url_not_uid(self, mock_get, __):
+        mock_get.return_value = requests_response(NOTE_HTML.replace(
+            '<a href="http://localhost/"></a>', """\
+<data class="p-uid" value="abc123"></data>
+<a href="http://localhost/"></a>
+"""))
+
+        obj = Web.load('https://user.com/post')
+        self.assertEqual('https://user.com/post', obj.key.id())
+        self.assertEqual('https://user.com/post', obj.as1['id'])
+
+        self.assertEqual(NOTE_MF2, obj.mf2)
+        self.assertNotIn('uid', obj.mf2['properties'])
+
     def test_fetch_user_homepage(self, mock_get, __):
         mock_get.return_value = ACTOR_HTML_RESP
 

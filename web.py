@@ -401,12 +401,17 @@ class Web(User, Protocol):
             if not entry:
                 error(f'No microformats2 h-entry found in {url}')
 
+        # discard uid if set; we use URL as id
+        props = entry.setdefault('properties', {})
+        if 'uid' in props:
+            logger.info(f'Discarding uid property: {props["uid"]}')
+            props.pop('uid')
+
         # store final URL in mf2 object, and also default url property to it,
         # since that's the fallback for AS1/AS2 id
         if is_homepage:
             entry.setdefault('rel-urls', {}).update(parsed.get('rel-urls', {}))
             entry.setdefault('type', ['h-card'])
-        props = entry.setdefault('properties', {})
         if parsed['url']:
             entry['url'] = parsed['url']
             props.setdefault('url', [parsed['url']])

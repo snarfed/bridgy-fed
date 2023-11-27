@@ -20,7 +20,7 @@ from web import Web
 COMMENT_AS2 = {
     **as2.from_as1(COMMENT),
     'type': 'Note',
-    'id': 'https://web.brid.gy/r/tag:fake.com:123456',
+    'id': 'https://fed.brid.gy/r/https://fake.com/123456',
     'url': 'https://web.brid.gy/r/https://fake.com/123456',
     'name': 'A ☕ reply',
     'contentMap': {'en': COMMENT['content']},
@@ -33,7 +33,6 @@ HTML = """\
 <meta http-equiv="refresh" content="0;url=https://fake.com/123456"></head>
 <body class="">
 <article class="h-entry">
-  <span class="p-uid">tag:fake.com:123456</span>
   <time class="dt-published" datetime="2012-12-05T00:58:26+00:00">2012-12-05T00:58:26+00:00</time>
   <a class="u-url" href="https://fake.com/123456">fake.com/123456</a>
   <div class="e-content p-name">
