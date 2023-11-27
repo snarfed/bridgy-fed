@@ -199,10 +199,15 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Args:
           propagate (bool): whether to create copies of this user in push-based
             protocols, eg ATProto and Nostr.
+
+        Returns:
+          User: existing or new user, or None if the user is opted out
         """
         assert cls != User
         user = cls.get_by_id(id)
         if user:
+            if user.status == 'opt-out':
+                return None
             # override direct from False => True if set
             # TODO: propagate more props into user?
             direct = kwargs.get('direct')

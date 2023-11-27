@@ -99,6 +99,11 @@ class UserTest(TestCase):
 
         self.assertEqual('y.z', Fake.get_or_create('a.b').key.id())
 
+    def test_get_or_create_opted_out(self):
+        user = self.make_user('fake:user', cls=Fake,
+                              obj_as1 = {'summary': '#nobridge'})
+        self.assertIsNone(Fake.get_or_create('fake:user'))
+
     def test_public_pem(self):
         pem = self.user.public_pem()
         self.assertTrue(pem.decode().startswith('-----BEGIN PUBLIC KEY-----\n'), pem)
