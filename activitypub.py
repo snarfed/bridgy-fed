@@ -685,14 +685,14 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     return util.trim_nulls(activity)
 
 
-def postprocess_as2_actor(actor, user=None, wrap=True):
+def postprocess_as2_actor(actor, user=None):
     """Prepare an AS2 actor object to be served or sent via ActivityPub.
 
     Modifies actor in place.
 
     Args:
       actor (dict): AS2 actor object
-      wrap (bool): whether to wrap url
+      user (models.User): current user
 
     Returns:
       actor dict
@@ -706,7 +706,7 @@ def postprocess_as2_actor(actor, user=None, wrap=True):
     urls = util.get_list(actor, 'url')
     if not urls and url:
         urls = [url]
-    if urls and wrap:
+    if urls:
         urls[0] = redirect_wrap(urls[0])
 
     id = actor.get('id')

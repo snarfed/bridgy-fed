@@ -15,7 +15,7 @@ from werkzeug.exceptions import BadGateway, BadRequest
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
 
-from activitypub import ActivityPub, postprocess_as2
+from activitypub import ActivityPub
 import common
 from common import CONTENT_TYPE_HTML
 from models import Follower, Object
