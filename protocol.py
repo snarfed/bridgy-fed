@@ -60,11 +60,14 @@ class Protocol:
       LOGO_HTML (str): logo emoji or ``<img>`` tag
       CONTENT_TYPE (str): MIME type of this protocol's native data format,
         appropriate for the ``Content-Type`` HTTP header.
+      HAS_FOLLOW_ACCEPTS (bool): whether this protocol supports explicit
+        accept/reject activities in response to follows, eg ActivityPub
     """
     ABBREV = None
     OTHER_LABELS = ()
     LOGO_HTML = ''
     CONTENT_TYPE = None
+    HAS_FOLLOW_ACCEPTS = False
 
     def __init__(self):
         assert False
@@ -798,24 +801,25 @@ class Protocol:
                                                   follow=obj.key, status='active')
             obj.add('notify', to_key)
 
-            # send accept. note that this is one accept for the whole follow, even
-            # if it has multiple followees!
-            id = to_user.ap_actor(f'followers#accept-{obj.key.id()}')
-            accept = Object.get_or_create(id, our_as1={
-                'id': id,
-                'objectType': 'activity',
-                'verb': 'accept',
-                'actor': to_id,
-                'object': obj.as1,
-            })
+            if not to_user.HAS_FOLLOW_ACCEPTS:
+                # send accept. note that this is one accept for the whole
+                # follow, even if it has multiple followees!
+                id = to_user.ap_actor(f'followers#accept-{obj.key.id()}')
+                accept = Object.get_or_create(id, our_as1={
+                    'id': id,
+                    'objectType': 'activity',
+                    'verb': 'accept',
+                    'actor': to_id,
+                    'object': obj.as1,
+                })
 
-            sent = from_cls.send(accept, from_target, from_user=to_user)
-            if sent:
-                accept.populate(
-                    delivered=[Target(protocol=from_cls.LABEL, uri=from_target)],
-                    status='complete',
-                )
-                accept.put()
+                sent = from_cls.send(accept, from_target, from_user=to_user)
+                if sent:
+                    accept.populate(
+                        delivered=[Target(protocol=from_cls.LABEL, uri=from_target)],
+                        status='complete',
+                    )
+                    accept.put()
 
     @classmethod
     def handle_bare_object(cls, obj):

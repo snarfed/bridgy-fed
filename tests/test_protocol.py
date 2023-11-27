@@ -1317,6 +1317,33 @@ class ProtocolReceiveTest(TestCase):
             ignore=['created', 'updated'],
         )
 
+    def test_follow_with_accepts_protocol(self, **extra):
+        OtherFake.fetchable['other:user'] = {}
+
+        follow_as1 = {
+            'id': 'fake:follow',
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'fake:alice',
+            'object': 'other:user',
+        }
+        self.assertEqual(('OK', 202), Fake.receive_as1(follow_as1))
+
+        other = OtherFake.get_by_id('other:user')
+        follow_obj = self.assert_object('fake:follow',
+                                        our_as1=follow_as1,
+                                        status='complete',
+                                        users=[self.alice.key],
+                                        notify=[other.key],
+                                        delivered=['other:user:target'],
+                                        delivered_protocol='other',
+                                        )
+
+        self.assertIsNone(Object.get_by_id(
+            'https://fa.brid.gy/ap/other:user/followers#accept-fake:follow'))
+        self.assertEqual(0, Object.query(Object.type == 'accept').count())
+        self.assertEqual([], Fake.sent)
+
     def test_follow_no_actor(self):
         with self.assertRaises(BadRequest):
             Fake.receive_as1({

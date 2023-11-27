@@ -150,6 +150,7 @@ class OtherFake(Fake):
     """Different class because the same-protocol check special cases Fake."""
     LABEL = ABBREV = 'other'
     CONTENT_TYPE = 'ot/her'
+    HAS_FOLLOW_ACCEPTS = True
 
     fetchable = {}
     sent = []

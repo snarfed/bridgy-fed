@@ -63,6 +63,7 @@ class ActivityPub(User, Protocol):
     ABBREV = 'ap'
     LOGO_HTML = '<img src="/static/fediverse_logo.svg">'
     CONTENT_TYPE = as2.CONTENT_TYPE
+    HAS_FOLLOW_ACCEPTS = True
 
     def _pre_put_hook(self):
         """Validate id, require URL, don't allow Bridgy Fed domains.
