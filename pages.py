@@ -168,8 +168,6 @@ def followers_or_following(protocol, id, collection):
         f'{collection}.html',
         address=request.args.get('address'),
         follow_url=request.values.get('url'),
-        # TODO: remove
-        ActivityPub=PROTOCOLS['activitypub'],
         **TEMPLATE_VARS,
         **locals(),
     )

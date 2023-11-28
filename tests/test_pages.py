@@ -167,14 +167,14 @@ class PagesTest(TestCase):
     def test_followers(self):
         Follower.get_or_create(
             to=self.user,
-            from_=self.make_user('unused', cls=Fake, obj_as2={
+            from_=self.make_user('http://unused', cls=ActivityPub, obj_as2={
                 **ACTOR,
                 'id': 'unused',
                 'url': 'http://stored/users/follow',
             }))
         Follower.get_or_create(
             to=self.user,
-            from_=self.make_user('masto/user', cls=Fake,
+            from_=self.make_user('http://masto/user', cls=ActivityPub,
                                  obj_as2=ACTOR_WITH_PREFERRED_USERNAME))
 
         got = self.client.get('/web/user.com/followers')
@@ -261,14 +261,14 @@ class PagesTest(TestCase):
     def test_following(self):
         Follower.get_or_create(
             from_=self.user,
-            to=self.make_user('unused', cls=Fake, obj_as2={
+            to=self.make_user('http://unused', cls=ActivityPub, obj_as2={
                 **ACTOR,
                 'id': 'unused',
                 'url': 'http://stored/users/follow',
             }))
         Follower.get_or_create(
             from_=self.user,
-            to=self.make_user('masto/user', cls=Fake,
+            to=self.make_user('http://masto/user', cls=ActivityPub,
                               obj_as2=ACTOR_WITH_PREFERRED_USERNAME))
 
         got = self.client.get('/web/user.com/following')
@@ -276,7 +276,7 @@ class PagesTest(TestCase):
 
         body = got.get_data(as_text=True)
         self.assertIn('@follow@stored', body)
-        self.assertIn('masto/user', body)
+        self.assertIn('@me@plus.google.com', body)
 
     def test_following_empty(self):
         got = self.client.get('/web/user.com/following')
