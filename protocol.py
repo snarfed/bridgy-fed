@@ -1128,7 +1128,6 @@ class Protocol:
             return obj
 
         if obj:
-            obj.clear()
             obj.new = False
         else:
             obj = Object(id=id)

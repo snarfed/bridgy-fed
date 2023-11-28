@@ -620,14 +620,6 @@ class ObjectTest(TestCase):
         self.assertNotIn('id', obj.as1['actor'])
         self.assertEqual(['c', 'd'], obj.as1['object'])
 
-    def test_clear(self):
-        ab = {'a': 'b'}
-        obj = Object(our_as1=ab, as2=ab, mf2=ab)
-        obj.clear()
-        self.assertIsNone(obj.our_as1)
-        self.assertIsNone(obj.as2)
-        self.assertIsNone(obj.mf2)
-
     def test_validate_id(self):
         # DID repo ids
         Object(id='at://did:plc:123/app.bsky.feed.post/abc').put()

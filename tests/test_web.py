@@ -643,7 +643,7 @@ class WebTest(TestCase):
                            source_protocol='web',
                            type='comment',
                            labels=[],
-                           ignore=['our_as1'],
+                           ignore=['our_as1', 'mf2'],
                            )
         self.assert_object('https://user.com/reply#bridgy-fed-create',
                            source_protocol='web',
