@@ -11,7 +11,8 @@
         {% endif %}
       {% endwith %}
       {{ user_as1.get('displayName') or '' }}
-      {{ as2.address(ActivityPub.convert(f.user.obj) or url) or url }}
+      <!-- TODO: genericize -->
+      {{ as2.address(ActivityPub.convert(f.user.obj, from_user=user) or url) or url }}
     </a>
   {% endwith %}
 

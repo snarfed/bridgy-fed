@@ -744,7 +744,7 @@ def postprocess_as2_actor(actor, user=None):
     # required by pixelfed. https://github.com/snarfed/bridgy-fed/issues/39
     actor.setdefault('summary', '')
 
-    if not actor.get('publicKey'):
+    if not actor.get('publicKey') and not isinstance(user, ActivityPub):
         # underspecified, inferred from this issue and Mastodon's implementation:
         # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
         # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
@@ -897,6 +897,12 @@ def follower_collection(id, collection):
 
     TODO: unify page generation with outbox()
     """
+    if (request.path.startswith('/ap/')
+            and request.host in (PRIMARY_DOMAIN,) + LOCAL_DOMAINS):
+        # UI request. unfortunate that the URL paths overlap like this!
+        import pages
+        return pages.followers_or_following('ap', id, collection)
+
     protocol = Protocol.for_request(fed='web')
     assert protocol
     user = protocol.get_by_id(id)

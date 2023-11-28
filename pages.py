@@ -20,7 +20,6 @@ from oauth_dropins.webutil.flask_util import (
     redirect,
 )
 
-from activitypub import ActivityPub
 import common
 from common import DOMAIN_RE
 from flask_app import app, cache
@@ -169,7 +168,8 @@ def followers_or_following(protocol, id, collection):
         f'{collection}.html',
         address=request.args.get('address'),
         follow_url=request.values.get('url'),
-        ActivityPub=ActivityPub,
+        # TODO: remove
+        ActivityPub=PROTOCOLS['activitypub'],
         **TEMPLATE_VARS,
         **locals(),
     )

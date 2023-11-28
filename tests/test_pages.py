@@ -232,6 +232,18 @@ class PagesTest(TestCase):
         got = self.client.get('/fake/fake:foo/followers')
         self.assert_equals(200, got.status_code)
 
+    def test_followers_activitypub(self):
+        obj = Object(id='https://inst/user', as2={
+            'id': 'https://inst/user',
+            'preferredUsername': 'user',
+        })
+        obj.put()
+        self.make_user('https://inst/user', cls=ActivityPub, obj=obj)
+
+        got = self.client.get('/ap/@user@inst/followers')
+        self.assert_equals(200, got.status_code)
+        self.assert_equals('text/html', got.headers['Content-Type'].split(';')[0])
+
     def test_followers_empty(self):
         got = self.client.get('/web/user.com/followers')
         self.assert_equals(200, got.status_code)
