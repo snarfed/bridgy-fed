@@ -641,8 +641,13 @@ class Protocol:
         actor_id = actor.get('id')
 
         # handle activity!
-        if obj.type == 'accept':  # eg in response to a Follow
-            return 'OK'  # noop
+
+        # accept, eg in response to a follow. only send if the destination
+        # supports accepts.
+        if obj.type == 'accept':
+            to_cls = Protocol.for_id(inner_obj_id)
+            if not to_cls or not to_cls.HAS_FOLLOW_ACCEPTS:
+                return 'OK'  # noop
 
         elif obj.type == 'stop-following':
             # TODO: unify with handle_follow?

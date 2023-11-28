@@ -1381,6 +1381,35 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Follower.query().fetch())
         self.assertEqual([], Fake.sent)
 
+    def test_accept_noop(self, **extra):
+        eve = self.make_user('other:eve', cls=OtherFake)
+        accept_as1 = {
+            'id': 'other:accept',
+            'objectType': 'activity',
+            'verb': 'accept',
+            'actor': 'other:eve',
+            'object': 'fake:follow'
+        }
+
+        self.assertEqual('OK', OtherFake.receive_as1(accept_as1))
+        self.assertEqual([], Fake.sent)
+        self.assertEqual([], OtherFake.sent)
+
+    def test_accept_with_has_accepts_protocol(self, **extra):
+        OtherFake.fetchable['other:follow'] = {'id': 'other:follow'}
+        accept_as1 = {
+            'id': 'fake:accept',
+            'objectType': 'activity',
+            'verb': 'accept',
+            'actor': 'fake:alice',
+            'object': 'other:follow'
+        }
+
+        self.assertEqual(('OK', 202), Fake.receive_as1(accept_as1))
+        self.assertEqual([
+            ('fake:accept', 'other:follow:target'),
+        ], OtherFake.sent)
+
     def test_stop_following(self):
         follower = Follower.get_or_create(to=self.user, from_=self.alice)
 
