@@ -377,7 +377,7 @@ class Web(User, Protocol):
                             else None)
 
         try:
-            parsed = util.fetch_mf2(url, gateway=gateway,
+            parsed = util.fetch_mf2(url, gateway=gateway, metaformats_hcard=True,
                                     require_backlink=require_backlink)
         except ValueError as e:
             error(str(e))
@@ -392,12 +392,6 @@ class Web(User, Protocol):
         if is_homepage:
             logger.info(f"{url} is user's web url")
             entry = mf2util.representative_hcard(parsed, parsed['url'])
-            if (not entry and len(parsed['items']) == 1
-                    and parsed['items'][0]['type'] == ['h-entry']):
-                # metaformats synthetic item
-                # https://microformats.org/wiki/metaformats
-                entry = parsed['items'][0]
-                entry['type'] = ['h-card']
             if not entry:
                 error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {parsed['url']}")
             logger.info(f'Representative h-card: {json_dumps(entry, indent=2)}')

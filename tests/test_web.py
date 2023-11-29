@@ -601,21 +601,6 @@ class WebTest(TestCase):
 
         mock_get.assert_has_calls((self.req('https://user.com/post'),))
 
-    def test_source_homepage_no_mf2(self, mock_get, mock_post):
-        mock_get.return_value = requests_response("""
-<html>
-<body>
-<p>nothing to see here except <a href="http://localhost/">link</a></p>
-</body>
-</html>""", url='https://user.com/')
-
-        got = self.post('/queue/webmention', data={
-            'source': 'https://user.com/',
-            'target': 'https://fed.brid.gy/',
-        })
-        self.assertEqual(304, got.status_code)
-        mock_get.assert_has_calls((self.req('https://user.com/'),))
-
     def test_no_targets(self, mock_get, mock_post):
         mock_get.return_value = requests_response("""
 <html>
@@ -1673,6 +1658,61 @@ class WebTest(TestCase):
                            labels=['user', 'activity'],
                            )
 
+    def test_update_profile_homepage_no_mf2_or_metaformats(self, mock_get, mock_post):
+        mock_get.return_value = requests_response("""
+<html>
+<body>
+<p>nothing to see here except <a href="http://localhost/">link</a></p>
+</body>
+</html>""", url='https://user.com/')
+
+        mock_post.return_value = requests_response('OK')
+        Follower.get_or_create(to=self.user, from_=self.make_user(
+            'http://ddd', cls=ActivityPub, obj_as2={'inbox': 'https://inbox'}))
+
+        got = self.post('/queue/webmention', data={
+            'source': 'https://user.com/',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(202, got.status_code)
+        mock_get.assert_has_calls((
+            self.req('https://user.com/'),
+        ))
+
+        id = 'https://user.com/#update-2022-01-02T03:04:05+00:00'
+        wrapped_id = f'http://localhost/r/{id}'
+        update_as2 = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Update',
+            'id': wrapped_id,
+            'actor': 'http://localhost/user.com',
+            'object': {
+                **ACTOR_AS2_FULL,
+                'name': 'user.com',
+                'updated': NOW.isoformat(),
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            },
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        }
+        del update_as2['object']['endpoints']
+        del update_as2['object']['followers']
+        del update_as2['object']['following']
+        self.assert_deliveries(mock_post, ('https://inbox/',), update_as2)
+
+        # updated Web user
+        self.assert_user(Web, 'user.com', direct=True, has_redirects=True, obj_as2={
+            'type': 'Person',
+            'id': 'https://user.com/',
+            'url': 'https://user.com/',
+            'name': 'user.com',
+            'attachment': [{
+                'name': 'Link',
+                'type': 'PropertyValue',
+                'value': '<a rel="me" href="https://user.com"><span class="invisible">https://</span>user.com</a>',
+            }],
+            'updated': NOW.isoformat(),
+        })
+
     def test_like_actor_is_not_source_domain(self, mock_get, mock_post):
         like_html = LIKE_HTML.replace(
             'class="p-author h-card" href="https://user.com/"',
@@ -2167,9 +2207,19 @@ class WebUtilTest(TestCase):
         obj = Object(id='https://user.com/')
         Web.fetch(obj)
 
-        expected_mf2 = copy.deepcopy(ACTOR_MF2)
-        expected_mf2['properties']['author'] = ['https://user.com/']
-        self.assert_equals(expected_mf2, obj.mf2, ignore=['rel-urls', 'url'])
+        self.assert_equals(ACTOR_MF2, obj.mf2, ignore=['rel-urls', 'url'])
+        self.assert_equals(ACTOR_AS1_UNWRAPPED, obj.as1, ignore=['author'])
+
+    def test_fetch_user_homepage_metaformats_mf2_but_no_hcard(self, mock_get, __):
+        html = ACTOR_HTML_METAFORMATS.replace('</html>', """\
+<div class="h-entry"><span class="e-content">foo</span></div>
+</html>""")
+        mock_get.return_value = requests_response(html, url='https://user.com/')
+
+        obj = Object(id='https://user.com/')
+        Web.fetch(obj)
+
+        self.assert_equals(ACTOR_MF2, obj.mf2, ignore=['rel-urls', 'url'])
         self.assert_equals(ACTOR_AS1_UNWRAPPED, obj.as1, ignore=['author'])
 
     def test_fetch_user_homepage_no_hcard(self, mock_get, __):
