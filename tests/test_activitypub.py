@@ -1852,6 +1852,13 @@ class ActivityPubUtilsTest(TestCase):
             'value': '<a rel="me" href="https://two"><span class="invisible">https://</span>two</a>',
         }], got['attachment'])
 
+    def test_postprocess_as2_actor_strips_acct_url(self):
+        self.assert_equals('http://localhost/r/http://user.com/',
+                           postprocess_as2_actor(as2.from_as1({
+            'objectType': 'person',
+            'urls': ['http://user.com/', 'acct:foo@bar'],
+        }), user=self.user)['url'])
+
     def test_postprocess_as2_actor_preserves_preferredUsername(self):
         # preferredUsername stays y.z despite user's username. since Mastodon
         # queries Webfinger for preferredUsername@fed.brid.gy

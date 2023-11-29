@@ -704,7 +704,7 @@ def postprocess_as2_actor(actor, user=None):
     assert isinstance(actor, dict)
 
     url = user.web_url()
-    urls = util.get_list(actor, 'url')
+    urls = [u for u in util.get_list(actor, 'url') if u and not u.startswith('acct:')]
     if not urls and url:
         urls = [url]
     if urls:
