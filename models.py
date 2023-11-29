@@ -310,6 +310,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         https://github.com/snarfed/bridgy-fed/issues/666
         """
+        if self.key.id() in common.OPT_OUT_IDS:
+            return 'opt-out'
+
         if not self.obj or not self.obj.as1:
             return None
 

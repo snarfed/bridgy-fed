@@ -2,6 +2,7 @@
 import base64
 from datetime import timedelta
 import logging
+import os
 import re
 import threading
 import urllib.parse
@@ -63,6 +64,9 @@ DOMAIN_BLOCKLIST = (
     't.co',
     'twitter.com',
 )
+
+with open(os.path.join(os.path.dirname(__file__), 'opt_outs.txt')) as f:
+    OPT_OUT_IDS = util.load_file_lines(f)
 
 # populated in models.reset_protocol_properties
 SUBDOMAIN_BASE_URL_RE = None

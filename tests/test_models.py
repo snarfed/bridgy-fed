@@ -235,6 +235,10 @@ class UserTest(TestCase):
         })
         self.assertEqual('opt-out', user.status)
 
+        # from opt_outs.txt
+        user = self.make_user('fake:bridgy-fed:test-opt-out', cls=Fake)
+        self.assertEqual('opt-out', user.status)
+
     def test_get_copy(self):
         user = Fake(id='x')
         self.assertEqual('x', user.get_copy(Fake))

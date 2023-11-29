@@ -7,6 +7,7 @@ datastore.dat*
 flask_secret_key
 /l
 /local*
+opt_outs.txt
 private_notes
 service_account_creds.json
 TAGS
