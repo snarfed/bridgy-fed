@@ -37,6 +37,14 @@ ACTOR_HTML = """\
 </html>
 """
 ACTOR_HTML_RESP = requests_response(ACTOR_HTML, url='https://user.com/')
+ACTOR_HTML_METAFORMATS = """\
+<html>
+<head>
+<title>Ms. ☕ Baz</title>
+<meta property="article:author" content="/" />
+</head>
+</html>
+"""
 ACTOR_MF2 = {
     'type': ['h-card'],
     'properties': {
@@ -1494,10 +1502,7 @@ class WebTest(TestCase):
                            status='complete',
                            our_as1={
                                **DELETE_AS1,
-                               'actor': {
-                                   **ACTOR_AS1_UNWRAPPED,
-                                   'id': 'https://user.com/',
-                               },
+                               'actor': ACTOR_AS1_UNWRAPPED,
                            },
                            delivered=inboxes,
                            type='delete',
@@ -1758,7 +1763,7 @@ http://this/404s
             FULL_REDIR,
             requests_response("""
 <body>
-<div class="h-entry">
+<div class="h-review">
   <p class="e-content">foo bar</p>
 </div>
 </body>
@@ -2152,16 +2157,26 @@ class WebUtilTest(TestCase):
         }, obj.mf2)
         self.assert_equals({
             **ACTOR_AS1_UNWRAPPED,
-            'id': 'https://user.com/',
             'urls': [{'value': 'https://user.com/', 'displayName': 'Ms. ☕ Baz'}],
         }, obj.as1)
 
-    def test_fetch_user_homepage_no_hcard(self, mock_get, __):
-        mock_get.return_value = REPOST
+    def test_fetch_user_homepage_metaformats(self, mock_get, __):
+        mock_get.return_value = requests_response(
+            ACTOR_HTML_METAFORMATS, url='https://user.com/')
 
         obj = Object(id='https://user.com/')
-        with self.assertRaises(BadRequest):
-            Web.fetch(obj)
+        Web.fetch(obj)
+
+        expected_mf2 = copy.deepcopy(ACTOR_MF2)
+        expected_mf2['properties']['author'] = ['https://user.com/']
+        self.assert_equals(expected_mf2, obj.mf2, ignore=['rel-urls', 'url'])
+        self.assert_equals(ACTOR_AS1_UNWRAPPED, obj.as1, ignore=['author'])
+
+    def test_fetch_user_homepage_no_hcard(self, mock_get, __):
+        mock_get.return_value = TOOT_HTML
+
+        obj = Object(id='https://user.com/')
+        self.assertFalse(Web.fetch(obj))
 
     def test_fetch_user_homepage_non_representative_hcard(self, mock_get, __):
         mock_get.return_value = requests_response(
