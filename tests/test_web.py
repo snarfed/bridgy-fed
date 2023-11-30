@@ -2227,10 +2227,18 @@ class WebUtilTest(TestCase):
         self.assert_equals(ACTOR_AS1_UNWRAPPED, obj.as1, ignore=['author'])
 
     def test_fetch_user_homepage_no_hcard(self, mock_get, __):
-        mock_get.return_value = TOOT_HTML
+        mock_get.return_value = requests_response('<html><body>foo<body><html>',
+                                                  url='https://user.com/')
 
         obj = Object(id='https://user.com/')
-        self.assertFalse(Web.fetch(obj))
+        self.assertTrue(Web.fetch(obj))
+        self.assert_equals({
+            'type': ['h-card'],
+            'properties': {
+                'url': ['https://user.com/'],
+                'name': ['user.com'],
+            },
+        }, obj.mf2, ignore=['rel-urls', 'url'])
 
     def test_fetch_user_homepage_non_representative_hcard(self, mock_get, __):
         mock_get.return_value = requests_response(
