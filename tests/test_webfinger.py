@@ -49,6 +49,7 @@ WEBFINGER = {
         'href': 'https://web.brid.gy/ap/sharedInbox',
     }, {
         'rel': 'http://ostatus.org/schema/1.0/subscribe',
+        # TODO: genericize
         'template': 'https://fed.brid.gy/web/user.com?url={uri}',
     }],
 }
@@ -66,11 +67,11 @@ WEBFINGER_NO_HCARD = {
     }, {
         'rel': 'self',
         'type': 'application/activity+json',
-        'href': 'http://localhost/user.com',
+        'href': 'https://web.brid.gy/user.com',
     }, {
         'rel': 'inbox',
         'type': 'application/activity+json',
-        'href': 'http://localhost/user.com/inbox',
+        'href': 'https://web.brid.gy/user.com/inbox',
     }, {
         'rel': 'sharedInbox',
         'type': 'application/activity+json',
@@ -161,6 +162,20 @@ class WebfingerTest(TestCase):
                 self.assertEqual(200, got.status_code, got.get_data(as_text=True))
                 self.assertEqual('application/jrd+json', got.headers['Content-Type'])
                 self.assert_equals(WEBFINGER, got.json)
+
+    def test_webfinger_web_subdomain_redirects(self):
+        path = '/.well-known/webfinger?resource=user.com@user.com'
+
+        got = self.client.get(path, base_url='https://fed.brid.gy/')
+        self.assertEqual(302, got.status_code)
+        self.assertEqual(f'https://web.brid.gy{path}', got.headers['Location'])
+
+        self.user.ap_subdomain = 'fed'
+        self.user.put()
+
+        got = self.client.get(path, base_url='https://web.brid.gy/')
+        self.assertEqual(302, got.status_code)
+        self.assertEqual(f'https://fed.brid.gy{path}', got.headers['Location'])
 
     def test_user_infer_protocol_from_resource_subdomain(self):
         got = self.client.get(
@@ -298,8 +313,10 @@ class WebfingerTest(TestCase):
         expected = copy.deepcopy(WEBFINGER_NO_HCARD)
         expected['subject'] = 'acct:user.com@web.brid.gy'
 
-        got = self.client.get('/.well-known/webfinger?resource=acct:user.com@fed.brid.gy',
-                              headers={'Accept': 'application/json'})
+        got = self.client.get(
+            '/.well-known/webfinger?resource=acct:user.com@web.brid.gy',
+            headers={'Accept': 'application/json'},
+            base_url='https://web.brid.gy/')
         self.assertEqual(200, got.status_code)
         self.assertEqual(expected, got.json)
 

@@ -1916,6 +1916,8 @@ http://this/404s
         self.assertFalse(self.user.is_web_url('https://other.com/'))
 
     def test_handle_as(self, *_):
+        self.user.ap_subdomain = 'web'
+
         self.assertEqual('@user.com@user.com', self.user.handle_as(ActivityPub))
 
         self.user.obj = Object(id='a', as2={'type': 'Person'})
@@ -1936,6 +1938,9 @@ http://this/404s
 
         self.assertEqual('fake:handle:user.com', self.user.handle_as(Fake))
         self.assertEqual('user.com.web.brid.gy', self.user.handle_as('atproto'))
+
+        self.user.ap_subdomain = 'fed'
+        self.assertEqual('@user.com@fed.brid.gy', self.user.handle_as(ActivityPub))
 
     def test_ap_actor(self, *_):
         self.assertEqual('http://localhost/user.com', self.user.ap_actor())

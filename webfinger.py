@@ -4,16 +4,17 @@
 * https://tools.ietf.org/html/rfc7033
 """
 import logging
-import urllib.parse
+from urllib.parse import urljoin, urlparse
 
-from flask import g, render_template, request
+from flask import g, redirect, render_template, request
 from granary import as2
 from oauth_dropins.webutil import flask_util, util
-from oauth_dropins.webutil.flask_util import error, flash
+from oauth_dropins.webutil.flask_util import error, flash, Found
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import activitypub
 import common
+from common import LOCAL_DOMAINS, SUPERDOMAIN
 from flask_app import app, cache
 from protocol import Protocol
 
@@ -55,7 +56,7 @@ class Webfinger(flask_util.XrdOrJrd):
                 id = user
                 allow_indirect = True
         except ValueError:
-            id = urllib.parse.urlparse(resource).netloc or resource
+            id = urlparse(resource).netloc or resource
 
         if not cls:
             cls = Protocol.for_request(fed='web')
@@ -88,6 +89,15 @@ class Webfinger(flask_util.XrdOrJrd):
 
         if not user:
             error(f'No {cls.LABEL} user found for {id}', status=404)
+
+        # backward compatibility for initial Web users whose AP actor ids are on
+        # fed.brid.gy, not web.brid.gy
+        subdomain = request.host.split('.')[0]
+        if (user.LABEL == 'web'
+                and subdomain not in (LOCAL_DOMAINS + (user.ap_subdomain,))):
+            url = urljoin(f'https://{user.ap_subdomain}{common.SUPERDOMAIN}/',
+                          request.full_path)
+            raise Found(location=url)
 
         actor = user.obj.as1 if user.obj and user.obj.as1 else {}
         logger.info(f'Generating WebFinger data for {user.key}')

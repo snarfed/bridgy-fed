@@ -76,6 +76,13 @@ class Web(User, Protocol):
     redirects_error = ndb.TextProperty()
     has_hcard = ndb.BooleanProperty()
 
+    # Originally, BF served Web users' AP actor ids on fed.brid.gy, eg
+    # https://fed.brid.gy/snarfed.org . When we started adding new protocols, we
+    # switched to per-protocol subdomains, eg https://web.brid.gy/snarfed.org .
+    # However, we need to preserve the old users' actor ids as is. So, this
+    # property tracks which subdomain a given Web user's AP actor uses.
+    ap_subdomain = ndb.StringProperty(choices=['fed', 'web'], default='web')
+
     @classmethod
     def _get_kind(cls):
         return 'MagicKey'
@@ -114,7 +121,7 @@ class Web(User, Protocol):
         """Special case ActivityPub to use custom username."""
         if to_proto in ('activitypub', 'ap', PROTOCOLS['ap']):
             return (f'@{self.username()}@{self.key.id()}' if self.has_redirects
-                    else f'@{self.key.id()}@{self.ABBREV}{SUPERDOMAIN}')
+                    else f'@{self.key.id()}@{self.ap_subdomain}{SUPERDOMAIN}')
 
         return super().handle_as(to_proto)
 
