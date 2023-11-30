@@ -342,7 +342,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             return None
 
         return ids.translate_handle(handle=handle, from_proto=self.__class__,
-                                    to_proto=to_proto)
+                                    to_proto=to_proto, enhanced=False)
 
     def id_as(self, to_proto):
         """Returns this user's id in a different protocol.

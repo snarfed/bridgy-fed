@@ -84,26 +84,16 @@ class IdsTest(TestCase):
             (Web, 'user.com', ATProto, 'user.com.web.brid.gy'),
             (Web, 'user.com', Fake, 'fake:handle:user.com'),
             (Web, 'user.com', Web, 'user.com'),
-            # # TODO: enhanced
-            # (Web, 'user.com', ActivityPub, '@user.com@user.com'),
-            # (Web, 'user.com', Fake, 'fake:handle:user.com'),
 
-            # TODO: webfinger lookup
             (ActivityPub, '@user@instance', ActivityPub, '@user@instance'),
             (ActivityPub, '@user@instance', ATProto, 'user.instance.ap.brid.gy'),
             (ActivityPub, '@user@instance', Fake, 'fake:handle:@user@instance'),
             (ActivityPub, '@user@instance', Web, 'https://instance/@user'),
-            # # # TODO: enhanced
-            # (ActivityPub, '@user@instance', Web, 'https://instance/user'),
-            # (ActivityPub, '@user@instance', Fake,
-            #  'fake:handle:https://instance/user'),
 
             (ATProto, 'user.com', ActivityPub, '@user.com@atproto.brid.gy'),
             (ATProto, 'user.com', ATProto, 'user.com'),
             (ATProto, 'user.com', Fake, 'fake:handle:user.com'),
             (ATProto, 'user.com', Web, 'user.com'),
-            # # # TODO: enhanced
-            # (ATProto, '@user@instance', ActivityPub, 'user.com'),
 
             (Fake, 'fake:handle:user', ActivityPub, '@fake:handle:user@fa.brid.gy'),
             (Fake, 'fake:handle:user', ATProto, 'fake:handle:user.fa.brid.gy'),
@@ -112,7 +102,20 @@ class IdsTest(TestCase):
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_handle(
-                    handle=handle, from_proto=from_, to_proto=to))
+                    handle=handle, from_proto=from_, to_proto=to, enhanced=False))
+
+    def test_translate_handle_enhanced(self):
+        for from_, handle, to, expected in [
+            (Web, 'user.com', ActivityPub, '@user.com@user.com'),
+            (Web, 'user.com', Fake, 'fake:handle:user.com'),
+            (ActivityPub, '@user@instance', Web, 'https://instance/@user'),
+            (ActivityPub, '@user@user', Web, 'https://user'),
+            (ActivityPub, '@user@instance', Fake, 'fake:handle:@user@instance'),
+            (ATProto, 'user.com', ActivityPub, '@user.com@user.com'),
+        ]:
+            with self.subTest(from_=from_.LABEL, to=to.LABEL):
+                self.assertEqual(expected, translate_handle(
+                    handle=handle, from_proto=from_, to_proto=to, enhanced=True))
 
     def test_translate_object_id(self):
         self.store_object(id='http://post',

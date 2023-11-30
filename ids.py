@@ -78,13 +78,15 @@ def translate_user_id(*, id, from_proto, to_proto):
     assert False, (id, from_proto, to_proto)
 
 
-def translate_handle(*, handle, from_proto, to_proto):
+def translate_handle(*, handle, from_proto, to_proto, enhanced):
     """Translates a user handle from one protocol to another.
 
     Args:
       handle (str)
       from_proto (protocol.Protocol)
       to_proto (protocol.Protocol)
+      enhanced (bool): whether to convert to an "enhanced" handle based on the
+        user's domain
 
     Returns:
       str: the corresponding handle in ``to_proto``
@@ -97,22 +99,19 @@ def translate_handle(*, handle, from_proto, to_proto):
 
     match from_proto.LABEL, to_proto.LABEL:
         case _, 'activitypub':
-            if True:  # basic
-                return f'@{handle}@{from_proto.ABBREV}{SUPERDOMAIN}'
-            else:  # enhanced (TODO)
-                return f'@{handle}@{handle}'
+            domain = handle if enhanced else f'{from_proto.ABBREV}{SUPERDOMAIN}'
+            return f'@{handle}@{domain}'
 
         case _, 'atproto' | 'nostr':
             handle = handle.lstrip('@').replace('@', '.')
-            if True:  # basic
-                return f'{handle}.{from_proto.ABBREV}{SUPERDOMAIN}'
-            else:  # enhanced (TODO)
-                return handle
+            return (handle if enhanced
+                    else f'{handle}.{from_proto.ABBREV}{SUPERDOMAIN}')
 
         case 'activitypub', 'web':
             user, instance = handle.lstrip('@').split('@')
             # TODO: get this from the actor object's url field?
-            return f'https://{instance}/@{user}'
+            return (f'https://{user}' if user == instance
+                    else f'https://{instance}/@{user}')
 
         case _, 'web':
             return handle
