@@ -44,7 +44,7 @@ class PagesTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('user.com', cls=Web)
+        self.user = self.make_user('user.com', cls=Web, has_redirects=True)
 
     def test_user(self):
         got = self.client.get('/web/user.com', base_url='https://fed.brid.gy/')
@@ -58,7 +58,7 @@ class PagesTest(TestCase):
     def test_user_page_handle(self):
         user = self.make_user('http://foo', cls=ActivityPub,
                               obj_as2=ACTOR_WITH_PREFERRED_USERNAME)
-        self.assertEqual('@me@plus.google.com', user.ap_address())
+        self.assertEqual('@me@plus.google.com', user.handle_as(ActivityPub))
 
         got = self.client.get('/ap/@me@plus.google.com')
         self.assert_equals(200, got.status_code)

@@ -98,9 +98,6 @@ class ActivityPub(User, Protocol):
 
         return as2.address(self.key.id())
 
-    def ap_address(self):
-        return self.handle
-
     def ap_actor(self, rest=None):
         """Returns this user's actor id URL, eg ``https://foo.com/@user``."""
         url = self.key.id()

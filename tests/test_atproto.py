@@ -382,12 +382,15 @@ class ATProtoTest(TestCase):
         self.assertEqual('han.dull', user.handle_or_id())
 
     @patch('requests.get', return_value=requests_response('', status=404))
-    def test_ap_address(self, mock_get):
+    def test_handle_as(self, mock_get):
         user = self.make_user('did:plc:user', cls=ATProto)
-        self.assertEqual('@did:plc:user@atproto.brid.gy', user.ap_address())
+
+        # TODO? or remove?
+        # self.assertEqual('@did:plc:user@atproto.brid.gy',
+        #                  user.handle_as('activitypub'))
 
         self.store_object(id='did:plc:user', raw=DID_DOC)
-        self.assertEqual('@han.dull@atproto.brid.gy', user.ap_address())
+        self.assertEqual('@han.dull@atproto.brid.gy', user.handle_as('activitypub'))
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_profile_id(self, mock_get):

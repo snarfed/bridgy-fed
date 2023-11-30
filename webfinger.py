@@ -12,6 +12,7 @@ from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error, flash
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
+import activitypub
 import common
 from flask_app import app, cache
 from protocol import Protocol
@@ -99,7 +100,7 @@ class Webfinger(flask_util.XrdOrJrd):
 
         # generate webfinger content
         data = util.trim_nulls({
-            'subject': 'acct:' + user.ap_address().lstrip('@'),
+            'subject': 'acct:' + user.handle_as('activitypub').lstrip('@'),
             'aliases': urls,
             'links':
             [{

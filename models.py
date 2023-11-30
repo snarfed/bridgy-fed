@@ -337,6 +337,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             to_proto = PROTOCOLS[to_proto]
 
         # override web users to always use domain instead of custom username
+        # TODO: fall back to id if handle is unset?
         handle = self.key.id() if self.LABEL == 'web' else self.handle
         if not handle:
             return None
@@ -427,15 +428,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         return (url == this or url == parsed_this.netloc or
                 parsed_url[1:] == parsed_this[1:])  # ignore http vs https
-
-    def ap_address(self):
-        """Returns this user's ActivityPub address, eg ``@me@foo.com``.
-
-        Returns:
-          str:
-        """
-        # TODO: use self.handle_as? need it to fall back to id?
-        return f'@{self.handle_or_id()}@{self.ABBREV}{common.SUPERDOMAIN}'
 
     def ap_actor(self, rest=None):
         """Returns this user's ActivityPub/AS2 actor id.

@@ -46,7 +46,7 @@ def remote_follow():
         if link.get('rel') == webfinger.SUBSCRIBE_LINK_REL:
             template = link.get('template')
             if template and '{uri}' in template:
-                return redirect(template.replace('{uri}', user.ap_address()))
+                return redirect(template.replace('{uri}', user.handle_as(ActivityPub)))
 
     flash(f"Couldn't find remote follow link for {addr}")
     return redirect(user.user_page_path())

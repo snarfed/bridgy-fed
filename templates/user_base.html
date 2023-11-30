@@ -60,7 +60,7 @@
        and proto.LABEL not in ('atproto', 'ui') %}
       <nobr title="{{ proto.__name__ }} (bridged)">
         <span class="logo">{{ proto.LOGO_HTML|safe }}</span>
-        {{ user.ap_address() }}
+        {{ user.handle_as('activitypub') }}
       </nobr>
     {% endif %}
   {% endfor %}

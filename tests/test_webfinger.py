@@ -141,7 +141,8 @@ class WebfingerTest(TestCase):
     def setUp(self):
         super().setUp()
 
-        self.user = self.make_user('user.com', cls=Web, has_hcard=True, obj_as2={
+        self.user = self.make_user('user.com', cls=Web, has_hcard=True,
+                                   has_redirects=True, obj_as2={
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Person',
             'url': 'https://user.com/about-me',

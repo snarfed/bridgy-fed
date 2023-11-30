@@ -2071,32 +2071,31 @@ class ActivityPubUtilsTest(TestCase):
                                    postprocess_as2(postprocess_as2(obj)),
                                    ignore=['to'])
 
-    def test_ap_address(self):
+    def test_handle_as(self):
         user = ActivityPub(obj=Object(id='a', as2={
             **ACTOR,
             'preferredUsername': 'me',
         }))
-        self.assertEqual('@me@mas.to', user.ap_address())
+        self.assertEqual('@me@mas.to', user.handle_as(ActivityPub))
         self.assertEqual('@me@mas.to', user.handle)
 
         user.obj.as2 = ACTOR
-        self.assertEqual('@swentel@mas.to', user.ap_address())
+        self.assertEqual('@swentel@mas.to', user.handle_as(ActivityPub))
         self.assertEqual('@swentel@mas.to', user.handle)
 
         user = ActivityPub(id='https://mas.to/users/alice')
-        self.assertEqual('@alice@mas.to', user.ap_address())
+        self.assertEqual('@alice@mas.to', user.handle_as(ActivityPub))
         self.assertEqual('@alice@mas.to', user.handle)
 
-    def test_ap_actor(self):
-        user = self.make_user('http://foo/actor', cls=ActivityPub)
-        self.assertEqual('http://foo/actor', user.ap_actor())
-
-    def test_handle_as(self):
         user = self.make_user('http://a', cls=ActivityPub, obj_as2={
             'id': 'https://mas.to/users/foo',
             'preferredUsername': 'me',
         })
         self.assertEqual('me.mas.to.ap.brid.gy', user.handle_as('atproto'))
+
+    def test_ap_actor(self):
+        user = self.make_user('http://foo/actor', cls=ActivityPub)
+        self.assertEqual('http://foo/actor', user.ap_actor())
 
     def test_web_url(self):
         user = self.make_user('http://foo/actor', cls=ActivityPub)

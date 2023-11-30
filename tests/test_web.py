@@ -21,7 +21,7 @@ from common import CONTENT_TYPE_HTML
 from models import Follower, Object
 from web import TASKS_LOCATION, Web
 from . import test_activitypub
-from .testutil import TestCase
+from .testutil import Fake, TestCase
 
 
 FULL_REDIR = requests_response(
@@ -1915,24 +1915,27 @@ http://this/404s
         self.assertTrue(self.user.is_web_url('https://www.user.com/'))
         self.assertFalse(self.user.is_web_url('https://other.com/'))
 
-    def test_ap_address(self, *_):
-        self.assertEqual('@user.com@user.com', self.user.ap_address())
+    def test_handle_as(self, *_):
+        self.assertEqual('@user.com@user.com', self.user.handle_as(ActivityPub))
 
         self.user.obj = Object(id='a', as2={'type': 'Person'})
-        self.assertEqual('@user.com@user.com', self.user.ap_address())
+        self.assertEqual('@user.com@user.com', self.user.handle_as(ActivityPub))
 
         self.user.obj.as2 = {'url': 'http://foo'}
-        self.assertEqual('@user.com@user.com', self.user.ap_address())
+        self.assertEqual('@user.com@user.com', self.user.handle_as(ActivityPub))
 
         self.user.has_redirects = False
-        self.assertEqual('@user.com@web.brid.gy', self.user.ap_address())
+        self.assertEqual('@user.com@web.brid.gy', self.user.handle_as(ActivityPub))
 
         self.user.obj.as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@user.com']}
         self.user.has_redirects = True
-        self.assertEqual('@baz@user.com', self.user.ap_address())
+        self.assertEqual('@baz@user.com', self.user.handle_as(ActivityPub))
 
         self.user.has_redirects = False
-        self.assertEqual('@user.com@web.brid.gy', self.user.ap_address())
+        self.assertEqual('@user.com@web.brid.gy', self.user.handle_as(ActivityPub))
+
+        self.assertEqual('fake:handle:user.com', self.user.handle_as(Fake))
+        self.assertEqual('user.com.web.brid.gy', self.user.handle_as('atproto'))
 
     def test_ap_actor(self, *_):
         self.assertEqual('http://localhost/user.com', self.user.ap_actor())
@@ -1940,9 +1943,6 @@ http://this/404s
         self.user.direct = False
         self.assertEqual('http://localhost/user.com', self.user.ap_actor())
         self.assertEqual('http://localhost/user.com/inbox', self.user.ap_actor('inbox'))
-
-    def test_handle_as(self, *_):
-        self.assertEqual('user.com.web.brid.gy', self.user.handle_as('atproto'))
 
     def test_check_web_site(self, mock_get, _):
         redir = 'http://localhost/.well-known/webfinger?resource=acct:user.com@user.com'

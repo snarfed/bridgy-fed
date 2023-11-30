@@ -110,6 +110,14 @@ class Web(User, Protocol):
             return util.domain_from_link(username, minimize=False)
         return username
 
+    def handle_as(self, to_proto):
+        """Special case ActivityPub to use custom username."""
+        if to_proto in ('activitypub', 'ap', PROTOCOLS['ap']):
+            return (f'@{self.username()}@{self.key.id()}' if self.has_redirects
+                    else f'@{self.key.id()}@{self.ABBREV}{SUPERDOMAIN}')
+
+        return super().handle_as(to_proto)
+
     def web_url(self):
         """Returns this user's web URL aka web_url, eg ``https://foo.com/``."""
         return f'https://{self.key.id()}/'
@@ -118,15 +126,6 @@ class Web(User, Protocol):
 
     def is_web_url(self, url):
         return super().is_web_url(url, ignore_www=True)
-
-    def ap_address(self):
-        """Returns this user's ActivityPub address, eg ``@foo.com@foo.com``.
-
-        Uses the user's domain if they have the ``.well-known`` redirects,
-        otherwise ``web.brid.gy``.
-        """
-        return (f'@{self.username()}@{self.key.id()}' if self.has_redirects
-                else f'@{self.key.id()}@{self.ABBREV}{SUPERDOMAIN}')
 
     def ap_actor(self, rest=None):
         """Returns this user's ActivityPub/AS2 actor id.

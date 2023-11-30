@@ -62,7 +62,7 @@ class RemoteFollowTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.make_user('user.com', cls=Web)
+        self.make_user('user.com', cls=Web, has_redirects=True)
 
     def test_no_domain(self, _):
         got = self.client.post('/remote-follow?address=@foo@bar&protocol=web')
