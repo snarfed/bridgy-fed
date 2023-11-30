@@ -21,9 +21,9 @@ from requests import HTTPError, RequestException
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 
 import common
-from common import add, DOMAIN_RE
+from common import add, DOMAIN_RE, SUPERDOMAIN
 from flask_app import app, cache
-from ids import translate_object_id
+from ids import translate_handle, translate_object_id
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
 
@@ -122,12 +122,11 @@ class Web(User, Protocol):
     def ap_address(self):
         """Returns this user's ActivityPub address, eg ``@foo.com@foo.com``.
 
-        Uses the user's domain if they're direct, fed.brid.gy if they're not.
+        Uses the user's domain if they have the ``.well-known`` redirects,
+        otherwise ``web.brid.gy``.
         """
-        if self.direct:
-            return f'@{self.username()}@{self.key.id()}'
-
-        return super().ap_address()
+        return (f'@{self.username()}@{self.key.id()}' if self.has_redirects
+                else f'@{self.key.id()}@{self.ABBREV}{SUPERDOMAIN}')
 
     def ap_actor(self, rest=None):
         """Returns this user's ActivityPub/AS2 actor id.

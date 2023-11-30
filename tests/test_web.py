@@ -1924,10 +1924,14 @@ http://this/404s
         self.user.obj.as2 = {'url': 'http://foo'}
         self.assertEqual('@user.com@user.com', self.user.ap_address())
 
+        self.user.has_redirects = False
+        self.assertEqual('@user.com@web.brid.gy', self.user.ap_address())
+
         self.user.obj.as2 = {'url': ['http://foo', 'acct:bar@foo', 'acct:baz@user.com']}
+        self.user.has_redirects = True
         self.assertEqual('@baz@user.com', self.user.ap_address())
 
-        self.user.direct = False
+        self.user.has_redirects = False
         self.assertEqual('@user.com@web.brid.gy', self.user.ap_address())
 
     def test_ap_actor(self, *_):
