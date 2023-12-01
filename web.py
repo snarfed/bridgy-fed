@@ -38,7 +38,21 @@ CHAR_AFTER_SPACE = chr(ord(' ') + 1)
 WWW_DOMAINS = frozenset((
     'www.jvt.me',
 ))
-NON_TLDS = frozenset(('html', 'json', 'php', 'xml'))
+NON_TLDS = frozenset((
+    'gz',
+    'html',
+    'ini',
+    'jpg',
+    'json',
+    'php',
+    'png',
+    'sql',
+    'tgz',
+    'txt',
+    'xml',
+    'yaml',
+    'yml',
+))
 
 
 def is_valid_domain(domain):
