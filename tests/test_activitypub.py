@@ -1884,6 +1884,14 @@ class ActivityPubUtilsTest(TestCase):
             }],
         }, user=self.user)['preferredUsername'])
 
+    def test_postprocess_as2_user_wrapped_id(self):
+        for id in 'http://fed.brid.gy/user.com', 'http://fed.brid.gy/www.user.com':
+            got = postprocess_as2_actor(as2.from_as1({
+                'objectType': 'person',
+                'id': id,
+            }), user=self.user)
+            self.assert_equals('http://localhost/user.com', got['id'])
+
     def test_postprocess_as2_mentions_into_cc(self):
         obj = copy.deepcopy(MENTION_OBJECT)
         del obj['cc']
