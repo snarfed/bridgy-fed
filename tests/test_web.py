@@ -1947,7 +1947,7 @@ http://this/404s
         self.assertEqual('http://localhost/user.com', self.user.id_as(ActivityPub))
 
         with app.test_request_context('', base_url='https://web.brid.gy/'):
-            self.assertEqual('https://fed.brid.gy/user.com',
+            self.assertEqual('https://web.brid.gy/user.com',
                              self.user.id_as(ActivityPub))
 
         self.user.ap_subdomain = 'fed'

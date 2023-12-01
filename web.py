@@ -95,7 +95,7 @@ class Web(User, Protocol):
     # switched to per-protocol subdomains, eg https://web.brid.gy/snarfed.org .
     # However, we need to preserve the old users' actor ids as is. So, this
     # property tracks which subdomain a given Web user's AP actor uses.
-    ap_subdomain = ndb.StringProperty(choices=['fed', 'web'], default='fed')
+    ap_subdomain = ndb.StringProperty(choices=['fed', 'web'], default='web')
 
     @classmethod
     def _get_kind(cls):

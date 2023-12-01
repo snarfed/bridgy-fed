@@ -67,11 +67,11 @@ WEBFINGER_NO_HCARD = {
     }, {
         'rel': 'self',
         'type': 'application/activity+json',
-        'href': 'https://fed.brid.gy/user.com',
+        'href': 'https://web.brid.gy/user.com',
     }, {
         'rel': 'inbox',
         'type': 'application/activity+json',
-        'href': 'https://fed.brid.gy/user.com/inbox',
+        'href': 'https://web.brid.gy/user.com/inbox',
     }, {
         'rel': 'sharedInbox',
         'type': 'application/activity+json',
@@ -312,12 +312,12 @@ class WebfingerTest(TestCase):
         mock_get.return_value = requests_response(test_web.ACTOR_HTML)
 
         expected = copy.deepcopy(WEBFINGER_NO_HCARD)
-        expected['subject'] = 'acct:user.com@fed.brid.gy'
+        expected['subject'] = 'acct:user.com@web.brid.gy'
 
         got = self.client.get(
-            '/.well-known/webfinger?resource=acct:user.com@fed.brid.gy',
+            '/.well-known/webfinger?resource=acct:user.com@web.brid.gy',
             headers={'Accept': 'application/json'},
-            base_url='https://fed.brid.gy/')
+            base_url='https://web.brid.gy/')
         self.assertEqual(200, got.status_code)
         self.assertEqual(expected, got.json)
 

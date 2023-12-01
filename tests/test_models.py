@@ -177,7 +177,7 @@ class UserTest(TestCase):
             'url': 'acct:alice@y.z',
         }
         self.assertEqual('alice', self.user.username())
-        self.assertEqual('@y.z@fed.brid.gy', self.user.handle_as('ap'))
+        self.assertEqual('@y.z@web.brid.gy', self.user.handle_as('ap'))
 
     def test_handle_as_None(self):
         class NoHandle(Fake):
