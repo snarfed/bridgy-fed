@@ -750,7 +750,6 @@ def postprocess_as2_actor(actor, user=None):
 
     return actor
 
-
 # source protocol in subdomain.
 # WARNING: the user page handler in pages.py overrides this for fediverse
 # addresses with leading @ character. be careful when changing this route!
@@ -787,7 +786,8 @@ def actor(handle_or_id):
         error(f'{cls.LABEL} user {id} not found', status=404)
 
     id = user.id_as(ActivityPub)
-    if request.url != id:  # check that we're serving from the right subdomain
+    # check that we're serving from the right subdomain
+    if request.host != urlparse(id).netloc:
         return redirect(id)
 
     if not user.obj or not user.obj.as1:
