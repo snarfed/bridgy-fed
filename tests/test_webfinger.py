@@ -306,6 +306,15 @@ class WebfingerTest(TestCase):
             base_url='https://web.brid.gy/')
         self.assertEqual(400, got.status_code, got.get_data(as_text=True))
 
+    def test_no_handle(self):
+        class NoHandle(Fake):
+            ABBREV = 'noh'
+            handle = None
+
+        got = self.client.get(
+            '/.well-known/webfinger?resource=acct:nohandle:user@noh.brid.gy')
+        self.assertEqual(404, got.status_code)
+
     @patch('requests.get')
     def test_create_user(self, mock_get):
         self.user.key.delete()

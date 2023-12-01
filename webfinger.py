@@ -6,7 +6,7 @@
 import logging
 from urllib.parse import urljoin, urlparse
 
-from flask import g, redirect, render_template, request
+from flask import g, render_template, request
 from granary import as2
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error, flash, Found
@@ -90,6 +90,10 @@ class Webfinger(flask_util.XrdOrJrd):
         if not user:
             error(f'No {cls.LABEL} user found for {id}', status=404)
 
+        ap_handle = user.handle_as('activitypub')
+        if not ap_handle:
+            error(f'{cls.LABEL} user {id} has no handle', status=404)
+
         # backward compatibility for initial Web users whose AP actor ids are on
         # fed.brid.gy, not web.brid.gy
         subdomain = request.host.split('.')[0]
@@ -111,7 +115,7 @@ class Webfinger(flask_util.XrdOrJrd):
         # generate webfinger content
         actor_id = user.id_as(activitypub.ActivityPub)
         data = util.trim_nulls({
-            'subject': 'acct:' + user.handle_as('activitypub').lstrip('@'),
+            'subject': 'acct:' + ap_handle.lstrip('@'),
             'aliases': urls,
             'links':
             [{
