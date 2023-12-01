@@ -177,7 +177,7 @@ class UserTest(TestCase):
             'url': 'acct:alice@y.z',
         }
         self.assertEqual('alice', self.user.username())
-        self.assertEqual('@y.z@web.brid.gy', self.user.handle_as('ap'))
+        self.assertEqual('@y.z@fed.brid.gy', self.user.handle_as('ap'))
 
     def test_handle_as_None(self):
         class NoHandle(Fake):
@@ -187,14 +187,6 @@ class UserTest(TestCase):
 
         user = NoHandle()
         self.assertIsNone(user.handle_as(OtherFake))
-
-    @patch('requests.get', return_value=requests_response(DID_DOC))
-    def test_ap_actor(self, mock_get):
-        user = self.make_user('did:plc:abc', cls=ATProto)
-        self.assertEqual('https://atproto.brid.gy/ap/did:plc:abc',
-                         user.ap_actor())
-        self.assertEqual('https://atproto.brid.gy/ap/did:plc:abc/foo',
-                         user.ap_actor(rest='foo'))
 
     def test_load_multi(self):
         # obj_key is None

@@ -415,8 +415,11 @@ class ActivityPubTest(TestCase):
         self.assertEqual(504, got.status_code)
 
     def test_actor_handle_existing_user(self, _, __, ___):
-        self.make_user('fake:user', cls=Fake, obj_as2=ACTOR)
-        got = self.client.get('/ap/fake:handle:user', base_url='https://fa.brid.gy/')
+        self.make_user('fake:user', cls=Fake, obj_as1=as2.to_as1({
+            **ACTOR,
+            'id': 'fake:user',
+        }))
+        got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
         self.assertEqual(200, got.status_code)
         self.assert_equals({
             **ACTOR,
@@ -428,7 +431,7 @@ class ActivityPubTest(TestCase):
             **ACTOR,
             'id': 'fake:user',
         })
-        got = self.client.get('/ap/fake:handle:user', base_url='https://fa.brid.gy/')
+        got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
         self.assertEqual(200, got.status_code)
         self.assert_equals({
             **ACTOR,
@@ -443,7 +446,7 @@ class ActivityPubTest(TestCase):
         self.assertNotIn('preferredUsername', got.json)
 
     def test_actor_handle_user_fetch_fails(self, _, __, ___):
-        got = self.client.get('/ap/fake/fake:handle:nope')
+        got = self.client.get('/ap/fake/fake:nope')
         self.assertEqual(404, got.status_code)
 
     def test_actor_no_matching_protocol(self, *_):
@@ -452,14 +455,21 @@ class ActivityPubTest(TestCase):
         self.assertEqual(404, resp.status_code)
 
     def test_actor_web_redirects(self, *_):
-        for path, base_url in [
-                ('/ap/user.com', None),
-                ('/ap/user.com', 'https://web.brid.gy/'),
-                ('/user.com', 'https://web.brid.gy/'),
-        ]:
-            resp = self.client.get(path, base_url=base_url)
-            self.assertEqual(301, resp.status_code)
-            self.assertEqual('https://fed.brid.gy/user.com', resp.headers['Location'])
+        resp = self.client.get('/ap/user.com')
+        self.assertEqual(301, resp.status_code)
+        self.assertEqual('https://fed.brid.gy/user.com', resp.headers['Location'])
+
+        self.user.ap_subdomain = 'web'
+        self.user.put()
+        resp = self.client.get('/user.com', base_url='https://fed.brid.gy/')
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('https://web.brid.gy/user.com', resp.headers['Location'])
+
+        self.user.ap_subdomain = 'fed'
+        self.user.put()
+        got = self.client.get('/user.com', base_url='https://web.brid.gy/')
+        self.assertEqual(302, got.status_code)
+        self.assertEqual('https://fed.brid.gy/user.com', got.headers['Location'])
 
     def test_actor_opted_out(self, *_):
         self.user.obj.our_as1['summary'] = '#nobridge'
@@ -2092,10 +2102,6 @@ class ActivityPubUtilsTest(TestCase):
             'preferredUsername': 'me',
         })
         self.assertEqual('me.mas.to.ap.brid.gy', user.handle_as('atproto'))
-
-    def test_ap_actor(self):
-        user = self.make_user('http://foo/actor', cls=ActivityPub)
-        self.assertEqual('http://foo/actor', user.ap_actor())
 
     def test_web_url(self):
         user = self.make_user('http://foo/actor', cls=ActivityPub)

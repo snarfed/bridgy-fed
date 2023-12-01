@@ -123,7 +123,7 @@ class FollowCallback(indieauth.Callback):
             'type': 'Follow',
             'id': follow_id,
             'object': followee_id,
-            'actor': user.ap_actor(),
+            'actor': user.id_as(ActivityPub),
             'to': [as2.PUBLIC_AUDIENCE],
         }
         followee_user = ActivityPub.get_or_create(followee_id, obj=followee)
@@ -208,7 +208,7 @@ class UnfollowCallback(indieauth.Callback):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Undo',
             'id': unfollow_id,
-            'actor': user.ap_actor(),
+            'actor': user.id_as(ActivityPub),
             'object': follower.follow.get().as2 if follower.follow else None,
         }
 

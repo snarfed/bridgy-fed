@@ -86,7 +86,7 @@ class ActivityPub(User, Protocol):
             if url:
                 return url
 
-        return self.ap_actor()
+        return self.key.id()
 
     @ndb.ComputedProperty
     def handle(self):
@@ -97,13 +97,6 @@ class ActivityPub(User, Protocol):
                 return addr
 
         return as2.address(self.key.id())
-
-    def ap_actor(self, rest=None):
-        """Returns this user's actor id URL, eg ``https://foo.com/@user``."""
-        url = self.key.id()
-        if rest:
-            url += f'/{rest.lstrip("/")}'
-        return url
 
     @classmethod
     def owns_id(cls, id):
@@ -361,7 +354,7 @@ class ActivityPub(User, Protocol):
 
         # eg Accept of a Follow
         if from_user and from_user.is_web_url(as1.get_object(inner_obj).get('id')):
-            converted['object']['object'] = from_user.ap_actor()
+            converted['object']['object'] = from_user.id_as(ActivityPub)
 
         # convert!
         return postprocess_as2(converted, orig_obj=orig_obj)
@@ -517,7 +510,7 @@ def signed_request(fn, url, data=None, headers=None, from_user=None, **kwargs):
     # https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.3
     # https://www.w3.org/wiki/SocialCG/ActivityPub/Authentication_Authorization#Signing_requests_using_HTTP_Signatures
     # https://docs.joinmastodon.org/spec/security/#http
-    key_id = f'{from_user.ap_actor()}#key'
+    key_id = f'{from_user.id_as(ActivityPub)}#key'
     auth = HTTPSignatureAuth(secret=from_user.private_pem(), key_id=key_id,
                              algorithm='rsa-sha256', sign_header='signature',
                              headers=HTTP_SIG_HEADERS)
@@ -709,13 +702,13 @@ def postprocess_as2_actor(actor, user=None):
 
     id = actor.get('id')
     if not id or user.is_web_url(id):
-        actor['id'] = user.ap_actor()
+        id = actor['id'] = user.id_as(ActivityPub)
 
     actor['url'] = urls[0] if len(urls) == 1 else urls
     # required by ActivityPub
     # https://www.w3.org/TR/activitypub/#actor-objects
-    actor.setdefault('inbox', user.ap_actor('inbox'))
-    actor.setdefault('outbox', user.ap_actor('outbox'))
+    actor.setdefault('inbox', id + '/inbox')
+    actor.setdefault('outbox', id + '/outbox')
 
     # This has to be the id (domain for Web) for Mastodon etc interop! It
     # seems like it should be the custom username from the acct: u-url in
@@ -745,11 +738,10 @@ def postprocess_as2_actor(actor, user=None):
         # underspecified, inferred from this issue and Mastodon's implementation:
         # https://github.com/w3c/activitypub/issues/203#issuecomment-297553229
         # https://github.com/tootsuite/mastodon/blob/bc2c263504e584e154384ecc2d804aeb1afb1ba3/app/services/activitypub/process_account_service.rb#L77
-        actor_url = user.ap_actor()
         actor.update({
             'publicKey': {
-                'id': f'{actor_url}#key',
-                'owner': actor_url,
+                'id': f'{id}#key',
+                'owner': id,
                 'publicKeyPem': user.public_pem().decode(),
             },
             '@context': (util.get_list(actor, '@context') +
@@ -773,9 +765,7 @@ def actor(handle_or_id):
     cls = Protocol.for_request(fed='web')
     if not cls:
         error(f"Couldn't determine protocol", status=404)
-    elif (cls.LABEL == 'web' and
-          (request.path.startswith('/ap/')
-           or request.host not in LOCAL_DOMAINS + (PRIMARY_DOMAIN,))):
+    elif cls.LABEL == 'web' and request.path.startswith('/ap/'):
         # we started out with web users' AP ids as fed.brid.gy/[domain], so we
         # need to preserve those for backward compatibility
         return redirect(subdomain_wrap(None, f'/{handle_or_id}'), code=301)
@@ -796,6 +786,10 @@ def actor(handle_or_id):
     if not user:
         error(f'{cls.LABEL} user {id} not found', status=404)
 
+    id = user.id_as(ActivityPub)
+    if request.url != id:  # check that we're serving from the right subdomain
+        return redirect(id)
+
     if not user.obj or not user.obj.as1:
         user.obj = cls.load(user.profile_id(), gateway=True)
         if user.obj:
@@ -807,11 +801,11 @@ def actor(handle_or_id):
     }
     actor = postprocess_as2_actor(actor, user=user)
     actor.update({
-        'id': user.ap_actor(),
-        'inbox': user.ap_actor('inbox'),
-        'outbox': user.ap_actor('outbox'),
-        'following': user.ap_actor('following'),
-        'followers': user.ap_actor('followers'),
+        'id': id,
+        'inbox': id + '/inbox',
+        'outbox': id + '/outbox',
+        'following': id + '/following',
+        'followers': id + '/followers',
         'endpoints': {
             'sharedInbox': subdomain_wrap(cls, '/ap/sharedInbox'),
         },

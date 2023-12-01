@@ -109,6 +109,7 @@ class Webfinger(flask_util.XrdOrJrd):
         canonical_url = urls[0]
 
         # generate webfinger content
+        actor_id = user.id_as(activitypub.ActivityPub)
         data = util.trim_nulls({
             'subject': 'acct:' + user.handle_as('activitypub').lstrip('@'),
             'aliases': urls,
@@ -137,13 +138,13 @@ class Webfinger(flask_util.XrdOrJrd):
                 # WARNING: in python 2 sometimes request.host_url lost port,
                 # http://localhost:8080 would become just http://localhost. no
                 # clue how or why. pay attention here if that happens again.
-                'href': user.ap_actor(),
+                'href': actor_id,
             }, {
                 # AP reads this and sharedInbox from the AS2 actor, not
                 # webfinger, so strictly speaking, it's probably not needed here.
                 'rel': 'inbox',
                 'type': as2.CONTENT_TYPE,
-                'href': user.ap_actor('inbox'),
+                'href': actor_id + '/inbox',
             }, {
                 # https://www.w3.org/TR/activitypub/#sharedInbox
                 'rel': 'sharedInbox',

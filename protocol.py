@@ -809,7 +809,7 @@ class Protocol:
             if not to_user.HAS_FOLLOW_ACCEPTS:
                 # send accept. note that this is one accept for the whole
                 # follow, even if it has multiple followees!
-                id = to_user.ap_actor(f'followers#accept-{obj.key.id()}')
+                id = to_user.id_as('activitypub') + f'/followers#accept-{obj.key.id()}'
                 accept = Object.get_or_create(id, our_as1={
                     'id': id,
                     'objectType': 'activity',

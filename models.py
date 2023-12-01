@@ -429,25 +429,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return (url == this or url == parsed_this.netloc or
                 parsed_url[1:] == parsed_this[1:])  # ignore http vs https
 
-    def ap_actor(self, rest=None):
-        """Returns this user's ActivityPub/AS2 actor id.
-
-        Eg ``https://atproto.brid.gy/ap/foo.com``.
-
-        May be overridden by subclasses.
-
-        Args:
-          rest (str): optional, appended to URL path
-
-        Returns:
-          str
-        """
-        # must match the URL route for activitypub.actor()
-        url = common.subdomain_wrap(self, f'/ap/{self.key.id()}')
-        if rest:
-            url += f'/{rest.lstrip("/")}'
-        return url
-
     def profile_id(self):
         """Returns the id of this user's profile object in its native protocol.
 

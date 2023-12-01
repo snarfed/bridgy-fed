@@ -18,6 +18,7 @@ from . import testutil
 from activitypub import ActivityPub
 import common
 from common import CONTENT_TYPE_HTML
+from flask_app import app
 from models import Follower, Object
 from web import TASKS_LOCATION, Web
 from . import test_activitypub
@@ -1942,12 +1943,17 @@ http://this/404s
         self.user.ap_subdomain = 'fed'
         self.assertEqual('@user.com@fed.brid.gy', self.user.handle_as(ActivityPub))
 
-    def test_ap_actor(self, *_):
-        self.assertEqual('http://localhost/user.com', self.user.ap_actor())
+    def test_id_as(self, *_):
+        self.assertEqual('http://localhost/user.com', self.user.id_as(ActivityPub))
 
-        self.user.direct = False
-        self.assertEqual('http://localhost/user.com', self.user.ap_actor())
-        self.assertEqual('http://localhost/user.com/inbox', self.user.ap_actor('inbox'))
+        with app.test_request_context('', base_url='https://web.brid.gy/'):
+            self.assertEqual('https://fed.brid.gy/user.com',
+                             self.user.id_as(ActivityPub))
+
+        self.user.ap_subdomain = 'fed'
+        with app.test_request_context('', base_url='https://web.brid.gy/'):
+            self.assertEqual('https://fed.brid.gy/user.com',
+                             self.user.id_as(ActivityPub))
 
     def test_check_web_site(self, mock_get, _):
         redir = 'http://localhost/.well-known/webfinger?resource=acct:user.com@user.com'

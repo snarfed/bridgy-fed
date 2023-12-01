@@ -23,7 +23,7 @@ from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 import common
 from common import add, DOMAIN_RE, SUPERDOMAIN
 from flask_app import app, cache
-from ids import translate_handle, translate_object_id
+from ids import translate_handle, translate_object_id, translate_user_id
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
 
@@ -81,7 +81,7 @@ class Web(User, Protocol):
     # switched to per-protocol subdomains, eg https://web.brid.gy/snarfed.org .
     # However, we need to preserve the old users' actor ids as is. So, this
     # property tracks which subdomain a given Web user's AP actor uses.
-    ap_subdomain = ndb.StringProperty(choices=['fed', 'web'], default='web')
+    ap_subdomain = ndb.StringProperty(choices=['fed', 'web'], default='fed')
 
     @classmethod
     def _get_kind(cls):
@@ -125,6 +125,21 @@ class Web(User, Protocol):
 
         return super().handle_as(to_proto)
 
+    def id_as(self, to_proto):
+        """Special case ActivityPub to use ``ap_subdomain``."""
+        if isinstance(to_proto, str):
+            to_proto = PROTOCOLS[to_proto]
+
+        converted = translate_user_id(id=self.key.id(), from_proto=self,
+                                      to_proto=to_proto)
+
+        if to_proto.LABEL == 'activitypub':
+            other = 'web' if self.ap_subdomain == 'fed' else 'fed'
+            converted = converted.replace(f'https://{other}.brid.gy/',
+                                          f'https://{self.ap_subdomain}.brid.gy/')
+
+        return converted
+
     def web_url(self):
         """Returns this user's web URL aka web_url, eg ``https://foo.com/``."""
         return f'https://{self.key.id()}/'
@@ -133,19 +148,6 @@ class Web(User, Protocol):
 
     def is_web_url(self, url):
         return super().is_web_url(url, ignore_www=True)
-
-    def ap_actor(self, rest=None):
-        """Returns this user's ActivityPub/AS2 actor id.
-
-        Eg ``https://fed.brid.gy/foo.com``
-
-        Web users are special cased to not have an ``/ap/web/`` prefix, for
-        backward compatibility.
-        """
-        url = common.host_url(self.key.id())
-        if rest:
-            url += f'/{rest.lstrip("/")}'
-        return url
 
     def user_page_path(self, rest=None):
         """Always use domain."""
