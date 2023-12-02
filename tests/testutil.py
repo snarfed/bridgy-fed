@@ -439,7 +439,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             self.assertSetEqual(set(object_ids), set(got.object_ids))
 
         if expected_as1 := props.pop('as1', None):
-            self.assert_equals(common.unwrap(expected_as1), got.as1)
+            self.assert_equals(expected_as1, got.as1)
 
         if got.mf2:
             got.mf2.pop('url', None)

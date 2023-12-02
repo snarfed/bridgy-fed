@@ -577,7 +577,7 @@ class Object(StringIdModel):
             obj = self.our_as1
 
         elif self.as2:
-            obj = as2.to_as1(unwrap(self.as2))
+            obj = as2.to_as1(self.as2)
 
         elif self.bsky:
             owner, _, _ = parse_at_uri(self.key.id())
@@ -1126,7 +1126,7 @@ def fetch_objects(query, by=None, user=None):
             content = util.parse_html(content).get_text()
 
         urls = as1.object_urls(inner_obj)
-        id = common.unwrap(inner_obj.get('id', ''))
+        id = unwrap(inner_obj.get('id', ''))
         url = urls[0] if urls else id
         if (type == 'update' and
             (obj.users and (user.is_web_url(id)
