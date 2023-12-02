@@ -14,7 +14,7 @@ import cachetools
 from Crypto.PublicKey import RSA
 from flask import g, request
 from google.cloud import ndb
-from granary import as1, as2, bluesky, microformats2
+from granary import as1, as2, atom, bluesky, microformats2
 from granary.source import html_to_text
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_info import DEBUG
@@ -537,6 +537,7 @@ class Object(StringIdModel):
     # TODO: switch back to ndb.JsonProperty if/when they fix it for the web console
     # https://github.com/googleapis/python-ndb/issues/874
     as2 = JsonProperty()      # only one of the rest will be populated...
+    atom = ndb.TextProperty() # Atom XML, usually from Superfeedr
     bsky = JsonProperty()     # Bluesky / AT Protocol
     mf2 = JsonProperty()      # HTML microformats2 item (ie _not_ the top level
                               # parse object with items inside an 'items' field)
@@ -595,6 +596,9 @@ class Object(StringIdModel):
             for field in 'author', 'actor', 'object':  # None is obj itself
                 if url := util.get_url(obj, field):
                     as1.get_object(obj, field).setdefault('id', url)
+
+        elif self.atom:
+            obj = atom.atom_to_activity(self.atom)
 
         else:
             return None
