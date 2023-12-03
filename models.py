@@ -598,7 +598,9 @@ class Object(StringIdModel):
                     as1.get_object(obj, field).setdefault('id', url)
 
         elif self.atom:
-            obj = atom.atom_to_activity(self.atom)
+            obj = atom.atom_to_activity(self.atom)['object']
+            if url := as1.get_url(obj):
+                obj['id'] = url
 
         else:
             return None

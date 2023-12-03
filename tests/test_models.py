@@ -576,25 +576,30 @@ class ObjectTest(TestCase):
 
     def test_as1_from_atom(self):
         self.assert_equals({
-            'objectType': 'activity',
-            'id': 'reply-url',
-            'url': 'reply-url',
-            'object': {
-                'id': 'reply-url',
-                'url': 'reply-url',
-                'content': 'I hereby ☕ reply.',
-            },
+            'id': 'http://user/post',
+            'url': 'http://user/post',
+            'content': 'I hereby ☕ reply.',
         }, Object(atom="""\
 <?xml version="1.0" encoding="UTF-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
-<uri>reply-url</uri>
+<uri>http://user/post</uri>
 <content>I hereby ☕ reply.</content>
 </entry>
 """).as1)
 
-        self.assertEqual({'foo': 'bar'}, Object(our_as1={'foo': 'bar'}).as1)
-        self.assertEqual({'id': 'x', 'foo': 'bar'},
-                         Object(id='x', our_as1={'foo': 'bar'}).as1)
+    def test_as1_from_atom_url_overrides_id(self):
+        self.assert_equals({
+            'id': 'http://user/post',
+            'url': 'http://user/post',
+            'content': 'I hereby ☕ reply.',
+        }, Object(atom="""\
+<?xml version="1.0" encoding="UTF-8"?>
+<entry xmlns="http://www.w3.org/2005/Atom">
+<id>unused</id>
+<uri>http://user/post</uri>
+<content>I hereby ☕ reply.</content>
+</entry>
+""").as1)
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_as1_from_bsky(self, mock_get):
