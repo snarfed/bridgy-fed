@@ -9,7 +9,7 @@ from urllib.parse import quote, urlencode, urljoin, urlparse
 from flask import g, redirect, render_template, request
 from google.cloud import ndb
 from google.cloud.ndb import ComputedProperty
-from granary import as1, as2, microformats2
+from granary import as1, as2, atom, microformats2
 import mf2util
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.appengine_config import tasks_client
@@ -581,6 +581,38 @@ def webmention_interactive():
         return redirect('/', code=302)
 
 
+# generate/check per-user token for auth?
+# or https://documentation.superfeedr.com/subscribers.html#http-authentication ?
+@app.post(f'/superfeedr/notify/<regex("{DOMAIN_RE}"):domain>')
+def superfeedr_notify(domain):
+    """Superfeedr notification handler.
+
+    https://documentation.superfeedr.com/publishers.html#subscription-callback
+    """
+    logger.info(f'Got:\n{request.get_data(as_text=True)}')
+
+    type = request.headers.get('Content-Type', '').split(';')[0]
+    if type != atom.CONTENT_TYPE.split(';')[0]:
+        error(f'Expected Content-Type {atom.CONTENT_TYPE}, got {type}', status=406)
+
+    user = Web.get_by_id(domain)
+    if not user:
+        error(f'No user found for domain {domain}', status=304)
+
+    text = request.get_data(as_text=True)
+    obj = Object(atom=text)
+    logger.info(f'Converted to AS1: {json_dumps(obj.as1, indent=2)}')
+
+    id = obj.as1.get('id')
+    if not id:
+        return error('No id or URL!')
+
+    obj = Object.get_or_create(id=id, atom=text, source_protocol=Web.ABBREV)
+    common.create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=domain)
+
+    return 'OK'
+
+
 @app.post('/queue/webmention')
 @cloud_tasks_only
 def webmention_task():
@@ -593,9 +625,9 @@ def webmention_task():
     logger.info(f'webmention from {domain}')
 
     user = Web.get_by_id(domain)
-    logger.info(f'User: {user.key}')
     if not user:
         error(f'No user found for domain {domain}', status=304)
+    logger.info(f'User: {user.key}')
 
     # fetch source page
     try:

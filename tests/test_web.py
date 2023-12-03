@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from flask import g, get_flashed_messages
 from google.cloud import ndb
-from granary import as1, as2, microformats2
+from granary import as1, as2, atom, microformats2
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.testutil import NOW, requests_response
@@ -1734,6 +1734,38 @@ class WebTest(TestCase):
         self.assertIn(
             "WARNING:models:actor https://user.com/ isn't https://user.com/like's author or actor ['https://eve.com/']",
             logs.output)
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_superfeedr_make_task(self, mock_create_task, *_):
+        common.RUN_TASKS_INLINE = False
+
+        got = self.post('/superfeedr/notify/user.com', data="""\
+<?xml version="1.0" encoding="UTF-8"?>
+<entry xmlns="http://www.w3.org/2005/Atom">
+<uri>https://user.com/post</uri>
+<content>I hereby ☕ post.</content>
+</entry>
+""", headers={'Content-Type': atom.CONTENT_TYPE})
+        self.assertEqual(200, got.status_code)
+        self.assert_task(mock_create_task, 'receive', '/queue/receive',
+                         obj=Object(id='https://user.com/post').key.urlsafe(),
+                         authed_as='user.com')
+
+    def test_superfeedr_no_user(self, *_):
+        orig_count = Object.query().count()
+
+        got = self.post('/webmention', data={'source': 'https://nope.com/post'})
+        self.assertEqual(400, got.status_code)
+        self.assertEqual(orig_count, Object.query().count())
+
+    def test_superfeedr_no_id(self, *mocks):
+        got = self.post('/superfeedr/notify/user.com', data="""\
+<?xml version="1.0" encoding="UTF-8"?>
+<entry xmlns="http://www.w3.org/2005/Atom">
+<content>I hereby ☕ post.</content>
+</entry>
+""", headers={'Content-Type': atom.CONTENT_TYPE})
+        self.assertEqual(400, got.status_code)
 
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
         self.user.has_redirects = False

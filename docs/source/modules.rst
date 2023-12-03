@@ -55,11 +55,6 @@ render
 .. automodule:: render
     :exclude-members: __eq__, __getnewargs__, __getstate__, __hash__, __new__, __repr__, __str__, __weakref__
 
-superfeedr
-----------
-.. automodule:: superfeedr
-    :exclude-members: __eq__, __getnewargs__, __getstate__, __hash__, __new__, __repr__, __str__, __weakref__
-
 web
 ---
 .. automodule:: web
