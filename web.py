@@ -9,7 +9,7 @@ from urllib.parse import quote, urlencode, urljoin, urlparse
 from flask import g, redirect, render_template, request
 from google.cloud import ndb
 from google.cloud.ndb import ComputedProperty
-from granary import as1, as2, atom, microformats2
+from granary import as1, as2, atom, microformats2, rss
 import mf2util
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.appengine_config import tasks_client
@@ -58,6 +58,7 @@ NON_TLDS = frozenset((
 SUPERFEEDR_PUSH_API = 'https://push.superfeedr.com'
 SUPERFEEDR_USERNAME = util.read('superfeedr_username')
 SUPERFEEDR_TOKEN = util.read('superfeedr_token')
+FEED_TYPES = [type.split(';')[0] for type in (atom.CONTENT_TYPE, rss.CONTENT_TYPE)]
 
 
 def is_valid_domain(domain):
@@ -599,10 +600,21 @@ def maybe_superfeedr_subscribe(user):
       user (Web)
     """
     if user.superfeedr_subscribed:
-        logger.info('Already subscribed via Superfeedr')
+        logger.info(f'User {user.key.id()} already subscribed via Superfeedr')
+        return
+    elif not user.mf2:
+        logger.info(f"User {user.key.id()} has no mf2, can't subscribe via Superfeedr")
         return
 
-    logger.info(f'Subscribing to {user.key.id()} via Superfeedr')
+    for url, info in user.mf2.get('rel-urls', {}).items():
+        if ('alternate' in info.get('rels', [])
+            and info.get('type', '').split(';')[0] in FEED_TYPES):
+            break
+    else:
+        logger.info(f"User {user.key.id()} has no feed URL, can't subscribe")
+        return
+
+    logger.info(f'Subscribing to {url} via Superfeedr')
     if appengine_info.LOCAL_SERVER:
         logger.info(f"Skipping since we're local")
         return
@@ -610,7 +622,7 @@ def maybe_superfeedr_subscribe(user):
     auth = HTTPBasicAuth(SUPERFEEDR_USERNAME, SUPERFEEDR_TOKEN)
     resp = util.requests_post(SUPERFEEDR_PUSH_API, auth=auth, data={
         'hub.mode': 'subscribe',
-        'hub.topic': f'{user.web_url()}feed',
+        'hub.topic': url,
         'hub.callback': common.host_url(f'/superfeedr/notify/{user.key.id()}'),
         # TODO
         # 'hub.secret': 'xxx',

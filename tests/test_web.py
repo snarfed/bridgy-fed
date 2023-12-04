@@ -1773,15 +1773,28 @@ class WebTest(TestCase):
     @patch('oauth_dropins.webutil.appengine_info.LOCAL_SERVER', False)
     def test_maybe_superfeedr_subscribe(self, mock_get, mock_post):
         self.assertFalse(self.user.superfeedr_subscribed)
+        self.user.mf2 = {
+            **ACTOR_MF2,
+            'rel-urls': {
+                'https://foo': {'rels': ['me'], 'text': 'Ms. ☕ Baz'},
+                'https://foo/atom': {'rels': ['alternate'], 'type': atom.CONTENT_TYPE},
+            },
+        }
+
         web.maybe_superfeedr_subscribe(self.user)
         self.assert_req(mock_post, SUPERFEEDR_PUSH_API, data={
             'hub.mode': 'subscribe',
-            'hub.topic': 'https://user.com/feed',
+            'hub.topic': 'https://foo/atom',
             'hub.callback': 'http://localhost/superfeedr/notify/user.com',
             'format': 'atom',
             'retrieve': 'true',
         }, auth=ANY)
         self.assertTrue(self.user.key.get().superfeedr_subscribed)
+
+    def test_maybe_superfeedr_subscribe_no_feed(self, mock_get, mock_post):
+        self.user.mf2 = ACTOR_MF2  # no rel-urls
+        web.maybe_superfeedr_subscribe(self.user)
+        self.assertFalse(self.user.key.get().superfeedr_subscribed)
 
     def test_maybe_superfeedr_subscribe_already_subscribed(self, mock_get, mock_post):
         self.user.superfeedr_subscribed = True
