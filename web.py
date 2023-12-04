@@ -96,7 +96,7 @@ class Web(User, Protocol):
     redirects_error = ndb.TextProperty()
     has_hcard = ndb.BooleanProperty()
     last_webmention_in = ndb.DateTimeProperty(tzinfo=timezone.utc)
-    superfeedr_subscribed = ndb.BooleanProperty(default=False)
+    superfeedr_subscribed = ndb.DateTimeProperty(tzinfo=timezone.utc)
 
     # Originally, BF served Web users' AP actor ids on fed.brid.gy, eg
     # https://fed.brid.gy/snarfed.org . When we started adding new protocols, we
@@ -118,7 +118,7 @@ class Web(User, Protocol):
 
     @classmethod
     def get_or_create(cls, id, **kwargs):
-        """Normalizes domain, then passes through to :meth:`User.get_or_create`.
+        """Normalize domain, pass through, then subscribe in Superfeedr.
 
         Normalizing currently consists of lower casing and removing leading and
         trailing dots.
@@ -128,7 +128,12 @@ class Web(User, Protocol):
             return None  # opted out
 
         domain = key.id().lower().strip('.')
-        return super().get_or_create(domain, **kwargs)
+        user = super().get_or_create(domain, **kwargs)
+
+        if not user.superfeedr_subscribed and not user.last_webmention_in:
+            maybe_superfeedr_subscribe(user)
+
+        return user
 
     @ndb.ComputedProperty
     def handle(self):
@@ -602,11 +607,14 @@ def maybe_superfeedr_subscribe(user):
     if user.superfeedr_subscribed:
         logger.info(f'User {user.key.id()} already subscribed via Superfeedr')
         return
-    elif not user.mf2:
+    elif user.last_webmention_in:
+        logger.info(f'User {user.key.id()} publishes via webmention, not subscribing via Superfeedr')
+        return
+    elif not user.obj or not user.obj.mf2:
         logger.info(f"User {user.key.id()} has no mf2, can't subscribe via Superfeedr")
         return
 
-    for url, info in user.mf2.get('rel-urls', {}).items():
+    for url, info in user.obj.mf2.get('rel-urls', {}).items():
         if ('alternate' in info.get('rels', [])
             and info.get('type', '').split(';')[0] in FEED_TYPES):
             break
@@ -631,7 +639,7 @@ def maybe_superfeedr_subscribe(user):
     })
     resp.raise_for_status()
 
-    user.superfeedr_subscribed = True
+    user.superfeedr_subscribed = util.now()
     user.put()
 
 

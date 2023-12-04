@@ -58,6 +58,13 @@ ACTOR_MF2_REL_URLS = {
     **ACTOR_MF2,
     'rel-urls': {'https://user.com/': {'rels': ['me'], 'text': 'Ms. ☕ Baz'}}
 }
+ACTOR_MF2_REL_FEED_URL = {
+    **ACTOR_MF2,
+    'rel-urls': {
+        'https://foo': {'rels': ['me'], 'text': 'Ms. ☕ Baz'},
+        'https://foo/atom': {'rels': ['alternate'], 'type': atom.CONTENT_TYPE},
+    },
+}
 ACTOR_AS1_UNWRAPPED = {
     'objectType': 'person',
     'id': 'https://user.com/',
@@ -505,7 +512,42 @@ class WebTest(TestCase):
         self.assert_entities_equal(user, Web.get_by_id('foo.bar'))
         self.assertIsNone(Web.get_by_id('..foo.bar.'))
 
-    def test_get_or_create_existing(self, *_):
+    def test_get_or_create_subscribes_superfeedr(self, mock_get, mock_post):
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.user.obj.put()
+
+        user = Web.get_or_create('user.com')
+        self.assertEqual('user.com', user.key.id())
+        self.assert_entities_equal(user, self.user,
+                                   ignore=['superfeedr_subscribed', 'updated'])
+        self.assertTrue(user.superfeedr_subscribed)
+
+        self.assert_req(mock_post, SUPERFEEDR_PUSH_API, data={
+            'hub.mode': 'subscribe',
+            'hub.topic': 'https://foo/atom',
+            'hub.callback': 'http://localhost/superfeedr/notify/user.com',
+            'format': 'atom',
+            'retrieve': 'true',
+        }, auth=ANY)
+        self.assertEqual(NOW, self.user.key.get().superfeedr_subscribed)
+
+    def test_get_or_create_existing_subscribed(self, *_):
+        self.user.superfeedr_subscribed = NOW
+        self.user.put()
+
+        user = Web.get_or_create('user.com')
+        self.assertEqual('user.com', user.key.id())
+        self.assert_entities_equal(user, self.user)
+
+    def test_get_or_create_existing_has_last_webmention(self, *_):
+        self.user.last_webmention_in = NOW
+        self.user.put()
+
+        user = Web.get_or_create('user.com')
+        self.assertEqual('user.com', user.key.id())
+        self.assert_entities_equal(user, self.user)
+
+    def test_get_or_create_existing_not_subscribed_no_feed(self, *_):
         user = Web.get_or_create('user.com')
         self.assertEqual('user.com', user.key.id())
         self.assert_entities_equal(user, self.user)
@@ -1772,14 +1814,8 @@ class WebTest(TestCase):
 
     @patch('oauth_dropins.webutil.appengine_info.LOCAL_SERVER', False)
     def test_maybe_superfeedr_subscribe(self, mock_get, mock_post):
-        self.assertFalse(self.user.superfeedr_subscribed)
-        self.user.mf2 = {
-            **ACTOR_MF2,
-            'rel-urls': {
-                'https://foo': {'rels': ['me'], 'text': 'Ms. ☕ Baz'},
-                'https://foo/atom': {'rels': ['alternate'], 'type': atom.CONTENT_TYPE},
-            },
-        }
+        self.assertIsNone(self.user.superfeedr_subscribed)
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
 
         web.maybe_superfeedr_subscribe(self.user)
         self.assert_req(mock_post, SUPERFEEDR_PUSH_API, data={
@@ -1789,15 +1825,15 @@ class WebTest(TestCase):
             'format': 'atom',
             'retrieve': 'true',
         }, auth=ANY)
-        self.assertTrue(self.user.key.get().superfeedr_subscribed)
+        self.assertEqual(NOW, self.user.key.get().superfeedr_subscribed)
 
     def test_maybe_superfeedr_subscribe_no_feed(self, mock_get, mock_post):
-        self.user.mf2 = ACTOR_MF2  # no rel-urls
+        self.user.obj.mf2 = ACTOR_MF2  # no rel-urls
         web.maybe_superfeedr_subscribe(self.user)
-        self.assertFalse(self.user.key.get().superfeedr_subscribed)
+        self.assertIsNone(self.user.key.get().superfeedr_subscribed)
 
     def test_maybe_superfeedr_subscribe_already_subscribed(self, mock_get, mock_post):
-        self.user.superfeedr_subscribed = True
+        self.user.superfeedr_subscribed = NOW
         self.user.put()
         web.maybe_superfeedr_subscribe(self.user)
         # should be a noop
