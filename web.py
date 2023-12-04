@@ -1,5 +1,5 @@
 """Webmention protocol with microformats2 in HTML, aka the IndieWeb stack."""
-import datetime
+from datetime import timedelta, timezone
 import difflib
 import logging
 import re
@@ -89,6 +89,7 @@ class Web(User, Protocol):
     has_redirects = ndb.BooleanProperty()
     redirects_error = ndb.TextProperty()
     has_hcard = ndb.BooleanProperty()
+    last_webmention_in = ndb.DateTimeProperty(tzinfo=timezone.utc)
 
     # Originally, BF served Web users' AP actor ids on fed.brid.gy, eg
     # https://fed.brid.gy/snarfed.org . When we started adding new protocols, we
@@ -510,7 +511,7 @@ class Web(User, Protocol):
 
 
 @app.get('/web-site')
-@flask_util.cached(cache, datetime.timedelta(days=1))
+@flask_util.cached(cache, timedelta(days=1))
 def enter_web_site():
     return render_template('enter_web_site.html')
 
@@ -558,6 +559,10 @@ def webmention_external():
     user = Web.get_by_id(domain)
     if not user:
         error(f'No user found for domain {domain}')
+
+    if request.path == '/webmention':  # exclude interactive
+        user.last_webmention_in = util.now()
+        user.put()
 
     return common.create_task('webmention', **request.form)
 

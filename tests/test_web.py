@@ -564,6 +564,8 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'webmention', '/queue/webmention',
                          **params)
 
+        self.assertEqual(NOW, self.user.key.get().last_webmention_in)
+
     def test_no_user(self, mock_get, mock_post):
         orig_count = Object.query().count()
 
