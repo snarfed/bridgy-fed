@@ -95,6 +95,7 @@ class Web(User, Protocol):
     redirects_error = ndb.TextProperty()
     has_hcard = ndb.BooleanProperty()
     last_webmention_in = ndb.DateTimeProperty(tzinfo=timezone.utc)
+    superfeedr_subscribed = ndb.BooleanProperty(default=False)
 
     # Originally, BF served Web users' AP actor ids on fed.brid.gy, eg
     # https://fed.brid.gy/snarfed.org . When we started adding new protocols, we
@@ -591,12 +592,16 @@ def webmention_interactive():
         return redirect('/', code=302)
 
 
-def superfeedr_subscribe(user):
+def maybe_superfeedr_subscribe(user):
     """Subscribes to a user's Atom or RSS feed in Superfeedr.
 
     Args:
       user (Web)
     """
+    if user.superfeedr_subscribed:
+        logger.info('Already subscribed via Superfeedr')
+        return
+
     logger.info(f'Subscribing to {user.key.id()} via Superfeedr')
     if appengine_info.LOCAL_SERVER:
         logger.info(f"Skipping since we're local")
@@ -613,7 +618,9 @@ def superfeedr_subscribe(user):
         'retrieve': 'true',
     })
     resp.raise_for_status()
-    return resp
+
+    user.superfeedr_subscribed = True
+    user.put()
 
 
 # generate/check per-user token for auth?
