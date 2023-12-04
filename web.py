@@ -18,6 +18,7 @@ from oauth_dropins.webutil.flask_util import cloud_tasks_only, error, flash
 from oauth_dropins.webutil.util import json_dumps, json_loads
 from oauth_dropins.webutil import webmention
 from requests import HTTPError, RequestException
+from requests.auth import HTTPBasicAuth
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 
 import common
@@ -53,6 +54,10 @@ NON_TLDS = frozenset((
     'yaml',
     'yml',
 ))
+
+SUPERFEEDR_PUSH_API = 'https://push.superfeedr.com'
+SUPERFEEDR_USERNAME = util.read('superfeedr_username')
+SUPERFEEDR_TOKEN = util.read('superfeedr_token')
 
 
 def is_valid_domain(domain):
@@ -584,6 +589,31 @@ def webmention_interactive():
     except HTTPException as e:
         flash(util.linkify(str(e.description), pretty=True))
         return redirect('/', code=302)
+
+
+def superfeedr_subscribe(user):
+    """Subscribes to a user's Atom or RSS feed in Superfeedr.
+
+    Args:
+      user (Web)
+    """
+    logger.info(f'Subscribing to {user.key.id()} via Superfeedr')
+    if appengine_info.LOCAL_SERVER:
+        logger.info(f"Skipping since we're local")
+        return
+
+    auth = HTTPBasicAuth(SUPERFEEDR_USERNAME, SUPERFEEDR_TOKEN)
+    resp = util.requests_post(SUPERFEEDR_PUSH_API, auth=auth, data={
+        'hub.mode': 'subscribe',
+        'hub.topic': f'{user.web_url()}feed',
+        'hub.callback': common.host_url(f'/superfeedr/notify/{user.key.id()}'),
+        # TODO
+        # 'hub.secret': 'xxx',
+        'format': 'atom',
+        'retrieve': 'true',
+    })
+    resp.raise_for_status()
+    return resp
 
 
 # generate/check per-user token for auth?

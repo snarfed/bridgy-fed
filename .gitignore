@@ -10,4 +10,6 @@ flask_secret_key
 opt_outs.txt
 private_notes
 service_account_creds.json
+superfeedr_token
+superfeedr_username
 TAGS

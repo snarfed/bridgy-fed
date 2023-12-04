@@ -1,6 +1,6 @@
 """Unit tests for webmention.py."""
 import copy
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from flask import g, get_flashed_messages
 from google.cloud import ndb
@@ -20,7 +20,8 @@ import common
 from common import CONTENT_TYPE_HTML
 from flask_app import app
 from models import Follower, Object
-from web import TASKS_LOCATION, Web
+import web
+from web import SUPERFEEDR_PUSH_API, TASKS_LOCATION, Web
 from . import test_activitypub
 from .testutil import Fake, TestCase
 
@@ -1768,6 +1769,17 @@ class WebTest(TestCase):
 </entry>
 """, headers={'Content-Type': atom.CONTENT_TYPE})
         self.assertEqual(400, got.status_code)
+
+    @patch('oauth_dropins.webutil.appengine_info.LOCAL_SERVER', False)
+    def test_superfeedr_subscribe(self, mock_get, mock_post):
+        web.superfeedr_subscribe(self.user)
+        self.assert_req(mock_post, SUPERFEEDR_PUSH_API, data={
+            'hub.mode': 'subscribe',
+            'hub.topic': 'https://user.com/feed',
+            'hub.callback': 'http://localhost/superfeedr/notify/user.com',
+            'format': 'atom',
+            'retrieve': 'true',
+        }, auth=ANY)
 
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
         self.user.has_redirects = False
