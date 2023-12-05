@@ -97,6 +97,7 @@ class Web(User, Protocol):
     has_hcard = ndb.BooleanProperty()
     last_webmention_in = ndb.DateTimeProperty(tzinfo=timezone.utc)
     superfeedr_subscribed = ndb.DateTimeProperty(tzinfo=timezone.utc)
+    superfeedr_subscribed_feed = ndb.StringProperty()
 
     # Originally, BF served Web users' AP actor ids on fed.brid.gy, eg
     # https://fed.brid.gy/snarfed.org . When we started adding new protocols, we
@@ -642,12 +643,38 @@ def maybe_superfeedr_subscribe(user):
     resp.raise_for_status()
 
     user.superfeedr_subscribed = util.now()
+    user.superfeedr_subscribed_feed = url
     user.put()
 
     # handle feed entries (posts)
     if (resp.headers.get('Content-Type', '').split(';')[0] ==
             atom.CONTENT_TYPE.split(';')[0]):
         return _superfeedr_notify(resp.text, user=user)
+
+
+def maybe_superfeedr_unsubscribe(user):
+    """Subscribes to a user's Atom or RSS feed in Superfeedr.
+
+    Args:
+      user (Web)
+    """
+    if (not user.superfeedr_subscribed
+            or not user.superfeedr_subscribed_feed
+            or (user.last_webmention_in
+                and user.last_webmention_in > user.superfeedr_subscribed)
+            or appengine_info.LOCAL_SERVER):
+        return
+
+    # unsubscribe
+    logger.info(f'Unsubscribing from Superfeedr for {user.superfeedr_subscribed_feed}')
+
+    auth = HTTPBasicAuth(SUPERFEEDR_USERNAME, SUPERFEEDR_TOKEN)
+    resp = util.requests_post(SUPERFEEDR_PUSH_API, auth=auth, data={
+        'hub.mode': 'unsubscribe',
+        'hub.topic': user.superfeedr_subscribed_feed,
+        'hub.callback': common.host_url(f'/superfeedr/notify/{user.key.id()}'),
+    })
+    resp.raise_for_status()
 
 
 # generate/check per-user token for auth?

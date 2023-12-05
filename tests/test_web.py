@@ -1,5 +1,6 @@
 """Unit tests for webmention.py."""
 import copy
+from datetime import timedelta
 from unittest.mock import ANY, patch
 
 from flask import g, get_flashed_messages
@@ -518,9 +519,11 @@ class WebTest(TestCase):
 
         user = Web.get_or_create('user.com')
         self.assertEqual('user.com', user.key.id())
-        self.assert_entities_equal(user, self.user,
-                                   ignore=['superfeedr_subscribed', 'updated'])
-        self.assertTrue(user.superfeedr_subscribed)
+        self.assert_entities_equal(
+            user, self.user,
+            ignore=['superfeedr_subscribed', 'superfeedr_subscribed_feed', 'updated'])
+        self.assertEqual(NOW, user.superfeedr_subscribed)
+        self.assertEqual('https://foo/atom', user.superfeedr_subscribed_feed)
 
         self.assert_req(mock_post, SUPERFEEDR_PUSH_API, data={
             'hub.mode': 'subscribe',
@@ -1813,7 +1816,6 @@ class WebTest(TestCase):
         self.assertEqual(400, got.status_code)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    @patch('oauth_dropins.webutil.appengine_info.LOCAL_SERVER', False)
     def test_maybe_superfeedr_subscribe(self, mock_create_task, mock_get, mock_post):
         common.RUN_TASKS_INLINE = False
 
@@ -1862,6 +1864,8 @@ class WebTest(TestCase):
             'retrieve': 'true',
         }, auth=ANY)
         self.assertEqual(NOW, self.user.key.get().superfeedr_subscribed)
+        self.assertEqual('https://foo/atom',
+                         self.user.key.get().superfeedr_subscribed_feed)
 
         obj = Object.get_by_id('http://domain.tld/entry/1')
         self.assertIn(entries[0], obj.atom)
@@ -1873,7 +1877,6 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
                          obj=obj.key.urlsafe(), authed_as='user.com')
 
-
     def test_maybe_superfeedr_subscribe_no_feed(self, mock_get, mock_post):
         self.user.obj.mf2 = ACTOR_MF2  # no rel-urls
         web.maybe_superfeedr_subscribe(self.user)
@@ -1884,6 +1887,38 @@ class WebTest(TestCase):
         self.user.put()
         web.maybe_superfeedr_subscribe(self.user)
         # should be a noop
+
+    def test_maybe_superfeedr_unsubscribe(self, mock_get, mock_post):
+        appengine_info.LOCAL_SERVER = False
+
+        self.user.superfeedr_subscribed = NOW
+        self.user.superfeedr_subscribed_feed = 'http://feed'
+        self.user.put()
+
+        mock_post.return_value = requests_response('OK')
+
+        web.maybe_superfeedr_unsubscribe(self.user)
+        self.assert_req(mock_post, SUPERFEEDR_PUSH_API, data={
+            'hub.mode': 'unsubscribe',
+            'hub.topic': 'http://feed',
+            'hub.callback': 'http://localhost/superfeedr/notify/user.com',
+        }, auth=ANY)
+
+    def test_maybe_superfeedr_unsubscribe_not_subscribed(self, mock_get, mock_post):
+        appengine_info.LOCAL_SERVER = False
+
+        web.maybe_superfeedr_unsubscribe(self.user)
+        mock_post.assert_not_called()
+
+    def test_maybe_superfeedr_unsubscribe_last_webmention_later(self, _, mock_post):
+        appengine_info.LOCAL_SERVER = False
+
+        self.user.superfeedr_subscribed = NOW
+        self.user.last_webmention_in = NOW + timedelta(days=1)
+        self.user.put()
+
+        web.maybe_superfeedr_unsubscribe(self.user)
+        mock_post.assert_not_called()
 
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
         self.user.has_redirects = False
