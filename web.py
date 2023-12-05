@@ -131,8 +131,8 @@ class Web(User, Protocol):
         domain = key.id().lower().strip('.')
         user = super().get_or_create(domain, **kwargs)
 
-        if not user.superfeedr_subscribed and not user.last_webmention_in:
-            maybe_superfeedr_subscribe(user)
+        # TODO
+        # maybe_superfeedr_subscribe(user)
 
         return user
 
@@ -576,7 +576,8 @@ def webmention_external():
     if request.path == '/webmention':  # exclude interactive
         user.last_webmention_in = util.now()
         user.put()
-        maybe_superfeedr_unsubscribe(user)
+        # TODO
+        # maybe_superfeedr_unsubscribe(user)
 
     return common.create_task('webmention', **request.form)
 

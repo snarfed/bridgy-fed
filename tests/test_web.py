@@ -1,6 +1,7 @@
 """Unit tests for webmention.py."""
 import copy
 from datetime import timedelta
+from unittest import skip
 from unittest.mock import ANY, patch
 
 from flask import g, get_flashed_messages
@@ -513,6 +514,7 @@ class WebTest(TestCase):
         self.assert_entities_equal(user, Web.get_by_id('foo.bar'))
         self.assertIsNone(Web.get_by_id('..foo.bar.'))
 
+    @skip
     def test_get_or_create_subscribes_superfeedr(self, mock_get, mock_post):
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
         self.user.obj.put()
@@ -627,6 +629,7 @@ class WebTest(TestCase):
 
         self.assertEqual(NOW, self.user.key.get().last_webmention_in)
 
+    @skip
     def test_first_webmention_unsubscribe_superfeedr(self, mock_get, mock_post):
         self.user.superfeedr_subscribed = NOW
         self.user.superfeedr_subscribed_feed = 'http://feed'
