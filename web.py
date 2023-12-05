@@ -614,14 +614,16 @@ def maybe_superfeedr_subscribe(user):
         logger.info(f"User {user.key.id()} has no mf2, can't subscribe via Superfeedr")
         return
 
+    # discover feed
     for url, info in user.obj.mf2.get('rel-urls', {}).items():
         if ('alternate' in info.get('rels', [])
-            and info.get('type', '').split(';')[0] in FEED_TYPES):
+                and info.get('type', '').split(';')[0] in FEED_TYPES):
             break
     else:
         logger.info(f"User {user.key.id()} has no feed URL, can't subscribe")
         return
 
+    # subscribe
     logger.info(f'Subscribing to {url} via Superfeedr')
     if appengine_info.LOCAL_SERVER:
         logger.info(f"Skipping since we're local")
@@ -642,6 +644,11 @@ def maybe_superfeedr_subscribe(user):
     user.superfeedr_subscribed = util.now()
     user.put()
 
+    # handle feed entries (posts)
+    if (resp.headers.get('Content-Type', '').split(';')[0] ==
+            atom.CONTENT_TYPE.split(';')[0]):
+        return _superfeedr_notify(resp.text, user=user)
+
 
 # generate/check per-user token for auth?
 # or https://documentation.superfeedr.com/subscribers.html#http-authentication ?
@@ -661,16 +668,26 @@ def superfeedr_notify(domain):
     if not user:
         error(f'No user found for domain {domain}', status=304)
 
-    text = request.get_data(as_text=True)
-    obj = Object(atom=text)
-    logger.info(f'Converted to AS1: {json_dumps(obj.as1, indent=2)}')
+    return _superfeedr_notify(request.get_data(as_text=True), user=user)
 
-    id = obj.as1.get('id')
-    if not id:
-        return error('No id or URL!')
 
-    obj = Object.get_or_create(id=id, atom=text, source_protocol=Web.ABBREV)
-    common.create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=domain)
+def _superfeedr_notify(doc, user):
+    """Creates :class:`Object`s and ``receive`` tasks for an Atom feed or entry.
+
+    Args:
+      doc (str): Atom document
+      user (Web): user this feed came from
+    """
+    for entry in atom.extract_entries(doc):
+        obj_as1 = Object(atom=entry).as1
+        logger.info(f'Converted to AS1: {json_dumps(obj_as1, indent=2)}')
+        id = obj_as1.get('id')
+        if not id:
+            return error('No id or URL!')
+
+        obj = Object.get_or_create(id=id, atom=entry, source_protocol=Web.ABBREV)
+        common.create_task(queue='receive', obj=obj.key.urlsafe(),
+                           authed_as=user.key.id())
 
     return 'OK'
 

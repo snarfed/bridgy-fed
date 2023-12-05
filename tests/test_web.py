@@ -1781,7 +1781,7 @@ class WebTest(TestCase):
             logs.output)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_superfeedr_make_task(self, mock_create_task, *_):
+    def test_superfeedr_notify_make_task(self, mock_create_task, *_):
         common.RUN_TASKS_INLINE = False
 
         got = self.post('/superfeedr/notify/user.com', data="""\
@@ -1796,14 +1796,14 @@ class WebTest(TestCase):
                          obj=Object(id='https://user.com/post').key.urlsafe(),
                          authed_as='user.com')
 
-    def test_superfeedr_no_user(self, *_):
+    def test_superfeedr_notify_no_user(self, *_):
         orig_count = Object.query().count()
 
         got = self.post('/webmention', data={'source': 'https://nope.com/post'})
         self.assertEqual(400, got.status_code)
         self.assertEqual(orig_count, Object.query().count())
 
-    def test_superfeedr_no_id(self, *mocks):
+    def test_superfeedr_notify_no_id(self, *mocks):
         got = self.post('/superfeedr/notify/user.com', data="""\
 <?xml version="1.0" encoding="UTF-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
@@ -1812,10 +1812,46 @@ class WebTest(TestCase):
 """, headers={'Content-Type': atom.CONTENT_TYPE})
         self.assertEqual(400, got.status_code)
 
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     @patch('oauth_dropins.webutil.appengine_info.LOCAL_SERVER', False)
-    def test_maybe_superfeedr_subscribe(self, mock_get, mock_post):
+    def test_maybe_superfeedr_subscribe(self, mock_create_task, mock_get, mock_post):
+        common.RUN_TASKS_INLINE = False
+
+        entries = ["""\
+   <author>
+    <uri>http://my/site</uri>
+    <name>Mr. Bob</name>
+   </author>
+   <id>domain.tld:09/05/03-1</id>
+   <uri>http://domain.tld/entry/1</uri>
+   <published>2013-04-21T14:00:40+02:00</published>
+   <updated>2013-04-21T14:00:40+02:00</updated>
+   <title>Entry published on hour ago</title>
+   <content type="text">Entry published on hour ago when it was shiny outside, but now it's raining</content>
+   <summary type="text">Entry published on hour ago...</summary>
+""", """\
+   <author>
+    <uri>http://eve/</uri>
+   </author>
+   <id>http://domain.tld/entry/2</id>
+   <title>Second post</title>
+   <content type="text">Something else</content>
+"""]
+
         self.assertIsNone(self.user.superfeedr_subscribed)
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        # https://documentation.superfeedr.com/schema.html#entries
+        mock_post.return_value = requests_response(f"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+<entry>
+{entries[0]}
+</entry>
+<entry>
+{entries[1]}
+</entry>
+</feed>
+""", content_type=atom.CONTENT_TYPE)
 
         web.maybe_superfeedr_subscribe(self.user)
         self.assert_req(mock_post, SUPERFEEDR_PUSH_API, data={
@@ -1826,6 +1862,17 @@ class WebTest(TestCase):
             'retrieve': 'true',
         }, auth=ANY)
         self.assertEqual(NOW, self.user.key.get().superfeedr_subscribed)
+
+        obj = Object.get_by_id('http://domain.tld/entry/1')
+        self.assertIn(entries[0], obj.atom)
+        self.assert_task(mock_create_task, 'receive', '/queue/receive',
+                         obj=obj.key.urlsafe(), authed_as='user.com')
+
+        obj = Object.get_by_id('http://domain.tld/entry/2')
+        self.assertIn(entries[1], obj.atom)
+        self.assert_task(mock_create_task, 'receive', '/queue/receive',
+                         obj=obj.key.urlsafe(), authed_as='user.com')
+
 
     def test_maybe_superfeedr_subscribe_no_feed(self, mock_get, mock_post):
         self.user.obj.mf2 = ACTOR_MF2  # no rel-urls

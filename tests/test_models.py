@@ -576,6 +576,7 @@ class ObjectTest(TestCase):
 
     def test_as1_from_atom(self):
         self.assert_equals({
+            'objectType': 'note',
             'id': 'http://user/post',
             'url': 'http://user/post',
             'content': 'I hereby ☕ reply.',
@@ -589,6 +590,7 @@ class ObjectTest(TestCase):
 
     def test_as1_from_atom_url_overrides_id(self):
         self.assert_equals({
+            'objectType': 'note',
             'id': 'http://user/post',
             'url': 'http://user/post',
             'content': 'I hereby ☕ reply.',
