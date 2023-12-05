@@ -576,6 +576,7 @@ def webmention_external():
     if request.path == '/webmention':  # exclude interactive
         user.last_webmention_in = util.now()
         user.put()
+        maybe_superfeedr_unsubscribe(user)
 
     return common.create_task('webmention', **request.form)
 

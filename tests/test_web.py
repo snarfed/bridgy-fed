@@ -612,6 +612,27 @@ class WebTest(TestCase):
 
         self.assertEqual(NOW, self.user.key.get().last_webmention_in)
 
+    def test_first_webmention_unsubscribe_superfeedr(self, mock_get, mock_post):
+        self.user.superfeedr_subscribed = NOW
+        self.user.superfeedr_subscribed_feed = 'http://feed'
+        self.user.put()
+
+        mock_get.return_value = NOTE
+
+        params = {
+            'source': 'https://user.com/post',
+            'target': 'https://fed.brid.gy/',
+        }
+        got = self.post('/webmention', data=params)
+        self.assertEqual(204, got.status_code)
+
+        self.assertEqual(NOW, self.user.key.get().last_webmention_in)
+        self.assert_req(mock_post, SUPERFEEDR_PUSH_API, data={
+            'hub.mode': 'unsubscribe',
+            'hub.topic': 'http://feed',
+            'hub.callback': 'http://localhost/superfeedr/notify/user.com',
+        }, auth=ANY)
+
     def test_no_user(self, mock_get, mock_post):
         orig_count = Object.query().count()
 
