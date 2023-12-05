@@ -516,6 +516,8 @@ class WebTest(TestCase):
     def test_get_or_create_subscribes_superfeedr(self, mock_get, mock_post):
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
         self.user.obj.put()
+        self.user.has_redirects = False
+        self.user.put()
 
         user = Web.get_or_create('user.com')
         self.assertEqual('user.com', user.key.id())
@@ -1863,6 +1865,8 @@ class WebTest(TestCase):
 
         self.assertIsNone(self.user.superfeedr_subscribed)
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.user.has_redirects = False
+
         # https://documentation.superfeedr.com/schema.html#entries
         mock_post.return_value = requests_response(f"""\
 <?xml version="1.0" encoding="UTF-8"?>

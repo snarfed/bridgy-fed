@@ -609,8 +609,8 @@ def maybe_superfeedr_subscribe(user):
     if user.superfeedr_subscribed:
         logger.info(f'User {user.key.id()} already subscribed via Superfeedr')
         return
-    elif user.last_webmention_in:
-        logger.info(f'User {user.key.id()} publishes via webmention, not subscribing via Superfeedr')
+    elif user.has_redirects or user.last_webmention_in:
+        logger.info(f'User {user.key.id()} has Webfinger redirects or publishes via webmention, not subscribing via Superfeedr')
         return
     elif not user.obj or not user.obj.mf2:
         logger.info(f"User {user.key.id()} has no mf2, can't subscribe via Superfeedr")
