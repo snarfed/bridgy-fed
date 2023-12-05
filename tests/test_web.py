@@ -536,6 +536,19 @@ class WebTest(TestCase):
         }, auth=ANY)
         self.assertEqual(NOW, self.user.key.get().superfeedr_subscribed)
 
+    def test_get_or_create_subscribe_error(self, mock_get, mock_post):
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.user.obj.put()
+        self.user.has_redirects = False
+        self.user.put()
+
+        mock_post.return_value = requests_response('Nope', status=500)
+
+        user = Web.get_or_create('user.com')
+        self.assert_entities_equal(user, self.user, ignore=['updated'])
+        self.assertIsNone(user.superfeedr_subscribed)
+        self.assertIsNone(user.superfeedr_subscribed_feed)
+
     def test_get_or_create_existing_subscribed(self, *_):
         self.user.superfeedr_subscribed = NOW
         self.user.put()
@@ -748,8 +761,7 @@ class WebTest(TestCase):
             no_content_type,  # https://user.com/ webmention discovery
             no_content_type,  # http://not/fediverse webmention discovery
         )
-        got = self.post('/queue/webmention',
-                               data={'source': 'https://user.com/reply'})
+        got = self.post('/queue/webmention', data={'source': 'https://user.com/reply'})
         self.assertEqual(204, got.status_code)
         mock_post.assert_not_called()
 

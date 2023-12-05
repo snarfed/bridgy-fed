@@ -641,7 +641,11 @@ def maybe_superfeedr_subscribe(user):
         'format': 'atom',
         'retrieve': 'true',
     })
-    resp.raise_for_status()
+    try:
+        resp.raise_for_status()
+    except BaseException as e:
+        util.interpret_http_exception(e)
+        return
 
     user.superfeedr_subscribed = util.now()
     user.superfeedr_subscribed_feed = url
