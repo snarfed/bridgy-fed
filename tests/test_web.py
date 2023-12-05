@@ -936,10 +936,17 @@ class WebTest(TestCase):
     def _test_repost(self, html, expected_as2, mock_get, mock_post):
         self.make_followers()
 
+        REPOSTED_ACTOR = self.as2_resp({
+            'type': 'Person',
+            'name': 'Mas To Foo',
+            'id': 'https://mas.to/@foo',
+            'inbox': 'https://mas.to/inbox',
+        })
         mock_get.side_effect = [
             requests_response(html, url='https://user.com/repost'),
             TOOT_AS2,
             ACTOR,
+            REPOSTED_ACTOR,
         ]
         mock_post.return_value = requests_response('abc xyz')
 

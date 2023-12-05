@@ -574,6 +574,17 @@ class Object(StringIdModel):
 
     @ComputedJsonProperty
     def as1(self):
+        def use_urls_as_ids(obj):
+            """If id field is missing or not a URL, use the url field."""
+            id = obj.get('id')
+            if not id or not util.is_web(id):
+                if url := util.get_url(obj):
+                    obj['id'] = url
+
+            for field in 'author', 'actor', 'object':
+                if inner := as1.get_object(obj, field):
+                    use_urls_as_ids(inner)
+
         if self.our_as1:
             obj = self.our_as1
 
@@ -590,17 +601,11 @@ class Object(StringIdModel):
         elif self.mf2:
             obj = microformats2.json_to_object(self.mf2,
                                                rel_urls=self.mf2.get('rel-urls'))
-            # postprocess: if no id, use url
-            if url := util.get_url(obj):
-                obj.setdefault('id', url)
-            for field in 'author', 'actor', 'object':  # None is obj itself
-                if url := util.get_url(obj, field):
-                    as1.get_object(obj, field).setdefault('id', url)
+            use_urls_as_ids(obj)
 
         elif self.atom:
             obj = atom.atom_to_activity(self.atom)['object']
-            if url := as1.get_url(obj):
-                obj['id'] = url
+            use_urls_as_ids(obj)
 
         else:
             return None
