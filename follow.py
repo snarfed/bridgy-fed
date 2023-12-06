@@ -11,7 +11,6 @@ from granary import as1
 from oauth_dropins import indieauth
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.flask_util import error, flash
-from oauth_dropins.webutil.testutil import NOW
 
 from activitypub import ActivityPub
 from flask_app import app
@@ -110,7 +109,7 @@ class FollowCallback(indieauth.Callback):
             return redirect(user.user_page_path('following'))
 
         followee_id = followee.as1.get('id')
-        timestamp = NOW.replace(microsecond=0, tzinfo=None).isoformat()
+        timestamp = util.now().replace(microsecond=0, tzinfo=None).isoformat()
         follow_id = common.host_url(user.user_page_path(f'following#{timestamp}-{addr}'))
         follow_as1 = {
             'objectType': 'activity',
@@ -191,7 +190,7 @@ class UnfollowCallback(indieauth.Callback):
             followee.put()
 
         # TODO(#529): generalize
-        timestamp = NOW.replace(microsecond=0, tzinfo=None).isoformat()
+        timestamp = util.now().replace(microsecond=0, tzinfo=None).isoformat()
         unfollow_id = common.host_url(user.user_page_path(f'following#undo-{timestamp}-{followee_id}'))
         unfollow_as1 = {
             'objectType': 'activity',
