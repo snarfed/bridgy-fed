@@ -590,7 +590,7 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         # inline most objects as bare string ids, not composite objects, for interop
         activity['object'] = orig_id
     elif not id:
-        obj['id'] = util.get_first(obj, 'url') or orig_id
+        obj['id'] = util.get_first(obj, 'url')
 
     # id is required for most things. default to url if it's not set.
     if not activity.get('id'):
