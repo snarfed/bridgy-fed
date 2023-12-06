@@ -14,6 +14,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from .testutil import Fake, TestCase
 
 from activitypub import ActivityPub
+from common import unwrap
 from models import Follower, Object
 from web import Web
 
@@ -41,20 +42,21 @@ FOLLOWEE = {
 FOLLOW_ADDRESS = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Follow',
-    'id': f'http://localhost/web/alice.com/following#2022-01-02T03:04:05-@foo@bar',
+    'id': f'http://localhost/r/alice.com/following#2022-01-02T03:04:05-@foo@bar',
     'actor': 'http://localhost/alice.com',
     'object': FOLLOWEE['id'],
     'to': [as2.PUBLIC_AUDIENCE],
 }
 FOLLOW_URL = copy.deepcopy(FOLLOW_ADDRESS)
-FOLLOW_URL['id'] = f'http://localhost/web/alice.com/following#2022-01-02T03:04:05-https://bar/actor'
+FOLLOW_URL['id'] = f'http://localhost/r/alice.com/following#2022-01-02T03:04:05-https://bar/actor'
 UNDO_FOLLOW = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Undo',
-    'id': f'http://localhost/web/alice.com/following#undo-2022-01-02T03:04:05-https://bar/id',
+    'id': f'http://localhost/r/alice.com/following#undo-2022-01-02T03:04:05-https://bar/id',
     'actor': 'http://localhost/alice.com',
-    'object': FOLLOW_ADDRESS,
+    'object': copy.deepcopy(FOLLOW_ADDRESS),
 }
+del UNDO_FOLLOW['object']['id']
 
 
 @patch('requests.get')
@@ -136,7 +138,7 @@ class FollowTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('alice.com', cls=Web)
+        self.user = self.make_user('alice.com', cls=Web, obj_id='https://alice.com/')
         self.state = {
             'endpoint': 'http://auth/endpoint',
             'me': 'https://alice.com',
@@ -207,7 +209,7 @@ class FollowTest(TestCase):
 
         follow_with_profile_link = {
             **FOLLOW_URL,
-            'id': f'http://localhost/web/alice.com/following#2022-01-02T03:04:05-https://bar/id',
+            'id': f'http://localhost/r/alice.com/following#2022-01-02T03:04:05-https://bar/id',
             'object': 'https://bar/id',
         }
         self.check('https://bar/id', resp, follow_with_profile_link, mock_get,
@@ -273,12 +275,17 @@ class FollowTest(TestCase):
             followers,
             ignore=['created', 'updated'])
 
+        expected_follow_as1 = as2.to_as1(unwrap(expected_follow))
+        del expected_follow_as1['to']
         self.assert_object(follow_id,
-                           users=[self.user.key, followee],
+                           users=[self.user.key],
+                           notify=[followee],
                            labels=['user', 'activity'],
                            status='complete',
                            source_protocol='ui',
-                           as2=expected_follow)
+                           our_as1=expected_follow_as1,
+                           delivered=['http://bar/inbox'],
+                           delivered_protocol='activitypub')
 
         self.assertEqual('https://alice.com', session['indieauthed-me'])
 
@@ -290,7 +297,8 @@ class FollowTest(TestCase):
         self.assertEqual(400, resp.status_code)
 
     def test_callback_user_use_instead(self, mock_get, mock_post):
-        user = self.make_user('www.alice.com', cls=Web)
+        user = self.make_user('www.alice.com', cls=Web,
+                              obj_id='https://www.alice.com/')
         self.user.use_instead = user.key
         self.user.put()
 
@@ -310,16 +318,24 @@ class FollowTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/www.alice.com/following', resp.headers['Location'])
 
-        id = 'http://localhost/web/www.alice.com/following#2022-01-02T03:04:05-https://bar/actor'
-        expected_follow = {
+        id = 'www.alice.com/following#2022-01-02T03:04:05-https://bar/actor'
+        expected_follow_as1 = as2.to_as1({
             **FOLLOW_URL,
             'id': id,
-            'actor': 'http://localhost/www.alice.com',
-        }
+            'actor': 'https://www.alice.com/',
+        })
+        del expected_follow_as1['to']
         followee = ActivityPub(id='https://bar/id').key
         follow_obj = self.assert_object(
-            id, users=[user.key, followee], status='complete',
-            labels=['user', 'activity'], source_protocol='ui', as2=expected_follow)
+            f'http://localhost/web/{id}',
+            users=[user.key],
+            notify=[followee],
+            status='complete',
+            labels=['user', 'activity'],
+            source_protocol='ui',
+            our_as1=expected_follow_as1,
+            delivered=['http://bar/inbox'],
+            delivered_protocol='activitypub')
 
         followers = Follower.query().fetch()
         self.assert_entities_equal(
@@ -466,7 +482,10 @@ class UnfollowTest(TestCase):
 
         inbox_args, inbox_kwargs = mock_post.call_args
         self.assertEqual(('http://bar/inbox',), inbox_args)
-        self.assert_equals(expected_undo, json_loads(inbox_kwargs['data']))
+        self.assert_equals({
+            **expected_undo,
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, json_loads(inbox_kwargs['data']))
 
         # check that we signed with the follower's key
         sig_template = inbox_kwargs['auth'].header_signer.signature_template
@@ -479,8 +498,14 @@ class UnfollowTest(TestCase):
 
         self.assert_object(
             'http://localhost/web/alice.com/following#undo-2022-01-02T03:04:05-https://bar/id',
-            users=[self.user.key], status='complete', source_protocol='ui',
-            labels=['user', 'activity'], as2=expected_undo, as1=as2.to_as1(expected_undo))
+            users=[self.user.key],
+            notify=[ActivityPub(id='https://bar/id').key],
+            status='complete',
+            source_protocol='ui',
+            labels=['user', 'activity'],
+            our_as1=unwrap(as2.to_as1(expected_undo)),
+            delivered=['http://bar/inbox'],
+            delivered_protocol='activitypub')
 
         self.assertEqual('https://alice.com', session['indieauthed-me'])
 
@@ -513,25 +538,39 @@ class UnfollowTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/www.alice.com/following', resp.headers['Location'])
 
-        id = 'http://localhost/web/www.alice.com/following#undo-2022-01-02T03:04:05-https://bar/id'
+        id = 'http://localhost/r/www.alice.com/following#undo-2022-01-02T03:04:05-https://bar/id'
         expected_undo = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Undo',
             'id': id,
             'actor': 'http://localhost/www.alice.com',
-            'object': FOLLOW_ADDRESS,
+            'object': {
+                **FOLLOW_ADDRESS,
+                'actor': 'http://localhost/www.alice.com',
+            },
         }
+        del expected_undo['object']['id']
 
         inbox_args, inbox_kwargs = mock_post.call_args_list[1]
         self.assertEqual(('http://bar/inbox',), inbox_args)
-        self.assert_equals(expected_undo, json_loads(inbox_kwargs['data']))
+        self.assert_equals({
+            **expected_undo,
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+        }, json_loads(inbox_kwargs['data']))
 
         follower = Follower.query().get()
         self.assertEqual('inactive', follower.status)
 
-        self.assert_object(id, users=[user.key], status='complete',
-                           source_protocol='ui', labels=['user', 'activity'],
-                           as2=expected_undo, as1=as2.to_as1(expected_undo))
+        self.assert_object(
+            'http://localhost/web/www.alice.com/following#undo-2022-01-02T03:04:05-https://bar/id',
+            users=[user.key],
+            notify=[ActivityPub(id='https://bar/id').key],
+            status='complete',
+            source_protocol='ui',
+            labels=['user', 'activity'],
+            our_as1=unwrap(as2.to_as1(expected_undo)),
+            delivered=['http://bar/inbox'],
+            delivered_protocol='activitypub')
 
     def test_callback_composite_url(self, mock_get, mock_post):
         follower = self.follower.to.get().obj

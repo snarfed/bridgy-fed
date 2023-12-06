@@ -7,7 +7,7 @@
 import logging
 
 from flask import g, redirect, request, session
-from granary import as1, as2
+from granary import as1
 from oauth_dropins import indieauth
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.flask_util import error, flash
@@ -110,30 +110,24 @@ class FollowCallback(indieauth.Callback):
             return redirect(user.user_page_path('following'))
 
         followee_id = followee.as1.get('id')
-        followee_as2 = ActivityPub.convert(followee)
-        inbox = followee_as2.get('inbox')
-        if not followee_id or not inbox:
-            flash(f"AS2 profile {as2_url} missing id or inbox")
-            return redirect(user.user_page_path('following'))
-
         timestamp = NOW.replace(microsecond=0, tzinfo=None).isoformat()
         follow_id = common.host_url(user.user_page_path(f'following#{timestamp}-{addr}'))
-        follow_as2 = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'type': 'Follow',
+        follow_as1 = {
+            'objectType': 'activity',
+            'verb': 'follow',
             'id': follow_id,
+            'actor': user.key.id(),
             'object': followee_id,
-            'actor': user.id_as(ActivityPub),
-            'to': [as2.PUBLIC_AUDIENCE],
         }
         followee_user = ActivityPub.get_or_create(followee_id, obj=followee)
-        follow_obj = Object(id=follow_id, users=[user.key, followee_user.key],
-                            labels=['user'], source_protocol='ui', status='complete',
-                            as2=follow_as2)
-        ActivityPub.send(follow_obj, inbox, from_user=user)
+        follow_obj = Object(id=follow_id, our_as1=follow_as1, source_protocol='ui',
+                            labels=['user'])
 
-        Follower.get_or_create(from_=user, to=followee_user, status='active',
-                               follow=follow_obj.key)
+        resp = Web.receive(follow_obj, authed_as=domain)
+        logger.info(f'Web.receive returned {resp}')
+
+        follow_obj = follow_obj.key.get()
+        follow_obj.source_protocol = 'ui'
         follow_obj.put()
 
         url = as1.get_url(followee.as1) or followee_id
@@ -197,31 +191,29 @@ class UnfollowCallback(indieauth.Callback):
             followee.put()
 
         # TODO(#529): generalize
-        inbox = ActivityPub.convert(followee.obj).get('inbox')
-        if not inbox:
-            flash(f"AS2 profile {followee_id} missing inbox")
-            return redirect(user.user_page_path('following'))
-
         timestamp = NOW.replace(microsecond=0, tzinfo=None).isoformat()
         unfollow_id = common.host_url(user.user_page_path(f'following#undo-{timestamp}-{followee_id}'))
-        unfollow_as2 = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'type': 'Undo',
+        unfollow_as1 = {
+            'objectType': 'activity',
+            'verb': 'stop-following',
             'id': unfollow_id,
-            'actor': user.id_as(ActivityPub),
-            'object': follower.follow.get().as2 if follower.follow else None,
+            'actor': user.key.id(),
+            'object': followee.key.id(),
         }
 
         # don't include the followee User who's being unfollowed in the users
         # property, since we don't want to notify or show them. (standard social
         # network etiquette.)
-        obj = Object(id=unfollow_id, users=[user.key], labels=['user'],
-                     source_protocol='ui', status='complete', as2=unfollow_as2)
-        ActivityPub.send(obj, inbox, from_user=user)
+        follow_obj = Object(id=unfollow_id, users=[user.key], labels=['user'],
+                            source_protocol='ui', our_as1=unfollow_as1)
+        resp = Web.receive(follow_obj, authed_as=domain)
 
         follower.status = 'inactive'
         follower.put()
-        obj.put()
+
+        follow_obj = follow_obj.key.get()
+        follow_obj.source_protocol = 'ui'
+        follow_obj.put()
 
         link = common.pretty_link(as1.get_url(followee.obj.as1) or followee_id)
         flash(f'Unfollowed {link}.')
