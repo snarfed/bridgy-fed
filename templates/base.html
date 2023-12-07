@@ -10,7 +10,7 @@
 <!-- 32x32 last so that browsers prefer it -->
 <link rel="shortcut icon" sizes="32x32" href="https://brid.gy/static/favicon.png">
 <link rel="apple-touch-icon-precomposed" sizes="32x32" href="https://brid.gy/static/favicon.png">
-<link rel="stylesheet" href="/oauth_dropins_static/bootstrap.min.css" />
+<link rel="stylesheet" href="/static/bootstrap.min.css" />
 <link rel="stylesheet" href="/oauth_dropins_static/util.css" type="text/css" />
 <link rel="stylesheet" href="/static/style.css" type="text/css" />
 <link rel="webmention" href="/webmention" />
@@ -34,21 +34,20 @@
 <main class="tp-main lead container">
 
 <div id="intro" class="row">
-<div id="logo" class="col-xs-4">
- <a href="/"><img id="logo-img" class="img-responsive" src="/static/bridgy_fed_logo.png" /></a>
-</div>
+  <div id="logo">
+  <a href="/">
+   <img id="logo-img" class="img-responsive col-sm-2 col-xs-3"
+        src="/static/bridgy_logo_with_alpha.png" />
+   <span class="bigger col-sm-3 col-xs-4">Bridgy Fed</span>
+  </a>
+  </div>
 
-<div id="header" class="col-xs-7">
-<p class="big">
-<a id="title" href="/" style="white-space: nowrap">Bridgy Fed</a>
-connects <a href="https://indieweb.org/">your web site</a> <br>
-to <a href="https://joinmastodon.org/">Mastodon</a> and the
-<a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>. <br>
-<a href="/docs">Learn more...</a>
-</p></div>
+<div id="header" class="col-xs-4 col-xs-offset-3">
+  <a href="/docs">Docs</a>
+  | <a href="https://snarfed.org/?s=%22bridgy+fed%22">News</a>
+  | <a href="https://github.com/snarfed/bridgy-fed">Open source</a>
 </div>
-
-<p class="clearfix"></p>
+</div>
 
 {% block content %}
 {% endblock %}

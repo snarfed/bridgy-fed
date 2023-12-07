@@ -2,6 +2,8 @@ let sketch = function(p) {
   let width = 1400;
   let height = 900;
   let offset = 100;
+  let color = '#002222';
+  let backgroundColor = '#FFFFFF';
 
   let flow_cell_size = 10;
 
@@ -20,7 +22,6 @@ let sketch = function(p) {
   let tick = 0;
   p.setup = function() {
     p.createCanvas(width, height);
-    p.background('#022');
     p.smooth();
     p.noStroke();
     //p.blendMode(p.OVERLAY);
@@ -121,7 +122,7 @@ let sketch = function(p) {
 
   function display_particles() {
     p.strokeWeight(2);
-    p.stroke(255, 240, 220, 5);
+    p.stroke(160, 180, 200, 5);
     for (let i = 0; i < particles.length; i++) {
       //p.stroke(particles[i].col);
       //p.point(particles[i].pos.x, particles[i].pos.y);
@@ -147,14 +148,14 @@ let sketch = function(p) {
     }
   }
 
-  p.keyPressed = function() {
-    if (p.keyCode === 80) {
-      p.saveCanvas('landslide', 'jpeg');
-    }
-  };
+  // p.keyPressed = function() {
+  //   if (p.keyCode === 80) {
+  //     p.saveCanvas('landslide', 'jpeg');
+  //   }
+  // };
 
   function mod(x, n) {
     return (x % n + n) % n;
   }
 };
-new p5(sketch);
+new p5(sketch, document.getElementById('topology'));

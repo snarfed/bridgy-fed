@@ -1,33 +1,16 @@
+.container {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 #intro {
-  margin-top: 2em;
-}
-
-#logins {
-  margin-top: .3em;
-  text-align: right;
-}
-
-#logo {
-  z-index: -1;
-}
-
-@media (max-width: 600px) {
-  #logo {
-    float: left;
-  }
-  #header {
-    float: none;
-    width: 100%;
-  }
-}
-
-#signups {
-  margin-top: 2em;
-}
-
-#signups hr {
-  width: 50%;
-  border-color: lightgray;
+  width: 100%;
+  margin: 0;
+  margin-bottom: 2em;
+  padding: 1em;
+  background-color: #FFFFFF80;
+  /* TODO: box-shadow alpha to blend into topology */
 }
 
 .big {
@@ -42,30 +25,16 @@
   font-size: .8em;
 }
 
-#header br {
-  display: none;
-}
-
-@media (min-width: 960px) {
-  #header br {
-    display: inline;
-  }
-}
-
-#header p {
-  text-align: left;
+#header {
+  text-align: right;
 }
 
 #title {
   font-weight: normal;
 }
 
-#more-link {
-  font-size: .7em;
-}
-
-body.about #more-link {
-  display: none;
+#topology {
+  z-index: -1;
 }
 
 pre .keyword, code .keyword, code.keyword {
@@ -89,6 +58,16 @@ pre .value, code .value, code.value {
 
 #top, #listen-ui, #listening-label, #publish-ui, #publishing-label {
   margin-bottom: 1em;
+}
+
+#front-me {
+  text-align: left;
+  margin-left: 4em;
+}
+
+#front-them {
+  text-align: right;
+  margin-right: 4em;
 }
 
 /* tentatively removed since it didn't look great with webmention signups */
@@ -242,13 +221,6 @@ code a:hover, a code:hover {
 label {
   /* override Bootstrap style */
   font-weight: 300;
-}
-
-/* Seems like this shouldn't be necessary, but cursor was ending up as auto on the
- * a > img for the disabled Facebook signup button for some reason, not sure why.
- */
-a > img {
-  cursor: pointer;
 }
 
 button {
@@ -436,6 +408,7 @@ input[type="submit"] {
 #footer {
   margin-top: 2em;
   margin-bottom: 1em;
+  margin-right: 1em;
   text-align: right;
 }
 
