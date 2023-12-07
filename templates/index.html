@@ -1,19 +1,63 @@
 {% extends "base.html" %}
 
 {% block content %}
+<script src="/static/jquery-3.7.1.slim.min.js"></script>
+<script src="/static/bootstrap.min.js"></script>
 
 <div id="topology" style="position: fixed; top: 0; left: 0"></div>
 
-<div id="front-me" class="row big front">
-I'm on
-<input name="me" id="me-web" type="radio"><label for="me-web">Web</label></input>
-<input name="me" id="me-fediverse" type="radio"><label for="me-fediverse">Fediverse</label></input>
+<div id="front-me" class="row front">
+<span class="col-sm-4 bigger">I'm on</span>
+<div class="col-sm-8 bigger">
+  <div class="btn-group" role="group" data-toggle="buttons" aria-label="I'm on">
+  <label for="me-web" class="btn btn-primary">
+    <input name="me" id="me-web" type="radio">
+    🌐 <!-- globe_with_meridians -->
+    <!-- 🌏 globe_showing_asia-australia -->
+    Web
+  </label>
+  <label for="me-web" class="btn btn-primary">
+    <input name="me" id="me-web" type="radio">
+    <img src="/static/fediverse_logo.svg">
+    Fediverse
+  </label>
+  <label for="me-web" class="btn btn-primary">
+    <input name="me" id="me-web" type="radio">
+    <img src="/static/atproto_logo.png">
+    Bluesky
+  </label>
+
+  <!-- <button type="button" class="btn btn-default big" id="me-bluesky"> -->
+  <!--   <img src="/static/atproto_logo.png"> -->
+  <!--   Bluesky -->
+  <!-- </button> -->
+</div>
+</div>
 </div>
 
-<div id="front-them" class="row big front">
-I want to follow someone on
-<input name="them" id="them-web" type="radio"><label for="them-web">Web</label></input>
-<input name="them" id="them-fediverse" type="radio"><label for="them-fediverse">Fediverse</label></input>
+<div id="front-them" class="row front">
+<span class="col-sm-4 bigger">I want to follow someone on</span>
+<div class="col-sm-8 bigger">
+<div class="btn-group" role="group" data-toggle="buttons"
+     aria-label="...and I want to follow someone on">
+  <label for="them-web" class="btn btn-primary">
+    <input name="them" id="them-web" type="radio">
+    🌐 <!-- globe_with_meridians -->
+    <!-- 🌏 globe_showing_asia-australia -->
+    Web
+  </label>
+  <label for="them-web" class="btn btn-primary">
+    <input name="them" id="them-web" type="radio">
+    <img src="/static/fediverse_logo.svg">
+    Fediverse
+  </label>
+  <label for="them-web" class="btn btn-primary">
+    <input name="them" id="them-web" type="radio">
+    <img src="/static/atproto_logo.png">
+    Bluesky
+  </label>
+</div>
+</div>
 </div>
 
 <script src="static/q5.min.js"></script>

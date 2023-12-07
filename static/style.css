@@ -60,23 +60,15 @@ pre .value, code .value, code.value {
   margin-bottom: 1em;
 }
 
-#front-me {
+.front {
   text-align: left;
-  margin-left: 4em;
+  margin-left: 2em;
 }
 
-#front-them {
-  text-align: right;
-  margin-right: 4em;
+.front label img {
+  height: 1em;
+  margin-top: -.2em;
 }
-
-/* tentatively removed since it didn't look great with webmention signups */
-/* @media (min-width: 768px) { */
-/*   #listen-signup, #listen-ui { */
-/*     border-left: 1px solid lightgray; */
-/*     border-right: 1px solid lightgray; */
-/*   } */
-/* } */
 
 #listen-signups input, #webmention-signups input {
   margin: .5em;
