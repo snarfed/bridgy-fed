@@ -2520,6 +2520,37 @@ class WebUtilTest(TestCase):
         self.assertFalse(Web.fetch(obj))
         self.assertIsNone(obj.as1)
 
+    def test_fetch_resolves_relative_urls(self, mock_get, __):
+        mock_get.return_value = requests_response("""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="repost"></a>
+<a class="u-repost-of" href="/orig/post">reposted!</a>
+<a class="u-author" href="/me"></a>
+<p class="e-content">
+  Hello <img src="hi.jpg" class="u-photo"> <a href="/there">there</a>.
+</p>
+</body>
+</html>
+""", url='https://user.com/my/post')
+
+        obj = Object(id='https://user.com/post')
+        Web.fetch(obj)
+        self.assert_equals({
+            'type': ['h-entry'],
+            'properties': {
+                'url': ['https://user.com/my/repost'],
+                'repost-of': ['https://user.com/orig/post'],
+                'author': ['https://user.com/me'],
+                'photo': ['https://user.com/my/hi.jpg'],
+                'content': [{
+                    'html': 'Hello <img class="u-photo" src="https://user.com/my/hi.jpg"/> <a href="https://user.com/there">there</a>.',
+                    'value': 'Hello  https://user.com/my/hi.jpg there.',
+                }],
+            },
+            'url': 'https://user.com/my/post',
+        }, obj.mf2)
+
     def test_send_note_does_nothing(self, mock_get, mock_post):
         Follower.get_or_create(
             to=self.make_user('https://mas.to/bob', cls=ActivityPub),
