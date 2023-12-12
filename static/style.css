@@ -9,6 +9,7 @@
   margin: 0;
   margin-bottom: 2em;
   padding: 1em;
+  padding-bottom: 0.5em;
   background-color: #FFFFFF80;
   /* TODO: box-shadow alpha to blend into topology */
 }
@@ -45,6 +46,10 @@ pre .value, code .value, code.value {
   color: chocolate;
 }
 
+.handle {
+  font-family: monospace;
+}
+
 .row {
   text-align: center;
   margin-bottom: 1em;
@@ -63,12 +68,69 @@ pre .value, code .value, code.value {
 .front {
   text-align: left;
   margin-left: 2em;
+  display: flex;
+  align-items: center;
+}
+
+#front-tagline {
+  margin-top: 1.5em;
+  margin-bottom: 1.5em;
+}
+
+.front > span {
+  text-align: right;
+}
+
+.front label {
+  font-size: 1em;
 }
 
 .front label img {
   height: 1em;
   margin-top: -.2em;
 }
+
+.nostr img {
+  height: 1.4em !important;
+}
+
+.front-instructions {
+  margin: 1em;
+  margin-left: 2em;
+  margin-right: 2em;
+  min-height: 4em;
+}
+
+.instruction {
+  display: none;
+}
+
+.front .btn-group > .btn {
+  float: none;  /* separate buttons */
+  border-radius: .2em !important;
+}
+
+.btn.web {
+  background-color: #47c986;
+}
+
+.btn.fediverse {
+  background-color: #c94786;
+}
+
+.btn.atproto {
+  background-color: #4786c9;
+}
+
+.btn.nostr {
+  background-color: #5E287D;
+}
+
+/* #logo-img-bottom { */
+/*   text-align: center; */
+/*   /\* margin-left: auto; *\/ */
+/*   /\* margin-right: auto; *\/ */
+/* } */
 
 #listen-signups input, #webmention-signups input {
   margin: .5em;
@@ -398,7 +460,6 @@ input[type="submit"] {
 }
 
 #footer {
-  margin-top: 2em;
   margin-bottom: 1em;
   margin-right: 1em;
   text-align: right;
