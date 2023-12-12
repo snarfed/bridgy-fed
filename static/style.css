@@ -1,17 +1,29 @@
+/* color variables */
+:root {
+  --bg: #23527c;
+  --fg: white;
+}
+
 .container {
   width: 100%;
   margin: 0;
   padding: 0;
 }
 
-#intro {
+#header {
   width: 100%;
   margin: 0;
-  margin-bottom: 2em;
-  padding: 1em;
-  padding-bottom: 0.5em;
-  background-color: #FFFFFF80;
-  /* TODO: box-shadow alpha to blend into topology */
+  /* margin-bottom: 2em; */
+  /* padding: 1em; */
+  padding-bottom: 0;
+  background-color: white;
+  /* see corresponding shadow in .front-dark below */
+  box-shadow: 0 0 .5em .5em white;
+
+/* this keeps it always visible on top, even when scrolling
+  position: sticky;
+  top: 0;
+ */
 }
 
 .big {
@@ -26,7 +38,9 @@
   font-size: .8em;
 }
 
-#header {
+.header-links {
+  margin-top: 1em;
+  margin-bottom: 1em;
   text-align: right;
 }
 
@@ -35,7 +49,9 @@
 }
 
 #topology {
+  position: absolute;
   z-index: -1;
+  background-color: #003355;
 }
 
 pre .keyword, code .keyword, code.keyword {
@@ -47,7 +63,8 @@ pre .value, code .value, code.value {
 }
 
 .handle {
-  font-family: monospace;
+  font-style: italic;
+  /* font-family: monospace; */
 }
 
 .row {
@@ -55,6 +72,8 @@ pre .value, code .value, code.value {
   margin-bottom: 1em;
   margin-left: 0;
   margin-right: 0;
+  padding-top: 1em;
+  padding-bottom: 1em;
 }
 
 #blogposts, #publishes, #webmentions, #user {
@@ -65,16 +84,60 @@ pre .value, code .value, code.value {
   margin-bottom: 1em;
 }
 
+#front row {
+  background-color: white;
+}
+
+#front-form {
+  background-color: transparent;  /* topology animation is behind */
+  box-shadow: none;
+}
+
+.i-label {
+  /* text-shadow: 2px 2px var(--bg); */
+  text-shadow: -2px -2px 0 var(--bg), 2px -2px 0 var(--bg), -2px 2px 0 var(--bg), 2px 2px 0 var(--bg);
+}
+
+#front-form row {
+  background-color: transparent;
+}
+
 .front {
   text-align: left;
   margin-left: 2em;
+  /* vertical center button groups against left side text */
   display: flex;
   align-items: center;
 }
 
+.front-light {
+  background-color: white;
+  box-shadow: 0 0 .5em 1em white;
+}
+
+.front-dark {
+  /* background-color: #337ab7; */
+  background-color: var(--bg);
+  color: white;
+  box-shadow: 0 0 .5em 1.5em var(--bg);
+  padding-top: 0;
+  padding-bottom: 0;
+  margin-top: 2em;
+  margin-bottom: 2em;
+}
+
+.front-dark a {
+  color: #63aae0;
+}
+
+.front-dark a:hover {
+  color: #93cae7;
+}
+
 #front-tagline {
-  margin-top: 1.5em;
-  margin-bottom: 1.5em;
+  margin-bottom: 0;
+  /* text-shadow: #FC0 1px 0 10px; */
+  text-shadow: 0px 0px .5em white, 2px 2px .5em yellow, -2px -2px .5em red;
 }
 
 .front > span {
@@ -110,6 +173,11 @@ pre .value, code .value, code.value {
   border-radius: .2em !important;
 }
 
+#front-logo-bottom {
+  padding-bottom: 0;
+  margin-bottom: -3em;
+}
+
 .btn.web {
   background-color: #47c986;
 }
@@ -125,12 +193,6 @@ pre .value, code .value, code.value {
 .btn.nostr {
   background-color: #5E287D;
 }
-
-/* #logo-img-bottom { */
-/*   text-align: center; */
-/*   /\* margin-left: auto; *\/ */
-/*   /\* margin-right: auto; *\/ */
-/* } */
 
 #listen-signups input, #webmention-signups input {
   margin: .5em;
@@ -264,7 +326,7 @@ code a, a code {
 }
 
 code a:hover, a code:hover {
-  color: #23527c;
+  color: var(--bg);
 }
 
 .original-post-links {
@@ -457,12 +519,6 @@ input[type="submit"] {
 
 #sent pre {
   display: inline-block;
-}
-
-#footer {
-  margin-bottom: 1em;
-  margin-right: 1em;
-  text-align: right;
 }
 
 .profile {
