@@ -3,61 +3,122 @@
 {% block content %}
 <script src="/static/jquery-3.7.1.slim.min.js"></script>
 <script src="/static/bootstrap.min.js"></script>
+<script src="/static/index.js"></script>
 
-<div id="topology" style="position: fixed; top: 0; left: 0"></div>
+<div id="topology" style="position: absolute; top: 0; left: 0"></div>
+
+<!--
+nostr purple
+web blue? green? globe
+fediverse pink?
+bluesky light blue
+ -->
+<!-- <div id="front-form"></div> -->
+<div id="front-tagline" class="row bigger">
+  <!-- The decentralized social bridge -->
+  <em>Bridging the new social internet</em>
+</div>
 
 <div id="front-me" class="row front">
 <span class="col-sm-4 bigger">I'm on</span>
-<div class="col-sm-8 bigger">
+<div class="col-sm-8 big">
   <div class="btn-group" role="group" data-toggle="buttons" aria-label="I'm on">
-  <label for="me-web" class="btn btn-primary">
+  <label for="me-web" class="btn btn-primary web">
     <input name="me" id="me-web" type="radio">
     🌐 <!-- globe_with_meridians -->
     <!-- 🌏 globe_showing_asia-australia -->
     Web
   </label>
-  <label for="me-web" class="btn btn-primary">
-    <input name="me" id="me-web" type="radio">
+  <label for="me-fediverse" class="btn btn-primary fediverse">
+    <input name="me" id="me-fediverse" type="radio">
     <img src="/static/fediverse_logo.svg">
     Fediverse
   </label>
-  <label for="me-web" class="btn btn-primary">
-    <input name="me" id="me-web" type="radio">
+  <label for="me-atproto" class="btn btn-primary atproto disabled"
+         title="Coming soon">
+    <input name="me" id="me-atproto" type="radio">
     <img src="/static/atproto_logo.png">
     Bluesky
   </label>
-
-  <!-- <button type="button" class="btn btn-default big" id="me-bluesky"> -->
-  <!--   <img src="/static/atproto_logo.png"> -->
-  <!--   Bluesky -->
-  <!-- </button> -->
+  <label for="me-nostr" class="btn btn-primary nostr disabled"
+         title="Coming soon">
+    <input name="me" id="me-nostr" type="radio">
+    <img src="/static/nostr_logo.png">
+    Nostr
+  </label>
 </div>
 </div>
 </div>
 
 <div id="front-them" class="row front">
 <span class="col-sm-4 bigger">I want to follow someone on</span>
-<div class="col-sm-8 bigger">
+<div class="col-sm-8 big">
 <div class="btn-group" role="group" data-toggle="buttons"
      aria-label="...and I want to follow someone on">
-  <label for="them-web" class="btn btn-primary">
+  <label for="them-web" class="btn btn-primary web">
     <input name="them" id="them-web" type="radio">
-    🌐 <!-- globe_with_meridians -->
-    <!-- 🌏 globe_showing_asia-australia -->
-    Web
+    🌐 Web
   </label>
-  <label for="them-web" class="btn btn-primary">
-    <input name="them" id="them-web" type="radio">
+  <label for="them-fediverse" class="btn btn-primary fediverse">
+    <input name="them" id="them-fediverse" type="radio">
     <img src="/static/fediverse_logo.svg">
     Fediverse
   </label>
-  <label for="them-web" class="btn btn-primary">
-    <input name="them" id="them-web" type="radio">
+  <label for="them-atproto" class="btn btn-primary atproto disabled"
+         title="Coming soon">
+    <input name="them" id="them-atproto" type="radio">
     <img src="/static/atproto_logo.png">
     Bluesky
   </label>
+  <label for="them-nostr" class="btn btn-primary nostr disabled"
+         title="Coming soon">
+    <input name="them" id="them-nostr" type="radio">
+    <img src="/static/nostr_logo.png">
+    Nostr
+  </label>
 </div>
 </div>
+</div>
+
+<div class="row big front-instructions">
+
+<p id="front-web-web" class="instruction">
+<a href="https://indieweb.org/reader">Use a feed reader!</a>
+</p>
+
+<div id="front-web-fediverse" class="instruction">
+<p>Enter your web site:</p>
+<form method="post" action="/web-site">
+  <input required type="url" name="url" id="url" placeholder="snarfed.org" />
+  <input type="submit" class="btn btn-default" value="OK" />
+</form>
+</div>
+
+<p id="front-fediverse-web" class="instruction">
+To follow the web site <span class="handle">example.com</span>, search for <span class="handle">@example.com@web.brid.gy</span> on your fediverse instance.
+</p>
+
+<p id="front-fediverse-fediverse" class="instruction">
+<a href="https://docs.joinmastodon.org/user/network/#follow">Search for them on your instance.</a>
+</p>
+</div>
+<!-- </div> <\!-- front-form -\-> -->
+
+<div class="row big">
+<p>Bridgy Fed connects many popular decentralized social networks. You can use it from one network to follow people on others, see their posts, and reply and like and repost like normal. All interactions work in both directions. <a href="/docs">See the docs for more information.</a></p>
+
+<!-- <p>Blocks, mutes, and other native moderation features work automatically. You can opt out of Bridgy Fed by adding <em>#nobridge</em> or <em>#nobots</em> to your bio or <a href="mailto:opt-out@brid.gy">by private email request</a>.</p> -->
+
+<br>
+<p>Bridgy Fed is a free, non-commercial, open source service. <a href="mailto:feedback@brid.gy">Feedback</a> and <a href="https://github.com/snarfed/bridgy-fed/issues">bug reports</a> are welcome!</a></p>
+<br>
+</div>
+
+<!-- <div class="row big"> -->
+<div class="row">
+  <p id="logo-img-bottom" class="col-sm-4 col-xs-6 col-sm-offset-4 col-xs-offset-3">
+    <img src="/static/bridgy_logo_with_alpha.png" class="center-block img-responsive" />
+  </p>
 </div>
 
 <script src="static/q5.min.js"></script>
