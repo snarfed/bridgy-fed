@@ -19,7 +19,7 @@
 <script src="/oauth_dropins_static/util.js"></script>
 </head>
 
-<body>
+<body id="{{ body_id }}">
 
 {% with messages = get_flashed_messages() %}
 {% if messages %}
@@ -33,7 +33,7 @@
 
 <main class="tp-main lead container">
 
-<div id="intro" class="row">
+<div id="header" class="row">
   <div id="logo">
   <a href="/">
    <img id="logo-img" class="img-responsive col-sm-2 col-xs-3"
@@ -42,7 +42,7 @@
   </a>
   </div>
 
-<div id="header" class="col-xs-4 col-xs-offset-3">
+<div class="col-sm-7 col-xs-5 header-links">
   <a href="/docs">Docs</a> &nbsp;
   <a href="https://snarfed.org/?s=%22bridgy+fed%22">News</a> &nbsp;
   <a href="mailto:feedback@brid.gy">Feedback</a> &nbsp;
@@ -53,7 +53,7 @@
 {% block content %}
 {% endblock %}
 
-<div id="footer">
+<div class="header-links">
   <a href="/docs">Docs</a> &nbsp;
   <a href="https://snarfed.org/?s=%22bridgy+fed%22">News</a> &nbsp;
   <a href="mailto:feedback@brid.gy">Feedback</a> &nbsp;

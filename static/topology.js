@@ -1,9 +1,11 @@
 let sketch = function(p) {
-  let width = 1400;
+  let width = p.windowWidth;
   let height = 900;
   let offset = 100;
-  let color = '#002222';
-  let backgroundColor = '#FFFFFF';
+
+  // background color is set in style.css, foreground in stroke() call below
+  // let color = '#FFFFFF';
+  // let backgroundColor = '#002222';
 
   let flow_cell_size = 10;
 
@@ -122,7 +124,8 @@ let sketch = function(p) {
 
   function display_particles() {
     p.strokeWeight(2);
-    p.stroke(160, 180, 200, 5);
+    p.stroke(255, 255, 255, 5);  // white
+    // p.stroke(160, 180, 200, 5);  // dark blue
     for (let i = 0; i < particles.length; i++) {
       //p.stroke(particles[i].col);
       //p.point(particles[i].pos.x, particles[i].pos.y);

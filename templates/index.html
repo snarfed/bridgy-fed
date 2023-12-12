@@ -5,7 +5,7 @@
 <script src="/static/bootstrap.min.js"></script>
 <script src="/static/index.js"></script>
 
-<div id="topology" style="position: absolute; top: 0; left: 0"></div>
+<div id="front">
 
 <!--
 nostr purple
@@ -13,14 +13,15 @@ web blue? green? globe
 fediverse pink?
 bluesky light blue
  -->
-<!-- <div id="front-form"></div> -->
+<div id="front-form" class="front-dark">
+<div id="topology" style="position: absolute; top: 0; left: 0"></div>
 <div id="front-tagline" class="row bigger">
   <!-- The decentralized social bridge -->
   <em>Bridging the new social internet</em>
 </div>
 
 <div id="front-me" class="row front">
-<span class="col-sm-4 bigger">I'm on</span>
+<span class="col-sm-4 bigger i-label">I'm on</span>
 <div class="col-sm-8 big">
   <div class="btn-group" role="group" data-toggle="buttons" aria-label="I'm on">
   <label for="me-web" class="btn btn-primary web">
@@ -51,7 +52,7 @@ bluesky light blue
 </div>
 
 <div id="front-them" class="row front">
-<span class="col-sm-4 bigger">I want to follow someone on</span>
+<span class="col-sm-4 bigger i-label">I want to follow someone on</span>
 <div class="col-sm-8 big">
 <div class="btn-group" role="group" data-toggle="buttons"
      aria-label="...and I want to follow someone on">
@@ -102,25 +103,24 @@ To follow the web site <span class="handle">example.com</span>, search for <span
 <a href="https://docs.joinmastodon.org/user/network/#follow">Search for them on your instance.</a>
 </p>
 </div>
-<!-- </div> <\!-- front-form -\-> -->
+</div> <!-- front-form -->
 
-<div class="row big">
+<div class="row big front-light">
 <p>Bridgy Fed connects many popular decentralized social networks. You can use it from one network to follow people on others, see their posts, and reply and like and repost like normal. All interactions work in both directions. <a href="/docs">See the docs for more information.</a></p>
-
+</div>
 <!-- <p>Blocks, mutes, and other native moderation features work automatically. You can opt out of Bridgy Fed by adding <em>#nobridge</em> or <em>#nobots</em> to your bio or <a href="mailto:opt-out@brid.gy">by private email request</a>.</p> -->
 
-<br>
+<div class="row big front-dark">
 <p>Bridgy Fed is a free, non-commercial, open source service. <a href="mailto:feedback@brid.gy">Feedback</a> and <a href="https://github.com/snarfed/bridgy-fed/issues">bug reports</a> are welcome!</a></p>
-<br>
 </div>
 
-<!-- <div class="row big"> -->
-<div class="row">
+<div id="front-logo-bottom" class="row">
   <p id="logo-img-bottom" class="col-sm-4 col-xs-6 col-sm-offset-4 col-xs-offset-3">
     <img src="/static/bridgy_logo_with_alpha.png" class="center-block img-responsive" />
   </p>
 </div>
 
+</div>  <!-- #front -->
 <script src="static/q5.min.js"></script>
 <script src="static/topology.js"></script>
 
