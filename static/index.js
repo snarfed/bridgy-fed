@@ -6,6 +6,11 @@ function update() {
   // show matching instructions
   // console.log($('.instruction'))
   for (instr of $('.instruction')) {
+    if (instr.id == 'front-instruction-placeholder') {
+      instr.style.display = 'none'
+      continue
+    }
+
     let parts = instr.id.split('-')
     let me = parts[1]
     let them = parts[2]

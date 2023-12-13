@@ -17,11 +17,13 @@ bluesky light blue
 <div id="topology" style="position: absolute; top: 0; left: 0"></div>
 <div id="front-tagline" class="row bigger">
   <!-- The decentralized social bridge -->
-  <em>Bridging the new social internet</em>
+  <em class="front-form-text">Bridging the new social internet</em>
 </div>
 
 <div id="front-me" class="row front">
-<span class="col-sm-4 bigger i-label">I'm on</span>
+<span class="col-sm-4 bigger">
+  <span class="i-label">I'm on</span>
+</span>
 <div class="col-sm-8 big">
   <div class="btn-group" role="group" data-toggle="buttons" aria-label="I'm on">
   <label for="me-web" class="btn btn-primary web">
@@ -52,7 +54,9 @@ bluesky light blue
 </div>
 
 <div id="front-them" class="row front">
-<span class="col-sm-4 bigger i-label">I want to follow someone on</span>
+<span class="col-sm-4 bigger">
+  <span class="i-label">I want to follow someone on</span>
+</span>
 <div class="col-sm-8 big">
 <div class="btn-group" role="group" data-toggle="buttons"
      aria-label="...and I want to follow someone on">
@@ -80,38 +84,43 @@ bluesky light blue
 </div>
 </div>
 </div>
+</div> <!-- front-form -->
 
-<div class="row big front-instructions">
+<div class="row big front-light front-instructions">
+
+<p id="front-instruction-placeholder" class="instruction">
+  Choose your networks above.
+</p>
 
 <p id="front-web-web" class="instruction">
-<a href="https://indieweb.org/reader">Use a feed reader!</a>
+  <a href="https://indieweb.org/reader">Use a feed reader!</a>
 </p>
 
 <div id="front-web-fediverse" class="instruction">
-<p>Enter your web site:</p>
-<form method="post" action="/web-site">
-  <input required type="url" name="url" id="url" placeholder="snarfed.org" />
-  <input type="submit" class="btn btn-default" value="OK" />
-</form>
+  Enter your web site:
+  <form method="post" action="/web-site">
+    <input required type="url" name="url" id="url" placeholder="snarfed.org" />
+    <input type="submit" class="btn btn-default" value="Go" />
+  </form>
 </div>
 
 <p id="front-fediverse-web" class="instruction">
-To follow the web site <span class="handle">example.com</span>, search for <span class="handle">@example.com@web.brid.gy</span> on your fediverse instance.
+  To follow the web site <span class="handle">example.com</span>, search for <span class="handle">@example.com@web.brid.gy</span> on your fediverse instance.
 </p>
 
 <p id="front-fediverse-fediverse" class="instruction">
-<a href="https://docs.joinmastodon.org/user/network/#follow">Search for them on your instance.</a>
+  <a href="https://docs.joinmastodon.org/user/network/#follow">Search for them on your instance.</a>
 </p>
 </div>
-</div> <!-- front-form -->
-
-<div class="row big front-light">
-<p>Bridgy Fed connects many popular decentralized social networks. You can use it from one network to follow people on others, see their posts, and reply and like and repost like normal. All interactions work in both directions. <a href="/docs">See the docs for more information.</a></p>
-</div>
-<!-- <p>Blocks, mutes, and other native moderation features work automatically. You can opt out of Bridgy Fed by adding <em>#nobridge</em> or <em>#nobots</em> to your bio or <a href="mailto:opt-out@brid.gy">by private email request</a>.</p> -->
 
 <div class="row big front-dark">
-<p>Bridgy Fed is a free, non-commercial, open source service. <a href="mailto:feedback@brid.gy">Feedback</a> and <a href="https://github.com/snarfed/bridgy-fed/issues">bug reports</a> are welcome!</a></p>
+<p>Bridgy Fed connects many popular decentralized social networks. You can use it from one network to follow people on another, see their posts, and reply and like and repost like normal. All interactions work in both directions. <a href="/docs">See the docs for more info.</a></p>
+</div>
+
+<!-- <p>Blocks, mutes, and other native moderation features work automatically. You can opt out of Bridgy Fed by adding <em>#nobridge</em> or <em>#nobots</em> to your bio or <a href="mailto:opt-out@brid.gy">by private email request</a>.</p> -->
+
+<div class="row big front-light">
+<p>Bridgy Fed is a free, non-commercial, open source service. <a href="https://snarfed.org/2023-11-27_re-introducing-bridgy-fed">More background here.</a> <a href="mailto:feedback@brid.gy">Feedback</a> and <a href="https://github.com/snarfed/bridgy-fed/issues">bug reports</a> are welcome!</a></p>
 </div>
 
 <div id="front-logo-bottom" class="row">

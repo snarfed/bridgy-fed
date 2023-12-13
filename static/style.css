@@ -13,12 +13,11 @@
 #header {
   width: 100%;
   margin: 0;
-  /* margin-bottom: 2em; */
-  /* padding: 1em; */
   padding-bottom: 0;
-  background-color: white;
+  background-color: var(--fg);
   /* see corresponding shadow in .front-dark below */
-  box-shadow: 0 0 .5em .5em white;
+  box-shadow: 0 0 .5em .5em var(--fg);
+  overflow-x: clip;
 
 /* this keeps it always visible on top, even when scrolling
   position: sticky;
@@ -52,6 +51,7 @@
   position: absolute;
   z-index: -1;
   background-color: #003355;
+  overflow: clip;
 }
 
 pre .keyword, code .keyword, code.keyword {
@@ -64,7 +64,6 @@ pre .value, code .value, code.value {
 
 .handle {
   font-style: italic;
-  /* font-family: monospace; */
 }
 
 .row {
@@ -85,20 +84,31 @@ pre .value, code .value, code.value {
 }
 
 #front row {
-  background-color: white;
+  background-color: var(--fg);
 }
 
 #front-form {
+  margin-bottom: 0;
+  padding-bottom: 2em;
   background-color: transparent;  /* topology animation is behind */
   box-shadow: none;
 }
 
+.front-form-text {
+	box-shadow: 0 0 .5em 0.5em #23527c90;
+	background-color: #23527c90;
+}
+
 .i-label {
-  /* text-shadow: 2px 2px var(--bg); */
   text-shadow: -2px -2px 0 var(--bg), 2px -2px 0 var(--bg), -2px 2px 0 var(--bg), 2px 2px 0 var(--bg);
+  /* this is easier and supported in major browsers but draws the outline *inside*
+  the text, not outside, which looks much worse.
+ -webkit-text-stroke: 2px var(--bg);
+ */
 }
 
 #front-form row {
+  margin-bottom: 0;
   background-color: transparent;
 }
 
@@ -111,14 +121,13 @@ pre .value, code .value, code.value {
 }
 
 .front-light {
-  background-color: white;
-  box-shadow: 0 0 .5em 1em white;
+  background-color: var(--fg);
+  box-shadow: 0 0 .5em 1em var(--fg);
 }
 
 .front-dark {
-  /* background-color: #337ab7; */
   background-color: var(--bg);
-  color: white;
+  color: var(--fg);
   box-shadow: 0 0 .5em 1.5em var(--bg);
   padding-top: 0;
   padding-bottom: 0;
@@ -136,7 +145,6 @@ pre .value, code .value, code.value {
 
 #front-tagline {
   margin-bottom: 0;
-  /* text-shadow: #FC0 1px 0 10px; */
   text-shadow: 0px 0px .5em white, 2px 2px .5em yellow, -2px -2px .5em red;
 }
 
@@ -158,14 +166,22 @@ pre .value, code .value, code.value {
 }
 
 .front-instructions {
-  margin: 1em;
-  margin-left: 2em;
-  margin-right: 2em;
   min-height: 4em;
 }
 
 .instruction {
   display: none;
+  margin: 1em;
+  margin-left: 2em;
+  margin-right: 2em;
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+#front-instruction-placeholder {
+  display: block;
+  font-style: italic;
+  opacity: 70%;
 }
 
 .front .btn-group > .btn {
@@ -175,7 +191,7 @@ pre .value, code .value, code.value {
 
 #front-logo-bottom {
   padding-bottom: 0;
-  margin-bottom: -3em;
+  margin-bottom: -1em;
 }
 
 .btn.web {
@@ -194,11 +210,15 @@ pre .value, code .value, code.value {
   background-color: #5E287D;
 }
 
+.btn.disabled {
+  opacity: 100%;
+}
+
 #listen-signups input, #webmention-signups input {
   margin: .5em;
 }
 
-.header, #user, .promo, #listen-signups, #webmention-signups {
+#user, .promo, #listen-signups, #webmention-signups {
   margin-bottom: 1em;
 }
 

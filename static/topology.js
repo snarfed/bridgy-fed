@@ -1,7 +1,9 @@
 let sketch = function(p) {
-  let width = p.windowWidth;
+  let width = document.documentElement.clientWidth;
+  // this includes the scroll bar, which is too wide and causes horizontal scrolling
+  // let width = p.windowWidth;
   let height = 900;
-  let offset = 100;
+  let offset = 300;
 
   // background color is set in style.css, foreground in stroke() call below
   // let color = '#FFFFFF';
@@ -9,8 +11,8 @@ let sketch = function(p) {
 
   let flow_cell_size = 10;
 
-  let noise_size = 0.003;
-  let noise_radius = 0.1;
+  let noise_size = 0.03;
+  let noise_radius = 0.2;
 
   let flow_width = (width + offset * 2) / flow_cell_size;
   let flow_height = (height + offset * 2) / flow_cell_size;
