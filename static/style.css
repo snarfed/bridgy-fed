@@ -50,7 +50,7 @@
 #topology {
   position: absolute;
   z-index: -1;
-  background-color: #003355;
+  background-color: var(--bg); /* #003355; */
   overflow: clip;
 }
 
@@ -198,14 +198,14 @@ pre .value, code .value, code.value {
 .btn.atproto, .btn.atproto:hover {
   background-color: #2b3e5b;
   /* not disabled: #113a79; */
-  border: 2px solid #2e5884;
+  border: 2px solid #3e6894;
   /* not disabled: #4786c9; */
 }
 
 .btn.nostr, .btn.nostr:hover {
   background-color: #46374F;
   /* not disabled: #491F62; */
-  border: 2px solid #53415E;
+  border: 2px solid #63516E;
   /* not disabled: ; */
 }
 
@@ -222,7 +222,7 @@ pre .value, code .value, code.value {
   height: 1.4em !important;
 }
 
-.front-instructions {
+#front-instructions {
   min-height: 4em;
 }
 

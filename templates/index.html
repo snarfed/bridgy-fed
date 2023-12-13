@@ -27,25 +27,28 @@ bluesky light blue
 <div class="col-sm-8 big">
   <div class="btn-group" role="group" data-toggle="buttons" aria-label="I'm on">
   <label for="me-web" class="btn btn-primary web">
-    <input name="me" id="me-web" type="radio">
+    <!-- autocomplete="off" prevents Firefox from preserving these buttons' state
+         https://github.com/twbs/bootstrap/issues/793
+      -->
+    <input name="me" id="me-web" type="radio" autocomplete="off">
     🌐 <!-- globe_with_meridians -->
     <!-- 🌏 globe_showing_asia-australia -->
     Web
   </label>
   <label for="me-fediverse" class="btn btn-primary fediverse">
-    <input name="me" id="me-fediverse" type="radio">
+    <input name="me" id="me-fediverse" type="radio" autocomplete="off">
     <img src="/static/fediverse_logo.svg">
     Fediverse
   </label>
   <label for="me-atproto" class="btn btn-primary atproto disabled"
          title="Coming soon">
-    <!-- <input name="me" id="me-atproto" type="radio"> -->
+    <!-- <input name="me" id="me-atproto" type="radio" autocomplete="off"> -->
     <img src="/static/atproto_logo.png">
     Bluesky
   </label>
   <label for="me-nostr" class="btn btn-primary nostr disabled"
          title="Coming soon">
-    <!-- <input name="me" id="me-nostr" type="radio"> -->
+    <!-- <input name="me" id="me-nostr" type="radio" autocomplete="off"> -->
     <img src="/static/nostr_logo_transparent.png">
     Nostr
   </label>
@@ -61,23 +64,23 @@ bluesky light blue
 <div class="btn-group" role="group" data-toggle="buttons"
      aria-label="...and I want to follow someone on">
   <label for="them-web" class="btn btn-primary web">
-    <input name="them" id="them-web" type="radio">
+    <input name="them" id="them-web" type="radio" autocomplete="off">
     🌐 Web
   </label>
   <label for="them-fediverse" class="btn btn-primary fediverse">
-    <input name="them" id="them-fediverse" type="radio">
+    <input name="them" id="them-fediverse" type="radio" autocomplete="off">
     <img src="/static/fediverse_logo.svg">
     Fediverse
   </label>
   <label for="them-atproto" class="btn btn-primary atproto disabled"
          title="Coming soon">
-    <!-- <input name="them" id="them-atproto" type="radio"> -->
+    <!-- <input name="them" id="them-atproto" type="radio" autocomplete="off"> -->
     <img src="/static/atproto_logo.png">
     Bluesky
   </label>
   <label for="them-nostr" class="btn btn-primary nostr disabled"
          title="Coming soon">
-    <!-- <input name="them" id="them-nostr" type="radio"> -->
+    <!-- <input name="them" id="them-nostr" type="radio" autocomplete="off"> -->
     <img src="/static/nostr_logo_transparent.png">
     Nostr
   </label>
@@ -86,9 +89,9 @@ bluesky light blue
 </div>
 </div> <!-- front-form -->
 
-<div class="row big front-light front-instructions">
+<div id="front-instructions" class="row big front-light">
 
-<p id="front-instruction-placeholder" class="instruction">
+<p id="front-instruction-placeholder">
   Choose your networks above.
 </p>
 
@@ -105,7 +108,7 @@ bluesky light blue
 </div>
 
 <p id="front-fediverse-web" class="instruction">
-  To follow the web site <span class="handle">example.com</span>, search for <span class="handle">@example.com@web.brid.gy</span> on your fediverse instance.
+  To follow the web site <a class="handle" href="https://example.com/">example.com</a>, search for <span class="handle">@example.com@web.brid.gy</span> on your fediverse instance.
 </p>
 
 <p id="front-fediverse-fediverse" class="instruction">
