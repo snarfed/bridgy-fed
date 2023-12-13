@@ -1,11 +1,10 @@
+{% set body_id = 'front' %}
 {% extends "base.html" %}
 
 {% block content %}
 <script src="/static/jquery-3.7.1.slim.min.js"></script>
 <script src="/static/bootstrap.min.js"></script>
 <script src="/static/index.js"></script>
-
-<div id="front">
 
 <!--
 nostr purple
@@ -20,7 +19,7 @@ bluesky light blue
   <em class="front-form-text">Bridging the new social internet</em>
 </div>
 
-<div id="front-me" class="row front">
+<div id="front-me" class="row front-buttons">
 <span class="col-sm-4 bigger">
   <span class="i-label">I'm on</span>
 </span>
@@ -56,7 +55,7 @@ bluesky light blue
 </div>
 </div>
 
-<div id="front-them" class="row front">
+<div id="front-them" class="row front-buttons">
 <span class="col-sm-4 bigger">
   <span class="i-label">I want to follow someone on</span>
 </span>
@@ -132,7 +131,6 @@ bluesky light blue
   </p>
 </div>
 
-</div>  <!-- #front -->
 <script src="static/q5.min.js"></script>
 <script src="static/topology.js"></script>
 
