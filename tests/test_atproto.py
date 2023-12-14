@@ -237,7 +237,7 @@ class ATProtoTest(TestCase):
         # eg https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
         mock_get.assert_called_once_with(
             'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
-            json=None,
+            json=None, data=None,
             headers={
                 'Content-Type': 'application/json',
                 'User-Agent': common.USER_AGENT,
@@ -861,7 +861,7 @@ class ATProtoTest(TestCase):
 
         expected_list_notifs = call(
             'https://api.bsky-sandbox.dev/xrpc/app.bsky.notification.listNotifications',
-            json=None,
+            json=None, data=None,
             headers={
                 'Content-Type': 'application/json',
                 'User-Agent': common.USER_AGENT,
@@ -959,7 +959,7 @@ class ATProtoTest(TestCase):
 
         get_timeline = call(
             'https://api.bsky-sandbox.dev/xrpc/app.bsky.feed.getTimeline',
-            json=None,
+            json=None, data=None,
             headers={
                 'Content-Type': 'application/json',
                 'User-Agent': common.USER_AGENT,
