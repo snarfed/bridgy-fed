@@ -1707,6 +1707,9 @@ class ActivityPubUtilsTest(TestCase):
         super().setUp()
         self.user = self.make_user('user.com', cls=Web, has_hcard=True, obj_as2=ACTOR)
 
+        for obj in ACTOR_BASE, ACTOR_FAKE:
+            obj['publicKey']['publicKeyPem'] = self.user.public_pem().decode()
+
     def test_put_validates_id(self, *_):
         for bad in (
             '',
@@ -2062,6 +2065,38 @@ class ActivityPubUtilsTest(TestCase):
             'object': 'https://mas.to/thing',
             'to': [as2.PUBLIC_AUDIENCE],
         }, ActivityPub.convert(obj))
+
+    def test_convert_actor_as2(self):
+        self.assert_equals(ACTOR, ActivityPub.convert(Object(as2=ACTOR)))
+
+    def test_convert_actor_as1_from_user(self):
+        obj = Object(our_as1={
+            'objectType': 'person',
+            'id': 'https://user.com/',
+        })
+        self.assert_equals(ACTOR_BASE, ActivityPub.convert(obj, from_user=self.user),
+                           ignore=['endpoints', 'followers', 'following'])
+
+    def test_convert_actor_as1_no_from_user(self):
+        obj = Object(our_as1=ACTOR_AS1)
+        self.assert_equals(ACTOR, common.unwrap(ActivityPub.convert(obj)),
+                           ignore=['to', 'attachment'])
+
+    def test_convert_follow_as1_no_from_user(self):
+        obj = Object(our_as1=as2.to_as1(FOLLOW))
+        self.assert_equals(FOLLOW, common.unwrap(ActivityPub.convert(obj)),
+                           ignore=['to'])
+
+    def test_convert_profile_update_as1_no_from_user(self):
+        obj = Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'object': ACTOR_AS1,
+        })
+        self.assert_equals({
+            'type': 'Update',
+            'object': ACTOR,
+        }, common.unwrap(ActivityPub.convert(obj)), ignore=['to', 'attachment'])
 
     def test_convert_compact_actor_attributedTo_author(self):
         obj = Object(our_as1={

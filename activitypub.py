@@ -344,17 +344,18 @@ class ActivityPub(User, Protocol):
 
         # special cases where obj or obj['object'] or obj['object']['object']
         # are an actor
-        if as1.object_type(obj.as1) in as1.ACTOR_TYPES:
-            return postprocess_as2_actor(converted, user=from_user)
+        if from_user:
+            if as1.object_type(obj.as1) in as1.ACTOR_TYPES:
+                return postprocess_as2_actor(converted, user=from_user)
 
-        inner_obj = as1.get_object(obj.as1)
-        if as1.object_type(inner_obj) in as1.ACTOR_TYPES:
-            converted['object'] = postprocess_as2_actor(converted['object'],
-                                                        user=from_user)
+            inner_obj = as1.get_object(obj.as1)
+            if as1.object_type(inner_obj) in as1.ACTOR_TYPES:
+                converted['object'] = postprocess_as2_actor(converted['object'],
+                                                            user=from_user)
 
-        # eg Accept of a Follow
-        if from_user and from_user.is_web_url(as1.get_object(inner_obj).get('id')):
-            converted['object']['object'] = from_user.id_as(ActivityPub)
+            # eg Accept of a Follow
+            if from_user.is_web_url(as1.get_object(inner_obj).get('id')):
+                converted['object']['object'] = from_user.id_as(ActivityPub)
 
         # convert!
         return postprocess_as2(converted, orig_obj=orig_obj)
@@ -676,7 +677,7 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     return util.trim_nulls(activity)
 
 
-def postprocess_as2_actor(actor, user=None):
+def postprocess_as2_actor(actor, user):
     """Prepare an AS2 actor object to be served or sent via ActivityPub.
 
     Modifies actor in place.
@@ -692,6 +693,7 @@ def postprocess_as2_actor(actor, user=None):
         return actor
 
     assert isinstance(actor, dict)
+    assert user
 
     url = user.web_url()
     urls = [u for u in util.get_list(actor, 'url') if u and not u.startswith('acct:')]
