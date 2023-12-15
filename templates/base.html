@@ -31,7 +31,10 @@
 {% endif %}
 {% endwith %}
 
-<main class="tp-main lead container">
+<main class="tp-main lead
+             {% if body_id == 'front' %} container-fluid
+             {% else %} container
+             {% endif %}">
 
 <div id="header" class="row">
   <div id="logo">
