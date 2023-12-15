@@ -108,7 +108,7 @@ pre .value, code .value, code.value {
 	background-color: #23527c90;
 }
 
-.i-label {
+.text-outline {
   text-shadow: -2px -2px 0 var(--bg), 2px -2px 0 var(--bg), -2px 2px 0 var(--bg), 2px 2px 0 var(--bg);
   /* this is easier and supported in major browsers but draws the outline *inside*
   the text, not outside, which looks much worse.
@@ -145,11 +145,9 @@ pre .value, code .value, code.value {
 }
 
 .front-buttons {
-  text-align: left;
-  margin-left: 2em;
   /* vertical center button groups against left side text */
-  display: flex;
-  align-items: center;
+  /* display: flex; */
+  /* align-items: center; */
 }
 
 #front-tagline {
@@ -157,8 +155,10 @@ pre .value, code .value, code.value {
   text-shadow: 0px 0px .5em white, 2px 2px .5em yellow, -2px -2px .5em red;
 }
 
-.front-buttons > span {
-  text-align: right;
+@media (min-width: 992px) {  /* @screen-md-min */
+  .front-buttons > div:first-child {
+    text-align: right;
+  }
 }
 
 .front-buttons label {
@@ -169,6 +169,11 @@ pre .value, code .value, code.value {
 .front-buttons label img {
   height: 1em;
   margin-top: -.2em;
+}
+
+.front-buttons .btn {
+  float: none;  /* separate buttons */
+  border-radius: .2em !important;
 }
 
 .btn.web, .btn.web:hover, .btn.web:focus, .btn.web.active {
@@ -249,11 +254,6 @@ pre .value, code .value, code.value {
   display: block;
   font-style: italic;
   opacity: 70%;
-}
-
-.front-buttons .btn-group > .btn {
-  float: none;  /* separate buttons */
-  border-radius: .2em !important;
 }
 
 #front-logo-bottom {
@@ -433,6 +433,10 @@ button[disabled]:hover {
 
 #preview-ui > * {
   vertical-align: middle;
+}
+
+.btn-group {
+  white-space: nowrap;
 }
 
 .btn {
