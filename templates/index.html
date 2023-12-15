@@ -17,56 +17,52 @@ bluesky light blue
 
 <div id="front-tagline" class="row bigger">
   <!-- The decentralized social bridge -->
-  <em class="front-form-text">Bridging the new social internet</em>
+  <em class="front-form-text">
+    Bridging the new <br class="visible-xs-inline"> social internet
+  </em>
 </div>
 
-<div id="front-me" class="row front-buttons">
-<span class="col-sm-4 bigger">
-  <span class="i-label">I'm on</span>
-</span>
-<div class="col-sm-8 big">
+<div id="front-me" class="row front-buttons"
+     role="group" data-toggle="buttons" aria-label="I'm on">
+  <div class="col-md-3 bigger text-outline">
+    I'm on
+  </div>
+
   <!--
     -- Separated buttons
     -->
-  <div class="btn-group visible-md-block visible-lg-block"
-       role="group" data-toggle="buttons" aria-label="I'm on">
+  <div class="btn-group col-md-8 big">
   <label for="me-web" class="btn btn-primary web">
     <!-- autocomplete="off" prevents Firefox from preserving these buttons' state
          https://github.com/twbs/bootstrap/issues/793
       -->
     <input name="me" id="me-web" type="radio" autocomplete="off">
-    🌐 <!-- globe_with_meridians -->
-    <!-- 🌏 globe_showing_asia-australia -->
-    Web
+    🌐 Web
   </label>
   <label for="me-fediverse" class="btn btn-primary fediverse">
     <input name="me" id="me-fediverse" type="radio" autocomplete="off">
     <img src="/static/fediverse_logo.svg">
     Fediverse
   </label>
-  <label for="me-atproto" class="btn btn-primary atproto disabled"
-         title="Coming soon">
-    <!-- <input name="me" id="me-atproto" type="radio" autocomplete="off"> -->
+  <br class="visible-xs-inline">
+  <label for="me-atproto" class="btn btn-primary disabled atproto" title="Coming soon">
     <img src="/static/atproto_logo.png">
     Bluesky
   </label>
-  <label for="me-nostr" class="btn btn-primary nostr disabled"
-         title="Coming soon">
-    <!-- <input name="me" id="me-nostr" type="radio" autocomplete="off"> -->
+  <label for="me-nostr" class="btn btn-primary disabled nostr" title="Coming soon">
     <img src="/static/nostr_logo_transparent.png">
     Nostr
   </label>
-</div>
-</div>
+  </div>
 </div>
 
-<div id="front-them" class="row front-buttons">
-<span class="col-sm-4 bigger">
-  <span class="i-label">I want to follow someone on</span>
-</span>
-<div class="col-sm-8 big">
-<div class="btn-group" role="group" data-toggle="buttons"
-     aria-label="...and I want to follow someone on">
+<div id="front-them" class="row front-buttons"
+     role="group" data-toggle="buttons" aria-label="I want to follow someone on">
+  <div class="col-md-3 bigger text-outline">
+    I want to follow <br class="visible-xs-inline"> someone on
+  </div>
+
+  <div class="btn-group col-md-8 big">
   <label for="them-web" class="btn btn-primary web">
     <input name="them" id="them-web" type="radio" autocomplete="off">
     🌐 Web
@@ -76,21 +72,18 @@ bluesky light blue
     <img src="/static/fediverse_logo.svg">
     Fediverse
   </label>
-  <label for="them-atproto" class="btn btn-primary atproto disabled"
-         title="Coming soon">
-    <!-- <input name="them" id="them-atproto" type="radio" autocomplete="off"> -->
+  <br class="visible-xs-inline">
+  <label for="them-atproto" class="btn btn-primary disabled atproto" title="Coming soon">
     <img src="/static/atproto_logo.png">
     Bluesky
   </label>
-  <label for="them-nostr" class="btn btn-primary nostr disabled"
-         title="Coming soon">
-    <!-- <input name="them" id="them-nostr" type="radio" autocomplete="off"> -->
+  <label for="them-nostr" class="btn btn-primary disabled nostr" title="Coming soon">
     <img src="/static/nostr_logo_transparent.png">
     Nostr
   </label>
+  </div>
 </div>
-</div>
-</div>
+
 </div> <!-- front-form -->
 
 <div id="front-instructions" class="row big front-light">
