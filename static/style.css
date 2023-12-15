@@ -85,12 +85,6 @@ pre .value, code .value, code.value {
   margin-bottom: 1em;
 }
 
-#front .container {
-  width: 100%;
-  margin: 0;
-  padding: 0;
-}
-
 #front .row {
   padding: 1em;
 }
@@ -169,6 +163,7 @@ pre .value, code .value, code.value {
 
 .front-buttons label {
   font-size: 1em;
+  white-space: nowrap;
 }
 
 .front-buttons label img {

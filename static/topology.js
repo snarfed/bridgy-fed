@@ -1,7 +1,7 @@
 let sketch = function(p) {
+  // this excludes the scroll bar. p.windowWidth and window.innerWidth etc
+  // include it, which makes the canvas too wide and causes horizontal scrolling.
   let width = document.documentElement.clientWidth;
-  // this includes the scroll bar, which is too wide and causes horizontal scrolling
-  // let width = p.windowWidth;
   let height = 900;
   let offset = 300;
 

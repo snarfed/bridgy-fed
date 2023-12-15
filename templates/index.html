@@ -14,6 +14,7 @@ bluesky light blue
  -->
 <div id="front-form" class="front-dark">
 <div id="topology" style="position: absolute; top: 0; left: 0"></div>
+
 <div id="front-tagline" class="row bigger">
   <!-- The decentralized social bridge -->
   <em class="front-form-text">Bridging the new social internet</em>
@@ -24,7 +25,11 @@ bluesky light blue
   <span class="i-label">I'm on</span>
 </span>
 <div class="col-sm-8 big">
-  <div class="btn-group" role="group" data-toggle="buttons" aria-label="I'm on">
+  <!--
+    -- Separated buttons
+    -->
+  <div class="btn-group visible-md-block visible-lg-block"
+       role="group" data-toggle="buttons" aria-label="I'm on">
   <label for="me-web" class="btn btn-primary web">
     <!-- autocomplete="off" prevents Firefox from preserving these buttons' state
          https://github.com/twbs/bootstrap/issues/793
@@ -95,7 +100,7 @@ bluesky light blue
 </p>
 
 <p id="front-web-web" class="instruction">
-  <a href="https://indieweb.org/reader">Use a feed reader!</a>
+  <a href="https://indieweb.org/reader">Use a feed reader!</a> No need for Bridgy Fed.
 </p>
 
 <div id="front-web-fediverse" class="instruction">
@@ -111,7 +116,7 @@ bluesky light blue
 </p>
 
 <p id="front-fediverse-fediverse" class="instruction">
-  <a href="https://docs.joinmastodon.org/user/network/#follow">Search for them on your instance.</a>
+  <a href="https://docs.joinmastodon.org/user/network/#follow">Search for them on your instance!</a> No need for Bridgy Fed.
 </p>
 </div>
 
