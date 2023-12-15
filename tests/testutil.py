@@ -14,7 +14,6 @@ import warnings
 import arroba.util
 from arroba.util import datetime_to_tid
 from bs4 import MarkupResemblesLocatorWarning
-from Crypto.PublicKey import RSA
 import dag_cbor.random
 from flask import g
 from google.cloud import ndb
