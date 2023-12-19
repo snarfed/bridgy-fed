@@ -100,7 +100,7 @@ tweepy==4.14.0
 # v4.6.0 breaks bases (which multiformats etc use)
 # https://github.com/hashberg-io/bases/issues/3
 typing-extensions==4.5.0
-typing-validation==1.0.0.post2
+typing-validation==1.1.0
 ujson==5.9.0
 update-checker==0.18.0
 urllib3==2.1.0
