@@ -86,14 +86,20 @@ pre .value, code .value, code.value {
 }
 
 #front .row {
-  padding: 1em;
+  padding-top: 1em;
+  padding-bottom: 1em;
+}
+
+#front .row p {
+  padding-left: 1em;
+  padding-right: 1em;
 }
 
 #front #header {
   padding-bottom: 0;
   background-color: var(--fg);
   /* see corresponding shadow in .front-dark below */
-  box-shadow: 0 0 .5em .5em var(--fg);
+  box-shadow: 0 0 .5em 1.5em var(--fg);
 }
 
 #front-form {
@@ -118,7 +124,7 @@ pre .value, code .value, code.value {
 
 .front-light {
   background-color: var(--fg);
-  box-shadow: 0 0 .5em 1em var(--fg);
+  box-shadow: 0 0 .5em 1.5em var(--fg);
 }
 
 .front-dark {
@@ -150,12 +156,16 @@ pre .value, code .value, code.value {
   /* align-items: center; */
 }
 
+.front-buttons .btn-group {
+  text-align: left;
+}
+
 #front-tagline {
   margin-bottom: 0;
   text-shadow: 0px 0px .5em white, 2px 2px .5em yellow, -2px -2px .5em red;
 }
 
-@media (min-width: 992px) {  /* @screen-md-min */
+@media (min-width: 1200px) {  /* @screen-lg-min */
   .front-buttons > div:first-child {
     text-align: right;
   }
@@ -174,6 +184,7 @@ pre .value, code .value, code.value {
 .front-buttons .btn {
   float: none;  /* separate buttons */
   border-radius: .2em !important;
+  margin: .1em !important;
 }
 
 .btn.web, .btn.web:hover, .btn.web:focus, .btn.web.active {
@@ -181,26 +192,10 @@ pre .value, code .value, code.value {
   border: 2px solid #47c986;
 }
 
-/* .btn.web.active { */
-/*   background-color: #50996c; */
-/* } */
-
-/* .btn.web:hover { */
-/*   background-color: #60a98c; */
-/* } */
-
 .btn.fediverse, .btn.fediverse:hover, .btn.fediverse:focus, .btn.fediverse.active {
   background-color: #88305b;
   border: 2px solid #c94786;
 }
-
-/* .btn.fediverse.active { */
-/*   background-color: #88305b; */
-/* } */
-
-/* .btn.fediverse:hover { */
-/*   background-color: #88305b; */
-/* } */
 
 .btn.active:not(.disabled) {
   box-shadow: 0px 0px .5em white, 2px 2px .5em yellow, -2px -2px .5em red;
@@ -221,7 +216,6 @@ pre .value, code .value, code.value {
   background-color: #46374F;
   /* not disabled: #491F62; */
   border: 2px solid #63516E;
-  /* not disabled: ; */
 }
 
 .btn.disabled, .btn.disabled:hover {
