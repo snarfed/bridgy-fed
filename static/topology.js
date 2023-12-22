@@ -163,4 +163,17 @@ let sketch = function(p) {
     return (x % n + n) % n;
   }
 };
-new p5(sketch, document.getElementById('topology'));
+
+let myQ5Sketch = new p5(sketch, document.getElementById('topology'));
+
+
+// tried setting this inside the sketch with p.windowResized = ...
+// but that didn't work.
+// https://github.com/processing/p5.js/wiki/Positioning-your-canvas#making-the-canvas-fill-the-window
+// https://github.com/quinton-ashley/q5.js/pull/6
+//
+// also this restarts the animation, and occasionally it crashes. so, forget
+// about this for now
+// addEventListener("resize", (event) => {
+//   myQ5.resizeCanvas(document.documentElement.clientWidth, 900);
+// });
