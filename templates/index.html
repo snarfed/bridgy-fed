@@ -6,12 +6,6 @@
 <script src="/static/bootstrap.min.js"></script>
 <script src="/static/index.js"></script>
 
-<!--
-nostr purple
-web blue? green? globe
-fediverse pink?
-bluesky light blue
- -->
 <div id="front-form" class="front-dark">
 <div id="topology" style="position: absolute; top: 0; left: 0"></div>
 
@@ -24,14 +18,14 @@ bluesky light blue
 
 <div id="front-me" class="row front-buttons"
      role="group" data-toggle="buttons" aria-label="I'm on">
-  <div class="col-md-3 bigger text-outline">
+  <div class="col-lg-4 bigger text-outline">
     I'm on
   </div>
 
   <!--
     -- Separated buttons
     -->
-  <div class="btn-group col-md-8 big">
+  <div class="btn-group col-lg-8 big">
   <label for="me-web" class="btn btn-primary web">
     <!-- autocomplete="off" prevents Firefox from preserving these buttons' state
          https://github.com/twbs/bootstrap/issues/793
@@ -58,11 +52,11 @@ bluesky light blue
 
 <div id="front-them" class="row front-buttons"
      role="group" data-toggle="buttons" aria-label="I want to follow someone on">
-  <div class="col-md-3 bigger text-outline">
+  <div class="col-lg-4 bigger text-outline">
     I want to follow <br class="visible-xs-inline"> someone on
   </div>
 
-  <div class="btn-group col-md-8 big">
+  <div class="btn-group col-lg-8 big">
   <label for="them-web" class="btn btn-primary web">
     <input name="them" id="them-web" type="radio" autocomplete="off">
     🌐 Web
