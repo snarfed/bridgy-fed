@@ -30,12 +30,22 @@
 }
 
 .header-links {
+  float: right;
   text-align: right;
 }
 
+#logo {
+  float: left;
+  text-align: left;
+}
+
 #header .header-links {
-  margin-top: 1em;
-  margin-bottom: 1em;
+  margin-top: .5em;
+  margin-bottom: .5em;
+}
+
+#logo-img {
+  height: 3em;
 }
 
 #front #footer {
