@@ -1126,6 +1126,7 @@ def fetch_objects(query, by=None, user=None):
             'rsvp-yes': 'is attending',
             'share': 'reposted',
             'stop-following': 'unfollowed',
+            'undo': 'undid',
             'update': 'updated',
         }
         obj.phrase = phrases.get(type)
