@@ -161,7 +161,14 @@ class IdsTest(TestCase):
                 self.assertEqual(expected, translate_object_id(
                     id=id, from_proto=from_, to_proto=to))
 
-        with app.test_request_context('/', base_url='https://web.brid.gy/'):
-            got = translate_object_id(id='http://post', from_proto=Web,
-                                      to_proto=ActivityPub)
-            self.assertEqual('https://fed.brid.gy/r/http://post', got)
+    @patch('ids._FED_SUBDOMAIN_SITES', new={'on-fed.com'})
+    def test_translate_user_id_web_ap_subdomain_fed(self):
+        for base_url in ['https://web.brid.gy/', 'https://fed.brid.gy/']:
+            with app.test_request_context('/', base_url=base_url):
+                got = translate_object_id(id='http://on-fed.com/post', from_proto=Web,
+                                          to_proto=ActivityPub)
+                self.assertEqual('https://fed.brid.gy/r/http://on-fed.com/post', got)
+
+                got = translate_object_id(id='http://on-web.com/post', from_proto=Web,
+                                          to_proto=ActivityPub)
+                self.assertEqual('https://web.brid.gy/r/http://on-web.com/post', got)

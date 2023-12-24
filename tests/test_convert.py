@@ -20,11 +20,11 @@ from web import Web
 COMMENT_AS2 = {
     **as2.from_as1(COMMENT),
     'type': 'Note',
-    'id': 'https://fed.brid.gy/r/https://fake.com/123456',
+    'id': 'https://web.brid.gy/r/https://fake.com/123456',
     'url': 'https://web.brid.gy/r/https://fake.com/123456',
     'name': 'A ☕ reply',
     'contentMap': {'en': COMMENT['content']},
-    'inReplyTo': 'https://fed.brid.gy/r/https://fake.com/123',
+    'inReplyTo': 'https://web.brid.gy/r/https://fake.com/123',
 }
 HTML = """\
 <!DOCTYPE html>
@@ -290,8 +290,7 @@ A ☕ reply
 
         Object(id=url, mf2=parse_mf2(HTML_NO_ID)['items'][0]).put()
 
-        resp = self.client.get(f'/convert/ap/{url}',
-                               base_url='https://web.brid.gy/')
+        resp = self.client.get(f'/convert/ap/{url}', base_url='https://web.brid.gy/')
         self.assertEqual(200, resp.status_code)
         self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
 

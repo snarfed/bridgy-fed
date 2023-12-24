@@ -8,6 +8,7 @@ from urllib.parse import urljoin, urlparse
 
 from flask import request
 from google.cloud.ndb.query import FilterNode, Query
+from oauth_dropins.webutil import util
 
 from common import subdomain_wrap, LOCAL_DOMAINS, PRIMARY_DOMAIN, SUPERDOMAIN
 import models
@@ -18,10 +19,26 @@ logger = logging.getLogger(__name__)
 COPIES_PROTOCOLS = ('atproto', 'fake', 'other', 'nostr')
 
 # Web user domains whose AP actor ids are on fed.brid.gy, not web.brid.gy, for
-# historical compatibility. Loaded once at startup.
+# historical compatibility. Loaded on first call to web_ap_subdomain().
 _FED_SUBDOMAIN_SITES = None
 
-def fed_subdomain_sites():
+
+def web_ap_base_domain(user_domain):
+    """Returns the full Bridgy Fed domain to user for a given Web user.
+
+    Specifically, returns ``http://localhost/` if we're running locally,
+    ``https://fed.brid.gy/`` if the given Web user has ``ap_subdomain='fed'``,
+    otherwise ``https://web.brid.gy/``.
+
+    Args:
+      user_domain (str)
+
+    Returns:
+      str:
+    """
+    if request.host in LOCAL_DOMAINS:
+        return request.host_url
+
     global _FED_SUBDOMAIN_SITES
     if _FED_SUBDOMAIN_SITES is None:
         _FED_SUBDOMAIN_SITES = {
@@ -31,7 +48,8 @@ def fed_subdomain_sites():
         }
         logger.info(f'Loaded {len(_FED_SUBDOMAIN_SITES)} fed subdomain Web users')
 
-    return _FED_SUBDOMAIN_SITES
+    subdomain = 'fed' if user_domain in _FED_SUBDOMAIN_SITES else 'web'
+    return f'https://{subdomain}{SUPERDOMAIN}/'
 
 
 def translate_user_id(*, id, from_proto, to_proto):
@@ -75,15 +93,7 @@ def translate_user_id(*, id, from_proto, to_proto):
             return None
 
         case 'web', 'activitypub':
-            # special case web => AP for historical backward compatibility
-            # also note that Web.id_as overrides this to use Web.ap_subdomain!
-            if request.host in LOCAL_DOMAINS:
-                base = request.host_url
-            else:
-                subdomain = 'fed' if id in fed_subdomain_sites() else 'web'
-                base = f'https://{subdomain}{SUPERDOMAIN}/'
-
-            return urljoin(base, id)
+            return urljoin(web_ap_base_domain(id), id)
 
         case 'activitypub', 'web':
             return id
@@ -177,10 +187,7 @@ def translate_object_id(*, id, from_proto, to_proto):
             return id
 
         case 'web', 'activitypub':
-            # special case web => AP for historical backward compatibility
-            base = (request.host_url if request.host in LOCAL_DOMAINS
-                    else f'https://{PRIMARY_DOMAIN}')
-            return urljoin(base, f'/r/{id}')
+            return urljoin(web_ap_base_domain(util.domain_from_link(id)), f'/r/{id}')
 
         case _, 'activitypub' | 'web':
             return subdomain_wrap(from_proto, f'/convert/{to_proto.ABBREV}/{id}')
