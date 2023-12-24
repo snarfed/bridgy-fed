@@ -1,4 +1,6 @@
 """Unit tests for ids.py."""
+from unittest.mock import patch
+
 from activitypub import ActivityPub
 from atproto import ATProto
 from flask_app import app
@@ -47,10 +49,6 @@ class IdsTest(TestCase):
                 self.assertEqual(expected, translate_user_id(
                     id=id, from_proto=from_, to_proto=to))
 
-        with app.test_request_context('/', base_url='https://web.brid.gy/'):
-            self.assertEqual('https://fed.brid.gy/user.com', translate_user_id(
-                    id='user.com', from_proto=Web, to_proto=ActivityPub))
-
     def test_translate_user_id_no_copy_did_stored(self):
         for proto, id in [
             (Web, 'user.com'),
@@ -76,6 +74,15 @@ class IdsTest(TestCase):
                     id='www.user.com', from_proto=Web, to_proto=proto))
                 self.assertEqual(expected, translate_user_id(
                     id='https://www.user.com/', from_proto=Web, to_proto=proto))
+
+    @patch('ids._FED_SUBDOMAIN_SITES', new={'on-fed.com'})
+    def test_translate_user_id_web_ap_subdomain_fed(self):
+        for base_url in ['https://web.brid.gy/', 'https://fed.brid.gy/']:
+            with app.test_request_context('/', base_url=base_url):
+                self.assertEqual('https://web.brid.gy/on-web.com', translate_user_id(
+                    id='on-web.com', from_proto=Web, to_proto=ActivityPub))
+                self.assertEqual('https://fed.brid.gy/on-fed.com', translate_user_id(
+                    id='on-fed.com', from_proto=Web, to_proto=ActivityPub))
 
     def test_translate_handle(self):
         for from_, handle, to, expected in [

@@ -304,7 +304,7 @@ A ☕ reply
         self.assertEqual(200, resp.status_code)
         self.assert_equals({
             **COMMENT_AS2,
-            'attributedTo': 'https://fed.brid.gy/nope.com',
+            'attributedTo': 'https://web.brid.gy/nope.com',
         }, resp.json, ignore=['to'])
 
     @patch('requests.get')

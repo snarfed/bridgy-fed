@@ -7,6 +7,7 @@ import re
 from urllib.parse import urljoin, urlparse
 
 from flask import request
+from google.cloud.ndb.query import FilterNode, Query
 
 from common import subdomain_wrap, LOCAL_DOMAINS, PRIMARY_DOMAIN, SUPERDOMAIN
 import models
@@ -15,6 +16,22 @@ logger = logging.getLogger(__name__)
 
 # Protocols to check User.copies and Object.copies before translating
 COPIES_PROTOCOLS = ('atproto', 'fake', 'other', 'nostr')
+
+# Web user domains whose AP actor ids are on fed.brid.gy, not web.brid.gy, for
+# historical compatibility. Loaded once at startup.
+_FED_SUBDOMAIN_SITES = None
+
+def fed_subdomain_sites():
+    global _FED_SUBDOMAIN_SITES
+    if _FED_SUBDOMAIN_SITES is None:
+        _FED_SUBDOMAIN_SITES = {
+            key.id() for key in Query('MagicKey',
+                                      filters=FilterNode('ap_subdomain', '=', 'fed')
+                                      ).fetch(keys_only=True)
+        }
+        logger.info(f'Loaded {len(_FED_SUBDOMAIN_SITES)} fed subdomain Web users')
+
+    return _FED_SUBDOMAIN_SITES
 
 
 def translate_user_id(*, id, from_proto, to_proto):
@@ -59,8 +76,13 @@ def translate_user_id(*, id, from_proto, to_proto):
 
         case 'web', 'activitypub':
             # special case web => AP for historical backward compatibility
-            base = (request.host_url if request.host in LOCAL_DOMAINS
-                    else f'https://{PRIMARY_DOMAIN}/')
+            # also note that Web.id_as overrides this to use Web.ap_subdomain!
+            if request.host in LOCAL_DOMAINS:
+                base = request.host_url
+            else:
+                subdomain = 'fed' if id in fed_subdomain_sites() else 'web'
+                base = f'https://{subdomain}{SUPERDOMAIN}/'
+
             return urljoin(base, id)
 
         case 'activitypub', 'web':

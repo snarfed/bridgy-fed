@@ -1035,6 +1035,40 @@ class ActivityPubTest(TestCase):
         self.assertEqual('https://mas.to/users/swentel#followed-user.com',
                          follower.follow.get().as2['url'])
 
+    def test_inbox_follow_web_brid_gy_subdomain(self, mock_head, mock_get, mock_post):
+        mock_head.return_value = requests_response(url='https://user.com/')
+        mock_get.side_effect = [
+            # source actor
+            self.as2_resp(ACTOR),
+            # target user
+            test_web.ACTOR_HTML_RESP,
+            # target post webmention discovery
+            requests_response('<html></html>'),
+        ]
+        mock_post.return_value = requests_response()
+
+        got = self.post('/user.com/inbox', base_url='https://web.brid.gy/', json={
+            **FOLLOW_WRAPPED,
+            'object': 'https://web.brid.gy/user.com',
+        })
+        self.assertEqual(202, got.status_code)
+
+        # check that AP Accept uses web.brid.gy, not fed.brid.gy
+        args, kwargs = mock_post.call_args_list[0]
+        self.assert_equals(('http://mas.to/inbox',), args)
+        self.assert_equals({
+            'type': 'Accept',
+            'id': 'https://web.brid.gy/user.com/followers#accept-https://mas.to/6d1a',
+            'actor': 'https://web.brid.gy/user.com',
+            'object': {
+                'type': 'Follow',
+                'id': 'https://mas.to/6d1a',
+                'object': 'https://web.brid.gy/user.com',
+                'actor': 'https://mas.to/users/swentel',
+                'url': 'https://mas.to/users/swentel#followed-user.com',
+            },
+        }, json_loads(kwargs['data']), ignore=['to', '@context'])
+
     def test_inbox_undo_follow(self, mock_head, mock_get, mock_post):
         follower = Follower(to=self.user.key,
                             from_=ActivityPub(id=ACTOR['id']).key,
