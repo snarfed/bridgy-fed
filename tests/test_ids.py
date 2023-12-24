@@ -162,7 +162,7 @@ class IdsTest(TestCase):
                     id=id, from_proto=from_, to_proto=to))
 
     @patch('ids._FED_SUBDOMAIN_SITES', new={'on-fed.com'})
-    def test_translate_user_id_web_ap_subdomain_fed(self):
+    def test_translate_object_id_web_ap_subdomain_fed(self):
         for base_url in ['https://web.brid.gy/', 'https://fed.brid.gy/']:
             with app.test_request_context('/', base_url=base_url):
                 got = translate_object_id(id='http://on-fed.com/post', from_proto=Web,
