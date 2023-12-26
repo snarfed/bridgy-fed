@@ -187,23 +187,26 @@ pre .value, code .value, code.value {
   margin: .1em !important;
 }
 
-.btn.web, .btn.web:hover, .btn.web:focus, .btn.web.active {
+#front .web {
+  color: #20593c;
+}
+
+#front .fediverse {
+  color: #88305b;
+}
+
+.fediverse img {
+  height: 1em;
+}
+
+.btn.web {
   background-color: #20593c;
   border: 2px solid #47c986;
 }
 
-.btn.fediverse, .btn.fediverse:hover, .btn.fediverse:focus, .btn.fediverse.active {
+.btn.fediverse {
   background-color: #88305b;
   border: 2px solid #c94786;
-}
-
-.btn.active {
-  box-shadow: 1px 1px .1em var(--glow), -1px -1px .1em var(--glow);
-}
-
-.btn:hover {
-  box-shadow: 1px 1px .1em var(--glow), -1px -1px .1em var(--glow);
-  text-shadow: 0px 0px .1em var(--glow);
 }
 
 #front-instructions {
