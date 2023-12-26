@@ -2,6 +2,7 @@
 :root {
   --bg: #23527c;
   --fg: white;
+  --glow: #ffd080;
 }
 
 #header {
@@ -119,11 +120,6 @@ pre .value, code .value, code.value {
   box-shadow: none;
 }
 
-.front-form-text {
-	box-shadow: 0 0 .5em 0.5em #23527c90;
-	background-color: #23527c90;
-}
-
 .text-outline {
   text-shadow: -2px -2px 0 var(--bg), 2px -2px 0 var(--bg), -2px 2px 0 var(--bg), 2px 2px 0 var(--bg);
   /* this is easier and supported in major browsers but draws the outline *inside*
@@ -172,10 +168,10 @@ pre .value, code .value, code.value {
 
 #front-tagline {
   margin-bottom: 0;
-  text-shadow: 0px 0px .5em white, 2px 2px .5em yellow, -2px -2px .5em red;
+  text-shadow: 0px 0px .2em var(--glow);
 }
 
-@media (min-width: 1200px) {  /* @screen-lg-min */
+@media (min-width: 992px) {  /* @screen-md-min */
   .front-buttons > div:first-child {
     text-align: right;
   }
@@ -207,38 +203,13 @@ pre .value, code .value, code.value {
   border: 2px solid #c94786;
 }
 
-.btn.active:not(.disabled) {
-  box-shadow: 0px 0px .5em white, 2px 2px .5em yellow, -2px -2px .5em red;
+.btn.active {
+  box-shadow: 1px 1px .1em var(--glow), -1px -1px .1em var(--glow);
 }
 
-.btn:hover:not(.disabled) {
-  box-shadow: 0px 0px 1em white, 2px 2px 1em yellow, -2px -2px 1em red;
-}
-
-.btn.atproto, .btn.atproto:hover {
-  background-color: #2b3e5b;
-  /* not disabled: #113a79; */
-  border: 2px solid #3e6894;
-  /* not disabled: #4786c9; */
-}
-
-.btn.nostr, .btn.nostr:hover {
-  background-color: #46374F;
-  /* not disabled: #491F62; */
-  border: 2px solid #63516E;
-}
-
-.btn.disabled, .btn.disabled:hover {
-  opacity: 100%;
-  color: #c0c0c0;
-}
-
-.btn.disabled img {
-  opacity: 65%;
-}
-
-.nostr img {
-  height: 1.4em !important;
+.btn:hover {
+  box-shadow: 1px 1px .1em var(--glow), -1px -1px .1em var(--glow);
+  text-shadow: 0px 0px .1em var(--glow);
 }
 
 #front-instructions {

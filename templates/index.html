@@ -18,14 +18,14 @@
 
 <div id="front-me" class="row front-buttons"
      role="group" data-toggle="buttons" aria-label="I'm on">
-  <div class="col-lg-4 bigger text-outline">
+  <div class="col-md-4 col-md-offset-2 bigger text-outline">
     I'm on
   </div>
 
   <!--
     -- Separated buttons
     -->
-  <div class="btn-group col-lg-8 big">
+  <div class="btn-group col-md-6 big">
   <label for="me-web" class="btn btn-primary web">
     <!-- autocomplete="off" prevents Firefox from preserving these buttons' state
          https://github.com/twbs/bootstrap/issues/793
@@ -38,25 +38,16 @@
     <img src="/static/fediverse_logo.svg">
     Fediverse
   </label>
-  <br class="visible-xs-inline">
-  <label for="me-atproto" class="btn btn-primary disabled atproto" title="Coming soon">
-    <img src="/static/atproto_logo.png">
-    Bluesky
-  </label>
-  <label for="me-nostr" class="btn btn-primary disabled nostr" title="Coming soon">
-    <img src="/static/nostr_logo_transparent.png">
-    Nostr
-  </label>
   </div>
 </div>
 
 <div id="front-them" class="row front-buttons"
      role="group" data-toggle="buttons" aria-label="I want to follow someone on">
-  <div class="col-lg-4 bigger text-outline">
+  <div class="col-lg-4 col-lg-offset-2 col-md-5 col-md-offset-1 bigger text-outline">
     I want to follow <br class="visible-xs-inline"> someone on
   </div>
 
-  <div class="btn-group col-lg-8 big">
+  <div class="btn-group col-md-6 big">
   <label for="them-web" class="btn btn-primary web">
     <input name="them" id="them-web" type="radio" autocomplete="off">
     🌐 Web
@@ -65,15 +56,6 @@
     <input name="them" id="them-fediverse" type="radio" autocomplete="off">
     <img src="/static/fediverse_logo.svg">
     Fediverse
-  </label>
-  <br class="visible-xs-inline">
-  <label for="them-atproto" class="btn btn-primary disabled atproto" title="Coming soon">
-    <img src="/static/atproto_logo.png">
-    Bluesky
-  </label>
-  <label for="them-nostr" class="btn btn-primary disabled nostr" title="Coming soon">
-    <img src="/static/nostr_logo_transparent.png">
-    Nostr
   </label>
   </div>
 </div>
@@ -114,7 +96,11 @@
 <!-- <p>Blocks, mutes, and other native moderation features work automatically. You can opt out of Bridgy Fed by adding <em>#nobridge</em> or <em>#nobots</em> to your bio or <a href="mailto:opt-out@brid.gy">by private email request</a>.</p> -->
 
 <div class="row big front-light">
-<p>Bridgy Fed is a free, non-commercial, open source service. <a href="https://snarfed.org/2023-11-27_re-introducing-bridgy-fed">More background here.</a> <a href="mailto:feedback@brid.gy">Feedback</a> and <a href="https://github.com/snarfed/bridgy-fed/issues">bug reports</a> are welcome!</a></p>
+<p>Bridgy Fed currently supports web sites and blogs and the <a href="https://enwp.org/fediverse">fediverse</a> via <a href="https://activitypub.rocks/">ActivityPub</a>. More networks like <a href="https://blueskyweb.xyz/">Bluesky</a>/<a href="https://atproto.com/">AT Protocol</a> and <a href="https://en.wikipedia.org/wiki/Nostr">Nostr</a> are coming soon!</p>
+</div>
+
+<div class="row big front-dark">
+<p>Bridgy Fed is a free, non-commercial, <a href="https://github.com/snarfed/bridgy-fed">open source</a> service. <a href="https://snarfed.org/2023-11-27_re-introducing-bridgy-fed">More background here.</a> <a href="mailto:feedback@brid.gy">Feedback</a> and <a href="https://github.com/snarfed/bridgy-fed/issues">bug reports</a> are welcome!</a></p>
 </div>
 
 <div id="front-logo-bottom" class="row">
