@@ -113,13 +113,6 @@ pre .value, code .value, code.value {
   box-shadow: 0 0 .5em 1.5em var(--fg);
 }
 
-#front-form {
-  margin-bottom: 0;
-  padding-bottom: 2em;
-  background-color: transparent;  /* topology animation is behind */
-  box-shadow: none;
-}
-
 .text-outline {
   text-shadow: -2px -2px 0 var(--bg), 2px -2px 0 var(--bg), -2px 2px 0 var(--bg), 2px 2px 0 var(--bg);
   /* this is easier and supported in major browsers but draws the outline *inside*
