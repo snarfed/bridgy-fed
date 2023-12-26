@@ -27,6 +27,6 @@ function update() {
     (showed) ? 'none' : 'block'
 }
 
-addEventListener('DOMContentLoaded', () => {
-  $('input').on('change', update)
-})
+// addEventListener('DOMContentLoaded', () => {
+//   $('input').on('change', update)
+// })

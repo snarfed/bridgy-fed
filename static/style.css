@@ -121,6 +121,11 @@ pre .value, code .value, code.value {
  */
 }
 
+.front-light, .front-dark {
+  margin-top: 2em;
+  margin-bottom: 2em;
+}
+
 .front-light {
   background-color: var(--fg);
   box-shadow: 0 0 .5em 1.5em var(--fg);
@@ -130,10 +135,6 @@ pre .value, code .value, code.value {
   background-color: var(--bg);
   color: var(--fg);
   box-shadow: 0 0 .5em 1.5em var(--bg);
-  padding-top: 0;
-  padding-bottom: 0;
-  margin-top: 2em;
-  margin-bottom: 2em;
 }
 
 .front-dark a {

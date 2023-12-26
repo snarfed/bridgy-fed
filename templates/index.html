@@ -16,77 +16,16 @@
   </em>
 </div>
 
-<div id="front-me" class="row front-buttons"
-     role="group" data-toggle="buttons" aria-label="I'm on">
-  <div class="col-md-4 col-md-offset-2 bigger text-outline">
-    I'm on
-  </div>
-
-  <!--
-    -- Separated buttons
-    -->
-  <div class="btn-group col-md-6 big">
-  <label for="me-web" class="btn btn-primary web">
-    <!-- autocomplete="off" prevents Firefox from preserving these buttons' state
-         https://github.com/twbs/bootstrap/issues/793
-      -->
-    <input name="me" id="me-web" type="radio" autocomplete="off">
-    🌐 Web
-  </label>
-  <label for="me-fediverse" class="btn btn-primary fediverse">
-    <input name="me" id="me-fediverse" type="radio" autocomplete="off">
-    <img src="/static/fediverse_logo.svg">
-    Fediverse
-  </label>
-  </div>
-</div>
-
-<div id="front-them" class="row front-buttons"
-     role="group" data-toggle="buttons" aria-label="I want to follow someone on">
-  <div class="col-lg-4 col-lg-offset-2 col-md-5 col-md-offset-1 bigger text-outline">
-    I want to follow <br class="visible-xs-inline"> someone on
-  </div>
-
-  <div class="btn-group col-md-6 big">
-  <label for="them-web" class="btn btn-primary web">
-    <input name="them" id="them-web" type="radio" autocomplete="off">
-    🌐 Web
-  </label>
-  <label for="them-fediverse" class="btn btn-primary fediverse">
-    <input name="them" id="them-fediverse" type="radio" autocomplete="off">
-    <img src="/static/fediverse_logo.svg">
-    Fediverse
-  </label>
-  </div>
-</div>
-
 </div> <!-- front-form -->
 
-<div id="front-instructions" class="row big front-light">
-
-<p id="front-instruction-placeholder">
-  Choose your networks above.
-</p>
-
-<p id="front-web-web" class="instruction">
-  <a href="https://indieweb.org/reader">Use a feed reader!</a> No need for Bridgy Fed.
-</p>
-
-<div id="front-web-fediverse" class="instruction">
-  Enter your web site:
-  <form method="post" action="/web-site">
-    <input required type="url" name="url" id="url" placeholder="snarfed.org" />
-    <input type="submit" class="btn btn-default" value="Go" />
-  </form>
-</div>
-
-<p id="front-fediverse-web" class="instruction">
-  To follow the web site <a class="handle" href="https://example.com/">example.com</a>, search for <span class="handle">@example.com@web.brid.gy</span> on your fediverse instance.
-</p>
-
-<p id="front-fediverse-fediverse" class="instruction">
-  <a href="https://docs.joinmastodon.org/user/network/#follow">Search for them on your instance!</a> No need for Bridgy Fed.
-</p>
+<div class="row big front-light">
+<p>Got a web site? Enter it here to follow someone on the fediverse:</p>
+<form method="post" action="/web-site">
+  <input required type="url" name="url" id="url" placeholder="snarfed.org" />
+  <input type="submit" class="btn btn-default" value="Go" />
+</form>
+<br><br>
+<p>Got a fediverse account? Follow the web site <a class="handle" href="https://example.com/">example.com</a> by searching for <span class="handle">@example.com@web.brid.gy</span> in your fediverse instance.</p>
 </div>
 
 <div class="row big front-dark">
