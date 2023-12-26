@@ -187,12 +187,20 @@ pre .value, code .value, code.value {
   margin: .1em !important;
 }
 
-#front .web {
+.front-light .web {
   color: #20593c;
 }
 
-#front .fediverse {
+.front-light .fediverse {
   color: #88305b;
+}
+
+.front-dark .web {
+  color: #87d8a6;
+}
+
+.front-dark .fediverse {
+  color: #d887a6;
 }
 
 .fediverse img {
