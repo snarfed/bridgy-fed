@@ -166,6 +166,10 @@ let sketch = function(p) {
 
 let myQ5Sketch = new p5(sketch, document.getElementById('topology'));
 
+// canvas is behind #front-form
+const frontForm = document.getElementById('front-form');
+frontForm.style.backgroundColor = 'transparent';
+frontForm.style.boxShadow = 'none';
 
 // tried setting this inside the sketch with p.windowResized = ...
 // but that didn't work.
