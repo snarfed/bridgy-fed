@@ -149,79 +149,25 @@ pre .value, code .value, code.value {
   background-color: transparent;
 }
 
-.front-buttons {
-  /* vertical center button groups against left side text */
-  /* display: flex; */
-  /* align-items: center; */
-}
-
-.front-buttons .btn-group {
-  text-align: left;
-}
-
 #front-tagline {
   margin-bottom: 0;
   text-shadow: 0px 0px .2em var(--glow);
 }
 
-@media (min-width: 992px) {  /* @screen-md-min */
-  .front-buttons > div:first-child {
-    text-align: right;
-  }
+#front-table {
+  background-color: var(--bg);
 }
 
-.front-buttons label {
-  font-size: 1em;
-  white-space: nowrap;
+#front-table th, #front-table td {
+  padding: .5em;
 }
 
-.front-buttons label img {
-  height: 1em;
-  margin-top: -.2em;
+.th-top th {
+  text-align: center;
 }
 
-.front-buttons .btn {
-  float: none;  /* separate buttons */
-  border-radius: .2em !important;
-  margin: .1em !important;
-}
-
-.btn.web, .btn.web:hover, .btn.web:focus, .btn.web.active {
-  background-color: #20593c;
-  border: 2px solid #47c986;
-}
-
-.btn.fediverse, .btn.fediverse:hover, .btn.fediverse:focus, .btn.fediverse.active {
-  background-color: #88305b;
-  border: 2px solid #c94786;
-}
-
-.btn.active {
-  box-shadow: 1px 1px .1em var(--glow), -1px -1px .1em var(--glow);
-}
-
-.btn:hover {
-  box-shadow: 1px 1px .1em var(--glow), -1px -1px .1em var(--glow);
-  text-shadow: 0px 0px .1em var(--glow);
-}
-
-#front-instructions {
-  min-height: 4em;
-}
-
-.instruction {
-  display: none;
-  margin: 1em;
-  margin-left: 2em;
-  margin-right: 2em;
-  margin-top: 0;
-  margin-bottom: 0;
-}
-
-#front-instruction-placeholder {
-  display: block;
-  font-style: italic;
-  opacity: 70%;
+.th-left {
+  text-align: right;
 }
 
 #front-logo-bottom {
