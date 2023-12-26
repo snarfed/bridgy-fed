@@ -28,7 +28,7 @@ dnspython==2.4.2
 domain2idna==1.12.0
 ecdsa==0.18.0
 extras==1.0.0
-feedgen==0.9.0
+feedgen==1.0.0
 feedparser==6.0.11
 fixtures==4.1.0
 Flask==3.0.0
