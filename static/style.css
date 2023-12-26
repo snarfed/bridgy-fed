@@ -154,13 +154,17 @@ pre .value, code .value, code.value {
   text-shadow: 0px 0px .2em var(--glow);
 }
 
-#front-table {
+#front-table th, #front-table td {
   background-color: var(--bg);
 }
 
 #front-table th, #front-table td {
   padding: .5em;
 }
+
+/* #front-table .text-outline, #front-table .th-top th { */
+/*   background-color: transparent; */
+/* } */
 
 .th-top th {
   text-align: center;

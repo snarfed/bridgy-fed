@@ -20,20 +20,18 @@
   <table id="front-table">
     <tr class="th-top">
       <th colspan="2"></th>
-      <th colspan="4">I want to follow...</th>
+      <th colspan="2" class="text-outline">I want to follow...</th>
     </tr>
     <tr class="th-top">
       <th colspan="2"></th>
-      <th>Web: example.com</th>
-      <th>Fediverse: @user@instance.com</th>
-      <th>Bluesky: @example.com</th>
-      <th>Nostr: npubxyz</th>
+      <th>Web</th>
+      <th>Fediverse</th>
     </tr>
     <tr>
-      <th rowspan="4" class="th-left">I'm on...</th>
+      <th rowspan="2" class="th-left text-outline" style="white-space: nowrap">I'm on...</th>
       <th class="th-left">Web</th>
       <td>-</td>
-      <td colspan="3">
+      <td>
         Enter your web site:
         <form method="post" action="/web-site">
           <input required type="url" name="url" id="url" placeholder="snarfed.org" />
@@ -43,23 +41,7 @@
     </tr>
     <tr>
       <th class="th-left">Fediverse</th>
-      <td>@example.com@web.brid.gy</td>
-      <td>-</td>
-      <td>@example.com@atp.brid.gy</td>
-      <td>@npubxyz@nostr.brid.gy</td>
-    </tr>
-    <tr>
-      <th class="th-left">Bluesky</th>
-      <td>example.com.web.brid.gy</td>
-      <td>example.com.atp.brid.gy</td>
-      <td>-</td>
-      <td>npubxyz.nostr.brid.gy</td>
-    </tr>
-    <tr>
-      <th class="th-left">Nostr</th>
-      <td>@example.com@web.brid.gy</td>
-      <td>@example.com@ap.brid.gy</td>
-      <td>@example.com@atp.brid.gy</td>
+      <td>To follow the web site <a href="https://example.com/">example.com</a>, use <em>@example.com@web.brid.gy</em></td>
       <td>-</td>
     </tr>
   </table>
