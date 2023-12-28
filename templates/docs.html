@@ -50,6 +50,7 @@ Bridgy Fed takes some technical know-how to set up, and there are simpler (but l
 <li><a href="#follow">How do I follow someone?</a></li>
 <li><a href="#unfollow">How do I unfollow someone?</a></li>
 <li><a href="#image">How do I include an image in a post?</a></li>
+<li><a href="#video">How do I include a video in a post?</a></li>
 <li><a href="#hashtags">How do I use hashtags?</a></li>
 <li><a href="#mention">How do I @-mention someone?</a></li>
 <li><a href="#update">How do I edit an existing post?</a></li>
@@ -331,6 +332,18 @@ I love scotch. Scotchy scotchy scotch.
 </p>
 </li>
 
+<li id="video" class="question">How do I include a video in a post?</li>
+<li class="answer">
+<p>
+Use <code>&lt;img class="<span class='keyword'>u-video</span>"&gt;</code> for the video in your post. For example:
+
+<pre>
+&lt;video class="<span class='keyword'>u-video</span>" src="<span class='value'>/full_glass.jpg</span>"&gt;&lt;/video&gt;
+Dancing dancing dancing
+</pre>
+</p>
+</li>
+
 <li id="hashtags" class="question">How do I use hashtags?</li>
 <li class="answer">
 <p>Use <code><span class='keyword'>p-category</span></code> and link the hashtag to a fully qualified URL. (Any URL you want!) Fediverse sites like Mastodon will generally rewrite the link to point to a search for that hashtag on the local instance. For example:
@@ -482,7 +495,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 
 <li id="vulnerability" class="question">I found a security vulnerability!</li>
 <li class="answer">
-<p>Oof. Thank you for reporting it! Please send details to <a href="mailto:security@brid.gy">security@brid.gy</a>. We may provide monetary awards for reports of significant vulnerabilities, eg reading or modifying stored access tokens, <em>if</em> you follow these rules:</p>
+<p>Oof. Thank you for reporting it! Please send details to <a href="mailto:security@brid.gy">security@brid.gy</a>. We may provide monetary awards for reports of significant vulnerabilities, eg reading or modifying users' private keys, <em>if</em> you follow these rules:</p>
 <ul>
 <li>Vulnerabilities must be in the application itself, not unrelated services like email (eg SPF/DKIM/DMARC).</li>
 <li>Out of scope: rate limiting, XSS/CSRF attacks (Bridgy Fed has no authenticated sessions or private data accessible to users), <code>/admin/*</code> pages.
