@@ -187,6 +187,10 @@ pre .value, code .value, code.value {
   margin: .1em !important;
 }
 
+.web, .fediverse {
+  white-space: nowrap;
+}
+
 .front-light .web {
   color: #20593c;
 }
@@ -196,11 +200,11 @@ pre .value, code .value, code.value {
 }
 
 .front-dark .web {
-  color: #87d8a6;
+  color: #b7e4c6;
 }
 
 .front-dark .fediverse {
-  color: #d887a6;
+  color: #e4b7c6;
 }
 
 .fediverse img {

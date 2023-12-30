@@ -69,6 +69,12 @@
 
 <br>
 
+<p><em>From the fediverse</em></p>
+
+<li><a href="#fediverse-follow">How do I follow someone from the fediverse?</a></li>
+
+<br>
+
 <p><em>To the fediverse</em></p>
 
 <li><a href="#fediverse-servers">Which fediverse servers are supported?</a></li>
@@ -112,7 +118,8 @@
 
 <li id="get-started" class="question">How do I get started?</li>
 <li class="answer">
-<p><a href="/#instructions">Use these instructions to follow someone on another network</a>. After that, interact with them normally! See below for more information and setup details.</p>
+<p>If you're on the web, first <a href="#web-get-started">set up your web site</a>, then <a href="#web-follow">follow someone on the fediverse</a>.</p>
+<p>If you're on the fediverse, <a href="#fediverse-follow">try following a web site</a>.</p>
 </li>
 
 <li id="which-accounts" class="question">Which accounts do I need?</li>
@@ -183,8 +190,8 @@
 
 <li id="web-get-started" class="question">How do I get started?</li>
 <li class="answer">
-<p>If you have a web site, you're all set! <a href="/#instructions">Try following your site from the fediverse</a>, then read on below for more details.</p>
-<p>After that, we recommend that your site support <a href="https://webmention.net/">webmentions</a>. You can see a <a href="web-notifications">notifications feed of your interactions from other networks</a> - replies, reposts, likes, etc - but to <a href="#web-backfeed"> get them back to your site, it needs to support webmentions</a>. <a href="https://indieweb.org/webmention#Publishing_Software">Check out the IndieWeb wiki</a> for instructions for your web server.</li>
+<p>First, <a href="/web-site">connect your web site to Bridgy Fed</a>. Then, <a href="/#fediverse-follow">try following your site from the fediverse</a>. If that looks good, <a href="web-follow">start following people in the fediverse</a>!
+<p>We recommend that your site supports <a href="https://webmention.net/">webmentions</a>. You can see a <a href="web-notifications">notifications feed of your interactions from other networks</a> - replies, reposts, likes, etc - but to <a href="#web-backfeed"> get them back to your site, it needs to support webmentions</a>. <a href="https://indieweb.org/webmention#Publishing_Software">Check out the IndieWeb wiki</a> for instructions for your web server.</li>
 </p>
 </li>
 
@@ -225,11 +232,13 @@
 
 <li id="web-how-post" class="question">How does Bridgy Fed find my posts?</li>
 <li class="answer">
-<p>Bridgy Fed can discover web site posts via <a href="https://webmention.net/">webmentions</a> and Atom/RSS feeds.</p>
+<!-- <p>Bridgy Fed can discover web site posts via <a href="https://webmention.net/">webmentions</a> and Atom/RSS feeds.</p> -->
+<p>Bridgy Fed discover posts on your web site via <a href="https://webmention.net/">webmentions</a>. Atom/RSS feed support is coming soon!</p>
 
-<p>The first time someone follows a web site via Bridgy Fed, it looks for an Atom or RSS feed. If it finds one, it extracts and bridges those posts, then periodically checks for new posts.</p>
+<!-- <p>The first time someone follows a web site via Bridgy Fed, it looks for an Atom or RSS feed. If it finds one, it extracts and bridges those posts, then periodically checks for new posts.</p> -->
 
-<p>Instead of waiting for that periodic poll, you can bridge a new or updated post immediately by sending Bridgy Fed a webmention. Include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in your post, and if your web server supports webmentions, it should send one automatically. Alternatively <a href="https://indieweb.org/Webmention#Manual_Webmentions">you can send one manually.</a></p>
+<!-- <p>Instead of waiting for that periodic poll, you can bridge a new or updated post immediately by sending Bridgy Fed a webmention. -->
+<p>To bridge a new or updated post from your web site, send Bridgy Fed a webmention. Include a link to <code><a href="https://fed.brid.gy/">https://fed.brid.gy/</a></code> in your post, and if your web server supports webmentions, it should send one automatically. Alternatively <a href="https://indieweb.org/Webmention#Manual_Webmentions">you can send one manually.</a></p>
 
 <p>Here's example HTML for a post:
 
@@ -454,6 +463,16 @@ To receive likes, reposts, replies, @-mentions, and follows from the fediverse, 
 <li class="answer">
 <p>Yes! By default, your web site's bridged handle on other networks uses a subdomain of <code>brid.gy</code>, but you can use your own domain instead. <a href="#fediverse-enhanced">Here are instructions for fediverse handles.</a></p>
 
+
+<br>
+
+<h3 id="from-fediverse">From the fediverse</h3>
+
+<li id="fediverse-follow" class="question">How do I follow someone from the fediverse?</li>
+<li class="answer">
+<p>You can follow any web site, eg <a class="handle" href="https://example.com/">example.com</a>, by searching for <span class="handle">@example.com@web.brid.gy</span> in your fediverse instance.</p>
+<p>Bridged web sites appear in the fediverse as either <code>@[domain]@[domain]</code>, <code>@[domain]@web.brid.gy</code>, or <code>@[domain]@fed.brid.gy</code>, depending on the fediverse server and whether the web site owner has <a href="#fediverse-enhanced">connected their domain to Bridgy Fed</a>. All bridged web sites behave the same in the fediverse; the different instances in their handles are purely cosmetic.</p>
+</li>
 
 <br>
 
