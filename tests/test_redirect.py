@@ -39,6 +39,7 @@ class RedirectTest(testutil.TestCase):
         got = self.client.get('/r/https://user.com/bar?baz=baj&biff')
         self.assertEqual(301, got.status_code)
         self.assertEqual('https://user.com/bar?baz=baj&biff=', got.headers['Location'])
+        self.assertEqual('Accept', got.headers['Vary'])
 
     def test_redirect_scheme_missing(self):
         got = self.client.get('/r/user.com')
@@ -51,16 +52,19 @@ class RedirectTest(testutil.TestCase):
     def test_redirect_html_no_user(self):
         got = self.client.get('/r/http://bar.com/baz')
         self.assertEqual(404, got.status_code)
+        self.assertEqual('Accept', got.headers['Vary'])
 
     def test_redirect_html_domain_allowlist(self):
         got = self.client.get('/r/http://bsky.app/baz')
         self.assertEqual(301, got.status_code)
         self.assertEqual('http://bsky.app/baz', got.headers['Location'])
+        self.assertEqual('Accept', got.headers['Vary'])
 
     def test_redirect_single_slash(self):
         got = self.client.get('/r/https:/user.com/bar')
         self.assertEqual(301, got.status_code)
         self.assertEqual('https://user.com/bar', got.headers['Location'])
+        self.assertEqual('Accept', got.headers['Vary'])
 
     def test_redirect_trailing_garbage_chars(self):
         got = self.client.get(r'/r/https://v2.jacky.wtf\"')
@@ -85,6 +89,7 @@ class RedirectTest(testutil.TestCase):
                                headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals(REPOST_AS2, resp.json)
+        self.assertEqual('Accept', resp.headers['Vary'])
 
         self.assert_user(Web, 'user.com', direct=False)
 
@@ -100,6 +105,7 @@ class RedirectTest(testutil.TestCase):
                                headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals(REPOST_AS2, resp.json)
+        self.assertEqual('Accept', resp.headers['Vary'])
 
     @patch('requests.get')
     def test_as2_fetch_post_no_backlink(self, mock_get):
@@ -114,6 +120,7 @@ class RedirectTest(testutil.TestCase):
                                headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals(REPOST_AS2, resp.json)
+        self.assertEqual('Accept', resp.headers['Vary'])
 
     @patch('requests.get')
     def test_as2_no_user_fetch_homepage(self, mock_get):
@@ -123,6 +130,7 @@ class RedirectTest(testutil.TestCase):
         resp = self.client.get('/r/https://user.com/',
                                headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual('Accept', resp.headers['Vary'])
 
         expected = copy.deepcopy(ACTOR_BASE_FULL)
         del expected['endpoints']
@@ -171,6 +179,7 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(content_type, resp.content_type)
         self.assert_equals(REPOST_AS2, resp.json)
+        self.assertEqual('Accept', resp.headers['Vary'])
 
     def test_as2_deleted(self):
         Object(id='https://user.com/bar', as2={}, deleted=True).put()

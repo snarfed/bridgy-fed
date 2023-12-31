@@ -42,6 +42,8 @@ DOMAIN_ALLOWLIST = frozenset((
     'bsky.app',
 ))
 
+VARY_HEADER = {'Vary': 'Accept'}
+
 @app.get(r'/r/<path:to>')
 @flask_util.cached(cache, CACHE_TIME, headers=['Accept'])
 def redir(to):
@@ -92,13 +94,13 @@ def redir(to):
                 break
     else:
         if not accept_as2:
-            return f'No web user found for any of {domains}', 404
+            return f'No web user found for any of {domains}', 404, VARY_HEADER
 
     if accept_as2:
         # AS2 requested, fetch and convert and serve
         obj = Web.load(to, check_backlink=False)
         if not obj or obj.deleted:
-            return f'Object not found: {to}', 404
+            return f'Object not found: {to}', 404, VARY_HEADER
 
         user = Web.get_or_create(util.domain_from_link(to), direct=False, obj=obj)
         ret = ActivityPub.convert(obj, from_user=user)
@@ -106,6 +108,7 @@ def redir(to):
         return ret, {
             'Content-Type': accept_type,
             'Access-Control-Allow-Origin': '*',
+            **VARY_HEADER,
         }
 
     # redirect. include rel-alternate link to make posts discoverable by entering
@@ -121,4 +124,7 @@ def redir(to):
 <h1>Redirecting...</h1>
 <p>You should be redirected automatically to the target URL: <a href="{to}">{to}</a>. If not, click the link.
 </html>
-""", 301, {'Location': to}
+""", 301, {
+    'Location': to,
+    **VARY_HEADER,
+}
