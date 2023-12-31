@@ -445,6 +445,10 @@ class PagesTest(TestCase):
         # just check that it doesn't crash
         self.client.get('/nodeinfo.json')
 
+    def test_instance_info(self):
+        # just check that it doesn't crash
+        self.client.get('/api/v1/instance')
+
     def test_canonicalize_domain(self):
         got = self.client.get('/', base_url='https://ap.brid.gy/')
         self.assert_equals(301, got.status_code)

@@ -372,6 +372,33 @@ def nodeinfo():
     }
 
 
+@app.get('/api/v1/instance')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.cached(cache, datetime.timedelta(days=1))
+def instance_info():
+    """
+    https://docs.joinmastodon.org/methods/instance/#v1
+    """
+    return {
+        'uri': 'fed.brid.gy',
+        'title': 'Bridgy Fed',
+        'version': os.getenv('GAE_VERSION'),
+        'short_description': 'Bridging the new social internet',
+        'description': 'Bridging the new social internet',
+        'email': 'feedback@ryanb.org',
+        'thumbnail': 'https://fed.brid.gy/static/bridgy_logo_with_alpha.png',
+        'registrations': True,
+        'approval_required': False,
+        'invites_enabled': False,
+        'contact_account': {
+            'username': 'snarfed.org',
+            'acct': 'snarfed.org',
+            'display_name': 'Ryan',
+            'url': 'https://snarfed.org/',
+        },
+    }
+
+
 @app.get('/log')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 @flask_util.cached(cache, logs.CACHE_TIME)
