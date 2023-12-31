@@ -357,12 +357,13 @@ def nodeinfo():
                 # 'activeMonth':
                 # 'activeHalfyear':
             },
-            'localPosts': Object.query(Object.source_protocol.IN(('web', 'webmention')),
-                                       Object.type.IN(['note', 'article']),
-                                       ).count(),
-            'localComments': Object.query(Object.source_protocol.IN(('web', 'webmention')),
-                                          Object.type == 'comment',
-                                          ).count(),
+            # these are too heavy
+            # 'localPosts': Object.query(Object.source_protocol.IN(('web', 'webmention')),
+            #                            Object.type.IN(['note', 'article']),
+            #                            ).count(),
+            # 'localComments': Object.query(Object.source_protocol.IN(('web', 'webmention')),
+            #                               Object.type == 'comment',
+            #                               ).count(),
         },
         'openRegistrations': True,
         'metadata': {},
