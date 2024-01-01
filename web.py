@@ -3,6 +3,7 @@ from datetime import timedelta, timezone
 import difflib
 import logging
 import re
+import statistics
 import urllib.parse
 from urllib.parse import quote, urlencode, urljoin, urlparse
 
@@ -62,6 +63,9 @@ FEED_TYPES = {
     atom.CONTENT_TYPE.split(';')[0]: 'atom',
     rss.CONTENT_TYPE.split(';')[0]: 'rss',
 }
+
+MIN_FEED_POLL_PERIOD = timedelta(hours=2)
+MAX_FEED_POLL_PERIOD = timedelta(weeks=1)
 
 
 def is_valid_domain(domain):
@@ -723,8 +727,16 @@ def poll_feed_task():
         return msg
 
     # create Objects and receive tasks
+    published_last = None
+    published_deltas = []  # timedeltas between entry published times
     for i, activity in enumerate(activities):
         logger.info(f'Converted to AS1: {json_dumps(activity, indent=2)}')
+
+        published = activity.get('object', {}).get('published')
+        if published and published_last:
+            published_deltas.append(
+                util.parse_iso8601(published) - util.parse_iso8601(published_last))
+        published_last = published
 
         id = Object(our_as1=activity).as1.get('id')
         if not id:
@@ -738,7 +750,18 @@ def poll_feed_task():
         common.create_task(queue='receive', obj=obj.key.urlsafe(),
                            authed_as=user.key.id())
 
+    # create next poll task
+    if published_deltas:
+        seconds = statistics.mean(t.total_seconds() for t in published_deltas)
+        delay = max(min(timedelta(seconds=seconds), MAX_FEED_POLL_PERIOD),
+                    MIN_FEED_POLL_PERIOD)
+    else:
+        # TODO
+        delay = MIN_FEED_POLL_PERIOD
+
+    common.create_task(queue='poll-feed', domain=user.key.id(), delay=delay)
     return 'OK'
+
 
 # generate/check per-user token for auth?
 # or https://documentation.superfeedr.com/subscribers.html#http-authentication ?

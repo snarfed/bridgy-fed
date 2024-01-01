@@ -11,6 +11,7 @@ from urllib.parse import urljoin
 import cachetools
 from Crypto.Util import number
 from flask import abort, g, make_response, request
+from google.protobuf.timestamp_pb2 import Timestamp
 from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil import appengine_info
@@ -256,7 +257,7 @@ def add(seq, val):
         seq.append(val)
 
 
-def create_task(queue, **params):
+def create_task(queue, delay=None, **params):
     """Adds a Cloud Tasks task.
 
     If running in a local server, runs the task handler inline instead of
@@ -264,6 +265,7 @@ def create_task(queue, **params):
 
     Args:
       queue (str): queue name
+      delay (:class:`datetime.timedelta`): optional, used as task ETA (from now)
       params: form-encoded and included in the task request body
 
     Returns:
@@ -286,17 +288,20 @@ def create_task(queue, **params):
         #                             .match(path, method='POST')
         # return app.view_functions[endpoint](**args)
 
-    task = tasks_client.create_task(
-        parent=tasks_client.queue_path(appengine_info.APP_ID,
-                                       TASKS_LOCATION, queue),
-        task={
-            'app_engine_http_request': {
-                'http_method': 'POST',
-                'relative_uri': path,
-                'body': urllib.parse.urlencode(sorted(params.items())).encode(),
-                'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
-            },
-        })
+    task = {
+        'app_engine_http_request': {
+            'http_method': 'POST',
+            'relative_uri': path,
+            'body': urllib.parse.urlencode(sorted(params.items())).encode(),
+            'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
+        },
+    }
+    if delay:
+        eta_seconds = int(util.to_utc_timestamp(util.now()) + delay.total_seconds())
+        task['schedule_time'] = Timestamp(seconds=eta_seconds)
+
+    parent = tasks_client.queue_path(appengine_info.APP_ID, TASKS_LOCATION, queue)
+    task = tasks_client.create_task(parent=parent, task=task)
     msg = f'Added {queue} task {task.name} : {params}'
     logger.info(msg)
     return msg, 202

@@ -9,7 +9,7 @@ from google.cloud import ndb
 from granary import as1, as2, atom, microformats2, rss
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil import appengine_info
-from oauth_dropins.webutil.testutil import NOW, requests_response
+from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 from werkzeug.exceptions import BadGateway, BadRequest
@@ -1876,6 +1876,10 @@ class WebTest(TestCase):
                          obj=obj.key.urlsafe(),
                          authed_as='user.com')
 
+        expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
+        self.assert_task(mock_create_task, 'poll-feed', '/queue/poll-feed',
+                         domain='user.com', eta_seconds=expected_eta)
+
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_rss(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
@@ -1947,6 +1951,11 @@ class WebTest(TestCase):
             self.assert_task(mock_create_task, 'receive', '/queue/receive',
                              obj=obj.key.urlsafe(),
                              authed_as='user.com')
+
+        # delay is average of 1d and 3d between posts
+        expected_eta = NOW_SECONDS + timedelta(days=2).total_seconds()
+        self.assert_task(mock_create_task, 'poll-feed', '/queue/poll-feed',
+                         domain='user.com', eta_seconds=expected_eta)
 
     def test_superfeedr_notify_no_user(self, *_):
         orig_count = Object.query().count()

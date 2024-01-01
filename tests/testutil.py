@@ -17,6 +17,7 @@ from bs4 import MarkupResemblesLocatorWarning
 import dag_cbor.random
 from flask import g
 from google.cloud import ndb
+from google.protobuf.timestamp_pb2 import Timestamp
 from granary import as2
 from granary.tests.test_as1 import (
     ACTOR,
@@ -475,17 +476,21 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         return got
 
-    def assert_task(self, mock_create_task, queue, path, **params):
+    def assert_task(self, mock_create_task, queue, path, eta_seconds=None, **params):
+        expected = {
+            'app_engine_http_request': {
+                'http_method': 'POST',
+                'relative_uri': path,
+                'body': urlencode(sorted(params.items())).encode(),
+                'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
+            },
+        }
+        if eta_seconds:
+            expected['schedule_time'] = Timestamp(seconds=int(eta_seconds))
+
         mock_create_task.assert_any_call(
             parent=f'projects/{appengine_info.APP_ID}/locations/{TASKS_LOCATION}/queues/{queue}',
-            task={
-                'app_engine_http_request': {
-                    'http_method': 'POST',
-                    'relative_uri': path,
-                    'body': urlencode(sorted(params.items())).encode(),
-                    'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
-                },
-            },
+            task=expected,
         )
 
 
