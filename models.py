@@ -537,12 +537,18 @@ class Object(StringIdModel):
     # TODO: switch back to ndb.JsonProperty if/when they fix it for the web console
     # https://github.com/googleapis/python-ndb/issues/874
     as2 = JsonProperty()      # only one of the rest will be populated...
-    atom = ndb.TextProperty() # Atom XML, usually from Superfeedr
     bsky = JsonProperty()     # Bluesky / AT Protocol
     mf2 = JsonProperty()      # HTML microformats2 item (ie _not_ the top level
                               # parse object with items inside an 'items' field)
     our_as1 = JsonProperty()  # AS1 for activities that we generate or modify ourselves
     raw = JsonProperty()      # other standalone data format, eg DID document
+
+    # these are full feeds with multiple items, not just this one, so they're
+    # stored as audit records only. they're not used in to_as1. for Atom/RSS
+    # based Objects, our_as1 will be populated with an feed_index top-level
+    # integer field that indexes into one of these.
+    atom = ndb.TextProperty() # Atom XML
+    rss = ndb.TextProperty()  # RSS XML
 
     deleted = ndb.BooleanProperty()
 
@@ -587,6 +593,8 @@ class Object(StringIdModel):
 
         if self.our_as1:
             obj = self.our_as1
+            if self.atom or self.rss:
+                use_urls_as_ids(obj)
 
         elif self.as2:
             obj = as2.to_as1(self.as2)
@@ -603,6 +611,7 @@ class Object(StringIdModel):
                                                rel_urls=self.mf2.get('rel-urls'))
             use_urls_as_ids(obj)
 
+        # TODO: remove once we drop superfeedr
         elif self.atom:
             obj = atom.atom_to_activity(self.atom)['object']
             use_urls_as_ids(obj)
@@ -687,7 +696,7 @@ class Object(StringIdModel):
             'new': self.new,
             'changed': self.changed,
         })
-        for prop in 'as2', 'bsky', 'mf2', 'our_as1', 'raw':
+        for prop in 'as2', 'atom', 'bsky', 'mf2', 'our_as1', 'raw', 'rss':
             if props.get(prop):
                 props[prop] = "..."
         for prop in 'created', 'updated', 'as1', 'expire':

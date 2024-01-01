@@ -58,7 +58,10 @@ NON_TLDS = frozenset((
 SUPERFEEDR_PUSH_API = 'https://push.superfeedr.com'
 SUPERFEEDR_USERNAME = util.read('superfeedr_username')
 SUPERFEEDR_TOKEN = util.read('superfeedr_token')
-FEED_TYPES = [type.split(';')[0] for type in (atom.CONTENT_TYPE, rss.CONTENT_TYPE)]
+FEED_TYPES = {
+    atom.CONTENT_TYPE.split(';')[0]: 'atom',
+    rss.CONTENT_TYPE.split(';')[0]: 'rss',
+}
 
 
 def is_valid_domain(domain):
@@ -620,7 +623,7 @@ def maybe_superfeedr_subscribe(user):
     # discover feed
     for url, info in user.obj.mf2.get('rel-urls', {}).items():
         if ('alternate' in info.get('rels', [])
-                and info.get('type', '').split(';')[0] in FEED_TYPES):
+                and info.get('type', '').split(';')[0] in FEED_TYPES.keys()):
             break
     else:
         logger.info(f"User {user.key.id()} has no feed URL, can't subscribe")
@@ -683,6 +686,57 @@ def maybe_superfeedr_unsubscribe(user):
     resp.raise_for_status()
 
 
+@app.post(f'/queue/poll-feed')
+def poll_feed_task():
+    """Fetches a :class:`Web` site's feed and delivers new/updated posts.
+
+    Params:
+      ``domain`` (str): key id of the :class:`Web` user
+    """
+    user = Web.get_by_id(flask_util.get_required_param('domain'))
+    if not user:
+        error(f'No Web user found for domain {domain}', status=304)
+
+    # discover feed URL
+    for url, info in user.obj.mf2.get('rel-urls', {}).items():
+        if ('alternate' in info.get('rels', [])
+                and info.get('type', '').split(';')[0] in FEED_TYPES.keys()):
+            break
+    else:
+        msg = f"User {user.key.id()} has no feed URL, can't fetch feed"
+        logger.info(msg)
+        return msg
+
+    # fetch feed
+    resp = util.requests_get(url)
+    content_type = resp.headers.get('Content-Type')
+    type = FEED_TYPES.get(content_type.split(';')[0])
+    if type == 'atom':
+        activities = atom.atom_to_activities(resp.text)
+    elif type == 'rss':
+        activities = rss.to_activities(resp.text)
+    else:
+        msg = f'Unknown feed type {content_type}'
+        logger.info(msg)
+        return msg
+
+    # create Objects and receive tasks
+    for activity in activities:
+        logger.info(f'Converted to AS1: {json_dumps(activity, indent=2)}')
+
+        id = Object(our_as1=activity).as1.get('id')
+        if not id:
+            logger.warning('No id or URL!')
+            continue
+
+        obj = Object.get_or_create(id=id, our_as1=activity, atom=resp.text,
+                                   source_protocol=Web.ABBREV, users=[user.key],
+                                   status='new')
+        common.create_task(queue='receive', obj=obj.key.urlsafe(),
+                           authed_as=user.key.id())
+
+    return 'OK'
+
 # generate/check per-user token for auth?
 # or https://documentation.superfeedr.com/subscribers.html#http-authentication ?
 @app.post(f'/superfeedr/notify/<regex("{DOMAIN_RE}"):domain>')
@@ -728,7 +782,11 @@ def _superfeedr_notify(doc, user):
 @app.post('/queue/webmention')
 @cloud_tasks_only
 def webmention_task():
-    """Handles inbound webmention task."""
+    """Handles inbound webmention task.
+
+    Params:
+      ``source`` (str): URL
+    """
     logger.info(f'Params: {list(request.form.items())}')
 
     # load user

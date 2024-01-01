@@ -1829,19 +1829,50 @@ class WebTest(TestCase):
             logs.output)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_superfeedr_notify_make_task(self, mock_create_task, *_):
+    def test_poll_feed_atom(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.user.obj.put()
 
-        got = self.post('/superfeedr/notify/user.com', data="""\
+        feed = """\
 <?xml version="1.0" encoding="UTF-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
 <uri>https://user.com/post</uri>
-<content>I hereby ☕ post.</content>
+<content>I hereby ☕ post</content>
 </entry>
-""", headers={'Content-Type': atom.CONTENT_TYPE})
+"""
+        mock_get.return_value = requests_response(
+            feed, headers={'Content-Type': atom.CONTENT_TYPE})
+
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
+
+        mock_get.assert_has_calls((
+            self.req('https://foo/atom'),
+        ))
+        obj = self.assert_object('https://user.com/post',
+                                 users=[self.user.key],
+                                 source_protocol='web',
+                                 status='new',
+                                 atom=feed,
+                                 our_as1={
+                                     'objectType': 'activity',
+                                     'verb': 'post',
+                                     'id': 'https://user.com/post',
+                                     'url': 'https://user.com/post',
+                                     'object':{
+                                         'objectType': 'note',
+                                         'id': 'https://user.com/post',
+                                         'url': 'https://user.com/post',
+                                         'content': 'I hereby ☕ post',
+                                     },
+                                 },
+                                 type='post',
+                                 object_ids=['https://user.com/post'],
+                                 labels=['user', 'activity'],
+                                 )
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
-                         obj=Object(id='https://user.com/post').key.urlsafe(),
+                         obj=obj.key.urlsafe(),
                          authed_as='user.com')
 
     def test_superfeedr_notify_no_user(self, *_):
