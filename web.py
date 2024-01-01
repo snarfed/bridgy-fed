@@ -713,15 +713,17 @@ def poll_feed_task():
     type = FEED_TYPES.get(content_type.split(';')[0])
     if type == 'atom':
         activities = atom.atom_to_activities(resp.text)
+        obj_feed_prop = {'atom': resp.text}
     elif type == 'rss':
         activities = rss.to_activities(resp.text)
+        obj_feed_prop = {'rss': resp.text}
     else:
         msg = f'Unknown feed type {content_type}'
         logger.info(msg)
         return msg
 
     # create Objects and receive tasks
-    for activity in activities:
+    for i, activity in enumerate(activities):
         logger.info(f'Converted to AS1: {json_dumps(activity, indent=2)}')
 
         id = Object(our_as1=activity).as1.get('id')
@@ -729,9 +731,10 @@ def poll_feed_task():
             logger.warning('No id or URL!')
             continue
 
-        obj = Object.get_or_create(id=id, our_as1=activity, atom=resp.text,
+        activity['feed_index'] = i
+        obj = Object.get_or_create(id=id, our_as1=activity, status='new',
                                    source_protocol=Web.ABBREV, users=[user.key],
-                                   status='new')
+                                   **obj_feed_prop)
         common.create_task(queue='receive', obj=obj.key.urlsafe(),
                            authed_as=user.key.id())
 

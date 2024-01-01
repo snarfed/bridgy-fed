@@ -6,7 +6,7 @@ from unittest.mock import ANY, patch
 
 from flask import g, get_flashed_messages
 from google.cloud import ndb
-from granary import as1, as2, atom, microformats2
+from granary import as1, as2, atom, microformats2, rss
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.testutil import NOW, requests_response
@@ -1866,6 +1866,7 @@ class WebTest(TestCase):
                                          'url': 'https://user.com/post',
                                          'content': 'I hereby ☕ post',
                                      },
+                                     'feed_index': 0,
                                  },
                                  type='post',
                                  object_ids=['https://user.com/post'],
@@ -1874,6 +1875,78 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
                          obj=obj.key.urlsafe(),
                          authed_as='user.com')
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_rss(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = {
+            **ACTOR_MF2,
+            'rel-urls': {
+                'https://foo/rss': {'rels': ['alternate'], 'type': rss.CONTENT_TYPE},
+            },
+        }
+        self.user.obj.put()
+
+        feed = """\
+<?xml version='1.0' encoding='UTF-8'?>
+<rss version="2.0">
+<channel>
+  <item>
+    <guid>http://post/a</guid>
+    <description>I hereby ☕ post a</description>
+    <pubDate>Tue, 04 Dec 2012 00:00:00 +0000</pubDate>
+  </item>
+  <item>
+    <guid>http://post/b</guid>
+    <description>I hereby ☕ post b</description>
+    <pubDate>Tue, 05 Dec 2012 00:00:00 +0000</pubDate>
+  </item>
+  <item>
+    <guid>http://post/c</guid>
+    <description>I hereby ☕ post c</description>
+    <pubDate>Tue, 08 Dec 2012 00:00:00 +0000</pubDate>
+  </item>
+</channel>
+</rss>
+"""
+        mock_get.return_value = requests_response(
+            feed, headers={'Content-Type': rss.CONTENT_TYPE})
+
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(200, got.status_code)
+
+        mock_get.assert_has_calls((
+            self.req('https://foo/rss'),
+        ))
+        for i, (id, day) in enumerate([('a', 4), ('b', 5), ('c', 8)]):
+            url = f'http://post/{id}'
+            obj = self.assert_object(
+                url,
+                users=[self.user.key],
+                source_protocol='web',
+                status='new',
+                rss=feed,
+                our_as1={
+                    'objectType': 'activity',
+                    'verb': 'post',
+                    'id': url,
+                    'url': url,
+                    'object':{
+                        'objectType': 'note',
+                        'id': url,
+                        'url': url,
+                        'content': f'I hereby ☕ post {id}',
+                        'published': f'2012-12-0{day}T00:00:00+00:00',
+                    },
+                    'feed_index': i,
+                },
+                type='post',
+                object_ids=[url],
+                labels=['user', 'activity'],
+            )
+            self.assert_task(mock_create_task, 'receive', '/queue/receive',
+                             obj=obj.key.urlsafe(),
+                             authed_as='user.com')
 
     def test_superfeedr_notify_no_user(self, *_):
         orig_count = Object.query().count()
