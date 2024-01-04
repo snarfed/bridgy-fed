@@ -1,11 +1,9 @@
-<img src="https://raw.github.com/snarfed/bridgy-fed/main/static/bridgy_fed_logo.png" width="120" /> [Bridgy Fed](https://fed.brid.gy/) [![Circle CI](https://circleci.com/gh/snarfed/bridgy-fed.svg?style=svg)](https://circleci.com/gh/snarfed/bridgy-fed) [![Coverage Status](https://coveralls.io/repos/github/snarfed/bridgy-fed/badge.svg)](https://coveralls.io/github/snarfed/bridgy-fed)
+<img src="https://raw.github.com/snarfed/bridgy-fed/main/static/bridgy_logo.jpg" width="120" /> [Bridgy Fed](https://fed.brid.gy/) [![Circle CI](https://circleci.com/gh/snarfed/bridgy-fed.svg?style=svg)](https://circleci.com/gh/snarfed/bridgy-fed) [![Coverage Status](https://coveralls.io/repos/github/snarfed/bridgy-fed/badge.svg)](https://coveralls.io/github/snarfed/bridgy-fed)
 ===
 
-Bridgy Fed connects your web site to [Mastodon](https://joinmastodon.org) and the [fediverse](https://en.wikipedia.org/wiki/Fediverse) via [ActivityPub](https://activitypub.rocks/), [webmentions](https://webmention.net/), and [microformats2](https://microformats.org/wiki/microformats2). Your site gets its own fediverse profile, posts and avatar and header and all. Bridgy Fed translates likes, reposts, mentions, follows, and more back and forth. [See the user docs](https://fed.brid.gy/docs) and [developer docs](https://bridgy-fed.readthedocs.io/) for more details.
+Bridgy Fed connects different decentralized social network protocols. It currently supports the [fediverse](https://en.wikipedia.org/wiki/Fediverse) (eg [Mastodon](https://joinmastodon.org)) via [ActivityPub](https://activitypub.rocks/), and the [IndieWeb](https://indieweb.org/) via [webmentions](https://webmention.net/) and [microformats2](https://microformats.org/wiki/microformats2). [Bluesky/AT Protocol](https://github.com/snarfed/bridgy-fed/issues/381) and [Nostr](https://github.com/snarfed/bridgy-fed/issues/446) are planned for 2024. Bridgy Fed translates profiles likes, reposts, mentions, follows, and more from any supported network to any other. [See the user docs](https://fed.brid.gy/docs) and [developer docs](https://bridgy-fed.readthedocs.io/) for more details.
 
 https://fed.brid.gy/
-
-Also see the [original](https://snarfed.org/indieweb-activitypub-bridge) [design](https://snarfed.org/indieweb-ostatus-bridge) blog posts.
 
 License: This project is placed in the public domain. You may also use it under the [CC0 License](https://creativecommons.org/publicdomain/zero/1.0/).
 
