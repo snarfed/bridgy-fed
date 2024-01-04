@@ -581,7 +581,12 @@ class WebTest(TestCase):
     def test_bad_source_url(self, *mocks):
         orig_count = Object.query().count()
 
-        for data in b'', {'source': 'bad'}, {'source': 'https://'}:
+        for data in [
+                b'',
+                {'source': 'bad'},
+                {'source': 'https://'},
+                {'source': 'http://user.com/not/https'},
+        ]:
             got = self.post('/webmention', data=data)
             self.assertEqual(400, got.status_code)
             self.assertEqual(orig_count, Object.query().count())

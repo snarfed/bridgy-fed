@@ -571,6 +571,8 @@ def webmention_external():
     source = flask_util.get_required_param('source').strip()
     if not util.is_web(source):
         error(f'Bad URL {source}')
+    elif urlparse(source).scheme != 'https':
+        error('source URLs must be https (with SSL)')
 
     domain = util.domain_from_link(source, minimize=False)
     if not domain:
