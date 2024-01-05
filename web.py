@@ -56,14 +56,10 @@ NON_TLDS = frozenset((
     'yml',
 ))
 
-SUPERFEEDR_PUSH_API = 'https://push.superfeedr.com'
-SUPERFEEDR_USERNAME = util.read('superfeedr_username')
-SUPERFEEDR_TOKEN = util.read('superfeedr_token')
 FEED_TYPES = {
     atom.CONTENT_TYPE.split(';')[0]: 'atom',
     rss.CONTENT_TYPE.split(';')[0]: 'rss',
 }
-
 MIN_FEED_POLL_PERIOD = timedelta(hours=2)
 MAX_FEED_POLL_PERIOD = timedelta(weeks=1)
 
@@ -626,71 +622,6 @@ def maybe_superfeedr_subscribe(user):
         logger.info(f"User {user.key.id()} has no mf2, can't subscribe via Superfeedr")
         return
 
-    # discover feed
-    for url, info in user.obj.mf2.get('rel-urls', {}).items():
-        if ('alternate' in info.get('rels', [])
-                and info.get('type', '').split(';')[0] in FEED_TYPES.keys()):
-            break
-    else:
-        logger.info(f"User {user.key.id()} has no feed URL, can't subscribe")
-        return
-
-    # subscribe
-    logger.info(f'Subscribing to {url} via Superfeedr')
-    if appengine_info.LOCAL_SERVER:
-        logger.info(f"Skipping since we're local")
-        return
-
-    auth = HTTPBasicAuth(SUPERFEEDR_USERNAME, SUPERFEEDR_TOKEN)
-    resp = util.requests_post(SUPERFEEDR_PUSH_API, auth=auth, data={
-        'hub.mode': 'subscribe',
-        'hub.topic': url,
-        'hub.callback': common.host_url(f'/superfeedr/notify/{user.key.id()}'),
-        # TODO
-        # 'hub.secret': 'xxx',
-        'format': 'atom',
-        'retrieve': 'true',
-    })
-    try:
-        resp.raise_for_status()
-    except BaseException as e:
-        util.interpret_http_exception(e)
-        return
-
-    user.superfeedr_subscribed = util.now()
-    user.superfeedr_subscribed_feed = url
-    user.put()
-
-    # handle feed entries (posts)
-    if (resp.headers.get('Content-Type', '').split(';')[0] ==
-            atom.CONTENT_TYPE.split(';')[0]):
-        return _superfeedr_notify(resp.text, user=user)
-
-
-def maybe_superfeedr_unsubscribe(user):
-    """Subscribes to a user's Atom or RSS feed in Superfeedr.
-
-    Args:
-      user (Web)
-    """
-    if (not user.superfeedr_subscribed
-            or not user.superfeedr_subscribed_feed
-            or (user.last_webmention_in
-                and user.last_webmention_in > user.superfeedr_subscribed)
-            or appengine_info.LOCAL_SERVER):
-        return
-
-    # unsubscribe
-    logger.info(f'Unsubscribing from Superfeedr for {user.superfeedr_subscribed_feed}')
-
-    auth = HTTPBasicAuth(SUPERFEEDR_USERNAME, SUPERFEEDR_TOKEN)
-    resp = util.requests_post(SUPERFEEDR_PUSH_API, auth=auth, data={
-        'hub.mode': 'unsubscribe',
-        'hub.topic': user.superfeedr_subscribed_feed,
-        'hub.callback': common.host_url(f'/superfeedr/notify/{user.key.id()}'),
-    })
-    resp.raise_for_status()
-
 
 @app.post(f'/queue/poll-feed')
 def poll_feed_task():
@@ -762,48 +693,6 @@ def poll_feed_task():
         delay = MIN_FEED_POLL_PERIOD
 
     common.create_task(queue='poll-feed', domain=user.key.id(), delay=delay)
-    return 'OK'
-
-
-# generate/check per-user token for auth?
-# or https://documentation.superfeedr.com/subscribers.html#http-authentication ?
-@app.post(f'/superfeedr/notify/<regex("{DOMAIN_RE}"):domain>')
-def superfeedr_notify(domain):
-    """Superfeedr notification handler.
-
-    https://documentation.superfeedr.com/publishers.html#subscription-callback
-    """
-    logger.info(f'Got:\n{request.get_data(as_text=True)}')
-
-    type = request.headers.get('Content-Type', '').split(';')[0]
-    if type != atom.CONTENT_TYPE.split(';')[0]:
-        error(f'Expected Content-Type {atom.CONTENT_TYPE}, got {type}', status=406)
-
-    user = Web.get_by_id(domain)
-    if not user:
-        error(f'No user found for domain {domain}', status=304)
-
-    return _superfeedr_notify(request.get_data(as_text=True), user=user)
-
-
-def _superfeedr_notify(doc, user):
-    """Creates :class:`Object`s and ``receive`` tasks for an Atom feed or entry.
-
-    Args:
-      doc (str): Atom document
-      user (Web): user this feed came from
-    """
-    for entry in atom.extract_entries(doc):
-        obj_as1 = Object(atom=entry).as1
-        logger.info(f'Converted to AS1: {json_dumps(obj_as1, indent=2)}')
-        id = obj_as1.get('id')
-        if not id:
-            return error('No id or URL!')
-
-        obj = Object.get_or_create(id=id, atom=entry, source_protocol=Web.ABBREV)
-        common.create_task(queue='receive', obj=obj.key.urlsafe(),
-                           authed_as=user.key.id())
-
     return 'OK'
 
 
