@@ -1963,6 +1963,39 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'poll-feed', '/queue/poll-feed',
                          domain='user.com', eta_seconds=expected_eta)
 
+    def test_poll_feed_fails(self, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = {
+            **ACTOR_MF2,
+            'rel-urls': {
+                'https://foo/rss': {'rels': ['alternate'], 'type': rss.CONTENT_TYPE},
+            },
+        }
+        self.user.obj.put()
+
+        mock_get.side_effect = requests.ConnectionError()
+
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(504, got.status_code)
+        self.assertIsNone(self.user.key.get().last_polled_feed)
+
+    def test_poll_feed_wrong_content_type(self, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = {
+            **ACTOR_MF2,
+            'rel-urls': {
+                'https://foo/rss': {'rels': ['alternate'], 'type': rss.CONTENT_TYPE},
+            },
+        }
+        self.user.obj.put()
+
+        mock_get.return_value = requests_response(
+            'nope', headers={'Content-Type': 'text/plain'})
+
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(200, got.status_code)
+        self.assertIsNone(self.user.key.get().last_polled_feed)
+
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
         self.user.has_redirects = False
         self.user.put()

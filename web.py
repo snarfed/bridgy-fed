@@ -651,9 +651,6 @@ def poll_feed_task():
 
     # fetch feed
     resp = util.requests_get(url)
-    user.last_polled_feed = util.now()
-    user.put()
-
     content_type = resp.headers.get('Content-Type')
     type = FEED_TYPES.get(content_type.split(';')[0])
     if type == 'atom':
@@ -666,6 +663,9 @@ def poll_feed_task():
         msg = f'Unknown feed type {content_type}'
         logger.info(msg)
         return msg
+
+    user.last_polled_feed = util.now()
+    user.put()
 
     # create Objects and receive tasks
     published_last = None
