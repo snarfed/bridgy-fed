@@ -100,8 +100,6 @@ class Web(User, Protocol):
     has_hcard = ndb.BooleanProperty()
     last_webmention_in = ndb.DateTimeProperty(tzinfo=timezone.utc)
     last_polled_feed = ndb.DateTimeProperty(tzinfo=timezone.utc)
-    superfeedr_subscribed = ndb.DateTimeProperty(tzinfo=timezone.utc)
-    superfeedr_subscribed_feed = ndb.StringProperty()
 
     # Originally, BF served Web users' AP actor ids on fed.brid.gy, eg
     # https://fed.brid.gy/snarfed.org . When we started adding new protocols, we
@@ -109,6 +107,10 @@ class Web(User, Protocol):
     # However, we need to preserve the old users' actor ids as is. So, this
     # property tracks which subdomain a given Web user's AP actor uses.
     ap_subdomain = ndb.StringProperty(choices=['fed', 'web'], default='web')
+
+    # OLD. some stored entities still have these; do not reuse.
+    # superfeedr_subscribed = ndb.DateTimeProperty(tzinfo=timezone.utc)
+    # superfeedr_subscribed_feed = ndb.StringProperty()
 
     @classmethod
     def _get_kind(cls):
@@ -123,7 +125,7 @@ class Web(User, Protocol):
 
     @classmethod
     def get_or_create(cls, id, **kwargs):
-        """Normalize domain, pass through, then subscribe in Superfeedr.
+        """Normalize domain, then pass through to :meth:`User.get_or_create`.
 
         Normalizing currently consists of lower casing and removing leading and
         trailing dots.
@@ -135,8 +137,8 @@ class Web(User, Protocol):
         domain = key.id().lower().strip('.')
         user = super().get_or_create(domain, **kwargs)
 
-        # TODO
-        # maybe_superfeedr_subscribe(user)
+        if not user.existing:
+            common.create_task(queue='poll-feed', domain=domain)
 
         return user
 
@@ -586,8 +588,6 @@ def webmention_external():
     if request.path == '/webmention':  # exclude interactive
         user.last_webmention_in = util.now()
         user.put()
-        # TODO
-        # maybe_superfeedr_unsubscribe(user)
 
     return common.create_task('webmention', **request.form)
 
@@ -611,23 +611,6 @@ def webmention_interactive():
         return redirect('/', code=302)
 
 
-def maybe_superfeedr_subscribe(user):
-    """Subscribes to a user's Atom or RSS feed in Superfeedr.
-
-    Args:
-      user (Web)
-    """
-    if user.superfeedr_subscribed:
-        logger.info(f'User {user.key.id()} already subscribed via Superfeedr')
-        return
-    elif user.has_redirects or user.last_webmention_in:
-        logger.info(f'User {user.key.id()} has Webfinger redirects or publishes via webmention, not subscribing via Superfeedr')
-        return
-    elif not user.obj or not user.obj.mf2:
-        logger.info(f"User {user.key.id()} has no mf2, can't subscribe via Superfeedr")
-        return
-
-
 @app.post(f'/queue/poll-feed')
 def poll_feed_task():
     """Fetches a :class:`Web` site's feed and delivers new/updated posts.
@@ -635,9 +618,13 @@ def poll_feed_task():
     Params:
       ``domain`` (str): key id of the :class:`Web` user
     """
-    user = Web.get_by_id(flask_util.get_required_param('domain'))
-    if not user:
-        error(f'No Web user found for domain {domain}', status=304)
+    domain = flask_util.get_required_param('domain')
+    user = Web.get_by_id(domain)
+    if not (user and user.obj and user.obj.mf2):
+        error(f'No Web user or object found for domain {domain}', status=304)
+    elif user.last_webmention_in:
+        logger.info(f'Dropping since last_webmention_in is set')
+        return 'OK'
 
     # discover feed URL
     for url, info in user.obj.mf2.get('rel-urls', {}).items():
@@ -692,13 +679,14 @@ def poll_feed_task():
                            authed_as=user.key.id())
 
     # create next poll task
+    def clamp(delay):
+        return max(min(delay, MAX_FEED_POLL_PERIOD), MIN_FEED_POLL_PERIOD)
+
     if published_deltas:
-        seconds = statistics.mean(t.total_seconds() for t in published_deltas)
-        delay = max(min(timedelta(seconds=seconds), MAX_FEED_POLL_PERIOD),
-                    MIN_FEED_POLL_PERIOD)
+        delay = clamp(timedelta(seconds=statistics.mean(
+            t.total_seconds() for t in published_deltas)))
     else:
-        # TODO
-        delay = MIN_FEED_POLL_PERIOD
+        delay = clamp(util.now() - (user.last_polled_feed or user.created))
 
     common.create_task(queue='poll-feed', domain=user.key.id(), delay=delay)
     return 'OK'

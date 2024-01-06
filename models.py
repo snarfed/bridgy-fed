@@ -615,11 +615,6 @@ class Object(StringIdModel):
                                                rel_urls=self.mf2.get('rel-urls'))
             use_urls_as_ids(obj)
 
-        # TODO: remove once we drop superfeedr
-        elif self.atom:
-            obj = atom.atom_to_activity(self.atom)['object']
-            use_urls_as_ids(obj)
-
         else:
             return None
 

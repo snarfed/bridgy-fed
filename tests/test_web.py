@@ -1,7 +1,6 @@
 """Unit tests for webmention.py."""
 import copy
 from datetime import timedelta
-from unittest import skip
 from unittest.mock import ANY, patch
 
 from flask import g, get_flashed_messages
@@ -513,63 +512,20 @@ class WebTest(TestCase):
         self.assert_entities_equal(user, Web.get_by_id('foo.bar'))
         self.assertIsNone(Web.get_by_id('..foo.bar.'))
 
-    @skip
-    def test_get_or_create_subscribes_superfeedr(self, mock_get, mock_post):
-        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
-        self.user.obj.put()
-        self.user.has_redirects = False
-        self.user.put()
-
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_get_or_create_existing_no_poll_feed_task(self, mock_create_task, _, __):
         user = Web.get_or_create('user.com')
-        self.assertEqual('user.com', user.key.id())
-        self.assert_entities_equal(
-            user, self.user,
-            ignore=['superfeedr_subscribed', 'superfeedr_subscribed_feed', 'updated'])
-        self.assertEqual(NOW, user.superfeedr_subscribed)
-        self.assertEqual('https://foo/atom', user.superfeedr_subscribed_feed)
+        mock_create_task.assert_not_called()
 
-        self.assert_req(mock_post, SUPERFEEDR_PUSH_API, data={
-            'hub.mode': 'subscribe',
-            'hub.topic': 'https://foo/atom',
-            'hub.callback': 'http://localhost/superfeedr/notify/user.com',
-            'format': 'atom',
-            'retrieve': 'true',
-        }, auth=ANY)
-        self.assertEqual(NOW, self.user.key.get().superfeedr_subscribed)
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_get_or_create_new_creates_poll_feed_task(self, mock_create_task,
+                                                      mock_get, __):
+        common.RUN_TASKS_INLINE = False
+        mock_get.return_value = ACTOR_HTML_RESP
 
-    def test_get_or_create_subscribe_error(self, mock_get, mock_post):
-        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
-        self.user.obj.put()
-        self.user.has_redirects = False
-        self.user.put()
-
-        mock_post.return_value = requests_response('Nope', status=500)
-
-        user = Web.get_or_create('user.com')
-        self.assert_entities_equal(user, self.user, ignore=['updated'])
-        self.assertIsNone(user.superfeedr_subscribed)
-        self.assertIsNone(user.superfeedr_subscribed_feed)
-
-    def test_get_or_create_existing_subscribed(self, *_):
-        self.user.superfeedr_subscribed = NOW
-        self.user.put()
-
-        user = Web.get_or_create('user.com')
-        self.assertEqual('user.com', user.key.id())
-        self.assert_entities_equal(user, self.user)
-
-    def test_get_or_create_existing_has_last_webmention(self, *_):
-        self.user.last_webmention_in = NOW
-        self.user.put()
-
-        user = Web.get_or_create('user.com')
-        self.assertEqual('user.com', user.key.id())
-        self.assert_entities_equal(user, self.user)
-
-    def test_get_or_create_existing_not_subscribed_no_feed(self, *_):
-        user = Web.get_or_create('user.com')
-        self.assertEqual('user.com', user.key.id())
-        self.assert_entities_equal(user, self.user)
+        user = Web.get_or_create('new.com')
+        self.assert_task(mock_create_task, 'poll-feed', '/queue/poll-feed',
+                         domain='new.com')
 
     def test_get_or_create_existing_opted_out(self, *_):
         self.user.obj.mf2['properties']['summary'] = '#nobridge'
@@ -632,28 +588,6 @@ class WebTest(TestCase):
                          **params)
 
         self.assertEqual(NOW, self.user.key.get().last_webmention_in)
-
-    @skip
-    def test_first_webmention_unsubscribe_superfeedr(self, mock_get, mock_post):
-        self.user.superfeedr_subscribed = NOW
-        self.user.superfeedr_subscribed_feed = 'http://feed'
-        self.user.put()
-
-        mock_get.return_value = NOTE
-
-        params = {
-            'source': 'https://user.com/post',
-            'target': 'https://fed.brid.gy/',
-        }
-        got = self.post('/webmention', data=params)
-        self.assertEqual(204, got.status_code)
-
-        self.assertEqual(NOW, self.user.key.get().last_webmention_in)
-        self.assert_req(mock_post, SUPERFEEDR_PUSH_API, data={
-            'hub.mode': 'unsubscribe',
-            'hub.topic': 'http://feed',
-            'hub.callback': 'http://localhost/superfeedr/notify/user.com',
-        }, auth=ANY)
 
     def test_no_user(self, mock_get, mock_post):
         orig_count = Object.query().count()
@@ -1995,6 +1929,26 @@ class WebTest(TestCase):
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
         self.assertIsNone(self.user.key.get().last_polled_feed)
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_last_webmention_in_noop(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+
+        self.user.last_webmention_in = NOW
+        self.user.put()
+        self.user.obj.mf2 = {
+            **ACTOR_MF2,
+            'rel-urls': {
+                'https://foo/rss': {'rels': ['alternate'], 'type': rss.CONTENT_TYPE},
+            },
+        }
+        self.user.obj.put()
+
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(200, got.status_code)
+        self.assertIsNone(self.user.key.get().last_polled_feed)
+        mock_create_task.assert_not_called()
+        mock_get.assert_not_called()
 
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
         self.user.has_redirects = False
