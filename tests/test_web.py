@@ -1850,6 +1850,7 @@ class WebTest(TestCase):
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
+        self.assertEqual(NOW, self.user.key.get().last_polled_feed)
 
         mock_get.assert_has_calls((
             self.req('https://foo/atom'),
@@ -1922,6 +1923,7 @@ class WebTest(TestCase):
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
+        self.assertEqual(NOW, self.user.key.get().last_polled_feed)
 
         mock_get.assert_has_calls((
             self.req('https://foo/rss'),

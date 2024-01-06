@@ -99,6 +99,7 @@ class Web(User, Protocol):
     redirects_error = ndb.TextProperty()
     has_hcard = ndb.BooleanProperty()
     last_webmention_in = ndb.DateTimeProperty(tzinfo=timezone.utc)
+    last_polled_feed = ndb.DateTimeProperty(tzinfo=timezone.utc)
     superfeedr_subscribed = ndb.DateTimeProperty(tzinfo=timezone.utc)
     superfeedr_subscribed_feed = ndb.StringProperty()
 
@@ -650,6 +651,9 @@ def poll_feed_task():
 
     # fetch feed
     resp = util.requests_get(url)
+    user.last_polled_feed = util.now()
+    user.put()
+
     content_type = resp.headers.get('Content-Type')
     type = FEED_TYPES.get(content_type.split(';')[0])
     if type == 'atom':
