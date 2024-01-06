@@ -50,6 +50,7 @@ class UserTest(TestCase):
         user = Fake.get_or_create('fake:user')
 
         assert not user.direct
+        assert not user.existing
         assert user.mod
         assert user.public_exponent
         assert user.private_exponent
@@ -60,6 +61,7 @@ class UserTest(TestCase):
 
         # direct should get set even if the user exists
         same = Fake.get_or_create('fake:user', direct=True)
+        assert same.existing
         user.direct = True
         self.assert_entities_equal(same, user, ignore=['updated'])
 
@@ -105,7 +107,9 @@ class UserTest(TestCase):
         user.use_instead = self.user.key
         user.put()
 
-        self.assertEqual('y.z', Fake.get_or_create('a.b').key.id())
+        got = Fake.get_or_create('a.b')
+        self.assertEqual('y.z', got.key.id())
+        assert got.existing
 
     def test_get_or_create_opted_out(self):
         user = self.make_user('fake:user', cls=Fake,

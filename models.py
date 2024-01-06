@@ -155,6 +155,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
+    # `existing` attr is set by get_or_create
+
     # OLD. some stored entities still have this; do not reuse.
     # actor_as2 = JsonProperty()
 
@@ -214,6 +216,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if user:
             if user.status == 'opt-out':
                 return None
+            user.existing = True
             # override direct from False => True if set
             # TODO: propagate more props into user?
             direct = kwargs.get('direct')
@@ -225,6 +228,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                 return user
         else:
             user = cls(id=id, **kwargs)
+            user.existing = False
 
         # load and propagate user and profile object
         if not user.obj_key:
