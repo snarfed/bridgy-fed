@@ -45,14 +45,15 @@ CONNEG_HEADERS_AS2_HTML = {
 
 HTTP_SIG_HEADERS = ('Date', 'Host', 'Digest', '(request-target)')
 
-_DEFAULT_SIGNATURE_USER = None
+# https://seb.jambor.dev/posts/understanding-activitypub-part-4-threads/#the-instance-actor
+_INSTANCE_ACTOR = None
 
-def default_signature_user():
-    global _DEFAULT_SIGNATURE_USER
-    if _DEFAULT_SIGNATURE_USER is None:
+def instance_actor():
+    global _INSTANCE_ACTOR
+    if _INSTANCE_ACTOR is None:
         import web
-        _DEFAULT_SIGNATURE_USER = web.Web.get_or_create('snarfed.org')
-    return _DEFAULT_SIGNATURE_USER
+        _INSTANCE_ACTOR = web.Web.get_or_create(PRIMARY_DOMAIN)
+    return _INSTANCE_ACTOR
 
 
 class ActivityPub(User, Protocol):
@@ -486,7 +487,7 @@ def signed_request(fn, url, data=None, headers=None, from_user=None, **kwargs):
     # prepare HTTP Signature and headers
     if not from_user or isinstance(from_user, ActivityPub):
         # ActivityPub users are remote, so we don't have their keys
-        from_user = default_signature_user()
+        from_user = instance_actor()
 
     if data:
         logger.info(f'Sending AS2 object: {json_dumps(data, indent=2)}')

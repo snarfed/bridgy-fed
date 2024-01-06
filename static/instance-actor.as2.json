@@ -1,0 +1,24 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1"
+  ],
+  "type": "Application",
+  "id": "https://fed.brid.gy/fed.brid.gy",
+  "url": "https://fed.brid.gy/",
+  "preferredUsername": "fed.brid.gy",
+  "summary": "Bridging the new social internet",
+  "updated": "2023-12-26T16:53:48.598945+00:00",
+  "name": "Ryan Barrett",
+  "attachment": [{
+    "name": "Web site",
+    "type": "PropertyValue",
+    "value": "<a rel=\"me\" href=\"https://fed.brid.gy\"><span class=\"invisible\">https://</span>fed.brid.gy</a>"
+  }],
+  "image": "https://fed.brid.gy/static/bridgy_logo_with_alpha_square_1024.png",
+  "icon": {
+    "name": "Bridgy Fed",
+    "type": "Image",
+    "url": "https://fed.brid.gy/static/favicon.ico"
+  }
+}

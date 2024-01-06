@@ -477,7 +477,6 @@ class WebTest(TestCase):
             'acct:user.com',
             'acct:@user.com@user.com',
             'acc:me@user.com',
-            'fed.brid.gy',
             'ap.brid.gy',
             'localhost',
         ):
@@ -2230,10 +2229,10 @@ http://this/404s
         self.assertEqual(1, Web.query().count())
 
     def test_check_web_site_bridgy_fed_domain(self, _, __):
-        got = self.post('/web-site', data={'url': 'https://fed.brid.gy/foo'})
+        got = self.post('/web-site', data={'url': 'https://web.brid.gy/foo'})
         self.assert_equals(400, got.status_code)
         self.assertEqual(
-            ['https://fed.brid.gy/foo is not a valid or supported web site'],
+            ['https://web.brid.gy/foo is not a valid or supported web site'],
             get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
@@ -2514,6 +2513,12 @@ class WebUtilTest(TestCase):
         obj = Object(id='https://user.com/post')
         self.assertFalse(Web.fetch(obj))
         self.assertIsNone(obj.as1)
+
+    def test_fetch_instance_actor(self, _, __):
+        obj = Object(id=f'https://{common.PRIMARY_DOMAIN}/')
+        self.assertTrue(Web.fetch(obj))
+        self.assertEqual(obj.as2,
+                         json_loads(util.read('static/instance-actor.as2.json')))
 
     def test_fetch_resolves_relative_urls(self, mock_get, __):
         mock_get.return_value = requests_response("""\

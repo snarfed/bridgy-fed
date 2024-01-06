@@ -73,7 +73,7 @@ def is_valid_domain(domain):
         logger.debug(f"{domain} doesn't look like a domain")
         return False
 
-    if Web.is_blocklisted(domain):
+    if Web.is_blocklisted(domain) and domain != common.PRIMARY_DOMAIN:
         logger.debug(f'{domain} is blocklisted')
         return False
 
@@ -409,6 +409,10 @@ class Web(User, Protocol):
             return False
 
         is_homepage = urlparse(url).path.strip('/') == ''
+
+        if is_homepage and util.domain_from_link(url) == common.PRIMARY_DOMAIN:
+            obj.as2 = json_loads(util.read('static/instance-actor.as2.json'))
+            return True
 
         require_backlink = (common.host_url().rstrip('/')
                             if check_backlink and not is_homepage

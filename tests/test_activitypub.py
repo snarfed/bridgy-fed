@@ -19,12 +19,13 @@ from urllib3.exceptions import ReadTimeoutError
 from werkzeug.exceptions import BadGateway
 
 # import first so that Fake is defined before URL routes are registered
+from . import testutil
 from .testutil import Fake, TestCase
 
 import activitypub
 from activitypub import (
     ActivityPub,
-    default_signature_user,
+    instance_actor,
     postprocess_as2,
     postprocess_as2_actor,
 )
@@ -478,6 +479,23 @@ class ActivityPubTest(TestCase):
 
         got = self.client.get('/user.com')
         self.assertEqual(404, got.status_code)
+
+    def test_instance_actor_fetch(self, *_):
+        def reset_instance_actor():
+            activitypub._INSTANCE_ACTOR = testutil.global_user
+        self.addCleanup(reset_instance_actor)
+
+        actor_as2 = json_loads(util.read('static/instance-actor.as2.json'))
+        self.make_user(common.PRIMARY_DOMAIN, cls=Web, obj_as2=actor_as2)
+
+        activitypub._INSTANCE_ACTOR = None
+        got = self.client.get(f'/{common.PRIMARY_DOMAIN}')
+        self.assertEqual(200, got.status_code)
+        self.assert_equals({
+            **actor_as2,
+            'id': 'http://localhost/fed.brid.gy',
+        }, got.json, ignore=['inbox', 'outbox', 'endpoints', 'followers',
+                             'following', 'publicKey', 'publicKeyPem'])
 
     def test_individual_inbox_no_user(self, mock_head, mock_get, mock_post):
         self.user.key.delete()
@@ -1970,14 +1988,14 @@ class ActivityPubUtilsTest(TestCase):
             second['auth'].header_signer.sign(second['headers'], method='GET', path='/'))
 
     @patch('requests.post', return_value=requests_response(status=200))
-    def test_signed_post_from_user_is_activitypub_so_use_default_user(self, mock_post):
+    def test_signed_post_from_user_is_activitypub_use_instance_actor(self, mock_post):
         activitypub.signed_post('https://url', from_user=ActivityPub(id='http://fed'))
 
         self.assertEqual(1, len(mock_post.call_args_list))
         args, kwargs = mock_post.call_args_list[0]
         self.assertEqual(('https://url',), args)
         rsa_key = kwargs['auth'].header_signer._rsa._key
-        self.assertEqual(default_signature_user().private_pem(), rsa_key.exportKey())
+        self.assertEqual(instance_actor().private_pem(), rsa_key.exportKey())
 
     @patch('requests.post')
     def test_signed_post_ignores_redirect(self, mock_post):

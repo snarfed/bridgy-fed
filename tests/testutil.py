@@ -178,7 +178,7 @@ from flask_app import app, cache
 # expensive to generate.
 requests.post(f'http://{ndb_client.host}/reset')
 with ndb_client.context():
-    global_user = activitypub._DEFAULT_SIGNATURE_USER = Fake.get_or_create('fake:user')
+    global_user = activitypub._INSTANCE_ACTOR = Fake.get_or_create('fake:user')
 
 
 class TestCase(unittest.TestCase, testutil.Asserts):
