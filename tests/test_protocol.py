@@ -29,7 +29,7 @@ from web import Web
 
 from .test_activitypub import ACTOR
 from .test_atproto import DID_DOC
-from .test_web import ACTOR_HTML
+from .test_web import ACTOR_HTML_RESP, ACTOR_AS1_UNWRAPPED_URLS, ACTOR_MF2_REL_URLS
 
 
 class ProtocolTest(TestCase):
@@ -262,6 +262,23 @@ class ProtocolTest(TestCase):
         self.assertTrue(loaded.changed)
         self.assertFalse(loaded.new)
         self.assertEqual(['foo'], Fake.fetched)
+
+    @patch('requests.get', return_value=ACTOR_HTML_RESP)
+    def test_load_remote_true_clear_our_as1(self, _):
+        self.store_object(id='https://foo', our_as1={'should': 'disappear'},
+                          source_protocol='web')
+
+        expected_mf2 = {
+            **ACTOR_MF2_REL_URLS,
+            'url': 'https://user.com/',
+        }
+
+        loaded = Web.load('https://foo', remote=True)
+        self.assertEqual(expected_mf2, loaded.mf2)
+        self.assertIsNone(loaded.our_as1)
+        self.assertEqual(ACTOR_AS1_UNWRAPPED_URLS, loaded.as1)
+        self.assertTrue(loaded.changed)
+        self.assertFalse(loaded.new)
 
     def test_load_remote_false(self):
         self.assertIsNone(Fake.load('nope', remote=False))

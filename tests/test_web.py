@@ -72,6 +72,10 @@ ACTOR_AS1_UNWRAPPED = {
     'url': 'https://user.com/',
     'displayName': 'Ms. ☕ Baz',
 }
+ACTOR_AS1_UNWRAPPED_URLS = {
+    **ACTOR_AS1_UNWRAPPED,
+    'urls': [{'value': 'https://user.com/', 'displayName': 'Ms. ☕ Baz'}],
+}
 ACTOR_AS2 = {
     'type': 'Person',
     'id': 'http://localhost/user.com',
@@ -662,7 +666,7 @@ class WebTest(TestCase):
                            source_protocol='web',
                            type='comment',
                            labels=[],
-                           ignore=['our_as1', 'mf2'],
+                           ignore=['mf2', 'our_as1'],
                            )
         self.assert_object('https://user.com/reply#bridgy-fed-create',
                            source_protocol='web',
@@ -2425,10 +2429,7 @@ class WebUtilTest(TestCase):
             **ACTOR_MF2_REL_URLS,
             'url': 'https://user.com/',
         }, obj.mf2)
-        self.assert_equals({
-            **ACTOR_AS1_UNWRAPPED,
-            'urls': [{'value': 'https://user.com/', 'displayName': 'Ms. ☕ Baz'}],
-        }, obj.as1)
+        self.assert_equals(ACTOR_AS1_UNWRAPPED_URLS, obj.as1)
 
     def test_fetch_user_homepage_metaformats(self, mock_get, __):
         mock_get.return_value = requests_response(

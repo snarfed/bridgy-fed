@@ -1254,6 +1254,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
 
         # valid signature, Object has our_as1 instead of as2
+        self.key_id_obj.clear()
         self.key_id_obj.our_as1 = as2.to_as1(actor_as2)
         self.key_id_obj.put()
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)

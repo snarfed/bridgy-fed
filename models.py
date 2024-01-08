@@ -756,6 +756,8 @@ class Object(StringIdModel):
             obj = Object(id=id)
             obj.new = True
 
+        if set(props.keys()) & set(('our_as2', 'bsky', 'mf2', 'raw')):
+            obj.clear()
         obj.populate(**{
             k: v for k, v in props.items()
             if v and not isinstance(getattr(Object, k), ndb.ComputedProperty)
@@ -791,6 +793,11 @@ class Object(StringIdModel):
         """
         with self.lock:
             getattr(self, prop).remove(val)
+
+    def clear(self):
+        """Clears the :attr:`Object.our_as1` properties."""
+        with self.lock:
+            self.our_as1 = None
 
     def activity_changed(self, other_as1):
         """Returns True if this activity is meaningfully changed from ``other_as1``.
