@@ -30,6 +30,7 @@
 <li><a href="#login">How do I log into Bridgy Fed?</a></li>
 <li><a href="#visibility">Who can see me and my stuff?</a></li>
 <li><a href="#other-bridges">What about other bridges?</a></li>
+<li><a href="#bridgy-classic">What's the difference between this and Bridgy classic, ie non-Fed?</a></li>
 <li><a href="#behavior-mismatches">How does this handle behavior differences between networks?</a></li>
 <li><a href="#format-mismatches">How does this handle formatting differences between networks?</a></li>
 <li><a href="#moderation">What about moderation? How do blocks, mutes, etc work?</a></li>
@@ -140,9 +141,57 @@
 
 <li id="other-bridges" class="question">What about other bridges?</li>
 <li class="answer">
-<p>Bridgy Fed is just one of many different bridges: <a href="https://sasquatch.planetexpress.me/">Sasquatch</a>, <a href="https://fietkau.software/pinhole">pinhole</a>, <a href="https://github.com/videah/SkyBridge">SkyBridge</a>, and <a href="https://mostr.pub/">mostr.pub</a>, among others. They're great! They rarely reach the level of fully bidirectional federation that Bridgy Fed aims at, but they contribute to a diversity of approaches that we think is still valuable.</p>
+<p>Bridgy Fed is just one of many different bridges: <a href="https://sasquatch.planetexpress.me/">Sasquatch</a>, <a href="https://fietkau.software/pinhole">pinhole</a>, <a href="https://rss-parrot.net/">RSS Parrot</a>, <a href="https://mostr.pub/">mostr.pub</a>, and <a href="https://github.com/videah/SkyBridge">SkyBridge</a>, among others. They're great! They rarely reach the level of fully bidirectional federation that Bridgy Fed aims at, but they contribute to a diversity of approaches that we think is still valuable.</p>
 <p>These bridges don't interoperate right now, but we hope they will eventually. For example, where multiple bridges overlap, networks can end up with duplicate bridged accounts, which is obviously not ideal. <a href="https://github.com/snarfed/bridgy-fed/issues/543">FEP-fffd</a> is one promising approach to this that we're following closely. <a href="https://github.com/snarfed/bridgy-fed/issues/12">We're open to other ideas!</a></p>
 </li>
+
+{# NOTE: this question and the HTML diagrams are duplicated in
+   bridgy/templates/about.html. If you update them here, update them there too! #}
+<li id="bridgy-classic" class="question">What's the difference between this and Bridgy classic, ie non-Fed?</li>
+<li class="answer">
+<p><a href="https://fed.brid.gy/">Bridgy Fed</a> and <a href="https://brid.gy/">Bridgy classic</a> are separate services. They both connect web sites and social networks and translate posts and interactions back and forth, but they each do it very differently.</p>
+<a href="https://fed.brid.gy/">Bridgy Fed</a> - this service - bridges accounts on decentralized social networks like the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>, <a href="https://blueskyweb.xyz/">Bluesky</a>/<a href="https://atproto.com/">AT Protocol</a>, <a href="https://nostr.com/">Nostr</a>, and the IndieWeb <em>directly</em> across those networks.</p>
+<p><a href="https://brid.gy/">Bridgy classic</a>, on the other hand, connects <a href="https://indieweb.org/">IndieWeb</a> web sites to <em>existing</em> accounts on social networks, both centralized and decentralized, and provides <a href="https://indieweb.org/backfeed">backfeed</a> and <a href="https://indieweb.org/POSSE">POSSE</a> (aka cross-posting) as a service.</p>
+<p>As an example, here's a visualization of how they each connect web sites to the fediverse:</p>
+
+<br>
+
+<div class="row which-bridgy">
+
+<div class="col-lg-6 col-lg-offset-0 col-md-8 col-md-offset-2 col-sm-10 col-sm-offset-1 col-xs-12">
+<a class="btn btn-default" href="https://brid.gy/mastodon/start">
+<p class="bigger">
+  Bridgy cross-posts to a Mastodon account: @you@mastodon.server
+</p>
+<pre class="bigger">      <img title="Pleroma" style="height: 1.5em; margin-bottom: -.2em" src="/static/pleroma_logo.svg">
+    /
+<span class="highlight" style="background-color: khaki" title="Your web site">🌐</span> — <span class="highlight"><img title="Mastodon" src="/oauth_dropins_static/mastodon_2x.png"></span> — <img title="Friendica" src="/static/friendica_logo.svg">
+    \
+      <img title="Mastodon" src="/oauth_dropins_static/mastodon_2x.png">
+</pre>
+<p class="big">You already have a Mastodon account. You want to copy posts from your web site to Mastodon and send responses back to your site.</p>
+</a>
+</div>
+
+<div class="col-lg-6 col-lg-offset-0 col-md-8 col-md-offset-2 col-sm-10 col-sm-offset-1 col-xs-12">
+<a class="btn btn-default" href="https://fed.brid.gy/">
+<p class="bigger">
+  Bridgy Fed connects directly to the fediverse: @yoursite.com
+</p>
+<pre class="bigger"><img title="Fediverse" src="/static/fediverse_logo.svg">   <img title="PeerTube" src="/static/peertube_logo.svg">
+\ /
+<img title="Misskey" src="/static/misskey_logo.png"> — <span class="highlight" title="Your web site">🌐</span> — <img title="Mastodon" src="/oauth_dropins_static/mastodon_2x.png">
+/ \
+<img title="GNU Social" src="/static/gnu_social_logo.svg">   <img title="Pixelfed" src="/oauth_dropins_static/pixelfed_2x.png">
+</pre>
+<p class="big">Your web site will be its own fediverse account. Its posts will show up in the fediverse automatically. People there can follow it directly.</p>
+</a>
+</div>
+</div>
+
+<p>Apologies for the confusingly similar names!</p>
+</li>
+
 
 <li id="behavior-mismatches" class="question">How does this handle behavior differences between networks?</li>
 <li class="answer">

@@ -427,20 +427,16 @@ button[disabled]:hover {
   white-space: normal;
 }
 
-.btn-default, .btn-home {
+.btn-default {
   background-color: #CEF;
   border-color: #337AB7;
   color: #337AB7;
 }
 
-.btn-default:hover, .btn-home:hover {
+.btn-default:hover {
   background-color: #BDE;
   border-color: #337AB7;
   color: #337AB7;
-}
-
-.btn-home {
-  margin-bottom: 1em;
 }
 
 .btn-default pre {
@@ -448,11 +444,7 @@ button[disabled]:hover {
   border: none;
 }
 
-.btn-home {
-  border-radius: 1em;
-}
-
-.btn-home img, .logo, .logo img {
+.logo, .logo img {
   height: 1.1em;
   margin-top: -.2em;
 }
@@ -730,6 +722,39 @@ a img.shadow:hover
 .left p, .right p {
   margin-top: .3em;
   margin-bottom: 1em;
+}
+
+.which-bridgy.row {
+  margin-bottom: 1em;
+}
+
+.which-bridgy .btn {
+  white-space: normal;
+  border-radius: 1em;
+}
+
+.which-bridgy .btn img {
+  height: 1em;
+}
+
+.which-bridgy .btn-default {
+  background-color: #CEF;
+  margin-bottom: 1em;
+}
+
+.which-bridgy .btn-default:hover {
+  background-color: #BDE;
+}
+
+.which-bridgy .btn-default pre {
+  background-color: transparent;
+  border: none;
+}
+
+.which-bridgy .highlight {
+  background-color: lightgreen;
+  padding: .2em;
+  border-radius: .5em;
 }
 
 @media screen and (min-width: 312px) {
