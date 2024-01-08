@@ -191,19 +191,19 @@ pre .value, code .value, code.value {
   white-space: nowrap;
 }
 
-.front-light .web {
+.front-light .web, .front-light .web:hover {
   color: #20593c;
 }
 
-.front-light .fediverse {
+.front-light .fediverse, .front-light .fediverse:hover {
   color: #88305b;
 }
 
-.front-dark .web {
+.front-dark .web, .front-dark .web:hover {
   color: #b7e4c6;
 }
 
-.front-dark .fediverse {
+.front-dark .fediverse, .front-dark .fediverse:hover {
   color: #e4b7c6;
 }
 
