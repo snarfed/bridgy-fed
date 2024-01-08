@@ -35,8 +35,10 @@ def convert(dest, _, src=None):
         :func:`convert_source_path_redirect`
     """
     if src:
+        src_cls = PROTOCOLS.get(src)
+        if not src_cls:
+            error(f'No protocol found for {src}', status=404)
         logger.info(f'Overriding any domain protocol with {src}')
-        src_cls = PROTOCOLS[src]
     else:
         src_cls = Protocol.for_request(fed=Protocol)
     if not src_cls:
@@ -108,4 +110,8 @@ def convert_source_path_redirect(src, dest, _):
         request.url = request.url.replace(f'/{src}/', '/')
         return convert(dest, None, src)
 
-    return redirect(subdomain_wrap(PROTOCOLS[src], new_path), code=301)
+    proto = PROTOCOLS.get(src)
+    if not proto:
+        error(f'No protocol found for {src}', status=404)
+
+    return redirect(subdomain_wrap(proto, new_path), code=301)
