@@ -59,6 +59,7 @@ NON_TLDS = frozenset((
 FEED_TYPES = {
     atom.CONTENT_TYPE.split(';')[0]: 'atom',
     rss.CONTENT_TYPE.split(';')[0]: 'rss',
+    'application/xml': 'xml',
 }
 MIN_FEED_POLL_PERIOD = timedelta(hours=2)
 MAX_FEED_POLL_PERIOD = timedelta(weeks=1)
@@ -628,8 +629,8 @@ def poll_feed_task():
 
     # discover feed URL
     for url, info in user.obj.mf2.get('rel-urls', {}).items():
-        if ('alternate' in info.get('rels', [])
-                and info.get('type', '').split(';')[0] in FEED_TYPES.keys()):
+        rel_type = FEED_TYPES.get(info.get('type', '').split(';')[0])
+        if 'alternate' in info.get('rels', []) and rel_type:
             break
     else:
         msg = f"User {user.key.id()} has no feed URL, can't fetch feed"
@@ -640,10 +641,10 @@ def poll_feed_task():
     resp = util.requests_get(url)
     content_type = resp.headers.get('Content-Type')
     type = FEED_TYPES.get(content_type.split(';')[0])
-    if type == 'atom':
+    if type == 'atom' or (type == 'xml' and rel_type == 'atom'):
         activities = atom.atom_to_activities(resp.text)
         obj_feed_prop = {'atom': resp.text}
-    elif type == 'rss':
+    elif type == 'rss' or (type == 'xml' and rel_type == 'rss'):
         activities = rss.to_activities(resp.text)
         obj_feed_prop = {'rss': resp.text}
     else:

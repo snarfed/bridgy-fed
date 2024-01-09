@@ -1901,6 +1901,31 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'poll-feed', '/queue/poll-feed',
                          domain='user.com', eta_seconds=expected_eta)
 
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_xml_content_type(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.user.obj.put()
+
+        feed = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<entry xmlns="http://www.w3.org/2005/Atom">
+<uri>https://user.com/post</uri>
+<content>I hereby ☕ post</content>
+</entry>
+"""
+        mock_get.return_value = requests_response(
+            feed, headers={'Content-Type': 'application/xml; charset=utf-8'})
+
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(200, got.status_code)
+        self.assertEqual(NOW, self.user.key.get().last_polled_feed)
+
+        mock_get.assert_has_calls((
+            self.req('https://foo/atom'),
+        ))
+        assert Object.get_by_id('https://user.com/post')
+
     def test_poll_feed_fails(self, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = {
