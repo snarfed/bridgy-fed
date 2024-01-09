@@ -4,36 +4,26 @@
 
 {% block content %}
 
-{% if user.LABEL == 'web' %}
-{% if user.has_redirects == False %}
+{% if user.LABEL == 'web' and not user.has_redirects %}
 <div class="row promo warning">
+
+<p>Want to use <code>{{ user.key.id() }}</code> in your bridged handle instead of <code>web.brid.gy</code>? <a href="/docs#web-enhanced">You can!</a></p>
+
 <form method="post" action="/web-site">
-  Next step:
-  <a href="/docs#redirect+these+URL+paths">
-    add the .well-known redirects.
-  </a>
+  Already added the
+  <a href="/docs#fediverse-enhanced"><code>.well-known</code> redirects</a>?
   <input type="hidden" name="url" value="{{ user.web_url() }}" />
   <input type="submit" class="btn btn-default" value="Check now" />
 </form>
 
-{% if user.redirects_error %}
+{% if user.redirects_error and 'HTTP 404' not in user.redirects_error %}
 <details class="small">
   {{ user.redirects_error|safe }}
 </details>
 {% endif %}
-</div>
-{% endif %}
 
-{% if user.has_hcard == False %}
-<div class="row promo warning">
-<form method="post" action="/web-site">
-  Next step: <a href="/docs#profile">add a representative h-card.</a>
-  <input type="hidden" name="url" value="{{ user.web_url() }}" />
-  <input type="submit" class="btn btn-default" value="Check now" />
-</form>
 </div>
-{% endif %}
-{% endif %}
+{% endif %} {# promos for web users #}
 
 <div class="row">
   <span class="big">
@@ -45,12 +35,13 @@
         <span class="logo">{{ user.LOGO_HTML|safe }}</span>
         {{ user.handle_or_id() }}</a>
 
-    <!-- TODO: make this work with protocols other than Web -->
-    <form method="post" action="/webmention-interactive">
-      <input name="source" type="hidden" value="{{ user.web_url() }}" />
-      <button id="update-profile-button" type="submit" title="Update profile"
-              class="btn btn-default glyphicon glyphicon-refresh"></button>
-    </form>
+    {% if user.LABEL == 'web' %}
+      <form method="post" action="/webmention-interactive">
+        <input name="source" type="hidden" value="{{ user.web_url() }}" />
+        <button id="update-profile-button" type="submit" title="Update profile"
+                class="btn btn-default glyphicon glyphicon-refresh"></button>
+      </form>
+    {% endif %}
     </nobr>
     &middot;
   </span>
