@@ -604,7 +604,7 @@ def webmention_interactive():
     try:
         webmention_external()
         user = Web(id=util.domain_from_link(source, minimize=False))
-        flash(f'Updating fediverse profile from <a href="{user.web_url()}">{user.key.id()}</a>...')
+        flash(f'Updating profile from <a href="{user.web_url()}">{user.key.id()}</a>...')
         return redirect(user.user_page_path(), code=302)
 
     except HTTPException as e:

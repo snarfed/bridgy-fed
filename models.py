@@ -756,7 +756,7 @@ class Object(StringIdModel):
             obj = Object(id=id)
             obj.new = True
 
-        if set(props.keys()) & set(('our_as2', 'bsky', 'mf2', 'raw')):
+        if set(props.keys()) & set(('as2', 'bsky', 'mf2', 'raw')):
             obj.clear()
         obj.populate(**{
             k: v for k, v in props.items()
