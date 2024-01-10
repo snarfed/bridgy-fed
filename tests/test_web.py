@@ -63,7 +63,7 @@ ACTOR_MF2_REL_FEED_URL = {
     **ACTOR_MF2,
     'rel-urls': {
         'https://foo': {'rels': ['me'], 'text': 'Ms. ☕ Baz'},
-        'https://foo/atom': {'rels': ['alternate'], 'type': atom.CONTENT_TYPE},
+        'https://foo/feed': {'rels': ['alternate'], 'type': atom.CONTENT_TYPE},
     },
 }
 ACTOR_AS1_UNWRAPPED = {
@@ -1791,7 +1791,7 @@ class WebTest(TestCase):
         self.assertEqual(NOW, self.user.key.get().last_polled_feed)
 
         mock_get.assert_has_calls((
-            self.req('https://foo/atom'),
+            self.req('https://foo/feed'),
         ))
         obj = self.assert_object('https://user.com/post',
                                  users=[self.user.key],
@@ -1926,18 +1926,13 @@ class WebTest(TestCase):
         self.assertEqual(NOW, self.user.key.get().last_polled_feed)
 
         mock_get.assert_has_calls((
-            self.req('https://foo/atom'),
+            self.req('https://foo/feed'),
         ))
         assert Object.get_by_id('https://user.com/post')
 
     def test_poll_feed_fails(self, mock_get, _):
         common.RUN_TASKS_INLINE = False
-        self.user.obj.mf2 = {
-            **ACTOR_MF2,
-            'rel-urls': {
-                'https://foo/rss': {'rels': ['alternate'], 'type': rss.CONTENT_TYPE},
-            },
-        }
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
         self.user.obj.put()
 
         mock_get.side_effect = requests.ConnectionError()
@@ -1946,14 +1941,9 @@ class WebTest(TestCase):
         self.assertEqual(504, got.status_code)
         self.assertIsNone(self.user.key.get().last_polled_feed)
 
-    def test_poll_feed_wrong_content_types(self, mock_get, _):
+    def test_poll_feed_unsupported_content_types(self, mock_get, _):
         common.RUN_TASKS_INLINE = False
-        self.user.obj.mf2 = {
-            **ACTOR_MF2,
-            'rel-urls': {
-                'https://foo/rss': {'rels': ['alternate'], 'type': rss.CONTENT_TYPE},
-            },
-        }
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
         self.user.obj.put()
 
         for content_type in None, 'text/plain':
@@ -1962,6 +1952,17 @@ class WebTest(TestCase):
             got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
             self.assertEqual(200, got.status_code)
             self.assertIsNone(self.user.key.get().last_polled_feed)
+
+    def test_poll_feed_mismatched_content_type(self, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.user.obj.put()
+
+        mock_get.return_value = requests_response(
+            '<rss version="2.0"></rss>', headers={'Content-Type': atom.CONTENT_TYPE})
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(502, got.status_code)
+        self.assertIsNone(self.user.key.get().last_polled_feed)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_last_webmention_in_noop(self, mock_create_task, mock_get, _):
