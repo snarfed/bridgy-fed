@@ -1946,7 +1946,7 @@ class WebTest(TestCase):
         self.assertEqual(504, got.status_code)
         self.assertIsNone(self.user.key.get().last_polled_feed)
 
-    def test_poll_feed_wrong_content_type(self, mock_get, _):
+    def test_poll_feed_wrong_content_types(self, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = {
             **ACTOR_MF2,
@@ -1956,12 +1956,12 @@ class WebTest(TestCase):
         }
         self.user.obj.put()
 
-        mock_get.return_value = requests_response(
-            'nope', headers={'Content-Type': 'text/plain'})
-
-        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
-        self.assertEqual(200, got.status_code)
-        self.assertIsNone(self.user.key.get().last_polled_feed)
+        for content_type in None, 'text/plain':
+            mock_get.return_value = requests_response(
+                'nope', headers={'Content-Type': content_type})
+            got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+            self.assertEqual(200, got.status_code)
+            self.assertIsNone(self.user.key.get().last_polled_feed)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_last_webmention_in_noop(self, mock_create_task, mock_get, _):

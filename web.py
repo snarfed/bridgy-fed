@@ -613,6 +613,7 @@ def webmention_interactive():
 
 
 @app.post(f'/queue/poll-feed')
+@cloud_tasks_only
 def poll_feed_task():
     """Fetches a :class:`Web` site's feed and delivers new/updated posts.
 
@@ -639,7 +640,7 @@ def poll_feed_task():
 
     # fetch feed
     resp = util.requests_get(url)
-    content_type = resp.headers.get('Content-Type')
+    content_type = resp.headers.get('Content-Type') or ''
     type = FEED_TYPES.get(content_type.split(';')[0])
     if type == 'atom' or (type == 'xml' and rel_type == 'atom'):
         activities = atom.atom_to_activities(resp.text)
