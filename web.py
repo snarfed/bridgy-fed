@@ -659,6 +659,12 @@ def poll_feed_task():
     published_last = None
     published_deltas = []  # timedeltas between entry published times
     for i, activity in enumerate(activities):
+        # default actor and author to user
+        activity.setdefault('actor', {}).setdefault('id', user.profile_id())
+        activity.setdefault('object', {})\
+                .setdefault('author', {})\
+                .setdefault('id', user.profile_id())
+
         logger.info(f'Converted to AS1: {json_dumps(activity, indent=2)}')
 
         published = activity.get('object', {}).get('published')
