@@ -1779,8 +1779,8 @@ class WebTest(TestCase):
         feed = """\
 <?xml version="1.0" encoding="UTF-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
-<uri>https://user.com/post</uri>
-<content>I hereby ☕ post</content>
+  <link rel="alternate" type="text/html" href="https://user.com/post" />
+  <content>I hereby ☕ post</content>
 </entry>
 """
         mock_get.return_value = requests_response(
@@ -1929,6 +1929,58 @@ class WebTest(TestCase):
             self.req('https://foo/feed'),
         ))
         assert Object.get_by_id('https://user.com/post')
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_use_url_as_id(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.user.obj.put()
+
+        feed = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <id>tag:user.com,2999:abc</id>
+  <link rel="alternate" type="text/html" href="https://user.com/post" />
+  <content>I hereby ☕ post</content>
+</entry>
+"""
+        mock_get.return_value = requests_response(
+            feed, headers={'Content-Type': atom.CONTENT_TYPE})
+
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(200, got.status_code)
+        self.assertEqual(NOW, self.user.key.get().last_polled_feed)
+
+        mock_get.assert_has_calls((
+            self.req('https://foo/feed'),
+        ))
+        obj = self.assert_object('https://user.com/post',
+                                 users=[self.user.key],
+                                 source_protocol='web',
+                                 status='new',
+                                 atom=feed,
+                                 our_as1={
+                                     'objectType': 'activity',
+                                     'verb': 'post',
+                                     'id': 'https://user.com/post',
+                                     'url': 'https://user.com/post',
+                                     'actor': {'id': 'https://user.com/'},
+                                     'object':{
+                                         'objectType': 'note',
+                                         'id': 'https://user.com/post',
+                                         'url': 'https://user.com/post',
+                                         'author': {'id': 'https://user.com/'},
+                                         'content': 'I hereby ☕ post',
+                                     },
+                                     'feed_index': 0,
+                                 },
+                                 type='post',
+                                 object_ids=['https://user.com/post'],
+                                 labels=['user', 'activity'],
+                                 )
+        self.assert_task(mock_create_task, 'receive', '/queue/receive',
+                         obj=obj.key.urlsafe(),
+                         authed_as='user.com')
 
     def test_poll_feed_fails(self, mock_get, _):
         common.RUN_TASKS_INLINE = False

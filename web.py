@@ -668,9 +668,13 @@ def poll_feed_task():
     for i, activity in enumerate(activities):
         # default actor and author to user
         activity.setdefault('actor', {}).setdefault('id', user.profile_id())
-        activity.setdefault('object', {})\
-                .setdefault('author', {})\
-                .setdefault('id', user.profile_id())
+        obj = activity.setdefault('object', {})
+        obj.setdefault('author', {}).setdefault('id', user.profile_id())
+
+        # use URL as id since some feeds use non-URL (eg tag URI) ids
+        for elem in obj, activity:
+            if url := elem.get('url'):
+                elem['id'] = elem['url']
 
         logger.info(f'Converted to AS1: {json_dumps(activity, indent=2)}')
 
