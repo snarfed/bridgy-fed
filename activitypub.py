@@ -24,6 +24,7 @@ from common import (
     add,
     CACHE_TIME,
     CONTENT_TYPE_HTML,
+    DOMAINS,
     DOMAIN_RE,
     error,
     host_url,
@@ -751,6 +752,17 @@ def postprocess_as2_actor(actor, user):
             '@context': (util.get_list(actor, '@context') +
                          ['https://w3id.org/security/v1']),
         })
+
+    if (user.key.id() not in DOMAINS
+        and (not user.direct
+             # Web users only
+             or (getattr(user, 'last_webmention_in', 'unset') is None))):
+        actor['type'] = 'Application'
+        disclaimer = f'[<a href="https://{PRIMARY_DOMAIN}{user.user_page_path()}">bridged</a> from <a href="{user.web_url()}">{user.handle_or_id()}</a> by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
+        if not actor['summary'].endswith(disclaimer):
+            if actor['summary']:
+                actor['summary'] += '\n\n'
+            actor['summary'] += disclaimer
 
     return actor
 

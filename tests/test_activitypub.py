@@ -54,11 +54,11 @@ ACTOR_BASE = {
         'https://www.w3.org/ns/activitystreams',
         'https://w3id.org/security/v1',
     ],
-    'type': 'Person',
+    'type': 'Application',
     'id': 'http://localhost/user.com',
     'url': 'http://localhost/r/https://user.com/',
     'preferredUsername': 'user.com',
-    'summary': '',
+    'summary': '[<a href="https://fed.brid.gy/web/user.com">bridged</a> from <a href="https://user.com/">user.com</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
     'inbox': 'http://localhost/user.com/inbox',
     'outbox': 'http://localhost/user.com/outbox',
     'following': 'http://localhost/user.com/following',
@@ -437,6 +437,8 @@ class ActivityPubTest(TestCase):
         self.assert_equals({
             **ACTOR,
             **ACTOR_FAKE,
+            'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="fake:user">fake:handle:user</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
+            'type': 'Application',
         }, got.json, ignore=['publicKeyPem'])
 
     def test_actor_no_handle(self, *_):
