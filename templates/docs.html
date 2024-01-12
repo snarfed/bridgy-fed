@@ -90,6 +90,7 @@
 <li><a href="#privacy">What do you do with my data?</a></li>
 <li><a href="#history">How long has this been around?</a></li>
 <li><a href="#terms">What are the terms of service?</a></li>
+<li><a href="#moderation-policy">What is your content moderation policy?</a></li>
 <li><a href="#bug">I found a bug! I have a feature request!</a></li>
 <li><a href="#vulnerability">I found a security vulnerability!</a></li>
 <li><a href="#succession">What's your succession plan if you can't run Bridgy Fed any more?</a></li>
@@ -208,8 +209,8 @@
 <li id="moderation" class="question">What about moderation? How do blocks, mutes, etc work?</li>
 <li class="answer">
 <p>In general, native moderation tools within each network work with bridged users just like with native users. Blocking or muting a bridged user works just like you'd expect. Similarly, if you or an admin block an entire bridged network, that works just like blocking a native instance.</p>
-<p>We try to be a good citizen and prioritize users' safety, but if an admin decides that Bridgy Fed isn't in their users' best interest and blocks it, that's their prerogative, and we'll honor and support that decision.</p>
 <p>Bridgy Fed also incorporates and obeys lower level mitigation techniques such as the fediverse’s <a href="https://fedi.tips/authorized-fetch/">authorized fetch</a> aka secure mode. It always includes valid HTTP Signatures when fetching actors and other objects.</p>
+<p>For more background, see our <a href="#moderation-policy">content moderation policy</a>.</p>
 </li>
 
 <li id="user-page" class="question">Can I see my account's status and recent activity?</li>
@@ -607,7 +608,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <li id="who" class="question">Who are you? Why did you make this?</li>
 <li class="answer">
 <p>
-I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a href="https://snarfed.org/2012-07-25_why_i_have_my_own_web_site">the web</a> and <a href="https://indieweb.org/why">owning my data</a>. I build and run Bridgy Fed myself, with <a href="https://github.com/snarfed/bridgy-fed/graphs/contributors">occasional contributors</a> and lots of broader support.
+I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a href="https://snarfed.org/2012-07-25_why_i_have_my_own_web_site">the web</a> and <a href="https://indieweb.org/why">owning my data</a>. <a href="https://snarfed.org/2023-11-27_re-introducing-bridgy-fed">I build and run Bridgy Fed myself</a>, with <a href="https://github.com/snarfed/bridgy-fed/graphs/contributors">occasional contributors</a> and lots of broader support.
 </p>
 
 <p>I love how decentralized social networks like the fediverse and the <a href="https://indieweb.org/">IndieWeb</a> let us move away from walled gardens controlled by single monolithic entities. I love that we can control our own destinies online, nurture and grow our own communities and instances, and still interact with people elsewhere. I want to be able to interact across networks just like we interact across servers. That's why I build bridges like Bridgy Fed.</p>
@@ -637,6 +638,30 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 </p>
 <p>Do you an administer an instance or other service that Bridgy Fed interacts with? If you have any concerns or questions, feel free to <a href="https://github.com/snarfed/bridgy-fed/issues">file an issue</a> or <a href="https://snarfed.org/about">email me privately</a>!</p>
 </li>
+
+
+<li id="moderation-policy" class="question">What is your content moderation policy?</li>
+<li class="answer">
+<p>Bridgy Fed doesn't have a comprehensive policy for content moderation. Instead, I try to follow these principles:</p>
+<ul>
+<li>
+<p><strong>I don't plan to run a <a href="https://en.wiktionary.org/wiki/Nazi_bar">Nazi bar</a>.</strong> I have no interest in enabling harmful behavior like harassment or incitements to violence, whether knowingly or unknowingly. I reserve the right to remove content and accounts from Bridgy Fed for any reason, or no reason at all.</p>
+</li>
+<li>
+<p><strong>Bridgy Fed is more network infrastructure than content platform.</strong> Bridgy Fed is not a social network, nor is it an instance in one. It's a relay: it copies and translates content and interactions between existing networks and platforms. It stores some content for a moderate period of time, in order to do its job, but not forever, and it doesn't host images or media at all.</p>
+</li>
+<li>
+<p><strong><a href="https://snarfed.org/2023-11-27_re-introducing-bridgy-fed">I build run Bridgy Fed largely alone, as a side project.</a></strong> It's open source, and <a href="https://github.com/snarfed/bridgy-fed/graphs/contributors">other people contribute occasionally</a>, which is great! But so far, there isn't a robust community building it. It's just me, sometimes full time, usually alongside a day job. I can't hire a dedicated trust and safety team, I don't expect to recruit volunteer moderators, and I'm unlikely to become an expert myself. I'm just doing my best as an amateur, with the support of organizations like <a href="https://about.iftas.org/">IFTAS</a>.</p>
+</li>
+<li>
+<p><strong>My primary goal is to <a href="#moderation">empower each network's existing moderation ecosystem</a>.</strong> Most decentralized social networks have existing, often mature mechanisms for content moderation. The fediverse has <a href="https://docs.joinmastodon.org/user/moderating/#block">blocks</a> and <a href="https://docs.joinmastodon.org/admin/moderation/#server-wide-moderation">defederation</a> and <a href="https://about.iftas.org/">IFTAS</a>, the IndieWeb has <a href="https://indieweb.org/Vouch">Vouch</a> and <a href="https://akismet.com/">Akismet</a>, Bluesky has <a href="https://blueskyweb.xyz/blog/4-13-2023-moderation">labeling</a>, even Nostr has <a href="https://github.com/nostr-protocol/nips/blob/master/28.md">mutes</a> and <a href="https://github.com/nostr-protocol/nips/blob/master/51.md#standard-lists">shared mutelists</a> and <a href="https://github.com/nostr-protocol/nips/blob/master/72.md">moderated groups</a>.</p>
+<p>I try to ensure that those mechanisms all work with bridged accounts just as well as with native accounts, up to and including defederation. I'm always ready to hear admins' concerns and try to help! But if an instance determines that they need to block a Bridgy Fed network (domain) entirely, that's their prerogative, and I'll support them.</p>
+</li>
+</ul>
+<p>These are principles, not a policy. When a user or post gets reported to me, I don't follow this letter by letter to determine what to do. The language here will evolve over time. However, I hope to live up to this <em>in spirit</em> for the long run.</p>
+<p>Please reach out and let me know your thoughts! And feel free to report anything you see on Bridgy Fed that you think shouldn't be there. You can <a href="https://github.com/snarfed/bridgy-fed/issues">file an issue on GitHub</a>, <a href="https://snarfed.org/about">email me privately</a>, or <a href="https://fed.brid.gy/web/snarfed.org">ping me on your social network of choice</a>.</p>
+</li>
+
 
 <li id="bug" class="question">I found a bug! I have a feature request!</li>
 <li class="answer">
