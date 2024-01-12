@@ -761,7 +761,7 @@ def postprocess_as2_actor(actor, user):
         disclaimer = f'[<a href="https://{PRIMARY_DOMAIN}{user.user_page_path()}">bridged</a> from <a href="{user.web_url()}">{user.handle_or_id()}</a> by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
         if not actor['summary'].endswith(disclaimer):
             if actor['summary']:
-                actor['summary'] += '\n\n'
+                actor['summary'] += '<br><br>'
             actor['summary'] += disclaimer
 
     return actor
