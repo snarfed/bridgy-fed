@@ -23,8 +23,8 @@ from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
 from .test_web import ACTOR_AS2, REPOST_AS2
 
 ACTOR_WITH_PREFERRED_USERNAME = {
-    **ACTOR,
     'preferredUsername': 'me',
+    'url': 'https://plus.google.com/bob',
 }
 
 
@@ -56,7 +56,7 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code)
 
     def test_user_page_handle(self):
-        user = self.make_user('http://foo', cls=ActivityPub,
+        user = self.make_user('http://fo/o', cls=ActivityPub,
                               obj_as2=ACTOR_WITH_PREFERRED_USERNAME)
         self.assertEqual('@me@plus.google.com', user.handle_as(ActivityPub))
 
@@ -167,9 +167,9 @@ class PagesTest(TestCase):
     def test_followers(self):
         Follower.get_or_create(
             to=self.user,
-            from_=self.make_user('http://unused', cls=ActivityPub, obj_as2={
+            from_=self.make_user('http://un/used', cls=ActivityPub, obj_as2={
                 **ACTOR,
-                'id': 'unused',
+                'id': 'http://un/used',
                 'url': 'http://stored/users/follow',
             }))
         Follower.get_or_create(
@@ -261,9 +261,9 @@ class PagesTest(TestCase):
     def test_following(self):
         Follower.get_or_create(
             from_=self.user,
-            to=self.make_user('http://unused', cls=ActivityPub, obj_as2={
+            to=self.make_user('http://un/used', cls=ActivityPub, obj_as2={
                 **ACTOR,
-                'id': 'unused',
+                'id': 'http://un/used',
                 'url': 'http://stored/users/follow',
             }))
         Follower.get_or_create(

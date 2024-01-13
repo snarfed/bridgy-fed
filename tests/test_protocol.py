@@ -230,16 +230,16 @@ class ProtocolTest(TestCase):
         self.assertEqual(['foo'], Fake.fetched)
 
     def test_load_remote_true_unchanged(self):
-        obj = self.store_object(id='foo', our_as1={'x': 'stored'},
+        obj = self.store_object(id='fake:foo', our_as1={'x': 'stored'},
                                 source_protocol='fake')
-        Fake.fetchable['foo'] = {'x': 'stored'}
+        Fake.fetchable['fake:foo'] = {'x': 'stored'}
 
-        loaded = Fake.load('foo', remote=True)
+        loaded = Fake.load('fake:foo', remote=True)
         self.assert_entities_equal(obj, loaded,
                                    ignore=['expire', 'created', 'updated'])
         self.assertFalse(loaded.changed)
         self.assertFalse(loaded.new)
-        self.assertEqual(['foo'], Fake.fetched)
+        self.assertEqual(['fake:foo'], Fake.fetched)
 
     def test_load_remote_true_local_false(self):
         Fake.fetchable['foo'] = our_as1={'x': 'y'}
@@ -639,11 +639,11 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([(obj.key.id(), 'shared:target')], Fake.sent)
 
     def test_create_post_use_instead(self):
-        self.make_user('fake:instead', cls=Fake, use_instead=self.user.key, obj_mf2={
+        self.make_user('fake:not-this', cls=Fake, use_instead=self.user.key, obj_mf2={
             'type': ['h-card'],
             'properties': {
                 # this is the key part to test; Object.as1 uses this as id
-                'url': ['https://www.user.com/'],
+                'url': ['fake:user'],
             },
         })
         self.make_followers()
@@ -651,7 +651,7 @@ class ProtocolReceiveTest(TestCase):
         post_as1 = {
             'id': 'fake:post',
             'objectType': 'note',
-            'author': 'fake:instead',
+            'author': 'fake:user',
         }
         obj = self.store_object(id='fake:post', our_as1=post_as1)
 
@@ -888,7 +888,7 @@ class ProtocolReceiveTest(TestCase):
                 'author': 'fake:bob',
             },
         }
-        self.assertEqual(('OK', 202), Fake.receive_as1(reply_as1))
+        self.assertEqual(('OK', 202), OtherFake.receive_as1(reply_as1))
 
         obj = Object.get_by_id('other:reply#bridgy-fed-create')
         self.assertEqual([Fake(id='fake:bob').key], obj.notify)
@@ -1515,7 +1515,7 @@ class ProtocolReceiveTest(TestCase):
         }
 
         follow_as1 = {
-            'id': 'http://x.com/follow',
+            'id': 'other:follow',
             'objectType': 'activity',
             'verb': 'follow',
             'actor': 'other:carol',
@@ -1526,18 +1526,20 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual(1, len(OtherFake.sent))
         self.assertEqual(
-            'https://fa.brid.gy/ap/fake:alice/followers#accept-http://x.com/follow',
+            'https://fa.brid.gy/ap/fake:alice/followers#accept-other:follow',
             OtherFake.sent[0][0])
 
         self.assertEqual(1, len(Fake.sent))
-        self.assertEqual('http://x.com/follow', Fake.sent[0][0])
+        self.assertEqual('other:follow', Fake.sent[0][0])
 
         followers = Follower.query().fetch()
         self.assertEqual(1, len(followers))
         self.assertEqual(self.alice.key, followers[0].to)
 
-    def test_skip_same_domain(self):
-        Fake.fetchable = {
+    @patch('requests.post')
+    @patch('requests.get')
+    def test_skip_web_same_domain(self, mock_get, mock_post):
+        Web.fetchable = {
             'http://x.com/alice': {},
             'http://x.com/bob': {},
             'http://x.com/eve': {},
@@ -1552,23 +1554,11 @@ class ProtocolReceiveTest(TestCase):
         }
 
         with self.assertRaises(NoContent):
-            Fake.receive_as1(follow_as1)
+            Web.receive(Object(our_as1=follow_as1))
 
-        self.assertEqual([
-            ('https://fa.brid.gy/ap/http://x.com/bob/followers#accept-http://x.com/follow',
-             'http://x.com/alice:target'),
-            ('https://fa.brid.gy/ap/http://x.com/eve/followers#accept-http://x.com/follow',
-             'http://x.com/alice:target'),
-        ], Fake.sent)
-
-        self.assert_object('http://x.com/follow',
-                           our_as1=follow_as1,
-                           status='ignored',
-                           users=[ndb.Key(Fake, 'http://x.com/alice')],
-                           notify=[ndb.Key(Fake, 'http://x.com/bob'),
-                                   ndb.Key(Fake, 'http://x.com/eve')],
-                           )
-        self.assertEqual(2, Follower.query().count())
+        mock_get.assert_not_called()
+        mock_post.assert_not_called()
+        self.assertEqual(0, Follower.query().count())
 
     def test_opted_out(self):
         self.user.obj.our_as1 = {
@@ -1672,7 +1662,7 @@ class ProtocolReceiveTest(TestCase):
         # no matching copies
         obj = Object(id='other:reply', our_as1=reply, source_protocol='other')
         with self.assertRaises(NoContent):
-            Fake.receive(obj)
+            OtherFake.receive(obj)
         self.assert_equals(reply, obj.our_as1)
 
         # matching copies
@@ -1688,7 +1678,7 @@ class ProtocolReceiveTest(TestCase):
 
         protocol.seen_ids.clear()
         obj.new = True
-        self.assertEqual(('OK', 202), Fake.receive(obj))
+        self.assertEqual(('OK', 202), OtherFake.receive(obj))
         self.assertEqual({
             'id': 'other:reply',
             'objectType': 'note',

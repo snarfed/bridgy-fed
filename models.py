@@ -658,10 +658,16 @@ class Object(StringIdModel):
         * Set/remove the activity label
         * Strip @context from as2 (we don't do LD) to save disk space
         """
-        assert '^^' not in self.key.id()
+        id = self.key.id()
+        assert '^^' not in id
 
-        if self.key.id().startswith('at://'):
-            repo, _, _ = parse_at_uri(self.key.id())
+        if self.source_protocol not in (None, 'ui'):
+            proto = PROTOCOLS[self.source_protocol]
+            assert proto.owns_id(id) is not False, \
+                f'Protocol {proto.LABEL} does not own id {id}'
+
+        if id.startswith('at://'):
+            repo, _, _ = parse_at_uri(id)
             if not repo.startswith('did:'):
                 # TODO: if we hit this, that means the AppView gave us an AT URI
                 # with a handle repo/authority instead of DID. that's surprising!
@@ -669,7 +675,7 @@ class Object(StringIdModel):
                 # arroba.did.canonicalize_at_uri() function, then use it here,
                 # or before.
                 raise ValueError(
-                    f'at:// URI ids must have DID repos; got {self.key.id()}')
+                    f'at:// URI ids must have DID repos; got {id}')
 
         if self.as1 and self.as1.get('objectType') == 'activity':
             # can't self.add because we're inside self.put, which has the lock

@@ -1278,7 +1278,7 @@ class WebTest(TestCase):
 
         Follower.get_or_create(
             to=self.user,
-            from_=self.make_user('http://a', cls=ActivityPub,
+            from_=self.make_user('https://a/b', cls=ActivityPub,
                                  obj_as2={'inbox': 'https://inbox'}))
         got = self.post('/queue/webmention', data={
             'source': 'https://user.com/post',
@@ -1610,13 +1610,13 @@ class WebTest(TestCase):
         mock_get.side_effect = [ACTOR_HTML_RESP]
         mock_post.return_value = requests_response('abc xyz')
         Follower.get_or_create(to=self.user, from_=self.make_user(
-            'http://ccc', cls=ActivityPub, obj_as2={
+            'http://c/cc', cls=ActivityPub, obj_as2={
                 'endpoints': {
                     'sharedInbox': 'https://shared/inbox',
                 },
             }))
         Follower.get_or_create(to=self.user, from_=self.make_user(
-            'http://ddd', cls=ActivityPub, obj_as2={'inbox': 'https://inbox'}))
+            'http://d/dd', cls=ActivityPub, obj_as2={'inbox': 'https://inbox'}))
 
         got = self.post('/queue/webmention', data={
             'source': 'https://user.com/',
@@ -1705,7 +1705,7 @@ class WebTest(TestCase):
 
         mock_post.return_value = requests_response('OK')
         Follower.get_or_create(to=self.user, from_=self.make_user(
-            'http://ddd', cls=ActivityPub, obj_as2={'inbox': 'https://inbox'}))
+            'http://d/dd', cls=ActivityPub, obj_as2={'inbox': 'https://inbox'}))
 
         got = self.post('/queue/webmention', data={
             'source': 'https://user.com/',
@@ -2771,7 +2771,7 @@ class WebUtilTest(TestCase):
         }), from_user=None), ignore_blanks=True)
 
     def test_target_for(self, _, __):
-        self.assertIsNone(Web.target_for(Object(id='x', source_protocol='web')))
+        self.assertIsNone(Web.target_for(Object(id='x')))
 
         self.assertEqual('http://foo', Web.target_for(
             Object(id='http://foo', source_protocol='web')))

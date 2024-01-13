@@ -629,14 +629,14 @@ class ActivityPubTest(TestCase):
         })
         reply = {
             **REPLY_OBJECT,
-            'id': 'fake:my-reply',
+            'id': 'http://my/reply',
             'inReplyTo': 'fake:post',
         }
 
         got = self.post('/ap/fake:user/inbox', json=reply,
                         base_url='https://fa.brid.gy/')
         self.assertEqual(202, got.status_code)
-        self.assertEqual([('fake:my-reply#bridgy-fed-create', 'fake:post:target')],
+        self.assertEqual([('http://my/reply#bridgy-fed-create', 'fake:post:target')],
                          Fake.sent)
 
     def test_inbox_reply_to_self_domain(self, mock_head, mock_get, mock_post):
@@ -670,7 +670,7 @@ class ActivityPubTest(TestCase):
         swentel = self.make_user('https://mas.to/users/swentel', cls=ActivityPub)
         Follower.get_or_create(to=swentel, from_=self.user)
         bar = self.make_user('fake:bar', cls=Fake, obj_id='fake:bar')
-        Follower.get_or_create(to=self.make_user('https://other.actor',
+        Follower.get_or_create(to=self.make_user('https://other/actor',
                                                  cls=ActivityPub),
                                from_=bar)
         baz = self.make_user('fake:baz', cls=Fake, obj_id='fake:baz')
@@ -784,7 +784,7 @@ class ActivityPubTest(TestCase):
         self.assert_object(REPOST['id'],
                            source_protocol='activitypub',
                            status='complete',
-                           our_as1=as2.to_as1({**REPOST, 'actor': ACTOR}),
+                           as2=REPOST,
                            users=[self.swentel_key],
                            feed=[self.user.key, baz.key],
                            delivered=['shared:target'],
@@ -1111,13 +1111,11 @@ class ActivityPubTest(TestCase):
     def test_inbox_follow_inactive(self, mock_head, mock_get, mock_post):
         follower = Follower.get_or_create(
             to=self.user,
-            from_=self.make_user(ACTOR['id'], cls=ActivityPub),
+            from_=self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR),
             status='inactive')
 
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
-            # source actor
-            self.as2_resp(FOLLOW_WITH_ACTOR['actor']),
             test_web.ACTOR_HTML_RESP,
             WEBMENTION_DISCOVERY,
         ]
@@ -1468,12 +1466,12 @@ class ActivityPubTest(TestCase):
         with self.assertLogs() as logs:
             got = self.post('/user.com/inbox', json={
                 **NOTE_OBJECT,
-                'author': 'https://alice',
+                'author': 'https://al/ice',
             })
             self.assertEqual(204, got.status_code, got.get_data(as_text=True))
 
         self.assertIn(
-            "WARNING:protocol:actor https://alice isn't authed user http://my/key/id",
+            "WARNING:protocol:actor https://al/ice isn't authed user http://my/key/id",
             logs.output)
 
     def test_followers_collection_unknown_user(self, *_):
@@ -1504,7 +1502,7 @@ class ActivityPubTest(TestCase):
             from_=self.make_user('http://bar', cls=ActivityPub, obj_as2=ACTOR),
             follow=follow)
         Follower.get_or_create(
-            to=self.make_user('https://other.actor', cls=ActivityPub),
+            to=self.make_user('https://other/actor', cls=ActivityPub),
             from_=self.user)
         Follower.get_or_create(
             to=self.user,
@@ -1512,24 +1510,24 @@ class ActivityPubTest(TestCase):
             follow=follow)
         Follower.get_or_create(
             to=self.user,
-            from_=self.make_user('http://baj', cls=Fake),
+            from_=self.make_user('fake:baj', cls=Fake),
             status='inactive')
 
     def test_followers_collection_fake(self, *_):
-        self.make_user('foo.com', cls=Fake)
+        self.make_user('fake:foo', cls=Fake)
 
-        resp = self.client.get('/ap/foo.com/followers',
+        resp = self.client.get('/ap/fake:foo/followers',
                                base_url='https://fa.brid.gy')
         self.assertEqual(200, resp.status_code)
         self.assertEqual({
             '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': 'https://fa.brid.gy/ap/foo.com/followers',
+            'id': 'https://fa.brid.gy/ap/fake:foo/followers',
             'type': 'Collection',
-            'summary': "foo.com's followers",
+            'summary': "fake:foo's followers",
             'totalItems': 0,
             'first': {
                 'type': 'CollectionPage',
-                'partOf': 'https://fa.brid.gy/ap/foo.com/followers',
+                'partOf': 'https://fa.brid.gy/ap/fake:foo/followers',
                 'items': [],
             },
         }, resp.json)
@@ -1601,12 +1599,12 @@ class ActivityPubTest(TestCase):
             follow=follow)
         Follower.get_or_create(
             to=self.user,
-            from_=self.make_user('https://other.actor', cls=ActivityPub))
+            from_=self.make_user('https://other/actor', cls=ActivityPub))
         Follower.get_or_create(
             to=self.make_user('http://baz', cls=ActivityPub, obj_as2=ACTOR),
             from_=self.user, follow=follow)
         Follower.get_or_create(
-            to=self.make_user('http://baj', cls=ActivityPub),
+            to=self.make_user('http://ba/j', cls=ActivityPub),
             from_=self.user,
             status='inactive')
 
@@ -2212,9 +2210,9 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual('http://my/url', user.web_url())
 
     def test_handle(self):
-        user = self.make_user('http://foo', cls=ActivityPub)
+        user = self.make_user('http://foo/ey', cls=ActivityPub)
         self.assertIsNone(user.handle)
-        self.assertEqual('http://foo', user.handle_or_id())
+        self.assertEqual('http://foo/ey', user.handle_or_id())
 
         user.obj = Object(id='a', as2=ACTOR)
         self.assertEqual('@swentel@mas.to', user.handle)

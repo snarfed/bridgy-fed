@@ -284,13 +284,19 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         obj_as2 = kwargs.pop('obj_as2', None)
         obj_mf2 = kwargs.pop('obj_mf2', None)
         obj_id = kwargs.pop('obj_id', None)
-        if not obj_id:
-            obj_id = ((obj_as2 or {}).get('id')
-                      or util.get_url((obj_mf2 or {}), 'properties')
-                      or str(self.last_make_user_id))
-            self.last_make_user_id += 1
-        obj_key = Object(id=obj_id, our_as1=obj_as1, as2=obj_as2, mf2=obj_mf2,
-                         source_protocol=cls.LABEL).put()
+
+        obj_key = None
+        if cls != ATProto:
+            if not obj_id:
+                obj_id = ((obj_as2 or {}).get('id')
+                          or util.get_url((obj_mf2 or {}), 'properties')
+                          or (f'http://{id}/' if cls == Web else id))
+                          # unused right now
+                          # or f'fake:{str(self.last_make_user_id)}')
+                self.last_make_user_id += 1
+            obj_key = Object.get_or_create(id=obj_id, our_as1=obj_as1, as2=obj_as2,
+                                           mf2=obj_mf2, source_protocol=cls.LABEL
+                                           ).key
 
         user = cls(id=id,
                    direct=True,

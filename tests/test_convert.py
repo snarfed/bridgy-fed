@@ -157,12 +157,12 @@ class ConvertTest(testutil.TestCase):
         mock_get.assert_has_calls((self.as2_req('http://foo'),))
 
     def test_activitypub_to_web_with_author(self):
-        Object(id='http://foo', our_as1={**COMMENT, 'author': 'http://bar'},
+        Object(id='http://fo/o', our_as1={**COMMENT, 'author': 'http://ba/r'},
                source_protocol='activitypub').put()
-        Object(id='http://bar', our_as1=ACTOR,
+        Object(id='http://ba/r', our_as1=ACTOR,
                source_protocol='activitypub').put()
 
-        resp = self.client.get('/convert/web/http://foo',
+        resp = self.client.get('/convert/web/http://fo/o',
                                base_url='https://ap.brid.gy/')
         self.assertEqual(200, resp.status_code)
         self.assert_multiline_equals(AUTHOR_HTML, resp.get_data(as_text=True),

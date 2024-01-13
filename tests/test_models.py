@@ -129,7 +129,9 @@ class UserTest(TestCase):
     def test_user_page_path(self):
         self.assertEqual('/web/y.z', self.user.user_page_path())
         self.assertEqual('/web/y.z/followers', self.user.user_page_path('followers'))
-        self.assertEqual('/fa/foo', self.make_user('foo', cls=Fake).user_page_path())
+
+        fake_foo = self.make_user('fake:foo', cls=Fake)
+        self.assertEqual('/fa/fake:handle:foo', fake_foo.user_page_path())
 
     def test_user_link(self):
         self.assert_multiline_equals("""\
@@ -486,8 +488,9 @@ class ObjectTest(TestCase):
         self.assertIn('Alice', got)
 
     def test_actor_link_object_in_datastore(self):
-        Object(id='fake:alice', as2={"name": "Alice"}).put()
-        obj = Object(id='x', source_protocol='fake', our_as1={'actor': 'fake:alice'})
+        Object(id='fake:alice', as2={'name': 'Alice'}).put()
+        obj = Object(id='fake:bob', source_protocol='fake',
+                     our_as1={'actor': 'fake:alice'})
         self.assertIn('Alice', obj.actor_link())
 
     def test_actor_link_no_image(self):
@@ -674,6 +677,13 @@ class ObjectTest(TestCase):
             'object': {},
         }, obj.key.get().as2)
 
+    def test_put_requires_protocol_owns_id(self):
+        Object(id='asdf foo').put()  # ok, no source protocol
+        Object(id='fake:foo', source_protocol='fake').put()  # ok, valid id
+
+        with self.assertRaises(AssertionError):
+            Object(id='not a fake', source_protocol='fake').put()
+
     def test_resolve_ids_empty(self):
         obj = Object()
         obj.resolve_ids()
@@ -839,8 +849,8 @@ class FollowerTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('foo', cls=Fake)
-        self.other_user = self.make_user('bar', cls=Fake)
+        self.user = self.make_user('fake:foo', cls=Fake)
+        self.other_user = self.make_user('fake:bar', cls=Fake)
 
     def test_from_to_same_type_fails(self):
         with self.assertRaises(AssertionError):
@@ -861,7 +871,7 @@ class FollowerTest(TestCase):
         self.assertEqual(1, Follower.query().count())
 
         Follower.get_or_create(to=self.user, from_=self.other_user)
-        Follower.get_or_create(from_=self.user, to=self.make_user('baz', cls=Fake))
+        Follower.get_or_create(from_=self.user, to=self.make_user('fake:baz', cls=Fake))
         self.assertEqual(3, Follower.query().count())
 
         # check that kwargs get set on existing entity
