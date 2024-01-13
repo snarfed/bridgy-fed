@@ -550,7 +550,7 @@ To receive likes, reposts, replies, @-mentions, and follows from the fediverse, 
 
 <li id="fediverse-enhanced" class="question">Can I use my own domain as my fediverse handle?</li>
 <li class="answer">
-<p>Yes! By default, bridged fediverse handles use a subdomain of <code>brid.gy</code> as their instance, eg <code>@mysite.com@web.brid.gy</code>, you can change the server (aka instance) part to your own domain. It takes a bit of setup and technical know-how, but it's very doable.</p>
+<p>Yes! By default, bridged fediverse handles use a subdomain of <code>brid.gy</code> as their instance, eg <code>@mysite.com@web.brid.gy</code>, but you can change the instance part to your own domain. It takes a bit of setup and technical know-how, but it's very doable.</p>
 <p>First, your domain needs to serve HTTP requests. You don't need an actual web site, but you do need a minimal web server.<p>
 <p>Second, your web server needs to support SSL. Bridgy Fed uses your domain as your identity, so it depends on SSL to prove that you own it.</p>
 <p>Lastly, your web server needs to redirect a couple URL paths, including query parameters, to the same paths on <code>https://fed.brid.gy/</code>:</li>
@@ -1334,4 +1334,4 @@ Upon receipt of a POST request containing the source and target parameters, the 
 </div>
 
 {% endblock %}
-<
+
