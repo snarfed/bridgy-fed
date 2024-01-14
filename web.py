@@ -71,7 +71,7 @@ def is_valid_domain(domain):
     Valid means TLD is ok, not blacklisted, etc.
     """
     if not re.match(DOMAIN_RE, domain):
-        logger.debug(f"{domain} doesn't look like a domain")
+        # logger.debug(f"{domain} doesn't look like a domain")
         return False
 
     if Web.is_blocklisted(domain) and domain != common.PRIMARY_DOMAIN:
@@ -310,7 +310,7 @@ class Web(User, Protocol):
         if is_valid_domain(id):
             return super().key_for(id)
 
-        logger.info(f'{id} is not a domain or usable home page URL')
+        # logger.info(f'{id} is not a domain or usable home page URL')
         return None
 
     @classmethod
