@@ -756,7 +756,9 @@ def postprocess_as2_actor(actor, user):
     if (user.key.id() not in DOMAINS
         and (not user.direct
              # Web users only
-             or (getattr(user, 'last_webmention_in', 'unset') is None))):
+             or (user.LABEL == 'web'
+                 and not getattr(user, 'last_webmention_in', 'unset')
+                 and not getattr(user, 'has_redirects', None)))):
         actor['type'] = 'Application'
         disclaimer = f'[<a href="https://{PRIMARY_DOMAIN}{user.user_page_path()}">bridged</a> from <a href="{user.web_url()}">{user.handle_or_id()}</a> by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
         if not actor['summary'].endswith(disclaimer):

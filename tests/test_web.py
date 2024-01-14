@@ -77,11 +77,10 @@ ACTOR_AS1_UNWRAPPED_URLS = {
     'urls': [{'value': 'https://user.com/', 'displayName': 'Ms. ☕ Baz'}],
 }
 ACTOR_AS2 = {
-    'type': 'Application',
+    'type': 'Person',
     'id': 'http://localhost/user.com',
     'url': 'http://localhost/r/https://user.com/',
     'name': 'Ms. ☕ Baz',
-    'summary': '[<a href="https://fed.brid.gy/web/user.com">bridged</a> from <a href="https://user.com/">user.com</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
     'preferredUsername': 'user.com',
     'inbox': 'http://localhost/user.com/inbox',
     'outbox': 'http://localhost/user.com/outbox',
