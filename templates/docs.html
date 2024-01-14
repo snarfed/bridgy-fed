@@ -665,6 +665,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 
 <h3 id="development">Development</h3>
 
+<!-- Mostly duplicated in Bridgy's docs! Keep both copies in sync! -->
 <li id="values" class="question">What are Bridgy Fed's product and engineering values?</li>
 <li class="answer">
 <p>What's important to Bridgy Fed and its development? How do we make technical and design decisions and prioritize work? One way to do this is to explicitly enumerate its product and engineering <em>values</em>, along with their priorities. <a href="https://archive.org/details/vimeo-230142234">Bryan Cantrill describes this well.</a></p>
@@ -678,13 +679,14 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <p>Bridgy Fed's second tier of product and engineering values are:</p>
 <ul>
 <li><b>Safety and security</b>: Bridgy Fed minimizes harm to its users. The primary way this currently manifests is that it only bridges fully public data, and it enables and supports the networks' own moderation features (blocking, reporting, etc). It also uses modern secure coding and ops practices to <a href="#vulnerability">minimize vulnerabilities</a> that could expose private keys or other sensitive information.</li>
-<li><b>Accessibility</b>: users should mostly fall into a <a href="https://blog.codinghorror.com/falling-into-the-pit-of-success/">"pit of success"</a> with minimal work on their end. Discovering and following users on other networks should be as easy as possible. After that, all interactions should work automatically, trasnparently.</li>
+<li><b>Accessibility</b>: users should mostly fall into a <a href="https://blog.codinghorror.com/falling-into-the-pit-of-success/">"pit of success"</a> with minimal work on their end. Discovering and following users on other networks should be as easy as possible. After that, all interactions should work automatically, transparently.</li>
 <li><b>Transparency</b>: it should be easy for users to understand what Bridgy Fed is doing. This includes per-user dashboard pages in the web UI, verbose public logs, and comprehensive documentation.</li>
 <li><b>Scalability</b>: we want to handle as much usage as we receive, as automatically as possible. This doesn't mean that Bridgy Fed is designed to handle millions of users today, just that it could be, and that we'd prioritize it.</li>
 </ul>
 </li>
 
 <p>Other possible values include maintainability, operability, feature velocity, innovation, debuggability, performance, efficiency, standards compliance, user growth, and more. Those can all be good, and we may aim at some of them too, but less than the explicitly chosen values above.</p>
+</li>
 
 <li id="compare" class="question">How do the different protocols compare?</li>
 <li class="answer">
