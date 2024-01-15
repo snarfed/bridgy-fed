@@ -7,21 +7,24 @@
 {% if user.LABEL == 'web' and not user.has_redirects %}
 <div class="row promo warning">
 
-<p>Want to use <code>{{ user.key.id() }}</code> in your bridged handle instead of <code>web.brid.gy</code>? <a href="/docs#web-enhanced">You can!</a></p>
+<p>Bridgy Fed is providing <a href="{{ user.web_url() }}">{{ user.handle_or_id() }}</a> a presence in the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>. This account was generated automatically when someone first followed it. <a href="/docs#web-how-post">Learn more here</a>.</p>
+
+<p>Do you own <a href="{{ user.web_url() }}">{{ user.handle_or_id() }}</a>? You can <a href="/docs#opt-out">opt out</a> or <a href="/docs#fediverse-enhanced">upgrade your fediverse handle</a> from <code>@web.brid.gy</code> to <code>@{{ user.handle_or_id() }}</code>.</p>
 
 <form method="post" action="/web-site">
-  Already added the
-  <a href="/docs#fediverse-enhanced"><code>.well-known</code> redirects</a>?
-  <input type="hidden" name="url" value="{{ user.web_url() }}" />
-  <input type="submit" class="btn btn-default" value="Check now" />
+  <span style="vertical-align: top">
+    Got your <a href="/docs#fediverse-enhanced">redirects set up</a>?
+    <input type="hidden" name="url" value="{{ user.web_url() }}" />
+    <input type="submit" class="btn btn-default" value="Check now" />
+  </span>
+
+  {% if user.redirects_error %}
+  <details>
+    <summary class="btn btn-default">See results</summary>
+    <span class="small">{{ user.redirects_error|safe }}</span>
+  </details>
+  {% endif %}
 </form>
-
-{% if user.redirects_error and 'HTTP 404' not in user.redirects_error %}
-<details class="small">
-  {{ user.redirects_error|safe }}
-</details>
-{% endif %}
-
 </div>
 {% endif %} {# promos for web users #}
 

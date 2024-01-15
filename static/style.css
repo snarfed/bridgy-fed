@@ -253,6 +253,33 @@ pre .value, code .value, code.value {
   margin-bottom: 1em;
 }
 
+.promo {
+  text-align: left;
+}
+
+.promo form {
+  margin: 10px;  /* same as p */
+}
+
+.promo details {
+  display: inline-block;
+  margin-bottom: 10px;
+}
+
+.promo details[open] {
+  margin-left: 10px;
+  margin-bottom: 0;
+}
+
+.promo details[open] pre {
+  margin-top: 10px;
+  margin-bottom: 0;
+}
+
+.promo summary {
+  cursor: pointer;
+}
+
 #edit-profile em {
   font-style: normal;
 }
@@ -433,8 +460,15 @@ button[disabled]:hover {
   color: #337AB7;
 }
 
-.btn-default:hover {
+.btn-default:hover, .btn-default:hover:focus {
   background-color: #BDE;
+  border-color: #337AB7;
+  color: #337AB7;
+}
+
+.btn-default:focus {
+  /* same as without :focus */
+  background-color: #CEF;
   border-color: #337AB7;
   color: #337AB7;
 }
@@ -560,7 +594,7 @@ input[type="text"], input[type="url"] {
   font-size: 1em;
 }
 
-input[type="submit"] {
+input[type="submit"], summary.btn {
   font-size: .75em;
 }
 
