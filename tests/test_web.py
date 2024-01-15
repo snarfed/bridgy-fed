@@ -2371,28 +2371,31 @@ class WebUtilTest(TestCase):
         self.assertIsNone(Web.owns_id('https://bar.com/'))
         self.assertIsNone(Web.owns_id('https://bar.com/baz'))
         self.assertIsNone(Web.owns_id('https://bar/'))
-        self.assertFalse(Web.owns_id('at://did:plc:foo/bar/123'))
-        self.assertFalse(Web.owns_id('e45fab982'))
+        self.assertEqual(False, Web.owns_id('at://did:plc:foo/bar/123'))
+        self.assertEqual(False, Web.owns_id('e45fab982'))
 
-        self.assertFalse(Web.owns_id('user.com'))
+        self.assertIsNone(Web.owns_id('user.com'))
         self.user.has_redirects = True
         self.user.put()
         self.assertTrue(Web.owns_id('user.com'))
         self.user.key.delete()
         self.assertIsNone(Web.owns_id('user.com'))
 
-        self.assertFalse(Web.owns_id('https://twitter.com/foo'))
-        self.assertFalse(Web.owns_id('https://fed.brid.gy/foo'))
+        # TODO: these should be False since they're blocklisted?
+        self.assertIsNone(Web.owns_id('https://twitter.com/foo'))
+        self.assertIsNone(Web.owns_id('https://fed.brid.gy/foo'))
 
     def test_owns_handle(self, *_):
         self.assertIsNone(Web.owns_handle('foo.com'))
         self.assertIsNone(Web.owns_handle('foo.bar.com'))
 
-        self.assertFalse(Web.owns_handle('foo'))
-        self.assertFalse(Web.owns_handle('@foo'))
-        self.assertFalse(Web.owns_handle('@foo.com'))
-        self.assertFalse(Web.owns_handle('@foo@bar.com'))
-        self.assertFalse(Web.owns_handle('foo@bar.com'))
+        self.assertEqual(False, Web.owns_handle('foo'))
+        self.assertEqual(False, Web.owns_handle('@foo'))
+        self.assertEqual(False, Web.owns_handle('@foo.com'))
+        self.assertEqual(False, Web.owns_handle('@foo@bar.com'))
+        self.assertEqual(False, Web.owns_handle('foo@bar.com'))
+        self.assertEqual(False, Web.owns_handle('localhost'))
+        self.assertEqual(False, Web.owns_handle('atproto.brid.gy'))
 
     def test_handle_to_id(self, *_):
         self.assertEqual('foo.com', Web.handle_to_id('foo.com'))

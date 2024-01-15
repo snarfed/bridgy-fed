@@ -92,14 +92,23 @@ class FollowCallback(indieauth.Callback):
         if not user:
             error(f'No web user for domain {domain}')
 
-        addr = state
         if not state:
             error('Missing state')
 
-        as2_url = state if util.is_web(state) else webfinger.fetch_actor_url(addr)
-        if not as2_url:
-            flash(f"Couldn't find ActivityPub profile link for {addr}")
-            return redirect(user.user_page_path('following'))
+        addr = state
+        if util.is_web(addr):
+            as2_url = addr
+            if ActivityPub.owns_id(as2_url) is False:
+                flash(f"{as2_url} isn't a native fediverse account")
+                return redirect(user.user_page_path('following'))
+        else:  # it's an @-@ handle
+            if ActivityPub.owns_handle(addr) is False:
+                flash(f"{addr} isn't a native fediverse account")
+                return redirect(user.user_page_path('following'))
+            as2_url = webfinger.fetch_actor_url(addr)
+            if not as2_url:
+                flash(f"Couldn't find ActivityPub profile link for {addr}")
+                return redirect(user.user_page_path('following'))
 
         # TODO(#512): follower will always be Web here, but we should generalize
         # followee support in UI and here across protocols

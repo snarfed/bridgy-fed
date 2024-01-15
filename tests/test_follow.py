@@ -19,40 +19,40 @@ from models import Follower, Object
 from web import Web
 
 WEBFINGER = requests_response({
-    'subject': 'acct:foo@bar',
+    'subject': 'acct:foo@ba.r',
     'aliases': [
-        'https://bar/foo',
+        'https://ba.r/foo',
     ],
     'links': [{
         'rel': 'http://ostatus.org/schema/1.0/subscribe',
-        'template': 'https://bar/follow?uri={uri}'
+        'template': 'https://ba.r/follow?uri={uri}'
     }, {
         'rel': 'self',
         'type': as2.CONTENT_TYPE,
-        'href': 'https://bar/actor'
+        'href': 'https://ba.r/actor'
     }],
 })
 FOLLOWEE = {
     'type': 'Person',
-    'id': 'https://bar/id',
-    'url': 'https://bar/url',
-    'inbox': 'http://bar/inbox',
-    'outbox': 'http://bar/outbox',
+    'id': 'https://ba.r/id',
+    'url': 'https://ba.r/url',
+    'inbox': 'http://ba.r/inbox',
+    'outbox': 'http://ba.r/outbox',
 }
 FOLLOW_ADDRESS = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Follow',
-    'id': f'http://localhost/r/alice.com/following#2022-01-02T03:04:05-@foo@bar',
+    'id': f'http://localhost/r/alice.com/following#2022-01-02T03:04:05-@foo@ba.r',
     'actor': 'http://localhost/alice.com',
     'object': FOLLOWEE['id'],
     'to': [as2.PUBLIC_AUDIENCE],
 }
 FOLLOW_URL = copy.deepcopy(FOLLOW_ADDRESS)
-FOLLOW_URL['id'] = f'http://localhost/r/alice.com/following#2022-01-02T03:04:05-https://bar/actor'
+FOLLOW_URL['id'] = f'http://localhost/r/alice.com/following#2022-01-02T03:04:05-https://ba.r/actor'
 UNDO_FOLLOW = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Undo',
-    'id': f'http://localhost/r/alice.com/following#undo-2022-01-02T03:04:05-https://bar/id',
+    'id': f'http://localhost/r/alice.com/following#undo-2022-01-02T03:04:05-https://ba.r/id',
     'actor': 'http://localhost/alice.com',
     'object': copy.deepcopy(FOLLOW_ADDRESS),
 }
@@ -67,7 +67,7 @@ class RemoteFollowTest(TestCase):
         self.make_user('user.com', cls=Web, has_redirects=True)
 
     def test_no_domain(self, _):
-        got = self.client.post('/remote-follow?address=@foo@bar&protocol=web')
+        got = self.client.post('/remote-follow?address=@foo@ba.r&protocol=web')
         self.assertEqual(400, got.status_code)
 
     def test_no_address(self, _):
@@ -75,59 +75,59 @@ class RemoteFollowTest(TestCase):
         self.assertEqual(400, got.status_code)
 
     def test_no_protocol(self, _):
-        got = self.client.post('/remote-follow?address=@foo@bar&domain=user.com')
+        got = self.client.post('/remote-follow?address=@foo@ba.r&domain=user.com')
         self.assertEqual(400, got.status_code)
 
     def test_unknown_protocol(self, _):
-        got = self.client.post('/remote-follow?address=@foo@bar&domain=user.com&protocol=foo')
+        got = self.client.post('/remote-follow?address=@foo@ba.r&domain=user.com&protocol=foo')
         self.assertEqual(400, got.status_code)
 
     def test_no_user(self, _):
-        got = self.client.post('/remote-follow?address=@foo@bar&domain=baz.com')
+        got = self.client.post('/remote-follow?address=@foo@ba.r&domain=baz.com')
         self.assertEqual(400, got.status_code)
 
-    def test(self, mock_get):
+    def test_addr(self, mock_get):
         mock_get.return_value = WEBFINGER
-        got = self.client.post('/remote-follow?address=@foo@bar&domain=user.com&protocol=web')
+        got = self.client.post('/remote-follow?address=@foo@ba.r&domain=user.com&protocol=web')
         self.assertEqual(302, got.status_code)
-        self.assertEqual('https://bar/follow?uri=@user.com@user.com',
+        self.assertEqual('https://ba.r/follow?uri=@user.com@user.com',
                          got.headers['Location'])
 
         mock_get.assert_has_calls((
-            self.req('https://bar/.well-known/webfinger?resource=acct:foo@bar'),
+            self.req('https://ba.r/.well-known/webfinger?resource=acct:foo@ba.r'),
         ))
 
     def test_url(self, mock_get):
         mock_get.return_value = WEBFINGER
-        got = self.client.post('/remote-follow?address=https://bar/foo&domain=user.com&protocol=web')
+        got = self.client.post('/remote-follow?address=https://ba.r/foo&domain=user.com&protocol=web')
         self.assertEqual(302, got.status_code)
-        self.assertEqual('https://bar/follow?uri=@user.com@user.com', got.headers['Location'])
+        self.assertEqual('https://ba.r/follow?uri=@user.com@user.com', got.headers['Location'])
 
         mock_get.assert_has_calls((
-            self.req('https://bar/.well-known/webfinger?resource=https://bar/foo'),
+            self.req('https://ba.r/.well-known/webfinger?resource=https://ba.r/foo'),
         ))
 
     def test_no_webfinger_subscribe_link(self, mock_get):
         mock_get.return_value = requests_response({
-            'subject': 'acct:foo@bar',
+            'subject': 'acct:foo@ba.r',
             'links': [{'rel': 'other', 'template': 'meh'}],
         })
 
-        got = self.client.post('/remote-follow?address=https://bar/foo&domain=user.com&protocol=web')
+        got = self.client.post('/remote-follow?address=https://ba.r/foo&domain=user.com&protocol=web')
         self.assertEqual(302, got.status_code)
         self.assertEqual('/web/user.com', got.headers['Location'])
 
     def test_webfinger_error(self, mock_get):
         mock_get.return_value = requests_response(status=500)
 
-        got = self.client.post('/remote-follow?address=https://bar/foo&domain=user.com&protocol=web')
+        got = self.client.post('/remote-follow?address=https://ba.r/foo&domain=user.com&protocol=web')
         self.assertEqual(302, got.status_code)
         self.assertEqual('/web/user.com', got.headers['Location'])
 
     def test_webfinger_returns_not_json(self, mock_get):
         mock_get.return_value = requests_response('<html>not json</html>')
 
-        got = self.client.post('/remote-follow?address=https://bar/foo&domain=user.com&protocol=web')
+        got = self.client.post('/remote-follow?address=https://ba.r/foo&domain=user.com&protocol=web')
         self.assertEqual(302, got.status_code)
         self.assertEqual('/web/user.com', got.headers['Location'])
 
@@ -142,7 +142,7 @@ class FollowTest(TestCase):
         self.state = {
             'endpoint': 'http://auth/endpoint',
             'me': 'https://alice.com',
-            'state': '@foo@bar',
+            'state': '@foo@ba.r',
         }
 
     def test_start(self, mock_get, _):
@@ -150,7 +150,7 @@ class FollowTest(TestCase):
 
         resp = self.client.post('/follow/start', data={
             'me': 'https://alice.com',
-            'address': '@foo@bar',
+            'address': '@foo@ba.r',
         })
         self.assertEqual(302, resp.status_code)
         self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
@@ -170,9 +170,9 @@ class FollowTest(TestCase):
 
         state = util.encode_oauth_state(self.state)
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
-        self.check('@foo@bar', resp, FOLLOW_ADDRESS, mock_get, mock_post)
+        self.check('@foo@ba.r', resp, FOLLOW_ADDRESS, mock_get, mock_post)
         mock_get.assert_has_calls((
-            self.req('https://bar/.well-known/webfinger?resource=acct:foo@bar'),
+            self.req('https://ba.r/.well-known/webfinger?resource=acct:foo@ba.r'),
         ))
 
     def test_callback_url(self, mock_get, mock_post):
@@ -186,13 +186,13 @@ class FollowTest(TestCase):
             requests_response('OK'),  # AP Follow to inbox
         )
 
-        self.state['state'] = 'https://bar/actor'
+        self.state['state'] = 'https://ba.r/actor'
         state = util.encode_oauth_state(self.state)
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
-        self.check('https://bar/actor', resp, FOLLOW_URL, mock_get, mock_post)
+        self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
 
     def test_callback_stored_followee_with_our_as1(self, mock_get, mock_post):
-        self.store_object(id='https://bar/id', our_as1=as2.to_as1(FOLLOWEE),
+        self.store_object(id='https://ba.r/id', our_as1=as2.to_as1(FOLLOWEE),
                           source_protocol='activitypub')
 
         mock_get.side_effect = (
@@ -203,16 +203,16 @@ class FollowTest(TestCase):
             requests_response('OK'),  # AP Follow to inbox
         )
 
-        self.state['state'] = 'https://bar/id'
+        self.state['state'] = 'https://ba.r/id'
         state = util.encode_oauth_state(self.state)
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
 
         follow_with_profile_link = {
             **FOLLOW_URL,
-            'id': f'http://localhost/r/alice.com/following#2022-01-02T03:04:05-https://bar/id',
-            'object': 'https://bar/id',
+            'id': f'http://localhost/r/alice.com/following#2022-01-02T03:04:05-https://ba.r/id',
+            'object': 'https://ba.r/id',
         }
-        self.check('https://bar/id', resp, follow_with_profile_link, mock_get,
+        self.check('https://ba.r/id', resp, follow_with_profile_link, mock_get,
                    mock_post, fetched_followee=False)
 
     def test_callback_composite_url_field(self, mock_get, mock_post):
@@ -220,11 +220,11 @@ class FollowTest(TestCase):
         followee = {
             **FOLLOWEE,
             # this turns into a composite value for url in AS1:
-            # {'displayName': 'foo bar', 'value': 'https://bar/url'}
+            # {'displayName': 'foo bar', 'value': 'https://ba.r/url'}
             'attachment': [{
                 'type': 'PropertyValue',
                 'name': 'foo bar',
-                'value': '<a href="https://bar/url">@bar</a>'
+                'value': '<a href="https://ba.r/url">@ba.r</a>'
             }],
         }
         mock_get.side_effect = (
@@ -237,26 +237,38 @@ class FollowTest(TestCase):
             requests_response('OK'),  # AP Follow to inbox
         )
 
-        self.state['state'] = 'https://bar/actor'
+        self.state['state'] = 'https://ba.r/actor'
         state = util.encode_oauth_state(self.state)
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
 
-        self.check('https://bar/actor', resp, FOLLOW_URL, mock_get, mock_post)
+        self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
+
+    def test_callback_bridged_account_error(self, mock_get, mock_post):
+        mock_post.return_value = requests_response('me=https://alice.com')
+
+        self.state['state'] = '@example.com@web.brid.gy'
+        state = util.encode_oauth_state(self.state)
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
+        self.assertEqual(["@example.com@web.brid.gy isn't a native fediverse account"],
+                         get_flashed_messages())
 
     def check(self, input, resp, expected_follow, mock_get, mock_post,
               fetched_followee=True):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
-        self.assertEqual([f'Followed <a href="https://bar/url">{input}</a>.'],
+        self.assertEqual([f'Followed <a href="https://ba.r/url">{input}</a>.'],
                          get_flashed_messages())
 
         if fetched_followee:
             mock_get.assert_has_calls((
-                self.as2_req('https://bar/actor'),
+                self.as2_req('https://ba.r/actor'),
             ))
 
         inbox_args, inbox_kwargs = mock_post.call_args
-        self.assertEqual(('http://bar/inbox',), inbox_args)
+        self.assertEqual(('http://ba.r/inbox',), inbox_args)
         self.assert_equals(expected_follow, json_loads(inbox_kwargs['data']))
 
         # check that we signed with the follower's key
@@ -268,7 +280,7 @@ class FollowTest(TestCase):
         follow_id = f'http://localhost/web/alice.com/following#2022-01-02T03:04:05-{input}'
 
         followers = Follower.query().fetch()
-        followee = ActivityPub(id='https://bar/id').key
+        followee = ActivityPub(id='https://ba.r/id').key
         self.assert_entities_equal(
             Follower(from_=self.user.key, to=followee,
                      follow=Object(id=follow_id).key, status='active'),
@@ -284,7 +296,7 @@ class FollowTest(TestCase):
                            status='complete',
                            source_protocol='ui',
                            our_as1=expected_follow_as1,
-                           delivered=['http://bar/inbox'],
+                           delivered=['http://ba.r/inbox'],
                            delivered_protocol='activitypub')
 
         self.assertEqual('https://alice.com', session['indieauthed-me'])
@@ -312,20 +324,20 @@ class FollowTest(TestCase):
             requests_response('OK'),  # AP Follow to inbox
         )
 
-        self.state['state'] = 'https://bar/actor'
+        self.state['state'] = 'https://ba.r/actor'
         state = util.encode_oauth_state(self.state)
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/www.alice.com/following', resp.headers['Location'])
 
-        id = 'www.alice.com/following#2022-01-02T03:04:05-https://bar/actor'
+        id = 'www.alice.com/following#2022-01-02T03:04:05-https://ba.r/actor'
         expected_follow_as1 = as2.to_as1({
             **FOLLOW_URL,
             'id': id,
             'actor': 'https://www.alice.com/',
         })
         del expected_follow_as1['to']
-        followee = ActivityPub(id='https://bar/id').key
+        followee = ActivityPub(id='https://ba.r/id').key
         follow_obj = self.assert_object(
             f'http://localhost/web/{id}',
             users=[user.key],
@@ -334,7 +346,7 @@ class FollowTest(TestCase):
             labels=['user', 'activity'],
             source_protocol='ui',
             our_as1=expected_follow_as1,
-            delivered=['http://bar/inbox'],
+            delivered=['http://ba.r/inbox'],
             delivered_protocol='activitypub')
 
         followers = Follower.query().fetch()
@@ -349,7 +361,7 @@ class FollowTest(TestCase):
             'attachments': [{
                 'type': 'PropertyValue',
                 'name': 'Link',
-                'value': '<a href="https://bar/actor"></a>',
+                'value': '<a href="https://ba.r/actor"></a>',
             }],
         }
         mock_get.side_effect = (
@@ -362,13 +374,13 @@ class FollowTest(TestCase):
             requests_response('OK'),  # AP Follow to inbox
         )
 
-        self.state['state'] = 'https://bar/actor'
+        self.state['state'] = 'https://ba.r/actor'
         state = util.encode_oauth_state(self.state)
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
 
-        self.check('https://bar/actor', resp, FOLLOW_URL, mock_get, mock_post)
+        self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
         self.assertEqual(
-            [f'Followed <a href="https://bar/url">https://bar/actor</a>.'],
+            [f'Followed <a href="https://ba.r/url">https://ba.r/actor</a>.'],
             get_flashed_messages())
 
     def test_indieauthed_session(self, mock_get, mock_post):
@@ -385,9 +397,9 @@ class FollowTest(TestCase):
 
         resp = self.client.post('/follow/start', data={
             'me': 'https://alice.com',
-            'address': 'https://bar/actor',
+            'address': 'https://ba.r/actor',
         })
-        self.check('https://bar/actor', resp, FOLLOW_URL, mock_get, mock_post)
+        self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
 
     def test_indieauthed_session_wrong_me(self, mock_get, mock_post):
         mock_get.side_effect = (
@@ -399,7 +411,7 @@ class FollowTest(TestCase):
 
         resp = self.client.post('/follow/start', data={
             'me': 'https://alice.com',
-            'address': 'https://bar/actor',
+            'address': 'https://ba.r/actor',
         })
         self.assertEqual(302, resp.status_code)
         self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
@@ -415,7 +427,7 @@ class UnfollowTest(TestCase):
         self.user = self.make_user('alice.com', cls=Web)
         self.follower = Follower.get_or_create(
             from_=self.user,
-            to=self.make_user('https://bar/id', cls=ActivityPub, obj_as2=FOLLOWEE),
+            to=self.make_user('https://ba.r/id', cls=ActivityPub, obj_as2=FOLLOWEE),
             follow=Object(id=FOLLOW_ADDRESS['id'], as2=FOLLOW_ADDRESS).put(),
             status='active',
         )
@@ -477,11 +489,11 @@ class UnfollowTest(TestCase):
     def check(self, resp, expected_undo, mock_get, mock_post):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
-        self.assertEqual([f'Unfollowed <a href="https://bar/url">bar/url</a>.'],
+        self.assertEqual([f'Unfollowed <a href="https://ba.r/url">ba.r/url</a>.'],
                          get_flashed_messages())
 
         inbox_args, inbox_kwargs = mock_post.call_args
-        self.assertEqual(('http://bar/inbox',), inbox_args)
+        self.assertEqual(('http://ba.r/inbox',), inbox_args)
         self.assert_equals({
             **expected_undo,
             'to': [as2.PUBLIC_AUDIENCE],
@@ -497,14 +509,14 @@ class UnfollowTest(TestCase):
         self.assertEqual('inactive', follower.status)
 
         self.assert_object(
-            'http://localhost/web/alice.com/following#undo-2022-01-02T03:04:05-https://bar/id',
+            'http://localhost/web/alice.com/following#undo-2022-01-02T03:04:05-https://ba.r/id',
             users=[self.user.key],
-            notify=[ActivityPub(id='https://bar/id').key],
+            notify=[ActivityPub(id='https://ba.r/id').key],
             status='complete',
             source_protocol='ui',
             labels=['user', 'activity'],
             our_as1=unwrap(as2.to_as1(expected_undo)),
-            delivered=['http://bar/inbox'],
+            delivered=['http://ba.r/inbox'],
             delivered_protocol='activitypub')
 
         self.assertEqual('https://alice.com', session['indieauthed-me'])
@@ -516,7 +528,7 @@ class UnfollowTest(TestCase):
 
         Follower.get_or_create(
             from_=self.user,
-            to=self.make_user('https://bar/id', cls=ActivityPub, obj_as2=FOLLOWEE),
+            to=self.make_user('https://ba.r/id', cls=ActivityPub, obj_as2=FOLLOWEE),
             follow=Object(id=FOLLOW_ADDRESS['id'], as2=FOLLOW_ADDRESS).put(),
             status='active')
 
@@ -538,7 +550,7 @@ class UnfollowTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/www.alice.com/following', resp.headers['Location'])
 
-        id = 'http://localhost/r/www.alice.com/following#undo-2022-01-02T03:04:05-https://bar/id'
+        id = 'http://localhost/r/www.alice.com/following#undo-2022-01-02T03:04:05-https://ba.r/id'
         expected_undo = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Undo',
@@ -552,7 +564,7 @@ class UnfollowTest(TestCase):
         del expected_undo['object']['id']
 
         inbox_args, inbox_kwargs = mock_post.call_args_list[1]
-        self.assertEqual(('http://bar/inbox',), inbox_args)
+        self.assertEqual(('http://ba.r/inbox',), inbox_args)
         self.assert_equals({
             **expected_undo,
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
@@ -562,14 +574,14 @@ class UnfollowTest(TestCase):
         self.assertEqual('inactive', follower.status)
 
         self.assert_object(
-            'http://localhost/web/www.alice.com/following#undo-2022-01-02T03:04:05-https://bar/id',
+            'http://localhost/web/www.alice.com/following#undo-2022-01-02T03:04:05-https://ba.r/id',
             users=[user.key],
-            notify=[ActivityPub(id='https://bar/id').key],
+            notify=[ActivityPub(id='https://ba.r/id').key],
             status='complete',
             source_protocol='ui',
             labels=['user', 'activity'],
             our_as1=unwrap(as2.to_as1(expected_undo)),
-            delivered=['http://bar/inbox'],
+            delivered=['http://ba.r/inbox'],
             delivered_protocol='activitypub')
 
     def test_callback_composite_url(self, mock_get, mock_post):
@@ -577,7 +589,7 @@ class UnfollowTest(TestCase):
         follower.our_as1 = {
             **as2.to_as1(FOLLOWEE),
             'url': {
-                'value': 'https://bar/url',
+                'value': 'https://ba.r/url',
                 'displayName': 'something',
             },
         }
@@ -591,7 +603,7 @@ class UnfollowTest(TestCase):
         )
 
         resp = self.client.get(f'/unfollow/callback?code=my_code&state={self.state}')
-        self.assertEqual([f'Unfollowed <a href="https://bar/url">bar/url</a>.'],
+        self.assertEqual([f'Unfollowed <a href="https://ba.r/url">ba.r/url</a>.'],
                          get_flashed_messages())
         self.check(resp, UNDO_FOLLOW, mock_get, mock_post)
 

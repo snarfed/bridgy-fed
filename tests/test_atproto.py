@@ -98,9 +98,9 @@ class ATProtoTest(TestCase):
         self.assertEqual('han.dull', user.key.get().handle)
 
     def test_owns_id(self):
-        self.assertFalse(ATProto.owns_id('http://foo'))
-        self.assertFalse(ATProto.owns_id('https://bar.baz/biff'))
-        self.assertFalse(ATProto.owns_id('e45fab982'))
+        self.assertEqual(False, ATProto.owns_id('http://foo'))
+        self.assertEqual(False, ATProto.owns_id('https://bar.baz/biff'))
+        self.assertEqual(False, ATProto.owns_id('e45fab982'))
 
         self.assertTrue(ATProto.owns_id('at://did:plc:user/bar/123'))
         self.assertTrue(ATProto.owns_id('did:plc:user'))
@@ -112,11 +112,14 @@ class ATProtoTest(TestCase):
         self.assertIsNone(ATProto.owns_handle('foo.com'))
         self.assertIsNone(ATProto.owns_handle('foo.bar.com'))
 
-        self.assertFalse(ATProto.owns_handle('foo'))
-        self.assertFalse(ATProto.owns_handle('@foo'))
-        self.assertFalse(ATProto.owns_handle('@foo.com'))
-        self.assertFalse(ATProto.owns_handle('@foo@bar.com'))
-        self.assertFalse(ATProto.owns_handle('foo@bar.com'))
+        self.assertEqual(False, ATProto.owns_handle('foo'))
+        self.assertEqual(False, ATProto.owns_handle('@foo'))
+        self.assertEqual(False, ATProto.owns_handle('@foo.com'))
+        self.assertEqual(False, ATProto.owns_handle('@foo@bar.com'))
+        self.assertEqual(False, ATProto.owns_handle('foo@bar.com'))
+        self.assertEqual(False, ATProto.owns_handle('localhost'))
+        # TODO: this should be False
+        self.assertIsNone(ATProto.owns_handle('web.brid.gy'))
 
     def test_handle_to_id(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)

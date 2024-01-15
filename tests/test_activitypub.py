@@ -1789,9 +1789,9 @@ class ActivityPubUtilsTest(TestCase):
                 assert ActivityPub.owns_handle(handle)
 
         for handle in ('instance', 'instance.com', '@user', '@user.com',
-                    'http://user.com'):
+                       'http://user.com', '@user@web.brid.gy', '@user@localhost'):
             with self.subTest(handle=handle):
-                self.assertFalse(ActivityPub.owns_handle(handle))
+                self.assertEqual(False, ActivityPub.owns_handle(handle))
 
     def test_handle_to_id_stored(self):
         self.make_user(id='http://inst.com/@user', cls=ActivityPub)
