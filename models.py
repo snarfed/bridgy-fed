@@ -152,6 +152,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     public_exponent = ndb.StringProperty()
     private_exponent = ndb.StringProperty()
 
+    # set to True for users who asked me to be opted out instead of putting
+    # #nobridge in their profile
+    manual_opt_out = ndb.BooleanProperty()
+
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
@@ -314,7 +318,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         https://github.com/snarfed/bridgy-fed/issues/666
         """
-        if self.key.id() in common.OPT_OUT_IDS:
+        if self.manual_opt_out:
             return 'opt-out'
 
         if not self.obj or not self.obj.as1:

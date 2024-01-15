@@ -66,13 +66,6 @@ DOMAIN_BLOCKLIST = (
     'twitter.com',
 )
 
-opt_outs = Path(__file__).parent / 'opt_outs.txt'
-if opt_outs.exists():
-    with opt_outs.open() as f:
-        OPT_OUT_IDS = util.load_file_lines(f)
-else:
-    OPT_OUT_IDS = {'fake:bridgy-fed:test-opt-out'}
-
 # populated in models.reset_protocol_properties
 SUBDOMAIN_BASE_URL_RE = None
 ID_FIELDS = ['id', 'object', 'actor', 'author', 'inReplyTo', 'url']
