@@ -386,7 +386,7 @@ def instance_info():
         'version': os.getenv('GAE_VERSION'),
         'short_description': 'Bridging the new social internet',
         'description': 'Bridging the new social internet',
-        'email': 'feedback@ryanb.org',
+        'email': 'feedback@brid.gy',
         'thumbnail': 'https://fed.brid.gy/static/bridgy_logo_with_alpha.png',
         'registrations': True,
         'approval_required': False,
