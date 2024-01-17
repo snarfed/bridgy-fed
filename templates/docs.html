@@ -81,6 +81,7 @@
 <li><a href="#fediverse-servers">Which fediverse servers are supported?</a></li>
 <li><a href="#mastodon-link-verification">How do I verify my profile links (ie get green checks) in Mastodon?</a></li>
 <li><a href="#fediverse-enhanced">Can I use my own domain as my fediverse handle?</a></li>
+<li><a href="#instance-subdomains">Could other networks' instances get their own brid.gy subdomains, so that fediverse admins can federate with or block them individually?</a></li>
 
 <br>
 
@@ -512,7 +513,13 @@ To receive likes, reposts, replies, @-mentions, and follows from the fediverse, 
 <li id="web-enhanced" class="question">Can I use my own domain as my handle on other networks?</li>
 <li class="answer">
 <p>Yes! By default, your web site's bridged handle on other networks includes <code>web.brid.gy</code>, eg <code>@yoursite.com@web.brid.gy</code> on the fediverse, but you can use your own domain instead. <a href="#fediverse-enhanced">Here are instructions for fediverse handles.</a></p>
+</li>
 
+<li id="instance-subdomains" class="question">Could other networks' instances get their own brid.gy subdomains, so that fediverse admins can federate with or block them individually?</li>
+<li class="answer">
+<p>This is a great idea! <a href="https://github.com/snarfed/bridgy-fed/issues/711">It's difficult to implement technically</a> - I'd need to build and run my own DNS server with custom behavior for resolving multi-level wildcard records - but it's definitely doable.</p>
+<p>The catch is that accounts on some other networks, eg Bluesky and Nostr, have long-lived ids that aren't based on their server. If we used a Bluesky user's PDS's (server's) domain in their fediverse handle, that handle would change every time they migrated to a new PDS, and they'd lose all of their followers and followings, even though their Bluesky account ID itself hadn't changed. That seems like a showstopper for this idea, at least so far.</p>
+</li>
 
 <br>
 
