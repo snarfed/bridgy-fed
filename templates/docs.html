@@ -518,7 +518,13 @@ To receive likes, reposts, replies, @-mentions, and follows from the fediverse, 
 <li id="instance-subdomains" class="question">Could other networks' instances get their own brid.gy subdomains, so that fediverse admins can federate with or block them individually?</li>
 <li class="answer">
 <p>This is a great idea! <a href="https://github.com/snarfed/bridgy-fed/issues/711">It's difficult to implement technically</a> - I'd need to build and run my own DNS server with custom behavior for resolving multi-level wildcard records - but it's definitely doable.</p>
-<p>The catch is that accounts on some other networks, eg Bluesky and Nostr, have long-lived ids that aren't based on their server. If we used a Bluesky user's PDS's (server's) domain in their fediverse handle, that handle would change every time they migrated to a new PDS, and they'd lose all of their followers and followings, even though their Bluesky account ID itself hadn't changed. That seems like a showstopper for this idea, at least so far.</p>
+<p>However, servers and domains on other networks are very different from fediverse instances:</p>
+<ul>
+<li>Bluesky <a href="https://atproto.com/guides/overview#federation">PDSes</a> are similar to shared web hosts; they're more generic and interchangeable than fediverse instances. They don't define affinity groups, user-visible communities, or moderation boundaries. It's not clear that they're useful for domain level federation decisions like fediverse instances are.</li>
+<li>IndieWeb sites generally represent a single person. They're often domains, but when they're subdomains, eg on <a href="https://wordpress.com/">wordpress.com</a> or <a href="https://blogspot.com">blogspot.com</a>, those are often shared hosting platforms that don't define clear communities or moderation boundaries either.</li>
+<li>Nostr users don't live on specific servers at all. They publish to <a href="https://nostr.com/relays">relays</a>, usually multiple at a time, and may change those relays often. Relays are primarily network infrastructure.</li>
+</ul>
+<p>Another difficulty is that accounts on Bluesky and Nostr have long-lived, server-independent ids. If we used a Bluesky user's PDS domain in their fediverse handle, that handle would change every time they migrated to a new PDS, and they'd lose all of their followers and followings, even though their Bluesky account ID itself hadn't changed.</p>
 </li>
 
 <br>
