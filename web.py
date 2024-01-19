@@ -101,6 +101,7 @@ class Web(User, Protocol):
     has_hcard = ndb.BooleanProperty()
     last_webmention_in = ndb.DateTimeProperty(tzinfo=timezone.utc)
     last_polled_feed = ndb.DateTimeProperty(tzinfo=timezone.utc)
+    feed_last_item = ndb.StringProperty()  # id (URL)
 
     # Originally, BF served Web users' AP actor ids on fed.brid.gy, eg
     # https://fed.brid.gy/snarfed.org . When we started adding new protocols, we
@@ -621,6 +622,8 @@ def poll_feed_task():
       ``domain`` (str): key id of the :class:`Web` user
     """
     domain = flask_util.get_required_param('domain')
+    logger.info(f'Polling feed for {domain}')
+
     user = Web.get_by_id(domain)
     if not (user and user.obj and user.obj.mf2):
         error(f'No Web user or object found for domain {domain}', status=304)
@@ -659,12 +662,7 @@ def poll_feed_task():
         logger.info(msg)
         return msg
 
-    user.last_polled_feed = util.now()
-    user.put()
-
     # create Objects and receive tasks
-    published_last = None
-    published_deltas = []  # timedeltas between entry published times
     for i, activity in enumerate(activities):
         # default actor and author to user
         activity.setdefault('actor', {}).setdefault('id', user.profile_id())
@@ -678,16 +676,16 @@ def poll_feed_task():
 
         logger.info(f'Converted to AS1: {json_dumps(activity, indent=2)}')
 
-        published = activity.get('object', {}).get('published')
-        if published and published_last:
-            published_deltas.append(
-                util.parse_iso8601(published) - util.parse_iso8601(published_last))
-        published_last = published
-
         id = Object(our_as1=activity).as1.get('id')
         if not id:
             logger.warning('No id or URL!')
             continue
+        elif id == user.feed_last_item:
+            logger.info(f'Already seen {id}, skipping rest of feed')
+            break
+        elif i == 0:
+            logger.info(f'Setting feed_last_item to {id}')
+            user.feed_last_item = id
 
         activity['feed_index'] = i
         obj = Object.get_or_create(id=id, our_as1=activity, status='new',
@@ -695,6 +693,16 @@ def poll_feed_task():
                                    **obj_feed_prop)
         common.create_task(queue='receive', obj=obj.key.urlsafe(),
                            authed_as=user.key.id())
+
+    # determine posting frequency
+    published_last = None
+    published_deltas = []  # timedeltas between entry published times
+    for activity in activities:
+        published = activity['object'].get('published')
+        if published and published_last:
+            published_deltas.append(
+                util.parse_iso8601(published) - util.parse_iso8601(published_last))
+        published_last = published
 
     # create next poll task
     def clamp(delay):
@@ -704,9 +712,15 @@ def poll_feed_task():
         delay = clamp(timedelta(seconds=statistics.mean(
             t.total_seconds() for t in published_deltas)))
     else:
-        delay = clamp(util.now() - (user.last_polled_feed or user.created))
+        delay = clamp(util.now() - (user.last_polled_feed
+                                    or user.created.replace(tzinfo=timezone.utc)))
 
     common.create_task(queue='poll-feed', domain=user.key.id(), delay=delay)
+
+    # update user
+    user.last_polled_feed = util.now()
+    user.put()
+
     return 'OK'
 
 

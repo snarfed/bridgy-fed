@@ -1788,7 +1788,10 @@ class WebTest(TestCase):
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
-        self.assertEqual(NOW, self.user.key.get().last_polled_feed)
+
+        user = self.user.key.get()
+        self.assertEqual(NOW, user.last_polled_feed)
+        self.assertEqual('https://user.com/post', user.feed_last_item)
 
         mock_get.assert_has_calls((
             self.req('https://foo/feed'),
@@ -1863,7 +1866,10 @@ class WebTest(TestCase):
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
-        self.assertEqual(NOW, self.user.key.get().last_polled_feed)
+
+        user = self.user.key.get()
+        self.assertEqual(NOW, user.last_polled_feed)
+        self.assertEqual('http://post/a', user.feed_last_item)
 
         mock_get.assert_has_calls((
             self.req('https://foo/rss'),
@@ -1949,7 +1955,10 @@ class WebTest(TestCase):
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
-        self.assertEqual(NOW, self.user.key.get().last_polled_feed)
+
+        user = self.user.key.get()
+        self.assertEqual(NOW, user.last_polled_feed)
+        self.assertEqual('https://user.com/post', user.feed_last_item)
 
         mock_get.assert_has_calls((
             self.req('https://foo/feed'),
@@ -2015,6 +2024,35 @@ class WebTest(TestCase):
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(502, got.status_code)
         self.assertIsNone(self.user.key.get().last_polled_feed)
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_user_feed_last_item(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.user.obj.put()
+        self.user.feed_last_item = 'https://user.com/post'
+        self.user.put()
+
+        feed = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <link rel="alternate" type="text/html" href="https://user.com/post" />
+  <content>I hereby ☕ post</content>
+</entry>
+"""
+        mock_get.return_value = requests_response(
+            feed, headers={'Content-Type': atom.CONTENT_TYPE})
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(200, got.status_code)
+
+        user = self.user.key.get()
+        self.assertEqual(NOW, user.last_polled_feed)
+        self.assertEqual('https://user.com/post', user.feed_last_item)
+
+        mock_create_task.assert_called_once()
+        expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
+        self.assert_task(mock_create_task, 'poll-feed', '/queue/poll-feed',
+                         domain='user.com', eta_seconds=expected_eta)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_last_webmention_in_noop(self, mock_create_task, mock_get, _):
