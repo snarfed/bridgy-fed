@@ -1846,7 +1846,7 @@ class WebTest(TestCase):
   <item>
     <guid>http://post/a</guid>
     <description>I hereby ☕ post a</description>
-    <pubDate>Tue, 04 Dec 2012 00:00:00 +0000</pubDate>
+    <pubDate>Tue, 08 Dec 2012 00:00:00 +0000</pubDate>
   </item>
   <item>
     <guid>http://post/b</guid>
@@ -1856,7 +1856,7 @@ class WebTest(TestCase):
   <item>
     <guid>http://post/c</guid>
     <description>I hereby ☕ post c</description>
-    <pubDate>Tue, 08 Dec 2012 00:00:00 +0000</pubDate>
+    <pubDate>Tue, 04 Dec 2012 00:00:00 +0000</pubDate>
   </item>
 </channel>
 </rss>
@@ -1874,7 +1874,7 @@ class WebTest(TestCase):
         mock_get.assert_has_calls((
             self.req('https://foo/rss'),
         ))
-        for i, (id, day) in enumerate([('a', 4), ('b', 5), ('c', 8)]):
+        for i, (id, day) in enumerate([('a', 8), ('b', 5), ('c', 4)]):
             url = f'http://post/{id}'
             obj = self.assert_object(
                 url,

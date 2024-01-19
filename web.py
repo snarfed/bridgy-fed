@@ -701,7 +701,8 @@ def poll_feed_task():
         published = activity['object'].get('published')
         if published and published_last:
             published_deltas.append(
-                util.parse_iso8601(published) - util.parse_iso8601(published_last))
+                abs(util.parse_iso8601(published) -
+                    util.parse_iso8601(published_last)))
         published_last = published
 
     # create next poll task
