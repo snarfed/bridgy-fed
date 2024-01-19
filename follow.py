@@ -162,7 +162,8 @@ class UnfollowStart(indieauth.Start):
         except Exception as e:
             if util.is_connection_failure(e) or util.interpret_http_exception(e)[0]:
                 flash(f"Couldn't fetch your web site: {e}")
-                return redirect(user.user_page_path('following'))
+                domain = util.domain_from_link(me)
+                return redirect(f'/web/{domain}/following')
             raise
 
 

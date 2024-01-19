@@ -9,6 +9,7 @@ from oauth_dropins import indieauth
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
+import requests
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
@@ -417,6 +418,19 @@ class FollowTest(TestCase):
         self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
                         resp.headers['Location'])
 
+    def test_start_homepage_fetch_fails(self, mock_get, mock_post):
+        mock_get.side_effect = requests.ConnectionError('foo')
+
+        resp = self.client.post('/follow/start', data={
+            'me': 'https://alice.com',
+            'address': 'https://ba.r/actor',
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following?address=https://ba.r/actor',
+                         resp.headers['Location'])
+        self.assertEqual(["Couldn't fetch your web site: foo"],
+                         get_flashed_messages())
+
 
 @patch('requests.post')
 @patch('requests.get')
@@ -638,3 +652,15 @@ class UnfollowTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
                         resp.headers['Location'])
+
+    def test_start_homepage_fetch_fails(self, mock_get, mock_post):
+        mock_get.side_effect = requests.ConnectionError('foo')
+
+        resp = self.client.post('/unfollow/start', data={
+            'me': 'https://alice.com',
+            'key': self.follower.key.id(),
+        })
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
+        self.assertEqual(["Couldn't fetch your web site: foo"],
+                         get_flashed_messages())
