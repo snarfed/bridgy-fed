@@ -651,28 +651,27 @@ def poll_feed_task():
         headers['If-Modified-Since'] = user.feed_last_modified
     resp = util.requests_get(url, headers=headers)
 
+    content_type = resp.headers.get('Content-Type') or ''
+    type = FEED_TYPES.get(content_type.split(';')[0])
     if resp.status_code == 304:
         logger.info('Feed is unchanged since last poll')
         activities = []
+    elif type == 'atom' or (type == 'xml' and rel_type == 'atom'):
+        try:
+            activities = atom.atom_to_activities(resp.text)
+        except ValueError as e:
+            error(f"Couldn't parse feed as Atom: {e}", status=502)
+        obj_feed_prop = {'atom': resp.text}
+    elif type == 'rss' or (type == 'xml' and rel_type == 'rss'):
+        try:
+            activities = rss.to_activities(resp.text)
+        except ValueError as e:
+            error(f"Couldn't parse feed as RSS: {e}", status=502)
+        obj_feed_prop = {'rss': resp.text}
     else:
-        content_type = resp.headers.get('Content-Type') or ''
-        type = FEED_TYPES.get(content_type.split(';')[0])
-        if type == 'atom' or (type == 'xml' and rel_type == 'atom'):
-            try:
-                activities = atom.atom_to_activities(resp.text)
-            except ValueError as e:
-                error(f"Couldn't parse feed as Atom: {e}", status=502)
-            obj_feed_prop = {'atom': resp.text}
-        elif type == 'rss' or (type == 'xml' and rel_type == 'rss'):
-            try:
-                activities = rss.to_activities(resp.text)
-            except ValueError as e:
-                error(f"Couldn't parse feed as RSS: {e}", status=502)
-            obj_feed_prop = {'rss': resp.text}
-        else:
-            msg = f'Unknown feed type {content_type}'
-            logger.info(msg)
-            return msg
+        msg = f'Unknown feed type {content_type}'
+        logger.info(msg)
+        return msg
 
     # create Objects and receive tasks
     for i, activity in enumerate(activities):
