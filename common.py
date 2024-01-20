@@ -58,8 +58,6 @@ LOCAL_DOMAINS = (
 DOMAINS = (PRIMARY_DOMAIN,) + PROTOCOL_DOMAINS + OTHER_DOMAINS + LOCAL_DOMAINS
 # TODO: unify with Bridgy's
 DOMAIN_BLOCKLIST = (
-    # https://github.com/snarfed/bridgy-fed/issues/348
-    'aaronparecki.com',
     'facebook.com',
     'fb.com',
     't.co',
