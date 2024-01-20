@@ -102,6 +102,8 @@ class Web(User, Protocol):
     last_webmention_in = ndb.DateTimeProperty(tzinfo=timezone.utc)
     last_polled_feed = ndb.DateTimeProperty(tzinfo=timezone.utc)
     feed_last_item = ndb.StringProperty()  # id (URL)
+    feed_etag = ndb.StringProperty()
+    feed_last_modified = ndb.StringProperty()
 
     # Originally, BF served Web users' AP actor ids on fed.brid.gy, eg
     # https://fed.brid.gy/snarfed.org . When we started adding new protocols, we
@@ -642,25 +644,35 @@ def poll_feed_task():
         return msg
 
     # fetch feed
-    resp = util.requests_get(url)
-    content_type = resp.headers.get('Content-Type') or ''
-    type = FEED_TYPES.get(content_type.split(';')[0])
-    if type == 'atom' or (type == 'xml' and rel_type == 'atom'):
-        try:
-            activities = atom.atom_to_activities(resp.text)
-        except ValueError as e:
-            error(f"Couldn't parse feed as Atom: {e}", status=502)
-        obj_feed_prop = {'atom': resp.text}
-    elif type == 'rss' or (type == 'xml' and rel_type == 'rss'):
-        try:
-            activities = rss.to_activities(resp.text)
-        except ValueError as e:
-            error(f"Couldn't parse feed as RSS: {e}", status=502)
-        obj_feed_prop = {'rss': resp.text}
+    headers = {}
+    if user.feed_etag:
+        headers['If-None-Match'] = user.feed_etag
+    if user.feed_last_modified:
+        headers['If-Modified-Since'] = user.feed_last_modified
+    resp = util.requests_get(url, headers=headers)
+
+    if resp.status_code == 304:
+        logger.info('Feed is unchanged since last poll')
+        activities = []
     else:
-        msg = f'Unknown feed type {content_type}'
-        logger.info(msg)
-        return msg
+        content_type = resp.headers.get('Content-Type') or ''
+        type = FEED_TYPES.get(content_type.split(';')[0])
+        if type == 'atom' or (type == 'xml' and rel_type == 'atom'):
+            try:
+                activities = atom.atom_to_activities(resp.text)
+            except ValueError as e:
+                error(f"Couldn't parse feed as Atom: {e}", status=502)
+            obj_feed_prop = {'atom': resp.text}
+        elif type == 'rss' or (type == 'xml' and rel_type == 'rss'):
+            try:
+                activities = rss.to_activities(resp.text)
+            except ValueError as e:
+                error(f"Couldn't parse feed as RSS: {e}", status=502)
+            obj_feed_prop = {'rss': resp.text}
+        else:
+            msg = f'Unknown feed type {content_type}'
+            logger.info(msg)
+            return msg
 
     # create Objects and receive tasks
     for i, activity in enumerate(activities):
@@ -720,6 +732,8 @@ def poll_feed_task():
 
     # update user
     user.last_polled_feed = util.now()
+    user.feed_etag = resp.headers.get('ETag')
+    user.feed_last_modified = resp.headers.get('Last-Modified')
     user.put()
 
     return 'OK'

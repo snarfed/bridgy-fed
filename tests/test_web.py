@@ -1783,8 +1783,11 @@ class WebTest(TestCase):
   <content>I hereby ☕ post</content>
 </entry>
 """
-        mock_get.return_value = requests_response(
-            feed, headers={'Content-Type': atom.CONTENT_TYPE})
+        mock_get.return_value = requests_response(feed, headers={
+            'Content-Type': atom.CONTENT_TYPE,
+            'Last-Modified': 'Sat, 01 Jan 2024 01:02:03 GMT',
+            'ETag': '"abc123"',
+        })
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
@@ -1792,6 +1795,8 @@ class WebTest(TestCase):
         user = self.user.key.get()
         self.assertEqual(NOW, user.last_polled_feed)
         self.assertEqual('https://user.com/post', user.feed_last_item)
+        self.assertEqual('"abc123"', user.feed_etag)
+        self.assertEqual('Sat, 01 Jan 2024 01:02:03 GMT', user.feed_last_modified)
 
         mock_get.assert_has_calls((
             self.req('https://foo/feed'),
@@ -2073,6 +2078,39 @@ class WebTest(TestCase):
         self.assertIsNone(self.user.key.get().last_polled_feed)
         mock_create_task.assert_not_called()
         mock_get.assert_not_called()
+
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_etag_last_modified(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.user.obj.put()
+
+        self.user.feed_etag = '"abc123"'
+        self.user.feed_last_modified ='Sat, 01 Jan 2024 01:02:03 GMT'
+        self.user.put()
+
+        mock_get.return_value = requests_response('', status=304, headers={
+            'Last-Modified': 'Sat, 99 Jan 2024 01:02:03 GMT',
+            'ETag': '"def789"',
+        })
+
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(200, got.status_code)
+
+        user = self.user.key.get()
+        self.assertEqual(NOW, user.last_polled_feed)
+        self.assertEqual('"def789"', user.feed_etag)
+        self.assertEqual('Sat, 99 Jan 2024 01:02:03 GMT', user.feed_last_modified)
+
+        mock_get.assert_has_calls([self.req('https://foo/feed', headers={
+            'If-None-Match': '"abc123"',
+            'If-Modified-Since': 'Sat, 01 Jan 2024 01:02:03 GMT',
+        })])
+
+        expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
+        self.assert_task(mock_create_task, 'poll-feed', '/queue/poll-feed',
+                         domain='user.com', eta_seconds=expected_eta)
 
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
         self.user.has_redirects = False
