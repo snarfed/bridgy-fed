@@ -57,6 +57,11 @@ handlers:
   upload: static/robots.txt
   secure: always
 
+- url: /.well-known/security.txt
+  static_files: static/security.txt
+  upload: static/security.txt
+  secure: always
+
 # dynamic
 - url: .*
   script: auto
