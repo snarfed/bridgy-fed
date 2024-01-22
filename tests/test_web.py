@@ -2394,6 +2394,16 @@ http://this/404s
                          get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
+    def test_check_web_site_opted_out(self, _, __):
+        self.user.manual_opt_out = True
+        self.user.put()
+
+        got = self.post('/web-site', data={'url': 'user.com'})
+        self.assert_equals(400, got.status_code)
+        self.assertEqual(['user.com is not a valid or supported web site'],
+                         get_flashed_messages())
+        self.assertEqual(1, Web.query().count())
+
     def test_check_webfinger_redirects_then_fails(self, mock_get, _):
         redir = 'http://localhost/.well-known/webfinger?resource=acct:orig@orig'
         mock_get.side_effect = (

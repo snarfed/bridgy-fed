@@ -545,6 +545,8 @@ def enter_web_site():
 
 @app.post('/web-site')
 def check_web_site():
+    logger.info(f'Params: {list(request.form.items())}')
+
     url = request.values['url']
     # this normalizes and lower cases domain
     domain = util.domain_from_link(url, minimize=False)
@@ -554,6 +556,9 @@ def check_web_site():
 
     try:
         user = Web.get_or_create(domain, direct=True)
+        if not user:  # opted out
+            flash(f'{url} is not a valid or supported web site')
+            return render_template('enter_web_site.html'), 400
         user = user.verify()
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
