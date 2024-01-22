@@ -528,8 +528,8 @@ class Web(User, Protocol):
 
         # add HTML meta redirect to source page. should trigger for end users in
         # browsers but not for webmention receivers (hopefully).
-        url = util.get_url(obj_as1)
-        if url:
+        url = util.get_url(obj_as1) or obj_as1.get('id') or obj.key.id()
+        if util.is_web(url):
             utf8 = '<meta charset="utf-8">'
             refresh = f'<meta http-equiv="refresh" content="0;url={url}">'
             html = html.replace(utf8, utf8 + '\n' + refresh)
