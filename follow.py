@@ -106,8 +106,8 @@ class FollowCallback(indieauth.Callback):
                 flash(f"{addr} isn't a native fediverse account")
                 return redirect(user.user_page_path('following'))
             as2_url = webfinger.fetch_actor_url(addr)
-            if not as2_url:
-                flash(f"Couldn't find ActivityPub profile link for {addr}")
+            if ActivityPub.owns_id(as2_url) is False:
+                flash(f"{addr} isn't a native fediverse account")
                 return redirect(user.user_page_path('following'))
 
         # TODO(#512): follower will always be Web here, but we should generalize

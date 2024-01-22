@@ -197,7 +197,7 @@ class FollowTest(TestCase):
                           source_protocol='activitypub')
 
         mock_get.side_effect = (
-            requests_response(''),
+            requests_response(''),  # indieauth https://alice.com fetch for user json
         )
         mock_post.side_effect = (
             requests_response('me=https://alice.com'),
@@ -229,7 +229,7 @@ class FollowTest(TestCase):
             }],
         }
         mock_get.side_effect = (
-            requests_response(''),
+            requests_response(''),  # indieauth https://alice.com fetch for user json
             self.as2_resp(followee),
             self.as2_resp(followee),
         )
@@ -254,6 +254,32 @@ class FollowTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
         self.assertEqual(["@example.com@web.brid.gy isn't a native fediverse account"],
+                         get_flashed_messages())
+
+    def test_callback_upgraded_bridged_account_error(self, mock_get, mock_post):
+        mock_post.return_value = requests_response('me=https://alice.com')
+        mock_get.side_effect = [
+            requests_response(''),  # indieauth https://alice.com fetch for user json
+            requests_response({     # webfinger
+                'subject': 'acct:bob.com@bob.com',
+                'aliases': ['https://bob.com/'],
+                'links': [{
+                    'rel': 'self',
+                    'type': as2.CONTENT_TYPE,
+                    'href': 'https://web.brid.gy/bob.com',
+                }],
+            }),
+        ]
+
+        bob = self.make_user('bob.com', cls=Web, obj_id='https://bob.com/')
+
+        self.state['state'] = '@bob.com@bob.com'
+        state = util.encode_oauth_state(self.state)
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+
+        self.assertEqual(302, resp.status_code)
+        self.assertEqual('/web/alice.com/following', resp.headers['Location'])
+        self.assertEqual(["@bob.com@bob.com isn't a native fediverse account"],
                          get_flashed_messages())
 
     def check(self, input, resp, expected_follow, mock_get, mock_post,
