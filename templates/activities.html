@@ -28,7 +28,7 @@
   {% endif %}
 
   <div class="col-xs-2">
-    {{ logs.maybe_link(obj.updated, obj.key.id(), path=['/queue/webmention','/inbox'])|safe }}
+    {{ logs.maybe_link(obj.created, obj.key.id(), path=['/queue/webmention','/inbox'])|safe }}
   </div>
 
   <div class="col-xs-2">
