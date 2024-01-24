@@ -59,6 +59,18 @@ indexes:
   - name: updated
     direction: desc
 
+# these two are currently unused! as of 2024-01-24
+- kind: Object
+  properties:
+  - name: users
+  - name: created
+
+- kind: Object
+  properties:
+  - name: users
+  - name: created
+    direction: desc
+
 - kind: Object
   properties:
   - name: notify
