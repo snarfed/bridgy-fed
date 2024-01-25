@@ -798,7 +798,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <tr>
   <th>topology</th>
   <td>peer to peer</td>
-  <td><a href="">federated servers, two tier</a></td>
+  <td><a href="https://activitypub.rocks/">federated servers, two tier</a></td>
   <td><a href="https://blueskyweb.xyz/blog/5-5-2023-federation-architecture">federated servers</a>,<br>
     <a href="https://blueskyweb.xyz/blog/4-13-2023-moderation">decoupled</a> <a href="https://blueskyweb.xyz/blog/3-30-2023-algorithmic-choice">services</a>, multi-tier</td>
   <td><a href="https://github.com/nostr-protocol/nostr#how-does-nostr-work">interchangeable relays,<br>two tier</a></td>
@@ -900,24 +900,24 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <th>Web URL</th>
   <td class="na">-</td>
   <td class="done">Fediverse profile URL</td>
-  <td><code>https://bsky.app/profile/[<a href="https://atproto.com/specs/did">did</a>]</code><br>
+  <td class="done"><code>https://bsky.app/profile/[<a href="https://atproto.com/specs/did">did</a>]</code><br>
     (<a href="https://github.com/bluesky-social/atproto/discussions/1652">can we avoid hard-coding bsky.app?</a>)</td>
   <td><a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain or BF user page</td>
 </tr>
 
 <tr>
-  <th>WebFinger <a href="https://docs.joinmastodon.org/user/signup/#address">address</a></th>S
-  <td><code>@[domain]@web.brid.gy</code></td>
+  <th>WebFinger <a href="https://docs.joinmastodon.org/user/signup/#address">address</a></th>
+  <td class="done"><code>@[domain]@web.brid.gy</code></td>
   <td class="na">-</td>
-  <td><code>@[<a href="https://atproto.com/specs/handle">handle</a>]@bsky.brid.gy</code></td>
+  <td class="done"><code>@[<a href="https://atproto.com/specs/handle">handle</a>]@bsky.brid.gy</code></td>
   <td><code>@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> or <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>]@nostr.brid.gy</code></td>
 </tr>
 
 <tr>
   <th>ActivityPub <a href="https://www.w3.org/TR/activitypub/#actors">actor</a></th>
-  <td><code>https://web.brid.gy/ap/[domain]</code></td>
+  <td class="done"><code>https://web.brid.gy/ap/[domain]</code></td>
   <td class="na">-</td>
-  <td><code>https://bsky.brid.gy/ap/[<a href="https://atproto.com/specs/did">did</a>]</code></td>
+  <td class="done"><code>https://bsky.brid.gy/ap/[<a href="https://atproto.com/specs/did">did</a>]</code></td>
   <td><code>https://nostr.brid.gy/ap/[<a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>]</code></td>
 </tr>
 
@@ -963,30 +963,30 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <th></th>
   <td class="na">-</td>
   <td class="done">Fediverse profile URL</td>
-  <td>bare <a href="https://atproto.com/specs/handle">handle</a></td>
+  <td class="done">bare <a href="https://atproto.com/specs/handle">handle</a></td>
   <td><a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain or BF user page</td>
 </tr>
 
 <tr>
   <th rowspan="2">AP <a href="https://docs.joinmastodon.org/user/signup/#address">address</a></th>
   <th class="subhead">basic</th>
-  <td><code>@[domain]@web.brid.gy</code></td>
+  <td class="done"><code>@[domain]@web.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
-  <td><code>@[<a href="https://atproto.com/specs/handle">handle</a>]@bsky.brid.gy</code></td>
+  <td class="done"><code>@[<a href="https://atproto.com/specs/handle">handle</a>]@bsky.brid.gy</code></td>
   <td><code>@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> or <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>]@nostr.brid.gy</code></td>
 </tr>
 <tr>
   <th class="subhead">enhanced</th>
   <td class="done"><code>@[domain]@[domain]</code></td>
-  <td><code>@[<a href="https://atproto.com/specs/handle">handle</a>]@[<a href="https://atproto.com/specs/handle">handle</a>]</code></td>
+  <td class="done"><code>@[<a href="https://atproto.com/specs/handle">handle</a>]@[<a href="https://atproto.com/specs/handle">handle</a>]</code></td>
   <td><code>@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a>]</code></td>
 </tr>
 
 <tr>
   <th rowspan="2">ATP <a href="https://atproto.com/specs/handle">handle</a></th>
   <th class="subhead">basic</th>
-  <td><code>[domain].web.brid.gy</code></td>
-  <td><code>[username].[instance].ap.brid.gy</code></td>
+  <td class="done"><code>[domain].web.brid.gy</code></td>
+  <td class="done"><code>[username].[instance].ap.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
   <td><code>[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> or <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a>].nostr.brid.gy</code><br>
 (convert <code>@</code> to <code>.</code>)</td>
@@ -1039,7 +1039,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <td class="na">-</td>
   <td class="done"><code>https://instance.com/@me</code><br>
     (varies by instance)</td>
-  <td><code>me.com</code></td>
+  <td class="done"><code>me.com</code></td>
   <td>?<br><code>me.com</code></td>
 </tr>
 
@@ -1054,7 +1054,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <tr>
   <th class="subhead">enhanced</th>
   <td class="done"><code>@me.com@me.com</code></td>
-  <td><code>@me.com@me.com</code></td>
+  <td class="done"><code>@me.com@me.com</code></td>
   <td><code>@me@domain.com</code><br>
       <code>@me.com@me.com</code></td>
 </tr>
@@ -1062,15 +1062,15 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <tr>
   <th rowspan="2">AT Protocol</th>
   <th class="subhead">basic</th>
-  <td><code>me.com.web.brid.gy</code></td>
-  <td><code>me.instance.com.ap.brid.gy</code></td>
+  <td class="done"><code>me.com.web.brid.gy</code></td>
+  <td class="done"><code>me.instance.com.ap.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
   <td><code>me.[domain.]com.nostr.brid.gy</code></td>
 </tr>
 <tr>
   <th class="subhead">enhanced</th>
-  <td><code>me.com</code></td>
-  <td><code>me.instance.com</code></td>
+  <td class="done"><code>me.com</code></td>
+  <td class="done"><code>me.instance.com</code></td>
   <td><code>me.[domain.]com</code></td>
 </tr>
 
@@ -1145,8 +1145,8 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <td class="yes"><a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a> or <a href="https://w3c-ccg.github.io/did-method-web/"><code>did:web:</code></a> prefix<br>
     <nobr>(TODO: <a href="https://atproto.com/specs/handle">domain handles</a>)</nobr>
   </td>
-  <td>
-    <a href="">resolve <code>did:plc</code></a>,<br>
+  <td class="done">
+    <a href="https://github.com/did-method-plc/did-method-plc#did-resolution">resolve <code>did:plc</code></a>,<br>
     <a href="https://w3c-ccg.github.io/did-method-web/#read-resolve">resolve <code>did:web</code></a>
   </td>
 </tr>
@@ -1210,28 +1210,28 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <td class="done"><em>basic</em>: serve <a href="https://webfinger.net/">WebFinger</a> and <a href="https://www.w3.org/TR/activitypub/#actors">AP actor</a> on fed.brid.gy<br>
       <em>enhanced</em>: user's site serves and redirects <a href="https://webfinger.net/">WebFinger</a> to fed.brid.gy
   </td>
-  <td>resolve <a href="https://www.w3.org/TR/did-core/">DID</a>, serve DID document with fed.brid.gy <a href="https://atproto.com/guides/data-repos">PDS</a></td>
+  <td class="done">resolve <a href="https://www.w3.org/TR/did-core/">DID</a>, serve DID document with fed.brid.gy <a href="https://atproto.com/guides/data-repos">PDS</a></td>
   <td><a href="https://github.com/nostr-protocol/nips/blob/master/39.md">NIP-39</a> (kind 0) query to BF (or other?) relay</td>
 </tr>
 <tr>
   <th>User discovery outbound</th>
   <td class="done">Fetch home page, parse <code><a href="https://microformats.org/wiki/h-card">h-card</a></code></td>
   <td class="done">look up <a href="https://webfinger.net/">WebFinger</a>, fetch <a href="https://www.w3.org/TR/activitypub/#actors">AP actor</a></td>
-  <td>resolve <a href="https://www.w3.org/TR/did-core/">DID</a>, subscribe to <a href="https://atproto.com/guides/data-repos">PDS</a> repo, extract profile object?</td>
+  <td class="done">resolve <a href="https://www.w3.org/TR/did-core/">DID</a>, subscribe to <a href="https://atproto.com/guides/data-repos">PDS</a> repo, extract profile object?</td>
   <td>discover user's relays with <a href="https://github.com/nostr-protocol/nips/blob/master/65.md">NIP-65</a>, query <a href="https://github.com/nostr-protocol/nips/blob/master/39.md">NIP-39</a> to get profile</td>
 </tr>
 <tr>
   <th>Publish inbound</th>
   <td class="done"><a href="https://webmention.net/">webmention</a> to fed.brid.gy</td>
   <td class="done">deliver to fed.brid.gy <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a>, user or shared</td>
-  <td>subscribe to user's <a href="https://atproto.com/guides/data-repos">PDS</a> repo on fed.brid.gy</td>
+  <td class="done">poll posts on AppView via <code>app.bsky.feed.getTimeline</code></td>
   <td>publish <a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">event</a> to BF relay</td>
 </tr>
 <tr>
   <th>Publish outbound</th>
   <td class="done">serve on BF user page followings <code><a href="https://microformats.org/wiki/h-feed">h-feed</a></code></td>
   <td class="done">deliver to recipient's <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a></td>
-  <td>serve repo diff via <a href="https://atproto.com/lexicons/com-atproto-sync"><code>sync</code> XRPCs</a> to subscribing <a href="https://blueskyweb.xyz/blog/5-5-2023-federation-architecture">BGSes</a></td>
+  <td class="done">serve repo diff via <a href="https://atproto.com/lexicons/com-atproto-sync"><code>sync</code> XRPCs</a> to subscribing <a href="https://blueskyweb.xyz/blog/5-5-2023-federation-architecture">BGSes</a></td>
   <td>serve to subscribers</td>
 </tr>
 <tr>
@@ -1239,22 +1239,21 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <td class="done"><em>users</em>: UI on BF user page<br>
       <em>code</em>: <a href="https://webmention.net/">webmention</a> with <code><a href="https://indieweb.org/follow#How_to_publish">u-follow-of</a></code></td>
   <td class="done"><code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-follow">Follow</a></code> activity delivered to BF user <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a></td>
-  <td>receive <code><a href="https://atproto.com/lexicons/com-atproto-sync#comatprotosyncsubscriberepos">sync.subscribeRepos</a></code>?</td>
+  <td class="done">poll notifications on AppView via <code>app.bsky.notification.listNotifications</code></td>
   <td>user's client sends <code><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">REQ</a></code> to BF relay</td>
 </tr>
 <tr>
   <th>Follow outbound</th>
   <td class="done"><a href="https://webmention.net/">webmention</a> with BF proxy HTML page as source</td>
   <td class="done">deliver <code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-follow">Follow</a></code> to followee's <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a></td>
-  <td>call <code><a href="https://atproto.com/lexicons/com-atproto-sync#comatprotosyncsubscriberepos">sync.subscribeRepos</a></code> on followee's <a href="https://atproto.com/guides/data-repos">PDS</a>?</td>
+  <td class="done">call <code><a href="https://atproto.com/lexicons/com-atproto-sync#comatprotosyncsubscriberepos">sync.subscribeRepos</a></code> on followee's <a href="https://atproto.com/guides/data-repos">PDS</a>?</td>
   <td>discover followee's relay(s) with <a href="https://github.com/nostr-protocol/nips/blob/master/65.md">NIP-65</a>, send them a <code><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">REQ</a></code></td>
 </tr>
 <tr>
   <th>Response inbound</th>
   <td class="done"><a href="https://webmention.net/">webmention</a> to a BF proxy page</td>
   <td class="done"><code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-create">Create</a></code>, <code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-like">Like</a></code>, <code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-announce">Announce</a></code> delivered to BF user <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a></td>
-  <td>response object received from a subscribed repo?<br>
-      (what if it's from a user we don't subscribe to?)</td>
+  <td class="done">poll notifications on AppView via <code>app.bsky.notification.listNotifications</code></td>
   <td><a href="https://github.com/nostr-protocol/nips/blob/master/10.md">NIP-10</a> response <a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">event</a> received at BF relay or other relay</td>
 </tr>
 <tr>
