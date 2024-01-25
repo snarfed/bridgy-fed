@@ -63,6 +63,7 @@ class ActivityPub(User, Protocol):
     Key id is AP/AS2 actor id URL. (*Not* fediverse/WebFinger @-@ handle!)
     """
     ABBREV = 'ap'
+    PHRASE = 'the fediverse'
     LOGO_HTML = '<img src="/static/fediverse_logo.svg">'
     CONTENT_TYPE = as2.CONTENT_TYPE
     HAS_FOLLOW_ACCEPTS = True

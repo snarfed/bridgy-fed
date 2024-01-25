@@ -92,6 +92,7 @@ class Web(User, Protocol):
     The key name is the domain.
     """
     ABBREV = 'web'
+    PHRASE = 'the web'
     OTHER_LABELS = ('webmention',)
     LOGO_HTML = '🌐'  # used to be 🕸️
     CONTENT_TYPE = common.CONTENT_TYPE_HTML

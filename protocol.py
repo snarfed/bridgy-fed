@@ -57,6 +57,8 @@ class Protocol:
       LABEL (str): human-readable lower case name
       OTHER_LABELS (list of str): label aliases
       ABBREV (str): lower case abbreviation, used in URL paths
+      PHRASE (str): human-readable name or phrase. Used in phrases like
+        ``Follow this person on {PHRASE}``
       LOGO_HTML (str): logo emoji or ``<img>`` tag
       CONTENT_TYPE (str): MIME type of this protocol's native data format,
         appropriate for the ``Content-Type`` HTTP header.
@@ -64,6 +66,7 @@ class Protocol:
         accept/reject activities in response to follows, eg ActivityPub
     """
     ABBREV = None
+    PHRASE = None
     OTHER_LABELS = ()
     LOGO_HTML = ''
     CONTENT_TYPE = None

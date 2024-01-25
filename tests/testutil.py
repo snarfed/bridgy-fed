@@ -66,6 +66,7 @@ COMMENT = {
 
 class Fake(User, protocol.Protocol):
     ABBREV = 'fa'
+    PHRASE = 'fake-phrase'
     CONTENT_TYPE = 'fa/ke'
 
     # maps string ids to dict AS1 objects that can be fetched

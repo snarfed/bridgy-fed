@@ -16,6 +16,7 @@ from activitypub import ActivityPub
 from flask_app import app
 import common
 from models import Follower, Object, PROTOCOLS
+from protocol import Protocol
 from web import Web
 import webfinger
 
@@ -98,17 +99,19 @@ class FollowCallback(indieauth.Callback):
         addr = state
         if util.is_web(addr):
             as2_url = addr
-            if ActivityPub.owns_id(as2_url) is False:
-                flash(f"{as2_url} isn't a native fediverse account")
-                return redirect(user.user_page_path('following'))
         else:  # it's an @-@ handle
-            if ActivityPub.owns_handle(addr) is False:
-                flash(f"{addr} isn't a native fediverse account")
-                return redirect(user.user_page_path('following'))
+            # if ActivityPub.owns_handle(addr) is False:
+            #     flash(f"{addr} isn't a native fediverse account")
+            #     return redirect(user.user_page_path('following'))
             as2_url = webfinger.fetch_actor_url(addr)
-            if ActivityPub.owns_id(as2_url) is False:
-                flash(f"{addr} isn't a native fediverse account")
-                return redirect(user.user_page_path('following'))
+
+        if util.domain_or_parent_in(util.domain_from_link(as2_url), common.DOMAINS):
+            proto = Protocol.for_id(as2_url)
+            flash(f"{addr} is a bridged account. Try following them on {proto.PHRASE}!")
+            return redirect(user.user_page_path('following'))
+        elif ActivityPub.owns_id(as2_url) is False:
+            flash(f"{addr} isn't a native fediverse account")
+            return redirect(user.user_page_path('following'))
 
         # TODO(#512): follower will always be Web here, but we should generalize
         # followee support in UI and here across protocols

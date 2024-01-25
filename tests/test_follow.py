@@ -246,15 +246,28 @@ class FollowTest(TestCase):
 
     def test_callback_bridged_account_error(self, mock_get, mock_post):
         mock_post.return_value = requests_response('me=https://alice.com')
+        mock_get.side_effect = [
+            requests_response(''),  # indieauth https://alice.com fetch for user json
+            requests_response({     # webfinger
+                'subject': 'acct:bob.com@web.brid.gy',
+                'aliases': ['https://bob.com/'],
+                'links': [{
+                    'rel': 'self',
+                    'type': as2.CONTENT_TYPE,
+                    'href': 'https://web.brid.gy/bob.com',
+                }],
+            }),
+        ]
 
-        self.state['state'] = '@example.com@web.brid.gy'
+        self.state['state'] = '@bob.com@web.brid.gy'
         state = util.encode_oauth_state(self.state)
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
 
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
-        self.assertEqual(["@example.com@web.brid.gy isn't a native fediverse account"],
-                         get_flashed_messages())
+        self.assertEqual(
+            ["@bob.com@web.brid.gy is a bridged account. Try following them on the web!"],
+            get_flashed_messages())
 
     def test_callback_upgraded_bridged_account_error(self, mock_get, mock_post):
         mock_post.return_value = requests_response('me=https://alice.com')
@@ -279,8 +292,9 @@ class FollowTest(TestCase):
 
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
-        self.assertEqual(["@bob.com@bob.com isn't a native fediverse account"],
-                         get_flashed_messages())
+        self.assertEqual(
+            ["@bob.com@bob.com is a bridged account. Try following them on the web!"],
+            get_flashed_messages())
 
     def check(self, input, resp, expected_follow, mock_get, mock_post,
               fetched_followee=True):

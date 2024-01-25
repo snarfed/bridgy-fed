@@ -57,6 +57,7 @@ class ATProto(User, Protocol):
     https://atproto.com/specs/did
     """
     ABBREV = 'atproto'
+    PHRASE = 'Bluesky'
     LOGO_HTML = '<img src="/static/atproto_logo.png">'
     PDS_URL = f'https://{ABBREV}{common.SUPERDOMAIN}/'
     CONTENT_TYPE = 'application/json'
