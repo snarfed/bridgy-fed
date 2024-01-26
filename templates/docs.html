@@ -211,7 +211,7 @@
 <li class="answer">
 <p>In general, native moderation tools within each network work with bridged users just like with native users. Blocking or muting a bridged user works just like you'd expect. Similarly, if you or an admin block an entire bridged network, that works just like blocking a native instance.</p>
 <p>Bridgy Fed also incorporates and obeys lower level mitigation techniques such as the fediverse’s <a href="https://fedi.tips/authorized-fetch/">authorized fetch</a> aka secure mode. It always includes valid HTTP Signatures when fetching actors and other objects.</p>
-<p>For more background, see our <a href="#moderation-policy">content moderation policy</a>.</p>
+<p>For more background, see our <a href="#moderation-policy">content moderation policy</a> and <a href="https://snarfed.org/2024-01-19_moderate-people-not-code">this blog post</a>.</p>
 </li>
 
 <li id="user-page" class="question">Can I see my account's status and recent activity?</li>
@@ -655,7 +655,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 
 <li id="moderation-policy" class="question">What is your content moderation policy?</li>
 <li class="answer">
-<p>Bridgy Fed doesn't have an exhaustive content moderation policy. Instead, I try to keep these principles in mind:</p>
+<p><a href="https://snarfed.org/2024-01-19_moderate-people-not-code">Content moderation for decentralized social networks, and for bridges, is complicated.</a> Bridgy Fed itself doesn't have an exhaustive content moderation policy. Instead, I try to keep these principles in mind:</p>
 <ul>
 <li>
 <p><strong>My primary goal is to <a href="#moderation">empower each network's existing moderation ecosystem</a>.</strong> Most decentralized social networks have existing, often mature mechanisms for content moderation. The fediverse has <a href="https://docs.joinmastodon.org/user/moderating/#block">blocks</a> and <a href="https://docs.joinmastodon.org/admin/moderation/#server-wide-moderation">defederation</a> and <a href="https://about.iftas.org/">IFTAS</a>, the IndieWeb has <a href="https://indieweb.org/Vouch">Vouch</a> and <a href="https://akismet.com/">Akismet</a>, Bluesky has <a href="https://blueskyweb.xyz/blog/4-13-2023-moderation">labeling</a>, even Nostr has <a href="https://github.com/nostr-protocol/nips/blob/master/28.md">mutes</a> and <a href="https://github.com/nostr-protocol/nips/blob/master/51.md#standard-lists">shared mutelists</a> and <a href="https://github.com/nostr-protocol/nips/blob/master/72.md">moderated groups</a>.</p>
