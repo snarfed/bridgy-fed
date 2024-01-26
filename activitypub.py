@@ -720,17 +720,20 @@ def postprocess_as2_actor(actor, user):
     actor.setdefault('inbox', id + '/inbox')
     actor.setdefault('outbox', id + '/outbox')
 
-    # This has to be the id (domain for Web) for Mastodon etc interop! It
-    # seems like it should be the custom username from the acct: u-url in
-    # their h-card, but that breaks Mastodon's Webfinger discovery.
+    # For web, this has to be domain for Mastodon etc interop! It seems like it
+    # should be the custom username from the acct: u-url in their h-card, but
+    # that breaks Mastodon's Webfinger discovery.
     # Background:
     # https://docs.joinmastodon.org/spec/activitypub/#properties-used-1
     # https://docs.joinmastodon.org/spec/webfinger/#mastodons-requirements-for-webfinger
     # https://github.com/snarfed/bridgy-fed/issues/302#issuecomment-1324305460
     # https://github.com/snarfed/bridgy-fed/issues/77
-    handle = user.handle_as(ActivityPub)
-    if handle:
-        actor['preferredUsername'] = handle.strip('@').split('@')[0]
+    if user.LABEL == 'web':
+        actor['preferredUsername'] = user.key.id()
+    else:
+        handle = user.handle_as(ActivityPub)
+        if handle:
+            actor['preferredUsername'] = handle.strip('@').split('@')[0]
 
     # Override the label for their home page to be "Web site"
     for att in util.get_list(actor, 'attachment'):

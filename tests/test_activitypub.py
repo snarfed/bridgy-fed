@@ -1938,6 +1938,22 @@ class ActivityPubUtilsTest(TestCase):
             }],
         }, user=self.user)['preferredUsername'])
 
+    def test_postprocess_as2_actor_preferredUsername_is_domain(self):
+        self.user.has_redirects = True
+        self.user.put()
+
+        self.user.obj.clear()
+        self.user.obj.as2 = {
+            'type': 'Person',
+            'url': ['acct:eve@user.com'],
+        }
+        self.user.obj.put()
+
+        # preferredUsername stays y.z despite user's username
+        self.assertEqual('user.com', postprocess_as2_actor({
+            'type': 'Person',
+        }, user=self.user)['preferredUsername'])
+
     def test_postprocess_as2_user_wrapped_id(self):
         for id in 'http://fed.brid.gy/user.com', 'http://fed.brid.gy/www.user.com':
             got = postprocess_as2_actor(as2.from_as1({

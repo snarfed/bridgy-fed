@@ -216,6 +216,38 @@ class FollowTest(TestCase):
         self.check('https://ba.r/id', resp, follow_with_profile_link, mock_get,
                    mock_post, fetched_followee=False)
 
+    def test_callback_user_with_custom_username(self, mock_get, mock_post):
+        self.user.obj.clear()
+        self.user.obj.as2 = {
+            'type': 'Person',
+            'url': ['acct:eve@alice.com'],
+        }
+        self.user.obj.put()
+
+        mock_get.side_effect = (
+            requests_response(''),  # indieauth https://alice.com fetch for user json
+            self.as2_resp(FOLLOWEE),
+            self.as2_resp(FOLLOWEE),
+        )
+        mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
+            requests_response('OK'),  # AP Follow to inbox
+        )
+
+        self.state['state'] = 'https://ba.r/actor'
+        state = util.encode_oauth_state(self.state)
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+
+        self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post,
+                   expected_follow_as1={
+            **as2.to_as1(unwrap(FOLLOW_URL)),
+            'actor': {
+                'objectType': 'person',
+                'id': 'https://alice.com/',
+                'url': 'acct:eve@alice.com',
+            },
+        })
+
     def test_callback_composite_url_field(self, mock_get, mock_post):
         """https://console.cloud.google.com/errors/detail/CKmLytj-nPv9RQ;time=P30D?project=bridgy-federated"""
         followee = {
@@ -297,7 +329,7 @@ class FollowTest(TestCase):
             get_flashed_messages())
 
     def check(self, input, resp, expected_follow, mock_get, mock_post,
-              fetched_followee=True):
+              fetched_followee=True, expected_follow_as1=None):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/alice.com/following', resp.headers['Location'])
         self.assertEqual([f'Followed <a href="https://ba.r/url">{input}</a>.'],
@@ -328,7 +360,8 @@ class FollowTest(TestCase):
             followers,
             ignore=['created', 'updated'])
 
-        expected_follow_as1 = as2.to_as1(unwrap(expected_follow))
+        if not expected_follow_as1:
+            expected_follow_as1 = as2.to_as1(unwrap(expected_follow))
         del expected_follow_as1['to']
         self.assert_object(follow_id,
                            users=[self.user.key],
