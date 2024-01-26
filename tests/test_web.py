@@ -2814,7 +2814,9 @@ class WebUtilTest(TestCase):
                     'target': 'https://user.com/post',
                 }, kwargs['data'])
 
-    def test_convert(self, _, __):
+    def test_convert(self, mock_get, __):
+        mock_get.return_value = ACTOR_HTML_RESP
+
         obj = Object(id='http://orig', mf2=ACTOR_MF2)
         self.assert_multiline_equals("""\
 <!DOCTYPE html>

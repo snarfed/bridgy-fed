@@ -978,7 +978,6 @@ class ActivityPubTest(TestCase):
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),  # source actor
-            test_web.ACTOR_HTML_RESP,
             WEBMENTION_DISCOVERY,
         ]
         if not mock_post.return_value and not mock_post.side_effect:
@@ -1775,12 +1774,13 @@ class ActivityPubUtilsTest(TestCase):
                 ActivityPub(id=bad).put()
 
     def test_owns_id(self):
-        self.assertIsNone(ActivityPub.owns_id('http://foo/bar'))
-        self.assertEqual(False, ActivityPub.owns_id('at://did:plc:foo/bar/123'))
-        self.assertEqual(False, ActivityPub.owns_id('e45fab982'))
-        self.assertEqual(False, ActivityPub.owns_id('https://example.com/'))
-        self.assertEqual(False, ActivityPub.owns_id('https://twitter.com/foo'))
-        self.assertEqual(False, ActivityPub.owns_id('https://fed.brid.gy/foo'))
+        self.assertIsNone(ActivityPub.owns_id('http://foo'))
+        self.assertIsNone(ActivityPub.owns_id('https://bar/baz'))
+        self.assertFalse(ActivityPub.owns_id('at://did:plc:foo/bar/123'))
+        self.assertFalse(ActivityPub.owns_id('e45fab982'))
+
+        self.assertFalse(ActivityPub.owns_id('https://twitter.com/foo'))
+        self.assertFalse(ActivityPub.owns_id('https://fed.brid.gy/foo'))
 
     def test_owns_handle(self):
         for handle in ('@user@instance', 'user@instance.com', 'user.com@instance.com',

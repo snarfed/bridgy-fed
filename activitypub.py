@@ -108,13 +108,16 @@ class ActivityPub(User, Protocol):
         All AP ids are http(s) URLs, but not all http(s) URLs are AP ids.
 
         https://www.w3.org/TR/activitypub/#obj-id
+
+        I used to include a heuristic here that no actor is the root path on its
+        host, which was nice because it let us assume that home pages are Web
+        users without making any network requests...but then I inevitably ran
+        into AP actors that _are_ the root path, eg microblog.pub sites like
+        https://bw3.dev/ .
+
+        https://docs.microblog.pub/user_guide.html#activitypub
         """
-        if (util.is_web(id)
-                and not cls.is_blocklisted(id)
-                # heuristic: assume no actor is the root path on its host. this
-                # lets us assume home pages are Web users without making any
-                # network requests.
-                and urlparse(id).path not in ('', '/')):
+        if util.is_web(id) and not cls.is_blocklisted(id):
             return None
 
         return False

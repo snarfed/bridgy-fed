@@ -291,7 +291,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             if not obj_id:
                 obj_id = ((obj_as2 or {}).get('id')
                           or util.get_url((obj_mf2 or {}), 'properties')
-                          or (f'http://{id}/' if cls == Web else id))
+                          or (f'https://{id}/' if cls == Web else id))
                           # unused right now
                           # or f'fake:{str(self.last_make_user_id)}')
                 self.last_make_user_id += 1

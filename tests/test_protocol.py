@@ -125,10 +125,16 @@ class ProtocolTest(TestCase):
         mock_get.assert_called_once()
 
     @patch('requests.get')
-    def test_for_id_web_no_fetch(self, mock_get):
-        self.assertEqual(Web, Protocol.for_id('http://web/'))
-        # we don't allow ActivityPub actors on root paths, so Web must be it
-        mock_get.assert_not_called()
+    def test_for_id_web_fetch(self, mock_get):
+        mock_get.return_value = ACTOR_HTML_RESP
+        self.assertEqual(Web, Protocol.for_id('http://web.site/'))
+        self.assertIn(self.req('http://web.site/'), mock_get.mock_calls)
+
+    @patch('requests.get')
+    def test_for_id_web_fetch_no_mf2(self, mock_get):
+        mock_get.return_value = requests_response('<html></html>')
+        self.assertIsNone(Protocol.for_id('http://web.site/'))
+        self.assertIn(self.req('http://web.site/'), mock_get.mock_calls)
 
     def test_for_handle_deterministic(self):
         for handle, expected in [

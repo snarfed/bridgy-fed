@@ -11,6 +11,7 @@ from . import testutil
 
 from flask_app import app, cache
 from models import Object
+import protocol
 from web import Web
 
 from .test_activitypub import ACTOR_BASE_FULL
@@ -98,7 +99,6 @@ class RedirectTest(testutil.TestCase):
         mock_get.side_effect = [
             requests_response(REPOST_HTML),
             TOOT_AS2,
-            TOOT_AS2,
         ]
 
         resp = self.client.get('/r/https://user.com/repost',
@@ -113,7 +113,6 @@ class RedirectTest(testutil.TestCase):
             requests_response(
                 REPOST_HTML.replace('<a href="http://localhost/"></a>', '')),
             TOOT_AS2,
-            TOOT_AS2,
         ]
 
         resp = self.client.get('/r/https://user.com/repost',
@@ -126,6 +125,8 @@ class RedirectTest(testutil.TestCase):
     def test_as2_no_user_fetch_homepage(self, mock_get):
         mock_get.return_value = requests_response(ACTOR_HTML)
         self.user.key.delete()
+        self.user.obj_key.delete()
+        protocol.objects_cache.clear()
 
         resp = self.client.get('/r/https://user.com/',
                                headers={'Accept': as2.CONTENT_TYPE})

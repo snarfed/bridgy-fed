@@ -296,13 +296,27 @@ A ☕ reply
 
     @patch('requests.get')
     def test_web_to_activitypub_no_user(self, mock_get):
-        mock_get.return_value = requests_response(HTML)  # protocol inference
+        hcard = requests_response("""
+<html>
+<body class="h-card">
+<a rel="me" class="u-url" href="/">
+</a>
+</body>
+</html>""", url='https://nope.com/')
+        mock_get.side_effect = [
+            # post protocol inference
+            requests_response('<html><body class="h-entry"></body></html>'),
+            hcard,
+            hcard,
+            hcard,
+        ]
 
-        resp = self.client.get(f'/convert/ap/http://nope.com/post',
+        resp = self.client.get(f'/convert/ap/https://nope.com/post',
                                base_url='https://web.brid.gy/')
         self.assertEqual(200, resp.status_code)
         self.assert_equals({
-            **COMMENT_AS2,
+            'type': 'Note',
+            'id': 'https://web.brid.gy/r/https://nope.com/post',
             'attributedTo': 'https://web.brid.gy/nope.com',
         }, resp.json, ignore=['to'])
 

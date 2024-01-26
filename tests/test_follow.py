@@ -619,10 +619,7 @@ class UnfollowTest(TestCase):
             follow=Object(id=FOLLOW_ADDRESS['id'], as2=FOLLOW_ADDRESS).put(),
             status='active')
 
-        mock_get.side_effect = (
-            requests_response(''),
-            self.as2_resp(FOLLOWEE),
-        )
+        mock_get.return_value = requests_response('')
         mock_post.side_effect = (
             requests_response('me=https://alice.com'),
             requests_response('OK'),  # AP Undo Follow to inbox

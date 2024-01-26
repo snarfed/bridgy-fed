@@ -8,6 +8,7 @@ from oauth_dropins.webutil.testutil import requests_response
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
 
+import protocol
 from web import Web
 from webfinger import fetch, fetch_actor_url
 
@@ -318,8 +319,10 @@ class WebfingerTest(TestCase):
     @patch('requests.get')
     def test_create_user(self, mock_get):
         self.user.key.delete()
-        mock_get.return_value = requests_response(test_web.ACTOR_HTML)
+        self.user.obj_key.delete()
+        protocol.objects_cache.clear()
 
+        mock_get.return_value = requests_response(test_web.ACTOR_HTML)
         expected = copy.deepcopy(WEBFINGER_NO_HCARD)
         expected['subject'] = 'acct:user.com@web.brid.gy'
 
