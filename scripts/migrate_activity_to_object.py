@@ -2,7 +2,7 @@
 
 https://github.com/snarfed/bridgy-fed/issues/286
 
-Run with:
+Run from repo top level directory:
 
 source local/bin/activate.csh
 env PYTHONPATH=. GOOGLE_APPLICATION_CREDENTIALS=service_account_creds.json \

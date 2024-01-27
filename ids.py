@@ -64,7 +64,8 @@ def translate_user_id(*, id, from_proto, to_proto):
       str: the corresponding id in ``to_proto``
     """
     assert id and from_proto and to_proto
-    assert from_proto.owns_id(id) is not False or from_proto.LABEL == 'ui'
+    assert from_proto.owns_id(id) is not False or from_proto.LABEL == 'ui', \
+        (id, from_proto.LABEL, to_proto.LABEL)
 
     parsed = urlparse(id)
     if from_proto.LABEL == 'web' and parsed.path.strip('/') == '':
