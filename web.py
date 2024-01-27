@@ -331,7 +331,7 @@ class Web(User, Protocol):
             user = key.get()
             return True if user and user.has_redirects else None
 
-        return None if util.is_web(id) else False
+        return None if util.is_web(id) or is_valid_domain(id) else False
 
     @classmethod
     def owns_handle(cls, handle):

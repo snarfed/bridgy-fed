@@ -2471,6 +2471,12 @@ class WebUtilTest(TestCase):
         self.assertIsNone(Web.owns_id('https://twitter.com/foo'))
         self.assertIsNone(Web.owns_id('https://fed.brid.gy/foo'))
 
+    def test_owns_id_returns_None(self, *_):
+        self.user.manual_opt_out = True
+        self.user.put()
+        self.assertIsNone(Web.owns_id('https://user.com/'))
+        self.assertIsNone(Web.owns_id('user.com'))
+
     def test_owns_handle(self, *_):
         self.assertIsNone(Web.owns_handle('foo.com'))
         self.assertIsNone(Web.owns_handle('foo.bar.com'))
