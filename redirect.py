@@ -103,6 +103,9 @@ def redir(to):
             return f'Object not found: {to}', 404, VARY_HEADER
 
         user = Web.get_or_create(util.domain_from_link(to), direct=False, obj=obj)
+        if not user:
+            return f'Object not found: {to}', 404, VARY_HEADER
+
         ret = ActivityPub.convert(obj, from_user=user)
         logger.info(f'Returning: {json_dumps(ret, indent=2)}')
         return ret, {

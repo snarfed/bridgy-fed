@@ -188,3 +188,11 @@ class RedirectTest(testutil.TestCase):
         resp = self.client.get('/r/https://user.com/bar',
                                headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(404, resp.status_code, resp.get_data(as_text=True))
+
+    def test_as2_opted_out(self):
+        self.user.manual_opt_out = True
+        self.user.put()
+
+        resp = self.client.get('/r/https://user.com/',
+                               headers={'Accept': as2.CONTENT_TYPE})
+        self.assertEqual(404, resp.status_code, resp.get_data(as_text=True))
