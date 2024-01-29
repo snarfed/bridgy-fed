@@ -46,6 +46,8 @@ CONNEG_HEADERS_AS2_HTML = {
 
 HTTP_SIG_HEADERS = ('Date', 'Host', 'Digest', '(request-target)')
 
+SECURITY_CONTEXT = 'https://w3id.org/security/v1'
+
 # https://seb.jambor.dev/posts/understanding-activitypub-part-4-threads/#the-instance-actor
 _INSTANCE_ACTOR = None
 
@@ -331,7 +333,11 @@ class ActivityPub(User, Protocol):
         if not obj or not obj.as1:
             return {}
         if obj.as2:
-            return obj.as2
+            return {
+                # add back @context since we strip it when we store Objects
+                '@context': [as2.CONTEXT, SECURITY_CONTEXT],
+                **obj.as2,
+            }
 
         translated = cls.translate_ids(obj.as1)
 
@@ -760,8 +766,7 @@ def postprocess_as2_actor(actor, user):
                 'owner': id,
                 'publicKeyPem': user.public_pem().decode(),
             },
-            '@context': (util.get_list(actor, '@context') +
-                         ['https://w3id.org/security/v1']),
+            '@context': (util.get_list(actor, '@context') + [SECURITY_CONTEXT]),
         })
 
     if (user.key.id() not in DOMAINS

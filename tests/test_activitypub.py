@@ -1534,7 +1534,7 @@ class ActivityPubTest(TestCase):
 
         resp = self.client.get('/user.com/followers')
         self.assertEqual(200, resp.status_code)
-        self.assertEqual({
+        self.assert_equals({
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': 'http://localhost/user.com/followers',
             'type': 'Collection',
@@ -1557,7 +1557,7 @@ class ActivityPubTest(TestCase):
 
         resp = self.client.get(f'/user.com/followers?before={before}')
         self.assertEqual(200, resp.status_code)
-        self.assertEqual({
+        self.assert_equals({
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': f'http://localhost/user.com/followers?before={before}',
             'type': 'CollectionPage',
@@ -1610,7 +1610,7 @@ class ActivityPubTest(TestCase):
 
         resp = self.client.get('/user.com/following')
         self.assertEqual(200, resp.status_code)
-        self.assertEqual({
+        self.assert_equals({
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': 'http://localhost/user.com/following',
             'summary': "user.com's following",
@@ -1633,7 +1633,7 @@ class ActivityPubTest(TestCase):
 
         resp = self.client.get(f'/user.com/following?after={after}')
         self.assertEqual(200, resp.status_code)
-        self.assertEqual({
+        self.assert_equals({
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': f'http://localhost/user.com/following?after={after}',
             'type': 'CollectionPage',
@@ -1687,7 +1687,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, resp.status_code)
 
         after = Object.get_by_id(LIKE['id']).updated.isoformat()
-        self.assertEqual({
+        self.assert_equals({
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': 'https://fa.brid.gy/ap/fake:foo/outbox',
             'summary': "fake:foo's outbox",
@@ -1712,7 +1712,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, resp.status_code)
 
         prev = Object.get_by_id(MENTION['id']).updated.isoformat()
-        self.assertEqual({
+        self.assert_equals({
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': f'https://fa.brid.gy/ap/fake:foo/outbox?after={after}',
             'type': 'CollectionPage',
@@ -2112,7 +2112,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual({}, ActivityPub.convert(obj))
 
         obj.as2 = {'baz': 'biff'}
-        self.assertEqual({'baz': 'biff'}, ActivityPub.convert(obj))
+        self.assert_equals({'baz': 'biff'}, ActivityPub.convert(obj))
 
         # prevent HTTP fetch to infer protocol
         self.store_object(id='https://mas.to/thing', source_protocol='activitypub')
@@ -2176,6 +2176,18 @@ class ActivityPubUtilsTest(TestCase):
             'attributedTo': 'bar',
             'object': {'attributedTo': 'biff'},
         }, ActivityPub.convert(obj), ignore=['to'])
+
+    def test_convert_adds_context_to_as2(self):
+        obj = Object(as2={
+            'type': 'Update',
+            'object': ACTOR,
+        })
+        # use assertEquals so that we don't ignore @context
+        self.assertEqual({
+            '@context': [as2.CONTEXT, activitypub.SECURITY_CONTEXT],
+            'type': 'Update',
+            'object': ACTOR,
+        }, ActivityPub.convert(obj))
 
     def test_postprocess_as2_idempotent(self):
         for obj in (ACTOR, REPLY_OBJECT, REPLY_OBJECT_WRAPPED, REPLY,
