@@ -104,6 +104,10 @@ def run():
     user = ndb.Key(kind, user_id).get()
     assert user, f'{kind} {user_id} not found'
 
+    if not user.manual_opt_out:
+        user.manual_opt_out = True
+        user.put()
+
     targets = [Target(uri=t, protocol='activitypub')
                for t in AP_BASE_TARGETS + extra_targets]
 
@@ -119,7 +123,7 @@ def run():
                  # use as2 so that we don't convert. if we try to convert an opted
                  # out user's id, we choke. should probably relax that.
                  as2={
-                     'verb': 'Delete',
+                     'type': 'Delete',
                      'id': delete_id,
                      # if the actor is already deleted on this instance, it may
                      # return 502 here because it no longer has the actor's
