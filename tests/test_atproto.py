@@ -297,12 +297,10 @@ class ATProtoTest(TestCase):
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
                 'root': {
-                    '$type': 'com.atproto.repo.strongRef',
                     'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
                     'cid': 'my sidd',
                 },
                 'parent': {
-                    '$type': 'com.atproto.repo.strongRef',
                     'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
                     'cid': 'my sidd',
                 },
@@ -638,7 +636,7 @@ class ATProtoTest(TestCase):
             '$type': 'app.bsky.feed.repost',
             'subject': {
                 'uri': 'at://did/app.bsky.feed.post/tid',
-                'cid': 'TODO',
+                'cid': '',
             },
             'createdAt': '2022-01-02T03:04:05+00:00',
         }, record)
@@ -754,14 +752,12 @@ class ATProtoTest(TestCase):
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
                 'root': {
-                    '$type': 'com.atproto.repo.strongRef',
                     'uri': 'at://did/coll/post',
-                    'cid': 'TODO',
+                    'cid': '',
                 },
                 'parent': {
-                    '$type': 'com.atproto.repo.strongRef',
                     'uri': 'at://did/coll/post',
-                    'cid': 'TODO',
+                    'cid': '',
                 },
             },
             'facets': [{
@@ -914,7 +910,7 @@ class ATProtoTest(TestCase):
         post_view = {
             '$type': 'app.bsky.feed.defs#postView',
             'uri': 'at://did:web:alice.com/app.bsky.feed.post/123',
-            'cid': 'TODO',
+            'cid': '',
             'record': post,
             'author': {
                 '$type': 'app.bsky.actor.defs#profileViewBasic',
