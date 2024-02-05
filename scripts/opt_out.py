@@ -104,13 +104,6 @@ def run():
     user = ndb.Key(kind, user_id).get()
     assert user, f'{kind} {user_id} not found'
 
-    if not user.manual_opt_out:
-        user.manual_opt_out = True
-        user.put()
-
-    targets = [Target(uri=t, protocol='activitypub')
-               for t in AP_BASE_TARGETS + extra_targets]
-
     if from_proto is web.Web:
         user_id = user.web_url()
     to_proto = activitypub.ActivityPub  # TODO: generalize
@@ -119,7 +112,6 @@ def run():
                                        to_proto=to_proto)
     delete_id = f'{to_user_id}#bridgy-fed-delete-{util.now().isoformat()}'
     obj = Object(id=delete_id, status='new', source_protocol=from_proto.LABEL,
-                 undelivered=targets,
                  # use as2 so that we don't convert. if we try to convert an opted
                  # out user's id, we choke. should probably relax that.
                  as2={
@@ -140,11 +132,27 @@ def run():
                      # to delete a different actor.
                      'actor': to_user_id,
                      'object': to_user_id,
+                 },
+                 our_as1={
+                     'objectType': 'activity',
+                     'verb': 'delete',
+                     'id': delete_id,
+                     'actor': user_id,
+                     'object': user_id,
                  })
     obj.put()
 
+    if user.manual_opt_out:
+        user.manual_opt_out = False  # needed for key_for in user.targets() below
+        user.put()
+
+    targets = [Target(uri=t, protocol='activitypub')
+               for t in AP_BASE_TARGETS + extra_targets] \
+              + list(user.targets(obj).keys())
+    obj.undelivered = targets
+
     for target in targets:
-        assert util.is_web(target.uri), f'Non-URL target: {target}'
+        assert util.is_web(target.uri), f'Non-URL target: {target.uri}'
         params = {
             'protocol': to_proto.LABEL,
             'url': target.uri,
@@ -157,6 +165,10 @@ def run():
                                           flask_util.CLOUD_TASKS_QUEUE_HEADER: '',
                                       }):
             protocol.send_task()
+
+    if not user.manual_opt_out:
+        user.manual_opt_out = True
+        user.put()
 
 
 with appengine_config.ndb_client.context(), \
