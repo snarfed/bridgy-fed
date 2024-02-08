@@ -1,5 +1,6 @@
 """Unit tests for protocol.py."""
 import copy
+from datetime import timedelta
 import logging
 from unittest import skip
 from unittest.mock import patch
@@ -8,9 +9,9 @@ from arroba.tests.testutil import dns_answer
 from flask import g
 from google.cloud import ndb
 from granary import as2
-from oauth_dropins.webutil import appengine_info
+from oauth_dropins.webutil import appengine_info, util
 from oauth_dropins.webutil.flask_util import CLOUD_TASKS_QUEUE_HEADER, NoContent
-from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.testutil import NOW, requests_response
 import requests
 from werkzeug.exceptions import BadRequest
 
@@ -200,7 +201,7 @@ class ProtocolTest(TestCase):
         self.assertEqual([], Fake.fetched)
 
     def test_load_cached(self):
-        obj = Object(id='foo', our_as1={'x': 'y'})
+        obj = Object(id='foo', our_as1={'x': 'y'}, updated=util.as_utc(NOW))
         protocol.objects_cache['foo'] = obj
         loaded = Fake.load('foo')
         self.assert_entities_equal(obj, loaded)
@@ -345,6 +346,21 @@ class ProtocolTest(TestCase):
         got = ActivityPub.load('http://the/id#frag')
         self.assert_entities_equal(stored, got)
         self.assertEqual([], Fake.fetched)
+
+    def test_load_refresh(self):
+        Fake.fetchable['foo'] = {'fetched': 'x'}
+
+        too_old = (NOW.replace(tzinfo=None)
+                   - protocol.OBJECT_REFRESH_AGE
+                   - timedelta(days=1))
+        with patch('models.Object.updated._now', return_value=too_old):
+            obj = Object(id='foo', our_as1={'orig': 'y'}, status='in progress')
+            obj.put()
+
+        protocol.objects_cache['foo'] = obj
+
+        loaded = Fake.load('foo')
+        self.assertEqual({'fetched': 'x', 'id': 'foo'}, loaded.our_as1)
 
     def test_actor_key(self):
         user = self.make_user(id='fake:a', cls=Fake)

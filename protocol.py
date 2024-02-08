@@ -1,5 +1,6 @@
 """Base protocol class and common code."""
 import copy
+from datetime import timedelta
 import logging
 from threading import Lock
 from urllib.parse import urljoin
@@ -37,6 +38,8 @@ SUPPORTED_TYPES = (
     'update',
     'video',
 )
+
+OBJECT_REFRESH_AGE = timedelta(days=30)
 
 # activity ids that we've already handled and can now ignore.
 # used in Protocol.receive
@@ -1099,44 +1102,48 @@ class Protocol:
           requests.HTTPError: anything that :meth:`fetch` raises
         """
         assert local or remote is not False
-
-        if remote is not True:
-            with objects_cache_lock:
-                cached = objects_cache.get(id)
-                if cached:
-                    # make a copy so that if the client modifies this entity in
-                    # memory, those modifications aren't applied to the cache
-                    # until they explicitly put() the modified entity.
-                    # NOTE: keep in sync with Object._post_put_hook!
-                    return Object(id=cached.key.id(), **cached.to_dict(
-                        # computed properties
-                        exclude=['as1', 'expire', 'object_ids', 'type']))
+        logger.debug(f'Loading Object {id} local={local} remote={remote}')
 
         obj = orig_as1 = None
-        if local:
+        with objects_cache_lock:
+            cached = objects_cache.get(id)
+            if cached:
+                # make a copy so that if the client modifies this entity in
+                # memory, those modifications aren't applied to the cache
+                # until they explicitly put() the modified entity.
+                # NOTE: keep in sync with Object._post_put_hook!
+                logger.debug('  got from cache')
+                obj = Object(id=cached.key.id(), **cached.to_dict(
+                    # computed properties
+                    exclude=['as1', 'expire', 'object_ids', 'type']))
+
+        if local and not obj:
             obj = Object.get_by_id(id)
-            if obj and (obj.as1 or obj.raw or obj.deleted):
-                logger.info('  got from datastore')
+            if not obj:
+                logger.debug(f' not in datastore')
+            elif obj.as1 or obj.raw or obj.deleted:
+                logger.debug('  got from datastore')
                 obj.new = False
-                orig_as1 = obj.as1
                 if remote is not True:
                     with objects_cache_lock:
                         objects_cache[id] = obj
-                    return obj
 
-        if remote is True:
-            logger.debug(f'Loading Object {id} local={local} remote={remote}, forced refresh requested')
-        elif remote is False:
-            logger.debug(f'Loading Object {id} local={local} remote={remote} {"empty" if obj else "not"} in datastore')
+        if remote is False:
             return obj
+        elif remote is None and obj:
+            if obj.updated < util.as_utc(util.now() - OBJECT_REFRESH_AGE):
+                logger.debug(f'  last updated {obj.updated}, refreshing')
+            else:
+                return obj
 
         if obj:
+            orig_as1 = obj.as1
             obj.clear()
             obj.new = False
         else:
             obj = Object(id=id)
             if local:
-                logger.info('  not in datastore')
+                logger.debug('  not in datastore')
                 obj.new = True
                 obj.changed = False
 

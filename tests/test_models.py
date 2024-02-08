@@ -414,7 +414,7 @@ class ObjectTest(TestCase):
         self.assert_entities_equal(obj, Object.get_by_id('ab^^c'))
 
     def test_get_by_id_uses_cache(self):
-        obj = Object(id='foo', our_as1={'x': 'y'})
+        obj = Object(id='foo', our_as1={'x': 'y'}, updated=util.as_utc(NOW))
         protocol.objects_cache['foo'] = obj
         loaded = Fake.load('foo')
         self.assert_entities_equal(obj, loaded)
@@ -439,7 +439,7 @@ class ObjectTest(TestCase):
         }, Fake.load('foo').our_as1)
 
     def test_get_by_id_cached_makes_copy(self):
-        obj = Object(id='foo', our_as1={'x': 'y'})
+        obj = Object(id='foo', our_as1={'x': 'y'}, updated=util.as_utc(NOW))
         protocol.objects_cache['foo'] = obj
         loaded = Fake.load('foo')
         self.assert_entities_equal(obj, loaded)
