@@ -326,12 +326,15 @@ class Web(User, Protocol):
         if not id:
             return False
 
-        key = cls.key_for(id)
-        if key:
+        if key := cls.key_for(id):
             user = key.get()
             return True if user and user.has_redirects else None
+        elif is_valid_domain(id):
+            return None
+        elif util.is_web(id) and is_valid_domain(util.domain_from_link(id)):
+            return None
 
-        return None if util.is_web(id) or is_valid_domain(id) else False
+        return False
 
     @classmethod
     def owns_handle(cls, handle):
@@ -697,12 +700,17 @@ def poll_feed_task():
         if not id:
             logger.warning('No id or URL!')
             continue
+
+        if i == 0:
+            logger.info(f'Setting feed_last_item to {id}')
+            user.feed_last_item = id
         elif id == user.feed_last_item:
             logger.info(f'Already seen {id}, skipping rest of feed')
             break
-        elif i == 0:
-            logger.info(f'Setting feed_last_item to {id}')
-            user.feed_last_item = id
+
+        if Web.owns_id(id) is False:
+            logger.warning(f'Skipping bad id {id}')
+            continue
 
         activity['feed_index'] = i
         obj = Object.get_or_create(id=id, our_as1=activity, status='new',

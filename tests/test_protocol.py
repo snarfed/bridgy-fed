@@ -105,24 +105,24 @@ class ProtocolTest(TestCase):
         self.assertEqual(Greedy, Protocol.for_id('https://bar/baz'))
 
     def test_for_id_object(self):
-        self.store_object(id='http://ui/obj', source_protocol='ui')
-        self.assertEqual(UIProtocol, Protocol.for_id('http://ui/obj'))
+        self.store_object(id='http://u.i/obj', source_protocol='ui')
+        self.assertEqual(UIProtocol, Protocol.for_id('http://u.i/obj'))
 
     def test_for_id_object_missing_source_protocol(self):
-        self.store_object(id='http://bad/obj')
-        self.assertIsNone(Protocol.for_id('http://bad/obj'))
+        self.store_object(id='http://ba.d/obj')
+        self.assertIsNone(Protocol.for_id('http://ba.d/obj'))
 
     @patch('requests.get')
     def test_for_id_activitypub_fetch(self, mock_get):
         mock_get.return_value = self.as2_resp(ACTOR)
-        self.assertEqual(ActivityPub, Protocol.for_id('http://ap/actor'))
-        self.assertIn(self.as2_req('http://ap/actor'), mock_get.mock_calls)
+        self.assertEqual(ActivityPub, Protocol.for_id('http://a.p/actor'))
+        self.assertIn(self.as2_req('http://a.p/actor'), mock_get.mock_calls)
 
     @patch('requests.get')
     def test_for_id_activitypub_fetch_fails(self, mock_get):
         mock_get.return_value = requests_response('', status=403)
-        self.assertIsNone(Protocol.for_id('http://ap/actor'))
-        self.assertIn(self.as2_req('http://ap/actor'), mock_get.mock_calls)
+        self.assertIsNone(Protocol.for_id('http://a.p/actor'))
+        self.assertIn(self.as2_req('http://a.p/actor'), mock_get.mock_calls)
         mock_get.assert_called_once()
 
     @patch('requests.get')
@@ -272,7 +272,7 @@ class ProtocolTest(TestCase):
 
     @patch('requests.get', return_value=ACTOR_HTML_RESP)
     def test_load_remote_true_clear_our_as1(self, _):
-        self.store_object(id='https://foo', our_as1={'should': 'disappear'},
+        self.store_object(id='https://fo.o', our_as1={'should': 'disappear'},
                           source_protocol='web')
 
         expected_mf2 = {
@@ -280,7 +280,7 @@ class ProtocolTest(TestCase):
             'url': 'https://user.com/',
         }
 
-        loaded = Web.load('https://foo', remote=True)
+        loaded = Web.load('https://fo.o', remote=True)
         self.assertEqual(expected_mf2, loaded.mf2)
         self.assertIsNone(loaded.our_as1)
         self.assertEqual(ACTOR_AS1_UNWRAPPED_URLS, loaded.as1)

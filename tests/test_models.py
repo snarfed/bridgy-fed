@@ -683,6 +683,13 @@ class ObjectTest(TestCase):
         with self.assertRaises(AssertionError):
             Object(id='not a fake', source_protocol='fake').put()
 
+    def test_put_blocklisted_id(self):
+        Object(id='asdf foo').put()  # ok, no source protocol
+        Object(id='fake:foo', source_protocol='fake').put()  # ok, valid id
+
+        with self.assertRaises(AssertionError):
+            Object(id='not a fake', source_protocol='fake').put()
+
     def test_resolve_ids_empty(self):
         obj = Object()
         obj.resolve_ids()

@@ -195,7 +195,7 @@ REPLY_HTML = """\
 <div class="h-entry">
 <a class="u-url" href="https://user.com/reply"></a>
 <p class="e-content p-name">
-<a class="u-in-reply-to" href="http://not/fediverse"></a>
+<a class="u-in-reply-to" href="http://no.t/fediverse"></a>
 <a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a href="http://localhost/"></a>
 </p>
@@ -252,12 +252,12 @@ AS2_CREATE = {
         'url': 'http://localhost/r/https://user.com/reply',
         'name': 'foo ☕ bar',
         'content': """\
-<a class="u-in-reply-to" href="http://not/fediverse"></a>
+<a class="u-in-reply-to" href="http://no.t/fediverse"></a>
 <a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a href="http://localhost/"></a>""",
         'contentMap': {
             'en': """\
-<a class="u-in-reply-to" href="http://not/fediverse"></a>
+<a class="u-in-reply-to" href="http://no.t/fediverse"></a>
 <a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a href="http://localhost/"></a>""",
         },
@@ -400,7 +400,7 @@ NOT_FEDIVERSE = requests_response("""\
 <div class="e-content">foo</div>
 </body>
 </html>
-""", url='http://not/fediverse')
+""", url='http://no.t/fediverse')
 ACTIVITYPUB_GETS = [
     REPLY,
     NOT_FEDIVERSE,  # AP
@@ -652,7 +652,7 @@ class WebTest(TestCase):
         mock_get.side_effect = (
             requests_response(
                 REPLY_HTML.replace('https://mas.to/toot', 'bad:nope')\
-                          .replace('http://not/fediverse', ''),
+                          .replace('http://no.t/fediverse', ''),
                 content_type=CONTENT_TYPE_HTML, url='https://user.com/reply'),
             ValueError('foo bar'),  # AS2 fetch
             ValueError('foo bar'),  # HTML fetch
@@ -683,9 +683,9 @@ class WebTest(TestCase):
             requests_response(
                 REPLY_HTML.replace('https://mas.to/toot', 'bad:nope'),
                 url='https://user.com/post'),
-            # http://not/fediverse AP protocol discovery
+            # http://no.t/fediverse AP protocol discovery
             requests.Timeout('foo bar'),
-            # http://not/fediverse web protocol discovery
+            # http://no.t/fediverse web protocol discovery
             requests.Timeout('foo bar'),
         ]
 
@@ -694,7 +694,7 @@ class WebTest(TestCase):
         self.assertEqual(204, got.status_code)
 
     def test_target_fetch_has_no_content_type(self, mock_get, mock_post):
-        Object(id='http://not/fediverse', mf2=NOTE_MF2, source_protocol='web').put()
+        Object(id='http://no.t/fediverse', mf2=NOTE_MF2, source_protocol='web').put()
 
         no_content_type = requests_response(REPLY_HTML, content_type='')
 
@@ -704,7 +704,7 @@ class WebTest(TestCase):
             no_content_type,  # https://mas.to/toot AP protocol discovery
             no_content_type,  # https://mas.to/toot Web protocol discovery
             no_content_type,  # https://user.com/ webmention discovery
-            no_content_type,  # http://not/fediverse webmention discovery
+            no_content_type,  # http://no.t/fediverse webmention discovery
         )
         got = self.post('/queue/webmention', data={'source': 'https://user.com/reply'})
         self.assertEqual(204, got.status_code)
@@ -750,8 +750,8 @@ class WebTest(TestCase):
 
         mock_get.assert_has_calls((
             self.req('https://user.com/reply'),
-            self.as2_req('http://not/fediverse'),
-            self.req('http://not/fediverse'),
+            self.as2_req('http://no.t/fediverse'),
+            self.req('http://no.t/fediverse'),
             self.as2_req('https://mas.to/toot'),
             self.as2_req('https://mas.to/author'),
         ))
@@ -874,8 +874,8 @@ class WebTest(TestCase):
 
         mock_get.assert_has_calls((
             self.req('https://user.com/reply'),
-            self.as2_req('http://not/fediverse'),
-            self.req('http://not/fediverse'),
+            self.as2_req('http://no.t/fediverse'),
+            self.req('http://no.t/fediverse'),
             self.as2_req('https://mas.to/toot'),
             self.as2_req('https://mas.to/author'),
         ))
@@ -962,8 +962,8 @@ class WebTest(TestCase):
 
         mock_get.assert_has_calls((
             self.req('https://user.com/reply'),
-            self.as2_req('http://not/fediverse'),
-            self.req('http://not/fediverse'),
+            self.as2_req('http://no.t/fediverse'),
+            self.req('http://no.t/fediverse'),
             self.as2_req('https://mas.to/toot'),
             self.as2_req('https://mas.to/toot/id', headers=as2.CONNEG_HEADERS),
             self.as2_req('https://mas.to/author'),
@@ -1849,17 +1849,17 @@ class WebTest(TestCase):
 <rss version="2.0">
 <channel>
   <item>
-    <guid>http://post/a</guid>
+    <guid>http://po.st/a</guid>
     <description>I hereby ☕ post a</description>
     <pubDate>Tue, 08 Dec 2012 00:00:00 +0000</pubDate>
   </item>
   <item>
-    <guid>http://post/b</guid>
+    <guid>http://po.st/b</guid>
     <description>I hereby ☕ post b</description>
     <pubDate>Tue, 05 Dec 2012 00:00:00 +0000</pubDate>
   </item>
   <item>
-    <guid>http://post/c</guid>
+    <guid>http://po.st/c</guid>
     <description>I hereby ☕ post c</description>
     <pubDate>Tue, 04 Dec 2012 00:00:00 +0000</pubDate>
   </item>
@@ -1874,13 +1874,13 @@ class WebTest(TestCase):
 
         user = self.user.key.get()
         self.assertEqual(NOW, user.last_polled_feed)
-        self.assertEqual('http://post/a', user.feed_last_item)
+        self.assertEqual('http://po.st/a', user.feed_last_item)
 
         mock_get.assert_has_calls((
             self.req('https://foo/rss'),
         ))
         for i, (id, day) in enumerate([('a', 8), ('b', 5), ('c', 4)]):
-            url = f'http://post/{id}'
+            url = f'http://po.st/{id}'
             obj = self.assert_object(
                 url,
                 users=[self.user.key],
@@ -2041,6 +2041,29 @@ class WebTest(TestCase):
         feed = """\
 <?xml version="1.0" encoding="UTF-8"?>
 <entry xmlns="http://www.w3.org/2005/Atom">
+  <link rel="alternate" type="text/html" href="http://localhost:8080/foo" />
+  <content>I hereby ☕ post</content>
+</entry>
+"""
+        mock_get.return_value = requests_response(
+            feed, headers={'Content-Type': atom.CONTENT_TYPE})
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(200, got.status_code)
+
+        self.assertEqual(1, Object.query().count())  # only user profile
+        mock_create_task.assert_called_once()  # only the next poll-feed task
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_blocklisted_entry_url(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.user.obj.put()
+        self.user.feed_last_item = 'https://user.com/post'
+        self.user.put()
+
+        feed = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<entry xmlns="http://www.w3.org/2005/Atom">
   <link rel="alternate" type="text/html" href="https://user.com/post" />
   <content>I hereby ☕ post</content>
 </entry>
@@ -2053,11 +2076,6 @@ class WebTest(TestCase):
         user = self.user.key.get()
         self.assertEqual(NOW, user.last_polled_feed)
         self.assertEqual('https://user.com/post', user.feed_last_item)
-
-        mock_create_task.assert_called_once()
-        expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
-        self.assert_task(mock_create_task, 'poll-feed', '/queue/poll-feed',
-                         domain='user.com', eta_seconds=expected_eta)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_last_webmention_in_noop(self, mock_create_task, mock_get, _):
@@ -2456,7 +2474,6 @@ class WebUtilTest(TestCase):
         self.assertIsNone(Web.owns_id('http://foo.com'))
         self.assertIsNone(Web.owns_id('https://bar.com/'))
         self.assertIsNone(Web.owns_id('https://bar.com/baz'))
-        self.assertIsNone(Web.owns_id('https://bar/'))
         self.assertEqual(False, Web.owns_id('at://did:plc:foo/bar/123'))
         self.assertEqual(False, Web.owns_id('e45fab982'))
 
@@ -2467,15 +2484,18 @@ class WebUtilTest(TestCase):
         self.user.key.delete()
         self.assertIsNone(Web.owns_id('user.com'))
 
-        # TODO: these should be False since they're blocklisted?
-        self.assertIsNone(Web.owns_id('https://twitter.com/foo'))
-        self.assertIsNone(Web.owns_id('https://fed.brid.gy/foo'))
-
     def test_owns_id_returns_None(self, *_):
         self.user.manual_opt_out = True
         self.user.put()
         self.assertIsNone(Web.owns_id('https://user.com/'))
         self.assertIsNone(Web.owns_id('user.com'))
+
+    def test_owns_id_blocklisted(self, *_):
+        self.assertIs(False, Web.owns_id('localhost'))
+        self.assertIs(False, Web.owns_id('http://localhost/foo'))
+        self.assertIs(False, Web.owns_id('http://localhost:8080/foo'))
+        self.assertIs(False, Web.owns_id('https://twitter.com/'))
+        self.assertIs(False, Web.owns_id('https://ap.brid.gy/foo'))
 
     def test_owns_handle(self, *_):
         self.assertIsNone(Web.owns_handle('foo.com'))

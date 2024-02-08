@@ -603,6 +603,8 @@ class Protocol:
 
         if authed_as:
             assert isinstance(authed_as, str)
+            # TODO: handle domain vs URL for web users, eg
+            # "actor https://tiffwhite.me/ isn't authed user tiffwhite.me"
             if actor != authed_as:
                 logger.warning(f"actor {actor} isn't authed user {authed_as}")
 

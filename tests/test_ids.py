@@ -125,7 +125,7 @@ class IdsTest(TestCase):
                     handle=handle, from_proto=from_, to_proto=to, enhanced=True))
 
     def test_translate_object_id(self):
-        self.store_object(id='http://post',
+        self.store_object(id='http://po.st',
                           copies=[Target(uri='at://did/web/post', protocol='atproto')])
         self.store_object(id='https://inst/post',
                           copies=[Target(uri='at://did/ap/post', protocol='atproto')])
@@ -140,7 +140,7 @@ class IdsTest(TestCase):
              Web, 'https://ap.brid.gy/convert/web/https://inst/post'),
             (ATProto, 'at://did/atp/post', ATProto, 'at://did/atp/post'),
             # copies
-            (ATProto, 'at://did/web/post', Web, 'http://post'),
+            (ATProto, 'at://did/web/post', Web, 'http://po.st'),
             (ATProto, 'at://did/ap/post', ActivityPub, 'https://inst/post'),
             (ATProto, 'at://did/fa/post', Fake, 'fake:post'),
             # no copies
@@ -152,10 +152,10 @@ class IdsTest(TestCase):
             (Fake, 'fake:post', ATProto, 'at://did/fa/post'),
             (Fake, 'fake:post', Fake, 'fake:post'),
             (Fake, 'fake:post', Web, 'https://fa.brid.gy/convert/web/fake:post'),
-            (Web, 'http://post', ActivityPub, 'http://localhost/r/http://post'),
-            (Web, 'http://post', ATProto, 'at://did/web/post'),
-            (Web, 'http://post', Fake, 'fake:o:web:http://post'),
-            (Web, 'http://post', Web, 'http://post'),
+            (Web, 'http://po.st', ActivityPub, 'http://localhost/r/http://po.st'),
+            (Web, 'http://po.st', ATProto, 'at://did/web/post'),
+            (Web, 'http://po.st', Fake, 'fake:o:web:http://po.st'),
+            (Web, 'http://po.st', Web, 'http://po.st'),
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_object_id(

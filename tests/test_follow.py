@@ -170,7 +170,8 @@ class FollowTest(TestCase):
         )
 
         state = util.encode_oauth_state(self.state)
-        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
+                               base_url='https://fed.brid.gy/')
         self.check('@foo@ba.r', resp, FOLLOW_ADDRESS, mock_get, mock_post)
         mock_get.assert_has_calls((
             self.req('https://ba.r/.well-known/webfinger?resource=acct:foo@ba.r'),
@@ -189,7 +190,8 @@ class FollowTest(TestCase):
 
         self.state['state'] = 'https://ba.r/actor'
         state = util.encode_oauth_state(self.state)
-        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
+                               base_url='https://fed.brid.gy/')
         self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
 
     def test_callback_stored_followee_with_our_as1(self, mock_get, mock_post):
@@ -206,7 +208,8 @@ class FollowTest(TestCase):
 
         self.state['state'] = 'https://ba.r/id'
         state = util.encode_oauth_state(self.state)
-        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
+                               base_url='https://fed.brid.gy/')
 
         follow_with_profile_link = {
             **FOLLOW_URL,
@@ -236,7 +239,8 @@ class FollowTest(TestCase):
 
         self.state['state'] = 'https://ba.r/actor'
         state = util.encode_oauth_state(self.state)
-        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
+                               base_url='https://fed.brid.gy/')
 
         self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post,
                    expected_follow_as1={
@@ -272,7 +276,8 @@ class FollowTest(TestCase):
 
         self.state['state'] = 'https://ba.r/actor'
         state = util.encode_oauth_state(self.state)
-        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
+                               base_url='https://fed.brid.gy/')
 
         self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
 
@@ -350,7 +355,7 @@ class FollowTest(TestCase):
             sig_template.startswith('keyId="http://localhost/alice.com#key"'),
             sig_template)
 
-        follow_id = f'http://localhost/web/alice.com/following#2022-01-02T03:04:05-{input}'
+        follow_id = f'https://fed.brid.gy/web/alice.com/following#2022-01-02T03:04:05-{input}'
 
         followers = Follower.query().fetch()
         followee = ActivityPub(id='https://ba.r/id').key
@@ -400,7 +405,8 @@ class FollowTest(TestCase):
 
         self.state['state'] = 'https://ba.r/actor'
         state = util.encode_oauth_state(self.state)
-        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
+                               base_url='https://fed.brid.gy/')
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/www.alice.com/following', resp.headers['Location'])
 
@@ -413,7 +419,7 @@ class FollowTest(TestCase):
         del expected_follow_as1['to']
         followee = ActivityPub(id='https://ba.r/id').key
         follow_obj = self.assert_object(
-            f'http://localhost/web/{id}',
+            f'https://fed.brid.gy/web/{id}',
             users=[user.key],
             notify=[followee],
             status='complete',
@@ -450,7 +456,8 @@ class FollowTest(TestCase):
 
         self.state['state'] = 'https://ba.r/actor'
         state = util.encode_oauth_state(self.state)
-        resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
+        resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
+                               base_url='https://fed.brid.gy/')
 
         self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
         self.assertEqual(
@@ -466,13 +473,14 @@ class FollowTest(TestCase):
             requests_response('OK'),  # AP Follow to inbox
         )
 
-        with self.client.session_transaction() as ctx_session:
+        with self.client.session_transaction(base_url='https://fed.brid.gy/') \
+             as ctx_session:
             ctx_session['indieauthed-me'] = 'https://alice.com'
 
         resp = self.client.post('/follow/start', data={
             'me': 'https://alice.com',
             'address': 'https://ba.r/actor',
-        })
+        }, base_url='https://fed.brid.gy/')
         self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
 
     def test_indieauthed_session_wrong_me(self, mock_get, mock_post):
@@ -480,7 +488,8 @@ class FollowTest(TestCase):
             requests_response(''),  # IndieAuth endpoint discovery
         )
 
-        with self.client.session_transaction() as ctx_session:
+        with self.client.session_transaction(base_url='https://fed.brid.gy/') \
+             as ctx_session:
             ctx_session['indieauthed-me'] = 'https://eve.com'
 
         resp = self.client.post('/follow/start', data={
@@ -544,7 +553,8 @@ class UnfollowTest(TestCase):
             requests_response('OK'),  # AP Undo Follow to inbox
         )
 
-        resp = self.client.get(f'/unfollow/callback?code=my_code&state={self.state}')
+        resp = self.client.get(f'/unfollow/callback?code=my_code&state={self.state}',
+                               base_url='https://fed.brid.gy/')
         self.check(resp, UNDO_FOLLOW, mock_get, mock_post)
 
     def test_callback_last_follow_object_str(self, mock_get, mock_post):
@@ -570,7 +580,8 @@ class UnfollowTest(TestCase):
         undo = copy.deepcopy(UNDO_FOLLOW)
         undo['object']['object'] = FOLLOWEE['id']
 
-        resp = self.client.get(f'/unfollow/callback?code=my_code&state={self.state}')
+        resp = self.client.get(f'/unfollow/callback?code=my_code&state={self.state}',
+                               base_url='https://fed.brid.gy/')
         self.check(resp, undo, mock_get, mock_post)
 
     def check(self, resp, expected_undo, mock_get, mock_post):
@@ -596,7 +607,7 @@ class UnfollowTest(TestCase):
         self.assertEqual('inactive', follower.status)
 
         self.assert_object(
-            'http://localhost/web/alice.com/following#undo-2022-01-02T03:04:05-https://ba.r/id',
+            'https://fed.brid.gy/web/alice.com/following#undo-2022-01-02T03:04:05-https://ba.r/id',
             users=[self.user.key],
             notify=[ActivityPub(id='https://ba.r/id').key],
             status='complete',
@@ -630,7 +641,8 @@ class UnfollowTest(TestCase):
             'me': 'https://alice.com',
             'state': self.follower.key.id(),
         })
-        resp = self.client.get(f'/unfollow/callback?code=my_code&state={state}')
+        resp = self.client.get(f'/unfollow/callback?code=my_code&state={state}',
+                               base_url='https://fed.brid.gy/')
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/www.alice.com/following', resp.headers['Location'])
 
@@ -658,7 +670,7 @@ class UnfollowTest(TestCase):
         self.assertEqual('inactive', follower.status)
 
         self.assert_object(
-            'http://localhost/web/www.alice.com/following#undo-2022-01-02T03:04:05-https://ba.r/id',
+            'https://fed.brid.gy/web/www.alice.com/following#undo-2022-01-02T03:04:05-https://ba.r/id',
             users=[user.key],
             notify=[ActivityPub(id='https://ba.r/id').key],
             status='complete',
@@ -686,7 +698,8 @@ class UnfollowTest(TestCase):
             requests_response('OK'),  # AP Undo Follow to inbox
         )
 
-        resp = self.client.get(f'/unfollow/callback?code=my_code&state={self.state}')
+        resp = self.client.get(f'/unfollow/callback?code=my_code&state={self.state}',
+                               base_url='https://fed.brid.gy/')
         self.assertEqual([f'Unfollowed <a href="https://ba.r/url">ba.r/url</a>.'],
                          get_flashed_messages())
         self.check(resp, UNDO_FOLLOW, mock_get, mock_post)
@@ -698,13 +711,14 @@ class UnfollowTest(TestCase):
             requests_response('OK'),  # AP Undo Follow to inbox
         )
 
-        with self.client.session_transaction() as ctx_session:
+        with self.client.session_transaction(base_url='https://fed.brid.gy/') \
+             as ctx_session:
             ctx_session['indieauthed-me'] = 'https://alice.com'
 
         resp = self.client.post('/unfollow/start', data={
             'me': 'https://alice.com',
             'key': self.follower.key.id(),
-        })
+        }, base_url='https://fed.brid.gy/')
         self.check(resp, UNDO_FOLLOW, mock_get, mock_post)
 
     def test_indieauthed_session_wrong_me(self, mock_get, mock_post):
@@ -712,7 +726,8 @@ class UnfollowTest(TestCase):
             requests_response(''),  # IndieAuth endpoint discovery
         )
 
-        with self.client.session_transaction() as ctx_session:
+        with self.client.session_transaction(base_url='https://fed.brid.gy/') \
+             as ctx_session:
             ctx_session['indieauthed-me'] = 'https://eve.com'
 
         resp = self.client.post('/unfollow/start', data={
