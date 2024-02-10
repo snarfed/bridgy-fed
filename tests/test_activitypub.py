@@ -765,14 +765,7 @@ class ActivityPubTest(TestCase):
         Follower.get_or_create(to=to, from_=baj, status='inactive')
 
         mock_head.return_value = requests_response(url='http://target')
-        mock_get.side_effect = [
-            self.as2_resp(ACTOR),  # source actor
-            self.as2_resp(NOTE_OBJECT),  # object of repost
-            # protocol inference
-            requests_response(test_web.NOTE_HTML),
-            requests_response(test_web.NOTE_HTML),
-            HTML,  # no webmention endpoint
-        ]
+        mock_get.return_value = self.as2_resp(NOTE_OBJECT)
 
         got = self.post('/ap/sharedInbox', json=REPOST)
         self.assertEqual(202, got.status_code, got.get_data(as_text=True))
