@@ -1745,6 +1745,41 @@ class ProtocolReceiveTest(TestCase):
         note = {
             'id': 'fake:post',
             'objectType': 'note',
+            'author': 'fake:alice',
+        }
+        obj = self.store_object(id='fake:post', our_as1=note,
+                                source_protocol='fake')
+
+        with self.assertLogs() as logs:
+            self.client.post('/queue/receive', data={
+                'obj': obj.key.urlsafe(),
+                'authed_as': 'fake:alice',
+            }, headers={CLOUD_TASKS_QUEUE_HEADER: ''})
+
+        self.assertNotIn("isn't authed user", ' '.join(logs.output))
+
+    def test_receive_task_handler_authed_as_domain_vs_homepage(self):
+        note = {
+            'id': 'https://user.com/c',
+            'objectType': 'note',
+            'author': 'https://user.com/',
+        }
+        user = self.make_user('user.com', cls=Web, obj_id='https://user.com/')
+        obj = self.store_object(id='https://user.com/c', our_as1=note,
+                                source_protocol='web')
+
+        with self.assertLogs() as logs:
+            self.client.post('/queue/receive', data={
+                'obj': obj.key.urlsafe(),
+                'authed_as': 'user.com',
+            }, headers={CLOUD_TASKS_QUEUE_HEADER: ''})
+
+        self.assertNotIn("isn't authed user", ' '.join(logs.output))
+
+    def test_receive_task_handler_not_authed_as(self):
+        note = {
+            'id': 'fake:post',
+            'objectType': 'note',
             'author': 'fake:other',
         }
         obj = self.store_object(id='fake:post', our_as1=note,
@@ -1759,20 +1794,6 @@ class ProtocolReceiveTest(TestCase):
         self.assertIn(
             "WARNING:protocol:actor fake:other isn't authed user fake:eve",
             logs.output)
-
-    def test_g_user_opted_out(self):
-        self.make_followers()
-        self.user.obj.our_as1 = {'summary': '#nobot'}
-        self.user.obj.put()
-
-        with self.assertRaises(NoContent):
-            Fake.receive_as1({
-                'id': 'fake:post',
-                'objectType': 'note',
-                'author': 'fake:user',
-            })
-
-        self.assertEqual([], Fake.sent)
 
     def test_like_not_authed_as_actor(self):
         Fake.fetchable['fake:post'] = {
@@ -1792,6 +1813,20 @@ class ProtocolReceiveTest(TestCase):
         self.assertIn(
             "WARNING:protocol:actor fake:user isn't authed user fake:other",
             logs.output)
+
+    def test_user_opted_out(self):
+        self.make_followers()
+        self.user.obj.our_as1 = {'summary': '#nobot'}
+        self.user.obj.put()
+
+        with self.assertRaises(NoContent):
+            Fake.receive_as1({
+                'id': 'fake:post',
+                'objectType': 'note',
+                'author': 'fake:user',
+            })
+
+        self.assertEqual([], Fake.sent)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_post_create_send_tasks(self, mock_create_task):

@@ -2,6 +2,7 @@
 import copy
 from datetime import timedelta
 import logging
+import re
 from threading import Lock
 from urllib.parse import urljoin
 
@@ -16,7 +17,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import werkzeug.exceptions
 
 import common
-from common import add, DOMAIN_BLOCKLIST, DOMAINS, error, subdomain_wrap
+from common import add, DOMAIN_BLOCKLIST, DOMAIN_RE, DOMAINS, error, subdomain_wrap
 from flask_app import app
 from ids import translate_object_id, translate_user_id
 from models import Follower, get_originals, Object, PROTOCOLS, Target, User
@@ -603,6 +604,8 @@ class Protocol:
 
         if authed_as:
             assert isinstance(authed_as, str)
+            if util.is_web(actor) and re.match(DOMAIN_RE, authed_as):
+                authed_as = f'https://{authed_as}/'
             # TODO: handle domain vs URL for web users, eg
             # "actor https://tiffwhite.me/ isn't authed user tiffwhite.me"
             if actor != authed_as:
