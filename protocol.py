@@ -1162,7 +1162,8 @@ class Protocol:
             obj.changed = obj.activity_changed(orig_as1)
 
         if obj.source_protocol not in (cls.LABEL, cls.ABBREV):
-            assert not obj.source_protocol
+            if obj.source_protocol:
+                logger.warning(f'Object {obj.key.id()} changed protocol from {obj.source_protocol} to {cls.LABEL} ?!')
             obj.source_protocol = cls.LABEL
             obj.put()
 
