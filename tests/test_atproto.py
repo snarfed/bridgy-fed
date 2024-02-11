@@ -270,7 +270,7 @@ class ATProtoTest(TestCase):
                 'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
                 'cid': 'my sidd',
             },
-            'createdAt': '2022-01-02T03:04:05+00:00',
+            'createdAt': '2022-01-02T03:04:05.000Z',
         }, ATProto.convert(Object(our_as1={
             'objectType': 'activity',
             'verb': 'like',
@@ -283,7 +283,7 @@ class ATProtoTest(TestCase):
                 'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
                 'cid': 'my sidd',
             },
-            'createdAt': '2022-01-02T03:04:05+00:00',
+            'createdAt': '2022-01-02T03:04:05.000Z',
         }, ATProto.convert(Object(our_as1={
             'objectType': 'activity',
             'verb': 'share',
@@ -293,7 +293,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
             'text': 'foo',
-            'createdAt': '2022-01-02T03:04:05+00:00',
+            'createdAt': '2022-01-02T03:04:05.000Z',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
                 'root': {
@@ -606,7 +606,7 @@ class ATProtoTest(TestCase):
                 'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
                 'cid': 'bafyCID',
             },
-            'createdAt': '2022-01-02T03:04:05+00:00',
+            'createdAt': '2022-01-02T03:04:05.000Z',
         }, record)
 
         at_uri = f'at://{did}/app.bsky.feed.like/{last_tid}'
@@ -638,7 +638,7 @@ class ATProtoTest(TestCase):
                 'uri': 'at://did/app.bsky.feed.post/tid',
                 'cid': '',
             },
-            'createdAt': '2022-01-02T03:04:05+00:00',
+            'createdAt': '2022-01-02T03:04:05.000Z',
         }, record)
 
         at_uri = f'at://{did}/app.bsky.feed.repost/{last_tid}'
@@ -667,7 +667,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.graph.follow',
             'subject': 'did:plc:bob',
-            'createdAt': '2022-01-02T03:04:05+00:00',
+            'createdAt': '2022-01-02T03:04:05.000Z',
         }, record)
 
         at_uri = f'at://{did}/app.bsky.graph.follow/{last_tid}'
@@ -747,7 +747,7 @@ class ATProtoTest(TestCase):
         record = repo.get_record('app.bsky.feed.post', last_tid)
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
-            'createdAt': '2022-01-02T03:04:05+00:00',
+            'createdAt': '2022-01-02T03:04:05.000Z',
             'text': 'foo',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
@@ -947,7 +947,7 @@ class ATProtoTest(TestCase):
                             'did': 'did:web:bob.com',
                             'handle': 'bob.com',
                         },
-                        'indexedAt': '2022-01-02T03:04:05+00:00',
+                        'indexedAt': '2022-01-02T03:04:05.000Z',
                     },
                 }],
             }),
