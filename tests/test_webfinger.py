@@ -8,6 +8,7 @@ from oauth_dropins.webutil.testutil import requests_response
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase
 
+from models import PROTOCOLS
 import protocol
 from web import Web
 from webfinger import fetch, fetch_actor_url
@@ -309,12 +310,15 @@ class WebfingerTest(TestCase):
 
     def test_no_handle(self):
         class NoHandle(Fake):
-            ABBREV = 'noh'
+            ABBREV = 'nohandle'
             handle = None
 
-        got = self.client.get(
-            '/.well-known/webfinger?resource=acct:nohandle:user@noh.brid.gy')
-        self.assertEqual(404, got.status_code)
+        try:
+            got = self.client.get(
+                '/.well-known/webfinger?resource=acct:nohandle:user@nohandle.brid.gy')
+            self.assertEqual(404, got.status_code)
+        finally:
+            PROTOCOLS.pop('nohandle')
 
     @patch('requests.get')
     def test_create_user(self, mock_get):

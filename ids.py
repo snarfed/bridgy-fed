@@ -108,7 +108,7 @@ def translate_user_id(*, id, from_proto, to_proto):
         case 'fake' | 'other', _:
             return id
 
-    assert False, (id, from_proto, to_proto)
+    assert False, (id, from_proto.LABEL, to_proto.LABEL)
 
 
 def translate_handle(*, handle, from_proto, to_proto, enhanced):
@@ -155,7 +155,7 @@ def translate_handle(*, handle, from_proto, to_proto, enhanced):
         case _, 'other':
             return f'other:handle:{handle}'
 
-    assert False, (id, from_proto, to_proto)
+    assert False, (handle, from_proto.LABEL, to_proto.LABEL)
 
 
 def translate_object_id(*, id, from_proto, to_proto):
@@ -197,4 +197,4 @@ def translate_object_id(*, id, from_proto, to_proto):
         case _, 'fake' | 'other':
             return f'{to_proto.LABEL}:o:{from_proto.ABBREV}:{id}'
 
-    assert False, (id, from_proto, to_proto)
+    assert False, (id, from_proto.LABEL, to_proto.LABEL)

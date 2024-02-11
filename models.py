@@ -485,12 +485,18 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     def user_link(self):
         """Returns a pretty link to the external user with name and profile picture."""
-        actor = self.obj.as1 if self.obj and self.obj.as1 else {}
-        img = util.get_url(actor, 'image') or ''
+        pic = self.profile_picture()
+        img = f'<img src="{pic}" class="profile"> ' if pic else ''
         return f"""\
 <a class="h-card u-author" href="{self.web_url()}">
-  <img src="{img}" class="profile">
-  {self.name()}</a>"""
+  {img}
+  {self.name()}
+</a>"""
+
+    def profile_picture(self):
+        """Returns the user's profile picture image URL, if available, or None."""
+        if self.obj and self.obj.as1:
+            return util.get_url(self.obj.as1, 'image')
 
     @cachetools.cached(cachetools.TTLCache(50000, 60 * 60 * 2),  # 2h expiration
                        key=lambda user: user.key.id(), lock=Lock())

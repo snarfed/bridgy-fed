@@ -23,7 +23,7 @@ from .testutil import Fake, OtherFake, TestCase
 from atproto import ATProto
 import common
 import models
-from models import Follower, Object, OBJECT_EXPIRE_AGE, Target, User
+from models import Follower, Object, OBJECT_EXPIRE_AGE, PROTOCOLS, Target, User
 import protocol
 from protocol import Protocol
 from web import Web
@@ -136,14 +136,16 @@ class UserTest(TestCase):
     def test_user_link(self):
         self.assert_multiline_equals("""\
 <a class="h-card u-author" href="https://y.z/">
-  <img src="" class="profile">
-  y.z</a>""", self.user.user_link())
+
+  y.z
+</a>""", self.user.user_link())
 
         self.user.obj = Object(id='a', as2=ACTOR)
         self.assert_multiline_equals("""\
 <a class="h-card u-author" href="https://y.z/">
 <img src="https://user.com/me.jpg" class="profile">
-  Mrs. ☕ Foo</a>""", self.user.user_link())
+  Mrs. ☕ Foo
+</a>""", self.user.user_link())
 
     def test_is_web_url(self):
         for url in 'y.z', '//y.z', 'http://y.z', 'https://y.z':
@@ -187,12 +189,16 @@ class UserTest(TestCase):
 
     def test_handle_as_None(self):
         class NoHandle(Fake):
+            ABBREV = 'nohandle'
             @ndb.ComputedProperty
             def handle(self):
                 return None
 
-        user = NoHandle()
-        self.assertIsNone(user.handle_as(OtherFake))
+        try:
+            user = NoHandle()
+            self.assertIsNone(user.handle_as(OtherFake))
+        finally:
+            PROTOCOLS.pop('nohandle')
 
     def test_load_multi(self):
         # obj_key is None

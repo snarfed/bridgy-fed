@@ -179,6 +179,7 @@ class PagesTest(TestCase):
             from_=self.make_user('http://masto/user', cls=ActivityPub,
                                  obj_as2=ACTOR_WITH_PREFERRED_USERNAME))
 
+        from models import PROTOCOLS
         got = self.client.get('/web/user.com/followers')
         self.assert_equals(200, got.status_code)
 

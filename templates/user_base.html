@@ -30,13 +30,22 @@
 
 <div class="row">
   <span class="big">
-    {{ user.user_link()|safe }}
-    &middot;
+    {% if user.name() != user.handle_or_id() %}
+      {{ user.user_link()|safe }}
+      &middot;
+    {% else %}
+      {% if user.profile_picture() %}
+        <img src="{{ user.profile_picture() }}" class="profile">
+      {% endif %}
+    {% endif %}
+
     <nobr>
-      <a href="{{ user.web_url() }}"
-         title="{{ user.__class__.__name__ }} (native)">
-        <span class="logo">{{ user.LOGO_HTML|safe }}</span>
-        {{ user.handle_or_id() }}</a>
+
+    <a href="{{ user.web_url() }}"
+       title="{{ user.__class__.__name__ }} (native)">
+      <span class="logo">{{ user.LOGO_HTML|safe }}</span>
+      {{ user.handle_or_id() }}
+    </a>
 
     {% if user.LABEL == 'web' %}
       <form method="post" action="/webmention-interactive">
@@ -46,15 +55,15 @@
       </form>
     {% endif %}
     </nobr>
-    &middot;
   </span>
 
   {% for proto in set(PROTOCOLS.values()) %}
     {% if proto and not isinstance(user, proto)
-       and proto.LABEL not in ('atproto', 'ui') %}
+       and proto.LABEL not in ('atproto', 'ui', 'web') %}
+      &middot;
       <nobr title="{{ proto.__name__ }} (bridged)">
         <span class="logo">{{ proto.LOGO_HTML|safe }}</span>
-        {{ user.handle_as('activitypub') }}
+        {{ user.handle_as(proto) }}
       </nobr>
     {% endif %}
   {% endfor %}
