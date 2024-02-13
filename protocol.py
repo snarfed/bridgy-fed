@@ -973,14 +973,8 @@ class Protocol:
             if not protocol:
                 logger.info(f"Can't determine protocol for {id}")
                 continue
-            elif protocol == cls and cls.LABEL != 'fake':
-                logger.info(f'Skipping same-protocol target {id}')
-                continue
             elif protocol.is_blocklisted(id):
                 logger.info(f'{id} is blocklisted')
-                continue
-            elif id in in_reply_to_owners:
-                logger.info(f'Skipping mention of in-reply-to author')
                 continue
 
             orig_obj = protocol.load(id)
@@ -993,6 +987,13 @@ class Protocol:
             if owner == as1.get_owner(orig_obj.as1):
                 is_self_reply = True
                 logger.info(f'Looks like a self reply! Delivering to all followers')
+
+            if protocol == cls and cls.LABEL != 'fake':
+                logger.info(f'Skipping same-protocol target {id}')
+                continue
+            elif id in in_reply_to_owners:
+                logger.info(f'Skipping mention of in-reply-to author')
+                continue
 
             target = protocol.target_for(orig_obj)
             if not target:
