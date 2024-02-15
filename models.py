@@ -711,7 +711,8 @@ class Object(StringIdModel):
             'new': self.new,
             'changed': self.changed,
         })
-        for prop in 'as2', 'atom', 'bsky', 'mf2', 'our_as1', 'raw', 'rss':
+        for prop in ['as2', 'atom', 'bsky', 'delivered', 'failed', 'mf2',
+                     'our_as1', 'raw', 'rss', 'undelivered']:
             if props.get(prop):
                 props[prop] = "..."
         for prop in 'created', 'updated', 'as1', 'expire':
