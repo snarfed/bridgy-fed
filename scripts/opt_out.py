@@ -6,7 +6,7 @@ Usage: opt_out.py [PROTOCOL] [USER_ID] [EXTRA_TARGETS ...]
 
 PROTOCOL: protocol label, eg web, activitypub, atproto
 USER_ID: key id of the user entity
-EXTRA_TARGETS: bridged profiles will also be deleted here
+EXTRA_TARGETS: bridged profiles will also be deleted here. currently AP only!
 
 Run with:
 
@@ -25,7 +25,9 @@ from oauth_dropins.webutil import appengine_config, flask_util, util
 import ids
 from models import Object, Target
 import protocol
-import activitypub, atproto, web
+from activitypub import ActivityPub
+from atproto import ATProto
+from web import Web
 from app import app
 
 appengine_config.error_reporting_client.host = 'localhost:9999'
@@ -98,63 +100,69 @@ def run():
     assert len(sys.argv) >= 3
     proto, user_id, extra_targets = sys.argv[1], sys.argv[2], sys.argv[3:]
 
-    # can't do get_by_id because they might be opted out
     from_proto = protocol.PROTOCOLS[proto]
     kind = from_proto._get_kind()
+
+    if proto == 'activitypub' and user_id.count('@') == 1:
+        instance, user = user_id.strip().removeprefix('https://').split('/@')
+        user_id = f'@{user}@{instance}'
+        print(f'Cleaned up user id to {user_id}')
+
+    if (from_proto.owns_id(user_id) is False
+            and from_proto.owns_handle(user_id) is not False):
+        handle = user_id
+        user_id = from_proto.handle_to_id(handle)
+        print(f'Converted {proto} handle {handle} to user id {user_id}')
+        assert from_proto.owns_id(user_id) is not False
+
+    # can't do get_by_id because they might be opted out
     user = ndb.Key(kind, user_id).get()
-    assert user, f'{kind} {user_id} not found'
 
-    if from_proto is web.Web:
-        user_id = user.web_url()
-    to_proto = activitypub.ActivityPub  # TODO: generalize
-
-    to_user_id = ids.translate_user_id(id=user_id, from_proto=from_proto,
-                                       to_proto=to_proto)
-    delete_id = f'{to_user_id}#bridgy-fed-delete-{util.now().isoformat()}'
-    obj = Object(id=delete_id, status='new', source_protocol=from_proto.LABEL,
-                 # use as2 so that we don't convert. if we try to convert an opted
-                 # out user's id, we choke. should probably relax that.
-                 as2={
-                     'type': 'Delete',
-                     'id': delete_id,
-                     # if the actor is already deleted on this instance, it may
-                     # return 502 here because it no longer has the actor's
-                     # public key, so it can't verify the HTTP Sig. (eg Mastodon
-                     # does this; it uses LD Sigs for its actor deletes
-                     # instead.)
-                     #
-                     # an alternative is to use the instance actor:
-                     #
-                     #   activitypub.instance_actor().key.urlsafe()
-                     #
-                     # ...which gets accepted, but I'm not sure all
-                     # implementations accept the instance actor as authorized
-                     # to delete a different actor.
-                     'actor': to_user_id,
-                     'object': to_user_id,
-                 },
-                 our_as1={
-                     'objectType': 'activity',
-                     'verb': 'delete',
-                     'id': delete_id,
-                     'actor': user_id,
-                     'object': user_id,
-                 })
-    obj.put()
+    if not user:
+        print(f"user {kind} {user_id} doesn't exist. Creating new and marking as opted out.")
+        from_proto(id=user_id, manual_opt_out=True).put()
+        return
 
     if user.manual_opt_out:
-        user.manual_opt_out = False  # needed for key_for in user.targets() below
+        # needed for key_for etc in misc downstream code below
+        user.manual_opt_out = False
         user.put()
 
-    targets = [Target(uri=t, protocol='activitypub')
-               for t in AP_BASE_TARGETS + extra_targets] \
-              + list(user.targets(obj).keys())
+    delete_base_id = user.web_url() if from_proto is Web else user_id
+    delete_id = f'{delete_base_id}#bridgy-fed-delete-{util.now().isoformat()}'
+    delete_as1 = {
+        'objectType': 'activity',
+        'verb': 'delete',
+        'id': delete_id,
+        'actor': user_id,
+        'object': {
+            # needed to make Protocol.translate_ids convert this id as a user id
+            # and not an object id
+            'objectType': 'person',
+            'id': user_id,
+        },
+    }
+    obj = Object(id=delete_id, status='new', source_protocol=from_proto.LABEL,
+                 our_as1=delete_as1)
+    obj.put()
+
+
+    targets = list(user.targets(obj).keys())
+
+    if from_proto != ActivityPub:
+        targets += [Target(protocol='activitypub', uri=t)
+                    for t in AP_BASE_TARGETS + extra_targets]
+
+    if from_proto != ATProto and user.get_copy(ATProto):
+        targets += Target(protocol='atproto', uri=ATProto.PDS_URL)
+
     obj.undelivered = targets
+    obj.put()
 
     for target in targets:
         assert util.is_web(target.uri), f'Non-URL target: {target.uri}'
         params = {
-            'protocol': to_proto.LABEL,
+            'protocol': target.protocol,
             'url': target.uri,
             'obj': obj.key.urlsafe(),
             'user': user.key.urlsafe(),
@@ -164,6 +172,18 @@ def run():
                                       data=params, headers={
                                           flask_util.CLOUD_TASKS_QUEUE_HEADER: '',
                                       }):
+            # in ActivityPub, if the actor is already deleted on this instance,
+            # it may return 502 here because it no longer has the actor's public
+            # key, so it can't verify the HTTP Sig. (eg Mastodon does this; it
+            # uses LD Sigs for its actor deletes instead.)
+            #
+            # an alternative is to use the instance actor:
+            #
+            #   activitypub.instance_actor().key.urlsafe()
+            #
+            # ...which gets accepted, but I'm not sure all
+            # implementations accept the instance actor as authorized
+            # to delete a different actor.
             protocol.send_task()
 
     if not user.manual_opt_out:
