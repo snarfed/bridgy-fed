@@ -889,6 +889,18 @@ def inbox(protocol=None, id=None):
         logger.info('Dropping non-public activity')
         return 'OK'
 
+    # temporary, for Feb 2024 Japanese mention spam flood
+    # eg https://nafo.uk/@usc1qrtm8s/111953165825053473
+    if type == 'Create':
+        obj = activity.get('object', {})
+        mentions = [t for t in util.get_list(obj, 'tag') if t.get('type') == 'Mention']
+        if (len(mentions) == 5
+                and len(util.get_list(obj, 'attachment')) == 1
+                and not obj.get('inReplyTo')
+                and len(obj.get('attributedTo', '').split('/')[-1]) == 10):
+            logger.warning('Ignoring, looks like Feb 2024 Japanese mention spam flood')
+            return 'Ignoring, looks like Feb 2024 Japanese mention spam flood'
+
     if type == 'Follow':
         # rendered mf2 HTML proxy pages (in render.py) fall back to redirecting
         # to the follow's AS2 id field, but Mastodon's Accept ids are URLs that
