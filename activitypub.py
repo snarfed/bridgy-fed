@@ -894,7 +894,7 @@ def inbox(protocol=None, id=None):
     if type == 'Create':
         obj = activity.get('object', {})
         mentions = [t for t in util.get_list(obj, 'tag') if t.get('type') == 'Mention']
-        if (len(mentions) == 5
+        if (len(mentions) in (4, 5)
                 and len(util.get_list(obj, 'attachment')) == 1
                 and not obj.get('inReplyTo')
                 and len(obj.get('attributedTo', '').split('/')[-1]) == 10):
