@@ -890,12 +890,14 @@ def inbox(protocol=None, id=None):
         return 'OK'
 
     # temporary, for Feb 2024 Japanese mention spam flood
-    # eg https://nafo.uk/@usc1qrtm8s/111953165825053473
+    # examples:
+    # https://nafo.uk/@usc1qrtm8s/111953165825053473
+    # https://kish.social/@kj2hevtalc/111954393290908177
     if type == 'Create':
         obj = activity.get('object', {})
         mentions = [t for t in util.get_list(obj, 'tag') if t.get('type') == 'Mention']
         if (len(mentions) in (4, 5)
-                and len(util.get_list(obj, 'attachment')) == 1
+                and len(util.get_list(obj, 'attachment')) in (0, 1)
                 and not obj.get('inReplyTo')
                 and len(obj.get('attributedTo', '').split('/')[-1]) == 10):
             logger.warning('Ignoring, looks like Feb 2024 Japanese mention spam flood')
