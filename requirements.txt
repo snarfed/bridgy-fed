@@ -24,7 +24,7 @@ colorama==0.4.6
 cryptography==42.0.3
 dag-cbor==0.3.3
 Deprecated==1.2.14
-dnspython==2.5.0
+dnspython==2.6.1
 domain2idna==1.12.0
 ecdsa==0.18.0
 extras==1.0.0
