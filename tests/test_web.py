@@ -2004,7 +2004,7 @@ class WebTest(TestCase):
         mock_get.side_effect = requests.ConnectionError()
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
-        self.assertEqual(504, got.status_code)
+        self.assertEqual(502, got.status_code)
         self.assertIsNone(self.user.key.get().last_polled_feed)
 
     def test_poll_feed_unsupported_content_types(self, mock_get, _):
@@ -2030,13 +2030,10 @@ class WebTest(TestCase):
         self.assertEqual(502, got.status_code)
         self.assertIsNone(self.user.key.get().last_polled_feed)
 
-    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-    def test_poll_feed_user_feed_last_item(self, mock_create_task, mock_get, _):
+    def test_poll_feed_parse_error(self, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
         self.user.obj.put()
-        self.user.feed_last_item = 'https://user.com/post'
-        self.user.put()
 
         feed = """\
 <?xml version="1.0" encoding="UTF-8"?>
@@ -2047,11 +2044,34 @@ class WebTest(TestCase):
 """
         mock_get.return_value = requests_response(
             feed, headers={'Content-Type': atom.CONTENT_TYPE})
-        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
-        self.assertEqual(200, got.status_code)
 
+        for content_type in None, 'text/plain':
+            mock_get.return_value = requests_response(
+                'nope', headers={'Content-Type': content_type})
+            got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+            self.assertEqual(200, got.status_code)
+            self.assertIsNone(self.user.key.get().last_polled_feed)
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_user_feed_last_item(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.user.obj.put()
+
+        # bad unescaped & char in title, raises xml.etree.ElementTree.ParseError
+        feed = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <title>Xerox 820 & CP/M</title>
+</entry>
+"""
+        mock_get.return_value = requests_response(
+            feed, headers={'Content-Type': atom.CONTENT_TYPE})
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+
+        self.assertEqual(502, got.status_code)
         self.assertEqual(1, Object.query().count())  # only user profile
-        mock_create_task.assert_called_once()  # only the next poll-feed task
+        mock_create_task.assert_not_called()  # doesn't create a next poll-feed task
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_blocklisted_entry_url(self, mock_create_task, mock_get, _):

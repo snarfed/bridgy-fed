@@ -6,6 +6,7 @@ import re
 import statistics
 import urllib.parse
 from urllib.parse import quote, urlencode, urljoin, urlparse
+from xml.etree import ElementTree
 
 from flask import g, redirect, render_template, request
 from google.cloud import ndb
@@ -658,7 +659,7 @@ def poll_feed_task():
         headers['If-None-Match'] = user.feed_etag
     if user.feed_last_modified:
         headers['If-Modified-Since'] = user.feed_last_modified
-    resp = util.requests_get(url, headers=headers)
+    resp = util.requests_get(url, headers=headers, gateway=True)
 
     content_type = resp.headers.get('Content-Type') or ''
     type = FEED_TYPES.get(content_type.split(';')[0])
@@ -668,7 +669,8 @@ def poll_feed_task():
     elif type == 'atom' or (type == 'xml' and rel_type == 'atom'):
         try:
             activities = atom.atom_to_activities(resp.text)
-        except ValueError as e:
+        except (ValueError, ElementTree.ParseError) as e:
+            # TODO: should probably still create the next poll-feed task
             error(f"Couldn't parse feed as Atom: {e}", status=502)
         obj_feed_prop = {'atom': resp.text}
     elif type == 'rss' or (type == 'xml' and rel_type == 'rss'):
