@@ -279,15 +279,16 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
     def make_user(self, id, cls, **kwargs):
         """Reuse RSA key across Users because generating it is expensive."""
-        obj_key = None
-
         obj_as1 = kwargs.pop('obj_as1', None)
         obj_as2 = kwargs.pop('obj_as2', None)
         obj_mf2 = kwargs.pop('obj_mf2', None)
         obj_id = kwargs.pop('obj_id', None)
 
-        obj_key = None
-        if cls != ATProto:
+        obj_key = kwargs.pop('obj_key', None)
+        if obj_key:
+            assert not obj_as1 and not obj_as2 and not obj_mf2 and not obj_id
+
+        if not obj_key and cls != ATProto:
             if not obj_id:
                 obj_id = ((obj_as2 or {}).get('id')
                           or util.get_url((obj_mf2 or {}), 'properties')

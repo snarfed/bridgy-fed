@@ -228,7 +228,13 @@ class UserTest(TestCase):
         self.assertIsNone(user.status)
 
         user.obj.our_as1.update({
+            'to': [{'objectType': 'group', 'alias': '@unlisted'}],
+        })
+        self.assertEqual('opt-out', user.status)
+
+        user.obj.our_as1.update({
             'summary': 'well #nobot yeah',
+            'to': None,
         })
         self.assertEqual('opt-out', user.status)
 

@@ -324,6 +324,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if not self.obj or not self.obj.as1:
             return None
 
+        if not as1.is_public(self.obj.as1, unlisted=False):
+            return 'opt-out'
+
         for field in 'summary', 'displayName':
             text = html_to_text(self.obj.as1.get(field, ''))
             for tag in OPT_OUT_TAGS:

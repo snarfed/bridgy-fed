@@ -13,6 +13,7 @@ import dns.resolver
 from dns.resolver import NXDOMAIN
 from flask import g
 from google.cloud.tasks_v2.types import Task
+from granary.bluesky import NO_AUTHENTICATED_LABEL
 from granary.tests.test_bluesky import (
     ACTOR_AS,
     ACTOR_PROFILE_BSKY,
@@ -192,6 +193,22 @@ class ATProtoTest(TestCase):
             self.req('https://baz.com/.well-known/atproto-did'),
             self.req('https://plc.local/did:plc:user'),
         ))
+
+    def test_no_authenticated_label_opt_out(self):
+        # !no-authenticated label is for users who disable logged out visibility,
+        # ie only show their profile to users who are logged into Bluesky
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        obj = self.store_object(id='at://did:plc:user/app.bsky.actor.profile/self',
+                                bsky={
+                                    **ACTOR_PROFILE_BSKY,
+                                    'labels': [{
+                                        'val' : NO_AUTHENTICATED_LABEL,
+                                        'neg' : False,
+                                    }],
+                                })
+        user = self.make_user('did:plc:user', cls=ATProto, obj_key=obj.key)
+
+        self.assertEqual('opt-out', user.status)
 
     def test_target_for_user_no_stored_did(self):
         self.assertEqual('https://atproto.brid.gy/', ATProto.target_for(
