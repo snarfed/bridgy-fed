@@ -134,7 +134,7 @@ class FollowCallback(indieauth.Callback):
         follow_obj = Object(id=follow_id, our_as1=follow_as1, source_protocol='ui',
                             labels=['user'])
 
-        resp = Web.receive(follow_obj, authed_as=domain)
+        resp = Web.receive(follow_obj, authed_as=domain, internal=True)
         logger.info(f'Web.receive returned {resp}')
 
         follow_obj = follow_obj.key.get()
@@ -218,7 +218,7 @@ class UnfollowCallback(indieauth.Callback):
         # network etiquette.)
         follow_obj = Object(id=unfollow_id, users=[user.key], labels=['user'],
                             source_protocol='ui', our_as1=unfollow_as1)
-        resp = Web.receive(follow_obj, authed_as=domain)
+        resp = Web.receive(follow_obj, authed_as=domain, internal=True)
 
         follower.status = 'inactive'
         follower.put()

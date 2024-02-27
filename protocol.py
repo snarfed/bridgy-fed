@@ -546,7 +546,7 @@ class Protocol:
         return outer_obj
 
     @classmethod
-    def receive(from_cls, obj, authed_as=None):
+    def receive(from_cls, obj, authed_as=None, internal=False):
         """Handles an incoming activity.
 
         If ``obj``'s key is unset, ``obj.as1``'s id field is used. If both are
@@ -555,6 +555,7 @@ class Protocol:
         Args:
           obj (models.Object)
           authed_as (str): authenticated actor id who sent this activity
+          internal (bool): whether to allow activity ids on internal domains
 
         Returns:
           (str, int) tuple: (response body, HTTP status code) Flask response
@@ -580,6 +581,8 @@ class Protocol:
 
         if not id:
             error('No id provided')
+        elif from_cls.is_blocklisted(id) and not internal:
+            error(f'Activity {id} is blocklisted')
 
         # short circuit if we've already seen this activity id.
         # (don't do this for bare objects since we need to check further down

@@ -829,6 +829,19 @@ class ActivityPubTest(TestCase):
         self.assertIsNone(Object.get_by_id(not_public['id']))
         self.assertIsNone(Object.get_by_id(not_public['object']['id']))
 
+    def test_inbox_actor_blocklisted(self, mock_head, mock_get, mock_post):
+        got = self.post('/ap/sharedInbox', json={
+            'type': 'Delete',
+            'id': 'http://inst/foo#delete',
+            'actor': 'http://localhost:3000/foo',
+            'object': 'http://inst/foo',
+        })
+        self.assertEqual(400, got.status_code, got.get_data(as_text=True))
+
+        self.assertIsNone(Object.get_by_id('http://localhost:3000/foo'))
+        self.assertIsNone(Object.get_by_id('http://inst/foo#delete'))
+        self.assertIsNone(Object.get_by_id('http://inst/foo'))
+
     def test_inbox_like(self, mock_head, mock_get, mock_post):
         mock_head.return_value = requests_response(url='https://user.com/post')
         mock_get.side_effect = [

@@ -879,6 +879,9 @@ def inbox(protocol=None, id=None):
     actor_id = actor.get('id')
     logger.info(f'Got {type} from {actor_id}: {json_dumps(activity, indent=2)}')
 
+    if ActivityPub.is_blocklisted(actor_id):
+        error(f'Actor {actor_id} is blocklisted')
+
     authed_as = ActivityPub.verify_signature(activity)
 
     # check that this activity is public. only do this for creates, not likes,

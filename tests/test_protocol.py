@@ -1601,6 +1601,16 @@ class ProtocolReceiveTest(TestCase):
                 },
             })
 
+    def test_activity_id_blocklisted(self):
+        with self.assertRaises(BadRequest):
+            Fake.receive_as1({
+                'objectType': 'activity',
+                'verb': 'delete',
+                'id': 'fake:blocklisted:delete',
+                'actor': 'fake:user',
+                'object': 'fake:foo',
+            })
+
     def test_resolve_ids_follow(self):
         follow = {
             'id': 'fake:follow',
