@@ -811,7 +811,13 @@ class ActivityPubTest(TestCase):
                            users=[self.masto_actor_key],
                            object_ids=['http://nope.com/post'])
 
-    def test_inbox_not_public(self, mock_head, mock_get, mock_post):
+    def test_inbox_private(self, *mocks):
+        self._test_inbox_with_to_ignored([], *mocks)
+
+    def test_inbox_unlisted(self, *mocks):
+        self._test_inbox_with_to_ignored(['@unlisted'], *mocks)
+
+    def _test_inbox_with_to_ignored(self, to, mock_head, mock_get, mock_post):
         Follower.get_or_create(to=self.make_user(ACTOR['id'], cls=ActivityPub),
                                from_=self.user)
 
@@ -819,11 +825,10 @@ class ActivityPubTest(TestCase):
         mock_get.return_value = self.as2_resp(ACTOR)  # source actor
 
         not_public = copy.deepcopy(NOTE)
-        del not_public['object']['to']
+        not_public['object']['to'] = to
 
         got = self.post('/user.com/inbox', json=not_public)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-
         self.assertIsNone(Object.get_by_id(not_public['id']))
         self.assertIsNone(Object.get_by_id(not_public['object']['id']))
 

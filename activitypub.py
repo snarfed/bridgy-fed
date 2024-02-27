@@ -888,7 +888,7 @@ def inbox(protocol=None, id=None):
     # follows, or other activity types, since Mastodon doesn't currently mark
     # those as explicitly public. Use as2's is_public instead of as1's because
     # as1's interprets unlisted as true.
-    if type == 'Create' and not as2.is_public(activity):
+    if type == 'Create' and not as2.is_public(activity, unlisted=False):
         logger.info('Dropping non-public activity')
         return 'OK'
 
