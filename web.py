@@ -64,6 +64,7 @@ FEED_TYPES = {
 }
 MIN_FEED_POLL_PERIOD = timedelta(hours=2)
 MAX_FEED_POLL_PERIOD = timedelta(weeks=1)
+MAX_FEED_PROPERTY_SIZE = 500 * 1000  # Object.atom/rss
 
 
 def is_valid_domain(domain):
@@ -673,13 +674,13 @@ def poll_feed_task():
         except (ValueError, ElementTree.ParseError) as e:
             # TODO: should probably still create the next poll-feed task
             error(f"Couldn't parse feed as Atom: {e}", status=502)
-        obj_feed_prop = {'atom': resp.text}
+        obj_feed_prop = {'atom': resp.text[:MAX_FEED_PROPERTY_SIZE]}
     elif type == 'rss' or (type == 'xml' and rel_type == 'rss'):
         try:
             activities = rss.to_activities(resp.text)
         except ValueError as e:
             error(f"Couldn't parse feed as RSS: {e}", status=502)
-        obj_feed_prop = {'rss': resp.text}
+        obj_feed_prop = {'rss': resp.text[:MAX_FEED_PROPERTY_SIZE]}
     else:
         msg = f'Unknown feed type {content_type}'
         logger.info(msg)
