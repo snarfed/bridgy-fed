@@ -555,10 +555,15 @@ def check_web_site():
     logger.info(f'Params: {list(request.form.items())}')
 
     url = request.values['url']
+
     # this normalizes and lower cases domain
     domain = util.domain_from_link(url, minimize=False)
     if not domain or not is_valid_domain(domain):
         flash(f'{url} is not a valid or supported web site')
+        return render_template('enter_web_site.html'), 400
+
+    if util.is_web(url) and urlparse(url).path.strip('/'):
+        flash('Only top-level web sites and domains are supported.')
         return render_template('enter_web_site.html'), 400
 
     try:

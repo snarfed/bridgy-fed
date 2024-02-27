@@ -2422,6 +2422,13 @@ http://this/404s
                          get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
+    def test_check_web_site_url_with_path(self, _, __):
+        got = self.post('/web-site', data={'url': 'https://si.te/foo/bar'})
+        self.assert_equals(400, got.status_code)
+        self.assertEqual(['Only top-level web sites and domains are supported.'],
+                         get_flashed_messages())
+        self.assertEqual(1, Web.query().count())
+
     def test_check_web_site_bridgy_fed_domain(self, _, __):
         got = self.post('/web-site', data={'url': 'https://web.brid.gy/foo'})
         self.assert_equals(400, got.status_code)
