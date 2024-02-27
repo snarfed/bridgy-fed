@@ -537,6 +537,11 @@ class WebTest(TestCase):
         self.user.put()
         self.assertIsNone(Web.get_or_create('user.com'))
 
+    def test_get_or_create_existing_opted_out_normalize_case(self, *_):
+        self.user.manual_opt_out = True
+        self.user.put()
+        self.assertIsNone(Web.get_or_create('uSeR.cOm'))
+
     def test_bad_source_url(self, *mocks):
         orig_count = Object.query().count()
 
@@ -2473,7 +2478,7 @@ class WebUtilTest(TestCase):
         self.user = self.make_user('user.com', cls=Web)
 
     def test_key_for(self, *_):
-        for id in 'user.com', 'http://user.com', 'https://user.com/':
+        for id in 'user.com', 'http://user.com', 'https://user.com/', 'uSeR.cOm':
             self.assertEqual(Web(id='user.com').key, Web.key_for(id))
 
         for bad in '', 'foo', 'https://foo/', 'foo bar', 'user.json':

@@ -140,7 +140,7 @@ class Web(User, Protocol):
         if not key:
             return None  # opted out
 
-        domain = key.id().lower().strip('.')
+        domain = key.id()
         user = super().get_or_create(domain, **kwargs)
 
         if not user.existing:
@@ -307,6 +307,7 @@ class Web(User, Protocol):
         if not id:
             return None
 
+        id = id.lower().strip('.')
         if util.is_web(id):
             parsed = urlparse(id)
             if parsed.path in ('', '/'):
