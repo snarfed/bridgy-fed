@@ -3,6 +3,7 @@ import copy
 from unittest.mock import patch
 import urllib.parse
 
+from granary.as2 import CONTENT_TYPE_LD_PROFILE
 from oauth_dropins.webutil.testutil import requests_response
 
 # import first so that Fake is defined before URL routes are registered
@@ -39,15 +40,15 @@ WEBFINGER = {
         'href': 'https://user.com/about-me',
     }, {
         'rel': 'self',
-        'type': 'application/activity+json',
+        'type': CONTENT_TYPE_LD_PROFILE,
         'href': 'http://localhost/user.com',
     }, {
         'rel': 'inbox',
-        'type': 'application/activity+json',
+        'type': CONTENT_TYPE_LD_PROFILE,
         'href': 'http://localhost/user.com/inbox'
     }, {
         'rel': 'sharedInbox',
-        'type': 'application/activity+json',
+        'type': CONTENT_TYPE_LD_PROFILE,
         'href': 'https://web.brid.gy/ap/sharedInbox',
     }, {
         'rel': 'http://ostatus.org/schema/1.0/subscribe',
@@ -68,15 +69,15 @@ WEBFINGER_NO_HCARD = {
         'href': 'https://user.com/',
     }, {
         'rel': 'self',
-        'type': 'application/activity+json',
+        'type': CONTENT_TYPE_LD_PROFILE,
         'href': 'https://web.brid.gy/user.com',
     }, {
         'rel': 'inbox',
-        'type': 'application/activity+json',
+        'type': CONTENT_TYPE_LD_PROFILE,
         'href': 'https://web.brid.gy/user.com/inbox',
     }, {
         'rel': 'sharedInbox',
-        'type': 'application/activity+json',
+        'type': CONTENT_TYPE_LD_PROFILE,
         'href': 'https://web.brid.gy/ap/sharedInbox',
     }, {
         'rel': 'http://ostatus.org/schema/1.0/subscribe',
@@ -92,15 +93,15 @@ WEBFINGER_FAKE = {
         'href': 'fake:user',
     }, {
         'rel': 'self',
-        'type': 'application/activity+json',
+        'type': CONTENT_TYPE_LD_PROFILE,
         'href': 'http://localhost/ap/fa/fake:user',
     }, {
         'rel': 'inbox',
-        'type': 'application/activity+json',
+        'type': CONTENT_TYPE_LD_PROFILE,
         'href': 'http://localhost/ap/fa/fake:user/inbox',
     }, {
         'rel': 'sharedInbox',
-        'type': 'application/activity+json',
+        'type': CONTENT_TYPE_LD_PROFILE,
         'href': 'https://web.brid.gy/ap/sharedInbox',
     }, {
         'rel': 'http://ostatus.org/schema/1.0/subscribe',

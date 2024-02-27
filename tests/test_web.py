@@ -428,7 +428,8 @@ class WebTest(TestCase):
 
         calls = {}  # maps inbox URL to JSON data
         for args, kwargs in mock_post.call_args_list:
-            self.assertEqual(as2.CONTENT_TYPE, kwargs['headers']['Content-Type'])
+            self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE,
+                             kwargs['headers']['Content-Type'])
             rsa_key = kwargs['auth'].header_signer._rsa._key
             self.assertEqual(self.user.private_pem(), rsa_key.exportKey())
             calls[args[0]] = json_loads(kwargs['data'])

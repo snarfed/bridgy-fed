@@ -79,7 +79,7 @@ class RedirectTest(testutil.TestCase):
         self._test_as2(as2.CONTENT_TYPE)
 
     def test_as2_ld(self):
-        self._test_as2(as2.CONTENT_TYPE_LD)
+        self._test_as2(as2.CONTENT_TYPE_LD_PROFILE)
 
     def test_as2_creates_user(self):
         Object(id='https://user.com/repost', as2=REPOST_AS2).put()
@@ -87,7 +87,7 @@ class RedirectTest(testutil.TestCase):
         self.user.key.delete()
 
         resp = self.client.get('/r/https://user.com/repost',
-                               headers={'Accept': as2.CONTENT_TYPE})
+                               headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals(REPOST_AS2, resp.json)
         self.assertEqual('Accept', resp.headers['Vary'])
@@ -102,7 +102,7 @@ class RedirectTest(testutil.TestCase):
         ]
 
         resp = self.client.get('/r/https://user.com/repost',
-                               headers={'Accept': as2.CONTENT_TYPE})
+                               headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals(REPOST_AS2, resp.json)
         self.assertEqual('Accept', resp.headers['Vary'])
@@ -116,7 +116,7 @@ class RedirectTest(testutil.TestCase):
         ]
 
         resp = self.client.get('/r/https://user.com/repost',
-                               headers={'Accept': as2.CONTENT_TYPE})
+                               headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assert_equals(REPOST_AS2, resp.json)
         self.assertEqual('Accept', resp.headers['Vary'])
@@ -129,7 +129,7 @@ class RedirectTest(testutil.TestCase):
         protocol.objects_cache.clear()
 
         resp = self.client.get('/r/https://user.com/',
-                               headers={'Accept': as2.CONTENT_TYPE})
+                               headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('Accept', resp.headers['Vary'])
 
@@ -157,7 +157,7 @@ class RedirectTest(testutil.TestCase):
         cache.init_app(app)
         self.client = app.test_client()
 
-        self._test_as2(as2.CONTENT_TYPE)
+        self._test_as2(as2.CONTENT_TYPE_LD_PROFILE)
 
         resp = self.client.get('/r/https://user.com/bar')
         self.assertEqual(301, resp.status_code)
@@ -166,7 +166,7 @@ class RedirectTest(testutil.TestCase):
         # delete stored Object to make sure we're serving from cache
         self.obj.delete()
 
-        self._test_as2(as2.CONTENT_TYPE)
+        self._test_as2(as2.CONTENT_TYPE_LD_PROFILE)
 
         resp = self.client.get('/r/https://user.com/bar',
                                headers={'Accept': 'text/html'})
@@ -186,7 +186,7 @@ class RedirectTest(testutil.TestCase):
         Object(id='https://user.com/bar', as2={}, deleted=True).put()
 
         resp = self.client.get('/r/https://user.com/bar',
-                               headers={'Accept': as2.CONTENT_TYPE})
+                               headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
         self.assertEqual(404, resp.status_code, resp.get_data(as_text=True))
 
     def test_as2_opted_out(self):
@@ -194,5 +194,5 @@ class RedirectTest(testutil.TestCase):
         self.user.put()
 
         resp = self.client.get('/r/https://user.com/',
-                               headers={'Accept': as2.CONTENT_TYPE})
+                               headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
         self.assertEqual(404, resp.status_code, resp.get_data(as_text=True))

@@ -138,7 +138,7 @@ class Webfinger(flask_util.XrdOrJrd):
             # ActivityPub
             {
                 'rel': 'self',
-                'type': as2.CONTENT_TYPE,
+                'type': as2.CONTENT_TYPE_LD_PROFILE,
                 # WARNING: in python 2 sometimes request.host_url lost port,
                 # http://localhost:8080 would become just http://localhost. no
                 # clue how or why. pay attention here if that happens again.
@@ -147,12 +147,12 @@ class Webfinger(flask_util.XrdOrJrd):
                 # AP reads this and sharedInbox from the AS2 actor, not
                 # webfinger, so strictly speaking, it's probably not needed here.
                 'rel': 'inbox',
-                'type': as2.CONTENT_TYPE,
+                'type': as2.CONTENT_TYPE_LD_PROFILE,
                 'href': actor_id + '/inbox',
             }, {
                 # https://www.w3.org/TR/activitypub/#sharedInbox
                 'rel': 'sharedInbox',
-                'type': as2.CONTENT_TYPE,
+                'type': as2.CONTENT_TYPE_LD_PROFILE,
                 'href': common.subdomain_wrap(cls, '/ap/sharedInbox'),
             },
 

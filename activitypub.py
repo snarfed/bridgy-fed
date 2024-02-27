@@ -41,7 +41,7 @@ import webfinger
 logger = logging.getLogger(__name__)
 
 CONNEG_HEADERS_AS2_HTML = {
-    'Accept': f'{as2.CONNEG_HEADERS["Accept"]}, {CONTENT_TYPE_HTML}; q=0.7'
+    'Accept': f'{as2.CONNEG_HEADERS["Accept"]}, {CONTENT_TYPE_HTML}; q=0.5'
 }
 
 HTTP_SIG_HEADERS = ('Date', 'Host', 'Digest', '(request-target)')
@@ -67,7 +67,7 @@ class ActivityPub(User, Protocol):
     ABBREV = 'ap'
     PHRASE = 'the fediverse'
     LOGO_HTML = '<img src="/static/fediverse_logo.svg">'
-    CONTENT_TYPE = as2.CONTENT_TYPE
+    CONTENT_TYPE = as2.CONTENT_TYPE_LD_PROFILE
     HAS_FOLLOW_ACCEPTS = True
 
     def _pre_put_hook(self):
@@ -516,7 +516,7 @@ def signed_request(fn, url, data=None, headers=None, from_user=None, **kwargs):
         # required by Mastodon
         # https://github.com/tootsuite/mastodon/pull/14556#issuecomment-674077648
         'Host': util.domain_from_link(url, minimize=False),
-        'Content-Type': as2.CONTENT_TYPE,
+        'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
         # required for HTTP Signature and Mastodon
         'Digest': f'SHA-256={b64encode(sha256(data or b"").digest()).decode()}',
     }
@@ -849,7 +849,7 @@ def actor(handle_or_id):
 
     logger.info(f'Returning: {json_dumps(actor, indent=2)}')
     return actor, {
-        'Content-Type': as2.CONTENT_TYPE,
+        'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
         'Access-Control-Allow-Origin': '*',
     }
 
@@ -952,7 +952,7 @@ def follower_collection(id, collection):
         return f'{protocol} user {id} not found', 404
 
     if request.method == 'HEAD':
-        return '', {'Content-Type': as2.CONTENT_TYPE}
+        return '', {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
     # page
     followers, new_before, new_after = Follower.fetch_page(collection, user=user)
@@ -973,7 +973,7 @@ def follower_collection(id, collection):
             'id': request.url,
         })
         logger.info(f'Returning {json_dumps(page, indent=2)}')
-        return page, {'Content-Type': as2.CONTENT_TYPE}
+        return page, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
     # collection
     num_followers, num_following = user.count_followers()
@@ -986,7 +986,7 @@ def follower_collection(id, collection):
         'first': page,
     }
     logger.info(f'Returning {json_dumps(collection, indent=2)}')
-    return collection, {'Content-Type': as2.CONTENT_TYPE}
+    return collection, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
 
 # protocol in subdomain
@@ -1010,7 +1010,7 @@ def outbox(id):
         error(f'User {id} not found', status=404)
 
     if request.method == 'HEAD':
-        return '', {'Content-Type': as2.CONTENT_TYPE}
+        return '', {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
     query = Object.query(Object.users == user.key)
     objects, new_before, new_after = fetch_objects(query, by=Object.updated,
@@ -1034,7 +1034,7 @@ def outbox(id):
             'id': request.url,
         })
         logger.info(f'Returning {json_dumps(page, indent=2)}')
-        return page, {'Content-Type': as2.CONTENT_TYPE}
+        return page, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
     # collection
     return {
@@ -1044,4 +1044,4 @@ def outbox(id):
         'summary': f"{id}'s outbox",
         'totalItems': query.count(),
         'first': page,
-    }, {'Content-Type': as2.CONTENT_TYPE}
+    }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}

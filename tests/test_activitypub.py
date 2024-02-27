@@ -357,8 +357,7 @@ class ActivityPubTest(TestCase):
         self.make_user('fake:user', cls=Fake)
         got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-        type = got.headers['Content-Type']
-        self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
+        self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, got.headers['Content-Type'])
         self.assertEqual(ACTOR_FAKE, got.json)
 
     def test_actor_fake_protocol_subdomain(self, *_):
@@ -371,8 +370,7 @@ class ActivityPubTest(TestCase):
         """Web users are special cased to drop the /web/ prefix."""
         got = self.client.get('/user.com')
         self.assertEqual(200, got.status_code)
-        type = got.headers['Content-Type']
-        self.assertTrue(type.startswith(as2.CONTENT_TYPE), type)
+        self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, got.headers['Content-Type'])
         self.assertEqual({
             **ACTOR_BASE,
             'type': 'Person',

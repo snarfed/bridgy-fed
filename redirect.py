@@ -109,7 +109,9 @@ def redir(to):
         ret = ActivityPub.convert(obj, from_user=user)
         logger.info(f'Returning: {json_dumps(ret, indent=2)}')
         return ret, {
-            'Content-Type': accept_type,
+            'Content-Type': (as2.CONTENT_TYPE_LD_PROFILE
+                             if accept_type == as2.CONTENT_TYPE_LD
+                             else accept_type),
             'Access-Control-Allow-Origin': '*',
             **VARY_HEADER,
         }
