@@ -174,7 +174,6 @@ import common
 from web import Web
 from flask_app import app, cache
 
-
 # used in TestCase.make_user() to reuse keys across Users since they're
 # expensive to generate.
 requests.post(f'http://{ndb_client.host}/reset')

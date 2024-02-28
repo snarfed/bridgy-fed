@@ -16,7 +16,7 @@ from oauth_dropins.webutil.util import domain_from_link, json_dumps, json_loads
 from oauth_dropins.webutil import util
 import requests
 from urllib3.exceptions import ReadTimeoutError
-from werkzeug.exceptions import BadGateway
+from werkzeug.exceptions import BadGateway, BadRequest
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
@@ -2197,6 +2197,11 @@ class ActivityPubUtilsTest(TestCase):
             'type': 'Update',
             'object': ACTOR,
         }, ActivityPub.convert(obj))
+
+    def test_convert_protocols_not_enabled(self):
+        obj = Object(our_as1={'foo': 'bar'}, source_protocol='atproto')
+        with self.assertRaises(BadRequest):
+            ActivityPub.convert(obj)
 
     def test_postprocess_as2_idempotent(self):
         for obj in (ACTOR, REPLY_OBJECT, REPLY_OBJECT_WRAPPED, REPLY,

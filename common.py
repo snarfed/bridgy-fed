@@ -31,6 +31,13 @@ TLD_BLOCKLIST = ('7z', 'asp', 'aspx', 'gif', 'html', 'ico', 'jpg', 'jpeg', 'js',
 
 CONTENT_TYPE_HTML = 'text/html; charset=utf-8'
 
+# Protocol pairs that we currently support bridging between. Values must be
+# Protocol LABELs. Each pair must be lexicographically sorted!
+ENABLED_BRIDGES = frozenset((
+    ('activitypub', 'web'),
+    ('atproto', 'web'),
+))
+
 PRIMARY_DOMAIN = 'fed.brid.gy'
 # protocol-specific subdomains are under this "super"domain
 SUPERDOMAIN = '.brid.gy'
@@ -246,6 +253,27 @@ def add(seq, val):
     """
     if val not in seq:
         seq.append(val)
+
+
+def is_enabled(proto_a, proto_b):
+    """Returns True if bridging the two input protocols is enabled, False otherwise.
+
+    Args:
+      proto_a (Protocol subclass)
+      proto_b (Protocol subclass)
+
+    Returns:
+      bool:
+    """
+    if proto_a == proto_b:
+        return True
+
+    labels = tuple(sorted((proto_a.LABEL, proto_b.LABEL)))
+
+    if DEBUG and ('fake' in labels or 'other' in labels):
+        return True
+
+    return labels in ENABLED_BRIDGES
 
 
 def create_task(queue, delay=None, **params):

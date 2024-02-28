@@ -1,7 +1,7 @@
 """Unit tests for models.py."""
 from unittest.mock import patch
 
-from arroba.datastore_storage import AtpRemoteBlob
+from arroba.datastore_storage import AtpRemoteBlob, AtpRepo
 from arroba.mst import dag_cbor_cid
 import arroba.server
 from arroba.util import at_uri
@@ -20,6 +20,7 @@ from oauth_dropins.webutil import util
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, OtherFake, TestCase
 
+from activitypub import ActivityPub
 from atproto import ATProto
 import common
 import models
@@ -101,6 +102,20 @@ class UserTest(TestCase):
                          Object.get_by_id(id='fake:user').copies)
 
         mock_create_task.assert_called()
+
+    @patch.object(tasks_client, 'create_task')
+    @patch('requests.post')
+    def test_get_or_create_propagate_not_enabled(self, mock_post, mock_create_task):
+        user = ActivityPub.get_or_create('https://mas.to/actor', propagate=True)
+
+        # self.assertEqual([], Fake.fetched)
+        mock_post.assert_not_called()
+        mock_create_task.assert_not_called()
+
+        user = ActivityPub.get_by_id('https://mas.to/actor')
+        self.assertEqual([], user.copies)
+        self.assertEqual(0, AtpRepo.query().count())
+
 
     def test_get_or_create_use_instead(self):
         user = Fake.get_or_create('a.b')

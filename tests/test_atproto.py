@@ -24,12 +24,13 @@ from multiformats import CID
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads, trim_nulls
+from werkzeug.exceptions import BadRequest
 
 import atproto
 from atproto import ATProto
 import common
 import hub
-from models import Object, Target
+from models import Object, PROTOCOLS, Target
 import protocol
 from .testutil import ATPROTO_KEY, Fake, TestCase
 from . import test_activitypub
@@ -380,6 +381,11 @@ class ATProtoTest(TestCase):
             'displayName': 'Alice',
             'image': [{'url': 'http://my/pic'}],
         }), fetch_blobs=True))
+
+    def test_convert_protocols_not_enabled(self):
+        obj = Object(our_as1={'foo': 'bar'}, source_protocol='activitypub')
+        with self.assertRaises(BadRequest):
+            ATProto.convert(obj)
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):

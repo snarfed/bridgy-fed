@@ -2,8 +2,10 @@
 from flask import g
 
 # import first so that Fake is defined before URL routes are registered
-from .testutil import Fake, TestCase
+from .testutil import Fake, OtherFake, TestCase
 
+from activitypub import ActivityPub
+from atproto import ATProto
 import common
 from flask_app import app
 from ui import UIProtocol
@@ -99,3 +101,11 @@ class CommonTest(TestCase):
 
         with app.test_request_context(base_url='https://atproto.brid.gy', path='/foo'):
             self.assertEqual('https://atproto.brid.gy/asdf', common.host_url('asdf'))
+
+    def test_is_enabled(self):
+        self.assertTrue(common.is_enabled(Web, ActivityPub))
+        self.assertTrue(common.is_enabled(ActivityPub, Web))
+        self.assertTrue(common.is_enabled(ActivityPub, ActivityPub))
+        self.assertTrue(common.is_enabled(ATProto, Web))
+        self.assertTrue(common.is_enabled(Fake, OtherFake))
+        self.assertFalse(common.is_enabled(ATProto, ActivityPub))

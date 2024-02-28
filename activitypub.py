@@ -34,7 +34,7 @@ from common import (
     subdomain_wrap,
     unwrap,
 )
-from models import fetch_objects, Follower, Object, User
+from models import fetch_objects, Follower, Object, PROTOCOLS, User
 from protocol import Protocol
 import webfinger
 
@@ -332,6 +332,11 @@ class ActivityPub(User, Protocol):
         """
         if not obj or not obj.as1:
             return {}
+
+        from_proto = PROTOCOLS.get(obj.source_protocol)
+        if from_proto and not common.is_enabled(cls, from_proto):
+            error(f'{cls.LABEL} <=> {from_proto.LABEL} not enabled')
+
         if obj.as2:
             return {
                 # add back @context since we strip it when we store Objects
