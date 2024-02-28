@@ -52,7 +52,7 @@ grpcio==1.62.0
 grpcio-status==1.62.0
 gunicorn==21.2.0
 h11==0.14.0
-html2text==2024.2.25
+html2text==2024.2.26
 html5lib==1.1
 humanfriendly==10.0
 humanize==4.9.0
