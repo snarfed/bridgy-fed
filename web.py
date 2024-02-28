@@ -250,7 +250,9 @@ class Web(User, Protocol):
                     self.use_instead = root_user.key
                     self.put()
                     return root_user.verify()
-            except RequestException:
+            except RequestException as e:
+                logger.info(f"Couldn't fetch {root_site} : {e}")
+                logger.info(f"Continuing with {domain}")
                 pass
 
         # check webfinger redirect
