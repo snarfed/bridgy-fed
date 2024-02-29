@@ -24,15 +24,15 @@ inbound_services:
 env_variables:
   PDS_HOST: fed.brid.gy
 
-  # sandbox
-  PLC_HOST: plc.bsky-sandbox.dev
-  APPVIEW_HOST: api.bsky-sandbox.dev
-  BGS_HOST: bgs.bsky-sandbox.dev
+  # # sandbox
+  # PLC_HOST: plc.bsky-sandbox.dev
+  # APPVIEW_HOST: api.bsky-sandbox.dev
+  # BGS_HOST: bgs.bsky-sandbox.dev
 
-  # # prod
-  # PLC_HOST: plc.directory
-  # APPVIEW_HOST: api.bsky.app
-  # BGS_HOST: bsky.network
+  # prod
+  PLC_HOST: plc.directory
+  APPVIEW_HOST: api.bsky.app
+  BGS_HOST: bsky.network
 
 handlers:
 
