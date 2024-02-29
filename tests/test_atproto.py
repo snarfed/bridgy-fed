@@ -202,10 +202,12 @@ class ATProtoTest(TestCase):
         obj = self.store_object(id='at://did:plc:user/app.bsky.actor.profile/self',
                                 bsky={
                                     **ACTOR_PROFILE_BSKY,
-                                    'labels': [{
-                                        'val' : NO_AUTHENTICATED_LABEL,
-                                        'neg' : False,
-                                    }],
+                                    'labels': {
+                                        'values': [{
+                                            'val' : NO_AUTHENTICATED_LABEL,
+                                            'neg' : False,
+                                        }],
+                                    },
                                 })
         user = self.make_user('did:plc:user', cls=ATProto, obj_key=obj.key)
 
