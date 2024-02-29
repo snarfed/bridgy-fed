@@ -437,7 +437,16 @@ class ActivityPubTest(TestCase):
             'type': 'Application',
         }, got.json, ignore=['publicKeyPem'])
 
-    def test_actor_no_handle(self, *_):
+    def test_actor_atproto_not_enabled(self, *_):
+        # self.store_object(id='at://did:plc:user/app.bsky.actor.profile/self',
+        #                   our_as1={'foo': 'bar'}, source_protocol='atproto')
+        self.store_object(id='did:plc:user', raw={'foo': 'baz'})
+        self.make_user('did:plc:user', cls=ATProto)
+        got = self.client.get('/ap/did:plc:user', base_url='https://atproto.brid.gy/')
+        self.assertEqual(400, got.status_code)
+
+    @patch('common.ENABLED_BRIDGES', new=[('activitypub', 'atproto')])
+    def test_actor_atproto_no_handle(self, *_):
         self.store_object(id='did:plc:user', raw={'foo': 'bar'})
         self.make_user('did:plc:user', cls=ATProto)
         got = self.client.get('/ap/did:plc:user', base_url='https://atproto.brid.gy/')

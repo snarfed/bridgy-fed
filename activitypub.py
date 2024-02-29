@@ -803,6 +803,8 @@ def actor(handle_or_id):
     cls = Protocol.for_request(fed='web')
     if not cls:
         error(f"Couldn't determine protocol", status=404)
+    elif not common.is_enabled(cls, ActivityPub):
+        error(f'{cls.LABEL} <=> activitypub not enabled')
     elif cls.LABEL == 'web' and request.path.startswith('/ap/'):
         # we started out with web users' AP ids as fed.brid.gy/[domain], so we
         # need to preserve those for backward compatibility
