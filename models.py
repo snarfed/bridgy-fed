@@ -249,18 +249,20 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         #
         # these can use urandom() and do nontrivial math, so they can take time
         # depending on the amount of randomness available and compute needed.
-        if cls.LABEL != 'activitypub':
-            key = RSA.generate(KEY_BITS, randfunc=random.randbytes if DEBUG else None)
-            user.mod = long_to_base64(key.n)
-            user.public_exponent = long_to_base64(key.e)
-            user.private_exponent = long_to_base64(key.d)
+        if not user.existing:
+            if cls.LABEL != 'activitypub':
+                key = RSA.generate(KEY_BITS,
+                                   randfunc=random.randbytes if DEBUG else None)
+                user.mod = long_to_base64(key.n)
+                user.public_exponent = long_to_base64(key.e)
+                user.private_exponent = long_to_base64(key.d)
 
         try:
             user.put()
         except AssertionError as e:
             error(f'Bad {cls.__name__} id {id} : {e}')
 
-        logger.info(f'Created new {user}')
+        logger.info(('Updated ' if user.existing else 'Created new ') + str(user))
         return user
 
     @property
