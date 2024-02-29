@@ -505,7 +505,8 @@ class ATProtoTest(TestCase):
         self.assertEqual((f'https://plc.local/{did}',), mock_post.call_args.args)
         genesis_op = mock_post.call_args.kwargs['json']
         self.assertEqual(did, genesis_op.pop('did'))
-        genesis_op['sig'] = base64.urlsafe_b64decode(genesis_op['sig'])
+        genesis_op['sig'] = base64.urlsafe_b64decode(
+            genesis_op['sig'] + '=' * (4 - len(genesis_op['sig']) % 4))  # padding
         assert arroba.util.verify_sig(genesis_op, repo.rotation_key.public_key())
 
         del genesis_op['sig']
