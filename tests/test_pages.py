@@ -430,6 +430,10 @@ class PagesTest(TestCase):
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there',
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val' : 'bridged-from-fake'}],
+            },
         }, profile)
 
         at_uri = f'at://{did}/app.bsky.actor.profile/self'

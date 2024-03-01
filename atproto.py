@@ -230,6 +230,11 @@ class ATProto(User, Protocol):
         if user.obj and user.obj.as1:
             # create user profile
             profile = cls.convert(user.obj, fetch_blobs=True)
+            profile.setdefault('labels', {'$type': 'com.atproto.label.defs#selfLabels'})
+            profile['labels'].setdefault('values', []).append({
+                'val' : f'bridged-from-{user.LABEL}',
+            })
+
             profile_json = json_dumps(dag_json.encode(profile).decode(), indent=2)
             logger.info(f'Storing ATProto app.bsky.actor.profile self: {profile_json}')
             initial_writes = [Write(

@@ -461,6 +461,10 @@ class ATProtoTest(TestCase):
                 'ref': BLOB_CID,
                 'size': 8,
             },
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val' : 'bridged-from-fake'}],
+            },
         }, profile)
 
         uri = arroba.util.at_uri(did, 'app.bsky.actor.profile', 'self')
@@ -563,6 +567,10 @@ class ATProtoTest(TestCase):
                 'ref': BLOB_CID,
                 'mimeType': 'image/png',
                 'size': 13,
+            },
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val' : 'bridged-from-fake'}],
             },
         }, profile)
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
