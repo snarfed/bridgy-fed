@@ -267,6 +267,35 @@ class ATProtoTest(TestCase):
             },
         )
 
+    @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
+    @patch('requests.get', side_effect=[
+        # resolving handle, HTTPS method
+        requests_response('did:plc:abc', content_type='text/plain'),
+        requests_response('did:plc:abc', content_type='text/plain'),
+        # PDS getRecord
+        requests_response({
+            'cid': 'bafy...',
+            'value': {'foo': 'bar'},
+        }),
+    ])
+    def test_fetch_bsky_app_url(self, mock_get, _):
+        self.store_object(id='did:plc:abc', raw=DID_DOC)
+        obj = Object(id='https://bsky.app/profile/han.dull/post/789')
+        self.assertTrue(ATProto.fetch(obj))
+
+        self.assertEqual('at://did:plc:abc/app.bsky.feed.post/789', obj.key.id())
+        self.assertEqual({
+            'foo': 'bar',
+            'cid': 'bafy...',
+        }, obj.bsky)
+        mock_get.assert_called_with(
+            'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=789',
+            json=None, data=None, headers={
+                'Content-Type': 'application/json',
+                'User-Agent': common.USER_AGENT,
+            },
+        )
+
     def test_convert_bsky_pass_through(self):
         self.assertEqual({
             'foo': 'bar',

@@ -156,7 +156,7 @@ class ATProto(User, Protocol):
 
             if not repo.startswith('did:'):
                 # repo is a handle; resolve it
-                repo_did = did.resolve_handle(repo, get_fn=util.requests_get)
+                repo_did = cls.handle_to_id(repo)
                 if repo_did:
                     return cls.pds_for(Object(id=id.replace(
                         f'at://{repo}', f'at://{repo_did}')))
@@ -187,7 +187,7 @@ class ATProto(User, Protocol):
     @classmethod
     @ndb.transactional()
     def create_for(cls, user):
-        """Creates an ATProto user, repo, and profile for a non-ATProto user.
+        """Creates an ATProto repo and profile for a non-ATProto user.
 
         Args:
           user (models.User)
@@ -361,6 +361,15 @@ class ATProto(User, Protocol):
                 util.interpret_http_exception(e)
                 return False
 
+        if id.startswith('https://bsky.app/'):
+            try:
+                id = bluesky.web_url_to_at_uri(id)
+            except ValueError:
+                return False
+            if not id:
+                return False
+            obj.key = ndb.Key(Object, id)
+
         pds = cls.pds_for(obj)
         if not pds:
             return False
@@ -369,7 +378,12 @@ class ATProto(User, Protocol):
         # examples:
         # at://did:plc:s2koow7r6t7tozgd4slc3dsg/app.bsky.feed.post/3jqcpv7bv2c2q
         # https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
-        repo, collection, rkey = parse_at_uri(obj.key.id())
+        repo, collection, rkey = parse_at_uri(id)
+        if not repo.startswith('did:'):
+            handle = repo
+            repo = cls.handle_to_id(repo)
+            obj.key = ndb.Key(Object, id.replace(f'at://{handle}', f'at://{repo}'))
+
         client = Client(pds, headers={'User-Agent': USER_AGENT})
         ret = client.com.atproto.repo.getRecord(
             repo=repo, collection=collection, rkey=rkey)
