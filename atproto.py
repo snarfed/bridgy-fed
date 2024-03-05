@@ -370,10 +370,6 @@ class ATProto(User, Protocol):
                 return False
             obj.key = ndb.Key(Object, id)
 
-        pds = cls.pds_for(obj)
-        if not pds:
-            return False
-
         # at:// URI
         # examples:
         # at://did:plc:s2koow7r6t7tozgd4slc3dsg/app.bsky.feed.post/3jqcpv7bv2c2q
@@ -384,7 +380,8 @@ class ATProto(User, Protocol):
             repo = cls.handle_to_id(repo)
             obj.key = ndb.Key(Object, id.replace(f'at://{handle}', f'at://{repo}'))
 
-        client = Client(pds, headers={'User-Agent': USER_AGENT})
+        client = Client(f'https://{os.environ["APPVIEW_HOST"]}',
+                        headers={'User-Agent': USER_AGENT})
         ret = client.com.atproto.repo.getRecord(
             repo=repo, collection=collection, rkey=rkey)
         # TODO: verify sig?

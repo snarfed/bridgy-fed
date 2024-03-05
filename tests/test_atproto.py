@@ -250,7 +250,6 @@ class ATProtoTest(TestCase):
         'value': {'foo': 'bar'},
     }))
     def test_fetch_at_uri_record(self, mock_get):
-        self.store_object(id='did:plc:abc', raw=DID_DOC)
         obj = Object(id='at://did:plc:abc/app.bsky.feed.post/123')
         self.assertTrue(ATProto.fetch(obj))
         self.assertEqual({
@@ -259,7 +258,7 @@ class ATProtoTest(TestCase):
         }, obj.bsky)
         # eg https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
         mock_get.assert_called_once_with(
-            'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
+            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
             json=None, data=None,
             headers={
                 'Content-Type': 'application/json',
@@ -270,16 +269,15 @@ class ATProtoTest(TestCase):
     @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
     @patch('requests.get', side_effect=[
         # resolving handle, HTTPS method
+
         requests_response('did:plc:abc', content_type='text/plain'),
-        requests_response('did:plc:abc', content_type='text/plain'),
-        # PDS getRecord
+        # AppView getRecord
         requests_response({
             'cid': 'bafy...',
             'value': {'foo': 'bar'},
         }),
     ])
     def test_fetch_bsky_app_url(self, mock_get, _):
-        self.store_object(id='did:plc:abc', raw=DID_DOC)
         obj = Object(id='https://bsky.app/profile/han.dull/post/789')
         self.assertTrue(ATProto.fetch(obj))
 
@@ -289,7 +287,7 @@ class ATProtoTest(TestCase):
             'cid': 'bafy...',
         }, obj.bsky)
         mock_get.assert_called_with(
-            'https://some.pds/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=789',
+            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=789',
             json=None, data=None, headers={
                 'Content-Type': 'application/json',
                 'User-Agent': common.USER_AGENT,
@@ -763,7 +761,17 @@ class ATProtoTest(TestCase):
 
     @patch.object(tasks_client, 'create_task')
     def test_send_ignore_accept(self, mock_create_task):
-        obj = Object(id='fake:accept', as2=test_activitypub.ACCEPT)
+        obj = Object(id='fake:accept', as2={
+            'type': 'Accept',
+            'id': 'fake:accept',
+            'actor': 'fake:followee',
+            'object': {
+                'type': 'Follow',
+                'id': 'fake:follow',
+                'object': 'fake:followee',
+                'actor': 'fake:user',
+            },
+        })
         self.assertFalse(ATProto.send(obj, 'https://atproto.brid.gy/'))
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())
