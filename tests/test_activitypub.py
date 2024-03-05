@@ -438,8 +438,6 @@ class ActivityPubTest(TestCase):
         }, got.json, ignore=['publicKeyPem'])
 
     def test_actor_atproto_not_enabled(self, *_):
-        # self.store_object(id='at://did:plc:user/app.bsky.actor.profile/self',
-        #                   our_as1={'foo': 'bar'}, source_protocol='atproto')
         self.store_object(id='did:plc:user', raw={'foo': 'baz'})
         self.make_user('did:plc:user', cls=ATProto)
         got = self.client.get('/ap/did:plc:user', base_url='https://atproto.brid.gy/')
@@ -448,7 +446,13 @@ class ActivityPubTest(TestCase):
     @patch('common.ENABLED_BRIDGES', new=[('activitypub', 'atproto')])
     def test_actor_atproto_no_handle(self, *_):
         self.store_object(id='did:plc:user', raw={'foo': 'bar'})
+        self.store_object(id='at://did:plc:user/app.bsky.actor.profile/self', bsky={
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+        })
+
         self.make_user('did:plc:user', cls=ATProto)
+
         got = self.client.get('/ap/did:plc:user', base_url='https://atproto.brid.gy/')
         self.assertEqual(200, got.status_code)
         self.assertNotIn('preferredUsername', got.json)
@@ -2154,7 +2158,8 @@ class ActivityPubUtilsTest(TestCase):
     def test_convert_actor_as2(self):
         self.assert_equals(ACTOR, ActivityPub.convert(Object(as2=ACTOR)))
 
-    def test_convert_actor_as1_from_user(self):
+    @patch('requests.get', return_value=requests_response(test_web.ACTOR_HTML))
+    def test_convert_actor_as1_from_user(self, _):
         obj = Object(our_as1={
             'objectType': 'person',
             'id': 'https://user.com/',

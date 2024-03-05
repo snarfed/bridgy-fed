@@ -109,10 +109,13 @@ class UserTest(TestCase):
 
     @patch.object(tasks_client, 'create_task')
     @patch('requests.post')
-    def test_get_or_create_propagate_not_enabled(self, mock_post, mock_create_task):
+    @patch('requests.get')
+    def test_get_or_create_propagate_not_enabled(self, mock_get, mock_post,
+                                                 mock_create_task):
+        mock_get.return_value = self.as2_resp(ACTOR)
+
         user = ActivityPub.get_or_create('https://mas.to/actor', propagate=True)
 
-        # self.assertEqual([], Fake.fetched)
         mock_post.assert_not_called()
         mock_create_task.assert_not_called()
 
