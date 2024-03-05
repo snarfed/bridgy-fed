@@ -15,6 +15,7 @@ from Crypto.PublicKey import RSA
 from flask import g, request
 from google.cloud import ndb
 from granary import as1, as2, atom, bluesky, microformats2
+from granary.bluesky import BSKY_APP_URL_RE
 from granary.source import html_to_text
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_info import DEBUG
@@ -1200,6 +1201,14 @@ def fetch_objects(query, by=None, user=None):
                     content = '@' + fedi_url.group(2)
                     if fedi_url.group(4):
                         content += "'s post"
+
+            if not content:
+                if bsky_url := BSKY_APP_URL_RE.match(url):
+                    if handle := bsky_url.group('id'):  # or DID
+                        content = '@' + handle
+                        if bsky_url.group('tid'):
+                            content += "'s post"
+
             content = common.pretty_link(url, text=content, user=user)
 
         obj.content = (obj_as1.get('content')
