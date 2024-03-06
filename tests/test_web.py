@@ -2517,6 +2517,9 @@ class WebUtilTest(TestCase):
         self.user.key.delete()
         self.assertIsNone(Web.owns_id('user.com'))
 
+        # extra /, urlparse thinks domain is None
+        self.assertFalse(Web.owns_id('https:///github.com/puddly'))
+
     def test_owns_id_returns_None(self, *_):
         self.user.manual_opt_out = True
         self.user.put()

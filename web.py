@@ -72,7 +72,7 @@ def is_valid_domain(domain):
 
     Valid means TLD is ok, not blacklisted, etc.
     """
-    if not re.match(DOMAIN_RE, domain):
+    if not domain or not re.match(DOMAIN_RE, domain):
         # logger.debug(f"{domain} doesn't look like a domain")
         return False
 
