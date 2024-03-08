@@ -479,19 +479,19 @@ class ActivityPub(User, Protocol):
 
 
 def signed_get(url, from_user=None, **kwargs):
-    return signed_request(common.requests_get, url, from_user=from_user, **kwargs)
+    return signed_request(util.requests_get, url, from_user=from_user, **kwargs)
 
 
 def signed_post(url, from_user, **kwargs):
     assert from_user
-    return signed_request(common.requests_post, url, from_user=from_user, **kwargs)
+    return signed_request(util.requests_post, url, from_user=from_user, **kwargs)
 
 
 def signed_request(fn, url, data=None, headers=None, from_user=None, **kwargs):
     """Wraps ``requests.*`` and adds HTTP Signature.
 
     Args:
-      fn (callable): :func:`common.requests_get` or  :func:`common.requests_post`
+      fn (callable): :func:`util.requests_get` or  :func:`util.requests_post`
       url (str):
       data (dict): optional AS2 object
       from_user (models.User): user to sign request as; optional. If not
@@ -544,7 +544,7 @@ def signed_request(fn, url, data=None, headers=None, from_user=None, **kwargs):
     logger.info(f'Got {resp.status_code} headers: {resp.headers}')
 
     # handle GET redirects manually so that we generate a new HTTP signature
-    if resp.is_redirect and fn == common.requests_get:
+    if resp.is_redirect and fn == util.requests_get:
         new_url = urljoin(url, resp.headers['Location'])
         return signed_request(fn, new_url, data=data, headers=headers,
                               **kwargs)

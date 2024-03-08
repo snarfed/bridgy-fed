@@ -17,7 +17,6 @@ from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil import flask_util
-from requests_cache import CachedSession
 
 logger = logging.getLogger(__name__)
 
@@ -244,7 +243,7 @@ def webmention_endpoint_cache_key(url):
                    lock=threading.Lock())
 def webmention_discover(url, **kwargs):
     """Thin caching wrapper around :func:`oauth_dropins.webutil.webmention.discover`."""
-    return webmention.discover(url, session=requests_session(), **kwargs)
+    return webmention.discover(url, **kwargs)
 
 
 def add(seq, val):
@@ -325,33 +324,3 @@ def create_task(queue, delay=None, **params):
     msg = f'Added {queue} task {task.name} : {params}'
     logger.info(msg)
     return msg, 202
-
-
-def requests_session():
-    if not hasattr(g, 'requests_session'):
-        g.session = CachedSession(
-            # more or less everything
-            allowable_codes=(200, 204, 205, 206,
-                             300, 301, 303, 304, 308,
-                             400, 401, 402, 403, 404, 405, 406, 408, 410, 411,
-                                  412, 413, 414, 415, 417, 422, 428, 429, 431, 451,
-                             500, 501, 502, 503, 504, 511),
-            backend='memory',  # BaseCache class
-            match_headers=('Accept',),
-        )
-
-    return g.session
-
-
-def requests_get(*args, **kwargs):
-    return util.requests_get(*args, session=requests_session(), **kwargs)
-
-def requests_post(*args, **kwargs):
-    return util.requests_post(*args, session=requests_session(), **kwargs)
-
-def requests_head(*args, **kwargs):
-    return util.requests_head(*args, session=requests_session(), **kwargs)
-
-
-def fetch_mf2(*args, **kwargs):
-    return util.fetch_mf2(*args, session=requests_session(), **kwargs)

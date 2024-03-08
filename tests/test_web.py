@@ -410,8 +410,8 @@ ACTIVITYPUB_GETS = [
 ]
 
 
-@patch('requests_cache.CachedSession.post')
-@patch('requests_cache.CachedSession.get')
+@patch('requests.post')
+@patch('requests.get')
 class WebTest(TestCase):
     def setUp(self):
         super().setUp()
@@ -2477,8 +2477,8 @@ http://this/404s
             "Couldn't connect to https://orig.co/: "))
 
 
-@patch('requests_cache.CachedSession.post')
-@patch('requests_cache.CachedSession.get')
+@patch('requests.post')
+@patch('requests.get')
 class WebUtilTest(TestCase):
 
     def setUp(self):

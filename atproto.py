@@ -109,7 +109,7 @@ class ATProto(User, Protocol):
         if user:
             return user.key.id()
 
-        return did.resolve_handle(handle, get_fn=common.requests_get)
+        return did.resolve_handle(handle, get_fn=util.requests_get)
 
     def profile_id(self):
         return f'at://{self.key.id()}/app.bsky.actor.profile/self'
@@ -201,7 +201,7 @@ class ATProto(User, Protocol):
         logger.info(f'Creating new did:plc for {user.key}')
         did_plc = did.create_plc(user.handle_as('atproto'),
                                  pds_url=cls.PDS_URL,
-                                 post_fn=common.requests_post)
+                                 post_fn=util.requests_post)
 
         Object.get_or_create(did_plc.did, raw=did_plc.doc)
         # TODO: move this to ATProto.get_or_create?
@@ -355,7 +355,7 @@ class ATProto(User, Protocol):
         # did:plc, did:web
         if id.startswith('did:'):
             try:
-                obj.raw = did.resolve(id, get_fn=common.requests_get)
+                obj.raw = did.resolve(id, get_fn=util.requests_get)
                 return True
             except (ValueError, requests.RequestException) as e:
                 util.interpret_http_exception(e)
@@ -421,7 +421,7 @@ class ATProto(User, Protocol):
                 for url in util.get_urls(o, 'image'):
                     if url not in blobs:
                         blob = AtpRemoteBlob.get_or_create(
-                            url=url, get_fn=common.requests_get)
+                            url=url, get_fn=util.requests_get)
                         blobs[url] = blob.as_object()
 
         ret = bluesky.from_as1(cls.translate_ids(obj.as1), blobs=blobs)

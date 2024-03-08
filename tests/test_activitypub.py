@@ -299,9 +299,9 @@ AS2 = requests_response(AS2_OBJ, headers={
 NOT_ACCEPTABLE = requests_response(status=406)
 
 
-@patch('requests_cache.CachedSession.post')
-@patch('requests_cache.CachedSession.get')
-@patch('requests_cache.CachedSession.head')
+@patch('requests.post')
+@patch('requests.get')
+@patch('requests.head')
 class ActivityPubTest(TestCase):
 
     def setUp(self):
@@ -599,6 +599,7 @@ class ActivityPubTest(TestCase):
         )
 
     def _test_inbox_reply(self, reply, mock_head, mock_get, mock_post):
+        mock_head.return_value = requests_response(url='https://user.com/post')
         mock_get.side_effect = (
             (list(mock_get.side_effect) if mock_get.side_effect
              else [self.as2_resp(ACTOR)])
@@ -686,6 +687,7 @@ class ActivityPubTest(TestCase):
         baj = self.make_user('fake:baj', cls=Fake, obj_id='fake:baj')
         Follower.get_or_create(to=swentel, from_=baj, status='inactive')
 
+        mock_head.return_value = requests_response(url='http://target')
         mock_get.return_value = self.as2_resp(ACTOR)  # source actor
         mock_post.return_value = requests_response()
 
@@ -723,6 +725,7 @@ class ActivityPubTest(TestCase):
                            delivered_protocol='fake')
 
     def test_repost_of_indieweb(self, mock_head, mock_get, mock_post):
+        mock_head.return_value = requests_response(url='https://user.com/orig')
         mock_get.return_value = WEBMENTION_DISCOVERY
         mock_post.return_value = requests_response()  # webmention
 
@@ -772,6 +775,7 @@ class ActivityPubTest(TestCase):
         baj = self.make_user('fake:baj', cls=Fake, obj_id='fake:baj')
         Follower.get_or_create(to=to, from_=baj, status='inactive')
 
+        mock_head.return_value = requests_response(url='http://target')
         mock_get.return_value = self.as2_resp(NOTE_OBJECT)
 
         got = self.post('/ap/sharedInbox', json=REPOST)
@@ -830,6 +834,7 @@ class ActivityPubTest(TestCase):
         Follower.get_or_create(to=self.make_user(ACTOR['id'], cls=ActivityPub),
                                from_=self.user)
 
+        mock_head.return_value = requests_response(url='http://target')
         mock_get.return_value = self.as2_resp(ACTOR)  # source actor
 
         not_public = copy.deepcopy(NOTE)
@@ -854,6 +859,7 @@ class ActivityPubTest(TestCase):
         self.assertIsNone(Object.get_by_id('http://inst/foo'))
 
     def test_inbox_like(self, mock_head, mock_get, mock_post):
+        mock_head.return_value = requests_response(url='https://user.com/post')
         mock_get.side_effect = [
             # source actor
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
@@ -991,6 +997,7 @@ class ActivityPubTest(TestCase):
         self.user.direct = False
         self.user.put()
 
+        mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),  # source actor
             WEBMENTION_DISCOVERY,
@@ -1036,6 +1043,7 @@ class ActivityPubTest(TestCase):
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
         self.make_user('www.user.com', cls=Web, use_instead=self.user.key)
 
+        mock_head.return_value = requests_response(url='https://www.user.com/')
         mock_get.side_effect = [
             # source actor
             self.as2_resp(ACTOR),
@@ -1067,6 +1075,7 @@ class ActivityPubTest(TestCase):
                          follower.follow.get().as2['url'])
 
     def test_inbox_follow_web_brid_gy_subdomain(self, mock_head, mock_get, mock_post):
+        mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             # source actor
             self.as2_resp(ACTOR),
@@ -1124,6 +1133,7 @@ class ActivityPubTest(TestCase):
             from_=self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR),
             status='inactive')
 
+        mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             test_web.ACTOR_HTML_RESP,
             WEBMENTION_DISCOVERY,
@@ -1137,6 +1147,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual('active', follower.key.get().status)
 
     def test_inbox_undo_follow_doesnt_exist(self, mock_head, mock_get, mock_post):
+        mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
             test_web.ACTOR_HTML_RESP,
@@ -1148,6 +1159,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(202, got.status_code)
 
     def test_inbox_undo_follow_inactive(self, mock_head, mock_get, mock_post):
+        mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
             test_web.ACTOR_HTML_RESP,
@@ -1164,6 +1176,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual('inactive', follower.key.get().status)
 
     def test_inbox_undo_follow_composite_object(self, mock_head, mock_get, mock_post):
+        mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
             test_web.ACTOR_HTML_RESP,
@@ -1807,7 +1820,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual('http://inst.com/@user',
                          ActivityPub.handle_to_id('@user@inst.com'))
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_handle_to_id_fetch(self, mock_get):
         mock_get.return_value = requests_response(test_webfinger.WEBFINGER)
         self.assertEqual('http://localhost/user.com',
@@ -1816,7 +1829,7 @@ class ActivityPubUtilsTest(TestCase):
             mock_get,
             'https://inst.com/.well-known/webfinger?resource=acct:user@inst.com')
 
-    @patch('requests_cache.CachedSession.get', return_value=requests_response({}))
+    @patch('requests.get', return_value=requests_response({}))
     def test_handle_to_id_not_found(self, mock_get):
         self.assertIsNone(ActivityPub.handle_to_id('@user@inst.com'))
         self.assert_req(
@@ -1977,7 +1990,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual(['https://masto.foo/@other'],
                          postprocess_as2(obj)['cc'])
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_signed_get_redirects_manually_with_new_sig_headers(self, mock_get):
         mock_get.side_effect = [
             requests_response(status=302, redirected_url='http://second',
@@ -1990,7 +2003,7 @@ class ActivityPubUtilsTest(TestCase):
         second = mock_get.call_args_list[1][1]
         self.assertNotEqual(first['headers'], second['headers'])
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_signed_get_redirects_to_relative_url(self, mock_get):
         mock_get.side_effect = [
             # redirected URL is relative, we have to resolve it
@@ -2011,7 +2024,7 @@ class ActivityPubUtilsTest(TestCase):
             first['auth'].header_signer.sign(first['headers'], method='GET', path='/'),
             second['auth'].header_signer.sign(second['headers'], method='GET', path='/'))
 
-    @patch('requests_cache.CachedSession.post', return_value=requests_response(status=200))
+    @patch('requests.post', return_value=requests_response(status=200))
     def test_signed_post_from_user_is_activitypub_use_instance_actor(self, mock_post):
         activitypub.signed_post('https://url', from_user=ActivityPub(id='http://fed'))
 
@@ -2021,7 +2034,7 @@ class ActivityPubUtilsTest(TestCase):
         rsa_key = kwargs['auth'].header_signer._rsa._key
         self.assertEqual(instance_actor().private_pem(), rsa_key.exportKey())
 
-    @patch('requests_cache.CachedSession.post')
+    @patch('requests.post')
     def test_signed_post_ignores_redirect(self, mock_post):
         mock_post.side_effect = [
             requests_response(status=302, redirected_url='http://second',
@@ -2032,7 +2045,7 @@ class ActivityPubUtilsTest(TestCase):
         mock_post.assert_called_once()
         self.assertEqual(302, resp.status_code)
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_fetch_direct(self, mock_get):
         mock_get.return_value = AS2
         obj = Object(id='http://orig')
@@ -2043,7 +2056,7 @@ class ActivityPubUtilsTest(TestCase):
             self.as2_req('http://orig'),
         ))
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_fetch_direct_ld_content_type(self, mock_get):
         mock_get.return_value = requests_response(AS2_OBJ, headers={
             'Content-Type': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
@@ -2056,7 +2069,7 @@ class ActivityPubUtilsTest(TestCase):
             self.as2_req('http://orig'),
         ))
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_fetch_via_html(self, mock_get):
         mock_get.side_effect = [HTML_WITH_AS2, AS2]
         obj = Object(id='http://orig')
@@ -2068,7 +2081,7 @@ class ActivityPubUtilsTest(TestCase):
             self.as2_req('http://as2', headers=as2.CONNEG_HEADERS),
         ))
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_fetch_only_html(self, mock_get):
         mock_get.return_value = HTML
 
@@ -2076,7 +2089,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assertFalse(ActivityPub.fetch(obj))
         self.assertIsNone(obj.as1)
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_fetch_not_acceptable(self, mock_get):
         mock_get.return_value = NOT_ACCEPTABLE
 
@@ -2084,13 +2097,13 @@ class ActivityPubUtilsTest(TestCase):
         self.assertFalse(ActivityPub.fetch(obj))
         self.assertIsNone(obj.as1)
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_fetch_ssl_error(self, mock_get):
         mock_get.side_effect = requests.exceptions.SSLError
         with self.assertRaises(BadGateway):
             ActivityPub.fetch(Object(id='http://orig'))
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_fetch_no_content(self, mock_get):
         mock_get.return_value = self.as2_resp('')
 
@@ -2099,7 +2112,7 @@ class ActivityPubUtilsTest(TestCase):
 
         mock_get.assert_has_calls([self.as2_req('http://the/id')])
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_fetch_not_json(self, mock_get):
         mock_get.return_value = self.as2_resp('XYZ not JSON')
 
@@ -2145,9 +2158,8 @@ class ActivityPubUtilsTest(TestCase):
     def test_convert_actor_as2(self):
         self.assert_equals(ACTOR, ActivityPub.convert(Object(as2=ACTOR)))
 
-    @patch('requests_cache.CachedSession.get')
-    def test_convert_actor_as1_from_user(self, mock_get):
-        mock_get.return_value = requests_response(test_web.ACTOR_HTML)
+    @patch('requests.get', return_value=requests_response(test_web.ACTOR_HTML))
+    def test_convert_actor_as1_from_user(self, _):
         obj = Object(our_as1={
             'objectType': 'person',
             'id': 'https://user.com/',
@@ -2305,7 +2317,7 @@ class ActivityPubUtilsTest(TestCase):
         obj.as2['actor']['url'] = [obj.as2['actor'].pop('id')]
         self.assertEqual('http://mas.to/inbox', ActivityPub.target_for(obj))
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_target_for_object_fetch(self, mock_get):
         mock_get.return_value = self.as2_resp(ACTOR)
 
@@ -2316,7 +2328,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual('http://mas.to/inbox', ActivityPub.target_for(obj))
         mock_get.assert_has_calls([self.as2_req('http://the/author')])
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_target_for_author_is_object_id(self, mock_get):
         mock_get.return_value = HTML
 
@@ -2326,13 +2338,13 @@ class ActivityPubUtilsTest(TestCase):
         # test is that we short circuit out instead of infinite recursion
         self.assertIsNone(ActivityPub.target_for(obj))
 
-    @patch('requests_cache.CachedSession.post')
+    @patch('requests.post')
     def test_send_blocklisted(self, mock_post):
         self.assertFalse(ActivityPub.send(Object(as2=NOTE),
                                           'https://fed.brid.gy/ap/sharedInbox'))
         mock_post.assert_not_called()
 
-    @patch('requests_cache.CachedSession.post')
+    @patch('requests.post')
     def test_send_convert_ids(self, mock_post):
         mock_post.return_value = requests_response()
 

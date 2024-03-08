@@ -67,7 +67,7 @@ class UserTest(TestCase):
         self.assert_entities_equal(same, user, ignore=['updated'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests_cache.CachedSession.post',
+    @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
     def test_get_or_create_propagate(self, mock_post, mock_create_task):
         common.RUN_TASKS_INLINE = False
@@ -108,8 +108,8 @@ class UserTest(TestCase):
         mock_create_task.assert_called()
 
     @patch.object(tasks_client, 'create_task')
-    @patch('requests_cache.CachedSession.post')
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.post')
+    @patch('requests.get')
     def test_get_or_create_propagate_not_enabled(self, mock_get, mock_post,
                                                  mock_create_task):
         mock_get.return_value = self.as2_resp(ACTOR)
@@ -622,8 +622,7 @@ class ObjectTest(TestCase):
         }
         self.assert_equals('good', Object(our_as1=obj, atom='trigger').as1['id'])
 
-    @patch('requests_cache.CachedSession.get',
-           return_value=requests_response(DID_DOC))
+    @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_as1_from_bsky(self, mock_get):
         like_bsky = {
             '$type': 'app.bsky.feed.like',

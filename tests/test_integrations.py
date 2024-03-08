@@ -24,7 +24,7 @@ DID_DOC = {
 
 class IntegrationTests(TestCase):
 
-    @patch('requests_cache.CachedSession.post')
+    @patch('requests.post')
     @patch('requests.get')
     @patch('common.ENABLED_BRIDGES', new=[('activitypub', 'atproto')])
     def test_atproto_notify_reply_to_activitypub(self, mock_get, mock_post):

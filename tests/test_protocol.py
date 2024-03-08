@@ -112,26 +112,26 @@ class ProtocolTest(TestCase):
         self.store_object(id='http://ba.d/obj')
         self.assertIsNone(Protocol.for_id('http://ba.d/obj'))
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_for_id_activitypub_fetch(self, mock_get):
         mock_get.return_value = self.as2_resp(ACTOR)
         self.assertEqual(ActivityPub, Protocol.for_id('http://a.p/actor'))
         self.assertIn(self.as2_req('http://a.p/actor'), mock_get.mock_calls)
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_for_id_activitypub_fetch_fails(self, mock_get):
         mock_get.return_value = requests_response('', status=403)
         self.assertIsNone(Protocol.for_id('http://a.p/actor'))
         self.assertIn(self.as2_req('http://a.p/actor'), mock_get.mock_calls)
         mock_get.assert_called_once()
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_for_id_web_fetch(self, mock_get):
         mock_get.return_value = ACTOR_HTML_RESP
         self.assertEqual(Web, Protocol.for_id('http://web.site/'))
         self.assertIn(self.req('http://web.site/'), mock_get.mock_calls)
 
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.get')
     def test_for_id_web_fetch_no_mf2(self, mock_get):
         mock_get.return_value = requests_response('<html></html>')
         self.assertIsNone(Protocol.for_id('http://web.site/'))
@@ -270,7 +270,7 @@ class ProtocolTest(TestCase):
         self.assertFalse(loaded.new)
         self.assertEqual(['foo'], Fake.fetched)
 
-    @patch('requests_cache.CachedSession.get', return_value=ACTOR_HTML_RESP)
+    @patch('requests.get', return_value=ACTOR_HTML_RESP)
     def test_load_remote_true_clear_our_as1(self, _):
         self.store_object(id='https://fo.o', our_as1={'should': 'disappear'},
                           source_protocol='web')
@@ -1558,8 +1558,8 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(1, len(followers))
         self.assertEqual(self.alice.key, followers[0].to)
 
-    @patch('requests_cache.CachedSession.post')
-    @patch('requests_cache.CachedSession.get')
+    @patch('requests.post')
+    @patch('requests.get')
     def test_skip_web_same_domain(self, mock_get, mock_post):
         Web.fetchable = {
             'http://x.com/alice': {},

@@ -243,7 +243,7 @@ class Web(User, Protocol):
             root = domain.removeprefix("www.")
             root_site = f'https://{root}/'
             try:
-                resp = common.requests_get(root_site, gateway=False)
+                resp = util.requests_get(root_site, gateway=False)
                 if resp.ok and self.is_web_url(resp.url):
                     logger.info(f'{root_site} serves ok ; using {root} instead')
                     root_user = Web.get_or_create(root)
@@ -261,7 +261,7 @@ class Web(User, Protocol):
         self.redirects_error = None
         try:
             url = urljoin(self.web_url(), path)
-            resp = common.requests_get(url, gateway=False)
+            resp = util.requests_get(url, gateway=False)
             domain_urls = ([f'https://{domain}/' for domain in common.DOMAINS] +
                            [common.host_url()])
             expected = [urljoin(url, path) for url in domain_urls]
@@ -398,7 +398,7 @@ class Web(User, Protocol):
         if not endpoint:
             return False
 
-        webmention.send(endpoint, source_url, url, session=common.requests_session())
+        webmention.send(endpoint, source_url, url)
         return True
 
     @classmethod
@@ -435,8 +435,8 @@ class Web(User, Protocol):
                             else None)
 
         try:
-            parsed = common.fetch_mf2(url, gateway=gateway, metaformats_hcard=True,
-                                      require_backlink=require_backlink)
+            parsed = util.fetch_mf2(url, gateway=gateway, metaformats_hcard=True,
+                                    require_backlink=require_backlink)
         except ValueError as e:
             error(str(e))
 
@@ -492,7 +492,7 @@ class Web(User, Protocol):
             if not isinstance(author, dict):
                 logger.info(f'Fetching full authorship for author {author}')
                 author = mf2util.find_author({'items': [entry]}, hentry=entry,
-                                             fetch_mf2_func=common.fetch_mf2)
+                                             fetch_mf2_func=util.fetch_mf2)
                 logger.info(f'Got: {author}')
                 if author:
                     props['author'] = util.trim_nulls([{
@@ -671,7 +671,7 @@ def poll_feed_task():
         headers['If-None-Match'] = user.feed_etag
     if user.feed_last_modified:
         headers['If-Modified-Since'] = user.feed_last_modified
-    resp = common.requests_get(url, headers=headers, gateway=True)
+    resp = util.requests_get(url, headers=headers, gateway=True)
 
     content_type = resp.headers.get('Content-Type') or ''
     type = FEED_TYPES.get(content_type.split(';')[0])

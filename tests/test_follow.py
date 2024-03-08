@@ -60,7 +60,7 @@ UNDO_FOLLOW = {
 del UNDO_FOLLOW['object']['id']
 
 
-@patch('requests_cache.CachedSession.get')
+@patch('requests.get')
 class RemoteFollowTest(TestCase):
 
     def setUp(self):
@@ -133,8 +133,8 @@ class RemoteFollowTest(TestCase):
         self.assertEqual('/web/user.com', got.headers['Location'])
 
 
-@patch('requests_cache.CachedSession.post')
-@patch('requests_cache.CachedSession.get')
+@patch('requests.post')
+@patch('requests.get')
 class FollowTest(TestCase):
 
     def setUp(self):
@@ -146,9 +146,9 @@ class FollowTest(TestCase):
             'state': '@foo@ba.r',
         }
 
-    # IndieAuth endpoint discovery
-    @patch('requests.get', return_value=requests_response(''))
-    def test_start(self, _, __, ___):
+    def test_start(self, mock_get, _):
+        mock_get.return_value = requests_response('')  # IndieAuth endpoint discovery
+
         resp = self.client.post('/follow/start', data={
             'me': 'https://alice.com',
             'address': '@foo@ba.r',
@@ -157,16 +157,17 @@ class FollowTest(TestCase):
         self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
                         resp.headers['Location'])
 
-    # indieauth endpoint discovery, token validation
-    @patch('requests.get', return_value= requests_response(''))
-    @patch('requests.post', return_value=requests_response('me=https://alice.com'))
-    def test_callback_address(self, _, __, mock_get, mock_post):
+    def test_callback_address(self, mock_get, mock_post):
         mock_get.side_effect = (
+            requests_response(''),  # indieauth https://alice.com fetch for user json
             WEBFINGER,
             self.as2_resp(FOLLOWEE),
             self.as2_resp(FOLLOWEE),
         )
-        mock_post.return_value = requests_response('OK')  # AP Follow to inbox
+        mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
+            requests_response('OK'),  # AP Follow to inbox
+        )
 
         state = util.encode_oauth_state(self.state)
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}',
@@ -176,14 +177,14 @@ class FollowTest(TestCase):
             self.req('https://ba.r/.well-known/webfinger?resource=acct:foo@ba.r'),
         ))
 
-    @patch('requests.get', return_value=requests_response(''))
-    @patch('requests.post', return_value=requests_response('me=https://alice.com'))
-    def test_callback_url(self, _, __, mock_get, mock_post):
+    def test_callback_url(self, mock_get, mock_post):
         mock_get.side_effect = (
+            requests_response(''),  # indieauth https://alice.com fetch for user json
             self.as2_resp(FOLLOWEE),
             self.as2_resp(FOLLOWEE),
         )
         mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
             requests_response('OK'),  # AP Follow to inbox
         )
 
@@ -193,13 +194,15 @@ class FollowTest(TestCase):
                                base_url='https://fed.brid.gy/')
         self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
 
-    @patch('requests.get', return_value=requests_response(''))
-    @patch('requests.post', return_value=requests_response('me=https://alice.com'))
-    def test_callback_stored_followee_with_our_as1(self, _, __, mock_get, mock_post):
+    def test_callback_stored_followee_with_our_as1(self, mock_get, mock_post):
         self.store_object(id='https://ba.r/id', our_as1=as2.to_as1(FOLLOWEE),
                           source_protocol='activitypub')
 
+        mock_get.side_effect = (
+            requests_response(''),  # indieauth https://alice.com fetch for user json
+        )
         mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
             requests_response('OK'),  # AP Follow to inbox
         )
 
@@ -216,9 +219,7 @@ class FollowTest(TestCase):
         self.check('https://ba.r/id', resp, follow_with_profile_link, mock_get,
                    mock_post, fetched_followee=False)
 
-    @patch('requests.get', return_value= requests_response(''))
-    @patch('requests.post', return_value=requests_response('me=https://alice.com'))
-    def test_callback_user_with_custom_username(self, _, __, mock_get, mock_post):
+    def test_callback_user_with_custom_username(self, mock_get, mock_post):
         self.user.obj.clear()
         self.user.obj.as2 = {
             'type': 'Person',
@@ -227,10 +228,14 @@ class FollowTest(TestCase):
         self.user.obj.put()
 
         mock_get.side_effect = (
+            requests_response(''),  # indieauth https://alice.com fetch for user json
             self.as2_resp(FOLLOWEE),
             self.as2_resp(FOLLOWEE),
         )
-        mock_post.return_value = requests_response('OK')  # AP Follow to inbox
+        mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
+            requests_response('OK'),  # AP Follow to inbox
+        )
 
         self.state['state'] = 'https://ba.r/actor'
         state = util.encode_oauth_state(self.state)
@@ -247,9 +252,7 @@ class FollowTest(TestCase):
             },
         })
 
-    @patch('requests.get', return_value= requests_response(''))
-    @patch('requests.post', return_value=requests_response('me=https://alice.com'))
-    def test_callback_composite_url_field(self, _, __, mock_get, mock_post):
+    def test_callback_composite_url_field(self, mock_get, mock_post):
         """https://console.cloud.google.com/errors/detail/CKmLytj-nPv9RQ;time=P30D?project=bridgy-federated"""
         followee = {
             **FOLLOWEE,
@@ -262,10 +265,14 @@ class FollowTest(TestCase):
             }],
         }
         mock_get.side_effect = (
+            requests_response(''),  # indieauth https://alice.com fetch for user json
             self.as2_resp(followee),
             self.as2_resp(followee),
         )
-        mock_post.return_value = requests_response('OK')  # AP Follow to inbox
+        mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
+            requests_response('OK'),  # AP Follow to inbox
+        )
 
         self.state['state'] = 'https://ba.r/actor'
         state = util.encode_oauth_state(self.state)
@@ -274,10 +281,10 @@ class FollowTest(TestCase):
 
         self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
 
-    @patch('requests.get', return_value= requests_response(''))
-    @patch('requests.post', return_value=requests_response('me=https://alice.com'))
-    def test_callback_bridged_account_error(self, _, __, mock_get, mock_post):
+    def test_callback_bridged_account_error(self, mock_get, mock_post):
+        mock_post.return_value = requests_response('me=https://alice.com')
         mock_get.side_effect = [
+            requests_response(''),  # indieauth https://alice.com fetch for user json
             requests_response({     # webfinger
                 'subject': 'acct:bob.com@web.brid.gy',
                 'aliases': ['https://bob.com/'],
@@ -299,10 +306,10 @@ class FollowTest(TestCase):
             ["@bob.com@web.brid.gy is a bridged account. Try following them on the web!"],
             get_flashed_messages())
 
-    @patch('requests.get', return_value= requests_response(''))
-    @patch('requests.post', return_value=requests_response('me=https://alice.com'))
-    def test_callback_upgraded_bridged_account_error(self, _, __, mock_get, mock_post):
+    def test_callback_upgraded_bridged_account_error(self, mock_get, mock_post):
+        mock_post.return_value = requests_response('me=https://alice.com')
         mock_get.side_effect = [
+            requests_response(''),  # indieauth https://alice.com fetch for user json
             requests_response({     # webfinger
                 'subject': 'acct:bob.com@bob.com',
                 'aliases': ['https://bob.com/'],
@@ -373,26 +380,26 @@ class FollowTest(TestCase):
 
         self.assertEqual('https://alice.com', session['indieauthed-me'])
 
-    @patch('requests.post', return_value=requests_response('me=https://alice.com'))
-    def test_callback_missing_user(self, _, mock_get, mock_post):
+    def test_callback_missing_user(self, mock_get, mock_post):
         self.user.key.delete()
+        mock_post.return_value = requests_response('me=https://alice.com')
         state = util.encode_oauth_state(self.state)
         resp = self.client.get(f'/follow/callback?code=my_code&state={state}')
         self.assertEqual(400, resp.status_code)
 
-    @patch('requests.get', return_value= requests_response(''))
-    @patch('requests.post', return_value=requests_response('me=https://alice.com'))
-    def test_callback_user_use_instead(self, _, __, mock_get, mock_post):
+    def test_callback_user_use_instead(self, mock_get, mock_post):
         user = self.make_user('www.alice.com', cls=Web,
                               obj_id='https://www.alice.com/')
         self.user.use_instead = user.key
         self.user.put()
 
         mock_get.side_effect = (
+            requests_response(''),
             self.as2_resp(FOLLOWEE),
             self.as2_resp(FOLLOWEE),
         )
         mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
             requests_response('OK'),  # AP Follow to inbox
         )
 
@@ -428,9 +435,7 @@ class FollowTest(TestCase):
             followers,
             ignore=['created', 'updated'])
 
-    @patch('requests.get', return_value= requests_response(''))
-    @patch('requests.post', return_value=requests_response('me=https://alice.com'))
-    def test_callback_url_composite_url(self, _, __, mock_get, mock_post):
+    def test_callback_url_composite_url(self, mock_get, mock_post):
         followee = {
             **FOLLOWEE,
             'attachments': [{
@@ -440,10 +445,12 @@ class FollowTest(TestCase):
             }],
         }
         mock_get.side_effect = (
+            requests_response(''),
             self.as2_resp(followee),
             self.as2_resp(followee),
         )
         mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
             requests_response('OK'),  # AP Follow to inbox
         )
 
@@ -476,8 +483,11 @@ class FollowTest(TestCase):
         }, base_url='https://fed.brid.gy/')
         self.check('https://ba.r/actor', resp, FOLLOW_URL, mock_get, mock_post)
 
-    @patch('requests.get', return_value= requests_response(''))
-    def test_indieauthed_session_wrong_me(self, _, mock_get, mock_post):
+    def test_indieauthed_session_wrong_me(self, mock_get, mock_post):
+        mock_get.side_effect = (
+            requests_response(''),  # IndieAuth endpoint discovery
+        )
+
         with self.client.session_transaction(base_url='https://fed.brid.gy/') \
              as ctx_session:
             ctx_session['indieauthed-me'] = 'https://eve.com'
@@ -490,8 +500,9 @@ class FollowTest(TestCase):
         self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
                         resp.headers['Location'])
 
-    @patch('requests.get', side_effect=requests.ConnectionError('foo'))
-    def test_start_homepage_fetch_fails(self, _, mock_get, mock_post):
+    def test_start_homepage_fetch_fails(self, mock_get, mock_post):
+        mock_get.side_effect = requests.ConnectionError('foo')
+
         resp = self.client.post('/follow/start', data={
             'me': 'https://alice.com',
             'address': 'https://ba.r/actor',
@@ -503,8 +514,8 @@ class FollowTest(TestCase):
                          get_flashed_messages())
 
 
-@patch('requests_cache.CachedSession.post')
-@patch('requests_cache.CachedSession.get')
+@patch('requests.post')
+@patch('requests.get')
 class UnfollowTest(TestCase):
 
     def setUp(self):
@@ -523,9 +534,9 @@ class UnfollowTest(TestCase):
             'state': self.follower.key.id(),
         })
 
-    # IndieAuth endpoint discovery
-    @patch('requests.get', return_value= requests_response(''))
-    def test_start(self, _, mock_get, mock_post):
+    def test_start(self, mock_get, _):
+        mock_get.return_value = requests_response('')  # IndieAuth endpoint discovery
+
         resp = self.client.post('/unfollow/start', data={
             'me': 'https://alice.com',
             'key': self.follower.key.id(),
@@ -534,11 +545,11 @@ class UnfollowTest(TestCase):
         self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
                         resp.headers['Location'])
 
-    # indieauth endpoint discovery, token validation
-    @patch('requests.get', return_value= requests_response(''))
-    @patch('requests.post', return_value=requests_response('me=https://alice.com'))
-    def test_callback(self, _, __, mock_get, mock_post):
+    def test_callback(self, mock_get, mock_post):
+        # oauth-dropins indieauth https://alice.com fetch for user json
+        mock_get.return_value = requests_response('')
         mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
             requests_response('OK'),  # AP Undo Follow to inbox
         )
 
@@ -546,9 +557,7 @@ class UnfollowTest(TestCase):
                                base_url='https://fed.brid.gy/')
         self.check(resp, UNDO_FOLLOW, mock_get, mock_post)
 
-    @patch('requests.get', return_value= requests_response(''))
-    @patch('requests.post', return_value=requests_response('me=https://alice.com'))
-    def test_callback_last_follow_object_str(self, _, __, mock_get, mock_post):
+    def test_callback_last_follow_object_str(self, mock_get, mock_post):
         to = self.follower.to.get()
         to.obj = None
         to.put()
@@ -558,10 +567,13 @@ class UnfollowTest(TestCase):
         obj.put()
 
         mock_get.side_effect = (
+            # oauth-dropins indieauth https://alice.com fetch for user json
+            requests_response(''),
             # actor fetch to discover inbox
             self.as2_resp(FOLLOWEE),
         )
         mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
             requests_response('OK'),  # AP Undo Follow to inbox
         )
 
@@ -607,9 +619,7 @@ class UnfollowTest(TestCase):
 
         self.assertEqual('https://alice.com', session['indieauthed-me'])
 
-    @patch('requests.get', return_value= requests_response(''))
-    @patch('requests.post', return_value=requests_response('me=https://alice.com'))
-    def test_callback_user_use_instead(self, _, __, mock_get, mock_post):
+    def test_callback_user_use_instead(self, mock_get, mock_post):
         user = self.make_user('www.alice.com', cls=Web)
         self.user.use_instead = user.key
         self.user.put()
@@ -620,7 +630,9 @@ class UnfollowTest(TestCase):
             follow=Object(id=FOLLOW_ADDRESS['id'], as2=FOLLOW_ADDRESS).put(),
             status='active')
 
+        mock_get.return_value = requests_response('')
         mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
             requests_response('OK'),  # AP Undo Follow to inbox
         )
 
@@ -647,7 +659,7 @@ class UnfollowTest(TestCase):
         }
         del expected_undo['object']['id']
 
-        inbox_args, inbox_kwargs = mock_post.call_args
+        inbox_args, inbox_kwargs = mock_post.call_args_list[1]
         self.assertEqual(('http://ba.r/inbox',), inbox_args)
         self.assert_equals({
             **expected_undo,
@@ -668,9 +680,7 @@ class UnfollowTest(TestCase):
             delivered=['http://ba.r/inbox'],
             delivered_protocol='activitypub')
 
-    @patch('requests.get', return_value= requests_response(''))
-    @patch('requests.post', return_value=requests_response('me=https://alice.com'))
-    def test_callback_composite_url(self, _, __, mock_get, mock_post):
+    def test_callback_composite_url(self, mock_get, mock_post):
         follower = self.follower.to.get().obj
         follower.our_as1 = {
             **as2.to_as1(FOLLOWEE),
@@ -681,7 +691,10 @@ class UnfollowTest(TestCase):
         }
         follower.put()
 
+        # oauth-dropins indieauth https://alice.com fetch for user json
+        mock_get.return_value = requests_response('')
         mock_post.side_effect = (
+            requests_response('me=https://alice.com'),
             requests_response('OK'),  # AP Undo Follow to inbox
         )
 
@@ -691,8 +704,9 @@ class UnfollowTest(TestCase):
                          get_flashed_messages())
         self.check(resp, UNDO_FOLLOW, mock_get, mock_post)
 
-    @patch('requests.get', return_value= requests_response(''))
-    def test_indieauthed_session(self, _, mock_get, mock_post):
+    def test_indieauthed_session(self, mock_get, mock_post):
+        # oauth-dropins indieauth https://alice.com fetch for user json
+        mock_get.return_value = requests_response('')
         mock_post.side_effect = (
             requests_response('OK'),  # AP Undo Follow to inbox
         )
@@ -707,8 +721,11 @@ class UnfollowTest(TestCase):
         }, base_url='https://fed.brid.gy/')
         self.check(resp, UNDO_FOLLOW, mock_get, mock_post)
 
-    @patch('requests.get', return_value= requests_response(''))
-    def test_indieauthed_session_wrong_me(self, _, mock_get, mock_post):
+    def test_indieauthed_session_wrong_me(self, mock_get, mock_post):
+        mock_get.side_effect = (
+            requests_response(''),  # IndieAuth endpoint discovery
+        )
+
         with self.client.session_transaction(base_url='https://fed.brid.gy/') \
              as ctx_session:
             ctx_session['indieauthed-me'] = 'https://eve.com'
@@ -721,8 +738,9 @@ class UnfollowTest(TestCase):
         self.assertTrue(resp.headers['Location'].startswith(indieauth.INDIEAUTH_URL),
                         resp.headers['Location'])
 
-    @patch('requests.get', side_effect=requests.ConnectionError('foo'))
-    def test_start_homepage_fetch_fails(self, _, mock_get, mock_post):
+    def test_start_homepage_fetch_fails(self, mock_get, mock_post):
+        mock_get.side_effect = requests.ConnectionError('foo')
+
         resp = self.client.post('/unfollow/start', data={
             'me': 'https://alice.com',
             'key': self.follower.key.id(),
