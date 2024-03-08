@@ -94,7 +94,7 @@ class RedirectTest(testutil.TestCase):
 
         self.assert_user(Web, 'user.com', direct=False)
 
-    @patch('requests.get')
+    @patch('requests_cache.CachedSession.get')
     def test_as2_fetch_post(self, mock_get):
         mock_get.side_effect = [
             requests_response(REPOST_HTML),
@@ -107,7 +107,7 @@ class RedirectTest(testutil.TestCase):
         self.assert_equals(REPOST_AS2, resp.json)
         self.assertEqual('Accept', resp.headers['Vary'])
 
-    @patch('requests.get')
+    @patch('requests_cache.CachedSession.get')
     def test_as2_fetch_post_no_backlink(self, mock_get):
         mock_get.side_effect = [
             requests_response(
@@ -121,7 +121,7 @@ class RedirectTest(testutil.TestCase):
         self.assert_equals(REPOST_AS2, resp.json)
         self.assertEqual('Accept', resp.headers['Vary'])
 
-    @patch('requests.get')
+    @patch('requests_cache.CachedSession.get')
     def test_as2_no_user_fetch_homepage(self, mock_get):
         mock_get.return_value = requests_response(ACTOR_HTML)
         self.user.key.delete()

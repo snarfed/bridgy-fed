@@ -225,7 +225,7 @@ def fetch(addr):
         return None
 
     try:
-        resp = util.requests_get(
+        resp = common.requests_get(
             f'https://{addr_domain}/.well-known/webfinger?resource={resource}')
     except BaseException as e:
         if util.is_connection_failure(e):

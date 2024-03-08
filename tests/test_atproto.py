@@ -71,7 +71,7 @@ class ATProtoTest(TestCase):
 
         return user
 
-    @patch('requests.get', return_value=requests_response(DID_DOC))
+    @patch('requests_cache.CachedSession.get', return_value=requests_response(DID_DOC))
     def test_put_validates_id(self, mock_get):
         for bad in (
             '',
@@ -94,7 +94,7 @@ class ATProtoTest(TestCase):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         self.assertEqual('han.dull', ATProto(id='did:plc:user').handle)
 
-    @patch('requests.get', return_value=requests_response(DID_DOC))
+    @patch('requests_cache.CachedSession.get', return_value=requests_response(DID_DOC))
     def test_get_or_create(self, _):
         user = self.make_user('did:plc:user', cls=ATProto)
         self.assertEqual('han.dull', user.key.get().handle)
@@ -130,7 +130,8 @@ class ATProtoTest(TestCase):
 
     @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
     # resolving handle, HTTPS method, not found
-    @patch('requests.get', return_value=requests_response('', status=404))
+    @patch('requests_cache.CachedSession.get',
+           return_value=requests_response('', status=404))
     def test_handle_to_id_not_found(self, *_):
         self.assertIsNone(ATProto.handle_to_id('han.dull'))
 
@@ -147,7 +148,7 @@ class ATProtoTest(TestCase):
         got = ATProto.pds_for(Object(id='at://did:plc:user/co.ll/123'))
         self.assertEqual('https://some.pds', got)
 
-    @patch('requests.get', return_value=requests_response(DID_DOC))
+    @patch('requests_cache.CachedSession.get', return_value=requests_response(DID_DOC))
     def test_pds_for_fetch_did(self, mock_get):
         got = ATProto.pds_for(Object(id='at://did:plc:user/co.ll/123'))
         self.assertEqual('https://some.pds', got)
@@ -179,7 +180,7 @@ class ATProtoTest(TestCase):
         self.assertEqual('https://some.pds', got)
 
     @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
-    @patch('requests.get', side_effect=[
+    @patch('requests_cache.CachedSession.get', side_effect=[
         # resolving handle, HTTPS method
         requests_response('did:plc:user', content_type='text/plain'),
         # fetching DID doc
@@ -218,7 +219,8 @@ class ATProtoTest(TestCase):
             Object(id='at://foo')))
         self.assertIsNone(ATProto.target_for(Object(id='fake:post')))
 
-    @patch('requests.get', return_value=requests_response({'foo': 'bar'}))
+    @patch('requests_cache.CachedSession.get',
+           return_value=requests_response({'foo': 'bar'}))
     def test_fetch_did_plc(self, mock_get):
         obj = Object(id='did:plc:123')
         self.assertTrue(ATProto.fetch(obj))
@@ -228,7 +230,8 @@ class ATProtoTest(TestCase):
             self.req('https://plc.local/did:plc:123'),
         ))
 
-    @patch('requests.get', return_value=requests_response({'foo': 'bar'}))
+    @patch('requests_cache.CachedSession.get',
+           return_value=requests_response({'foo': 'bar'}))
     def test_fetch_did_web(self, mock_get):
         obj = Object(id='did:web:user.com')
         self.assertTrue(ATProto.fetch(obj))
@@ -238,7 +241,8 @@ class ATProtoTest(TestCase):
             self.req('https://user.com/.well-known/did.json'),
         ))
 
-    @patch('requests.get', return_value=requests_response('not json'))
+    @patch('requests_cache.CachedSession.get',
+           return_value=requests_response('not json'))
     def test_fetch_did_plc_not_json(self, mock_get):
         obj = Object(id='did:web:user.com')
         self.assertFalse(ATProto.fetch(obj))
@@ -267,17 +271,15 @@ class ATProtoTest(TestCase):
         )
 
     @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
-    @patch('requests.get', side_effect=[
-        # resolving handle, HTTPS method
-
-        requests_response('did:plc:abc', content_type='text/plain'),
-        # AppView getRecord
-        requests_response({
-            'cid': 'bafy...',
-            'value': {'foo': 'bar'},
-        }),
-    ])
-    def test_fetch_bsky_app_url(self, mock_get, _):
+    # resolve handle, HTTPS method
+    @patch('requests_cache.CachedSession.get',
+           return_value= requests_response('did:plc:abc', content_type='text/plain'))
+    # AppView getRecord
+    @patch('requests.get', return_value= requests_response({
+        'cid': 'bafy...',
+        'value': {'foo': 'bar'},
+    }))
+    def test_fetch_bsky_app_url(self, mock_get, _, __):
         obj = Object(id='https://bsky.app/profile/han.dull/post/789')
         self.assertTrue(ATProto.fetch(obj))
 
@@ -369,7 +371,7 @@ class ATProtoTest(TestCase):
             'image': [{'url': 'http://my/pic'}],
         })))
 
-    @patch('requests.get', return_value=requests_response(
+    @patch('requests_cache.CachedSession.get', return_value=requests_response(
         'blob contents', content_type='image/png'))
     def test_convert_fetch_blobs_true(self, mock_get):
         cid = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
@@ -416,7 +418,8 @@ class ATProtoTest(TestCase):
         with self.assertRaises(BadRequest):
             ATProto.convert(obj)
 
-    @patch('requests.get', return_value=requests_response('', status=404))
+    @patch('requests_cache.CachedSession.get',
+           return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):
         user = self.make_user('did:plc:user', cls=ATProto)
         self.assertEqual('https://bsky.app/profile/did:plc:user', user.web_url())
@@ -424,7 +427,8 @@ class ATProtoTest(TestCase):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         self.assertEqual('https://bsky.app/profile/han.dull', user.web_url())
 
-    @patch('requests.get', return_value=requests_response('', status=404))
+    @patch('requests_cache.CachedSession.get',
+           return_value=requests_response('', status=404))
     def test_handle_or_id(self, mock_get):
         user = self.make_user('did:plc:user', cls=ATProto)
         self.assertIsNone(user.handle)
@@ -434,7 +438,8 @@ class ATProtoTest(TestCase):
         self.assertEqual('han.dull', user.handle)
         self.assertEqual('han.dull', user.handle_or_id())
 
-    @patch('requests.get', return_value=requests_response('', status=404))
+    @patch('requests_cache.CachedSession.get',
+           return_value=requests_response('', status=404))
     def test_handle_as(self, mock_get):
         user = self.make_user('did:plc:user', cls=ATProto)
 
@@ -445,7 +450,7 @@ class ATProtoTest(TestCase):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         self.assertEqual('@han.dull@atproto.brid.gy', user.handle_as('activitypub'))
 
-    @patch('requests.get', return_value=requests_response(DID_DOC))
+    @patch('requests_cache.CachedSession.get', return_value=requests_response(DID_DOC))
     def test_profile_id(self, mock_get):
         self.assertEqual('at://did:plc:user/app.bsky.actor.profile/self',
                          self.make_user('did:plc:user', cls=ATProto).profile_id())
@@ -453,7 +458,7 @@ class ATProtoTest(TestCase):
     @patch('atproto.DEBUG', new=False)
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests.post',
+    @patch('requests_cache.CachedSession.post',
            return_value=requests_response('OK'))  # create DID on PLC
     def test_create_for(self, mock_post, mock_create_task, mock_zone):
         mock_zone.return_value = zone = MagicMock()
@@ -502,7 +507,7 @@ class ATProtoTest(TestCase):
 
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests.post',
+    @patch('requests_cache.CachedSession.post',
            return_value=requests_response('OK'))  # create DID on PLC
     def test_send_new_repo(self, mock_post, mock_create_task, _):
         user = self.make_user(id='fake:user', cls=Fake)
@@ -564,11 +569,11 @@ class ATProtoTest(TestCase):
         self.assert_task(mock_create_task, 'atproto-commit',
                          '/queue/atproto-commit')
 
-    @patch('requests.get', return_value=requests_response(
+    @patch('requests_cache.CachedSession.get', return_value=requests_response(
         'blob contents', content_type='image/png'))  # image blob fetch
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests.post',
+    @patch('requests_cache.CachedSession.post',
            return_value=requests_response('OK'))  # create DID on PLC
     def test_send_new_repo_includes_user_profile(self, mock_post, mock_create_task,
                                                  _, __):
@@ -849,7 +854,8 @@ class ATProtoTest(TestCase):
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get')
-    def test_poll_notifications(self, mock_get, mock_create_task):
+    @patch('requests_cache.CachedSession.get', return_value=requests_response(DID_DOC))
+    def test_poll_notifications(self, _, mock_get, mock_create_task):
         user_a = self.make_user(id='fake:user-a', cls=Fake,
                                 copies=[Target(uri='did:plc:a', protocol='atproto')])
         user_b = self.make_user(id='fake:user-b', cls=Fake,
@@ -913,7 +919,6 @@ class ATProtoTest(TestCase):
                     'reason': 'reply',
                 }],
             }),
-            requests_response(DID_DOC),
             requests_response({
                 'cursor': '...',
                 'notifications': [{
@@ -942,8 +947,8 @@ class ATProtoTest(TestCase):
         assert mock_get.call_args_list[0].kwargs['headers'].pop('Authorization')
         self.assertEqual(expected_list_notifs, mock_get.call_args_list[0])
 
-        assert mock_get.call_args_list[2].kwargs['headers'].pop('Authorization')
-        self.assertEqual(expected_list_notifs, mock_get.call_args_list[2])
+        assert mock_get.call_args_list[1].kwargs['headers'].pop('Authorization')
+        self.assertEqual(expected_list_notifs, mock_get.call_args_list[1])
 
         like_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.like/123')
         self.assertEqual(like, like_obj.bsky)
@@ -962,7 +967,11 @@ class ATProtoTest(TestCase):
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get')
-    def test_poll_posts(self, mock_get, mock_create_task):
+    @patch('requests_cache.CachedSession.get', return_value=requests_response({
+        **DID_DOC,
+        'id': 'did:plc:alice.com',
+    }))
+    def test_poll_posts(self, _, mock_get, mock_create_task):
         user_a = self.make_user(id='fake:user-a', cls=Fake,
                                 copies=[Target(uri='did:plc:a', protocol='atproto')])
         user_b = self.make_user(id='fake:user-b', cls=Fake,
@@ -999,10 +1008,6 @@ class ATProtoTest(TestCase):
                 }],
             }),
             requests_response({
-                **DID_DOC,
-                'id': 'did:plc:alice.com',
-            }),
-            requests_response({
                 'cursor': '...',
                 'feed': [],
             }),
@@ -1037,7 +1042,6 @@ class ATProtoTest(TestCase):
             })
         self.assertEqual([
             get_timeline,
-            self.req('https://alice.com/.well-known/did.json'),
             get_timeline,
             get_timeline,
         ], mock_get.call_args_list)

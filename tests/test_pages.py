@@ -400,7 +400,7 @@ class PagesTest(TestCase):
         self.assertIn('Dr. Eve', got.text)
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests.post',
+    @patch('requests_cache.CachedSession.post',
            return_value=requests_response('OK'))  # create DID on PLC
     def test_bridge_user(self, mock_post, mock_create_task):
         common.RUN_TASKS_INLINE = False

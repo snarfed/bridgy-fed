@@ -133,7 +133,7 @@ class ConvertTest(testutil.TestCase):
                                base_url='https://ap.brid.gy/')
         self.assertEqual(404, resp.status_code)
 
-    @patch('requests.get')
+    @patch('requests_cache.CachedSession.get')
     def test_activitypub_to_web_fetch(self, mock_get):
         mock_get.return_value = self.as2_resp(as2.from_as1(COMMENT))
         url = 'https://user.com/bar?baz=baj&biff'
@@ -147,7 +147,7 @@ class ConvertTest(testutil.TestCase):
 
         mock_get.assert_has_calls((self.as2_req(url),))
 
-    @patch('requests.get')
+    @patch('requests_cache.CachedSession.get')
     def test_activitypub_to_web_fetch_fails(self, mock_get):
         mock_get.side_effect = [requests_response('', status=405)]
 
@@ -269,7 +269,7 @@ A ☕ reply
         # self.assertEqual(f'https://ap.brid.gy/convert/web/https:/foo%3Fbar%23baz',
         #                  resp.headers['Location'])
 
-    @patch('requests.get')
+    @patch('requests_cache.CachedSession.get')
     def test_web_to_activitypub_object(self, mock_get):
         mock_get.return_value = requests_response(HTML_NO_ID)
 
@@ -282,7 +282,7 @@ A ☕ reply
         self.assertEqual(200, resp.status_code)
         self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
 
-    @patch('requests.get')
+    @patch('requests_cache.CachedSession.get')
     def test_web_to_activitypub_fetch(self, mock_get):
         mock_get.return_value = requests_response(HTML)  # protocol inference
         url = 'https://user.com/bar?baz=baj&biff'
@@ -294,7 +294,7 @@ A ☕ reply
         self.assertEqual(200, resp.status_code)
         self.assert_equals(COMMENT_AS2, resp.json, ignore=['to'])
 
-    @patch('requests.get')
+    @patch('requests_cache.CachedSession.get')
     def test_web_to_activitypub_no_user(self, mock_get):
         hcard = requests_response("""
 <html>
@@ -320,7 +320,7 @@ A ☕ reply
             'attributedTo': 'https://web.brid.gy/nope.com',
         }, resp.json, ignore=['to'])
 
-    @patch('requests.get')
+    @patch('requests_cache.CachedSession.get')
     def test_web_to_activitypub_url_decode(self, mock_get):
         """https://github.com/snarfed/bridgy-fed/issues/581"""
         mock_get.return_value = requests_response(HTML_NO_ID)
