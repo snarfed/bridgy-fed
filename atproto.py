@@ -232,7 +232,7 @@ class ATProto(User, Protocol):
             profile = cls.convert(user.obj, fetch_blobs=True)
             profile.setdefault('labels', {'$type': 'com.atproto.label.defs#selfLabels'})
             profile['labels'].setdefault('values', []).append({
-                'val' : f'bridged-from-{user.LABEL}',
+                'val' : f'bridged-from-bridgy-fed-{user.LABEL}',
             })
 
             profile_json = json_dumps(dag_json.encode(profile).decode(), indent=2)

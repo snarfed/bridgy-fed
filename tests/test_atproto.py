@@ -490,7 +490,7 @@ class ATProtoTest(TestCase):
             },
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
-                'values': [{'val' : 'bridged-from-fake'}],
+                'values': [{'val' : 'bridged-from-bridgy-fed-fake'}],
             },
         }, profile)
 
@@ -597,7 +597,7 @@ class ATProtoTest(TestCase):
             },
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
-                'values': [{'val' : 'bridged-from-fake'}],
+                'values': [{'val' : 'bridged-from-bridgy-fed-fake'}],
             },
         }, profile)
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)

@@ -432,7 +432,7 @@ class PagesTest(TestCase):
             'description': 'hi there',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
-                'values': [{'val' : 'bridged-from-fake'}],
+                'values': [{'val' : 'bridged-from-bridgy-fed-fake'}],
             },
         }, profile)
 
