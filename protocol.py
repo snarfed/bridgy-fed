@@ -10,9 +10,11 @@ from cachetools import cached, LRUCache
 from flask import g, request
 from google.cloud import ndb
 from google.cloud.ndb import OR
+from google.cloud.ndb.model import _entity_to_protobuf
 from granary import as1
 from oauth_dropins.webutil.flask_util import cloud_tasks_only
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil import models
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import werkzeug.exceptions
 
@@ -1158,6 +1160,12 @@ class Protocol:
 
         fetched = cls.fetch(obj, **kwargs)
         if not fetched:
+            return None
+
+        # https://stackoverflow.com/a/3042250/186123
+        size = len(_entity_to_protobuf(obj)._pb.SerializeToString())
+        if size > models.MAX_ENTITY_SIZE:
+            logger.warning(f'Object is too big! {size} bytes is over {models.MAX_ENTITY_SIZE}')
             return None
 
         obj.resolve_ids()

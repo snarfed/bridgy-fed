@@ -9,7 +9,7 @@ from arroba.tests.testutil import dns_answer
 from flask import g
 from google.cloud import ndb
 from granary import as2
-from oauth_dropins.webutil import appengine_info, util
+from oauth_dropins.webutil import appengine_info, models, util
 from oauth_dropins.webutil.flask_util import CLOUD_TASKS_QUEUE_HEADER, NoContent
 from oauth_dropins.webutil.testutil import NOW, requests_response
 import requests
@@ -319,6 +319,7 @@ class ProtocolTest(TestCase):
         follow = {
             'objectType': 'activity',
             'verb': 'follow',
+            'id': 'fake:follow',
             'actor': 'fake:alice',
             'object': 'fake:bob',
         }
@@ -361,6 +362,14 @@ class ProtocolTest(TestCase):
 
         loaded = Fake.load('foo')
         self.assertEqual({'fetched': 'x', 'id': 'foo'}, loaded.our_as1)
+
+    @patch('oauth_dropins.webutil.models.MAX_ENTITY_SIZE', new=50)
+    def test_load_too_big(self):
+        Fake.fetchable['fake:foo'] = {
+            'objectType': 'note',
+            'content': 'a bit of text that makes sure we end up over the limit ',
+        }
+        self.assertIsNone(Fake.load('fake:foo'))
 
     def test_actor_key(self):
         user = self.make_user(id='fake:a', cls=Fake)
