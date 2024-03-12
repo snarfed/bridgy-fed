@@ -266,10 +266,20 @@ class ATProtoTest(TestCase):
             },
         )
 
+    @patch('requests.get', return_value=requests_response({
+        'error':'InvalidRequest',
+        'message':'Could not locate record: at://did:plc:abc/app.bsky.feed.post/123',
+    }, status=400))
+    def test_fetch_at_uri_record_error(self, mock_get):
+        obj = Object(id='at://did:plc:abc/app.bsky.feed.post/123')
+        self.assertFalse(ATProto.fetch(obj))
+        mock_get.assert_called_once_with(
+            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
+            json=None, data=None, headers=ANY)
+
     @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
     @patch('requests.get', side_effect=[
         # resolving handle, HTTPS method
-
         requests_response('did:plc:abc', content_type='text/plain'),
         # AppView getRecord
         requests_response({
@@ -293,6 +303,12 @@ class ATProtoTest(TestCase):
                 'User-Agent': common.USER_AGENT,
             },
         )
+
+    @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
+    @patch('requests.get', return_value=requests_response(status=404))
+    def test_fetch_resolve_handle_fails(self, mock_get, _):
+        obj = Object(id='https://bsky.app/profile/bad.com/post/789')
+        self.assertFalse(ATProto.fetch(obj))
 
     def test_convert_bsky_pass_through(self):
         self.assertEqual({
@@ -358,39 +374,58 @@ class ATProtoTest(TestCase):
             'inReplyTo': 'at://did:plc:bob/app.bsky.feed.post/tid',
         })))
 
-    @patch('requests.get', return_value=requests_response({
-        'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
-        'cid': 'my sidd',
-        'value': {
-            '$type': 'app.bsky.feed.post',
-            'foo': 'bar',
-        },
-    }))
-    def test_convert_populate_cid_fetch_remote_record(self, mock_get):
-        self.store_object(id='did:plc:bob', raw={
-            **DID_DOC,
-            'id': 'did:plc:bob',
-        })
+    @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
+    @patch('requests.get', side_effect=[
+        # resolving handle, HTTPS method
+        requests_response('did:plc:user', content_type='text/plain'),
+        # AppView getRecord
+        requests_response({
+            'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
+            'cid': 'my sidd',
+            'value': {
+                '$type': 'app.bsky.feed.post',
+                'foo': 'bar',
+            },
+        }),
+    ])
+    def test_convert_populate_cid_fetch_remote_record_handle(self, mock_get, _):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
 
         self.assertEqual({
             '$type': 'app.bsky.feed.like',
             'subject': {
-                'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
+                'uri': 'at://did:plc:user/app.bsky.feed.post/tid',
                 'cid': 'my sidd',
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }, ATProto.convert(Object(our_as1={
             'objectType': 'activity',
             'verb': 'like',
-            'object': 'at://did:plc:bob/app.bsky.feed.post/tid',
+            # handle here should be replaced with DID in returned record's URI
+            'object': 'at://han.dull/app.bsky.feed.post/tid',
         })))
         mock_get.assert_called_with(
-            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Abob&collection=app.bsky.feed.post&rkey=tid',
-            json=None, data=None, headers={
-                'Content-Type': 'application/json',
-                'User-Agent': common.USER_AGENT,
+            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=tid',
+            json=None, data=None, headers=ANY)
+
+    @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
+    # resolving handle, HTTPS method
+    @patch('requests.get', return_value=requests_response(status=404))
+    def test_convert_populate_cid_fetch_remote_record_bad_handle(self, _, __):
+        # skips getRecord because handle didn't resolve
+        self.assertEqual({
+            '$type': 'app.bsky.feed.like',
+            'subject': {
+                # preserves handle here since it couldn't be resolved to a DID
+                'uri': 'at://bob.net/app.bsky.feed.post/tid',
+                'cid': '',
             },
-        )
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'object': 'at://bob.net/app.bsky.feed.post/tid',
+        })))
 
     def test_convert_blobs_false(self):
         self.assertEqual({

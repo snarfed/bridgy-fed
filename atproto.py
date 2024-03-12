@@ -20,6 +20,7 @@ from google.cloud import ndb
 from granary import as1, bluesky
 from lexrpc import Client
 import requests
+from requests import RequestException
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -104,6 +105,8 @@ class ATProto(User, Protocol):
     @classmethod
     def handle_to_id(cls, handle):
         assert cls.owns_handle(handle) is not False
+
+        # TODO: shortcut our own handles? eg snarfed.org.web.brid.gy
 
         user = ATProto.query(ATProto.handle == handle).get()
         if user:
@@ -370,7 +373,7 @@ class ATProto(User, Protocol):
                 return False
             obj.key = ndb.Key(Object, id)
 
-        # at:// URI
+        # at:// URI. if it has a handle, resolve and replace with DID.
         # examples:
         # at://did:plc:s2koow7r6t7tozgd4slc3dsg/app.bsky.feed.post/3jqcpv7bv2c2q
         # https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
@@ -378,12 +381,20 @@ class ATProto(User, Protocol):
         if not repo.startswith('did:'):
             handle = repo
             repo = cls.handle_to_id(repo)
+            if not repo:
+                return False
+            assert repo.startswith('did:')
             obj.key = ndb.Key(Object, id.replace(f'at://{handle}', f'at://{repo}'))
 
         client = Client(f'https://{os.environ["APPVIEW_HOST"]}',
                         headers={'User-Agent': USER_AGENT})
-        ret = client.com.atproto.repo.getRecord(
-            repo=repo, collection=collection, rkey=rkey)
+        try:
+            ret = client.com.atproto.repo.getRecord(
+                repo=repo, collection=collection, rkey=rkey)
+        except RequestException as e:
+            util.interpret_http_exception(e)
+            return False
+
         # TODO: verify sig?
         obj.bsky = {
             **ret['value'],
@@ -429,8 +440,12 @@ class ATProto(User, Protocol):
         # fill in CIDs from Objects
         def populate_cid(strong_ref):
             if uri := strong_ref.get('uri'):
+                # TODO: fail if this load fails? since we don't populate CID
                 if ref_obj := ATProto.load(uri):
-                    strong_ref['cid'] = ref_obj.bsky.get('cid')
+                    strong_ref.update({
+                        'cid': ref_obj.bsky.get('cid'),
+                        'uri': ref_obj.key.id(),
+                    })
 
         match ret.get('$type'):
             case 'app.bsky.feed.like' |  'app.bsky.feed.repost':
