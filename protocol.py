@@ -1113,7 +1113,7 @@ class Protocol:
           requests.HTTPError: anything that :meth:`fetch` raises
         """
         assert local or remote is not False
-        logger.debug(f'Loading Object {id} local={local} remote={remote}')
+        # logger.debug(f'Loading Object {id} local={local} remote={remote}')
 
         obj = orig_as1 = None
         with objects_cache_lock:
@@ -1123,7 +1123,7 @@ class Protocol:
                 # memory, those modifications aren't applied to the cache
                 # until they explicitly put() the modified entity.
                 # NOTE: keep in sync with Object._post_put_hook!
-                logger.debug('  got from cache')
+                # logger.debug('  got from cache')
                 obj = Object(id=cached.key.id(), **cached.to_dict(
                     # computed properties
                     exclude=['as1', 'expire', 'object_ids', 'type']))
@@ -1131,9 +1131,10 @@ class Protocol:
         if local and not obj:
             obj = Object.get_by_id(id)
             if not obj:
-                logger.debug(f' not in datastore')
+                # logger.debug(f' not in datastore')
+                pass
             elif obj.as1 or obj.raw or obj.deleted:
-                logger.debug('  got from datastore')
+                # logger.debug('  got from datastore')
                 obj.new = False
                 if remote is not True:
                     with objects_cache_lock:
@@ -1143,7 +1144,8 @@ class Protocol:
             return obj
         elif remote is None and obj:
             if obj.updated < util.as_utc(util.now() - OBJECT_REFRESH_AGE):
-                logger.debug(f'  last updated {obj.updated}, refreshing')
+                # logger.debug(f'  last updated {obj.updated}, refreshing')
+                pass
             else:
                 return obj
 
@@ -1154,7 +1156,7 @@ class Protocol:
         else:
             obj = Object(id=id)
             if local:
-                logger.debug('  not in datastore')
+                # logger.debug('  not in datastore')
                 obj.new = True
                 obj.changed = False
 
