@@ -429,7 +429,7 @@ class ATProto(User, Protocol):
         # fill in CIDs from Objects
         def populate_cid(strong_ref):
             if uri := strong_ref.get('uri'):
-                if ref_obj := ATProto.load(uri, remote=False):
+                if ref_obj := ATProto.load(uri):
                     strong_ref['cid'] = ref_obj.bsky.get('cid')
 
         match ret.get('$type'):

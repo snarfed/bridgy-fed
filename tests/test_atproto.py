@@ -358,6 +358,40 @@ class ATProtoTest(TestCase):
             'inReplyTo': 'at://did:plc:bob/app.bsky.feed.post/tid',
         })))
 
+    @patch('requests.get', return_value=requests_response({
+        'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
+        'cid': 'my sidd',
+        'value': {
+            '$type': 'app.bsky.feed.post',
+            'foo': 'bar',
+        },
+    }))
+    def test_convert_populate_cid_fetch_remote_record(self, mock_get):
+        self.store_object(id='did:plc:bob', raw={
+            **DID_DOC,
+            'id': 'did:plc:bob',
+        })
+
+        self.assertEqual({
+            '$type': 'app.bsky.feed.like',
+            'subject': {
+                'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
+                'cid': 'my sidd',
+            },
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'object': 'at://did:plc:bob/app.bsky.feed.post/tid',
+        })))
+        mock_get.assert_called_with(
+            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Abob&collection=app.bsky.feed.post&rkey=tid',
+            json=None, data=None, headers={
+                'Content-Type': 'application/json',
+                'User-Agent': common.USER_AGENT,
+            },
+        )
+
     def test_convert_blobs_false(self):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
@@ -677,14 +711,22 @@ class ATProtoTest(TestCase):
         mock_create_task.assert_called()
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    def test_send_repost(self, mock_create_task):
+    @patch('requests.get', return_value=requests_response({
+        'uri': 'at://did:bob/app.bsky.feed.post/tid',
+        'cid': 'my sidd',
+        'value': {
+            '$type': 'app.bsky.feed.post',
+            'foo': 'bar',
+        },
+    }))
+    def test_send_repost(self, mock_get, mock_create_task):
         user = self.make_user_and_repo()
         obj = self.store_object(id='fake:repost', source_protocol='fake', our_as1={
             'objectType': 'activity',
             'verb': 'share',
             'id': 'fake:repost',
             'actor': 'fake:user',
-            'object': 'at://did/app.bsky.feed.post/tid',
+            'object': 'at://did:bob/app.bsky.feed.post/tid',
         })
         self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
 
@@ -696,8 +738,8 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.feed.repost',
             'subject': {
-                'uri': 'at://did/app.bsky.feed.post/tid',
-                'cid': '',
+                'uri': 'at://did:bob/app.bsky.feed.post/tid',
+                'cid': 'my sidd',
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }, record)
@@ -706,6 +748,9 @@ class ATProtoTest(TestCase):
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:repost').copies)
 
+        mock_get.assert_called_with(
+            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Abob&collection=app.bsky.feed.post&rkey=tid',
+            json=None, data=None, headers=ANY)
         mock_create_task.assert_called()
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
@@ -782,9 +827,14 @@ class ATProtoTest(TestCase):
         user = self.make_user_and_repo()
         alice = self.make_user(id='fake:alice', cls=Fake,
                                copies=[Target(uri='did:alice', protocol='atproto')])
-        post = self.store_object(
+        self.store_object(id='at://did:bob/coll/post', bsky={
+            '$type': 'app.bsky.feed.post',
+            'uri': 'at://did:bob/coll/post',
+            'cid': 'my sidd',
+        })
+        self.store_object(
             id='fake:post', source_protocol='fake',
-            copies=[Target(uri='at://did/coll/post', protocol='atproto')])
+            copies=[Target(uri='at://did:bob/coll/post', protocol='atproto')])
 
         reply_as1 = {
             'id': 'fake:reply',
@@ -823,12 +873,12 @@ class ATProtoTest(TestCase):
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
                 'root': {
-                    'uri': 'at://did/coll/post',
-                    'cid': '',
+                    'uri': 'at://did:bob/coll/post',
+                    'cid': 'my sidd',
                 },
                 'parent': {
-                    'uri': 'at://did/coll/post',
-                    'cid': '',
+                    'uri': 'at://did:bob/coll/post',
+                    'cid': 'my sidd',
                 },
             },
             'facets': [{
