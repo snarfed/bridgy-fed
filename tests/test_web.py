@@ -2664,6 +2664,12 @@ class WebUtilTest(TestCase):
         }, obj.mf2)
         self.assert_equals(ACTOR_AS1_UNWRAPPED_URLS, obj.as1)
 
+    def test_load_user_domain(self, mock_get, __):
+        loaded = Web.load('user.com')
+        self.assert_entities_equal(loaded, self.user.obj)
+        self.assertFalse(loaded.changed)
+        self.assertFalse(loaded.new)
+
     def test_fetch_user_homepage_metaformats(self, mock_get, __):
         mock_get.return_value = requests_response(
             ACTOR_HTML_METAFORMATS, url='https://user.com/')

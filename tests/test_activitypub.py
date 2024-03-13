@@ -2158,8 +2158,10 @@ class ActivityPubUtilsTest(TestCase):
     def test_convert_actor_as2(self):
         self.assert_equals(ACTOR, ActivityPub.convert(Object(as2=ACTOR)))
 
-    @patch('requests.get', return_value=requests_response(test_web.ACTOR_HTML))
-    def test_convert_actor_as1_from_user(self, _):
+    @patch('requests.get')
+    def test_convert_actor_as1_from_user(self, mock_get):
+        mock_get.return_value = requests_response(test_web.ACTOR_HTML)
+
         obj = Object(our_as1={
             'objectType': 'person',
             'id': 'https://user.com/',

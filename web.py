@@ -402,6 +402,14 @@ class Web(User, Protocol):
         return True
 
     @classmethod
+    def load(cls, id, **kwargs):
+        """Wrap :meth:`Protocol.load` to convert domains to homepage URLs."""
+        if re.match(DOMAIN_RE, id):
+            id = f'https://{id}/'
+
+        return super().load(id, **kwargs)
+
+    @classmethod
     def fetch(cls, obj, gateway=False, check_backlink=False, **kwargs):
         """Fetches a URL over HTTP and extracts its microformats2.
 
