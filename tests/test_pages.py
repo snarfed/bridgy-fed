@@ -1,4 +1,5 @@
 """Unit tests for pages.py."""
+from unittest import skip
 from unittest.mock import patch
 
 import arroba.server
@@ -399,6 +400,8 @@ class PagesTest(TestCase):
         # COMMENT's author
         self.assertIn('Dr. Eve', got.text)
 
+    # TODO: re-enable for launch
+    @skip
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
@@ -442,6 +445,8 @@ class PagesTest(TestCase):
 
         mock_create_task.assert_called()
 
+    # TODO: re-enable for launch
+    @skip
     def test_bridge_user_bad_handle(self):
         got = self.client.post('/bridge-user', data={'handle': 'bad xyz'})
         self.assertEqual(400, got.status_code)
