@@ -278,22 +278,23 @@ class ATProto(User, Protocol):
             logger.info(f'Skipping sending {verb}, not supported in ATProto')
             return False
 
-        # convert to Bluesky record; short circuits on error
-        try:
-            record = to_cls.convert(obj, fetch_blobs=True)
-        except ValueError as e:
-            logger.info(f'Skipping due to {e}')
-            return False
-
         # determine "base" object, if any
         type = as1.object_type(obj.as1)
         base_obj = obj
         if type in ('post', 'update', 'delete'):
             obj_as1 = as1.get_object(obj.as1)
             type = as1.object_type(obj_as1)
+            # TODO: should we not load for deletes?
             base_obj = PROTOCOLS[obj.source_protocol].load(obj_as1['id'])
             if not base_obj:
                 base_obj = obj
+
+        # convert to Bluesky record; short circuits on error
+        try:
+            record = to_cls.convert(base_obj, fetch_blobs=True)
+        except ValueError as e:
+            logger.info(f'Skipping due to {e}')
+            return False
 
         # find user
         from_cls = PROTOCOLS[obj.source_protocol]
@@ -325,14 +326,24 @@ class ATProto(User, Protocol):
 
         ndb.transactional()
         def write():
-            tid = next_tid()
-            logger.info(f'Storing ATProto {type} {tid}: ' +
+            if verb == 'update':
+                action = Action.UPDATE
+                # check that our existing record is the same as the new one
+                copy = base_obj.get_copy(to_cls)
+                assert copy
+                copy_did, coll, rkey = parse_at_uri(copy)
+                assert copy_did == did
+                assert coll == type
+            else:
+                action = Action.CREATE
+                rkey = next_tid()
+
+            logger.info(f'Storing ATProto {action} {type} {rkey}: ' +
                         json_dumps(dag_json.encode(record).decode(), indent=2))
+            repo.apply_writes([Write(action=action, collection=type, rkey=rkey,
+                                     record=record)])
 
-            repo.apply_writes([Write(action=Action.CREATE, collection=type,
-                                     rkey=tid, record=record)])
-
-            at_uri = f'at://{did}/{type}/{tid}'
+            at_uri = f'at://{did}/{type}/{rkey}'
             base_obj.add('copies', Target(uri=at_uri, protocol=to_cls.LABEL))
             base_obj.put()
 

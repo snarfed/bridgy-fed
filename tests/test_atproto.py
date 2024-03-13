@@ -52,6 +52,14 @@ DID_DOC = {
 }
 BLOB_CID = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
 
+NOTE_AS = {
+    'objectType': 'note',
+    'id': 'fake:post',
+    'content': 'My original post',
+    'actor': 'fake:user',
+    'published': '2007-07-07T03:04:05.000Z',
+}
+
 
 class ATProtoTest(TestCase):
 
@@ -61,15 +69,16 @@ class ATProtoTest(TestCase):
         common.RUN_TASKS_INLINE = False
 
     def make_user_and_repo(self):
-        user = self.make_user(id='fake:user', cls=Fake,
-                              copies=[Target(uri='did:plc:user', protocol='atproto')])
+        self.user = self.make_user(id='fake:user', cls=Fake,
+                                   copies=[Target(uri='did:plc:user',
+                                                  protocol='atproto')])
 
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = 'https://atproto.brid.gy/'
         self.store_object(id='did:plc:user', raw=did_doc)
         Repo.create(self.storage, 'did:plc:user', signing_key=ATPROTO_KEY)
 
-        return user
+        return self.user
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_put_validates_id(self, mock_get):
@@ -156,10 +165,7 @@ class ATProtoTest(TestCase):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         self.make_user('fake:user', cls=Fake,
                        copies=[Target(uri='did:plc:user', protocol='atproto')])
-        got = ATProto.pds_for(Object(id='fake:post', our_as1={
-            **POST_AS,
-            'actor': 'fake:user',
-        }))
+        got = ATProto.pds_for(Object(id='fake:post', our_as1=NOTE_AS))
         self.assertEqual('https://some.pds', got)
 
     def test_pds_for_user_no_stored_did(self):
@@ -643,10 +649,7 @@ class ATProtoTest(TestCase):
                                                  _, __):
         Fake.fetchable = {'fake:user': ACTOR_AS}
 
-        obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
-            **POST_AS,
-            'actor': 'fake:user',
-        })
+        obj = self.store_object(id='fake:post', source_protocol='fake', our_as1=NOTE_AS)
         self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
 
         # check profile, record
@@ -682,10 +685,8 @@ class ATProtoTest(TestCase):
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_note_existing_repo(self, mock_create_task):
         user = self.make_user_and_repo()
-        obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
-            **POST_AS,
-            'actor': 'fake:user',
-        })
+        obj = self.store_object(id='fake:post', source_protocol='fake',
+                                our_as1=NOTE_AS)
         self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
 
         # check repo, record
@@ -698,6 +699,36 @@ class ATProtoTest(TestCase):
         at_uri = f'at://{did}/app.bsky.feed.post/{last_tid}'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:post').copies)
+
+        mock_create_task.assert_called()
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_update_note(self, mock_create_task):
+        self.test_send_note_existing_repo()
+        mock_create_task.reset_mock()
+
+        # user = self.make_user_and_repo()
+        # note = self.store_object(source_protocol='fake', our_as1=NOTE_AS)
+
+        note = Object.get_by_id('fake:post')
+        note.our_as1['content'] = 'something new'
+        note.put()
+        # note.new = False
+        # note.changed = True
+
+        update = self.store_object(id='fake:update', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'object': note.our_as1,
+        })
+        self.assertTrue(ATProto.send(update, 'https://atproto.brid.gy/'))
+
+        # check repo, record
+        did = self.user.key.get().get_copy(ATProto)
+        repo = self.storage.load_repo(did)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        record = repo.get_record('app.bsky.feed.post', last_tid)
+        self.assertEqual('something new', record['text'])
 
         mock_create_task.assert_called()
 
@@ -843,11 +874,8 @@ class ATProtoTest(TestCase):
         self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
         user = self.make_user(id='fake:user', cls=Fake,
                               copies=[Target(uri='did:plc:user', protocol='atproto')])
-        obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
-            'objectType': 'note',
-            'content': 'foo',
-            'actor': 'fake:user',
-        })
+        obj = self.store_object(id='fake:post', source_protocol='fake',
+                                our_as1=NOTE_AS)
         self.assertFalse(ATProto.send(obj, 'https://atproto.brid.gy/'))
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())
