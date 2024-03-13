@@ -518,20 +518,22 @@ def poll_notifications():
                                                   privkey=repo.signing_key)
         resp = client.app.bsky.notification.listNotifications()
         for notif in resp['notifications']:
+            actor_did = notif['author']['did']
             logger.debug(f'Got {notif["reason"]} from {notif["author"]["handle"]} {notif["uri"]} {notif["cid"]} : {json_dumps(notif, indent=2)}')
 
             # TODO: verify sig. skipping this for now because we're getting
             # these from the AppView, which is trusted, specifically we expect
             # the BGS and/or the AppView already checked sigs.
             obj = Object.get_or_create(id=notif['uri'], bsky=notif['record'],
-                                       source_protocol=ATProto.ABBREV)
+                                       source_protocol=ATProto.ABBREV,
+                                       actor=actor_did)
             if not obj.status:
                 obj.status = 'new'
             obj.add('notify', user.key)
             obj.put()
 
             common.create_task(queue='receive', obj=obj.key.urlsafe(),
-                               authed_as=notif['author']['did'])
+                               authed_as=actor_did)
 
     return 'OK'
 
@@ -585,13 +587,16 @@ def poll_posts():
             # TODO: verify sig. skipping this for now because we're getting
             # these from the AppView, which is trusted, specifically we expect
             # the BGS and/or the AppView already checked sigs.
+            author_did = post['author']['did']
             obj = Object.get_or_create(id=post['uri'], bsky=post['record'],
-                                       source_protocol=ATProto.ABBREV)
+                                       source_protocol=ATProto.ABBREV,
+                                       actor=author_did)
             if not obj.status:
                 obj.status = 'new'
             obj.add('feed', user.key)
             obj.put()
 
-            common.create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=did)
+            common.create_task(queue='receive', obj=obj.key.urlsafe(),
+                               authed_as=author_did)
 
     return 'OK'
