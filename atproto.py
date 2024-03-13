@@ -273,6 +273,11 @@ class ATProto(User, Protocol):
             logger.info(f'Target PDS {url} is not us')
             return False
 
+        verb = obj.as1.get('verb')
+        if verb in ('accept', 'undo'):
+            logger.info(f'Skipping sending {verb}, not supported in ATProto')
+            return False
+
         # convert to Bluesky record; short circuits on error
         try:
             record = to_cls.convert(obj, fetch_blobs=True)

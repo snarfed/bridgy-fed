@@ -825,6 +825,20 @@ class ATProtoTest(TestCase):
         mock_create_task.assert_not_called()
 
     @patch.object(tasks_client, 'create_task')
+    def test_send_accept_noop(self, mock_create_task):
+        obj = Object(id='fake:post', our_as1={
+            'objectType': 'activity',
+            'verb': 'accept',
+            'id': 'fake:accept',
+            'actor': 'fake:alice',
+            'object': 'fake:follow',
+        })
+        self.assertFalse(ATProto.send(obj, 'https://atproto.brid.gy/'))
+        self.assertEqual(0, AtpBlock.query().count())
+        self.assertEqual(0, AtpRepo.query().count())
+        mock_create_task.assert_not_called()
+
+    @patch.object(tasks_client, 'create_task')
     def test_send_did_doc_not_our_repo(self, mock_create_task):
         self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
         user = self.make_user(id='fake:user', cls=Fake,
