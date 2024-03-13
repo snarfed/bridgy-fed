@@ -257,37 +257,38 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
         return body, {'Content-Type': rss.CONTENT_TYPE}
 
 
-@app.get('/bridge-user')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
-@flask_util.cached(cache, datetime.timedelta(days=1))
-def bridge_user_page():
-    return render_template('bridge_user.html')
+# TODO: re-enable for launch
+# @app.get('/bridge-user')
+# @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+# @flask_util.cached(cache, datetime.timedelta(days=1))
+# def bridge_user_page():
+#     return render_template('bridge_user.html')
 
 
-@app.post('/bridge-user')
-def bridge_user():
-    handle = request.values['handle']
+# @app.post('/bridge-user')
+# def bridge_user():
+#     handle = request.values['handle']
 
-    proto, id = Protocol.for_handle(handle)
-    if not proto:
-        flash(f"Couldn't determine protocol for {handle}")
-        return render_template('bridge_user.html'), 400
+#     proto, id = Protocol.for_handle(handle)
+#     if not proto:
+#         flash(f"Couldn't determine protocol for {handle}")
+#         return render_template('bridge_user.html'), 400
 
-    # TODO: put these into a PULL_PROTOCOLS constant?
-    if not proto.LABEL in ('activitypub', 'fake', 'web'):
-        flash(f"{proto.__name__} isn't supported")
-        return render_template('bridge_user.html'), 400
+#     # TODO: put these into a PULL_PROTOCOLS constant?
+#     if not proto.LABEL in ('activitypub', 'fake', 'web'):
+#         flash(f"{proto.__name__} isn't supported")
+#         return render_template('bridge_user.html'), 400
 
-    if not id:
-        id = proto.handle_to_id(handle)
-        if not id:
-            flash(f"Couldn't resolve {proto.__name__} handle {handle}")
-            return render_template('bridge_user.html'), 400
+#     if not id:
+#         id = proto.handle_to_id(handle)
+#         if not id:
+#             flash(f"Couldn't resolve {proto.__name__} handle {handle}")
+#             return render_template('bridge_user.html'), 400
 
-    user = proto.get_or_create(id=id, propagate=True)
+#     user = proto.get_or_create(id=id, propagate=True)
 
-    flash(f'Bridging <a href="{user.web_url()}">{user.handle}</a> into Bluesky. <a href="https://bsky.app/search">Try searching for them</a> in a minute!')
-    return render_template('bridge_user.html')
+#     flash(f'Bridging <a href="{user.web_url()}">{user.handle}</a> into Bluesky. <a href="https://bsky.app/search">Try searching for them</a> in a minute!')
+#     return render_template('bridge_user.html')
 
 
 @app.get('/stats')

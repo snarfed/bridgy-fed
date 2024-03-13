@@ -3,6 +3,7 @@ Disallow: /*?*
 Disallow: /ap/
 Disallow: /atp/
 Disallow: /bluesky/
+Disallow: /bridge-user
 Disallow: /convert/
 Disallow: /nostr/
 Disallow: /recent
