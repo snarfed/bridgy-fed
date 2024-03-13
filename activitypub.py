@@ -401,7 +401,7 @@ class ActivityPub(User, Protocol):
         sig = headers.get('Signature')
         if not sig:
             if appengine_info.DEBUG:
-                logging.info('No HTTP Signature, allowing due to DEBUG=true')
+                logger.info('No HTTP Signature, allowing due to DEBUG=true')
                 return
             error('No HTTP Signature', status=401)
 

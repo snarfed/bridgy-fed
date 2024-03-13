@@ -1245,7 +1245,7 @@ def send_task():
     target = Target(uri=url, protocol=protocol)
 
     obj = ndb.Key(urlsafe=form['obj']).get()
-    logging.info(f'Sending {obj.key.id()} AS1: {json_dumps(obj.as1, indent=2)}')
+    logger.info(f'Sending {obj.key.id()} AS1: {json_dumps(obj.as1, indent=2)}')
 
     if (target not in obj.undelivered and target not in obj.failed
             and 'force' not in request.values):

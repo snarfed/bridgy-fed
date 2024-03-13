@@ -868,6 +868,9 @@ class Object(StringIdModel):
             # TODO: optimize! this is called serially in loops, eg in home.html
             if set(actor.keys()) == {'id'} and self.source_protocol:
                 proto = PROTOCOLS[self.source_protocol]
+                # STATE: this load gets the DID doc, not the profile object
+                # should we start using at://[did] as actor/author? or special case
+                # atproto here?
                 actor_obj = proto.load(actor['id'], remote=False)
                 if actor_obj and actor_obj.as1:
                     actor = actor_obj.as1
