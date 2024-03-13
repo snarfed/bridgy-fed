@@ -707,14 +707,9 @@ class ATProtoTest(TestCase):
         self.test_send_note_existing_repo()
         mock_create_task.reset_mock()
 
-        # user = self.make_user_and_repo()
-        # note = self.store_object(source_protocol='fake', our_as1=NOTE_AS)
-
         note = Object.get_by_id('fake:post')
         note.our_as1['content'] = 'something new'
         note.put()
-        # note.new = False
-        # note.changed = True
 
         update = self.store_object(id='fake:update', source_protocol='fake', our_as1={
             'objectType': 'activity',
@@ -729,6 +724,27 @@ class ATProtoTest(TestCase):
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         record = repo.get_record('app.bsky.feed.post', last_tid)
         self.assertEqual('something new', record['text'])
+
+        mock_create_task.assert_called()
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_delete_note(self, mock_create_task):
+        self.test_send_note_existing_repo()
+        mock_create_task.reset_mock()
+
+        update = self.store_object(id='fake:delete', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertTrue(ATProto.send(update, 'https://atproto.brid.gy/'))
+
+        # check repo, record
+        did = self.user.key.get().get_copy(ATProto)
+        repo = self.storage.load_repo(did)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assertIsNone(repo.get_record('app.bsky.feed.post', last_tid))
 
         mock_create_task.assert_called()
 

@@ -326,17 +326,22 @@ class ATProto(User, Protocol):
 
         ndb.transactional()
         def write():
-            if verb == 'update':
-                action = Action.UPDATE
-                # check that our existing record is the same as the new one
+            match verb:
+                case 'update':
+                    action = Action.UPDATE
+                case 'delete':
+                    action = Action.DELETE
+                case _:
+                    action = Action.CREATE
+                    rkey = next_tid()
+
+            if verb in ('update', 'delete'):
+                # load existing record, check that it's the same one
                 copy = base_obj.get_copy(to_cls)
                 assert copy
                 copy_did, coll, rkey = parse_at_uri(copy)
                 assert copy_did == did
                 assert coll == type
-            else:
-                action = Action.CREATE
-                rkey = next_tid()
 
             logger.info(f'Storing ATProto {action} {type} {rkey}: ' +
                         json_dumps(dag_json.encode(record).decode(), indent=2))
