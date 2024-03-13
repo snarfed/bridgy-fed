@@ -716,7 +716,7 @@ class Protocol:
 
             # fall through to deliver to followers
 
-        # fetch actor if necessary so we have name, profile photo, etc
+        # fetch actor if necessary
         if actor and actor.keys() == set(['id']):
             logger.info('Fetching actor so we have name, profile photo, etc')
             actor_obj = from_cls.load(actor['id'])

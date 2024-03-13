@@ -9,6 +9,7 @@ from oauth_dropins.webutil.testutil import requests_response
 from activitypub import ActivityPub
 import app
 from atproto import ATProto
+from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
 import hub
 from models import Target
 from web import Web
@@ -61,8 +62,8 @@ class IntegrationTests(TestCase):
             Target(uri='at://did:plc:bob/app.bsky.feed.post/123', protocol='atproto'),
         ])
 
-        # ATProto listNotifications => receive
         mock_get.side_effect = [
+            # ATProto listNotifications
             requests_response({
                 'cursor': '...',
                 'notifications': [{
@@ -89,6 +90,12 @@ class IntegrationTests(TestCase):
                         },
                     },
                 }],
+            }),
+            # ATProto getRecord of alice's profile
+            requests_response({
+                'uri': 'at://did:plc:alice/app.bsky.actor.profile/self',
+                'cid': 'alice sidd',
+                'value': test_atproto.ACTOR_PROFILE_BSKY,
             }),
         ]
 
@@ -136,7 +143,6 @@ class IntegrationTests(TestCase):
         bob = self.make_user(id='bob.com', cls=Web,
                              copies=[Target(uri='did:plc:bob', protocol='atproto')])
 
-        # ATProto listNotifications => receive
         mock_get.side_effect = [
             # ATProto listNotifications
             requests_response({
@@ -156,6 +162,12 @@ class IntegrationTests(TestCase):
                         'createdAt': '2022-01-02T03:04:05.000Z',
                     },
                 }],
+            }),
+            # ATProto getRecord of alice's profile
+            requests_response({
+                'uri': 'at://did:plc:alice/app.bsky.actor.profile/self',
+                'cid': 'alice sidd',
+                'value': test_atproto.ACTOR_PROFILE_BSKY,
             }),
             # webmention discovery
             test_web.WEBMENTION_REL_LINK,

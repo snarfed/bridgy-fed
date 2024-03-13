@@ -316,6 +316,16 @@ class ATProtoTest(TestCase):
         obj = Object(id='https://bsky.app/profile/bad.com/post/789')
         self.assertFalse(ATProto.fetch(obj))
 
+    def test_load_did_doc(self):
+        obj = self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.assert_entities_equal(obj, ATProto.load('did:plc:user', did_doc=True))
+
+    def test_load_did_doc_false_loads_profile(self):
+        did_doc = self.store_object(id='did:plc:user', raw=DID_DOC)
+        profile = self.store_object(id='at://did:plc:user/app.bsky.actor.profile/self',
+                                    bsky=ACTOR_PROFILE_BSKY)
+        self.assert_entities_equal(profile, ATProto.load('did:plc:user'))
+
     def test_convert_bsky_pass_through(self):
         self.assertEqual({
             'foo': 'bar',
@@ -593,7 +603,7 @@ class ATProtoTest(TestCase):
         did = user.get_copy(ATProto)
         assert did
         self.assertEqual([Target(uri=did, protocol='atproto')], user.copies)
-        did_obj = ATProto.load(did)
+        did_obj = ATProto.load(did, did_doc=True)
         self.assertEqual('https://atproto.brid.gy/',
                          did_obj.raw['service'][0]['serviceEndpoint'])
 

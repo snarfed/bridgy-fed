@@ -81,7 +81,7 @@ class ATProto(User, Protocol):
     @ndb.ComputedProperty
     def handle(self):
         """Returns handle if the DID document includes one, otherwise None."""
-        if did_obj := ATProto.load(self.key.id()):
+        if did_obj := ATProto.load(self.key.id(), did_doc=True):
             if aka := util.get_first(did_obj.raw, 'alsoKnownAs', ''):
                 handle, _, _ = parse_at_uri(aka)
                 if handle:
@@ -114,8 +114,13 @@ class ATProto(User, Protocol):
 
         return did.resolve_handle(handle, get_fn=util.requests_get)
 
+    @staticmethod
+    def profile_at_uri(id):
+        assert id.startswith('did:')
+        return f'at://{id}/app.bsky.actor.profile/self'
+
     def profile_id(self):
-        return f'at://{self.key.id()}/app.bsky.actor.profile/self'
+        return self.profile_at_uri(self.key.id())
 
     @classmethod
     def target_for(cls, obj, shared=False):
@@ -166,7 +171,7 @@ class ATProto(User, Protocol):
                 else:
                     return None
 
-            did_obj = ATProto.load(repo)
+            did_obj = ATProto.load(repo, did_doc=True)
             if did_obj:
                 return cls.pds_for(did_obj)
             # TODO: what should we do if the DID doesn't exist? should we return
@@ -308,7 +313,7 @@ class ATProto(User, Protocol):
         did = user.get_copy(ATProto)
         assert did
         logger.info(f'{user.key} is {did}')
-        did_doc = to_cls.load(did)
+        did_doc = to_cls.load(did, did_doc=True)
         pds = to_cls.pds_for(did_doc)
         if not pds or util.domain_from_link(pds) not in DOMAINS:
             logger.warning(f'{from_key} {did} PDS {pds} is not us')
@@ -354,6 +359,19 @@ class ATProto(User, Protocol):
 
         write()
         return True
+
+    @classmethod
+    def load(cls, id, did_doc=False, **kwargs):
+        """Thin wrapper that converts DIDs to profile URIs.
+
+        Args:
+          did_doc (bool): if True, loads and returns a DID document object
+            instead of an ``app.bsky.actor.profile/self``.
+        """
+        if not did_doc and id.startswith('did:'):
+            id = cls.profile_at_uri(id)
+
+        return super().load(id, **kwargs)
 
     @classmethod
     def fetch(cls, obj, **kwargs):
