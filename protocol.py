@@ -1248,7 +1248,7 @@ def send_task():
     logging.info(f'Sending {obj.key.id()} AS1: {json_dumps(obj.as1, indent=2)}')
 
     if (target not in obj.undelivered and target not in obj.failed
-        and 'force' not in request.values):
+            and 'force' not in request.values):
         logger.info(f"{url} not in {obj.key.id()} undelivered or failed, giving up")
         return r'¯\_(ツ)_/¯', 204
 
@@ -1266,6 +1266,9 @@ def send_task():
         code, body = util.interpret_http_exception(e)
         if not code and not body:
             logger.info(str(e), exc_info=True)
+
+    if sent is False:
+        logger.info(f'Failed sending {obj.key.id()} to {url}')
 
     # write results to Object
     @ndb.transactional()
