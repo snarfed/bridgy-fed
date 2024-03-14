@@ -1112,6 +1112,7 @@ class Protocol:
         Raises:
           requests.HTTPError: anything that :meth:`fetch` raises
         """
+        assert id
         assert local or remote is not False
         # logger.debug(f'Loading Object {id} local={local} remote={remote}')
 

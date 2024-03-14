@@ -362,14 +362,21 @@ class ATProto(User, Protocol):
 
     @classmethod
     def load(cls, id, did_doc=False, **kwargs):
-        """Thin wrapper that converts DIDs to profile URIs.
+        """Thin wrapper that converts DIDs and bsky.app URLs to at:// URIs.
 
         Args:
           did_doc (bool): if True, loads and returns a DID document object
             instead of an ``app.bsky.actor.profile/self``.
         """
-        if not did_doc and id.startswith('did:'):
+        if id.startswith('did:') and not did_doc:
             id = cls.profile_at_uri(id)
+
+        elif id.startswith('https://bsky.app/'):
+            try:
+                id = bluesky.web_url_to_at_uri(id)
+            except ValueError as e:
+                logger.warning(f"Couldn't convert {id} to at:// URI: {e}")
+                return None
 
         return super().load(id, **kwargs)
 
@@ -394,6 +401,8 @@ class ATProto(User, Protocol):
             logger.info(f"ATProto can't fetch {id}")
             return False
 
+        assert not id.startswith('https://bsky.app/')  # handled in load
+
         # did:plc, did:web
         if id.startswith('did:'):
             try:
@@ -402,15 +411,6 @@ class ATProto(User, Protocol):
             except (ValueError, requests.RequestException) as e:
                 util.interpret_http_exception(e)
                 return False
-
-        if id.startswith('https://bsky.app/'):
-            try:
-                id = bluesky.web_url_to_at_uri(id)
-            except ValueError:
-                return False
-            if not id:
-                return False
-            obj.key = ndb.Key(Object, id)
 
         # at:// URI. if it has a handle, resolve and replace with DID.
         # examples:

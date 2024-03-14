@@ -283,37 +283,16 @@ class ATProtoTest(TestCase):
             'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
             json=None, data=None, headers=ANY)
 
-    @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
-    @patch('requests.get', side_effect=[
-        # resolving handle, HTTPS method
-        requests_response('did:plc:abc', content_type='text/plain'),
-        # AppView getRecord
-        requests_response({
-            'cid': 'bafy...',
-            'value': {'foo': 'bar'},
-        }),
-    ])
-    def test_fetch_bsky_app_url(self, mock_get, _):
-        obj = Object(id='https://bsky.app/profile/han.dull/post/789')
-        self.assertTrue(ATProto.fetch(obj))
-
-        self.assertEqual('at://did:plc:abc/app.bsky.feed.post/789', obj.key.id())
-        self.assertEqual({
-            'foo': 'bar',
-            'cid': 'bafy...',
-        }, obj.bsky)
-        mock_get.assert_called_with(
-            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=789',
-            json=None, data=None, headers={
-                'Content-Type': 'application/json',
-                'User-Agent': common.USER_AGENT,
-            },
-        )
+    def test_fetch_bsky_app_url_fails(self):
+        for uri in ('https://bsky.app/profile/han.dull',
+                    'https://bsky.app/profile/han.dull/post/789'):
+            with self.assertRaises(AssertionError):
+                ATProto.fetch(Object(id=uri))
 
     @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
     @patch('requests.get', return_value=requests_response(status=404))
     def test_fetch_resolve_handle_fails(self, mock_get, _):
-        obj = Object(id='https://bsky.app/profile/bad.com/post/789')
+        obj = Object(id='at://bad.com/app.bsky.feed.post/789')
         self.assertFalse(ATProto.fetch(obj))
 
     def test_load_did_doc(self):
@@ -325,6 +304,59 @@ class ATProtoTest(TestCase):
         profile = self.store_object(id='at://did:plc:user/app.bsky.actor.profile/self',
                                     bsky=ACTOR_PROFILE_BSKY)
         self.assert_entities_equal(profile, ATProto.load('did:plc:user'))
+
+    @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
+    @patch('requests.get', side_effect=[
+        # resolving handle, HTTPS method
+        requests_response('did:plc:user', content_type='text/plain'),
+        # AppView getRecord
+        requests_response({
+            'cid': 'bafy...',
+            'value': {'$type': 'app.bsky.actor.profile', 'bar': 'baz'},
+        }),
+        # fetching DID doc
+        requests_response(DID_DOC),
+    ])
+    def test_load_bsky_app_post_url(self, mock_get, _):
+        obj = ATProto.load('https://bsky.app/profile/han.dull/post/789')
+        self.assertEqual('at://did:plc:user/app.bsky.feed.post/789', obj.key.id())
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'bar': 'baz',
+            'cid': 'bafy...',
+        }, obj.bsky)
+
+        mock_get.assert_any_call(
+            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=789',
+            json=None, data=None, headers={
+                'Content-Type': 'application/json',
+                'User-Agent': common.USER_AGENT,
+            })
+        self.assert_req(mock_get, 'https://plc.local/did:plc:user')
+
+    @patch('requests.get', return_value=requests_response({
+        'cid': 'bafy...',
+        'value': {'$type': 'app.bsky.actor.profile', 'bar': 'baz'},
+    }))
+    def test_load_bsky_profile_url(self, mock_get):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.make_user('did:plc:user', cls=ATProto)
+
+        obj = ATProto.load('https://bsky.app/profile/han.dull')
+        self.assertEqual('at://did:plc:user/app.bsky.actor.profile/self', obj.key.id())
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'bar': 'baz',
+            'cid': 'bafy...',
+        }, obj.bsky)
+
+        mock_get.assert_called_with(
+            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.actor.profile&rkey=self',
+            json=None, data=None, headers={
+                'Content-Type': 'application/json',
+                'User-Agent': common.USER_AGENT,
+            },
+        )
 
     def test_convert_bsky_pass_through(self):
         self.assertEqual({
