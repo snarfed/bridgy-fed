@@ -156,6 +156,14 @@ class ATProtoTest(TestCase):
         got = ATProto.pds_for(Object(id='at://did:plc:user/co.ll/123'))
         self.assertEqual('https://some.pds', got)
 
+    def test_pds_for_bsky_record_stored_did(self):
+        # check that we don't use Object.as1, which would cause an infinite loop
+        self.assertIsNone(ATProto.pds_for(Object(id='at://did:bob/coll/post', bsky={
+            '$type': 'app.bsky.feed.post',
+            'uri': 'at://did:bob/coll/post',
+            'cid': 'my sidd',
+        })))
+
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_pds_for_fetch_did(self, mock_get):
         got = ATProto.pds_for(Object(id='at://did:plc:user/co.ll/123'))

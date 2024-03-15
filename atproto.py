@@ -178,7 +178,9 @@ class ATProto(User, Protocol):
             # None here? or do we need this path to return BF's URL so that we
             # then create the DID for non-ATP users on demand?
 
-        if obj.as1:
+        # don't use Object.as1 if bsky is set, since that conversion calls
+        # pds_for, which would infinite loop
+        if not obj.bsky and obj.as1:
             if owner := as1.get_owner(obj.as1):
                 if user_key := Protocol.key_for(owner):
                     if user := user_key.get():
