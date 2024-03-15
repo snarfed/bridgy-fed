@@ -642,6 +642,23 @@ class ObjectTest(TestCase):
         obj = Object(id='at://did:plc:foo/like/123', bsky=like_bsky)
         self.assert_equals(like_as1, obj.as1)
 
+    def test_as1_from_bsky_image_blob(self):
+        self.store_object(id='did:web:alice.com', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://alice.com'],
+        })
+
+        obj = Object(id='at://did:web:alice.com/app.bsky.actor.profile/self', bsky={
+            **ACTOR_PROFILE_BSKY,
+            'banner': None,
+        })
+        self.assert_equals({
+            **ACTOR_AS,
+            'image': [{
+                'url': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:web:alice.com&cid=bafkreim',
+            }],
+        }, obj.as1)
+
     def test_as1_from_mf2_uses_url_as_id(self):
         obj = Object(mf2={
             'properties': {
