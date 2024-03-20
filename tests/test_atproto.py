@@ -644,7 +644,7 @@ class ATProtoTest(TestCase):
         assert did
         self.assertEqual([Target(uri=did, protocol='atproto')], user.copies)
         did_obj = ATProto.load(did, did_doc=True)
-        self.assertEqual('https://atproto.brid.gy/',
+        self.assertEqual('http://localhost/',
                          did_obj.raw['service'][0]['serviceEndpoint'])
 
         # check repo, record
@@ -678,7 +678,7 @@ class ATProtoTest(TestCase):
                 'services': {
                     'atproto_pds': {
                         'type': 'AtprotoPersonalDataServer',
-                        'endpoint': 'https://atproto.brid.gy/',
+                        'endpoint': 'http://localhost/',
                     }
                 },
                 'prev': None,

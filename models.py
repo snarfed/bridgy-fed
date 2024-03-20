@@ -37,7 +37,7 @@ PROTOCOLS = {'ostatus': None}
 
 # 2048 bits makes tests slow, so use 1024 for them
 KEY_BITS = 1024 if DEBUG else 2048
-PAGE_SIZE = 20
+PAGE_SIZE = 30
 
 # auto delete old objects of these types via the Object.expire property
 # https://cloud.google.com/datastore/docs/ttl

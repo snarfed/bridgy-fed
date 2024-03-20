@@ -208,9 +208,10 @@ class ATProto(User, Protocol):
             return
 
         # create new DID, repo
-        logger.info(f'Creating new did:plc for {user.key}')
+        pds_url = common.host_url() if DEBUG else cls.PDS_URL
+        logger.info(f'Creating new did:plc for {user.key} {pds_url}')
         did_plc = did.create_plc(user.handle_as('atproto'),
-                                 pds_url=cls.PDS_URL,
+                                 pds_url=pds_url,
                                  post_fn=util.requests_post)
 
         Object.get_or_create(did_plc.did, raw=did_plc.doc)
@@ -223,7 +224,9 @@ class ATProto(User, Protocol):
         name = f'_atproto.{handle}.'
         val = f'"did={did_plc.did}"'
         logger.info(f'adding GCP DNS TXT record for {name} {val}')
-        if not DEBUG:
+        if DEBUG:
+            logger.info('  skipped since DEBUG is true')
+        else:
             zone = dns_client.zone(DNS_ZONE)
             r = zone.resource_record_set(name=name, record_type='TXT', ttl=DNS_TTL,
                                          rrdatas=[val])
