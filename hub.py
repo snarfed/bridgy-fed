@@ -8,7 +8,6 @@ from threading import Timer
 
 import arroba.server
 from arroba.datastore_storage import DatastoreStorage
-from arroba.util import service_jwt
 from arroba import xrpc_sync
 from flask import Flask, request
 import google.cloud.logging
