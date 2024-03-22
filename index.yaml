@@ -86,6 +86,11 @@ indexes:
   properties:
   - name: feed
   - name: created
+
+- kind: Object
+  properties:
+  - name: feed
+  - name: created
     direction: desc
 
 - kind: Follower
