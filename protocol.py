@@ -11,7 +11,6 @@ from flask import g, request
 from google.cloud import ndb
 from google.cloud.ndb import OR
 from google.cloud.ndb.model import _entity_to_protobuf
-from google.cloud.ndb.query import FilterNode, Query
 from granary import as1
 from oauth_dropins.webutil.flask_util import cloud_tasks_only
 from oauth_dropins.webutil import util
@@ -44,9 +43,6 @@ SUPPORTED_TYPES = (
 )
 
 OBJECT_REFRESH_AGE = timedelta(days=30)
-
-# populated in Protocol.is_blocklisted
-WEB_DOMAIN_BLOCKLIST = None
 
 # activity ids that we've already handled and can now ignore.
 # used in Protocol.receive
@@ -473,19 +469,8 @@ class Protocol:
 
         Returns: bool:
         """
-        global WEB_DOMAIN_BLOCKLIST
-        if WEB_DOMAIN_BLOCKLIST is None:
-            WEB_DOMAIN_BLOCKLIST = {
-                key.id() for key in Query(
-                    'MagicKey',
-                    filters=FilterNode('manual_opt_out', '=', True)
-                ).fetch(keys_only=True)
-            }
-            logger.info(f'Loaded {len(WEB_DOMAIN_BLOCKLIST)} manually opted out Web users')
-            WEB_DOMAIN_BLOCKLIST.update(DOMAIN_BLOCKLIST + DOMAINS)
-
         return util.domain_or_parent_in(util.domain_from_link(url),
-                                        WEB_DOMAIN_BLOCKLIST)
+                                        DOMAIN_BLOCKLIST + DOMAINS)
 
     @classmethod
     def translate_ids(to_cls, obj):

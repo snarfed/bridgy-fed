@@ -8,7 +8,7 @@ from urllib.parse import quote_plus, urljoin, urlparse
 
 from flask import abort, g, redirect, request
 from google.cloud import ndb
-from google.cloud.ndb.query import OR
+from google.cloud.ndb.query import FilterNode, OR, Query
 from granary import as1, as2
 from httpsig import HeaderVerifier
 from httpsig.requests_auth import HTTPSignatureAuth
@@ -50,6 +50,10 @@ SECURITY_CONTEXT = 'https://w3id.org/security/v1'
 
 # https://seb.jambor.dev/posts/understanding-activitypub-part-4-threads/#the-instance-actor
 _INSTANCE_ACTOR = None
+
+# populated in User.status
+WEB_OPT_OUT_DOMAINS = None
+
 
 def instance_actor():
     global _INSTANCE_ACTOR
@@ -102,6 +106,27 @@ class ActivityPub(User, Protocol):
                 return addr
 
         return as2.address(self.key.id())
+
+    @ndb.ComputedProperty
+    def status(self):
+        """Override :meth:`Model.status` and include Web opted out domains."""
+        global WEB_OPT_OUT_DOMAINS
+        if WEB_OPT_OUT_DOMAINS is None:
+            WEB_OPT_OUT_DOMAINS = {
+                key.id() for key in Query(
+                    'MagicKey',
+                    filters=FilterNode('manual_opt_out', '=', True)
+                ).fetch(keys_only=True)
+            }
+            logger.info(f'Loaded {len(WEB_OPT_OUT_DOMAINS)} manually opted out Web users')
+
+        status = super().status
+        if status:
+            return status
+
+        return util.domain_or_parent_in(util.domain_from_link(self.key.id()),
+                                        WEB_OPT_OUT_DOMAINS)
+
 
     @classmethod
     def owns_id(cls, id):
