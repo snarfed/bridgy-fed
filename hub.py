@@ -1,26 +1,19 @@
 """Single-instance hub for ATProto and Nostr websocket subscriptions."""
-from datetime import datetime, timedelta
-import json
 import logging
 import os
 from pathlib import Path
 from threading import Timer
 
 import arroba.server
-from arroba.datastore_storage import DatastoreStorage
 from arroba import xrpc_sync
 from flask import Flask, request
-import google.cloud.logging
 import lexrpc.client
-import lexrpc.server
 import lexrpc.flask_server
 from oauth_dropins.webutil import (
-    appengine_info,
     appengine_config,
     flask_util,
     util,
 )
-import requests
 
 # all protocols, and atproto-poll-notifs task handler
 import activitypub, atproto, web
