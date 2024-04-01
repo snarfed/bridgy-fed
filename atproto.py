@@ -21,6 +21,7 @@ from granary import as1, bluesky
 from lexrpc import Client
 import requests
 from requests import RequestException
+from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
@@ -40,7 +41,7 @@ from protocol import Protocol
 
 logger = logging.getLogger(__name__)
 
-arroba.server.storage = DatastoreStorage()
+arroba.server.storage = DatastoreStorage(ndb_client=ndb_client)
 
 LEXICONS = Client('https://unused').defs
 
