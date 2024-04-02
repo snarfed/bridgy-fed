@@ -2175,6 +2175,10 @@ class ActivityPubUtilsTest(TestCase):
                            ignore=['to', 'attachment'])
 
     def test_convert_follow_as1_no_from_user(self):
+        # prevent HTTP fetches to infer protocol
+        self.store_object(id='https://mas.to/6d1a', source_protocol='activitypub')
+        self.store_object(id='https://user.com/', source_protocol='web')
+
         obj = Object(our_as1=as2.to_as1(FOLLOW))
         self.assert_equals(FOLLOW, common.unwrap(ActivityPub.convert(obj)),
                            ignore=['to'])
