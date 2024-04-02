@@ -2259,6 +2259,19 @@ class ActivityPubUtilsTest(TestCase):
         })
         self.assertEqual('me.mas.to.ap.brid.gy', user.handle_as('atproto'))
 
+    def test_web_url_composite_url_object(self):
+        actor_as2 = {
+            'type': 'Person',
+            'url': 'https://techhub.social/@foo',
+            'attachment': [{
+                'type': 'PropertyValue',
+                'name': 'Twitter',
+                'value': '<span class="h-card"><a href="https://techhub.social/@foo" class="u-url mention">@<span>foo</span></a></span>',
+            }],
+        }
+        user = self.make_user('http://foo/actor', cls=ActivityPub, obj_as2=actor_as2)
+        self.assertEqual('https://techhub.social/@foo', user.web_url())
+
     def test_web_url(self):
         user = self.make_user('http://foo/actor', cls=ActivityPub)
         self.assertEqual('http://foo/actor', user.web_url())

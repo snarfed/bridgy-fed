@@ -91,7 +91,7 @@ class ActivityPub(User, Protocol):
     def web_url(self):
         """Returns this user's web URL aka web_url, eg ``https://foo.com/``."""
         if self.obj and self.obj.as1:
-            url = util.get_url(self.obj.as1)
+            url = as1.get_url(self.obj.as1)
             if url:
                 return url
 

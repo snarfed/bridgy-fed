@@ -35,6 +35,7 @@ with app.test_request_context('/'):
 logger = logging.getLogger(__name__)
 
 TEMPLATE_VARS = {
+    'as1': as1,
     'as2': as2,
     'g': g,
     'isinstance': isinstance,
