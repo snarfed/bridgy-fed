@@ -9,7 +9,6 @@ from arroba.datastore_storage import AtpBlock, AtpRemoteBlob, AtpRepo, Datastore
 from arroba.did import encode_did_key
 from arroba.repo import Repo
 import arroba.util
-import dns.resolver
 from dns.resolver import NXDOMAIN
 from flask import g
 from google.cloud.tasks_v2.types import Task
@@ -137,7 +136,7 @@ class ATProtoTest(TestCase):
         self.make_user('did:plc:user', cls=ATProto)
         self.assertEqual('did:plc:user', ATProto.handle_to_id('han.dull'))
 
-    @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
+    @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     # resolving handle, HTTPS method, not found
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_handle_to_id_not_found(self, *_):
@@ -192,7 +191,7 @@ class ATProtoTest(TestCase):
             id='https://bsky.app/profile/did:plc:user/post/123'))
         self.assertEqual('https://some.pds', got)
 
-    @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
+    @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     @patch('requests.get', side_effect=[
         # resolving handle, HTTPS method
         requests_response('did:plc:user', content_type='text/plain'),
@@ -297,7 +296,7 @@ class ATProtoTest(TestCase):
             with self.assertRaises(AssertionError):
                 ATProto.fetch(Object(id=uri))
 
-    @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
+    @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     @patch('requests.get', return_value=requests_response(status=404))
     def test_fetch_resolve_handle_fails(self, mock_get, _):
         obj = Object(id='at://bad.com/app.bsky.feed.post/789')
@@ -313,7 +312,7 @@ class ATProtoTest(TestCase):
                                     bsky=ACTOR_PROFILE_BSKY)
         self.assert_entities_equal(profile, ATProto.load('did:plc:user'))
 
-    @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
+    @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     @patch('requests.get', side_effect=[
         # resolving handle, HTTPS method
         requests_response('did:plc:user', content_type='text/plain'),
@@ -430,7 +429,7 @@ class ATProtoTest(TestCase):
             'inReplyTo': 'at://did:plc:bob/app.bsky.feed.post/tid',
         })))
 
-    @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
+    @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     @patch('requests.get', side_effect=[
         # resolving handle, HTTPS method
         requests_response('did:plc:user', content_type='text/plain'),
@@ -464,7 +463,7 @@ class ATProtoTest(TestCase):
             'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=tid',
             json=None, data=None, headers=ANY)
 
-    @patch('dns.resolver.resolve', side_effect=dns.resolver.NXDOMAIN())
+    @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     # resolving handle, HTTPS method
     @patch('requests.get', return_value=requests_response(status=404))
     def test_convert_populate_cid_fetch_remote_record_bad_handle(self, _, __):
@@ -1024,13 +1023,6 @@ class ATProtoTest(TestCase):
                     'cid': 'my sidd',
                 },
             },
-            'facets': [{
-                '$type': 'app.bsky.richtext.facet',
-                'features': [{
-                    '$type': 'app.bsky.richtext.facet#mention',
-                    'did': 'did:alice',
-                }],
-            }],
         }, record)
 
         at_uri = f'at://did:plc:user/app.bsky.feed.post/{last_tid}'
