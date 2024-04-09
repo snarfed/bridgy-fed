@@ -226,19 +226,18 @@ class Protocol:
 
     @cached(LRUCache(20000), lock=Lock())
     @staticmethod
-    def for_id(id):
+    def for_id(id, remote=True):
         """Returns the protocol for a given id.
-
-        May incur expensive side effects like fetching the id itself over the
-        network or other discovery.
 
         Args:
           id (str)
+          remote (bool): whether to perform expensive side effects like fetching
+            the id itself over the network, or other discovery.
 
         Returns:
-          Protocol subclass: matching protocol, or None if no known protocol
-          owns this id
-       """
+          Protocol subclass: matching protocol, or None if no single known
+          protocol definitively owns this id
+        """
         logger.info(f'Determining protocol for id {id}')
         if not id:
             return None
@@ -273,7 +272,10 @@ class Protocol:
             logger.info(f'  {obj.key} owned by source_protocol {obj.source_protocol}')
             return PROTOCOLS[obj.source_protocol]
 
-        # step 4: fetch over the network
+        # step 4: fetch over the network, if necessary
+        if not remote:
+            return None
+
         for protocol in candidates:
             logger.info(f'Trying {protocol.LABEL}')
             try:

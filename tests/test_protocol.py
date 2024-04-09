@@ -93,7 +93,8 @@ class ProtocolTest(TestCase):
                 ('https://ap.brid.gy/foo/bar', ActivityPub),
                 ('https://web.brid.gy/foo/bar', Web),
         ]:
-            self.assertEqual(expected, Protocol.for_id(id))
+            self.assertEqual(expected, Protocol.for_id(id, remote=False))
+            self.assertEqual(expected, Protocol.for_id(id, remote=True))
 
     def test_for_id_true_overrides_none(self):
         class Greedy(Protocol, User):
@@ -136,6 +137,11 @@ class ProtocolTest(TestCase):
         mock_get.return_value = requests_response('<html></html>')
         self.assertIsNone(Protocol.for_id('http://web.site/'))
         self.assertIn(self.req('http://web.site/'), mock_get.mock_calls)
+
+    @patch('requests.get')
+    def test_for_id_web_remote_false(self, mock_get):
+        self.assertIsNone(Protocol.for_id('http://web.site/', remote=False))
+        mock_get.assert_not_called()
 
     def test_for_handle_deterministic(self):
         for handle, expected in [
