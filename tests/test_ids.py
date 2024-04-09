@@ -19,7 +19,7 @@ class IdsTest(TestCase):
         Fake(id='fake:user',
              copies=[Target(uri='did:plc:789', protocol='atproto')]).put()
 
-        # DID doc and ATProto, used to resolve handle in https://bsky.app/profile/user.com
+        # DID doc and ATProto, used to resolve handle in bsky.app URL
         did = self.store_object(id='did:plc:123', raw={
             'id': 'did:plc:123',
             'alsoKnownAs': ['at://user.com'],
@@ -146,6 +146,13 @@ class IdsTest(TestCase):
         self.store_object(id='fake:post',
                           copies=[Target(uri='at://did/fa/post', protocol='atproto')])
 
+        # DID doc and ATProto, used to resolve handle in bsky.app URL
+        did = self.store_object(id='did:plc:123', raw={
+            'id': 'did:plc:123',
+            'alsoKnownAs': ['at://user.com'],
+        })
+        ATProto(id='did:plc:123', obj_key=did.key).put()
+
         for from_, id, to, expected in [
             (ActivityPub, 'https://inst/post', ActivityPub, 'https://inst/post'),
             (ActivityPub, 'https://inst/post', ATProto, 'at://did/ap/post'),
@@ -161,6 +168,10 @@ class IdsTest(TestCase):
             (ATProto, 'did:plc:x', Web, 'https://atproto.brid.gy/convert/web/did:plc:x'),
             (ATProto, 'did:plc:x', ActivityPub, 'https://atproto.brid.gy/convert/ap/did:plc:x'),
             (ATProto, 'did:plc:x', Fake, 'fake:o:atproto:did:plc:x'),
+            (ATProto, 'https://bsky.app/profile/user.com/post/456',
+             ATProto, 'at://did:plc:123/app.bsky.feed.post/456'),
+            (ATProto, 'https://bsky.app/profile/did:plc:123/post/456',
+             ATProto, 'at://did:plc:123/app.bsky.feed.post/456'),
             (Fake, 'fake:post',
              ActivityPub, 'https://fa.brid.gy/convert/ap/fake:post'),
             (Fake, 'fake:post', ATProto, 'at://did/fa/post'),

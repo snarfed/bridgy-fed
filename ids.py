@@ -8,7 +8,7 @@ from urllib.parse import urljoin, urlparse
 
 from flask import request
 from google.cloud.ndb.query import FilterNode, Query
-from granary.bluesky import BSKY_APP_URL_RE
+from granary.bluesky import BSKY_APP_URL_RE, web_url_to_at_uri
 from oauth_dropins.webutil import util
 
 from common import subdomain_wrap, LOCAL_DOMAINS, PRIMARY_DOMAIN, SUPERDOMAIN
@@ -55,6 +55,8 @@ def web_ap_base_domain(user_domain):
 
 def translate_user_id(*, id, from_proto, to_proto):
     """Translate a user id from one protocol to another.
+
+    TODO: unify with :func:`translate_object_id`.
 
     Args:
       id (str)
@@ -176,6 +178,8 @@ def translate_handle(*, handle, from_proto, to_proto, enhanced):
 def translate_object_id(*, id, from_proto, to_proto):
     """Translates a user handle from one protocol to another.
 
+    TODO: unify with :func:`translate_user_id`.
+
     Args:
       id (str)
       from_proto (protocol.Protocol)
@@ -186,6 +190,22 @@ def translate_object_id(*, id, from_proto, to_proto):
     """
     assert id and from_proto and to_proto
     assert from_proto.owns_id(id) is not False or from_proto.LABEL == 'ui'
+
+    # bsky.app profile URL to DID
+    if to_proto.LABEL == 'atproto':
+        if match := BSKY_APP_URL_RE.match(id):
+            repo = match.group('id')
+            handle = None
+            if not repo.startswith('did:'):
+                handle = repo
+                from atproto import ATProto
+                try:
+                    repo = ATProto.handle_to_id(repo)
+                except (AssertionError, ValueError) as e:
+                    logger.warning(e)
+                    return None
+
+            return web_url_to_at_uri(id, handle=handle, did=repo)
 
     if from_proto == to_proto:
         return id
