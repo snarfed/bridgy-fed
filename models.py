@@ -28,8 +28,8 @@ from oauth_dropins.webutil.models import (
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
-from common import add, base64_to_long, long_to_base64, unwrap
-import ids
+from common import add, base64_to_long, DOMAIN_RE, long_to_base64, unwrap
+from ids import translate_handle, translate_object_id, translate_user_id
 
 # maps string label to Protocol subclass. populated by ProtocolUserMeta.
 # seed with old and upcoming protocols that don't have their own classes (yet).
@@ -359,8 +359,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if not handle:
             return None
 
-        return ids.translate_handle(handle=handle, from_proto=self.__class__,
-                                    to_proto=to_proto, enhanced=False)
+        return translate_handle(handle=handle, from_proto=self.__class__,
+                                to_proto=to_proto, enhanced=False)
 
     def id_as(self, to_proto):
         """Returns this user's id in a different protocol.
@@ -374,8 +374,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if isinstance(to_proto, str):
             to_proto = PROTOCOLS[to_proto]
 
-        return ids.translate_user_id(id=self.key.id(), from_proto=self.__class__,
-                                     to_proto=to_proto)
+        return translate_user_id(id=self.key.id(), from_proto=self.__class__,
+                                 to_proto=to_proto)
 
     def handle_or_id(self):
         """Returns handle if we know it, otherwise id."""
@@ -606,7 +606,7 @@ class Object(StringIdModel):
         def use_urls_as_ids(obj):
             """If id field is missing or not a URL, use the url field."""
             id = obj.get('id')
-            if not id or not util.is_web(id):
+            if not id or not (util.is_web(id) or re.match(DOMAIN_RE, id)):
                 if url := util.get_url(obj):
                     obj['id'] = url
 
@@ -922,6 +922,8 @@ class Object(StringIdModel):
           ``at://did:plc:abc/app.bsky.feed.post/123`` => ``https://mas.to/@user/456``.
         * Bridgy Fed subdomain URLs to the ids embedded inside them, eg
           ``https://atproto.brid.gy/ap/did:plc:xyz`` => ``did:plc:xyz``
+        * ATProto bsky.app URLs to their DIDs or `at://` URIs, eg
+          ``https://bsky.app/profile/a.com`` => ``did:plc:123``
 
         ...in these AS1 fields, in place:
 
@@ -937,6 +939,9 @@ class Object(StringIdModel):
 
         :meth:`protocol.Protocol.translate_ids` is partly the inverse of this.
         Much of the same logic is duplicated there!
+
+        TODO: unify with :meth:`normalize_ids`,
+        :meth:`protocol.Protocol.normalize_ids`.
         """
         if not self.as1:
             return
@@ -974,7 +979,7 @@ class Object(StringIdModel):
                 if copy.protocol in (self_proto.LABEL, self_proto.ABBREV):
                     origs[copy.uri] = obj.key.id()
 
-        logger.debug(f'Replacing copies with originals: {origs}')
+        logger.debug(f'Resolving {self_proto.LABEL} ids; originals: {origs}')
         replaced = False
 
         def replace(val):
@@ -1002,8 +1007,83 @@ class Object(StringIdModel):
                     obj[field] = obj[field][0]
 
         outer_obj['object'] = replace(inner_obj)
+
         if util.trim_nulls(outer_obj['object']).keys() == {'id'}:
             outer_obj['object'] = outer_obj['object']['id']
+
+        if replaced:
+            self.our_as1 = util.trim_nulls(outer_obj)
+
+    def normalize_ids(self):
+        """Normalizes ids to their protocol's canonical representation, if any.
+
+        For example, normalizes ATProto ``https://bsky.app/...`` URLs to DIDs
+        for profiles, ``at://`` URIs for posts.
+
+        Modifies this object in place.
+
+        TODO: unify with :meth:`resolve_ids`, :meth:`Protocol.translate_ids`.
+        """
+        from protocol import Protocol
+
+        if not self.as1:
+            return
+
+        logger.debug(f'Normalizing ids')
+        outer_obj = copy.deepcopy(self.as1)
+        inner_objs = as1.get_objects(outer_obj)
+        replaced = False
+
+        def replace(val, translate_fn):
+            nonlocal replaced
+
+            orig = val.get('id') if isinstance(val, dict) else val
+            if not orig:
+                return val
+
+            proto = Protocol.for_id(orig, remote=False)
+            if not proto:
+                return val
+
+            translated = translate_fn(id=orig, from_proto=proto, to_proto=proto)
+            if translated and translated != orig:
+                logger.info(f'Normalized {proto.LABEL} id {orig} to {translated}')
+                replaced = True
+                if isinstance(val, dict):
+                    val['id'] = translated
+                    return val
+                else:
+                    return translated
+
+            return val
+
+        # actually replace ids
+        for obj in [outer_obj] + inner_objs:
+            for tag in as1.get_objects(obj, 'tags'):
+                if tag.get('objectType') == 'mention':
+                    tag['url'] = replace(tag.get('url'), translate_user_id)
+            for field in ['actor', 'author', 'inReplyTo']:
+                fn = translate_object_id if field == 'inReplyTo' else translate_user_id
+                obj[field] = [replace(val, fn) for val in util.get_list(obj, field)]
+                if len(obj[field]) == 1:
+                    obj[field] = obj[field][0]
+
+        outer_obj['object'] = []
+        for inner_obj in inner_objs:
+            translate_fn = (translate_user_id
+                            if (as1.object_type(inner_obj) in as1.ACTOR_TYPES
+                                or as1.object_type(outer_obj) in
+                                ('follow', 'stop-following'))
+                            else translate_object_id)
+
+            got = replace(inner_obj, translate_fn)
+            if isinstance(got, dict) and util.trim_nulls(got).keys() == {'id'}:
+                got = got['id']
+
+            outer_obj['object'].append(got)
+
+        if len(outer_obj['object']) == 1:
+            outer_obj['object'] = outer_obj['object'][0]
 
         if replaced:
             self.our_as1 = util.trim_nulls(outer_obj)

@@ -681,6 +681,14 @@ class ObjectTest(TestCase):
         self.assertNotIn('id', obj.as1['actor'])
         self.assertEqual(['c', 'd'], obj.as1['object'])
 
+        obj = Object(mf2={
+            'properties': {
+                'uid': ['z.com'],
+                'url': ['x'],
+            },
+        })
+        self.assertEqual('z.com', obj.as1['id'])
+
     def test_validate_id(self):
         # DID repo ids
         Object(id='at://did:plc:123/app.bsky.feed.post/abc').put()
@@ -873,6 +881,65 @@ class ObjectTest(TestCase):
                 'tags': [{
                     'objectType': 'mention',
                     'url': 'http://inst.com/@me',
+                }],
+            },
+        }, obj.our_as1)
+
+    def test_normalize_ids_empty(self):
+        obj = Object()
+        obj.normalize_ids()
+        self.assertIsNone(obj.as1)
+
+    def test_normalize_ids_follow_atproto(self):
+        # for ATProto handle resolution
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        alice = self.make_user(id='did:plc:user', cls=ATProto)
+
+        obj = Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'https://bsky.app/profile/did:plc:123',
+            'object': 'https://bsky.app/profile/han.dull',
+        })
+        obj.normalize_ids()
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'did:plc:123',
+            'object': 'did:plc:user',
+        }, obj.our_as1)
+
+    def test_normalize_ids_reply(self):
+        # for ATProto handle resolution
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.make_user(id='did:plc:user', cls=ATProto)
+
+        obj = Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'id': 'https://bsky.app/profile/han.dull/post/456',
+                'objectType': 'note',
+                'inReplyTo': 'https://bsky.app/profile/did:plc:123/post/789',
+                'author': 'https://bsky.app/profile/han.dull',
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': 'https://bsky.app/profile/did:plc:123',
+                }],
+            },
+        })
+        obj.normalize_ids()
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'id': 'at://did:plc:user/app.bsky.feed.post/456',
+                'objectType': 'note',
+                'inReplyTo': 'at://did:plc:123/app.bsky.feed.post/789',
+                'author': 'did:plc:user',
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': 'did:plc:123',
                 }],
             },
         }, obj.our_as1)

@@ -947,6 +947,7 @@ class WebTest(TestCase):
                            type='share',
                            object_ids=['https://mas.to/toot/id'],
                            labels=['user', 'activity', 'notification', 'feed'],
+                           ignore=['our_as1'],
                            )
 
     def test_link_rel_alternate_as2(self, mock_get, mock_post):
@@ -1005,6 +1006,7 @@ class WebTest(TestCase):
                            type='like',
                            labels=['activity', 'user'],
                            status='ignored',
+                           ignore=['our_as1'],
                            )
 
     def test_post_type_discovery_multiple_types(self, mock_get, mock_post):
@@ -1124,6 +1126,7 @@ class WebTest(TestCase):
                            notify=[ndb.Key('ActivityPub', 'https://mas.to/author')],
                            delivered=['https://mas.to/inbox'],
                            status='complete',
+                           ignore=['our_as1'],
                            )
 
     def test_create_non_domain_author(self, mock_get, mock_post):
@@ -1316,16 +1319,19 @@ class WebTest(TestCase):
 
         self.assert_deliveries(mock_post, ['https://mas.to/inbox'], FOLLOW_AS2)
 
+        follow_as1 = copy.deepcopy(FOLLOW_AS1)
+        follow_as1['actor']['id'] = 'https://user.com/'
         obj = self.assert_object('https://user.com/follow',
                                  users=[self.user.key],
                                  notify=[self.mrs_foo],
                                  source_protocol='web',
                                  status='complete',
-                                 mf2=FOLLOW_MF2,
+                                 our_as1=follow_as1,
                                  delivered=['https://mas.to/inbox'],
                                  type='follow',
                                  object_ids=['https://mas.to/mrs-foo'],
                                  labels=['user', 'activity', 'notification'],
+                                 ignore=['our_as1'],
                                  )
 
         to = self.assert_user(ActivityPub, 'https://mas.to/mrs-foo', obj_as2={
@@ -1412,7 +1418,8 @@ class WebTest(TestCase):
                            delivered=['https://mas.to/inbox'],
                            type='follow',
                            object_ids=['https://mas.to/mrs-foo'],
-                           labels=['user', 'activity', 'notification',],
+                           labels=['user', 'activity', 'notification'],
+                           ignore=['our_as1'],
                            )
 
         followers = Follower.query().fetch()
@@ -1476,7 +1483,8 @@ class WebTest(TestCase):
                                  object_ids=['https://mas.to/mrs-foo',
                                              'https://mas.to/mr-biff'],
                                  labels=['user', 'activity', 'notification',],
-                                 )
+                                 ignore=['our_as1'],
+                                  )
 
         followers = Follower.query().fetch()
         self.assertEqual(2, len(followers))
@@ -1590,6 +1598,7 @@ class WebTest(TestCase):
                            type='follow',
                            object_ids=['https://mas.to/mrs-foo'],
                            labels=['user', 'activity', 'notification',],
+                           ignore=['our_as1'],
                            )
 
     def test_repost_twitter_blocklisted(self, *mocks):

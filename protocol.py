@@ -476,7 +476,7 @@ class Protocol:
 
     @classmethod
     def translate_ids(to_cls, obj):
-        """Wraps ids and actors in an AS1 object in subdomain convert URLs.
+        """Translates all ids in an AS1 object to a specific protocol.
 
         Infers source protocol for each id value separately.
 
@@ -498,6 +498,9 @@ class Protocol:
 
         This is the inverse of :meth:`models.Object.resolve_ids`. Much of the
         same logic is duplicated there!
+
+        TODO: unify with :meth:`Object.resolve_ids`,
+        :meth:`protocol.Protocol.normalize_ids`.
 
         Args:
           to_proto (Protocol subclass)
@@ -794,6 +797,7 @@ class Protocol:
             from_user = from_cls.get_or_create(id=from_key.id(), obj=from_obj)
 
             logger.info(f'Follow {from_id} => {to_id}')
+
             to_cls = Protocol.for_id(to_id)
             if not to_cls:
                 error(f"Couldn't determine protocol for {to_id}")
@@ -1174,6 +1178,7 @@ class Protocol:
             return None
 
         obj.resolve_ids()
+        obj.normalize_ids()
 
         if obj.new is False:
             obj.changed = obj.activity_changed(orig_as1)
