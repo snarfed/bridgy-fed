@@ -8,6 +8,7 @@ from urllib.parse import urljoin, urlparse
 
 from flask import request
 from google.cloud.ndb.query import FilterNode, Query
+from granary.bluesky import BSKY_APP_URL_RE
 from oauth_dropins.webutil import util
 
 from common import subdomain_wrap, LOCAL_DOMAINS, PRIMARY_DOMAIN, SUPERDOMAIN
@@ -24,7 +25,7 @@ _FED_SUBDOMAIN_SITES = None
 
 
 def web_ap_base_domain(user_domain):
-    """Returns the full Bridgy Fed domain to user for a given Web user.
+    """Returns the full Bridgy Fed domain to use for a given Web user.
 
     Specifically, returns ``http://localhost/` if we're running locally,
     ``https://fed.brid.gy/`` if the given Web user has ``ap_subdomain='fed'``,
@@ -71,6 +72,20 @@ def translate_user_id(*, id, from_proto, to_proto):
     if from_proto.LABEL == 'web' and parsed.path.strip('/') == '':
         # home page; replace with domain
         id = parsed.netloc
+
+    # bsky.app profile URL to DID
+    if to_proto.LABEL == 'atproto':
+        if match := BSKY_APP_URL_RE.match(id):
+            repo = match.group('id')
+            if repo.startswith('did:'):
+                return repo
+
+            from atproto import ATProto
+            try:
+                return ATProto.handle_to_id(repo)
+            except (AssertionError, ValueError) as e:
+                logger.warning(e)
+                return None
 
     if from_proto == to_proto:
         return id

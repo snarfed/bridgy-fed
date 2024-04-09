@@ -19,11 +19,21 @@ class IdsTest(TestCase):
         Fake(id='fake:user',
              copies=[Target(uri='did:plc:789', protocol='atproto')]).put()
 
+        # DID doc and ATProto, used to resolve handle in https://bsky.app/profile/user.com
+        did = self.store_object(id='did:plc:123', raw={
+            'id': 'did:plc:123',
+            'alsoKnownAs': ['at://user.com'],
+        })
+        ATProto(id='did:plc:123', obj_key=did.key).put()
+
         for from_, id, to, expected in [
             (ActivityPub, 'https://inst/user', ActivityPub, 'https://inst/user'),
             (ActivityPub, 'https://inst/user', ATProto, 'did:plc:456'),
             (ActivityPub, 'https://inst/user', Fake, 'fake:u:https://inst/user'),
             (ActivityPub, 'https://inst/user', Web, 'https://inst/user'),
+            (ActivityPub, 'https://bsky.app/profile/user.com', ATProto, 'did:plc:123'),
+            (ActivityPub, 'https://bsky.app/profile/did:plc:123',
+             ATProto, 'did:plc:123'),
             (ATProto, 'did:plc:456', ATProto, 'did:plc:456'),
             # copies
             (ATProto, 'did:plc:123', Web, 'user.com'),
@@ -33,6 +43,8 @@ class IdsTest(TestCase):
             (ATProto, 'did:plc:x', Web, 'https://atproto.brid.gy/web/did:plc:x'),
             (ATProto, 'did:plc:x', ActivityPub, 'https://atproto.brid.gy/ap/did:plc:x'),
             (ATProto, 'did:plc:x', Fake, 'fake:u:did:plc:x'),
+            (ATProto, 'https://bsky.app/profile/user.com', ATProto, 'did:plc:123'),
+            (ATProto, 'https://bsky.app/profile/did:plc:123', ATProto, 'did:plc:123'),
             (Fake, 'fake:user', ActivityPub, 'https://fa.brid.gy/ap/fake:user'),
             (Fake, 'fake:user', ATProto, 'did:plc:789'),
             (Fake, 'fake:user', Fake, 'fake:user'),
@@ -41,6 +53,8 @@ class IdsTest(TestCase):
             (Web, 'https://user.com/', ActivityPub, 'http://localhost/user.com'),
             (Web, 'user.com', ATProto, 'did:plc:123'),
             (Web, 'https://user.com', ATProto, 'did:plc:123'),
+            (Web, 'https://bsky.app/profile/user.com', ATProto, 'did:plc:123'),
+            (Web, 'https://bsky.app/profile/did:plc:123', ATProto, 'did:plc:123'),
             (Web, 'user.com', Fake, 'fake:u:user.com'),
             (Web, 'user.com', Web, 'user.com'),
             (Web, 'https://user.com/', Web, 'user.com'),
