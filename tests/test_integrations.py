@@ -9,9 +9,10 @@ from oauth_dropins.webutil.testutil import requests_response
 from activitypub import ActivityPub
 import app
 from atproto import ATProto
+from dns.resolver import NXDOMAIN
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
 import hub
-from models import Target
+from models import Object, Target
 from web import Web
 
 from .testutil import ATPROTO_KEY, TestCase
@@ -22,6 +23,11 @@ DID_DOC = {
     **test_atproto.DID_DOC,
     'id': 'did:plc:alice',
     'alsoKnownAs': ['at://alice.com'],
+}
+PROFILE_GETRECORD = {
+    'uri': 'at://did:plc:alice/app.bsky.actor.profile/self',
+    'cid': 'alice sidd',
+    'value': test_atproto.ACTOR_PROFILE_BSKY,
 }
 
 
@@ -92,11 +98,7 @@ class IntegrationTests(TestCase):
                 }],
             }),
             # ATProto getRecord of alice's profile
-            requests_response({
-                'uri': 'at://did:plc:alice/app.bsky.actor.profile/self',
-                'cid': 'alice sidd',
-                'value': test_atproto.ACTOR_PROFILE_BSKY,
-            }),
+            requests_response(PROFILE_GETRECORD),
         ]
 
         resp = self.post('/queue/atproto-poll-notifs', client=hub.app.test_client())
@@ -164,11 +166,7 @@ class IntegrationTests(TestCase):
                 }],
             }),
             # ATProto getRecord of alice's profile
-            requests_response({
-                'uri': 'at://did:plc:alice/app.bsky.actor.profile/self',
-                'cid': 'alice sidd',
-                'value': test_atproto.ACTOR_PROFILE_BSKY,
-            }),
+            requests_response(PROFILE_GETRECORD),
             # webmention discovery
             test_web.WEBMENTION_REL_LINK,
         ]
@@ -181,3 +179,94 @@ class IntegrationTests(TestCase):
             'source': 'https://atproto.brid.gy/convert/web/at://did:plc:alice/app.bsky.graph.follow/123',
             'target': 'https://bob.com/',
         }, allow_redirects=False, headers={'Accept': '*/*'})
+
+    @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('requests.post', side_effect=[
+           requests_response('OK'),  # create DID
+    ])
+    @patch('requests.get', side_effect = [
+        # webmention source page, follow HTML
+        requests_response("""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://bob.com/follow"></a>
+<a class="u-follow-of" href="https://bsky.app/profile/alice.com"></a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+"""),
+        # https://bob.com/ , for authorship
+        requests_response("""\
+<html>
+<body class="h-card">
+<a class="p-name u-url" rel="me" href="https://bob.com/">Bob</a>
+</body>
+</html>
+"""),
+        # alice.com handle resolution, HTTPS method
+        requests_response('did:plc:alice', content_type='text/plain'),
+        # alice profile
+        requests_response(PROFILE_GETRECORD),
+        # alice DID
+        requests_response(DID_DOC),
+        # alice profile
+        requests_response(PROFILE_GETRECORD),
+    ])
+    def test_web_follow_to_atproto(self, mock_get, mock_post, _, __):
+        """Incoming webmention for a web follow of an ATProto bsky.app profile URL.
+
+        Web user bob.com
+        ATProto user alice.com (did:plc:alice)
+        Follow is HTML with mf2 u-follow-of of https://bsky.app/profile/alice.com
+        """
+        bob = self.make_user(id='bob.com', cls=Web, obj_mf2={
+            'type': ['h-card'],
+            'properties': {
+                'url': ['https://bob.com/'],
+                'name': ['Bob'],
+            },
+        })
+
+        # send webmention
+        resp = self.post('/webmention', data={
+            'source': 'https://bob.com/follow',
+            'target': 'http://localhost/',
+        })
+        self.assertEqual(202, resp.status_code)
+
+        # check results
+        bob = bob.key.get()
+        self.assertEqual(1, len(bob.copies))
+        self.assertEqual('atproto', bob.copies[0].protocol)
+        bob_did = bob.copies[0].uri
+
+        self.assertEqual({
+            'type': ['h-entry'],
+            'properties': {
+                'url': ['https://bob.com/follow'],
+                'follow-of': ['https://bsky.app/profile/alice.com'],
+                'name': [''],
+                'author': [{
+                    'type': ['h-card'],
+                    'properties': {
+                        'name': ['Bob'],
+                        'url': ['https://bob.com/'],
+                    },
+                }],
+            },
+        }, Object.get_by_id('https://bob.com/follow').mf2)
+
+        storage = DatastoreStorage()
+        repo = storage.load_repo('bob.com.web.brid.gy')
+        self.assertEqual(bob_did, repo.did)
+
+        records = repo.get_contents()
+        self.assertEqual(['app.bsky.actor.profile', 'app.bsky.graph.follow'],
+                         list(records.keys()))
+        self.assertEqual(['self'], list(records['app.bsky.actor.profile'].keys()))
+        self.assertEqual([{
+            '$type': 'app.bsky.graph.follow',
+            'subject': 'did:plc:alice',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }], list(records['app.bsky.graph.follow'].values()))
