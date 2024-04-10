@@ -11,6 +11,7 @@ from unittest.mock import ANY, call
 from urllib.parse import urlencode
 import warnings
 
+from arroba import did
 import arroba.util
 from arroba.util import datetime_to_tid
 from bs4 import MarkupResemblesLocatorWarning
@@ -197,6 +198,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         protocol.Protocol.for_id.cache.clear()
         common.webmention_discover.cache.clear()
         User.count_followers.cache.clear()
+        did.resolve_handle.cache.clear()
+        did.resolve_plc.cache.clear()
+        did.resolve_web.cache.clear()
 
         for cls in Fake, OtherFake:
             cls.fetchable = {}
