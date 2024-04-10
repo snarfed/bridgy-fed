@@ -244,7 +244,7 @@ class ATProto(User, Protocol):
         initial_writes = None
         if user.obj and user.obj.as1:
             # create user profile
-            profile = cls.convert(user.obj, fetch_blobs=True)
+            profile = cls.convert(user.obj, fetch_blobs=True, from_user=user)
             profile.setdefault('labels', {'$type': 'com.atproto.label.defs#selfLabels'})
             profile['labels'].setdefault('values', []).append({
                 'val' : f'bridged-from-bridgy-fed-{user.LABEL}',
@@ -303,7 +303,7 @@ class ATProto(User, Protocol):
 
         # convert to Bluesky record; short circuits on error
         try:
-            record = to_cls.convert(base_obj, fetch_blobs=True)
+            record = to_cls.convert(base_obj, fetch_blobs=True, from_user=from_user)
         except ValueError as e:
             logger.info(f'Skipping due to {e}')
             return False

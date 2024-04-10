@@ -226,8 +226,8 @@ class ActivityPub(User, Protocol):
             logger.info(f'Skipping sending to blocklisted {url}')
             return False
 
-        activity = to_cls.convert(obj, from_user=from_user,
-                                  orig_obj=to_cls.convert(orig_obj))
+        orig_obj = to_cls.convert(orig_obj, from_user=from_user)
+        activity = to_cls.convert(obj, from_user=from_user, orig_obj=orig_obj)
 
         return signed_post(url, data=activity, from_user=from_user).ok
 
