@@ -109,3 +109,10 @@ class CommonTest(TestCase):
         self.assertTrue(common.is_enabled(ATProto, Web))
         self.assertTrue(common.is_enabled(Fake, OtherFake))
         self.assertFalse(common.is_enabled(ATProto, ActivityPub))
+
+        self.assertFalse(common.is_enabled(
+            ATProto, ActivityPub, handle_or_id='unknown'))
+        self.assertTrue(common.is_enabled(
+            ATProto, ActivityPub, handle_or_id='snarfed.org'))
+        self.assertTrue(common.is_enabled(
+            ATProto, ActivityPub, handle_or_id='did:plc:fdme4gb7mu7zrie7peay7tst'))

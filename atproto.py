@@ -59,6 +59,7 @@ class ATProto(User, Protocol):
     https://atproto.com/specs/did
     """
     ABBREV = 'atproto'
+    # TODO: add second bsky label? inject into PROTOCOLS?
     PHRASE = 'Bluesky'
     LOGO_HTML = '<img src="/static/atproto_logo.png">'
     PDS_URL = f'https://{ABBREV}{common.SUPERDOMAIN}/'
