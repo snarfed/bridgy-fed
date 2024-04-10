@@ -43,7 +43,10 @@ logger = logging.getLogger(__name__)
 
 arroba.server.storage = DatastoreStorage(ndb_client=ndb_client)
 
-LEXICONS = Client('https://unused').defs
+appview = Client(f'https://{os.environ["APPVIEW_HOST"]}',
+                 headers={'User-Agent': USER_AGENT})
+LEXICONS = appview.defs
+
 
 DNS_GCP_PROJECT = 'brid-gy'
 DNS_ZONE = 'brid-gy'
@@ -355,8 +358,8 @@ class ATProto(User, Protocol):
                 assert copy_did == did
                 assert coll == type
 
-            logger.info(f'Storing ATProto {action} {type} {rkey}: ' +
-                        json_dumps(dag_json.encode(record).decode(), indent=2))
+            logger.info(f'Storing ATProto {action} {type} {rkey}: ',
+                        dag_json.encode(record).decode())
             repo.apply_writes([Write(action=action, collection=type, rkey=rkey,
                                      record=record)])
 
@@ -432,10 +435,8 @@ class ATProto(User, Protocol):
             assert repo.startswith('did:')
             obj.key = ndb.Key(Object, id.replace(f'at://{handle}', f'at://{repo}'))
 
-        client = Client(f'https://{os.environ["APPVIEW_HOST"]}',
-                        headers={'User-Agent': USER_AGENT})
         try:
-            ret = client.com.atproto.repo.getRecord(
+            ret = appview.com.atproto.repo.getRecord(
                 repo=repo, collection=collection, rkey=rkey)
         except RequestException as e:
             util.interpret_http_exception(e)
@@ -483,6 +484,11 @@ class ATProto(User, Protocol):
                         blobs[url] = blob.as_object()
 
         ret = bluesky.from_as1(cls.translate_ids(obj.as1), blobs=blobs)
+            # TODO: uncomment this and pass through client eventually? would be
+            # nice to start reusing granary's resolving handles and CIDs, but we
+            # do much of that ourselves here in BF beforehand, so granary ends
+            # up duplicating those network requests
+            # client=appview)
 
         # fill in CIDs from Objects
         def populate_cid(strong_ref):
@@ -523,6 +529,8 @@ def poll_notifications():
                               for cls in set(PROTOCOLS.values())
                               if cls and cls != ATProto))
 
+    # this client needs to be request-local because we set its service token
+    # below per user that we're polling
     client = Client(f'https://{os.environ["APPVIEW_HOST"]}',
                     headers={'User-Agent': USER_AGENT})
 
@@ -581,6 +589,8 @@ def poll_posts():
                               for cls in set(PROTOCOLS.values())
                               if cls and cls != ATProto))
 
+    # this client needs to be request-local because we set its service token
+    # below per user that we're polling
     client = Client(f'https://{os.environ["APPVIEW_HOST"]}',
                     headers={'User-Agent': USER_AGENT})
 

@@ -435,7 +435,7 @@ class ATProtoTest(TestCase):
         requests_response('did:plc:user', content_type='text/plain'),
         # AppView getRecord
         requests_response({
-            'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
+            'uri': 'at://did:plc:user/app.bsky.feed.post/tid',
             'cid': 'my sidd',
             'value': {
                 '$type': 'app.bsky.feed.post',
@@ -534,6 +534,39 @@ class ATProtoTest(TestCase):
             'displayName': 'Alice',
             'image': [{'url': 'http://my/pic'}],
         }), fetch_blobs=True))
+
+    # resolveHandle
+    @patch('requests.get', return_value=requests_response({'did': 'did:plc:user'}))
+    def test_convert_resolve_mention_handle(self, mock_get):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+
+        self.assertEqual({
+            '$type': 'app.bsky.feed.post',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'text': 'hi @han.dull hows it going',
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#mention',
+                    'did': 'did:plc:user',
+                }],
+                'index': {
+                    'byteEnd': 12,
+                    'byteStart': 3,
+                },
+            }],
+        }, ATProto.convert(Object(our_as1={
+            # this mention has the DID in url, and it will also be extracted
+            # from the link in content. make sure we merge the two and don't end
+            # up with a duplicate mention of the DID or a mention of the handle.
+            'objectType': 'note',
+            'content': 'hi <a href="https://bsky.app/profile/han.dull">@han.dull</a> hows it going',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'did:plc:user',
+                'displayName': '@han.dull'
+            }],
+        })))
 
     def test_convert_protocols_not_enabled(self):
         obj = Object(our_as1={'foo': 'bar'}, source_protocol='activitypub')
