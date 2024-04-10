@@ -241,7 +241,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         ATProto = PROTOCOLS['atproto']
         if propagate and cls.LABEL != 'atproto' and not user.get_copy(ATProto):
-            if common.is_enabled(cls, ATProto):
+            if common.is_enabled(cls, ATProto, handle_or_id=id):
                 ATProto.create_for(user)
             else:
                 logger.info(f'{cls.LABEL} <=> atproto not enabled, skipping')

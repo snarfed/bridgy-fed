@@ -537,7 +537,8 @@ class Web(User, Protocol):
         obj_as1 = obj.as1
         from_proto = PROTOCOLS.get(obj.source_protocol)
         if from_proto:
-            if not common.is_enabled(cls, from_proto):
+            user_id = from_user.key.id() if from_user and from_user.key else None
+            if not common.is_enabled(cls, from_proto, handle_or_id=user_id):
                 error(f'{cls.LABEL} <=> {from_proto.LABEL} not enabled')
 
             # fill in author/actor if available

@@ -359,7 +359,8 @@ class ActivityPub(User, Protocol):
             return {}
 
         from_proto = PROTOCOLS.get(obj.source_protocol)
-        if from_proto and not common.is_enabled(cls, from_proto):
+        user_id = from_user.key.id() if from_user and from_user.key else None
+        if from_proto and not common.is_enabled(cls, from_proto, handle_or_id=user_id):
             error(f'{cls.LABEL} <=> {from_proto.LABEL} not enabled')
 
         if obj.as2:
@@ -828,7 +829,7 @@ def actor(handle_or_id):
     cls = Protocol.for_request(fed='web')
     if not cls:
         error(f"Couldn't determine protocol", status=404)
-    elif not common.is_enabled(cls, ActivityPub):
+    elif not common.is_enabled(cls, ActivityPub, handle_or_id=handle_or_id):
         error(f'{cls.LABEL} <=> activitypub not enabled')
     elif cls.LABEL == 'web' and request.path.startswith('/ap/'):
         # we started out with web users' AP ids as fed.brid.gy/[domain], so we
