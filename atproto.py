@@ -47,12 +47,36 @@ appview = Client(f'https://{os.environ["APPVIEW_HOST"]}',
                  headers={'User-Agent': USER_AGENT})
 LEXICONS = appview.defs
 
+# https://atproto.com/guides/applications#record-types
+COLLECTION_TO_TYPE = {
+  'app.bsky.actor.profile': 'profile',
+  'app.bsky.feed.like': 'like',
+  'app.bsky.feed.post': 'post',
+  'app.bsky.feed.repost': 'repost',
+  'app.bsky.graph.follow': 'follow',
+}
 
 DNS_GCP_PROJECT = 'brid-gy'
 DNS_ZONE = 'brid-gy'
 DNS_TTL = 10800  # seconds
 logger.info(f'Using GCP DNS project {DNS_GCP_PROJECT} zone {DNS_ZONE}')
 dns_client = dns.Client(project=DNS_GCP_PROJECT)
+
+
+def did_to_handle(did):
+    """Resolves a DID to a handle _if_ we have the DID doc stored locally.
+
+    Args:
+      did (str)
+
+    Returns:
+      str: handle, or None
+    """
+    if did_obj := ATProto.load(did, did_doc=True):
+        if aka := util.get_first(did_obj.raw, 'alsoKnownAs', ''):
+            handle, _, _ = parse_at_uri(aka)
+            if handle:
+                return handle
 
 
 class ATProto(User, Protocol):
@@ -86,11 +110,7 @@ class ATProto(User, Protocol):
     @ndb.ComputedProperty
     def handle(self):
         """Returns handle if the DID document includes one, otherwise None."""
-        if did_obj := ATProto.load(self.key.id(), did_doc=True):
-            if aka := util.get_first(did_obj.raw, 'alsoKnownAs', ''):
-                handle, _, _ = parse_at_uri(aka)
-                if handle:
-                    return handle
+        return did_to_handle(self.key.id())
 
     def web_url(self):
         return bluesky.Bluesky.user_url(self.handle_or_id())

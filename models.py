@@ -15,7 +15,7 @@ from Crypto.PublicKey import RSA
 from flask import g, request
 from google.cloud import ndb
 from granary import as1, as2, atom, bluesky, microformats2
-from granary.bluesky import BSKY_APP_URL_RE
+from granary.bluesky import AT_URI_PATTERN, BSKY_APP_URL_RE
 from granary.source import html_to_text
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_info import DEBUG
@@ -1272,23 +1272,32 @@ def fetch_objects(query, by=None, user=None):
                 'url': id,
             })
         elif url:
-            # heuristics for sniffing Mastodon and similar fediverse URLs and
-            # converting them to more friendly @-names
+            # heuristics for sniffing URLs and converting them to more friendly
+            # phrases and user handles.
             # TODO: standardize this into granary.as2 somewhere?
             if not content:
-                fedi_url = re.match(
-                    r'https://[^/]+/(@|users/)([^/@]+)(@[^/@]+)?(/(?:statuses/)?[0-9]+)?', url)
-                if fedi_url:
-                    content = '@' + fedi_url.group(2)
-                    if fedi_url.group(4):
-                        content += "'s post"
+                from activitypub import FEDI_URL_RE
+                from atproto import COLLECTION_TO_TYPE, did_to_handle
 
-            if not content:
-                if bsky_url := BSKY_APP_URL_RE.match(url):
-                    if handle := bsky_url.group('id'):  # or DID
-                        content = '@' + handle
-                        if bsky_url.group('tid'):
-                            content += "'s post"
+                if match := FEDI_URL_RE.match(url):
+                    content = '@' + match.group(2)
+                    if match.group(4):
+                        content += "'s post"
+                elif match := BSKY_APP_URL_RE.match(url):
+                    id = match.group('id')
+                    if id.startswith('did:'):
+                        id = ATdid_to_handle(id) or id
+                    content = '@' + id
+                    if match.group('tid'):
+                        content += "'s post"
+                elif match := AT_URI_PATTERN.match(url):
+                    id = match.group('repo')
+                    if id.startswith('did:'):
+                        id = did_to_handle(id) or id
+                    content = '@' + id
+                    if coll := match.group('collection'):
+                        content += f"'s {COLLECTION_TO_TYPE.get(coll) or 'post'}"
+                    url = bluesky.at_uri_to_web_url(url)
 
             content = common.pretty_link(url, text=content, user=user)
 

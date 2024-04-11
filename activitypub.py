@@ -54,6 +54,8 @@ _INSTANCE_ACTOR = None
 # populated in User.status
 WEB_OPT_OUT_DOMAINS = None
 
+FEDI_URL_RE = re.compile(r'https://[^/]+/(@|users/)([^/@]+)(@[^/@]+)?(/(?:statuses/)?[0-9]+)?')
+
 
 def instance_actor():
     global _INSTANCE_ACTOR
