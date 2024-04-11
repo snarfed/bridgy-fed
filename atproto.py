@@ -358,8 +358,7 @@ class ATProto(User, Protocol):
                 assert copy_did == did
                 assert coll == type
 
-            logger.info(f'Storing ATProto {action} {type} {rkey}: ',
-                        dag_json.encode(record).decode())
+            logger.info(f'Storing ATProto {action} {type} {rkey}: {dag_json.encode(record).decode()}')
             repo.apply_writes([Write(action=action, collection=type, rkey=rkey,
                                      record=record)])
 
