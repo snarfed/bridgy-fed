@@ -303,8 +303,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                                            mf2=obj_mf2, source_protocol=cls.LABEL
                                            ).key
 
+        kwargs.setdefault('direct', True)
         user = cls(id=id,
-                   direct=True,
                    mod=global_user.mod,
                    public_exponent=global_user.public_exponent,
                    private_exponent=global_user.private_exponent,

@@ -60,17 +60,16 @@ def load_user(protocol, id):
       :class:`werkzeug.exceptions.HTTPException` on error or redirect
     """
     assert id
-    if protocol == 'ap' and not id.startswith('@'):
-        id = '@' + id
 
     cls = PROTOCOLS[protocol]
+
+    if cls.ABBREV == 'ap' and not id.startswith('@'):
+        id = '@' + id
     user = cls.get_by_id(id)
 
-    if protocol != 'web':
+    if cls.ABBREV != 'web':
         if not user:
-            user = cls.query(OR(cls.handle == id,
-                                  cls.readable_id == id),
-                               ).get()
+            user = cls.query(OR(cls.handle == id, cls.handle == id)).get()
             if user and user.use_instead:
                 user = user.use_instead.get()
 
@@ -80,7 +79,7 @@ def load_user(protocol, id):
     elif user and id != user.key.id():  # use_instead redirect
         error('', status=302, location=user.user_page_path())
 
-    if user and (user.direct or protocol == 'web'):
+    if user and (user.direct or cls.ABBREV != 'ap'):
         assert not user.use_instead
         return user
 

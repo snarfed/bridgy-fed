@@ -99,11 +99,12 @@ class PagesTest(TestCase):
         self.assert_equals(404, got.status_code)
 
     def test_user_not_direct(self):
-        fake = self.make_user('fake:foo', cls=Fake)
-        fake.direct = False
-        fake.put()
-
+        fake = self.make_user('fake:foo', cls=Fake, direct=False)
         got = self.client.get('/fake/fake:foo')
+        self.assert_equals(200, got.status_code)
+
+        fake = self.make_user('http://fo/o', cls=ActivityPub, direct=False)
+        got = self.client.get('/ap/@o@fo')
         self.assert_equals(404, got.status_code)
 
     def test_user_opted_out(self):
