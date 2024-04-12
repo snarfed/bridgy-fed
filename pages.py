@@ -237,6 +237,8 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
                 # TODO: extract a Protocol class method out of User.profile_id,
                 # then use that here instead. the catch is that we'd need to
                 # determine Protocol for every id, which is expensive.
+                #
+                # same TODO is in models.fetch_objects
                 id = val['id']
                 if id.startswith('did:'):
                     id = f'at://{id}/app.bsky.actor.profile/self'

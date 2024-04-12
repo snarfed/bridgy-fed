@@ -1278,25 +1278,28 @@ def fetch_objects(query, by=None, user=None):
             from activitypub import FEDI_URL_RE
             from atproto import COLLECTION_TO_TYPE, did_to_handle
 
+            handle = suffix = ''
             if match := FEDI_URL_RE.match(url):
-                content = '@' + match.group(2)
+                handle = match.group(2)
                 if match.group(4):
-                    content += "'s post"
+                    suffix = "'s post"
             elif match := BSKY_APP_URL_RE.match(url):
-                id = match.group('id')
-                if id.startswith('did:'):
-                    id = did_to_handle(id) or id
-                content = '@' + id
+                handle = match.group('id')
                 if match.group('tid'):
-                    content += "'s post"
+                    suffix = "'s post"
             elif match := AT_URI_PATTERN.match(url):
-                id = match.group('repo')
-                if id.startswith('did:'):
-                    id = did_to_handle(id) or id
-                content = '@' + id
+                handle = match.group('repo')
                 if coll := match.group('collection'):
-                    content += f"'s {COLLECTION_TO_TYPE.get(coll) or 'post'}"
+                    suffix = f"'s {COLLECTION_TO_TYPE.get(coll) or 'post'}"
                 url = bluesky.at_uri_to_web_url(url)
+            elif url.startswith('did:'):
+                handle = url
+                url = bluesky.Bluesky.user_url(handle)
+
+            if handle:
+                if handle.startswith('did:'):
+                    handle = did_to_handle(handle) or handle
+                content = f'@{handle}{suffix}'
 
             content = common.pretty_link(url, text=content, user=user)
 
