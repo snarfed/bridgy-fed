@@ -148,6 +148,23 @@ class ATProto(User, Protocol):
         return self.profile_at_uri(self.key.id())
 
     @classmethod
+    def bridged_web_url_for(cls, user):
+        """Returns a bridged user's profile URL on bsky.app.
+
+        For example, returns ``https://bsky.app/profile/alice.com.web.brid.gy``
+        for Web user ``alice.com``.
+
+        Args:
+          user (models.User)
+
+        Returns:
+          str, or None if there isn't a canonical URL
+        """
+        if not isinstance(user, ATProto):
+            if did := user.get_copy(ATProto):
+                return bluesky.Bluesky.user_url(did_to_handle(did) or did)
+
+    @classmethod
     def target_for(cls, obj, shared=False):
         """Returns our PDS URL as the target for the given object.
 

@@ -142,6 +142,17 @@ class ATProtoTest(TestCase):
     def test_handle_to_id_not_found(self, *_):
         self.assertIsNone(ATProto.handle_to_id('han.dull'))
 
+    def test_bridged_web_url_for(self):
+        self.assertIsNone(ATProto.bridged_web_url_for(ATProto(id='did:plc:foo')))
+
+        fake = Fake(id='fake:user')
+        self.assertIsNone(ATProto.bridged_web_url_for(fake))
+
+        fake.copies = [Target(uri='did:plc:user', protocol='atproto')]
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.assertEqual('https://bsky.app/profile/han.dull',
+                         ATProto.bridged_web_url_for(fake))
+
     def test_pds_for_did_no_doc(self):
         self.assertIsNone(ATProto.pds_for(Object(id='did:plc:user')))
 

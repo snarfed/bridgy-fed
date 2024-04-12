@@ -62,10 +62,13 @@
      {% if proto and not isinstance(user, proto)
        and proto.LABEL not in ('ui', 'web')
        and (proto.LABEL not in ids.COPIES_PROTOCOLS or proto.LABEL in copies) %}
+      {% set url = proto.bridged_web_url_for(user) %}
       &middot;
       <nobr title="{{ proto.__name__ }} (bridged)">
+      {% if url %} <a href="{{ url }}"> {% endif %}
         <span class="logo">{{ proto.LOGO_HTML|safe }}</span>
         {{ user.handle_as(proto) }}
+      {% if url %} </a> {% endif %}
       </nobr>
     {% endif %}
   {% endfor %}

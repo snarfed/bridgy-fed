@@ -354,14 +354,14 @@ class Protocol:
         return (None, None)
 
     @classmethod
-    def bridged_web_url_for(self, user):
+    def bridged_web_url_for(cls, user):
         """Returns the web URL for a user's bridged profile in this protocol.
 
         For example, for Web user ``alice.com``, :meth:`ATProto.bridged_web_url_for`
         returns ``https://bsky.app/profile/alice.com.web.brid.gy``
 
         Args:
-          proto (str or Protocol)
+          user (models.User)
 
         Returns:
           str, or None if there isn't a canonical URL
