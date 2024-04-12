@@ -234,7 +234,14 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
                             a[f] = future.result().as1
                     return maybe_set
 
-                future = Object.get_by_id_async(val['id'])
+                # TODO: extract a Protocol class method out of User.profile_id,
+                # then use that here instead. the catch is that we'd need to
+                # determine Protocol for every id, which is expensive.
+                id = val['id']
+                if id.startswith('did:'):
+                    id = f'at://{id}/app.bsky.actor.profile/self'
+
+                future = Object.get_by_id_async(id)
                 future.add_done_callback(hydrate(a, field))
                 gets.append(future)
 
