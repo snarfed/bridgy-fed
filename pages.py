@@ -23,6 +23,7 @@ from oauth_dropins.webutil.flask_util import (
 import common
 from common import DOMAIN_RE
 from flask_app import app, cache
+import ids
 from models import fetch_objects, fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS
 from protocol import Protocol
 
@@ -38,6 +39,7 @@ TEMPLATE_VARS = {
     'as1': as1,
     'as2': as2,
     'g': g,
+    'ids': ids,
     'isinstance': isinstance,
     'logs': logs,
     'PROTOCOLS': PROTOCOLS,
