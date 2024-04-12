@@ -40,6 +40,7 @@ HTML = """\
   A ☕ reply
   </div>
   <a class="u-in-reply-to" href="https://fake.com/123"></a>
+  <a class="u-in-reply-to" href="tag:fake.com:123"></a>
 </article>
 </body>
 </html>
@@ -64,6 +65,7 @@ AUTHOR_HTML = """\
   A ☕ reply
   </div>
   <a class="u-in-reply-to" href="https://fake.com/123"></a>
+  <a class="u-in-reply-to" href="tag:fake.com:123"></a>
 </article>
 </body>
 </html>
