@@ -1271,33 +1271,32 @@ def fetch_objects(query, by=None, user=None):
                 'content': 'their profile',
                 'url': id,
             })
-        elif url:
+        elif url and not content:
             # heuristics for sniffing URLs and converting them to more friendly
             # phrases and user handles.
             # TODO: standardize this into granary.as2 somewhere?
-            if not content:
-                from activitypub import FEDI_URL_RE
-                from atproto import COLLECTION_TO_TYPE, did_to_handle
+            from activitypub import FEDI_URL_RE
+            from atproto import COLLECTION_TO_TYPE, did_to_handle
 
-                if match := FEDI_URL_RE.match(url):
-                    content = '@' + match.group(2)
-                    if match.group(4):
-                        content += "'s post"
-                elif match := BSKY_APP_URL_RE.match(url):
-                    id = match.group('id')
-                    if id.startswith('did:'):
-                        id = ATdid_to_handle(id) or id
-                    content = '@' + id
-                    if match.group('tid'):
-                        content += "'s post"
-                elif match := AT_URI_PATTERN.match(url):
-                    id = match.group('repo')
-                    if id.startswith('did:'):
-                        id = did_to_handle(id) or id
-                    content = '@' + id
-                    if coll := match.group('collection'):
-                        content += f"'s {COLLECTION_TO_TYPE.get(coll) or 'post'}"
-                    url = bluesky.at_uri_to_web_url(url)
+            if match := FEDI_URL_RE.match(url):
+                content = '@' + match.group(2)
+                if match.group(4):
+                    content += "'s post"
+            elif match := BSKY_APP_URL_RE.match(url):
+                id = match.group('id')
+                if id.startswith('did:'):
+                    id = did_to_handle(id) or id
+                content = '@' + id
+                if match.group('tid'):
+                    content += "'s post"
+            elif match := AT_URI_PATTERN.match(url):
+                id = match.group('repo')
+                if id.startswith('did:'):
+                    id = did_to_handle(id) or id
+                content = '@' + id
+                if coll := match.group('collection'):
+                    content += f"'s {COLLECTION_TO_TYPE.get(coll) or 'post'}"
+                url = bluesky.at_uri_to_web_url(url)
 
             content = common.pretty_link(url, text=content, user=user)
 
