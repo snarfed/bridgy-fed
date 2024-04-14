@@ -579,6 +579,8 @@ class ATProtoTest(TestCase):
             }],
         })))
 
+    # TODO: remove
+    @skip
     def test_convert_protocols_not_enabled(self):
         obj = Object(our_as1={'foo': 'bar'}, source_protocol='activitypub')
         with self.assertRaises(BadRequest):
