@@ -501,8 +501,9 @@ class ATProto(User, Protocol):
         """
         from_proto = PROTOCOLS.get(obj.source_protocol)
         user_id = from_user.key.id() if from_user and from_user.key else None
-        if from_proto and not common.is_enabled(cls, from_proto, handle_or_id=user_id):
-            error(f'{cls.LABEL} <=> {from_proto.LABEL} not enabled')
+        # TODO: uncomment
+        # if from_proto and not common.is_enabled(cls, from_proto, handle_or_id=user_id):
+        #     error(f'{cls.LABEL} <=> {from_proto.LABEL} not enabled')
 
         if obj.bsky:
             return obj.bsky
