@@ -1230,7 +1230,9 @@ def fetch_objects(query, by=None, user=None):
             if inner_type:
                 type = inner_type
 
+        # AS1 verb => human-readable phrase
         phrases = {
+            'accept': 'accepted',
             'article': 'posted',
             'comment': 'replied',
             'delete': 'deleted',
@@ -1300,7 +1302,8 @@ def fetch_objects(query, by=None, user=None):
                     handle = did_to_handle(handle) or handle
                 content = f'@{handle}{suffix}'
 
-            content = common.pretty_link(url, text=content, user=user)
+            if url:
+                content = common.pretty_link(url, text=content, user=user)
 
         obj.content = (obj_as1.get('content')
                        or obj_as1.get('displayName')
