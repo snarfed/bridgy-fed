@@ -493,6 +493,36 @@ class ATProtoTest(TestCase):
             'object': 'at://bob.net/app.bsky.feed.post/tid',
         })))
 
+    @patch('requests.get', return_value=requests_response({  # AppView getRecord
+        'uri': 'at://did:plc:user/app.bsky.feed.post/tid',
+        'cid': 'my sidd',
+        'value': {'$type': 'app.bsky.feed.post'},
+    }))
+    def test_convert_populate_cid_refetch_cid(self, mock_get):
+        # existing Object with post but missing cid
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.store_object(id='at://did:plc:user/app.bsky.feed.post/tid', bsky={
+            '$type': 'app.bsky.feed.post',
+            'cid': '',
+        })
+
+        self.assertEqual({
+            '$type': 'app.bsky.feed.like',
+            'subject': {
+                'uri': 'at://did:plc:user/app.bsky.feed.post/tid',
+                'cid': 'my sidd',
+            },
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'like',
+            'object': 'at://did:plc:user/app.bsky.feed.post/tid',
+        })))
+
+        mock_get.assert_called_with(
+            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=tid',
+            json=None, data=None, headers=ANY)
+
     def test_convert_blobs_false(self):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',

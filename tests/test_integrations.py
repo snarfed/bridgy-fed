@@ -1,4 +1,5 @@
 """Integration tests."""
+import copy
 from unittest.mock import patch
 
 from arroba.datastore_storage import DatastoreStorage
@@ -10,7 +11,7 @@ from activitypub import ActivityPub
 import app
 from atproto import ATProto
 from dns.resolver import NXDOMAIN
-from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
+from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY, POST_BSKY
 import hub
 from models import Object, Target
 from web import Web
@@ -127,6 +128,7 @@ class IntegrationTests(TestCase):
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         })
 
+
     @patch('requests.post', return_value=requests_response(''))
     @patch('requests.get')
     def test_atproto_follow_to_web(self, mock_get, mock_post):
@@ -180,6 +182,7 @@ class IntegrationTests(TestCase):
             'target': 'https://bob.com/',
         }, allow_redirects=False, headers={'Accept': '*/*'})
 
+
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     @patch('requests.post', side_effect=[
@@ -213,7 +216,7 @@ class IntegrationTests(TestCase):
         # alice profile
         requests_response(PROFILE_GETRECORD),
     ])
-    def test_web_follow_to_atproto(self, mock_get, mock_post, _, __):
+    def test_web_follow_of_atproto(self, mock_get, mock_post, _, __):
         """Incoming webmention for a web follow of an ATProto bsky.app profile URL.
 
         Web user bob.com
@@ -270,3 +273,82 @@ class IntegrationTests(TestCase):
             'subject': 'did:plc:alice',
             'createdAt': '2022-01-02T03:04:05.000Z',
         }], list(records['app.bsky.graph.follow'].values()))
+
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    @patch('requests.get', side_effect=[
+        # getRecord of original post
+        # alice profile
+        requests_response({
+            'uri': 'at://did:plc:alice/app.bsky.feed.post/123',
+            'cid': 'sydd',
+            'value': POST_BSKY,
+        }),
+    ])
+    def test_activitypub_like_of_atproto(self, mock_get, _):
+        """AP inbox delivery of a Like of an ATProto bsky.app profile URL.
+
+        ActivityPub user @bob@inst , https://inst/bob
+        ATProto user alice.com (did:plc:alice)
+        Like is https://inst/like
+        """
+        self.store_object(id='did:plc:alice', raw=DID_DOC)
+        alice = self.make_user(id='did:plc:alice', cls=ATProto)
+
+        storage = DatastoreStorage()
+        Repo.create(storage, 'did:plc:bob', signing_key=ATPROTO_KEY)
+        bob = self.make_user(id='https://inst/bob', cls=ActivityPub,
+                             copies=[Target(uri='did:plc:bob', protocol='atproto')],
+                             obj_as2={
+                                 'type': 'Person',
+                                 'id': 'https://inst/bob',
+                                 'name': 'Bob',
+                             })
+
+        bob_did_doc = copy.deepcopy(test_atproto.DID_DOC)
+        bob_did_doc['service'][0]['serviceEndpoint'] = 'https://atproto.brid.gy/'
+        bob_did_doc.update({
+            'id': 'did:plc:bob',
+            'alsoKnownAs': ['at://bob.inst.ap.brid.gy'],
+        })
+        self.store_object(id='did:plc:bob', raw=bob_did_doc)
+
+        # existing Object with original post, *without* cid. we should refetch.
+        Object(id='at://did:plc:alice/app.bsky.feed.post/123', bsky=POST_BSKY).put()
+
+        # inbox delivery
+        like = {
+            'type': 'Like',
+            'id': 'http://inst/like',
+            'actor': 'https://inst/bob',
+            'object': 'https://atproto.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
+        }
+        resp = self.post('/ap/atproto/did:plc:alice/inbox', json=like)
+        self.assertEqual(202, resp.status_code)
+
+        # check results
+        self.assertEqual({
+            **like,
+            # TODO: stop normalizing this in the original protocol's data
+            'object': 'at://did:plc:alice/app.bsky.feed.post/123',
+        }, Object.get_by_id('http://inst/like').as2)
+
+        repo = storage.load_repo('did:plc:bob')
+
+        records = repo.get_contents()
+        self.assertEqual(['app.bsky.feed.like'], list(records.keys()))
+        self.assertEqual([{
+            '$type': 'app.bsky.feed.like',
+            'subject': {
+                'uri': 'at://did:plc:alice/app.bsky.feed.post/123',
+                'cid': 'sydd',
+            },
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }], list(records['app.bsky.feed.like'].values()))
+
+        # we needed to refetch the original post
+        self.assert_object(id='at://did:plc:alice/app.bsky.feed.post/123',
+                           source_protocol='atproto', bsky={
+                               **POST_BSKY,
+                               'cid': 'sydd',
+                           })

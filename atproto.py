@@ -532,13 +532,15 @@ class ATProto(User, Protocol):
             if uri := strong_ref.get('uri'):
                 # TODO: fail if this load fails? since we don't populate CID
                 if ref_obj := ATProto.load(uri):
+                    if not ref_obj.bsky.get('cid'):
+                        ref_obj = ATProto.load(uri, remote=True)
                     strong_ref.update({
                         'cid': ref_obj.bsky.get('cid'),
                         'uri': ref_obj.key.id(),
                     })
 
         match ret.get('$type'):
-            case 'app.bsky.feed.like' |  'app.bsky.feed.repost':
+            case 'app.bsky.feed.like' | 'app.bsky.feed.repost':
                 populate_cid(ret['subject'])
             case 'app.bsky.feed.post' if ret.get('reply'):
                 populate_cid(ret['reply']['root'])
