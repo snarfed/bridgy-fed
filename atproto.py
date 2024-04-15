@@ -34,6 +34,7 @@ from common import (
     DOMAINS,
     error,
     USER_AGENT,
+    USER_ALLOWLIST,
 )
 import flask_app
 from models import Object, PROTOCOLS, Target, User
@@ -575,7 +576,7 @@ def poll_notifications():
 
     for user in users:
         # TODO: remove for launch
-        if not DEBUG and user.key.id() not in ['indieweb.org', 'snarfed.org']:
+        if not DEBUG and user.key.id() not in USER_ALLOWLIST:
             logger.info(f'Skipping {user.key.id()}')
             continue
 
@@ -635,7 +636,7 @@ def poll_posts():
 
     for user in users:
         # TODO: remove for launch
-        if not DEBUG and user.key.id() not in ['indieweb.org', 'snarfed.org']:
+        if not DEBUG and user.key.id() not in USER_ALLOWLIST:
             logger.info(f'Skipping {user.key.id()}')
             continue
 
