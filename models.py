@@ -940,8 +940,7 @@ class Object(StringIdModel):
         :meth:`protocol.Protocol.translate_ids` is partly the inverse of this.
         Much of the same logic is duplicated there!
 
-        TODO: unify with :meth:`normalize_ids`,
-        :meth:`protocol.Protocol.normalize_ids`.
+        TODO: unify with :meth:`normalize_ids`, :meth:`Object.normalize_ids`.
         """
         if not self.as1:
             return

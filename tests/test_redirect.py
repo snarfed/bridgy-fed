@@ -21,6 +21,7 @@ from .test_web import (
     REPOST_AS2,
     REPOST_HTML,
     TOOT_AS2,
+    TOOT_AS2_DATA,
 )
 
 REPOST_AS2 = {
@@ -82,7 +83,8 @@ class RedirectTest(testutil.TestCase):
         self._test_as2(as2.CONTENT_TYPE_LD_PROFILE)
 
     def test_as2_creates_user(self):
-        Object(id='https://user.com/repost', as2=REPOST_AS2).put()
+        Object(id='https://user.com/repost', source_protocol='web',
+               as2=REPOST_AS2).put()
 
         self.user.key.delete()
 
@@ -96,34 +98,19 @@ class RedirectTest(testutil.TestCase):
 
     @patch('requests.get')
     def test_as2_fetch_post(self, mock_get):
-        mock_get.side_effect = [
-            requests_response(REPOST_HTML),
-            TOOT_AS2,
-        ]
+        mock_get.return_value = TOOT_AS2  # from Protocol.for_id
 
         resp = self.client.get('/r/https://user.com/repost',
                                headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assert_equals(REPOST_AS2, resp.json)
+        self.assert_equals(TOOT_AS2_DATA, resp.json)
         self.assertEqual('Accept', resp.headers['Vary'])
 
-    @patch('requests.get')
-    def test_as2_fetch_post_no_backlink(self, mock_get):
-        mock_get.side_effect = [
-            requests_response(
-                REPOST_HTML.replace('<a href="http://localhost/"></a>', '')),
-            TOOT_AS2,
-        ]
-
-        resp = self.client.get('/r/https://user.com/repost',
-                               headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
-        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
-        self.assert_equals(REPOST_AS2, resp.json)
-        self.assertEqual('Accept', resp.headers['Vary'])
-
-    @patch('requests.get')
+    @patch('requests.get', side_effect=[
+        requests_response(ACTOR_HTML),  # AS2 fetch
+        requests_response(ACTOR_HTML),  # web fetch
+    ])
     def test_as2_no_user_fetch_homepage(self, mock_get):
-        mock_get.return_value = requests_response(ACTOR_HTML)
         self.user.key.delete()
         self.user.obj_key.delete()
         protocol.objects_cache.clear()
@@ -174,7 +161,8 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual('https://user.com/bar', resp.headers['Location'])
 
     def _test_as2(self, content_type):
-        self.obj = Object(id='https://user.com/', as2=REPOST_AS2).put()
+        self.obj = Object(id='https://user.com/', source_protocol='web',
+                          as2=REPOST_AS2).put()
 
         resp = self.client.get('/r/https://user.com/', headers={'Accept': content_type})
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
@@ -183,7 +171,8 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual('Accept', resp.headers['Vary'])
 
     def test_as2_deleted(self):
-        Object(id='https://user.com/bar', as2={}, deleted=True).put()
+        Object(id='https://user.com/bar', as2={}, source_protocol='web',
+               deleted=True).put()
 
         resp = self.client.get('/r/https://user.com/bar',
                                headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
@@ -196,3 +185,13 @@ class RedirectTest(testutil.TestCase):
         resp = self.client.get('/r/https://user.com/',
                                headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
         self.assertEqual(404, resp.status_code, resp.get_data(as_text=True))
+
+    def test_as2_atproto_normalize_id(self):
+        self.obj = Object(id='at://did:plc:foo/app.bsky.feed.post/123',
+                          source_protocol='atproto', as2=REPOST_AS2).put()
+
+        resp = self.client.get('/r/https://bsky.app/profile/did:plc:foo/post/123',
+                               headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
+        self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, resp.content_type)
+        self.assert_equals(REPOST_AS2, resp.json)

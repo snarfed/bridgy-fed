@@ -26,8 +26,9 @@ from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from activitypub import ActivityPub
-from flask_app import app, cache
 from common import CACHE_TIME, CONTENT_TYPE_HTML
+from flask_app import app, cache
+from protocol import Protocol
 from web import Web
 
 logger = logging.getLogger(__name__)
@@ -85,51 +86,59 @@ def redir(to):
     domains = set((util.domain_from_link(to, minimize=True),
                    util.domain_from_link(to, minimize=False),
                    to_domain))
+    web_user = None
     for domain in domains:
         if domain:
             if domain in DOMAIN_ALLOWLIST:
                 break
-            if Web.get_by_id(domain):
+            if web_user := Web.get_by_id(domain):
                 logger.info(f'Found web user for domain {domain}')
                 break
     else:
         if not accept_as2:
             return f'No web user found for any of {domains}', 404, VARY_HEADER
 
-    if accept_as2:
-        # AS2 requested, fetch and convert and serve
-        obj = Web.load(to, check_backlink=False)
-        if not obj or obj.deleted:
+    if not accept_as2:
+        # redirect. include rel-alternate link to make posts discoverable by entering
+        # https://fed.brid.gy/r/[URL] in a fediverse instance's search.
+        logger.info(f'redirecting to {to}')
+        return f"""\
+    <!doctype html>
+    <html>
+    <head>
+    <link href="{request.url}" rel="alternate" type="application/activity+json">
+    </head>
+    <title>Redirecting...</title>
+    <h1>Redirecting...</h1>
+    <p>You should be redirected automatically to the target URL: <a href="{to}">{to}</a>. If not, click the link.
+    </html>
+    """, 301, {
+        'Location': to,
+        **VARY_HEADER,
+    }
+
+    # AS2 requested, fetch and convert and serve
+    proto = Protocol.for_id(to)
+    if not proto:
+        return f"Couldn't determine protocol for {to}", 404, VARY_HEADER
+
+    obj = proto.load(to)
+    if not obj or obj.deleted:
+        return f'Object not found: {to}', 404, VARY_HEADER
+
+    # TODO: do this for other protocols too?
+    if proto == Web and not web_user:
+        web_user = Web.get_or_create(util.domain_from_link(to), direct=False, obj=obj)
+        if not web_user:
             return f'Object not found: {to}', 404, VARY_HEADER
 
-        user = Web.get_or_create(util.domain_from_link(to), direct=False, obj=obj)
-        if not user:
-            return f'Object not found: {to}', 404, VARY_HEADER
+    ret = ActivityPub.convert(obj, from_user=web_user)
+    logger.info(f'Returning: {json_dumps(ret, indent=2)}')
+    return ret, {
+        'Content-Type': (as2.CONTENT_TYPE_LD_PROFILE
+                         if accept_type == as2.CONTENT_TYPE_LD
+                         else accept_type),
+        'Access-Control-Allow-Origin': '*',
+        **VARY_HEADER,
+    }
 
-        ret = ActivityPub.convert(obj, from_user=user)
-        logger.info(f'Returning: {json_dumps(ret, indent=2)}')
-        return ret, {
-            'Content-Type': (as2.CONTENT_TYPE_LD_PROFILE
-                             if accept_type == as2.CONTENT_TYPE_LD
-                             else accept_type),
-            'Access-Control-Allow-Origin': '*',
-            **VARY_HEADER,
-        }
-
-    # redirect. include rel-alternate link to make posts discoverable by entering
-    # https://fed.brid.gy/r/[URL] in a fediverse instance's search.
-    logger.info(f'redirecting to {to}')
-    return f"""\
-<!doctype html>
-<html>
-<head>
-<link href="{request.url}" rel="alternate" type="application/activity+json">
-</head>
-<title>Redirecting...</title>
-<h1>Redirecting...</h1>
-<p>You should be redirected automatically to the target URL: <a href="{to}">{to}</a>. If not, click the link.
-</html>
-""", 301, {
-    'Location': to,
-    **VARY_HEADER,
-}

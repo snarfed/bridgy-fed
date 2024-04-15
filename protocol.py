@@ -515,7 +515,7 @@ class Protocol:
         same logic is duplicated there!
 
         TODO: unify with :meth:`Object.resolve_ids`,
-        :meth:`protocol.Protocol.normalize_ids`.
+        :meth:`models.Object.normalize_ids`.
 
         Args:
           to_proto (Protocol subclass)
