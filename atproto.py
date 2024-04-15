@@ -89,7 +89,7 @@ class ATProto(User, Protocol):
     ABBREV = 'atproto'
     # TODO: add second bsky label? inject into PROTOCOLS?
     PHRASE = 'Bluesky'
-    LOGO_HTML = '<img src="/static/atproto_logo.png">'
+    LOGO_HTML = '<img src="/oauth_dropins_static/bluesky.svg">'
     PDS_URL = f'https://{ABBREV}{common.SUPERDOMAIN}/'
     CONTENT_TYPE = 'application/json'
 
