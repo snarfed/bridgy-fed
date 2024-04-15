@@ -66,7 +66,7 @@ def translate_user_id(*, id, from_proto, to_proto):
     Returns:
       str: the corresponding id in ``to_proto``
     """
-    assert id and from_proto and to_proto
+    assert id and from_proto and to_proto, (id, from_proto, to_proto)
     assert from_proto.owns_id(id) is not False or from_proto.LABEL == 'ui', \
         (id, from_proto.LABEL, to_proto.LABEL)
 
@@ -141,7 +141,7 @@ def translate_handle(*, handle, from_proto, to_proto, enhanced):
     Returns:
       str: the corresponding handle in ``to_proto``
     """
-    assert handle and from_proto and to_proto
+    assert handle and from_proto and to_proto, (handle, from_proto, to_proto)
     assert from_proto.owns_handle(handle) is not False or from_proto.LABEL == 'ui'
 
     if from_proto == to_proto:
@@ -188,7 +188,7 @@ def translate_object_id(*, id, from_proto, to_proto):
     Returns:
       str: the corresponding id in ``to_proto``
     """
-    assert id and from_proto and to_proto
+    assert id and from_proto and to_proto, (id, from_proto, to_proto)
     assert from_proto.owns_id(id) is not False or from_proto.LABEL == 'ui'
 
     # bsky.app profile URL to DID

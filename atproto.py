@@ -393,8 +393,8 @@ class ATProto(User, Protocol):
                 copy = base_obj.get_copy(to_cls)
                 assert copy
                 copy_did, coll, rkey = parse_at_uri(copy)
-                assert copy_did == did
-                assert coll == type
+                assert copy_did == did, (copy_did, did)
+                assert coll == type, (coll, type)
 
             logger.info(f'Storing ATProto {action} {type} {rkey}: {dag_json.encode(record).decode()}')
             repo.apply_writes([Write(action=action, collection=type, rkey=rkey,
