@@ -64,7 +64,7 @@ class CommonTest(TestCase):
         for input, expected in [
                 ('https://fa.brid.gy/', ''),
                 ('https://fa.brid.gy/ap/fake:foo', 'fake:foo'),
-                ('https://atproto.brid.gy/convert/ap/did:plc:123', 'did:plc:123'),
+                ('https://bsky.brid.gy/convert/ap/did:plc:123', 'did:plc:123'),
         ]:
             self.assertEqual(expected, common.unwrap(input))
 
@@ -99,8 +99,8 @@ class CommonTest(TestCase):
         with app.test_request_context(base_url='http://bridgy-federated.uc.r.appspot.com'):
             self.assertEqual('https://fed.brid.gy/asdf', common.host_url('asdf'))
 
-        with app.test_request_context(base_url='https://atproto.brid.gy', path='/foo'):
-            self.assertEqual('https://atproto.brid.gy/asdf', common.host_url('asdf'))
+        with app.test_request_context(base_url='https://bsky.brid.gy', path='/foo'):
+            self.assertEqual('https://bsky.brid.gy/asdf', common.host_url('asdf'))
 
     def test_is_enabled(self):
         self.assertTrue(common.is_enabled(Web, ActivityPub))

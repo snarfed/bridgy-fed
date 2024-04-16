@@ -110,14 +110,14 @@ class IntegrationTests(TestCase):
         web_test.assert_deliveries(mock_post, ['http://inst/bob/inbox'], data={
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Create',
-            'id': 'https://atproto.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/456#bridgy-fed-create',
-            'actor': 'https://atproto.brid.gy/ap/did:plc:alice',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/456#bridgy-fed-create',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
             'published': '2022-01-02T03:04:05+00:00',
             'object': {
                 'type': 'Note',
-                'id': 'https://atproto.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/456',
+                'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/456',
                 'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/456',
-                'attributedTo': 'https://atproto.brid.gy/ap/did:plc:alice',
+                'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'content': 'I hereby reply',
                 'contentMap': {'en': 'I hereby reply'},
                 'inReplyTo': 'http://inst/post',
@@ -178,7 +178,7 @@ class IntegrationTests(TestCase):
 
         self.assert_req(mock_get, 'https://bob.com/')
         self.assert_req(mock_post, 'https://bob.com/webmention', data={
-            'source': 'https://atproto.brid.gy/convert/web/at://did:plc:alice/app.bsky.graph.follow/123',
+            'source': 'https://bsky.brid.gy/convert/web/at://did:plc:alice/app.bsky.graph.follow/123',
             'target': 'https://bob.com/',
         }, allow_redirects=False, headers={'Accept': '*/*'})
 
@@ -306,7 +306,7 @@ class IntegrationTests(TestCase):
                              })
 
         bob_did_doc = copy.deepcopy(test_atproto.DID_DOC)
-        bob_did_doc['service'][0]['serviceEndpoint'] = 'https://atproto.brid.gy/'
+        bob_did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
         bob_did_doc.update({
             'id': 'did:plc:bob',
             'alsoKnownAs': ['at://bob.inst.ap.brid.gy'],
@@ -321,7 +321,7 @@ class IntegrationTests(TestCase):
             'type': 'Like',
             'id': 'http://inst/like',
             'actor': 'https://inst/bob',
-            'object': 'https://atproto.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
+            'object': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
         }
         resp = self.post('/ap/atproto/did:plc:alice/inbox', json=like)
         self.assertEqual(202, resp.status_code)

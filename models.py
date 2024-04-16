@@ -921,7 +921,7 @@ class Object(StringIdModel):
           original objects in their source protocol, eg
           ``at://did:plc:abc/app.bsky.feed.post/123`` => ``https://mas.to/@user/456``.
         * Bridgy Fed subdomain URLs to the ids embedded inside them, eg
-          ``https://atproto.brid.gy/ap/did:plc:xyz`` => ``did:plc:xyz``
+          ``https://bsky.brid.gy/ap/did:plc:xyz`` => ``did:plc:xyz``
         * ATProto bsky.app URLs to their DIDs or `at://` URIs, eg
           ``https://bsky.app/profile/a.com`` => ``did:plc:123``
 

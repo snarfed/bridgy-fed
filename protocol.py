@@ -497,7 +497,7 @@ class Protocol:
 
         For example, if ``proto`` is :class:`ActivityPub`, the ATProto URI
         ``at://did:plc:abc/coll/123`` will be converted to
-        ``https://atproto.brid.gy/ap/at://did:plc:abc/coll/123``.
+        ``https://bsky.brid.gy/ap/at://did:plc:abc/coll/123``.
 
         Wraps these AS1 fields:
 

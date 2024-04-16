@@ -2552,7 +2552,7 @@ class WebUtilTest(TestCase):
         self.assertEqual(False, Web.owns_handle('@foo@bar.com'))
         self.assertEqual(False, Web.owns_handle('foo@bar.com'))
         self.assertEqual(False, Web.owns_handle('localhost'))
-        self.assertEqual(False, Web.owns_handle('atproto.brid.gy'))
+        self.assertEqual(False, Web.owns_handle('bsky.brid.gy'))
 
     def test_handle_to_id(self, *_):
         self.assertEqual('foo.com', Web.handle_to_id('foo.com'))

@@ -409,7 +409,7 @@ class ProtocolTest(TestCase):
 
     def test_targets_checks_blocklisted_per_protocol(self):
         """_targets should call the target protocol's is_blocklisted()."""
-        # non-ATProto account, ATProto target (PDS) is atproto.brid.gy
+        # non-ATProto account, ATProto target (PDS) is bsky.brid.gy
         # shouldn't be blocklisted
         user = self.make_user(
             id='fake:user', cls=Fake,

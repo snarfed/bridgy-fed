@@ -73,7 +73,7 @@ class ATProtoTest(TestCase):
                                                   protocol='atproto')])
 
         did_doc = copy.deepcopy(DID_DOC)
-        did_doc['service'][0]['serviceEndpoint'] = 'https://atproto.brid.gy/'
+        did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
         self.store_object(id='did:plc:user', raw=did_doc)
         Repo.create(self.storage, 'did:plc:user', signing_key=ATPROTO_KEY)
 
@@ -639,11 +639,11 @@ class ATProtoTest(TestCase):
         user = self.make_user('did:plc:user', cls=ATProto)
 
         # TODO? or remove?
-        # self.assertEqual('@did:plc:user@atproto.brid.gy',
+        # self.assertEqual('@did:plc:user@bsky.brid.gy',
         #                  user.handle_as('activitypub'))
 
         self.store_object(id='did:plc:user', raw=DID_DOC)
-        self.assertEqual('@han.dull@atproto.brid.gy', user.handle_as('activitypub'))
+        self.assertEqual('@han.dull@bsky.brid.gy', user.handle_as('activitypub'))
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_profile_id(self, mock_get):
@@ -711,7 +711,7 @@ class ATProtoTest(TestCase):
             'actor': 'fake:user',
         })
 
-        self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))
 
         # check DID doc
         user = user.key.get()
@@ -775,7 +775,7 @@ class ATProtoTest(TestCase):
         Fake.fetchable = {'fake:user': ACTOR_AS}
 
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1=NOTE_AS)
-        self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))
 
         # check profile, record
         user = Fake.get_by_id('fake:user')
@@ -812,7 +812,7 @@ class ATProtoTest(TestCase):
         user = self.make_user_and_repo()
         obj = self.store_object(id='fake:post', source_protocol='fake',
                                 our_as1=NOTE_AS)
-        self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))
 
         # check repo, record
         did = user.key.get().get_copy(ATProto)
@@ -841,7 +841,7 @@ class ATProtoTest(TestCase):
             'verb': 'update',
             'object': note.our_as1,
         })
-        self.assertTrue(ATProto.send(update, 'https://atproto.brid.gy/'))
+        self.assertTrue(ATProto.send(update, 'https://bsky.brid.gy/'))
 
         # check repo, record
         did = self.user.key.get().get_copy(ATProto)
@@ -863,7 +863,7 @@ class ATProtoTest(TestCase):
             'actor': 'fake:user',
             'object': 'fake:post',
         })
-        self.assertTrue(ATProto.send(update, 'https://atproto.brid.gy/'))
+        self.assertTrue(ATProto.send(update, 'https://bsky.brid.gy/'))
 
         # check repo, record
         did = self.user.key.get().get_copy(ATProto)
@@ -895,7 +895,7 @@ class ATProtoTest(TestCase):
             'actor': 'fake:user',
             'object': 'at://did:plc:bob/app.bsky.feed.post/tid',
         })
-        self.assertTrue(ATProto.send(like_obj, 'https://atproto.brid.gy/'))
+        self.assertTrue(ATProto.send(like_obj, 'https://bsky.brid.gy/'))
 
         # check repo, record
         did = user.get_copy(ATProto)
@@ -935,7 +935,7 @@ class ATProtoTest(TestCase):
             'actor': 'fake:user',
             'object': 'at://did:bob/app.bsky.feed.post/tid',
         })
-        self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))
 
         # check repo, record
         did = user.get_copy(ATProto)
@@ -970,7 +970,7 @@ class ATProtoTest(TestCase):
             'actor': 'fake:user',
             'object': 'did:plc:bob',
         })
-        self.assertTrue(ATProto.send(obj, 'https://atproto.brid.gy/'))
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))
 
         # check repo, record
         did = user.get_copy(ATProto)
@@ -1005,7 +1005,7 @@ class ATProtoTest(TestCase):
             'actor': 'fake:alice',
             'object': 'fake:follow',
         })
-        self.assertFalse(ATProto.send(obj, 'https://atproto.brid.gy/'))
+        self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())
         mock_create_task.assert_not_called()
@@ -1017,7 +1017,7 @@ class ATProtoTest(TestCase):
                               copies=[Target(uri='did:plc:user', protocol='atproto')])
         obj = self.store_object(id='fake:post', source_protocol='fake',
                                 our_as1=NOTE_AS)
-        self.assertFalse(ATProto.send(obj, 'https://atproto.brid.gy/'))
+        self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())
         mock_create_task.assert_not_called()
@@ -1035,7 +1035,7 @@ class ATProtoTest(TestCase):
                 'actor': 'fake:user',
             },
         })
-        self.assertFalse(ATProto.send(obj, 'https://atproto.brid.gy/'))
+        self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())
         mock_create_task.assert_not_called()
@@ -1079,7 +1079,7 @@ class ATProtoTest(TestCase):
         create = self.store_object(id='fake:reply:post', source_protocol='fake',
                                    our_as1=create_as1)
 
-        self.assertTrue(ATProto.send(create, 'https://atproto.brid.gy/'))
+        self.assertTrue(ATProto.send(create, 'https://bsky.brid.gy/'))
 
         repo = self.storage.load_repo(user.get_copy(ATProto))
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)

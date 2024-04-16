@@ -861,7 +861,7 @@ class ObjectTest(TestCase):
             'object': {
                 'id': 'https://web.brid.gy/fa/fake:reply',
                 'inReplyTo': 'https://ap.brid.gy/fa/fake:post',
-                'author': 'https://atproto.brid.gy/ap/did:plc:123',
+                'author': 'https://bsky.brid.gy/ap/did:plc:123',
                 'tags': [{
                     'objectType': 'mention',
                     'url': 'https://ap.brid.gy/atproto/http://inst.com/@me',

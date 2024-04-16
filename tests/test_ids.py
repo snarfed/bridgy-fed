@@ -40,8 +40,8 @@ class IdsTest(TestCase):
             (ATProto, 'did:plc:456', ActivityPub, 'https://inst/user'),
             (ATProto, 'did:plc:789', Fake, 'fake:user'),
             # no copies
-            (ATProto, 'did:plc:x', Web, 'https://atproto.brid.gy/web/did:plc:x'),
-            (ATProto, 'did:plc:x', ActivityPub, 'https://atproto.brid.gy/ap/did:plc:x'),
+            (ATProto, 'did:plc:x', Web, 'https://bsky.brid.gy/web/did:plc:x'),
+            (ATProto, 'did:plc:x', ActivityPub, 'https://bsky.brid.gy/ap/did:plc:x'),
             (ATProto, 'did:plc:x', Fake, 'fake:u:did:plc:x'),
             (ATProto, 'https://bsky.app/profile/user.com', ATProto, 'did:plc:123'),
             (ATProto, 'https://bsky.app/profile/did:plc:123', ATProto, 'did:plc:123'),
@@ -111,7 +111,7 @@ class IdsTest(TestCase):
             (ActivityPub, '@user@instance', Fake, 'fake:handle:@user@instance'),
             (ActivityPub, '@user@instance', Web, 'https://instance/@user'),
 
-            (ATProto, 'user.com', ActivityPub, '@user.com@atproto.brid.gy'),
+            (ATProto, 'user.com', ActivityPub, '@user.com@bsky.brid.gy'),
             (ATProto, 'user.com', ATProto, 'user.com'),
             (ATProto, 'user.com', Fake, 'fake:handle:user.com'),
             (ATProto, 'user.com', Web, 'user.com'),
@@ -165,9 +165,9 @@ class IdsTest(TestCase):
             (ATProto, 'at://did/ap/post', ActivityPub, 'https://inst/post'),
             (ATProto, 'at://did/fa/post', Fake, 'fake:post'),
             # no copies
-            (ATProto, 'did:plc:x', Web, 'https://atproto.brid.gy/convert/web/did:plc:x'),
-            (ATProto, 'did:plc:x', ActivityPub, 'https://atproto.brid.gy/convert/ap/did:plc:x'),
-            (ATProto, 'did:plc:x', Fake, 'fake:o:atproto:did:plc:x'),
+            (ATProto, 'did:plc:x', Web, 'https://bsky.brid.gy/convert/web/did:plc:x'),
+            (ATProto, 'did:plc:x', ActivityPub, 'https://bsky.brid.gy/convert/ap/did:plc:x'),
+            (ATProto, 'did:plc:x', Fake, 'fake:o:bsky:did:plc:x'),
             (ATProto, 'https://bsky.app/profile/user.com/post/456',
              ATProto, 'at://did:plc:123/app.bsky.feed.post/456'),
             (ATProto, 'https://bsky.app/profile/did:plc:123/post/456',

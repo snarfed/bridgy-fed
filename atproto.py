@@ -86,11 +86,16 @@ class ATProto(User, Protocol):
     Key id is DID, currently either did:plc or did:web.
     https://atproto.com/specs/did
     """
-    ABBREV = 'atproto'
+    ABBREV = 'bsky'
     # TODO: add second bsky label? inject into PROTOCOLS?
     PHRASE = 'Bluesky'
     LOGO_HTML = '<img src="/oauth_dropins_static/bluesky.svg">'
-    PDS_URL = f'https://{ABBREV}{common.SUPERDOMAIN}/'
+    # note that PDS hostname is atproto.brid.gy here, not bsky.brid.gy. Bluesky
+    # team currently has our hostname as atproto.brid.gy in their federation
+    # test.
+    # TODO: switch to bsky.brid.gy once they lift their federation limits? we'd
+    # need to update serviceEndpoint in all users' DID docs. :/
+    PDS_URL = f'https://atproto{common.SUPERDOMAIN}/'
     CONTENT_TYPE = 'application/json'
 
     def _pre_put_hook(self):

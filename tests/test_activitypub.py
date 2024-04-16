@@ -440,7 +440,7 @@ class ActivityPubTest(TestCase):
     def test_actor_atproto_not_enabled(self, *_):
         self.store_object(id='did:plc:user', raw={'foo': 'baz'})
         self.make_user('did:plc:user', cls=ATProto)
-        got = self.client.get('/ap/did:plc:user', base_url='https://atproto.brid.gy/')
+        got = self.client.get('/ap/did:plc:user', base_url='https://bsky.brid.gy/')
         self.assertEqual(400, got.status_code)
 
     @patch('common.ENABLED_BRIDGES', new=[('activitypub', 'atproto')])
@@ -453,7 +453,7 @@ class ActivityPubTest(TestCase):
 
         self.make_user('did:plc:user', cls=ATProto)
 
-        got = self.client.get('/ap/did:plc:user', base_url='https://atproto.brid.gy/')
+        got = self.client.get('/ap/did:plc:user', base_url='https://bsky.brid.gy/')
         self.assertEqual(200, got.status_code)
         self.assertNotIn('preferredUsername', got.json)
 
