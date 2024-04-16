@@ -5,6 +5,9 @@
 <li class="row">
   {% with url=f.user.web_url(), user_as1=f.user.obj.as1 or {} %}
     <a class="follower col-xs-10 col-sm-10 col-lg-6" href="{{ url }}">
+      <span class="logo" title="{{ user.__class__.__name__ }}">
+        {{ f.user.LOGO_HTML|safe }}
+      </span>
       {% with picture=util.get_url(user_as1, 'icon') or util.get_url(user_as1, 'image') %}
         {% if picture %}
           <img class="profile u-photo" src="{{ picture }}" width="48px">

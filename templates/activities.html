@@ -3,6 +3,9 @@
 {% for obj in objects %}
 <li class="row h-entry">
   <div class="e-content col-xs-{{ 5 if show_users else 8 }}">
+    {% if obj.source_protocol %}
+      <span class="logo">{{ PROTOCOLS[obj.source_protocol].LOGO_HTML|safe }}</span>
+    {% endif %}
     {{ obj.actor_link(user=user)|safe }}
     {{ obj.phrase|safe }}
     {% if obj.url %}<a target="_blank" href="{{ obj.url }}" class="u-url">{% endif %}
