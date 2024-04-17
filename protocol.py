@@ -171,9 +171,6 @@ class Protocol:
             elif to_label in user.enabled_protocols:
                 return True
 
-        if user_id in common.USER_ALLOWLIST:
-           return True
-
         return tuple(sorted((from_label, to_label))) in common.ENABLED_BRIDGES
 
     @classmethod

@@ -34,7 +34,6 @@ from common import (
     DOMAINS,
     error,
     USER_AGENT,
-    USER_ALLOWLIST,
 )
 import flask_app
 from models import Object, PROTOCOLS, Target, User
@@ -97,7 +96,7 @@ class ATProto(User, Protocol):
     # need to update serviceEndpoint in all users' DID docs. :/
     PDS_URL = f'https://atproto{common.SUPERDOMAIN}/'
     CONTENT_TYPE = 'application/json'
-    DEFAULT_ENABLED_PROTOCOLS = ('web',)
+    DEFAULT_ENABLED_PROTOCOLS = ('web', 'activitypub')
 
     def _pre_put_hook(self):
         """Validate id, require did:plc or non-blocklisted did:web."""
@@ -580,8 +579,7 @@ def poll_notifications():
                     headers={'User-Agent': USER_AGENT})
 
     for user in users:
-        # TODO: remove for launch
-        if not DEBUG and user.key.id() not in USER_ALLOWLIST:
+        if not user.is_enabled_to(ATProto, user=user):
             logger.info(f'Skipping {user.key.id()}')
             continue
 
@@ -640,8 +638,7 @@ def poll_posts():
                     headers={'User-Agent': USER_AGENT})
 
     for user in users:
-        # TODO: remove for launch
-        if not DEBUG and user.key.id() not in USER_ALLOWLIST:
+        if not user.is_enabled_to(ATProto, user=user):
             logger.info(f'Skipping {user.key.id()}')
             continue
 

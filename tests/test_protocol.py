@@ -184,14 +184,6 @@ class ProtocolTest(TestCase):
         self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake))
         self.assertFalse(ExplicitEnableFake.is_enabled_to(Web))
 
-    def test_is_enabled_to_user_allowlist(self):
-        self.assertFalse(ATProto.is_enabled_to(ActivityPub, user='unknown'))
-        self.assertTrue(ATProto.is_enabled_to(ActivityPub, user='snarfed.org'))
-
-        user = Fake(id='did:plc:fdme4gb7mu7zrie7peay7tst')
-        self.assertTrue(ATProto.is_enabled_to(ActivityPub, user=user))
-        self.assertTrue(ATProto.is_enabled_to(ActivityPub, user=user.key.id()))
-
     def test_is_enabled_to_opt_out(self):
         user = self.make_user('user.com', cls=Web)
         self.assertTrue(Web.is_enabled_to(ActivityPub, user))

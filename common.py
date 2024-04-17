@@ -83,16 +83,6 @@ util.set_user_agent(USER_AGENT)
 TASKS_LOCATION = 'us-central1'
 RUN_TASKS_INLINE = False  # overridden by unit tests
 
-# TODO: switch to User.enabled_protocols
-USER_ALLOWLIST = (
-    'snarfed.org',
-    'did:plc:fdme4gb7mu7zrie7peay7tst',
-    'snarfed.bsky.social',
-    'did:plc:3ljmtyyjqcjee2kpewgsifvb',
-    'https://indieweb.social/users/snarfed',
-    '@snarfed@indieweb.social',
-)
-
 
 def base64_to_long(x):
     """Converts from URL safe base64 encoding to long integer.

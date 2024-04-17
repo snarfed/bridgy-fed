@@ -441,7 +441,7 @@ class ActivityPubTest(TestCase):
         self.store_object(id='did:plc:user', raw={'foo': 'baz'})
         self.make_user('did:plc:user', cls=ATProto)
         got = self.client.get('/ap/did:plc:user', base_url='https://bsky.brid.gy/')
-        self.assertEqual(400, got.status_code)
+        self.assertEqual(404, got.status_code)
 
     @patch('common.ENABLED_BRIDGES', new=[('activitypub', 'atproto')])
     def test_actor_atproto_no_handle(self, *_):
