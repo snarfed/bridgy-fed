@@ -1649,7 +1649,7 @@ class ActivityPubTest(TestCase):
     def test_following_collection_page(self, *_):
         self.store_following()
         after = datetime(1900, 1, 1).isoformat()
-        prev = Follower.query(Follower.to == ActivityPub(id='http://baz').key,
+        prev = Follower.query(Follower.to == ActivityPub(id='http://bar').key,
                               Follower.from_ == self.user.key,
                               ).get().updated.isoformat()
 

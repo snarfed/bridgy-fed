@@ -1,25 +1,27 @@
 Bridgy Fed developer documentation
 ----------------------------------
 
-Bridgy Fed connects your web site to
-`Mastodon <https://joinmastodon.org>`__ and the
-`fediverse <https://en.wikipedia.org/wiki/Fediverse>`__ via
-`ActivityPub <https://activitypub.rocks/>`__,
-`webmentions <https://webmention.net/>`__, and
-`microformats2 <https://microformats.org/wiki/microformats2>`__. Your
-site gets its own fediverse profile, posts and avatar and header and
-all. Bridgy Fed translates likes, reposts, mentions, follows, and more
-back and forth. `See the user docs <https://fed.brid.gy/docs>`__ and
-`developer docs <https://bridgy-fed.readthedocs.io/>`__ for more
-details.
+Bridgy Fed connects different decentralized social network protocols. It
+currently supports the
+`fediverse <https://en.wikipedia.org/wiki/Fediverse>`__ (eg
+`Mastodon <https://joinmastodon.org>`__) via
+`ActivityPub <https://activitypub.rocks/>`__, and the
+`IndieWeb <https://indieweb.org/>`__ via
+`webmentions <https://webmention.net/>`__ and
+`microformats2 <https://microformats.org/wiki/microformats2>`__.
+`Bluesky/AT
+Protocol <https://github.com/snarfed/bridgy-fed/issues/381>`__ and
+`Nostr <https://github.com/snarfed/bridgy-fed/issues/446>`__ are planned
+for 2024. Bridgy Fed translates profiles, likes, reposts, mentions,
+follows, and more from any supported network to any other. `See the user
+docs <https://fed.brid.gy/docs>`__ and `developer
+docs <https://bridgy-fed.readthedocs.io/>`__ for more details.
 
 https://fed.brid.gy/
 
-Also see the
-`original <https://snarfed.org/indieweb-activitypub-bridge>`__
-`design <https://snarfed.org/indieweb-ostatus-bridge>`__ blog posts.
-
-License: This project is placed in the public domain.
+License: This project is placed in the public domain. You may also use
+it under the `CC0
+License <https://creativecommons.org/publicdomain/zero/1.0/>`__.
 
 Development
 -----------
@@ -31,11 +33,11 @@ requests are welcome! Feel free to `ping me in
 
 First, fork and clone this repo. Then, install the `Google Cloud
 SDK <https://cloud.google.com/sdk/>`__ and run
-``gcloud components install beta cloud-datastore-emulator`` to install
-the `datastore
-emulator <https://cloud.google.com/datastore/docs/tools/datastore-emulator>`__.
-Once you have them, set up your environment by running these commands in
-the repo root directory:
+``gcloud components install cloud-firestore-emulator`` to install the
+`Firestore
+emulator <https://cloud.google.com/firestore/docs/emulator>`__. Once you
+have them, set up your environment by running these commands in the repo
+root directory:
 
 .. code:: sh
 
@@ -48,7 +50,7 @@ Now, run the tests to check that everything is set up ok:
 
 .. code:: shell
 
-   gcloud beta emulators datastore start --use-firestore-in-datastore-mode --no-store-on-disk --host-port=localhost:8089 --quiet < /dev/null >& /dev/null &
+   gcloud emulators firestore start --host-port=:8089 --database-mode=datastore-mode < /dev/null >& /dev/null &
    python3 -m unittest discover
 
 Finally, run this in the repo root directory to start the web app
@@ -112,8 +114,9 @@ How to add a new protocol
 5. TODO: add a new usage section to the docs for the new protocol.
 6. TODO: does the new protocol need any new UI or signup functionality?
    Unusual, but not impossible. Add that if necessary.
-7. Add the new protocol’s logo to ``static/``, use it in
-   `templates/user.html <https://github.com/snarfed/bridgy-fed/blob/main/templates/user.html>`__.
+7. Protocol logos may be emoji or image files. If this one is a file,
+   add it ``static/``. Then add the emoji or file ``<img>`` tag in the
+   ``Protocol`` subclass’s ``LOGO_HTML`` constant.
 
 Stats
 -----

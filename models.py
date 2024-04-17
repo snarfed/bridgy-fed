@@ -1180,7 +1180,7 @@ class Follower(ndb.Model):
         query = Follower.query(
             Follower.status == 'active',
             filter_prop == user.key,
-        ).order(-Follower.updated)
+        )
 
         followers, before, after = fetch_page(query, Follower, by=Follower.updated)
         users = ndb.get_multi(f.from_ if collection == 'followers' else f.to
