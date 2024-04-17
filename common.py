@@ -83,6 +83,7 @@ util.set_user_agent(USER_AGENT)
 TASKS_LOCATION = 'us-central1'
 RUN_TASKS_INLINE = False  # overridden by unit tests
 
+# TODO: switch to User.enabled_protocols
 USER_ALLOWLIST = (
     'snarfed.org',
     'did:plc:fdme4gb7mu7zrie7peay7tst',
@@ -262,31 +263,6 @@ def add(seq, val):
     """
     if val not in seq:
         seq.append(val)
-
-
-def is_enabled(proto_a, proto_b, handle_or_id=None):
-    """Returns True if bridging the two input protocols is enabled, False otherwise.
-
-    Args:
-      proto_a (Protocol subclass)
-      proto_b (Protocol subclass)
-      handle_or_id (str): optional user handle or id
-
-    Returns:
-      bool:
-    """
-    if proto_a == proto_b:
-        return True
-
-    labels = tuple(sorted((proto_a.LABEL, proto_b.LABEL)))
-
-    if DEBUG and ('fake' in labels or 'other' in labels):
-        return True
-
-    if handle_or_id in USER_ALLOWLIST:
-        return True
-
-    return labels in ENABLED_BRIDGES
 
 
 def create_task(queue, delay=None, **params):

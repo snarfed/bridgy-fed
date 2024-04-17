@@ -114,6 +114,8 @@ def reset_protocol_properties():
         'protocol', choices=list(PROTOCOLS.keys()), required=True)
     Object.source_protocol = ndb.StringProperty(
         'source_protocol', choices=list(PROTOCOLS.keys()))
+    User.enabled_protocols = ndb.StringProperty(
+        'enabled_protocols', choices=list(PROTOCOLS.keys()), repeated=True)
 
     abbrevs = f'({"|".join(PROTOCOLS.keys())}|fed)'
     common.SUBDOMAIN_BASE_URL_RE = re.compile(
@@ -156,6 +158,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     # set to True for users who asked me to be opted out instead of putting
     # #nobridge in their profile
     manual_opt_out = ndb.BooleanProperty()
+
+    # protocols that this user has explicitly opted into. protocols that don't
+    # require explicit opt in are omitted here. choices is populated in
+    # reset_protocol_properties.
+    enabled_protocols = ndb.StringProperty(repeated=True, choices=[])
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
@@ -241,7 +248,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         ATProto = PROTOCOLS['atproto']
         if propagate and cls.LABEL != 'atproto' and not user.get_copy(ATProto):
-            if common.is_enabled(cls, ATProto, handle_or_id=id):
+            if cls.is_enabled_to(ATProto, user=id):
                 ATProto.create_for(user)
             else:
                 logger.info(f'{cls.LABEL} <=> atproto not enabled, skipping')
@@ -551,8 +558,8 @@ class Object(StringIdModel):
     domains = ndb.StringProperty(repeated=True)
 
     status = ndb.StringProperty(choices=STATUSES)
-    # choices is populated in app, after all User subclasses are created,
-    # so that PROTOCOLS is fully populated
+    # choices is populated in reset_protocol_properties, after all User
+    # subclasses are created, so that PROTOCOLS is fully populated.
     # TODO: nail down whether this is ABBREV or LABEL
     source_protocol = ndb.StringProperty(choices=[])
     labels = ndb.StringProperty(repeated=True, choices=LABELS)

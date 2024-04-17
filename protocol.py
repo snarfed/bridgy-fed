@@ -12,9 +12,10 @@ from google.cloud import ndb
 from google.cloud.ndb import OR
 from google.cloud.ndb.model import _entity_to_protobuf
 from granary import as1
+from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import cloud_tasks_only
-from oauth_dropins.webutil import util
 from oauth_dropins.webutil import models
+from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import werkzeug.exceptions
 
@@ -70,6 +71,8 @@ class Protocol:
         appropriate for the ``Content-Type`` HTTP header.
       HAS_FOLLOW_ACCEPTS (bool): whether this protocol supports explicit
         accept/reject activities in response to follows, eg ActivityPub
+      DEFAULT_ENABLED_PROTOCOLS (list of str): labels of other protocols that
+        are automatically enabled for this protocol to bridge into
     """
     ABBREV = None
     PHRASE = None
@@ -77,6 +80,7 @@ class Protocol:
     LOGO_HTML = ''
     CONTENT_TYPE = None
     HAS_FOLLOW_ACCEPTS = False
+    DEFAULT_ENABLED_PROTOCOLS = ()
 
     def __init__(self):
         assert False
@@ -125,6 +129,52 @@ class Protocol:
         elif domain and domain.endswith(common.SUPERDOMAIN):
             label = domain.removesuffix(common.SUPERDOMAIN)
             return PROTOCOLS.get(label)
+
+    @classmethod
+    def is_enabled_to(from_cls, to_cls, user=None):
+        """Returns True if two protocols, and optionally a user, can be bridged.
+
+        Reasons this might return False:
+        * We haven't turned on bridging these two protocols yet.
+        * The user is opted out.
+        * The user is on a domain that's opted out.
+        * The from protocol requires opt in, and the user hasn't opted in.
+
+        Args:
+          from_cls (Protocol subclass)
+          to_cls (Protocol subclass)
+          user (:class:`models.User` or str): optional, user or id
+
+        Returns:
+          bool:
+        """
+        if from_cls == to_cls:
+            return True
+
+        from_label = from_cls.LABEL
+        to_label = to_cls.LABEL
+
+        if DEBUG and (from_label in ('fake', 'other')
+                      or (to_label in ('fake', 'other') and from_label != 'eefake')):
+            return True
+
+        user_id = None
+        if isinstance(user, User):
+            user_id = user.key.id() if user.key else None
+        elif isinstance(user, str):
+            user_id = user
+            user = from_cls.get_by_id(user_id, allow_opt_out=True)
+
+        if user:
+            if user.status == 'opt-out':
+                return False
+            elif to_label in user.enabled_protocols:
+                return True
+
+        if user_id in common.USER_ALLOWLIST:
+           return True
+
+        return tuple(sorted((from_label, to_label))) in common.ENABLED_BRIDGES
 
     @classmethod
     def owns_id(cls, id):

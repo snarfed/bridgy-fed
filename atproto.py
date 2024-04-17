@@ -97,6 +97,7 @@ class ATProto(User, Protocol):
     # need to update serviceEndpoint in all users' DID docs. :/
     PDS_URL = f'https://atproto{common.SUPERDOMAIN}/'
     CONTENT_TYPE = 'application/json'
+    DEFAULT_ENABLED_PROTOCOLS = ('web',)
 
     def _pre_put_hook(self):
         """Validate id, require did:plc or non-blocklisted did:web."""
@@ -506,9 +507,8 @@ class ATProto(User, Protocol):
           dict: JSON object
         """
         from_proto = PROTOCOLS.get(obj.source_protocol)
-        user_id = from_user.key.id() if from_user and from_user.key else None
         # TODO: uncomment
-        # if from_proto and not common.is_enabled(cls, from_proto, handle_or_id=user_id):
+        # if from_proto and not from_proto.is_enabled_to(cls, user=from_user):
         #     error(f'{cls.LABEL} <=> {from_proto.LABEL} not enabled')
 
         if obj.bsky:

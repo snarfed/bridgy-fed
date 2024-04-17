@@ -2,7 +2,7 @@
 from flask import g
 
 # import first so that Fake is defined before URL routes are registered
-from .testutil import Fake, OtherFake, TestCase
+from .testutil import ExplicitEnableFake, Fake, OtherFake, TestCase
 
 from activitypub import ActivityPub
 from atproto import ATProto
@@ -101,18 +101,3 @@ class CommonTest(TestCase):
 
         with app.test_request_context(base_url='https://bsky.brid.gy', path='/foo'):
             self.assertEqual('https://bsky.brid.gy/asdf', common.host_url('asdf'))
-
-    def test_is_enabled(self):
-        self.assertTrue(common.is_enabled(Web, ActivityPub))
-        self.assertTrue(common.is_enabled(ActivityPub, Web))
-        self.assertTrue(common.is_enabled(ActivityPub, ActivityPub))
-        self.assertTrue(common.is_enabled(ATProto, Web))
-        self.assertTrue(common.is_enabled(Fake, OtherFake))
-        self.assertFalse(common.is_enabled(ATProto, ActivityPub))
-
-        self.assertFalse(common.is_enabled(
-            ATProto, ActivityPub, handle_or_id='unknown'))
-        self.assertTrue(common.is_enabled(
-            ATProto, ActivityPub, handle_or_id='snarfed.org'))
-        self.assertTrue(common.is_enabled(
-            ATProto, ActivityPub, handle_or_id='did:plc:fdme4gb7mu7zrie7peay7tst'))

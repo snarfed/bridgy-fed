@@ -16,7 +16,7 @@ import requests
 from werkzeug.exceptions import BadRequest
 
 # import first so that Fake is defined before URL routes are registered
-from .testutil import Fake, OtherFake, TestCase
+from .testutil import ExplicitEnableFake, Fake, OtherFake, TestCase
 
 from activitypub import ActivityPub
 from app import app
@@ -168,6 +168,50 @@ class ProtocolTest(TestCase):
             '_atproto.han.dull.', '"did=did:plc:123abc"'))
     def test_for_handle_atproto_resolve(self, _):
         self.assertEqual((ATProto, 'did:plc:123abc'), Protocol.for_handle('han.dull'))
+
+    def test_is_enabled_to(self):
+        self.assertTrue(Web.is_enabled_to(ActivityPub))
+        self.assertTrue(ActivityPub.is_enabled_to(Web))
+        self.assertTrue(ActivityPub.is_enabled_to(ActivityPub))
+        self.assertTrue(ATProto.is_enabled_to(Web))
+        self.assertTrue(Web.is_enabled_to(ATProto))
+        self.assertTrue(Fake.is_enabled_to(OtherFake))
+        self.assertTrue(Fake.is_enabled_to(ExplicitEnableFake))
+
+    def test_is_enabled_to_not_default_enabled(self):
+        self.assertFalse(ActivityPub.is_enabled_to(ATProto))
+        self.assertFalse(ATProto.is_enabled_to(ActivityPub))
+        self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake))
+        self.assertFalse(ExplicitEnableFake.is_enabled_to(Web))
+
+    def test_is_enabled_to_user_allowlist(self):
+        self.assertFalse(ATProto.is_enabled_to(ActivityPub, user='unknown'))
+        self.assertTrue(ATProto.is_enabled_to(ActivityPub, user='snarfed.org'))
+
+        user = Fake(id='did:plc:fdme4gb7mu7zrie7peay7tst')
+        self.assertTrue(ATProto.is_enabled_to(ActivityPub, user=user))
+        self.assertTrue(ATProto.is_enabled_to(ActivityPub, user=user.key.id()))
+
+    def test_is_enabled_to_opt_out(self):
+        user = self.make_user('user.com', cls=Web)
+        self.assertTrue(Web.is_enabled_to(ActivityPub, user))
+
+        user.manual_opt_out = True
+        user.put()
+        protocol.objects_cache.clear()
+        self.assertFalse(Web.is_enabled_to(ActivityPub, 'user.com'))
+
+    def test_is_enabled_to_enabled_protocols(self):
+        user = self.make_user(id='eefake:foo', cls=ExplicitEnableFake)
+        self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, 'eefake:foo'))
+
+        user.enabled_protocols = ['web']
+        user.put()
+        self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, 'eefake:foo'))
+
+        user.enabled_protocols = ['web', 'fake']
+        user.put()
+        self.assertTrue(ExplicitEnableFake.is_enabled_to(Fake, 'eefake:foo'))
 
     def test_load(self):
         Fake.fetchable['foo'] = {'x': 'y'}

@@ -75,6 +75,7 @@ class ActivityPub(User, Protocol):
     LOGO_HTML = '<img src="/static/fediverse_logo.svg">'
     CONTENT_TYPE = as2.CONTENT_TYPE_LD_PROFILE
     HAS_FOLLOW_ACCEPTS = True
+    DEFAULT_ENABLED_PROTOCOLS = ('web',)
 
     def _pre_put_hook(self):
         """Validate id, require URL, don't allow Bridgy Fed domains.
@@ -363,7 +364,7 @@ class ActivityPub(User, Protocol):
         from_proto = PROTOCOLS.get(obj.source_protocol)
         user_id = from_user.key.id() if from_user and from_user.key else None
         # TODO: uncomment
-        # if from_proto and not common.is_enabled(cls, from_proto, handle_or_id=user_id):
+        # if from_proto and not from_proto.is_enabled_to(cls, user=from_user):
         #     error(f'{cls.LABEL} <=> {from_proto.LABEL} not enabled')
 
         if obj.as2:
@@ -832,8 +833,6 @@ def actor(handle_or_id):
     cls = Protocol.for_request(fed='web')
     if not cls:
         error(f"Couldn't determine protocol", status=404)
-    elif not common.is_enabled(cls, ActivityPub, handle_or_id=handle_or_id):
-        error(f'{cls.LABEL} <=> activitypub not enabled')
     elif cls.LABEL == 'web' and request.path.startswith('/ap/'):
         # we started out with web users' AP ids as fed.brid.gy/[domain], so we
         # need to preserve those for backward compatibility
@@ -851,6 +850,9 @@ def actor(handle_or_id):
         id = handle_or_id
 
     assert id
+    if not cls.is_enabled_to(ActivityPub, user=id):
+        error(f'{cls.LABEL} user {id} not found', status=404)
+
     user = cls.get_or_create(id)
     if not user:
         error(f'{cls.LABEL} user {id} not found', status=404)

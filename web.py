@@ -98,6 +98,7 @@ class Web(User, Protocol):
     OTHER_LABELS = ('webmention',)
     LOGO_HTML = '🌐'  # used to be 🕸️
     CONTENT_TYPE = common.CONTENT_TYPE_HTML
+    DEFAULT_ENABLED_PROTOCOLS = ('activitypub', 'atproto')
 
     has_redirects = ndb.BooleanProperty()
     redirects_error = ndb.TextProperty()
@@ -537,8 +538,7 @@ class Web(User, Protocol):
         obj_as1 = obj.as1
         from_proto = PROTOCOLS.get(obj.source_protocol)
         if from_proto:
-            user_id = from_user.key.id() if from_user and from_user.key else None
-            if not common.is_enabled(cls, from_proto, handle_or_id=user_id):
+            if not from_proto.is_enabled_to(cls, user=from_user):
                 error(f'{cls.LABEL} <=> {from_proto.LABEL} not enabled')
 
             # fill in author/actor if available

@@ -1184,8 +1184,8 @@ class ActivityPubTest(TestCase):
         ]
         mock_post.return_value = requests_response()
 
-        follower = Follower.get_or_create(to=self.user,
-                                          from_=ActivityPub.get_or_create(ACTOR['id']),
+        follower_key = ActivityPub.get_or_create(ACTOR['id'])
+        follower = Follower.get_or_create(to=self.user, from_=follower_key,
                                           status='inactive')
 
         undo_follow = copy.deepcopy(UNDO_FOLLOW_WRAPPED)

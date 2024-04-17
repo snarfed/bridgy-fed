@@ -164,6 +164,15 @@ class OtherFake(Fake):
         return f'{obj.key.id()}:target'
 
 
+class ExplicitEnableFake(Fake):
+    LABEL = ABBREV = 'eefake'
+    CONTENT_TYPE = 'un/known'
+
+    fetchable = {}
+    sent = []
+    fetched = []
+
+
 # import other modules that register Flask handlers *after* Fake is defined
 models.reset_protocol_properties()
 
