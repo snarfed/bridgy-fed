@@ -29,7 +29,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
 from common import add, base64_to_long, DOMAIN_RE, long_to_base64, unwrap
-from ids import translate_handle, translate_object_id, translate_user_id
+import ids
 
 # maps string label to Protocol subclass. populated by ProtocolUserMeta.
 # seed with old and upcoming protocols that don't have their own classes (yet).
@@ -366,8 +366,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if not handle:
             return None
 
-        return translate_handle(handle=handle, from_proto=self.__class__,
-                                to_proto=to_proto, enhanced=False)
+        return ids.translate_handle(handle=handle, from_proto=self.__class__,
+                                    to_proto=to_proto, enhanced=False)
 
     def id_as(self, to_proto):
         """Returns this user's id in a different protocol.
@@ -381,8 +381,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if isinstance(to_proto, str):
             to_proto = PROTOCOLS[to_proto]
 
-        return translate_user_id(id=self.key.id(), from_proto=self.__class__,
-                                 to_proto=to_proto)
+        return ids.translate_user_id(id=self.key.id(), from_proto=self.__class__,
+                                     to_proto=to_proto)
 
     def handle_or_id(self):
         """Returns handle if we know it, otherwise id."""
@@ -1067,20 +1067,21 @@ class Object(StringIdModel):
         for obj in [outer_obj] + inner_objs:
             for tag in as1.get_objects(obj, 'tags'):
                 if tag.get('objectType') == 'mention':
-                    tag['url'] = replace(tag.get('url'), translate_user_id)
+                    tag['url'] = replace(tag.get('url'), ids.translate_user_id)
             for field in ['actor', 'author', 'inReplyTo']:
-                fn = translate_object_id if field == 'inReplyTo' else translate_user_id
+                fn = (ids.translate_object_id if field == 'inReplyTo'
+                      else ids.translate_user_id)
                 obj[field] = [replace(val, fn) for val in util.get_list(obj, field)]
                 if len(obj[field]) == 1:
                     obj[field] = obj[field][0]
 
         outer_obj['object'] = []
         for inner_obj in inner_objs:
-            translate_fn = (translate_user_id
+            translate_fn = (ids.translate_user_id
                             if (as1.object_type(inner_obj) in as1.ACTOR_TYPES
                                 or as1.object_type(outer_obj) in
                                 ('follow', 'stop-following'))
-                            else translate_object_id)
+                            else ids.translate_object_id)
 
             got = replace(inner_obj, translate_fn)
             if isinstance(got, dict) and util.trim_nulls(got).keys() == {'id'}:
