@@ -96,7 +96,7 @@ class ATProto(User, Protocol):
     # need to update serviceEndpoint in all users' DID docs. :/
     PDS_URL = f'https://atproto{common.SUPERDOMAIN}/'
     CONTENT_TYPE = 'application/json'
-    DEFAULT_ENABLED_PROTOCOLS = ('web', 'activitypub')
+    DEFAULT_ENABLED_PROTOCOLS = ('web',)
 
     def _pre_put_hook(self):
         """Validate id, require did:plc or non-blocklisted did:web."""
