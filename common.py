@@ -31,15 +31,6 @@ TLD_BLOCKLIST = ('7z', 'asp', 'aspx', 'gif', 'html', 'ico', 'jpg', 'jpeg', 'js',
 
 CONTENT_TYPE_HTML = 'text/html; charset=utf-8'
 
-# Protocol pairs that we currently support bridging between. Values must be
-# Protocol LABELs. Each pair must be lexicographically sorted!
-# TODO: remove in favor of Protocol.DEFAULT_ENABLED_PROTOCOLS and
-# User.enabled_protocols
-ENABLED_BRIDGES = frozenset((
-    ('activitypub', 'web'),
-    ('atproto', 'web'),
-))
-
 PRIMARY_DOMAIN = 'fed.brid.gy'
 # protocol-specific subdomains are under this "super"domain
 SUPERDOMAIN = '.brid.gy'

@@ -443,7 +443,6 @@ class ActivityPubTest(TestCase):
         got = self.client.get('/ap/did:plc:user', base_url='https://bsky.brid.gy/')
         self.assertEqual(404, got.status_code)
 
-    @patch('common.ENABLED_BRIDGES', new=[('activitypub', 'atproto')])
     def test_actor_atproto_no_handle(self, *_):
         self.store_object(id='did:plc:user', raw={'foo': 'bar'})
         self.store_object(id='at://did:plc:user/app.bsky.actor.profile/self', bsky={
@@ -451,7 +450,7 @@ class ActivityPubTest(TestCase):
             'displayName': 'Alice',
         })
 
-        self.make_user('did:plc:user', cls=ATProto)
+        self.make_user('did:plc:user', cls=ATProto, enabled_protocols=['activitypub'])
 
         got = self.client.get('/ap/did:plc:user', base_url='https://bsky.brid.gy/')
         self.assertEqual(200, got.status_code)

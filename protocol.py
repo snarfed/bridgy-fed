@@ -181,7 +181,10 @@ class Protocol:
             elif to_label in user.enabled_protocols:
                 return True
 
-        return tuple(sorted((from_label, to_label))) in common.ENABLED_BRIDGES
+        if to_label in from_cls.DEFAULT_ENABLED_PROTOCOLS:
+            return True
+
+        return False
 
     @classmethod
     def owns_id(cls, id):

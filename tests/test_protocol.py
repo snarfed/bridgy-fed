@@ -173,14 +173,13 @@ class ProtocolTest(TestCase):
         self.assertTrue(Web.is_enabled_to(ActivityPub))
         self.assertTrue(ActivityPub.is_enabled_to(Web))
         self.assertTrue(ActivityPub.is_enabled_to(ActivityPub))
-        self.assertTrue(ATProto.is_enabled_to(Web))
-        self.assertTrue(Web.is_enabled_to(ATProto))
         self.assertTrue(Fake.is_enabled_to(OtherFake))
         self.assertTrue(Fake.is_enabled_to(ExplicitEnableFake))
 
-    def test_is_enabled_to_not_default_enabled(self):
         self.assertFalse(ActivityPub.is_enabled_to(ATProto))
         self.assertFalse(ATProto.is_enabled_to(ActivityPub))
+        self.assertFalse(ATProto.is_enabled_to(Web))
+        self.assertFalse(Web.is_enabled_to(ATProto))
         self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake))
         self.assertFalse(ExplicitEnableFake.is_enabled_to(Web))
 

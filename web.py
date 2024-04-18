@@ -98,7 +98,7 @@ class Web(User, Protocol):
     OTHER_LABELS = ('webmention',)
     LOGO_HTML = '🌐'  # used to be 🕸️
     CONTENT_TYPE = common.CONTENT_TYPE_HTML
-    DEFAULT_ENABLED_PROTOCOLS = ('activitypub', 'atproto')
+    DEFAULT_ENABLED_PROTOCOLS = ('activitypub',)
 
     has_redirects = ndb.BooleanProperty()
     redirects_error = ndb.TextProperty()

@@ -36,7 +36,6 @@ class IntegrationTests(TestCase):
 
     @patch('requests.post')
     @patch('requests.get')
-    @patch('common.ENABLED_BRIDGES', new=[('activitypub', 'atproto')])
     def test_atproto_notify_reply_to_activitypub(self, mock_get, mock_post):
         """ATProto poll notifications, deliver reply to ActivityPub.
 
@@ -55,6 +54,7 @@ class IntegrationTests(TestCase):
             id='http://inst/bob',
             cls=ActivityPub,
             copies=[Target(uri='did:plc:bob', protocol='atproto')],
+            enabled_protocols=['atproto'],
             obj_as2={
                 'id': 'http://inst/bob',
                 'inbox': 'http://inst/bob/inbox',
@@ -145,7 +145,8 @@ class IntegrationTests(TestCase):
         storage = DatastoreStorage()
         Repo.create(storage, 'did:plc:bob', signing_key=ATPROTO_KEY)
         bob = self.make_user(id='bob.com', cls=Web,
-                             copies=[Target(uri='did:plc:bob', protocol='atproto')])
+                             copies=[Target(uri='did:plc:bob', protocol='atproto')],
+                             enabled_protocols=['atproto'])
 
         mock_get.side_effect = [
             # ATProto listNotifications
@@ -223,13 +224,14 @@ class IntegrationTests(TestCase):
         ATProto user alice.com (did:plc:alice)
         Follow is HTML with mf2 u-follow-of of https://bsky.app/profile/alice.com
         """
-        bob = self.make_user(id='bob.com', cls=Web, obj_mf2={
-            'type': ['h-card'],
-            'properties': {
-                'url': ['https://bob.com/'],
-                'name': ['Bob'],
-            },
-        })
+        bob = self.make_user(id='bob.com', cls=Web, enabled_protocols=['atproto'],
+                             obj_mf2={
+                                 'type': ['h-card'],
+                                 'properties': {
+                                     'url': ['https://bob.com/'],
+                                     'name': ['Bob'],
+                                 },
+                             })
 
         # send webmention
         resp = self.post('/webmention', data={
