@@ -1200,9 +1200,9 @@ class ActivityPubTest(TestCase):
         got = self.post('/user.com/inbox', json={
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'https://xoxo.zone/users/aaronpk#follows/40',
-            'type': 'Block',
+            'type': 'Arrive',
             'actor': 'https://xoxo.zone/users/aaronpk',
-            'object': 'http://snarfed.org/',
+            'object': 'http://a/place',
         })
         self.assertEqual(501, got.status_code)
 

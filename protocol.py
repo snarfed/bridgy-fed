@@ -800,13 +800,12 @@ class Protocol:
                 return 'OK', 200
 
             @ndb.transactional()
-            def block():
-                nonlocal from_user
-                from_user = from_user.key.get()
-                remove(from_user.enabled_protocols, proto.LABEL)
-                from_user.put()
+            def disable_protocol():
+                user = from_user.key.get()
+                remove(user.enabled_protocols, proto.LABEL)
+                user.put()
 
-            block()
+            disable_protocol()
             return 'OK', 200
 
         # fetch actor if necessary
@@ -832,6 +831,18 @@ class Protocol:
                 }
 
         if obj.type == 'follow':
+            proto = Protocol.for_bridgy_subdomain(inner_obj_id)
+            if proto:
+                # follow of one of our protocol users; enable that protocol
+                @ndb.transactional()
+                def enable_protocol():
+                    user = from_user.key.get()
+                    add(user.enabled_protocols, proto.LABEL)
+                    user.put()
+
+                enable_protocol()
+                return 'OK', 200
+
             from_cls.handle_follow(obj)
 
         # deliver to targets

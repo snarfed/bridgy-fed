@@ -1779,7 +1779,14 @@ class ProtocolReceiveTest(TestCase):
             }],
         }, obj.key.get().our_as1)
 
-    def test_block_protocol_user_removes_from_enabled_protocols(self):
+    def test_follow_and_block_protocol_user_adds_and_removes_enabled_protocols(self):
+        follow = {
+            'objectType': 'activity',
+            'verb': 'follow',
+            'id': 'eefake:follow',
+            'actor': 'eefake:user',
+            'object': 'fa.brid.gy',
+        }
         block = {
             'objectType': 'activity',
             'verb': 'block',
@@ -1791,16 +1798,24 @@ class ProtocolReceiveTest(TestCase):
         user = self.make_user('eefake:user', cls=ExplicitEnableFake)
         self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, user))
 
-        # protocol isn't enabled yet, block is a noop
+        # protocol isn't enabled yet, block should be a noop
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(block))
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)
 
-        # enable protocol, now block should remove it
-        user.enabled_protocols = ['fake']
-        user.put()
+        # follow should add to enabled_protocols
+        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(follow))
+        user = user.key.get()
+        self.assertEqual(['fake'], user.enabled_protocols)
         self.assertTrue(ExplicitEnableFake.is_enabled_to(Fake, user))
 
+        # another follow should be a noop
+        follow['id'] += '2'
+        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(follow))
+        user = user.key.get()
+        self.assertEqual(['fake'], user.enabled_protocols)
+
+        # block should remove from enabled_protocols
         block['id'] += '2'
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(block))
         user = user.key.get()
