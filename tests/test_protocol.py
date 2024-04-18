@@ -1779,6 +1779,34 @@ class ProtocolReceiveTest(TestCase):
             }],
         }, obj.key.get().our_as1)
 
+    def test_block_protocol_user_removes_from_enabled_protocols(self):
+        block = {
+            'objectType': 'activity',
+            'verb': 'block',
+            'id': 'eefake:block',
+            'actor': 'eefake:user',
+            'object': 'fa.brid.gy',
+        }
+
+        user = self.make_user('eefake:user', cls=ExplicitEnableFake)
+        self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, user))
+
+        # protocol isn't enabled yet, block is a noop
+        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(block))
+        user = user.key.get()
+        self.assertEqual([], user.enabled_protocols)
+
+        # enable protocol, now block should remove it
+        user.enabled_protocols = ['fake']
+        user.put()
+        self.assertTrue(ExplicitEnableFake.is_enabled_to(Fake, user))
+
+        block['id'] += '2'
+        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(block))
+        user = user.key.get()
+        self.assertEqual([], user.enabled_protocols)
+        self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, user))
+
     def test_receive_task_handler(self):
         note = {
             'id': 'fake:post',

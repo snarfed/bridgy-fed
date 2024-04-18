@@ -33,6 +33,8 @@ CONTENT_TYPE_HTML = 'text/html; charset=utf-8'
 
 # Protocol pairs that we currently support bridging between. Values must be
 # Protocol LABELs. Each pair must be lexicographically sorted!
+# TODO: remove in favor of Protocol.DEFAULT_ENABLED_PROTOCOLS and
+# User.enabled_protocols
 ENABLED_BRIDGES = frozenset((
     ('activitypub', 'web'),
     ('atproto', 'web'),
@@ -253,6 +255,15 @@ def add(seq, val):
     """
     if val not in seq:
         seq.append(val)
+
+
+def remove(seq, val):
+    """Removes ``val`` to ``seq`` if seq contains it.
+
+    Useful for treating repeated ndb properties like sets instead of lists.
+    """
+    if val in seq:
+        seq.remove(val)
 
 
 def create_task(queue, delay=None, **params):

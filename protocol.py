@@ -20,7 +20,16 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import werkzeug.exceptions
 
 import common
-from common import add, DOMAIN_BLOCKLIST, DOMAIN_RE, DOMAINS, error, subdomain_wrap
+from common import (
+    add,
+    DOMAIN_BLOCKLIST,
+    DOMAIN_RE,
+    DOMAINS,
+    error,
+    PROTOCOL_DOMAINS,
+    remove,
+    subdomain_wrap,
+)
 from flask_app import app
 from ids import translate_object_id, translate_user_id
 from models import Follower, get_originals, Object, PROTOCOLS, Target, User
@@ -29,6 +38,7 @@ SUPPORTED_TYPES = (
     'accept',
     'article',
     'audio',
+    'block',
     'comment',
     'delete',
     'follow',
@@ -782,6 +792,22 @@ class Protocol:
                 ndb.put_multi(followers)
 
             # fall through to deliver to followers
+
+        elif obj.type == 'block':
+            proto = Protocol.for_bridgy_subdomain(inner_obj_id)
+            if not proto:
+                logger.info("Ignoring block, target isn't one of our protocol domains")
+                return 'OK', 200
+
+            @ndb.transactional()
+            def block():
+                nonlocal from_user
+                from_user = from_user.key.get()
+                remove(from_user.enabled_protocols, proto.LABEL)
+                from_user.put()
+
+            block()
+            return 'OK', 200
 
         # fetch actor if necessary
         if actor and actor.keys() == set(['id']):
