@@ -60,11 +60,11 @@ lexrpc.flask_server.init_flask(arroba.server.server, app)
 
 app.add_url_rule('/queue/atproto-poll-notifs',
                  view_func=atproto.poll_notifications,
-                 methods=['POST'])
+                 methods=['GET', 'POST'])
 
 app.add_url_rule('/queue/atproto-poll-posts',
                  view_func=atproto.poll_posts,
-                 methods=['POST'])
+                 methods=['GET', 'POST'])
 
 @app.post('/queue/atproto-commit')
 @flask_util.cloud_tasks_only
