@@ -27,7 +27,6 @@ from common import (
     DOMAINS,
     error,
     PROTOCOL_DOMAINS,
-    remove,
     subdomain_wrap,
 )
 from flask_app import app
@@ -802,13 +801,7 @@ class Protocol:
                 logger.info("Ignoring block, target isn't one of our protocol domains")
                 return 'OK', 200
 
-            @ndb.transactional()
-            def disable_protocol():
-                user = from_user.key.get()
-                remove(user.enabled_protocols, proto.LABEL)
-                user.put()
-
-            disable_protocol()
+            from_user.disable_protocol(proto)
             return 'OK', 200
 
         # fetch actor if necessary
@@ -837,13 +830,8 @@ class Protocol:
             proto = Protocol.for_bridgy_subdomain(inner_obj_id)
             if proto:
                 # follow of one of our protocol users; enable that protocol
-                @ndb.transactional()
-                def enable_protocol():
-                    user = from_user.key.get()
-                    add(user.enabled_protocols, proto.LABEL)
-                    user.put()
-
-                enable_protocol()
+                from_user.enable_protocol(proto)
+                # TODO: accept
                 return 'OK', 200
 
             from_cls.handle_follow(obj)

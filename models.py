@@ -28,7 +28,7 @@ from oauth_dropins.webutil.models import (
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
-from common import add, base64_to_long, DOMAIN_RE, long_to_base64, unwrap
+from common import add, base64_to_long, DOMAIN_RE, long_to_base64, remove, unwrap
 import ids
 
 # maps string label to Protocol subclass. populated by ProtocolUserMeta.
@@ -347,6 +347,32 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                     return 'opt-out'
 
         return None
+
+    @ndb.transactional()
+    def enable_protocol(self, to_proto):
+        """Adds ``to_proto` to :attr:`enabled_protocols`.
+
+        Args:
+          to_proto (:class:`protocol.Protocol` subclass)
+        """
+        user = self.key.get()
+        add(user.enabled_protocols, to_proto.LABEL)
+        user.put()
+
+        add(self.enabled_protocols, to_proto.LABEL)
+
+    @ndb.transactional()
+    def disable_protocol(self, to_proto):
+        """Removes ``to_proto` from :attr:`enabled_protocols`.
+
+        Args:
+          to_proto (:class:`protocol.Protocol` subclass)
+        """
+        user = self.key.get()
+        remove(user.enabled_protocols, to_proto.LABEL)
+        user.put()
+
+        remove(self.enabled_protocols, to_proto.LABEL)
 
     def handle_as(self, to_proto):
         """Returns this user's handle in a different protocol.
