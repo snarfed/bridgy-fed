@@ -865,14 +865,11 @@ class Protocol:
             from_obj.our_as1 = from_as1
             from_obj.put()
 
-        from_target = from_cls.target_for(from_obj)
-        if not from_target:
-            error(f"Couldn't find delivery target for follower {from_obj}")
-
         from_key = from_cls.key_for(from_id)
         if not from_key:
             error(f'Invalid {from_cls} user key: {from_id}')
         obj.users = [from_key]
+        from_user = from_cls.get_or_create(id=from_key.id(), obj=from_obj)
 
         # Prepare followee (to) users' data
         to_as1s = as1.get_objects(obj.as1)
@@ -882,9 +879,8 @@ class Protocol:
         # Store Followers
         for to_as1 in to_as1s:
             to_id = to_as1.get('id')
-            if not to_id or not from_id:
+            if not to_id:
                 error(f'Follow activity requires object(s). Got: {obj.as1}')
-            from_user = from_cls.get_or_create(id=from_key.id(), obj=from_obj)
 
             logger.info(f'Follow {from_id} => {to_id}')
 
@@ -900,43 +896,57 @@ class Protocol:
                 to_obj.our_as1 = to_as1
                 to_obj.put()
 
-            # If followee user is already direct, follower may not know they're
-            # interacting with a bridge. if followee user is indirect though,
-            # follower should know, so they're direct.
             to_key = to_cls.key_for(to_id)
             if not to_key:
                 logger.info(f'Skipping invalid {from_cls} user key: {from_id}')
                 continue
 
+            # If followee user is already direct, follower may not know they're
+            # interacting with a bridge. if followee user is indirect though,
+            # follower should know, so they're direct.
             to_user = to_cls.get_or_create(id=to_key.id(), obj=to_obj, direct=False)
-
-            # HACK: we rewrite direct here for each followee, so the last one
-            # wins. Could we do something better?
-            from_user = from_cls.get_or_create(id=from_key.id(), obj=from_obj,
-                                               direct=not to_user.direct)
             follower_obj = Follower.get_or_create(to=to_user, from_=from_user,
                                                   follow=obj.key, status='active')
             obj.add('notify', to_key)
+            from_cls.maybe_accept_follow(follower=from_user, followee=to_user,
+                                         follow=obj)
 
-            if not to_user.HAS_FOLLOW_ACCEPTS:
-                # send accept. note that this is one accept for the whole
-                # follow, even if it has multiple followees!
-                id = to_user.id_as('activitypub') + f'/followers#accept-{obj.key.id()}'
-                accept = Object.get_or_create(id, our_as1={
-                    'id': id,
-                    'objectType': 'activity',
-                    'verb': 'accept',
-                    'actor': to_id,
-                    'object': obj.as1,
-                })
+    @classmethod
+    def maybe_accept_follow(_, follower, followee, follow):
+        """Sends an accept activity for a follow.
 
-                sent = from_cls.send(accept, from_target, from_user=to_user)
-                if sent:
-                    accept.populate(
-                        delivered=[Target(protocol=from_cls.LABEL, uri=from_target)],
-                        status='complete',
-                    )
-                    accept.put()
+        ...if the follower protocol handles accepts. Otherwise, does nothing.
+
+        Args:
+          follower: :class:`models.User`
+          followee: :class:`models.User`
+          follow: :class:`models.Object`
+        """
+        if followee.HAS_FOLLOW_ACCEPTS:
+            return
+
+        # send accept. note that this is one accept for the whole
+        # follow, even if it has multiple followees!
+        id = followee.id_as('activitypub') + f'/followers#accept-{follow.key.id()}'
+        accept = Object.get_or_create(id, our_as1={
+            'id': id,
+            'objectType': 'activity',
+            'verb': 'accept',
+            'actor': followee.key.id(),
+            'object': follow.as1,
+        })
+
+        from_target = follower.target_for(follower.obj)
+        if not from_target:
+            error(f"Couldn't find delivery target for follower {follower}")
+
+        sent = follower.send(accept, from_target, from_user=followee)
+        if sent:
+            accept.populate(
+                delivered=[Target(protocol=follower.LABEL, uri=from_target)],
+                status='complete',
+            )
+            accept.put()
 
     @classmethod
     def handle_bare_object(cls, obj):

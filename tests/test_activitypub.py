@@ -1035,7 +1035,7 @@ class ActivityPubTest(TestCase):
             ignore=['created', 'updated'])
 
         self.assert_user(ActivityPub, 'https://mas.to/users/swentel',
-                         obj_as2=ACTOR, direct=True)
+                         obj_as2=ACTOR, direct=False)
         self.assert_user(Web, 'user.com', direct=False,
                          has_hcard=True, has_redirects=True)
 
