@@ -229,13 +229,16 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             if user.status == 'opt-out':
                 return None
             user.existing = True
-            # override direct from False => True if set
-            # TODO: propagate more props into user?
-            direct = kwargs.get('direct')
-            if direct and not user.direct:
-                logger.info(f'Setting {user.key} direct={direct}')
-                user.direct = direct
-                user.put()
+
+            # TODO: propagate more fields?
+            for field in ['direct', 'obj', 'obj_key']:
+                old_val = getattr(user, field, None)
+                new_val = kwargs.get(field)
+                if ((old_val is None and new_val is not None)
+                    or (field == 'direct' and not old_val and new_val)):
+                    setattr(user, field, new_val)
+                    user.put()
+
             if not propagate:
                 return user
         else:
