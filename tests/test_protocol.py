@@ -1375,7 +1375,7 @@ class ProtocolReceiveTest(TestCase):
                                         delivered=['fake:user:target'],
                                         )
 
-        accept_id = 'https://fa.brid.gy/ap/fake:user/followers#accept-fake:follow'
+        accept_id = 'fake:user/followers#accept-fake:follow'
         accept_as1 = {
             'id': accept_id,
             'objectType': 'activity',
@@ -1597,9 +1597,8 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(('OK', 202), OtherFake.receive_as1(follow_as1))
 
         self.assertEqual(1, len(OtherFake.sent))
-        self.assertEqual(
-            'https://fa.brid.gy/ap/fake:alice/followers#accept-other:follow',
-            OtherFake.sent[0][0])
+        self.assertEqual('fake:alice/followers#accept-other:follow',
+                         OtherFake.sent[0][0])
 
         self.assertEqual(1, len(Fake.sent))
         self.assertEqual('other:follow', Fake.sent[0][0])
@@ -1778,7 +1777,7 @@ class ProtocolReceiveTest(TestCase):
             }],
         }, obj.key.get().our_as1)
 
-    def test_follow_and_block_protocol_user_adds_and_removes_enabled_protocols(self):
+    def test_follow_and_block_protocol_user_sets_enabled_protocols(self):
         follow = {
             'objectType': 'activity',
             'verb': 'follow',
@@ -1803,14 +1802,20 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], user.enabled_protocols)
 
         # follow should add to enabled_protocols
-        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(follow))
+        with self.assertRaises(NoContent):
+            ExplicitEnableFake.receive_as1(follow)
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
         self.assertTrue(ExplicitEnableFake.is_enabled_to(Fake, user))
+        self.assertEqual([
+            ('https://fa.brid.gy//followers#accept-eefake:follow',
+             'eefake:user:target'),
+        ], ExplicitEnableFake.sent)
 
         # another follow should be a noop
         follow['id'] += '2'
-        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(follow))
+        with self.assertRaises(NoContent):
+            ExplicitEnableFake.receive_as1(follow)
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
 

@@ -230,7 +230,7 @@ ACCEPT_FOLLOW['object'] = 'http://localhost/user.com'
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Accept',
-    'id': 'http://localhost/user.com/followers#accept-https://mas.to/6d1a',
+    'id': 'http://localhost/r/user.com/followers#accept-https://mas.to/6d1a',
     'actor': 'http://localhost/user.com',
     'object': {
         'type': 'Follow',
@@ -1096,7 +1096,7 @@ class ActivityPubTest(TestCase):
         self.assert_equals(('http://mas.to/inbox',), args)
         self.assert_equals({
             'type': 'Accept',
-            'id': 'https://web.brid.gy/user.com/followers#accept-https://mas.to/6d1a',
+            'id': 'https://web.brid.gy/r/user.com/followers#accept-https://mas.to/6d1a',
             'actor': 'https://web.brid.gy/user.com',
             'object': {
                 'type': 'Follow',

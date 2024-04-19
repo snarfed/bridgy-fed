@@ -829,10 +829,9 @@ class Protocol:
         if obj.type == 'follow':
             proto = Protocol.for_bridgy_subdomain(inner_obj_id)
             if proto:
-                # follow of one of our protocol users; enable that protocol
+                # follow of one of our protocol users; enable that protocol.
+                # foll through so that we send an accept.
                 from_user.enable_protocol(proto)
-                # TODO: accept
-                return 'OK', 200
 
             from_cls.handle_follow(obj)
 
@@ -927,7 +926,7 @@ class Protocol:
 
         # send accept. note that this is one accept for the whole
         # follow, even if it has multiple followees!
-        id = followee.id_as('activitypub') + f'/followers#accept-{follow.key.id()}'
+        id = f'{followee.key.id()}/followers#accept-{follow.key.id()}'
         accept = Object.get_or_create(id, our_as1={
             'id': id,
             'objectType': 'activity',
