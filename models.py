@@ -571,9 +571,6 @@ class Object(StringIdModel):
               'feed', 'notification', 'user')
 
     # Keys for user(s) who created or otherwise own this activity.
-    #
-    # DEPRECATED: this used to include all users related the activity, including
-    # followers, but we've now moved those to the notify and feed properties.
     users = ndb.KeyProperty(repeated=True)
     # User keys who should see this activity in their user page, eg in reply to,
     # reaction to, share of, etc.

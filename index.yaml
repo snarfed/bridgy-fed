@@ -8,48 +8,6 @@ indexes:
 
 - kind: Object
   properties:
-  - name: domains
-  - name: labels
-  - name: updated
-    direction: asc
-
-- kind: Object
-  properties:
-  - name: users
-  - name: labels
-  - name: updated
-    direction: asc
-
-- kind: Object
-  properties:
-  - name: domains
-  - name: labels
-  - name: updated
-    direction: desc
-
-- kind: Object
-  properties:
-  - name: users
-  - name: labels
-  - name: updated
-    direction: desc
-
-- kind: Object
-  properties:
-  - name: domains
-  - name: labels
-  - name: created
-    direction: desc
-
-- kind: Object
-  properties:
-  - name: users
-  - name: labels
-  - name: created
-    direction: desc
-
-- kind: Object
-  properties:
   - name: users
   - name: updated
 
@@ -57,18 +15,6 @@ indexes:
   properties:
   - name: users
   - name: updated
-    direction: desc
-
-# these two are currently unused! as of 2024-01-24
-- kind: Object
-  properties:
-  - name: users
-  - name: created
-
-- kind: Object
-  properties:
-  - name: users
-  - name: created
     direction: desc
 
 - kind: Object
@@ -98,7 +44,19 @@ indexes:
   - name: from
   - name: status
   - name: updated
+
+- kind: Follower
+  properties:
+  - name: from
+  - name: status
+  - name: updated
     direction: desc
+
+- kind: Follower
+  properties:
+  - name: to
+  - name: status
+  - name: updated
 
 - kind: Follower
   properties:
