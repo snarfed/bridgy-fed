@@ -32,6 +32,7 @@ PROFILE_GETRECORD = {
 }
 
 
+@patch('ids.COPIES_PROTOCOLS', ['atproto'])
 class IntegrationTests(TestCase):
 
     @patch('requests.post')

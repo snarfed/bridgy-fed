@@ -362,6 +362,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """
         user = self.key.get()
         add(user.enabled_protocols, to_proto.LABEL)
+        if not user.get_copy(to_proto):
+            to_proto.create_for(user)
         user.put()
 
         add(self.enabled_protocols, to_proto.LABEL)
@@ -375,6 +377,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """
         user = self.key.get()
         remove(user.enabled_protocols, to_proto.LABEL)
+        # TODO: delete copy user
+        # https://github.com/snarfed/bridgy-fed/issues/783
         user.put()
 
         remove(self.enabled_protocols, to_proto.LABEL)
@@ -523,7 +527,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Returns:
           str:
         """
-        if isinstance(self, proto):
+        # don't use isinstance because the testutil Fake protocol has subclasses
+        if self.LABEL == proto.LABEL:
             return self.key.id()
 
         for copy in self.copies:

@@ -445,9 +445,11 @@ class Protocol:
     def create_for(cls, user):
         """Creates a copy user in this protocol.
 
+        Should add the copy user to :attr:`copies`.
+
         Args:
           user (models.User): original source user. Shouldn't already have a
-            copy user for this protocol in ``copies``.
+            copy user for this protocol in :attr:`copies`.
         """
         raise NotImplementedError()
 

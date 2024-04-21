@@ -59,7 +59,7 @@ FEDI_URL_RE = re.compile(r'https://[^/]+/(@|users/)([^/@]+)(@[^/@]+)?(/(?:status
 
 # can't use translate_user_id because Web.owns_id checks valid_domain, which
 # doesn't allow our protocol subdomains
-BOT_ACTOR_IDS = [f'https://{domain}/{domain}' for domain in PROTOCOL_DOMAINS]
+BOT_ACTOR_IDS = tuple(f'https://{domain}/{domain}' for domain in PROTOCOL_DOMAINS)
 
 
 def instance_actor():

@@ -34,7 +34,7 @@ import requests
 
 # other modules are imported _after_ Fake etc classes is defined so that it's in
 # PROTOCOLS when URL routes are registered.
-from common import long_to_base64, TASKS_LOCATION
+from common import add, long_to_base64, TASKS_LOCATION
 import ids
 import models
 from models import KEY_BITS, Object, PROTOCOLS, Target, User
@@ -90,7 +90,11 @@ class Fake(User, protocol.Protocol):
 
     @classmethod
     def create_for(cls, user):
-        cls.created_for.append(user.key.id())
+        assert not user.get_copy(cls)
+        id = user.key.id()
+        cls.created_for.append(id)
+        add(user.copies, Target(uri=ids.translate_user_id(id=id, from_=user, to=cls),
+                                protocol=cls.LABEL))
 
     @classmethod
     def owns_id(cls, id):
@@ -227,7 +231,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         common.OTHER_DOMAINS += ('fake.brid.gy',)
         common.DOMAINS += ('fake.brid.gy',)
-        ids.COPIES_PROTOCOLS = ['fake', 'other']
+        ids.COPIES_PROTOCOLS = ('atproto', 'fake', 'other')
 
         # make random test data deterministic
         arroba.util._clockid = 17

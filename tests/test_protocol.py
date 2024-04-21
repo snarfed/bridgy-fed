@@ -1800,12 +1800,14 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(block))
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], Fake.created_for)
 
         # follow should add to enabled_protocols
         with self.assertRaises(NoContent):
             ExplicitEnableFake.receive_as1(follow)
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
+        self.assertEqual(['eefake:user'], Fake.created_for)
         self.assertTrue(ExplicitEnableFake.is_enabled_to(Fake, user))
         self.assertEqual([
             ('https://fa.brid.gy//followers#accept-eefake:follow',
@@ -1814,16 +1816,19 @@ class ProtocolReceiveTest(TestCase):
 
         # another follow should be a noop
         follow['id'] += '2'
+        Fake.created_for = []
         with self.assertRaises(NoContent):
             ExplicitEnableFake.receive_as1(follow)
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
+        self.assertEqual([], Fake.created_for)
 
         # block should remove from enabled_protocols
         block['id'] += '2'
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(block))
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], Fake.created_for)
         self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, user))
 
     def test_dm_no_yes_sets_enabled_protocols(self):
@@ -1842,6 +1847,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], Fake.created_for)
 
         # yes DM should add to enabled_protocols
         dm['id'] += '2'
@@ -1849,13 +1855,16 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
+        self.assertEqual(['eefake:user'], Fake.created_for)
         self.assertTrue(ExplicitEnableFake.is_enabled_to(Fake, user))
 
         # another yes DM should be a noop
         dm['id'] += '3'
+        Fake.created_for = []
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
+        self.assertEqual([], Fake.created_for)
 
         # block should remove from enabled_protocols
         dm['id'] += '4'
@@ -1863,6 +1872,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)
+        self.assertEqual([], Fake.created_for)
         self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, user))
 
     def test_receive_task_handler(self):

@@ -66,11 +66,11 @@ class UserTest(TestCase):
         user.direct = True
         self.assert_entities_equal(same, user, ignore=['updated'])
 
+    @patch('ids.COPIES_PROTOCOLS', ['fake', 'other'])
     def test_get_or_create_propagate_fake_other(self):
         user = Fake.get_or_create('fake:user', propagate=True)
         self.assertEqual(['fake:user'], OtherFake.created_for)
 
-    @patch('ids.COPIES_PROTOCOLS', ['fake', 'other', 'atproto'])
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
@@ -112,6 +112,7 @@ class UserTest(TestCase):
 
         mock_create_task.assert_called()
 
+    @patch('ids.COPIES_PROTOCOLS', ['eefake', 'atproto'])
     @patch.object(tasks_client, 'create_task')
     @patch('requests.post')
     @patch('requests.get')
@@ -127,7 +128,6 @@ class UserTest(TestCase):
         user = ActivityPub.get_by_id('https://mas.to/actor')
         self.assertEqual([], user.copies)
         self.assertEqual(0, AtpRepo.query().count())
-
 
     def test_get_or_create_use_instead(self):
         user = Fake.get_or_create('a.b')
@@ -283,8 +283,12 @@ class UserTest(TestCase):
         user.copies.append(Target(uri='fake:foo', protocol='fake'))
         self.assertIsNone(user.get_copy(OtherFake))
 
+        self.assertIsNone(user.get_copy(OtherFake))
         user.copies = [Target(uri='other:foo', protocol='other')]
         self.assertEqual('other:foo', user.get_copy(OtherFake))
+
+        self.assertIsNone(OtherFake().get_copy(Fake))
+
 
     def test_count_followers(self):
         self.assertEqual((0, 0), self.user.count_followers())
