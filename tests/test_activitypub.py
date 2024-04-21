@@ -20,7 +20,7 @@ from werkzeug.exceptions import BadGateway, BadRequest
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
-from .testutil import Fake, TestCase
+from .testutil import ExplicitEnableFake, Fake, TestCase
 
 import activitypub
 from activitypub import (
@@ -846,6 +846,26 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assertIsNone(Object.get_by_id(not_public['id']))
         self.assertIsNone(Object.get_by_id(not_public['object']['id']))
+
+    def test_inbox_dm_yes_to_bot_user_enables_protocol(self, *mocks):
+        user = self.make_user(ACTOR['id'], cls=ActivityPub)
+        self.assertFalse(ActivityPub.is_enabled_to(ExplicitEnableFake, user))
+
+        got = self.post('/ap/sharedInbox', json={
+            'type': 'Create',
+            'id': 'https://mas.to/dm#create',
+            'to': ['https://eefake.brid.gy/eefake.brid.gy'],
+            'object': {
+                'type': 'Note',
+                'id': 'https://mas.to/dm',
+                'attributedTo': ACTOR['id'],
+                'to': ['https://eefake.brid.gy/eefake.brid.gy'],
+                'content': 'yes',
+            },
+        })
+        self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+        user = user.key.get()
+        self.assertTrue(ActivityPub.is_enabled_to(ExplicitEnableFake, user))
 
     def test_inbox_actor_blocklisted(self, mock_head, mock_get, mock_post):
         got = self.post('/ap/sharedInbox', json={

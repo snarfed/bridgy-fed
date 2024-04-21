@@ -57,7 +57,9 @@ WEB_OPT_OUT_DOMAINS = None
 
 FEDI_URL_RE = re.compile(r'https://[^/]+/(@|users/)([^/@]+)(@[^/@]+)?(/(?:statuses/)?[0-9]+)?')
 
-_BOT_ACTOR_IDS = None
+# can't use translate_user_id because Web.owns_id checks valid_domain, which
+# doesn't allow our protocol subdomains
+BOT_ACTOR_IDS = [f'https://{domain}/{domain}' for domain in PROTOCOL_DOMAINS]
 
 
 def instance_actor():
@@ -66,15 +68,6 @@ def instance_actor():
         import web
         _INSTANCE_ACTOR = web.Web.get_or_create(PRIMARY_DOMAIN)
     return _INSTANCE_ACTOR
-
-
-def bot_actor_ids():
-    global _BOT_ACTOR_IDS
-    if _BOT_ACTOR_IDS is None:
-        from activitypub import ActivityPub
-        _BOT_ACTOR_IDS = [translate_user_id(id=domain, from_=Web, to=ActivityPub)
-                          for domain in PROTOCOL_DOMAINS]
-    return _BOT_ACTOR_IDS
 
 
 class ActivityPub(User, Protocol):
@@ -939,7 +932,12 @@ def inbox(protocol=None, id=None):
     # those as explicitly public. Use as2's is_public instead of as1's because
     # as1's interprets unlisted as true.
     # TODO: move this to Protocol
-    if type == 'Create' and not as2.is_public(activity, unlisted=False):
+    object = as1.get_object(activity)
+    to_cc = set(as1.get_ids(object, 'to') + as1.get_ids(activity, 'cc') +
+                as1.get_ids(object, 'to') + as1.get_ids(object, 'cc'))
+    if (type == 'Create' and not as2.is_public(activity, unlisted=False)
+            # DM to one of our protocol bot users
+            and not (len(to_cc) == 1 and to_cc.pop() in BOT_ACTOR_IDS)):
         logger.info('Dropping non-public activity')
         return 'OK'
 
