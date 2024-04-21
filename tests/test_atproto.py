@@ -700,6 +700,7 @@ class ATProtoTest(TestCase):
 
         mock_create_task.assert_called()
 
+    @patch('ids.COPIES_PROTOCOLS', ['atproto'])
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',
@@ -764,6 +765,7 @@ class ATProtoTest(TestCase):
         self.assert_task(mock_create_task, 'atproto-commit',
                          '/queue/atproto-commit')
 
+    @patch('ids.COPIES_PROTOCOLS', ['atproto'])
     @patch('requests.get', return_value=requests_response(
         'blob contents', content_type='image/png'))  # image blob fetch
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)

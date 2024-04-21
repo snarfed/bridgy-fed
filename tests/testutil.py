@@ -35,6 +35,7 @@ import requests
 # other modules are imported _after_ Fake etc classes is defined so that it's in
 # PROTOCOLS when URL routes are registered.
 from common import long_to_base64, TASKS_LOCATION
+import ids
 import models
 from models import KEY_BITS, Object, PROTOCOLS, Target, User
 import protocol
@@ -76,8 +77,9 @@ class Fake(User, protocol.Protocol):
     # in-order list of (Object, str URL)
     sent = []
 
-    # in-order list of ids
+    # in-order lists of ids
     fetched = []
+    created_for = []
 
     @ndb.ComputedProperty
     def handle(self):
@@ -85,6 +87,10 @@ class Fake(User, protocol.Protocol):
 
     def web_url(self):
         return self.key.id()
+
+    @classmethod
+    def create_for(cls, user):
+        cls.created_for.append(user.key.id())
 
     @classmethod
     def owns_id(cls, id):
@@ -157,6 +163,7 @@ class OtherFake(Fake):
     fetchable = {}
     sent = []
     fetched = []
+    created_for = []
 
     @classmethod
     def target_for(cls, obj, shared=False):
@@ -171,6 +178,7 @@ class ExplicitEnableFake(Fake):
     fetchable = {}
     sent = []
     fetched = []
+    created_for = []
 
 
 # import other modules that register Flask handlers *after* Fake is defined
@@ -211,13 +219,15 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         did.resolve_plc.cache.clear()
         did.resolve_web.cache.clear()
 
-        for cls in Fake, OtherFake:
+        for cls in ExplicitEnableFake, Fake, OtherFake:
             cls.fetchable = {}
             cls.sent = []
             cls.fetched = []
+            cls.created_for = []
 
         common.OTHER_DOMAINS += ('fake.brid.gy',)
         common.DOMAINS += ('fake.brid.gy',)
+        ids.COPIES_PROTOCOLS = ['fake', 'other']
 
         # make random test data deterministic
         arroba.util._clockid = 17

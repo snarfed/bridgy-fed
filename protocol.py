@@ -442,6 +442,16 @@ class Protocol:
             return cls.key_for(owner)
 
     @classmethod
+    def create_for(cls, user):
+        """Creates a copy user in this protocol.
+
+        Args:
+          user (models.User): original source user. Shouldn't already have a
+            copy user for this protocol in ``copies``.
+        """
+        raise NotImplementedError()
+
+    @classmethod
     def send(to_cls, obj, url, from_user=None, orig_obj=None):
         """Sends an outgoing activity.
 

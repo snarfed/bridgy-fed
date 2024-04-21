@@ -249,12 +249,14 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if not user.obj_key:
             user.obj = cls.load(user.profile_id())
 
-        ATProto = PROTOCOLS['atproto']
-        if propagate and cls.LABEL != 'atproto' and not user.get_copy(ATProto):
-            if cls.is_enabled_to(ATProto, user=id):
-                ATProto.create_for(user)
-            else:
-                logger.info(f'{cls.LABEL} <=> atproto not enabled, skipping')
+        if propagate:
+            for label in ids.COPIES_PROTOCOLS:
+                proto = PROTOCOLS[label]
+                if proto != cls and not user.get_copy(proto):
+                    if cls.is_enabled_to(proto, user=id):
+                        proto.create_for(user)
+                    else:
+                        logger.info(f'{cls.LABEL} <=> atproto not enabled, skipping')
 
         # generate keys for all protocols _except_ our own
         #

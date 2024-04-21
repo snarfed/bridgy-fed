@@ -66,10 +66,15 @@ class UserTest(TestCase):
         user.direct = True
         self.assert_entities_equal(same, user, ignore=['updated'])
 
+    def test_get_or_create_propagate_fake_other(self):
+        user = Fake.get_or_create('fake:user', propagate=True)
+        self.assertEqual(['fake:user'], OtherFake.created_for)
+
+    @patch('ids.COPIES_PROTOCOLS', ['fake', 'other', 'atproto'])
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
-    def test_get_or_create_propagate(self, mock_post, mock_create_task):
+    def test_get_or_create_propagate_atproto(self, mock_post, mock_create_task):
         common.RUN_TASKS_INLINE = False
 
         Fake.fetchable = {
