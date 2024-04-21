@@ -1,0 +1,33 @@
+{
+  "@context": [
+    "https://www.w3.org/ns/activitystreams",
+    "https://w3id.org/security/v1"
+  ],
+  "type": "Application",
+  "id": "https://bsky.brid.gy/bsky.brid.gy",
+  "url": "https://bsky.brid.gy/",
+  "preferredUsername": "bsky.brid.gy",
+  "summary": "Bridgy Fed bot user for Bluesky. To bridge your fediverse account to Bluesky, follow this account or reply <em>yes</em> when it promps you with a DM. <a href="https://fed.brid.gy/docs">More info here.</a>",
+  "name": "Bridgy Fed",
+  "attachment": [{
+    "name": "Web site",
+    "type": "PropertyValue",
+    "value": "<a rel=\"me\" href=\"https://fed.brid.gy\"><span class=\"invisible\">https://</span>fed.brid.gy</a>"
+  }],
+  "image": [
+    {
+      "type": "Image",
+      "url": "https://fed.brid.gy/static/bridgy_logo.jpg"
+    },
+    {
+      "name": "Bridgy Fed for Bluesky",
+      "type": "Image",
+      "url": "https://fed.brid.gy/static/bridgy_logo_square.jpg"
+    }
+  ],
+  "icon": {
+    "name": "Bridgy Fed for Bluesky",
+    "type": "Image",
+    "url": "https://fed.brid.gy/oauth_dropins_static/bluesky.svg"
+  }
+}
