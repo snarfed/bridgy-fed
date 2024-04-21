@@ -495,7 +495,7 @@ class ActivityPubTest(TestCase):
             activitypub._INSTANCE_ACTOR = testutil.global_user
         self.addCleanup(reset_instance_actor)
 
-        actor_as2 = json_loads(util.read('static/instance-actor.as2.json'))
+        actor_as2 = json_loads(util.read('fed.brid.gy.as2.json'))
         self.make_user(common.PRIMARY_DOMAIN, cls=Web, obj_as2=actor_as2)
 
         activitypub._INSTANCE_ACTOR = None

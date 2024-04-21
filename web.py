@@ -24,7 +24,7 @@ from requests.auth import HTTPBasicAuth
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 
 import common
-from common import add, DOMAIN_RE, SUPERDOMAIN
+from common import add, DOMAIN_RE, PRIMARY_DOMAIN, PROTOCOL_DOMAINS, SUPERDOMAIN
 from flask_app import app, cache
 from ids import translate_handle, translate_object_id, translate_user_id
 from models import Follower, Object, PROTOCOLS, Target, User
@@ -440,10 +440,11 @@ class Web(User, Protocol):
             return False
 
         is_homepage = urlparse(url).path.strip('/') == ''
-
-        if is_homepage and util.domain_from_link(url) == common.PRIMARY_DOMAIN:
-            obj.as2 = json_loads(util.read('static/instance-actor.as2.json'))
-            return True
+        if is_homepage:
+            domain = util.domain_from_link(url)
+            if domain == PRIMARY_DOMAIN or domain in PROTOCOL_DOMAINS:
+                obj.as2 = json_loads(util.read(f'{domain}.as2.json'))
+                return True
 
         require_backlink = (common.host_url().rstrip('/')
                             if check_backlink and not is_homepage

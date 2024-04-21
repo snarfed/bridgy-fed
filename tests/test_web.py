@@ -2755,8 +2755,7 @@ class WebUtilTest(TestCase):
     def test_fetch_instance_actor(self, _, __):
         obj = Object(id=f'https://{common.PRIMARY_DOMAIN}/')
         self.assertTrue(Web.fetch(obj))
-        self.assertEqual(obj.as2,
-                         json_loads(util.read('static/instance-actor.as2.json')))
+        self.assertEqual(obj.as2, json_loads(util.read('fed.brid.gy.as2.json')))
 
     def test_fetch_resolves_relative_urls(self, mock_get, __):
         mock_get.return_value = requests_response("""\
