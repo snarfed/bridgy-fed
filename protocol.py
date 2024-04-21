@@ -598,7 +598,7 @@ class Protocol:
                 # TODO: what if from_cls is None? relax translate_object_id,
                 # make it a noop if we don't know enough about from/to?
                 if from_cls and from_cls != to_cls:
-                    elem[field]['id'] = fn(id=id, from_proto=from_cls, to_proto=to_cls)
+                    elem[field]['id'] = fn(id=id, from_=from_cls, to=to_cls)
             if elem[field].keys() == {'id'}:
                 elem[field] = elem[field]['id']
 

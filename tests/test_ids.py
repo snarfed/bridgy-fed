@@ -61,7 +61,7 @@ class IdsTest(TestCase):
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_user_id(
-                    id=id, from_proto=from_, to_proto=to))
+                    id=id, from_=from_, to=to))
 
     def test_translate_user_id_no_copy_did_stored(self):
         for proto, id in [
@@ -70,8 +70,7 @@ class IdsTest(TestCase):
             (Fake, 'fake:user'),
         ]:
             with self.subTest(proto=proto.LABEL):
-                self.assertIsNone(translate_user_id(
-                    id=id, from_proto=proto, to_proto=ATProto))
+                self.assertIsNone(translate_user_id(id=id, from_=proto, to=ATProto))
 
     def test_translate_user_id_use_instead(self):
         did = Target(uri='did:plc:123', protocol='atproto')
@@ -85,18 +84,18 @@ class IdsTest(TestCase):
         ]:
             with self.subTest(proto=proto.LABEL):
                 self.assertEqual(expected, translate_user_id(
-                    id='www.user.com', from_proto=Web, to_proto=proto))
+                    id='www.user.com', from_=Web, to=proto))
                 self.assertEqual(expected, translate_user_id(
-                    id='https://www.user.com/', from_proto=Web, to_proto=proto))
+                    id='https://www.user.com/', from_=Web, to=proto))
 
     @patch('ids._FED_SUBDOMAIN_SITES', new={'on-fed.com'})
     def test_translate_user_id_web_ap_subdomain_fed(self):
         for base_url in ['https://web.brid.gy/', 'https://fed.brid.gy/']:
             with app.test_request_context('/', base_url=base_url):
                 self.assertEqual('https://web.brid.gy/on-web.com', translate_user_id(
-                    id='on-web.com', from_proto=Web, to_proto=ActivityPub))
+                    id='on-web.com', from_=Web, to=ActivityPub))
                 self.assertEqual('https://fed.brid.gy/on-fed.com', translate_user_id(
-                    id='on-fed.com', from_proto=Web, to_proto=ActivityPub))
+                    id='on-fed.com', from_=Web, to=ActivityPub))
 
     def test_translate_handle(self):
         for from_, handle, to, expected in [
@@ -123,7 +122,7 @@ class IdsTest(TestCase):
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_handle(
-                    handle=handle, from_proto=from_, to_proto=to, enhanced=False))
+                    handle=handle, from_=from_, to=to, enhanced=False))
 
     def test_translate_handle_enhanced(self):
         for from_, handle, to, expected in [
@@ -136,7 +135,7 @@ class IdsTest(TestCase):
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_handle(
-                    handle=handle, from_proto=from_, to_proto=to, enhanced=True))
+                    handle=handle, from_=from_, to=to, enhanced=True))
 
     def test_translate_object_id(self):
         self.store_object(id='http://po.st',
@@ -184,16 +183,16 @@ class IdsTest(TestCase):
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_object_id(
-                    id=id, from_proto=from_, to_proto=to))
+                    id=id, from_=from_, to=to))
 
     @patch('ids._FED_SUBDOMAIN_SITES', new={'on-fed.com'})
     def test_translate_object_id_web_ap_subdomain_fed(self):
         for base_url in ['https://web.brid.gy/', 'https://fed.brid.gy/']:
             with app.test_request_context('/', base_url=base_url):
-                got = translate_object_id(id='http://on-fed.com/post', from_proto=Web,
-                                          to_proto=ActivityPub)
+                got = translate_object_id(id='http://on-fed.com/post', from_=Web,
+                                          to=ActivityPub)
                 self.assertEqual('https://fed.brid.gy/r/http://on-fed.com/post', got)
 
-                got = translate_object_id(id='http://on-web.com/post', from_proto=Web,
-                                          to_proto=ActivityPub)
+                got = translate_object_id(id='http://on-web.com/post', from_=Web,
+                                          to=ActivityPub)
                 self.assertEqual('https://web.brid.gy/r/http://on-web.com/post', got)

@@ -53,30 +53,30 @@ def web_ap_base_domain(user_domain):
     return f'https://{subdomain}{SUPERDOMAIN}/'
 
 
-def translate_user_id(*, id, from_proto, to_proto):
+def translate_user_id(*, id, from_, to):
     """Translate a user id from one protocol to another.
 
     TODO: unify with :func:`translate_object_id`.
 
     Args:
       id (str)
-      from_proto (protocol.Protocol)
-      to_proto (protocol.Protocol)
+      from_ (protocol.Protocol)
+      to (protocol.Protocol)
 
     Returns:
-      str: the corresponding id in ``to_proto``
+      str: the corresponding id in ``to``
     """
-    assert id and from_proto and to_proto, (id, from_proto, to_proto)
-    assert from_proto.owns_id(id) is not False or from_proto.LABEL == 'ui', \
-        (id, from_proto.LABEL, to_proto.LABEL)
+    assert id and from_ and to, (id, from_, to)
+    assert from_.owns_id(id) is not False or from_.LABEL == 'ui', \
+        (id, from_.LABEL, to.LABEL)
 
     parsed = urlparse(id)
-    if from_proto.LABEL == 'web' and parsed.path.strip('/') == '':
+    if from_.LABEL == 'web' and parsed.path.strip('/') == '':
         # home page; replace with domain
         id = parsed.netloc
 
     # bsky.app profile URL to DID
-    if to_proto.LABEL == 'atproto':
+    if to.LABEL == 'atproto':
         if match := BSKY_APP_URL_RE.match(id):
             repo = match.group('id')
             if repo.startswith('did:'):
@@ -89,25 +89,25 @@ def translate_user_id(*, id, from_proto, to_proto):
                 logger.warning(e)
                 return None
 
-    if from_proto == to_proto:
+    if from_ == to:
         return id
 
     # follow use_instead
-    user = from_proto.get_by_id(id)
+    user = from_.get_by_id(id)
     if user:
         id = user.key.id()
 
-    if from_proto.LABEL in COPIES_PROTOCOLS or to_proto.LABEL in COPIES_PROTOCOLS:
+    if from_.LABEL in COPIES_PROTOCOLS or to.LABEL in COPIES_PROTOCOLS:
         if user:
-            if copy := user.get_copy(to_proto):
+            if copy := user.get_copy(to):
                 return copy
         if orig := models.get_original(id):
-            if isinstance(orig, to_proto):
+            if isinstance(orig, to):
                 return orig.key.id()
 
-    match from_proto.LABEL, to_proto.LABEL:
+    match from_.LABEL, to.LABEL:
         case _, 'atproto' | 'nostr':
-            logger.warning(f"Can't translate user id {id} to {to_proto.LABEL} , haven't copied it there yet!")
+            logger.warning(f"Can't translate user id {id} to {to.LABEL} , haven't copied it there yet!")
             return None
 
         case 'web', 'activitypub':
@@ -117,45 +117,45 @@ def translate_user_id(*, id, from_proto, to_proto):
             return id
 
         case _, 'activitypub' | 'web':
-            return subdomain_wrap(from_proto, f'/{to_proto.ABBREV}/{id}')
+            return subdomain_wrap(from_, f'/{to.ABBREV}/{id}')
 
         # only for unit tests
         case _, 'fake' | 'other' | 'eefake':
-            return f'{to_proto.LABEL}:u:{id}'
+            return f'{to.LABEL}:u:{id}'
         case 'fake' | 'other', _:
             return id
 
-    assert False, (id, from_proto.LABEL, to_proto.LABEL)
+    assert False, (id, from_.LABEL, to.LABEL)
 
 
-def translate_handle(*, handle, from_proto, to_proto, enhanced):
+def translate_handle(*, handle, from_, to, enhanced):
     """Translates a user handle from one protocol to another.
 
     Args:
       handle (str)
-      from_proto (protocol.Protocol)
-      to_proto (protocol.Protocol)
+      from_ (protocol.Protocol)
+      to (protocol.Protocol)
       enhanced (bool): whether to convert to an "enhanced" handle based on the
         user's domain
 
     Returns:
-      str: the corresponding handle in ``to_proto``
+      str: the corresponding handle in ``to``
     """
-    assert handle and from_proto and to_proto, (handle, from_proto, to_proto)
-    assert from_proto.owns_handle(handle) is not False or from_proto.LABEL == 'ui'
+    assert handle and from_ and to, (handle, from_, to)
+    assert from_.owns_handle(handle) is not False or from_.LABEL == 'ui'
 
-    if from_proto == to_proto:
+    if from_ == to:
         return handle
 
-    match from_proto.LABEL, to_proto.LABEL:
+    match from_.LABEL, to.LABEL:
         case _, 'activitypub':
-            domain = handle if enhanced else f'{from_proto.ABBREV}{SUPERDOMAIN}'
+            domain = handle if enhanced else f'{from_.ABBREV}{SUPERDOMAIN}'
             return f'@{handle}@{domain}'
 
         case _, 'atproto' | 'nostr':
             handle = handle.lstrip('@').replace('@', '.')
             return (handle if enhanced
-                    else f'{handle}.{from_proto.ABBREV}{SUPERDOMAIN}')
+                    else f'{handle}.{from_.ABBREV}{SUPERDOMAIN}')
 
         case 'activitypub', 'web':
             user, instance = handle.lstrip('@').split('@')
@@ -168,29 +168,29 @@ def translate_handle(*, handle, from_proto, to_proto, enhanced):
 
         # only for unit tests
         case _, 'fake' | 'other' | 'eefake':
-            return f'{to_proto.LABEL}:handle:{handle}'
+            return f'{to.LABEL}:handle:{handle}'
 
-    assert False, (handle, from_proto.LABEL, to_proto.LABEL)
+    assert False, (handle, from_.LABEL, to.LABEL)
 
 
-def translate_object_id(*, id, from_proto, to_proto):
+def translate_object_id(*, id, from_, to):
     """Translates a user handle from one protocol to another.
 
     TODO: unify with :func:`translate_user_id`.
 
     Args:
       id (str)
-      from_proto (protocol.Protocol)
-      to_proto (protocol.Protocol)
+      from_ (protocol.Protocol)
+      to (protocol.Protocol)
 
     Returns:
-      str: the corresponding id in ``to_proto``
+      str: the corresponding id in ``to``
     """
-    assert id and from_proto and to_proto, (id, from_proto, to_proto)
-    assert from_proto.owns_id(id) is not False or from_proto.LABEL == 'ui'
+    assert id and from_ and to, (id, from_, to)
+    assert from_.owns_id(id) is not False or from_.LABEL == 'ui'
 
     # bsky.app profile URL to DID
-    if to_proto.LABEL == 'atproto':
+    if to.LABEL == 'atproto':
         if match := BSKY_APP_URL_RE.match(id):
             repo = match.group('id')
             handle = None
@@ -205,29 +205,29 @@ def translate_object_id(*, id, from_proto, to_proto):
 
             return web_url_to_at_uri(id, handle=handle, did=repo)
 
-    if from_proto == to_proto:
+    if from_ == to:
         return id
 
-    if from_proto.LABEL in COPIES_PROTOCOLS or to_proto.LABEL in COPIES_PROTOCOLS:
-        if obj := from_proto.load(id, remote=False):
-            if copy := obj.get_copy(to_proto):
+    if from_.LABEL in COPIES_PROTOCOLS or to.LABEL in COPIES_PROTOCOLS:
+        if obj := from_.load(id, remote=False):
+            if copy := obj.get_copy(to):
                 return copy
         if orig := models.get_original(id):
             return orig.key.id()
 
-    match from_proto.LABEL, to_proto.LABEL:
+    match from_.LABEL, to.LABEL:
         case _, 'atproto' | 'nostr':
-            logger.warning(f"Can't translate object id {id} to {to_proto.LABEL} , haven't copied it there yet!")
+            logger.warning(f"Can't translate object id {id} to {to.LABEL} , haven't copied it there yet!")
             return id
 
         case 'web', 'activitypub':
             return urljoin(web_ap_base_domain(util.domain_from_link(id)), f'/r/{id}')
 
         case _, 'activitypub' | 'web':
-            return subdomain_wrap(from_proto, f'/convert/{to_proto.ABBREV}/{id}')
+            return subdomain_wrap(from_, f'/convert/{to.ABBREV}/{id}')
 
         # only for unit tests
         case _, 'fake' | 'other' | 'eefake':
-            return f'{to_proto.LABEL}:o:{from_proto.ABBREV}:{id}'
+            return f'{to.LABEL}:o:{from_.ABBREV}:{id}'
 
-    assert False, (id, from_proto.LABEL, to_proto.LABEL)
+    assert False, (id, from_.LABEL, to.LABEL)

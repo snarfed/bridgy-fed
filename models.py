@@ -395,8 +395,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if not handle:
             return None
 
-        return ids.translate_handle(handle=handle, from_proto=self.__class__,
-                                    to_proto=to_proto, enhanced=False)
+        return ids.translate_handle(handle=handle, from_=self.__class__,
+                                    to=to_proto, enhanced=False)
 
     def id_as(self, to_proto):
         """Returns this user's id in a different protocol.
@@ -410,8 +410,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if isinstance(to_proto, str):
             to_proto = PROTOCOLS[to_proto]
 
-        return ids.translate_user_id(id=self.key.id(), from_proto=self.__class__,
-                                     to_proto=to_proto)
+        return ids.translate_user_id(id=self.key.id(), from_=self.__class__,
+                                     to=to_proto)
 
     def handle_or_id(self):
         """Returns handle if we know it, otherwise id."""
@@ -1077,7 +1077,7 @@ class Object(StringIdModel):
             if not proto:
                 return val
 
-            translated = translate_fn(id=orig, from_proto=proto, to_proto=proto)
+            translated = translate_fn(id=orig, from_=proto, to=proto)
             if translated and translated != orig:
                 logger.info(f'Normalized {proto.LABEL} id {orig} to {translated}')
                 replaced = True

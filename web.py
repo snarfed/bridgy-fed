@@ -172,8 +172,8 @@ class Web(User, Protocol):
         if isinstance(to_proto, str):
             to_proto = PROTOCOLS[to_proto]
 
-        converted = translate_user_id(id=self.key.id(), from_proto=self,
-                                      to_proto=to_proto)
+        converted = translate_user_id(id=self.key.id(), from_=self,
+                                      to=to_proto)
 
         if to_proto.LABEL == 'activitypub':
             other = 'web' if self.ap_subdomain == 'fed' else 'fed'
@@ -397,7 +397,7 @@ class Web(User, Protocol):
             return False
 
         source_id = translate_object_id(
-            id=obj.key.id(), from_proto=PROTOCOLS[obj.source_protocol], to_proto=Web)
+            id=obj.key.id(), from_=PROTOCOLS[obj.source_protocol], to=Web)
         source_url = quote(source_id, safe=':/%+')
         logger.info(f'Sending webmention from {source_url} to {url}')
 
