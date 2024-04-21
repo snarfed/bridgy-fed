@@ -193,6 +193,7 @@ import activitypub
 from activitypub import ActivityPub, CONNEG_HEADERS_AS2_HTML
 from atproto import ATProto
 import common
+from common import PRIMARY_DOMAIN, PROTOCOL_DOMAINS, OTHER_DOMAINS, LOCAL_DOMAINS
 from web import Web
 from flask_app import app, cache
 
@@ -229,9 +230,17 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             cls.fetched = []
             cls.created_for = []
 
-        common.OTHER_DOMAINS += ('fake.brid.gy',)
-        common.DOMAINS += ('fake.brid.gy',)
         ids.COPIES_PROTOCOLS = ('atproto', 'fake', 'other')
+        common.PROTOCOL_DOMAINS = (
+            'ap.brid.gy',
+            'bsky.brid.gy',
+            'web.brid.gy',
+            'eefake.brid.gy',
+            'fa.brid.gy',
+            'other.brid.gy',
+        )
+        common.DOMAINS = ((PRIMARY_DOMAIN,) + common.PROTOCOL_DOMAINS
+                          + OTHER_DOMAINS + LOCAL_DOMAINS)
 
         # make random test data deterministic
         arroba.util._clockid = 17
