@@ -829,6 +829,9 @@ class ActivityPubTest(TestCase):
     def test_inbox_unlisted(self, *mocks):
         self._test_inbox_with_to_ignored(['@unlisted'], *mocks)
 
+    def test_inbox_dm(self, *mocks):
+        self._test_inbox_with_to_ignored(['http://localhost/web/user.com'], *mocks)
+
     def _test_inbox_with_to_ignored(self, to, mock_head, mock_get, mock_post):
         Follower.get_or_create(to=self.make_user(ACTOR['id'], cls=ActivityPub),
                                from_=self.user)

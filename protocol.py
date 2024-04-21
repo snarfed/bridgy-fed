@@ -804,6 +804,20 @@ class Protocol:
             from_user.disable_protocol(proto)
             return 'OK', 200
 
+        elif obj.type == 'post':
+            to_cc = (util.get_list(inner_obj_as1, 'to')
+                     + util.get_list(inner_obj_as1, 'cc'))
+            if len(to_cc) == 1 and to_cc[0] in PROTOCOL_DOMAINS:
+                content = inner_obj_as1.get('content').strip().lower()
+                logger.info(f'DM to bot user {to_cc}: {content}')
+                proto = Protocol.for_bridgy_subdomain(to_cc[0])
+                assert proto
+                if content in ('yes', 'ok'):
+                    from_user.enable_protocol(proto)
+                elif content == 'no':
+                    from_user.disable_protocol(proto)
+                return 'OK', 200
+
         # fetch actor if necessary
         if actor and actor.keys() == set(['id']):
             logger.info('Fetching actor so we have name, profile photo, etc')

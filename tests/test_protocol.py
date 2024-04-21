@@ -1796,7 +1796,7 @@ class ProtocolReceiveTest(TestCase):
         user = self.make_user('eefake:user', cls=ExplicitEnableFake)
         self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, user))
 
-        # protocol isn't enabled yet, block should be a noop
+        # fake protocol isn't enabled yet, block should be a noop
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(block))
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)
@@ -1822,6 +1822,45 @@ class ProtocolReceiveTest(TestCase):
         # block should remove from enabled_protocols
         block['id'] += '2'
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(block))
+        user = user.key.get()
+        self.assertEqual([], user.enabled_protocols)
+        self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, user))
+
+    def test_dm_no_yes_sets_enabled_protocols(self):
+        dm = {
+            'objectType': 'note',
+            'id': 'eefake:dm',
+            'actor': 'eefake:user',
+            'to': ['fa.brid.gy'],
+            'content': 'no',
+        }
+
+        user = self.make_user('eefake:user', cls=ExplicitEnableFake)
+        self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, user))
+
+        # fake protocol isn't enabled yet, no DM should be a noop
+        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
+        user = user.key.get()
+        self.assertEqual([], user.enabled_protocols)
+
+        # yes DM should add to enabled_protocols
+        dm['id'] += '2'
+        dm['content'] = 'yes'
+        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
+        user = user.key.get()
+        self.assertEqual(['fake'], user.enabled_protocols)
+        self.assertTrue(ExplicitEnableFake.is_enabled_to(Fake, user))
+
+        # another yes DM should be a noop
+        dm['id'] += '3'
+        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
+        user = user.key.get()
+        self.assertEqual(['fake'], user.enabled_protocols)
+
+        # block should remove from enabled_protocols
+        dm['id'] += '4'
+        dm['content'] = ' \n NO  '
+        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)
         self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, user))

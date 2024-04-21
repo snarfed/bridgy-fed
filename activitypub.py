@@ -30,6 +30,7 @@ from common import (
     host_url,
     LOCAL_DOMAINS,
     PRIMARY_DOMAIN,
+    PROTOCOL_DOMAINS,
     redirect_wrap,
     subdomain_wrap,
     unwrap,
@@ -56,6 +57,8 @@ WEB_OPT_OUT_DOMAINS = None
 
 FEDI_URL_RE = re.compile(r'https://[^/]+/(@|users/)([^/@]+)(@[^/@]+)?(/(?:statuses/)?[0-9]+)?')
 
+_BOT_ACTOR_IDS = None
+
 
 def instance_actor():
     global _INSTANCE_ACTOR
@@ -63,6 +66,15 @@ def instance_actor():
         import web
         _INSTANCE_ACTOR = web.Web.get_or_create(PRIMARY_DOMAIN)
     return _INSTANCE_ACTOR
+
+
+def bot_actor_ids():
+    global _BOT_ACTOR_IDS
+    if _BOT_ACTOR_IDS is None:
+        from activitypub import ActivityPub
+        _BOT_ACTOR_IDS = [translate_user_id(id=domain, from_=Web, to=ActivityPub)
+                          for domain in PROTOCOL_DOMAINS]
+    return _BOT_ACTOR_IDS
 
 
 class ActivityPub(User, Protocol):
@@ -926,6 +938,7 @@ def inbox(protocol=None, id=None):
     # follows, or other activity types, since Mastodon doesn't currently mark
     # those as explicitly public. Use as2's is_public instead of as1's because
     # as1's interprets unlisted as true.
+    # TODO: move this to Protocol
     if type == 'Create' and not as2.is_public(activity, unlisted=False):
         logger.info('Dropping non-public activity')
         return 'OK'
