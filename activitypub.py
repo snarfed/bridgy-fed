@@ -835,7 +835,12 @@ def postprocess_as2_actor(actor, user):
 @flask_util.cached(cache, CACHE_TIME)
 def actor(handle_or_id):
     """Serves a user's AS2 actor from the datastore."""
-    cls = Protocol.for_request(fed='web')
+    if handle_or_id == PRIMARY_DOMAIN or handle_or_id in PROTOCOL_DOMAINS:
+        from web import Web
+        cls = Web
+    else:
+        cls = Protocol.for_request(fed='web')
+
     if not cls:
         error(f"Couldn't determine protocol", status=404)
     elif cls.LABEL == 'web' and request.path.startswith('/ap/'):

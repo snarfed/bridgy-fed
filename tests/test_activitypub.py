@@ -495,17 +495,15 @@ class ActivityPubTest(TestCase):
     def test_actor_protocol_bot_user(self, *_):
         """Web users are special cased to drop the /web/ prefix."""
         actor_as2 = json_loads(util.read('bsky.brid.gy.as2.json'))
-        self.make_user('bsky.brid.gy', cls=Web, obj_as2=actor_as2,
-                       obj_id='https://bsky.brid.gy/')
+        self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky',
+                       obj_as2=actor_as2, obj_id='https://bsky.brid.gy/')
 
-        got = self.client.get('/bsky.brid.gy')
+        got = self.client.get('/bsky.brid.gy', base_url='https://bsky.brid.gy/')
         self.assertEqual(200, got.status_code)
         self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, got.headers['Content-Type'])
-        self.assert_equals({
-            **actor_as2,
-            'id': 'http://localhost/bsky.brid.gy',
-        }, got.json, ignore=['inbox', 'outbox', 'endpoints', 'followers',
-                             'following', 'publicKey', 'publicKeyPem'])
+        self.assert_equals(actor_as2, got.json,
+                           ignore=['inbox', 'outbox', 'endpoints', 'followers',
+                                   'following', 'publicKey', 'publicKeyPem'])
 
     # skip _pre_put_hook since it doesn't allow internal domains
     @patch.object(Web, '_pre_put_hook', new=lambda self: None)
