@@ -1825,6 +1825,7 @@ class ActivityPubUtilsTest(TestCase):
 
         self.assertFalse(ActivityPub.owns_id('https://twitter.com/foo'))
         self.assertFalse(ActivityPub.owns_id('https://fed.brid.gy/foo'))
+        self.assertFalse(ActivityPub.owns_id('https://ap.brid.gy/foo'))
 
     def test_owns_handle(self):
         for handle in ('@user@instance', 'user@instance.com', 'user.com@instance.com',

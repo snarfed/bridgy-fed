@@ -43,17 +43,17 @@ FOLLOWEE = {
 FOLLOW_ADDRESS = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Follow',
-    'id': f'http://localhost/r/alice.com/following#2022-01-02T03:04:05-@foo@ba.r',
+    'id': f'http://localhost/r/https://alice.com/#follow-2022-01-02T03:04:05-@foo@ba.r',
     'actor': 'http://localhost/alice.com',
     'object': FOLLOWEE['id'],
     'to': [as2.PUBLIC_AUDIENCE],
 }
 FOLLOW_URL = copy.deepcopy(FOLLOW_ADDRESS)
-FOLLOW_URL['id'] = f'http://localhost/r/alice.com/following#2022-01-02T03:04:05-https://ba.r/actor'
+FOLLOW_URL['id'] = f'http://localhost/r/https://alice.com/#follow-2022-01-02T03:04:05-https://ba.r/actor'
 UNDO_FOLLOW = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Undo',
-    'id': f'http://localhost/r/alice.com/following#undo-2022-01-02T03:04:05-https://ba.r/id',
+    'id': f'http://localhost/r/https://alice.com/#unfollow-2022-01-02T03:04:05-https://ba.r/id',
     'actor': 'http://localhost/alice.com',
     'object': copy.deepcopy(FOLLOW_ADDRESS),
 }
@@ -213,7 +213,7 @@ class FollowTest(TestCase):
 
         follow_with_profile_link = {
             **FOLLOW_URL,
-            'id': f'http://localhost/r/alice.com/following#2022-01-02T03:04:05-https://ba.r/id',
+            'id': f'http://localhost/r/https://alice.com/#follow-2022-01-02T03:04:05-https://ba.r/id',
             'object': 'https://ba.r/id',
         }
         self.check('https://ba.r/id', resp, follow_with_profile_link, mock_get,
@@ -355,7 +355,7 @@ class FollowTest(TestCase):
             sig_template.startswith('keyId="http://localhost/alice.com#key"'),
             sig_template)
 
-        follow_id = f'https://fed.brid.gy/web/alice.com/following#2022-01-02T03:04:05-{input}'
+        follow_id = f'https://alice.com/#follow-2022-01-02T03:04:05-{input}'
 
         followers = Follower.query().fetch()
         followee = ActivityPub(id='https://ba.r/id').key
@@ -410,7 +410,7 @@ class FollowTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/www.alice.com/following', resp.headers['Location'])
 
-        id = 'www.alice.com/following#2022-01-02T03:04:05-https://ba.r/actor'
+        id = 'https://www.alice.com/#follow-2022-01-02T03:04:05-https://ba.r/actor'
         expected_follow_as1 = as2.to_as1({
             **FOLLOW_URL,
             'id': id,
@@ -418,16 +418,14 @@ class FollowTest(TestCase):
         })
         del expected_follow_as1['to']
         followee = ActivityPub(id='https://ba.r/id').key
-        follow_obj = self.assert_object(
-            f'https://fed.brid.gy/web/{id}',
-            users=[user.key],
-            notify=[followee],
-            status='complete',
-            labels=['user', 'activity'],
-            source_protocol='ui',
-            our_as1=expected_follow_as1,
-            delivered=['http://ba.r/inbox'],
-            delivered_protocol='activitypub')
+        follow_obj = self.assert_object(id, users=[user.key],
+                                        notify=[followee],
+                                        status='complete',
+                                        labels=['user', 'activity'],
+                                        source_protocol='ui',
+                                        our_as1=expected_follow_as1,
+                                        delivered=['http://ba.r/inbox'],
+                                        delivered_protocol='activitypub')
 
         followers = Follower.query().fetch()
         self.assert_entities_equal(
@@ -607,7 +605,7 @@ class UnfollowTest(TestCase):
         self.assertEqual('inactive', follower.status)
 
         self.assert_object(
-            'https://fed.brid.gy/web/alice.com/following#undo-2022-01-02T03:04:05-https://ba.r/id',
+            'https://alice.com/#unfollow-2022-01-02T03:04:05-https://ba.r/id',
             users=[self.user.key],
             notify=[ActivityPub(id='https://ba.r/id').key],
             status='complete',
@@ -646,7 +644,7 @@ class UnfollowTest(TestCase):
         self.assertEqual(302, resp.status_code)
         self.assertEqual('/web/www.alice.com/following', resp.headers['Location'])
 
-        id = 'http://localhost/r/www.alice.com/following#undo-2022-01-02T03:04:05-https://ba.r/id'
+        id = 'http://localhost/r/https://www.alice.com/#unfollow-2022-01-02T03:04:05-https://ba.r/id'
         expected_undo = {
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Undo',
@@ -670,7 +668,7 @@ class UnfollowTest(TestCase):
         self.assertEqual('inactive', follower.status)
 
         self.assert_object(
-            'https://fed.brid.gy/web/www.alice.com/following#undo-2022-01-02T03:04:05-https://ba.r/id',
+            'https://www.alice.com/#unfollow-2022-01-02T03:04:05-https://ba.r/id',
             users=[user.key],
             notify=[ActivityPub(id='https://ba.r/id').key],
             status='complete',

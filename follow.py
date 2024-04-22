@@ -122,7 +122,7 @@ class FollowCallback(indieauth.Callback):
 
         followee_id = followee.as1.get('id')
         timestamp = util.now().replace(microsecond=0, tzinfo=None).isoformat()
-        follow_id = common.host_url(user.user_page_path(f'following#{timestamp}-{addr}'))
+        follow_id = f'{user.web_url()}#follow-{timestamp}-{addr}'
         follow_as1 = {
             'objectType': 'activity',
             'verb': 'follow',
@@ -204,7 +204,7 @@ class UnfollowCallback(indieauth.Callback):
 
         # TODO(#529): generalize
         timestamp = util.now().replace(microsecond=0, tzinfo=None).isoformat()
-        unfollow_id = common.host_url(user.user_page_path(f'following#undo-{timestamp}-{followee_id}'))
+        unfollow_id = f'{user.web_url()}#unfollow-{timestamp}-{followee_id}'
         unfollow_as1 = {
             'objectType': 'activity',
             'verb': 'stop-following',

@@ -547,18 +547,22 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def is_blocklisted(cls, url):
+    def is_blocklisted(cls, url, allow_internal=False):
         """Returns True if we block the given URL and shouldn't deliver to it.
 
         Default implementation here, subclasses may override.
 
         Args:
           url (str):
+          allow_internal (bool): whether to return False for internal domains
+            like ``fed.brid.gy``, ``bsky.brid.gy``, etc
 
         Returns: bool:
         """
-        return util.domain_or_parent_in(util.domain_from_link(url),
-                                        DOMAIN_BLOCKLIST + DOMAINS)
+        blocklist = DOMAIN_BLOCKLIST
+        if not allow_internal:
+            blocklist += DOMAINS
+        return util.domain_or_parent_in(util.domain_from_link(url), blocklist)
 
     @classmethod
     def translate_ids(to_cls, obj):
@@ -674,7 +678,7 @@ class Protocol:
 
         if not id:
             error('No id provided')
-        elif from_cls.is_blocklisted(id) and not internal:
+        elif from_cls.is_blocklisted(id, allow_internal=internal):
             error(f'Activity {id} is blocklisted')
 
         # short circuit if we've already seen this activity id.

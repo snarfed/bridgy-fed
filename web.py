@@ -67,8 +67,13 @@ MAX_FEED_POLL_PERIOD = timedelta(weeks=1)
 MAX_FEED_PROPERTY_SIZE = 500 * 1000  # Object.atom/rss
 
 
-def is_valid_domain(domain):
+def is_valid_domain(domain, allow_internal=True):
     """Returns True if this is a valid domain we can use, False otherwise.
+
+    Args:
+      domain (str):
+      allow_internal (bool): whether to return True for internal domains
+        like ``fed.brid.gy``, ``bsky.brid.gy``, etc
 
     Valid means TLD is ok, not blacklisted, etc.
     """
@@ -76,9 +81,7 @@ def is_valid_domain(domain):
         # logger.debug(f"{domain} doesn't look like a domain")
         return False
 
-    if (Web.is_blocklisted(domain)
-            and domain != PRIMARY_DOMAIN
-            and domain not in PROTOCOL_DOMAINS):
+    if Web.is_blocklisted(domain, allow_internal=allow_internal):
         logger.debug(f'{domain} is blocklisted')
         return False
 
@@ -135,7 +138,7 @@ class Web(User, Protocol):
         """Validate domain id, don't allow upper case or invalid characters."""
         super()._pre_put_hook()
         id = self.key.id()
-        assert is_valid_domain(id), id
+        assert is_valid_domain(id, allow_internal=False), id
         assert id.lower() == id, f'upper case is not allowed in Web key id: {id}'
 
     @classmethod
@@ -324,7 +327,7 @@ class Web(User, Protocol):
             if parsed.path in ('', '/'):
                 id = parsed.netloc
 
-        if is_valid_domain(id):
+        if is_valid_domain(id, allow_internal=True):
             return super().key_for(id)
 
         # logger.info(f'{id} is not a domain or usable home page URL')
@@ -344,14 +347,21 @@ class Web(User, Protocol):
             return True if user and user.has_redirects else None
         elif is_valid_domain(id):
             return None
-        elif util.is_web(id) and is_valid_domain(util.domain_from_link(id)):
+
+        # we allowed internal domains for protocol bot actors above, but we
+        # don't want to allow non-homepage URLs on those domains, eg
+        # https://bsky.brid.gy/foo, so don't allow internal here
+        domain = util.domain_from_link(id)
+        if util.is_web(id) and is_valid_domain(domain, allow_internal=False):
             return None
 
         return False
 
     @classmethod
     def owns_handle(cls, handle):
-        if not is_valid_domain(handle):
+        if handle in PROTOCOL_DOMAINS:
+            return True
+        elif not is_valid_domain(handle, allow_internal=False):
             return False
 
     @classmethod
@@ -586,7 +596,7 @@ def check_web_site():
 
     # this normalizes and lower cases domain
     domain = util.domain_from_link(url, minimize=False)
-    if not domain or not is_valid_domain(domain):
+    if not domain or not is_valid_domain(domain, allow_internal=False):
         flash(f'{url} is not a valid or supported web site')
         return render_template('enter_web_site.html'), 400
 
