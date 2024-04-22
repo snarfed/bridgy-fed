@@ -230,6 +230,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             cls.fetched = []
             cls.created_for = []
 
+        ids._NON_WEB_SUBDOMAIN_SITES = None
         ids.COPIES_PROTOCOLS = ('atproto', 'fake', 'other')
         common.PROTOCOL_DOMAINS = (
             'ap.brid.gy',

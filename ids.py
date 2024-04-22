@@ -52,10 +52,10 @@ def web_ap_base_domain(user_domain):
     if _NON_WEB_SUBDOMAIN_SITES is None:
         _NON_WEB_SUBDOMAIN_SITES = {
             user.key.id(): user.ap_subdomain
-            for key in Query('MagicKey',
-                             filters=FilterNode('ap_subdomain', '!=', 'web'),
-                             projection=['ap_subdomain'],
-                             ).fetch()
+            for user in Query('MagicKey',
+                              filters=FilterNode('ap_subdomain', '!=', 'web'),
+                              projection=['ap_subdomain'],
+                              ).fetch()
         }
         logger.info(f'Loaded {len(_NON_WEB_SUBDOMAIN_SITES)} non-web.brid.gy Web users')
 
