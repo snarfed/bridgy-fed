@@ -4,6 +4,7 @@ from unittest.mock import patch
 import urllib.parse
 
 from granary.as2 import CONTENT_TYPE_LD_PROFILE
+from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 
 # import first so that Fake is defined before URL routes are registered
@@ -341,11 +342,29 @@ class WebfingerTest(TestCase):
         user = Web.get_by_id('user.com')
         assert not user.direct
 
-    def test_fed_brid_gy(self):
+    # skip _pre_put_hook since it doesn't allow internal domains
+    @patch.object(Web, '_pre_put_hook', new=lambda self: None)
+    def test_protocol_bot_user(self):
+        self.make_user('bsky.brid.gy', cls=Web, obj_id='https://bsky.brid.gy/',
+                       ap_subdomain='bsky')
+
+        for id in ('acct:bsky.brid.gy@bsky.brid.gy',
+                   'https://bsky.brid.gy/bsky.brid.gy'):
+            got = self.client.get(f'/.well-known/webfinger?resource={id}')
+            self.assertEqual(200, got.status_code, got.get_data(as_text=True))
+            self.assertEqual('acct:bsky.brid.gy@bsky.brid.gy', got.json['subject'])
+            self.assertEqual(['https://bsky.brid.gy/'], got.json['aliases'])
+            self.assertIn({
+                'href': 'http://localhost/bsky.brid.gy',
+                'rel': 'self',
+                'type': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
+            }, got.json['links'])
+
+    def test_internal_domain_error(self):
         got = self.client.get('/.well-known/webfinger?resource=http://localhost/')
         self.assertEqual(400, got.status_code, got.get_data(as_text=True))
 
-        got = self.client.get('/.well-known/webfinger?resource=acct%3A%40localhost')
+        got = self.client.get('/.well-known/webfinger?resource=acct:@localhost')
         self.assertEqual(400, got.status_code, got.get_data(as_text=True))
 
     @patch('requests.get', return_value=requests_response(

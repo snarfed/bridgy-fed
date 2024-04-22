@@ -110,6 +110,10 @@ class IdsTest(TestCase):
             (Web, 'user.com', Fake, 'fake:handle:user.com'),
             (Web, 'user.com', Web, 'user.com'),
 
+            # instance actor, protocol bot user
+            (Web, 'fed.brid.gy', ActivityPub, '@fed.brid.gy@fed.brid.gy'),
+            (Web, 'bsky.brid.gy', ActivityPub, '@bsky.brid.gy@bsky.brid.gy'),
+
             (ActivityPub, '@user@instance', ActivityPub, '@user@instance'),
             (ActivityPub, '@user@instance', ATProto, 'user.instance.ap.brid.gy'),
             (ActivityPub, '@user@instance', Fake, 'fake:handle:@user@instance'),
@@ -137,6 +141,10 @@ class IdsTest(TestCase):
             (ActivityPub, '@user@user', Web, 'https://user'),
             (ActivityPub, '@user@instance', Fake, 'fake:handle:@user@instance'),
             (ATProto, 'user.com', ActivityPub, '@user.com@user.com'),
+
+            # instance actor, protocol bot user
+            (Web, 'fed.brid.gy', ActivityPub, '@fed.brid.gy@fed.brid.gy'),
+            (Web, 'bsky.brid.gy', ActivityPub, '@bsky.brid.gy@bsky.brid.gy'),
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_handle(

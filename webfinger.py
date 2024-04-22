@@ -14,9 +14,10 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import activitypub
 import common
-from common import LOCAL_DOMAINS, SUPERDOMAIN
+from common import LOCAL_DOMAINS, PRIMARY_DOMAIN, PROTOCOL_DOMAINS, SUPERDOMAIN
 from flask_app import app, cache
 from protocol import Protocol
+from web import Web
 
 SUBSCRIBE_LINK_REL = 'http://ostatus.org/schema/1.0/subscribe'
 
@@ -58,7 +59,9 @@ class Webfinger(flask_util.XrdOrJrd):
         except ValueError:
             id = urlparse(resource).netloc or resource
 
-        if not cls:
+        if id == PRIMARY_DOMAIN or id in PROTOCOL_DOMAINS:
+            cls = Web
+        elif not cls:
             cls = Protocol.for_request(fed='web')
 
         if not cls:

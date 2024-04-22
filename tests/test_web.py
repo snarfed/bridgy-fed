@@ -2373,6 +2373,13 @@ http://this/404s
         self.user.ap_subdomain = 'fed'
         self.assertEqual('@user.com@fed.brid.gy', self.user.handle_as(ActivityPub))
 
+    def test_handle_as_bot_users(self, *_):
+        fed = Web(id='fed.brid.gy', ap_subdomain='fed')
+        self.assertEqual('@fed.brid.gy@fed.brid.gy', fed.handle_as(ActivityPub))
+
+        bsky = Web(id='bsky.brid.gy', ap_subdomain='bsky')
+        self.assertEqual('@bsky.brid.gy@bsky.brid.gy', bsky.handle_as(ActivityPub))
+
     def test_id_as(self, *_):
         self.assertEqual('http://localhost/user.com', self.user.id_as(ActivityPub))
 
@@ -2552,6 +2559,8 @@ class WebUtilTest(TestCase):
         self.assertEqual(False, Web.owns_handle('@foo@bar.com'))
         self.assertEqual(False, Web.owns_handle('foo@bar.com'))
         self.assertEqual(False, Web.owns_handle('localhost'))
+
+        self.assertEqual(True, Web.owns_handle('fed.brid.gy'))
         self.assertEqual(True, Web.owns_handle('bsky.brid.gy'))
 
     def test_handle_to_id(self, *_):

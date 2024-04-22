@@ -11,7 +11,13 @@ from google.cloud.ndb.query import FilterNode, Query
 from granary.bluesky import BSKY_APP_URL_RE, web_url_to_at_uri
 from oauth_dropins.webutil import util
 
-from common import subdomain_wrap, LOCAL_DOMAINS, PRIMARY_DOMAIN, SUPERDOMAIN
+from common import (
+    LOCAL_DOMAINS,
+    PRIMARY_DOMAIN,
+    PROTOCOL_DOMAINS,
+    subdomain_wrap,
+    SUPERDOMAIN,
+)
 import models
 
 logger = logging.getLogger(__name__)
@@ -153,7 +159,9 @@ def translate_handle(*, handle, from_, to, enhanced):
 
     match from_.LABEL, to.LABEL:
         case _, 'activitypub':
-            domain = handle if enhanced else f'{from_.ABBREV}{SUPERDOMAIN}'
+            domain = f'{from_.ABBREV}{SUPERDOMAIN}'
+            if enhanced or handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
+                domain = handle
             return f'@{handle}@{domain}'
 
         case _, 'atproto' | 'nostr':

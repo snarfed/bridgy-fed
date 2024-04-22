@@ -116,7 +116,7 @@ class Fake(User, protocol.Protocol):
         return handle.replace(f'{cls.LABEL}:handle:', f'{cls.LABEL}:')
 
     @classmethod
-    def is_blocklisted(cls, url):
+    def is_blocklisted(cls, url, allow_internal=False):
         return url.startswith(f'{cls.LABEL}:blocklisted')
 
     @classmethod

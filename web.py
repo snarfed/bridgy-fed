@@ -359,7 +359,7 @@ class Web(User, Protocol):
 
     @classmethod
     def owns_handle(cls, handle):
-        if handle in PROTOCOL_DOMAINS:
+        if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
             return True
         elif not is_valid_domain(handle, allow_internal=False):
             return False

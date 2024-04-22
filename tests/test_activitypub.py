@@ -490,13 +490,33 @@ class ActivityPubTest(TestCase):
         got = self.client.get('/user.com')
         self.assertEqual(404, got.status_code)
 
+    # skip _pre_put_hook since it doesn't allow internal domains
+    @patch.object(Web, '_pre_put_hook', new=lambda self: None)
+    def test_actor_protocol_bot_user(self, *_):
+        """Web users are special cased to drop the /web/ prefix."""
+        actor_as2 = json_loads(util.read('bsky.brid.gy.as2.json'))
+        self.make_user('bsky.brid.gy', cls=Web, obj_as2=actor_as2,
+                       obj_id='https://bsky.brid.gy/')
+
+        got = self.client.get('/bsky.brid.gy')
+        self.assertEqual(200, got.status_code)
+        self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, got.headers['Content-Type'])
+        self.assert_equals({
+            **actor_as2,
+            'id': 'http://localhost/bsky.brid.gy',
+        }, got.json, ignore=['inbox', 'outbox', 'endpoints', 'followers',
+                             'following', 'publicKey', 'publicKeyPem'])
+
+    # skip _pre_put_hook since it doesn't allow internal domains
+    @patch.object(Web, '_pre_put_hook', new=lambda self: None)
     def test_instance_actor_fetch(self, *_):
         def reset_instance_actor():
             activitypub._INSTANCE_ACTOR = testutil.global_user
         self.addCleanup(reset_instance_actor)
 
         actor_as2 = json_loads(util.read('fed.brid.gy.as2.json'))
-        self.make_user(common.PRIMARY_DOMAIN, cls=Web, obj_as2=actor_as2)
+        self.make_user(common.PRIMARY_DOMAIN, cls=Web, obj_as2=actor_as2,
+                       obj_id='https://fed.brid.gy/')
 
         activitypub._INSTANCE_ACTOR = None
         got = self.client.get(f'/{common.PRIMARY_DOMAIN}')
@@ -2412,5 +2432,3 @@ class ActivityPubUtilsTest(TestCase):
             'actor': 'https://fa.brid.gy/ap/fake:user',
             'to': [as2.PUBLIC_AUDIENCE],
         }, json_loads(kwargs['data']))
-
-    # TODO: actor fetch and webfinger for @bsky.brid.gy@bsky.brid.gy both don't work. test and fix those.
