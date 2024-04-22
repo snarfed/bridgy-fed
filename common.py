@@ -38,15 +38,12 @@ SUPERDOMAIN = '.brid.gy'
 # use it to canonicalize most UI routes from these to fed.brid.gy.
 PROTOCOL_DOMAINS = (
     'ap.brid.gy',
-    'atp.brid.gy',
     'atproto.brid.gy',
-    'bluesky.brid.gy',
     'bsky.brid.gy',
+    'web.brid.gy',
     'eefake.brid.gy',
     'fa.brid.gy',
     'other.brid.gy',
-    'nostr.brid.gy',
-    'web.brid.gy',
 )
 OTHER_DOMAINS = (
     'bridgy-federated.appspot.com',

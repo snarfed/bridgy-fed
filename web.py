@@ -76,7 +76,9 @@ def is_valid_domain(domain):
         # logger.debug(f"{domain} doesn't look like a domain")
         return False
 
-    if Web.is_blocklisted(domain) and domain != common.PRIMARY_DOMAIN:
+    if (Web.is_blocklisted(domain)
+            and domain != PRIMARY_DOMAIN
+            and domain not in PROTOCOL_DOMAINS):
         logger.debug(f'{domain} is blocklisted')
         return False
 
@@ -112,9 +114,14 @@ class Web(User, Protocol):
     # Originally, BF served Web users' AP actor ids on fed.brid.gy, eg
     # https://fed.brid.gy/snarfed.org . When we started adding new protocols, we
     # switched to per-protocol subdomains, eg https://web.brid.gy/snarfed.org .
-    # However, we need to preserve the old users' actor ids as is. So, this
-    # property tracks which subdomain a given Web user's AP actor uses.
-    ap_subdomain = ndb.StringProperty(choices=['fed', 'web'], default='web')
+    # However, we need to preserve the old users' actor ids as is.
+    #
+    # Also, our per-protocol bot accounts in ActivityPub are on their own
+    # subdomains, eg @bsky.brid.gy@bsky.brid.gy.
+    #
+    # So, this property tracks which subdomain a given Web user's AP actor uses.
+    ap_subdomain = ndb.StringProperty(choices=['bsky', 'fed', 'web'],
+                                      default='web')
 
     # OLD. some stored entities still have these; do not reuse.
     # superfeedr_subscribed = ndb.DateTimeProperty(tzinfo=timezone.utc)

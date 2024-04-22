@@ -2541,6 +2541,8 @@ class WebUtilTest(TestCase):
         self.assertIs(False, Web.owns_id('http://localhost:8080/foo'))
         self.assertIs(False, Web.owns_id('https://twitter.com/'))
         self.assertIs(False, Web.owns_id('https://ap.brid.gy/foo'))
+        # TODO: this still needs to be false
+        # special-case PROTOCOL_DOMAINS homepages in Web.owns_id, otherwise False
 
     def test_owns_handle(self, *_):
         self.assertIsNone(Web.owns_handle('foo.com'))
@@ -2552,7 +2554,7 @@ class WebUtilTest(TestCase):
         self.assertEqual(False, Web.owns_handle('@foo@bar.com'))
         self.assertEqual(False, Web.owns_handle('foo@bar.com'))
         self.assertEqual(False, Web.owns_handle('localhost'))
-        self.assertEqual(False, Web.owns_handle('bsky.brid.gy'))
+        self.assertEqual(True, Web.owns_handle('bsky.brid.gy'))
 
     def test_handle_to_id(self, *_):
         self.assertEqual('foo.com', Web.handle_to_id('foo.com'))

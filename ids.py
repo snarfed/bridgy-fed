@@ -21,7 +21,9 @@ COPIES_PROTOCOLS = ('atproto',)
 
 # Web user domains whose AP actor ids are on fed.brid.gy, not web.brid.gy, for
 # historical compatibility. Loaded on first call to web_ap_subdomain().
-_FED_SUBDOMAIN_SITES = None
+#
+# Maps string domain to string subdomain (bsky, fed, or web).
+_NON_WEB_SUBDOMAIN_SITES = None
 
 
 def web_ap_base_domain(user_domain):
@@ -40,16 +42,18 @@ def web_ap_base_domain(user_domain):
     if request.host in LOCAL_DOMAINS:
         return request.host_url
 
-    global _FED_SUBDOMAIN_SITES
-    if _FED_SUBDOMAIN_SITES is None:
-        _FED_SUBDOMAIN_SITES = {
-            key.id() for key in Query('MagicKey',
-                                      filters=FilterNode('ap_subdomain', '=', 'fed')
-                                      ).fetch(keys_only=True)
+    global _NON_WEB_SUBDOMAIN_SITES
+    if _NON_WEB_SUBDOMAIN_SITES is None:
+        _NON_WEB_SUBDOMAIN_SITES = {
+            user.key.id(): user.ap_subdomain
+            for key in Query('MagicKey',
+                             filters=FilterNode('ap_subdomain', '!=', 'web'),
+                             projection=['ap_subdomain'],
+                             ).fetch()
         }
-        logger.info(f'Loaded {len(_FED_SUBDOMAIN_SITES)} fed subdomain Web users')
+        logger.info(f'Loaded {len(_NON_WEB_SUBDOMAIN_SITES)} non-web.brid.gy Web users')
 
-    subdomain = 'fed' if user_domain in _FED_SUBDOMAIN_SITES else 'web'
+    subdomain = _NON_WEB_SUBDOMAIN_SITES.get(user_domain, 'web')
     return f'https://{subdomain}{SUPERDOMAIN}/'
 
 

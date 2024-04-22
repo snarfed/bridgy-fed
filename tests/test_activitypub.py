@@ -2411,3 +2411,5 @@ class ActivityPubUtilsTest(TestCase):
             'actor': 'https://fa.brid.gy/ap/fake:user',
             'to': [as2.PUBLIC_AUDIENCE],
         }, json_loads(kwargs['data']))
+
+    # TODO: actor fetch and webfinger for @bsky.brid.gy@bsky.brid.gy both don't work. test and fix those.

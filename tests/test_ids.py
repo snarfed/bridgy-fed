@@ -88,7 +88,10 @@ class IdsTest(TestCase):
                 self.assertEqual(expected, translate_user_id(
                     id='https://www.user.com/', from_=Web, to=proto))
 
-    @patch('ids._FED_SUBDOMAIN_SITES', new={'on-fed.com'})
+    @patch('ids._NON_WEB_SUBDOMAIN_SITES', new={
+        'on-bsky.com': 'bsky',
+        'on-fed.com': 'fed',
+    })
     def test_translate_user_id_web_ap_subdomain_fed(self):
         for base_url in ['https://web.brid.gy/', 'https://fed.brid.gy/']:
             with app.test_request_context('/', base_url=base_url):
@@ -96,6 +99,8 @@ class IdsTest(TestCase):
                     id='on-web.com', from_=Web, to=ActivityPub))
                 self.assertEqual('https://fed.brid.gy/on-fed.com', translate_user_id(
                     id='on-fed.com', from_=Web, to=ActivityPub))
+                self.assertEqual('https://bsky.brid.gy/on-bsky.com', translate_user_id(
+                    id='on-bsky.com', from_=Web, to=ActivityPub))
 
     def test_translate_handle(self):
         for from_, handle, to, expected in [
@@ -185,7 +190,7 @@ class IdsTest(TestCase):
                 self.assertEqual(expected, translate_object_id(
                     id=id, from_=from_, to=to))
 
-    @patch('ids._FED_SUBDOMAIN_SITES', new={'on-fed.com'})
+    @patch('ids._NON_WEB_SUBDOMAIN_SITES', new={'on-fed.com': 'fed'})
     def test_translate_object_id_web_ap_subdomain_fed(self):
         for base_url in ['https://web.brid.gy/', 'https://fed.brid.gy/']:
             with app.test_request_context('/', base_url=base_url):
