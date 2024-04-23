@@ -644,30 +644,10 @@ def webmention_external():
     if not user:
         error(f'No user found for domain {domain}')
 
-    if request.path == '/webmention':  # exclude interactive
-        user.last_webmention_in = util.now()
-        user.put()
+    user.last_webmention_in = util.now()
+    user.put()
 
     return common.create_task('webmention', **request.form)
-
-
-@app.post('/webmention-interactive')
-def webmention_interactive():
-    """Handler that runs interactive webmention-based requests from the web UI.
-
-    ...eg the update profile button on user pages.
-    """
-    source = flask_util.get_required_param('source').strip()
-
-    try:
-        webmention_external()
-        user = Web(id=util.domain_from_link(source, minimize=False))
-        flash(f'Updating profile from <a href="{user.web_url()}">{user.key.id()}</a>...')
-        return redirect(user.user_page_path(), code=302)
-
-    except HTTPException as e:
-        flash(util.linkify(str(e.description), pretty=True))
-        return redirect('/', code=302)
 
 
 @app.post(f'/queue/poll-feed')
