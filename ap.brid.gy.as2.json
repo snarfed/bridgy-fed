@@ -4,11 +4,11 @@
     "https://w3id.org/security/v1"
   ],
   "type": "Application",
-  "id": "https://bsky.brid.gy/bsky.brid.gy",
-  "url": "https://bsky.brid.gy/",
-  "preferredUsername": "bsky.brid.gy",
-  "summary": "<a href='https://fed.brid.gy/'>Bridgy Fed</a> bot user for <a href='https://bsky.social/'>Bluesky</a>. To bridge your fediverse account to Bluesky, follow this account or reply <em>yes</em> when it promps you with a DM. <a href='https://fed.brid.gy/docs'>More info here.</a>",
-  "name": "Bridgy Fed for Bluesky",
+  "id": "https://ap.brid.gy/ap.brid.gy",
+  "url": "https://ap.brid.gy/",
+  "preferredUsername": "ap.brid.gy",
+  "summary": "<a href='https://fed.brid.gy/'>Bridgy Fed</a> bot user for the <a href='https://en.wikipedia.org/wiki/Fediverse'>fediverse</a>. To bridge your Bluesky account to the fediverse, follow this account. <a href='https://fed.brid.gy/docs'>More info here.</a>",
+  "name": "Bridgy Fed for the fediverse",
   "attachment": [{
     "name": "Web site",
     "type": "PropertyValue",
@@ -20,13 +20,13 @@
       "url": "https://fed.brid.gy/static/bridgy_logo.jpg"
     },
     {
-      "name": "Bridgy Fed for Bluesky",
+      "name": "Bridgy Fed for the fediverse",
       "type": "Image",
       "url": "https://fed.brid.gy/static/bridgy_logo_square.jpg"
     }
   ],
   "icon": {
-    "name": "Bridgy Fed for Bluesky",
+    "name": "Bridgy Fed for the fediverse",
     "type": "Image",
     "url": "https://fed.brid.gy/static/bridgy_logo_square.jpg"
   }
