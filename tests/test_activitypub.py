@@ -11,9 +11,10 @@ from flask import g
 from google.cloud import ndb
 from granary import as2, microformats2
 from httpsig import HeaderSigner
+from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import requests_response
-from oauth_dropins.webutil.util import domain_from_link, json_dumps, json_loads
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.util import domain_from_link, json_dumps, json_loads
 import requests
 from urllib3.exceptions import ReadTimeoutError
 from werkzeug.exceptions import BadGateway, BadRequest
@@ -864,6 +865,25 @@ class ActivityPubTest(TestCase):
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assertIsNone(Object.get_by_id(not_public['id']))
         self.assertIsNone(Object.get_by_id(not_public['object']['id']))
+
+    def test_follow_bot_user_enables_protocol(self, *mocks):
+        user = self.make_user('https://mas.to/users/swentel', cls=ActivityPub,
+                              obj_as2=ACTOR)
+        self.assertFalse(ActivityPub.is_enabled_to(ExplicitEnableFake, user))
+
+        id = 'https://inst/follow'
+        with self.assertRaises(NoContent):
+            ActivityPub.receive(Object(id=id, as2={
+                'type': 'Follow',
+                'id': id,
+                'actor': 'https://mas.to/users/swentel',
+                'object': 'https://eefake.brid.gy/eefake.brid.gy',
+            }))
+
+        self.assertEqual(['https://mas.to/users/swentel'],
+                         ExplicitEnableFake.created_for)
+        user = user.key.get()
+        self.assertTrue(ActivityPub.is_enabled_to(ExplicitEnableFake, user))
 
     def test_inbox_dm_yes_to_bot_user_enables_protocol(self, *mocks):
         user = self.make_user(ACTOR['id'], cls=ActivityPub)

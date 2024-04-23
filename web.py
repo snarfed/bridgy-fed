@@ -138,7 +138,7 @@ class Web(User, Protocol):
         """Validate domain id, don't allow upper case or invalid characters."""
         super()._pre_put_hook()
         id = self.key.id()
-        assert is_valid_domain(id, allow_internal=False), id
+        assert is_valid_domain(id), id
         assert id.lower() == id, f'upper case is not allowed in Web key id: {id}'
 
     @classmethod

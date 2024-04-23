@@ -232,16 +232,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         ids._NON_WEB_SUBDOMAIN_SITES = None
         ids.COPIES_PROTOCOLS = ('atproto', 'fake', 'other')
-        common.PROTOCOL_DOMAINS = (
-            'ap.brid.gy',
-            'bsky.brid.gy',
-            'web.brid.gy',
-            'eefake.brid.gy',
-            'fa.brid.gy',
-            'other.brid.gy',
-        )
-        common.DOMAINS = ((PRIMARY_DOMAIN,) + common.PROTOCOL_DOMAINS
-                          + OTHER_DOMAINS + LOCAL_DOMAINS)
 
         # make random test data deterministic
         arroba.util._clockid = 17
