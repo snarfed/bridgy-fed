@@ -989,7 +989,7 @@ class Protocol:
         Returns:
           models.Object: ``obj`` if it's an activity, otherwise a new object
         """
-        if obj.type not in ('note', 'article', 'comment'):
+        if obj.type not in set(('note', 'article', 'comment')) | as1.ACTOR_TYPES:
             return obj
 
         obj_actor = as1.get_owner(obj.as1)

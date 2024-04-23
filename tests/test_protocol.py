@@ -789,7 +789,6 @@ class ProtocolReceiveTest(TestCase):
     def test_update_post_bare_object(self):
         self.make_followers()
 
-        # post has no author
         post_as1 = {
             'id': 'fake:post',
             'objectType': 'note',
@@ -1292,6 +1291,43 @@ class ProtocolReceiveTest(TestCase):
         )
 
         self.assertEqual([(update_obj.key.id(), 'shared:target')], Fake.sent)
+
+    def test_update_profile_bare_object(self):
+        self.make_followers()
+
+        actor = {
+            'objectType': 'person',
+            'id': 'fake:user',
+            'displayName': 'Ms. ☕ Baz',
+            'summary': 'first',
+        }
+        self.store_object(id='fake:user', our_as1=actor)
+
+        actor['summary'] = 'second'
+        Fake.receive_as1(actor)
+
+        # profile object
+        actor['updated'] = '2022-01-02T03:04:05+00:00'
+        self.assert_object('fake:user', our_as1=actor, type='person')
+
+        # update activity
+        id = 'fake:user#bridgy-fed-update-2022-01-02T03:04:05+00:00'
+        update_obj = self.assert_object(
+            id,
+            users=[self.user.key],
+            status='complete',
+            our_as1={
+                'objectType': 'activity',
+                'verb': 'update',
+                'id': id,
+                'actor': actor,
+                'object': actor,
+            },
+            delivered=['shared:target'],
+            type='update',
+            object_ids=['fake:user'],
+        )
+        self.assertEqual([(id, 'shared:target')], Fake.sent)
 
     def test_mention_object(self, *mocks):
         self.alice.obj.our_as1 = {'id': 'fake:alice', 'objectType': 'person'}
