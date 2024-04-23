@@ -839,29 +839,6 @@ def webmention_task():
             else:
                 authors[0] = user.web_url()
 
-    # if source is home page, update Web user and send an actor Update to
-    # followers' instances
-    if user.key.id() == obj.key.id() or user.is_web_url(obj.key.id()):
-        logger.info(f'Converted to AS1: {obj.type}: {json_dumps(obj.as1, indent=2)}')
-        obj.put()
-        user.obj = obj
-        user.put()
-
-        logger.info('Wrapping in Update for home page user profile')
-        actor_as1 = {
-            **obj.as1,
-            'id': user.web_url(),
-            'updated': util.now().isoformat(),
-        }
-        id = common.host_url(f'{obj.key.id()}#update-{util.now().isoformat()}')
-        obj = Object(id=id, status='new', our_as1={
-            'objectType': 'activity',
-            'verb': 'update',
-            'id': id,
-            'actor': user.web_url(),
-            'object': actor_as1,
-        })
-
     try:
         return Web.receive(obj, authed_as=user.web_url())
     except ValueError as e:

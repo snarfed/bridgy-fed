@@ -1632,6 +1632,10 @@ class WebTest(TestCase):
         Follower.get_or_create(to=self.user, from_=self.make_user(
             'http://d/dd', cls=ActivityPub, obj_as2={'inbox': 'https://inbox'}))
 
+        mf2 = copy.deepcopy(ACTOR_MF2)
+        mf2['properties']['name'] = 'original'
+        self.store_object(id='https://user.com/', mf2=mf2)
+
         got = self.post('/queue/webmention', data={
             'source': 'https://user.com/',
             'target': 'https://fed.brid.gy/',
@@ -1641,7 +1645,7 @@ class WebTest(TestCase):
             self.req('https://user.com/'),
         ))
 
-        id = 'https://user.com/#update-2022-01-02T03:04:05+00:00'
+        id = 'https://user.com/#bridgy-fed-update-2022-01-02T03:04:05+00:00'
         wrapped_id = f'http://localhost/r/{id}'
         expected_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',
@@ -1730,7 +1734,7 @@ class WebTest(TestCase):
             self.req('https://user.com/'),
         ))
 
-        id = 'https://user.com/#update-2022-01-02T03:04:05+00:00'
+        id = 'https://user.com/#bridgy-fed-update-2022-01-02T03:04:05+00:00'
         wrapped_id = f'http://localhost/r/{id}'
         update_as2 = {
             '@context': 'https://www.w3.org/ns/activitystreams',

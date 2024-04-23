@@ -824,8 +824,8 @@ class Protocol:
             to_cc = (as1.get_ids(inner_obj_as1, 'to')
                      + as1.get_ids(inner_obj_as1, 'cc'))
             content = inner_obj_as1.get('content', '').strip().lower()
-            logger.info(f'got DM to {to_cc}: {content}')
             if len(to_cc) == 1:
+                logger.info(f'got DM to {to_cc}: {content}')
                 proto = Protocol.for_bridgy_subdomain(to_cc[0])
                 if proto:
                     if content in ('yes', 'ok'):
