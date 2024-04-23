@@ -96,6 +96,7 @@ class ATProto(User, Protocol):
     # need to update serviceEndpoint in all users' DID docs. :/
     PDS_URL = f'https://atproto{common.SUPERDOMAIN}/'
     CONTENT_TYPE = 'application/json'
+    HAS_COPIES = True
     DEFAULT_ENABLED_PROTOCOLS = ()
 
     def _pre_put_hook(self):

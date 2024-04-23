@@ -70,6 +70,7 @@ class Fake(User, protocol.Protocol):
     ABBREV = 'fa'
     PHRASE = 'fake-phrase'
     CONTENT_TYPE = 'fa/ke'
+    HAS_COPIES = True
 
     # maps string ids to dict AS1 objects that can be fetched
     fetchable = {}
@@ -231,7 +232,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             cls.created_for = []
 
         ids._NON_WEB_SUBDOMAIN_SITES = None
-        ids.COPIES_PROTOCOLS = ('atproto', 'fake', 'other', 'eefake')
 
         # make random test data deterministic
         arroba.util._clockid = 17

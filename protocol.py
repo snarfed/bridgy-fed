@@ -80,6 +80,9 @@ class Protocol:
         appropriate for the ``Content-Type`` HTTP header.
       HAS_FOLLOW_ACCEPTS (bool): whether this protocol supports explicit
         accept/reject activities in response to follows, eg ActivityPub
+      HAS_COPIES (bool): whether this protocol is push and needs us to
+        proactively create "copy" users and objects, as opposed to pulling
+        converted objects on demand
       DEFAULT_ENABLED_PROTOCOLS (list of str): labels of other protocols that
         are automatically enabled for this protocol to bridge into
     """
@@ -89,6 +92,7 @@ class Protocol:
     LOGO_HTML = ''
     CONTENT_TYPE = None
     HAS_FOLLOW_ACCEPTS = False
+    HAS_COPIES = False
     DEFAULT_ENABLED_PROTOCOLS = ()
 
     def __init__(self):

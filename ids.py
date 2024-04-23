@@ -23,8 +23,8 @@ import models
 logger = logging.getLogger(__name__)
 
 # Protocols to check User.copies and Object.copies before translating
-# TODO: move to Protocol
-COPIES_PROTOCOLS = ('atproto',)
+# populated in models.reset_protocol_properties
+COPIES_PROTOCOLS = None
 
 # Web user domains whose AP actor ids are on fed.brid.gy, not web.brid.gy, for
 # historical compatibility. Loaded on first call to web_ap_subdomain().

@@ -120,6 +120,8 @@ def reset_protocol_properties():
     abbrevs = f'({"|".join(PROTOCOLS.keys())}|fed)'
     common.SUBDOMAIN_BASE_URL_RE = re.compile(
         rf'^https?://({abbrevs}\.brid\.gy|localhost(:8080)?)/(convert/|r/)?({abbrevs}/)?(?P<path>.+)')
+    ids.COPIES_PROTOCOLS = tuple(label for label, proto in PROTOCOLS.items()
+                                 if proto and proto.HAS_COPIES)
 
 
 class User(StringIdModel, metaclass=ProtocolUserMeta):
@@ -360,6 +362,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Args:
           to_proto (:class:`protocol.Protocol` subclass)
         """
+        logger.info(f'Enabling {to_proto.LABEL} for {self.key}')
         user = self.key.get()
         add(user.enabled_protocols, to_proto.LABEL)
         if to_proto.LABEL in ids.COPIES_PROTOCOLS and not user.get_copy(to_proto):
@@ -375,6 +378,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Args:
           to_proto (:class:`protocol.Protocol` subclass)
         """
+        logger.info(f'Disabling {to_proto.LABEL} for {self.key}')
         user = self.key.get()
         remove(user.enabled_protocols, to_proto.LABEL)
         # TODO: delete copy user
