@@ -594,7 +594,7 @@ def poll_notifications():
         client.session['accessJwt'] = service_jwt(os.environ['APPVIEW_HOST'],
                                                   repo_did=did,
                                                   privkey=repo.signing_key)
-        resp = client.app.bsky.notification.listNotifications()
+        resp = client.app.bsky.notification.listNotifications(limit=10)
         for notif in resp['notifications']:
             actor_did = notif['author']['did']
             logger.debug(f'Got {notif["reason"]} from {notif["author"]["handle"]} {notif["uri"]} {notif["cid"]} : {json_dumps(notif, indent=2)}')
@@ -653,7 +653,7 @@ def poll_posts():
         client.session['accessJwt'] = service_jwt(os.environ['APPVIEW_HOST'],
                                                   repo_did=did,
                                                   privkey=repo.signing_key)
-        resp = client.app.bsky.feed.getTimeline()
+        resp = client.app.bsky.feed.getTimeline(limit=10)
         for item in resp['feed']:
             # TODO: handle reposts once we have a URI for them
             # https://github.com/bluesky-social/atproto/issues/1811

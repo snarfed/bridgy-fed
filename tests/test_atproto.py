@@ -1192,7 +1192,7 @@ class ATProtoTest(TestCase):
         self.assertEqual(200, resp.status_code)
 
         expected_list_notifs = call(
-            'https://api.bsky-sandbox.dev/xrpc/app.bsky.notification.listNotifications',
+            'https://api.bsky-sandbox.dev/xrpc/app.bsky.notification.listNotifications?limit=10',
             json=None, data=None,
             headers={
                 'Content-Type': 'application/json',
@@ -1290,7 +1290,7 @@ class ATProtoTest(TestCase):
         self.assertEqual(200, resp.status_code)
 
         get_timeline = call(
-            'https://api.bsky-sandbox.dev/xrpc/app.bsky.feed.getTimeline',
+            'https://api.bsky-sandbox.dev/xrpc/app.bsky.feed.getTimeline?limit=10',
             json=None, data=None,
             headers={
                 'Content-Type': 'application/json',
