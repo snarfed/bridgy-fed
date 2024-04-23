@@ -114,7 +114,8 @@ class ProtocolTest(TestCase):
         self.store_object(id='http://u.i/obj', source_protocol='ui')
         self.assertEqual(UIProtocol, Protocol.for_id('http://u.i/obj'))
 
-    def test_for_id_object_missing_source_protocol(self):
+    @patch('requests.get', return_value=requests_response())
+    def test_for_id_object_missing_source_protocol(self, _):
         self.store_object(id='http://ba.d/obj')
         self.assertIsNone(Protocol.for_id('http://ba.d/obj'))
 
