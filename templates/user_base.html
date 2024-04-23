@@ -47,13 +47,10 @@
       {{ user.handle_or_id() }}
     </a>
 
-    {% if user.LABEL == 'web' %}
-      <form method="post" action="/webmention-interactive">
-        <input name="source" type="hidden" value="{{ user.web_url() }}" />
-        <button id="update-profile-button" type="submit" title="Update profile"
-                class="btn btn-default glyphicon glyphicon-refresh"></button>
-      </form>
-    {% endif %}
+    <form method="post" action="{{ user.user_page_path('update-profile') }}">
+      <button id="update-profile-button" type="submit" title="Update profile"
+              class="btn btn-default glyphicon glyphicon-refresh"></button>
+    </form>
     </nobr>
   </span>
 

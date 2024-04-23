@@ -19,6 +19,8 @@ from oauth_dropins.webutil.flask_util import (
     flash,
     redirect,
 )
+import requests
+import werkzeug.exceptions
 
 import common
 from common import DOMAIN_RE
@@ -26,6 +28,7 @@ from flask_app import app, cache
 import ids
 from models import fetch_objects, fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS
 from protocol import Protocol
+
 
 # precompute this because we get a ton of requests for non-existing users
 # from weird open redirect referrers:
@@ -158,6 +161,30 @@ def notifications(protocol, id):
 
     # notifications tab UI page
     return render_template('notifications.html', **TEMPLATE_VARS, **locals())
+
+
+@app.post(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/update-profile')
+@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+def update_profile(protocol, id):
+    user = load_user(protocol, id)
+
+    try:
+        profile_obj = user.load(user.profile_id(), remote=True)
+        if profile_obj:
+            msg, status = user.receive(profile_obj)
+        else:
+            status = 400
+            msg = "couldn't fetch profile"
+
+    except (requests.RequestException, werkzeug.exceptions.HTTPException) as e:
+        status, msg = util.interpret_http_exception(e)
+
+    if int(status) // 100 == 2:
+        flash(f'Updating profile for {user.handle_or_id()}')
+    else:
+        flash(f"Couldn't update profile for {user.handle_or_id()}: {msg}")
+
+    return redirect(user.user_page_path(), code=302)
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/<any(followers,following):collection>')

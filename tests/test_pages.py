@@ -168,6 +168,27 @@ class PagesTest(TestCase):
         got = self.client.get('/web/user.com?before=2024-01-01+01:01:01&after=2023-01-01+01:01:01')
         self.assert_equals(400, got.status_code)
 
+    def test_update_profile(self):
+        self.make_user('fake:user', cls=Fake)
+
+        actor = {
+            'objectType': 'person',
+            'id': 'fake:user',
+            'displayName': 'Ms User',
+        }
+        Fake.fetchable = {'fake:user': actor}
+        got = self.client.post('/fa/fake:user/update-profile')
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/fa/fake:handle:user', got.headers['Location'])
+        self.assertEqual(['Updating profile for fake:handle:user'],
+                         get_flashed_messages())
+
+        self.assertEqual(['fake:user'], Fake.fetched)
+        self.assert_object('fake:user', source_protocol='fake', our_as1={
+            **actor,
+            'updated': '2022-01-02T03:04:05+00:00',
+        })
+
     def test_followers(self):
         Follower.get_or_create(
             to=self.user,
