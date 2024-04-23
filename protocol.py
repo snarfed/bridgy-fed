@@ -4,7 +4,7 @@ from datetime import timedelta
 import logging
 import re
 from threading import Lock
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from cachetools import cached, LRUCache
 from flask import g, request
@@ -301,10 +301,11 @@ class Protocol:
         if not id:
             return None
 
-        # step 1: check for our per-protocol subdomains
         if util.is_web(id):
+            # step 1: check for our per-protocol subdomains
+            is_homepage = urlparse(id).path.strip('/') == ''
             by_subdomain = Protocol.for_bridgy_subdomain(id)
-            if by_subdomain:
+            if by_subdomain and not is_homepage:
                 logger.info(f'  {by_subdomain.LABEL} owns id {id}')
                 return by_subdomain
 

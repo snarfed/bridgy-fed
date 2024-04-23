@@ -90,8 +90,13 @@ class ProtocolTest(TestCase):
                 ('foo://bar', None),
                 ('fake:foo', Fake),
                 ('at://foo', ATProto),
+                # TODO: remove? should we require normalized ids?
                 ('https://ap.brid.gy/foo/bar', ActivityPub),
                 ('https://web.brid.gy/foo/bar', Web),
+                ('https://fed.brid.gy/', Web),
+                ('https://web.brid.gy/', Web),
+                ('https://bsky.brid.gy/', Web),
+                ('bsky.brid.gy', Web),
         ]:
             self.assertEqual(expected, Protocol.for_id(id, remote=False))
             self.assertEqual(expected, Protocol.for_id(id, remote=True))
