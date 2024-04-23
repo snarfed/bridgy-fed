@@ -199,10 +199,11 @@ def unwrap(val, field=None):
         return [unwrap(v) for v in val]
 
     elif isinstance(val, str):
-        unwrapped = SUBDOMAIN_BASE_URL_RE.sub('', val)
-        if field in ID_FIELDS and re.fullmatch(DOMAIN_RE, unwrapped):
-            unwrapped = f'https://{unwrapped}/'
-        return unwrapped
+        if match := SUBDOMAIN_BASE_URL_RE.match(val):
+            unwrapped = match.group('path')
+            if field in ID_FIELDS and re.fullmatch(DOMAIN_RE, unwrapped):
+                return f'https://{unwrapped}/'
+            return unwrapped
 
     return val
 

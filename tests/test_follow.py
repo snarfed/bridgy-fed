@@ -16,6 +16,7 @@ from .testutil import Fake, TestCase
 
 from activitypub import ActivityPub
 from common import unwrap
+import ids
 from models import Follower, Object
 from web import Web
 
@@ -367,7 +368,10 @@ class FollowTest(TestCase):
 
         if not expected_follow_as1:
             expected_follow_as1 = as2.to_as1(unwrap(expected_follow))
+            expected_follow_as1['actor'] = ids.translate_user_id(
+                id=expected_follow_as1['actor'], from_=Web, to=Web)
         del expected_follow_as1['to']
+
         self.assert_object(follow_id,
                            users=[self.user.key],
                            notify=[followee],
@@ -414,7 +418,7 @@ class FollowTest(TestCase):
         expected_follow_as1 = as2.to_as1({
             **FOLLOW_URL,
             'id': id,
-            'actor': 'https://www.alice.com/',
+            'actor': 'www.alice.com',
         })
         del expected_follow_as1['to']
         followee = ActivityPub(id='https://ba.r/id').key
@@ -604,6 +608,9 @@ class UnfollowTest(TestCase):
         follower = Follower.query().get()
         self.assertEqual('inactive', follower.status)
 
+        expected_undo_as1 = as2.to_as1(unwrap(expected_undo))
+        expected_undo_as1['actor'] = ids.translate_user_id(
+            id=expected_undo_as1['actor'], from_=Web, to=Web)
         self.assert_object(
             'https://alice.com/#unfollow-2022-01-02T03:04:05-https://ba.r/id',
             users=[self.user.key],
@@ -611,7 +618,7 @@ class UnfollowTest(TestCase):
             status='complete',
             source_protocol='ui',
             labels=['user', 'activity'],
-            our_as1=unwrap(as2.to_as1(expected_undo)),
+            our_as1=expected_undo_as1,
             delivered=['http://ba.r/inbox'],
             delivered_protocol='activitypub')
 
@@ -667,6 +674,10 @@ class UnfollowTest(TestCase):
         follower = Follower.query().get()
         self.assertEqual('inactive', follower.status)
 
+        expected_undo_as1 = as2.to_as1(unwrap(expected_undo))
+        expected_undo_as1['actor'] = ids.translate_user_id(
+            id=expected_undo_as1['actor'], from_=Web, to=Web)
+
         self.assert_object(
             'https://www.alice.com/#unfollow-2022-01-02T03:04:05-https://ba.r/id',
             users=[user.key],
@@ -674,7 +685,7 @@ class UnfollowTest(TestCase):
             status='complete',
             source_protocol='ui',
             labels=['user', 'activity'],
-            our_as1=unwrap(as2.to_as1(expected_undo)),
+            our_as1=expected_undo_as1,
             delivered=['http://ba.r/inbox'],
             delivered_protocol='activitypub')
 

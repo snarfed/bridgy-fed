@@ -1851,10 +1851,9 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(['fake'], user.enabled_protocols)
         self.assertEqual(['eefake:user'], Fake.created_for)
         self.assertTrue(ExplicitEnableFake.is_enabled_to(Fake, user))
-        self.assertEqual([
-            ('https://fa.brid.gy//followers#accept-eefake:follow',
-             'eefake:user:target'),
-        ], ExplicitEnableFake.sent)
+        self.assertEqual([('fa.brid.gy/followers#accept-eefake:follow',
+                           'eefake:user:target')],
+                         ExplicitEnableFake.sent)
 
         # another follow should be a noop
         follow['id'] += '2'

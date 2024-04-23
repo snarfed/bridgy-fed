@@ -1,0 +1,8 @@
+{
+  "type": "Application",
+  "id": "https://other.brid.gy/other.brid.gy",
+  "url": "https://other.brid.gy/",
+  "preferredUsername": "other.brid.gy",
+  "summary": "Only for unit tests",
+  "name": "OtherFake protocol class in testutil"
+}

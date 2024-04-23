@@ -62,9 +62,12 @@ class CommonTest(TestCase):
 
     def test_unwrap_protocol_subdomain(self):
         for input, expected in [
-                ('https://fa.brid.gy/', ''),
                 ('https://fa.brid.gy/ap/fake:foo', 'fake:foo'),
                 ('https://bsky.brid.gy/convert/ap/did:plc:123', 'did:plc:123'),
+                # preserve protocol bot user ids
+                ('https://fed.brid.gy/', 'https://fed.brid.gy/'),
+                ('https://fa.brid.gy/', 'https://fa.brid.gy/'),
+                ('fa.brid.gy', 'fa.brid.gy'),
         ]:
             self.assertEqual(expected, common.unwrap(input))
 

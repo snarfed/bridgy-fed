@@ -208,7 +208,7 @@ REPLY = requests_response(REPLY_HTML, url='https://user.com/reply')
 REPLY_MF2 = util.parse_mf2(REPLY_HTML)['items'][0]
 REPLY_AS1 = microformats2.json_to_object(REPLY_MF2)
 REPLY_AS1['id'] = 'https://user.com/reply'
-REPLY_AS1['author']['id'] = 'https://user.com/'
+REPLY_AS1['author']['id'] = 'user.com'
 CREATE_REPLY_AS1 = {
     'objectType': 'activity',
     'verb': 'post',
@@ -351,13 +351,16 @@ NOTE_HTML = """\
 NOTE = requests_response(NOTE_HTML, url='https://user.com/post')
 NOTE_MF2 = util.parse_mf2(NOTE_HTML)['items'][0]
 NOTE_AS1 = microformats2.json_to_object(NOTE_MF2)
-NOTE_AS1.update({
-    'author': {
-        **NOTE_AS1['author'],
-        'id': 'https://user.com/',
-    },
-    'id': 'https://user.com/post',
-})
+NOTE_AS1['id'] = 'https://user.com/post'
+NOTE_AS1['author']['id'] = 'user.com'
+CREATE_AS1 = {
+    'objectType': 'activity',
+    'verb': 'post',
+    'id': 'https://user.com/post#bridgy-fed-create',
+    'actor': ACTOR_AS1_UNWRAPPED,
+    'object': copy.deepcopy(NOTE_AS1),
+    'published': '2022-01-02T03:04:05+00:00',
+}
 NOTE_AS2 = {
     'type': 'Note',
     'id': 'http://localhost/r/https://user.com/post',
@@ -367,14 +370,6 @@ NOTE_AS2 = {
     'content': 'hello i am a post',
     'contentMap': {'en': 'hello i am a post'},
     'to': [as2.PUBLIC_AUDIENCE],
-}
-CREATE_AS1 = {
-    'objectType': 'activity',
-    'verb': 'post',
-    'id': 'https://user.com/post#bridgy-fed-create',
-    'actor': ACTOR_AS1_UNWRAPPED,
-    'object': NOTE_AS1,
-    'published': '2022-01-02T03:04:05+00:00',
 }
 CREATE_AS2 = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -481,11 +476,11 @@ class WebTest(TestCase):
             'acct:user.com',
             'acct:@user.com@user.com',
             'acc:me@user.com',
-            'ap.brid.gy',
             'localhost',
         ):
-            with self.assertRaises(AssertionError):
-                Web(id=bad).put()
+            with self.subTest(id=bad):
+                with self.assertRaises(AssertionError):
+                    Web(id=bad).put()
 
     def test_get_or_create_lower_cases_domain(self, mock_get, mock_post):
         mock_get.return_value = requests_response('')
@@ -1150,10 +1145,12 @@ class WebTest(TestCase):
         self.assertEqual(202, got.status_code)
 
         inboxes = ['https://inbox/', 'https://public/inbox', 'https://shared/inbox']
+        expected_create_as1 = copy.deepcopy(CREATE_AS1)
+        expected_create_as1['object']['author']['id'] = 'https://user.com/'
         self.assert_object('https://user.com/post#bridgy-fed-create',
                            users=[self.user.key],
                            source_protocol='web',
-                           our_as1=CREATE_AS1,
+                           our_as1=expected_create_as1,
                            type='post',
                            labels=['activity', 'user'],
                            delivered=inboxes,

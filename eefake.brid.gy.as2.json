@@ -4,5 +4,5 @@
   "url": "https://eefake.brid.gy/",
   "preferredUsername": "eefake.brid.gy",
   "summary": "Only for unit tests",
-  "name": "ExplicitEnableFake"
+  "name": "ExplicitEnableFake protocol class in testutil"
 }

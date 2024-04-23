@@ -119,7 +119,7 @@ def reset_protocol_properties():
 
     abbrevs = f'({"|".join(PROTOCOLS.keys())}|fed)'
     common.SUBDOMAIN_BASE_URL_RE = re.compile(
-        rf'^https?://({abbrevs}\.brid\.gy|localhost(:8080)?)/(convert/|r/)?({abbrevs}/)?')
+        rf'^https?://({abbrevs}\.brid\.gy|localhost(:8080)?)/(convert/|r/)?({abbrevs}/)?(?P<path>.+)')
 
 
 class User(StringIdModel, metaclass=ProtocolUserMeta):

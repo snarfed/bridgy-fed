@@ -4,19 +4,21 @@ from unittest.mock import patch
 
 from arroba.datastore_storage import DatastoreStorage
 from arroba.repo import Repo
-from flask import g
+from dns.resolver import NXDOMAIN
+from granary import as2
+from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY, POST_BSKY
+from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import requests_response
 
 from activitypub import ActivityPub
 import app
 from atproto import ATProto
-from dns.resolver import NXDOMAIN
-from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY, POST_BSKY
 import hub
 from models import Object, Target
 from web import Web
 
 from .testutil import ATPROTO_KEY, TestCase
+from .test_activitypub import ACTOR
 from . import test_atproto
 from . import test_web
 
@@ -355,3 +357,48 @@ class IntegrationTests(TestCase):
                                **POST_BSKY,
                                'cid': 'sydd',
                            })
+
+
+    @patch('requests.post', return_value=requests_response('OK'))  # create DID
+    @patch('requests.get')
+    def test_activitypub_follow_bsky_bot_user_enables_protocol(
+            self, mock_get, mock_post):
+        """AP follow of @bsky.brid.gy@bsky.brid.gy bridges the account into BLuesky.
+
+        ActivityPub user @alice@inst , https://inst/alice
+        ATProto bot user bsky.brid.gy (did:plc:bsky)
+        Follow is https://inst/follow
+        """
+        mock_get.return_value = self.as2_resp({
+            'type': 'Person',
+            'id': 'https://inst/alice',
+            'name': 'Mrs. ☕ Alice',
+            'preferredUsername': 'alice',
+            'inbox': 'http://inst/inbox',
+        })
+        bot_user = self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+
+        # deliver follow
+        resp = self.post('/bsky.brid.gy/inbox', json={
+            'type': 'Follow',
+            'id': 'http://inst/follow',
+            'actor': 'https://inst/alice',
+            'object': 'https://bsky.brid.gy/bsky.brid.gy',
+        })
+        self.assertEqual(204, resp.status_code)
+
+        # check results
+        user = ActivityPub.get_by_id('https://inst/alice')
+        self.assertTrue(ActivityPub.is_enabled_to(ATProto, user=user))
+
+        self.assertEqual(1, len(user.copies))
+        self.assertEqual('atproto', user.copies[0].protocol)
+        did = user.copies[0].uri
+
+        storage = DatastoreStorage()
+        repo = storage.load_repo('alice.inst.ap.brid.gy')
+        self.assertEqual(did, repo.did)
+
+        records = repo.get_contents()
+        self.assertEqual(['app.bsky.actor.profile'], list(records.keys()))
+        self.assertEqual(['self'], list(records['app.bsky.actor.profile'].keys()))
