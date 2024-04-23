@@ -166,8 +166,9 @@ def translate_handle(*, handle, from_, to, enhanced):
 
         case _, 'atproto' | 'nostr':
             handle = handle.lstrip('@').replace('@', '.')
-            return (handle if enhanced
-                    else f'{handle}.{from_.ABBREV}{SUPERDOMAIN}')
+            if enhanced or handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
+                return handle
+            return f'{handle}.{from_.ABBREV}{SUPERDOMAIN}'
 
         case 'activitypub', 'web':
             user, instance = handle.lstrip('@').split('@')
