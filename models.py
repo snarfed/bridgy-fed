@@ -362,7 +362,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """
         user = self.key.get()
         add(user.enabled_protocols, to_proto.LABEL)
-        if not user.get_copy(to_proto):
+        if to_proto.LABEL in ids.COPIES_PROTOCOLS and not user.get_copy(to_proto):
             to_proto.create_for(user)
         user.put()
 

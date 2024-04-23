@@ -361,8 +361,7 @@ class IntegrationTests(TestCase):
 
     @patch('requests.post', return_value=requests_response('OK'))  # create DID
     @patch('requests.get')
-    def test_activitypub_follow_bsky_bot_user_enables_protocol(
-            self, mock_get, mock_post):
+    def test_activitypub_follow_bsky_bot_user_enables_protocol(self, mock_get, _):
         """AP follow of @bsky.brid.gy@bsky.brid.gy bridges the account into BLuesky.
 
         ActivityPub user @alice@inst , https://inst/alice
@@ -376,7 +375,7 @@ class IntegrationTests(TestCase):
             'preferredUsername': 'alice',
             'inbox': 'http://inst/inbox',
         })
-        bot_user = self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+        self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
 
         # deliver follow
         resp = self.post('/bsky.brid.gy/inbox', json={
@@ -402,3 +401,57 @@ class IntegrationTests(TestCase):
         records = repo.get_contents()
         self.assertEqual(['app.bsky.actor.profile'], list(records.keys()))
         self.assertEqual(['self'], list(records['app.bsky.actor.profile'].keys()))
+
+
+    @patch('requests.post')
+    @patch('requests.get')
+    def test_atproto_follow_ap_bot_user_enables_protocol(self, mock_get, mock_post):
+        """Bluesky follow of @ap.brid.gy enables the ActivityPub protocol.
+
+        ATProto user alice.com, did:plc:alice
+        ActivityPub bot user @ap.brid.gy, did:plc:ap
+        """
+        self.make_user(id='ap.brid.gy', cls=Web, ap_subdomain='ap',
+                       enabled_protocols=['atproto'],
+                       copies=[Target(uri='did:plc:ap', protocol='atproto')])
+        self.store_object(id='did:plc:ap', raw={
+            **DID_DOC,
+            'id': 'did:plc:ap',
+            'alsoKnownAs': ['at://ap.brid.gy'],
+        })
+        storage = DatastoreStorage()
+        Repo.create(storage, 'did:plc:ap', signing_key=ATPROTO_KEY)
+
+        mock_get.side_effect = [
+            # ATProto listNotifications
+            requests_response({
+                'cursor': '...',
+                'notifications': [{
+                    'uri': 'at://did:plc:alice/app.bsky.graph.follow/456',
+                    'cid': '...',
+                    'author': {
+                        '$type': 'app.bsky.actor.defs#profileView',
+                        'did': 'did:plc:alice',
+                        'handle': 'alice.com',
+                    },
+                    'reason': 'follow',
+                    'record': {
+                        '$type': 'app.bsky.graph.follow',
+                        'subject': 'did:plc:ap',
+                    },
+                }],
+            }),
+            # alice DID
+            requests_response(DID_DOC),
+            # alice profile
+            requests_response(PROFILE_GETRECORD),
+            # alice.com handle resolution, HTTPS method
+            # requests_response('did:plc:alice', content_type='text/plain'),
+            # # alice profile
+            # requests_response(PROFILE_GETRECORD),
+        ]
+        resp = self.post('/queue/atproto-poll-notifs', client=hub.app.test_client())
+        self.assertEqual(200, resp.status_code)
+
+        user = ATProto.get_by_id('did:plc:alice')
+        self.assertTrue(ATProto.is_enabled_to(ActivityPub, user=user))

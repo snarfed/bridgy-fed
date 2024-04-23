@@ -231,7 +231,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             cls.created_for = []
 
         ids._NON_WEB_SUBDOMAIN_SITES = None
-        ids.COPIES_PROTOCOLS = ('atproto', 'fake', 'other')
+        ids.COPIES_PROTOCOLS = ('atproto', 'fake', 'other', 'eefake')
 
         # make random test data deterministic
         arroba.util._clockid = 17

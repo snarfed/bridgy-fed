@@ -567,7 +567,7 @@ def poll_notifications():
     repos = {r.key.id(): r for r in AtpRepo.query()}
     logger.info(f'Got {len(repos)} repos')
     if not repos:
-        return
+        return 'Nothing to do ¯\_(ツ)_/¯', 204
 
     users = itertools.chain(*(cls.query(cls.copies.uri.IN(list(repos)))
                               for cls in set(PROTOCOLS.values())
@@ -626,7 +626,7 @@ def poll_posts():
     repos = {r.key.id(): r for r in AtpRepo.query()}
     logger.info(f'Got {len(repos)} repos')
     if not repos:
-        return
+        return 'Nothing to do ¯\_(ツ)_/¯', 204
 
     users = itertools.chain(*(cls.query(cls.copies.uri.IN(list(repos)))
                               for cls in set(PROTOCOLS.values())
