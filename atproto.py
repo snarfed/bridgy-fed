@@ -591,7 +591,6 @@ def poll_notifications():
         resp = client.app.bsky.notification.listNotifications(limit=10)
         for notif in resp['notifications']:
             actor_did = notif['author']['did']
-            logger.debug(f'Got {notif["reason"]} from {notif["author"]["handle"]} {notif["uri"]} {notif["cid"]} : {json_dumps(notif, indent=2)}')
 
             # TODO: verify sig. skipping this for now because we're getting
             # these from the AppView, which is trusted, specifically we expect
@@ -599,6 +598,11 @@ def poll_notifications():
             obj = Object.get_or_create(id=notif['uri'], bsky=notif['record'],
                                        source_protocol=ATProto.ABBREV,
                                        actor=actor_did)
+            if obj.status in ('complete', 'ignored'):
+                continue
+
+            logger.debug(f'Got new {notif["reason"]} from {notif["author"]["handle"]} {notif["uri"]} {notif["cid"]} : {json_dumps(notif, indent=2)}')
+
             if not obj.status:
                 obj.status = 'new'
             obj.add('notify', user.key)
@@ -655,7 +659,6 @@ def poll_posts():
                 continue
 
             post = item['post']
-            logger.debug(f'Got {post["uri"]}: {json_dumps(item, indent=2)}')
 
             # TODO: verify sig. skipping this for now because we're getting
             # these from the AppView, which is trusted, specifically we expect
@@ -664,6 +667,10 @@ def poll_posts():
             obj = Object.get_or_create(id=post['uri'], bsky=post['record'],
                                        source_protocol=ATProto.ABBREV,
                                        actor=author_did)
+            if obj.status in ('complete', 'ignored'):
+                continue
+
+            logger.debug(f'Got new post: {post["uri"]} : {json_dumps(item, indent=2)}')
             if not obj.status:
                 obj.status = 'new'
             obj.add('feed', user.key)
