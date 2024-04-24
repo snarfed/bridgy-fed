@@ -10,6 +10,8 @@ flask_secret_key
 make_password
 private_notes
 service_account_creds.json
+smtp_password
+smtp_user
 superfeedr_token
 superfeedr_username
 TAGS

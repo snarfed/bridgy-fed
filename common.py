@@ -63,6 +63,9 @@ DOMAIN_BLOCKLIST = (
     'twitter.com',
 )
 
+SMTP_HOST = 'mail.gandi.net'
+SMTP_PORT = 587
+
 # populated in models.reset_protocol_properties
 SUBDOMAIN_BASE_URL_RE = None
 ID_FIELDS = ['id', 'object', 'actor', 'author', 'inReplyTo', 'url']
@@ -305,3 +308,10 @@ def create_task(queue, delay=None, **params):
     msg = f'Added {queue} task {task.name} : {params}'
     logger.info(msg)
     return msg, 202
+
+
+def email_me(msg):
+    if not DEBUG:
+        util.send_email(smtp_host=SMTP_HOST, smtp_port=SMTP_PORT,
+                        from_='bridgy-fed@ryanb.org', to='bridgy-fed@ryanb.org',
+                        subject=util.ellipsize(msg), body=msg)

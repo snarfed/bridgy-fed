@@ -364,7 +364,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Args:
           to_proto (:class:`protocol.Protocol` subclass)
         """
-        logger.info(f'Enabling {to_proto.LABEL} for {self.key}')
         user = self.key.get()
         add(user.enabled_protocols, to_proto.LABEL)
         if to_proto.LABEL in ids.COPIES_PROTOCOLS and not user.get_copy(to_proto):
@@ -373,6 +372,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         add(self.enabled_protocols, to_proto.LABEL)
 
+        msg = f'Enabled {to_proto.LABEL} for {self.key} : {self.user_page_path()}'
+        logger.info(msg)
+        common.email_me(msg)
+
     @ndb.transactional()
     def disable_protocol(self, to_proto):
         """Removes ``to_proto` from :attr:`enabled_protocols`.
@@ -380,7 +383,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Args:
           to_proto (:class:`protocol.Protocol` subclass)
         """
-        logger.info(f'Disabling {to_proto.LABEL} for {self.key}')
         user = self.key.get()
         remove(user.enabled_protocols, to_proto.LABEL)
         # TODO: delete copy user
@@ -388,6 +390,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         user.put()
 
         remove(self.enabled_protocols, to_proto.LABEL)
+
+        msg = f'Disabled {to_proto.LABEL} for {self.key} : {self.user_page_path()}'
+        logger.info(msg)
+        common.email_me(msg)
 
     def handle_as(self, to_proto):
         """Returns this user's handle in a different protocol.
