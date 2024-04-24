@@ -1913,7 +1913,7 @@ class ProtocolReceiveTest(TestCase):
 
         # yes DM should add to enabled_protocols
         dm['id'] += '2'
-        dm['content'] = 'yes'
+        dm['content'] = '<p><a href="...">@bsky.brid.gy</a> yes</p>'
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
@@ -1928,9 +1928,9 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(['fake'], user.enabled_protocols)
         self.assertEqual([], Fake.created_for)
 
-        # block should remove from enabled_protocols
+        # no DM should remove from enabled_protocols
         dm['id'] += '4'
-        dm['content'] = ' \n NO  '
+        dm['content'] = '<p><a href="...">@bsky.brid.gy</a>\n  NO \n</p>'
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)

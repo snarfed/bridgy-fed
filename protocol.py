@@ -11,7 +11,7 @@ from flask import g, request
 from google.cloud import ndb
 from google.cloud.ndb import OR
 from google.cloud.ndb.model import _entity_to_protobuf
-from granary import as1
+from granary import as1, as2
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import cloud_tasks_only
 from oauth_dropins.webutil import models
@@ -831,11 +831,15 @@ class Protocol:
         elif obj.type == 'post':
             to_cc = (as1.get_ids(inner_obj_as1, 'to')
                      + as1.get_ids(inner_obj_as1, 'cc'))
-            content = inner_obj_as1.get('content', '').strip().lower()
-            if len(to_cc) == 1:
-                logger.info(f'got DM to {to_cc}: {content}')
+            if len(to_cc) == 1 and to_cc != [as2.PUBLIC_AUDIENCE]:
                 proto = Protocol.for_bridgy_subdomain(to_cc[0])
                 if proto:
+                    # remove @-mentions of bot user in HTML links
+                    soup = util.parse_html(inner_obj_as1.get('content', ''))
+                    for link in soup.find_all('a'):
+                        link.extract()
+                    content = soup.get_text().strip().lower()
+                    logger.info(f'got DM to {to_cc}: {content}')
                     if content in ('yes', 'ok'):
                         from_user.enable_protocol(proto)
                     elif content == 'no':
