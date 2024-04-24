@@ -313,5 +313,5 @@ def create_task(queue, delay=None, **params):
 def email_me(msg):
     if not DEBUG:
         util.send_email(smtp_host=SMTP_HOST, smtp_port=SMTP_PORT,
-                        from_='bridgy-fed@ryanb.org', to='bridgy-fed@ryanb.org',
+                        from_='scufflechuck@gmail.com', to='bridgy-fed@ryanb.org',
                         subject=util.ellipsize(msg), body=msg)
