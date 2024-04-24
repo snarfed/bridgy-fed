@@ -1649,6 +1649,27 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(1, len(followers))
         self.assertEqual(self.alice.key, followers[0].to)
 
+    def test_skip_bridged_user(self):
+        """If the actor isn't from the source protocol, skip the activity.
+
+        (It's probably from a bridged user, and we only want to handle source
+        activities, not bridged activities.)
+        """
+        self.user.copies = [Target(uri='other:user', protocol='other')]
+        self.user.put()
+
+        with self.assertRaises(NoContent):
+            OtherFake.receive_as1({
+                'id': 'other:follow',
+                'objectType': 'activity',
+                'verb': 'follow',
+                'actor': 'fake:user',
+                'object': 'fake:alice',
+            })
+        self.assertEqual(0, len(OtherFake.sent))
+        self.assertEqual(0, len(Fake.sent))
+        self.assertIsNone(Object.get_by_id('other:follow'))
+
     @patch('requests.post')
     @patch('requests.get')
     def test_skip_web_same_domain(self, mock_get, mock_post):

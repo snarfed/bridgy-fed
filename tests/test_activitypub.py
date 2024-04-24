@@ -962,11 +962,12 @@ class ActivityPubTest(TestCase):
         self.assert_user(ActivityPub, 'https://mas.to/actor', obj_as2=LIKE_ACTOR)
 
     def test_inbox_like_no_object_error(self, *_):
-        Fake.fetchable = {'fake:user': {'id': 'fake:user'}}
+        swentel = self.make_user('https://inst/user', cls=ActivityPub)
+
         got = self.post('/inbox', json={
-            'id': 'fake:like',
+            'id': 'https://inst/like',
             'type': 'Like',
-            'actor': 'fake:user',
+            'actor': 'https://inst/user',
             'object': None,
         })
         self.assertEqual(400, got.status_code)

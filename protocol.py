@@ -707,6 +707,8 @@ class Protocol:
         actor = as1.get_owner(obj.as1)
         if not actor:
             error('Activity missing actor or author', status=400)
+        elif from_cls.owns_id(actor) is False:
+            error(f"{from_cls.LABEL} doesn't own actor {actor}, this is probably a bridged activity. Skipping.", status=204)
 
         if authed_as:
             assert isinstance(authed_as, str)
