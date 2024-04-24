@@ -372,7 +372,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         add(self.enabled_protocols, to_proto.LABEL)
 
-        msg = f'Enabled {to_proto.LABEL} for {self.key} : {self.user_page_path()}'
+        msg = f'Enabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
         logger.info(msg)
         common.email_me(msg)
 
@@ -391,7 +391,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         remove(self.enabled_protocols, to_proto.LABEL)
 
-        msg = f'Disabled {to_proto.LABEL} for {self.key} : {self.user_page_path()}'
+        msg = f'Disabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
         logger.info(msg)
         common.email_me(msg)
 

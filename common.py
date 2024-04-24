@@ -63,7 +63,7 @@ DOMAIN_BLOCKLIST = (
     'twitter.com',
 )
 
-SMTP_HOST = 'mail.gandi.net'
+SMTP_HOST = 'smtp.gmail.com'
 SMTP_PORT = 587
 
 # populated in models.reset_protocol_properties

@@ -143,6 +143,7 @@ class Protocol:
             label = domain.removesuffix(common.SUPERDOMAIN)
             return PROTOCOLS.get(label)
 
+    # TODO: redesign this API to require user
     @classmethod
     def is_enabled_to(from_cls, to_cls, user=None):
         """Returns True if two protocols, and optionally a user, can be bridged.
