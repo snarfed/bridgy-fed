@@ -86,14 +86,11 @@ class ATProto(User, Protocol):
     https://atproto.com/specs/did
     """
     ABBREV = 'bsky'
-    # TODO: add second bsky label? inject into PROTOCOLS?
     PHRASE = 'Bluesky'
     LOGO_HTML = '<img src="/oauth_dropins_static/bluesky.svg">'
     # note that PDS hostname is atproto.brid.gy here, not bsky.brid.gy. Bluesky
     # team currently has our hostname as atproto.brid.gy in their federation
     # test.
-    # TODO: switch to bsky.brid.gy once they lift their federation limits? we'd
-    # need to update serviceEndpoint in all users' DID docs. :/
     PDS_URL = f'https://atproto{common.SUPERDOMAIN}/'
     CONTENT_TYPE = 'application/json'
     HAS_COPIES = True
@@ -445,9 +442,6 @@ class ATProto(User, Protocol):
         Returns:
           bool: True if the object was fetched and populated successfully,
           False otherwise
-
-        Raises:
-          TODO
         """
         id = obj.key.id()
         if not cls.owns_id(id):
