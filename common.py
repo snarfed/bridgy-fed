@@ -311,6 +311,7 @@ def create_task(queue, delay=None, **params):
 
 
 def email_me(msg):
+    assert False  # not working, SMTP woes :(
     if not DEBUG:
         util.send_email(smtp_host=SMTP_HOST, smtp_port=SMTP_PORT,
                         from_='scufflechuck@gmail.com', to='bridgy-fed@ryanb.org',

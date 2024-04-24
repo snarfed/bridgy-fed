@@ -237,7 +237,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                 old_val = getattr(user, field, None)
                 new_val = kwargs.get(field)
                 if ((old_val is None and new_val is not None)
-                    or (field == 'direct' and not old_val and new_val)):
+                        or (field == 'direct' and not old_val and new_val)):
                     setattr(user, field, new_val)
                     user.put()
 
@@ -377,7 +377,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         msg = f'Enabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
         logger.info(msg)
-        common.email_me(msg)
 
     def disable_protocol(self, to_proto):
         """Removes ``to_proto` from :attr:`enabled_protocols`.
@@ -398,7 +397,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         msg = f'Disabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
         logger.info(msg)
-        common.email_me(msg)
 
     def handle_as(self, to_proto):
         """Returns this user's handle in a different protocol.
