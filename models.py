@@ -244,6 +244,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             if not propagate:
                 return user
         else:
+            if orig := get_original(id):
+                return orig
             user = cls(id=id, **kwargs)
             user.existing = False
 

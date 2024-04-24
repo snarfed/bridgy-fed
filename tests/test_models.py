@@ -138,6 +138,11 @@ class UserTest(TestCase):
         self.assertEqual('y.z', got.key.id())
         assert got.existing
 
+    def test_get_or_create_by_copies(self):
+        other = self.make_user(id='other:ab', cls=OtherFake,
+                               copies=[Target(uri='fake:ab', protocol='fake')])
+        self.assert_entities_equal(other, Fake.get_or_create('fake:ab'))
+
     def test_get_or_create_opted_out(self):
         user = self.make_user('fake:user', cls=Fake,
                               obj_as1 = {'summary': '#nobridge'})
