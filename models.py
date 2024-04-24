@@ -364,31 +364,36 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Args:
           to_proto (:class:`protocol.Protocol` subclass)
         """
-        user = self.key.get()
-        add(user.enabled_protocols, to_proto.LABEL)
-        if to_proto.LABEL in ids.COPIES_PROTOCOLS and not user.get_copy(to_proto):
-            to_proto.create_for(user)
-        user.put()
+        @ndb.transactional()
+        def enable():
+            user = self.key.get()
+            add(user.enabled_protocols, to_proto.LABEL)
+            if to_proto.LABEL in ids.COPIES_PROTOCOLS and not user.get_copy(to_proto):
+                to_proto.create_for(user)
+            user.put()
 
+        enable()
         add(self.enabled_protocols, to_proto.LABEL)
 
         msg = f'Enabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
         logger.info(msg)
         common.email_me(msg)
 
-    @ndb.transactional()
     def disable_protocol(self, to_proto):
         """Removes ``to_proto` from :attr:`enabled_protocols`.
 
         Args:
           to_proto (:class:`protocol.Protocol` subclass)
         """
-        user = self.key.get()
-        remove(user.enabled_protocols, to_proto.LABEL)
-        # TODO: delete copy user
-        # https://github.com/snarfed/bridgy-fed/issues/783
-        user.put()
+        @ndb.transactional()
+        def disable():
+            user = self.key.get()
+            remove(user.enabled_protocols, to_proto.LABEL)
+            # TODO: delete copy user
+            # https://github.com/snarfed/bridgy-fed/issues/783
+            user.put()
 
+        disable()
         remove(self.enabled_protocols, to_proto.LABEL)
 
         msg = f'Disabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
