@@ -1313,15 +1313,16 @@ class ProtocolReceiveTest(TestCase):
     def test_update_profile_bare_object(self):
         self.make_followers()
 
-        actor = {
+        actor = self.user.obj.our_as1 = {
             'objectType': 'person',
             'id': 'fake:user',
             'displayName': 'Ms. ☕ Baz',
             'summary': 'first',
         }
-        self.store_object(id='fake:user', our_as1=actor)
+        self.user.obj.put()
 
-        actor['summary'] = 'second'
+        # unchanged from what's already in the datastore. we should send update
+        # anyway (instead of create) since it's an actor.
         Fake.receive_as1(actor)
 
         # profile object

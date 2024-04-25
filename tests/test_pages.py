@@ -184,6 +184,8 @@ class PagesTest(TestCase):
                          get_flashed_messages())
 
         self.assertEqual(['fake:user'], Fake.fetched)
+
+        actor['updated'] = '2022-01-02T03:04:05+00:00'
         self.assert_object('fake:user', source_protocol='fake', our_as1=actor)
 
     def test_followers(self):

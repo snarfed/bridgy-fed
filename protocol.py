@@ -1005,15 +1005,17 @@ class Protocol:
         Returns:
           models.Object: ``obj`` if it's an activity, otherwise a new object
         """
-        if obj.type not in set(('note', 'article', 'comment')) | as1.ACTOR_TYPES:
+        is_actor = obj.type in as1.ACTOR_TYPES
+        if not is_actor and obj.type not in ('note', 'article', 'comment'):
             return obj
 
         obj_actor = as1.get_owner(obj.as1)
         now = util.now().isoformat()
 
         # this is a raw post; wrap it in a create or update activity
-        if obj.changed:
-            logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes')
+        if obj.changed or is_actor:
+            if obj.changed:
+                logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes')
             id = f'{obj.key.id()}#bridgy-fed-update-{now}'
             update_as1 = {
                 'objectType': 'activity',
