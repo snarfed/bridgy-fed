@@ -9,6 +9,8 @@ from granary import as2
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY, POST_BSKY
 from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil import util
+from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from activitypub import ActivityPub
 import app
@@ -361,7 +363,7 @@ class IntegrationTests(TestCase):
 
     @patch('requests.post', return_value=requests_response('OK'))  # create DID
     @patch('requests.get')
-    def test_activitypub_follow_bsky_bot_user_enables_protocol(self, mock_get, _):
+    def test_activitypub_follow_bsky_bot_user_enables_protocol(self, mock_get, mock_post):
         """AP follow of @bsky.brid.gy@bsky.brid.gy bridges the account into BLuesky.
 
         ActivityPub user @alice@inst , https://inst/alice
@@ -402,6 +404,21 @@ class IntegrationTests(TestCase):
         self.assertEqual(['app.bsky.actor.profile'], list(records.keys()))
         self.assertEqual(['self'], list(records['app.bsky.actor.profile'].keys()))
 
+        args, kwargs = mock_post.call_args_list[1]
+        self.assert_equals(('http://inst/inbox',), args)
+        self.assert_equals({
+            'type': 'Accept',
+            'id': 'http://localhost/r/bsky.brid.gy/followers#accept-http://inst/follow',
+            'actor': 'https://bsky.brid.gy/bsky.brid.gy',
+            'object': {
+                'actor': 'https://inst/alice',
+                'id': 'http://inst/follow',
+                'url': 'https://inst/alice#followed-bsky.brid.gy',
+                'type': 'Follow',
+                'object': 'https://bsky.brid.gy/bsky.brid.gy',
+            },
+        }, json_loads(kwargs['data']), ignore=['to', '@context'])
+        util.d(mock_post.calls)
 
     @patch('requests.post')
     @patch('requests.get')

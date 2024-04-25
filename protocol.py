@@ -618,8 +618,7 @@ class Protocol:
 
         def translate(elem, field, fn):
             elem[field] = as1.get_object(elem, field)
-            id = elem[field].get('id')
-            if id and util.domain_from_link(id) not in DOMAINS:
+            if id := elem[field].get('id'):
                 from_cls = Protocol.for_id(id)
                 # TODO: what if from_cls is None? relax translate_object_id,
                 # make it a noop if we don't know enough about from/to?

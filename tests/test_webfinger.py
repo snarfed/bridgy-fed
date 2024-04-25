@@ -366,7 +366,7 @@ class WebfingerTest(TestCase):
             self.assertEqual('acct:bsky.brid.gy@bsky.brid.gy', got.json['subject'])
             self.assertEqual(['https://bsky.brid.gy/'], got.json['aliases'])
             self.assertIn({
-                'href': 'http://localhost/bsky.brid.gy',
+                'href': 'https://bsky.brid.gy/bsky.brid.gy',
                 'rel': 'self',
                 'type': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
             }, got.json['links'])

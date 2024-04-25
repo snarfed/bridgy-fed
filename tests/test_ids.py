@@ -11,6 +11,11 @@ from web import Web
 
 
 class IdsTest(TestCase):
+    def setUp(self):
+        super().setUp()
+        Web(id='bsky.brid.gy', ap_subdomain='bsky', has_redirects=True).put()
+        Web(id='fed.brid.gy', ap_subdomain='fed', has_redirects=True).put()
+
     def test_translate_user_id(self):
         Web(id='user.com',
             copies=[Target(uri='did:plc:123', protocol='atproto')]).put()
@@ -34,21 +39,25 @@ class IdsTest(TestCase):
             (ActivityPub, 'https://bsky.app/profile/user.com', ATProto, 'did:plc:123'),
             (ActivityPub, 'https://bsky.app/profile/did:plc:123',
              ATProto, 'did:plc:123'),
+
             (ATProto, 'did:plc:456', ATProto, 'did:plc:456'),
             # copies
             (ATProto, 'did:plc:123', Web, 'user.com'),
             (ATProto, 'did:plc:456', ActivityPub, 'https://inst/user'),
             (ATProto, 'did:plc:789', Fake, 'fake:user'),
+
             # no copies
             (ATProto, 'did:plc:x', Web, 'https://bsky.brid.gy/web/did:plc:x'),
             (ATProto, 'did:plc:x', ActivityPub, 'https://bsky.brid.gy/ap/did:plc:x'),
             (ATProto, 'did:plc:x', Fake, 'fake:u:did:plc:x'),
             (ATProto, 'https://bsky.app/profile/user.com', ATProto, 'did:plc:123'),
             (ATProto, 'https://bsky.app/profile/did:plc:123', ATProto, 'did:plc:123'),
+
             (Fake, 'fake:user', ActivityPub, 'https://fa.brid.gy/ap/fake:user'),
             (Fake, 'fake:user', ATProto, 'did:plc:789'),
             (Fake, 'fake:user', Fake, 'fake:user'),
             (Fake, 'fake:user', Web, 'https://fa.brid.gy/web/fake:user'),
+
             (Web, 'user.com', ActivityPub, 'http://localhost/user.com'),
             (Web, 'https://user.com/', ActivityPub, 'http://localhost/user.com'),
             (Web, 'user.com', ATProto, 'did:plc:123'),
@@ -58,6 +67,10 @@ class IdsTest(TestCase):
             (Web, 'user.com', Fake, 'fake:u:user.com'),
             (Web, 'user.com', Web, 'user.com'),
             (Web, 'https://user.com/', Web, 'user.com'),
+
+            # instance actor / protocol bot users
+            (Web, 'fed.brid.gy', ActivityPub, 'https://fed.brid.gy/fed.brid.gy'),
+            (Web, 'bsky.brid.gy', ActivityPub, 'https://bsky.brid.gy/bsky.brid.gy'),
         ]:
             with self.subTest(from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_user_id(

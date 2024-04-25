@@ -46,7 +46,8 @@ def web_ap_base_domain(user_domain):
     Returns:
       str:
     """
-    if request.host in LOCAL_DOMAINS:
+    if (request.host in LOCAL_DOMAINS and
+            not (user_domain == PRIMARY_DOMAIN or user_domain in PROTOCOL_DOMAINS)):
         return request.host_url
 
     global _NON_WEB_SUBDOMAIN_SITES
