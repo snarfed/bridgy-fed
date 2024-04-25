@@ -1365,8 +1365,11 @@ def receive_task():
 
     authed_as = form.get('authed_as')
 
+    internal = (authed_as == common.PRIMARY_DOMAIN
+                or authed_as in common.PROTOCOL_DOMAINS)
     try:
-        return PROTOCOLS[obj.source_protocol].receive(obj=obj, authed_as=authed_as)
+        return PROTOCOLS[obj.source_protocol].receive(obj=obj, authed_as=authed_as,
+                                                      internal=internal)
     except ValueError as e:
         logger.warning(e, exc_info=True)
         error(e, status=304)
