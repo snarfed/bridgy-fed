@@ -170,19 +170,16 @@ def update_profile(protocol, id):
 
     try:
         profile_obj = user.load(user.profile_id(), remote=True)
-        if profile_obj:
-            msg, status = user.receive(profile_obj)
-        else:
-            status = 400
-            msg = "couldn't fetch profile"
-
     except (requests.RequestException, werkzeug.exceptions.HTTPException) as e:
-        status, msg = util.interpret_http_exception(e)
+        _, msg = util.interpret_http_exception(e)
+        flash(f"Couldn't update profile for {user.handle_or_id()}: {msg}")
 
-    if int(status) // 100 == 2:
+    if profile_obj:
+        common.create_task(queue='receive', obj=profile_obj.key.urlsafe(),
+                           authed_as=id)
         flash(f'Updating profile for {user.handle_or_id()}')
     else:
-        flash(f"Couldn't update profile for {user.handle_or_id()}: {msg}")
+        flash(f"Couldn't update profile for {user.handle_or_id()}")
 
     return redirect(user.user_page_path(), code=302)
 

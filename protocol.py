@@ -1328,8 +1328,8 @@ class Protocol:
             if obj.source_protocol:
                 logger.warning(f'Object {obj.key.id()} changed protocol from {obj.source_protocol} to {cls.LABEL} ?!')
             obj.source_protocol = cls.LABEL
-            obj.put()
 
+        obj.put()
         with objects_cache_lock:
             objects_cache[id] = obj
         return obj
