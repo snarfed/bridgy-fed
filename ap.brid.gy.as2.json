@@ -7,7 +7,7 @@
   "id": "https://ap.brid.gy/ap.brid.gy",
   "url": "https://ap.brid.gy/",
   "preferredUsername": "ap.brid.gy",
-  "summary": "<a href='https://fed.brid.gy/'>Bridgy Fed</a> bot user for the <a href='https://en.wikipedia.org/wiki/Fediverse'>fediverse</a>. To bridge your Bluesky account to the fediverse, follow this account. <a href='https://fed.brid.gy/docs'>More info here.</a>",
+  "summary": "Bridgy Fed (https://fed.brid.gy/) bot user for the fediverse. To bridge your Bluesky account to the fediverse, follow this account. More info: https://fed.brid.gy/docs",
   "name": "Bridgy Fed for the fediverse",
   "attachment": [{
     "name": "Web site",
