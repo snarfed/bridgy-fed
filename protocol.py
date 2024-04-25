@@ -179,6 +179,10 @@ class Protocol:
             user_id = user
             user = from_cls.get_by_id(user_id, allow_opt_out=True)
 
+        if from_label == 'web':
+            if bot_protocol := Protocol.for_bridgy_subdomain(user_id):
+                return to_cls != bot_protocol
+
         if user:
             if user.status == 'opt-out':
                 return False

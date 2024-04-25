@@ -210,6 +210,18 @@ class ProtocolTest(TestCase):
         user.put()
         self.assertTrue(ExplicitEnableFake.is_enabled_to(Fake, 'eefake:foo'))
 
+    def test_is_enabled_to_protocol_bot_users(self):
+        # protocol bot users should always be enabled to *other* protocols
+        self.assertTrue(Web.is_enabled_to(Fake, 'eefake.brid.gy'))
+        self.assertTrue(Web.is_enabled_to(ExplicitEnableFake, 'fa.brid.gy'))
+        self.assertTrue(Web.is_enabled_to(Fake, 'other.brid.gy'))
+        self.assertTrue(Web.is_enabled_to(ATProto, 'ap.brid.gy'))
+        self.assertTrue(Web.is_enabled_to(ActivityPub, 'bsky.brid.gy'))
+
+        # ...but not to their own protocol
+        self.assertFalse(Web.is_enabled_to(ActivityPub, 'ap.brid.gy'))
+        self.assertFalse(Web.is_enabled_to(ATProto, 'bsky.brid.gy'))
+
     def test_load(self):
         Fake.fetchable['foo'] = {'x': 'y'}
 
