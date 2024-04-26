@@ -2,6 +2,7 @@ User-agent: *
 Disallow: /*?*
 Disallow: /ap/
 Disallow: /atp/
+Disallow: /bsky/
 Disallow: /bluesky/
 Disallow: /bridge-user
 Disallow: /convert/
