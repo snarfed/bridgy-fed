@@ -418,7 +418,6 @@ class IntegrationTests(TestCase):
                 'object': 'https://bsky.brid.gy/bsky.brid.gy',
             },
         }, json_loads(kwargs['data']), ignore=['to', '@context'])
-        util.d(mock_post.calls)
 
     @patch('requests.post')
     @patch('requests.get')

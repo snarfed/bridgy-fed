@@ -283,7 +283,7 @@ class ATProtoTest(TestCase):
         }, obj.bsky)
         # eg https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
         mock_get.assert_called_once_with(
-            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
+            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
             json=None, data=None,
             headers={
                 'Content-Type': 'application/json',
@@ -299,7 +299,7 @@ class ATProtoTest(TestCase):
         obj = Object(id='at://did:plc:abc/app.bsky.feed.post/123')
         self.assertFalse(ATProto.fetch(obj))
         mock_get.assert_called_once_with(
-            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
+            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
             json=None, data=None, headers=ANY)
 
     def test_fetch_bsky_app_url_fails(self):
@@ -346,7 +346,7 @@ class ATProtoTest(TestCase):
         }, obj.bsky)
 
         mock_get.assert_any_call(
-            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=789',
+            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=789',
             json=None, data=None, headers={
                 'Content-Type': 'application/json',
                 'User-Agent': common.USER_AGENT,
@@ -370,7 +370,7 @@ class ATProtoTest(TestCase):
         }, obj.bsky)
 
         mock_get.assert_called_with(
-            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.actor.profile&rkey=self',
+            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.actor.profile&rkey=self',
             json=None, data=None, headers={
                 'Content-Type': 'application/json',
                 'User-Agent': common.USER_AGENT,
@@ -472,7 +472,7 @@ class ATProtoTest(TestCase):
             'object': 'at://han.dull/app.bsky.feed.post/tid',
         })))
         mock_get.assert_called_with(
-            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=tid',
+            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=tid',
             json=None, data=None, headers=ANY)
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
@@ -521,7 +521,7 @@ class ATProtoTest(TestCase):
         })))
 
         mock_get.assert_called_with(
-            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=tid',
+            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=tid',
             json=None, data=None, headers=ANY)
 
     def test_convert_blobs_false(self):
@@ -957,7 +957,7 @@ class ATProtoTest(TestCase):
                          Object.get_by_id(id='fake:repost').copies)
 
         mock_get.assert_called_with(
-            'https://api.bsky-sandbox.dev/xrpc/com.atproto.repo.getRecord?repo=did%3Abob&collection=app.bsky.feed.post&rkey=tid',
+            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Abob&collection=app.bsky.feed.post&rkey=tid',
             json=None, data=None, headers=ANY)
         mock_create_task.assert_called()
 
@@ -1109,6 +1109,47 @@ class ATProtoTest(TestCase):
 
         mock_create_task.assert_called()
 
+    # createReport
+    @patch('requests.post', return_value=requests_response({'id': 3}))
+    # did:plc:eve
+    @patch('requests.get', return_value=requests_response({
+            **DID_DOC,
+            'id': 'did:plc:eve',
+        }))
+    def test_send_flag_createReport(self, _, mock_post):
+        user = self.make_user_and_repo()
+
+        uri = 'at://did:plc:eve/app.bsky.feed.post/123'
+        obj = self.store_object(id='fake:flag', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'flag',
+            'actor': 'fake:user',
+            'object': uri,
+            'content': 'foo bar',
+        })
+        self.store_object(id=uri, source_protocol='bsky', bsky={
+            '$type': 'app.bsky.feed.post',
+            'cid': 'bafy...',
+        })
+
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))
+
+        repo = self.storage.load_repo(user.get_copy(ATProto))
+        self.assertEqual({}, repo.get_contents())
+
+        mock_post.assert_called_with(
+            'https://mod.service.local/xrpc/com.atproto.moderation.createReport',
+            json={
+                '$type': 'com.atproto.moderation.createReport#input',
+                'reasonType': 'com.atproto.moderation.defs#reasonOther',
+                'reason': 'foo bar',
+                'subject': {
+                    '$type': 'com.atproto.repo.strongRef',
+                    'uri': uri,
+                    'cid': 'bafy...',
+                },
+            }, data=None, headers=ANY)
+
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get')
     def test_poll_notifications(self, mock_get, mock_create_task):
@@ -1192,7 +1233,7 @@ class ATProtoTest(TestCase):
         self.assertEqual(200, resp.status_code)
 
         expected_list_notifs = call(
-            'https://api.bsky-sandbox.dev/xrpc/app.bsky.notification.listNotifications?limit=10',
+            'https://appview.local/xrpc/app.bsky.notification.listNotifications?limit=10',
             json=None, data=None,
             headers={
                 'Content-Type': 'application/json',
@@ -1290,7 +1331,7 @@ class ATProtoTest(TestCase):
         self.assertEqual(200, resp.status_code)
 
         get_timeline = call(
-            'https://api.bsky-sandbox.dev/xrpc/app.bsky.feed.getTimeline?limit=10',
+            'https://appview.local/xrpc/app.bsky.feed.getTimeline?limit=10',
             json=None, data=None,
             headers={
                 'Content-Type': 'application/json',

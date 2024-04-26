@@ -375,6 +375,9 @@ class ATProto(User, Protocol):
         assert repo
         repo.callback = lambda _: common.create_task(queue='atproto-commit')
 
+        if verb == 'flag':
+            return to_cls.create_report(record, user)
+
         # write commit
         type = record['$type']
         lex_type = LEXICONS[type]['type']
@@ -473,6 +476,7 @@ class ATProto(User, Protocol):
             obj.key = ndb.Key(Object, id.replace(f'at://{handle}', f'at://{repo}'))
 
         try:
+            appview.address = f'https://{os.environ["APPVIEW_HOST"]}'
             ret = appview.com.atproto.repo.getRecord(
                 repo=repo, collection=collection, rkey=rkey)
         except RequestException as e:
@@ -540,7 +544,9 @@ class ATProto(User, Protocol):
                     })
 
         match ret.get('$type'):
-            case 'app.bsky.feed.like' | 'app.bsky.feed.repost':
+            case ('app.bsky.feed.like'
+                  | 'app.bsky.feed.repost'
+                  | 'com.atproto.moderation.createReport#input'):
                 populate_cid(ret['subject'])
             case 'app.bsky.feed.post' if ret.get('reply'):
                 populate_cid(ret['reply']['root'])
@@ -548,6 +554,35 @@ class ATProto(User, Protocol):
 
         return ret
 
+
+    @classmethod
+    def create_report(cls, input, from_user):
+        """Sends a ``createReport`` for a ``flag`` activity.
+
+        Args:
+          input (dict): ``createReport`` input
+          from_user (models.User): user (actor) this flag is from
+
+        Returns:
+          bool: True if the report was sent successfully, False if the flag's
+            actor is not bridged into ATProto
+        """
+        assert input['$type'] == 'com.atproto.moderation.createReport#input'
+
+        repo_did = from_user.get_copy(ATProto)
+        if not repo_did:
+            return False
+        repo = arroba.server.storage.load_repo(repo_did)
+        mod_host = os.environ['MOD_SERVICE_HOST']
+        token = service_jwt(host=mod_host,
+                            aud=os.environ['MOD_SERVICE_DID'],
+                            repo_did=repo_did,
+                            privkey=repo.signing_key)
+
+        client = Client(f'https://{mod_host}', headers={'User-Agent': USER_AGENT})
+        output = client.com.atproto.moderation.createReport(input)
+        logger.info(f'Created report on {mod_host}: {json_dumps(output)}')
+        return True
 
 # URL route is registered in hub.py
 def poll_notifications():

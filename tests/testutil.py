@@ -265,8 +265,12 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         # arroba config
         os.environ.update({
+            'APPVIEW_HOST': 'appview.local',
+            'BGS_HOST': 'bgs.local',
             'PDS_HOST': 'pds.local',
             'PLC_HOST': 'plc.local',
+            'MOD_SERVICE_HOST': 'mod.service.local',
+            'MOD_SERVICE_DID': 'did:mod-service',
         })
 
     def tearDown(self):

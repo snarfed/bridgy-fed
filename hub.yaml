@@ -23,11 +23,16 @@ env_variables:
   # PLC_HOST: plc.bsky-sandbox.dev
   # APPVIEW_HOST: api.bsky-sandbox.dev
   # BGS_HOST: bgs.bsky-sandbox.dev
+  # MOD_SERVICE_HOST: ?
+  # MOD_SERVICE_DID: ?
 
   # prod
   PLC_HOST: plc.directory
   APPVIEW_HOST: api.bsky.app
   BGS_HOST: bsky.network
+  MOD_SERVICE_HOST: mod.bsky.app
+  MOD_SERVICE_DID: did:plc:ar7c4by46qjdydhdevvrndac
+  # ...or test against labeler.dholms.xyz / did:plc:vzxheqfwpbi3lxbgdh22js66
 
 # need only one instance so that new commits can be delivered to subscribeRepos
 # subscribers in memory
