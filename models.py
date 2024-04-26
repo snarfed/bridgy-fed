@@ -42,12 +42,13 @@ PAGE_SIZE = 20
 # auto delete old objects of these types via the Object.expire property
 # https://cloud.google.com/datastore/docs/ttl
 OBJECT_EXPIRE_TYPES = (
-    'post',
-    'update',
-    'delete',
     'accept',
+    'block',
+    'delete',
+    'post',
     'reject',
     'undo',
+    'update',
     None,
 )
 OBJECT_EXPIRE_AGE = timedelta(days=90)
