@@ -74,7 +74,7 @@ def load_user(protocol, id):
 
     if cls.ABBREV != 'web':
         if not user:
-            user = cls.query(OR(cls.handle == id, cls.handle == id)).get()
+            user = cls.query(cls.handle == id).get()
             if user and user.use_instead:
                 user = user.use_instead.get()
 
@@ -84,7 +84,7 @@ def load_user(protocol, id):
     elif user and id != user.key.id():  # use_instead redirect
         error('', status=302, location=user.user_page_path())
 
-    if user and (user.direct or cls.ABBREV != 'ap'):
+    if user and (user.direct or user.enabled_protocols or cls.ABBREV == 'web'):
         assert not user.use_instead
         return user
 

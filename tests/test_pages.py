@@ -99,8 +99,7 @@ class PagesTest(TestCase):
         self.assert_equals(404, got.status_code)
 
     def test_user_not_direct(self):
-        fake = self.make_user('fake:foo', cls=Fake, direct=False)
-        got = self.client.get('/fake/fake:foo')
+        got = self.client.get('/web/user.com')
         self.assert_equals(200, got.status_code)
 
         fake = self.make_user('http://fo/o', cls=ActivityPub, direct=False)
