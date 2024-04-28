@@ -24,28 +24,32 @@
 
 <ul class="docs">
 
-<p><em>Using</em></p>
+<p><em>About</em></p>
 <li><a href="#which-networks">Which networks are supported?</a></li>
-<li><a href="#get-started">How do I get started?</a></li>
-<li><a href="#which-accounts">Which accounts do I need?</a></li>
-<li><a href="#login">How do I log into Bridgy Fed?</a></li>
 <li><a href="#visibility">Who can see me and my stuff?</a></li>
 <li><a href="#other-bridges">What about other bridges?</a></li>
 <li><a href="#bridgy-classic">What's the difference between this and Bridgy classic, ie non-Fed?</a></li>
 <li><a href="#behavior-mismatches">How does this handle behavior differences between networks?</a></li>
 <li><a href="#format-mismatches">How does this handle formatting differences between networks?</a></li>
 <li><a href="#moderation">What about moderation? How do blocks, mutes, etc work?</a></li>
+<li><a href="#opt-out">How do I opt out and remove my site or account?</a></li>
+
+<br>
+
+<p><em>Using</em></p>
+<li><a href="#get-started">How do I get started?</a></li>
+<li><a href="#which-accounts">Which accounts do I need?</a></li>
+<li><a href="#login">How do I log into Bridgy Fed?</a></li>
+<li><a href="#web-update-profile">How do I update my profile?</a></li>
 <li><a href="#user-page">Can I see my account's status and recent activity?</a></li>
 <li><a href="#troubleshooting">I tried it, and it didn't work!</a></li>
 <li><a href="#enhanced">The <code>*.brid.gy</code> domain in my bridged account is ugly. Can I get rid of it and use my own domain/web site instead?</a></li>
-<li><a href="#opt-out">How do I opt out and remove my site or account?</a></li>
 
 <br>
 
 <p><em>From the web</em></p>
 <li><a href="#web-get-started">How do I get started?</a></li>
 <li><a href="#web-profile">Where does my profile info come from?</a></li>
-<li><a href="#web-update-profile">How do I update my profile?</a></li>
 <li><a href="#web-how-post">How does Bridgy Fed find my posts?</a></li>
 <li><a href="#web-interpret">How does it interpret and translate my posts?</a></li>
 <li><a href="#web-which-parts">How does it decide which parts of my posts to include?</a></li>
@@ -73,6 +77,7 @@
 
 <p><em>From the fediverse</em></p>
 
+<li><a href="#fediverse-get-started">How do I get started?</a></li>
 <li><a href="#fediverse-follow">How do I follow someone from the fediverse?</a></li>
 
 <br>
@@ -112,29 +117,12 @@
 
 <br>
 
-<h3 id="general">Using</h3>
+<h3 id="about">About</h3>
 
 <li id="which-networks" class="question">Which networks are supported?</li>
 <li class="answer">
 <p>Bridgy Fed currently supports the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a> and the web. We plan to add <a href="https://blueskyweb.xyz/">Bluesky</a>/<a href="https://atproto.com/">AT Protocol</a> and <a href="https://nostr.com/">Nostr</a> in 2024.</p>
 <p>All bridging is fully bidirectional. If you're on a supported network, you can use Bridgy Fed to follow and interact with anyone on any other supported network.</p>
-</li>
-
-<li id="get-started" class="question">How do I get started?</li>
-<li class="answer">
-<p>If you're on the web, first <a href="#web-get-started">set up your web site</a>, then <a href="#web-follow">follow someone on the fediverse</a>.</p>
-<p>If you're on the fediverse, <a href="#fediverse-follow">try following a web site</a>.</p>
-</li>
-
-<li id="which-accounts" class="question">Which accounts do I need?</li>
-<li class="answer">
-<p>None! At least, no more than the accounts you already have. Bridgy Fed doesn't cross-post (ie copy posts) between separate accounts. Instead, it <a href="https://en.wikipedia.org/wiki/Federation_(information_technology)"><em>federates</em></a>, or mirrors, your existing accounts into other networks.</p>
-<p>If you want to cross-post instead, check out <a href="https://brid.gy/">Bridgy classic</a>!</p>
-</li>
-
-<li id="login" class="question">How do I log into Bridgy Fed?</li>
-<li class="answer">
-<p>You don't! Bridgy Fed doesn't have its own accounts or logins.</p>
 </li>
 
 <li id="visibility" class="question">Who can see me and my stuff?</li>
@@ -215,26 +203,63 @@
 <p>For more background, see our <a href="#moderation-policy">content moderation policy</a> and <a href="https://snarfed.org/2024-01-19_moderate-people-not-code">this blog post</a>.</p>
 </li>
 
+<li id="opt-out" class="question">How do I opt out and remove my site or account?</li>
+<li class="answer">
+<p>If you're on the fediverse or Bluesky, and you've opted in but now want to opt out, block the Bridgy Fed bot user for the network you want to opt out of. For example, on the fediverse, block <code>@bsky.brid.gy@bsky.brid.gy</code>. On Bluesky, block <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a>.</p>
+<p>If you're on the web, feel free to <a href="mailto:feedback@brid.gy">email me</a>, or you can put the text <code>#nobridge</code> in the <a href="#web-profile">profile on your home page</a> and then <a href="#web-update-profile">update your profile</a> on <a href="#user-page">your user page</a>.</p>
+</li>
+
+
+<h3 id="general">Using</h3>
+
+<li id="get-started" class="question">How do I get started?</li>
+<li class="answer">
+<p>Here are instructions if you're coming from:</p>
+<ul>
+  <li><a href="#web-get-started">the web</a></li>
+  <li><a href="#fediverse-get-started">the fediverse</a></li>
+  <li><a href="#bluesky-get-started">Bluesky</a></li>
+</ul>
+</li>
+
+<li id="which-accounts" class="question">Which accounts do I need?</li>
+<li class="answer">
+<p>None! At least, no more than the accounts you already have. Bridgy Fed doesn't cross-post (ie copy posts) between separate accounts. Instead, it <a href="https://en.wikipedia.org/wiki/Federation_(information_technology)"><em>federates</em></a>, or mirrors, your existing accounts into other networks.</p>
+<p>If you want to cross-post instead, check out <a href="https://brid.gy/">Bridgy classic</a>!</p>
+</li>
+
+
+<li id="login" class="question">How do I log into Bridgy Fed?</li>
+<li class="answer">
+<p>You don't! Bridgy Fed doesn't have its own accounts or logins.</p>
+</li>
+
+
+<li id="web-update-profile" class="question">How do I update my profile?</li>
+<li class="answer">
+<p>Click the <button class="btn btn-default glyphicon glyphicon-refresh"></button> button <a href="/web-site">on your user page</a>. Bridgy Fed will refresh your profile and send it to any networks you're bridged into.
+</li>
+
+
 <li id="user-page" class="question">Can I see my account's status and recent activity?</li>
 <li class="answer">
 <p>Definitely! Bridgy Fed has a dashboard for every account that it's seen. <a href="/web-site">Enter your domain here</a> to see your user page. It shows your site's current status in Bridgy Fed, recent interactions, remote follow UI, and links to your timeline feeds in various formats.
 </p>
 </li>
 
+
 <li id="troubleshooting" class="question">I tried it, and it didn't work!</li>
 <li class="answer">
 <p><a href="#user-page">Check out your user page!</a> It detects and describes common problems with <a href="#web-setup">your setup</a>, and it shows your recent interactions and detailed logs.
 </li>
+
 
 <li id="enhanced" class="question">The <code>*.brid.gy</code> domain in my bridged account's handle is ugly. Can I get rid of it and use my own domain/web site instead?</li>
 <li class="answer">
 <p>Yes! All supported networks let you use <a href="https://indieweb.org/personal-domain">your own domain</a> as your handle in various ways. This takes a bit of technical setup with DNS and/or a web server, but it's very doable. <a href="#fediverse-enhanced">Here are instructions for web sites bridged into the fediverse.</a></p>
 </li>
 
-<li id="opt-out" class="question">How do I opt out and remove my site or account?</li>
-<li class="answer">
-<p>Put the text <code>#nobridge</code> in your profile bio, refresh your profile <a href="#user-page">on your user page</a>, and Bridgy Fed will stop bridging your account. Or feel free to <a href="mailto:feedback@brid.gy">send me a request privately</a>.</p>
-</li>
+
 
 <br>
 
@@ -246,6 +271,7 @@
 <p>We recommend that your site supports <a href="https://webmention.net/">webmentions</a>. You can see a <a href="web-notifications">notifications feed of your interactions from other networks</a> - replies, reposts, likes, etc - but to <a href="#web-backfeed"> get them back to your site, it needs to support webmentions</a>. <a href="https://indieweb.org/webmention#Publishing_Software">Check out the IndieWeb wiki</a> for instructions for your web server.</li>
 </p>
 </li>
+
 
 <li id="web-profile" class="question">Where does my profile info come from?</li>
 <li class="answer">
@@ -276,11 +302,6 @@
 </p>
 </li>
 
-<li id="web-update-profile" class="question">How do I update my profile?</li>
-<li class="answer">
-<p> If you've changed the <a href="#web-profile">profile metadata</a> on your site's home page and you want to update your profile in bridged networks, click the <button class="btn btn-default glyphicon glyphicon-refresh"></button> button next to your domain <a href="/web-site">on your user page</a>. Alternatively, you can send a webmention from your home page to <code>https://fed.brid.gy/</code>.
-</li>
-
 
 <li id="web-how-post" class="question">How does Bridgy Fed find my posts?</li>
 <li class="answer">
@@ -305,7 +326,7 @@
 </p>
 </li>
 
-<li id="web-interpret" class="question">How does it interpret and translate my post?</li>
+<li id="web-interpret" class="question">How does it interpret and translate my posts?</li>
 <li class="answer">
 <p>If your post has <a href="http://microformats.org/">microformats</a>, which many web servers include automatically, Bridgy Fed uses them to determine whether it's a <a href="https://indieweb.org/note#How_to">note</a>, <a href="https://indieweb.org/article">article</a>, <a href="#web-like">like</a>, <a href="#web-repost">repost</a>, <a href="#web-reply">reply</a>, or <a href="#web-follow">follow</a>. Here's an example of a note:
 
@@ -532,7 +553,16 @@ To receive likes, reposts, replies, @-mentions, and follows from the fediverse, 
 
 <h3 id="from-fediverse">From the fediverse</h3>
 
-<li id="fediverse-follow" class="question">How do I follow someone from the fediverse?</li>
+<li id="fediverse-get-started" class="question">How do I get started?</li>
+<li class="answer">
+<p>To bridge your fediverse account into Bluesky and interact with people there, search for and follow <code>@bsky.brid.gy@bsky.brid.gy</code>.</p>
+<p>Alternatively, <a href="#fediverse-follow">you can find and follow bridged Bluesky accounts</a> without bridging your own account, but they won't see your posts or interactions.<p>
+</li>
+
+Then, you can find and follow Bluesky accounts as <code>@[handle]@bsky.brid.gy</code>, where <code>@[handle]</code> is their Bluesky handle.
+
+
+<li id="fediverse-follow" class="question">How do I follow a bridged account.</li>
 <li class="answer">
 <p>You can follow any web site, eg <a class="handle" href="https://example.com/">example.com</a>, by searching for <span class="handle">@example.com@web.brid.gy</span> in your fediverse instance.</p>
 <p>Bridged web sites appear in the fediverse as either <code>@[domain]@[domain]</code>, <code>@[domain]@web.brid.gy</code>, or <code>@[domain]@fed.brid.gy</code>, depending on the fediverse server and whether the web site owner has <a href="#fediverse-enhanced">connected their domain to Bridgy Fed</a>. All bridged web sites behave the same in the fediverse; the different instances in their handles are purely cosmetic.</p>
