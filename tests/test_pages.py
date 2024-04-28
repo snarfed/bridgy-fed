@@ -179,7 +179,7 @@ class PagesTest(TestCase):
         got = self.client.post('/fa/fake:user/update-profile')
         self.assert_equals(302, got.status_code)
         self.assert_equals('/fa/fake:handle:user', got.headers['Location'])
-        self.assertEqual(['Updating profile for fake:handle:user'],
+        self.assertEqual(['Updating profile from <a href="fake:user">fake:handle:user</a>...'],
                          get_flashed_messages())
 
         self.assertEqual(['fake:user'], Fake.fetched)

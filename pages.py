@@ -167,19 +167,20 @@ def notifications(protocol, id):
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def update_profile(protocol, id):
     user = load_user(protocol, id)
+    link = f'<a href="{user.web_url()}">{user.handle_or_id()}</a>'
 
     try:
         profile_obj = user.load(user.profile_id(), remote=True)
     except (requests.RequestException, werkzeug.exceptions.HTTPException) as e:
         _, msg = util.interpret_http_exception(e)
-        flash(f"Couldn't update profile for {user.handle_or_id()}: {msg}")
+        flash(f"Couldn't update profile for {link}: {msg}")
 
     if profile_obj:
         common.create_task(queue='receive', obj=profile_obj.key.urlsafe(),
                            authed_as=id)
-        flash(f'Updating profile for {user.handle_or_id()}')
+        flash(f'Updating profile from {link}...')
     else:
-        flash(f"Couldn't update profile for {user.handle_or_id()}")
+        flash(f"Couldn't update profile for {link}")
 
     return redirect(user.user_page_path(), code=302)
 
