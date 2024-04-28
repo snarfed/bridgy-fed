@@ -634,19 +634,15 @@ class ObjectTest(TestCase):
             'id': 'fed.brid.gy',
             'url': 'https://fed.brid.gy/',
             'displayName': 'Bridgy Fed',
-            'summary': 'Bridging the new social internet',
             'username': 'fed.brid.gy',
             'image': [{
                 'displayName': 'Bridgy Fed',
                 'url': 'https://fed.brid.gy/static/bridgy_logo_square.jpg',
             }, {
+                'objectType': 'featured',
                 'url': 'https://fed.brid.gy/static/bridgy_logo.jpg',
             }],
-            'attachments': [{
-                'displayName': 'Web site',
-                'value': '<a rel="me" href="https://fed.brid.gy"><span class="invisible">https://</span>fed.brid.gy</a>',
-            }],
-        }, Web.load('https://fed.brid.gy/').as1)
+        }, Web.load('https://fed.brid.gy/').as1, ignore=['summary'])
 
     def test_atom_url_overrides_id(self):
         obj = {

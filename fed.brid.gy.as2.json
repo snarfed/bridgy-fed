@@ -9,11 +9,6 @@
   "preferredUsername": "fed.brid.gy",
   "summary": "<a href='https://fed.brid.gy/'>Bridgy Fed</a> is a bridge between decentralized social networks like the <a href='https://indieweb.org/'>IndieWeb</a>, <a href='https://en.wikipedia.org/wiki/Fediverse'>fediverse</a>, <a href='https://bsky.social/'>Bluesky</a>, and others. <a href='https://fed.brid.gy/docs'>More info here.</a>",
   "name": "Bridgy Fed",
-  "attachment": [{
-    "name": "Web site",
-    "type": "PropertyValue",
-    "value": "<a rel=\"me\" href=\"https://fed.brid.gy\"><span class=\"invisible\">https://</span>fed.brid.gy</a>"
-  }],
   "image": [
     {
       "type": "Image",
