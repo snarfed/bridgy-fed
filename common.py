@@ -6,7 +6,7 @@ from pathlib import Path
 import re
 import threading
 import urllib.parse
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 import cachetools
 from Crypto.Util import number
@@ -195,7 +195,15 @@ def unwrap(val, field=None):
     Returns:
       str: unwrapped url
     """
+
     if isinstance(val, dict):
+        # TODO: clean up. https://github.com/snarfed/bridgy-fed/issues/967
+        id = val.get('id')
+        if (id and urlparse(id).path.strip('/') in DOMAINS + ('',)
+            and util.domain_from_link(id) in DOMAINS):
+            # protocol bot user, don't touch its URLs
+            return {**val, 'id': unwrap(id)}
+
         return {f: unwrap(v, field=f) for f, v in val.items()}
 
     elif isinstance(val, list):

@@ -628,6 +628,26 @@ class ObjectTest(TestCase):
         self.assertEqual({'id': 'x', 'foo': 'bar'},
                          Object(id='x', our_as1={'foo': 'bar'}).as1)
 
+    def test_as1_from_as2_protocol_bot_user(self):
+        self.assert_equals({
+            'objectType': 'application',
+            'id': 'fed.brid.gy',
+            'url': 'https://fed.brid.gy/',
+            'displayName': 'Bridgy Fed',
+            'summary': 'Bridging the new social internet',
+            'username': 'fed.brid.gy',
+            'image': [{
+                'displayName': 'Bridgy Fed',
+                'url': 'https://fed.brid.gy/static/bridgy_logo_square.jpg',
+            }, {
+                'url': 'https://fed.brid.gy/static/bridgy_logo.jpg',
+            }],
+            'attachments': [{
+                'displayName': 'Web site',
+                'value': '<a rel="me" href="https://fed.brid.gy"><span class="invisible">https://</span>fed.brid.gy</a>',
+            }],
+        }, Web.load('https://fed.brid.gy/').as1)
+
     def test_atom_url_overrides_id(self):
         obj = {
             'objectType': 'note',
