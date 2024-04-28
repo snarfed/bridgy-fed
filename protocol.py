@@ -143,45 +143,6 @@ class Protocol:
             label = domain.removesuffix(common.SUPERDOMAIN)
             return PROTOCOLS.get(label)
 
-    def is_enabled(self, to_proto):
-        """Returns True if this user can be bridged to a given protocol.
-
-        Reasons this might return False:
-        * We haven't turned on bridging these two protocols yet.
-        * The user is opted out.
-        * The user is on a domain that's opted out.
-        * The from protocol requires opt in, and the user hasn't opted in.
-
-        Args:
-          to_proto (Protocol subclass)
-
-        Returns:
-          bool:
-        """
-        assert issubclass(to_proto, Protocol)
-        if self.__class__ == to_proto:
-            return True
-
-        from_label = self.LABEL
-        to_label = to_proto.LABEL
-
-        # unit tests
-        if DEBUG and (from_label in ('fake', 'other')
-                      or (to_label in ('fake', 'other') and from_label != 'eefake')):
-            return True
-
-        if bot_protocol := Protocol.for_bridgy_subdomain(self.key.id()):
-            return to_proto != bot_protocol
-
-        if self.status == 'opt-out':
-            return False
-
-        if (to_label in self.enabled_protocols
-            or to_label in self.DEFAULT_ENABLED_PROTOCOLS):
-            return True
-
-        return False
-
     @classmethod
     def owns_id(cls, id):
         """Returns whether this protocol owns the id, or None if it's unclear.
