@@ -175,52 +175,52 @@ class ProtocolTest(TestCase):
     def test_for_handle_atproto_resolve(self, _):
         self.assertEqual((ATProto, 'did:plc:123abc'), Protocol.for_handle('han.dull'))
 
-    def test_is_enabled_to(self):
-        self.assertTrue(Web.is_enabled_to(ActivityPub))
-        self.assertTrue(ActivityPub.is_enabled_to(Web))
-        self.assertTrue(ActivityPub.is_enabled_to(ActivityPub))
-        self.assertTrue(Fake.is_enabled_to(OtherFake))
-        self.assertTrue(Fake.is_enabled_to(ExplicitEnableFake))
+    def test_is_enabled_default_enabled_protocols(self):
+        self.assertTrue(Web(id='').is_enabled(ActivityPub))
+        self.assertTrue(ActivityPub(id='').is_enabled(Web))
+        self.assertTrue(ActivityPub(id='').is_enabled(ActivityPub))
+        self.assertTrue(Fake(id='').is_enabled(OtherFake))
+        self.assertTrue(Fake(id='').is_enabled(ExplicitEnableFake))
 
-        self.assertFalse(ActivityPub.is_enabled_to(ATProto))
-        self.assertFalse(ATProto.is_enabled_to(ActivityPub))
-        self.assertFalse(ATProto.is_enabled_to(Web))
-        self.assertFalse(Web.is_enabled_to(ATProto))
-        self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake))
-        self.assertFalse(ExplicitEnableFake.is_enabled_to(Web))
+        self.assertFalse(ActivityPub(id='').is_enabled(ATProto))
+        self.assertFalse(ATProto(id='').is_enabled(ActivityPub))
+        self.assertFalse(ATProto(id='').is_enabled(Web))
+        self.assertFalse(Web(id='').is_enabled(ATProto))
+        self.assertFalse(ExplicitEnableFake(id='').is_enabled(Fake))
+        self.assertFalse(ExplicitEnableFake(id='').is_enabled(Web))
 
-    def test_is_enabled_to_opt_out(self):
+    def test_is_enabled_opt_out(self):
         user = self.make_user('user.com', cls=Web)
-        self.assertTrue(Web.is_enabled_to(ActivityPub, user))
+        self.assertTrue(user.is_enabled(ActivityPub))
 
         user.manual_opt_out = True
         user.put()
         protocol.objects_cache.clear()
-        self.assertFalse(Web.is_enabled_to(ActivityPub, 'user.com'))
+        self.assertFalse(user.is_enabled(ActivityPub))
 
-    def test_is_enabled_to_enabled_protocols(self):
+    def test_is_enabled_enabled_protocols(self):
         user = self.make_user(id='eefake:foo', cls=ExplicitEnableFake)
-        self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, 'eefake:foo'))
+        self.assertFalse(user.is_enabled(Fake))
 
         user.enabled_protocols = ['web']
         user.put()
-        self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, 'eefake:foo'))
+        self.assertFalse(user.is_enabled(Fake))
 
         user.enabled_protocols = ['web', 'fake']
         user.put()
-        self.assertTrue(ExplicitEnableFake.is_enabled_to(Fake, 'eefake:foo'))
+        self.assertTrue(user.is_enabled(Fake))
 
-    def test_is_enabled_to_protocol_bot_users(self):
+    def test_is_enabled_protocol_bot_users(self):
         # protocol bot users should always be enabled to *other* protocols
-        self.assertTrue(Web.is_enabled_to(Fake, 'eefake.brid.gy'))
-        self.assertTrue(Web.is_enabled_to(ExplicitEnableFake, 'fa.brid.gy'))
-        self.assertTrue(Web.is_enabled_to(Fake, 'other.brid.gy'))
-        self.assertTrue(Web.is_enabled_to(ATProto, 'ap.brid.gy'))
-        self.assertTrue(Web.is_enabled_to(ActivityPub, 'bsky.brid.gy'))
+        self.assertTrue(Web(id='eefake.brid.gy').is_enabled(Fake))
+        self.assertTrue(Web(id='fa.brid.gy').is_enabled(ExplicitEnableFake))
+        self.assertTrue(Web(id='other.brid.gy').is_enabled(Fake))
+        self.assertTrue(Web(id='ap.brid.gy').is_enabled(ATProto))
+        self.assertTrue(Web(id='bsky.brid.gy').is_enabled(ActivityPub))
 
         # ...but not to their own protocol
-        self.assertFalse(Web.is_enabled_to(ActivityPub, 'ap.brid.gy'))
-        self.assertFalse(Web.is_enabled_to(ATProto, 'bsky.brid.gy'))
+        self.assertFalse(Web(id='ap.brid.gy').is_enabled(ActivityPub))
+        self.assertFalse(Web(id='bsky.brid.gy').is_enabled(ATProto))
 
     def test_load(self):
         Fake.fetchable['foo'] = {'x': 'y'}
@@ -1870,7 +1870,7 @@ class ProtocolReceiveTest(TestCase):
         }
 
         user = self.make_user('eefake:user', cls=ExplicitEnableFake)
-        self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, user))
+        self.assertFalse(user.is_enabled(Fake))
 
         # fake protocol isn't enabled yet, block should be a noop
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(block))
@@ -1884,7 +1884,7 @@ class ProtocolReceiveTest(TestCase):
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
         self.assertEqual(['eefake:user'], Fake.created_for)
-        self.assertTrue(ExplicitEnableFake.is_enabled_to(Fake, user))
+        self.assertTrue(user.is_enabled(Fake))
         self.assertEqual([('fa.brid.gy/followers#accept-eefake:follow',
                            'eefake:user:target')],
                          ExplicitEnableFake.sent)
@@ -1904,7 +1904,7 @@ class ProtocolReceiveTest(TestCase):
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)
         self.assertEqual([], Fake.created_for)
-        self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, user))
+        self.assertFalse(user.is_enabled(Fake))
 
     def test_dm_no_yes_sets_enabled_protocols(self):
         dm = {
@@ -1916,7 +1916,7 @@ class ProtocolReceiveTest(TestCase):
         }
 
         user = self.make_user('eefake:user', cls=ExplicitEnableFake)
-        self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, user))
+        self.assertFalse(user.is_enabled(Fake))
 
         # fake protocol isn't enabled yet, no DM should be a noop
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
@@ -1931,7 +1931,7 @@ class ProtocolReceiveTest(TestCase):
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
         self.assertEqual(['eefake:user'], Fake.created_for)
-        self.assertTrue(ExplicitEnableFake.is_enabled_to(Fake, user))
+        self.assertTrue(user.is_enabled(Fake))
 
         # another yes DM should be a noop
         dm['id'] += '3'
@@ -1948,7 +1948,7 @@ class ProtocolReceiveTest(TestCase):
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)
         self.assertEqual([], Fake.created_for)
-        self.assertFalse(ExplicitEnableFake.is_enabled_to(Fake, user))
+        self.assertFalse(user.is_enabled(Fake))
 
     def test_receive_task_handler(self):
         note = {

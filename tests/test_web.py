@@ -2903,7 +2903,7 @@ class WebUtilTest(TestCase):
     def test_convert(self, mock_get, __):
         mock_get.return_value = ACTOR_HTML_RESP
 
-        obj = Object(id='http://orig', mf2=ACTOR_MF2)
+        obj = Object(id='http://orig', mf2=ACTOR_MF2, source_protocol='web')
         self.assert_multiline_equals("""\
 <!DOCTYPE html>
 <html>

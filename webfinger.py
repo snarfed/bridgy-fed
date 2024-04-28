@@ -90,7 +90,7 @@ class Webfinger(flask_util.XrdOrJrd):
             if user and not user.direct:
                 error(f"{user.key} hasn't signed up yet", status=404)
 
-        if not user or not user.is_enabled_to(activitypub.ActivityPub, user=user):
+        if not user or not user.is_enabled(activitypub.ActivityPub):
             error(f'No {cls.LABEL} user found for {id}', status=404)
 
         ap_handle = user.handle_as('activitypub')

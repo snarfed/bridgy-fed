@@ -506,7 +506,7 @@ class ATProto(User, Protocol):
         """
         from_proto = PROTOCOLS.get(obj.source_protocol)
         # TODO: uncomment
-        # if from_proto and not from_proto.is_enabled_to(cls, user=from_user):
+        # if from_proto and not from_user.is_enabled(cls):
         #     error(f'{cls.LABEL} <=> {from_proto.LABEL} not enabled')
 
         if obj.bsky:
@@ -610,7 +610,7 @@ def poll_notifications():
                     headers={'User-Agent': USER_AGENT})
 
     for user in users:
-        if not user.is_enabled_to(ATProto, user=user):
+        if not user.is_enabled(ATProto):
             logger.info(f'Skipping {user.key.id()}')
             continue
 
@@ -673,7 +673,7 @@ def poll_posts():
                     headers={'User-Agent': USER_AGENT})
 
     for user in users:
-        if not user.is_enabled_to(ATProto, user=user):
+        if not user.is_enabled(ATProto):
             logger.info(f'Skipping {user.key.id()}')
             continue
 

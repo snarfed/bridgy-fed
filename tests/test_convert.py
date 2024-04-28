@@ -142,7 +142,7 @@ class ConvertTest(testutil.TestCase):
 
         resp = self.client.get(f'/convert/web/{url}',
                                base_url='https://ap.brid.gy/')
-        self.assertEqual(200, resp.status_code)
+        self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual(CONTENT_TYPE_HTML, resp.content_type)
         self.assert_multiline_equals(HTML, resp.get_data(as_text=True),
                                      ignore_blanks=True)
@@ -271,10 +271,8 @@ A ☕ reply
         # self.assertEqual(f'https://ap.brid.gy/convert/web/https:/foo%3Fbar%23baz',
         #                  resp.headers['Location'])
 
-    @patch('requests.get')
+    @patch('requests.get', return_value=requests_response(HTML_NO_ID))
     def test_web_to_activitypub_object(self, mock_get):
-        mock_get.return_value = requests_response(HTML_NO_ID)
-
         self.make_user('user.com', cls=Web)
 
         url = 'https://user.com/bar?baz=baj&biff'
@@ -322,11 +320,9 @@ A ☕ reply
             'attributedTo': 'https://web.brid.gy/nope.com',
         }, resp.json, ignore=['to'])
 
-    @patch('requests.get')
+    @patch('requests.get', return_value=requests_response(HTML_NO_ID))
     def test_web_to_activitypub_url_decode(self, mock_get):
         """https://github.com/snarfed/bridgy-fed/issues/581"""
-        mock_get.return_value = requests_response(HTML_NO_ID)
-
         self.make_user('user.com', cls=Web)
         self.store_object(id='http://user.com/a#b',
                           mf2=parse_mf2(HTML_NO_ID)['items'][0])

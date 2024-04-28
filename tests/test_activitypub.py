@@ -868,7 +868,7 @@ class ActivityPubTest(TestCase):
     def test_follow_bot_user_enables_protocol(self, *mocks):
         user = self.make_user('https://mas.to/users/swentel', cls=ActivityPub,
                               obj_as2=ACTOR)
-        self.assertFalse(ActivityPub.is_enabled_to(ExplicitEnableFake, user))
+        self.assertFalse(user.is_enabled(ExplicitEnableFake))
 
         id = 'https://inst/follow'
         with self.assertRaises(NoContent):
@@ -882,11 +882,11 @@ class ActivityPubTest(TestCase):
         self.assertEqual(['https://mas.to/users/swentel'],
                          ExplicitEnableFake.created_for)
         user = user.key.get()
-        self.assertTrue(ActivityPub.is_enabled_to(ExplicitEnableFake, user))
+        self.assertTrue(user.is_enabled(ExplicitEnableFake))
 
     def test_inbox_dm_yes_to_bot_user_enables_protocol(self, *mocks):
         user = self.make_user(ACTOR['id'], cls=ActivityPub)
-        self.assertFalse(ActivityPub.is_enabled_to(ExplicitEnableFake, user))
+        self.assertFalse(user.is_enabled(ExplicitEnableFake))
 
         got = self.post('/ap/sharedInbox', json={
             'type': 'Create',
@@ -902,7 +902,7 @@ class ActivityPubTest(TestCase):
         })
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         user = user.key.get()
-        self.assertTrue(ActivityPub.is_enabled_to(ExplicitEnableFake, user))
+        self.assertTrue(user.is_enabled(ExplicitEnableFake))
 
     def test_inbox_actor_blocklisted(self, mock_head, mock_get, mock_post):
         got = self.post('/ap/sharedInbox', json={

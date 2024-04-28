@@ -258,7 +258,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             for label in ids.COPIES_PROTOCOLS:
                 proto = PROTOCOLS[label]
                 if proto != cls and not user.get_copy(proto):
-                    if cls.is_enabled_to(proto, user=id):
+                    if user.is_enabled(proto):
                         proto.create_for(user)
                     else:
                         logger.info(f'{cls.LABEL} <=> atproto not enabled, skipping')

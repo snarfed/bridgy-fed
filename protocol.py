@@ -143,10 +143,8 @@ class Protocol:
             label = domain.removesuffix(common.SUPERDOMAIN)
             return PROTOCOLS.get(label)
 
-    # TODO: redesign this API to require user
-    @classmethod
-    def is_enabled_to(from_cls, to_cls, user=None):
-        """Returns True if two protocols, and optionally a user, can be bridged.
+    def is_enabled(self, to_proto):
+        """Returns True if this user can be bridged to a given protocol.
 
         Reasons this might return False:
         * We haven't turned on bridging these two protocols yet.
@@ -155,41 +153,31 @@ class Protocol:
         * The from protocol requires opt in, and the user hasn't opted in.
 
         Args:
-          from_cls (Protocol subclass)
-          to_cls (Protocol subclass)
-          user (:class:`models.User` or str): optional, user or id
+          to_proto (Protocol subclass)
 
         Returns:
           bool:
         """
-        if from_cls == to_cls:
+        assert issubclass(to_proto, Protocol)
+        if self.__class__ == to_proto:
             return True
 
-        from_label = from_cls.LABEL
-        to_label = to_cls.LABEL
+        from_label = self.LABEL
+        to_label = to_proto.LABEL
 
+        # unit tests
         if DEBUG and (from_label in ('fake', 'other')
                       or (to_label in ('fake', 'other') and from_label != 'eefake')):
             return True
 
-        user_id = None
-        if isinstance(user, User):
-            user_id = user.key.id() if user.key else None
-        elif isinstance(user, str):
-            user_id = user
-            user = from_cls.get_by_id(user_id, allow_opt_out=True)
+        if bot_protocol := Protocol.for_bridgy_subdomain(self.key.id()):
+            return to_proto != bot_protocol
 
-        if from_label == 'web':
-            if bot_protocol := Protocol.for_bridgy_subdomain(user_id):
-                return to_cls != bot_protocol
+        if self.status == 'opt-out':
+            return False
 
-        if user:
-            if user.status == 'opt-out':
-                return False
-            elif to_label in user.enabled_protocols:
-                return True
-
-        if to_label in from_cls.DEFAULT_ENABLED_PROTOCOLS:
+        if (to_label in self.enabled_protocols
+            or to_label in self.DEFAULT_ENABLED_PROTOCOLS):
             return True
 
         return False

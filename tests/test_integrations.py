@@ -390,7 +390,7 @@ class IntegrationTests(TestCase):
 
         # check results
         user = ActivityPub.get_by_id('https://inst/alice')
-        self.assertTrue(ActivityPub.is_enabled_to(ATProto, user=user))
+        self.assertTrue(user.is_enabled(ATProto))
 
         self.assertEqual(1, len(user.copies))
         self.assertEqual('atproto', user.copies[0].protocol)
@@ -470,4 +470,4 @@ class IntegrationTests(TestCase):
         self.assertEqual(200, resp.status_code)
 
         user = ATProto.get_by_id('did:plc:alice')
-        self.assertTrue(ATProto.is_enabled_to(ActivityPub, user=user))
+        self.assertTrue(user.is_enabled(ActivityPub))

@@ -369,7 +369,7 @@ class ActivityPub(User, Protocol):
         from_proto = PROTOCOLS.get(obj.source_protocol)
         user_id = from_user.key.id() if from_user and from_user.key else None
         # TODO: uncomment
-        # if from_proto and not from_proto.is_enabled_to(cls, user=from_user):
+        # if from_proto and not from_user.is_enabled(cls):
         #     error(f'{cls.LABEL} <=> {from_proto.LABEL} not enabled')
 
         if obj.as2:
@@ -860,11 +860,8 @@ def actor(handle_or_id):
         id = handle_or_id
 
     assert id
-    if not cls.is_enabled_to(ActivityPub, user=id):
-        error(f'{cls.LABEL} user {id} not found', status=404)
-
     user = cls.get_or_create(id)
-    if not user:
+    if not user or not user.is_enabled(ActivityPub):
         error(f'{cls.LABEL} user {id} not found', status=404)
 
     id = user.id_as(ActivityPub)

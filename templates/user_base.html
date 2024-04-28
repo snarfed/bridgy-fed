@@ -57,7 +57,7 @@
   {% set copies = user.copies|map(attribute='protocol')|list %}
   {% for proto in set(PROTOCOLS.values()) %}
      {% if proto and not isinstance(user, proto) and proto.LABEL not in ('ui', 'web')
-           and user.is_enabled_to(proto, user=user) %}
+           and user.is_enabled(proto) %}
       {% set url = proto.bridged_web_url_for(user) %}
       &middot;
       <nobr title="{{ proto.__name__ }} (bridged)">
