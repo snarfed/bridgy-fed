@@ -1960,6 +1960,15 @@ class ActivityPubUtilsTest(TestCase):
             ],
         }))
 
+    def test_postprocess_as2_strips_link_attachment(self):
+        self.assertNotIn('attachment', postprocess_as2({
+            'type': 'Note',
+            'attachment': [{
+                'type': 'Link',
+                'url': 'http://a/link',
+            }],
+        }))
+
     def test_postprocess_as2_actor_url_attachments(self):
         got = postprocess_as2_actor(as2.from_as1({
             'objectType': 'person',
@@ -2278,13 +2287,6 @@ class ActivityPubUtilsTest(TestCase):
             'type': 'Update',
             'object': ACTOR,
         }, ActivityPub.convert(obj))
-
-    # TODO: remove
-    @skip
-    def test_convert_protocols_not_enabled(self):
-        obj = Object(our_as1={'foo': 'bar'}, source_protocol='atproto')
-        with self.assertRaises(BadRequest):
-            ActivityPub.convert(obj)
 
     def test_postprocess_as2_idempotent(self):
         for obj in (ACTOR, REPLY_OBJECT, REPLY_OBJECT_WRAPPED, REPLY,
