@@ -592,15 +592,32 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             if copy.protocol in (proto.LABEL, proto.ABBREV):
                 return copy.uri
 
-    def user_link(self):
-        """Returns a pretty link to the external user with name and profile picture."""
+    def user_link(self, handle=False, maybe_internal_link=True):
+        """Returns a pretty link to the user with name and profile picture.
+
+        If they're opted in, links to their Bridgy Fed user page. Otherwise,
+        links to their external account.
+
+        TODO: unify with :meth:`Object.actor_link`?
+
+        Args:
+          handle (bool): include handle as well as display name
+          maybe_internal_link (bool): if True, link to Bridgy Fed user page
+            instead of external account
+        """
+        url = (self.user_page_path()
+               if self.enabled_protocols or self.LABEL == 'web' or self.direct
+               else self.web_url())
         pic = self.profile_picture()
-        img = f'<img src="{pic}" class="profile"> ' if pic else ''
+        img = f'<img src="{pic}" class="profile">' if pic else ''
+        maybe_handle = f'&middot; {self.handle}' if handle else ''
+
         return f"""\
-<a class="h-card u-author" href="{self.web_url()}">
-  {img}
-  {self.name()}
-</a>"""
+        <span class="logo" title="{self.__class__.__name__}">{self.LOGO_HTML}</span>
+        <a class="h-card u-author" href="{url}" title="{self.name()}">
+          {img}
+          {util.ellipsize(self.name(), chars=40)} {maybe_handle}
+        </a>"""
 
     def profile_picture(self):
         """Returns the user's profile picture image URL, if available, or None."""
@@ -941,6 +958,8 @@ class Object(StringIdModel):
     def actor_link(self, image=True, sized=False, user=None):
         """Returns a pretty HTML link with the actor's name and picture.
 
+        TODO: unify with :meth:`User.user_link`?
+
         Args:
           image (bool): whether to include an ``img`` tag with the actor's picture
           sized (bool): whether to set an explicit (``width=32``) size on the
@@ -952,9 +971,11 @@ class Object(StringIdModel):
         """
         attrs = {'class': 'h-card u-author'}
 
-        if user.key in self.users or user.key.id() in self.domains:
+        if user and (user.key in self.users or user.key.id() in self.domains):
             # outbound; show a nice link to the user
             return user.user_link()
+
+        proto = PROTOCOLS.get(self.source_protocol)
 
         actor = None
         if self.as1:
@@ -963,7 +984,6 @@ class Object(StringIdModel):
             # hydrate from datastore if available
             # TODO: optimize! this is called serially in loops, eg in home.html
             if set(actor.keys()) == {'id'} and self.source_protocol:
-                proto = PROTOCOLS[self.source_protocol]
                 actor_obj = proto.load(actor['id'], remote=False)
                 if actor_obj and actor_obj.as1:
                     actor = actor_obj.as1
@@ -979,7 +999,19 @@ class Object(StringIdModel):
         if not image or not img_url:
             return common.pretty_link(url, text=name, attrs=attrs, user=user)
 
+        # from protocol import Protocol
+        # if actor_proto := Protocol.for_id(actor['id']):
+        #     if actor_user := actor_proto.get_by_id(actor['id']):
+        #         if actor_user and (actor_user.direct or actor_user.enabled_protocols
+        #                            or actor_user.LABEL == 'web'):
+        #             url = actor_user.user_page_path()
+
+        logo = ''
+        if proto:
+            logo = f'<span class="logo" title="{self.__class__.__name__}">{proto.LOGO_HTML}</span>'
+
         return f"""\
+        {logo}
         <a class="h-card u-author" href="{url}" title="{name}">
           <img class="profile" src="{img_url}" {'width="32"' if sized else ''}/>
           {util.ellipsize(name, chars=40)}

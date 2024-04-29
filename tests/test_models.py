@@ -167,15 +167,16 @@ class UserTest(TestCase):
 
     def test_user_link(self):
         self.assert_multiline_equals("""\
-<a class="h-card u-author" href="https://y.z/">
-
+<span class="logo" title="Web">🌐</span>
+<a class="h-card u-author" href="/web/y.z" title="y.z">
   y.z
-</a>""", self.user.user_link())
+</a>""", self.user.user_link(), ignore_blanks=True)
 
         self.user.obj = Object(id='a', as2=ACTOR)
         self.assert_multiline_equals("""\
-<a class="h-card u-author" href="https://y.z/">
-<img src="https://user.com/me.jpg" class="profile">
+<span class="logo" title="Web">🌐</span>
+<a class="h-card u-author" href="/web/y.z" title="Mrs. ☕ Foo">
+  <img src="https://user.com/me.jpg" class="profile">
   Mrs. ☕ Foo
 </a>""", self.user.user_link())
 
@@ -520,7 +521,8 @@ class ObjectTest(TestCase):
         ):
             with self.subTest(expected=expected, as2=as2):
                 obj = Object(id='x', as2=as2)
-                self.assert_multiline_in(expected, obj.actor_link())
+                self.assert_multiline_in(expected, obj.actor_link(),
+                                         ignore_blanks=True)
 
         self.assertEqual(
             '<a class="h-card u-author" href="http://foo">foo</a>',
@@ -531,7 +533,7 @@ class ObjectTest(TestCase):
         obj = Object(id='x', source_protocol='ui', users=[self.user.key])
 
         got = obj.actor_link(user=self.user)
-        self.assertIn('href="fake:user">', got)
+        self.assertIn('href="fake:user" title="Alice">', got)
         self.assertIn('Alice', got)
 
     def test_actor_link_object_in_datastore(self):
@@ -562,7 +564,7 @@ class ObjectTest(TestCase):
 <a class="h-card u-author" href="" title="Alice">
   <img class="profile" src="foo.jpg" width="32"/>
   Alice
-</a>""", obj.actor_link(sized=True))
+</a>""", obj.actor_link(sized=True), ignore_blanks=True)
 
     def test_actor_link_composite_url(self):
         obj = Object(id='x', our_as1={

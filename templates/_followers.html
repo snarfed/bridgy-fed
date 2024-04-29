@@ -3,20 +3,9 @@
 
 {% for f in followers %}
 <li class="row">
-  {% with url=f.user.web_url(), user_as1=f.user.obj.as1 or {} %}
-    <a class="follower col-xs-10 col-sm-10 col-lg-6" href="{{ url }}">
-      <span class="logo" title="{{ user.__class__.__name__ }}">
-        {{ f.user.LOGO_HTML|safe }}
-      </span>
-      {% with picture=util.get_url(user_as1, 'icon') or util.get_url(user_as1, 'image') %}
-        {% if picture %}
-          <img class="profile u-photo" src="{{ picture }}" width="48px">
-        {% endif %}
-      {% endwith %}
-      {{ user_as1.get('displayName') or '' }}
-      {{ f.user.handle or url }}
-    </a>
-  {% endwith %}
+  <span class="follower col-xs-10 col-sm-10 col-lg-6">
+    {{ f.user.user_link(handle=True)|safe }}
+  </span>
 
   {% if page_name == 'following' %}
     <form method="post" action="/unfollow/start" class="col-xs-2 col-sm-1 col-lg-1">

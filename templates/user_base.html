@@ -30,23 +30,8 @@
 
 <div class="row">
   <span class="big">
-    {% if user.name() != user.handle_or_id() %}
-      {{ user.user_link()|safe }}
-      &middot;
-    {% else %}
-      {% if user.profile_picture() %}
-        <img src="{{ user.profile_picture() }}" class="profile">
-      {% endif %}
-    {% endif %}
-
     <nobr>
-
-    <a href="{{ user.web_url() }}"
-       title="{{ user.__class__.__name__ }} (original)">
-      <span class="logo">{{ user.LOGO_HTML|safe }}</span>
-      {{ user.handle_or_id() }}
-    </a>
-
+    {{ user.user_link(handle=True, maybe_internal_link=False)|safe }}
     <form method="post" action="{{ user.user_page_path('update-profile') }}">
       <button id="update-profile-button" type="submit" title="Update profile"
               class="btn btn-default glyphicon glyphicon-refresh"></button>

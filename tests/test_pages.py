@@ -30,9 +30,9 @@ ACTOR_WITH_PREFERRED_USERNAME = {
 
 
 def contents(activities):
-    return [util.parse_html((a.get('object') or a)['content'].splitlines()[0]
-                            ).get_text().strip()
-            for a in activities]
+    return [
+        ' '.join(util.parse_html((a.get('object') or a)['content']).get_text().split())
+        for a in activities]
 
 
 class PagesTest(TestCase):
@@ -40,7 +40,7 @@ class PagesTest(TestCase):
     EXPECTED_SNIPPETS = [
         'Dr. Eve replied a comment',
         'tag:fake.com:44... posted a mention',
-        'tag:fake.com:44... posted my note',
+        '🌐 user.com posted my note',
     ]
 
     def setUp(self):
