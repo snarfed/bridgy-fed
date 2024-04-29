@@ -952,8 +952,7 @@ class Object(StringIdModel):
         """
         attrs = {'class': 'h-card u-author'}
 
-        if (self.source_protocol in ('web', 'webmention', 'ui')
-                and (user.key in self.users or user.key.id() in self.domains)):
+        if user.key in self.users or user.key.id() in self.domains:
             # outbound; show a nice link to the user
             return user.user_link()
 
