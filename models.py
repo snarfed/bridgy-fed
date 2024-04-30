@@ -387,14 +387,19 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                       or (to_label in ('fake', 'other') and from_label != 'eefake')):
             return True
 
-        if bot_protocol := Protocol.for_bridgy_subdomain(self.key.id()):
+        elif bot_protocol := Protocol.for_bridgy_subdomain(self.key.id()):
             return to_proto != bot_protocol
 
-        if self.status == 'opt-out':
+        elif self.manual_opt_out:
             return False
 
-        if (to_label in self.enabled_protocols
-            or to_label in self.DEFAULT_ENABLED_PROTOCOLS):
+        elif to_label in self.enabled_protocols:
+            return True
+
+        elif self.status == 'opt-out':
+            return False
+
+        elif to_label in self.DEFAULT_ENABLED_PROTOCOLS:
             return True
 
         return False

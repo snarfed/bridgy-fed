@@ -145,7 +145,7 @@ class UserTest(TestCase):
 
     def test_get_or_create_opted_out(self):
         user = self.make_user('fake:user', cls=Fake,
-                              obj_as1 = {'summary': '#nobridge'})
+                              obj_as1={'summary': '#nobridge'})
         self.assertIsNone(Fake.get_or_create('fake:user'))
 
     def test_public_pem(self):
@@ -324,13 +324,25 @@ class UserTest(TestCase):
         self.assertFalse(ExplicitEnableFake(id='').is_enabled(Fake))
         self.assertFalse(ExplicitEnableFake(id='').is_enabled(Web))
 
-    def test_is_enabled_opt_out(self):
+    def test_is_enabled_enabled_protocols_overrides_bio_opt_out(self):
+        user = self.make_user('eefake:user', cls=ExplicitEnableFake,
+                              obj_as1={'summary': '#nobridge'})
+        self.assertFalse(user.is_enabled(Web))
+
+        user.enabled_protocols = ['web']
+        user.put()
+        self.assertTrue(user.is_enabled(Web))
+
+    def test_is_enabled_manual_opt_out(self):
         user = self.make_user('user.com', cls=Web)
         self.assertTrue(user.is_enabled(ActivityPub))
 
         user.manual_opt_out = True
         user.put()
-        protocol.objects_cache.clear()
+        self.assertFalse(user.is_enabled(ActivityPub))
+
+        user.enabled_protocols = ['activitypub']
+        user.put()
         self.assertFalse(user.is_enabled(ActivityPub))
 
     def test_is_enabled_enabled_protocols(self):
