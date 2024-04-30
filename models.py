@@ -611,7 +611,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             instead of external account
         """
         url = (self.user_page_path()
-               if self.enabled_protocols or self.LABEL == 'web' or self.direct
+               if maybe_internal_link and (self.enabled_protocols
+                                           or self.LABEL == 'web' or self.direct)
                else self.web_url())
         pic = self.profile_picture()
         img = f'<img src="{pic}" class="profile">' if pic else ''
