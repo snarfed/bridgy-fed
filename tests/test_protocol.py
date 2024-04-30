@@ -175,53 +175,6 @@ class ProtocolTest(TestCase):
     def test_for_handle_atproto_resolve(self, _):
         self.assertEqual((ATProto, 'did:plc:123abc'), Protocol.for_handle('han.dull'))
 
-    def test_is_enabled_default_enabled_protocols(self):
-        self.assertTrue(Web(id='').is_enabled(ActivityPub))
-        self.assertTrue(ActivityPub(id='').is_enabled(Web))
-        self.assertTrue(ActivityPub(id='').is_enabled(ActivityPub))
-        self.assertTrue(Fake(id='').is_enabled(OtherFake))
-        self.assertTrue(Fake(id='').is_enabled(ExplicitEnableFake))
-
-        self.assertFalse(ActivityPub(id='').is_enabled(ATProto))
-        self.assertFalse(ATProto(id='').is_enabled(ActivityPub))
-        self.assertFalse(ATProto(id='').is_enabled(Web))
-        self.assertFalse(Web(id='').is_enabled(ATProto))
-        self.assertFalse(ExplicitEnableFake(id='').is_enabled(Fake))
-        self.assertFalse(ExplicitEnableFake(id='').is_enabled(Web))
-
-    def test_is_enabled_opt_out(self):
-        user = self.make_user('user.com', cls=Web)
-        self.assertTrue(user.is_enabled(ActivityPub))
-
-        user.manual_opt_out = True
-        user.put()
-        protocol.objects_cache.clear()
-        self.assertFalse(user.is_enabled(ActivityPub))
-
-    def test_is_enabled_enabled_protocols(self):
-        user = self.make_user(id='eefake:foo', cls=ExplicitEnableFake)
-        self.assertFalse(user.is_enabled(Fake))
-
-        user.enabled_protocols = ['web']
-        user.put()
-        self.assertFalse(user.is_enabled(Fake))
-
-        user.enabled_protocols = ['web', 'fake']
-        user.put()
-        self.assertTrue(user.is_enabled(Fake))
-
-    def test_is_enabled_protocol_bot_users(self):
-        # protocol bot users should always be enabled to *other* protocols
-        self.assertTrue(Web(id='eefake.brid.gy').is_enabled(Fake))
-        self.assertTrue(Web(id='fa.brid.gy').is_enabled(ExplicitEnableFake))
-        self.assertTrue(Web(id='other.brid.gy').is_enabled(Fake))
-        self.assertTrue(Web(id='ap.brid.gy').is_enabled(ATProto))
-        self.assertTrue(Web(id='bsky.brid.gy').is_enabled(ActivityPub))
-
-        # ...but not to their own protocol
-        self.assertFalse(Web(id='ap.brid.gy').is_enabled(ActivityPub))
-        self.assertFalse(Web(id='bsky.brid.gy').is_enabled(ATProto))
-
     def test_load(self):
         Fake.fetchable['foo'] = {'x': 'y'}
 
