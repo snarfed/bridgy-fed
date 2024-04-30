@@ -142,7 +142,7 @@
 
 <li id="which-networks" class="question">Which networks are supported?</li>
 <li class="answer">
-<p>Bridgy Fed currently supports <a href="https://indieweb.org/">the web</a>, <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>, and <a href="https://blueskyweb.xyz/">Bluesky</a>. We're considering adding more networks, including <a href="https://nostr.com/">Nostr</a> and <a href="https://www.farcaster.xyz/">Farcaster</a>.</p>
+<p>Bridgy Fed currently supports <a href="https://indieweb.org/">the web</a>, <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>, and <a href="https://bsky.social/">Bluesky</a>. We're considering adding more networks, including <a href="https://nostr.com/">Nostr</a> and <a href="https://www.farcaster.xyz/">Farcaster</a>.</p>
 <p>All bridging is fully bidirectional. If you're on a supported network, you can use Bridgy Fed to follow and interact with anyone on any other supported network.</p>
 </li>
 
@@ -162,7 +162,7 @@
 <li id="bridgy-classic" class="question">What's the difference between this and Bridgy classic, ie non-Fed?</li>
 <li class="answer">
 <p><a href="https://fed.brid.gy/">Bridgy Fed</a> and <a href="https://brid.gy/">Bridgy classic</a> are separate services. They both connect web sites and social networks and translate posts and interactions back and forth, but they each do it very differently.</p>
-<a href="https://fed.brid.gy/">Bridgy Fed</a> - this service - bridges accounts on decentralized social networks like the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>, <a href="https://blueskyweb.xyz/">Bluesky</a>/<a href="https://atproto.com/">AT Protocol</a>, <a href="https://nostr.com/">Nostr</a>, and the <a href="https://indieweb.org/">IndieWeb</a> <em>directly</em> across those networks.</p>
+<a href="https://fed.brid.gy/">Bridgy Fed</a> - this service - bridges accounts on decentralized social networks like the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>, <a href="https://bsky.social/">Bluesky</a>/<a href="https://atproto.com/">AT Protocol</a>, <a href="https://nostr.com/">Nostr</a>, and the <a href="https://indieweb.org/">IndieWeb</a> <em>directly</em> across those networks.</p>
 <p><a href="https://brid.gy/">Bridgy classic</a>, on the other hand, connects IndieWeb web sites to <em>existing</em> accounts on social networks, both centralized and decentralized, and provides <a href="https://indieweb.org/backfeed">backfeed</a> and <a href="https://indieweb.org/POSSE">POSSE</a> (aka cross-posting) as a service.</p>
 <p>As an example, here's a visualization of how they each connect web sites to the fediverse:</p>
 
@@ -796,7 +796,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <p><a href="https://snarfed.org/2024-01-19_moderate-people-not-code">Content moderation for decentralized social networks, and for bridges, is complicated.</a> Bridgy Fed itself doesn't have an exhaustive content moderation policy. Instead, I try to keep these principles in mind:</p>
 <ul>
 <li>
-<p><strong>My primary goal is to <a href="#moderation">empower each network's existing moderation ecosystem</a>.</strong> Most decentralized social networks have existing, often mature mechanisms for content moderation. The fediverse has <a href="https://docs.joinmastodon.org/user/moderating/#block">blocks</a> and <a href="https://docs.joinmastodon.org/admin/moderation/#server-wide-moderation">defederation</a> and <a href="https://about.iftas.org/">IFTAS</a>, the IndieWeb has <a href="https://indieweb.org/Vouch">Vouch</a> and <a href="https://akismet.com/">Akismet</a>, Bluesky has <a href="https://blueskyweb.xyz/blog/4-13-2023-moderation">labeling</a>, even Nostr has <a href="https://github.com/nostr-protocol/nips/blob/master/28.md">mutes</a> and <a href="https://github.com/nostr-protocol/nips/blob/master/51.md#standard-lists">shared mutelists</a> and <a href="https://github.com/nostr-protocol/nips/blob/master/72.md">moderated groups</a>.</p>
+<p><strong>My primary goal is to <a href="#moderation">empower each network's existing moderation ecosystem</a>.</strong> Most decentralized social networks have existing, often mature mechanisms for content moderation. The fediverse has <a href="https://docs.joinmastodon.org/user/moderating/#block">blocks</a> and <a href="https://docs.joinmastodon.org/admin/moderation/#server-wide-moderation">defederation</a> and <a href="https://about.iftas.org/">IFTAS</a>, the IndieWeb has <a href="https://indieweb.org/Vouch">Vouch</a> and <a href="https://akismet.com/">Akismet</a>, Bluesky has <a href="https://bsky.social/about/blog/4-13-2023-moderation">labeling</a>, even Nostr has <a href="https://github.com/nostr-protocol/nips/blob/master/28.md">mutes</a> and <a href="https://github.com/nostr-protocol/nips/blob/master/51.md#standard-lists">shared mutelists</a> and <a href="https://github.com/nostr-protocol/nips/blob/master/72.md">moderated groups</a>.</p>
 <p>I try to ensure that those mechanisms all work with bridged accounts just as well as with native accounts, up to and including defederation. I'm always ready to hear admins' concerns and try to help! But if an instance determines that they need to block a Bridgy Fed network (domain) entirely, that's their prerogative, and I'll support them.</p>
 </li>
 <li>
@@ -921,7 +921,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <td><a href="https://websub.net/">push</a>/<a href="https://indieweb.org/Microsub">pull</a> posts</a>,<br>
     <a href="https://webmention.net/">push responses</a></td>
   <td><a href="https://www.w3.org/TR/activitypub/#delivery">push</a></td>
-  <td><a href="https://blueskyweb.xyz/blog/5-5-2023-federation-architecture">pull</a></td>
+  <td><a href="https://bsky.social/about/blog/5-5-2023-federation-architecture">pull</a></td>
   <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">pull</a></td>
 </tr>
 
@@ -937,8 +937,8 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <th>topology</th>
   <td>peer to peer</td>
   <td><a href="https://activitypub.rocks/">federated servers, two tier</a></td>
-  <td><a href="https://blueskyweb.xyz/blog/5-5-2023-federation-architecture">federated servers</a>,<br>
-    <a href="https://blueskyweb.xyz/blog/4-13-2023-moderation">decoupled</a> <a href="https://blueskyweb.xyz/blog/3-30-2023-algorithmic-choice">services</a>, multi-tier</td>
+  <td><a href="https://bsky.social/about/blog/5-5-2023-federation-architecture">federated servers</a>,<br>
+    <a href="https://bsky.social/about/blog/4-13-2023-moderation">decoupled</a> <a href="https://bsky.social/about/blog/3-30-2023-algorithmic-choice">services</a>, multi-tier</td>
   <td><a href="https://github.com/nostr-protocol/nostr#how-does-nostr-work">interchangeable relays,<br>two tier</a></td>
 </tr>
 
@@ -957,7 +957,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <th>app semantics live in...</th>
   <td>servers, clients</td>
   <td>servers, clients</td>
-  <td><a href="https://blueskyweb.xyz/blog/5-5-2023-federation-architecture">dedicated service</a>, clients</td>
+  <td><a href="https://bsky.social/about/blog/5-5-2023-federation-architecture">dedicated service</a>, clients</td>
   <td>clients</td>
 </tr>
 
@@ -973,7 +973,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <th>monetization</th>
   <td><a href="https://indieweb.org/business-models">hosting</a></td>
   <td>donations</td>
-  <td><a href="https://blueskyweb.xyz/blog/7-05-2023-business-plan">services</a></td>
+  <td><a href="https://bsky.social/about/blog/7-05-2023-business-plan">services</a></td>
   <td><a href="https://nostr.how/en/zaps">microtransactions</a></td>
 </tr>
 
@@ -1002,7 +1002,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <td><a href="https://indieweb.org/">IndieWeb</a> <a href="https://www.oscollective.org/">non-profit</a>,<br>
     <a href="https://www.w3.org/community/socialcg/">some W3C</a></td>
   <td><a href="https://socialhub.activitypub.rocks/t/about-the-fediverse-enhancement-proposals/1168">FEPs</a>, <a href="https://www.w3.org/community/socialcg/">some W3C</a></td>
-  <td><a href="https://blueskyweb.xyz/blog/7-05-2023-business-plan">Bluesky C-corp now</a>,<br>
+  <td><a href="https://bsky.social/about/blog/7-05-2023-business-plan">Bluesky C-corp now</a>,<br>
     <a href="https://blue.amazingca.dev/user/did:plc:44ybard66vv44zksje25o7dz/post/3k3p6upex4x2l">IETF eventually?</a></td>
   <td><a href="https://fiatjaf.com/">mildly BDFL(s) now</a>,<br>
     <a href="https://github.com/nostr-protocol/nips/issues/162">decentralized eventually?</a></td>
@@ -1014,7 +1014,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 
 <li id="translate" class="question">How are the different protocols translated?</li>
 <li class="answer">
-<p>Here are internal details on how Bridgy Fed translates user identity and events between protocols, including some like <a href="https://github.com/nostr-protocol/nostr">Nostr</a> and <a href="https://blueskyweb.xyz/">Bluesky</a>/<a href="https://atproto.com/">AT Protocol</a> that aren't launched here, or even fully implemented or thought through yet. Caveat hacker!</p>
+<p>Here are internal details on how Bridgy Fed translates user identity and events between protocols, including some like <a href="https://github.com/nostr-protocol/nostr">Nostr</a> and <a href="https://bsky.social/">Bluesky</a>/<a href="https://atproto.com/">AT Protocol</a> that aren't launched here, or even fully implemented or thought through yet. Caveat hacker!</p>
 
 <p>In the tables below, BF is Bridgy Fed. <span class="done">Green parts</span> have been implemented and running here for years, the rest are still in the early design phase.</p>
 
@@ -1369,7 +1369,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <th>Publish outbound</th>
   <td class="done">serve on BF user page followings <code><a href="https://microformats.org/wiki/h-feed">h-feed</a></code></td>
   <td class="done">deliver to recipient's <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a></td>
-  <td class="done">serve repo diff via <a href="https://atproto.com/lexicons/com-atproto-sync"><code>sync</code> XRPCs</a> to subscribing <a href="https://blueskyweb.xyz/blog/5-5-2023-federation-architecture">BGSes</a></td>
+  <td class="done">serve repo diff via <a href="https://atproto.com/lexicons/com-atproto-sync"><code>sync</code> XRPCs</a> to subscribing <a href="https://bsky.social/about/blog/5-5-2023-federation-architecture">BGSes</a></td>
   <td>serve to subscribers</td>
 </tr>
 <tr>
