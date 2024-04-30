@@ -469,6 +469,13 @@ button[disabled]:hover {
   color: #337AB7;
 }
 
+.btn-copy {
+  color: #66A0D0;
+  background-color: transparent;
+  border-color: transparent !important;
+  padding: 3px 6px;
+}
+
 .btn-default:hover, .btn-default:hover:focus {
   background-color: #BDE;
   border-color: #337AB7;
