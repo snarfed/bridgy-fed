@@ -199,6 +199,10 @@ pre .value, code .value, code.value {
   color: #88305b;
 }
 
+.front-light .bluesky, .front-light .bluesky:hover {
+  color: #305b88;
+}
+
 .front-dark .web, .front-dark .web:hover {
   color: #b7e4c6;
 }
@@ -207,7 +211,12 @@ pre .value, code .value, code.value {
   color: #e4b7c6;
 }
 
-.fediverse img {
+.front-dark .bluesky, .front-dark .bluesky:hover {
+  color: #b7c6e4;
+}
+
+.fediverse img,
+.bluesky img  {
   height: 1em;
 }
 
