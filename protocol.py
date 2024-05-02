@@ -1061,6 +1061,7 @@ class Protocol:
 
         target_uris = sorted(set(as1.targets(obj.as1)))
         logger.info(f'Raw targets: {target_uris}')
+        orig_obj = None
         targets = {}  # maps Target to Object or None
         owner = as1.get_owner(obj.as1)
 
