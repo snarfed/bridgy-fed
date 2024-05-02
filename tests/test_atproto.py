@@ -660,8 +660,8 @@ class ATProtoTest(TestCase):
         mock_zone.return_value = zone = MagicMock()
         zone.resource_record_set = MagicMock()
 
-        Fake.fetchable = {'fake:user': ACTOR_AS}
-        user = Fake(id='fake:user')
+        Fake.fetchable = {'fake:us_er': ACTOR_AS}
+        user = Fake(id='fake:us_er')
         AtpRemoteBlob(id='https://alice.com/alice.jpg',
                       cid=BLOB_CID.encode('base32'), size=8).put()
 
@@ -674,7 +674,7 @@ class ATProtoTest(TestCase):
 
         # check DNS record
         zone.resource_record_set.assert_called_with(
-            name='_atproto.fake:handle:user.fa.brid.gy.', record_type='TXT',
+            name='_atproto.fake:handle:us-er.fa.brid.gy.', record_type='TXT',
             ttl=atproto.DNS_TTL, rrdatas=[f'"did={did}"'])
 
         # check profile record
@@ -697,7 +697,7 @@ class ATProtoTest(TestCase):
 
         uri = arroba.util.at_uri(did, 'app.bsky.actor.profile', 'self')
         self.assertEqual([Target(uri=uri, protocol='atproto')],
-                         Object.get_by_id(id='fake:user').copies)
+                         Object.get_by_id(id='fake:us_er').copies)
 
         mock_create_task.assert_called()
 
