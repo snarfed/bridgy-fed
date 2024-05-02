@@ -120,14 +120,17 @@ class IdsTest(TestCase):
             (Web, 'user.com', ActivityPub, '@user.com@web.brid.gy'),
             (Web, 'user.com', ATProto, 'user.com.web.brid.gy'),
             (Web, 'user.com', Fake, 'fake:handle:user.com'),
+            (Web, 'u_se-r.com', Fake, 'fake:handle:u_se-r.com'),
             (Web, 'user.com', Web, 'user.com'),
 
             (ActivityPub, '@user@instance', ActivityPub, '@user@instance'),
             (ActivityPub, '@user@instance', ATProto, 'user.instance.ap.brid.gy'),
+            (ActivityPub, '@u_se~r@instance', ATProto, 'u-se-r.instance.ap.brid.gy'),
             (ActivityPub, '@user@instance', Fake, 'fake:handle:@user@instance'),
             (ActivityPub, '@user@instance', Web, 'https://instance/@user'),
 
             (ATProto, 'user.com', ActivityPub, '@user.com@bsky.brid.gy'),
+            (ATProto, 'u-se-r.com', ActivityPub, '@u-se-r.com@bsky.brid.gy'),
             (ATProto, 'user.com', ATProto, 'user.com'),
             (ATProto, 'user.com', Fake, 'fake:handle:user.com'),
             (ATProto, 'user.com', Web, 'user.com'),

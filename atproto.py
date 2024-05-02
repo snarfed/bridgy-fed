@@ -258,14 +258,13 @@ class ATProto(User, Protocol):
         # PDS URL shouldn't include trailing slash!
         # https://atproto.com/specs/did#did-documents
         pds_url = common.host_url().rstrip('/') if DEBUG else cls.PDS_URL
-        logger.info(f'Creating new did:plc for {user.key} {pds_url}')
-        did_plc = did.create_plc(user.handle_as('atproto'),
-                                 pds_url=pds_url, post_fn=util.requests_post)
+        handle = user.handle_as('atproto')
+        logger.info(f'Creating new did:plc for {user.key} {handle} {pds_url}')
+        did_plc = did.create_plc(handle, pds_url=pds_url, post_fn=util.requests_post)
 
         Object.get_or_create(did_plc.did, raw=did_plc.doc)
         # TODO: move this to ATProto.get_or_create?
         add(user.copies, Target(uri=did_plc.did, protocol='atproto'))
-        handle = user.handle_as('atproto')
 
         # create _atproto DNS record for handle resolution
         # https://atproto.com/specs/handle#handle-resolution

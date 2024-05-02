@@ -32,6 +32,17 @@ COPIES_PROTOCOLS = None
 # Maps string domain to string subdomain (bsky, fed, or web).
 _NON_WEB_SUBDOMAIN_SITES = None
 
+# Webfinger allows all sorts of characters that ATProto handles don't,
+# notably _ and ~. Map those to -.
+# https://www.rfc-editor.org/rfc/rfc7565.html#section-7
+# https://atproto.com/specs/handle
+# https://github.com/snarfed/bridgy-fed/issues/982
+# https://github.com/swicg/activitypub-webfinger/issues/9
+TO_ATPROTO_CHARS = {
+    '_': '-',
+    '~': '-',
+}
+
 
 def web_ap_base_domain(user_domain):
     """Returns the full Bridgy Fed domain to use for a given Web user.
@@ -167,6 +178,10 @@ def translate_handle(*, handle, from_, to, enhanced):
             return f'@{handle}@{domain}'
 
         case _, 'atproto' | 'nostr':
+            if to.LABEL == 'atproto':
+                for from_char, to_char in TO_ATPROTO_CHARS.items():
+                    handle = handle.replace(from_char, to_char)
+
             handle = handle.lstrip('@').replace('@', '.')
             if enhanced or handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
                 return handle

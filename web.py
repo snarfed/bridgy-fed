@@ -26,7 +26,7 @@ from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 import common
 from common import add, DOMAIN_RE, PRIMARY_DOMAIN, PROTOCOL_DOMAINS, SUPERDOMAIN
 from flask_app import app, cache
-from ids import translate_handle, translate_object_id, translate_user_id
+from ids import translate_object_id, translate_user_id
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
 
