@@ -40,9 +40,11 @@
 <li><a href="#get-started">How do I get started?</a></li>
 <li><a href="#which-accounts">Which accounts do I need?</a></li>
 <li><a href="#login">How do I log into Bridgy Fed?</a></li>
-<li><a href="#web-update-profile">How do I update my profile?</a></li>
+<li><a href="#update-profile">How do I update my profile?</a></li>
+<li><a href="#posts-forward">I see my profile, but I don't see my posts!</a></li>
 <li><a href="#user-page">Can I see my account's status and recent activity?</a></li>
 <li><a href="#troubleshooting">I tried it, and it didn't work!</a></li>
+<li><a href="#replies">How are replies bridged?</a></li>
 <!-- <li><a href="#enhanced">The <code>*.brid.gy</code> domain in my bridged account is ugly. Can I get rid of it and use my own domain/web site instead?</a></li> -->
 
 <br>
@@ -55,7 +57,7 @@
 <li><a href="#fediverse-follow-web">How do I find a bridged web site?</a></li>
 <li><a href="#fediverse-DM">What is this DM I got from a <code>*.brid.gy</code> account?</a></li>
 <li><a href="#fediverse-no-DM">Someone requested to follow me, but I never got the DM!</a></li>
-<li><a href="#fediverse-what">Which stuff of mine from the fediverse will get bridged into Bluesky?</a></li>
+<li><a href="#fediverse-what">Which stuff of mine from the fediverse will get bridged?</a></li>
 
 <br>
 
@@ -73,13 +75,16 @@
 <li><a href="#bluesky-get-started">How do I get started?</a></li>
 <li><a href="#bluesky-follow">How do I find a bridged fediverse account?</a></li>
 <li><a href="#bluesky-delay">I followed @ap.brid.gy, or followed someone else or posted or did something else in Bluesky, but it hasn't shown up in the fediverse yet!</a></li>
-<li><a href="#bluesky-what">Which stuff of mine from Bluesky will get bridged into the fediverse?</a>
+<li><a href="#bluesky-what-from">Which stuff of mine from Bluesky will get bridged?</a>
 <li><a href="#bluesky-reply-controls">Can I use Bluesky's reply controls?</a></li>
 
 <br>
 
 <p><em>To Bluesky</em></p>
 
+<li><a href="#bluesky-what-to">Which stuff of mine can get bridged into Bluesky?</a></li>
+<li><a href="#bluesky-what-not-to">Which stuff can't get bridged into Bluesky?</a></li>
+<li><a href="#bluesky-hashtags-in-text">Why didn't my hashtag show up?</a></li>
 <li><a href="#bluesky-report">What happens when I report a bridged Bluesky user?</a></li>
 
 <br>
@@ -228,7 +233,7 @@
 <li class="answer">
 <p>If you're on the fediverse or Bluesky, and you've opted in but now want to opt out, block the Bridgy Fed bot user for the network you want to opt out of. For example, on the fediverse, block <code>@bsky.brid.gy@bsky.brid.gy</code>. On Bluesky, block <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a>.</p>
 <p>Also, if you're on Bluesky and you've <a href="https://bsky.app/profile/safety.bsky.app/post/3khhw7s3rtx2s">hidden your account in the logged out view</a>, Bridgy Fed interprets that as opting out and won't bridge your account.</p>
-<p>If you're on the web, feel free to <a href="mailto:feedback@brid.gy">email me</a>, or you can put the text <code>#nobridge</code> in the <a href="#web-profile">profile on your home page</a> and then <a href="#web-update-profile">update your profile</a> on <a href="#user-page">your user page</a>.</p>
+<p>If you're on the web, feel free to <a href="mailto:feedback@brid.gy">email me</a>, or you can put the text <code>#nobridge</code> in the <a href="#web-profile">profile on your home page</a> and then <a href="#update-profile">update your profile</a> on <a href="#user-page">your user page</a>.</p>
 </li>
 
 
@@ -257,9 +262,15 @@
 </li>
 
 
-<li id="web-update-profile" class="question">How do I update my profile?</li>
+<li id="update-profile" class="question">How do I update my profile?</li>
 <li class="answer">
 <p>Click the <button class="btn btn-default glyphicon glyphicon-refresh"></button> button <a href="/web-site">on your user page</a>. Bridgy Fed will refresh your profile and send it to any networks you're bridged into.
+</li>
+
+
+<li id="posts-forward" class="question">I see my profile, but I don't see my posts!</li>
+<li class="answer">
+<p>Bridgy Fed only bridges new posts going forward, not historical posts. Try a new post!</p>
 </li>
 
 
@@ -273,6 +284,12 @@
 <li id="troubleshooting" class="question">I tried it, and it didn't work!</li>
 <li class="answer">
 <p><a href="#user-page">Check out your user page!</a> It detects and describes common problems with <a href="#web-setup">your setup</a>, and it shows your recent interactions and detailed logs.
+</li>
+
+
+<li id="replies" class="question">How are replies bridged?</li>
+<li class="answer">
+<p>Bridgy Fed tries to bridge replies everywhere the original (in-reply-to) post is available or bridged. Notably, if you reply to yourself, Bridgy Fed bridges the reply everywhere it bridged your original post, in order to preserve threads.</p>
 </li>
 
 
@@ -327,7 +344,7 @@
 <p>Having said that, if you want to bridge your account, you don't need the DM! Just <a href="#fediverse-get-started">follow or DM <em>yes</em> to <code>@bsky.brid.gy@bsky.brid.gy</code></a>.</p>
 </li>
 
-<li id="fediverse-what" class="question">Which stuff of mine from the fediverse will get bridged into Bluesky?</li>
+<li id="fediverse-what" class="question">Which stuff of mine from the fediverse will get bridged?</li>
 <li class="answer">
 <p>Anything that interacts with Bluesky users. This includes replies, @-mentions, likes, reposts, and if you have any Bluesky followers, your own posts. Posts on Bluesky are limited to 300 characters, so longer posts from the fediverse are truncated and ellipsized. Hashtags, links, link previews, images, and even alt text are also included, but not videos since Bluesky itself doesn't support them.</p>
 </li>
@@ -435,14 +452,14 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 </li>
 
 
-<li id="bluesky-what" class="question">Which stuff of mine from Bluesky will get bridged into the fediverse?</li>
+<li id="bluesky-what-from" class="question">Which stuff of mine from Bluesky will get bridged?</li>
 <li class="answer">
 <p>Anything that interacts with fediverse users. This includes replies, @-mentions, likes, reposts, and if you have any fediverse followers, your own posts. Hashtags, links, link previews, images, and even alt text are also included.</p>
 
 
 <li id="bluesky-reply-controls" class="question">Can I use Bluesky's reply controls?</li>
 <li class="answer">
-<p>Yes! Bluesky's <a href="https://bsky.app/profile/safety.bsky.app/post/3khhw67cxqg22">reply controls</a> apply to accounts bridged from the fediverse as well as to native Bluesky accounts.</a>.</p>
+<p>Yes! Bluesky's <a href="https://bsky.app/profile/safety.bsky.app/post/3khhw67cxqg22">reply controls</a> apply to accounts bridged from the fediverse as well as to native Bluesky accounts.</p>
 </li>
 
 
@@ -451,13 +468,26 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <h3 id="to-bluesky">To Bluesky</h3>
 
+<li id="bluesky-what-to" class="question">Which stuff of mine can get bridged into Bluesky?</li>
+<li class="answer">
+<p>Profiles, following, posts, replies, likes, reposts, images, hashtags, and @-mentions.</p>
+</li>
+
+<li id="bluesky-what-not-to" class="question">Which stuff can't get bridged into Bluesky?</li>
+<li class="answer">
+<p><a href="https://github.com/bluesky-social/atproto/discussions/1310">Polls</a>, edits/updates, <a href="https://docs.joinmastodon.org/user/posting/#cw">content warnings</a>, videos or (most) GIFs. <a href="https://github.com/snarfed/bridgy-fed/issues/987">Deletes aren't supported yet, but they're on the roadmap.</a></p>
+</li>
+
+<li id="bluesky-hashtags-in-text" class="question">Why didn't my hashtag show up?</li>
+<li class="answer">
+<p>To appear in Bluesky, hashtags need to be in your post text, not just attached separately.</a></p>
+</li>
+
 <li id="bluesky-report" class="question">What happens when I report a bridged Bluesky user?</li>
 <li class="answer">
 <p>Bridgy Fed sends your report to the Bluesky team's <a href="official moderation service">official moderation service</a>, which handles it, and takes action if necessary, just like with native Bluesky accounts.</p>
 <p>Also see Bridgy Fed's <a href="#moderation-policy">moderation policy</a> and <a href="#moderation">functionality</a>.</p>
 </li>
-
-
 
 
 
@@ -1014,11 +1044,11 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 
 <li id="translate" class="question">How are the different protocols translated?</li>
 <li class="answer">
-<p>Here are internal details on how Bridgy Fed translates user identity and events between protocols, including some like <a href="https://github.com/nostr-protocol/nostr">Nostr</a> and <a href="https://bsky.social/">Bluesky</a>/<a href="https://atproto.com/">AT Protocol</a> that aren't launched here, or even fully implemented or thought through yet. Caveat hacker!</p>
+<p>Here are internal details on how Bridgy Fed translates user identity and events between protocols, including some like <a href="https://github.com/nostr-protocol/nostr">Nostr</a>/<a href="https://atproto.com/">AT Protocol</a> that aren't launched here, or even fully implemented or thought through yet. Caveat hacker!</p>
 
 <p>In the tables below, BF is Bridgy Fed. <span class="done">Green parts</span> have been implemented and running here for years, the rest are still in the early design phase.</p>
 
-<p>Here's how we (hope to) translate <em>user identity</em> between protocols. Specifically, each cell shows how a user in a given column is identified to the protocol in a given row. These identities uniquely identify users, and are intended primarily to be machine readable and usable. (Scroll down for the equivalent table for translating human-meaningful user handles.)</p>
+<p>Here's how we translate <em>user identity</em> between protocols. Specifically, each cell shows how a user in a given column is identified to the protocol in a given row. These identities uniquely identify users, and are intended primarily to be machine readable and usable. (Scroll down for the equivalent table for translating human-meaningful user handles.)</p>
 
 <p>Note that Bridgy Fed generates some of these ids itself behind the scenes, notably <a href="https://atproto.com/specs/did-plc"><code>did:plc</code>s</a> for Bluesky/AT Protocol and <a href="https://github.com/nostr-protocol/nips/blob/master/19.md#bare-keys-and-ids">npub</a></code> public keys</a> for Nostr.</p>
 
@@ -1038,7 +1068,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <th>Web URL</th>
   <td class="na">-</td>
   <td class="done">Fediverse profile URL</td>
-  <td class="done"><code>https://bsky.app/profile/[<a href="https://atproto.com/specs/did">did</a>]</code><br>
+  <td class="done"><code>https://bsky.app/profile/[<a href="https://atproto.com/specs/handle">handle</a>]</code><br>
     (<a href="https://github.com/bluesky-social/atproto/discussions/1652">can we avoid hard-coding bsky.app?</a>)</td>
   <td><a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a> domain or BF user page</td>
 </tr>
@@ -1061,8 +1091,8 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 
 <tr>
   <th>AT Protocol</th>
-  <td><a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a></td>
-  <td><a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a></td>
+  <td class="done"><a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a></td>
+  <td class="done"><a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a></td>
   <td class="na">-</td>
   <td><a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a></td>
 </tr>
@@ -1079,7 +1109,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 </table>
 
 
-<p>Here's how we (hope to) translate <em>user handles</em> (aka usernames) between protocols. Each cell shows how a user's handle in a given column is translated to the protocol in a given row. These handles are human-chosen, human-meaningful, generally unique, but may not be the primary machine-usable ids in each protocol. Scroll down to the next table for examples, up to the previous table for machine-usable ids.</p>
+<p>Here's how we translate <em>user handles</em> (aka usernames) between protocols. Each cell shows how a user's handle in a given column is translated to the protocol in a given row. These handles are human-chosen, human-meaningful, generally unique, but may not be the primary machine-usable ids in each protocol. Scroll down to the next table for examples, up to the previous table for machine-usable ids.</p>
 
 <p><em>Basic</em> is the default, <em>enhanced</em> requires extra setup on the user's part (or their fediverse instance's) to forward some of their <code>/.well-known</code> HTTP requests to Bridgy Fed.</p>
 
@@ -1116,7 +1146,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <tr>
   <th class="subhead">enhanced</th>
   <td class="done"><code>@[domain]@[domain]</code></td>
-  <td class="done"><code>@[<a href="https://atproto.com/specs/handle">handle</a>]@[<a href="https://atproto.com/specs/handle">handle</a>]</code></td>
+  <td><code>@[<a href="https://atproto.com/specs/handle">handle</a>]@[<a href="https://atproto.com/specs/handle">handle</a>]</code></td>
   <td><code>@[<a href="https://github.com/nostr-protocol/nips/blob/master/05.md">NIP-05</a>]</code></td>
 </tr>
 
@@ -1186,13 +1216,13 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <th class="subhead">basic</th>
   <td><code>@me.com@web.brid.gy</code></td>
   <td rowspan="2" class="na">-</td>
-  <td><code>@me.com@bsky.brid.gy</code></td>
+  <td class="done"><code>@me.com@bsky.brid.gy</code></td>
   <td><code>@me[domain.]com@nostr.brid.gy</code></td>
 </tr>
 <tr>
   <th class="subhead">enhanced</th>
   <td class="done"><code>@me.com@me.com</code></td>
-  <td class="done"><code>@me.com@me.com</code></td>
+  <td><code>@me.com@me.com</code></td>
   <td><code>@me@domain.com</code><br>
       <code>@me.com@me.com</code></td>
 </tr>
@@ -1208,7 +1238,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <tr>
   <th class="subhead">enhanced</th>
   <td class="done"><code>me.com</code></td>
-  <td class="done"><code>me.instance.com</code></td>
+  <td><code>me.instance.com</code></td>
   <td><code>me.[domain.]com</code></td>
 </tr>
 
@@ -1231,7 +1261,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 </table>
 
 
-<p>Here's how we (hope to) infer the protocol for any string id. In the Format column, <span class="yes">green parts</span> are deterministic, ie they conclusively determine that a matching id belongs to the protocol, and <span class="maybe">yellow parts</span> are ambiguous, ie a matching id may or may not belong to the protocol:
+<p>Here's how we infer the protocol for any string id. In the Format column, <span class="yes">green parts</span> are deterministic, ie they conclusively determine that a matching id belongs to the protocol, and <span class="maybe">yellow parts</span> are ambiguous, ie a matching id may or may not belong to the protocol:
 </p>
 
 <table>
@@ -1328,7 +1358,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 </table>
 
 
-<p>Here's how we (hope to) translate <em>events and operations</em> between protocols, both inbound to and outbound from Bridgy Fed:
+<p>Here's how we translate <em>events and operations</em> between protocols, both inbound to and outbound from Bridgy Fed:
 </p>
 
 <table>
@@ -1344,7 +1374,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <tbody>
 <tr>
   <th>User discovery inbound</th>
-  <td>serve <code><a href="https://microformats.org/wiki/h-card">h-card</a></code> on BF user page</td>
+  <td class="done">serve <code><a href="https://microformats.org/wiki/h-card">h-card</a></code> on BF user page</td>
   <td class="done"><em>basic</em>: serve <a href="https://webfinger.net/">WebFinger</a> and <a href="https://www.w3.org/TR/activitypub/#actors">AP actor</a> on fed.brid.gy<br>
       <em>enhanced</em>: user's site serves and redirects <a href="https://webfinger.net/">WebFinger</a> to fed.brid.gy
   </td>
