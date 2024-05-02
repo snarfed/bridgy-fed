@@ -1061,18 +1061,34 @@ class Protocol:
 
         target_uris = sorted(set(as1.targets(obj.as1)))
         logger.info(f'Raw targets: {target_uris}')
-        orig_obj = None
         targets = {}  # maps Target to Object or None
         owner = as1.get_owner(obj.as1)
 
+        in_reply_to_protocols = set()  # protocol kinds, eg 'MagicKey'
         in_reply_to_owners = []
         in_reply_tos = as1.get_ids(as1.get_object(obj.as1), 'inReplyTo')
         for in_reply_to in in_reply_tos:
-            if protocol := Protocol.for_id(in_reply_to):
-                if in_reply_to_obj := protocol.load(in_reply_to):
+            if proto := Protocol.for_id(in_reply_to):
+                if in_reply_to_obj := proto.load(in_reply_to):
+                    if proto.LABEL != obj.source_protocol:
+                        in_reply_to_protocols.add(proto._get_kind())
+                    else:
+                        proto_labels = proto.DEFAULT_ENABLED_PROTOCOLS + tuple(
+                            c.protocol for c in in_reply_to_obj.copies)
+                        in_reply_to_protocols.update(PROTOCOLS[c.protocol]._get_kind()
+                                                     for c in in_reply_to_obj.copies)
+
                     if reply_owner := as1.get_owner(in_reply_to_obj.as1):
                         in_reply_to_owners.append(reply_owner)
-        is_self_reply = False
+
+        is_reply = obj.type == 'comment' or in_reply_tos
+        if is_reply:
+            logger.info(f"It's a reply...")
+            if in_reply_to_protocols:
+                logger.info(f'  ...delivering to these protocols where the in-reply-to post was native or bridged: {in_reply_to_protocols}')
+            else:
+                logger.info(f"  ...skipping, in-reply-to post(s) are same protocol and weren't bridged anywhere")
+                return {}
 
         for id in sorted(target_uris):
             protocol = Protocol.for_id(id)
@@ -1087,12 +1103,6 @@ class Protocol:
             if not orig_obj or not orig_obj.as1:
                 logger.info(f"Couldn't load {id}")
                 continue
-
-            # deliver self-replies to followers
-            # https://github.com/snarfed/bridgy-fed/issues/639
-            if owner == as1.get_owner(orig_obj.as1):
-                is_self_reply = True
-                logger.info(f'Looks like a self reply! Delivering to all followers')
 
             if protocol == cls and cls.LABEL != 'fake':
                 logger.info(f'Skipping same-protocol target {id}')
@@ -1122,14 +1132,16 @@ class Protocol:
             logger.info("Can't tell who this is from! Skipping followers.")
             return targets
 
-        is_reply = obj.type == 'comment' or in_reply_tos
         if (obj.type in ('post', 'update', 'delete', 'share')
-                and (is_self_reply or not is_reply)):
+                and (not is_reply or in_reply_to_protocols)):
             logger.info(f'Delivering to followers of {user_key}')
             followers = Follower.query(Follower.to == user_key,
                                        Follower.status == 'active'
                                        ).fetch()
-            users = [u for u in ndb.get_multi(f.from_ for f in followers) if u]
+            user_keys = [f.from_ for f in followers]
+            if is_reply:
+                user_keys = [k for k in user_keys if k.kind() in in_reply_to_protocols]
+            users = [u for u in ndb.get_multi(user_keys) if u]
             User.load_multi(users)
 
             # which object should we add to followers' feeds, if any
@@ -1168,7 +1180,9 @@ class Protocol:
                 feed_obj.put()
 
         # de-dupe targets, discard same-domain
+        # maps string target URL to (Target, Object) tuple
         candidates = {t.uri: (t, obj) for t, obj in targets.items()}
+        # maps Target to Object or None
         targets = {}
         source_domains = [
             util.domain_from_link(url) for url in

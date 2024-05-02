@@ -619,6 +619,10 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
             activity['inReplyTo'] = orig_id
         elif isinstance(in_reply_to, list):
             if len(in_reply_to) > 1:
+                # this isn't actually true, AS2 inReplyTo can be multiply
+                # valued. Why do we truncate it to one value? interop somewhere?
+                # it's not marked Functional:
+                # https://www.w3.org/TR/activitystreams-vocabulary/#dfn-inreplyto
                 logger.warning(
                     "AS2 doesn't support multiple inReplyTo URLs! "
                     f'Only using the first: {in_reply_to[0]}')
