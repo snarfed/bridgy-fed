@@ -1175,7 +1175,11 @@ class Protocol:
             (obj.as1.get('id'), obj.as1.get('url'), as1.get_owner(obj.as1))
             if util.is_web(url)
         ]
-        for url in sorted(util.dedupe_urls(candidates.keys())):
+        for url in sorted(util.dedupe_urls(
+                candidates.keys(),
+                # preserve our PDS URL without trailing slash for path
+                # https://atproto.com/specs/did#did-documents
+                trailing_slash=False)):
             if util.is_web(url) and util.domain_from_link(url) in source_domains:
                 logger.info(f'Skipping same-domain target {url}')
             else:

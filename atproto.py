@@ -90,8 +90,9 @@ class ATProto(User, Protocol):
     LOGO_HTML = '<img src="/oauth_dropins_static/bluesky.svg">'
     # note that PDS hostname is atproto.brid.gy here, not bsky.brid.gy. Bluesky
     # team currently has our hostname as atproto.brid.gy in their federation
-    # test.
-    PDS_URL = f'https://atproto{common.SUPERDOMAIN}/'
+    # test. also note that PDS URL shouldn't include trailing slash.
+    # https://atproto.com/specs/did#did-documents
+    PDS_URL = f'https://atproto{common.SUPERDOMAIN}'
     CONTENT_TYPE = 'application/json'
     HAS_COPIES = True
     DEFAULT_ENABLED_PROTOCOLS = ()
@@ -254,11 +255,12 @@ class ATProto(User, Protocol):
             return
 
         # create new DID, repo
-        pds_url = common.host_url() if DEBUG else cls.PDS_URL
+        # PDS URL shouldn't include trailing slash!
+        # https://atproto.com/specs/did#did-documents
+        pds_url = common.host_url().rstrip('/') if DEBUG else cls.PDS_URL
         logger.info(f'Creating new did:plc for {user.key} {pds_url}')
         did_plc = did.create_plc(user.handle_as('atproto'),
-                                 pds_url=pds_url,
-                                 post_fn=util.requests_post)
+                                 pds_url=pds_url, post_fn=util.requests_post)
 
         Object.get_or_create(did_plc.did, raw=did_plc.doc)
         # TODO: move this to ATProto.get_or_create?

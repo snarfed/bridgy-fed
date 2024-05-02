@@ -442,7 +442,7 @@ class ProtocolTest(TestCase):
         })
         self.assertCountEqual([
             Target(protocol='fake', uri='fake:post:target'),
-            Target(protocol='atproto', uri='https://atproto.brid.gy/'),
+            Target(protocol='atproto', uri='https://atproto.brid.gy'),
         ], Protocol.targets(obj).keys())
 
     def test_targets_composite_inreplyto(self):

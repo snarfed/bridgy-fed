@@ -239,7 +239,7 @@ class ATProtoTest(TestCase):
         self.assertEqual('opt-out', user.status)
 
     def test_target_for_user_no_stored_did(self):
-        self.assertEqual('https://atproto.brid.gy/', ATProto.target_for(
+        self.assertEqual('https://atproto.brid.gy', ATProto.target_for(
             Object(id='at://foo')))
         self.assertIsNone(ATProto.target_for(Object(id='fake:post')))
 
@@ -720,7 +720,7 @@ class ATProtoTest(TestCase):
         assert did
         self.assertEqual([Target(uri=did, protocol='atproto')], user.copies)
         did_obj = ATProto.load(did, did_doc=True)
-        self.assertEqual('http://localhost/',
+        self.assertEqual('http://localhost',
                          did_obj.raw['service'][0]['serviceEndpoint'])
 
         # check repo, record
@@ -754,7 +754,7 @@ class ATProtoTest(TestCase):
                 'services': {
                     'atproto_pds': {
                         'type': 'AtprotoPersonalDataServer',
-                        'endpoint': 'http://localhost/',
+                        'endpoint': 'http://localhost',
                     }
                 },
                 'prev': None,
@@ -813,7 +813,7 @@ class ATProtoTest(TestCase):
         user = self.make_user_and_repo()
         obj = self.store_object(id='fake:post', source_protocol='fake',
                                 our_as1=NOTE_AS)
-        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
 
         # check repo, record
         did = user.key.get().get_copy(ATProto)
@@ -842,7 +842,7 @@ class ATProtoTest(TestCase):
             'verb': 'update',
             'object': note.our_as1,
         })
-        self.assertTrue(ATProto.send(update, 'https://bsky.brid.gy/'))
+        self.assertTrue(ATProto.send(update, 'https://bsky.brid.gy'))
 
         # check repo, record
         did = self.user.key.get().get_copy(ATProto)
@@ -936,7 +936,7 @@ class ATProtoTest(TestCase):
             'actor': 'fake:user',
             'object': 'at://did:bob/app.bsky.feed.post/tid',
         })
-        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
 
         # check repo, record
         did = user.get_copy(ATProto)
@@ -971,7 +971,7 @@ class ATProtoTest(TestCase):
             'actor': 'fake:user',
             'object': 'did:plc:bob',
         })
-        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
 
         # check repo, record
         did = user.get_copy(ATProto)

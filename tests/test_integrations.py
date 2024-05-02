@@ -241,7 +241,7 @@ class IntegrationTests(TestCase):
         # send webmention
         resp = self.post('/webmention', data={
             'source': 'https://bob.com/follow',
-            'target': 'http://localhost/',
+            'target': 'http://localhost',
         })
         self.assertEqual(202, resp.status_code)
 
