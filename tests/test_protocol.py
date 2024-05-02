@@ -801,6 +801,9 @@ class ProtocolReceiveTest(TestCase):
     def test_create_reply(self):
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
 
+        frank = self.make_user('other:frank', cls=OtherFake, obj_id='other:frank')
+        Follower.get_or_create(to=self.alice, from_=frank)
+
         OtherFake.fetchable['other:post'] = {
             'objectType': 'note',
             'author': 'other:eve',
@@ -834,6 +837,7 @@ class ProtocolReceiveTest(TestCase):
                                  notify=[eve.key],
                                  )
 
+        # not a self reply, shouldn't deliver to follower frank
         self.assertEqual([(obj.key.id(), 'other:post:target')], OtherFake.sent)
 
     def test_create_reply_bare_object(self):

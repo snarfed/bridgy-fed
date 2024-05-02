@@ -195,8 +195,8 @@ REPLY_HTML = """\
 <div class="h-entry">
 <a class="u-url" href="https://user.com/reply"></a>
 <p class="e-content p-name">
-<a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a class="u-in-reply-to" href="http://no.t/fediverse"></a>
+<a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a href="http://localhost/"></a>
 </p>
 <a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
@@ -252,13 +252,13 @@ AS2_CREATE = {
         'url': 'http://localhost/r/https://user.com/reply',
         'name': 'foo ☕ bar',
         'content': """\
-<a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a class="u-in-reply-to" href="http://no.t/fediverse"></a>
+<a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a href="http://localhost/"></a>""",
         'contentMap': {
             'en': """\
-<a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a class="u-in-reply-to" href="http://no.t/fediverse"></a>
+<a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a href="http://localhost/"></a>""",
         },
         'inReplyTo': 'https://mas.to/toot/id',
@@ -794,16 +794,10 @@ class WebTest(TestCase):
         })
         self.assertEqual(202, got.status_code)
 
-        self.assertEqual(['https://inbox/', 'https://mas.to/inbox',
-                          'https://public/inbox', 'https://shared/inbox'],
-                         [args[0] for args, _ in mock_post.call_args_list])
-
-        for args, kwargs in mock_post.call_args_list:
-            expected = copy.deepcopy(AS2_UPDATE)
-            if args[0] != 'https://mas.to/inbox':
-                del expected['object']['tag']  # Mention
-                expected['object']['inReplyTo'] = 'https://mas.to/toot'
-            self.assert_equals(expected, json_loads(kwargs['data']), ignore=['cc'])
+        self.assertEqual(1, mock_post.call_count)
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://mas.to/inbox',), args)
+        self.assert_equals(AS2_UPDATE, json_loads(kwargs['data']))
 
     def test_redo_repost_isnt_update(self, mock_get, mock_post):
         """Like and Announce shouldn't use Update, they should just resend as is."""

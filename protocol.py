@@ -1083,6 +1083,7 @@ class Protocol:
                         in_reply_to_owners.append(reply_owner)
 
         is_reply = obj.type == 'comment' or in_reply_tos
+        is_self_reply = False
         if is_reply:
             logger.info(f"It's a reply...")
             if in_reply_to_protocols:
@@ -1104,6 +1105,12 @@ class Protocol:
             if not orig_obj or not orig_obj.as1:
                 logger.info(f"Couldn't load {id}")
                 continue
+
+            # deliver self-replies to followers
+            # https://github.com/snarfed/bridgy-fed/issues/639
+            if owner == as1.get_owner(orig_obj.as1):
+                is_self_reply = True
+                logger.info(f'Looks like a self reply! Delivering to followers')
 
             if protocol == cls and cls.LABEL != 'fake':
                 logger.info(f'Skipping same-protocol target {id}')
@@ -1134,7 +1141,7 @@ class Protocol:
             return targets
 
         if (obj.type in ('post', 'update', 'delete', 'share')
-                and (not is_reply or in_reply_to_protocols)):
+                and (not is_reply or (is_self_reply and in_reply_to_protocols))):
             logger.info(f'Delivering to followers of {user_key}')
             followers = Follower.query(Follower.to == user_key,
                                        Follower.status == 'active'
