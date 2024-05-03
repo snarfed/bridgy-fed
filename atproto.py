@@ -653,42 +653,27 @@ def poll_notifications():
 
 # URL route is registered in hub.py
 def poll_posts():
-    """Fetches and enqueueus new posts from the AppView for our users.
+    """Fetches and enqueueus bridged Bluesky users' new posts from the AppView.
 
-    Uses the ``getTimeline`` endpoint, which is intended for end users. 🤷
+    Uses the ``getAuthorFeed`` endpoint, which is intended for clients. 🤷
 
     TODO: unify with poll_notifications
     """
-    repos = {r.key.id(): r for r in AtpRepo.query()}
-    logger.info(f'Got {len(repos)} repos')
-    if not repos:
-        return 'Nothing to do ¯\_(ツ)_/¯', 204
-
-    users = itertools.chain(*(cls.query(cls.copies.uri.IN(list(repos)))
-                              for cls in set(PROTOCOLS.values())
-                              if cls and cls != ATProto))
-
     # this client needs to be request-local because we set its service token
     # below per user that we're polling
     client = Client(f'https://{os.environ["APPVIEW_HOST"]}',
                     headers={'User-Agent': USER_AGENT})
 
-    for user in users:
-        if not user.is_enabled(ATProto):
-            logger.info(f'Skipping {user.key.id()}')
-            continue
-
-        logger.debug(f'Fetching posts for {user.key.id()}')
+    for user in ATProto.query(ATProto.enabled_protocols != None):
+        did = user.key.id()
+        logger.debug(f'Fetching posts for {did} {user.handle}')
 
         # TODO: store and use cursor
         # seenAt would be easier, but they don't support it yet
         # https://github.com/bluesky-social/atproto/issues/1636
-        did = user.get_copy(ATProto)
-        repo = repos[did]
-        client.session['accessJwt'] = service_jwt(os.environ['APPVIEW_HOST'],
-                                                  repo_did=did,
-                                                  privkey=repo.signing_key)
-        resp = client.app.bsky.feed.getTimeline(limit=10)
+        resp = appview.app.bsky.feed.getAuthorFeed(
+            actor=did, filter='posts_no_replies', limit=10)
+
         for item in resp['feed']:
             # TODO: handle reposts once we have a URI for them
             # https://github.com/bluesky-social/atproto/issues/1811
@@ -700,10 +685,9 @@ def poll_posts():
             # TODO: verify sig. skipping this for now because we're getting
             # these from the AppView, which is trusted, specifically we expect
             # the BGS and/or the AppView already checked sigs.
-            author_did = post['author']['did']
+            assert did == post['author']['did']
             obj = Object.get_or_create(id=post['uri'], bsky=post['record'],
-                                       source_protocol=ATProto.ABBREV,
-                                       actor=author_did)
+                                       source_protocol=ATProto.ABBREV, actor=did)
             if obj.status in ('complete', 'ignored'):
                 continue
 
@@ -713,7 +697,6 @@ def poll_posts():
             obj.add('feed', user.key)
             obj.put()
 
-            common.create_task(queue='receive', obj=obj.key.urlsafe(),
-                               authed_as=author_did)
+            common.create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=did)
 
     return 'OK'

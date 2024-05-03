@@ -1266,15 +1266,23 @@ class ATProtoTest(TestCase):
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get')
     def test_poll_posts(self, mock_get, mock_create_task):
-        user_a = self.make_user(id='fake:user-a', cls=Fake,
-                                copies=[Target(uri='did:plc:a', protocol='atproto')])
-        user_b = self.make_user(id='fake:user-b', cls=Fake,
-                                copies=[Target(uri='did:plc:b', protocol='atproto')])
-        user_c = self.make_user(id='fake:user-c', cls=Fake,
-                                copies=[Target(uri='did:plc:c', protocol='atproto')])
-        Repo.create(self.storage, 'did:plc:a', signing_key=ATPROTO_KEY)
-        Repo.create(self.storage, 'did:plc:b', signing_key=ATPROTO_KEY)
-        Repo.create(self.storage, 'did:plc:c', signing_key=ATPROTO_KEY)
+        for i in ['a', 'b', 'c', 'd']:
+            did = f'did:plc:{i}'
+            self.store_object(id=did, raw={
+                **DID_DOC,
+                'id': did,
+            })
+
+        user_a = self.make_user(
+            id='did:plc:a', cls=ATProto, enabled_protocols=['fake'],
+            copies=[Target(uri='fake:user-a', protocol='fake')])
+        user_b = self.make_user(id='did:plc:b', cls=ATProto)  # no enabled protocols
+        user_c = self.make_user(
+            id='did:plc:c', cls=ATProto, enabled_protocols=['fake'],
+            copies=[Target(uri='fake:user-c', protocol='fake')])
+        user_d = self.make_user(
+            id='did:plc:d', cls=ATProto, enabled_protocols=['fake'],
+            copies=[Target(uri='fake:user-d', protocol='fake')])
 
         post = {
             '$type': 'app.bsky.feed.post',
@@ -1288,7 +1296,7 @@ class ATProtoTest(TestCase):
             'record': post,
             'author': {
                 '$type': 'app.bsky.actor.defs#profileViewBasic',
-                'did': 'did:web:alice.com',
+                'did': 'did:plc:a',
                 'handle': 'alice.com',
             },
         }
@@ -1330,25 +1338,24 @@ class ATProtoTest(TestCase):
         resp = self.post('/queue/atproto-poll-posts', client=hub.app.test_client())
         self.assertEqual(200, resp.status_code)
 
-        get_timeline = call(
-            'https://appview.local/xrpc/app.bsky.feed.getTimeline?limit=10',
+        get = [call(
+            f'https://api.bsky-sandbox.dev/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3A{i}&filter=posts_no_replies&limit=10',
             json=None, data=None,
             headers={
                 'Content-Type': 'application/json',
                 'User-Agent': common.USER_AGENT,
-                'Authorization': ANY,
-            })
+            }) for i in ('a', 'c', 'd')]
         self.assertEqual([
-            get_timeline,
+            get[0],
             self.req('https://alice.com/.well-known/did.json'),
-            get_timeline,
-            get_timeline,
+            get[1],
+            get[2],
         ], mock_get.call_args_list)
 
         post_obj = Object.get_by_id('at://did:web:alice.com/app.bsky.feed.post/123')
         self.assertEqual(post, post_obj.bsky)
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
-                         obj=post_obj.key.urlsafe(), authed_as='did:web:alice.com')
+                         obj=post_obj.key.urlsafe(), authed_as='did:plc:a')
 
         # TODO: https://github.com/snarfed/bridgy-fed/issues/728
         # repost_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.post/456')
