@@ -625,7 +625,10 @@ def poll_notifications():
         client.session['accessJwt'] = service_jwt(os.environ['APPVIEW_HOST'],
                                                   repo_did=did,
                                                   privkey=repo.signing_key)
-        resp = client.app.bsky.notification.listNotifications(limit=10)
+        resp = client.app.bsky.notification.listNotifications(
+            cursor=user.atproto_notifs_cursor,
+            limit=None if user.atproto_notifs_cursor else 10,
+        )
         for notif in resp['notifications']:
             actor_did = notif['author']['did']
 
@@ -647,6 +650,16 @@ def poll_notifications():
 
             common.create_task(queue='receive', obj=obj.key.urlsafe(),
                                authed_as=actor_did)
+
+        # store cursor, even if it's unset, since then we want to switch to the
+        # latest, not keep reading starting at the old cursor.
+        cursor = resp.get('cursor')
+        @ndb.transactional()
+        def store_cursor():
+            u = user.key.get()
+            u.atproto_notifs_cursor = cursor
+            u.put()
+        store_cursor()
 
     return 'OK'
 
@@ -672,7 +685,9 @@ def poll_posts():
         # seenAt would be easier, but they don't support it yet
         # https://github.com/bluesky-social/atproto/issues/1636
         resp = appview.app.bsky.feed.getAuthorFeed(
-            actor=did, filter='posts_no_replies', limit=10)
+            actor=did, filter='posts_no_replies',
+            cursor=user.atproto_feed_cursor,
+            limit=None if user.atproto_feed_cursor else 10)
 
         for item in resp['feed']:
             # TODO: handle reposts once we have a URI for them
@@ -698,5 +713,15 @@ def poll_posts():
             obj.put()
 
             common.create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=did)
+
+        # store cursor, even if it's unset, since then we want to switch to the
+        # latest, not keep reading starting at the old cursor.
+        cursor = resp.get('cursor')
+        @ndb.transactional()
+        def store_cursor():
+            u = user.key.get()
+            u.atproto_feed_cursor = cursor
+            u.put()
+        store_cursor()
 
     return 'OK'

@@ -1158,6 +1158,7 @@ class ATProtoTest(TestCase):
         user_b = self.make_user(id='fake:user-b', cls=Fake,
                                 copies=[Target(uri='did:plc:b', protocol='atproto')])
         user_c = self.make_user(id='fake:user-c', cls=Fake,
+                                atproto_notifs_cursor='kursor-c-before',
                                 copies=[Target(uri='did:plc:c', protocol='atproto')])
 
         Repo.create(self.storage, 'did:plc:a', signing_key=ATPROTO_KEY)
@@ -1201,7 +1202,7 @@ class ATProtoTest(TestCase):
 
         mock_get.side_effect = [
             requests_response({
-                'cursor': '...',
+                'cursor': 'kursor-a-after',
                 'notifications': [{
                     'uri': 'at://did:plc:d/app.bsky.feed.like/123',
                     'cid': '...',
@@ -1218,7 +1219,6 @@ class ATProtoTest(TestCase):
             }),
             requests_response(DID_DOC),
             requests_response({
-                'cursor': '...',
                 'notifications': [{
                     'uri': 'at://did:plc:d/app.bsky.graph.follow/789',
                     'cid': '...',
@@ -1232,21 +1232,19 @@ class ATProtoTest(TestCase):
         resp = self.post('/queue/atproto-poll-notifs', client=hub.app.test_client())
         self.assertEqual(200, resp.status_code)
 
-        expected_list_notifs = call(
+        expected_list_notifs = [call(url, json=None, data=None, headers={
+            'Content-Type': 'application/json',
+            'User-Agent': common.USER_AGENT,
+        }) for url in [
             'https://appview.local/xrpc/app.bsky.notification.listNotifications?limit=10',
-            json=None, data=None,
-            headers={
-                'Content-Type': 'application/json',
-                'User-Agent': common.USER_AGENT,
-            },
-        )
-        # just check that access token was set, then remove it before comparing
-        # for call in mock_get.call_args_list:
+            'https://appview.local/xrpc/app.bsky.notification.listNotifications?cursor=kursor-c-before',
+        ]]
+
         assert mock_get.call_args_list[0].kwargs['headers'].pop('Authorization')
-        self.assertEqual(expected_list_notifs, mock_get.call_args_list[0])
+        self.assertEqual(expected_list_notifs[0], mock_get.call_args_list[0])
 
         assert mock_get.call_args_list[2].kwargs['headers'].pop('Authorization')
-        self.assertEqual(expected_list_notifs, mock_get.call_args_list[2])
+        self.assertEqual(expected_list_notifs[1], mock_get.call_args_list[2])
 
         like_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.like/123')
         self.assertEqual(like, like_obj.bsky)
@@ -1262,6 +1260,9 @@ class ATProtoTest(TestCase):
         self.assertEqual(follow, follow_obj.bsky)
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
                          obj=follow_obj.key.urlsafe(), authed_as='did:plc:a')
+
+        self.assertEqual('kursor-a-after', user_a.key.get().atproto_notifs_cursor)
+        self.assertIsNone(user_c.key.get().atproto_notifs_cursor)
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get')
@@ -1279,7 +1280,8 @@ class ATProtoTest(TestCase):
         user_b = self.make_user(id='did:plc:b', cls=ATProto)  # no enabled protocols
         user_c = self.make_user(
             id='did:plc:c', cls=ATProto, enabled_protocols=['fake'],
-            copies=[Target(uri='fake:user-c', protocol='fake')])
+            copies=[Target(uri='fake:user-c', protocol='fake')],
+            atproto_feed_cursor='kursor-c-before')
         user_d = self.make_user(
             id='did:plc:d', cls=ATProto, enabled_protocols=['fake'],
             copies=[Target(uri='fake:user-d', protocol='fake')])
@@ -1303,7 +1305,7 @@ class ATProtoTest(TestCase):
 
         mock_get.side_effect = [
             requests_response({
-                'cursor': '...',
+                'cursor': 'kursor-a-after',
                 'feed': [{
                     '$type': 'app.bsky.feed.defs#feedViewPost',
                     'post': post_view,
@@ -1314,11 +1316,10 @@ class ATProtoTest(TestCase):
                 'id': 'did:plc:alice.com',
             }),
             requests_response({
-                'cursor': '...',
                 'feed': [],
             }),
             requests_response({
-                'cursor': '...',
+                'cursor': 'kursor-d-after',
                 'feed': [{
                     '$type': 'app.bsky.feed.defs#feedViewPost',
                     'post': post_view,
@@ -1338,13 +1339,14 @@ class ATProtoTest(TestCase):
         resp = self.post('/queue/atproto-poll-posts', client=hub.app.test_client())
         self.assertEqual(200, resp.status_code)
 
-        get = [call(
-            f'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3A{i}&filter=posts_no_replies&limit=10',
-            json=None, data=None,
-            headers={
-                'Content-Type': 'application/json',
-                'User-Agent': common.USER_AGENT,
-            }) for i in ('a', 'c', 'd')]
+        get = [call(url, json=None, data=None, headers={
+                   'Content-Type': 'application/json',
+                   'User-Agent': common.USER_AGENT,
+               }) for url in [
+                   'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Aa&filter=posts_no_replies&limit=10',
+                   'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Ac&filter=posts_no_replies&cursor=kursor-c-before',
+                   'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Ad&filter=posts_no_replies&limit=10',
+               ]]
         self.assertEqual([
             get[0],
             self.req('https://alice.com/.well-known/did.json'),
@@ -1356,6 +1358,11 @@ class ATProtoTest(TestCase):
         self.assertEqual(post, post_obj.bsky)
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
                          obj=post_obj.key.urlsafe(), authed_as='did:plc:a')
+
+        self.assertEqual('kursor-a-after', user_a.key.get().atproto_feed_cursor)
+        self.assertIsNone(user_b.key.get().atproto_feed_cursor)
+        self.assertIsNone(user_c.key.get().atproto_feed_cursor)
+        self.assertEqual('kursor-d-after', user_d.key.get().atproto_feed_cursor)
 
         # TODO: https://github.com/snarfed/bridgy-fed/issues/728
         # repost_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.post/456')
