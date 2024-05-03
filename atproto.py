@@ -617,9 +617,6 @@ def poll_notifications():
 
         logger.debug(f'Fetching notifs for {user.key.id()}')
 
-        # TODO: store and use cursor
-        # seenAt would be easier, but they don't support it yet
-        # https://github.com/bluesky-social/atproto/issues/1636
         did = user.get_copy(ATProto)
         repo = repos[did]
         client.session['accessJwt'] = service_jwt(os.environ['APPVIEW_HOST'],
@@ -678,12 +675,12 @@ def poll_posts():
                     headers={'User-Agent': USER_AGENT})
 
     for user in ATProto.query(ATProto.enabled_protocols != None):
+        if user.status == 'opt-out':
+            continue
+
         did = user.key.id()
         logger.debug(f'Fetching posts for {did} {user.handle}')
 
-        # TODO: store and use cursor
-        # seenAt would be easier, but they don't support it yet
-        # https://github.com/bluesky-social/atproto/issues/1636
         resp = appview.app.bsky.feed.getAuthorFeed(
             actor=did, filter='posts_no_replies',
             cursor=user.atproto_feed_cursor,
