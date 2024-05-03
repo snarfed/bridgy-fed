@@ -629,8 +629,7 @@ def poll_notifications():
                                                   privkey=repo.signing_key)
         resp = client.app.bsky.notification.listNotifications(
             cursor=user.atproto_notifs_cursor,
-            limit=None if user.atproto_notifs_cursor else 10,
-        )
+            limit=10)
         for notif in resp['notifications']:
             actor_did = notif['author']['did']
 
@@ -689,7 +688,7 @@ def poll_posts():
         resp = appview.app.bsky.feed.getAuthorFeed(
             actor=did, filter='posts_no_replies',
             cursor=user.atproto_feed_cursor,
-            limit=None if user.atproto_feed_cursor else 10)
+            limit=10)
 
         for item in resp['feed']:
             # TODO: handle reposts once we have a URI for them

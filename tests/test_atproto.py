@@ -1249,7 +1249,7 @@ class ATProtoTest(TestCase):
             'User-Agent': common.USER_AGENT,
         }) for url in [
             'https://appview.local/xrpc/app.bsky.notification.listNotifications?limit=10',
-            'https://appview.local/xrpc/app.bsky.notification.listNotifications?cursor=kursor-c-before',
+            'https://appview.local/xrpc/app.bsky.notification.listNotifications?cursor=kursor-c-before&limit=10',
         ]]
 
         assert mock_get.call_args_list[0].kwargs['headers'].pop('Authorization')
@@ -1356,7 +1356,7 @@ class ATProtoTest(TestCase):
                    'User-Agent': common.USER_AGENT,
                }) for url in [
                    'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Aa&filter=posts_no_replies&limit=10',
-                   'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Ac&filter=posts_no_replies&cursor=kursor-c-before',
+                   'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Ac&filter=posts_no_replies&cursor=kursor-c-before&limit=10',
                    'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Ad&filter=posts_no_replies&limit=10',
                ]]
         self.assertEqual([
