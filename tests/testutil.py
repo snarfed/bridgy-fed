@@ -193,6 +193,7 @@ models.reset_protocol_properties()
 import app
 import activitypub
 from activitypub import ActivityPub, CONNEG_HEADERS_AS2_HTML
+import atproto
 from atproto import ATProto
 import common
 from common import PRIMARY_DOMAIN, PROTOCOL_DOMAINS, OTHER_DOMAINS, LOCAL_DOMAINS
@@ -273,6 +274,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             'MOD_SERVICE_HOST': 'mod.service.local',
             'MOD_SERVICE_DID': 'did:mod-service',
         })
+        atproto.appview.address = 'https://appview.local'
 
     def tearDown(self):
         self.app_context.pop()

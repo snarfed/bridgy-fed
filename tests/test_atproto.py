@@ -1339,7 +1339,7 @@ class ATProtoTest(TestCase):
         self.assertEqual(200, resp.status_code)
 
         get = [call(
-            f'https://api.bsky-sandbox.dev/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3A{i}&filter=posts_no_replies&limit=10',
+            f'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3A{i}&filter=posts_no_replies&limit=10',
             json=None, data=None,
             headers={
                 'Content-Type': 'application/json',
