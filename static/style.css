@@ -187,7 +187,7 @@ pre .value, code .value, code.value {
   margin: .1em !important;
 }
 
-.web, .fediverse {
+.web, .fediverse, .bluesky, .handle {
   white-space: nowrap;
 }
 

@@ -10,7 +10,7 @@
     "https://bsky.brid.gy/"
   ],
   "preferredUsername": "bsky.brid.gy",
-  "summary": "<a href='https://fed.brid.gy/'>Bridgy Fed</a> bot user for <a href='https://bsky.social/'>Bluesky</a>. To bridge your fediverse account to Bluesky, follow this account or reply <em>yes</em> when it promps you with a DM. <a href='https://fed.brid.gy/docs'>More info here.</a>",
+  "summary": "<p>⚠️ BETA ⚠️ <a href='https://fed.brid.gy/'>Bridgy Fed</a> bot user for <a href='https://bsky.social/'>Bluesky</a>. To bridge your fediverse account to Bluesky, follow this account or reply <em>yes</em> when it promps you with a DM. <a href='https://fed.brid.gy/docs'>More info here.</a></p> <p>Currently in early beta testing. Expect bugs, incomplete features, downtime, and other rough edges!</p>",
   "name": "Bridgy Fed for Bluesky",
   "image": [
     {
