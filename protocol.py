@@ -172,7 +172,7 @@ class Protocol:
         return False
 
     @classmethod
-    def owns_handle(cls, handle):
+    def owns_handle(cls, handle, allow_internal=False):
         """Returns whether this protocol owns the handle, or None if it's unclear.
 
         To be implemented by subclasses.
@@ -192,6 +192,8 @@ class Protocol:
 
         Args:
           handle (str)
+          allow_internal (bool): whether to return False for internal domains
+            like ``fed.brid.gy``, ``bsky.brid.gy``, etc
 
         Returns:
           bool or None
@@ -409,6 +411,9 @@ class Protocol:
         Args:
           user (models.User): original source user. Shouldn't already have a
             copy user for this protocol in :attr:`copies`.
+
+        Raises:
+          ValueError: if we can't create a copy of the given user in this protocol
         """
         raise NotImplementedError()
 

@@ -108,7 +108,7 @@ class Fake(User, protocol.Protocol):
                 or id in cls.fetchable)
 
     @classmethod
-    def owns_handle(cls, handle):
+    def owns_handle(cls, handle, allow_internal=False):
         return handle.startswith(f'{cls.LABEL}:handle:')
 
     @classmethod

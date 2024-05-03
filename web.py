@@ -358,10 +358,10 @@ class Web(User, Protocol):
         return False
 
     @classmethod
-    def owns_handle(cls, handle):
+    def owns_handle(cls, handle, allow_internal=False):
         if handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
             return True
-        elif not is_valid_domain(handle, allow_internal=False):
+        elif not is_valid_domain(handle, allow_internal=allow_internal):
             return False
 
     @classmethod

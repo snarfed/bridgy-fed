@@ -109,9 +109,9 @@ class ATProtoTest(TestCase):
         self.assertEqual('han.dull', user.key.get().handle)
 
     def test_owns_id(self):
-        self.assertEqual(False, ATProto.owns_id('http://foo'))
-        self.assertEqual(False, ATProto.owns_id('https://bar.baz/biff'))
-        self.assertEqual(False, ATProto.owns_id('e45fab982'))
+        self.assertFalse(ATProto.owns_id('http://foo'))
+        self.assertFalse(ATProto.owns_id('https://bar.baz/biff'))
+        self.assertFalse(ATProto.owns_id('e45fab982'))
 
         self.assertTrue(ATProto.owns_id('at://did:plc:user/bar/123'))
         self.assertTrue(ATProto.owns_id('did:plc:user'))
@@ -123,12 +123,18 @@ class ATProtoTest(TestCase):
         self.assertIsNone(ATProto.owns_handle('foo.com'))
         self.assertIsNone(ATProto.owns_handle('foo.bar.com'))
 
-        self.assertEqual(False, ATProto.owns_handle('foo'))
-        self.assertEqual(False, ATProto.owns_handle('@foo'))
-        self.assertEqual(False, ATProto.owns_handle('@foo.com'))
-        self.assertEqual(False, ATProto.owns_handle('@foo@bar.com'))
-        self.assertEqual(False, ATProto.owns_handle('foo@bar.com'))
-        self.assertEqual(False, ATProto.owns_handle('localhost'))
+        self.assertFalse(ATProto.owns_handle('foo'))
+        self.assertFalse(ATProto.owns_handle('@foo'))
+        self.assertFalse(ATProto.owns_handle('@foo.com'))
+        self.assertFalse(ATProto.owns_handle('@foo@bar.com'))
+        self.assertFalse(ATProto.owns_handle('foo@bar.com'))
+        self.assertFalse(ATProto.owns_handle('localhost'))
+
+        self.assertFalse(ATProto.owns_handle('_foo.com'))
+        self.assertFalse(ATProto.owns_handle('-foo.com'))
+        self.assertFalse(ATProto.owns_handle('foo_.com'))
+        self.assertFalse(ATProto.owns_handle('foo-.com'))
+
         # TODO: this should be False
         self.assertIsNone(ATProto.owns_handle('web.brid.gy'))
 
@@ -700,6 +706,12 @@ class ATProtoTest(TestCase):
                          Object.get_by_id(id='fake:us_er').copies)
 
         mock_create_task.assert_called()
+
+    def test_create_for_bad_handle(self):
+        # underscores gets translated to dashes, trailing/leading aren't allowed
+        for bad in 'fake:user_', '_fake:user':
+            with self.assertRaises(ValueError):
+                ATProto.create_for(Fake(id=bad))
 
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))

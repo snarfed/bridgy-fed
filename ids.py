@@ -6,7 +6,6 @@ import logging
 import re
 from urllib.parse import urljoin, urlparse
 
-from arroba import did
 from flask import request
 from google.cloud.ndb.query import FilterNode, Query
 from granary.bluesky import BSKY_APP_URL_RE, web_url_to_at_uri
@@ -162,50 +161,57 @@ def translate_handle(*, handle, from_, to, enhanced):
 
     Returns:
       str: the corresponding handle in ``to``
+
+    Raises:
+      ValueError: if the user's handle is invalid, eg begins or ends with an
+        underscore or dash
     """
     assert handle and from_ and to, (handle, from_, to)
-    assert from_.owns_handle(handle) is not False or from_.LABEL == 'ui'
-
-    if from_.LABEL == 'atproto':
-        assert did.HANDLE_RE.fullmatch(handle)
+    if not from_.LABEL == 'ui':
+        if from_.owns_handle(handle, allow_internal=True) is False:
+            raise ValueError(f'input handle {handle} is not valid for {from_.LABEL}')
 
     if from_ == to:
         return handle
 
+    output = None
     match from_.LABEL, to.LABEL:
         case _, 'activitypub':
             domain = f'{from_.ABBREV}{SUPERDOMAIN}'
             if enhanced or handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
                 domain = handle
-            return f'@{handle}@{domain}'
+            output = f'@{handle}@{domain}'
 
         case _, 'atproto':
+            output = handle.lstrip('@').replace('@', '.')
             for from_char in ATPROTO_DASH_CHARS:
-                handle = handle.replace(from_char, '-')
+                output = output.replace(from_char, '-')
 
-            handle = handle.lstrip('@').replace('@', '.')
             if enhanced or handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
                 pass
             else:
-                handle = f'{handle}.{from_.ABBREV}{SUPERDOMAIN}'
-
-            assert did.HANDLE_RE.fullmatch(handle)
-            return handle
+                output = f'{output}.{from_.ABBREV}{SUPERDOMAIN}'
 
         case 'activitypub', 'web':
             user, instance = handle.lstrip('@').split('@')
             # TODO: get this from the actor object's url field?
-            return (f'https://{user}' if user == instance
+            output = (f'https://{user}' if user == instance
                     else f'https://{instance}/@{user}')
 
         case _, 'web':
-            return handle
+            output = handle
 
         # only for unit tests
         case _, 'fake' | 'other' | 'eefake':
-            return f'{to.LABEL}:handle:{handle}'
+            output = f'{to.LABEL}:handle:{handle}'
 
-    assert False, (handle, from_.LABEL, to.LABEL)
+    assert output, (handle, from_.LABEL, to.LABEL)
+    # don't check Web handles because they're sometimes URLs, eg
+    # @user@instance => https://instance/@user
+    if to.LABEL != 'web' and to.owns_handle(output, allow_internal=True) is False:
+        raise ValueError(f'translated handle {output} is not valid for {to.LABEL}')
+
+    return output
 
 
 def translate_object_id(*, id, from_, to):

@@ -158,7 +158,7 @@ class ActivityPub(User, Protocol):
         return False
 
     @classmethod
-    def owns_handle(cls, handle):
+    def owns_handle(cls, handle, allow_internal=False):
         """Returns True if handle is a WebFinger ``@-@`` handle, False otherwise.
 
         Example: ``@user@instance.com``. The leading ``@`` is optional.
@@ -171,7 +171,8 @@ class ActivityPub(User, Protocol):
             return False
 
         user, domain = parts
-        return user and domain and not cls.is_blocklisted(domain)
+        return user and domain and not cls.is_blocklisted(
+            domain, allow_internal=allow_internal)
 
     @classmethod
     def handle_to_id(cls, handle):

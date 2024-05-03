@@ -128,8 +128,9 @@ class ATProto(User, Protocol):
                 or id.startswith('https://bsky.app/'))
 
     @classmethod
-    def owns_handle(cls, handle):
-        if not re.match(DOMAIN_RE, handle):
+    def owns_handle(cls, handle, allow_internal=False):
+        # TODO: implement allow_internal
+        if not did.HANDLE_RE.fullmatch(handle):
             return False
 
     @classmethod
@@ -248,6 +249,10 @@ class ATProto(User, Protocol):
 
         Args:
           user (models.User)
+
+        Raises:
+          ValueError: if the user's handle is invalid, eg begins or ends with an
+            underscore or dash
         """
         assert not isinstance(user, ATProto)
 
