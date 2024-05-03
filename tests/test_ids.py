@@ -136,7 +136,7 @@ class IdsTest(TestCase):
             (ATProto, 'user.com', Web, 'user.com'),
 
             (Fake, 'fake:handle:user', ActivityPub, '@fake:handle:user@fa.brid.gy'),
-            (Fake, 'fake:handle:user', ATProto, 'fake:handle:user.fa.brid.gy'),
+            (Fake, 'fake:handle:user', ATProto, 'fake-handle-user.fa.brid.gy'),
             (Fake, 'fake:handle:user', Fake, 'fake:handle:user'),
             (Fake, 'fake:handle:user', Web, 'fake:handle:user'),
 

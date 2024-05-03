@@ -6,6 +6,7 @@ import logging
 import re
 from urllib.parse import urljoin, urlparse
 
+from arroba import did
 from flask import request
 from google.cloud.ndb.query import FilterNode, Query
 from granary.bluesky import BSKY_APP_URL_RE, web_url_to_at_uri
@@ -34,14 +35,12 @@ _NON_WEB_SUBDOMAIN_SITES = None
 
 # Webfinger allows all sorts of characters that ATProto handles don't,
 # notably _ and ~. Map those to -.
+# ( : (colon) is mostly just used in the fake protocols in unit tests.)
 # https://www.rfc-editor.org/rfc/rfc7565.html#section-7
 # https://atproto.com/specs/handle
 # https://github.com/snarfed/bridgy-fed/issues/982
 # https://github.com/swicg/activitypub-webfinger/issues/9
-TO_ATPROTO_CHARS = {
-    '_': '-',
-    '~': '-',
-}
+ATPROTO_DASH_CHARS = ('_', '~', ':')
 
 
 def web_ap_base_domain(user_domain):
@@ -167,6 +166,9 @@ def translate_handle(*, handle, from_, to, enhanced):
     assert handle and from_ and to, (handle, from_, to)
     assert from_.owns_handle(handle) is not False or from_.LABEL == 'ui'
 
+    if from_.LABEL == 'atproto':
+        assert did.HANDLE_RE.fullmatch(handle)
+
     if from_ == to:
         return handle
 
@@ -177,15 +179,18 @@ def translate_handle(*, handle, from_, to, enhanced):
                 domain = handle
             return f'@{handle}@{domain}'
 
-        case _, 'atproto' | 'nostr':
-            if to.LABEL == 'atproto':
-                for from_char, to_char in TO_ATPROTO_CHARS.items():
-                    handle = handle.replace(from_char, to_char)
+        case _, 'atproto':
+            for from_char in ATPROTO_DASH_CHARS:
+                handle = handle.replace(from_char, '-')
 
             handle = handle.lstrip('@').replace('@', '.')
             if enhanced or handle == PRIMARY_DOMAIN or handle in PROTOCOL_DOMAINS:
-                return handle
-            return f'{handle}.{from_.ABBREV}{SUPERDOMAIN}'
+                pass
+            else:
+                handle = f'{handle}.{from_.ABBREV}{SUPERDOMAIN}'
+
+            assert did.HANDLE_RE.fullmatch(handle)
+            return handle
 
         case 'activitypub', 'web':
             user, instance = handle.lstrip('@').split('@')

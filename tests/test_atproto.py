@@ -674,7 +674,7 @@ class ATProtoTest(TestCase):
 
         # check DNS record
         zone.resource_record_set.assert_called_with(
-            name='_atproto.fake:handle:us-er.fa.brid.gy.', record_type='TXT',
+            name='_atproto.fake-handle-us-er.fa.brid.gy.', record_type='TXT',
             ttl=atproto.DNS_TTL, rrdatas=[f'"did={did}"'])
 
         # check profile record
@@ -749,7 +749,7 @@ class ATProtoTest(TestCase):
                 },
                 'rotationKeys': [encode_did_key(repo.rotation_key.public_key())],
                 'alsoKnownAs': [
-                    'at://fake:handle:user.fa.brid.gy',
+                    'at://fake-handle-user.fa.brid.gy',
                 ],
                 'services': {
                     'atproto_pds': {
