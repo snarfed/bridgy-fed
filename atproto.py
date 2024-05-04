@@ -2,6 +2,7 @@
 
 https://atproto.com/
 """
+import gc
 import itertools
 import logging
 import os
@@ -621,6 +622,8 @@ def poll_notifications():
             continue
 
         logger.debug(f'Fetching notifs for {user.key.id()}')
+        # feeble attempt to avoid hitting the instance memory limit
+        gc.collect()
 
         did = user.get_copy(ATProto)
         repo = repos[did]
@@ -687,6 +690,8 @@ def poll_posts():
 
         did = user.key.id()
         logger.debug(f'Fetching posts for {did} {user.handle}')
+        # feeble attempt to avoid hitting the instance memory limit
+        gc.collect()
 
         resp = appview.app.bsky.feed.getAuthorFeed(
             actor=did, filter='posts_no_replies',
