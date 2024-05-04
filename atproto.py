@@ -627,9 +627,12 @@ def poll_notifications():
         client.session['accessJwt'] = service_jwt(os.environ['APPVIEW_HOST'],
                                                   repo_did=did,
                                                   privkey=repo.signing_key)
+
         resp = client.app.bsky.notification.listNotifications(
             cursor=user.atproto_notifs_cursor,
-            limit=10)
+            # higher limit for protocol bot users to try to make sure we don't
+            # miss any follows
+            limit=100 if Protocol.for_bridgy_subdomain(user.handle) else 10)
         for notif in resp['notifications']:
             actor_did = notif['author']['did']
 
