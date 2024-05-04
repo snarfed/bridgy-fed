@@ -419,6 +419,39 @@ class IntegrationTests(TestCase):
             },
         }, json_loads(kwargs['data']), ignore=['to', '@context'])
 
+
+    @patch('requests.get')
+    def test_activitypub_follow_bsky_bot_bad_username_error(self, mock_get):
+        """AP follow of @bsky.brid.gy@bsky.brid.gy from bad username fails.
+
+        ActivityPub user @_alice_@inst , https://inst/_alice_
+        ATProto bot user bsky.brid.gy (did:plc:bsky)
+        Follow is https://inst/follow
+        """
+        mock_get.return_value = self.as2_resp({
+            'type': 'Person',
+            'id': 'https://inst/_alice_',
+            'name': 'Mrs. ☕ Alice',
+            'preferredUsername': '_alice_',
+            'inbox': 'http://inst/inbox',
+        })
+        self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+
+        # deliver follow
+        resp = self.post('/bsky.brid.gy/inbox', json={
+            'type': 'Follow',
+            'id': 'http://inst/follow',
+            'actor': 'https://inst/_alice_',
+            'object': 'https://bsky.brid.gy/bsky.brid.gy',
+        })
+        self.assertEqual(422, resp.status_code)
+
+        # check results
+        user = ActivityPub.get_by_id('https://inst/_alice_')
+        self.assertFalse(user.is_enabled(ATProto))
+        self.assertEqual(0, len(user.copies))
+
+
     @patch('requests.post')
     @patch('requests.get')
     def test_atproto_follow_ap_bot_user_enables_protocol(self, mock_get, mock_post):

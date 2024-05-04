@@ -107,8 +107,9 @@ def host_url(path_query=None):
     return urljoin(base, path_query)
 
 
-def error(msg, status=400, exc_info=None, **kwargs):
+def error(err, status=400, exc_info=None, **kwargs):
     """Like :func:`oauth_dropins.webutil.flask_util.error`, but wraps body in JSON."""
+    msg = str(err)
     logger.info(f'Returning {status}: {msg}', exc_info=exc_info)
     abort(status, response=make_response({'error': msg}, status), **kwargs)
 

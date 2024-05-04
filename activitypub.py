@@ -967,7 +967,12 @@ def inbox(protocol=None, id=None):
         activity.setdefault('url', f'{follower_url}#followed-{followee_url}')
 
     obj = Object(id=activity.get('id'), as2=unwrap(activity))
-    return ActivityPub.receive(obj, authed_as=authed_as)
+    try:
+        # TODO: switch to task
+        return ActivityPub.receive(obj, authed_as=authed_as)
+    except ValueError as e:
+        logger.warning(e, exc_info=True)
+        error(e, status=422)
 
 
 # protocol in subdomain
