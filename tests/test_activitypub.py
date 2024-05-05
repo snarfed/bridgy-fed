@@ -29,6 +29,7 @@ from activitypub import (
     instance_actor,
     postprocess_as2,
     postprocess_as2_actor,
+    SECURITY_CONTEXT,
 )
 from atproto import ATProto
 import common
@@ -497,14 +498,21 @@ class ActivityPubTest(TestCase):
         """Web users are special cased to drop the /web/ prefix."""
         actor_as2 = json_loads(util.read('bsky.brid.gy.as2.json'))
         self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky',
-                       obj_as2=actor_as2, obj_id='https://bsky.brid.gy/')
+                       obj_as2=copy.deepcopy(actor_as2),
+                       obj_id='https://bsky.brid.gy/')
 
         got = self.client.get('/bsky.brid.gy', base_url='https://bsky.brid.gy/')
         self.assertEqual(200, got.status_code)
         self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, got.headers['Content-Type'])
-        self.assert_equals(actor_as2, got.json,
-                           ignore=['inbox', 'outbox', 'endpoints', 'followers',
-                                   'following', 'publicKey', 'publicKeyPem'])
+
+        # assertEqual instead of assert_equals so that we check that nothing in
+        # @context is duplicated
+        # https://github.com/snarfed/bridgy-fed/issues/1003
+        got_json = copy.deepcopy(got.json)
+        for field in ['inbox', 'outbox', 'endpoints', 'followers', 'following',
+                      'publicKey']:
+            got_json.pop(field)
+        self.assertEqual(actor_as2, got_json)
 
     # skip _pre_put_hook since it doesn't allow internal domains
     # @patch.object(Web, '_pre_put_hook', new=lambda self: None)
@@ -2015,6 +2023,11 @@ class ActivityPubUtilsTest(TestCase):
             'urls': ['http://user.com/', 'acct:foo@bar'],
         }), user=self.user)['url'])
 
+    def test_postprocess_as2_actor_doesnt_duplicate_security_context(self):
+        self.assert_equals([SECURITY_CONTEXT], postprocess_as2_actor({
+            '@context': [SECURITY_CONTEXT],
+        }, user=self.user)['@context'])
+
     def test_postprocess_as2_actor_preserves_preferredUsername(self):
         # preferredUsername stays y.z despite user's username. since Mastodon
         # queries Webfinger for preferredUsername@fed.brid.gy
@@ -2283,7 +2296,7 @@ class ActivityPubUtilsTest(TestCase):
         })
         # use assertEquals so that we don't ignore @context
         self.assertEqual({
-            '@context': [as2.CONTEXT, activitypub.SECURITY_CONTEXT],
+            '@context': [as2.CONTEXT, SECURITY_CONTEXT],
             'type': 'Update',
             'object': ACTOR,
         }, ActivityPub.convert(obj))
