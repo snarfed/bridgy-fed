@@ -86,6 +86,7 @@
 <li><a href="#bluesky-what-not-to">Which stuff can't get bridged into Bluesky?</a></li>
 <li><a href="#bluesky-hashtags-in-text">Why didn't my hashtag show up?</a></li>
 <li><a href="#bluesky-report">What happens when I report a bridged Bluesky user?</a></li>
+<li><a href="#bluesky-edits">I edited a post, but it didn't get edited in Bluesky!</a></li>
 
 <br>
 
@@ -494,6 +495,10 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <p>Also see Bridgy Fed's <a href="#moderation-policy">moderation policy</a> and <a href="#moderation">functionality</a>.</p>
 </li>
 
+<li id="bluesky-edits" class="question">I edited a post, but it didn't get edited in Bluesky!</li>
+<li class="answer">
+<p>Bluesky doesn't support editing posts right now. Bridgy Fed currently sends edits via the underlying <a href="https://atproto.com/">AT Protocol</a>, which does currently support them, but the Bluesky app itself doesn't. Hopefully eventually!</p>
+</li>
 
 
 
