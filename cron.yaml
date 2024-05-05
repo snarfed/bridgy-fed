@@ -5,9 +5,9 @@ cron:
 - description: ATProto poll posts
   url: /queue/atproto-poll-posts
   schedule: every 5 minutes
-  target: hub
+  target: default
 
 - description: ATProto poll notifications
   url: /queue/atproto-poll-notifs
   schedule: every 5 minutes
-  target: hub
+  target: default
