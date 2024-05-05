@@ -1356,7 +1356,7 @@ class ATProtoTest(TestCase):
                    'User-Agent': common.USER_AGENT,
                }) for url in [
                    'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Aa&filter=posts_no_replies&limit=10',
-                   'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Ac&filter=posts_no_replies&cursor=kursor-c-before&limit=10',
+                   'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Ac&filter=posts_no_replies&limit=10',
                    'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Ad&filter=posts_no_replies&limit=10',
                ]]
         self.assertEqual([
@@ -1371,10 +1371,10 @@ class ATProtoTest(TestCase):
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
                          obj=post_obj.key.urlsafe(), authed_as='did:plc:a')
 
-        self.assertEqual('kursor-a-after', user_a.key.get().atproto_feed_cursor)
+        self.assertIsNone(user_a.key.get().atproto_feed_cursor)
         self.assertIsNone(user_b.key.get().atproto_feed_cursor)
-        self.assertIsNone(user_c.key.get().atproto_feed_cursor)
-        self.assertEqual('kursor-d-after', user_d.key.get().atproto_feed_cursor)
+        # self.assertIsNone(user_c.key.get().atproto_feed_cursor)
+        self.assertIsNone(user_d.key.get().atproto_feed_cursor)
 
         # TODO: https://github.com/snarfed/bridgy-fed/issues/728
         # repost_obj = Object.get_by_id('at://did:plc:d/app.bsky.feed.post/456')

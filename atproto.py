@@ -690,7 +690,7 @@ def poll_posts():
 
         resp = appview.app.bsky.feed.getAuthorFeed(
             actor=did, filter='posts_no_replies',
-            cursor=user.atproto_feed_cursor,
+            # cursor=user.atproto_feed_cursor,
             limit=10)
 
         for item in resp['feed']:
@@ -718,14 +718,14 @@ def poll_posts():
 
             common.create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=did)
 
-        # store cursor, even if it's unset, since then we want to switch to the
-        # latest, not keep reading starting at the old cursor.
-        cursor = resp.get('cursor')
-        @ndb.transactional()
-        def store_cursor():
-            u = user.key.get()
-            u.atproto_feed_cursor = cursor
-            u.put()
-        store_cursor()
+        # # store cursor, even if it's unset, since then we want to switch to the
+        # # latest, not keep reading starting at the old cursor.
+        # cursor = resp.get('cursor')
+        # @ndb.transactional()
+        # def store_cursor():
+        #     u = user.key.get()
+        #     u.atproto_feed_cursor = cursor
+        #     u.put()
+        # store_cursor()
 
     return 'OK'
