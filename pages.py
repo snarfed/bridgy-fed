@@ -22,13 +22,13 @@ from oauth_dropins.webutil.flask_util import (
 import requests
 import werkzeug.exceptions
 
+from activitypub import ActivityPub, instance_actor
 import common
 from common import DOMAIN_RE
 from flask_app import app, cache
 import ids
 from models import fetch_objects, fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS
 from protocol import Protocol
-
 
 # precompute this because we get a ton of requests for non-existing users
 # from weird open redirect referrers:
@@ -353,6 +353,9 @@ def nodeinfo_jrd():
         'links': [{
             'rel': 'http://nodeinfo.diaspora.software/ns/schema/2.1',
             'href': common.host_url('nodeinfo.json'),
+        }, {
+            "rel": "https://www.w3.org/ns/activitystreams#Application",
+            "href": instance_actor().id_as(ActivityPub),
         }],
     }, {
         'Content-Type': 'application/jrd+json',
