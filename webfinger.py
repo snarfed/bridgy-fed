@@ -139,12 +139,18 @@ class Webfinger(flask_util.XrdOrJrd):
             },
 
             # ActivityPub
+            #
+            # include two self links, one for each AP content type, since some
+            # fediverse servers (eg Pleroma, Akkoma) are unnecessarily picky
+            # about which one they use from XRD vs JRD.
+            # https://github.com/snarfed/bridgy-fed/issues/995
             {
                 'rel': 'self',
                 'type': as2.CONTENT_TYPE_LD_PROFILE,
-                # WARNING: in python 2 sometimes request.host_url lost port,
-                # http://localhost:8080 would become just http://localhost. no
-                # clue how or why. pay attention here if that happens again.
+                'href': actor_id,
+            }, {
+                'rel': 'self',
+                'type': as2.CONTENT_TYPE,
                 'href': actor_id,
             }, {
                 # AP reads this and sharedInbox from the AS2 actor, not

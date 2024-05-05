@@ -3,7 +3,7 @@ import copy
 from unittest.mock import patch
 import urllib.parse
 
-from granary.as2 import CONTENT_TYPE_LD_PROFILE
+from granary.as2 import CONTENT_TYPE, CONTENT_TYPE_LD_PROFILE
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 
@@ -44,6 +44,10 @@ WEBFINGER = {
         'type': CONTENT_TYPE_LD_PROFILE,
         'href': 'http://localhost/user.com',
     }, {
+        'rel': 'self',
+        'type': CONTENT_TYPE,
+        'href': 'http://localhost/user.com',
+    }, {
         'rel': 'inbox',
         'type': CONTENT_TYPE_LD_PROFILE,
         'href': 'http://localhost/user.com/inbox'
@@ -73,6 +77,10 @@ WEBFINGER_NO_HCARD = {
         'type': CONTENT_TYPE_LD_PROFILE,
         'href': 'https://web.brid.gy/user.com',
     }, {
+        'rel': 'self',
+        'type': CONTENT_TYPE,
+        'href': 'https://web.brid.gy/user.com',
+    }, {
         'rel': 'inbox',
         'type': CONTENT_TYPE_LD_PROFILE,
         'href': 'https://web.brid.gy/user.com/inbox',
@@ -97,6 +105,10 @@ WEBFINGER_FAKE = {
         'type': CONTENT_TYPE_LD_PROFILE,
         'href': 'http://localhost/ap/fa/fake:user',
     }, {
+        'rel': 'self',
+        'type': CONTENT_TYPE,
+        'href': 'http://localhost/ap/fa/fake:user',
+    }, {
         'rel': 'inbox',
         'type': CONTENT_TYPE_LD_PROFILE,
         'href': 'http://localhost/ap/fa/fake:user/inbox',
@@ -113,8 +125,8 @@ WEBFINGER_FAKE_FA_BRID_GY = copy.deepcopy(WEBFINGER_FAKE)
 for link in WEBFINGER_FAKE_FA_BRID_GY['links']:
     if 'href' in link:
         link['href'] = link['href'].replace('http://localhost/ap/fa', 'https://fa.brid.gy/ap')
-WEBFINGER_FAKE_FA_BRID_GY['links'][3]['href'] = 'https://fa.brid.gy/ap/sharedInbox'
-WEBFINGER_FAKE_FA_BRID_GY['links'][4]['template'] = 'https://fed.brid.gy/fa/fake:handle:user?url={uri}'
+WEBFINGER_FAKE_FA_BRID_GY['links'][4]['href'] = 'https://fa.brid.gy/ap/sharedInbox'
+WEBFINGER_FAKE_FA_BRID_GY['links'][5]['template'] = 'https://fed.brid.gy/fa/fake:handle:user?url={uri}'
 
 
 class HostMetaTest(TestCase):
