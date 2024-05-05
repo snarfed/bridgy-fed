@@ -455,7 +455,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <li id="bluesky-delay" class="question">I followed <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a>, or followed someone else or posted or did something else in Bluesky, but it hasn't shown up in the fediverse yet!</li>
 <li class="answer">
-<p>Bluesky uses a pull-based event architecture, so we have to poll every bridged user's notifications to discover and bridge interactions, including your initial follow of <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a>. We currently do this every 5 minutes. Sorry for the delay!
+<p>Bluesky uses a pull-based event architecture, so we have to poll every bridged user's notifications to discover and bridge interactions, including your initial follow of <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a>. This can take up to 15 minutes or longer right now, depending on load. <a href="https://github.com/snarfed/bridgy-fed/issues/978">We're working on improving this.</a> Sorry for the delay in the meantime!
 </li>
 
 
