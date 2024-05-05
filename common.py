@@ -75,6 +75,7 @@ CACHE_TIME = timedelta(seconds=60)
 USER_AGENT = 'Bridgy Fed (https://fed.brid.gy/)'
 util.set_user_agent(USER_AGENT)
 
+# https://cloud.google.com/appengine/docs/locations
 TASKS_LOCATION = 'us-central1'
 RUN_TASKS_INLINE = False  # overridden by unit tests
 

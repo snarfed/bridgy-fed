@@ -18,11 +18,11 @@ from . import testutil
 
 from activitypub import ActivityPub
 import common
-from common import CONTENT_TYPE_HTML
+from common import CONTENT_TYPE_HTML, TASKS_LOCATION
 from flask_app import app
 from models import Follower, Object
 import web
-from web import TASKS_LOCATION, Web
+from web import Web
 from . import test_activitypub
 from .testutil import Fake, TestCase
 

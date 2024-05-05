@@ -32,11 +32,6 @@ from protocol import Protocol
 
 logger = logging.getLogger(__name__)
 
-# https://cloud.google.com/appengine/docs/locations
-TASKS_LOCATION = 'us-central1'
-
-CHAR_AFTER_SPACE = chr(ord(' ') + 1)
-
 # https://github.com/snarfed/bridgy-fed/issues/314
 WWW_DOMAINS = frozenset((
     'www.jvt.me',
