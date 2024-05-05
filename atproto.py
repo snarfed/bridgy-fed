@@ -629,16 +629,23 @@ def poll_notifications():
                                                   privkey=repo.signing_key)
 
         resp = client.app.bsky.notification.listNotifications(
-            cursor=user.atproto_notifs_cursor,
             # higher limit for protocol bot users to try to make sure we don't
             # miss any follows
             limit=100 if Protocol.for_bridgy_subdomain(user.handle) else 10)
+        latest_indexed_at = user.atproto_notifs_indexed_at
+
         for notif in resp['notifications']:
-            actor_did = notif['author']['did']
+            if (user.atproto_notifs_indexed_at
+                    and notif['indexedAt'] <= user.atproto_notifs_indexed_at):
+                continue
+
+            if not latest_indexed_at or notif['indexedAt'] > latest_indexed_at:
+                latest_indexed_at = notif['indexedAt']
 
             # TODO: verify sig. skipping this for now because we're getting
             # these from the AppView, which is trusted, specifically we expect
             # the BGS and/or the AppView already checked sigs.
+            actor_did = notif['author']['did']
             obj = Object.get_or_create(id=notif['uri'], bsky=notif['record'],
                                        source_protocol=ATProto.ABBREV,
                                        actor=actor_did)
@@ -655,15 +662,13 @@ def poll_notifications():
             common.create_task(queue='receive', obj=obj.key.urlsafe(),
                                authed_as=actor_did)
 
-        # store cursor, even if it's unset, since then we want to switch to the
-        # latest, not keep reading starting at the old cursor.
-        cursor = resp.get('cursor')
+        # store indexed_at
         @ndb.transactional()
-        def store_cursor():
+        def store_indexed_at():
             u = user.key.get()
-            u.atproto_notifs_cursor = cursor
+            u.atproto_notifs_indexed_at = latest_indexed_at
             u.put()
-        store_cursor()
+        store_indexed_at()
 
     return 'OK'
 
@@ -689,9 +694,8 @@ def poll_posts():
         logger.debug(f'Fetching posts for {did} {user.handle}')
 
         resp = appview.app.bsky.feed.getAuthorFeed(
-            actor=did, filter='posts_no_replies',
-            # cursor=user.atproto_feed_cursor,
-            limit=10)
+            actor=did, filter='posts_no_replies', limit=10)
+        latest_indexed_at = user.atproto_feed_indexed_at
 
         for item in resp['feed']:
             # TODO: handle reposts once we have a URI for them
@@ -700,6 +704,15 @@ def poll_posts():
                 continue
 
             post = item['post']
+
+            # TODO: use item['reason']['indexedAt'] instead for reposts once
+            # we're handling them
+            if (user.atproto_feed_indexed_at
+                    and post['indexedAt'] <= user.atproto_feed_indexed_at):
+                continue
+
+            if not latest_indexed_at or post['indexedAt'] > latest_indexed_at:
+                latest_indexed_at = post['indexedAt']
 
             # TODO: verify sig. skipping this for now because we're getting
             # these from the AppView, which is trusted, specifically we expect
@@ -718,14 +731,12 @@ def poll_posts():
 
             common.create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=did)
 
-        # # store cursor, even if it's unset, since then we want to switch to the
-        # # latest, not keep reading starting at the old cursor.
-        # cursor = resp.get('cursor')
-        # @ndb.transactional()
-        # def store_cursor():
-        #     u = user.key.get()
-        #     u.atproto_feed_cursor = cursor
-        #     u.put()
-        # store_cursor()
+        # store indexed_at
+        @ndb.transactional()
+        def store_indexed_at():
+            u = user.key.get()
+            u.atproto_feed_indexed_at = latest_indexed_at
+            u.put()
+        store_indexed_at()
 
     return 'OK'

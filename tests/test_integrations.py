@@ -101,6 +101,7 @@ class IntegrationTests(TestCase):
                             }
                         },
                     },
+                    'indexedAt': '...',
                 }],
             }),
             # ATProto getRecord of alice's profile
@@ -171,6 +172,7 @@ class IntegrationTests(TestCase):
                         'subject': 'did:plc:bob',
                         'createdAt': '2022-01-02T03:04:05.000Z',
                     },
+                    'indexedAt': '...',
                 }],
             }),
             # ATProto getRecord of alice's profile
@@ -488,6 +490,7 @@ class IntegrationTests(TestCase):
                         '$type': 'app.bsky.graph.follow',
                         'subject': 'did:plc:ap',
                     },
+                    'indexedAt': '...',
                 }],
             }),
             # alice DID

@@ -168,8 +168,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     enabled_protocols = ndb.StringProperty(repeated=True, choices=[])
 
     # protocol-specific state
-    atproto_notifs_cursor = ndb.TextProperty()
-    atproto_feed_cursor = ndb.TextProperty()
+    atproto_notifs_indexed_at = ndb.TextProperty()
+    atproto_feed_indexed_at = ndb.TextProperty()
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
