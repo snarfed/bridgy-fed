@@ -1352,13 +1352,10 @@ def fetch_objects(query, by=None, user=None):
     """
     assert by is Object.updated or by is Object.created
     objects, new_before, new_after = fetch_page(query, Object, by=by)
-    objects = [o for o in objects if not o.deleted]
+    objects = [o for o in objects if as1.is_public(o.as1) and not o.deleted]
 
     # synthesize human-friendly content for objects
     for i, obj in enumerate(objects):
-        if obj.deleted:
-            continue
-
         obj_as1 = obj.as1
         inner_obj = as1.get_object(obj_as1)
 
