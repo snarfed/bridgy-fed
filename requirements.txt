@@ -32,7 +32,7 @@ feedgen==1.0.0
 feedparser==6.0.11
 fixtures==4.1.0
 Flask==3.0.3
-Flask-Caching==2.2.0
+Flask-Caching==2.3.0
 flask-gae-static==1.0
 flask-sock==0.7.0
 google-api-core[grpc]==2.17.1
