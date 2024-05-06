@@ -1907,6 +1907,34 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.created_for)
         self.assertFalse(user.is_enabled(Fake))
 
+    def test_follow_bot_user_refreshes_profile(self):
+        # store profile that's opted out
+        user = self.make_user('eefake:user', cls=ExplicitEnableFake, obj_as1={
+            'id': 'eefake:user',
+            'summary': '#nobridge',
+        })
+        self.assertFalse(user.is_enabled(Fake))
+
+        # updated profile isn't opted out
+        ExplicitEnableFake.fetchable = {'eefake:user': {
+            'id': 'eefake:user',
+            'summary': 'never mind',
+        }}
+
+        # follow should refresh profile
+        with self.assertRaises(NoContent):
+            ExplicitEnableFake.receive_as1({
+                'objectType': 'activity',
+                'verb': 'follow',
+                'id': 'eefake:follow',
+                'actor': 'eefake:user',
+                'object': 'fa.brid.gy',
+                })
+
+        user = user.key.get()
+        self.assertTrue(user.is_enabled(Fake))
+        self.assertEqual(['eefake:user'], ExplicitEnableFake.fetched)
+
     def test_dm_no_yes_sets_enabled_protocols(self):
         dm = {
             'objectType': 'note',

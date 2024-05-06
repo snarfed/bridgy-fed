@@ -514,8 +514,6 @@ class ActivityPubTest(TestCase):
             got_json.pop(field)
         self.assertEqual(actor_as2, got_json)
 
-    # skip _pre_put_hook since it doesn't allow internal domains
-    # @patch.object(Web, '_pre_put_hook', new=lambda self: None)
     def test_instance_actor_fetch(self, *_):
         def reset_instance_actor():
             activitypub._INSTANCE_ACTOR = testutil.global_user
@@ -873,10 +871,13 @@ class ActivityPubTest(TestCase):
         self.assertIsNone(Object.get_by_id(not_public['id']))
         self.assertIsNone(Object.get_by_id(not_public['object']['id']))
 
-    def test_follow_bot_user_enables_protocol(self, *mocks):
+    def test_follow_bot_user_enables_protocol(self, _, mock_get, __):
         user = self.make_user('https://mas.to/users/swentel', cls=ActivityPub,
                               obj_as2=ACTOR)
         self.assertFalse(user.is_enabled(ExplicitEnableFake))
+
+        # actor gets reloaded
+        mock_get.return_value = self.as2_resp(ACTOR)
 
         id = 'https://inst/follow'
         with self.assertRaises(NoContent):

@@ -687,6 +687,14 @@ class Protocol:
             if actor != authed_as:
                 logger.warning(f"actor {actor} isn't authed user {authed_as}")
 
+        # refresh profile for follows of bot users to re-check whether they're
+        # opted out
+        if obj.type == 'follow':
+            if Protocol.for_bridgy_subdomain(as1.get_object(obj.as1).get('id')):
+                logger.info(f'Follow of bot user, reloading {actor}')
+                from_cls.load(actor, remote=True)
+
+        # load actor user
         from_user = from_cls.get_or_create(id=actor)
         if not from_user:
             error(f'Actor {actor} is opted out', status=204)
@@ -839,7 +847,7 @@ class Protocol:
         if obj.type == 'follow':
             proto = Protocol.for_bridgy_subdomain(inner_obj_id)
             if proto:
-                # follow of one of our protocol users; enable that protocol.
+                # follow of one of our protocol bot users; enable that protocol.
                 # foll through so that we send an accept.
                 from_user.enable_protocol(proto)
 
