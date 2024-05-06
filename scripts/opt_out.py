@@ -147,7 +147,7 @@ def run():
     obj.put()
 
 
-    targets = list(user.targets(obj).keys())
+    targets = list(user.targets(obj, from_user=user).keys())
 
     if from_proto != ActivityPub:
         targets += [Target(protocol='activitypub', uri=t)

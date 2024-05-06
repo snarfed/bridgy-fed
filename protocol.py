@@ -403,6 +403,17 @@ class Protocol:
             return cls.key_for(owner)
 
     @classmethod
+    def bot_user_id(cls):
+        """Returns the Web user id for the bot user for this protocol.
+
+        For example, ``'bsky.brid.gy'`` for ATProto.
+
+        Returns:
+          str:
+        """
+        return f'{cls.ABBREV}{SUPERDOMAIN}'
+
+    @classmethod
     def create_for(cls, user):
         """Creates a copy user in this protocol.
 
@@ -1020,8 +1031,8 @@ class Protocol:
           obj (models.Object): activity to deliver
           from_user (models.User): user (actor) this activity is from
         """
-        # find delivery targets
-        targets = from_cls.targets(obj)  # maps Target to Object or None
+        # find delivery targets. maps Target to Object or None
+        targets = from_cls.targets(obj, from_user=from_user)
 
         if not targets:
             obj.status = 'ignored'
@@ -1050,13 +1061,14 @@ class Protocol:
         return 'OK', 202
 
     @classmethod
-    def targets(cls, obj):
+    def targets(cls, obj, from_user):
         """Collects the targets to send a :class:`models.Object` to.
 
         Targets are both objects - original posts, events, etc - and actors.
 
         Args:
           obj (models.Object)
+          from_user (User)
 
         Returns:
           dict: maps :class:`models.Target` to original (in response to)
@@ -1191,6 +1203,21 @@ class Protocol:
 
             if feed_obj:
                 feed_obj.put()
+
+            # include ATProto if this user is enabled there.
+            # TODO: abstract across protocols. maybe with this, below
+            # targets.update({
+            #     Target(protocol=proto.LABEL,
+            #            uri=proto.target_for(proto.bot_user_id())): None
+            #     for proto in PROTOCOLS
+            #     if proto and proto.HAS_COPIES
+            # })
+
+            if 'atproto' in from_user.enabled_protocols:
+                from atproto import ATProto
+                targets.setdefault(Target(protocol=ATProto.LABEL, uri=ATProto.PDS_URL),
+                                   None)
+                logger.info(f'user has ATProto enabled, added target {ATProto.PDS_URL}')
 
         # de-dupe targets, discard same-domain
         # maps string target URL to (Target, Object) tuple

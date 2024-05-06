@@ -443,14 +443,14 @@ class ProtocolTest(TestCase):
         self.assertCountEqual([
             Target(protocol='fake', uri='fake:post:target'),
             Target(protocol='atproto', uri='https://atproto.brid.gy'),
-        ], Protocol.targets(obj).keys())
+        ], Protocol.targets(obj, from_user=user).keys())
 
     def test_targets_composite_inreplyto(self):
         Fake.fetchable['fake:post'] = {
             'objectType': 'note',
         }
-        self.assertEqual({Target(protocol='fake', uri='fake:post:target')},
-                         OtherFake.targets(Object(our_as1={
+
+        obj = Object(our_as1={
             'objectType': 'activity',
             'verb': 'post',
             'object': {
@@ -461,7 +461,10 @@ class ProtocolTest(TestCase):
                     'url': 'http://foo',
                 },
             },
-        })).keys())
+        })
+
+        self.assertEqual({Target(protocol='fake', uri='fake:post:target')},
+                         OtherFake.targets(obj, from_user=self.user).keys())
 
     def test_translate_ids_follow(self):
         self.assert_equals({
@@ -680,6 +683,24 @@ class ProtocolReceiveTest(TestCase):
                                  )
 
         self.assertEqual([(obj.key.id(), 'shared:target')], Fake.sent)
+
+    @patch.object(ATProto, 'send', return_value=True)
+    def test_create_post_user_enabled_copy_protocol_adds_pds_target(self, mock_send):
+        self.user.enabled_protocols = ['atproto']
+        self.user.put()
+
+        post_as1 = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+        }
+        obj = self.store_object(id='fake:post', our_as1=post_as1)
+
+        self.assertEqual(('OK', 202), Fake.receive_as1(post_as1))
+
+        [obj, url], _ = mock_send.call_args
+        self.assertEqual('fake:post#bridgy-fed-create', obj.key.id())
+        self.assertEqual(ATProto.PDS_URL, url)
 
     def test_create_post_use_instead(self):
         self.make_user('fake:not-this', cls=Fake, use_instead=self.user.key, obj_mf2={
