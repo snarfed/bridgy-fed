@@ -174,6 +174,7 @@ def update_profile(protocol, id):
     except (requests.RequestException, werkzeug.exceptions.HTTPException) as e:
         _, msg = util.interpret_http_exception(e)
         flash(f"Couldn't update profile for {link}: {msg}")
+        return redirect(user.user_page_path(), code=302)
 
     if profile_obj:
         common.create_task(queue='receive', obj=profile_obj.key.urlsafe(),

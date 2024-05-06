@@ -10,6 +10,7 @@ from granary import atom, microformats2, rss
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import requests_response
+from requests import ConnectionError
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import Fake, TestCase, ACTOR, COMMENT, MENTION, NOTE
@@ -186,6 +187,17 @@ class PagesTest(TestCase):
 
         actor['updated'] = '2022-01-02T03:04:05+00:00'
         self.assert_object('fake:user', source_protocol='fake', our_as1=actor)
+
+    @patch.object(Fake, 'fetch', side_effect=ConnectionError('foo'))
+    def test_update_profile_load_fails(self, _):
+        self.make_user('fake:user', cls=Fake)
+
+        got = self.client.post('/fa/fake:user/update-profile')
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/fa/fake:handle:user', got.headers['Location'])
+        self.assertEqual(
+            ['Couldn\'t update profile for <a href="fake:user">fake:handle:user</a>: foo'],
+            get_flashed_messages())
 
     def test_followers(self):
         Follower.get_or_create(
