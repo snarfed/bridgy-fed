@@ -11,8 +11,8 @@ runtime_config:
     operating_system: ubuntu22
     runtime_version: "3.11"
 
-resources:
-  memory_gb: 2
+# resources:
+#   memory_gb: 2
 
 
 # can't be internal because Bluesky BGS needs to be able to connect externally
