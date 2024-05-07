@@ -36,6 +36,7 @@ PRIMARY_DOMAIN = 'fed.brid.gy'
 SUPERDOMAIN = '.brid.gy'
 # TODO: add a Flask route decorator version of util.canonicalize_domain, then
 # use it to canonicalize most UI routes from these to fed.brid.gy.
+# TODO: unify with models.PROTOCOLS
 PROTOCOL_DOMAINS = (
     'ap.brid.gy',
     'atproto.brid.gy',
