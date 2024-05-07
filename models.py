@@ -31,9 +31,28 @@ import common
 from common import add, base64_to_long, DOMAIN_RE, long_to_base64, remove, unwrap
 import ids
 
-# maps string label to Protocol subclass. populated by ProtocolUserMeta.
-# seed with old and upcoming protocols that don't have their own classes (yet).
-PROTOCOLS = {'ostatus': None}
+# maps string label to Protocol subclass. values are populated by ProtocolUserMeta.
+# (we used to wait for ProtocolUserMeta to populate the keys as well, but that was
+# awkward to use in datastore model properties with choices, below; it required
+# overriding them in reset_model_properties, which was always flaky.)
+PROTOCOLS = {label: None for label in (
+    'activitypub',
+    'ap',
+    'atproto',
+    'bsky',
+    'ostatus',
+    'web',
+    'webmention',
+    'ui',
+)}
+if DEBUG:
+  PROTOCOLS.update({label: None for label in (
+    'fa',
+    'fake',
+    'eefake',
+    'other',
+)})
+
 
 # 2048 bits makes tests slow, so use 1024 for them
 KEY_BITS = 1024 if DEBUG else 2048
@@ -85,7 +104,7 @@ class Target(ndb.Model):
     uri = ndb.StringProperty(required=True)
     # choices is populated in app via reset_protocol_properties, after all User
     # subclasses are created, so that PROTOCOLS is fully populated
-    protocol = ndb.StringProperty(choices=[], required=True)
+    protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()), required=True)
 
     def __eq__(self, other):
         """Equality excludes Targets' :class:`Key`."""
@@ -111,13 +130,6 @@ class ProtocolUserMeta(type(ndb.Model)):
 
 def reset_protocol_properties():
     """Recreates various protocol properties to include choices from ``PROTOCOLS``."""
-    Target.protocol = ndb.StringProperty(
-        'protocol', choices=list(PROTOCOLS.keys()), required=True)
-    Object.source_protocol = ndb.StringProperty(
-        'source_protocol', choices=list(PROTOCOLS.keys()))
-    User.enabled_protocols = ndb.StringProperty(
-        'enabled_protocols', choices=list(PROTOCOLS.keys()), repeated=True)
-
     abbrevs = f'({"|".join(PROTOCOLS.keys())}|fed)'
     common.SUBDOMAIN_BASE_URL_RE = re.compile(
         rf'^https?://({abbrevs}\.brid\.gy|localhost(:8080)?)/(convert/|r/)?({abbrevs}/)?(?P<path>.+)')
@@ -165,7 +177,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     # protocols that this user has explicitly opted into. protocols that don't
     # require explicit opt in are omitted here. choices is populated in
     # reset_protocol_properties.
-    enabled_protocols = ndb.StringProperty(repeated=True, choices=[])
+    enabled_protocols = ndb.StringProperty(repeated=True, choices=list(PROTOCOLS.keys()))
 
     # protocol-specific state
     atproto_notifs_indexed_at = ndb.TextProperty()
@@ -678,7 +690,7 @@ class Object(StringIdModel):
     # choices is populated in reset_protocol_properties, after all User
     # subclasses are created, so that PROTOCOLS is fully populated.
     # TODO: nail down whether this is ABBREV or LABEL
-    source_protocol = ndb.StringProperty(choices=[])
+    source_protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()))
     labels = ndb.StringProperty(repeated=True, choices=LABELS)
 
     # TODO: switch back to ndb.JsonProperty if/when they fix it for the web console
