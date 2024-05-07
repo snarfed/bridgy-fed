@@ -94,6 +94,7 @@ class Fake(User, protocol.Protocol):
     def create_for(cls, user):
         assert not user.get_copy(cls)
         id = user.key.id()
+        logger.info(f'{cls.__name__}.create_for {id}')
         cls.created_for.append(id)
         add(user.copies, Target(uri=ids.translate_user_id(id=id, from_=user, to=cls),
                                 protocol=cls.LABEL))
@@ -123,7 +124,7 @@ class Fake(User, protocol.Protocol):
 
     @classmethod
     def send(cls, obj, url, from_user=None, orig_obj=None):
-        logger.info(f'{cls.__name__}.send {url}')
+        logger.info(f'{cls.__name__}.send {url} {obj.as1}')
         cls.sent.append((obj.key.id(), url))
         return True
 
@@ -146,7 +147,8 @@ class Fake(User, protocol.Protocol):
 
     @classmethod
     def target_for(cls, obj, shared=False):
-        assert obj.source_protocol in (cls.LABEL, cls.ABBREV, 'ui', None)
+        assert obj.source_protocol in (cls.LABEL, cls.ABBREV, 'ui', None), \
+            obj.source_protocol
         return 'shared:target' if shared else f'{obj.key.id()}:target'
 
     @classmethod

@@ -872,6 +872,9 @@ class ActivityPubTest(TestCase):
         self.assertIsNone(Object.get_by_id(not_public['object']['id']))
 
     def test_follow_bot_user_enables_protocol(self, _, mock_get, __):
+        # bot user
+        self.make_user('eefake.brid.gy', cls=Web)
+
         user = self.make_user('https://mas.to/users/swentel', cls=ActivityPub,
                               obj_as2=ACTOR)
         self.assertFalse(user.is_enabled(ExplicitEnableFake))
@@ -894,6 +897,9 @@ class ActivityPubTest(TestCase):
         self.assertTrue(user.is_enabled(ExplicitEnableFake))
 
     def test_inbox_dm_yes_to_bot_user_enables_protocol(self, *mocks):
+        # bot user
+        self.make_user('eefake.brid.gy', cls=Web)
+
         user = self.make_user(ACTOR['id'], cls=ActivityPub)
         self.assertFalse(user.is_enabled(ExplicitEnableFake))
 

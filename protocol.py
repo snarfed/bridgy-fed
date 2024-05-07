@@ -411,7 +411,7 @@ class Protocol:
         Returns:
           str:
         """
-        return f'{cls.ABBREV}{SUPERDOMAIN}'
+        return f'{cls.ABBREV}{common.SUPERDOMAIN}'
 
     @classmethod
     def create_for(cls, user):
@@ -818,6 +818,7 @@ class Protocol:
                     logger.info(f'got DM to {to_cc}: {content}')
                     if content in ('yes', 'ok'):
                         from_user.enable_protocol(proto)
+                        proto.bot_follow(from_user)
                     elif content == 'no':
                         from_user.disable_protocol(proto)
                     return 'OK', 200
@@ -850,6 +851,7 @@ class Protocol:
                 # follow of one of our protocol bot users; enable that protocol.
                 # foll through so that we send an accept.
                 from_user.enable_protocol(proto)
+                proto.bot_follow(from_user)
 
             from_cls.handle_follow(obj)
 
@@ -964,6 +966,32 @@ class Protocol:
                 status='complete',
             )
             accept.put()
+
+    @classmethod
+    def bot_follow(bot_cls, user):
+        """Follow a user from a protocol bot user.
+
+        ...so that the protocol starts sending us their activities, if it needs
+        a follow for that (eg ActivityPub).
+
+        Args:
+          user (User)
+        """
+        from web import Web
+        bot = Web.get_by_id(bot_cls.bot_user_id())
+        now = util.now().isoformat()
+        logger.info(f'Following {user.key.id()} back from bot user {bot.key.id()}')
+
+        follow_back_id = f'https://{bot.key.id()}/#follow-back-{user.key.id()}-{now}'
+        follow_back = Object(id=follow_back_id, source_protocol='web', our_as1={
+            'objectType': 'activity',
+            'verb': 'follow',
+            'id': follow_back_id,
+            'actor': bot.key.id(),
+            'object': user.key.id(),
+        })
+
+        user.send(follow_back, user.target_for(user.obj), from_user=bot)
 
     @classmethod
     def handle_bare_object(cls, obj):

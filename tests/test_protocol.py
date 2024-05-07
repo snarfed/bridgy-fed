@@ -1855,6 +1855,9 @@ class ProtocolReceiveTest(TestCase):
         }, obj.key.get().our_as1)
 
     def test_follow_and_block_protocol_user_sets_enabled_protocols(self):
+        # bot user
+        self.make_user('fa.brid.gy', cls=Web)
+
         follow = {
             'objectType': 'activity',
             'verb': 'follow',
@@ -1886,9 +1889,13 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(['fake'], user.enabled_protocols)
         self.assertEqual(['eefake:user'], Fake.created_for)
         self.assertTrue(user.is_enabled(Fake))
-        self.assertEqual([('fa.brid.gy/followers#accept-eefake:follow',
-                           'eefake:user:target')],
-                         ExplicitEnableFake.sent)
+
+        follow_back_id = 'https://fa.brid.gy/#follow-back-eefake:user-2022-01-02T03:04:05+00:00'
+        self.assertEqual([
+            # fa.brid.gy follows back
+            (follow_back_id, 'eefake:user:target'),
+            ('fa.brid.gy/followers#accept-eefake:follow', 'eefake:user:target'),
+        ], ExplicitEnableFake.sent)
 
         # another follow should be a noop
         follow['id'] += '2'
@@ -1908,6 +1915,9 @@ class ProtocolReceiveTest(TestCase):
         self.assertFalse(user.is_enabled(Fake))
 
     def test_follow_bot_user_refreshes_profile(self):
+        # bot user
+        self.make_user('fa.brid.gy', cls=Web)
+
         # store profile that's opted out
         user = self.make_user('eefake:user', cls=ExplicitEnableFake, obj_as1={
             'id': 'eefake:user',
@@ -1936,6 +1946,9 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(['eefake:user'], ExplicitEnableFake.fetched)
 
     def test_dm_no_yes_sets_enabled_protocols(self):
+        # bot user
+        self.make_user('fa.brid.gy', cls=Web)
+
         dm = {
             'objectType': 'note',
             'id': 'eefake:dm',

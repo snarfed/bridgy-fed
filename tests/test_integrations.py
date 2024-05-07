@@ -406,7 +406,18 @@ class IntegrationTests(TestCase):
         self.assertEqual(['app.bsky.actor.profile'], list(records.keys()))
         self.assertEqual(['self'], list(records['app.bsky.actor.profile'].keys()))
 
+        # bot user follows back
         args, kwargs = mock_post.call_args_list[1]
+        self.assert_equals(('http://inst/inbox',), args)
+        self.assert_equals({
+            'type': 'Follow',
+            'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#follow-back-https://inst/alice-2022-01-02T03:04:05+00:00',
+            'actor': 'https://bsky.brid.gy/bsky.brid.gy',
+            'object': 'https://inst/alice',
+        }, json_loads(kwargs['data']), ignore=['to', '@context'])
+
+        # accept user's follow
+        args, kwargs = mock_post.call_args_list[2]
         self.assert_equals(('http://inst/inbox',), args)
         self.assert_equals({
             'type': 'Accept',
