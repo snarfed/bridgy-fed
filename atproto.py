@@ -694,7 +694,7 @@ def poll_posts():
         logger.debug(f'Fetching posts for {did} {user.handle}')
 
         resp = appview.app.bsky.feed.getAuthorFeed(
-            actor=did, filter='posts_no_replies', limit=10)
+            actor=did, filter='posts_with_replies', limit=10)
         latest_indexed_at = user.atproto_feed_indexed_at
 
         for item in resp['feed']:

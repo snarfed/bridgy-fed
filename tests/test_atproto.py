@@ -1371,9 +1371,9 @@ class ATProtoTest(TestCase):
                    'Content-Type': 'application/json',
                    'User-Agent': common.USER_AGENT,
                }) for url in [
-                   'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Aa&filter=posts_no_replies&limit=10',
-                   'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Ac&filter=posts_no_replies&limit=10',
-                   'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Ad&filter=posts_no_replies&limit=10',
+                   'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Aa&filter=posts_with_replies&limit=10',
+                   'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Ac&filter=posts_with_replies&limit=10',
+                   'https://appview.local/xrpc/app.bsky.feed.getAuthorFeed?actor=did%3Aplc%3Ad&filter=posts_with_replies&limit=10',
                ]]
         self.assertEqual([
             get[0],
