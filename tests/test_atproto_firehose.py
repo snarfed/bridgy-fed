@@ -135,6 +135,65 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         self.make_user('did:plc:bob', cls=ATProto, enabled_protocols=['eefake'])
         self.assert_doesnt_enqueue(POST_BSKY)
 
+    def test_reply_direct_to_our_user(self):
+        self.assert_enqueues({
+            '$type': 'app.bsky.feed.post',
+            'text': 'I hereby reply',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'parent': {'uri': 'at://did:alice/app.bsky.feed.post/parent-tid'},
+                'root': {'uri': '-'},
+            },
+        })
+
+    def test_reply_indirect_to_our_user(self):
+        self.assert_enqueues({
+            '$type': 'app.bsky.feed.post',
+            'text': 'I hereby reply',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'root': {'uri': 'at://did:alice/app.bsky.feed.post/parent-tid'},
+                'parent': {'uri': '-'},
+            },
+        })
+
+    def test_reply_indirect_to_other(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'app.bsky.feed.post',
+            'text': 'I hereby reply',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'parent': {'uri': 'at://did:bob/app.bsky.feed.post/parent-tid'},
+                'root': {'uri': '-'},
+            },
+        })
+
+    def test_mention_our_user(self):
+        self.assert_enqueues({
+            '$type': 'app.bsky.feed.post',
+            'text': 'foo @alice bar',
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#mention',
+                    'did': 'did:alice',
+                }],
+            }],
+        })
+
+    def test_mention_other(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'app.bsky.feed.post',
+            'text': 'foo @bob bar',
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#mention',
+                    'did': 'did:bob',
+                }],
+            }],
+        })
+
     def test_like_of_our_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.feed.like',

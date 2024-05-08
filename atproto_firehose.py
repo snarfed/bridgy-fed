@@ -89,6 +89,8 @@ def subscribe():
                     match = AT_URI_PATTERN.match(did_or_ref['uri'])
                     if match:
                         did = match.group('repo')
+                    else:
+                        return
                 else:
                     did = did_or_ref
 
@@ -110,7 +112,7 @@ def subscribe():
                 # mentions
                 for facet in record.get('facets', []):
                     for feature in facet['features']:
-                        if feature['$type'] == '#mention':
+                        if feature['$type'] == 'app.bsky.richtext.facet#mention':
                             maybe_add(feature['did'])
 
                 # TODO: quote posts
