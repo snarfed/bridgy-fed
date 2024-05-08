@@ -12,7 +12,7 @@ from urllib.parse import quote, urlparse
 from arroba.util import parse_at_uri
 import cachetools
 from Crypto.PublicKey import RSA
-from flask import g, request
+from flask import request
 from google.cloud import ndb
 from granary import as1, as2, atom, bluesky, microformats2
 from granary.bluesky import AT_URI_PATTERN, BSKY_APP_URL_RE

@@ -3,7 +3,7 @@ import copy
 from datetime import timedelta
 from unittest.mock import ANY, patch
 
-from flask import g, get_flashed_messages
+from flask import get_flashed_messages
 from google.cloud import ndb
 from granary import as1, as2, atom, microformats2, rss
 from oauth_dropins.webutil import util

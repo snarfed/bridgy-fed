@@ -6,7 +6,7 @@
 import logging
 from urllib.parse import urljoin, urlparse
 
-from flask import g, render_template, request
+from flask import render_template, request
 from granary import as2
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error, flash, Found

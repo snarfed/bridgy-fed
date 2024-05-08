@@ -6,7 +6,7 @@ import os
 import re
 import time
 
-from flask import g, render_template, request
+from flask import render_template, request
 from google.cloud.ndb import tasklets
 from google.cloud.ndb.query import AND, OR
 from google.cloud.ndb.stats import KindStat
@@ -41,7 +41,6 @@ logger = logging.getLogger(__name__)
 TEMPLATE_VARS = {
     'as1': as1,
     'as2': as2,
-    'g': g,
     'ids': ids,
     'isinstance': isinstance,
     'logs': logs,

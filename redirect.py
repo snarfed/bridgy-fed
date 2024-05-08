@@ -18,7 +18,7 @@ import logging
 import re
 import urllib.parse
 
-from flask import g, request
+from flask import request
 from granary import as2
 from negotiator import ContentNegotiator, AcceptParameters, ContentType
 from oauth_dropins.webutil import flask_util, util

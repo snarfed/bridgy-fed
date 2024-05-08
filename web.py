@@ -8,7 +8,7 @@ import urllib.parse
 from urllib.parse import quote, urlencode, urljoin, urlparse
 from xml.etree import ElementTree
 
-from flask import g, redirect, render_template, request
+from flask import redirect, render_template, request
 from google.cloud import ndb
 from google.cloud.ndb import ComputedProperty
 from granary import as1, as2, atom, microformats2, rss

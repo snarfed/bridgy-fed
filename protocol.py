@@ -7,7 +7,7 @@ from threading import Lock
 from urllib.parse import urljoin, urlparse
 
 from cachetools import cached, LRUCache
-from flask import g, request
+from flask import request
 from google.cloud import ndb
 from google.cloud.ndb import OR
 from google.cloud.ndb.model import _entity_to_protobuf

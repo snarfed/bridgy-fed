@@ -6,7 +6,7 @@
 """
 import logging
 
-from flask import g, redirect, request, session
+from flask import redirect, request, session
 from granary import as1
 from oauth_dropins import indieauth
 from oauth_dropins.webutil import util
