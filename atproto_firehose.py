@@ -3,20 +3,28 @@
 import itertools
 import logging
 import os
+from queue import SimpleQueue
 
 from carbox import read_car
 import dag_json
 from granary.bluesky import AT_URI_PATTERN
 from lexrpc.client import Client
+from oauth_dropins.webutil import util
 
 from atproto import ATProto
-from common import add
+from common import add, create_task
 import models
+from models import Object
 
 logger = logging.getLogger(__name__)
 
+# contains (str action, dict record) tuples
+new_commits = SimpleQueue()
+
 
 def subscribe():
+    logger.info(f'starting thread to consume firehose and detect our commits')
+
     query = ATProto.query(ATProto.enabled_protocols != None)
     our_atproto_dids = frozenset(key.id() for key in query.iter(keys_only=True))
 
@@ -50,12 +58,6 @@ def subscribe():
             # logger.info(f'Ignoring record from our non-ATProto bridged user {repo}')
             continue
 
-        # is this from one of our Bluesky users?
-        is_ours = False
-        if repo in our_atproto_dids:
-            logger.info(f'Got record from our ATProto user {repo}, enqueueing')
-            is_ours = True
-
         # detect records that reference an ATProto user, eg replies, likes,
         # reposts, mentions
         for op in payload['ops']:
@@ -63,10 +65,6 @@ def subscribe():
             cid = op['cid']
             path = op['path']
             assert action, cid  # TODO: more graceful
-
-            if action == 'delete':
-                # TODO
-                continue
 
             block = blocks.get(op['cid'])
             if not block:  # our own commits are sometimes missing the record (?!?)
@@ -79,6 +77,11 @@ def subscribe():
                 print(dag_json.encode(record).decode())
                 continue
 
+            if repo in our_atproto_dids:
+                logger.info(f'Got one from our ATProto user: {action} {repo} {path}')
+                new_commits.put((action, record))
+                continue
+
             def ref_did(ref):
                 match = AT_URI_PATTERN.match(ref['uri'])
                 if match:
@@ -86,7 +89,7 @@ def subscribe():
 
             subjects = []
             def maybe_add(did):
-                if did and did in our_atproto_dids:
+                if did and did in our_bridged_dids:
                     add(subjects, did)
 
             if type in ('app.bsky.feed.like', 'app.bsky.feed.repost'):
@@ -113,25 +116,38 @@ def subscribe():
                 #                           'app.bsky.embed.recordWithMedia'):
                 #         if embed['record']
 
-            if is_ours or subjects:
-                from_key = ATProto(id=repo).key
-                at_uri = f'at://{repo}/{path}'
-                notify_keys = []
-
-                if not is_ours:
-                    logger.info(f'Got {at_uri} that references {subjects}, enqueueing')
-                    notify_keys = [ATProto(id=did).key for did in subjects]
-
-                # store object, enqueue receive task
-                # TODO: does record have CIDs etc? how do we store? dag-json?
-                # how are polls doing this?
-                obj = Object.get_or_create(
-                    id=at_uri, bsky=record, actor=repo, users=[from_key],
-                    notify=notify_keys, status='new', source_protocol=ATProto.ABBREV)
-                common.create_task(queue='receive', obj=obj.key.urlsafe(),
-                                   authed_as=repo)
+            if subjects:
+                logger.info(f'Got one re our ATProto users {subjects}: {action} {repo} {path}')
+                new_commits.put((action, record))
 
     logger.info('Ran out of events! Relay closed connection?')
+
+
+def handle():
+    """Store Objects and create receive tasks for commits as they arrive.
+
+    :meth:`Object.get_or_create` makes network calls, via eg :meth:`Object.as1`
+    => :meth:`ATProto.pds_for` and :meth:`ATProto.handle`, so we don't want to
+    do those in the critical path in :func:`subscribe`.
+    """
+    logger.info(f'started thread to store objects and enqueue receive tasks')
+
+    while payload := new_commits.get():
+        from_key = ATProto(id=repo).key
+        at_uri = f'at://{repo}/{path}'
+        notify_keys = []
+        if subjects:
+            notify_keys = [ATProto(id=did).key for did in subjects]
+
+        # store object, enqueue receive task
+        # TODO: for Object.bsky, does record have CIDs etc? how do we store?
+        # dag-json? how are polls doing this?
+        obj = Object.get_or_create(
+            id=at_uri, bsky=record, actor=repo, users=[from_key],
+            notify=notify_keys, status='new', source_protocol=ATProto.ABBREV)
+        create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=repo)
+
+    assert False, "enqueue thread shouldn't reach here!"
 
 
 if __name__ == '__main__':
