@@ -27,20 +27,22 @@ def subscribe():
     our_bridged_dids = frozenset(user.get_copy(ATProto) for user in other_queries)
 
     logger.info(f'Loaded {len(our_atproto_dids)} ATProto, {len(our_bridged_dids)} bridged dids')
-    logger.info('Subscribing to {os.environ["BGS_HOST"]} firehose')
+    logger.info(f'Subscribing to {os.environ["BGS_HOST"]} firehose')
 
     client = Client(f'https://{os.environ["BGS_HOST"]}')
     cursor = None  # TODO
 
     for header, payload in client.com.atproto.sync.subscribeRepos(cursor=cursor):
         if header['op'] == -1:
-            logger.warning(f'Got error from relay! {header}')
+            logger.warning(f'Got error from relay! {payload}')
+            continue
         elif header['t'] == '#info':
-            logger.info(f'Got info from relay: {header}')
+            logger.info(f'Got info from relay: {payload}')
+            continue
         elif header['t'] != '#commit':
             continue
 
-        root, blocks = read_car(payload['blocks'])
+        _, blocks = read_car(payload['blocks'])
         blocks = {block.cid: block for block in blocks}
         repo = payload.get('repo')
 
@@ -128,6 +130,8 @@ def subscribe():
                     notify=notify_keys, status='new', source_protocol=ATProto.ABBREV)
                 common.create_task(queue='receive', obj=obj.key.urlsafe(),
                                    authed_as=repo)
+
+    logger.info('Ran out of events! Relay closed connection?')
 
 
 if __name__ == '__main__':

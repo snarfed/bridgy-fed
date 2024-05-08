@@ -1,7 +1,6 @@
 """Unit tests for atproto.py."""
 import base64
 import copy
-import logging
 from unittest import skip
 from unittest.mock import ANY, call, MagicMock, patch
 
