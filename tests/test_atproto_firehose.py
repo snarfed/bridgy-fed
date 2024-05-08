@@ -27,11 +27,6 @@ import protocol
 from .testutil import ExplicitEnableFake, Fake, TestCase
 from .test_atproto import DID_DOC
 
-DID_DOC_ALICE = {
-    **DID_DOC,
-    'id': 'did:plc:alice',
-}
-
 
 class FakeWebsocketClient:
     """Fake of :class:`simple_websocket.Client`."""
@@ -85,6 +80,10 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         FakeWebsocketClient.sent = []
         FakeWebsocketClient.to_receive = []
 
+        self.alice = self.make_user(
+            'eefake:alice', cls=ExplicitEnableFake,
+            copies=[Target(protocol='atproto', uri='did:alice')])
+
     def test_error(self):
         FakeWebsocketClient.to_receive = [(
             {'op': -1},
@@ -112,24 +111,11 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         subscribe()
         self.assertTrue(new_commits.empty())
 
-    def test_not_for_us(self):
-        self.store_object(id='did:plc:alice', raw=DID_DOC_ALICE)
-        self.make_user('did:plc:alice', cls=ATProto, enabled_protocols=['eefake'])
-        self.make_user('eefake:bob', cls=ExplicitEnableFake,
-                       enabled_protocols=['atproto'])
-        self.assertEqual(2, Object.query().count())
-
-        FakeWebsocketClient.setup_receive('app.bsky.feed.like/abc123', POST_BSKY)
-
-        subscribe()
-        self.assertTrue(new_commits.empty())
-
-    def test_post_by_atproto_user(self):
+    def test_post_by_our_atproto_user(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         user = self.make_user('did:plc:user', cls=ATProto,
                               enabled_protocols=['eefake'],
                               obj_bsky=ACTOR_PROFILE_BSKY)
-        self.assertEqual(2, Object.query().count())
 
         FakeWebsocketClient.setup_receive('app.bsky.feed.post/abc123', POST_BSKY)
 
@@ -137,14 +123,93 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         self.assertEqual(('create', POST_BSKY), new_commits.get())
         self.assertTrue(new_commits.empty())
 
-    def test_like_of_atproto_user(self):
-        alice = self.make_user('eefake:alice', cls=ExplicitEnableFake,
-                               copies=[Target(protocol='atproto', uri='did:alice')])
+    def test_post_by_other(self):
+        self.store_object(id='did:plc:bob', raw={**DID_DOC, 'id': 'did:plc:bob'})
+        self.make_user('did:plc:bob', cls=ATProto, enabled_protocols=['eefake'])
 
-        FakeWebsocketClient.setup_receive('app.bsky.feed.like/abc123', LIKE_BSKY)
+        FakeWebsocketClient.setup_receive('app.bsky.feed.post/abc123', POST_BSKY)
 
         subscribe()
-        self.assertEqual(('create', LIKE_BSKY), new_commits.get())
+        self.assertTrue(new_commits.empty())
+
+    def test_like_of_our_user(self):
+        like = {
+            '$type': 'app.bsky.feed.like',
+            'subject': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+        }
+        FakeWebsocketClient.setup_receive('app.bsky.feed.like/abc123', like)
+
+        subscribe()
+        self.assertEqual(('create', like), new_commits.get())
+        self.assertTrue(new_commits.empty())
+
+    def test_like_of_other(self):
+        FakeWebsocketClient.setup_receive('app.bsky.feed.like/abc123', {
+            '$type': 'app.bsky.feed.like',
+            'subject': {'uri': 'at://did:eve/app.bsky.feed.post/tid'},
+        })
+
+        subscribe()
+        self.assertTrue(new_commits.empty())
+
+    def test_repost_of_our_user(self):
+        repost = {
+            '$type': 'app.bsky.feed.repost',
+            'subject': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+        }
+        FakeWebsocketClient.setup_receive('app.bsky.feed.repost/abc123', repost)
+
+        subscribe()
+        self.assertEqual(('create', repost), new_commits.get())
+        self.assertTrue(new_commits.empty())
+
+    def test_repost_of_other(self):
+        FakeWebsocketClient.setup_receive('app.bsky.feed.repost/abc123', {
+            '$type': 'app.bsky.feed.repost',
+            'subject': {'uri': 'at://did:eve/app.bsky.feed.post/tid'},
+        })
+
+        subscribe()
+        self.assertTrue(new_commits.empty())
+
+    def test_follow_of_our_user(self):
+        follow = {
+            '$type': 'app.bsky.graph.follow',
+            'subject': 'did:alice',
+        }
+        FakeWebsocketClient.setup_receive('app.bsky.graph.follow/abc123', follow)
+
+        subscribe()
+        self.assertEqual(('create', follow), new_commits.get())
+        self.assertTrue(new_commits.empty())
+
+    def test_follow_of_other(self):
+        FakeWebsocketClient.setup_receive('app.bsky.graph.follow/abc123', {
+            '$type': 'app.bsky.graph.follow',
+            'subject': 'did:eve',
+        })
+
+        subscribe()
+        self.assertTrue(new_commits.empty())
+
+    def test_block_of_our_user(self):
+        block = {
+            '$type': 'app.bsky.graph.block',
+            'subject': 'did:alice',
+        }
+        FakeWebsocketClient.setup_receive('app.bsky.graph.block/abc123', block)
+
+        subscribe()
+        self.assertEqual(('create', block), new_commits.get())
+        self.assertTrue(new_commits.empty())
+
+    def test_block_of_other(self):
+        FakeWebsocketClient.setup_receive('app.bsky.graph.block/abc123', {
+            '$type': 'app.bsky.graph.block',
+            'subject': 'did:eve',
+        })
+
+        subscribe()
         self.assertTrue(new_commits.empty())
 
 

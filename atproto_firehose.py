@@ -82,18 +82,21 @@ def subscribe():
                 new_commits.put((action, record))
                 continue
 
-            def ref_did(ref):
-                match = AT_URI_PATTERN.match(ref['uri'])
-                if match:
-                    return match.group('repo')
-
             subjects = []
-            def maybe_add(did):
+
+            def maybe_add(did_or_ref):
+                if isinstance(did_or_ref, dict):
+                    match = AT_URI_PATTERN.match(did_or_ref['uri'])
+                    if match:
+                        did = match.group('repo')
+                else:
+                    did = did_or_ref
+
                 if did and did in our_bridged_dids:
                     add(subjects, did)
 
             if type in ('app.bsky.feed.like', 'app.bsky.feed.repost'):
-                maybe_add(ref_did(record['subject']))
+                maybe_add(record['subject'])
 
             elif type in ('app.bsky.graph.block', 'app.bsky.graph.follow'):
                 maybe_add(record['subject'])
@@ -102,7 +105,7 @@ def subscribe():
                 # replies
                 if reply := record.get('reply'):
                     for ref in 'parent', 'root':
-                        maybe_add(ref_did(reply[ref]))
+                        maybe_add(reply[ref])
 
                 # mentions
                 for facet in record.get('facets', []):
