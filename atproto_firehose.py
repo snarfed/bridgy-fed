@@ -1,5 +1,6 @@
 """Bridgy Fed firehose client. Enqueues receive tasks for events for bridged users.
  """
+from collections import namedtuple
 import itertools
 import logging
 import os
@@ -18,8 +19,12 @@ from models import Object
 
 logger = logging.getLogger(__name__)
 
-# contains (str action, dict record or str path) tuples. second element is a
-# dict record for creates and updates, str path for deletes.
+# a commit operation. similar to arroba.repo.Write. record is None for deletes.
+Op = namedtuple('Op', ['action', 'repo', 'path', 'record'],
+                # record is optional
+                defaults=[None])
+
+# contains Ops
 new_commits = SimpleQueue()
 
 
@@ -52,6 +57,7 @@ def subscribe():
             continue
 
         repo = payload.get('repo')
+        assert repo
         if repo in our_bridged_dids:  # from a Bridgy Fed non-Bluesky user; ignore
             # logger.info(f'Ignoring record from our non-ATProto bridged user {repo}')
             continue
@@ -63,37 +69,36 @@ def subscribe():
 
         # detect records that reference an ATProto user, eg replies, likes,
         # reposts, mentions
-        for op in payload['ops']:
-            action = op['action']
-            path = op['path']
-            cid = op['cid']
-            assert action, path
+        for p_op in payload['ops']:
+            op = Op(repo=repo, action=p_op['action'], path=p_op['path'])
+            assert op.action and op.path, (op.action, op.path)
+            cid = p_op['cid']
 
             is_ours = repo in our_atproto_dids
-            if is_ours and action == 'delete':
-                logger.info(f'Got delete from our ATProto user: {repo} {path}')
+            if is_ours and op.action == 'delete':
+                logger.info(f'Got delete from our ATProto user: {op}')
                 # TODO: also detect deletes of records that *reference* our bridged
                 # users, eg a delete of a follow or like or repost of them.
                 # not easy because we need to getRecord the record to check
-                new_commits.put(('delete', path))
+                new_commits.put(op)
                 continue
 
-            block = blocks.get(op['cid'])
+            block = blocks.get(cid)
             # our own commits are sometimes missing the record
             # https://github.com/snarfed/bridgy-fed/issues/1016
             if not block:
                 continue
 
-            record = block.decoded
-            type = record.get('$type')
+            op = Op(*op[:-1], record=block.decoded)
+            type = op.record.get('$type')
             if not type:
-                logger.warning('commit record missing $type! {action} {cid}')
-                logger.warning(dag_json.encode(record).decode())
+                logger.warning('commit record missing $type! {op.action} {op.repo} {op.path} {cid}')
+                logger.warning(dag_json.encode(op.record).decode())
                 continue
 
-            if repo in our_atproto_dids:
-                logger.info(f'Got one from our ATProto user: {action} {repo} {path}')
-                new_commits.put((action, record))
+            if is_ours:
+                logger.info(f'Got one from our ATProto user: {op.action} {op.repo} {op.path}')
+                new_commits.put(op)
                 continue
 
             subjects = []
@@ -112,33 +117,33 @@ def subscribe():
                     add(subjects, did)
 
             if type in ('app.bsky.feed.like', 'app.bsky.feed.repost'):
-                maybe_add(record['subject'])
+                maybe_add(op.record['subject'])
 
             elif type in ('app.bsky.graph.block', 'app.bsky.graph.follow'):
-                maybe_add(record['subject'])
+                maybe_add(op.record['subject'])
 
             elif type == 'app.bsky.feed.post':
                 # replies
-                if reply := record.get('reply'):
+                if reply := op.record.get('reply'):
                     for ref in 'parent', 'root':
                         maybe_add(reply[ref])
 
                 # mentions
-                for facet in record.get('facets', []):
+                for facet in op.record.get('facets', []):
                     for feature in facet['features']:
                         if feature['$type'] == 'app.bsky.richtext.facet#mention':
                             maybe_add(feature['did'])
 
                 # quote posts
-                if embed := record.get('embed'):
+                if embed := op.record.get('embed'):
                     if embed['$type'] == 'app.bsky.embed.record':
                         maybe_add(embed['record'])
                     elif embed['$type'] == 'app.bsky.embed.recordWithMedia':
                         maybe_add(embed['record']['record'])
 
             if subjects:
-                logger.info(f'Got one re our ATProto users {subjects}: {action} {repo} {path}')
-                new_commits.put((action, record))
+                logger.info(f'Got one re our ATProto users {subjects}: {op.action} {op.repo} {op.path}')
+                new_commits.put(op)
 
     logger.info('Ran out of events! Relay closed connection?')
 

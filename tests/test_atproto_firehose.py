@@ -10,6 +10,7 @@ from google.cloud.tasks_v2.types import Task
 from granary.tests.test_bluesky import (
     ACTOR_PROFILE_BSKY,
     LIKE_BSKY,
+    POST_AS,
     POST_BSKY,
     REPLY_BSKY,
     REPOST_BSKY,
@@ -20,7 +21,7 @@ from oauth_dropins.webutil import util
 import simple_websocket
 
 from atproto import ATProto
-from atproto_firehose import new_commits, subscribe
+from atproto_firehose import new_commits, Op, subscribe
 import common
 from models import Object, PROTOCOLS, Target
 import protocol
@@ -45,13 +46,12 @@ class FakeWebsocketClient:
         return dag_cbor.encode(header) + dag_cbor.encode(payload)
 
     @classmethod
-    def setup_receive(cls, record, path='app.bsky.feed.post/abc123',
-                      action='create', repo='did:plc:user'):
+    def setup_receive(cls, op):
         cid = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
-        if action == 'delete':
+        if op.action == 'delete':
             block_bytes = b''
         else:
-            block = Block(decoded=record)
+            block = Block(decoded=op.record)
             block_bytes = write_car([cid], [block])
 
         cls.to_receive = [({
@@ -61,13 +61,13 @@ class FakeWebsocketClient:
             'blocks': block_bytes,
             'commit': cid,
             'ops': [{
-                'action': action,
-                'cid': None if action == 'delete' else block.cid,
-                'path': path,
+                'action': op.action,
+                'cid': None if op.action == 'delete' else block.cid,
+                'path': op.path,
             }],
             'prev': None,
             'rebase': False,
-            'repo': repo,
+            'repo': op.repo,
             'rev': 'abc',
             'seq': 123,
             'since': 'def',
@@ -84,18 +84,29 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         FakeWebsocketClient.sent = []
         FakeWebsocketClient.to_receive = []
 
+        assert new_commits.empty()
+
         self.alice = self.make_user(
             'eefake:alice', cls=ExplicitEnableFake,
             copies=[Target(protocol='atproto', uri='did:alice')])
 
-    def assert_enqueues(self, record=None, expected=None, action='create', **kwargs):
-        FakeWebsocketClient.setup_receive(record, action=action, **kwargs)
+    def assert_enqueues(self, record=None, repo='did:plc:user', action='create',
+                        path='app.bsky.feed.post/abc123'):
+        FakeWebsocketClient.setup_receive(
+            Op(repo=repo, action=action, path=path, record=record))
         subscribe()
-        self.assertEqual((action, expected or record), new_commits.get())
+
+        op = new_commits.get()
+        self.assertEqual(repo, op.repo)
+        self.assertEqual(action, op.action)
+        self.assertEqual(path, op.path)
+        self.assertEqual(record, op.record)
         self.assertTrue(new_commits.empty())
 
-    def assert_doesnt_enqueue(self, record=None, action='create', **kwargs):
-        FakeWebsocketClient.setup_receive(record, action=action, **kwargs)
+    def assert_doesnt_enqueue(self, record=None, repo='did:plc:user', action='create',
+                              path='app.bsky.feed.post/abc123'):
+        FakeWebsocketClient.setup_receive(
+            Op(repo=repo, action=action, path=path, record=record))
         subscribe()
         self.assertTrue(new_commits.empty())
 
@@ -289,7 +300,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
                               obj_bsky=ACTOR_PROFILE_BSKY)
 
         path = 'app.bsky.feed.post/abc123'
-        self.assert_enqueues(expected=path, path=path, action='delete')
+        self.assert_enqueues(path=path, action='delete')
 
     def test_delete_by_other(self):
         self.assert_doesnt_enqueue(action='delete')
@@ -300,11 +311,10 @@ class ATProtoFirehoseSubscribeTest(TestCase):
                               enabled_protocols=['eefake'],
                               obj_bsky=ACTOR_PROFILE_BSKY)
 
-        path = 'app.bsky.feed.post/abc123'
-        self.assert_enqueues(expected=path, path=path, action='delete')
+        self.assert_enqueues(action='delete')
 
     def test_update_by_other(self):
-        self.assert_doesnt_enqueue(action='delete', path='app.bsky.feed.post/abc123')
+        self.assert_doesnt_enqueue(action='delete')
 
     def test_update_like_of_our_user(self):
         self.assert_enqueues(action='update', record={
@@ -315,8 +325,8 @@ class ATProtoFirehoseSubscribeTest(TestCase):
 
 @skip
 class ATProtoFirehoseHandleTest(TestCase):
-    def test_handle(self):
-        new_commits.put('create')
+    def test_handle_create(self):
+        new_commits.put(('create', POST_BSKY))
         at_uri = 'at://did:plc:user/app.bsky.feed.like/abc123'
         user_key = ATProto(id='did:plc:user').key
         obj = self.assert_object(at_uri, bsky=LIKE_BSKY, status='new',
