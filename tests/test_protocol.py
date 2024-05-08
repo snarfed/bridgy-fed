@@ -9,6 +9,7 @@ from arroba.tests.testutil import dns_answer
 from flask import g
 from google.cloud import ndb
 from granary import as2
+from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
 from oauth_dropins.webutil import appengine_info, models, util
 from oauth_dropins.webutil.flask_util import CLOUD_TASKS_QUEUE_HEADER, NoContent
 from oauth_dropins.webutil.testutil import NOW, requests_response
@@ -698,9 +699,36 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual(('OK', 202), Fake.receive_as1(post_as1))
 
+        self.assertEqual(1, mock_send.call_count)
         [obj, url], _ = mock_send.call_args
         self.assertEqual('fake:post#bridgy-fed-create', obj.key.id())
         self.assertEqual(ATProto.PDS_URL, url)
+
+    @patch.object(ATProto, 'send', return_value=True)
+    def test_atproto_targets_normalize_pds_url(self, mock_send):
+        # we were over-normalizing our PDS URL https://atproto.brid.gy , adding
+        # a trailing slash, and then ending up with both versions in targets.
+        # https://github.com/snarfed/bridgy-fed/issues/1032
+
+        # atproto follower
+        self.store_object(id='did:plc:eve', raw={**DID_DOC, 'id': 'at://did:plc:eve'})
+        obj = self.store_object(id='at://did:plc:eve/app.bsky.actor.profile/self',
+                                bsky=ACTOR_PROFILE_BSKY)
+        eve = self.make_user('did:plc:eve', cls=ATProto, obj_key=obj.key)
+        Follower.get_or_create(from_=eve, to=self.user)
+
+        obj = Object(id='fake:post', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'id': 'fake:post',
+                'objectType': 'note',
+                'author': 'fake:user',
+            },
+        })
+        self.assertEqual({
+            Target(uri='https://atproto.brid.gy', protocol='atproto'): None,
+        }, Fake.targets(obj, from_user=self.user))
 
     def test_create_post_use_instead(self):
         self.make_user('fake:not-this', cls=Fake, use_instead=self.user.key, obj_mf2={

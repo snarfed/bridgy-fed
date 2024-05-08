@@ -920,7 +920,7 @@ class WebTest(TestCase):
             self.as2_req('https://mas.to/author'),
         ))
 
-        inboxes = ('https://inbox/', 'https://public/inbox',
+        inboxes = ('https://inbox', 'https://public/inbox',
                    'https://shared/inbox', 'https://mas.to/inbox')
         self.assert_deliveries(mock_post, inboxes, expected_as2, ignore=['cc'])
 
@@ -1020,7 +1020,7 @@ class WebTest(TestCase):
         })
         self.assertEqual(202, got.status_code)
 
-        inboxes = ['https://inbox/', 'https://public/inbox', 'https://shared/inbox']
+        inboxes = ['https://inbox', 'https://public/inbox', 'https://shared/inbox']
         expected = {
             **NOTE_AS2,
             'attributedTo': None,
@@ -1144,7 +1144,7 @@ class WebTest(TestCase):
         })
         self.assertEqual(202, got.status_code)
 
-        inboxes = ['https://inbox/', 'https://public/inbox', 'https://shared/inbox']
+        inboxes = ['https://inbox', 'https://public/inbox', 'https://shared/inbox']
         expected_create_as1 = copy.deepcopy(CREATE_AS1)
         expected_create_as1['object']['author']['id'] = 'https://user.com/'
         self.assert_object('https://user.com/post#bridgy-fed-create',
@@ -1187,7 +1187,7 @@ class WebTest(TestCase):
             self.req('https://www.user.com/post'),
         ))
 
-        inboxes = ('https://inbox/', 'https://public/inbox', 'https://shared/inbox')
+        inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
         create_as2 = copy.deepcopy(CREATE_AS2)
         create_as2['id'] = 'http://localhost/r/https://www.user.com/post#bridgy-fed-create'
         create_as2['object'].update({
@@ -1210,7 +1210,7 @@ class WebTest(TestCase):
         mock_get.assert_has_calls((
             self.req('https://user.com/post'),
         ))
-        inboxes = ('https://inbox/', 'https://public/inbox', 'https://shared/inbox')
+        inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
         self.assert_deliveries(mock_post, inboxes, CREATE_AS2)
 
         self.assert_object('https://user.com/post',
@@ -1247,7 +1247,7 @@ class WebTest(TestCase):
         mock_get.assert_has_calls((
             self.req('https://user.com/post'),
         ))
-        inboxes = ('https://inbox/', 'https://public/inbox', 'https://shared/inbox')
+        inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
         self.assert_deliveries(mock_post, inboxes, UPDATE_AS2)
 
         update_as1 = {
@@ -1291,7 +1291,7 @@ class WebTest(TestCase):
         })
         self.assertEqual(202, got.status_code)
 
-        self.assertEqual(('https://inbox/',), mock_post.call_args[0])
+        self.assertEqual(('https://inbox',), mock_post.call_args[0])
         create = copy.deepcopy(CREATE_AS2)
         create['object'].update({
             'image': {'url': 'http://im/age', 'type': 'Image'},
@@ -1525,7 +1525,7 @@ class WebTest(TestCase):
         })
         self.assertEqual(202, got.status_code, got.text)
 
-        inboxes = ('https://inbox/', 'https://public/inbox', 'https://shared/inbox')
+        inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
         self.assert_deliveries(mock_post, inboxes, DELETE_AS2)
 
         self.assert_object('https://user.com/post#bridgy-fed-delete',
@@ -1657,7 +1657,7 @@ class WebTest(TestCase):
             },
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
         }
-        self.assert_deliveries(mock_post, ('https://shared/inbox', 'https://inbox/'),
+        self.assert_deliveries(mock_post, ('https://shared/inbox', 'https://inbox'),
                                expected_as2)
 
         # updated Web user
@@ -1704,7 +1704,7 @@ class WebTest(TestCase):
                            source_protocol='web',
                            status='complete',
                            our_as1=expected_as1,
-                           delivered=['https://inbox/', 'https://shared/inbox'],
+                           delivered=['https://inbox', 'https://shared/inbox'],
                            type='update',
                            object_ids=['https://user.com/'],
                            labels=['user', 'activity'],
@@ -1749,7 +1749,7 @@ class WebTest(TestCase):
         del update_as2['object']['endpoints']
         del update_as2['object']['followers']
         del update_as2['object']['following']
-        self.assert_deliveries(mock_post, ('https://inbox/',), update_as2)
+        self.assert_deliveries(mock_post, ('https://inbox',), update_as2)
 
         # updated Web user
         self.assert_user(Web, 'user.com', direct=True, has_redirects=True, obj_as2={

@@ -1230,7 +1230,9 @@ class Protocol:
                     continue
 
                 # normalize URL (lower case hostname, etc)
-                target = util.dedupe_urls([target])[0]
+                # ...but preserve our PDS URL without trailing slash in path
+                # https://atproto.com/specs/did#did-documents
+                target = util.dedupe_urls([target], trailing_slash=False)[0]
 
                 # HACK: use last target object from above for reposts, which
                 # has its resolved id
@@ -1267,7 +1269,7 @@ class Protocol:
         ]
         for url in sorted(util.dedupe_urls(
                 candidates.keys(),
-                # preserve our PDS URL without trailing slash for path
+                # preserve our PDS URL without trailing slash in path
                 # https://atproto.com/specs/did#did-documents
                 trailing_slash=False)):
             if util.is_web(url) and util.domain_from_link(url) in source_domains:
