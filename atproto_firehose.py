@@ -50,31 +50,41 @@ def subscribe():
         elif header['t'] != '#commit':
             continue
 
-        _, blocks = read_car(payload['blocks'])
-        blocks = {block.cid: block for block in blocks}
         repo = payload.get('repo')
-
         if repo in our_bridged_dids:  # from a Bridgy Fed non-Bluesky user; ignore
             # logger.info(f'Ignoring record from our non-ATProto bridged user {repo}')
             continue
+
+        blocks = {}
+        if payload['blocks']:
+            _, blocks = read_car(payload['blocks'])
+            blocks = {block.cid: block for block in blocks}
 
         # detect records that reference an ATProto user, eg replies, likes,
         # reposts, mentions
         for op in payload['ops']:
             action = op['action']
-            cid = op['cid']
             path = op['path']
-            assert action, cid  # TODO: more graceful
+            cid = op['cid']
+            assert action, path
+
+            is_ours = repo in our_atproto_dids
+            if is_ours and action == 'delete':
+                logger.info(f'Got delete from our ATProto user: {repo} {path}')
+                new_commits.put(('delete', path))
+                continue
 
             block = blocks.get(op['cid'])
-            if not block:  # our own commits are sometimes missing the record (?!?)
+            # our own commits are sometimes missing the record
+            # https://github.com/snarfed/bridgy-fed/issues/1016
+            if not block:
                 continue
 
             record = block.decoded
             type = record.get('$type')
             if not type:
-                print('missing $type!', action, cid)
-                print(dag_json.encode(record).decode())
+                logger.warning('commit record missing $type! {action} {cid}')
+                logger.warning(dag_json.encode(record).decode())
                 continue
 
             if repo in our_atproto_dids:
