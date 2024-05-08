@@ -20,11 +20,7 @@ from granary.source import html_to_text
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import error
-from oauth_dropins.webutil.models import (
-    ComputedJsonProperty,
-    JsonProperty,
-    StringIdModel,
-)
+from oauth_dropins.webutil.models import JsonProperty, StringIdModel
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
@@ -737,7 +733,7 @@ class Object(StringIdModel):
     lock = None
     """Initialized in __init__, synchronizes property access, :meth:`put`s, etc."""
 
-    @ComputedJsonProperty
+    @property
     def as1(self):
         def use_urls_as_ids(obj):
             """If id field is missing or not a URL, use the url field."""
