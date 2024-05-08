@@ -131,17 +131,16 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         self.assert_enqueues(POST_BSKY)
 
     def test_post_by_other(self):
-        self.store_object(id='did:plc:bob', raw={**DID_DOC, 'id': 'did:plc:bob'})
-        self.make_user('did:plc:bob', cls=ATProto, enabled_protocols=['eefake'])
+        self.store_object(id='did:plc:eve', raw={**DID_DOC, 'id': 'did:plc:eve'})
+        self.make_user('did:plc:eve', cls=ATProto, enabled_protocols=['eefake'])
         self.assert_doesnt_enqueue(POST_BSKY)
 
     def test_reply_direct_to_our_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.feed.post',
-            'text': 'I hereby reply',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
-                'parent': {'uri': 'at://did:alice/app.bsky.feed.post/parent-tid'},
+                'parent': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
                 'root': {'uri': '-'},
             },
         })
@@ -149,10 +148,9 @@ class ATProtoFirehoseSubscribeTest(TestCase):
     def test_reply_indirect_to_our_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.feed.post',
-            'text': 'I hereby reply',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
-                'root': {'uri': 'at://did:alice/app.bsky.feed.post/parent-tid'},
+                'root': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
                 'parent': {'uri': '-'},
             },
         })
@@ -160,10 +158,9 @@ class ATProtoFirehoseSubscribeTest(TestCase):
     def test_reply_indirect_to_other(self):
         self.assert_doesnt_enqueue({
             '$type': 'app.bsky.feed.post',
-            'text': 'I hereby reply',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
-                'parent': {'uri': 'at://did:bob/app.bsky.feed.post/parent-tid'},
+                'parent': {'uri': 'at://did:eve/app.bsky.feed.post/tid'},
                 'root': {'uri': '-'},
             },
         })
@@ -171,7 +168,6 @@ class ATProtoFirehoseSubscribeTest(TestCase):
     def test_mention_our_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.feed.post',
-            'text': 'foo @alice bar',
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
                 'features': [{
@@ -184,14 +180,41 @@ class ATProtoFirehoseSubscribeTest(TestCase):
     def test_mention_other(self):
         self.assert_doesnt_enqueue({
             '$type': 'app.bsky.feed.post',
-            'text': 'foo @bob bar',
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
                 'features': [{
                     '$type': 'app.bsky.richtext.facet#mention',
-                    'did': 'did:bob',
+                    'did': 'did:eve',
                 }],
             }],
+        })
+
+    def test_quote_of_our_user(self):
+        self.assert_enqueues({
+            '$type': 'app.bsky.feed.post',
+            'embed': {
+                '$type': 'app.bsky.embed.record',
+                'record': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+            },
+        })
+
+    def test_quote_of_our_user_with_image(self):
+        self.assert_enqueues({
+            '$type': 'app.bsky.feed.post',
+            'embed': {
+                '$type': 'app.bsky.embed.recordWithMedia',
+                'record': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+                'media': {'$type': 'app.bsky.embed.images'},
+            },
+        })
+
+    def test_quote_of_other(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'app.bsky.feed.post',
+            'embed': {
+                '$type': 'app.bsky.embed.record',
+                'record': {'uri': 'at://did:eve/app.bsky.feed.post/tid'},
+            },
         })
 
     def test_like_of_our_user(self):

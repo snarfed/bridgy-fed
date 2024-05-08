@@ -115,11 +115,11 @@ def subscribe():
                         if feature['$type'] == 'app.bsky.richtext.facet#mention':
                             maybe_add(feature['did'])
 
-                # TODO: quote posts
-                # if embed = record.get('embed'):
-                #     if embed['$type'] in ('app.bsky.embed.record',
-                #                           'app.bsky.embed.recordWithMedia'):
-                #         if embed['record']
+                # quote posts
+                if embed := record.get('embed'):
+                    if embed['$type'] in ('app.bsky.embed.record',
+                                          'app.bsky.embed.recordWithMedia'):
+                        maybe_add(embed['record'])
 
             if subjects:
                 logger.info(f'Got one re our ATProto users {subjects}: {action} {repo} {path}')
