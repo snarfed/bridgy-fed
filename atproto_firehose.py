@@ -117,9 +117,10 @@ def subscribe():
 
                 # quote posts
                 if embed := record.get('embed'):
-                    if embed['$type'] in ('app.bsky.embed.record',
-                                          'app.bsky.embed.recordWithMedia'):
+                    if embed['$type'] == 'app.bsky.embed.record':
                         maybe_add(embed['record'])
+                    elif embed['$type'] == 'app.bsky.embed.recordWithMedia':
+                        maybe_add(embed['record']['record'])
 
             if subjects:
                 logger.info(f'Got one re our ATProto users {subjects}: {action} {repo} {path}')

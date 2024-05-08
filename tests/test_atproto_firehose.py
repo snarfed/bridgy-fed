@@ -198,22 +198,36 @@ class ATProtoFirehoseSubscribeTest(TestCase):
             },
         })
 
-    def test_quote_of_our_user_with_image(self):
-        self.assert_enqueues({
-            '$type': 'app.bsky.feed.post',
-            'embed': {
-                '$type': 'app.bsky.embed.recordWithMedia',
-                'record': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
-                'media': {'$type': 'app.bsky.embed.images'},
-            },
-        })
-
     def test_quote_of_other(self):
         self.assert_doesnt_enqueue({
             '$type': 'app.bsky.feed.post',
             'embed': {
                 '$type': 'app.bsky.embed.record',
                 'record': {'uri': 'at://did:eve/app.bsky.feed.post/tid'},
+            },
+        })
+
+    def test_quote_of_our_user_with_image(self):
+        self.assert_enqueues({
+            '$type': 'app.bsky.feed.post',
+            'embed': {
+                '$type': 'app.bsky.embed.recordWithMedia',
+                'record': {
+                    'record': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+                },
+                'media': {'$type': 'app.bsky.embed.images'},
+            },
+        })
+
+    def test_quote_of_other_with_image(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'app.bsky.feed.post',
+            'embed': {
+                '$type': 'app.bsky.embed.recordWithMedia',
+                'record': {
+                    'record': {'uri': 'at://did:eve/app.bsky.feed.post/tid'},
+                },
+                'media': {'$type': 'app.bsky.embed.images'},
             },
         })
 
