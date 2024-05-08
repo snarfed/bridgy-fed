@@ -294,6 +294,24 @@ class ATProtoFirehoseSubscribeTest(TestCase):
     def test_delete_by_other(self):
         self.assert_doesnt_enqueue(action='delete')
 
+    def test_update_by_our_atproto_user(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto,
+                              enabled_protocols=['eefake'],
+                              obj_bsky=ACTOR_PROFILE_BSKY)
+
+        path = 'app.bsky.feed.post/abc123'
+        self.assert_enqueues(expected=path, path=path, action='delete')
+
+    def test_update_by_other(self):
+        self.assert_doesnt_enqueue(action='delete', path='app.bsky.feed.post/abc123')
+
+    def test_update_like_of_our_user(self):
+        self.assert_enqueues(action='update', record={
+            '$type': 'app.bsky.feed.like',
+            'subject': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+        })
+
 
 @skip
 class ATProtoFirehoseHandleTest(TestCase):

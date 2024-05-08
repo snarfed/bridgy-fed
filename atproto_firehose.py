@@ -18,7 +18,8 @@ from models import Object
 
 logger = logging.getLogger(__name__)
 
-# contains (str action, dict record) tuples
+# contains (str action, dict record or str path) tuples. second element is a
+# dict record for creates and updates, str path for deletes.
 new_commits = SimpleQueue()
 
 
@@ -71,6 +72,9 @@ def subscribe():
             is_ours = repo in our_atproto_dids
             if is_ours and action == 'delete':
                 logger.info(f'Got delete from our ATProto user: {repo} {path}')
+                # TODO: also detect deletes of records that *reference* our bridged
+                # users, eg a delete of a follow or like or repost of them.
+                # not easy because we need to getRecord the record to check
                 new_commits.put(('delete', path))
                 continue
 
