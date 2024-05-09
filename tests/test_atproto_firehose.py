@@ -93,7 +93,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
 
         atproto_firehose.atproto_dids = None
         atproto_firehose.bridged_dids = None
-        atproto_firehose.loaded_dids_at = None
+        atproto_firehose.load_dids_thread = None
 
         self.alice = self.make_user(
             'eefake:alice', cls=ExplicitEnableFake,

@@ -88,14 +88,14 @@ if LOCAL_SERVER or not DEBUG:
             atproto_firehose.subscribe()
 
     assert 'atproto_firehose.subscribe' not in [t.name for t in threading.enumerate()]
-    Thread(target=subscribe, name='atproto_firehose.subscribe', daemon=True).start()
+    Thread(target=subscribe, name='atproto_firehose.subscribe').start()
 
     def handle():
         with appengine_config.ndb_client.context():
             atproto_firehose.handle()
 
     assert 'atproto_firehose.handle' not in [t.name for t in threading.enumerate()]
-    Thread(target=handle, name='atproto_firehose.handle', daemon=True).start()
+    Thread(target=handle, name='atproto_firehose.handle').start()
 
 
 # send requestCrawl to relay
