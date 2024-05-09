@@ -94,7 +94,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
                         path='app.bsky.feed.post/abc123'):
         FakeWebsocketClient.setup_receive(
             Op(repo=repo, action=action, path=path, record=record))
-        subscribe()
+        subscribe(reconnect=False)
 
         op = new_commits.get()
         self.assertEqual(repo, op.repo)
@@ -107,7 +107,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
                               path='app.bsky.feed.post/abc123'):
         FakeWebsocketClient.setup_receive(
             Op(repo=repo, action=action, path=path, record=record))
-        subscribe()
+        subscribe(reconnect=False)
         self.assertTrue(new_commits.empty())
 
     def test_error(self):
@@ -116,7 +116,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
             {'error': 'ConsumerTooSlow', 'message': 'ketchup!'},
         )]
 
-        subscribe()
+        subscribe(reconnect=False)
         self.assertTrue(new_commits.empty())
 
     def test_info(self):
@@ -125,7 +125,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
             {'name': 'OutdatedCursor'},
         )]
 
-        subscribe()
+        subscribe(reconnect=False)
         self.assertTrue(new_commits.empty())
 
     def test_non_commit(self):
@@ -134,7 +134,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
             {'seq': '123', 'did': 'did:abc', 'handle': 'hi.com'},
         )]
 
-        subscribe()
+        subscribe(reconnect=False)
         self.assertTrue(new_commits.empty())
 
     def test_post_by_our_atproto_user(self):
