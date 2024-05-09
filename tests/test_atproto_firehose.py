@@ -21,7 +21,7 @@ from oauth_dropins.webutil import util
 import simple_websocket
 
 from atproto import ATProto
-from atproto_firehose import new_commits, Op, subscribe
+from atproto_firehose import handle, new_commits, Op, subscribe
 import common
 from models import Object, PROTOCOLS, Target
 import protocol
@@ -323,14 +323,47 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         })
 
 
-@skip
+@patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
 class ATProtoFirehoseHandleTest(TestCase):
-    def test_handle_create(self):
-        new_commits.put(('create', POST_BSKY))
-        at_uri = 'at://did:plc:user/app.bsky.feed.like/abc123'
+    def setUp(self):
+        super().setUp()
+        common.RUN_TASKS_INLINE = False
+
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto,
+                              enabled_protocols=['eefake'],
+                              obj_bsky=ACTOR_PROFILE_BSKY)
+
+    def test_handle_create(self, mock_create_task):
+        new_commits.put(Op(repo='did:plc:user', action='create',
+                           path='app.bsky.feed.post/123', record=POST_BSKY))
+
+        handle(limit=1)
+
         user_key = ATProto(id='did:plc:user').key
-        obj = self.assert_object(at_uri, bsky=LIKE_BSKY, status='new',
-                                 source_protocol='bsky', users=[user_key],
-                                 notify=alice.key)
+        obj = self.assert_object('at://did:plc:user/app.bsky.feed.post/123',
+                                 bsky=POST_BSKY, source_protocol='atproto',
+                                 status='new', users=[user_key],
+                                 ignore=['our_as1'])
+        self.assert_task(mock_create_task, 'receive', '/queue/receive',
+                         obj=obj.key.urlsafe(), authed_as='did:plc:user')
+
+    def test_handle_delete(self, mock_create_task):
+        new_commits.put(Op(repo='did:plc:user', action='delete',
+                           path='app.bsky.feed.post/123', record=POST_BSKY))
+
+        handle(limit=1)
+
+        obj_id = 'at://did:plc:user/app.bsky.feed.post/123'
+        delete_id = f'{obj_id}#delete'
+        user_key = ATProto(id='did:plc:user').key
+        obj = self.assert_object(delete_id, source_protocol='atproto',
+                                 status='new', users=[user_key], our_as1={
+                                     'objectType': 'activity',
+                                     'verb': 'delete',
+                                     'id': delete_id,
+                                     'actor': 'did:plc:user',
+                                     'object': obj_id,
+                                 })
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
                          obj=obj.key.urlsafe(), authed_as='did:plc:user')

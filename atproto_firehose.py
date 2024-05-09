@@ -148,29 +148,50 @@ def subscribe():
     logger.info('Ran out of events! Relay closed connection?')
 
 
-def handle():
+def handle(limit=None):
     """Store Objects and create receive tasks for commits as they arrive.
 
     :meth:`Object.get_or_create` makes network calls, via eg :meth:`Object.as1`
     => :meth:`ATProto.pds_for` and :meth:`ATProto.handle`, so we don't want to
     do those in the critical path in :func:`subscribe`.
+
+    Args:
+      limit (int): return after handling this many commits
     """
     logger.info(f'started thread to store objects and enqueue receive tasks')
 
-    while payload := new_commits.get():
-        from_key = ATProto(id=repo).key
-        at_uri = f'at://{repo}/{path}'
-        notify_keys = []
-        if subjects:
-            notify_keys = [ATProto(id=did).key for did in subjects]
+    count = 0
+    while op := new_commits.get():
+        at_uri = f'at://{op.repo}/{op.path}'
 
         # store object, enqueue receive task
         # TODO: for Object.bsky, does record have CIDs etc? how do we store?
         # dag-json? how are polls doing this?
-        obj = Object.get_or_create(
-            id=at_uri, bsky=record, actor=repo, users=[from_key],
-            notify=notify_keys, status='new', source_protocol=ATProto.ABBREV)
-        create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=repo)
+        if op.action in ('create', 'update'):
+            record_kwarg = {'bsky': op.record}
+            obj_id = at_uri
+        elif op.action == 'delete':
+            obj_id = f'{at_uri}#delete'
+            record_kwarg = {'our_as1': {
+                'objectType': 'activity',
+                'verb': 'delete',
+                'id': obj_id,
+                'actor': op.repo,
+                'object': at_uri,
+            }}
+        else:
+            logger.error(f'Unknown action {action} for {op.repo} {op.path}')
+            continue
+
+        obj = Object.get_or_create(id=obj_id, actor=op.repo, status='new',
+                                   users=[ATProto(id=op.repo).key],
+                                   source_protocol=ATProto.LABEL, **record_kwarg)
+
+        create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=op.repo)
+
+        count += 1
+        if limit is not None and count >= limit:
+            return
 
     assert False, "enqueue thread shouldn't reach here!"
 
