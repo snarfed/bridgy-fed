@@ -17,12 +17,13 @@ from granary.tests.test_bluesky import (
     REPOST_BSKY,
 )
 from multiformats import CID
-from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil import util
+from oauth_dropins.webutil.appengine_config import tasks_client
+from oauth_dropins.webutil.testutil import NOW
 import simple_websocket
 
 from atproto import ATProto, Cursor
-from atproto_firehose import handle, new_commits, Op, subscribe
+from atproto_firehose import handle, new_commits, Op, STORE_CURSOR_FREQ, subscribe
 import common
 from models import Object, PROTOCOLS, Target
 import protocol
@@ -70,7 +71,7 @@ class FakeWebsocketClient:
             'rebase': False,
             'repo': op.repo,
             'rev': 'abc',
-            'seq': 123,
+            'seq': op.seq,
             'since': 'def',
             'time': util.now().isoformat(),
             'tooBig': False,
@@ -96,20 +97,21 @@ class ATProtoFirehoseSubscribeTest(TestCase):
     def assert_enqueues(self, record=None, repo='did:plc:user', action='create',
                         path='app.bsky.feed.post/abc123'):
         FakeWebsocketClient.setup_receive(
-            Op(repo=repo, action=action, path=path, record=record))
+            Op(repo=repo, action=action, path=path, seq=789, record=record))
         subscribe(reconnect=False)
 
         op = new_commits.get()
         self.assertEqual(repo, op.repo)
         self.assertEqual(action, op.action)
         self.assertEqual(path, op.path)
+        self.assertEqual(789, op.seq)
         self.assertEqual(record, op.record)
         self.assertTrue(new_commits.empty())
 
     def assert_doesnt_enqueue(self, record=None, repo='did:plc:user', action='create',
                               path='app.bsky.feed.post/abc123'):
         FakeWebsocketClient.setup_receive(
-            Op(repo=repo, action=action, path=path, record=record))
+            Op(repo=repo, action=action, path=path, seq=789, record=record))
         subscribe(reconnect=False)
         self.assertTrue(new_commits.empty())
 
@@ -132,13 +134,13 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         self.assertTrue(new_commits.empty())
 
     def test_cursor(self):
-        self.cursor.cursor = 987
+        self.cursor.cursor = 444
         self.cursor.put()
 
         subscribe(reconnect=False)
         self.assertTrue(new_commits.empty())
         self.assertEqual(
-            'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=987',
+            'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=444',
             FakeWebsocketClient.url)
 
     def test_non_commit(self):
@@ -344,16 +346,16 @@ class ATProtoFirehoseHandleTest(TestCase):
         super().setUp()
         common.RUN_TASKS_INLINE = False
 
-        self.cursor = Cursor(id='bgs.local com.atproto.sync.subscribeRepos')
-        self.cursor.put()
-
         self.store_object(id='did:plc:user', raw=DID_DOC)
         user = self.make_user('did:plc:user', cls=ATProto,
                               enabled_protocols=['eefake'],
                               obj_bsky=ACTOR_PROFILE_BSKY)
 
+        self.cursor = Cursor(id='bgs.local com.atproto.sync.subscribeRepos')
+        self.cursor.put()
+
     def test_handle_create(self, mock_create_task):
-        new_commits.put(Op(repo='did:plc:user', action='create',
+        new_commits.put(Op(repo='did:plc:user', action='create', seq=789,
                            path='app.bsky.feed.post/123', record=POST_BSKY))
 
         handle(limit=1)
@@ -367,7 +369,7 @@ class ATProtoFirehoseHandleTest(TestCase):
                          obj=obj.key.urlsafe(), authed_as='did:plc:user')
 
     def test_handle_delete(self, mock_create_task):
-        new_commits.put(Op(repo='did:plc:user', action='delete',
+        new_commits.put(Op(repo='did:plc:user', action='delete', seq=789,
                            path='app.bsky.feed.post/123', record=POST_BSKY))
 
         handle(limit=1)
@@ -385,3 +387,24 @@ class ATProtoFirehoseHandleTest(TestCase):
                                  })
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
                          obj=obj.key.urlsafe(), authed_as='did:plc:user')
+
+    def test_handle_store_cursor(self, mock_create_task):
+        self.cursor.cursor = 444
+        self.cursor.put()
+
+        op = Op(repo='did:plc:user', action='create', seq=789,
+                path='app.bsky.feed.post/123', record=POST_BSKY)
+
+        # hasn't quite been long enough to store new cursor
+        util.now = lambda **kwargs: (self.cursor.updated + STORE_CURSOR_FREQ
+                                     - datetime.timedelta(seconds=1))
+        new_commits.put(op)
+        handle(limit=1)
+        self.assertEqual(444, self.cursor.key.get().cursor)
+
+        # now it's been long enough
+        util.now = lambda **kwargs: (self.cursor.updated + STORE_CURSOR_FREQ
+                                     + datetime.timedelta(seconds=1))
+        new_commits.put(op)
+        handle(limit=1)
+        self.assertEqual(789, self.cursor.key.get().cursor)

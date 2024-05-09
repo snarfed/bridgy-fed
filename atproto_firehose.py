@@ -22,11 +22,12 @@ import models
 from models import Object
 
 RECONNECT_DELAY = timedelta(seconds=30)
+STORE_CURSOR_FREQ = timedelta(seconds=20)
 
 logger = logging.getLogger(__name__)
 
 # a commit operation. similar to arroba.repo.Write. record is None for deletes.
-Op = namedtuple('Op', ['action', 'repo', 'path', 'record'],
+Op = namedtuple('Op', ['action', 'repo', 'path', 'seq', 'record'],
                 # record is optional
                 defaults=[None])
 
@@ -61,8 +62,9 @@ def subscribe(reconnect=True):
             _subscribe(atproto_dids=atproto_dids, bridged_dids=bridged_dids)
         except BaseException as err:
             logger.error(f'reporting error, atproto_firehose.subscribe: {err}')
-            if not DEBUG:
-                error_reporting_client.report_exception()
+            if DEBUG:
+                raise
+            error_reporting_client.report_exception()
 
         if not reconnect:
             return
@@ -77,9 +79,11 @@ def _subscribe(atproto_dids=None, bridged_dids=None):
     cursor = Cursor.get_by_id(
         f'{os.environ["BGS_HOST"]} com.atproto.sync.subscribeRepos')
     assert cursor
+
     client = Client(f'https://{os.environ["BGS_HOST"]}')
 
     for header, payload in client.com.atproto.sync.subscribeRepos(cursor=cursor.cursor):
+        # parse header
         if header['op'] == -1:
             logger.warning(f'Got error from relay! {payload}')
             continue
@@ -89,6 +93,7 @@ def _subscribe(atproto_dids=None, bridged_dids=None):
         elif header['t'] != '#commit':
             continue
 
+        # parse payload
         repo = payload.get('repo')
         assert repo
         if repo in bridged_dids:  # from a Bridgy Fed non-Bluesky user; ignore
@@ -103,7 +108,8 @@ def _subscribe(atproto_dids=None, bridged_dids=None):
         # detect records that reference an ATProto user, eg replies, likes,
         # reposts, mentions
         for p_op in payload['ops']:
-            op = Op(repo=repo, action=p_op['action'], path=p_op['path'])
+            op = Op(repo=repo, action=p_op['action'], path=p_op['path'],
+                    seq=payload['seq'])
             assert op.action and op.path, (op.action, op.path)
             cid = p_op['cid']
 
@@ -225,8 +231,14 @@ def handle(limit=None):
             create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=op.repo)
         except BaseException as err:
             logger.error(f'reporting error, atproto_firehose.handle: {err}')
-            if not DEBUG:
-                error_reporting_client.report_exception()
+            if DEBUG:
+                raise
+            error_reporting_client.report_exception()
+
+        if util.now().replace(tzinfo=None) - cursor.updated > STORE_CURSOR_FREQ:
+            # it's been long enough, update our stored cursor
+            cursor.cursor = op.seq
+            cursor.put()
 
         count += 1
         if limit is not None and count >= limit:
