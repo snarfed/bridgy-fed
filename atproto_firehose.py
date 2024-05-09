@@ -33,6 +33,28 @@ Op = namedtuple('Op', ['action', 'repo', 'path', 'seq', 'record'],
 # contains Ops
 new_commits = SimpleQueue()
 
+atproto_dids = None
+bridged_dids = None
+loaded_dids_at = None
+
+def load_dids():
+    global atproto_dids, bridged_dids, loaded_dids_at
+
+    if loaded_dids_at and loaded_dids_at > util.now() - RECONNECT_DELAY:
+        return
+
+    atproto_query = ATProto.query(ATProto.enabled_protocols != None)
+    atproto_dids = frozenset(key.id() for key in atproto_query.iter(keys_only=True))
+
+    others_queries = itertools.chain(*(
+        cls.query(cls.copies.protocol == 'atproto').iter()
+        for cls in set(models.PROTOCOLS.values())
+        if cls and cls != ATProto))
+    bridged_dids = frozenset(user.get_copy(ATProto) for user in others_queries)
+
+    logger.info(f'Loaded {len(atproto_dids)} ATProto, {len(bridged_dids)} bridged dids')
+    loaded_dids_at = util.now()
+
 
 def subscribe(reconnect=True):
     """Subscribes to the relay's firehose.
@@ -42,23 +64,11 @@ def subscribe(reconnect=True):
     Args:
       reconnect (bool): whether to always reconnect after we get disconnected
     """
-    logger.info(f'starting thread to consume firehose and detect our commits')
-
-    query = ATProto.query(ATProto.enabled_protocols != None)
-    atproto_dids = frozenset(key.id() for key in query.iter(keys_only=True))
-
-    other_queries = itertools.chain(*(
-        cls.query(cls.copies.protocol == 'atproto').iter()
-        for cls in set(models.PROTOCOLS.values())
-        if cls and cls != ATProto))
-    bridged_dids = frozenset(user.get_copy(ATProto) for user in other_queries)
-
-    logger.info(f'Loaded {len(atproto_dids)} ATProto, {len(bridged_dids)} bridged dids')
-    logger.info(f'Subscribing to {os.environ["BGS_HOST"]} firehose')
+    logger.info(f'started thread to subscribe to {os.environ["BGS_HOST"]} firehose')
 
     while True:
         try:
-            _subscribe(atproto_dids=atproto_dids, bridged_dids=bridged_dids)
+            _subscribe()
         except BaseException as err:
             if DEBUG:
                 raise
@@ -70,9 +80,8 @@ def subscribe(reconnect=True):
         time.sleep(RECONNECT_DELAY.total_seconds())
 
 
-def _subscribe(atproto_dids=None, bridged_dids=None):
-    assert atproto_dids is not None and bridged_dids is not None, \
-        (atproto_dids, bridged_dids)
+def _subscribe():
+    load_dids()
 
     cursor = Cursor.get_by_id(
         f'{os.environ["BGS_HOST"]} com.atproto.sync.subscribeRepos')
@@ -198,6 +207,7 @@ def handle(limit=None):
       limit (int): return after handling this many commits
     """
     logger.info(f'started thread to store objects and enqueue receive tasks')
+    load_dids()
 
     cursor = Cursor.get_by_id(
         f'{os.environ["BGS_HOST"]} com.atproto.sync.subscribeRepos')
@@ -227,6 +237,7 @@ def handle(limit=None):
             continue
 
         try:
+            logger.info(f'existing {obj_id}: {Object.get_by_id(obj_id)}')
             obj = Object.get_or_create(id=obj_id, actor=op.repo, status='new',
                                        users=[ATProto(id=op.repo).key],
                                        source_protocol=ATProto.LABEL, **record_kwarg)
@@ -238,6 +249,7 @@ def handle(limit=None):
 
         if util.now().replace(tzinfo=None) - cursor.updated > STORE_CURSOR_FREQ:
             # it's been long enough, update our stored cursor
+            logger.info(f'updating stored cursor to {op.seq}')
             cursor.cursor = op.seq
             cursor.put()
 

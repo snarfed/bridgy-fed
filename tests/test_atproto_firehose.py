@@ -1,5 +1,5 @@
 """Unit tests for atproto_firehose.py."""
-import datetime
+from datetime import timedelta, timezone
 from unittest import skip
 from unittest.mock import patch
 
@@ -23,6 +23,7 @@ from oauth_dropins.webutil.testutil import NOW
 import simple_websocket
 
 from atproto import ATProto, Cursor
+import atproto_firehose
 from atproto_firehose import handle, new_commits, Op, STORE_CURSOR_FREQ, subscribe
 import common
 from models import Object, PROTOCOLS, Target
@@ -89,6 +90,10 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         self.cursor = Cursor(id='bgs.local com.atproto.sync.subscribeRepos')
         self.cursor.put()
         assert new_commits.empty()
+
+        atproto_firehose.atproto_dids = None
+        atproto_firehose.bridged_dids = None
+        atproto_firehose.loaded_dids_at = None
 
         self.alice = self.make_user(
             'eefake:alice', cls=ExplicitEnableFake,
@@ -354,6 +359,10 @@ class ATProtoFirehoseHandleTest(TestCase):
         self.cursor = Cursor(id='bgs.local com.atproto.sync.subscribeRepos')
         self.cursor.put()
 
+        atproto_firehose.atproto_dids = None
+        atproto_firehose.bridged_dids = None
+        atproto_firehose.loaded_dids_at = None
+
     def test_handle_create(self, mock_create_task):
         new_commits.put(Op(repo='did:plc:user', action='create', seq=789,
                            path='app.bsky.feed.post/123', record=POST_BSKY))
@@ -389,6 +398,14 @@ class ATProtoFirehoseHandleTest(TestCase):
                          obj=obj.key.urlsafe(), authed_as='did:plc:user')
 
     def test_handle_store_cursor(self, mock_create_task):
+        now = None
+        def _now(tz=None):
+            assert tz is None
+            nonlocal now
+            return now
+
+        util.now = _now
+
         self.cursor.cursor = 444
         self.cursor.put()
 
@@ -396,15 +413,15 @@ class ATProtoFirehoseHandleTest(TestCase):
                 path='app.bsky.feed.post/123', record=POST_BSKY)
 
         # hasn't quite been long enough to store new cursor
-        util.now = lambda **kwargs: (self.cursor.updated + STORE_CURSOR_FREQ
-                                     - datetime.timedelta(seconds=1))
+        now = (self.cursor.updated.replace(tzinfo=timezone.utc)
+               + STORE_CURSOR_FREQ - timedelta(seconds=1))
         new_commits.put(op)
         handle(limit=1)
         self.assertEqual(444, self.cursor.key.get().cursor)
 
         # now it's been long enough
-        util.now = lambda **kwargs: (self.cursor.updated + STORE_CURSOR_FREQ
-                                     + datetime.timedelta(seconds=1))
+        now = (self.cursor.updated.replace(tzinfo=timezone.utc)
+               + STORE_CURSOR_FREQ + timedelta(seconds=1))
         new_commits.put(op)
         handle(limit=1)
         self.assertEqual(789, self.cursor.key.get().cursor)
