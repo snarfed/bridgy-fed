@@ -2,21 +2,23 @@
 import logging
 import os
 from pathlib import Path
-from threading import Timer
+import threading
+from threading import Thread, Timer
 
 import arroba.server
 from arroba import xrpc_sync
 from flask import Flask, request
 import lexrpc.client
 import lexrpc.flask_server
+from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
 from oauth_dropins.webutil import (
     appengine_config,
     flask_util,
     util,
 )
 
-# all protocols, and atproto-poll-notifs task handler
-import activitypub, atproto, web
+# all protocols
+import activitypub, atproto, atproto_firehose, web
 from common import USER_AGENT
 import models
 
@@ -54,7 +56,7 @@ def health_check():
 
 
 #
-# XRPC server, other URL routes
+# ATProto XRPC server, other URL routes
 #
 lexrpc.flask_server.init_flask(arroba.server.server, app)
 
@@ -75,6 +77,25 @@ def atproto_commit():
     """
     xrpc_sync.send_new_commits()
     return 'OK'
+
+
+#
+# ATProto firehose consumer
+#
+if LOCAL_SERVER or not DEBUG:
+    def subscribe():
+        with appengine_config.ndb_client.context():
+            atproto_firehose.subscribe()
+
+    assert 'atproto_firehose.subscribe' not in [t.name for t in threading.enumerate()]
+    Thread(target=subscribe, name='atproto_firehose.subscribe', daemon=True).start()
+
+    def handle():
+        with appengine_config.ndb_client.context():
+            atproto_firehose.handle()
+
+    assert 'atproto_firehose.handle' not in [t.name for t in threading.enumerate()]
+    Thread(target=handle, name='atproto_firehose.handle', daemon=True).start()
 
 
 # send requestCrawl to relay
