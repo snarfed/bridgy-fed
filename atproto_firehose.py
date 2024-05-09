@@ -244,7 +244,7 @@ def handle(limit=None):
         if limit is not None and count >= limit:
             return
 
-    assert False, "enqueue thread shouldn't reach here!"
+    assert False, "handle thread shouldn't reach here!"
 
 
 if __name__ == '__main__':

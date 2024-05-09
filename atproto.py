@@ -190,9 +190,9 @@ class ATProto(User, Protocol):
         """Returns our PDS URL as the target for the given object.
 
         ATProto delivery is indirect. We write all records to the user's local
-        repo that we host, then BGSes and other subscribers receive them via the
+        repo that we host, then relays and other subscribers receive them via the
         subscribeRepos event streams. So, we use a single target, our base URL
-        (eg ``https://atproto.brid.gy/``) as the PDS URL, for all activities.
+        (eg ``https://atproto.brid.gy``) as the PDS URL, for all activities.
         """
         if cls.owns_id(obj.key.id()) is not False:
             return cls.PDS_URL
@@ -342,7 +342,7 @@ class ATProto(User, Protocol):
         If the repo's DID doc doesn't say we're its PDS, does nothing and
         returns False.
 
-        Doesn't deliver anywhere externally! BGS(es) will receive this record
+        Doesn't deliver anywhere externally! Relays will receive this record
         through ``subscribeRepos`` and then deliver it to AppView(s), which will
         notify recipients as necessary.
         """
@@ -659,7 +659,7 @@ def poll_notifications():
 
             # TODO: verify sig. skipping this for now because we're getting
             # these from the AppView, which is trusted, specifically we expect
-            # the BGS and/or the AppView already checked sigs.
+            # the relay and/or the AppView already checked sigs.
             actor_did = notif['author']['did']
             obj = Object.get_or_create(id=notif['uri'], bsky=notif['record'],
                                        source_protocol=ATProto.ABBREV,
@@ -731,7 +731,7 @@ def poll_posts():
 
             # TODO: verify sig. skipping this for now because we're getting
             # these from the AppView, which is trusted, specifically we expect
-            # the BGS and/or the AppView already checked sigs.
+            # the relay and/or the AppView already checked sigs.
             assert did == post['author']['did']
             obj = Object.get_or_create(id=post['uri'], bsky=post['record'],
                                        source_protocol=ATProto.ABBREV, actor=did)

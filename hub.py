@@ -77,7 +77,7 @@ def atproto_commit():
     return 'OK'
 
 
-# send requestCrawl to BGS
+# send requestCrawl to relay
 # delay because we're not up and serving XRPCs at this point yet. not sure why not.
 if 'GAE_INSTANCE' in os.environ:  # prod
     def request_crawl():
@@ -87,4 +87,4 @@ if 'GAE_INSTANCE' in os.environ:  # prod
         logger.info(resp)
 
     Timer(15, request_crawl).start()
-    logger.info('Will send BGS requestCrawl in 15s')
+    logger.info('Will send relay requestCrawl in 15s')
