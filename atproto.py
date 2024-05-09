@@ -23,6 +23,7 @@ import requests
 from requests import RequestException
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
+from oauth_dropins.webutil.models import StringIdModel
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
@@ -77,6 +78,20 @@ def did_to_handle(did):
             handle, _, _ = parse_at_uri(aka)
             if handle:
                 return handle
+
+
+class Cursor(StringIdModel):
+    """The last cursor (sequence number) we've seen for a host and event stream.
+
+    https://atproto.com/specs/event-stream#sequence-numbers
+
+    Key id is ``[HOST] [XRPC]``, where ``[XRPC]`` is the NSID of the XRPC method
+    for the event stream. For example, `subscribeRepos` on the production relay
+    is ``bsky.network com.atproto.sync.subscribeRepos``.
+    """
+    cursor = ndb.IntegerProperty()
+    created = ndb.DateTimeProperty(auto_now_add=True)
+    updated = ndb.DateTimeProperty(auto_now=True)
 
 
 class ATProto(User, Protocol):

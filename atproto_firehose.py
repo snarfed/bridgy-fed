@@ -14,8 +14,9 @@ from granary.bluesky import AT_URI_PATTERN
 from lexrpc.client import Client
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import error_reporting_client
+from oauth_dropins.webutil.appengine_info import DEBUG
 
-from atproto import ATProto
+from atproto import ATProto, Cursor
 from common import add, create_task
 import models
 from models import Object
@@ -60,7 +61,8 @@ def subscribe(reconnect=True):
             _subscribe(atproto_dids=atproto_dids, bridged_dids=bridged_dids)
         except BaseException as err:
             logger.error(f'reporting error, atproto_firehose.subscribe: {err}')
-            error_reporting_client.report_exception()
+            if not DEBUG:
+                error_reporting_client.report_exception()
 
         if not reconnect:
             return
@@ -72,10 +74,12 @@ def _subscribe(atproto_dids=None, bridged_dids=None):
     assert atproto_dids is not None and bridged_dids is not None, \
         (atproto_dids, bridged_dids)
 
+    cursor = Cursor.get_by_id(
+        f'{os.environ["BGS_HOST"]} com.atproto.sync.subscribeRepos')
+    assert cursor
     client = Client(f'https://{os.environ["BGS_HOST"]}')
-    cursor = None  # TODO
 
-    for header, payload in client.com.atproto.sync.subscribeRepos(cursor=cursor):
+    for header, payload in client.com.atproto.sync.subscribeRepos(cursor=cursor.cursor):
         if header['op'] == -1:
             logger.warning(f'Got error from relay! {payload}')
             continue
@@ -187,6 +191,10 @@ def handle(limit=None):
     """
     logger.info(f'started thread to store objects and enqueue receive tasks')
 
+    cursor = Cursor.get_by_id(
+        f'{os.environ["BGS_HOST"]} com.atproto.sync.subscribeRepos')
+    assert cursor
+
     count = 0
     while op := new_commits.get():
         at_uri = f'at://{op.repo}/{op.path}'
@@ -217,7 +225,8 @@ def handle(limit=None):
             create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=op.repo)
         except BaseException as err:
             logger.error(f'reporting error, atproto_firehose.handle: {err}')
-            error_reporting_client.report_exception()
+            if not DEBUG:
+                error_reporting_client.report_exception()
 
         count += 1
         if limit is not None and count >= limit:

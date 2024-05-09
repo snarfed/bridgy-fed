@@ -1,4 +1,5 @@
 """Unit tests for atproto_firehose.py."""
+import datetime
 from unittest import skip
 from unittest.mock import patch
 
@@ -20,7 +21,7 @@ from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil import util
 import simple_websocket
 
-from atproto import ATProto
+from atproto import ATProto, Cursor
 from atproto_firehose import handle, new_commits, Op, subscribe
 import common
 from models import Object, PROTOCOLS, Target
@@ -84,6 +85,8 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         FakeWebsocketClient.sent = []
         FakeWebsocketClient.to_receive = []
 
+        self.cursor = Cursor(id='bgs.local com.atproto.sync.subscribeRepos')
+        self.cursor.put()
         assert new_commits.empty()
 
         self.alice = self.make_user(
@@ -128,6 +131,16 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         subscribe(reconnect=False)
         self.assertTrue(new_commits.empty())
 
+    def test_cursor(self):
+        self.cursor.cursor = 987
+        self.cursor.put()
+
+        subscribe(reconnect=False)
+        self.assertTrue(new_commits.empty())
+        self.assertEqual(
+            'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=987',
+            FakeWebsocketClient.url)
+
     def test_non_commit(self):
         FakeWebsocketClient.to_receive = [(
             {'op': 1, 't': '#handle'},
@@ -136,6 +149,8 @@ class ATProtoFirehoseSubscribeTest(TestCase):
 
         subscribe(reconnect=False)
         self.assertTrue(new_commits.empty())
+        self.assertEqual('https://bgs.local/xrpc/com.atproto.sync.subscribeRepos',
+                         FakeWebsocketClient.url)
 
     def test_post_by_our_atproto_user(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)
@@ -328,6 +343,9 @@ class ATProtoFirehoseHandleTest(TestCase):
     def setUp(self):
         super().setUp()
         common.RUN_TASKS_INLINE = False
+
+        self.cursor = Cursor(id='bgs.local com.atproto.sync.subscribeRepos')
+        self.cursor.put()
 
         self.store_object(id='did:plc:user', raw=DID_DOC)
         user = self.make_user('did:plc:user', cls=ATProto,
