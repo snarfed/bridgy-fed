@@ -13,7 +13,7 @@ from Crypto.Util import number
 from flask import abort, g, make_response, request
 from google.protobuf.timestamp_pb2 import Timestamp
 from oauth_dropins.webutil import util, webmention
-from oauth_dropins.webutil.appengine_config import tasks_client
+from oauth_dropins.webutil.appengine_config import error_reporting_client, tasks_client
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil import flask_util
@@ -329,3 +329,23 @@ def email_me(msg):
         util.send_email(smtp_host=SMTP_HOST, smtp_port=SMTP_PORT,
                         from_='scufflechuck@gmail.com', to='bridgy-fed@ryanb.org',
                         subject=util.ellipsize(msg), body=msg)
+
+
+def report_error(msg, **kwargs):
+    """Reports an error to StackDriver Error Reporting.
+
+    https://cloud.google.com/error-reporting/docs/reference/libraries#client-libraries-install-python
+
+    Duplicated in ``bridgy.util``.
+
+    Args:
+        msg (str)
+    """
+    logger.error(f'reporting error: {msg}')
+    try:
+        error_reporting_client.report(msg, **kwargs)
+    except BaseException:
+        if not DEBUG:
+            logger.warning(f'Failed to report error to StackDriver! {msg} {kwargs}', exc_info=True)
+
+
