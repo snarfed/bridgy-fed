@@ -1716,17 +1716,17 @@ class ProtocolReceiveTest(TestCase):
     @patch('requests.get')
     def test_skip_web_same_domain(self, mock_get, mock_post):
         Web.fetchable = {
-            'http://x.com/alice': {},
-            'http://x.com/bob': {},
-            'http://x.com/eve': {},
+            'http://z.com/alice': {},
+            'http://z.com/bob': {},
+            'http://z.com/eve': {},
         }
 
         follow_as1 = {
-            'id': 'http://x.com/follow',
+            'id': 'http://z.com/follow',
             'objectType': 'activity',
             'verb': 'follow',
-            'actor': 'http://x.com/alice',
-            'object': ['http://x.com/bob', 'http://x.com/eve'],
+            'actor': 'http://z.com/alice',
+            'object': ['http://z.com/bob', 'http://z.com/eve'],
         }
 
         with self.assertRaises(NoContent):

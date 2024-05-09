@@ -58,10 +58,12 @@ LOCAL_DOMAINS = (
 DOMAINS = (PRIMARY_DOMAIN,) + PROTOCOL_DOMAINS + OTHER_DOMAINS + LOCAL_DOMAINS
 # TODO: unify with Bridgy's
 DOMAIN_BLOCKLIST = (
+    'bsky.social',
     'facebook.com',
     'fb.com',
     't.co',
     'twitter.com',
+    'x.com',
 )
 
 SMTP_HOST = 'smtp.gmail.com'
