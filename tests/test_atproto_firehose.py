@@ -140,7 +140,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         subscribe(reconnect=False)
         self.assertTrue(new_commits.empty())
         self.assertEqual(
-            'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=444',
+            'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=445',
             FakeWebsocketClient.url)
 
     def test_non_commit(self):

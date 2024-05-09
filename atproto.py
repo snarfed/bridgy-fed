@@ -88,6 +88,9 @@ class Cursor(StringIdModel):
     Key id is ``[HOST] [XRPC]``, where ``[XRPC]`` is the NSID of the XRPC method
     for the event stream. For example, `subscribeRepos` on the production relay
     is ``bsky.network com.atproto.sync.subscribeRepos``.
+
+    ``cursor`` is the latest sequence number that we know we've seen, so when we
+    re-subscribe to this event stream, we should send ``cursor + 1``.
     """
     cursor = ndb.IntegerProperty()
     created = ndb.DateTimeProperty(auto_now_add=True)

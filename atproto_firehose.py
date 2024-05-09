@@ -82,7 +82,8 @@ def _subscribe(atproto_dids=None, bridged_dids=None):
 
     client = Client(f'https://{os.environ["BGS_HOST"]}')
 
-    for header, payload in client.com.atproto.sync.subscribeRepos(cursor=cursor.cursor):
+    sub_cursor = cursor.cursor + 1 if cursor.cursor else None
+    for header, payload in client.com.atproto.sync.subscribeRepos(cursor=sub_cursor):
         # parse header
         if header['op'] == -1:
             logger.warning(f'Got error from relay! {payload}')
