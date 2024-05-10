@@ -604,6 +604,7 @@ a.active-tab + a {
 }
 
 input[type="text"], input[type="url"] {
+  color: black;  /* overrides .front-dark */
   padding-left: .3em;
   padding-right: .3em;
   border: 1px solid black;
