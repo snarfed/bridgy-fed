@@ -1,4 +1,5 @@
 """Unit tests for atproto_firehose.py."""
+import copy
 from datetime import timedelta, timezone
 from unittest import skip
 from unittest.mock import patch
@@ -31,6 +32,8 @@ import protocol
 from .testutil import ExplicitEnableFake, Fake, TestCase
 from .test_atproto import DID_DOC
 
+A_CID = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
+
 
 class FakeWebsocketClient:
     """Fake of :class:`simple_websocket.Client`."""
@@ -50,19 +53,18 @@ class FakeWebsocketClient:
 
     @classmethod
     def setup_receive(cls, op):
-        cid = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
         if op.action == 'delete':
             block_bytes = b''
         else:
             block = Block(decoded=op.record)
-            block_bytes = write_car([cid], [block])
+            block_bytes = write_car([A_CID], [block])
 
         cls.to_receive = [({
             'op': 1,
             't': '#commit',
         }, {
             'blocks': block_bytes,
-            'commit': cid,
+            'commit': A_CID,
             'ops': [{
                 'action': op.action,
                 'cid': None if op.action == 'delete' else block.cid,
@@ -176,8 +178,15 @@ class ATProtoFirehoseSubscribeTest(TestCase):
             '$type': 'app.bsky.feed.post',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
-                'parent': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
-                'root': {'uri': '-'},
+                'parent': {
+                    'uri': 'at://did:alice/app.bsky.feed.post/tid',
+                    # test that we encode CIDs and bytes as JSON
+                    'cid': A_CID,
+                },
+                'root': {
+                    'uri': '-',
+                    'cid': A_CID,
+                },
             },
         })
 
@@ -364,14 +373,21 @@ class ATProtoFirehoseHandleTest(TestCase):
         atproto_firehose.dids_initialized.clear()
 
     def test_handle_create(self, mock_create_task):
+        reply = copy.deepcopy(REPLY_BSKY)
+        # test that we encode CIDs and bytes as JSON
+        reply['reply']['root']['cid'] = reply['reply']['parent']['cid'] = A_CID
+
         new_commits.put(Op(repo='did:plc:user', action='create', seq=789,
-                           path='app.bsky.feed.post/123', record=POST_BSKY))
+                           path='app.bsky.feed.post/123', record=reply))
 
         handle(limit=1)
 
+        expected = copy.deepcopy(REPLY_BSKY)
+        expected['reply']['root']['cid'] = expected['reply']['parent']['cid'] = \
+            A_CID.encode()
         user_key = ATProto(id='did:plc:user').key
         obj = self.assert_object('at://did:plc:user/app.bsky.feed.post/123',
-                                 bsky=POST_BSKY, source_protocol='atproto',
+                                 bsky=expected, source_protocol='atproto',
                                  status='new', users=[user_key],
                                  ignore=['our_as1'])
         self.assert_task(mock_create_task, 'receive', '/queue/receive',

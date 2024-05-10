@@ -17,6 +17,7 @@ from lexrpc.client import Client
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
+from oauth_dropins.webutil.util import json_loads
 
 from atproto import ATProto, Cursor
 from common import add, create_task, report_exception
@@ -236,10 +237,10 @@ def handle(limit=None):
         at_uri = f'at://{op.repo}/{op.path}'
 
         # store object, enqueue receive task
-        # TODO: for Object.bsky, does record have CIDs etc? how do we store?
-        # dag-json? how are polls doing this?
         if op.action in ('create', 'update'):
-            record_kwarg = {'bsky': op.record}
+            record_kwarg = {
+                'bsky': json_loads(dag_json.encode(op.record, compact=True)),
+            }
             obj_id = at_uri
         elif op.action == 'delete':
             obj_id = f'{at_uri}#delete'
