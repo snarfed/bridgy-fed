@@ -6,7 +6,7 @@ import itertools
 import logging
 import os
 from queue import SimpleQueue
-from threading import Lock, Thread, Timer
+from threading import Event, Lock, Thread, Timer
 import time
 
 from carbox import read_car
@@ -38,35 +38,31 @@ new_commits = SimpleQueue()
 
 atproto_dids = None
 bridged_dids = None
-load_dids_thread = None
+dids_initialized = Event()
 load_dids_lock = Lock()
 
 
 def load_dids():
-    global load_dids_thread
-
     with load_dids_lock:
-        if load_dids_thread:
+        if dids_initialized.is_set():
             return
 
         # run in a separate thread since it needs to make its own NDB
         # context when it runs in the timer thread
-        load_dids_thread = Thread(target=_load_dids)
-
-    load_dids_thread.start()
-    load_dids_thread.join()
+        Thread(target=_load_dids).start()
+        dids_initialized.wait()
 
 
 def _load_dids():
     global atproto_dids, bridged_dids, load_dids_thread
 
-    with load_dids_lock, ndb_client.context():
+    with ndb_client.context():
         if not DEBUG:
-            load_dids_thread = Timer(STORE_CURSOR_FREQ.total_seconds(), _load_dids)
-            load_dids_thread.start()
+            Timer(STORE_CURSOR_FREQ.total_seconds(), _load_dids).start()
 
-        atproto_query = ATProto.query(ATProto.enabled_protocols != None)
-        atproto_dids = frozenset(key.id() for key in atproto_query.iter(keys_only=True))
+        atproto_dids = frozenset(key.id() for key in
+                                 ATProto.query(ATProto.enabled_protocols != None
+                                      ).iter(keys_only=True))
 
         others_queries = itertools.chain(*(
             cls.query(cls.copies.protocol == 'atproto').iter()
@@ -74,6 +70,7 @@ def _load_dids():
             if cls and cls != ATProto))
         bridged_dids = frozenset(user.get_copy(ATProto) for user in others_queries)
 
+        dids_initialized.set()
         logger.info(f'Loaded {len(atproto_dids)} ATProto, {len(bridged_dids)} bridged dids')
 
 
@@ -258,6 +255,7 @@ def handle(limit=None):
             continue
 
         try:
+            # logger.info(f'enqueuing receive task for {at_uri}')
             obj = Object.get_or_create(id=obj_id, actor=op.repo, status='new',
                                        users=[ATProto(id=op.repo).key],
                                        source_protocol=ATProto.LABEL, **record_kwarg)
@@ -269,7 +267,7 @@ def handle(limit=None):
 
         if util.now().replace(tzinfo=None) - cursor.updated > STORE_CURSOR_FREQ:
             # it's been long enough, update our stored cursor
-            logger.info(f'updating stored cursor to {op.seq}')
+            # logger.info(f'updating stored cursor to {op.seq}')
             cursor.cursor = op.seq
             cursor.put()
 

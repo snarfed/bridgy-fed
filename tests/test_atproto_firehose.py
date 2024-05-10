@@ -93,7 +93,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
 
         atproto_firehose.atproto_dids = None
         atproto_firehose.bridged_dids = None
-        atproto_firehose.load_dids_thread = None
+        atproto_firehose.dids_initialized.clear()
 
         self.alice = self.make_user(
             'eefake:alice', cls=ExplicitEnableFake,
@@ -361,7 +361,7 @@ class ATProtoFirehoseHandleTest(TestCase):
 
         atproto_firehose.atproto_dids = None
         atproto_firehose.bridged_dids = None
-        atproto_firehose.loaded_dids_at = None
+        atproto_firehose.dids_initialized.clear()
 
     def test_handle_create(self, mock_create_task):
         new_commits.put(Op(repo='did:plc:user', action='create', seq=789,
