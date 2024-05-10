@@ -69,3 +69,8 @@ indexes:
   properties:
   - name: to
   - name: from
+
+- kind: AtpBlock
+  properties:
+  - name: repo
+  - name: seq
