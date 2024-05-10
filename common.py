@@ -331,21 +331,17 @@ def email_me(msg):
                         subject=util.ellipsize(msg), body=msg)
 
 
-def report_error(msg, **kwargs):
-    """Reports an error to StackDriver Error Reporting.
+def report_exception(**kwargs):
+    """Reports the current exception to StackDriver Error Reporting.
 
     https://cloud.google.com/error-reporting/docs/reference/libraries#client-libraries-install-python
 
     Duplicated in ``bridgy.util``.
-
-    Args:
-        msg (str)
     """
-    logger.error(f'reporting error: {msg}')
     try:
-        error_reporting_client.report(msg, **kwargs)
+        error_reporting_client.report_exception(**kwargs)
     except BaseException:
         if not DEBUG:
-            logger.warning(f'Failed to report error to StackDriver! {msg} {kwargs}', exc_info=True)
+            logger.warning(f'Failed to report error! {kwargs}', exc_info=True)
 
 

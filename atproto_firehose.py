@@ -19,7 +19,7 @@ from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
 
 from atproto import ATProto, Cursor
-from common import add, create_task, report_error
+from common import add, create_task, report_exception
 import models
 from models import Object
 
@@ -87,10 +87,10 @@ def subscribe(reconnect=True):
     while True:
         try:
             _subscribe()
-        except BaseException as err:
+        except BaseException:
             if DEBUG:
                 raise
-            report_error(err)
+            report_exception()
 
         if not reconnect:
             return
@@ -260,10 +260,10 @@ def handle(limit=None):
                                        users=[ATProto(id=op.repo).key],
                                        source_protocol=ATProto.LABEL, **record_kwarg)
             create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=op.repo)
-        except BaseException as err:
+        except BaseException:
             if DEBUG:
                 raise
-            report_error(err)
+            report_exception()
 
         if util.now().replace(tzinfo=None) - cursor.updated > STORE_CURSOR_FREQ:
             # it's been long enough, update our stored cursor
