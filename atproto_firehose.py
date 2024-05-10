@@ -9,6 +9,7 @@ from queue import SimpleQueue
 from threading import Event, Lock, Thread, Timer
 import time
 
+from arroba.datastore_storage import AtpRepo
 from carbox import read_car
 import dag_json
 from google.cloud import ndb
@@ -21,7 +22,6 @@ from oauth_dropins.webutil.util import json_loads
 
 from atproto import ATProto, Cursor
 from common import add, create_task, report_exception
-import models
 from models import Object
 
 RECONNECT_DELAY = timedelta(seconds=30)
@@ -64,12 +64,8 @@ def _load_dids():
         atproto_dids = frozenset(key.id() for key in
                                  ATProto.query(ATProto.enabled_protocols != None
                                       ).iter(keys_only=True))
-
-        others_queries = itertools.chain(*(
-            cls.query(cls.copies.protocol == 'atproto').iter()
-            for cls in set(models.PROTOCOLS.values())
-            if cls and cls != ATProto))
-        bridged_dids = frozenset(user.get_copy(ATProto) for user in others_queries)
+        bridged_dids = frozenset(key.id() for key in
+                                 AtpRepo.query().iter(keys_only=True))
 
         dids_initialized.set()
         logger.info(f'Loaded {len(atproto_dids)} ATProto, {len(bridged_dids)} bridged dids')

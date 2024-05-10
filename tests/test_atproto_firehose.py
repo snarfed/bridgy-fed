@@ -4,6 +4,7 @@ from datetime import timedelta, timezone
 from unittest import skip
 from unittest.mock import patch
 
+from arroba.datastore_storage import AtpRepo
 import arroba.util
 from carbox import read_car, write_car
 from carbox.car import Block
@@ -97,9 +98,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         atproto_firehose.bridged_dids = None
         atproto_firehose.dids_initialized.clear()
 
-        self.alice = self.make_user(
-            'eefake:alice', cls=ExplicitEnableFake,
-            copies=[Target(protocol='atproto', uri='did:alice')])
+        AtpRepo(id='did:alice', head='', signing_key_pem=b'').put()
 
     def assert_enqueues(self, record=None, repo='did:plc:user', action='create',
                         path='app.bsky.feed.post/abc123'):
