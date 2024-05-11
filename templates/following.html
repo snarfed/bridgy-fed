@@ -2,7 +2,7 @@
 {% set subtab = "following" %}
 
 {% block subsubtabs %}
-{% if user.LABEL != 'activitypub' %}
+{% if user.LABEL == 'web' %}
 <div class="row">
 <form method="post" action="/follow/start">
 <p>
