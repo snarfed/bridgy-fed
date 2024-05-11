@@ -238,6 +238,7 @@ ACTOR = TestCase.as2_resp({
     'name': 'Mrs. ☕ Foo',
     'id': 'https://mas.to/mrs-foo',
     'inbox': 'https://mas.to/inbox',
+    'image': 'http://pic',
 })
 
 AS2_CREATE = {
@@ -1332,10 +1333,12 @@ class WebTest(TestCase):
                                  )
 
         to = self.assert_user(ActivityPub, 'https://mas.to/mrs-foo', obj_as2={
-            'name': 'Mrs. ☕ Foo',
-            'id': 'https://mas.to/mrs-foo',
-            'inbox': 'https://mas.to/inbox',
             'type': 'Person',
+            'id': 'https://mas.to/mrs-foo',
+            'name': 'Mrs. ☕ Foo',
+            'image': {'url': 'http://pic/', 'type': 'Image'},
+            'icon': {'url': 'http://pic/', 'type': 'Image'},
+            'inbox': 'https://mas.to/inbox',
         })
 
         followers = Follower.query().fetch()

@@ -80,6 +80,8 @@ class ActivityPub(User, Protocol):
     LOGO_HTML = '<img src="/static/fediverse_logo.svg">'
     CONTENT_TYPE = as2.CONTENT_TYPE_LD_PROFILE
     HAS_FOLLOW_ACCEPTS = True
+    REQUIRES_AVATAR = True
+    REQUIRES_NAME = True
     DEFAULT_ENABLED_PROTOCOLS = ('web',)
 
     def _pre_put_hook(self):

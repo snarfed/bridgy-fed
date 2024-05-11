@@ -113,6 +113,8 @@ class ATProto(User, Protocol):
     PDS_URL = f'https://atproto{common.SUPERDOMAIN}'
     CONTENT_TYPE = 'application/json'
     HAS_COPIES = True
+    REQUIRES_AVATAR = True
+    REQUIRES_NAME = True
     DEFAULT_ENABLED_PROTOCOLS = ()
 
     def _pre_put_hook(self):

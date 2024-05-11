@@ -312,6 +312,7 @@ class IntegrationTests(TestCase):
                                  'type': 'Person',
                                  'id': 'https://inst/bob',
                                  'name': 'Bob',
+                                 'image': 'http://pic',
                              })
 
         bob_did_doc = copy.deepcopy(test_atproto.DID_DOC)
@@ -378,6 +379,7 @@ class IntegrationTests(TestCase):
             'name': 'Mrs. ☕ Alice',
             'preferredUsername': 'alice',
             'inbox': 'http://inst/inbox',
+            'image': 'http://pic',
         })
         self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
 

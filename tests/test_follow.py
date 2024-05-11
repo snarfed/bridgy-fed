@@ -37,9 +37,11 @@ WEBFINGER = requests_response({
 FOLLOWEE = {
     'type': 'Person',
     'id': 'https://ba.r/id',
+    'name': 'Bar',
     'url': 'https://ba.r/url',
     'inbox': 'http://ba.r/inbox',
     'outbox': 'http://ba.r/outbox',
+    'image': 'http://pic',
 }
 FOLLOW_ADDRESS = {
     '@context': 'https://www.w3.org/ns/activitystreams',
