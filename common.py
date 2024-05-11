@@ -336,8 +336,13 @@ def report_exception(**kwargs):
 
     https://cloud.google.com/error-reporting/docs/reference/libraries#client-libraries-install-python
 
+    If ``DEBUG`` is ``True``, re-raises the exception instead.
+
     Duplicated in ``bridgy.util``.
     """
+    if DEBUG:
+        raise
+
     try:
         error_reporting_client.report_exception(**kwargs)
     except BaseException:
