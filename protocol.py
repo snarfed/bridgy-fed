@@ -83,6 +83,12 @@ class Protocol:
       HAS_COPIES (bool): whether this protocol is push and needs us to
         proactively create "copy" users and objects, as opposed to pulling
         converted objects on demand
+      REQUIRES_AVATAR (bool): whether accounts on this protocol are required
+        to have a profile picture. If they don't, their ``User.status`` will be
+        ``blocked``.
+      REQUIRES_NAME (bool): whether accounts on this protocol are required to
+        have a profile name that's different than their handle or id. If they
+        don't, their ``User.status`` will be ``blocked``.
       DEFAULT_ENABLED_PROTOCOLS (list of str): labels of other protocols that
         are automatically enabled for this protocol to bridge into
     """
@@ -93,6 +99,8 @@ class Protocol:
     CONTENT_TYPE = None
     HAS_FOLLOW_ACCEPTS = False
     HAS_COPIES = False
+    REQUIRES_AVATAR = False
+    REQUIRES_NAME = False
     DEFAULT_ENABLED_PROTOCOLS = ()
 
     def __init__(self):
@@ -237,7 +245,7 @@ class Protocol:
         # load user so that we follow use_instead
         existing = cls.get_by_id(id, allow_opt_out=True)
         if existing:
-            if existing.status == 'opt-out':
+            if existing.status is not None:
                 return None
             return existing.key
 
@@ -359,7 +367,7 @@ class Protocol:
         for proto in candidates:
             user = proto.query(proto.handle == handle).get()
             if user:
-                if user.status == 'opt-out':
+                if user.status is not None:
                     return (None, None)
                 logger.info(f'  user {user.key} owns handle {handle}')
                 return (proto, user.key.id())

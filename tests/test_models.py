@@ -281,6 +281,24 @@ class UserTest(TestCase):
         user = User(manual_opt_out=True)
         self.assertEqual('opt-out', user.status)
 
+    @patch.object(Fake, 'REQUIRES_AVATAR', True)
+    def test_requires_avatar(self):
+        user = self.make_user(id='fake:user', cls=Fake,
+                              obj_as1={'displayName': 'Alice'})
+        self.assertEqual('blocked', user.status)
+
+        user.obj.our_as1['image'] = 'http://pic'
+        self.assertIsNone(user.status)
+
+    @patch.object(Fake, 'REQUIRES_NAME', True)
+    def test_requires_avatar(self):
+        user = self.make_user(id='fake:user', cls=Fake,
+                              obj_as1={'image': 'http://pic'})
+        self.assertEqual('blocked', user.status)
+
+        user.obj.our_as1['displayName'] = 'Alice'
+        self.assertIsNone(user.status)
+
     def test_get_copy(self):
         user = Fake(id='x')
         self.assertEqual('x', user.get_copy(Fake))

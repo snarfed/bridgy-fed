@@ -341,13 +341,17 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     @ndb.ComputedProperty
     def status(self):
-        """Whether this user has explicitly opted out of Bridgy Fed.
+        """Whether this user is blocked or opted out.
 
         Optional. Current possible values:
-          * ``opt-out``
 
-        Currently just looks for ``#nobridge`` or ``#nobot`` in the profile
-        description/bio.
+          * ``opt-out``: if ``#nobridge`` or ``#nobot`` is in the profile
+            description/bio, or if the user or domain has manually opted out.
+            Some protocols also have protocol-specific opt out logic, eg Bluesky
+            accounts that have disabled logged out view.
+          * ``blocked``: if the user fails our validation checks, eg
+            ``REQUIRES_NAME`` or ``REQUIRES_AVATAR`` if either of those are
+            ``True` for this protocol.
 
         Duplicates ``util.is_opt_out`` in Bridgy!
 
@@ -359,6 +363,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if not self.obj or not self.obj.as1:
             return None
 
+        if ((self.REQUIRES_AVATAR and not self.obj.as1.get('image')) or
+            (self.REQUIRES_NAME and not self.obj.as1.get('displayName'))):
+            return 'blocked'
+
         if not as1.is_public(self.obj.as1, unlisted=False):
             return 'opt-out'
 
@@ -368,15 +376,13 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                 if tag in text:
                     return 'opt-out'
 
-        return None
-
     def is_enabled(self, to_proto):
         """Returns True if this user can be bridged to a given protocol.
 
         Reasons this might return False:
         * We haven't turned on bridging these two protocols yet.
-        * The user is opted out.
-        * The user is on a domain that's opted out.
+        * The user is opted out or blocked.
+        * The user is on a domain that's opted out or blocked.
         * The from protocol requires opt in, and the user hasn't opted in.
 
         Args:

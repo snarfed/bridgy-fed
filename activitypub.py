@@ -132,8 +132,9 @@ class ActivityPub(User, Protocol):
         if status:
             return status
 
-        return util.domain_or_parent_in(util.domain_from_link(self.key.id()),
-                                        WEB_OPT_OUT_DOMAINS)
+        if util.domain_or_parent_in(util.domain_from_link(self.key.id()),
+                                    WEB_OPT_OUT_DOMAINS):
+            return 'opt-out'
 
 
     @classmethod
