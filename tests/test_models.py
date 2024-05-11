@@ -296,6 +296,12 @@ class UserTest(TestCase):
                               obj_as1={'image': 'http://pic'})
         self.assertEqual('blocked', user.status)
 
+        user.obj.our_as1['displayName'] = 'fake:user'
+        self.assertEqual('blocked', user.status)
+
+        user.obj.our_as1['displayName'] = 'fake:handle:user'
+        self.assertEqual('blocked', user.status)
+
         user.obj.our_as1['displayName'] = 'Alice'
         self.assertIsNone(user.status)
 

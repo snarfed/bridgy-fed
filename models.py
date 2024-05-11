@@ -363,8 +363,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if not self.obj or not self.obj.as1:
             return None
 
-        if ((self.REQUIRES_AVATAR and not self.obj.as1.get('image')) or
-            (self.REQUIRES_NAME and not self.obj.as1.get('displayName'))):
+        if self.REQUIRES_AVATAR and not self.obj.as1.get('image'):
+            return 'blocked'
+
+        name = self.obj.as1.get('displayName')
+        if self.REQUIRES_NAME and (not name or name in (self.handle, self.key.id())):
             return 'blocked'
 
         if not as1.is_public(self.obj.as1, unlisted=False):
