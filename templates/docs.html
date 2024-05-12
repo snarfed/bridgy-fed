@@ -58,6 +58,7 @@
 <!-- <li><a href="#fediverse-DM">What is this DM I got from a <code>*.brid.gy</code> account?</a></li> -->
 <!-- <li><a href="#fediverse-no-DM">Someone requested to follow me, but I never got the DM!</a></li> -->
 <li><a href="#fediverse-what">Which stuff of mine from the fediverse will get bridged?</a></li>
+<li><a href="#fediverse-cant-find">I followed <code>@bsky.brid.gy@bsky.brid.gy</code>, but I can't find my bridged account on Bluesky!</a></li>
 
 <br>
 
@@ -74,7 +75,7 @@
 
 <li><a href="#bluesky-get-started">How do I get started?</a></li>
 <li><a href="#bluesky-follow">How do I find a bridged fediverse account?</a></li>
-<li><a href="#bluesky-delay">I followed @ap.brid.gy, or followed someone else or posted or did something else in Bluesky, but it hasn't shown up in the fediverse yet!</a></li>
+<li><a href="#bluesky-cant-find">I followed @ap.brid.gy, but I can't find my bridged account in the fediverse!</a></li>
 <li><a href="#bluesky-what-from">Which stuff of mine from Bluesky will get bridged?</a>
 <li><a href="#bluesky-reply-controls">Can I use Bluesky's reply controls?</a></li>
 
@@ -331,6 +332,15 @@
 </li>
 
 
+<li id="fediverse-cant-find" class="question">I followed <code>@bsky.brid.gy@bsky.brid.gy</code>, but I can't find my bridged account on Bluesky!</li>
+<li class="answer">
+<ul>
+<li>Does your account have a profile picture and a name that's different from your handle? Those are both currently required for fediverse accounts.</li>
+<li>If your server advertises account age (like eg Mastodon), Bridgy Fed requires that your account is at least two weeks old.</li>
+</ul>
+</li>
+
+
 <li id="fediverse-follow-web" class="question">How do I find a bridged web site?</li>
 <li class="answer">
 <p>You can follow any web site, eg <a class="handle" href="https://example.com/">example.com</a>, by searching for <span class="handle">@example.com@web.brid.gy</span> in your fediverse instance.</p>
@@ -442,7 +452,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <li class="answer">
 <p><em>⚠️ Bridging from Bluesky to the fediverse is currently in early beta testing. Expect bugs, incomplete features, downtime, and other rough edges! ⚠️</em></p>
 <p>To bridge your Bluesky account into the fediverse and interact with people there, follow <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a> on Bluesky.</p>
-<p><a href="https://fed.brid.gy/docs#bluesky-delay">After a few minutes</a>, your Bluesky account will appear in the fediverse as <code>@[handle]@bsky.brid.gy</code>. For example, <a href="https://bsky.app/profile/snarfed.bsky.social">@snarfed.bsky.social</a> on Bluesky is bridged into the fediverse as <code>@snarfed.bsky.social@bsky.brid.gy</code>.</p>
+<p>After a few minutes, your Bluesky account will appear in the fediverse as <code>@[handle]@bsky.brid.gy</code>. For example, <a href="https://bsky.app/profile/snarfed.bsky.social">@snarfed.bsky.social</a> on Bluesky is bridged into the fediverse as <code>@snarfed.bsky.social@bsky.brid.gy</code>.</p>
 <p>Alternatively, <a href="#bluesky-follow">you can find and follow bridged fediverse accounts</a> without bridging your own account, but they won't see your posts or interactions.<p>
 </li>
 
@@ -453,9 +463,12 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 </li>
 
 
-<li id="bluesky-delay" class="question">I followed <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a>, or followed someone else or posted or did something else in Bluesky, but it hasn't shown up in the fediverse yet!</li>
+<li id="bluesky-cant-find" class="question">I followed <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a>, but I can't find my bridged account in the fediverse!</li>
 <li class="answer">
-<p>Bluesky uses a pull-based event architecture, so we have to poll every bridged user's notifications to discover and bridge interactions, including your initial follow of <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a>. This can take up to 15 minutes or longer right now, depending on load. <a href="https://github.com/snarfed/bridgy-fed/issues/978">We're working on improving this.</a> Sorry for the delay in the meantime!
+<ul>
+<li>Do you have the <a href="https://bsky.app/profile/safety.bsky.app/post/3khhw7s3rtx2s">"hide account in logged out view"</a> setting enabled? Bridgy Fed interprets that as opting out and won't bridge your account while it's on.</li>
+<li>Does your account have a profile picture and a name that's different from your handle? Those are both currently required for Bluesky accounts.</li>
+</ul>
 </li>
 
 
