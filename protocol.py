@@ -54,6 +54,10 @@ SUPPORTED_TYPES = (
 
 OBJECT_REFRESH_AGE = timedelta(days=30)
 
+# require a follow for users on these domains before we deliver anything from
+# them other than their profile
+LIMITED_DOMAINS = util.read('limited_domains')
+
 # activity ids that we've already handled and can now ignore.
 # used in Protocol.receive
 seen_ids = LRUCache(100000)
@@ -1260,10 +1264,17 @@ class Protocol:
             # })
 
             if 'atproto' in from_user.enabled_protocols:
-                from atproto import ATProto
-                targets.setdefault(Target(protocol=ATProto.LABEL, uri=ATProto.PDS_URL),
-                                   None)
-                logger.info(f'user has ATProto enabled, added target {ATProto.PDS_URL}')
+                if (not followers and
+                    (util.domain_or_parent_in(
+                        util.domain_from_link(from_user.key.id()), LIMITED_DOMAINS)
+                     or util.domain_or_parent_in(
+                         util.domain_from_link(obj.key.id()), LIMITED_DOMAINS))):
+                    logger.info(f'skipping ATProto, {from_user.key.id()} is on a limited domain and has no followers')
+                else:
+                    from atproto import ATProto
+                    targets.setdefault(
+                        Target(protocol=ATProto.LABEL, uri=ATProto.PDS_URL), None)
+                    logger.info(f'user has ATProto enabled, adding {ATProto.PDS_URL}')
 
         # de-dupe targets, discard same-domain
         # maps string target URL to (Target, Object) tuple

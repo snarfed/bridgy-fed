@@ -29,7 +29,7 @@ from protocol import Protocol
 from ui import UIProtocol
 from web import Web
 
-from .test_activitypub import ACTOR
+from .test_activitypub import ACTOR, NOTE
 from .test_atproto import DID_DOC
 from .test_web import ACTOR_HTML_RESP, ACTOR_AS1_UNWRAPPED_URLS, ACTOR_MF2_REL_URLS
 
@@ -2019,6 +2019,46 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], user.enabled_protocols)
         self.assertEqual([], Fake.created_for)
         self.assertFalse(user.is_enabled(Fake))
+
+    @patch('protocol.LIMITED_DOMAINS', ['lim.it'])
+    @patch('requests.get')
+    def test_limited_domain_update_profile_without_follow(self, mock_get):
+        actor = {
+            **ACTOR,
+            'id': 'https://lim.it/alice',
+        }
+        mock_get.side_effect = [
+            self.as2_resp(actor),
+        ]
+
+        with self.assertRaises(NoContent):
+            got = ActivityPub.receive(Object(our_as1={
+                'id': 'https://lim.it/alice#update',
+                'objectType': 'activity',
+                'verb': 'update',
+                'actor': 'https://lim.it/alice',
+                'object': actor,
+            }))
+
+        self.assert_object('https://lim.it/alice',
+                           source_protocol='activitypub',
+                           our_as1=actor)
+
+    @patch('protocol.LIMITED_DOMAINS', ['lim.it'])
+    @patch.object(ATProto, 'send')
+    @patch('requests.get')
+    def test_inbox_limited_domain_create_without_follow_no_atproto(
+            self, mock_get, mock_send):
+        actor = 'https://lim.it/alice'
+        user = self.make_user(id=actor, cls=ActivityPub, enabled_protocols=['atproto'])
+
+        got = self.post('/user.com/inbox', json={
+            **NOTE,
+            'id': 'https://lim.it/note',
+            'actor': actor,
+        })
+        self.assertEqual(204, got.status_code)
+        mock_send.assert_not_called()
 
     def test_receive_task_handler(self):
         note = {
