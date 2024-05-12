@@ -291,7 +291,7 @@ class UserTest(TestCase):
         self.assertIsNone(user.status)
 
     @patch.object(Fake, 'REQUIRES_NAME', True)
-    def test_requires_avatar(self):
+    def test_requires_name(self):
         user = self.make_user(id='fake:user', cls=Fake,
                               obj_as1={'image': 'http://pic'})
         self.assertEqual('blocked', user.status)
