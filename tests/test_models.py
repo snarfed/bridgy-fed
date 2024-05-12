@@ -307,7 +307,7 @@ class UserTest(TestCase):
         self.assertIsNone(user.status)
 
     @patch.object(Fake, 'REQUIRES_OLD_ACCOUNT', True)
-    def test_requires_name(self):
+    def test_requires_old_account(self):
         user = self.make_user(id='fake:user', cls=Fake, obj_as1={
             'foo': 'bar',
         })
