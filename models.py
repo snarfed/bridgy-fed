@@ -24,7 +24,15 @@ from oauth_dropins.webutil.models import JsonProperty, StringIdModel
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
-from common import add, base64_to_long, DOMAIN_RE, long_to_base64, remove, unwrap
+from common import (
+    add,
+    base64_to_long,
+    DOMAIN_RE,
+    long_to_base64,
+    OLD_ACCOUNT_AGE,
+    remove,
+    unwrap,
+)
 import ids
 
 # maps string label to Protocol subclass. values are populated by ProtocolUserMeta.
@@ -42,12 +50,12 @@ PROTOCOLS = {label: None for label in (
     'ui',
 )}
 if DEBUG:
-  PROTOCOLS.update({label: None for label in (
-    'fa',
-    'fake',
-    'eefake',
-    'other',
-)})
+    PROTOCOLS.update({label: None for label in (
+        'fa',
+        'fake',
+        'eefake',
+        'other',
+    )})
 
 
 # 2048 bits makes tests slow, so use 1024 for them
@@ -369,6 +377,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         name = self.obj.as1.get('displayName')
         if self.REQUIRES_NAME and (not name or name in (self.handle, self.key.id())):
             return 'blocked'
+
+        if self.REQUIRES_OLD_ACCOUNT:
+            if published := self.obj.as1.get('published'):
+                if util.now() - util.parse_iso8601(published) > OLD_ACCOUNT_AGE:
+                    return 'blocked'
 
         if not as1.is_public(self.obj.as1, unlisted=False):
             return 'opt-out'

@@ -82,6 +82,9 @@ util.set_user_agent(USER_AGENT)
 TASKS_LOCATION = 'us-central1'
 RUN_TASKS_INLINE = False  # overridden by unit tests
 
+# for Protocol.REQUIRES_OLD_ACCOUNT, how old is old enough
+OLD_ACCOUNT_AGE = timedelta(days=14)
+
 
 def base64_to_long(x):
     """Converts from URL safe base64 encoding to long integer.

@@ -82,6 +82,7 @@ class ActivityPub(User, Protocol):
     HAS_FOLLOW_ACCEPTS = True
     REQUIRES_AVATAR = True
     REQUIRES_NAME = True
+    REQUIRES_OLD_ACCOUNT = True
     DEFAULT_ENABLED_PROTOCOLS = ('web',)
 
     def _pre_put_hook(self):

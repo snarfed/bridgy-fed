@@ -1,4 +1,5 @@
 """Unit tests for models.py."""
+from datetime import timedelta
 from unittest.mock import patch
 
 from arroba.datastore_storage import AtpRemoteBlob, AtpRepo
@@ -304,6 +305,20 @@ class UserTest(TestCase):
 
         user.obj.our_as1['displayName'] = 'Alice'
         self.assertIsNone(user.status)
+
+    @patch.object(Fake, 'REQUIRES_OLD_ACCOUNT', True)
+    def test_requires_name(self):
+        user = self.make_user(id='fake:user', cls=Fake, obj_as1={
+            'foo': 'bar',
+        })
+        self.assertIsNone(user.status)
+
+        too_young = util.now() - common.OLD_ACCOUNT_AGE + timedelta(minutes=1)
+        user.obj.our_as1['published'] = too_young.isoformat()
+        self.assertIsNone(user.status)
+
+        user.obj.our_as1['published'] = (too_young - timedelta(minutes=2)).isoformat()
+        self.assertEqual('blocked', user.status)
 
     def test_get_copy(self):
         user = Fake(id='x')

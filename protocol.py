@@ -93,6 +93,10 @@ class Protocol:
       REQUIRES_NAME (bool): whether accounts on this protocol are required to
         have a profile name that's different than their handle or id. If they
         don't, their ``User.status`` will be ``blocked``.
+      REQUIRES_OLD_ACCOUNT: (bool): whether accounts on this protocol are
+        required to be at least :const:`common.OLD_ACCOUNT_AGE` old. If their
+        profile includes creation date and it's not old enough, their
+        ``User.status`` will be ``blocked``.
       DEFAULT_ENABLED_PROTOCOLS (list of str): labels of other protocols that
         are automatically enabled for this protocol to bridge into
     """
@@ -105,6 +109,7 @@ class Protocol:
     HAS_COPIES = False
     REQUIRES_AVATAR = False
     REQUIRES_NAME = False
+    REQUIRES_OLD_ACCOUNT = False
     DEFAULT_ENABLED_PROTOCOLS = ()
 
     def __init__(self):
