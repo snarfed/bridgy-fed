@@ -315,10 +315,10 @@ class UserTest(TestCase):
 
         too_young = util.now() - common.OLD_ACCOUNT_AGE + timedelta(minutes=1)
         user.obj.our_as1['published'] = too_young.isoformat()
-        self.assertIsNone(user.status)
+        self.assertEqual('blocked', user.status)
 
         user.obj.our_as1['published'] = (too_young - timedelta(minutes=2)).isoformat()
-        self.assertEqual('blocked', user.status)
+        self.assertIsNone(user.status)
 
     def test_get_copy(self):
         user = Fake(id='x')

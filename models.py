@@ -380,7 +380,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         if self.REQUIRES_OLD_ACCOUNT:
             if published := self.obj.as1.get('published'):
-                if util.now() - util.parse_iso8601(published) > OLD_ACCOUNT_AGE:
+                if util.now() - util.parse_iso8601(published) < OLD_ACCOUNT_AGE:
                     return 'blocked'
 
         if not as1.is_public(self.obj.as1, unlisted=False):
