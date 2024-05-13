@@ -254,7 +254,7 @@ class Protocol:
         # load user so that we follow use_instead
         existing = cls.get_by_id(id, allow_opt_out=True)
         if existing:
-            if existing.status is not None:
+            if existing.status:
                 return None
             return existing.key
 
@@ -376,7 +376,7 @@ class Protocol:
         for proto in candidates:
             user = proto.query(proto.handle == handle).get()
             if user:
-                if user.status is not None:
+                if user.status:
                     return (None, None)
                 logger.info(f'  user {user.key} owns handle {handle}')
                 return (proto, user.key.id())

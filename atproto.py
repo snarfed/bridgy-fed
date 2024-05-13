@@ -707,7 +707,7 @@ def poll_posts():
                     headers={'User-Agent': USER_AGENT})
 
     for user in ATProto.query(ATProto.enabled_protocols != None):
-        if user.status == 'opt-out':
+        if user.status:
             continue
 
         did = user.key.id()

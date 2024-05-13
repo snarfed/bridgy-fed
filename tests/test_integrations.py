@@ -458,11 +458,12 @@ class IntegrationTests(TestCase):
             'id': 'http://inst/follow',
             'actor': 'https://inst/_alice_',
             'object': 'https://bsky.brid.gy/bsky.brid.gy',
+            'image': 'http://pic',
         })
         self.assertEqual(422, resp.status_code)
 
         # check results
-        user = ActivityPub.get_by_id('https://inst/_alice_')
+        user = ActivityPub.get_by_id('https://inst/_alice_', allow_opt_out=True)
         self.assertFalse(user.is_enabled(ATProto))
         self.assertEqual(0, len(user.copies))
 

@@ -25,8 +25,10 @@ from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
 from .test_web import ACTOR_AS2, REPOST_AS2
 
 ACTOR_WITH_PREFERRED_USERNAME = {
+    'displayName': 'Me',
     'preferredUsername': 'me',
     'url': 'https://plus.google.com/bob',
+    'image': 'http://pic',
 }
 
 
@@ -202,7 +204,7 @@ class PagesTest(TestCase):
     def test_followers(self):
         Follower.get_or_create(
             to=self.user,
-            from_=self.make_user('http://un/used', cls=ActivityPub, obj_as2={
+            from_=self.make_user('http://un/used', cls=ActivityPub, obj_as1={
                 **ACTOR,
                 'id': 'http://un/used',
                 'url': 'http://stored/users/follow',
@@ -297,7 +299,7 @@ class PagesTest(TestCase):
     def test_following(self):
         Follower.get_or_create(
             from_=self.user,
-            to=self.make_user('http://un/used', cls=ActivityPub, obj_as2={
+            to=self.make_user('http://un/used', cls=ActivityPub, obj_as1={
                 **ACTOR,
                 'id': 'http://un/used',
                 'url': 'http://stored/users/follow',

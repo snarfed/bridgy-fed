@@ -228,8 +228,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         elif user.use_instead:
             logger.info(f'{user.key} use_instead => {user.use_instead}')
             return user.use_instead.get()
-        elif user.status == 'opt-out' and not allow_opt_out:
-            logger.info(f'{user.key} is opted out')
+        elif user.status and not allow_opt_out:
+            logger.info(f'{user.key} is {user.status}')
             return None
 
         return user
@@ -249,7 +249,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         assert cls != User
         user = cls.get_by_id(id, allow_opt_out=True)
         if user:
-            if user.status == 'opt-out':
+            if user.status:
                 return None
             user.existing = True
 
@@ -430,7 +430,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         elif to_label in self.enabled_protocols:
             return True
 
-        elif self.status == 'opt-out':
+        elif self.status:
             return False
 
         elif to_label in self.DEFAULT_ENABLED_PROTOCOLS:
@@ -1358,7 +1358,7 @@ class Follower(ndb.Model):
 
         for f, u in zip(followers, users):
             f.user = u
-        followers = [f for f in followers if f.user.status != 'opt-out']
+        followers = [f for f in followers if not f.user.status]
 
         return followers, before, after
 
