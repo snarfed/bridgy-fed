@@ -1,28 +1,33 @@
 """Bridgy Fed firehose client. Enqueues receive tasks for events for bridged users.
  """
 from collections import namedtuple
-from datetime import timedelta
+from datetime import datetime, timedelta
 import itertools
 import logging
 import os
 from queue import SimpleQueue
+import threading
 from threading import Event, Lock, Thread, Timer
 import time
 
 from arroba.datastore_storage import AtpRepo
 from carbox import read_car
 import dag_json
+from flask import Flask
 from google.cloud import ndb
 from granary.bluesky import AT_URI_PATTERN
 from lexrpc.client import Client
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
-from oauth_dropins.webutil.appengine_info import DEBUG
+from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
 from oauth_dropins.webutil.util import json_loads
 
 from atproto import ATProto, Cursor
 from common import add, create_task, report_exception
-from models import Object
+from models import Object, reset_protocol_properties
+
+# all protocols
+import activitypub, atproto, web
 
 RECONNECT_DELAY = timedelta(seconds=30)
 STORE_CURSOR_FREQ = timedelta(seconds=20)
@@ -37,9 +42,13 @@ Op = namedtuple('Op', ['action', 'repo', 'path', 'seq', 'record'],
 # contains Ops
 new_commits = SimpleQueue()
 
-atproto_dids = None
-bridged_dids = None
+atproto_dids = set()
+atproto_loaded_at = datetime(1900, 1, 1)
+bridged_dids = set()
+bridged_loaded_at = datetime(1900, 1, 1)
 dids_initialized = Event()
+
+reset_protocol_properties()
 
 
 def load_dids():
@@ -50,39 +59,46 @@ def load_dids():
 
 
 def _load_dids():
-    global atproto_dids, bridged_dids, load_dids_thread
+    global atproto_dids, atproto_loaded_at, bridged_dids, bridged_loaded_at
 
     with ndb_client.context():
         if not DEBUG:
             Timer(STORE_CURSOR_FREQ.total_seconds(), _load_dids).start()
 
-        atproto_dids = frozenset(key.id() for key in
-                                 ATProto.query(ATProto.enabled_protocols != None
-                                      ).iter(keys_only=True))
-        bridged_dids = frozenset(key.id() for key in
-                                 AtpRepo.query().iter(keys_only=True))
+        atproto_query = ATProto.query(ATProto.enabled_protocols != None,
+                                      ATProto.created > atproto_loaded_at)
+        atproto_loaded_at = ATProto.query().order(-ATProto.created).get().created
+        new_atproto = [key.id() for key in atproto_query.iter(keys_only=True)]
+        atproto_dids.update(new_atproto)
+
+        bridged_query = AtpRepo.query(AtpRepo.created > bridged_loaded_at)
+        bridged_loaded_at = AtpRepo.query().order(-AtpRepo.created).get().created
+        new_bridged = [key.id() for key in bridged_query.iter(keys_only=True)]
+        bridged_dids.update(new_bridged)
 
         dids_initialized.set()
-        logger.info(f'Loaded {len(atproto_dids)} ATProto, {len(bridged_dids)} bridged dids')
+        logger.info(f'DIDs: ATProto {len(atproto_dids)} (+{len(new_atproto)}, AtpRepo{len(bridged_dids)} (+{len(new_bridged)})')
 
 
-def subscribe(reconnect=True):
-    """Wrapper around :func:`_subscribe` that catches exceptions and restarts."""
+def subscriber():
+    """Wrapper around :func:`_subscribe` that catches exceptions and reconnects."""
     logger.info(f'started thread to subscribe to {os.environ["BGS_HOST"]} firehose')
 
     while True:
         try:
-            _subscribe()
+            with ndb_client.context(cache_policy=lambda key: False,
+                                    global_cache_policy=lambda key: False):
+                subscribe()
+
+            logger.info(f'disconnected! waiting {RECONNECT_DELAY} and then reconnecting')
+            time.sleep(RECONNECT_DELAY.total_seconds())
+
         except BaseException:
             report_exception()
 
-        if not reconnect:
-            return
-        logger.info(f'disconnected! waiting {RECONNECT_DELAY} and then reconnecting')
-        time.sleep(RECONNECT_DELAY.total_seconds())
 
 
-def _subscribe():
+def subscribe():
     """Subscribes to the relay's firehose.
 
     Relay hostname comes from the ``BGS_HOST`` environment variable.
@@ -113,9 +129,14 @@ def _subscribe():
         # parse payload
         repo = payload.get('repo')
         assert repo
-        if repo in bridged_dids:  # from a Bridgy Fed non-Bluesky user; ignore
-            # logger.info(f'Ignoring record from our non-ATProto bridged user {repo}')
-            continue
+
+        # ops = ' '.join(f'{op.get("action")} {op.get("path")}'
+        #                for op in payload.get('ops', []))
+        # logger.info(f'seeing {payload.get("seq")} {repo} {ops}')
+
+        # if repo in bridged_dids:  # from a Bridgy Fed non-Bluesky user; ignore
+        #     logger.info(f'Ignoring record from our non-ATProto bridged user {repo}')
+        #     continue
 
         blocks = {}
         if block_bytes := payload.get('blocks'):
@@ -205,20 +226,24 @@ def _subscribe():
                 new_commits.put(op)
 
 
-def handle(limit=None):
+def handler():
     """Wrapper around :func:`_handle` that catches exceptions and restarts."""
     logger.info(f'started handle thread to store objects and enqueue receive tasks')
 
     while True:
         try:
-            _handle(limit=limit)
+            with ndb_client.context(cache_policy=lambda key: False,
+                                    global_cache_policy=lambda key: False):
+                handle()
+
             # if we return cleanly, that means we hit the limit
             break
+
         except BaseException:
             report_exception()
 
 
-def _handle(limit=None):
+def handle(limit=None):
     cursor = Cursor.get_by_id(
         f'{os.environ["BGS_HOST"]} com.atproto.sync.subscribeRepos')
     assert cursor
@@ -259,7 +284,7 @@ def _handle(limit=None):
 
         if util.now().replace(tzinfo=None) - cursor.updated > STORE_CURSOR_FREQ:
             # it's been long enough, update our stored cursor
-            # logger.info(f'updating stored cursor to {op.seq}')
+            logger.info(f'updating stored cursor to {op.seq}')
             cursor.cursor = op.seq
             cursor.put()
 
@@ -270,9 +295,21 @@ def _handle(limit=None):
     assert False, "handle thread shouldn't reach here!"
 
 
-if __name__ == '__main__':
-    from oauth_dropins.webutil import appengine_config
-    import activitypub, web
+# Flask app
+app = Flask(__name__)
 
-    with appengine_config.ndb_client.context():
-        subscribe()
+
+@app.get('/liveness_check')
+@app.get('/readiness_check')
+def health_check():
+    return 'OK'
+
+
+if LOCAL_SERVER or not DEBUG:
+    threads = [t.name for t in threading.enumerate()]
+    assert 'atproto_firehose.subscriber' not in threads
+    assert 'atproto_firehose.handler' not in threads
+
+    Thread(target=subscriber, name='atproto_firehose.subscriber').start()
+    # Thread(target=handler, name='atproto_firehose.handler').start()
+

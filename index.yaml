@@ -74,3 +74,8 @@ indexes:
   properties:
   - name: repo
   - name: seq
+
+- kind: ATProto
+  properties:
+  - name: created
+  - name: enabled_protocols

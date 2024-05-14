@@ -1,6 +1,6 @@
 """Unit tests for atproto_firehose.py."""
 import copy
-from datetime import timedelta, timezone
+from datetime import datetime, timedelta, timezone
 from unittest import skip
 from unittest.mock import patch
 
@@ -94,17 +94,21 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         self.cursor.put()
         assert new_commits.empty()
 
-        atproto_firehose.atproto_dids = None
-        atproto_firehose.bridged_dids = None
+        atproto_firehose.atproto_dids = set()
+        atproto_firehose.atproto_loaded_at = datetime(1900, 1, 1)
+        atproto_firehose.bridged_dids = set()
+        atproto_firehose.bridged_loaded_at = datetime(1900, 1, 1)
         atproto_firehose.dids_initialized.clear()
 
         AtpRepo(id='did:alice', head='', signing_key_pem=b'').put()
+        self.store_object(id='did:plc:bob', raw=DID_DOC)
+        ATProto(id='did:plc:bob').put()
 
     def assert_enqueues(self, record=None, repo='did:plc:user', action='create',
                         path='app.bsky.feed.post/abc123'):
         FakeWebsocketClient.setup_receive(
             Op(repo=repo, action=action, path=path, seq=789, record=record))
-        subscribe(reconnect=False)
+        subscribe()
 
         op = new_commits.get()
         self.assertEqual(repo, op.repo)
@@ -118,7 +122,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
                               path='app.bsky.feed.post/abc123'):
         FakeWebsocketClient.setup_receive(
             Op(repo=repo, action=action, path=path, seq=789, record=record))
-        subscribe(reconnect=False)
+        subscribe()
         self.assertTrue(new_commits.empty())
 
     def test_error(self):
@@ -127,7 +131,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
             {'error': 'ConsumerTooSlow', 'message': 'ketchup!'},
         )]
 
-        subscribe(reconnect=False)
+        subscribe()
         self.assertTrue(new_commits.empty())
 
     def test_info(self):
@@ -136,14 +140,14 @@ class ATProtoFirehoseSubscribeTest(TestCase):
             {'name': 'OutdatedCursor'},
         )]
 
-        subscribe(reconnect=False)
+        subscribe()
         self.assertTrue(new_commits.empty())
 
     def test_cursor(self):
         self.cursor.cursor = 444
         self.cursor.put()
 
-        subscribe(reconnect=False)
+        subscribe()
         self.assertTrue(new_commits.empty())
         self.assertEqual(
             'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=445',
@@ -155,7 +159,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
             {'seq': '123', 'did': 'did:abc', 'handle': 'hi.com'},
         )]
 
-        subscribe(reconnect=False)
+        subscribe()
         self.assertTrue(new_commits.empty())
         self.assertEqual('https://bgs.local/xrpc/com.atproto.sync.subscribeRepos',
                          FakeWebsocketClient.url)

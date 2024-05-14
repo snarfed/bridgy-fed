@@ -7,7 +7,7 @@ from threading import Thread, Timer
 
 import arroba.server
 from arroba import xrpc_sync
-from flask import Flask, request
+from flask import Flask
 import lexrpc.client
 import lexrpc.flask_server
 from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
@@ -18,7 +18,7 @@ from oauth_dropins.webutil import (
 )
 
 # all protocols
-import activitypub, atproto, atproto_firehose, web
+import activitypub, atproto, web
 from common import USER_AGENT
 import models
 
@@ -82,20 +82,20 @@ def atproto_commit():
 #
 # ATProto firehose consumer
 #
-if LOCAL_SERVER or not DEBUG:
-    def subscribe():
-        with appengine_config.ndb_client.context():
-            atproto_firehose.subscribe()
+# if LOCAL_SERVER or not DEBUG:
+#     def subscribe():
+#         with appengine_config.ndb_client.context():
+#             atproto_firehose.subscribe()
 
-    assert 'atproto_firehose.subscribe' not in [t.name for t in threading.enumerate()]
-    Thread(target=subscribe, name='atproto_firehose.subscribe').start()
+#     assert 'atproto_firehose.subscribe' not in [t.name for t in threading.enumerate()]
+#     Thread(target=subscribe, name='atproto_firehose.subscribe').start()
 
-    def handle():
-        with appengine_config.ndb_client.context():
-            atproto_firehose.handle()
+#     def handle():
+#         with appengine_config.ndb_client.context():
+#             atproto_firehose.handle()
 
-    assert 'atproto_firehose.handle' not in [t.name for t in threading.enumerate()]
-    Thread(target=handle, name='atproto_firehose.handle').start()
+#     assert 'atproto_firehose.handle' not in [t.name for t in threading.enumerate()]
+#     Thread(target=handle, name='atproto_firehose.handle').start()
 
 
 # send requestCrawl to relay
