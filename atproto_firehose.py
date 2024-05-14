@@ -311,5 +311,5 @@ if LOCAL_SERVER or not DEBUG:
     assert 'atproto_firehose.handler' not in threads
 
     Thread(target=subscriber, name='atproto_firehose.subscriber').start()
-    # Thread(target=handler, name='atproto_firehose.handler').start()
+    Thread(target=handler, name='atproto_firehose.handler').start()
 
