@@ -315,11 +315,6 @@ class ATProto(User, Protocol):
         if user.obj and user.obj.as1:
             # create user profile
             profile = cls.convert(user.obj, fetch_blobs=True, from_user=user)
-            profile.setdefault('labels', {'$type': 'com.atproto.label.defs#selfLabels'})
-            profile['labels'].setdefault('values', []).append({
-                'val' : f'bridged-from-bridgy-fed-{user.LABEL}',
-            })
-
             profile_json = json_dumps(dag_json.encode(profile).decode(), indent=2)
             logger.info(f'Storing ATProto app.bsky.actor.profile self: {profile_json}')
             initial_writes = [Write(
@@ -531,9 +526,6 @@ class ATProto(User, Protocol):
           dict: JSON object
         """
         from_proto = PROTOCOLS.get(obj.source_protocol)
-        # TODO: uncomment
-        # if from_proto and not from_user.is_enabled(cls):
-        #     error(f'{cls.LABEL} <=> {from_proto.LABEL} not enabled')
 
         if obj.bsky:
             return obj.bsky
@@ -569,7 +561,8 @@ class ATProto(User, Protocol):
                         'uri': ref_obj.key.id(),
                     })
 
-        match ret.get('$type'):
+        type = ret.get('$type')
+        match type:
             case ('app.bsky.feed.like'
                   | 'app.bsky.feed.repost'
                   | 'com.atproto.moderation.createReport#input'):
@@ -577,6 +570,14 @@ class ATProto(User, Protocol):
             case 'app.bsky.feed.post' if ret.get('reply'):
                 populate_cid(ret['reply']['root'])
                 populate_cid(ret['reply']['parent'])
+
+        # bridged actors get a self label
+        if type == 'app.bsky.actor.profile' and from_proto != ATProto:
+            label_val = 'bridged-from-bridgy-fed'
+            if from_proto:
+                label_val += f'-{from_proto.LABEL}'
+            ret.setdefault('labels', {'$type': 'com.atproto.label.defs#selfLabels'})
+            ret['labels'].setdefault('values', []).append({'val' : label_val})
 
         return ret
 

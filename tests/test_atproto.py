@@ -533,6 +533,10 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val': 'bridged-from-bridgy-fed'}],
+            },
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
             'id': 'did:web:alice.com',
@@ -552,6 +556,10 @@ class ATProtoTest(TestCase):
                 'ref': cid,
                 'mimeType': 'image/png',
                 'size': 13,
+            },
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val': 'bridged-from-bridgy-fed'}],
             },
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
@@ -574,6 +582,10 @@ class ATProtoTest(TestCase):
                 'ref': CID.decode(cid),
                 'mimeType': 'application/octet-stream',
                 'size': 8,
+            },
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val': 'bridged-from-bridgy-fed'}],
             },
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
@@ -615,12 +627,28 @@ class ATProtoTest(TestCase):
             }],
         })))
 
-    # TODO: remove
-    @skip
-    def test_convert_protocols_not_enabled(self):
-        obj = Object(our_as1={'foo': 'bar'}, source_protocol='activitypub')
-        with self.assertRaises(BadRequest):
-            ATProto.convert(obj)
+    def test_convert_actor_from_atproto_doesnt_add_self_label(self):
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+        }, ATProto.convert(Object(source_protocol='atproto', our_as1={
+            'objectType': 'person',
+            'displayName': 'Alice',
+        })))
+
+    def test_convert_non_atproto_actor_adds_self_label(self):
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
+            },
+        }, ATProto.convert(Object(source_protocol='fake', our_as1={
+            'objectType': 'person',
+            'id': 'fake:alice',
+            'displayName': 'Alice',
+        })))
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):
