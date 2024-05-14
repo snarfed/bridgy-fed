@@ -586,8 +586,8 @@ def signed_request(fn, url, data=None, headers=None, from_user=None, **kwargs):
     # handle GET redirects manually so that we generate a new HTTP signature
     if resp.is_redirect and fn == util.requests_get:
         new_url = urljoin(url, resp.headers['Location'])
-        return signed_request(fn, new_url, data=data, headers=headers,
-                              **kwargs)
+        return signed_request(fn, new_url, data=data, from_user=from_user,
+                              headers=headers, **kwargs)
 
     type = common.content_type(resp)
     if (type and type != 'text/html' and
