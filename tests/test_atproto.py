@@ -385,7 +385,7 @@ class ATProtoTest(TestCase):
     def test_convert_bsky_pass_through(self):
         self.assertEqual({
             'foo': 'bar',
-        }, ATProto.convert(Object(bsky={
+        }, ATProto.convert(Object(id='did:plc:alice', bsky={
             'foo': 'bar',
         })))
 
@@ -715,7 +715,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': 'hi there',
+            'description': 'hi there\n\n[bridged from fake:handle:us_er by Bridgy Fed]',
             'avatar': {
                 '$type': 'blob',
                 'mimeType': 'application/octet-stream',
@@ -825,7 +825,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': 'hi there',
+            'description': 'hi there\n\n[bridged from fake:handle:user by Bridgy Fed]',
             'avatar': {
                 '$type': 'blob',
                 'ref': BLOB_CID,

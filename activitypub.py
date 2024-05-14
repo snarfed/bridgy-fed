@@ -355,7 +355,7 @@ class ActivityPub(User, Protocol):
         return False
 
     @classmethod
-    def convert(cls, obj, orig_obj=None, from_user=None):
+    def _convert(cls, obj, orig_obj=None, from_user=None):
         """Convert a :class:`models.Object` to AS2.
 
         Args:
@@ -822,19 +822,6 @@ def postprocess_as2_actor(actor, user):
         }
         actor['@context'] = util.get_list(actor, '@context')
         add(actor['@context'], SECURITY_CONTEXT)
-
-    if (user.key.id() not in DOMAINS
-        and (not user.direct
-             # Web users only
-             or (user.LABEL == 'web'
-                 and not getattr(user, 'last_webmention_in', 'unset')
-                 and not getattr(user, 'has_redirects', None)))):
-        actor['type'] = 'Application'
-        disclaimer = f'[<a href="https://{PRIMARY_DOMAIN}{user.user_page_path()}">bridged</a> from <a href="{user.web_url()}">{user.handle_or_id()}</a> by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
-        if not actor['summary'].endswith(disclaimer):
-            if actor['summary']:
-                actor['summary'] += '<br><br>'
-            actor['summary'] += disclaimer
 
     return actor
 

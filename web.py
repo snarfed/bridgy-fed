@@ -535,7 +535,7 @@ class Web(User, Protocol):
         return True
 
     @classmethod
-    def convert(cls, obj, from_user=None):
+    def _convert(cls, obj, from_user=None):
         """Converts a :class:`Object` to HTML.
 
         Args:

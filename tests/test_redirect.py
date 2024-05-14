@@ -124,7 +124,7 @@ class RedirectTest(testutil.TestCase):
         del expected['endpoints']
         del expected['followers']
         del expected['following']
-        self.assert_equals(expected, resp.json, ignore=['publicKeyPem'])
+        self.assert_equals(expected, resp.json, ignore=['publicKeyPem', 'summary'])
 
         self.assert_user(Web, 'user.com', direct=False, obj_as2={
             '@context': 'https://www.w3.org/ns/activitystreams',

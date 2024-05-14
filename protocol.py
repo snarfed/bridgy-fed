@@ -12,6 +12,7 @@ from google.cloud import ndb
 from google.cloud.ndb import OR
 from google.cloud.ndb.model import _entity_to_protobuf
 from granary import as1, as2
+from granary.source import html_to_text
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import cloud_tasks_only
 from oauth_dropins.webutil import models
@@ -26,6 +27,7 @@ from common import (
     DOMAIN_RE,
     DOMAINS,
     error,
+    PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
     subdomain_wrap,
 )
@@ -494,11 +496,65 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def convert(cls, obj, from_user=None):
+    def convert(cls, obj, from_user=None, **kwargs):
         """Converts an :class:`Object` to this protocol's data format.
 
         For example, an HTML string for :class:`Web`, or a dict with AS2 JSON
         and ``application/activity+json`` for :class:`ActivityPub`.
+
+        Just passes through to :meth:`_convert`, then does minor
+        protocol-independent postprocessing.
+
+        Args:
+          obj (models.Object):
+          from_user (models.User): user (actor) this activity/object is from
+          kwargs: protocol-specific, passed through to :meth:`_convert`
+
+        Returns:
+          converted object in the protocol's native format, often a dict
+        """
+        id = None
+        if obj:
+            id = obj.key.id() if obj.key else obj.as1.get('id') if obj.as1 else None
+
+        # mark bridged actors as bots and add "bridged by Bridgy Fed" to their bios
+        if (from_user and obj and obj.as1
+            and obj.as1.get('objectType') in as1.ACTOR_TYPES
+            and PROTOCOLS.get(obj.source_protocol) != cls
+            and Protocol.for_bridgy_subdomain(id) not in DOMAINS
+            and 'Bridgy Fed]' not in html_to_text(obj.as1.get('summary', ''))
+            # Web users are special cased, they don't get the label if they've
+            # explicitly enabled Bridgy Fed with redirects or webmentions
+            and not (from_user.LABEL == 'web'
+                     and (from_user.last_webmention_in or from_user.has_redirects))):
+            obj.our_as1 = copy.deepcopy(obj.as1)
+            obj.our_as1['objectType'] = 'application'
+
+            if from_user.key and id in (from_user.key.id(),
+                                        f'https://{from_user.key.id()}'):
+                disclaimer = f'[<a href="https://{PRIMARY_DOMAIN}{from_user.user_page_path()}">bridged</a> from <a href="{from_user.web_url()}">{from_user.handle_or_id()}</a> by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
+            else:
+                url = as1.get_url(obj.our_as1) or id
+                name = obj.our_as1.get('displayName') or obj.our_as1.get('username')
+                source = (util.pretty_link(url, text=name) if url
+                          else name if name
+                          else '')
+                if source:
+                    source = ' from ' + source
+                disclaimer = f'[bridged{source} by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
+
+
+            summary = obj.our_as1.setdefault('summary', '')
+            if not summary.endswith(disclaimer):
+                if summary:
+                    obj.our_as1['summary'] += '<br><br>'
+                obj.our_as1['summary'] += disclaimer
+
+        return cls._convert(obj, from_user=from_user, **kwargs)
+
+    @classmethod
+    def _convert(cls, obj, from_user=None, **kwargs):
+        """Converts an :class:`Object` to this protocol's data format.
 
         To be implemented by subclasses. Implementations should generally call
         :meth:`Protocol.translate_ids` (as their own class) before converting to
@@ -507,6 +563,7 @@ class Protocol:
         Args:
           obj (models.Object):
           from_user (models.User): user (actor) this activity/object is from
+          kwargs: protocol-specific
 
         Returns:
           converted object in the protocol's native format, often a dict

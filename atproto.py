@@ -512,7 +512,7 @@ class ATProto(User, Protocol):
         return True
 
     @classmethod
-    def convert(cls, obj, fetch_blobs=False, from_user=None):
+    def _convert(cls, obj, fetch_blobs=False, from_user=None):
         """Converts a :class:`models.Object` to ``app.bsky.*`` lexicon JSON.
 
         Args:

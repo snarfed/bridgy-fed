@@ -60,7 +60,7 @@ ACTOR_BASE = {
     'id': 'http://localhost/user.com',
     'url': 'http://localhost/r/https://user.com/',
     'preferredUsername': 'user.com',
-    'summary': '[<a href="https://fed.brid.gy/web/user.com">bridged</a> from <a href="https://user.com/">user.com</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
+    'summary': '[<a href="https://fed.brid.gy/web/user.com">bridged</a> from <a href="https://user.com/">Ms. ☕ Baz</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
     'inbox': 'http://localhost/user.com/inbox',
     'outbox': 'http://localhost/user.com/outbox',
     'following': 'http://localhost/user.com/following',
@@ -395,7 +395,8 @@ class ActivityPubTest(TestCase):
 
         got = self.client.get('/user.com')
         self.assertEqual(200, got.status_code)
-        self.assert_equals(ACTOR_BASE_FULL, got.json, ignore=['publicKeyPem'])
+        self.assert_equals(ACTOR_BASE_FULL, got.json,
+                           ignore=['publicKeyPem', 'summary'])
 
     def test_actor_new_user_fetch_no_mf2(self, _, mock_get, __):
         self.user.obj_key.delete()
@@ -406,7 +407,11 @@ class ActivityPubTest(TestCase):
 
         got = self.client.get('/user.com')
         self.assertEqual(200, got.status_code)
-        self.assert_equals(ACTOR_BASE, got.json, ignore=['publicKeyPem'])
+        self.assert_equals({
+            **ACTOR_BASE,
+            'type': 'Person',
+            'summary': '',
+        }, got.json, ignore=['publicKeyPem'])
 
     def test_actor_new_user_fetch_fails(self, _, mock_get, ___):
         mock_get.side_effect = ReadTimeoutError(None, None, None)
@@ -423,6 +428,8 @@ class ActivityPubTest(TestCase):
         self.assert_equals({
             **ACTOR,
             **ACTOR_FAKE,
+            'type': 'Application',
+            'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="fake:user">fake:handle:user</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
         }, got.json, ignore=['publicKeyPem'])
 
     def test_actor_handle_new_user(self, _, __, ___):
@@ -435,8 +442,8 @@ class ActivityPubTest(TestCase):
         self.assert_equals({
             **ACTOR,
             **ACTOR_FAKE,
-            'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="fake:user">fake:handle:user</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
             'type': 'Application',
+            'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="fake:user">fake:handle:user</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
         }, got.json, ignore=['publicKeyPem'])
 
     def test_actor_atproto_not_enabled(self, *_):
@@ -2257,7 +2264,7 @@ class ActivityPubUtilsTest(TestCase):
             'id': 'https://user.com/',
         })
         self.assert_equals(ACTOR_BASE, ActivityPub.convert(obj, from_user=self.user),
-                           ignore=['endpoints', 'followers', 'following'])
+                           ignore=['endpoints', 'followers', 'following', 'summary'])
 
     def test_convert_actor_as1_no_from_user(self):
         obj = Object(our_as1=ACTOR_AS1)
