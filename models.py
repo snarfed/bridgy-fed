@@ -368,7 +368,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if self.manual_opt_out:
             return 'opt-out'
 
-        if not self.obj or not self.obj.as1:
+        if self.enabled_protocols or not self.obj or not self.obj.as1:
             return None
 
         if self.REQUIRES_AVATAR and not self.obj.as1.get('image'):
@@ -392,7 +392,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                 if tag in text:
                     return 'opt-out'
 
-    def is_enabled(self, to_proto):
+    def is_enabled(self, to_proto, explicit=False):
         """Returns True if this user can be bridged to a given protocol.
 
         Reasons this might return False:
@@ -400,9 +400,12 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         * The user is opted out or blocked.
         * The user is on a domain that's opted out or blocked.
         * The from protocol requires opt in, and the user hasn't opted in.
+        * ``explicit`` is True, and this protocol supports ``to_proto`` by
+          default, but the user hasn't explicitly opted into it.
 
         Args:
           to_proto (Protocol subclass)
+          explicit (bool)
 
         Returns:
           bool:
@@ -433,7 +436,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         elif self.status:
             return False
 
-        elif to_label in self.DEFAULT_ENABLED_PROTOCOLS:
+        elif to_label in self.DEFAULT_ENABLED_PROTOCOLS and not explicit:
             return True
 
         return False

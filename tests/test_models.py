@@ -12,6 +12,7 @@ from cryptography.hazmat.primitives import serialization
 from flask import g
 from google.cloud import ndb
 from google.cloud.tasks_v2.types import Task
+from granary.bluesky import NO_AUTHENTICATED_LABEL
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
 from multiformats import CID
 from oauth_dropins.webutil.appengine_config import tasks_client
@@ -363,14 +364,40 @@ class UserTest(TestCase):
         self.assertFalse(ExplicitEnableFake(id='').is_enabled(Fake))
         self.assertFalse(ExplicitEnableFake(id='').is_enabled(Web))
 
+    def test_is_enabled_default_enabled_protocols_explicit(self):
+        self.user.enabled_protocols = ['atproto']
+        self.assertTrue(self.user.is_enabled(ATProto, explicit=True))
+
+        assert 'activitypub' in Web.DEFAULT_ENABLED_PROTOCOLS
+        self.assertFalse(self.user.is_enabled(ActivityPub, explicit=True))
+
     def test_is_enabled_enabled_protocols_overrides_bio_opt_out(self):
         user = self.make_user('eefake:user', cls=ExplicitEnableFake,
                               obj_as1={'summary': '#nobridge'})
         self.assertFalse(user.is_enabled(Web))
+        self.assertEqual('opt-out', user.status)
 
         user.enabled_protocols = ['web']
         user.put()
         self.assertTrue(user.is_enabled(Web))
+        self.assertIsNone(user.status)
+
+    def test_is_enabled_enabled_protocols_overrides_non_public_profile_opt_out(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto,
+                              obj_bsky={
+                                  **ACTOR_PROFILE_BSKY,
+                                  'labels': {
+                                      'values': [{'val': NO_AUTHENTICATED_LABEL}],
+                                  },
+                              })
+        self.assertFalse(user.is_enabled(Web))
+        self.assertEqual('opt-out', user.status)
+
+        user.enabled_protocols = ['web']
+        user.put()
+        self.assertTrue(user.is_enabled(Web))
+        self.assertIsNone(user.status)
 
     def test_is_enabled_manual_opt_out(self):
         user = self.make_user('user.com', cls=Web)
