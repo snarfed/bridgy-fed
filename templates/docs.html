@@ -43,6 +43,7 @@
 <li><a href="#update-profile">How do I update my profile?</a></li>
 <li><a href="#posts-forward">I see my profile, but I don't see my posts!</a></li>
 <li><a href="#user-page">Can I see my account's status and recent activity?</a></li>
+<li><a href="#delete">How do I delete a post?</a></li>
 <li><a href="#troubleshooting">I tried it, and it didn't work!</a></li>
 <li><a href="#replies">How are replies bridged?</a></li>
 <!-- <li><a href="#enhanced">The <code>*.brid.gy</code> domain in my bridged account is ugly. Can I get rid of it and use my own domain/web site instead?</a></li> -->
@@ -285,6 +286,12 @@
 </li>
 
 
+<li id="delete" class="question">How do I delete a post?</li>
+<li class="answer">
+<p>Just delete it normally! Bridgy Fed will detect that and delete it in every other network that it was bridged to.</p>
+</li>
+
+
 <li id="troubleshooting" class="question">I tried it, and it didn't work!</li>
 <li class="answer">
 <p><a href="#user-page">Check out your user page!</a> It detects and describes common problems with <a href="#web-setup">your setup</a>, and it shows your recent interactions and detailed logs.
@@ -495,7 +502,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <li id="bluesky-what-not-to" class="question">Which stuff can't get bridged into Bluesky?</li>
 <li class="answer">
-<p><a href="https://github.com/bluesky-social/atproto/discussions/1310">Polls</a>, edits/updates, <a href="https://docs.joinmastodon.org/user/posting/#cw">content warnings</a>, videos or (most) GIFs. <a href="https://github.com/snarfed/bridgy-fed/issues/987">Deletes aren't supported yet, but they're on the roadmap.</a></p>
+<p><a href="https://github.com/bluesky-social/atproto/discussions/1310">Polls</a>, edits/updates, <a href="https://docs.joinmastodon.org/user/posting/#cw">content warnings</a>, videos or (most) GIFs.</p>
 </li>
 
 <li id="bluesky-hashtags-in-text" class="question">Why didn't my hashtag show up?</li>
