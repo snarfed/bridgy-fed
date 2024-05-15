@@ -764,16 +764,18 @@ class Protocol:
         # update copy ids to originals
         obj.resolve_ids()
 
-        # refresh profile for follows of bot users to re-check whether they're
-        # opted out
-        if obj.type == 'follow':
-            if Protocol.for_bridgy_subdomain(as1.get_object(obj.as1).get('id')):
-                logger.info(f'Follow of bot user, reloading {actor}')
-                from_cls.load(actor, remote=True)
+        if (obj.type == 'follow'
+                and Protocol.for_bridgy_subdomain(as1.get_object(obj.as1).get('id'))):
+            # refresh profile for follows of bot users to re-check whether
+            # they're opted out
+            logger.info(f'Follow of bot user, reloading {actor}')
+            from_cls.load(actor, remote=True)
+            from_user = from_cls.get_or_create(id=actor, allow_opt_out=True)
+        else:
+            # load actor user
+            from_user = from_cls.get_or_create(id=actor)
 
-        # load actor user
-        from_user = from_cls.get_or_create(id=actor)
-        if not from_user:
+        if not from_user or from_user.manual_opt_out:
             error(f'Actor {actor} is opted out or blocked', status=204)
 
         # write Object to datastore

@@ -378,9 +378,13 @@ class UserTest(TestCase):
         self.assertEqual('opt-out', user.status)
 
         user.enabled_protocols = ['web']
-        user.put()
         self.assertTrue(user.is_enabled(Web))
         self.assertIsNone(user.status)
+
+        # manual opt out should still take precedence thoough
+        user.manual_opt_out = True
+        self.assertFalse(user.is_enabled(Web))
+        self.assertEqual('opt-out', user.status)
 
     def test_is_enabled_enabled_protocols_overrides_non_public_profile_opt_out(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)

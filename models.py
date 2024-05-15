@@ -236,12 +236,15 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     @classmethod
     @ndb.transactional()
-    def get_or_create(cls, id, propagate=False, **kwargs):
+    def get_or_create(cls, id, propagate=False, allow_opt_out=False, **kwargs):
         """Loads and returns a :class:`User`. Creates it if necessary.
 
         Args:
           propagate (bool): whether to create copies of this user in push-based
             protocols, eg ATProto and Nostr.
+
+          allow_opt_out (bool): whether to allow and create the user if they're
+            currently opted out
 
         Returns:
           User: existing or new user, or None if the user is opted out
@@ -249,7 +252,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         assert cls != User
         user = cls.get_by_id(id, allow_opt_out=True)
         if user:
-            if user.status:
+            if user.status and not allow_opt_out:
                 return None
             user.existing = True
 
