@@ -159,7 +159,9 @@ class Fake(User, protocol.Protocol):
     @classmethod
     def receive_as1(cls, our_as1, **kwargs):
         assert isinstance(our_as1, dict)
-        return super().receive(Object(id=our_as1['id'], our_as1=our_as1), **kwargs)
+        return super().receive(Object(id=our_as1['id'], our_as1=our_as1,
+                                      source_protocol=cls.LABEL),
+                               **kwargs)
 
 
 class OtherFake(Fake):

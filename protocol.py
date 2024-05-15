@@ -761,6 +761,9 @@ class Protocol:
             if actor != authed_as:
                 logger.warning(f"actor {actor} isn't authed user {authed_as}")
 
+        # update copy ids to originals
+        obj.resolve_ids()
+
         # refresh profile for follows of bot users to re-check whether they're
         # opted out
         if obj.type == 'follow':
@@ -771,10 +774,7 @@ class Protocol:
         # load actor user
         from_user = from_cls.get_or_create(id=actor)
         if not from_user:
-            error(f'Actor {actor} is opted out', status=204)
-
-        # update copy ids to originals
-        obj.resolve_ids()
+            error(f'Actor {actor} is opted out or blocked', status=204)
 
         # write Object to datastore
         orig = obj
