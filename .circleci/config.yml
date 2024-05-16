@@ -13,7 +13,7 @@ jobs:
       - checkout
 
       - restore_cache:
-          key: venv-6-{{ .Branch }}-{{ checksum "requirements.txt" }}
+          key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
 
       - run:
           name: Base dependencies
@@ -65,7 +65,7 @@ jobs:
             fi
 
       - save_cache:
-          key: venv-6-{{ .Branch }}-{{ checksum "requirements.txt" }}
+          key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
           paths:
             - /home/circleci/.pyenv
             # Ideally we'd cache these, but they need root, and the cimg/python
