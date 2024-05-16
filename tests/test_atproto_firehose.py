@@ -386,8 +386,9 @@ class ATProtoFirehoseHandleTest(TestCase):
         handle(limit=1)
 
         expected = copy.deepcopy(REPLY_BSKY)
-        expected['reply']['root']['cid'] = expected['reply']['parent']['cid'] = \
-            A_CID.encode()
+        expected['reply']['root']['cid'] = expected['reply']['parent']['cid'] = {
+            '$link': A_CID.encode(),
+        }
         user_key = ATProto(id='did:plc:user').key
         obj = self.assert_object('at://did:plc:user/app.bsky.feed.post/123',
                                  bsky=expected, source_protocol='atproto',

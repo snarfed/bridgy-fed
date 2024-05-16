@@ -255,7 +255,7 @@ def handle(limit=None):
         # store object, enqueue receive task
         if op.action in ('create', 'update'):
             record_kwarg = {
-                'bsky': json_loads(dag_json.encode(op.record, compact=True)),
+                'bsky': json_loads(dag_json.encode(op.record, dialect='atproto')),
             }
             obj_id = at_uri
         elif op.action == 'delete':
