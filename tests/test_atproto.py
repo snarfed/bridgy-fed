@@ -25,7 +25,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads, trim_nulls
 from werkzeug.exceptions import BadRequest
 
 import atproto
-from atproto import ATProto
+from atproto import ATProto, DatastoreClient
 import common
 import hub
 from models import Object, PROTOCOLS, Target
@@ -75,7 +75,8 @@ class ATProtoTest(TestCase):
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
         self.store_object(id='did:plc:user', raw=did_doc)
-        Repo.create(self.storage, 'did:plc:user', signing_key=ATPROTO_KEY)
+        Repo.create(self.storage, 'did:plc:user', handle='handull',
+                    signing_key=ATPROTO_KEY)
 
         return self.user
 
@@ -924,7 +925,6 @@ class ATProtoTest(TestCase):
         post_obj = self.store_object(id='at://did:plc:bob/app.bsky.feed.post/tid',
                                      source_protocol='atproto', bsky={
             '$type': 'app.bsky.feed.post',
-            'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
             'cid': 'bafyCID',
         })
 
@@ -1430,3 +1430,80 @@ class ATProtoTest(TestCase):
         # self.assertEqual(repost, repost_obj.bsky)
         # self.assert_task(mock_create_task, 'receive', '/queue/receive',
         #                  obj=repost_obj.key.urlsafe(), authed_as='did:plc:eve')
+
+    def test_datastore_client_get_record_datastore(self):
+        self.make_user_and_repo()
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'foo',
+        }
+        self.store_object(id='at://did:plc:user/coll/post', bsky=post)
+
+        client = DatastoreClient('https://appview.local')
+        self.assertEqual({
+            'uri': 'at://did:plc:user/coll/post',
+            'cid': 'bafyreigdjrzqmcj4i3zcj3fzcfgod52ty7lfvw57ienlu4yeet3dv6zdpy',
+            'value': post,
+        }, client.com.atproto.repo.getRecord(repo='did:plc:user',
+                                             collection='coll', rkey='post'))
+
+    @patch('requests.get', return_value=requests_response({
+        'uri': 'at://did:plc:user/coll/tid',
+        'cid': 'my sidd',
+        'value': {
+            '$type': 'app.bsky.feed.post',
+            'foo': 'bar',
+        },
+    }))
+    def test_datastore_client_get_record_pass_through(self, mock_get):
+        self.make_user_and_repo()
+
+        client = DatastoreClient('https://appview.local')
+        self.assertEqual({
+            'uri': 'at://did:plc:user/coll/post',
+            'cid': 'my sidd',
+            'value': {
+                '$type': 'app.bsky.feed.post',
+                'foo': 'bar',
+                'cid': 'my sidd',
+            },
+        }, client.com.atproto.repo.getRecord(repo='did:plc:user',
+                                             collection='coll', rkey='post'))
+
+        mock_get.assert_called_with(
+            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=coll&rkey=post',
+            json=None, data=None, headers=ANY)
+
+    def test_datastore_client_resolve_handle_datastore_user(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.make_user('did:plc:user', cls=ATProto)
+
+        client = DatastoreClient('https://appview.local')
+        self.assertEqual({'did': 'did:plc:user'},
+                         client.com.atproto.identity.resolveHandle(handle='han.dull'))
+
+    def test_datastore_client_resolve_handle_datastore_repo(self):
+        self.make_user_and_repo()
+
+        client = DatastoreClient('https://appview.local')
+        self.assertEqual({'did': 'did:plc:user'},
+                         client.com.atproto.identity.resolveHandle(handle='handull'))
+
+    @patch('requests.get', return_value=requests_response({'did': 'dydd'}))
+    def test_datastore_client_resolve_handle_pass_through(self, mock_get):
+        client = DatastoreClient('https://appview.local')
+        self.assertEqual({'did': 'dydd'},
+                         client.com.atproto.identity.resolveHandle(handle='handull'))
+
+        mock_get.assert_called_with(
+            'https://appview.local/xrpc/com.atproto.identity.resolveHandle?handle=handull',
+            json=None, data=None, headers=ANY)
+
+    @patch('requests.get', return_value=requests_response({'foo': 'bar'}))
+    def test_datastore_client_other_call_pass_through(self, mock_get):
+        client = DatastoreClient('https://appview.local')
+        self.assertEqual({'foo': 'bar'}, client.com.atproto.repo.describeRepo(x='y'))
+
+        mock_get.assert_called_with(
+            'https://appview.local/xrpc/com.atproto.repo.describeRepo?x=y',
+            json=None, data=None, headers=ANY)

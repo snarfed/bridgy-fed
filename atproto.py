@@ -12,7 +12,7 @@ from arroba.datastore_storage import AtpRemoteBlob, AtpRepo, DatastoreStorage
 from arroba.repo import Repo, Write
 import arroba.server
 from arroba.storage import Action, CommitData
-from arroba.util import at_uri, next_tid, parse_at_uri, service_jwt
+from arroba.util import at_uri, dag_cbor_cid, next_tid, parse_at_uri, service_jwt
 import dag_json
 from flask import abort, request
 from google.cloud import dns
@@ -62,6 +62,51 @@ DNS_ZONE = 'brid-gy'
 DNS_TTL = 10800  # seconds
 logger.info(f'Using GCP DNS project {DNS_GCP_PROJECT} zone {DNS_ZONE}')
 dns_client = dns.Client(project=DNS_GCP_PROJECT)
+
+
+class DatastoreClient(Client):
+    """Bluesky client that uses the datastore as well as remote XRPC calls.
+
+    Overrides ``getRecord`` and ``resolveHandle``. If we have a record or DID
+    document stored locally, uses it as is instead of making a remote XRPC call.
+    Otherwise, passes through to the server.
+
+    Right now, requires that the server address is the same as
+    ``$APPVIEW_HOST``, because ``getRecord`` passes through to ``ATProto.load``
+    and then to ``ATProto.fetch``, which uses the ``appview`` global.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert self.address == f'https://{os.environ["APPVIEW_HOST"]}', self.address
+
+    def call(self, nsid, input=None, headers={}, **params):
+        if nsid == 'com.atproto.repo.getRecord':
+            if ret := self.get_record(**params):
+                return ret
+
+        if nsid == 'com.atproto.identity.resolveHandle':
+            if ret := self.resolve_handle(**params):
+                return ret
+
+        return super().call(nsid, input=input, headers=headers, **params)
+
+    def get_record(self, repo=None, collection=None, rkey=None):
+        assert repo and collection and rkey, (repo, collection, rkey)
+
+        uri = at_uri(did=repo, collection=collection, rkey=rkey)
+        if obj := ATProto.load(uri):
+            return {
+                'uri': uri,
+                'cid': obj.bsky.get('cid') or dag_cbor_cid(obj.bsky).encode('base32'),
+                'value': obj.bsky,
+            }
+
+    def resolve_handle(self, handle=None):
+        assert handle
+        user = (ATProto.query(ATProto.handle == handle).get()  # native Bluesky user
+                or AtpRepo.query(AtpRepo.handles == handle).get())  # bridged user
+        if user:
+            return {'did': user.key.id()}
 
 
 def did_to_handle(did):
@@ -613,6 +658,7 @@ class ATProto(User, Protocol):
         return True
 
 # URL route is registered in hub.py
+# TODO: this is now unused. delete it!
 def poll_notifications():
     """Fetches and enqueueus new activities from the AppView for our users.
 
@@ -695,6 +741,7 @@ def poll_notifications():
 
 
 # URL route is registered in hub.py
+# TODO: this is now unused. delete it!
 def poll_posts():
     """Fetches and enqueueus bridged Bluesky users' new posts from the AppView.
 
