@@ -323,7 +323,7 @@ class IntegrationTests(TestCase):
         })
         self.store_object(id='did:plc:bob', raw=bob_did_doc)
 
-        # existing Object with original post, *without* cid. we should refetch.
+        # existing Object with original post, *without* cid. we should generate.
         Object(id='at://did:plc:alice/app.bsky.feed.post/123', bsky=POST_BSKY).put()
 
         # inbox delivery
@@ -347,21 +347,15 @@ class IntegrationTests(TestCase):
 
         records = repo.get_contents()
         self.assertEqual(['app.bsky.feed.like'], list(records.keys()))
+        cid = 'bafyreiawawn2znuek7bdc7ayb5pszivgmzwgqob75gzfakj3y5debdppwy'
         self.assertEqual([{
             '$type': 'app.bsky.feed.like',
             'subject': {
                 'uri': 'at://did:plc:alice/app.bsky.feed.post/123',
-                'cid': 'sydd',
+                'cid': cid,
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }], list(records['app.bsky.feed.like'].values()))
-
-        # we needed to refetch the original post
-        self.assert_object(id='at://did:plc:alice/app.bsky.feed.post/123',
-                           source_protocol='atproto', bsky={
-                               **POST_BSKY,
-                               'cid': 'sydd',
-                           })
 
 
     @patch('requests.post', return_value=requests_response('OK'))  # create DID

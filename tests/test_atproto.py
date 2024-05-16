@@ -395,7 +395,7 @@ class ATProtoTest(TestCase):
             **DID_DOC,
             'id': 'did:plc:bob',
         })
-        self.store_object(id='at://did:plc:bob/app.bsky.feed.post/tid', bsky={
+        post = self.store_object(id='at://did:plc:bob/app.bsky.feed.post/tid', bsky={
             '$type': 'app.bsky.feed.post',
             'cid': 'my sidd',
         })
@@ -426,6 +426,7 @@ class ATProtoTest(TestCase):
             'object': 'at://did:plc:bob/app.bsky.feed.post/tid',
         })))
 
+        # reply
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
             'text': 'foo',
@@ -447,10 +448,44 @@ class ATProtoTest(TestCase):
             'inReplyTo': 'at://did:plc:bob/app.bsky.feed.post/tid',
         })))
 
+        # reply to reply
+        post.bsky['reply'] = {
+            'parent': {
+                'cid': 'parent sidd',
+                'uri': 'at://did:plc:bob/app.bsky.feed.post/parent-tid',
+            },
+            'root': {
+                'cid': 'root sidd',
+                'uri': 'at://did:plc:bob/app.bsky.feed.post/root-tid',
+            },
+        }
+        post.put()
+
+        self.assertEqual({
+            '$type': 'app.bsky.feed.post',
+            'text': 'foo',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'root': {
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/root-tid',
+                    'cid': 'root sidd',
+                },
+                'parent': {
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
+                    'cid': 'my sidd',
+                },
+            },
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'comment',
+            'content': 'foo',
+            'inReplyTo': 'at://did:plc:bob/app.bsky.feed.post/tid',
+        })))
+
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     @patch('requests.get', side_effect=[
-        # resolving handle, HTTPS method
-        requests_response('did:plc:user', content_type='text/plain'),
+        # appview resolveHandle
+        requests_response({'did': 'did:plc:user'}),
         # AppView getRecord
         requests_response({
             'uri': 'at://did:plc:user/app.bsky.feed.post/tid',
@@ -482,30 +517,17 @@ class ATProtoTest(TestCase):
             json=None, data=None, headers=ANY)
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
-    # resolving handle, HTTPS method
+    # appview resolveHandle
     @patch('requests.get', return_value=requests_response(status=404))
     def test_convert_populate_cid_fetch_remote_record_bad_handle(self, _, __):
         # skips getRecord because handle didn't resolve
-        self.assertEqual({
-            '$type': 'app.bsky.feed.like',
-            'subject': {
-                # preserves handle here since it couldn't be resolved to a DID
-                'uri': 'at://bob.net/app.bsky.feed.post/tid',
-                'cid': '',
-            },
-            'createdAt': '2022-01-02T03:04:05.000Z',
-        }, ATProto.convert(Object(our_as1={
+        self.assertEqual({}, ATProto.convert(Object(our_as1={
             'objectType': 'activity',
             'verb': 'like',
             'object': 'at://bob.net/app.bsky.feed.post/tid',
         })))
 
-    @patch('requests.get', return_value=requests_response({  # AppView getRecord
-        'uri': 'at://did:plc:user/app.bsky.feed.post/tid',
-        'cid': 'my sidd',
-        'value': {'$type': 'app.bsky.feed.post'},
-    }))
-    def test_convert_populate_cid_refetch_cid(self, mock_get):
+    def test_convert_generate_cid(self):
         # existing Object with post but missing cid
         self.store_object(id='did:plc:user', raw=DID_DOC)
         self.store_object(id='at://did:plc:user/app.bsky.feed.post/tid', bsky={
@@ -517,7 +539,7 @@ class ATProtoTest(TestCase):
             '$type': 'app.bsky.feed.like',
             'subject': {
                 'uri': 'at://did:plc:user/app.bsky.feed.post/tid',
-                'cid': 'my sidd',
+                'cid': 'bafyreibxlmh4wviq5pgc2mllp7zjkjnnp3vhmjvh5r3qpyaonnoh2ylusm',
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }, ATProto.convert(Object(our_as1={
@@ -525,10 +547,6 @@ class ATProtoTest(TestCase):
             'verb': 'like',
             'object': 'at://did:plc:user/app.bsky.feed.post/tid',
         })))
-
-        mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=tid',
-            json=None, data=None, headers=ANY)
 
     def test_convert_blobs_false(self):
         self.assertEqual({

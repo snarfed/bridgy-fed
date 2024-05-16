@@ -566,7 +566,8 @@ class Protocol:
           kwargs: protocol-specific
 
         Returns:
-          converted object in the protocol's native format, often a dict
+          converted object in the protocol's native format, often a dict. May
+            return the ``{}`` empty dict if the object can't be converted.
         """
         raise NotImplementedError()
 

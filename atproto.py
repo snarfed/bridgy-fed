@@ -103,10 +103,10 @@ class DatastoreClient(Client):
 
     def resolve_handle(self, handle=None):
         assert handle
-        user = (ATProto.query(ATProto.handle == handle).get()  # native Bluesky user
+        got = (ATProto.query(ATProto.handle == handle).get()  # native Bluesky user
                 or AtpRepo.query(AtpRepo.handles == handle).get())  # bridged user
-        if user:
-            return {'did': user.key.id()}
+        if got:
+            return {'did': got.key.id()}
 
 
 def did_to_handle(did):
@@ -587,37 +587,18 @@ class ATProto(User, Protocol):
                             url=url, get_fn=util.requests_get)
                         blobs[url] = blob.as_object()
 
-        ret = bluesky.from_as1(cls.translate_ids(obj.as1), blobs=blobs)
-            # TODO: uncomment this and pass through client eventually? would be
-            # nice to start reusing granary's resolving handles and CIDs, but we
-            # do much of that ourselves here in BF beforehand, so granary ends
-            # up duplicating those network requests
-            # client=appview)
-
-        # fill in CIDs from Objects
-        def populate_cid(strong_ref):
-            if uri := strong_ref.get('uri'):
-                # TODO: fail if this load fails? since we don't populate CID
-                if ref_obj := ATProto.load(uri):
-                    if not ref_obj.bsky.get('cid'):
-                        ref_obj = ATProto.load(uri, remote=True)
-                    strong_ref.update({
-                        'cid': ref_obj.bsky.get('cid'),
-                        'uri': ref_obj.key.id(),
-                    })
-
-        type = ret.get('$type')
-        match type:
-            case ('app.bsky.feed.like'
-                  | 'app.bsky.feed.repost'
-                  | 'com.atproto.moderation.createReport#input'):
-                populate_cid(ret['subject'])
-            case 'app.bsky.feed.post' if ret.get('reply'):
-                populate_cid(ret['reply']['root'])
-                populate_cid(ret['reply']['parent'])
+        # convert! using our records in the datastore and fetching code instead
+        # of granary's
+        client = DatastoreClient(f'https://{os.environ["APPVIEW_HOST"]}')
+        try:
+            ret = bluesky.from_as1(cls.translate_ids(obj.as1), blobs=blobs,
+                                   client=client)
+        except (ValueError, RequestException):
+            logger.error(f"Couldn't convert to ATProto", exc_info=True)
+            return {}
 
         # bridged actors get a self label
-        if type == 'app.bsky.actor.profile' and from_proto != ATProto:
+        if ret['$type'] == 'app.bsky.actor.profile' and from_proto != ATProto:
             label_val = 'bridged-from-bridgy-fed'
             if from_proto:
                 label_val += f'-{from_proto.LABEL}'
@@ -625,7 +606,6 @@ class ATProto(User, Protocol):
             ret['labels'].setdefault('values', []).append({'val' : label_val})
 
         return ret
-
 
     @classmethod
     def create_report(cls, input, from_user):
