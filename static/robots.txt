@@ -6,6 +6,7 @@ Disallow: /bsky/
 Disallow: /bluesky/
 Disallow: /bridge-user
 Disallow: /convert/
+Disallow: /log*
 Disallow: /nostr/
 Disallow: /recent
 Disallow: /r/
