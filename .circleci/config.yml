@@ -30,7 +30,7 @@ jobs:
             pip install -U pip flake8
             pip  -V
             # make sure we install these at head, below
-            pip uninstall -y arroba granary lexrpc oauth-dropins
+            pip uninstall -y arroba dag-json granary lexrpc oauth-dropins
             pip install -U -r requirements.txt
             pip install coverage coveralls
 
