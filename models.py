@@ -371,7 +371,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if self.manual_opt_out:
             return 'opt-out'
 
-        if self.enabled_protocols or not self.obj or not self.obj.as1:
+        if not self.obj or not self.obj.as1:
             return None
 
         if self.REQUIRES_AVATAR and not self.obj.as1.get('image'):
@@ -385,6 +385,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             if published := self.obj.as1.get('published'):
                 if util.now() - util.parse_iso8601(published) < OLD_ACCOUNT_AGE:
                     return 'blocked'
+
+        # user has explicitly opted in. should go after quality (REQUIRES_*)
+        # checks, but before is_public and other opt out checks.
+        if self.enabled_protocols:
+            return None
 
         if not as1.is_public(self.obj.as1, unlisted=False):
             return 'opt-out'

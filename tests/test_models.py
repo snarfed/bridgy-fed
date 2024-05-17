@@ -289,6 +289,9 @@ class UserTest(TestCase):
                               obj_as1={'displayName': 'Alice'})
         self.assertEqual('blocked', user.status)
 
+        user.enabled_protocols = ['eefake']
+        self.assertEqual('blocked', user.status)
+
         user.obj.our_as1['image'] = 'http://pic'
         self.assertIsNone(user.status)
 
@@ -304,6 +307,9 @@ class UserTest(TestCase):
         user.obj.our_as1['displayName'] = 'fake:handle:user'
         self.assertEqual('blocked', user.status)
 
+        user.enabled_protocols = ['eefake']
+        self.assertEqual('blocked', user.status)
+
         user.obj.our_as1['displayName'] = 'Alice'
         self.assertIsNone(user.status)
 
@@ -316,6 +322,9 @@ class UserTest(TestCase):
 
         too_young = util.now() - common.OLD_ACCOUNT_AGE + timedelta(minutes=1)
         user.obj.our_as1['published'] = too_young.isoformat()
+        self.assertEqual('blocked', user.status)
+
+        user.enabled_protocols = ['eefake']
         self.assertEqual('blocked', user.status)
 
         user.obj.our_as1['published'] = (too_young - timedelta(minutes=2)).isoformat()
