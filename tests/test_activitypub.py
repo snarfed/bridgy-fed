@@ -1950,6 +1950,17 @@ class ActivityPubUtilsTest(TestCase):
             'image': [{'url': 'http://r/foo'}, {'url': 'http://r/bar'}],
         }))
 
+    def test_postprocess_as2_image_bare_string_url(self):
+        self.assert_equals({
+            'id': 'http://localhost/r/xyz',
+            'attachment': [{'url': 'http://r/foo'}],
+            'image': ['http://r/foo'],
+            'to': [as2.PUBLIC_AUDIENCE],
+        }, postprocess_as2({
+            'id': 'xyz',
+            'image': ['http://r/foo'],
+        }))
+
     def test_postprocess_as2_note(self):
         self.assert_equals({
             'id': 'http://localhost/r/xyz',
