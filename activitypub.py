@@ -685,8 +685,10 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     imgs = util.get_list(obj_or_activity, 'image')
     if imgs:
         atts = obj_or_activity['attachment']
-        atts.extend((img if isinstance(img, dict) else {'url': img})
-                    for img in imgs if img not in atts)
+        for img in imgs:
+            if isinstance(img, str):
+                img = {'url': img}
+            add(atts, img)
 
     # cc target's author(s), recipients, mentions
     # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting
