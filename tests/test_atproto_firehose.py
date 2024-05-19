@@ -94,6 +94,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         self.cursor.put()
         assert new_commits.empty()
 
+        atproto_firehose.subscribe_cursor = None
         atproto_firehose.atproto_dids = set()
         atproto_firehose.atproto_loaded_at = datetime(1900, 1, 1)
         atproto_firehose.bridged_dids = set()
