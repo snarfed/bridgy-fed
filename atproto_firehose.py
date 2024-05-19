@@ -77,7 +77,7 @@ def _load_dids():
         bridged_dids.update(new_bridged)
 
         dids_initialized.set()
-        logger.info(f'DIDs: ATProto {len(atproto_dids)} (+{len(new_atproto)}, AtpRepo{len(bridged_dids)} (+{len(new_bridged)})')
+        logger.info(f'DIDs: ATProto {len(atproto_dids)} (+{len(new_atproto)}, AtpRepo {len(bridged_dids)} (+{len(new_bridged)})')
 
 
 def subscriber():
@@ -169,7 +169,14 @@ def subscribe():
             if not cid or not block:
                 continue
 
-            op = Op(*op[:-1], record=block.decoded)
+            try:
+                op = Op(*op[:-1], record=block.decoded)
+            except BaseException:
+                # https://github.com/hashberg-io/dag-cbor/issues/14
+                logger.error(f"Couldn't decode block {cid} seq {op.seq}",
+                             exc_info=True)
+                continue
+
             type = op.record.get('$type')
             if not type:
                 logger.warning('commit record missing $type! {op.action} {op.repo} {op.path} {cid}')
