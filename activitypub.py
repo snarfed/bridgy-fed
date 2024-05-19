@@ -731,8 +731,8 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         name = tag.get('name')
         if name and tag.get('type', 'Tag') == 'Tag':
             tag['type'] = 'Hashtag'
-            tag.setdefault('href', common.host_url(
-                f'hashtag/{quote_plus(name.removeprefix("#"))}'))
+            url_path = f'/hashtag/{quote_plus(name.removeprefix("#"))}'
+            tag.setdefault('href', urljoin(activity['id'], url_path))
             if not name.startswith('#'):
                 tag['name'] = f'#{name}'
 

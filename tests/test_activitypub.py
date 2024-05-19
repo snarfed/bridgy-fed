@@ -1997,7 +1997,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals({
             'tag': [
                 {'type': 'Hashtag', 'name': '#bar', 'href': 'bar'},
-                {'type': 'Hashtag', 'name': '#baz', 'href': 'http://localhost/hashtag/baz'},
+                {'type': 'Hashtag', 'name': '#baz', 'href': '/hashtag/baz'},
                 {'type': 'Mention', 'href': 'foo'},
             ],
             'to': [as2.PUBLIC_AUDIENCE],
