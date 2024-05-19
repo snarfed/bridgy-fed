@@ -42,6 +42,10 @@ Op = namedtuple('Op', ['action', 'repo', 'path', 'seq', 'record'],
 # contains Ops
 new_commits = SimpleQueue()
 
+# global so that subscribe can reuse it across calls
+subscribe_cursor = None
+
+# global: _load_dids populates them, subscribe and handle use them
 atproto_dids = set()
 atproto_loaded_at = datetime(1900, 1, 1)
 bridged_dids = set()
@@ -77,7 +81,7 @@ def _load_dids():
         bridged_dids.update(new_bridged)
 
         dids_initialized.set()
-        logger.info(f'DIDs: ATProto {len(atproto_dids)} (+{len(new_atproto)}, AtpRepo {len(bridged_dids)} (+{len(new_bridged)})')
+        logger.info(f'DIDs: ATProto {len(atproto_dids)} (+{len(new_atproto)}), AtpRepo {len(bridged_dids)} (+{len(new_bridged)})')
 
 
 def subscriber():
@@ -97,7 +101,6 @@ def subscriber():
             report_exception()
 
 
-
 def subscribe():
     """Subscribes to the relay's firehose.
 
@@ -108,14 +111,17 @@ def subscribe():
     """
     load_dids()
 
-    cursor = Cursor.get_by_id(
-        f'{os.environ["BGS_HOST"]} com.atproto.sync.subscribeRepos')
-    assert cursor
+    global subscribe_cursor
+    if not subscribe_cursor:
+        cursor = Cursor.get_by_id(
+            f'{os.environ["BGS_HOST"]} com.atproto.sync.subscribeRepos')
+        assert cursor
+        subscribe_cursor = cursor.cursor + 1 if cursor.cursor else None
 
     client = Client(f'https://{os.environ["BGS_HOST"]}')
 
-    sub_cursor = cursor.cursor + 1 if cursor.cursor else None
-    for header, payload in client.com.atproto.sync.subscribeRepos(cursor=sub_cursor):
+    for header, payload in client.com.atproto.sync.subscribeRepos(
+            cursor=subscribe_cursor):
         # parse header
         if header.get('op') == -1:
             logger.warning(f'Got error from relay! {payload}')
@@ -129,6 +135,16 @@ def subscribe():
         # parse payload
         repo = payload.get('repo')
         assert repo
+
+
+        seq = payload.get('seq')
+        if not seq:
+            logger.warning(f'Payload missing seq! {payload}')
+            continue
+
+        # if we fail processing this commit and raise an exception up to subscriber,
+        # skip it and start with the next commit when we're restarted
+        subscribe_cursor = seq + 1
 
         # ops = ' '.join(f'{op.get("action")} {op.get("path")}'
         #                for op in payload.get('ops', []))
@@ -147,7 +163,7 @@ def subscribe():
         # reposts, mentions
         for p_op in payload.get('ops', []):
             op = Op(repo=repo, action=p_op.get('action'), path=p_op.get('path'),
-                    seq=payload.get('seq'))
+                    seq=seq)
             if not op.action or not op.path:
                 logger.info(
                     f'bad payload! seq {op.seq} has action {op.action} path {op.path}!')
@@ -319,4 +335,3 @@ if LOCAL_SERVER or not DEBUG:
 
     Thread(target=subscriber, name='atproto_firehose.subscriber').start()
     Thread(target=handler, name='atproto_firehose.handler').start()
-

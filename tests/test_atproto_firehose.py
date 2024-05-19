@@ -125,7 +125,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         subscribe()
         self.assertTrue(new_commits.empty())
 
-    def test_error(self):
+    def test_error_message(self):
         FakeWebsocketClient.to_receive = [(
             {'op': -1},
             {'error': 'ConsumerTooSlow', 'message': 'ketchup!'},
@@ -134,7 +134,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         subscribe()
         self.assertTrue(new_commits.empty())
 
-    def test_info(self):
+    def test_info_message(self):
         FakeWebsocketClient.to_receive = [(
             {'op': 1, 't': '#info'},
             {'name': 'OutdatedCursor'},
@@ -356,6 +356,29 @@ class ATProtoFirehoseSubscribeTest(TestCase):
             'subject': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
         })
 
+    def test_uncaught_exception_skips_commit(self):
+        self.cursor.cursor = 1
+        self.cursor.put()
+
+        FakeWebsocketClient.setup_receive(
+            Op(repo='did:x', action='create', path='y', seq=4, record={'foo': 'bar'}))
+        with patch('atproto_firehose.read_car', side_effect=RuntimeError('oops')), \
+             self.assertRaises(RuntimeError):
+            subscribe()
+
+        self.assertTrue(new_commits.empty())
+        self.assertEqual(
+            'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=2',
+            FakeWebsocketClient.url)
+
+        self.assert_enqueues(action='update', record={
+            '$type': 'app.bsky.feed.like',
+            'subject': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+        })
+        self.assertEqual(
+            'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=5',
+            FakeWebsocketClient.url)
+
 
 @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
 class ATProtoFirehoseHandleTest(TestCase):
@@ -375,7 +398,7 @@ class ATProtoFirehoseHandleTest(TestCase):
         atproto_firehose.bridged_dids = None
         atproto_firehose.dids_initialized.clear()
 
-    def test_handle_create(self, mock_create_task):
+    def test_create(self, mock_create_task):
         reply = copy.deepcopy(REPLY_BSKY)
         # test that we encode CIDs and bytes as JSON
         reply['reply']['root']['cid'] = reply['reply']['parent']['cid'] = A_CID
@@ -397,7 +420,7 @@ class ATProtoFirehoseHandleTest(TestCase):
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
                          obj=obj.key.urlsafe(), authed_as='did:plc:user')
 
-    def test_handle_delete(self, mock_create_task):
+    def test_delete(self, mock_create_task):
         new_commits.put(Op(repo='did:plc:user', action='delete', seq=789,
                            path='app.bsky.feed.post/123', record=POST_BSKY))
 
@@ -417,7 +440,7 @@ class ATProtoFirehoseHandleTest(TestCase):
         self.assert_task(mock_create_task, 'receive', '/queue/receive',
                          obj=obj.key.urlsafe(), authed_as='did:plc:user')
 
-    def test_handle_store_cursor(self, mock_create_task):
+    def test_store_cursor(self, mock_create_task):
         now = None
         def _now(tz=None):
             assert tz is None
