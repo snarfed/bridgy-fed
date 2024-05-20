@@ -253,15 +253,16 @@ AS2_CREATE = {
         'url': 'http://localhost/r/https://user.com/reply',
         'name': 'foo ☕ bar',
         'content': """\
-<a class="u-in-reply-to" href="http://no.t/fediverse"></a>
+<p><a class="u-in-reply-to" href="http://no.t/fediverse"></a>
 <a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
-<a href="http://localhost/"></a>""",
+<a href="http://localhost/"></a></p>""",
         'contentMap': {
             'en': """\
-<a class="u-in-reply-to" href="http://no.t/fediverse"></a>
+<p><a class="u-in-reply-to" href="http://no.t/fediverse"></a>
 <a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
-<a href="http://localhost/"></a>""",
+<a href="http://localhost/"></a></p>""",
         },
+        'content_is_html': True,
         'inReplyTo': 'https://mas.to/toot/id',
         'to': [as2.PUBLIC_AUDIENCE],
         'cc': [
@@ -368,8 +369,9 @@ NOTE_AS2 = {
     'url': 'http://localhost/r/https://user.com/post',
     'attributedTo': 'http://localhost/user.com',
     'name': 'hello i am a post',
-    'content': 'hello i am a post',
-    'contentMap': {'en': 'hello i am a post'},
+    'content': '<p>hello i am a post</p>',
+    'contentMap': {'en': '<p>hello i am a post</p>'},
+    'content_is_html': True,
     'to': [as2.PUBLIC_AUDIENCE],
 }
 CREATE_AS2 = {
@@ -1027,6 +1029,8 @@ class WebTest(TestCase):
             'attributedTo': None,
             'type': 'Create',
             'actor': 'http://localhost/user.com',
+            'content': 'hello i am a post',
+            'content_is_html': None,
             # TODO: this is an awkward wart left over from the multi-type mf2.
             # remove it eventually.
             'object': {

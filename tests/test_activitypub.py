@@ -1983,8 +1983,9 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals({
             'id': 'http://localhost/r/xyz',
             'type': 'Note',
-            'content': 'foo',
-            'contentMap': {'en': 'foo'},
+            'content': '<p>foo</p>',
+            'contentMap': {'en': '<p>foo</p>'},
+            'content_is_html': True,
             'to': [as2.PUBLIC_AUDIENCE],
         }, postprocess_as2({
             'id': 'xyz',
@@ -2012,7 +2013,7 @@ class ActivityPubUtilsTest(TestCase):
         }))
 
     def test_postprocess_as2_plain_text_content_links_hashtags_mentions(self):
-        expected = 'foo <a href="http://inst/bar">@bar</a> <a href="http://inst/baz">#baz</a>'
+        expected = '<p>foo <a href="http://inst/bar">@bar</a> <a href="http://inst/baz">#baz</a></p>'
         self.assert_equals({
             'content': expected,
             'contentMap': {'en': expected},
