@@ -2011,6 +2011,36 @@ class ActivityPubUtilsTest(TestCase):
             ],
         }))
 
+    def test_postprocess_as2_plain_text_content_links_hashtags_mentions(self):
+        expected = 'foo <a href="http://inst/bar">@bar</a> <a href="http://inst/baz">#baz</a>'
+        self.assert_equals({
+            'content': expected,
+            'contentMap': {'en': expected},
+            'content_is_html': True,
+            'tag': [{
+                'type': 'Tag',
+                'href': 'http://inst/bar',
+            }, {
+                'type': 'Mention',
+                'href': 'http://inst/baz',
+            }],
+            'to': [as2.PUBLIC_AUDIENCE],
+            'cc': ['http://inst/baz'],
+        }, postprocess_as2({
+            'content': 'foo @bar #baz',
+            'tag': [{
+                'type': 'Tag',
+                'href': 'http://inst/bar',
+                'startIndex': 4,
+                'length': 4,
+            }, {
+                'type': 'Mention',
+                'href': 'http://inst/baz',
+                'startIndex': 9,
+                'length': 4,
+            }],
+        }))
+
     def test_postprocess_as2_strips_link_attachment(self):
         self.assertNotIn('attachment', postprocess_as2({
             'type': 'Note',

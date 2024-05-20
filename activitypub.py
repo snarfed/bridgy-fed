@@ -736,6 +736,8 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
             if not name.startswith('#'):
                 tag['name'] = f'#{name}'
 
+    as2.link_tags(obj_or_activity)
+
     # language, in contentMap
     # https://github.com/snarfed/bridgy-fed/issues/681
     if content := obj_or_activity.get('content'):
