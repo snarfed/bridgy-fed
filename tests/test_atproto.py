@@ -646,6 +646,39 @@ class ATProtoTest(TestCase):
             }],
         })))
 
+    # resolveHandle
+    @patch('requests.get', return_value=requests_response({'did': 'did:plc:user'}))
+    def test_convert_resolve_mention_handle_drop_server(self, mock_get):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+
+        self.assertEqual({
+            '$type': 'app.bsky.feed.post',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'text': 'hi @han.dull hows it going',
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#mention',
+                    'did': 'did:plc:user',
+                }],
+                'index': {
+                    'byteEnd': 12,
+                    'byteStart': 3,
+                },
+            }],
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'comment',
+            'content': 'hi <a href="https://bsky.brid.gy/ap/did:plc:user">@<span>han.dull</span></a> hows it going',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'did:plc:user',
+                # we should find the mentioned handle in the content text even
+                # if it doesn't have @ser.ver
+                # https://github.com/snarfed/bridgy-fed/issues/957
+                'displayName': '@han.dull@ser.ver'
+            }],
+        })))
+
     def test_convert_actor_from_atproto_doesnt_add_self_label(self):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
