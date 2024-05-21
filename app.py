@@ -10,11 +10,3 @@ import activitypub, atproto, convert, follow, pages, redirect, ui, webfinger, we
 
 import models
 models.reset_protocol_properties()
-
-app.add_url_rule('/queue/atproto-poll-notifs',
-                 view_func=atproto.poll_notifications,
-                 methods=['GET', 'POST'])
-
-app.add_url_rule('/queue/atproto-poll-posts',
-                 view_func=atproto.poll_posts,
-                 methods=['GET', 'POST'])

@@ -28,9 +28,7 @@ util.set_user_agent(USER_AGENT)
 
 models.reset_protocol_properties()
 
-#
 # Flask app
-#
 app = Flask(__name__)
 app.json.compact = False
 app_dir = Path(__file__).parent
@@ -55,18 +53,9 @@ def health_check():
     return 'OK'
 
 
-#
-# ATProto XRPC server, other URL routes
-#
+# ATProto XRPC server
 lexrpc.flask_server.init_flask(arroba.server.server, app)
 
-app.add_url_rule('/queue/atproto-poll-notifs',
-                 view_func=atproto.poll_notifications,
-                 methods=['GET', 'POST'])
-
-app.add_url_rule('/queue/atproto-poll-posts',
-                 view_func=atproto.poll_posts,
-                 methods=['GET', 'POST'])
 
 @app.post('/queue/atproto-commit')
 @flask_util.cloud_tasks_only
@@ -77,25 +66,6 @@ def atproto_commit():
     """
     xrpc_sync.send_new_commits()
     return 'OK'
-
-
-#
-# ATProto firehose consumer
-#
-# if LOCAL_SERVER or not DEBUG:
-#     def subscribe():
-#         with appengine_config.ndb_client.context():
-#             atproto_firehose.subscribe()
-
-#     assert 'atproto_firehose.subscribe' not in [t.name for t in threading.enumerate()]
-#     Thread(target=subscribe, name='atproto_firehose.subscribe').start()
-
-#     def handle():
-#         with appengine_config.ndb_client.context():
-#             atproto_firehose.handle()
-
-#     assert 'atproto_firehose.handle' not in [t.name for t in threading.enumerate()]
-#     Thread(target=handle, name='atproto_firehose.handle').start()
 
 
 # send requestCrawl to relay

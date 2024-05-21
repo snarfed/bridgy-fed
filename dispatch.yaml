@@ -4,11 +4,5 @@ dispatch:
   - url: "*/queue/atproto-commit"
     service: hub
 
-  # - url: "*/queue/atproto-poll-notifs"
-  #   service: hub
-
-  # - url: "*/queue/atproto-poll-posts"
-  #   service: hub
-
   - url: "*/xrpc/com.atproto.sync.subscribeRepos"
     service: hub

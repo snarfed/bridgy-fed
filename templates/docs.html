@@ -1423,7 +1423,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <th>Publish inbound</th>
   <td class="done"><a href="https://webmention.net/">webmention</a> to fed.brid.gy</td>
   <td class="done">deliver to fed.brid.gy <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a>, user or shared</td>
-  <td class="done">poll posts on AppView via <code>app.bsky.feed.getTimeline</code></td>
+  <td class="done">receive post via <a href="https://docs.bsky.app/docs/advanced-guides/firehose">firehose</a> from relay</td>
   <td>publish <a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">event</a> to BF relay</td>
 </tr>
 <tr>
@@ -1438,7 +1438,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <td class="done"><em>users</em>: UI on BF user page<br>
       <em>code</em>: <a href="https://webmention.net/">webmention</a> with <code><a href="https://indieweb.org/follow#How_to_publish">u-follow-of</a></code></td>
   <td class="done"><code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-follow">Follow</a></code> activity delivered to BF user <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a></td>
-  <td class="done">poll notifications on AppView via <code>app.bsky.notification.listNotifications</code></td>
+  <td class="done">receive follow via <a href="https://docs.bsky.app/docs/advanced-guides/firehose">firehose</a> from relay</td>
   <td>user's client sends <code><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">REQ</a></code> to BF relay</td>
 </tr>
 <tr>
@@ -1452,7 +1452,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
   <th>Response inbound</th>
   <td class="done"><a href="https://webmention.net/">webmention</a> to a BF proxy page</td>
   <td class="done"><code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-create">Create</a></code>, <code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-like">Like</a></code>, <code><a href="https://www.w3.org/TR/activitystreams-vocabulary/#dfn-announce">Announce</a></code> delivered to BF user <a href="https://www.w3.org/TR/activitypub/#inbox">inbox</a></td>
-  <td class="done">poll notifications on AppView via <code>app.bsky.notification.listNotifications</code></td>
+  <td class="done">receive response via <a href="https://docs.bsky.app/docs/advanced-guides/firehose">firehose</a> from relay</td>
   <td><a href="https://github.com/nostr-protocol/nips/blob/master/10.md">NIP-10</a> response <a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">event</a> received at BF relay or other relay</td>
 </tr>
 <tr>

@@ -2,12 +2,3 @@
 # docs: https://cloud.google.com/appengine/docs/standard/python3/scheduling-jobs-with-cron-yaml
 
 cron:
-# - description: ATProto poll posts
-#   url: /queue/atproto-poll-posts
-#   schedule: every 1 minutes
-#   target: default
-
-# - description: ATProto poll notifications
-#   url: /queue/atproto-poll-notifs
-#   schedule: every 1 minutes
-#   target: default
