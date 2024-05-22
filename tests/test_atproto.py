@@ -7,6 +7,7 @@ from unittest.mock import ANY, call, MagicMock, patch
 from arroba.datastore_storage import AtpBlock, AtpRemoteBlob, AtpRepo, DatastoreStorage
 from arroba.did import encode_did_key
 from arroba.repo import Repo
+from arroba.storage import SUBSCRIBE_REPOS_NSID
 import arroba.util
 from dns.resolver import NXDOMAIN
 from flask import g
@@ -20,7 +21,7 @@ from granary.tests.test_bluesky import (
 )
 from multiformats import CID
 from oauth_dropins.webutil.appengine_config import tasks_client
-from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.testutil import NOW, requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads, trim_nulls
 from werkzeug.exceptions import BadRequest
 
@@ -66,6 +67,7 @@ class ATProtoTest(TestCase):
         super().setUp()
         self.storage = DatastoreStorage()
         common.RUN_TASKS_INLINE = False
+        arroba.util.now = lambda **kwargs: NOW
 
     def make_user_and_repo(self):
         self.user = self.make_user(id='fake:user', cls=Fake,
@@ -784,7 +786,7 @@ class ATProtoTest(TestCase):
         self.assertEqual([Target(uri=uri, protocol='atproto')],
                          Object.get_by_id(id='fake:us_er').copies)
 
-        mock_create_task.assert_called()
+        mock_create_task.assert_called()  # atproto-commit
 
     def test_create_for_bad_handle(self):
         # underscores gets translated to dashes, trailing/leading aren't allowed
@@ -897,7 +899,7 @@ class ATProtoTest(TestCase):
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:post').copies)
 
-        mock_create_task.assert_called()
+        mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_note_existing_repo(self, mock_create_task):
@@ -917,7 +919,7 @@ class ATProtoTest(TestCase):
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:post').copies)
 
-        mock_create_task.assert_called()
+        mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_update_note(self, mock_create_task):
@@ -942,7 +944,7 @@ class ATProtoTest(TestCase):
         record = repo.get_record('app.bsky.feed.post', last_tid)
         self.assertEqual('something new', record['text'])
 
-        mock_create_task.assert_called()
+        mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_delete_note(self, mock_create_task):
@@ -963,7 +965,7 @@ class ATProtoTest(TestCase):
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         self.assertIsNone(repo.get_record('app.bsky.feed.post', last_tid))
 
-        mock_create_task.assert_called()
+        mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_like(self, mock_create_task):
@@ -1006,7 +1008,7 @@ class ATProtoTest(TestCase):
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:like').copies)
 
-        mock_create_task.assert_called()
+        mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get', return_value=requests_response({
@@ -1049,7 +1051,7 @@ class ATProtoTest(TestCase):
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Abob&collection=app.bsky.feed.post&rkey=tid',
             json=None, data=None, headers=ANY)
-        mock_create_task.assert_called()
+        mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_follow(self, mock_create_task):
@@ -1078,7 +1080,7 @@ class ATProtoTest(TestCase):
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:follow').copies)
 
-        mock_create_task.assert_called()
+        mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task')
     def test_send_not_our_repo(self, mock_create_task):
@@ -1130,6 +1132,32 @@ class ATProtoTest(TestCase):
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())
         mock_create_task.assert_not_called()
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_delete_actor(self, mock_create_task):
+        self.make_user_and_repo()
+
+        did = self.user.key.get().get_copy(ATProto)
+        delete = self.store_object(id='fake:delete', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': did,
+        })
+        self.assertTrue(ATProto.send(delete, 'https://bsky.brid.gy/'))
+
+        with self.assertRaises(arroba.util.TombstonedRepo):
+            self.storage.load_repo(did)
+
+        seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)
+        self.assertEqual({
+            '$type': 'com.atproto.sync.subscribeRepos#tombstone',
+            'seq': seq,
+            'did': did,
+            'time': NOW.isoformat(),
+        }, next(self.storage.read_events_by_seq(seq)))
+
+        mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task')
     def test_send_translates_ids(self, mock_create_task):
@@ -1197,7 +1225,7 @@ class ATProtoTest(TestCase):
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:reply').copies)
 
-        mock_create_task.assert_called()
+        mock_create_task.assert_called()  # atproto-commit
 
     # createReport
     @patch('requests.post', return_value=requests_response({'id': 3}))

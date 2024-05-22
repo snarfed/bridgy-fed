@@ -441,7 +441,15 @@ class ATProto(User, Protocol):
         assert repo
         repo.callback = lambda _: common.create_task(queue='atproto-commit')
 
-        if verb == 'flag':
+        # non-commit operations:
+        # * delete actor => tombstone repo
+        # * flag => send report to mod service
+        if verb == 'delete' and obj_as1['id'] == did:
+            logger.info(f'Deleting bridged ATProto account {did} by tombstoning repo!')
+            arroba.server.storage.tombstone_repo(repo)
+            return True
+
+        elif verb == 'flag':
             return to_cls.create_report(record, user)
 
         # write commit
