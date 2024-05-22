@@ -1059,16 +1059,21 @@ class Protocol:
         now = util.now().isoformat()
         logger.info(f'Following {user.key.id()} back from bot user {bot.key.id()}')
 
+        target = user.target_for(user.obj)
         follow_back_id = f'https://{bot.key.id()}/#follow-back-{user.key.id()}-{now}'
-        follow_back = Object(id=follow_back_id, source_protocol='web', our_as1={
+        follow_back = Object(id=follow_back_id, source_protocol='web',
+                             undelivered=[Target(protocol=user.LABEL, uri=target)],
+                             our_as1={
             'objectType': 'activity',
             'verb': 'follow',
             'id': follow_back_id,
             'actor': bot.key.id(),
             'object': user.key.id(),
-        })
+        }).put()
 
-        user.send(follow_back, user.target_for(user.obj), from_user=bot)
+        common.create_task(queue='send', obj=follow_back.urlsafe(),
+                           url=target, protocol=user.LABEL,
+                           user=bot.key.urlsafe())
 
     @classmethod
     def handle_bare_object(cls, obj):
