@@ -1531,8 +1531,12 @@ def send_task():
     logger.info(f'Params: {list(form.items())}')
 
     # prepare
-    url = form['url']
-    protocol = form['protocol']
+    url = form.get('url')
+    protocol = form.get('protocol')
+    if not url or not protocol:
+        logger.warning(f'Missing protocol or url; got {protocol} {url}')
+        return '', 204
+
     target = Target(uri=url, protocol=protocol)
 
     obj = ndb.Key(urlsafe=form['obj']).get()

@@ -2363,3 +2363,13 @@ class ProtocolReceiveTest(TestCase):
             'user': self.user.key.urlsafe(),
         }, headers={CLOUD_TASKS_QUEUE_HEADER: ''})
         self.assertEqual(200, resp.status_code)
+
+    def test_send_task_missing_url(self):
+        obj = self.store_object(id='fake:post')
+        resp = self.client.post('/queue/send', data={
+            'protocol': 'fake',
+            'obj': obj.key.urlsafe(),
+            'url': None,
+            'user': self.user.key.urlsafe(),
+        }, headers={CLOUD_TASKS_QUEUE_HEADER: ''})
+        self.assertEqual(204, resp.status_code)
