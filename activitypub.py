@@ -971,7 +971,7 @@ def inbox(protocol=None, id=None):
 
     obj = Object(id=activity.get('id'), as2=unwrap(activity))
     try:
-        # TODO: switch to task
+        # TODO: switch to task. need to handle transient activities without ids!
         return ActivityPub.receive(obj, authed_as=authed_as)
     except ValueError as e:
         logger.warning(e, exc_info=True)

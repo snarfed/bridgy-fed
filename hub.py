@@ -64,7 +64,7 @@ def atproto_commit():
 
     Triggers `subscribeRepos` to check for new commits.
     """
-    xrpc_sync.send_new_commits()
+    xrpc_sync.send_events()
     return 'OK'
 
 
