@@ -879,6 +879,7 @@ class Protocol:
                 return 'OK', 200
 
             from_user.disable_protocol(proto)
+            proto.maybe_delete_copy(from_user)
             return 'OK', 200
 
         elif obj.type == 'post':
@@ -898,6 +899,7 @@ class Protocol:
                         proto.bot_follow(from_user)
                     elif content == 'no':
                         from_user.disable_protocol(proto)
+                        proto.maybe_delete_copy(from_user)
                     return 'OK', 200
 
         # fetch actor if necessary
@@ -1074,6 +1076,44 @@ class Protocol:
         common.create_task(queue='send', obj=follow_back.urlsafe(),
                            url=target, protocol=user.LABEL,
                            user=bot.key.urlsafe())
+
+    @classmethod
+    def maybe_delete_copy(copy_cls, user):
+        """Deletes a user's copy actor in a given protocol.
+
+        ...if ``copy_cls`` 's :attr:`Protocol.HAS_COPIES` is True. Otherwise,
+        does nothing.
+
+        TODO: this should eventually go through receive for protocols that need
+        to deliver to all followers' targets, eg AP.
+
+        Args:
+          user (User)
+        """
+        if not copy_cls.HAS_COPIES:
+            return
+
+        copy_user_id = user.get_copy(copy_cls)
+        if not copy_user_id:
+            logger.warning(f"Tried to delete {user.key} copy for {copy_cls.LABEL}, which doesn't exist!")
+            return
+
+        now = util.now().isoformat()
+        delete_id = f'{copy_user_id}#delete-copy-{copy_cls.LABEL}-{now}'
+        delete = Object(id=delete_id, our_as1={
+                            'id': delete_id,
+                            'objectType': 'activity',
+                            'verb': 'delete',
+                            'actor': 'fake:user',
+                            'object': copy_user_id,
+                        })
+        target = Target(protocol=copy_cls.LABEL, uri=copy_cls.target_for(delete))
+        delete.undelivered = [target]
+        delete.put()
+
+        common.create_task(queue='send', obj=delete.key.urlsafe(),
+                           url=target.uri, protocol=target.protocol,
+                           user=user.key.urlsafe())
 
     @classmethod
     def handle_bare_object(cls, obj):

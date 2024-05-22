@@ -1993,6 +1993,12 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.created_for)
         self.assertFalse(user.is_enabled(Fake))
 
+        # ...and delete copy actor
+        self.assertEqual(
+            [('fake:u:eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00',
+              'fake:u:eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00:target')],
+        Fake.sent)
+
     def test_follow_bot_user_refreshes_profile(self):
         # bot user
         self.make_user('fa.brid.gy', cls=Web)
@@ -2131,6 +2137,12 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], user.enabled_protocols)
         self.assertEqual([], Fake.created_for)
         self.assertFalse(user.is_enabled(Fake))
+
+        # ...and delete copy actor
+        self.assertEqual(
+            [('fake:u:eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00',
+              'fake:u:eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00:target')],
+        Fake.sent)
 
     @patch('protocol.LIMITED_DOMAINS', ['lim.it'])
     @patch('requests.get')
