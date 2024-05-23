@@ -30,7 +30,7 @@ from models import Object, reset_protocol_properties
 import activitypub, atproto, web
 
 RECONNECT_DELAY = timedelta(seconds=30)
-STORE_CURSOR_FREQ = timedelta(seconds=20)
+STORE_CURSOR_FREQ = timedelta(seconds=10)
 
 logger = logging.getLogger(__name__)
 
@@ -150,9 +150,9 @@ def subscribe():
         #                for op in payload.get('ops', []))
         # logger.info(f'seeing {payload.get("seq")} {repo} {ops}')
 
-        # if repo in bridged_dids:  # from a Bridgy Fed non-Bluesky user; ignore
-        #     logger.info(f'Ignoring record from our non-ATProto bridged user {repo}')
-        #     continue
+        if repo in bridged_dids:  # from a Bridgy Fed non-Bluesky user; ignore
+            logger.info(f'Ignoring record from our non-ATProto bridged user {repo}')
+            continue
 
         blocks = {}
         if block_bytes := payload.get('blocks'):

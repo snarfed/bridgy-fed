@@ -177,6 +177,17 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         self.make_user('did:plc:eve', cls=ATProto, enabled_protocols=['eefake'])
         self.assert_doesnt_enqueue(POST_BSKY, repo='did:plc:user')
 
+    def test_skip_post_by_bridged_user(self):
+        # reply to bridged user, but also from bridged user, so we should skip
+        self.assert_doesnt_enqueue({
+            '$type': 'app.bsky.feed.post',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'parent': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+                'root': {'uri': '-'},
+            },
+        }, repo='did:alice')
+
     def test_reply_direct_to_our_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.feed.post',
