@@ -2176,6 +2176,9 @@ class ProtocolReceiveTest(TestCase):
         actor = 'https://lim.it/alice'
         user = self.make_user(id=actor, cls=ActivityPub, enabled_protocols=['atproto'])
 
+        # follow by bot user shouldn't count
+        Follower.get_or_create(to=user, from_=Web(id='https://bsky.brid.gy/'))
+
         got = self.post('/user.com/inbox', json={
             **NOTE,
             'id': 'https://lim.it/note',

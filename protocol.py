@@ -1318,9 +1318,10 @@ class Protocol:
         if (obj.type in ('post', 'update', 'delete', 'share')
                 and (not is_reply or (is_self_reply and in_reply_to_protocols))):
             logger.info(f'Delivering to followers of {user_key}')
-            followers = Follower.query(Follower.to == user_key,
-                                       Follower.status == 'active'
-                                       ).fetch()
+            followers = [f for f in Follower.query(Follower.to == user_key,
+                                                   Follower.status == 'active')
+                         # skip protocol bot users
+                         if not Protocol.for_bridgy_subdomain(f.from_.id())]
             user_keys = [f.from_ for f in followers]
             if is_reply:
                 user_keys = [k for k in user_keys if k.kind() in in_reply_to_protocols]
