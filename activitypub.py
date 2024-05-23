@@ -5,6 +5,7 @@ import itertools
 import logging
 import re
 from urllib.parse import quote_plus, urljoin, urlparse
+from unittest.mock import MagicMock
 
 from flask import abort, g, redirect, request
 from google.cloud import ndb
@@ -24,6 +25,7 @@ from common import (
     add,
     CACHE_TIME,
     CONTENT_TYPE_HTML,
+    create_task,
     DOMAINS,
     DOMAIN_RE,
     error,
@@ -583,6 +585,10 @@ def signed_request(fn, url, data=None, headers=None, from_user=None, **kwargs):
               **kwargs)
     logger.info(f'Got {resp.status_code} headers: {resp.headers}')
 
+    if fn == util.requests_get:
+        assert not isinstance(resp, MagicMock), \
+            f'unit test missing a mock HTTP response for {url}'
+
     # handle GET redirects manually so that we generate a new HTTP signature
     if resp.is_redirect and fn == util.requests_get:
         new_url = urljoin(url, resp.headers['Location'])
@@ -969,13 +975,11 @@ def inbox(protocol=None, id=None):
         followee_url = unwrap(util.get_url(activity, 'object'))
         activity.setdefault('url', f'{follower_url}#followed-{followee_url}')
 
-    obj = Object(id=activity.get('id'), as2=unwrap(activity))
-    try:
-        # TODO: switch to task. need to handle transient activities without ids!
-        return ActivityPub.receive(obj, authed_as=authed_as)
-    except ValueError as e:
-        logger.warning(e, exc_info=True)
-        error(e, status=422)
+    id = (activity.get('id')
+          or f'{actor_id}#{type}-{object.get("id", "")}-{util.now().isoformat()}')
+    obj = Object.get_or_create(id=id, as2=unwrap(activity),
+                               source_protocol=ActivityPub.LABEL)
+    return create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=authed_as)
 
 
 # protocol in subdomain

@@ -551,11 +551,30 @@ class ActivityPubTest(TestCase):
 
         self.assert_user(ActivityPub, 'https://mas.to/actor', obj_as2=LIKE_ACTOR)
 
-    def test_inbox_activity_without_id(self, *_):
+    def test_inbox_transient_activity_generates_id(self, mock_head, mock_get,
+                                                   mock_post):
+        mock_get.return_value = self.as2_resp(ACTOR)
+
         note = copy.deepcopy(NOTE)
         del note['id']
+        del note['object']['cc']
+        note['actor'] = 'https://mas.to/actor'
+
         resp = self.post('/ap/sharedInbox', json=note)
-        self.assertEqual(400, resp.status_code)
+        self.assertEqual(204, resp.status_code)
+
+        expected_id = 'https://mas.to/actor#Create-http://mas.to/note/id-2022-01-02T03:04:05+00:00'
+        self.assert_object(expected_id, source_protocol='activitypub',
+                           as2=note, status='ignored', users=[self.masto_actor_key],
+                           ignore=['our_as1'])
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_inbox_create_receive_task(self, mock_create_task, *mocks):
+        common.RUN_TASKS_INLINE = False
+        resp = self.post('/ap/sharedInbox', json=NOTE)
+        obj_key = Object(id=NOTE['id']).key.urlsafe()
+        self.assert_task(mock_create_task, 'receive', '/queue/receive',
+                         obj=obj_key, authed_as='http://my/key/id')
 
     def test_inbox_reply_object(self, mock_head, mock_get, mock_post):
         self._test_inbox_reply(REPLY_OBJECT, mock_head, mock_get, mock_post)
@@ -1179,12 +1198,12 @@ class ActivityPubTest(TestCase):
         self.assert_equals(('http://mas.to/inbox',), args)
         self.assert_equals({
             'type': 'Accept',
-            'id': 'https://web.brid.gy/r/user.com/followers#accept-https://mas.to/6d1a',
-            'actor': 'https://web.brid.gy/user.com',
+            'id': 'http://localhost/r/user.com/followers#accept-https://mas.to/6d1a',
+            'actor': 'http://localhost/user.com',
             'object': {
                 'type': 'Follow',
                 'id': 'https://mas.to/6d1a',
-                'object': 'https://web.brid.gy/user.com',
+                'object': 'http://localhost/user.com',
                 'actor': 'https://mas.to/users/swentel',
                 'url': 'https://mas.to/users/swentel#followed-user.com',
             },
@@ -1546,18 +1565,22 @@ class ActivityPubTest(TestCase):
                            type='like',
                            object_ids=[LIKE['object']])
 
-    def test_inbox_id_already_seen(self, *mocks):
+    def test_inbox_id_already_seen(self, mock_head, mock_get, mock_post):
+        mock_get.side_effect = [
+            self.as2_resp(ACTOR),
+            HTML,
+        ]
         obj_key = Object(id=FOLLOW_WRAPPED['id'], as2={}).put()
 
         got = self.post('/user.com/inbox', json=FOLLOW_WRAPPED)
-        self.assertEqual(204, got.status_code)
-        self.assertEqual(0, Follower.query().count())
+        self.assertEqual(202, got.status_code)
+        self.assertEqual(1, Follower.query().count())
 
         # second time should use in memory cache
         obj_key.delete()
         got = self.post('/user.com/inbox', json=FOLLOW_WRAPPED)
         self.assertEqual(204, got.status_code)
-        self.assertEqual(0, Follower.query().count())
+        self.assertEqual(1, Follower.query().count())
 
     def test_inbox_http_sig_is_not_actor_author(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [
