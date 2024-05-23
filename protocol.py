@@ -1099,20 +1099,21 @@ class Protocol:
             return
 
         now = util.now().isoformat()
-        delete_id = f'{copy_user_id}#delete-copy-{copy_cls.LABEL}-{now}'
-        delete = Object(id=delete_id, our_as1={
-                            'id': delete_id,
-                            'objectType': 'activity',
-                            'verb': 'delete',
-                            'actor': 'fake:user',
-                            'object': copy_user_id,
-                        })
-        target = Target(protocol=copy_cls.LABEL, uri=copy_cls.target_for(delete))
-        delete.undelivered = [target]
+        delete_id = f'{user.key.id()}#delete-copy-{copy_cls.LABEL}-{now}'
+        delete = Object(id=delete_id, source_protocol=user.LABEL, our_as1={
+            'id': delete_id,
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': user.key.id(),
+            'object': copy_user_id,
+        })
+
+        target_uri = copy_cls.target_for(Object(id=copy_user_id))
+        delete.undelivered = [Target(protocol=copy_cls.LABEL, uri=target_uri)]
         delete.put()
 
         common.create_task(queue='send', obj=delete.key.urlsafe(),
-                           url=target.uri, protocol=target.protocol,
+                           url=target_uri, protocol=copy_cls.LABEL,
                            user=user.key.urlsafe())
 
     @classmethod

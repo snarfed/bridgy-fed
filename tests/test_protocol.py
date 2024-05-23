@@ -2037,9 +2037,9 @@ class ProtocolReceiveTest(TestCase):
 
         # ...and delete copy actor
         self.assertEqual(
-            [('fake:u:eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00',
-              'fake:u:eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00:target')],
-        Fake.sent)
+            [('eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00',
+              'fake:u:eefake:user:target')],
+            Fake.sent)
 
     def test_follow_bot_user_refreshes_profile(self):
         # bot user
@@ -2182,9 +2182,9 @@ class ProtocolReceiveTest(TestCase):
 
         # ...and delete copy actor
         self.assertEqual(
-            [('fake:u:eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00',
-              'fake:u:eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00:target')],
-        Fake.sent)
+            [('eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00',
+              'fake:u:eefake:user:target')],
+            Fake.sent)
 
     @patch('protocol.LIMITED_DOMAINS', ['lim.it'])
     @patch('requests.get')
