@@ -737,23 +737,65 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([(obj.key.id(), 'shared:target')], Fake.sent)
 
     @patch.object(ATProto, 'send', return_value=True)
-    def test_create_post_user_enabled_copy_protocol_adds_pds_target(self, mock_send):
+    def test_create_post_user_enabled_atproto_adds_pds_target(self, mock_send):
         self.user.enabled_protocols = ['atproto']
         self.user.put()
 
-        post_as1 = {
+        self.assertEqual(('OK', 202), Fake.receive_as1({
             'id': 'fake:post',
             'objectType': 'note',
             'author': 'fake:user',
-        }
-        obj = self.store_object(id='fake:post', our_as1=post_as1)
-
-        self.assertEqual(('OK', 202), Fake.receive_as1(post_as1))
+        }))
 
         self.assertEqual(1, mock_send.call_count)
         [obj, url], _ = mock_send.call_args
         self.assertEqual('fake:post#bridgy-fed-create', obj.key.id())
         self.assertEqual(ATProto.PDS_URL, url)
+
+    @patch.object(ATProto, 'send', return_value=True)
+    def test_create_reply_to_not_bridged_account_skips_atproto(self, mock_send):
+        user = self.make_user('eefake:user', cls=ExplicitEnableFake,
+                              enabled_protocols = ['atproto'])
+
+        self.eve = self.make_user('eefake:eve', cls=ExplicitEnableFake)
+        self.store_object(id='eefake:post', our_as1={
+            'id': 'eefake:post',
+            'objectType': 'note',
+            'author': 'eefake:eve',
+        })
+
+        with self.assertRaises(NoContent):
+            Fake.receive_as1({
+                'id': 'eefake:reply',
+                'objectType': 'note',
+                'author': 'eefake:user',
+                'inReplyTo': 'eefake:post',
+            })
+
+        self.assertEqual(0, mock_send.call_count)
+
+    @patch.object(ATProto, 'send', return_value=True)
+    def test_create_repost_of_not_bridged_account_skips_atproto(self, mock_send):
+        user = self.make_user('eefake:user', cls=ExplicitEnableFake,
+                              enabled_protocols = ['atproto'])
+
+        self.eve = self.make_user('eefake:eve', cls=ExplicitEnableFake)
+        self.store_object(id='eefake:post', our_as1={
+            'id': 'eefake:post',
+            'objectType': 'note',
+            'author': 'eefake:eve',
+        })
+
+        with self.assertRaises(NoContent):
+            ExplicitEnableFake.receive_as1({
+                'id': 'eefake:repost',
+                'objectType': 'activity',
+                'verb': 'share',
+                'actor': 'eefake:user',
+                'object': 'eefake:post',
+            })
+
+        self.assertEqual(0, mock_send.call_count)
 
     @patch.object(ATProto, 'send', return_value=True)
     def test_atproto_targets_normalize_pds_url(self, mock_send):

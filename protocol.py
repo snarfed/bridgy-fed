@@ -1341,6 +1341,32 @@ class Protocol:
                     if inner_id:
                         feed_obj = cls.load(inner_id)
 
+            # include ATProto if this user is enabled there.
+            # TODO: abstract across protocols. maybe with this, below
+            # targets.update({
+            #     Target(protocol=proto.LABEL,
+            #            uri=proto.target_for(proto.bot_user_id())): None
+            #     for proto in PROTOCOLS
+            #     if proto and proto.HAS_COPIES
+            # })
+
+            if 'atproto' in from_user.enabled_protocols:
+                if (not followers and
+                    (util.domain_or_parent_in(
+                        util.domain_from_link(from_user.key.id()), LIMITED_DOMAINS)
+                     or util.domain_or_parent_in(
+                         util.domain_from_link(obj.key.id()), LIMITED_DOMAINS))):
+                    logger.info(f'skipping ATProto, {from_user.key.id()} is on a limited domain and has no followers')
+
+                elif (is_reply or obj.type == 'share') and not targets:
+                    logger.info(f"skipping ATProto, repost of or reply to post that wasn't bridged")
+
+                else:
+                    from atproto import ATProto
+                    targets.setdefault(
+                        Target(protocol=ATProto.LABEL, uri=ATProto.PDS_URL), None)
+                    logger.info(f'user has ATProto enabled, adding {ATProto.PDS_URL}')
+
             for user in users:
                 if feed_obj:
                     feed_obj.add('feed', user.key)
@@ -1360,32 +1386,10 @@ class Protocol:
                 # HACK: use last target object from above for reposts, which
                 # has its resolved id
                 targets[Target(protocol=user.LABEL, uri=target)] = \
-                    orig_obj if obj.as1.get('verb')  == 'share' else None
+                    orig_obj if obj.type == 'share' else None
 
             if feed_obj:
                 feed_obj.put()
-
-            # include ATProto if this user is enabled there.
-            # TODO: abstract across protocols. maybe with this, below
-            # targets.update({
-            #     Target(protocol=proto.LABEL,
-            #            uri=proto.target_for(proto.bot_user_id())): None
-            #     for proto in PROTOCOLS
-            #     if proto and proto.HAS_COPIES
-            # })
-
-            if 'atproto' in from_user.enabled_protocols:
-                if (not followers and
-                    (util.domain_or_parent_in(
-                        util.domain_from_link(from_user.key.id()), LIMITED_DOMAINS)
-                     or util.domain_or_parent_in(
-                         util.domain_from_link(obj.key.id()), LIMITED_DOMAINS))):
-                    logger.info(f'skipping ATProto, {from_user.key.id()} is on a limited domain and has no followers')
-                else:
-                    from atproto import ATProto
-                    targets.setdefault(
-                        Target(protocol=ATProto.LABEL, uri=ATProto.PDS_URL), None)
-                    logger.info(f'user has ATProto enabled, adding {ATProto.PDS_URL}')
 
         # de-dupe targets, discard same-domain
         # maps string target URL to (Target, Object) tuple
