@@ -1570,6 +1570,8 @@ class ActivityPubTest(TestCase):
             self.as2_resp(ACTOR),
             HTML,
         ]
+
+
         obj_key = Object(id=FOLLOW_WRAPPED['id'], as2={}).put()
 
         got = self.post('/user.com/inbox', json=FOLLOW_WRAPPED)

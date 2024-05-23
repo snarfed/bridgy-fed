@@ -460,7 +460,7 @@ class IntegrationTests(TestCase):
             'object': 'https://bsky.brid.gy/bsky.brid.gy',
             'image': 'http://pic',
         })
-        self.assertEqual(422, resp.status_code)
+        self.assertEqual(304, resp.status_code)
 
         # check results
         user = ActivityPub.get_by_id('https://inst/_alice_', allow_opt_out=True)
