@@ -1,10 +1,10 @@
 # https://cloud.google.com/appengine/docs/flexible/reference/app-yaml?tab=python
 #
-# gcloud -q app deploy --project bridgy-federated hub.yaml
+# gcloud -q app deploy --project bridgy-federated router.yaml
 
 # application: bridgy-federated
 
-service: hub
+service: router
 env: flex
 runtime: python
 runtime_config:
@@ -12,13 +12,8 @@ runtime_config:
     runtime_version: "3.11"
 
 resources:
-  cpu: 1
-  memory_gb: 1.6
-
-# can't be internal because Bluesky relay needs to be able to connect externally
-# over websocket for subscribeRepos
-network:
-  instance_ip_mode: external
+  cpu: 2
+  memory_gb: 3.6
 
 env_variables:
   PDS_HOST: atproto.brid.gy
@@ -39,12 +34,10 @@ env_variables:
   # ...or test against labeler.dholms.xyz / did:plc:vzxheqfwpbi3lxbgdh22js66
   ROLLBACK_WINDOW: 5000
 
-# need only one instance so that new commits can be delivered to subscribeRepos
-# subscribers in memory
 manual_scaling:
   instances: 1
 
 # https://cloud.google.com/appengine/docs/flexible/python/runtime#application_startup
 # https://docs.gunicorn.org/en/latest/settings.html#timeout
 # TODO: try asyncio w/eventlet workers
-entrypoint: gunicorn --workers 1 --threads 20 -b :$PORT hub:app
+entrypoint: gunicorn --workers 1 --threads 40 -b :$PORT router:app

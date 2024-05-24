@@ -11,7 +11,7 @@ from google.cloud import ndb
 from granary import as2
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
 from oauth_dropins.webutil import appengine_info, models, util
-from oauth_dropins.webutil.flask_util import CLOUD_TASKS_QUEUE_HEADER, NoContent
+from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import NOW, requests_response
 import requests
 from werkzeug.exceptions import BadRequest
@@ -2262,10 +2262,10 @@ class ProtocolReceiveTest(TestCase):
                                 source_protocol='fake')
 
         with self.assertLogs() as logs:
-            self.client.post('/queue/receive', data={
+            self.post('/queue/receive', data={
                 'obj': obj.key.urlsafe(),
                 'authed_as': 'fake:alice',
-            }, headers={CLOUD_TASKS_QUEUE_HEADER: ''})
+            })
 
         self.assertNotIn("isn't authed user", ' '.join(logs.output))
 
@@ -2280,10 +2280,10 @@ class ProtocolReceiveTest(TestCase):
                                 source_protocol='web')
 
         with self.assertLogs() as logs:
-            self.client.post('/queue/receive', data={
+            self.post('/queue/receive', data={
                 'obj': obj.key.urlsafe(),
                 'authed_as': 'user.com',
-            }, headers={CLOUD_TASKS_QUEUE_HEADER: ''})
+            })
 
         self.assertNotIn("isn't authed user", ' '.join(logs.output))
 
@@ -2297,10 +2297,10 @@ class ProtocolReceiveTest(TestCase):
                                 source_protocol='fake')
 
         with self.assertLogs() as logs:
-            self.client.post('/queue/receive', data={
+            self.post('/queue/receive', data={
                 'obj': obj.key.urlsafe(),
                 'authed_as': 'fake:eve',
-            }, headers={CLOUD_TASKS_QUEUE_HEADER: ''})
+            })
 
         self.assertIn(
             "WARNING:protocol:actor fake:other isn't authed user fake:eve",
@@ -2412,21 +2412,21 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': note.as1,
         })
-        resp = self.client.post('/queue/send', data={
+        resp = self.post('/queue/send', data={
             'protocol': 'fake',
             'obj': create.key.urlsafe(),
             'orig_obj': note.key.urlsafe(),
             'url': 'shared:target',
             'user': self.user.key.urlsafe(),
-        }, headers={CLOUD_TASKS_QUEUE_HEADER: ''})
+        })
         self.assertEqual(200, resp.status_code)
 
     def test_send_task_missing_url(self):
         obj = self.store_object(id='fake:post')
-        resp = self.client.post('/queue/send', data={
+        resp = self.post('/queue/send', data={
             'protocol': 'fake',
             'obj': obj.key.urlsafe(),
             'url': None,
             'user': self.user.key.urlsafe(),
-        }, headers={CLOUD_TASKS_QUEUE_HEADER: ''})
+        })
         self.assertEqual(204, resp.status_code)

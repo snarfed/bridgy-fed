@@ -39,6 +39,7 @@ import ids
 import models
 from models import KEY_BITS, Object, PROTOCOLS, Target, User
 import protocol
+import router
 
 logger = logging.getLogger(__name__)
 
@@ -247,6 +248,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.client = app.test_client()
         self.client.__enter__()
 
+        self.router_client = router.app.test_client()
+
         # clear datastore
         requests.post(f'http://{ndb_client.host}/reset')
         # disable in-memory cache
@@ -310,7 +313,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
     def post(self, url, client=None, **kwargs):
         """Adds Cloud tasks header to ``self.client.post``."""
         if client is None:
-            client = self.client
+            client = self.router_client if url.startswith('/queue/') else self.client
         kwargs.setdefault('headers', {})[flask_util.CLOUD_TASKS_QUEUE_HEADER] = ''
         return client.post(url, **kwargs)
 

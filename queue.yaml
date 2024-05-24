@@ -3,8 +3,8 @@
 queue:
 - name: atproto-commit
   target: hub
-  rate: 10/s
-  max_concurrent_requests: 10
+  rate: 300/s
+  max_concurrent_requests: 1
   retry_parameters:
     task_retry_limit: 2
     min_backoff_seconds: 5
@@ -12,8 +12,8 @@ queue:
 
 - name: webmention
   target: default
-  rate: 300/s
-  max_concurrent_requests: 100
+  rate: 100/s
+  max_concurrent_requests: 10
   retry_parameters:
     task_retry_limit: 2
     min_backoff_seconds: 120
@@ -21,8 +21,8 @@ queue:
 
 - name: receive
   target: default
-  rate: 300/s
-  max_concurrent_requests: 100
+  rate: 100/s
+  max_concurrent_requests: 1
   retry_parameters:
     task_retry_limit: 2
     min_backoff_seconds: 120
@@ -30,8 +30,8 @@ queue:
 
 - name: send
   target: default
-  rate: 300/s
-  max_concurrent_requests: 100
+  rate: 100/s
+  max_concurrent_requests: 40
   retry_parameters:
     task_retry_limit: 2
     min_backoff_seconds: 120

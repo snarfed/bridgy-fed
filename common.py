@@ -297,7 +297,7 @@ def create_task(queue, delay=None, **params):
 
     if RUN_TASKS_INLINE or appengine_info.LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')
-        from flask_app import app
+        from router import app
         return app.test_client().post(
             path, data=params, headers={flask_util.CLOUD_TASKS_QUEUE_HEADER: ''})
 

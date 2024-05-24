@@ -31,7 +31,6 @@ from common import (
     PROTOCOL_DOMAINS,
     subdomain_wrap,
 )
-from flask_app import app
 from ids import translate_object_id, translate_user_id
 from models import Follower, get_originals, Object, PROTOCOLS, Target, User
 
@@ -1520,7 +1519,6 @@ class Protocol:
         return obj
 
 
-@app.post('/queue/receive')
 @cloud_tasks_only
 def receive_task():
     """Task handler for a newly received :class:`models.Object`.
@@ -1556,7 +1554,6 @@ def receive_task():
         error(e, status=304)
 
 
-@app.post('/queue/send')
 @cloud_tasks_only
 def send_task():
     """Task handler for sending an activity to a single specific destination.

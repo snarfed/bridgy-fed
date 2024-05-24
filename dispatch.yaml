@@ -4,5 +4,8 @@ dispatch:
   - url: "*/queue/atproto-commit"
     service: hub
 
+  - url: "*/queue/*"
+    service: router
+
   - url: "*/xrpc/com.atproto.sync.subscribeRepos"
     service: hub
