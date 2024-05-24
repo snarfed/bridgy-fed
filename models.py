@@ -1050,13 +1050,6 @@ class Object(StringIdModel):
         if not image or not img_url:
             return common.pretty_link(url, text=name, attrs=attrs, user=user)
 
-        # from protocol import Protocol
-        # if actor_proto := Protocol.for_id(actor['id']):
-        #     if actor_user := actor_proto.get_by_id(actor['id']):
-        #         if actor_user and (actor_user.direct or actor_user.enabled_protocols
-        #                            or actor_user.LABEL == 'web'):
-        #             url = actor_user.user_page_path()
-
         logo = ''
         if proto:
             logo = f'<span class="logo" title="{self.__class__.__name__}">{proto.LOGO_HTML}</span>'
