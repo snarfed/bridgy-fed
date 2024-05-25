@@ -573,8 +573,8 @@ class ActivityPubTest(TestCase):
         common.RUN_TASKS_INLINE = False
         resp = self.post('/ap/sharedInbox', json=NOTE)
         obj_key = Object(id=NOTE['id']).key.urlsafe()
-        self.assert_task(mock_create_task, 'receive', '/queue/receive',
-                         obj=obj_key, authed_as='http://my/key/id')
+        self.assert_task(mock_create_task, 'receive', obj=obj_key,
+                         authed_as='http://my/key/id')
 
     def test_inbox_reply_object(self, mock_head, mock_get, mock_post):
         self._test_inbox_reply(REPLY_OBJECT, mock_head, mock_get, mock_post)

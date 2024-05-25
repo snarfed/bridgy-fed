@@ -527,11 +527,11 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         return got
 
-    def assert_task(self, mock_create_task, queue, path, eta_seconds=None, **params):
+    def assert_task(self, mock_create_task, queue, eta_seconds=None, **params):
         expected = {
             'app_engine_http_request': {
                 'http_method': 'POST',
-                'relative_uri': path,
+                'relative_uri': f'/queue/{queue}',
                 'body': urlencode(sorted(params.items())).encode(),
                 'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
             },

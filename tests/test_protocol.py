@@ -2412,10 +2412,10 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(('OK', 202), Fake.receive_as1(note_as1))
 
         create_key = Object.get_by_id('fake:post#bridgy-fed-create').key.urlsafe()
-        self.assert_task(mock_create_task, 'send', '/queue/send', protocol='other',
+        self.assert_task(mock_create_task, 'send', protocol='other',
                          obj=create_key, orig_obj='', url='other:eve:target',
                          user=self.user.key.urlsafe())
-        self.assert_task(mock_create_task, 'send', '/queue/send', protocol='fake',
+        self.assert_task(mock_create_task, 'send', protocol='fake',
                          obj=create_key, orig_obj='', url='shared:target',
                          user=self.user.key.urlsafe())
 
@@ -2447,7 +2447,7 @@ class ProtocolReceiveTest(TestCase):
 
         create_key = Object(id='fake:reply#bridgy-fed-create').key.urlsafe()
         orig_obj_key = Object(id='other:post').key.urlsafe()
-        self.assert_task(mock_create_task, 'send', '/queue/send', protocol='other',
+        self.assert_task(mock_create_task, 'send', protocol='other',
                          obj=create_key, orig_obj=orig_obj_key,
                          url='other:post:target', user=self.user.key.urlsafe())
 

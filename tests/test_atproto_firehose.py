@@ -467,8 +467,8 @@ class ATProtoFirehoseHandleTest(TestCase):
                                  bsky=expected, source_protocol='atproto',
                                  status='new', users=[user_key],
                                  ignore=['our_as1'])
-        self.assert_task(mock_create_task, 'receive', '/queue/receive',
-                         obj=obj.key.urlsafe(), authed_as='did:plc:user')
+        self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
+                         authed_as='did:plc:user')
 
     def test_delete(self, mock_create_task):
         new_commits.put(Op(repo='did:plc:user', action='delete', seq=789,
@@ -487,8 +487,8 @@ class ATProtoFirehoseHandleTest(TestCase):
                                      'actor': 'did:plc:user',
                                      'object': obj_id,
                                  })
-        self.assert_task(mock_create_task, 'receive', '/queue/receive',
-                         obj=obj.key.urlsafe(), authed_as='did:plc:user')
+        self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
+                         authed_as='did:plc:user')
 
     def test_store_cursor(self, mock_create_task):
         now = None

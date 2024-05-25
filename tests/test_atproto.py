@@ -855,8 +855,7 @@ class ATProtoTest(TestCase):
 
         # check atproto-commit task
         self.assertEqual(2, mock_create_task.call_count)
-        self.assert_task(mock_create_task, 'atproto-commit',
-                         '/queue/atproto-commit')
+        self.assert_task(mock_create_task, 'atproto-commit')
 
     @patch('requests.get', return_value=requests_response(
         'blob contents', content_type='image/png'))  # image blob fetch

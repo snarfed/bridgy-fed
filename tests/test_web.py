@@ -527,8 +527,7 @@ class WebTest(TestCase):
         mock_get.return_value = ACTOR_HTML_RESP
 
         user = Web.get_or_create('new.com')
-        self.assert_task(mock_create_task, 'poll-feed', '/queue/poll-feed',
-                         domain='new.com')
+        self.assert_task(mock_create_task, 'poll-feed', domain='new.com')
 
     def test_get_or_create_existing_opted_out(self, *_):
         self.user.obj.mf2['properties']['summary'] = '#nobridge'
@@ -592,8 +591,7 @@ class WebTest(TestCase):
         got = self.post('/webmention', data=params)
 
         self.assertEqual(202, got.status_code)
-        self.assert_task(mock_create_task, 'webmention', '/queue/webmention',
-                         **params)
+        self.assert_task(mock_create_task, 'webmention', **params)
 
         self.assertEqual(NOW, self.user.key.get().last_webmention_in)
 
@@ -1848,13 +1846,12 @@ class WebTest(TestCase):
                                  object_ids=['https://user.com/post'],
                                  labels=['user', 'activity'],
                                  )
-        self.assert_task(mock_create_task, 'receive', '/queue/receive',
-                         obj=obj.key.urlsafe(),
+        self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
                          authed_as='user.com')
 
         expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
-        self.assert_task(mock_create_task, 'poll-feed', '/queue/poll-feed',
-                         domain='user.com', eta_seconds=expected_eta)
+        self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
+                         eta_seconds=expected_eta)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_rss(self, mock_create_task, mock_get, _):
@@ -1930,14 +1927,13 @@ class WebTest(TestCase):
                 object_ids=[url],
                 labels=['user', 'activity'],
             )
-            self.assert_task(mock_create_task, 'receive', '/queue/receive',
-                             obj=obj.key.urlsafe(),
+            self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
                              authed_as='user.com')
 
         # delay is average of 1d and 3d between posts
         expected_eta = NOW_SECONDS + timedelta(days=2).total_seconds()
-        self.assert_task(mock_create_task, 'poll-feed', '/queue/poll-feed',
-                         domain='user.com', eta_seconds=expected_eta)
+        self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
+                         eta_seconds=expected_eta)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_xml_content_type(self, mock_create_task, mock_get, _):
@@ -2015,8 +2011,7 @@ class WebTest(TestCase):
                                  object_ids=['https://user.com/post'],
                                  labels=['user', 'activity'],
                                  )
-        self.assert_task(mock_create_task, 'receive', '/queue/receive',
-                         obj=obj.key.urlsafe(),
+        self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
                          authed_as='user.com')
 
     def test_poll_feed_fails(self, mock_get, _):
@@ -2170,8 +2165,8 @@ class WebTest(TestCase):
         })])
 
         expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
-        self.assert_task(mock_create_task, 'poll-feed', '/queue/poll-feed',
-                         domain='user.com', eta_seconds=expected_eta)
+        self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
+                         eta_seconds=expected_eta)
 
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
         self.user.has_redirects = False
