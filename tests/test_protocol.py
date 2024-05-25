@@ -2270,14 +2270,13 @@ class ProtocolReceiveTest(TestCase):
         self.assertNotIn("isn't authed user", ' '.join(logs.output))
 
     def test_receive_task_handler_authed_as_domain_vs_homepage(self):
-        note = {
-            'id': 'https://user.com/c',
-            'objectType': 'note',
-            'author': 'https://user.com/',
-        }
         user = self.make_user('user.com', cls=Web, obj_id='https://user.com/')
-        obj = self.store_object(id='https://user.com/c', our_as1=note,
-                                source_protocol='web')
+        obj = self.store_object(id='https://user.com/c', source_protocol='web',
+                                our_as1= {
+                                    'id': 'https://user.com/c',
+                                    'objectType': 'note',
+                                    'author': 'https://user.com/',
+                                })
 
         with self.assertLogs() as logs:
             self.post('/queue/receive', data={
@@ -2287,14 +2286,47 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertNotIn("isn't authed user", ' '.join(logs.output))
 
+    def test_receive_task_handler_authed_as_www_subdomain(self):
+        obj = self.store_object(id='http://www.foo.com/post', source_protocol='web',
+                                our_as1={
+                                    'id': 'http://www.foo.com/post',
+                                    'objectType': 'note',
+                                    'author': 'http://www.foo.com/bar',
+                                })
+
+        with self.assertLogs() as logs:
+            self.post('/queue/receive', data={
+                'obj': obj.key.urlsafe(),
+                'authed_as': 'foo.com',
+            })
+
+        for msg in logs.output:
+            self.assertNotIn('Auth:', msg)
+
+    def test_receive_task_handler_authed_as_wrong_domain(self):
+        obj = self.store_object(id='http://bar.com/post', source_protocol='web',
+                                our_as1={
+                                    'id': 'http://bar.com/post',
+                                    'objectType': 'note',
+                                    'author': 'http://bar.com/bar',
+                                })
+
+        with self.assertLogs() as logs:
+            self.post('/queue/receive', data={
+                'obj': obj.key.urlsafe(),
+                'authed_as': 'foo.com',
+            })
+
+        self.assertIn(
+            "WARNING:protocol:Auth: actor http://bar.com/bar isn't web domain authed user foo.com",
+            logs.output)
+
     def test_receive_task_handler_not_authed_as(self):
-        note = {
+        obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
             'id': 'fake:post',
             'objectType': 'note',
             'author': 'fake:other',
-        }
-        obj = self.store_object(id='fake:post', our_as1=note,
-                                source_protocol='fake')
+        })
 
         with self.assertLogs() as logs:
             self.post('/queue/receive', data={

@@ -754,9 +754,12 @@ class Protocol:
 
         if authed_as:
             assert isinstance(authed_as, str)
-            if util.is_web(actor) and re.match(DOMAIN_RE, authed_as):
-                authed_as = f'https://{authed_as}/'
-            if actor != authed_as:
+            if re.match(DOMAIN_RE, authed_as):
+                actor_domain = util.domain_from_link(actor)
+                if not util.domain_or_parent_in(actor_domain, authed_as):
+                    logger.warning(f"Auth: actor {actor} isn't web domain authed user {authed_as}")
+
+            elif actor != authed_as:
                 if ld_sig := obj.as1.get('signature'):
                     creator = ld_sig.get('creator', '')
                     suffix = creator.removeprefix(actor)
