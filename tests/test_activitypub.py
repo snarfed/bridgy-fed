@@ -33,6 +33,7 @@ from activitypub import (
 )
 from atproto import ATProto
 import common
+from flask_app import app
 from models import Follower, Object
 import protocol
 from web import Web
@@ -1393,27 +1394,34 @@ class ActivityPubTest(TestCase):
         })
         self.assertEqual(401, resp.status_code)
         self.assertEqual({'error': 'HTTP Signature missing keyId'}, resp.json)
-        mock_common_log.assert_any_call('Returning 401: HTTP Signature missing keyId', exc_info=None)
+        mock_common_log.assert_any_call('Returning 401: HTTP Signature missing keyId',
+                                        exc_info=None)
 
         # invalid signature, content changed
         protocol.seen_ids.clear()
         obj_key = ndb.Key(Object, NOTE['id'])
         obj_key.delete()
 
-        resp = self.client.post('/ap/sharedInbox', json={**NOTE, 'content': 'z'}, headers=headers)
+        resp = self.client.post('/ap/sharedInbox', json={**NOTE, 'content': 'z'},
+                                headers=headers)
         self.assertEqual(401, resp.status_code)
-        self.assertEqual({'error': 'Invalid Digest header, required for HTTP Signature'},
-                         resp.json)
-        mock_common_log.assert_any_call('Returning 401: Invalid Digest header, required for HTTP Signature', exc_info=None)
+        self.assertEqual(
+            {'error': 'Invalid Digest header, required for HTTP Signature'},
+            resp.json)
+        mock_common_log.assert_any_call(
+            'Returning 401: Invalid Digest header, required for HTTP Signature',
+            exc_info=None)
 
         # invalid signature, header changed
         protocol.seen_ids.clear()
         obj_key.delete()
 
-        resp = self.client.post('/ap/sharedInbox', data=body, headers={**headers, 'Date': 'X'})
+        resp = self.client.post('/ap/sharedInbox', data=body,
+                                headers={**headers, 'Date': 'X'})
         self.assertEqual(401, resp.status_code)
         self.assertEqual({'error': 'HTTP Signature verification failed'}, resp.json)
-        mock_common_log.assert_any_call('Returning 401: HTTP Signature verification failed', exc_info=None)
+        mock_common_log.assert_any_call(
+            'Returning 401: HTTP Signature verification failed', exc_info=None)
 
         # no signature
         protocol.seen_ids.clear()

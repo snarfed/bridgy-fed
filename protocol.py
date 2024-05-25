@@ -765,8 +765,8 @@ class Protocol:
                     suffix = creator.removeprefix(actor)
                     if suffix != creator and (suffix.startswith('#')
                                               or suffix.startswith('/')):
-                        logger.info(f'Auth: ignoring activity with LD Signature from {creator}')
-                        return "Accepting but ignoring, we don't yet verify LD Signatures", 202
+                        logger.info(f'Auth_: ignoring activity with LD Signature from {creator}')
+                        return "Ignoring, sorry, we don't yet verify LD Signatures", 204
                 logger.warning(f"Auth: actor {actor} isn't authed user {authed_as}")
         else:
             logger.warning(f"Auth: missing authed_as!")

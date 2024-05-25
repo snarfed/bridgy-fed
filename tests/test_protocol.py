@@ -2379,7 +2379,7 @@ class ProtocolReceiveTest(TestCase):
             })
 
         self.assertIn(
-            "INFO:protocol:Auth: ignoring activity with LD Signature from fake:other#main-key",
+            "INFO:protocol:Auth_: ignoring activity with LD Signature from fake:other#main-key",
             logs.output)
 
     def test_user_opted_out(self):
