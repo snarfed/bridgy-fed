@@ -201,6 +201,27 @@ class PagesTest(TestCase):
             ['Couldn\'t update profile for <a href="fake:user">fake:handle:user</a>: foo'],
             get_flashed_messages())
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_update_profile_receive_task(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
+
+        user = self.make_user('fake:user', cls=Fake)
+
+        Fake.fetchable = {'fake:user': {
+            'objectType': 'person',
+            'id': 'fake:user',
+            'displayName': 'Ms User',
+        }}
+
+        got = self.client.post('/fa/fake:user/update-profile')
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/fa/fake:handle:user', got.headers['Location'])
+
+        self.assert_equals(['fake:user'], Fake.fetched)
+        obj_key = Object(id='fake:user').key.urlsafe()
+        self.assert_task(mock_create_task, 'receive', obj=obj_key,
+                         authed_as='fake:user')
+
     def test_followers(self):
         Follower.get_or_create(
             to=self.user,
