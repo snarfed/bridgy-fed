@@ -79,3 +79,8 @@ indexes:
   properties:
   - name: created
   - name: enabled_protocols
+
+- kind: ATProto
+  properties:
+  - name: updated
+  - name: enabled_protocols

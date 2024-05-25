@@ -26,7 +26,7 @@ import simple_websocket
 
 from atproto import ATProto, Cursor
 import atproto_firehose
-from atproto_firehose import handle, new_commits, Op, STORE_CURSOR_FREQ, subscribe
+from atproto_firehose import handle, new_commits, Op, STORE_CURSOR_FREQ
 import common
 from models import Object, PROTOCOLS, Target
 import protocol
@@ -105,11 +105,16 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         self.store_object(id='did:plc:bob', raw=DID_DOC)
         ATProto(id='did:plc:bob').put()
 
+    @classmethod
+    def subscribe(self):
+        atproto_firehose.load_dids()
+        atproto_firehose.subscribe()
+
     def assert_enqueues(self, record=None, repo='did:plc:user', action='create',
                         path='app.bsky.feed.post/abc123'):
         FakeWebsocketClient.setup_receive(
             Op(repo=repo, action=action, path=path, seq=789, record=record))
-        subscribe()
+        self.subscribe()
 
         op = new_commits.get()
         self.assertEqual(repo, op.repo)
@@ -123,7 +128,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
                               path='app.bsky.feed.post/abc123'):
         FakeWebsocketClient.setup_receive(
             Op(repo=repo, action=action, path=path, seq=789, record=record))
-        subscribe()
+        self.subscribe()
         self.assertTrue(new_commits.empty())
 
     def test_error_message(self):
@@ -132,7 +137,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
             {'error': 'ConsumerTooSlow', 'message': 'ketchup!'},
         )]
 
-        subscribe()
+        self.subscribe()
         self.assertTrue(new_commits.empty())
 
     def test_info_message(self):
@@ -141,14 +146,14 @@ class ATProtoFirehoseSubscribeTest(TestCase):
             {'name': 'OutdatedCursor'},
         )]
 
-        subscribe()
+        self.subscribe()
         self.assertTrue(new_commits.empty())
 
     def test_cursor(self):
         self.cursor.cursor = 444
         self.cursor.put()
 
-        subscribe()
+        self.subscribe()
         self.assertTrue(new_commits.empty())
         self.assertEqual(
             'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=445',
@@ -160,7 +165,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
             {'seq': '123', 'did': 'did:abc', 'handle': 'hi.com'},
         )]
 
-        subscribe()
+        self.subscribe()
         self.assertTrue(new_commits.empty())
         self.assertEqual('https://bgs.local/xrpc/com.atproto.sync.subscribeRepos',
                          FakeWebsocketClient.url)
@@ -376,7 +381,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
             Op(repo='did:x', action='create', path='y', seq=4, record={'foo': 'bar'}))
         with patch('atproto_firehose.read_car', side_effect=RuntimeError('oops')), \
              self.assertRaises(RuntimeError):
-            subscribe()
+            self.subscribe()
 
         self.assertTrue(new_commits.empty())
         self.assertEqual(
@@ -390,6 +395,39 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         self.assertEqual(
             'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=5',
             FakeWebsocketClient.url)
+
+    def test_load_dids_updated_atproto_user(self):
+        self.cursor.cursor = 1
+        self.cursor.put()
+
+        self.store_object(id='did:plc:eve', raw=DID_DOC)
+        eve = self.make_user('did:plc:eve', cls=ATProto)
+        util.now = datetime.utcnow
+        self.assertLess(eve.created, util.now())
+
+        self.subscribe()
+        self.assertTrue(new_commits.empty())
+        self.assertNotIn('did:plc:eve', atproto_firehose.atproto_dids)
+
+        # updating a previously created ATProto should be enough to load it into
+        # atproto_dids
+        eve.enabled_protocols = ['eefake']
+        eve.put()
+        self.assertGreater(eve.updated, atproto_firehose.atproto_loaded_at)
+        self.assert_enqueues({'$type': 'app.bsky.feed.post'}, repo='did:plc:eve')
+        self.assertIn('did:plc:eve', atproto_firehose.atproto_dids)
+
+    def test_load_dids_new_atprepo(self):
+        FakeWebsocketClient.to_receive = [({'op': 1, 't': '#info'}, {})]
+        self.subscribe()
+
+        # new AtpRepo should be loaded into bridged_dids
+        AtpRepo(id='did:plc:eve', head='', signing_key_pem=b'').put()
+        self.assert_enqueues({
+            '$type': 'app.bsky.graph.follow',
+            'subject': 'did:plc:eve',
+        })
+        self.assertIn('did:plc:eve', atproto_firehose.bridged_dids)
 
 
 @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')

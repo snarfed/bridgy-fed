@@ -60,6 +60,7 @@ def load_dids():
     # context when it runs in the timer thread
     Thread(target=_load_dids).start()
     dids_initialized.wait()
+    dids_initialized.clear()
 
 
 def _load_dids():
@@ -70,7 +71,7 @@ def _load_dids():
             Timer(STORE_CURSOR_FREQ.total_seconds(), _load_dids).start()
 
         atproto_query = ATProto.query(ATProto.enabled_protocols != None,
-                                      ATProto.created > atproto_loaded_at)
+                                      ATProto.updated > atproto_loaded_at)
         atproto_loaded_at = ATProto.query().order(-ATProto.created).get().created
         new_atproto = [key.id() for key in atproto_query.iter(keys_only=True)]
         atproto_dids.update(new_atproto)
@@ -87,6 +88,7 @@ def _load_dids():
 def subscriber():
     """Wrapper around :func:`_subscribe` that catches exceptions and reconnects."""
     logger.info(f'started thread to subscribe to {os.environ["BGS_HOST"]} firehose')
+    load_dids()
 
     while True:
         try:
@@ -109,8 +111,6 @@ def subscribe():
     Args:
       reconnect (bool): whether to always reconnect after we get disconnected
     """
-    load_dids()
-
     global subscribe_cursor
     if not subscribe_cursor:
         cursor = Cursor.get_by_id(
@@ -126,16 +126,13 @@ def subscribe():
         if header.get('op') == -1:
             logger.warning(f'Got error from relay! {payload}')
             continue
-        elif header.get('t') == '#info':
-            logger.info(f'Got info from relay: {payload}')
-            continue
         elif header.get('t') != '#commit':
+            logger.info(f'Got {header.get("t")} from relay: {payload}')
             continue
 
         # parse payload
         repo = payload.get('repo')
         assert repo
-
 
         seq = payload.get('seq')
         if not seq:
