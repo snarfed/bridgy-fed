@@ -2303,7 +2303,7 @@ class ProtocolReceiveTest(TestCase):
             })
 
         self.assertIn(
-            "WARNING:protocol:actor fake:other isn't authed user fake:eve",
+            "WARNING:protocol:Auth: actor fake:other isn't authed user fake:eve",
             logs.output)
 
     def test_like_not_authed_as_actor(self):
@@ -2322,7 +2322,32 @@ class ProtocolReceiveTest(TestCase):
             }, authed_as='fake:other')
 
         self.assertIn(
-            "WARNING:protocol:actor fake:user isn't authed user fake:other",
+            "WARNING:protocol:Auth: actor fake:user isn't authed user fake:other",
+            logs.output)
+
+    def test_receive_task_handler_not_authed_as_actor_with_ld_sig(self):
+        note = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:other',
+            'signature': {
+                'type': 'RsaSignature2017',
+                'creator': 'fake:other#main-key',
+                'created': '2024-05-20T01:52:09Z',
+                'signatureValue': '...',
+            },
+        }
+        obj = self.store_object(id='fake:post', our_as1=note,
+                                source_protocol='fake')
+
+        with self.assertLogs() as logs:
+            self.post('/queue/receive', data={
+                'obj': obj.key.urlsafe(),
+                'authed_as': 'fake:eve',
+            })
+
+        self.assertIn(
+            "INFO:protocol:Auth: ignoring activity with LD Signature from fake:other#main-key",
             logs.output)
 
     def test_user_opted_out(self):

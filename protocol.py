@@ -756,10 +756,17 @@ class Protocol:
             assert isinstance(authed_as, str)
             if util.is_web(actor) and re.match(DOMAIN_RE, authed_as):
                 authed_as = f'https://{authed_as}/'
-            # TODO: handle domain vs URL for web users, eg
-            # "actor https://tiffwhite.me/ isn't authed user tiffwhite.me"
             if actor != authed_as:
-                logger.warning(f"actor {actor} isn't authed user {authed_as}")
+                if ld_sig := obj.as1.get('signature'):
+                    creator = ld_sig.get('creator', '')
+                    suffix = creator.removeprefix(actor)
+                    if suffix != creator and (suffix.startswith('#')
+                                              or suffix.startswith('/')):
+                        logger.info(f'Auth: ignoring activity with LD Signature from {creator}')
+                        return "Accepting but ignoring, we don't yet verify LD Signatures", 202
+                logger.warning(f"Auth: actor {actor} isn't authed user {authed_as}")
+        else:
+            logger.warning(f"Auth: missing authed_as!")
 
         # update copy ids to originals
         obj.resolve_ids()

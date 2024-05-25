@@ -1597,7 +1597,7 @@ class ActivityPubTest(TestCase):
             self.assertEqual(204, got.status_code, got.get_data(as_text=True))
 
         self.assertIn(
-            "WARNING:protocol:actor https://al/ice isn't authed user http://my/key/id",
+            "WARNING:protocol:Auth: actor https://al/ice isn't authed user http://my/key/id",
             logs.output)
 
     def test_followers_collection_unknown_user(self, *_):
