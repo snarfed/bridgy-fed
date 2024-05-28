@@ -835,7 +835,7 @@ def webmention_task():
                 authors[0] = user.web_url()
 
     try:
-        return Web.receive(obj, authed_as=user.web_url())
+        return Web.receive(obj, authed_as=user.key.id())
     except ValueError as e:
         logger.warning(e, exc_info=True)
         error(e, status=304)
