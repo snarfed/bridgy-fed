@@ -505,7 +505,7 @@ class ActivityPub(User, Protocol):
         # can't use request.full_path because it includes a trailing ? even if
         # it wasn't in the request. https://github.com/pallets/flask/issues/2867
         path_query = request.url.removeprefix(request.host_url.rstrip('/'))
-        logger.info(f'Verifying signature for {path_query} with key {key_id}')
+        logger.info(f'Verifying signature for {path_query} with key {sig_fields["keyid"]}')
         try:
             verified = HeaderVerifier(headers, key,
                                       required_headers=['Digest'],
