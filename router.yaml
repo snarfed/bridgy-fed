@@ -36,6 +36,6 @@ manual_scaling:
   instances: 1
 
 # https://cloud.google.com/appengine/docs/flexible/python/runtime#application_startup
-# https://docs.gunicorn.org/en/latest/settings.html#timeout
+# https://docs.gunicorn.org/en/latest/settings.html
 # TODO: try asyncio w/eventlet workers
 entrypoint: gunicorn --workers 1 --threads 40 -b :$PORT router:app
