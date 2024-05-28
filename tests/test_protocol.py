@@ -862,7 +862,7 @@ class ProtocolReceiveTest(TestCase):
             })
 
         self.assertIn(
-            "WARNING:models:actor fake:other isn't fake:post's author or actor ['fake:user']",
+            "WARNING:models:Auth: fake:other isn't fake:post's author or actor: ['fake:user']",
             logs.output)
 
     def test_update_post(self):

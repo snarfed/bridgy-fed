@@ -293,7 +293,7 @@ def handle(limit=None):
 
         try:
             # logger.info(f'enqueuing receive task for {at_uri}')
-            obj = Object.get_or_create(id=obj_id, actor=op.repo, status='new',
+            obj = Object.get_or_create(id=obj_id, authed_as=op.repo, status='new',
                                        users=[ATProto(id=op.repo).key],
                                        source_protocol=ATProto.LABEL, **record_kwarg)
             create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=op.repo)

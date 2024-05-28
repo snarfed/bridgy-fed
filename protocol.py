@@ -799,7 +799,7 @@ class Protocol:
 
         # write Object to datastore
         orig = obj
-        obj = Object.get_or_create(id, **orig.to_dict(), actor=actor)
+        obj = Object.get_or_create(id, **orig.to_dict(), authed_as=actor)
         if orig.new is not None:
             obj.new = orig.new
         if orig.changed is not None:
@@ -825,7 +825,7 @@ class Protocol:
         inner_obj_id = inner_obj_as1.get('id')
         if obj.type in ('post', 'update') and inner_obj_as1.keys() > set(['id']):
             Object.get_or_create(inner_obj_id, our_as1=inner_obj_as1,
-                                 source_protocol=from_cls.LABEL, actor=actor)
+                                 source_protocol=from_cls.LABEL, authed_as=actor)
 
         actor = as1.get_object(obj.as1, 'actor')
         actor_id = actor.get('id')
@@ -874,7 +874,7 @@ class Protocol:
                 error("Couldn't find id of object to delete")
 
             logger.info(f'Marking Object {inner_obj_id} deleted')
-            Object.get_or_create(inner_obj_id, deleted=True)
+            Object.get_or_create(inner_obj_id, deleted=True, authed_as=authed_as)
 
             # if this is an actor, deactivate its followers/followings
             # https://github.com/snarfed/bridgy-fed/issues/63

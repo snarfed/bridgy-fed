@@ -537,9 +537,9 @@ class ObjectTest(TestCase):
         self.assert_object('biff', as2={'a': 'b'}, mf2={'c': 'd'},
                            users=[ndb.Key(Web, 'me')])
 
-    def test_get_or_create_actor_check(self):
+    def test_get_or_create_authed_as_check(self):
         Object(id='foo', our_as1={'author': 'alice'}).put()
-        Object.get_or_create('foo', actor='alice', our_as1={
+        Object.get_or_create('foo', authed_as='alice', our_as1={
             'author': 'alice',
             'bar': 'baz',
         })
@@ -550,16 +550,16 @@ class ObjectTest(TestCase):
         }, Object.get_by_id('foo').as1)
 
         with self.assertLogs() as logs:
-            Object.get_or_create('foo', actor='eve', our_as1={'bar': 'biff'})
+            Object.get_or_create('foo', authed_as='eve', our_as1={'bar': 'biff'})
 
-        self.assertIn("WARNING:models:actor eve isn't foo's author or actor ['alice']",
+        self.assertIn("WARNING:models:Auth: eve isn't foo's author or actor: ['alice']",
                       logs.output)
 
         # actor is object id (eg user profile)
         with self.assertLogs() as logs:
-            Object.get_or_create('foo', actor='foo', our_as1={})
+            Object.get_or_create('foo', authed_as='foo', our_as1={})
 
-        self.assertNotIn("WARNING:models:actor foo isn't foo's author or actor []",
+        self.assertNotIn("WARNING:models:Auth: foo isn't foo's author or actor: []",
                          logs.output)
 
     def test_activity_changed(self):

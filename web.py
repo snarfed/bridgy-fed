@@ -735,9 +735,9 @@ def poll_feed_task():
             continue
 
         activity['feed_index'] = i
-        obj = Object.get_or_create(id=id, our_as1=activity, status='new',
-                                   source_protocol=Web.ABBREV, users=[user.key],
-                                   **obj_feed_prop)
+        obj = Object.get_or_create(id=id, authed_as=domain, our_as1=activity,
+                                   status='new', source_protocol=Web.ABBREV,
+                                   users=[user.key], **obj_feed_prop)
         common.create_task(queue='receive', obj=obj.key.urlsafe(),
                            authed_as=user.key.id())
 

@@ -1788,7 +1788,7 @@ class WebTest(TestCase):
             self.assertEqual(202, got.status_code)
 
         self.assertIn(
-            "WARNING:models:actor https://user.com/ isn't https://user.com/like's author or actor ['https://eve.com/']",
+            "WARNING:models:Auth: https://user.com/ isn't https://user.com/like's author or actor: ['https://eve.com/']",
             logs.output)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')

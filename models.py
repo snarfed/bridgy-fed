@@ -919,7 +919,7 @@ class Object(StringIdModel):
 
     @classmethod
     @ndb.transactional()
-    def get_or_create(cls, id, actor=None, **props):
+    def get_or_create(cls, id, authed_as=None, **props):
         """Returns an :class:`Object` with the given property values.
 
         If a matching :class:`Object` doesn't exist in the datastore, creates it
@@ -927,7 +927,7 @@ class Object(StringIdModel):
         object. Also populates the :attr:`new` and :attr:`changed` properties.
 
         Args:
-          actor (str): if a matching :class:`Object` already exists, its
+          authed_as (str): if a matching :class:`Object` already exists, its
             `author` or `actor` must contain this actor id. Implements basic
             authorization for updates and deletes.
 
@@ -939,12 +939,12 @@ class Object(StringIdModel):
             obj.new = False
             orig_as1 = obj.as1
             if orig_as1:
-                authorized = (as1.get_ids(orig_as1, 'author') +
-                              as1.get_ids(orig_as1, 'actor'))
-                if not actor:
-                    logger.warning(f'would cowardly refuse to overwrite {id} without checking actor')
-                elif actor not in authorized + [id]:
-                    logger.warning(f"actor {actor} isn't {id}'s author or actor {authorized}")
+                owners = (as1.get_ids(orig_as1, 'author')
+                          + as1.get_ids(orig_as1, 'actor'))
+                if not authed_as:
+                    logger.warning(f'Auth: would cowardly refuse to overwrite {id} without checking actor')
+                elif authed_as not in owners + [id]:
+                    logger.warning(f"Auth: {authed_as} isn't {id}'s author or actor: {owners}")
         else:
             obj = Object(id=id)
             obj.new = True

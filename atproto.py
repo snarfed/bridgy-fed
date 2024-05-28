@@ -332,7 +332,7 @@ class ATProto(User, Protocol):
         logger.info(f'Creating new did:plc for {user.key} {handle} {pds_url}')
         did_plc = did.create_plc(handle, pds_url=pds_url, post_fn=util.requests_post)
 
-        Object.get_or_create(did_plc.did, raw=did_plc.doc)
+        Object.get_or_create(did_plc.did, raw=did_plc.doc, authed_as=did_plc)
         # TODO: move this to ATProto.get_or_create?
         add(user.copies, Target(uri=did_plc.did, protocol='atproto'))
 

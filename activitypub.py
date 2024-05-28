@@ -1026,7 +1026,7 @@ def inbox(protocol=None, id=None):
 
     id = (activity.get('id')
           or f'{actor_id}#{type}-{object.get("id", "")}-{util.now().isoformat()}')
-    obj = Object.get_or_create(id=id, as2=unwrap(activity),
+    obj = Object.get_or_create(id=id, as2=unwrap(activity), authed_as=authed_as,
                                source_protocol=ActivityPub.LABEL)
     return create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=authed_as)
 
