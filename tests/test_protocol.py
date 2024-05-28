@@ -25,7 +25,7 @@ from atproto import ATProto
 import common
 from models import Follower, Object, PROTOCOLS, Target, User
 import protocol
-from protocol import Protocol
+from protocol import NO_AUTH_DOMAINS, Protocol
 from ui import UIProtocol
 from web import Web
 
@@ -2380,6 +2380,24 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertIn(
             "INFO:protocol:Auth_: ignoring activity with LD Signature from fake:other#main-key",
+            logs.output)
+
+    def test_receive_task_handler_NO_AUTH_DOMAINS(self):
+        note = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:other',
+        }
+        obj = self.store_object(id='fake:post', our_as1=note, source_protocol='fake')
+
+        with self.assertLogs() as logs:
+            self.post('/queue/receive', data={
+                'obj': obj.key.urlsafe(),
+                'authed_as': 'https://a.gup.pe/foo',
+            })
+
+        self.assertIn(
+            "INFO:protocol:Auth_: we don't know how to authorize a.gup.pe activities yet",
             logs.output)
 
     def test_user_opted_out(self):

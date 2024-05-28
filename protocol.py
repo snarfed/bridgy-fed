@@ -59,6 +59,12 @@ OBJECT_REFRESH_AGE = timedelta(days=30)
 # them other than their profile
 LIMITED_DOMAINS = util.read('limited_domains')
 
+# we can't yet authorize activities from these domains
+# https://github.com/snarfed/bridgy-fed/issues/566#issuecomment-2130728082
+NO_AUTH_DOMAINS = (
+    'a.gup.pe',
+)
+
 # activity ids that we've already handled and can now ignore.
 # used in Protocol.receive
 seen_ids = LRUCache(100000)
@@ -754,16 +760,22 @@ class Protocol:
 
         if authed_as:
             assert isinstance(authed_as, str)
+            authed_domain = util.domain_from_link(authed_as)
+
             if re.match(DOMAIN_RE, authed_as):
                 actor_domain = util.domain_from_link(actor)
                 if not util.domain_or_parent_in(actor_domain, authed_as):
                     logger.warning(f"Auth: actor {actor} isn't web domain authed user {authed_as}")
 
+            elif util.domain_or_parent_in(authed_domain, NO_AUTH_DOMAINS):
+                logger.info(f"Auth_: we don't know how to authorize {authed_domain} activities yet")
+                return "Ignoring, sorry, we don't know how to authorize {authed_domain} activities yet. https://github.com/snarfed/bridgy-fed/issues/566", 204
+
             elif actor != authed_as:
                 if ld_sig := obj.as1.get('signature'):
                     creator = ld_sig.get('creator', '')
                     logger.info(f'Auth_: ignoring activity with LD Signature from {creator}')
-                    return "Ignoring, sorry, we don't yet verify LD Signatures", 204
+                    return "Ignoring, sorry, we don't verify LD Signatures yet. https://github.com/snarfed/bridgy-fed/issues/566", 204
                 logger.warning(f"Auth: actor {actor} isn't authed user {authed_as}")
         else:
             logger.warning(f"Auth: missing authed_as!")
