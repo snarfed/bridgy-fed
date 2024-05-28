@@ -16,6 +16,7 @@ from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import domain_from_link, json_dumps, json_loads
 import requests
+from requests import TooManyRedirects
 from urllib3.exceptions import ReadTimeoutError
 from werkzeug.exceptions import BadGateway, BadRequest
 
@@ -2213,6 +2214,14 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual(
             first['auth'].header_signer.sign(first['headers'], method='GET', path='/'),
             second['auth'].header_signer.sign(second['headers'], method='GET', path='/'))
+
+    @patch('requests.get')
+    def test_signed_get_too_many_redirects(self, mock_get):
+        mock_get.return_value = requests_response(
+            status=302, redirected_url='http://second', allow_redirects=False)
+
+        with self.assertRaises(requests.TooManyRedirects):
+            activitypub.signed_get('https://first')
 
     @patch('requests.post', return_value=requests_response(status=200))
     def test_signed_post_from_user_is_activitypub_use_instance_actor(self, mock_post):

@@ -17,6 +17,8 @@ from httpsig.utils import parse_signature_header
 from oauth_dropins.webutil import appengine_info, flask_util, util
 from oauth_dropins.webutil.util import fragmentless, json_dumps, json_loads
 import requests
+from requests import TooManyRedirects
+from requests.models import DEFAULT_REDIRECT_LIMIT
 from werkzeug.exceptions import BadGateway
 
 from flask_app import app, cache
@@ -531,7 +533,8 @@ def signed_post(url, from_user, **kwargs):
     return signed_request(util.requests_post, url, from_user=from_user, **kwargs)
 
 
-def signed_request(fn, url, data=None, headers=None, from_user=None, **kwargs):
+def signed_request(fn, url, data=None, headers=None, from_user=None,
+                   _redirect_count=None, **kwargs):
     """Wraps ``requests.*`` and adds HTTP Signature.
 
     https://swicg.github.io/activitypub-http-signature/
@@ -542,6 +545,7 @@ def signed_request(fn, url, data=None, headers=None, from_user=None, **kwargs):
       data (dict): optional AS2 object
       from_user (models.User): user to sign request as; optional. If not
         provided, uses the default user ``@snarfed.org@snarfed.org``.
+      _redirect_count: internal, used to count redirects followed so far
       kwargs: passed through to requests
 
     Returns:
@@ -596,8 +600,14 @@ def signed_request(fn, url, data=None, headers=None, from_user=None, **kwargs):
     # handle GET redirects manually so that we generate a new HTTP signature
     if resp.is_redirect and fn == util.requests_get:
         new_url = urljoin(url, resp.headers['Location'])
+        if _redirect_count is None:
+            _redirect_count = 0
+        elif _redirect_count > DEFAULT_REDIRECT_LIMIT:
+            raise TooManyRedirects(response=resp)
+
         return signed_request(fn, new_url, data=data, from_user=from_user,
-                              headers=headers, **kwargs)
+                              headers=headers, _redirect_count=_redirect_count + 1,
+                              **kwargs)
 
     type = common.content_type(resp)
     if (type and type != 'text/html' and
