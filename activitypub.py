@@ -456,8 +456,8 @@ class ActivityPub(User, Protocol):
 
         # parse_signature_header lower-cases all keys
         sig_fields = parse_signature_header(sig)
-        keyId = fragmentless(sig_fields.get('keyid'))
-        if not keyId:
+        key_id = fragmentless(sig_fields.get('keyid'))
+        if not key_id:
             error('HTTP Signature missing keyId', status=401)
 
         # TODO: right now, assume hs2019 is rsa-sha256. the real answer is...
@@ -480,32 +480,32 @@ class ActivityPub(User, Protocol):
             error('Invalid Digest header, required for HTTP Signature', status=401)
 
         try:
-            key_actor = cls.load(keyId)
+            key_actor = cls._load_key(key_id)
         except BadGateway:
             obj_id = as1.get_object(activity).get('id')
             if (activity.get('type') == 'Delete' and obj_id
-                    and keyId == fragmentless(obj_id)):
+                    and key_id == fragmentless(obj_id)):
                 logger.info('Object/actor being deleted is also keyId')
                 key_actor = Object.get_or_create(
-                    id=keyId, source_protocol='activitypub', deleted=True)
+                    id=key_id, source_protocol='activitypub', deleted=True)
                 key_actor.put()
             else:
                 raise
 
         if key_actor and key_actor.deleted:
-            abort(202, f'Ignoring, signer {keyId} is already deleted')
+            abort(202, f'Ignoring, signer {key_id} is already deleted')
         elif not key_actor or not key_actor.as1:
-            error(f"Couldn't load {keyId} to verify signature", status=401)
+            error(f"Couldn't load {key_id} to verify signature", status=401)
 
         # don't ActivityPub.convert since we don't want to postprocess_as2
         key = as2.from_as1(key_actor.as1).get('publicKey', {}).get('publicKeyPem')
         if not key:
-            error(f'No public key for {keyId}', status=401)
+            error(f'No public key for {key_id}', status=401)
 
         # can't use request.full_path because it includes a trailing ? even if
         # it wasn't in the request. https://github.com/pallets/flask/issues/2867
         path_query = request.url.removeprefix(request.host_url.rstrip('/'))
-        logger.info(f'Verifying signature for {path_query} with key {keyId}')
+        logger.info(f'Verifying signature for {path_query} with key {key_id}')
         try:
             verified = HeaderVerifier(headers, key,
                                       required_headers=['Digest'],
@@ -521,7 +521,42 @@ class ActivityPub(User, Protocol):
         else:
             error('HTTP Signature verification failed', status=401)
 
-        return keyId
+        return key_actor.key.id()
+
+    @classmethod
+    def _load_key(cls, key_id, follow_owner=True):
+        """Loads the ActivityPub actor for a given ``keyId``.
+
+        https://swicg.github.io/activitypub-http-signature/#how-to-obtain-a-signature-s-public-key
+        Args:
+          key_id (str): ``keyId`` from an HTTP Signature
+          follow_owner (bool): whether to follow ``owner``/``controller`` fields
+
+        Returns:
+          Object or None:
+
+        Raises:
+          requests.HTTPError:
+        """
+        assert '#' not in key_id
+        actor = cls.load(key_id)
+        if not actor:
+            return None
+
+        if follow_owner and actor.as1:
+            actor_as2 = as2.from_as1(actor.as1)
+            key = actor_as2.get('publicKey', {})
+            owner = key.get('controller') or key.get('owner')
+            if not owner and actor.type not in as1.ACTOR_TYPES:
+                owner = actor_as2.get('controller') or actor_as2.get('owner')
+
+            if owner:
+                owner = fragmentless(owner)
+                if owner != key_id:
+                    logger.info(f'keyId {key_id} has controller/owner {owner}, fetching that')
+                    return cls._load_key(owner, follow_owner=False)
+
+        return actor
 
 
 def signed_get(url, from_user=None, **kwargs):

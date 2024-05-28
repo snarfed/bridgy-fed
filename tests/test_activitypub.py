@@ -325,7 +325,7 @@ class ActivityPubTest(TestCase):
             **ACTOR,
             'publicKey': {
                 'id': 'http://my/key/id#unused',
-                'owner': 'http://own/er',
+                'owner': 'http://my/key/id#unused',
                 'publicKeyPem': self.user.public_pem().decode(),
             },
         })
@@ -1349,15 +1349,8 @@ class ActivityPubTest(TestCase):
         # actor with a public key
         self.key_id_obj.key.delete()
         protocol.objects_cache.clear()
-        actor_as2 = {
-            **ACTOR,
-            'publicKey': {
-                'id': 'http://my/key/id#unused',
-                'owner': 'http://own/er',
-                'publicKeyPem': self.user.public_pem().decode(),
-            },
-        }
-        mock_get.return_value = self.as2_resp(actor_as2)
+        key_as2 = self.key_id_obj.as2
+        mock_get.return_value = self.as2_resp(key_as2)
 
         # valid signature
         body = json_dumps(NOTE)
@@ -1377,7 +1370,7 @@ class ActivityPubTest(TestCase):
 
         # valid signature, Object has our_as1 instead of as2
         self.key_id_obj.clear()
-        self.key_id_obj.our_as1 = as2.to_as1(actor_as2)
+        self.key_id_obj.our_as1 = as2.to_as1(key_as2)
         self.key_id_obj.put()
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(204, resp.status_code, resp.get_data(as_text=True))
@@ -1430,7 +1423,27 @@ class ActivityPubTest(TestCase):
         resp = self.client.post('/ap/sharedInbox', json=NOTE)
         self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual({'error': 'No HTTP Signature'}, resp.json)
-        mock_common_log.assert_any_call('Returning 401: No HTTP Signature', exc_info=None)
+        mock_common_log.assert_any_call('Returning 401: No HTTP Signature',
+                                        exc_info=None)
+
+    def test_inbox_verify_http_signature_follow_owner(self, _, __, ___):
+        self.user.obj.our_as1 = None
+        self.user.obj.as2 = ACTOR_BASE
+        self.user.obj.put()
+        actor = self.user.obj.key.id()
+
+        self.assertNotEqual(self.user.key.id(), self.key_id_obj.key.id())
+        self.key_id_obj.as2['publicKey']['owner'] = actor
+        self.key_id_obj.put()
+
+        body = json_dumps(NOTE)
+        headers = self.sign('/ap/sharedInbox', body)
+
+        with app.test_request_context('/ap/sharedInbox', method='POST',
+                                      data=body, headers=headers):
+            self.assertEqual(actor, ActivityPub.verify_signature(None))
+
+    # def test_inbox_verify_http_signature_follow_publicKey_owner(self, _, __, ___):
 
     def test_delete_actor(self, *mocks):
         deleted = self.make_user(DELETE['actor'], cls=ActivityPub)
