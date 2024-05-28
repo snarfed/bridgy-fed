@@ -177,7 +177,7 @@ def update_profile(protocol, id):
 
     if profile_obj:
         common.create_task(queue='receive', obj=profile_obj.key.urlsafe(),
-                           authed_as=id)
+                           authed_as=profile_obj.key.id())
         flash(f'Updating profile from {link}...')
     else:
         flash(f"Couldn't update profile for {link}")

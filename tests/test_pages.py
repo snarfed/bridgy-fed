@@ -213,7 +213,8 @@ class PagesTest(TestCase):
             'displayName': 'Ms User',
         }}
 
-        got = self.client.post('/fa/fake:user/update-profile')
+        # use handle in URL to check that we use key id as authed_as below
+        got = self.client.post('/fa/fake:handle:user/update-profile')
         self.assert_equals(302, got.status_code)
         self.assert_equals('/fa/fake:handle:user', got.headers['Location'])
 
