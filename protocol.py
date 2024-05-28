@@ -762,11 +762,8 @@ class Protocol:
             elif actor != authed_as:
                 if ld_sig := obj.as1.get('signature'):
                     creator = ld_sig.get('creator', '')
-                    suffix = creator.removeprefix(actor)
-                    if suffix != creator and (suffix.startswith('#')
-                                              or suffix.startswith('/')):
-                        logger.info(f'Auth_: ignoring activity with LD Signature from {creator}')
-                        return "Ignoring, sorry, we don't yet verify LD Signatures", 204
+                    logger.info(f'Auth_: ignoring activity with LD Signature from {creator}')
+                    return "Ignoring, sorry, we don't yet verify LD Signatures", 204
                 logger.warning(f"Auth: actor {actor} isn't authed user {authed_as}")
         else:
             logger.warning(f"Auth: missing authed_as!")
