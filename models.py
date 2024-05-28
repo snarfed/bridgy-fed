@@ -900,10 +900,11 @@ class Object(StringIdModel):
             # make a copy so that if we later modify this object in memory,
             # those modifications don't affect the cache.
             # NOTE: keep in sync with Protocol.load!
-            protocol.objects_cache[self.key.id()] = Object(
-                id=self.key.id(),
-                # exclude computed properties
-                **self.to_dict(exclude=['as1', 'expire', 'object_ids', 'type']))
+            with protocol.objects_cache_lock:
+                protocol.objects_cache[self.key.id()] = Object(
+                    id=self.key.id(),
+                    # exclude computed properties
+                    **self.to_dict(exclude=['as1', 'expire', 'object_ids', 'type']))
 
     @classmethod
     def get_by_id(cls, id):
