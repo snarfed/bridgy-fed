@@ -560,7 +560,7 @@ class ProtocolTest(TestCase):
             'objectType': 'application',
             'id': 'other:u:fake:alice',
             'url': 'http://unused',
-            'summary': 'something about me<br><br>[<a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from <a href="fake:alice">fake:handle:alice</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
+            'summary': 'something about me<br><br>[<a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from <a href="web:fake:alice">fake:handle:alice</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
         }, OtherFake.convert(Object(
             id='fake:profile:alice', source_protocol='fake', our_as1={
                 'objectType': 'application',

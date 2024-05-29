@@ -182,8 +182,9 @@ class PagesTest(TestCase):
         got = self.client.post('/fa/fake:user/update-profile')
         self.assert_equals(302, got.status_code)
         self.assert_equals('/fa/fake:handle:user', got.headers['Location'])
-        self.assertEqual(['Updating profile from <a href="fake:user">fake:handle:user</a>...'],
-                         get_flashed_messages())
+        self.assertEqual(
+            ['Updating profile from <a href="web:fake:user">fake:handle:user</a>...'],
+            get_flashed_messages())
 
         self.assertEqual(['fake:profile:user'], Fake.fetched)
 
@@ -198,7 +199,7 @@ class PagesTest(TestCase):
         self.assert_equals(302, got.status_code)
         self.assert_equals('/fa/fake:handle:user', got.headers['Location'])
         self.assertEqual(
-            ['Couldn\'t update profile for <a href="fake:user">fake:handle:user</a>: foo'],
+            ['Couldn\'t update profile for <a href="web:fake:user">fake:handle:user</a>: foo'],
             get_flashed_messages())
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))

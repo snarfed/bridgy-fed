@@ -95,11 +95,11 @@ WEBFINGER_NO_HCARD = {
 }
 WEBFINGER_FAKE = {
     'subject': 'acct:fake:handle:user@fa.brid.gy',
-    'aliases': ['fake:user'],
+    'aliases': ['web:fake:user'],
     'links': [{
         'rel': 'canonical_uri',
         'type': 'text/html',
-        'href': 'fake:user',
+        'href': 'web:fake:user',
     }, {
         'rel': 'self',
         'type': CONTENT_TYPE_LD_PROFILE,

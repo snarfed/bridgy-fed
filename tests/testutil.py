@@ -89,7 +89,7 @@ class Fake(User, protocol.Protocol):
         return self.key.id().replace(f'{self.LABEL}:', f'{self.LABEL}:handle:')
 
     def web_url(self):
-        return self.key.id()
+        return f'web:{self.key.id()}'
 
     @classmethod
     def create_for(cls, user):

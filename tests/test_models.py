@@ -682,7 +682,7 @@ class ObjectTest(TestCase):
         obj = Object(id='x', source_protocol='ui', users=[self.user.key])
 
         got = obj.actor_link(user=self.user)
-        self.assertIn('href="fake:user" title="Alice">', got)
+        self.assertIn('href="web:fake:user" title="Alice">', got)
         self.assertIn('Alice', got)
 
     def test_actor_link_object_in_datastore(self):

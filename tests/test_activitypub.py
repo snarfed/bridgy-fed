@@ -92,7 +92,7 @@ ACTOR_FAKE = {
     ],
     'type': 'Person',
     'id': 'https://fa.brid.gy/ap/fake:user',
-    'url': 'https://fa.brid.gy/r/fake:user',
+    'url': 'https://fa.brid.gy/r/web:fake:user',
     'inbox': 'https://fa.brid.gy/ap/fake:user/inbox',
     'outbox': 'https://fa.brid.gy/ap/fake:user/outbox',
     'following': 'https://fa.brid.gy/ap/fake:user/following',
@@ -431,7 +431,7 @@ class ActivityPubTest(TestCase):
             **ACTOR,
             **ACTOR_FAKE,
             'type': 'Application',
-            'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="fake:user">fake:handle:user</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
+            'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="web:fake:user">fake:handle:user</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
         }, got.json, ignore=['publicKeyPem'])
 
     def test_actor_handle_new_user(self, _, __, ___):
@@ -445,7 +445,7 @@ class ActivityPubTest(TestCase):
             **ACTOR,
             **ACTOR_FAKE,
             'type': 'Application',
-            'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="fake:user">fake:handle:user</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
+            'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="web:fake:user">fake:handle:user</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
         }, got.json, ignore=['publicKeyPem'])
 
     def test_actor_atproto_not_enabled(self, *_):
