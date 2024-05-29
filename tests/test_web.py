@@ -1770,27 +1770,6 @@ class WebTest(TestCase):
             'updated': NOW.isoformat(),
         })
 
-    def test_like_actor_is_not_source_domain(self, mock_get, mock_post):
-        like_html = LIKE_HTML.replace(
-            'class="p-author h-card" href="https://user.com/"',
-            'class="p-author h-card" href="https://eve.com/"')
-        mock_get.side_effect = [
-            requests_response(like_html, url='https://user.com/like'),
-            TOOT_AS2,
-            ACTOR,
-        ]
-
-        with self.assertLogs() as logs:
-            got = self.post('/queue/webmention', data={
-                'source': 'https://user.com/like',
-                'target': 'https://fed.brid.gy/',
-            })
-            self.assertEqual(202, got.status_code)
-
-        self.assertIn(
-            "WARNING:models:Auth: https://user.com/ isn't https://user.com/like's author or actor: ['https://eve.com/']",
-            logs.output)
-
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_atom(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False

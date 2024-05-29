@@ -31,7 +31,7 @@ from common import (
     PROTOCOL_DOMAINS,
     subdomain_wrap,
 )
-from ids import translate_object_id, translate_user_id
+from ids import normalize_user_id, translate_object_id, translate_user_id
 from models import Follower, get_originals, Object, PROTOCOLS, Target, User
 
 SUPPORTED_TYPES = (
@@ -760,24 +760,17 @@ class Protocol:
 
         if authed_as:
             assert isinstance(authed_as, str)
+
             authed_domain = util.domain_from_link(authed_as)
+            if util.domain_or_parent_in(authed_domain, NO_AUTH_DOMAINS):
+                error(f"Ignoring, sorry, we don't know how to authorize {authed_domain} activities yet. https://github.com/snarfed/bridgy-fed/issues/566", status=204)
 
-            if re.match(DOMAIN_RE, authed_as):
-                # use domain_from_link on both to remove www. and other similar
-                # subdomains
-                if not util.domain_or_parent_in(util.domain_from_link(actor),
-                                                [util.domain_from_link(authed_as)]):
-                    logger.warning(f"Auth: actor {actor} isn't web domain authed user {authed_as}")
-
-            elif util.domain_or_parent_in(authed_domain, NO_AUTH_DOMAINS):
-                logger.info(f"Auth_: we don't know how to authorize {authed_domain} activities yet")
-                return "Ignoring, sorry, we don't know how to authorize {authed_domain} activities yet. https://github.com/snarfed/bridgy-fed/issues/566", 204
-
-            elif actor != authed_as:
+            authed_as = normalize_user_id(id=authed_as, proto=from_cls)
+            actor = normalize_user_id(id=actor, proto=from_cls)
+            if actor != authed_as:
                 if ld_sig := obj.as1.get('signature'):
                     creator = ld_sig.get('creator', '')
-                    logger.info(f'Auth_: ignoring activity with LD Signature from {creator}')
-                    return "Ignoring, sorry, we don't verify LD Signatures yet. https://github.com/snarfed/bridgy-fed/issues/566", 204
+                    error(f"Ignoring LD Signature from {creator} , sorry, we can't verify those yet. https://github.com/snarfed/bridgy-fed/issues/566", status=204)
                 logger.warning(f"Auth: actor {actor} isn't authed user {authed_as}")
         else:
             logger.warning(f"Auth: missing authed_as!")
@@ -801,14 +794,14 @@ class Protocol:
 
         # write Object to datastore
         orig = obj
-        obj = Object.get_or_create(id, **orig.to_dict(), authed_as=actor)
+        obj = Object.get_or_create(id, authed_as=actor, **orig.to_dict())
         if orig.new is not None:
             obj.new = orig.new
         if orig.changed is not None:
             obj.changed = orig.changed
 
         # if this is a post, ie not an activity, wrap it in a create or update
-        obj = from_cls.handle_bare_object(obj)
+        obj = from_cls.handle_bare_object(obj, authed_as=authed_as)
         obj.add('users', from_user.key)
 
         if obj.type not in SUPPORTED_TYPES:
@@ -1137,13 +1130,14 @@ class Protocol:
                            user=user.key.urlsafe())
 
     @classmethod
-    def handle_bare_object(cls, obj):
+    def handle_bare_object(cls, obj, authed_as=None):
         """If obj is a bare object, wraps it in a create or update activity.
 
         Checks if we've seen it before.
 
         Args:
           obj (models.Object)
+          authed_as (str): authenticated actor id who sent this activity
 
         Returns:
           models.Object: ``obj`` if it's an activity, otherwise a new object
@@ -1198,7 +1192,8 @@ class Protocol:
             }
             logger.info(f'Wrapping in post: {json_dumps(create_as1, indent=2)}')
             return Object.get_or_create(create_id, our_as1=create_as1,
-                                        source_protocol=obj.source_protocol)
+                                        source_protocol=obj.source_protocol,
+                                        authed_as=authed_as)
 
         error(f'{obj.key.id()} is unchanged, nothing to do', status=204)
 

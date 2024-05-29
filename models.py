@@ -939,12 +939,17 @@ class Object(StringIdModel):
             obj.new = False
             orig_as1 = obj.as1
             if orig_as1:
-                owners = (as1.get_ids(orig_as1, 'author')
-                          + as1.get_ids(orig_as1, 'actor'))
                 if not authed_as:
                     logger.warning(f'Auth: would cowardly refuse to overwrite {id} without checking actor')
-                elif authed_as not in owners + [id]:
-                    logger.warning(f"Auth: {authed_as} isn't {id}'s author or actor: {owners}")
+                    authed_as = 'https://un.known'
+                proto = PROTOCOLS.get(obj.source_protocol)
+                assert proto, obj.source_protocol
+                owners = [ids.normalize_user_id(id=id, proto=proto)
+                          for id in (as1.get_ids(orig_as1, 'author')
+                                     + as1.get_ids(orig_as1, 'actor')
+                                     + [id])]
+                if ids.normalize_user_id(id=authed_as, proto=proto) not in owners:
+                    logger.warning(f"Auth: {authed_as} isn't {id} 's author or actor: {owners}")
         else:
             obj = Object(id=id)
             obj.new = True

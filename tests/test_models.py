@@ -532,14 +532,16 @@ class ObjectTest(TestCase):
         self.assertEqual(3, Object.query().count())
 
         # if no data property is set, don't clear existing data properties
-        obj7 = Object.get_or_create('biff', as2={'a': 'b'}, mf2={'c': 'd'})
+        obj7 = Object.get_or_create('biff', as2={'a': 'b'}, mf2={'c': 'd'},
+                                    source_protocol='ui')
         Object.get_or_create('biff', users=[ndb.Key(Web, 'me')])
         self.assert_object('biff', as2={'a': 'b'}, mf2={'c': 'd'},
-                           users=[ndb.Key(Web, 'me')])
+                           users=[ndb.Key(Web, 'me')],
+                           source_protocol='ui')
 
     def test_get_or_create_authed_as_check(self):
-        Object(id='foo', our_as1={'author': 'alice'}).put()
-        Object.get_or_create('foo', authed_as='alice', our_as1={
+        Object(id='foo', our_as1={'author': 'alice'}, source_protocol='ui').put()
+        Object.get_or_create('foo', authed_as='alice', source_protocol='ui', our_as1={
             'author': 'alice',
             'bar': 'baz',
         })
@@ -552,15 +554,15 @@ class ObjectTest(TestCase):
         with self.assertLogs() as logs:
             Object.get_or_create('foo', authed_as='eve', our_as1={'bar': 'biff'})
 
-        self.assertIn("WARNING:models:Auth: eve isn't foo's author or actor: ['alice']",
-                      logs.output)
+        self.assertIn("Auth: eve isn't foo 's author or actor: ['alice', 'foo']",
+                      ' '.join(logs.output))
 
         # actor is object id (eg user profile)
         with self.assertLogs() as logs:
             Object.get_or_create('foo', authed_as='foo', our_as1={})
 
-        self.assertNotIn("WARNING:models:Auth: foo isn't foo's author or actor: []",
-                         logs.output)
+        self.assertNotIn("Auth: foo isn't foo's author or actor: []",
+                         ' '.join(logs.output))
 
     def test_activity_changed(self):
         obj = Object()

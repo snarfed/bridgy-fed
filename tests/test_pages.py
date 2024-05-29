@@ -293,7 +293,7 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code)
 
     def test_followers_activitypub(self):
-        obj = Object(id='https://inst/user', as2={
+        obj = Object(id='https://inst/user', source_protocol='activitypub', as2={
             'id': 'https://inst/user',
             'preferredUsername': 'user',
         })

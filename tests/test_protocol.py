@@ -699,7 +699,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'author': 'fake:user',
         }
-        self.store_object(id='fake:post', our_as1=post_as1)
+        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
         self.store_object(id='fake:post#bridgy-fed-create', status='failed')
 
         self.assertEqual(('OK', 202), Fake.receive_as1(post_as1))
@@ -722,7 +722,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'author': 'fake:user',
         }
-        self.store_object(id='fake:post', our_as1=post_as1)
+        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
 
         self.assertEqual(('OK', 202), Fake.receive_as1(post_as1))
 
@@ -838,7 +838,8 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'author': 'fake:user',
         }
-        obj = self.store_object(id='fake:post', our_as1=post_as1)
+        obj = self.store_object(id='fake:post', our_as1=post_as1,
+                                source_protocol='fake')
 
         self.assertEqual(('OK', 202), Fake.receive_as1(post_as1))
         self.assertEqual(1, len(Fake.sent))
@@ -850,7 +851,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'author': 'fake:user',
         }
-        self.store_object(id='fake:post', our_as1=post_as1)
+        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
 
         with self.assertRaises(NoContent), self.assertLogs() as logs:
             Fake.receive_as1({
@@ -861,9 +862,8 @@ class ProtocolReceiveTest(TestCase):
                 'object': post_as1,
             })
 
-        self.assertIn(
-            "WARNING:models:Auth: fake:other isn't fake:post's author or actor: ['fake:user']",
-            logs.output)
+        self.assertIn("Auth: fake:other isn't fake:post 's author or actor",
+                      ' '.join(logs.output))
 
     def test_update_post(self):
         self.make_followers()
@@ -872,7 +872,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:post',
             'objectType': 'note',
         }
-        self.store_object(id='fake:post', our_as1=post_as1)
+        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
 
         update_as1 = {
             'id': 'fake:update',
@@ -908,7 +908,7 @@ class ProtocolReceiveTest(TestCase):
             'author': 'fake:alice',
             'content': 'first',
         }
-        self.store_object(id='fake:post', our_as1=post_as1)
+        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
         existing = Object.get_by_id('fake:post')
 
         post_as1['content'] = 'second'
@@ -1121,7 +1121,7 @@ class ProtocolReceiveTest(TestCase):
             'inReplyTo': 'other:post',
             'author': 'fake:alice',
         }
-        self.store_object(id='fake:reply', our_as1=reply_as1)
+        self.store_object(id='fake:reply', our_as1=reply_as1, source_protocol='fake')
 
         update_as1 = {
             'id': 'fake:update',
@@ -1259,7 +1259,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'author': 'fake:user',
         }
-        self.store_object(id='fake:post', our_as1=post_as1)
+        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
 
         delete_as1 = {
             'id': 'fake:delete',
@@ -1268,12 +1268,13 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': 'fake:post',
         }
-        self.assertEqual(('OK', 202), Fake.receive_as1(delete_as1))
+        self.assertEqual(('OK', 202),
+                         Fake.receive_as1(delete_as1, authed_as='fake:user'))
 
         self.assert_object('fake:post',
                            our_as1=post_as1,
                            deleted=True,
-                           source_protocol=None,
+                           source_protocol='fake',
                            feed=[self.alice.key, self.bob.key],
                            )
 
@@ -1923,7 +1924,7 @@ class ProtocolReceiveTest(TestCase):
     def test_resolve_ids_reply(self):
         reply = {
             'id': 'other:reply',
-            'actor': 'other:eve',
+            'author': 'other:eve',
             'objectType': 'note',
             'inReplyTo': [
                 'other:unknown-post',
@@ -1957,11 +1958,12 @@ class ProtocolReceiveTest(TestCase):
 
         protocol.seen_ids.clear()
         obj.new = True
-        self.assertEqual(('OK', 202), OtherFake.receive(obj))
+        self.assertEqual(('OK', 202),
+                         OtherFake.receive(obj, authed_as='other:eve'))
         self.assertEqual({
             'id': 'other:reply',
             'objectType': 'note',
-            'actor': 'other:eve',
+            'author': 'other:eve',
             'inReplyTo': [
                 'other:unknown-post',
                 'fake:post',
@@ -2262,10 +2264,11 @@ class ProtocolReceiveTest(TestCase):
                                 source_protocol='fake')
 
         with self.assertLogs() as logs:
-            self.post('/queue/receive', data={
+            got = self.post('/queue/receive', data={
                 'obj': obj.key.urlsafe(),
                 'authed_as': 'fake:alice',
             })
+            self.assertEqual(204, got.status_code)
 
         self.assertNotIn("isn't authed user", ' '.join(logs.output))
 
@@ -2279,14 +2282,16 @@ class ProtocolReceiveTest(TestCase):
                                 })
 
         with self.assertLogs() as logs:
-            self.post('/queue/receive', data={
+            got = self.post('/queue/receive', data={
                 'obj': obj.key.urlsafe(),
                 'authed_as': 'user.com',
             })
+            self.assertEqual(204, got.status_code)
 
         self.assertNotIn("isn't authed user", ' '.join(logs.output))
 
-    def test_receive_task_handler_authed_as_www_subdomain(self):
+    @patch('requests.get', return_value=requests_response('<html></html>'))
+    def test_receive_task_handler_authed_as_www_subdomain(self, _):
         obj = self.store_object(id='http://www.foo.com/post', source_protocol='web',
                                 our_as1={
                                     'id': 'http://www.foo.com/post',
@@ -2295,46 +2300,51 @@ class ProtocolReceiveTest(TestCase):
                                 })
 
         with self.assertLogs() as logs:
-            self.post('/queue/receive', data={
+            got = self.post('/queue/receive', data={
                 'obj': obj.key.urlsafe(),
                 'authed_as': 'foo.com',
             })
+            self.assertEqual(204, got.status_code)
 
-        for msg in logs.output:
-            self.assertNotIn('Auth:', msg)
+        self.assertNotIn('Auth:', ' '.join(logs.output))
 
-    def test_receive_task_handler_authed_as_wrong_domain(self):
+    @patch('requests.get', return_value=requests_response('<html></html>'))
+    def test_receive_task_handler_authed_as_mixed_subdomains(self, _):
+        user = self.make_user('user.com', cls=Web, obj_id='https://user.com/')
+        obj = self.store_object(id='http://user.com/post', source_protocol='web',
+                                our_as1={
+                                    'objectType': 'note',
+                                    'author': 'http://m.user.com/',
+                                })
+
+        with self.assertLogs() as logs:
+            got = self.post('/queue/receive', data={
+                'obj': obj.key.urlsafe(),
+                'authed_as': 'www.user.com',
+            })
+            self.assertEqual(204, got.status_code)
+
+        self.assertNotIn('Auth:', ' '.join(logs.output))
+
+    @patch('requests.get', return_value=requests_response('<html></html>'))
+    def test_receive_task_handler_authed_as_wrong_domain(self, _):
         obj = self.store_object(id='http://bar.com/post', source_protocol='web',
                                 our_as1={
                                     'id': 'http://bar.com/post',
                                     'objectType': 'note',
-                                    'author': 'http://bar.com/bar',
+                                    'author': 'http://bar.com/',
                                 })
 
         with self.assertLogs() as logs:
-            self.post('/queue/receive', data={
+            got = self.post('/queue/receive', data={
                 'obj': obj.key.urlsafe(),
                 'authed_as': 'foo.com',
             })
+            self.assertEqual(204, got.status_code)
 
-        self.assertIn(
-            "WARNING:protocol:Auth: actor http://bar.com/bar isn't web domain authed user foo.com",
-            logs.output)
+        self.assertIn("Auth: actor bar.com isn't authed user foo.com",
+                      ' '.join(logs.output))
 
-    def test_receive_task_handler_authed_as_domain_ignore_www_etc_subdomains(self):
-        obj = self.store_object(id='http://bar.com/post', source_protocol='web',
-                                our_as1={
-                                    'objectType': 'note',
-                                    'author': 'http://m.bar.com/alice',
-                                })
-
-        with self.assertLogs() as logs:
-            self.post('/queue/receive', data={
-                'obj': obj.key.urlsafe(),
-                'authed_as': 'www.bar.com',
-            })
-
-        self.assertNotIn("isn't web domain", ' '.join(logs.output))
 
     def test_receive_task_handler_not_authed_as(self):
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
@@ -2344,14 +2354,14 @@ class ProtocolReceiveTest(TestCase):
         })
 
         with self.assertLogs() as logs:
-            self.post('/queue/receive', data={
+            got = self.post('/queue/receive', data={
                 'obj': obj.key.urlsafe(),
                 'authed_as': 'fake:eve',
             })
+            self.assertEqual(204, got.status_code)
 
-        self.assertIn(
-            "WARNING:protocol:Auth: actor fake:other isn't authed user fake:eve",
-            logs.output)
+        self.assertIn("Auth: actor fake:other isn't authed user fake:eve",
+                      ' '.join(logs.output))
 
     def test_like_not_authed_as_actor(self):
         Fake.fetchable['fake:post'] = {
@@ -2368,9 +2378,8 @@ class ProtocolReceiveTest(TestCase):
                 'object': 'fake:post',
             }, authed_as='fake:other')
 
-        self.assertIn(
-            "WARNING:protocol:Auth: actor fake:user isn't authed user fake:other",
-            logs.output)
+        self.assertIn("Auth: actor fake:user isn't authed user fake:other",
+                      ' '.join(logs.output))
 
     def test_receive_task_handler_not_authed_as_actor_with_ld_sig(self):
         note = {
@@ -2388,14 +2397,14 @@ class ProtocolReceiveTest(TestCase):
                                 source_protocol='fake')
 
         with self.assertLogs() as logs:
-            self.post('/queue/receive', data={
+            got = self.post('/queue/receive', data={
                 'obj': obj.key.urlsafe(),
                 'authed_as': 'fake:eve',
             })
+            self.assertEqual(204, got.status_code)
 
-        self.assertIn(
-            "INFO:protocol:Auth_: ignoring activity with LD Signature from fake:other#main-key",
-            logs.output)
+        self.assertIn("Ignoring LD Signature from fake:other#main-key",
+                      ' '.join(logs.output))
 
     def test_receive_task_handler_NO_AUTH_DOMAINS(self):
         note = {
@@ -2406,14 +2415,14 @@ class ProtocolReceiveTest(TestCase):
         obj = self.store_object(id='fake:post', our_as1=note, source_protocol='fake')
 
         with self.assertLogs() as logs:
-            self.post('/queue/receive', data={
+            got = self.post('/queue/receive', data={
                 'obj': obj.key.urlsafe(),
                 'authed_as': 'https://a.gup.pe/foo',
             })
+            self.assertEqual(204, got.status_code)
 
-        self.assertIn(
-            "INFO:protocol:Auth_: we don't know how to authorize a.gup.pe activities yet",
-            logs.output)
+        self.assertIn("we don't know how to authorize a.gup.pe activities",
+                      ' '.join(logs.output))
 
     def test_user_opted_out(self):
         self.make_followers()
