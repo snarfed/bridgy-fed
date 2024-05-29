@@ -607,9 +607,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Defaults to this user's key id.
 
         Returns:
-          str:
+          str or None:
         """
-        return self.key.id()
+        return ids.profile_id(id=self.key.id(), proto=self)
 
     def user_page_path(self, rest=None):
         """Returns the user's Bridgy Fed user page path."""
@@ -946,8 +946,7 @@ class Object(StringIdModel):
                 assert proto, obj.source_protocol
                 owners = [ids.normalize_user_id(id=id, proto=proto)
                           for id in (as1.get_ids(orig_as1, 'author')
-                                     + as1.get_ids(orig_as1, 'actor')
-                                     + [id])]
+                                     + as1.get_ids(orig_as1, 'actor'))]
                 if ids.normalize_user_id(id=authed_as, proto=proto) not in owners:
                     logger.warning(f"Auth: {authed_as} isn't {id} 's author or actor: {owners}")
         else:

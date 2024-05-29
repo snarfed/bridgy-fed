@@ -187,11 +187,7 @@ class Web(User, Protocol):
 
         return converted
 
-    def web_url(self):
-        """Returns this user's web URL aka web_url, eg ``https://foo.com/``."""
-        return f'https://{self.key.id()}/'
-
-    profile_id = web_url
+    web_url = User.profile_id
 
     def is_web_url(self, url):
         return super().is_web_url(url, ignore_www=True)

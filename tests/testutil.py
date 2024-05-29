@@ -325,31 +325,25 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         obj_mf2 = kwargs.pop('obj_mf2', None)
         obj_id = kwargs.pop('obj_id', None)
 
-        obj_key = kwargs.pop('obj_key', None)
-        if obj_key:
-            assert not (obj_as1 or obj_as2 or obj_bsky or obj_mf2 or obj_id)
-
-        if not obj_key and (cls != ATProto or obj_bsky):
-            if not obj_id:
-                obj_id = ((obj_as2 or {}).get('id')
-                          or util.get_url((obj_mf2 or {}), 'properties')
-                          or f'https://{id}/' if cls == Web
-                          else f'at://{id}/app.bsky.actor.profile/self' if obj_bsky
-                          else id)
-                          # unused right now
-                          # or f'fake:{str(self.last_make_user_id)}')
-                self.last_make_user_id += 1
-            obj_key = Object.get_or_create(id=obj_id, our_as1=obj_as1, as2=obj_as2,
-                                           bsky=obj_bsky, mf2=obj_mf2,
-                                           source_protocol=cls.LABEL).key
-
         kwargs.setdefault('direct', True)
         user = cls(id=id,
                    mod=global_user.mod,
                    public_exponent=global_user.public_exponent,
                    private_exponent=global_user.private_exponent,
-                   obj_key=obj_key,
                    **kwargs)
+
+        user.obj_key = kwargs.pop('obj_key', None)
+        if user.obj_key:
+            assert not (obj_as1 or obj_as2 or obj_bsky or obj_mf2 or obj_id)
+        elif cls != ATProto or obj_bsky:
+            if not obj_id:
+                obj_id = ((obj_as2 or {}).get('id')
+                          or util.get_url((obj_mf2 or {}), 'properties')
+                          or user.profile_id())
+            user.obj_key = Object.get_or_create(
+                id=obj_id, our_as1=obj_as1, as2=obj_as2, bsky=obj_bsky,
+                mf2=obj_mf2, source_protocol=cls.LABEL).key
+
         user.put()
         return user
 

@@ -37,6 +37,7 @@ from common import (
     USER_AGENT,
 )
 import flask_app
+import ids
 from models import Object, PROTOCOLS, Target, User
 from protocol import Protocol
 
@@ -209,14 +210,6 @@ class ATProto(User, Protocol):
             return user.key.id()
 
         return did.resolve_handle(handle, get_fn=util.requests_get)
-
-    @staticmethod
-    def profile_at_uri(id):
-        assert id.startswith('did:')
-        return f'at://{id}/app.bsky.actor.profile/self'
-
-    def profile_id(self):
-        return self.profile_at_uri(self.key.id())
 
     @classmethod
     def bridged_web_url_for(cls, user):
@@ -496,7 +489,7 @@ class ATProto(User, Protocol):
             instead of an ``app.bsky.actor.profile/self``.
         """
         if id.startswith('did:') and not did_doc:
-            id = cls.profile_at_uri(id)
+            id = ids.profile_id(id=id, proto=cls)
 
         elif id.startswith('https://bsky.app/'):
             try:

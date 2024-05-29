@@ -747,7 +747,7 @@ class ATProtoTest(TestCase):
         mock_zone.return_value = zone = MagicMock()
         zone.resource_record_set = MagicMock()
 
-        Fake.fetchable = {'fake:us_er': ACTOR_AS}
+        Fake.fetchable = {'fake:profile:us_er': ACTOR_AS}
         user = Fake(id='fake:us_er')
         AtpRemoteBlob(id='https://alice.com/alice.jpg',
                       cid=BLOB_CID.encode('base32'), size=8).put()
@@ -784,7 +784,7 @@ class ATProtoTest(TestCase):
 
         uri = arroba.util.at_uri(did, 'app.bsky.actor.profile', 'self')
         self.assertEqual([Target(uri=uri, protocol='atproto')],
-                         Object.get_by_id(id='fake:us_er').copies)
+                         Object.get_by_id(id='fake:profile:us_er').copies)
 
         mock_create_task.assert_called()  # atproto-commit
 
@@ -865,7 +865,7 @@ class ATProtoTest(TestCase):
            return_value=requests_response('OK'))  # create DID on PLC
     def test_send_new_repo_includes_user_profile(self, mock_post, mock_create_task,
                                                  _, __):
-        Fake.fetchable = {'fake:user': ACTOR_AS}
+        Fake.fetchable = {'fake:profile:user': ACTOR_AS}
 
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1=NOTE_AS)
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))

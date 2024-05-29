@@ -423,7 +423,7 @@ class ActivityPubTest(TestCase):
     def test_actor_handle_existing_user(self, _, __, ___):
         self.make_user('fake:user', cls=Fake, obj_as1=as2.to_as1({
             **ACTOR,
-            'id': 'fake:user',
+            'id': 'fake:profile:user',
         }))
         got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
         self.assertEqual(200, got.status_code)
@@ -435,9 +435,9 @@ class ActivityPubTest(TestCase):
         }, got.json, ignore=['publicKeyPem'])
 
     def test_actor_handle_new_user(self, _, __, ___):
-        Fake.fetchable['fake:user'] = as2.to_as1({
+        Fake.fetchable['fake:profile:user'] = as2.to_as1({
             **ACTOR,
-            'id': 'fake:user',
+            'id': 'fake:profile:user',
         })
         got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
         self.assertEqual(200, got.status_code)

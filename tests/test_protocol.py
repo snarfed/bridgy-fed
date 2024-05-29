@@ -561,12 +561,13 @@ class ProtocolTest(TestCase):
             'id': 'other:u:fake:alice',
             'url': 'http://unused',
             'summary': 'something about me<br><br>[<a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from <a href="fake:alice">fake:handle:alice</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
-        }, OtherFake.convert(Object(id='fake:alice', source_protocol='fake', our_as1={
-            'objectType': 'application',
-            'id': 'fake:alice',
-            'url': 'http://unused',
-            'summary': 'something about me',
-        }), from_user=alice))
+        }, OtherFake.convert(Object(
+            id='fake:profile:alice', source_protocol='fake', our_as1={
+                'objectType': 'application',
+                'id': 'fake:alice',
+                'url': 'http://unused',
+                'summary': 'something about me',
+            }), from_user=alice))
 
     def test_convert_object_isnt_from_user_adds_bridged_disclaimer(self):
         bob = Fake(id='fake:bob')

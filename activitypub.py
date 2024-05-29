@@ -843,7 +843,8 @@ def postprocess_as2_actor(actor, user):
 
     id = actor.get('id')
     user_id = user.key.id()
-    if not id or user.is_web_url(id) or unwrap(id) in (user_id, f'www.{user_id}'):
+    if not id or user.is_web_url(id) or unwrap(id) in (
+            user_id, user.profile_id(), f'www.{user_id}'):
         id = actor['id'] = user.id_as(ActivityPub)
 
     actor['url'] = urls[0] if len(urls) == 1 else urls

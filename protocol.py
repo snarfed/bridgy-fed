@@ -535,8 +535,7 @@ class Protocol:
             obj.our_as1 = copy.deepcopy(obj.as1)
             obj.our_as1['objectType'] = 'application'
 
-            if from_user.key and id in (from_user.key.id(),
-                                        f'https://{from_user.key.id()}'):
+            if from_user.key and id == from_user.profile_id():
                 disclaimer = f'[<a href="https://{PRIMARY_DOMAIN}{from_user.user_page_path()}">bridged</a> from <a href="{from_user.web_url()}">{from_user.handle_or_id()}</a> by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
             else:
                 url = as1.get_url(obj.our_as1) or id

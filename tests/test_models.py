@@ -80,7 +80,7 @@ class UserTest(TestCase):
         common.RUN_TASKS_INLINE = False
 
         Fake.fetchable = {
-            'fake:user': {
+            'fake:profile:user': {
                 **ACTOR_AS,
                 'image': None,  # don't try to fetch as blob
             },
@@ -88,7 +88,7 @@ class UserTest(TestCase):
         user = Fake.get_or_create('fake:user', propagate=True)
 
         # check that profile was fetched remotely
-        self.assertEqual(['fake:user'], Fake.fetched)
+        self.assertEqual(['fake:profile:user'], Fake.fetched)
 
         # check user, repo
         user = Fake.get_by_id('fake:user')
@@ -110,7 +110,7 @@ class UserTest(TestCase):
 
         uri = at_uri(did, 'app.bsky.actor.profile', 'self')
         self.assertEqual([Target(uri=uri, protocol='atproto')],
-                         Object.get_by_id(id='fake:user').copies)
+                         Object.get_by_id(id='fake:profile:user').copies)
 
         mock_create_task.assert_called()
 
@@ -132,11 +132,11 @@ class UserTest(TestCase):
         self.assertEqual(0, AtpRepo.query().count())
 
     def test_get_or_create_use_instead(self):
-        user = Fake.get_or_create('a.b')
+        user = Fake.get_or_create('fake:a')
         user.use_instead = self.user.key
         user.put()
 
-        got = Fake.get_or_create('a.b')
+        got = Fake.get_or_create('fake:a')
         self.assertEqual('y.z', got.key.id())
         assert got.existing
 
@@ -539,7 +539,7 @@ class ObjectTest(TestCase):
                            users=[ndb.Key(Web, 'me')],
                            source_protocol='ui')
 
-    def test_get_or_create_authed_as_check(self):
+    def test_get_or_create_auth_check(self):
         Object(id='foo', our_as1={'author': 'alice'}, source_protocol='ui').put()
         Object.get_or_create('foo', authed_as='alice', source_protocol='ui', our_as1={
             'author': 'alice',
@@ -563,6 +563,16 @@ class ObjectTest(TestCase):
 
         self.assertNotIn("Auth: foo isn't foo's author or actor: []",
                          ' '.join(logs.output))
+
+    def test_get_or_create_auth_check_profile_id(self):
+        Object(id='fake:profile:alice', source_protocol='fake',
+               our_as1={'x': 'y'}).put()
+
+        with self.assertLogs() as logs:
+            Object.get_or_create('fake:profile:alice', authed_as='fake:alice',
+                                 our_as1={'x': 'z'})
+
+        self.assertNotIn('Auth:', ' '.join(logs.output))
 
     def test_activity_changed(self):
         obj = Object()

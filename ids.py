@@ -177,6 +177,38 @@ def normalize_user_id(*, id, proto):
     return normalized
 
 
+def profile_id(*, id, proto):
+    """Returns the profile object id for a given user id.
+
+    Examples:
+
+    * Web: user.com => https:///user.com/
+    * ActivityPub: https://inst.ance/alice => https://inst.ance/alice
+    * ATProto: did:plc:123 => at://did:plc:123/app.bsky.actor.profile/self
+
+    Args:
+      id (str)
+      proto (protocol.Protocol)
+
+    Returns:
+      str: the profile id
+    """
+    assert proto.owns_id(id) is not False
+
+    match proto.LABEL:
+        case 'atproto':
+            return f'at://{id}/app.bsky.actor.profile/self'
+
+        case 'fake':
+            return id.replace('fake:', 'fake:profile:')
+
+        case 'web':
+            return f'https://{id}/'
+
+        case _:
+            return id
+
+
 def translate_handle(*, handle, from_, to, enhanced):
     """Translates a user handle from one protocol to another.
 

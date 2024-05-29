@@ -178,14 +178,14 @@ class PagesTest(TestCase):
             'id': 'fake:user',
             'displayName': 'Ms User',
         }
-        Fake.fetchable = {'fake:user': actor}
+        Fake.fetchable = {'fake:profile:user': actor}
         got = self.client.post('/fa/fake:user/update-profile')
         self.assert_equals(302, got.status_code)
         self.assert_equals('/fa/fake:handle:user', got.headers['Location'])
         self.assertEqual(['Updating profile from <a href="fake:user">fake:handle:user</a>...'],
                          get_flashed_messages())
 
-        self.assertEqual(['fake:user'], Fake.fetched)
+        self.assertEqual(['fake:profile:user'], Fake.fetched)
 
         actor['updated'] = '2022-01-02T03:04:05+00:00'
         self.assert_object('fake:user', source_protocol='fake', our_as1=actor)
@@ -207,7 +207,7 @@ class PagesTest(TestCase):
 
         user = self.make_user('fake:user', cls=Fake)
 
-        Fake.fetchable = {'fake:user': {
+        Fake.fetchable = {'fake:profile:user': {
             'objectType': 'person',
             'id': 'fake:user',
             'displayName': 'Ms User',
@@ -218,9 +218,9 @@ class PagesTest(TestCase):
         self.assert_equals(302, got.status_code)
         self.assert_equals('/fa/fake:handle:user', got.headers['Location'])
 
-        self.assert_equals(['fake:user'], Fake.fetched)
-        obj_key = Object(id='fake:user').key.urlsafe()
-        self.assert_task(mock_create_task, 'receive', obj=obj_key,
+        self.assert_equals(['fake:profile:user'], Fake.fetched)
+        self.assert_task(mock_create_task, 'receive',
+                         obj=Object(id='fake:profile:user').key.urlsafe(),
                          authed_as='fake:user')
 
     def test_followers(self):

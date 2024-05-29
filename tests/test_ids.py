@@ -129,6 +129,16 @@ class IdsTest(TestCase):
             with self.subTest(id=id, proto=proto):
                 self.assertEqual(expected, ids.normalize_user_id(id=id, proto=proto))
 
+    def test_profile_id(self):
+        for proto, id, expected in [
+            (ActivityPub, 'https://inst/user', 'https://inst/user'),
+            (ATProto, 'did:plc:123', 'at://did:plc:123/app.bsky.actor.profile/self'),
+            (Fake, 'fake:user', 'fake:profile:user'),
+            (Web, 'user.com', 'https://user.com/'),
+        ]:
+            with self.subTest(id=id, proto=proto):
+                self.assertEqual(expected, ids.profile_id(id=id, proto=proto))
+
     def test_translate_handle(self):
         for from_, handle, to, expected in [
             # basic
