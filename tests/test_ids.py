@@ -4,6 +4,7 @@ from unittest.mock import patch
 from activitypub import ActivityPub
 from atproto import ATProto
 from flask_app import app
+import ids
 from ids import translate_handle, translate_object_id, translate_user_id
 from models import Target
 from .testutil import Fake, TestCase
@@ -72,7 +73,7 @@ class IdsTest(TestCase):
             (Web, 'fed.brid.gy', ActivityPub, 'https://fed.brid.gy/fed.brid.gy'),
             (Web, 'bsky.brid.gy', ActivityPub, 'https://bsky.brid.gy/bsky.brid.gy'),
         ]:
-            with self.subTest(from_=from_.LABEL, to=to.LABEL):
+            with self.subTest(id=id, from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_user_id(
                     id=id, from_=from_, to=to))
 
@@ -82,7 +83,7 @@ class IdsTest(TestCase):
             (ActivityPub, 'https://instance/user'),
             (Fake, 'fake:user'),
         ]:
-            with self.subTest(proto=proto.LABEL):
+            with self.subTest(proto=proto.LABEL, id=id):
                 self.assertIsNone(translate_user_id(id=id, from_=proto, to=ATProto))
 
     def test_translate_user_id_use_instead(self):
@@ -113,6 +114,20 @@ class IdsTest(TestCase):
                     id='on-fed.com', from_=Web, to=ActivityPub))
                 self.assertEqual('https://bsky.brid.gy/on-bsky.com', translate_user_id(
                     id='on-bsky.com', from_=Web, to=ActivityPub))
+
+    def test_normalize_user_id(self):
+        for proto, id, expected in [
+            (ActivityPub, 'https://inst/user', 'https://inst/user'),
+            (ATProto, 'did:plc:456', 'did:plc:456'),
+            (ATProto, 'https://bsky.app/profile/did:plc:123', 'did:plc:123'),
+            (Fake, 'fake:user', 'fake:user'),
+            (Web, 'user.com', 'user.com'),
+            (Web, 'https://user.com/', 'user.com'),
+            (Web, 'https://www.user.com/', 'user.com'),
+            (Web, 'm.user.com', 'user.com'),
+        ]:
+            with self.subTest(id=id, proto=proto):
+                self.assertEqual(expected, ids.normalize_user_id(id=id, proto=proto))
 
     def test_translate_handle(self):
         for from_, handle, to, expected in [

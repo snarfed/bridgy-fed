@@ -149,6 +149,34 @@ def translate_user_id(*, id, from_, to):
     assert False, (id, from_.LABEL, to.LABEL)
 
 
+def normalize_user_id(*, id, proto):
+    """Normalizes a user id to its canonical representation in a given protocol.
+
+    Examples:
+
+    * Web:
+      * user.com => user.com
+      * www.user.com => user.com
+      * https://user.com/ => user.com
+    * ATProto:
+      * did:plc:123 => did:plc:123
+      * https://bsky.app/profile/did:plc:123 => did:plc:123
+
+    Args:
+      id (str)
+      proto (protocol.Protocol)
+
+    Returns:
+      str: the normalized user id
+    """
+    normalized = translate_user_id(id=id, from_=proto, to=proto)
+
+    if proto.LABEL == 'web':
+        normalized = util.domain_from_link(normalized)
+
+    return normalized
+
+
 def translate_handle(*, handle, from_, to, enhanced):
     """Translates a user handle from one protocol to another.
 
