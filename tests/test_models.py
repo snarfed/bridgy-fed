@@ -487,39 +487,41 @@ class ObjectTest(TestCase):
         self.assertEqual(0, Object.query().count())
 
         user = ndb.Key(Web, 'user.com')
-        obj = Object.get_or_create('foo', our_as1={'content': 'foo'},
-                                   source_protocol='ui', notify=[user])
+        obj = Object.get_or_create('fake:foo', our_as1={'content': 'foo'},
+                                   source_protocol='fake', notify=[user])
         check([obj], Object.query().fetch())
         self.assertTrue(obj.new)
         self.assertIsNone(obj.changed)
-        self.assertEqual('foo', obj.key.id())
-        self.assertEqual({'content': 'foo', 'id': 'foo'}, obj.as1)
-        self.assertEqual('ui', obj.source_protocol)
+        self.assertEqual('fake:foo', obj.key.id())
+        self.assertEqual({'content': 'foo', 'id': 'fake:foo'}, obj.as1)
+        self.assertEqual('fake', obj.source_protocol)
         self.assertEqual([user], obj.notify)
 
-        obj2 = Object.get_or_create('foo')
+        obj2 = Object.get_or_create('fake:foo', authed_as='fake:alice')
         self.assertFalse(obj2.new)
         self.assertFalse(obj2.changed)
         check(obj, obj2)
         check([obj2], Object.query().fetch())
 
         # non-null **props should be populated
-        obj3 = Object.get_or_create('foo', our_as1={'content': 'bar'},
-                                    source_protocol=None, notify=[])
-        self.assertEqual('foo', obj3.key.id())
-        self.assertEqual({'content': 'bar', 'id': 'foo'}, obj3.as1)
-        self.assertEqual('ui', obj3.source_protocol)
+        obj3 = Object.get_or_create('fake:foo', our_as1={'content': 'bar'},
+                                    source_protocol=None, notify=[],
+                                    authed_as='fake:alice')
+        self.assertEqual('fake:foo', obj3.key.id())
+        self.assertEqual({'content': 'bar', 'id': 'fake:foo'}, obj3.as1)
+        self.assertEqual('fake', obj3.source_protocol)
         self.assertEqual([user], obj3.notify)
         self.assertFalse(obj3.new)
         self.assertTrue(obj3.changed)
         check([obj3], Object.query().fetch())
-        check(obj3, Object.get_by_id('foo'))
+        check(obj3, Object.get_by_id('fake:foo'))
 
-        obj4 = Object.get_or_create('foo', our_as1={'content': 'bar'})
-        self.assertEqual({'content': 'bar', 'id': 'foo'}, obj4.as1)
+        obj4 = Object.get_or_create('fake:foo', our_as1={'content': 'bar'},
+                                    authed_as='fake:alice')
+        self.assertEqual({'content': 'bar', 'id': 'fake:foo'}, obj4.as1)
         self.assertFalse(obj4.new)
         self.assertFalse(obj4.changed)
-        check(obj4, Object.get_by_id('foo'))
+        check(obj4, Object.get_by_id('fake:foo'))
 
         obj5 = Object.get_or_create('bar')
         self.assertTrue(obj5.new)
@@ -532,37 +534,35 @@ class ObjectTest(TestCase):
         self.assertEqual(3, Object.query().count())
 
         # if no data property is set, don't clear existing data properties
-        obj7 = Object.get_or_create('biff', as2={'a': 'b'}, mf2={'c': 'd'},
-                                    source_protocol='ui')
-        Object.get_or_create('biff', users=[ndb.Key(Web, 'me')])
-        self.assert_object('biff', as2={'a': 'b'}, mf2={'c': 'd'},
+        obj7 = Object.get_or_create('http://b.i/ff', as2={'a': 'b'}, mf2={'c': 'd'},
+                                    source_protocol='web')
+        Object.get_or_create('http://b.i/ff', users=[ndb.Key(Web, 'me')])
+        self.assert_object('http://b.i/ff', as2={'a': 'b'}, mf2={'c': 'd'},
                            users=[ndb.Key(Web, 'me')],
-                           source_protocol='ui')
+                           source_protocol='web')
 
     def test_get_or_create_auth_check(self):
-        Object(id='foo', our_as1={'author': 'alice'}, source_protocol='ui').put()
-        Object.get_or_create('foo', authed_as='alice', source_protocol='ui', our_as1={
-            'author': 'alice',
-            'bar': 'baz',
-        })
+        Object(id='fake:foo', our_as1={'author': 'fake:alice'},
+               source_protocol='fake').put()
+
+        with self.assertLogs() as logs:
+            Object.get_or_create('fake:foo', authed_as='fake:alice',
+                                 source_protocol='fake',
+                                 our_as1={'author': 'fake:alice', 'bar': 'baz'})
+
+        self.assertNotIn('Auth:', ' '.join(logs.output))
         self.assertEqual({
-            'id': 'foo',
+            'id': 'fake:foo',
             'bar': 'baz',
-            'author': 'alice',
-        }, Object.get_by_id('foo').as1)
+            'author': 'fake:alice',
+        }, Object.get_by_id('fake:foo').as1)
 
         with self.assertLogs() as logs:
-            Object.get_or_create('foo', authed_as='eve', our_as1={'bar': 'biff'})
+            Object.get_or_create('fake:foo', authed_as='fake:eve',
+                                 our_as1={'bar': 'biff'})
 
-        self.assertIn("Auth: eve isn't foo 's author or actor: ['alice', 'foo']",
+        self.assertIn("Auth: fake:eve isn't fake:foo 's author or actor",
                       ' '.join(logs.output))
-
-        # actor is object id (eg user profile)
-        with self.assertLogs() as logs:
-            Object.get_or_create('foo', authed_as='foo', our_as1={})
-
-        self.assertNotIn("Auth: foo isn't foo's author or actor: []",
-                         ' '.join(logs.output))
 
     def test_get_or_create_auth_check_profile_id(self):
         Object(id='fake:profile:alice', source_protocol='fake',

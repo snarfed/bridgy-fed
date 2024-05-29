@@ -193,7 +193,7 @@ def profile_id(*, id, proto):
     Returns:
       str: the profile id
     """
-    assert proto.owns_id(id) is not False
+    assert proto.owns_id(id) is not False, (id, proto.LABEL)
 
     match proto.LABEL:
         case 'atproto':
