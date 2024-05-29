@@ -763,8 +763,10 @@ class Protocol:
             authed_domain = util.domain_from_link(authed_as)
 
             if re.match(DOMAIN_RE, authed_as):
-                actor_domain = util.domain_from_link(actor)
-                if not util.domain_or_parent_in(actor_domain, authed_as):
+                # use domain_from_link on both to remove www. and other similar
+                # subdomains
+                if not util.domain_or_parent_in(util.domain_from_link(actor),
+                                                [util.domain_from_link(authed_as)]):
                     logger.warning(f"Auth: actor {actor} isn't web domain authed user {authed_as}")
 
             elif util.domain_or_parent_in(authed_domain, NO_AUTH_DOMAINS):

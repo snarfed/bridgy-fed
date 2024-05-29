@@ -2321,6 +2321,21 @@ class ProtocolReceiveTest(TestCase):
             "WARNING:protocol:Auth: actor http://bar.com/bar isn't web domain authed user foo.com",
             logs.output)
 
+    def test_receive_task_handler_authed_as_domain_ignore_www_etc_subdomains(self):
+        obj = self.store_object(id='http://bar.com/post', source_protocol='web',
+                                our_as1={
+                                    'objectType': 'note',
+                                    'author': 'http://m.bar.com/alice',
+                                })
+
+        with self.assertLogs() as logs:
+            self.post('/queue/receive', data={
+                'obj': obj.key.urlsafe(),
+                'authed_as': 'www.bar.com',
+            })
+
+        self.assertNotIn("isn't web domain", ' '.join(logs.output))
+
     def test_receive_task_handler_not_authed_as(self):
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
             'id': 'fake:post',
