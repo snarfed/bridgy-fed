@@ -57,7 +57,7 @@ OBJECT_REFRESH_AGE = timedelta(days=30)
 
 # require a follow for users on these domains before we deliver anything from
 # them other than their profile
-LIMITED_DOMAINS = util.read('limited_domains')
+LIMITED_DOMAINS = util.load_file_lines('limited_domains')
 
 # we can't yet authorize activities from these domains
 # https://github.com/snarfed/bridgy-fed/issues/566#issuecomment-2130728082
