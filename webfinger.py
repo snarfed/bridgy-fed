@@ -38,7 +38,7 @@ class Webfinger(flask_util.XrdOrJrd):
         return 'webfinger_user'
 
     def template_vars(self):
-        logger.debug(f'Headers: {list(request.headers.items())}')
+        # logger.debug(f'Headers: {list(request.headers.items())}')
 
         resource = flask_util.get_required_param('resource').strip()
         resource = resource.removeprefix(common.host_url())
@@ -108,7 +108,10 @@ class Webfinger(flask_util.XrdOrJrd):
 
         actor = user.obj.as1 if user.obj and user.obj.as1 else {}
         logger.info(f'Generating WebFinger data for {user.key}')
-        logger.info(f'AS1 actor: {actor}')
+
+        actor_id = user.id_as(activitypub.ActivityPub)
+        logger.info(f'AS1 actor: {actor_id}')
+
         urls = util.dedupe_urls(util.get_list(actor, 'urls') +
                                 util.get_list(actor, 'url') +
                                 [user.web_url()])
@@ -116,7 +119,6 @@ class Webfinger(flask_util.XrdOrJrd):
         canonical_url = urls[0]
 
         # generate webfinger content
-        actor_id = user.id_as(activitypub.ActivityPub)
         data = util.trim_nulls({
             'subject': 'acct:' + ap_handle.lstrip('@'),
             'aliases': urls,
@@ -180,7 +182,7 @@ class Webfinger(flask_util.XrdOrJrd):
             }]
         })
 
-        logger.info(f'Returning WebFinger data: {json_dumps(data, indent=2)}')
+        # logger.info(f'Returning WebFinger data: {json_dumps(data, indent=2)}')
         return data
 
 

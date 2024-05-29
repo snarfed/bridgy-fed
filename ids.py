@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 COPIES_PROTOCOLS = None
 
 # Web user domains whose AP actor ids are on fed.brid.gy, not web.brid.gy, for
-# historical compatibility. Loaded on first call to web_ap_subdomain().
+# historical compatibility. Loaded on first call to web_ap_base_domain().
 #
 # Maps string domain to string subdomain (bsky, fed, or web).
 _NON_WEB_SUBDOMAIN_SITES = None
