@@ -16,7 +16,6 @@ import arroba.util
 from arroba.util import datetime_to_tid
 from bs4 import MarkupResemblesLocatorWarning
 import dag_cbor.random
-from flask import g
 from google.cloud import ndb
 from google.protobuf.timestamp_pb2 import Timestamp
 from granary import as2

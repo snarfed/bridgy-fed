@@ -10,7 +10,6 @@ from arroba.repo import Repo
 from arroba.storage import SUBSCRIBE_REPOS_NSID
 import arroba.util
 from dns.resolver import NXDOMAIN
-from flask import g
 from google.cloud.tasks_v2.types import Task
 from granary.bluesky import NO_AUTHENTICATED_LABEL
 from granary.tests.test_bluesky import (

@@ -1,6 +1,4 @@
 """Unit tests for common.py."""
-from flask import g
-
 # import first so that Fake is defined before URL routes are registered
 from .testutil import ExplicitEnableFake, Fake, OtherFake, TestCase
 

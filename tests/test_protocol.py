@@ -6,7 +6,6 @@ from unittest import skip
 from unittest.mock import patch
 
 from arroba.tests.testutil import dns_answer
-from flask import g
 from google.cloud import ndb
 from granary import as2
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY

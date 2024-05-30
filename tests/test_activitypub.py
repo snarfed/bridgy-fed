@@ -7,7 +7,6 @@ import logging
 from unittest import skip
 from unittest.mock import patch
 
-from flask import g
 from google.cloud import ndb
 from granary import as2, microformats2
 from httpsig import HeaderSigner

@@ -9,7 +9,6 @@ from arroba.util import at_uri
 from Crypto.PublicKey import ECC
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives import serialization
-from flask import g
 from google.cloud import ndb
 from google.cloud.tasks_v2.types import Task
 from granary.bluesky import NO_AUTHENTICATED_LABEL
