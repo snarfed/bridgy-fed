@@ -24,8 +24,8 @@ import werkzeug.exceptions
 
 from activitypub import ActivityPub, instance_actor
 import common
-from common import DOMAIN_RE
-from flask_app import app, cache
+from common import CACHE_TIME, DOMAIN_RE
+from flask_app import app
 import ids
 from models import fetch_objects, fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS
 from protocol import Protocol
@@ -96,18 +96,20 @@ def load_user(protocol, id):
 
 @app.route('/')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
-@flask_util.cached(cache, datetime.timedelta(days=1))
 def front_page():
     """View for the front page."""
-    return render_template('index.html')
+    return render_template('index.html'), {
+        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+    }
 
 
 @app.route('/docs')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
-@flask_util.cached(cache, datetime.timedelta(days=1))
 def docs():
     """View for the docs page."""
-    return render_template('docs.html')
+    return render_template('docs.html'), {
+        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+    }
 
 
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>')
@@ -344,7 +346,6 @@ def stats():
 
 @app.get('/.well-known/nodeinfo')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
-@flask_util.cached(cache, datetime.timedelta(days=1))
 def nodeinfo_jrd():
     """
     https://nodeinfo.diaspora.software/protocol.html
@@ -359,12 +360,12 @@ def nodeinfo_jrd():
         }],
     }, {
         'Content-Type': 'application/jrd+json',
+        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
     }
 
 
 @app.get('/nodeinfo.json')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
-@flask_util.cached(cache, datetime.timedelta(days=1))
 def nodeinfo():
     """
     https://nodeinfo.diaspora.software/schema.html
@@ -410,12 +411,12 @@ def nodeinfo():
     }, {
         # https://nodeinfo.diaspora.software/protocol.html
         'Content-Type': 'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.1#"',
+        'Cache-Control': f'public, max-age={datetime.timedelta(days=1).total_seconds()}'
     }
 
 
 @app.get('/api/v1/instance')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
-@flask_util.cached(cache, datetime.timedelta(days=1))
 def instance_info():
     """
     https://docs.joinmastodon.org/methods/instance/#v1
@@ -437,11 +438,14 @@ def instance_info():
             'display_name': 'Ryan',
             'url': 'https://snarfed.org/',
         },
+    }, {
+        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
     }
 
 
 @app.get('/log')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
-@flask_util.cached(cache, logs.CACHE_TIME)
 def log():
-    return logs.log()
+    return logs.log(), {
+        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+    }

@@ -911,7 +911,6 @@ def postprocess_as2_actor(actor, user):
 @app.get(f'/ap/web/<handle_or_id>')
 # special case Web users without /ap/web/ prefix, for backward compatibility
 @app.get(f'/<regex("{DOMAIN_RE}"):handle_or_id>')
-@flask_util.cached(cache, CACHE_TIME)
 def actor(handle_or_id):
     """Serves a user's AS2 actor from the datastore."""
     if handle_or_id == PRIMARY_DOMAIN or handle_or_id in PROTOCOL_DOMAINS:
@@ -971,10 +970,11 @@ def actor(handle_or_id):
         # 'alsoKnownAs': [host_url(id)],
     })
 
-    logger.info(f'Returning: {json_dumps(actor, indent=2)}')
+    # logger.info(f'Returning: {json_dumps(actor, indent=2)}')
     return actor, {
         'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
         'Access-Control-Allow-Origin': '*',
+        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
     }
 
 
@@ -1057,7 +1057,6 @@ def inbox(protocol=None, id=None):
 # special case Web users without /ap/web/ prefix, for backward compatibility
 @app.route(f'/<regex("{DOMAIN_RE}"):id>/<any(followers,following):collection>',
            methods=['GET', 'HEAD'])
-@flask_util.cached(cache, CACHE_TIME)
 def follower_collection(id, collection):
     """ActivityPub Followers and Following collections.
 
@@ -1100,7 +1099,7 @@ def follower_collection(id, collection):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': request.url,
         })
-        logger.info(f'Returning {json_dumps(page, indent=2)}')
+        # logger.info(f'Returning {json_dumps(page, indent=2)}')
         return page, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
     # collection
@@ -1113,8 +1112,11 @@ def follower_collection(id, collection):
         'totalItems': num_followers if collection == 'followers' else num_following,
         'first': page,
     }
-    logger.info(f'Returning {json_dumps(collection, indent=2)}')
-    return collection, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
+    # logger.info(f'Returning {json_dumps(collection, indent=2)}')
+    return collection, {
+        'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
+        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+    }
 
 
 # protocol in subdomain
@@ -1123,7 +1125,6 @@ def follower_collection(id, collection):
 @app.get(f'/ap/web/<regex("{DOMAIN_RE}"):id>/outbox')
 # special case Web users without /ap/web/ prefix, for backward compatibility
 @app.route(f'/<regex("{DOMAIN_RE}"):id>/outbox', methods=['GET', 'HEAD'])
-@flask_util.cached(cache, CACHE_TIME)
 def outbox(id):
     """Serves a user's AP outbox.
 
@@ -1161,7 +1162,7 @@ def outbox(id):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': request.url,
         })
-        logger.info(f'Returning {json_dumps(page, indent=2)}')
+        # logger.info(f'Returning {json_dumps(page, indent=2)}')
         return page, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
     # collection
@@ -1172,4 +1173,7 @@ def outbox(id):
         'summary': f"{id}'s outbox",
         'totalItems': query.count(),
         'first': page,
-    }, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
+    }, {
+        'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
+        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+    }

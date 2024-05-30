@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 
 @app.get(f'/convert/<dest>/<path:_>')
-@flask_util.cached(cache, CACHE_TIME, headers=['Accept'])
 def convert(dest, _, src=None):
     """Converts data from one protocol to another and serves it.
 
@@ -77,12 +76,18 @@ def convert(dest, _, src=None):
                 logger.info(f'{type} activity, redirecting to Object {obj_id}')
                 return redirect(f'/{path_prefix}{obj_id}', code=301)
 
+    headers = {
+        'Content-Type': dest_cls.CONTENT_TYPE,
+        'Vary': 'Accept',
+        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+    }
+
     # don't serve deletes or deleted objects
     if obj.deleted or type == 'delete':
-        return '', 410
+        return '', 410, headers
 
     # convert and serve
-    return dest_cls.convert(obj), {'Content-Type': dest_cls.CONTENT_TYPE}
+    return dest_cls.convert(obj), headers
 
 
 @app.get('/render')

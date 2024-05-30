@@ -3,6 +3,7 @@
 * https://webfinger.net/
 * https://tools.ietf.org/html/rfc7033
 """
+from datetime import timedelta
 import logging
 from urllib.parse import urljoin, urlparse
 
@@ -14,7 +15,13 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import activitypub
 import common
-from common import LOCAL_DOMAINS, PRIMARY_DOMAIN, PROTOCOL_DOMAINS, SUPERDOMAIN
+from common import (
+    CACHE_TIME,
+    LOCAL_DOMAINS,
+    PRIMARY_DOMAIN,
+    PROTOCOL_DOMAINS,
+    SUPERDOMAIN,
+)
 from flask_app import app, cache
 from protocol import Protocol
 from web import Web
@@ -30,9 +37,10 @@ class Webfinger(flask_util.XrdOrJrd):
     Supports both JRD and XRD; defaults to JRD.
     https://tools.ietf.org/html/rfc7033#section-4
     """
-    @flask_util.cached(cache, common.CACHE_TIME, headers=['Accept'])
     def dispatch_request(self, *args, **kwargs):
-        return super().dispatch_request(*args, **kwargs)
+        body, headers = super().dispatch_request(*args, **kwargs)
+        headers['Cache-Control'] = f'public, max-age={CACHE_TIME.total_seconds()}'
+        return body, headers
 
     def template_prefix(self):
         return 'webfinger_user'
@@ -204,8 +212,10 @@ class HostMeta(flask_util.XrdOrJrd):
 @app.get('/.well-known/host-meta.xrds')
 def host_meta_xrds():
     """Renders and serves the ``/.well-known/host-meta.xrds`` XRDS-Simple file."""
-    return (render_template('host-meta.xrds', host_uri=common.host_url()),
-            {'Content-Type': 'application/xrds+xml'})
+    return render_template('host-meta.xrds', host_uri=common.host_url()), {
+        'Content-Type': 'application/xrds+xml',
+        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+    }
 
 
 def fetch(addr):

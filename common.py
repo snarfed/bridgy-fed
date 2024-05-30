@@ -73,7 +73,7 @@ SMTP_PORT = 587
 SUBDOMAIN_BASE_URL_RE = None
 ID_FIELDS = ['id', 'object', 'actor', 'author', 'inReplyTo', 'url']
 
-CACHE_TIME = timedelta(seconds=60)
+CACHE_TIME = timedelta(hours=1)
 
 USER_AGENT = 'Bridgy Fed (https://fed.brid.gy/)'
 util.set_user_agent(USER_AGENT)

@@ -24,7 +24,13 @@ from requests.auth import HTTPBasicAuth
 from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 
 import common
-from common import add, DOMAIN_RE, PRIMARY_DOMAIN, PROTOCOL_DOMAINS, SUPERDOMAIN
+from common import (
+    CACHE_TIME,
+    DOMAIN_RE,
+    PRIMARY_DOMAIN,
+    PROTOCOL_DOMAINS,
+    SUPERDOMAIN,
+)
 from flask_app import app, cache
 from ids import translate_object_id, translate_user_id
 from models import Follower, Object, PROTOCOLS, Target, User
@@ -574,9 +580,10 @@ class Web(User, Protocol):
 
 
 @app.get('/web-site')
-@flask_util.cached(cache, timedelta(days=1))
 def enter_web_site():
-    return render_template('enter_web_site.html')
+    return render_template('enter_web_site.html'), {
+        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+    }
 
 
 @app.post('/web-site')
@@ -712,7 +719,7 @@ def poll_feed_task():
             if url := elem.get('url'):
                 elem['id'] = elem['url']
 
-        logger.info(f'Converted to AS1: {json_dumps(activity, indent=2)}')
+        # logger.info(f'Converted to AS1: {json_dumps(activity, indent=2)}')
 
         id = Object(our_as1=activity).as1.get('id')
         if not id:

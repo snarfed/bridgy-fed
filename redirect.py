@@ -46,7 +46,6 @@ DOMAIN_ALLOWLIST = frozenset((
 VARY_HEADER = {'Vary': 'Accept'}
 
 @app.get(r'/r/<path:to>')
-@flask_util.cached(cache, CACHE_TIME, headers=['Accept'])
 def redir(to):
     """Either redirect to a given URL or convert it to another format.
 
@@ -133,7 +132,7 @@ def redir(to):
             return f'Object not found: {to}', 404, VARY_HEADER
 
     ret = ActivityPub.convert(obj, from_user=web_user)
-    logger.info(f'Returning: {json_dumps(ret, indent=2)}')
+    # logger.info(f'Returning: {json_dumps(ret, indent=2)}')
     return ret, {
         'Content-Type': (as2.CONTENT_TYPE_LD_PROFILE
                          if accept_type == as2.CONTENT_TYPE_LD
