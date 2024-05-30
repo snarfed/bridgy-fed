@@ -1481,10 +1481,17 @@ class ActivityPubTest(TestCase):
     def test_delete_actor_not_fetchable(self, _, mock_get, ___):
         self.key_id_obj.key.delete()
         protocol.objects_cache.clear()
-
         mock_get.return_value = requests_response(status=410)
-        got = self.post('/ap/sharedInbox', json={**DELETE, 'object': 'http://my/key/id'})
+
+        with self.assertLogs() as logs:
+            got = self.post('/ap/sharedInbox', json={
+                **DELETE,
+                'object': 'http://my/key/id',
+            })
+
         self.assertEqual(202, got.status_code)
+        self.assertTrue(self.key_id_obj.key.get().deleted)
+        self.assertIn('Object/actor being deleted is also keyId', ' '.join(logs.output))
 
     def test_delete_actor_empty_deleted_object(self, _, mock_get, ___):
         self.key_id_obj.as2 = None
@@ -1492,7 +1499,10 @@ class ActivityPubTest(TestCase):
         self.key_id_obj.put()
         protocol.objects_cache.clear()
 
-        got = self.post('/ap/sharedInbox', json={**DELETE, 'object': 'http://my/key/id'})
+        got = self.post('/ap/sharedInbox', json={
+            **DELETE,
+            'object': 'http://my/key/id',
+        })
         self.assertEqual(202, got.status_code)
         mock_get.assert_not_called()
 

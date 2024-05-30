@@ -487,7 +487,8 @@ class ActivityPub(User, Protocol):
                     and key_id == fragmentless(obj_id)):
                 logger.info('Object/actor being deleted is also keyId')
                 key_actor = Object.get_or_create(
-                    id=key_id, source_protocol='activitypub', deleted=True)
+                    id=key_id, authed_as=key_id, source_protocol='activitypub',
+                    deleted=True)
                 key_actor.put()
             else:
                 raise
