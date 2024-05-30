@@ -767,9 +767,6 @@ class Protocol:
             authed_as = normalize_user_id(id=authed_as, proto=from_cls)
             actor = normalize_user_id(id=actor, proto=from_cls)
             if actor != authed_as:
-                if ld_sig := obj.as1.get('signature'):
-                    creator = ld_sig.get('creator', '')
-                    error(f"Ignoring LD Signature from {creator} , sorry, we can't verify those yet. https://github.com/snarfed/bridgy-fed/issues/566", status=204)
                 logger.warning(f"Auth: actor {actor} isn't authed user {authed_as}")
         else:
             logger.warning(f"Auth: missing authed_as!")

@@ -2382,31 +2382,6 @@ class ProtocolReceiveTest(TestCase):
         self.assertIn("Auth: actor fake:user isn't authed user fake:other",
                       ' '.join(logs.output))
 
-    def test_receive_task_handler_not_authed_as_actor_with_ld_sig(self):
-        note = {
-            'id': 'fake:post',
-            'objectType': 'note',
-            'author': 'fake:other',
-            'signature': {
-                'type': 'RsaSignature2017',
-                'creator': 'fake:other#main-key',
-                'created': '2024-05-20T01:52:09Z',
-                'signatureValue': '...',
-            },
-        }
-        obj = self.store_object(id='fake:post', our_as1=note,
-                                source_protocol='fake')
-
-        with self.assertLogs() as logs:
-            got = self.post('/queue/receive', data={
-                'obj': obj.key.urlsafe(),
-                'authed_as': 'fake:eve',
-            })
-            self.assertEqual(204, got.status_code)
-
-        self.assertIn("Ignoring LD Signature from fake:other#main-key",
-                      ' '.join(logs.output))
-
     def test_receive_task_handler_NO_AUTH_DOMAINS(self):
         note = {
             'id': 'fake:post',

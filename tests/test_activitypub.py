@@ -1443,7 +1443,23 @@ class ActivityPubTest(TestCase):
                                       data=body, headers=headers):
             self.assertEqual(actor, ActivityPub.verify_signature(None))
 
-    # def test_inbox_verify_http_signature_follow_publicKey_owner(self, _, __, ___):
+    def test_inbox_ignore_forward_with_ld_sig(self, _, __, ___):
+        actor = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR),
+
+        got = self.post('/user.com/inbox', json={
+            'id': 'http://inst/post',
+            'objectType': 'note',
+            'author': ACTOR['id'],
+            'signature': {
+                'type': 'RsaSignature2017',
+                'creator': 'fake:other#main-key',
+                'created': '2024-05-20T01:52:09Z',
+                'signatureValue': '...',
+            },
+        })
+        self.assertEqual(202, got.status_code)
+        self.assertIn('Ignoring LD Signature', got.text)
+        self.assertIsNone(Object.get_by_id('http://inst/post'))
 
     def test_delete_actor(self, *mocks):
         deleted = self.make_user(DELETE['actor'], cls=ActivityPub)

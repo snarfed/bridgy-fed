@@ -999,6 +999,11 @@ def inbox(protocol=None, id=None):
 
     authed_as = ActivityPub.verify_signature(activity)
 
+    # if we need the LD Sig to authorize this activity, bail out, we don't do
+    # those yet
+    if authed_as != actor_id and activity.get('signature'):
+        error(f"Ignoring LD Signature, sorry, we can't verify those yet. https://github.com/snarfed/bridgy-fed/issues/566", status=202)
+
     # check that this activity is public. only do this for creates, not likes,
     # follows, or other activity types, since Mastodon doesn't currently mark
     # those as explicitly public. Use as2's is_public instead of as1's because
