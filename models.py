@@ -946,7 +946,8 @@ class Object(StringIdModel):
                 assert proto, obj.source_protocol
                 owners = [ids.normalize_user_id(id=id, proto=proto)
                           for id in (as1.get_ids(orig_as1, 'author')
-                                     + as1.get_ids(orig_as1, 'actor'))]
+                                     + as1.get_ids(orig_as1, 'actor')
+                                     + [id])]
                 if (ids.normalize_user_id(id=authed_as, proto=proto) not in owners
                         and id != ids.profile_id(id=authed_as, proto=proto)):
                     logger.warning(f"Auth: {authed_as} isn't {id} 's author or actor: {owners}")
