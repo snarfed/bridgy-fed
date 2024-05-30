@@ -335,16 +335,16 @@ class ActivityPubTest(TestCase):
         props.setdefault('delivered_protocol', 'web')
         return super().assert_object(id, **props)
 
-    def sign(self, path, body, host=None):
+    def sign(self, path, body, host='localhost', key_id='http://my/key/id#unused'):
         """Constructs HTTP Signature, returns headers."""
         digest = b64encode(sha256(body.encode()).digest()).decode()
         headers = {
             'Date': 'Sun, 02 Jan 2022 03:04:05 GMT',
-            'Host': host or 'localhost',
+            'Host': host,
             'Content-Type': as2.CONTENT_TYPE,
             'Digest': f'SHA-256={digest}',
         }
-        hs = HeaderSigner('http://my/key/id#unused', self.user.private_pem().decode(),
+        hs = HeaderSigner(key_id, self.user.private_pem().decode(),
                           algorithm='rsa-sha256', sign_header='signature',
                           headers=('Date', 'Host', 'Digest', '(request-target)'))
         return hs.sign(headers, method='POST', path=path)
@@ -1460,6 +1460,24 @@ class ActivityPubTest(TestCase):
         self.assertEqual(202, got.status_code)
         self.assertIn('Ignoring LD Signature', got.text)
         self.assertIsNone(Object.get_by_id('http://inst/post'))
+
+    def test_inbox_NO_AUTH_DOMAINS(self, *_):
+        id = 'https://a.gup.pe/a-group'
+        self.store_object(id=id, as2={
+            'publicKey': {
+                'owner': id,
+                'publicKeyPem': self.user.public_pem().decode(),
+            }})
+
+        body = json_dumps(NOTE)
+        headers = self.sign('/ap/sharedInbox', body, key_id=id)
+
+        with self.assertLogs() as logs:
+            got = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+
+        self.assertEqual(204, got.status_code)
+        self.assertIn("we don't know how to authorize a.gup.pe activities",
+                      ' '.join(logs.output))
 
     def test_delete_actor(self, *mocks):
         deleted = self.make_user(DELETE['actor'], cls=ActivityPub)

@@ -59,12 +59,6 @@ OBJECT_REFRESH_AGE = timedelta(days=30)
 # them other than their profile
 LIMITED_DOMAINS = util.load_file_lines('limited_domains')
 
-# we can't yet authorize activities from these domains
-# https://github.com/snarfed/bridgy-fed/issues/566#issuecomment-2130728082
-NO_AUTH_DOMAINS = (
-    'a.gup.pe',
-)
-
 # activity ids that we've already handled and can now ignore.
 # used in Protocol.receive
 seen_ids = LRUCache(100000)
@@ -759,11 +753,6 @@ class Protocol:
 
         if authed_as:
             assert isinstance(authed_as, str)
-
-            authed_domain = util.domain_from_link(authed_as)
-            if util.domain_or_parent_in(authed_domain, NO_AUTH_DOMAINS):
-                error(f"Ignoring, sorry, we don't know how to authorize {authed_domain} activities yet. https://github.com/snarfed/bridgy-fed/issues/566", status=204)
-
             authed_as = normalize_user_id(id=authed_as, proto=from_cls)
             actor = normalize_user_id(id=actor, proto=from_cls)
             if actor != authed_as:

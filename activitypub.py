@@ -59,6 +59,14 @@ _INSTANCE_ACTOR = None
 # populated in User.status
 WEB_OPT_OUT_DOMAINS = None
 
+# we can't yet authorize activities from these domains:
+# * a.gup.pe groups sign with the group's actor but use the external author as
+#   actor and attributedTo, and don't include an LD Sig
+#   https://github.com/snarfed/bridgy-fed/issues/566#issuecomment-2130714037
+NO_AUTH_DOMAINS = (
+    'a.gup.pe',
+)
+
 FEDI_URL_RE = re.compile(r'https://[^/]+/(@|users/)([^/@]+)(@[^/@]+)?(/(?:statuses/)?[0-9]+)?')
 
 # can't use translate_user_id because Web.owns_id checks valid_domain, which
@@ -999,6 +1007,10 @@ def inbox(protocol=None, id=None):
         error(f'Actor {actor_id} is blocklisted')
 
     authed_as = ActivityPub.verify_signature(activity)
+
+    authed_domain = util.domain_from_link(authed_as)
+    if util.domain_or_parent_in(authed_domain, NO_AUTH_DOMAINS):
+        error(f"Ignoring, sorry, we don't know how to authorize {authed_domain} activities yet. https://github.com/snarfed/bridgy-fed/issues/566", status=204)
 
     # if we need the LD Sig to authorize this activity, bail out, we don't do
     # those yet
