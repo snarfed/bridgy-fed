@@ -4,12 +4,14 @@ import copy
 from unittest.mock import patch
 
 from granary import as2
+from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.testutil import requests_response
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
 
-from flask_app import app, cache
+from flask_app import app
+from google.cloud.ndb.global_cache import _InProcessGlobalCache
 from models import Object
 import protocol
 from web import Web
@@ -139,9 +141,8 @@ class RedirectTest(testutil.TestCase):
             }],
         })
 
-    def test_accept_header_cache_key(self):
-        app.config['CACHE_TYPE'] = 'SimpleCache'
-        cache.init_app(app)
+    # TODO: is this test still useful?
+    def test_accept_header_across_requests(self):
         self.client = app.test_client()
 
         self._test_as2(as2.CONTENT_TYPE_LD_PROFILE)
@@ -150,7 +151,6 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual(301, resp.status_code)
         self.assertEqual('https://user.com/bar', resp.headers['Location'])
 
-        # delete stored Object to make sure we're serving from cache
         self.obj.delete()
 
         self._test_as2(as2.CONTENT_TYPE_LD_PROFILE)

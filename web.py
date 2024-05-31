@@ -31,7 +31,7 @@ from common import (
     PROTOCOL_DOMAINS,
     SUPERDOMAIN,
 )
-from flask_app import app, cache
+from flask_app import app
 from ids import translate_object_id, translate_user_id
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol

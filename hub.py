@@ -36,11 +36,8 @@ app.config.from_pyfile(app_dir / 'config.py')
 
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client,
-    # disable in-memory cache
-    # (also in tests/testutil.py)
-    # https://github.com/googleapis/python-ndb/issues/888
-    cache_policy=lambda key: False,
-)
+    # disable context-local in-memory cache
+    cache_policy=lambda key: False)
 
 
 @app.get('/liveness_check')

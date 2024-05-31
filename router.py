@@ -2,6 +2,7 @@
 from pathlib import Path
 
 from flask import Flask
+from google.cloud.ndb.global_cache import _InProcessGlobalCache
 from oauth_dropins.webutil import (
     appengine_config,
     flask_util,
@@ -25,11 +26,10 @@ app.config.from_pyfile(app_dir / 'config.py')
 
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client,
-    # disable in-memory cache
-    # (also in tests/testutil.py)
-    # https://github.com/googleapis/python-ndb/issues/888
-    cache_policy=lambda key: False,
-)
+    global_cache=_InProcessGlobalCache(),
+    global_cache_timeout_policy=lambda key: 3600,  # 1 hour
+    # disable context-local cache since we're using a global in memory cache
+    cache_policy=lambda key: False)
 
 app.add_url_rule('/queue/poll-feed', view_func=web.poll_feed_task, methods=['POST'])
 app.add_url_rule('/queue/receive', view_func=protocol.receive_task, methods=['POST'])
