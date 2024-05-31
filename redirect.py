@@ -45,7 +45,7 @@ DOMAIN_ALLOWLIST = frozenset((
 
 HEADERS = {
     'Vary': 'Accept',
-    'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+    'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
 }
 
 @app.get(r'/r/<path:to>')

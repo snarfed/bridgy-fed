@@ -79,7 +79,7 @@ def convert(dest, _, src=None):
     headers = {
         'Content-Type': dest_cls.CONTENT_TYPE,
         'Vary': 'Accept',
-        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }
 
     # don't serve deletes or deleted objects

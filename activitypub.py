@@ -974,7 +974,7 @@ def actor(handle_or_id):
     return actor, {
         'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
         'Access-Control-Allow-Origin': '*',
-        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }
 
 
@@ -1115,7 +1115,7 @@ def follower_collection(id, collection):
     # logger.info(f'Returning {json_dumps(collection, indent=2)}')
     return collection, {
         'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
-        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }
 
 
@@ -1175,5 +1175,5 @@ def outbox(id):
         'first': page,
     }, {
         'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
-        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }

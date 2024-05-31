@@ -99,7 +99,7 @@ def load_user(protocol, id):
 def front_page():
     """View for the front page."""
     return render_template('index.html'), {
-        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }
 
 
@@ -108,7 +108,7 @@ def front_page():
 def docs():
     """View for the docs page."""
     return render_template('docs.html'), {
-        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }
 
 
@@ -360,7 +360,7 @@ def nodeinfo_jrd():
         }],
     }, {
         'Content-Type': 'application/jrd+json',
-        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }
 
 
@@ -411,7 +411,7 @@ def nodeinfo():
     }, {
         # https://nodeinfo.diaspora.software/protocol.html
         'Content-Type': 'application/json; profile="http://nodeinfo.diaspora.software/ns/schema/2.1#"',
-        'Cache-Control': f'public, max-age={datetime.timedelta(days=1).total_seconds()}'
+        'Cache-Control': f'public, max-age={int(datetime.timedelta(days=1).total_seconds())}'
     }
 
 
@@ -439,7 +439,7 @@ def instance_info():
             'url': 'https://snarfed.org/',
         },
     }, {
-        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }
 
 
@@ -447,5 +447,5 @@ def instance_info():
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
 def log():
     return logs.log(), {
-        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }

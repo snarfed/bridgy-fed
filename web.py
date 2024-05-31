@@ -582,7 +582,7 @@ class Web(User, Protocol):
 @app.get('/web-site')
 def enter_web_site():
     return render_template('enter_web_site.html'), {
-        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }
 
 

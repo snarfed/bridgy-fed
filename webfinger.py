@@ -39,7 +39,7 @@ class Webfinger(flask_util.XrdOrJrd):
     """
     def dispatch_request(self, *args, **kwargs):
         body, headers = super().dispatch_request(*args, **kwargs)
-        headers['Cache-Control'] = f'public, max-age={CACHE_TIME.total_seconds()}'
+        headers['Cache-Control'] = f'public, max-age={int(CACHE_TIME.total_seconds())}'
         return body, headers
 
     def template_prefix(self):
@@ -214,7 +214,7 @@ def host_meta_xrds():
     """Renders and serves the ``/.well-known/host-meta.xrds`` XRDS-Simple file."""
     return render_template('host-meta.xrds', host_uri=common.host_url()), {
         'Content-Type': 'application/xrds+xml',
-        'Cache-Control': f'public, max-age={CACHE_TIME.total_seconds()}'
+        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }
 
 
