@@ -66,6 +66,7 @@ FEED_TYPES = {
 MIN_FEED_POLL_PERIOD = timedelta(hours=2)
 MAX_FEED_POLL_PERIOD = timedelta(weeks=1)
 MAX_FEED_PROPERTY_SIZE = 500 * 1000  # Object.atom/rss
+MAX_FEED_ITEMS_PER_POLL = 10
 
 
 def is_valid_domain(domain, allow_internal=True):
@@ -706,6 +707,10 @@ def poll_feed_task():
         msg = f'Unknown feed type {content_type}'
         logger.info(msg)
         return msg
+
+    if len(activities) > MAX_FEED_ITEMS_PER_POLL:
+        logging.warning(f'Got {len(activities)} feed items! Only processing the first {MAX_FEED_ITEMS_PER_POLL}')
+        activities = activities[:MAX_FEED_ITEMS_PER_POLL]
 
     # create Objects and receive tasks
     for i, activity in enumerate(activities):

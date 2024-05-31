@@ -2114,7 +2114,6 @@ class WebTest(TestCase):
         mock_create_task.assert_not_called()
         mock_get.assert_not_called()
 
-
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_etag_last_modified(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
@@ -2146,6 +2145,43 @@ class WebTest(TestCase):
         expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
                          eta_seconds=expected_eta)
+
+    @patch('web.MAX_FEED_ITEMS_PER_POLL', 2)
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_max_items_per_poll(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.user.obj.put()
+
+        feed = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+<entry>
+  <link rel="alternate" type="text/html" href="https://user.com/A" />
+  <content>I hereby ☕ post AAA</content>
+</entry>
+<entry>
+  <link rel="alternate" type="text/html" href="https://user.com/B" />
+  <content>I hereby ☕ post BBB</content>
+</entry>
+<entry>
+  <link rel="alternate" type="text/html" href="https://user.com/C" />
+  <content>I hereby ☕ post CCC</content>
+</entry>
+</feed>
+"""
+        mock_get.return_value = requests_response(
+            feed, headers={'Content-Type': atom.CONTENT_TYPE})
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(200, got.status_code)
+
+        self.assertIsNotNone(Object.get_by_id('https://user.com/A'))
+        self.assertIsNotNone(Object.get_by_id('https://user.com/B'))
+        self.assertIsNone(Object.get_by_id('https://user.com/C'))
+
+        user = self.user.key.get()
+        self.assertEqual(NOW, user.last_polled_feed)
+        self.assertEqual('https://user.com/A', user.feed_last_item)
 
     def _test_verify(self, redirects, hcard, actor, redirects_error=None):
         self.user.has_redirects = False
