@@ -16,7 +16,7 @@ queue:
   max_concurrent_requests: 10
   retry_parameters:
     task_retry_limit: 2
-    min_backoff_seconds: 120
+    min_backoff_seconds: 300
     max_doublings: 2
 
 - name: receive
@@ -25,7 +25,7 @@ queue:
   max_concurrent_requests: 5
   retry_parameters:
     task_retry_limit: 2
-    min_backoff_seconds: 120
+    min_backoff_seconds: 300
     max_doublings: 2
 
 - name: send
@@ -34,7 +34,7 @@ queue:
   max_concurrent_requests: 35
   retry_parameters:
     task_retry_limit: 2
-    min_backoff_seconds: 120
+    min_backoff_seconds: 300
     max_doublings: 2
 
 - name: poll-feed
@@ -43,5 +43,5 @@ queue:
   max_concurrent_requests: 1
   retry_parameters:
     task_retry_limit: 2
-    min_backoff_seconds: 120
+    min_backoff_seconds: 300
     max_doublings: 2
