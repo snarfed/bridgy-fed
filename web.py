@@ -483,7 +483,7 @@ class Web(User, Protocol):
             entry = mf2util.representative_hcard(parsed, parsed['url'])
             if not entry:
                 error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {parsed['url']}")
-            logger.info(f'Representative h-card: {json_dumps(entry, indent=2)}')
+            logger.info(f'Found representative h-card')
         else:
             entry = mf2util.find_first_entry(parsed, ['h-entry'])
             if not entry:

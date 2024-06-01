@@ -265,7 +265,7 @@ def fetch(addr):
         flash(f'WebFinger on {addr_domain} returned non-JSON')
         return None
 
-    logger.info(f'Got: {json_dumps(data, indent=2)}')
+    logger.info(f'Got WebFinger for {addr}')
     return data
 
 

@@ -354,7 +354,7 @@ class ATProto(User, Protocol):
             # create user profile
             profile = cls.convert(user.obj, fetch_blobs=True, from_user=user)
             profile_json = json_dumps(dag_json.encode(profile).decode(), indent=2)
-            logger.info(f'Storing ATProto app.bsky.actor.profile self: {profile_json}')
+            logger.info(f'Storing ATProto app.bsky.actor.profile self')
             initial_writes = [Write(
                 action=Action.CREATE, collection='app.bsky.actor.profile',
                 rkey='self', record=profile)]
@@ -469,7 +469,7 @@ class ATProto(User, Protocol):
                 assert copy_did == did, (copy_did, did)
                 assert coll == type, (coll, type)
 
-            logger.info(f'Storing ATProto {action} {type} {rkey}: {dag_json.encode(record).decode()}')
+            logger.info(f'Storing ATProto {action} {type} {rkey}')
             repo.apply_writes([Write(action=action, collection=type, rkey=rkey,
                                      record=record)])
 

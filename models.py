@@ -878,22 +878,7 @@ class Object(StringIdModel):
     def _post_put_hook(self, future):
         """Update :meth:`Protocol.load` cache."""
         # TODO: assert that as1 id is same as key id? in pre put hook?
-
-        # log, pruning data fields
-        props = util.trim_nulls({
-            **self.to_dict(),
-            'new': self.new,
-            'changed': self.changed,
-        })
-        for prop in ['as2', 'atom', 'bsky', 'delivered', 'failed', 'mf2', 'mod',
-                     'our_as1', 'private_exponent', 'public_exponent', 'raw',
-                     'rss', 'undelivered']:
-            if props.get(prop):
-                props[prop] = "..."
-        for prop in 'created', 'updated', 'as1', 'expire':
-            props.pop(prop, None)
-
-        logger.info(f'Wrote {self.key} {props}')
+        logger.info(f'Wrote {self.key}')
 
         if '#' not in self.key.id():
             import protocol  # TODO: actually fix this circular import
@@ -1295,14 +1280,7 @@ class Follower(ndb.Model):
         assert self.from_.kind() != self.to.kind(), f'from {self.from_} to {self.to}'
 
     def _post_put_hook(self, future):
-        # log, pruning data fields
-        props = util.trim_nulls(self.to_dict())
-        if props.get('follow'):
-            props['follow'] = "..."
-        for prop in 'created', 'updated':
-            props.pop(prop, None)
-
-        logger.info(f'Wrote {self.key} {props}')
+        logger.info(f'Wrote {self.key}')
 
     @classmethod
     @ndb.transactional()
