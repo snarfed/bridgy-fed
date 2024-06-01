@@ -17,7 +17,6 @@ from arroba.util import datetime_to_tid
 from bs4 import MarkupResemblesLocatorWarning
 import dag_cbor.random
 from google.cloud import ndb
-from google.cloud.ndb.global_cache import _InProcessGlobalCache
 from google.protobuf.timestamp_pb2 import Timestamp
 from granary import as2
 from granary.tests.test_as1 import (
@@ -203,7 +202,7 @@ from atproto import ATProto
 import common
 from common import PRIMARY_DOMAIN, PROTOCOL_DOMAINS, OTHER_DOMAINS, LOCAL_DOMAINS
 from web import Web
-from flask_app import app
+from flask_app import app, cache
 
 # used in TestCase.make_user() to reuse keys across Users since they're
 # expensive to generate.
@@ -222,6 +221,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         appengine_info.LOCAL_SERVER = False
         common.RUN_TASKS_INLINE = True
         app.testing = True
+        cache.clear()
         protocol.seen_ids.clear()
         protocol.objects_cache.clear()
         protocol.Protocol.for_id.cache.clear()
@@ -249,15 +249,12 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         self.router_client = router.app.test_client()
 
-        app.wsgi_app.kwargs['global_cache'].clear()
-        router.app.wsgi_app.kwargs['global_cache'].clear()
-
         # clear datastore
         requests.post(f'http://{ndb_client.host}/reset')
-        self.ndb_context = ndb_client.context(
-            global_cache=_InProcessGlobalCache(),
-            global_cache_timeout_policy=lambda key: 3600,  # 1 hour
-            cache_policy=lambda key: False)
+        # disable in-memory cache
+        # (also in flask_app.py)
+        # https://github.com/googleapis/python-ndb/issues/888
+        self.ndb_context = ndb_client.context(cache_policy=lambda key: False)
         self.ndb_context.__enter__()
 
         util.now = lambda **kwargs: testutil.NOW

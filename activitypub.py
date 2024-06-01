@@ -21,7 +21,7 @@ from requests import TooManyRedirects
 from requests.models import DEFAULT_REDIRECT_LIMIT
 from werkzeug.exceptions import BadGateway
 
-from flask_app import app
+from flask_app import app, cache
 import common
 from common import (
     add,

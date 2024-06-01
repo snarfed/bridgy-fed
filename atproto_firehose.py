@@ -92,7 +92,8 @@ def subscriber():
 
     while True:
         try:
-            with ndb_client.context(cache_policy=lambda key: False):
+            with ndb_client.context(cache_policy=lambda key: False,
+                                    global_cache_policy=lambda key: False):
                 subscribe()
 
             logger.info(f'disconnected! waiting {RECONNECT_DELAY} and then reconnecting')
@@ -251,7 +252,8 @@ def handler():
 
     while True:
         try:
-            with ndb_client.context(cache_policy=lambda key: False):
+            with ndb_client.context(cache_policy=lambda key: False,
+                                    global_cache_policy=lambda key: False):
                 handle()
 
             # if we return cleanly, that means we hit the limit

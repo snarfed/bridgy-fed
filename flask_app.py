@@ -7,8 +7,8 @@ import sys
 import arroba.server
 from arroba import xrpc_repo, xrpc_server, xrpc_sync
 from flask import Flask, g
+from flask_caching import Cache
 import flask_gae_static
-from google.cloud.ndb.global_cache import _InProcessGlobalCache
 from lexrpc.server import Server
 import lexrpc.flask_server
 from oauth_dropins.webutil import (
@@ -43,51 +43,12 @@ app.url_map.redirect_defaults = False
 
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client,
-    global_cache=_InProcessGlobalCache(),
-    global_cache_timeout_policy=lambda key: 3600,  # 1 hour
-    # disable context-local cache since we're using a global in memory cache
-    cache_policy=lambda key: False)
+    # disable in-memory cache
+    # (also in tests/testutil.py)
+    # https://github.com/googleapis/python-ndb/issues/888
+    cache_policy=lambda key: False,
+)
+
+cache = Cache(app)
 
 lexrpc.flask_server.init_flask(arroba.server.server, app)
-
-
-
-###########################################
-
-# https://github.com/googleapis/python-ndb/issues/743#issuecomment-2067590945
-#
-# fixes "RuntimeError: Key has already been set in this batch" errors due to
-# tasklets in pages.serve_feed
-from logging import error as log_error
-from sys import modules
-
-from google.cloud.datastore_v1.types.entity import Key
-from google.cloud.ndb._cache import (
-    _GlobalCacheSetBatch,
-    global_compare_and_swap,
-    global_set_if_not_exists,
-    global_watch,
-)
-from google.cloud.ndb.tasklets import Future, Return, tasklet
-
-GLOBAL_CACHE_KEY_PREFIX: bytes = modules["google.cloud.ndb._cache"]._PREFIX
-LOCKED_FOR_READ: bytes = modules["google.cloud.ndb._cache"]._LOCKED_FOR_READ
-LOCK_TIME: bytes = modules["google.cloud.ndb._cache"]._LOCK_TIME
-
-
-@tasklet
-def custom_global_lock_for_read(key: str, value: str):
-    if value is not None:
-        yield global_watch(key, value)
-        lock_acquired = yield global_compare_and_swap(
-            key, LOCKED_FOR_READ, expires=LOCK_TIME
-        )
-    else:
-        lock_acquired = yield global_set_if_not_exists(
-            key, LOCKED_FOR_READ, expires=LOCK_TIME
-        )
-
-    if lock_acquired:
-        raise Return(LOCKED_FOR_READ)
-
-modules["google.cloud.ndb._cache"].global_lock_for_read = custom_global_lock_for_read
