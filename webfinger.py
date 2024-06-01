@@ -22,7 +22,7 @@ from common import (
     PROTOCOL_DOMAINS,
     SUPERDOMAIN,
 )
-from flask_app import app, cache
+from flask_app import app
 from protocol import Protocol
 from web import Web
 

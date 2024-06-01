@@ -28,9 +28,8 @@ from atproto import ATProto, Cursor
 import atproto_firehose
 from atproto_firehose import handle, new_commits, Op, STORE_CURSOR_FREQ
 import common
-from models import Object, PROTOCOLS, Target
 import protocol
-from .testutil import ExplicitEnableFake, Fake, TestCase
+from .testutil import TestCase
 from .test_atproto import DID_DOC
 
 A_CID = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')

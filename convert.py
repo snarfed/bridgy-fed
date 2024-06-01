@@ -14,7 +14,7 @@ from oauth_dropins.webutil.flask_util import error
 
 from activitypub import ActivityPub
 from common import CACHE_CONTROL, LOCAL_DOMAINS, subdomain_wrap, SUPERDOMAIN
-from flask_app import app, cache
+from flask_app import app
 from models import Object, PROTOCOLS
 from protocol import Protocol
 from web import Web
