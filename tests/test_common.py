@@ -5,7 +5,9 @@ from .testutil import ExplicitEnableFake, Fake, OtherFake, TestCase
 from activitypub import ActivityPub
 from atproto import ATProto
 import common
+from arroba.datastore_storage import AtpBlock
 from flask_app import app
+from models import Follower, Object
 from ui import UIProtocol
 from web import Web
 
@@ -103,3 +105,26 @@ class CommonTest(TestCase):
 
         with app.test_request_context(base_url='https://bsky.brid.gy', path='/foo'):
             self.assertEqual('https://bsky.brid.gy/asdf', common.host_url('asdf'))
+
+    def test_global_cache_policy(self):
+        for good in (
+            ATProto(id='alice'),
+            ActivityPub(id='alice'),
+            Web(id='alice'),
+            Object(id='https://mastodon.social/users/alice'),
+            Object(id='https://mastodon.social/users/alice#main-key'),
+            Object(id='did:plc:foo'),
+            Object(id='did:web:foo.com'),
+            Object(id='at://did:plc:user/app.bsky.actor.profile/self'),
+        ):
+            self.assertTrue(common.global_cache_policy(good.key._key))
+
+        for bad in (
+            Follower(id='abc'),
+            Object(id='abc'),
+            Object(id='https://mastodon.social/users/alice/statuses/123'),
+            Object(id='at://did:plc:user/app.bsky.feed.post/abc'),
+            Object(id='https://web.site/post'),
+            AtpBlock(id='abc123'),
+        ):
+            self.assertFalse(common.global_cache_policy(bad.key._key))

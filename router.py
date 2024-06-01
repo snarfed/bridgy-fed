@@ -11,7 +11,7 @@ from oauth_dropins.webutil import (
 
 # all protocols
 import activitypub, atproto, web
-from common import USER_AGENT
+from common import global_cache_policy, USER_AGENT
 import models
 import protocol
 
@@ -27,6 +27,7 @@ app.config.from_pyfile(app_dir / 'config.py')
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client,
     global_cache=_InProcessGlobalCache(),
+    global_cache_policy=global_cache_policy,
     global_cache_timeout_policy=lambda key: 3600,  # 1 hour
     # disable context-local cache since we're using a global in memory cache
     cache_policy=lambda key: False)

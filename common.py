@@ -369,3 +369,16 @@ def report_exception(**kwargs):
             logger.warning(f'Failed to report error! {kwargs}', exc_info=True)
 
 
+PROFILE_ID_RE = re.compile(
+    fr"""
+      /users?/[^/]+$ |
+      /app.bsky.actor.profile/self$ |
+      ^did:[a-z0-9:.]+$ |
+      ^https://{DOMAIN_RE[1:-1]}/?$
+    """, re.VERBOSE)
+
+def global_cache_policy(key):
+    """Cache users and profile objects, not other objects or activities."""
+    return (key and
+            (key.kind in ('ActivityPub', 'ATProto', 'MagicKey')
+             or key.kind == 'Object' and PROFILE_ID_RE.search(key.name)))

@@ -17,6 +17,8 @@ from oauth_dropins.webutil import (
     flask_util,
 )
 
+from common import global_cache_policy
+
 logger = logging.getLogger(__name__)
 # logging.getLogger('lexrpc').setLevel(logging.INFO)
 logging.getLogger('negotiator').setLevel(logging.WARNING)
@@ -44,6 +46,7 @@ app.url_map.redirect_defaults = False
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client,
     global_cache=_InProcessGlobalCache(),
+    global_cache_policy=global_cache_policy,
     global_cache_timeout_policy=lambda key: 3600,  # 1 hour
     # disable context-local cache since we're using a global in memory cache
     cache_policy=lambda key: False)
