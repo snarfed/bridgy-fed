@@ -217,20 +217,6 @@ class ProtocolTest(TestCase):
 
         self.assertEqual([], Fake.fetched)
 
-    def test_load_cached(self):
-        obj = Object(id='foo', our_as1={'x': 'y'}, updated=util.as_utc(NOW))
-        protocol.objects_cache['foo'] = obj
-        loaded = Fake.load('foo')
-        self.assert_entities_equal(obj, loaded)
-
-        # check that it's a separate copy of the entity in the cache
-        # https://github.com/snarfed/bridgy-fed/issues/558#issuecomment-1603203927
-        loaded.our_as1 = {'a': 'b'}
-        self.assertEqual({
-            'id': 'foo',
-            'x': 'y',
-        }, Protocol.load('foo').our_as1)
-
     def test_load_remote_true_existing_empty(self):
         Fake.fetchable['foo'] = {'x': 'y'}
         Object(id='foo', our_as1={}, status='in progress').put()
@@ -374,8 +360,6 @@ class ProtocolTest(TestCase):
         with patch('models.Object.updated._now', return_value=too_old):
             obj = Object(id='foo', our_as1={'orig': 'y'}, status='in progress')
             obj.put()
-
-        protocol.objects_cache['foo'] = obj
 
         loaded = Fake.load('foo')
         self.assertEqual({'fetched': 'x', 'id': 'foo'}, loaded.our_as1)

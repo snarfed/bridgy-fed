@@ -608,44 +608,6 @@ class ObjectTest(TestCase):
         obj.put()
         self.assert_entities_equal(obj, Object.get_by_id('ab^^c'))
 
-    def test_get_by_id_uses_cache(self):
-        obj = Object(id='foo', our_as1={'x': 'y'}, updated=util.as_utc(NOW))
-        protocol.objects_cache['foo'] = obj
-        loaded = Fake.load('foo')
-        self.assert_entities_equal(obj, loaded)
-
-        # check that it's a separate copy of the entity in the cache
-        # https://github.com/snarfed/bridgy-fed/issues/558#issuecomment-1603203927
-        loaded.our_as1 = {'a': 'b'}
-        self.assertEqual({
-            'id': 'foo',
-            'x': 'y',
-        }, Protocol.load('foo').our_as1)
-
-    def test_put_cached_makes_copy(self):
-        obj = Object(id='foo', our_as1={'x': 'y'})
-        obj.put()
-        obj.our_as1 = {'a': 'b'}
-        # don't put()
-
-        self.assertEqual({
-            'id': 'foo',
-            'x': 'y',
-        }, Fake.load('foo').our_as1)
-
-    def test_get_by_id_cached_makes_copy(self):
-        obj = Object(id='foo', our_as1={'x': 'y'}, updated=util.as_utc(NOW))
-        protocol.objects_cache['foo'] = obj
-        loaded = Fake.load('foo')
-        self.assert_entities_equal(obj, loaded)
-
-        # check that it's a separate copy of the entity in the cache
-        # https://github.com/snarfed/bridgy-fed/issues/558#issuecomment-1603203927
-        loaded.our_as1 = {'a': 'b'}
-        self.assertEqual({
-            'id': 'foo',
-            'x': 'y',
-        }, Protocol.load('foo').our_as1)
 
     def test_actor_link(self):
         for expected, as2 in (
@@ -723,17 +685,6 @@ class ObjectTest(TestCase):
         self.assert_multiline_equals(
             '<a class="h-card u-author" href="https://mas.to/@foo">mas.to/@foo</a>',
             obj.actor_link(image=False))
-
-    def test_put_updates_load_cache(self):
-        obj = Object(id='x', as2={})
-        obj.put()
-        self.assert_entities_equal(obj, protocol.objects_cache['x'])
-
-    def test_put_fragment_id_doesnt_update_load_cache(self):
-        obj = Object(id='x#y', as2={})
-        obj.put()
-        self.assertNotIn('x#y', protocol.objects_cache)
-        self.assertNotIn('x', protocol.objects_cache)
 
     def test_computed_properties_without_as1(self):
         Object(id='a').put()

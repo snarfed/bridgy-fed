@@ -225,7 +225,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         common.RUN_TASKS_INLINE = True
         app.testing = True
         protocol.seen_ids.clear()
-        protocol.objects_cache.clear()
         protocol.Protocol.for_id.cache.clear()
         common.webmention_discover.cache.clear()
         User.count_followers.cache.clear()
@@ -395,7 +394,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
     def store_object(**kwargs):
         obj = Object(**kwargs)
         obj.put()
-        protocol.objects_cache.pop(obj.key.id(), None)
         return obj
 
     @staticmethod

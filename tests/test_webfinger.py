@@ -363,7 +363,6 @@ class WebfingerTest(TestCase):
     def test_create_user(self, mock_get):
         self.user.key.delete()
         self.user.obj_key.delete()
-        protocol.objects_cache.clear()
 
         mock_get.return_value = requests_response(test_web.ACTOR_HTML,
                                                   url='https://user.com/')

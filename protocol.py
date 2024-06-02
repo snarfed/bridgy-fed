@@ -70,10 +70,6 @@ LIMITED_DOMAINS = util.load_file_lines('limited_domains')
 seen_ids = LRUCache(100000)
 seen_ids_lock = Lock()
 
-# objects that have been loaded in Protocol.load
-objects_cache = LRUCache(5000)
-objects_cache_lock = Lock()
-
 logger = logging.getLogger(__name__)
 
 
@@ -1457,18 +1453,6 @@ class Protocol:
         # logger.debug(f'Loading Object {id} local={local} remote={remote}')
 
         obj = orig_as1 = None
-        with objects_cache_lock:
-            cached = objects_cache.get(id)
-            if cached:
-                # make a copy so that if the client modifies this entity in
-                # memory, those modifications aren't applied to the cache
-                # until they explicitly put() the modified entity.
-                # NOTE: keep in sync with Object._post_put_hook!
-                # logger.debug('  got from cache')
-                obj = Object(id=cached.key.id(), **cached.to_dict(
-                    # computed properties
-                    exclude=['as1', 'expire', 'object_ids', 'type']))
-
         if local and not obj:
             obj = Object.get_by_id(id)
             if not obj:
@@ -1477,9 +1461,6 @@ class Protocol:
             elif obj.as1 or obj.raw or obj.deleted:
                 # logger.debug('  got from datastore')
                 obj.new = False
-                if remote is not True:
-                    with objects_cache_lock:
-                        objects_cache[id] = obj
 
         if remote is False:
             return obj
@@ -1523,8 +1504,6 @@ class Protocol:
             obj.source_protocol = cls.LABEL
 
         obj.put()
-        with objects_cache_lock:
-            objects_cache[id] = obj
         return obj
 
 

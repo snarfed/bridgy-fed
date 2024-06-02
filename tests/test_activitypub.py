@@ -385,7 +385,6 @@ class ActivityPubTest(TestCase):
     def test_actor_new_user_fetch(self, _, mock_get, __):
         self.user.obj_key.delete()
         self.user.key.delete()
-        protocol.objects_cache.clear()
 
         mock_get.return_value = requests_response(test_web.ACTOR_HTML,
                                                   url='https://user.com/')
@@ -398,7 +397,6 @@ class ActivityPubTest(TestCase):
     def test_actor_new_user_fetch_no_mf2(self, _, mock_get, __):
         self.user.obj_key.delete()
         self.user.key.delete()
-        protocol.objects_cache.clear()
 
         mock_get.return_value = requests_response('<html></html>')
 
@@ -1582,11 +1580,6 @@ class ActivityPubTest(TestCase):
                            status='ignored',
                            users=[ActivityPub(id='https://mas.to/users/swentel').key])
 
-        obj.populate(deleted=True, as2=None)
-        self.assert_entities_equal(obj,
-                                   protocol.objects_cache['http://an/obj'],
-                                   ignore=['expire', 'created', 'updated'])
-
     def test_update_note(self, *mocks):
         Object(id='https://a/note', as2={}).put()
         self._test_update(*mocks)
@@ -1622,9 +1615,6 @@ class ActivityPubTest(TestCase):
                            status='ignored',
                            our_as1=update_as1,
                            users=[self.swentel_key])
-
-        self.assert_entities_equal(Object.get_by_id('https://a/note'),
-                                   protocol.objects_cache['https://a/note'])
 
     def test_inbox_webmention_discovery_connection_fails(self, mock_head,
                                                          mock_get, mock_post):

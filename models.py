@@ -764,7 +764,7 @@ class Object(StringIdModel):
     """
 
     lock = None
-    """Initialized in __init__, synchronizes property access, :meth:`put`s, etc."""
+    """Initialized in __init__, synchronizes :meth:`add` and :meth:`remove`."""
 
     @property
     def as1(self):
@@ -868,11 +868,9 @@ class Object(StringIdModel):
                     f'at:// URI ids must have DID repos; got {id}')
 
         if self.as1 and self.as1.get('objectType') == 'activity':
-            # can't self.add because we're inside self.put, which has the lock
-            add(self.labels, 'activity')
+            self.add('labels', 'activity')
         elif 'activity' in self.labels:
-            # ditto
-            self.labels.remove('activity')
+            self.remove('labels', 'activity')
 
         if self.as2:
            self.as2.pop('@context', None)
@@ -882,20 +880,8 @@ class Object(StringIdModel):
                        val.pop('@context', None)
 
     def _post_put_hook(self, future):
-        """Update :meth:`Protocol.load` cache."""
         # TODO: assert that as1 id is same as key id? in pre put hook?
         logger.info(f'Wrote {self.key}')
-
-        if '#' not in self.key.id():
-            import protocol  # TODO: actually fix this circular import
-            # make a copy so that if we later modify this object in memory,
-            # those modifications don't affect the cache.
-            # NOTE: keep in sync with Protocol.load!
-            with protocol.objects_cache_lock:
-                protocol.objects_cache[self.key.id()] = Object(
-                    id=self.key.id(),
-                    # exclude computed properties
-                    **self.to_dict(exclude=['as1', 'expire', 'object_ids', 'type']))
 
     @classmethod
     def get_by_id(cls, id):
@@ -962,12 +948,6 @@ class Object(StringIdModel):
         obj.put()
         return obj
 
-    def put(self, **kwargs):
-        """Stores this object. Uses ``self.lock``.
-        """
-        with self.lock:
-            return super().put(**kwargs)
-
     def add(self, prop, val):
         """Adds a value to a multiply-valued property. Uses ``self.lock``.
 
@@ -989,9 +969,8 @@ class Object(StringIdModel):
             getattr(self, prop).remove(val)
 
     def clear(self):
-        """Clears the :attr:`Object.our_as1` properties."""
-        with self.lock:
-            self.our_as1 = None
+        """Clears the :attr:`Object.our_as1` property."""
+        self.our_as1 = None
 
     def activity_changed(self, other_as1):
         """Returns True if this activity is meaningfully changed from ``other_as1``.

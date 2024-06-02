@@ -115,7 +115,6 @@ class RedirectTest(testutil.TestCase):
     def test_as2_no_user_fetch_homepage(self, mock_get):
         self.user.key.delete()
         self.user.obj_key.delete()
-        protocol.objects_cache.clear()
 
         resp = self.client.get('/r/https://user.com/',
                                headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
