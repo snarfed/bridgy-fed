@@ -41,6 +41,10 @@ _NON_WEB_SUBDOMAIN_SITES = None
 # https://github.com/swicg/activitypub-webfinger/issues/9
 ATPROTO_DASH_CHARS = ('_', '~', ':')
 
+# can't use translate_user_id because Web.owns_id checks valid_domain, which
+# doesn't allow our protocol subdomains
+BOT_ACTOR_AP_IDS = tuple(f'https://{domain}/{domain}' for domain in PROTOCOL_DOMAINS)
+
 
 def web_ap_base_domain(user_domain):
     """Returns the full Bridgy Fed domain to use for a given Web user.

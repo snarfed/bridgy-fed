@@ -39,6 +39,7 @@ from common import (
     subdomain_wrap,
     unwrap,
 )
+from ids import BOT_ACTOR_AP_IDS
 from models import fetch_objects, Follower, Object, PROTOCOLS, User
 from protocol import Protocol
 import webfinger
@@ -68,10 +69,6 @@ NO_AUTH_DOMAINS = (
 )
 
 FEDI_URL_RE = re.compile(r'https://[^/]+/(@|users/)([^/@]+)(@[^/@]+)?(/(?:statuses/)?[0-9]+)?')
-
-# can't use translate_user_id because Web.owns_id checks valid_domain, which
-# doesn't allow our protocol subdomains
-BOT_ACTOR_IDS = tuple(f'https://{domain}/{domain}' for domain in PROTOCOL_DOMAINS)
 
 
 def instance_actor():
@@ -1027,7 +1024,7 @@ def inbox(protocol=None, id=None):
                 as1.get_ids(object, 'to') + as1.get_ids(object, 'cc'))
     if (type == 'Create' and not as2.is_public(activity, unlisted=False)
             # DM to one of our protocol bot users
-            and not (len(to_cc) == 1 and to_cc.pop() in BOT_ACTOR_IDS)):
+            and not (len(to_cc) == 1 and to_cc.pop() in BOT_ACTOR_AP_IDS)):
         logger.info('Dropping non-public activity')
         return 'OK'
 

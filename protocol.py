@@ -31,7 +31,12 @@ from common import (
     PROTOCOL_DOMAINS,
     subdomain_wrap,
 )
-from ids import normalize_user_id, translate_object_id, translate_user_id
+from ids import (
+    BOT_ACTOR_AP_IDS,
+    normalize_user_id,
+    translate_object_id,
+    translate_user_id,
+)
 from models import Follower, get_originals, Object, PROTOCOLS, Target, User
 
 SUPPORTED_TYPES = (
@@ -283,7 +288,7 @@ class Protocol:
             # step 1: check for our per-protocol subdomains
             is_homepage = urlparse(id).path.strip('/') == ''
             by_subdomain = Protocol.for_bridgy_subdomain(id)
-            if by_subdomain and not is_homepage:
+            if by_subdomain and not is_homepage and id not in BOT_ACTOR_AP_IDS:
                 logger.info(f'  {by_subdomain.LABEL} owns id {id}')
                 return by_subdomain
 

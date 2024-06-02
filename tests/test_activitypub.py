@@ -900,7 +900,7 @@ class ActivityPubTest(TestCase):
 
     def test_follow_bot_user_enables_protocol(self, _, mock_get, __):
         # bot user
-        self.make_user('eefake.brid.gy', cls=Web)
+        self.make_user('eefake.brid.gy', cls=Web, ap_subdomain='eefake')
 
         user = self.make_user('https://mas.to/users/swentel', cls=ActivityPub,
                               obj_as2=ACTOR)
