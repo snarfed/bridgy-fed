@@ -168,7 +168,7 @@ class WebfingerTest(TestCase):
         })
 
     def test_webfinger(self):
-        for resource in ('user.com@user.com', 'acct:user.com@user.com', 'xyz@user.com',
+        for resource in ('user.com@user.com', 'acct:user.com@user.com',
                          'user.com', 'http://user.com/', 'https://user.com/',
                          'http://localhost/user.com'):
             with self.subTest(resource=resource):
@@ -306,6 +306,20 @@ class WebfingerTest(TestCase):
         self.user.direct = False
         self.user.put()
         got = self.client.get(f'/.well-known/webfinger?resource=acct:user.com@user.com')
+        self.assertEqual(404, got.status_code)
+
+    def test_user_not_custom_username(self):
+        for base_url in (None, 'https://web.brid.gy/', 'https://fed.brid.gy/'):
+            with self.subTest(base_url=base_url):
+                got = self.client.get(
+                    f'/.well-known/webfinger?resource=acct:foo@user.com',
+                    base_url=base_url)
+                self.assertEqual(404, got.status_code)
+
+    def test_missing_user_web_subdomain(self):
+        self.user.direct = False
+        self.user.put()
+        got = self.client.get(f'/.well-known/webfinger?resource=acct:foo@bar.com')
         self.assertEqual(404, got.status_code)
 
     def test_protocol_not_enabled(self):

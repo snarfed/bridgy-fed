@@ -59,13 +59,14 @@ class Webfinger(flask_util.XrdOrJrd):
         allow_indirect = False
         cls = None
         try:
-            user, id = util.parse_acct_uri(resource)
+            username, server = util.parse_acct_uri(resource)
+            id = server
             cls = Protocol.for_bridgy_subdomain(id, fed='web')
             if cls:
-                id = user
+                id = username
                 allow_indirect = True
         except ValueError:
-            id = urlparse(resource).netloc or resource
+            id = username = server = urlparse(resource).netloc or resource
 
         if id == PRIMARY_DOMAIN or id in PROTOCOL_DOMAINS:
             cls = Web
@@ -98,7 +99,9 @@ class Webfinger(flask_util.XrdOrJrd):
             if user and not user.direct:
                 error(f"{user.key} hasn't signed up yet", status=404)
 
-        if not user or not user.is_enabled(activitypub.ActivityPub):
+        if (not user
+                or not user.is_enabled(activitypub.ActivityPub)
+                or (cls == Web and username not in (user.key.id(), user.username()))):
             error(f'No {cls.LABEL} user found for {id}', status=404)
 
         ap_handle = user.handle_as('activitypub')
