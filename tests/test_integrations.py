@@ -6,7 +6,7 @@ from unittest.mock import patch
 from arroba.datastore_storage import DatastoreStorage
 from arroba.repo import Repo
 from dns.resolver import NXDOMAIN
-from granary import as2
+from granary import as2, bluesky
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY, POST_BSKY
 from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import requests_response
@@ -15,7 +15,8 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from activitypub import ActivityPub
 import app
-from atproto import ATProto
+from atproto import ATProto, Cursor
+from atproto_firehose import handle, new_commits, Op
 import hub
 from models import Object, Target
 from web import Web
@@ -40,6 +41,36 @@ PROFILE_GETRECORD = {
 @patch('ids.COPIES_PROTOCOLS', ['atproto'])
 class IntegrationTests(TestCase):
 
+    def setUp(self):
+        super().setUp()
+        self.storage = DatastoreStorage()
+
+    def make_ap_user_with_atp(self, ap_id, did):
+        Repo.create(self.storage, did, signing_key=ATPROTO_KEY)
+        user = self.make_user(id=ap_id, cls=ActivityPub,
+                              copies=[Target(uri=did, protocol='atproto')],
+                              obj_as2={
+                                  'type': 'Person',
+                                  'id': ap_id,
+                                  'name': 'My Name',
+                                  'image': 'http://pic',
+                                  'inbox': f'{ap_id}/inbox',
+                              })
+
+        bob_did_doc = copy.deepcopy(test_atproto.DID_DOC)
+        bob_did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
+        bob_did_doc.update({
+            'id': did,
+            # 'alsoKnownAs': ['at://...ap.brid.gy'],
+        })
+        self.store_object(id=did, raw=bob_did_doc)
+
+        self.store_object(id=f'at://{did}/app.bsky.actor.profile/self',
+                          bsky=bluesky.from_as1(user.obj.as1))
+
+        return user
+
+
     # TODO: port to firehose
     @skip
     @patch('requests.post')
@@ -56,8 +87,7 @@ class IntegrationTests(TestCase):
         self.store_object(id='did:plc:alice', raw=DID_DOC)
         alice = self.make_user(id='did:plc:alice', cls=ATProto)
 
-        storage = DatastoreStorage()
-        Repo.create(storage, 'did:plc:bob', signing_key=ATPROTO_KEY)
+        Repo.create(self.storage, 'did:plc:bob', signing_key=ATPROTO_KEY)
         bob = self.make_user(
             id='http://inst/bob',
             cls=ActivityPub,
@@ -154,8 +184,7 @@ class IntegrationTests(TestCase):
         self.store_object(id='did:plc:alice', raw=DID_DOC)
         alice = self.make_user(id='did:plc:alice', cls=ATProto)
 
-        storage = DatastoreStorage()
-        Repo.create(storage, 'did:plc:bob', signing_key=ATPROTO_KEY)
+        Repo.create(self.storage, 'did:plc:bob', signing_key=ATPROTO_KEY)
         bob = self.make_user(id='bob.com', cls=Web,
                              copies=[Target(uri='did:plc:bob', protocol='atproto')],
                              enabled_protocols=['atproto'])
@@ -275,8 +304,7 @@ class IntegrationTests(TestCase):
             },
         }, Object.get_by_id('https://bob.com/follow').mf2)
 
-        storage = DatastoreStorage()
-        repo = storage.load_repo('bob.com.web.brid.gy')
+        repo = self.storage.load_repo('bob.com.web.brid.gy')
         self.assertEqual(bob_did, repo.did)
 
         records = repo.get_contents()
@@ -310,24 +338,7 @@ class IntegrationTests(TestCase):
         self.store_object(id='did:plc:alice', raw=DID_DOC)
         alice = self.make_user(id='did:plc:alice', cls=ATProto)
 
-        storage = DatastoreStorage()
-        Repo.create(storage, 'did:plc:bob', signing_key=ATPROTO_KEY)
-        bob = self.make_user(id='https://inst/bob', cls=ActivityPub,
-                             copies=[Target(uri='did:plc:bob', protocol='atproto')],
-                             obj_as2={
-                                 'type': 'Person',
-                                 'id': 'https://inst/bob',
-                                 'name': 'Bob',
-                                 'image': 'http://pic',
-                             })
-
-        bob_did_doc = copy.deepcopy(test_atproto.DID_DOC)
-        bob_did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
-        bob_did_doc.update({
-            'id': 'did:plc:bob',
-            'alsoKnownAs': ['at://bob.inst.ap.brid.gy'],
-        })
-        self.store_object(id='did:plc:bob', raw=bob_did_doc)
+        self.make_ap_user_with_atp('https://inst/bob', 'did:plc:bob')
 
         # existing Object with original post, *without* cid. we should generate.
         Object(id='at://did:plc:alice/app.bsky.feed.post/123', bsky=POST_BSKY).put()
@@ -349,7 +360,7 @@ class IntegrationTests(TestCase):
             'object': 'at://did:plc:alice/app.bsky.feed.post/123',
         }, Object.get_by_id('http://inst/like').as2)
 
-        repo = storage.load_repo('did:plc:bob')
+        repo = self.storage.load_repo('did:plc:bob')
 
         records = repo.get_contents()
         self.assertEqual(['app.bsky.feed.like'], list(records.keys()))
@@ -400,8 +411,7 @@ class IntegrationTests(TestCase):
         self.assertEqual('atproto', user.copies[0].protocol)
         did = user.copies[0].uri
 
-        storage = DatastoreStorage()
-        repo = storage.load_repo('alice.inst.ap.brid.gy')
+        repo = self.storage.load_repo('alice.inst.ap.brid.gy')
         self.assertEqual(did, repo.did)
 
         records = repo.get_contents()
@@ -486,8 +496,7 @@ class IntegrationTests(TestCase):
             'id': 'did:plc:ap',
             'alsoKnownAs': ['at://ap.brid.gy'],
         })
-        storage = DatastoreStorage()
-        Repo.create(storage, 'did:plc:ap', signing_key=ATPROTO_KEY)
+        Repo.create(self.storage, 'did:plc:ap', signing_key=ATPROTO_KEY)
 
         mock_get.side_effect = [
             # ATProto listNotifications
@@ -518,8 +527,67 @@ class IntegrationTests(TestCase):
             # # alice profile
             # requests_response(PROFILE_GETRECORD),
         ]
+
         resp = self.post('/queue/atproto-poll-notifs', client=hub.app.test_client())
         self.assertEqual(200, resp.status_code)
 
         user = ATProto.get_by_id('did:plc:alice')
         self.assertTrue(user.is_enabled(ActivityPub))
+
+
+    @patch('requests.post')
+    @patch('requests.get')
+    def test_atproto_mention_activitypub(self, mock_get, mock_post):
+        """Bluesky @-mention of *.ap.brid.gy user.
+
+        ATProto user alice.com, did:plc:alice
+        ActivityPub user bob@inst, https://inst/bob, bob.inst.ap.brid.gy, did:plc:bob
+        """
+        self.store_object(id='did:plc:alice', raw=DID_DOC)
+        alice = self.make_user(id='did:plc:alice', cls=ATProto,
+                               obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+        bob = self.make_ap_user_with_atp('https://inst/bob', 'did:plc:bob')
+
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'maybe if @bob.inst.ap.brid.gy and Alf meet up',
+            'facets': [{
+                '$type': 'app.bsky.richtext.facet',
+                'features': [{
+                    '$type': 'app.bsky.richtext.facet#mention',
+                    'did': 'did:plc:bob',
+                }],
+                'index': {
+                    'byteEnd': 29,
+                    'byteStart': 9,
+                },
+            }],
+        }
+        new_commits.put(Op(repo='did:plc:alice', action='create', seq=123,
+                           path='app.bsky.feed.post/123', record=post))
+        Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
+        handle(limit=1)
+
+        self.assertEqual(1, mock_post.call_count)
+        args, kwargs = mock_post.call_args
+        self.assertEqual((bob.obj.as2['inbox'],), args)
+        self.assert_equals({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123#bridgy-fed-create',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'published': '2022-01-02T03:04:05+00:00',
+            'object': {
+                'type': 'Note',
+                'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
+                'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
+                'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'content': '<p>maybe if <a href="https://inst/bob">@bob.inst.ap.brid.gy</a> and Alf meet up</p>',
+                'content_is_html': True,
+                'tag': [{
+                    'type': 'Mention',
+                    'name': '@bob.inst.ap.brid.gy',
+                    'href': 'https://inst/bob',
+                }],
+            },
+        }, json_loads(kwargs['data']), ignore=['@context', 'contentMap', 'to', 'cc'])

@@ -450,7 +450,7 @@ class ATProtoFirehoseHandleTest(TestCase):
 
     def test_create(self, mock_create_task):
         reply = copy.deepcopy(REPLY_BSKY)
-        # test that we encode CIDs and bytes as JSON
+        # test that we encode CIDs as JSON
         reply['reply']['root']['cid'] = reply['reply']['parent']['cid'] = A_CID
 
         new_commits.put(Op(repo='did:plc:user', action='create', seq=789,

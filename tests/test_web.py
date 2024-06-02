@@ -1148,12 +1148,10 @@ class WebTest(TestCase):
         self.assertEqual(202, got.status_code)
 
         inboxes = ['https://inbox', 'https://public/inbox', 'https://shared/inbox']
-        expected_create_as1 = copy.deepcopy(CREATE_AS1)
-        expected_create_as1['object']['author']['id'] = 'https://user.com/'
         self.assert_object('https://user.com/post#bridgy-fed-create',
                            users=[self.user.key],
                            source_protocol='web',
-                           our_as1=expected_create_as1,
+                           our_as1=CREATE_AS1,
                            type='post',
                            labels=['activity', 'user'],
                            delivered=inboxes,

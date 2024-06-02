@@ -766,6 +766,7 @@ class Protocol:
             logger.warning(f"Auth: missing authed_as!")
 
         # update copy ids to originals
+        obj.normalize_ids()
         obj.resolve_ids()
 
         if (obj.type == 'follow'

@@ -1019,6 +1019,7 @@ class ActivityPubTest(TestCase):
         follow = {
             **FOLLOW_WITH_ACTOR,
             'url': 'https://mas.to/users/swentel#followed-user.com',
+            'object': 'user.com'
         }
         self.assert_object('https://mas.to/6d1a',
                            users=[self.swentel_key],
@@ -1028,7 +1029,7 @@ class ActivityPubTest(TestCase):
                            our_as1=as2.to_as1(follow),
                            delivered=['https://user.com/'],
                            type='follow',
-                           object_ids=[FOLLOW['object']])
+                           object_ids=['user.com'])
 
     def test_inbox_follow_accept_with_object(self, *mocks):
         follow = {
@@ -1046,6 +1047,7 @@ class ActivityPubTest(TestCase):
             'actor': ACTOR,
             'url': 'https://mas.to/users/swentel#followed-https://user.com/',
         })
+        follow['object']['id'] = 'user.com'
         self.assert_object('https://mas.to/6d1a',
                            users=[self.swentel_key],
                            notify=[self.user.key],
@@ -1054,7 +1056,7 @@ class ActivityPubTest(TestCase):
                            our_as1=as2.to_as1(follow),
                            delivered=['https://user.com/'],
                            type='follow',
-                           object_ids=[FOLLOW['object']])
+                           object_ids=['user.com'])
 
     def test_inbox_follow_accept_shared_inbox(self, mock_head, mock_get, mock_post):
         self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT,
@@ -1062,15 +1064,20 @@ class ActivityPubTest(TestCase):
                                        inbox_path='/ap/sharedInbox')
 
         url = 'https://mas.to/users/swentel#followed-user.com'
+        follow = {
+            **FOLLOW_WITH_ACTOR,
+            'url': url,
+            'object': 'user.com',
+        }
         self.assert_object('https://mas.to/6d1a',
                            users=[self.swentel_key],
                            notify=[self.user.key],
                            source_protocol='activitypub',
                            status='complete',
-                           our_as1=as2.to_as1({**FOLLOW_WITH_ACTOR, 'url': url}),
+                           our_as1=as2.to_as1(follow),
                            delivered=['https://user.com/'],
                            type='follow',
-                           object_ids=[FOLLOW['object']])
+                           object_ids=['user.com'])
 
     def test_inbox_follow_accept_webmention_fails(self, mock_head, mock_get,
                                                   mock_post):
@@ -1082,16 +1089,21 @@ class ActivityPubTest(TestCase):
                                        mock_head, mock_get, mock_post)
 
         url = 'https://mas.to/users/swentel#followed-user.com'
+        follow = {
+            **FOLLOW_WITH_ACTOR,
+            'url': url,
+            'object': 'user.com',
+        }
         self.assert_object('https://mas.to/6d1a',
                            users=[self.swentel_key],
                            notify=[self.user.key],
                            source_protocol='activitypub',
                            status='failed',
-                           our_as1=as2.to_as1({**FOLLOW_WITH_ACTOR, 'url': url}),
+                           our_as1=as2.to_as1(follow),
                            delivered=[],
                            failed=['https://user.com/'],
                            type='follow',
-                           object_ids=[FOLLOW['object']])
+                           object_ids=['user.com'])
 
     def _test_inbox_follow_accept(self, follow_as2, accept_as2, mock_head,
                                   mock_get, mock_post, inbox_path='/user.com/inbox'):

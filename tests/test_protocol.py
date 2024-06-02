@@ -1921,7 +1921,7 @@ class ProtocolReceiveTest(TestCase):
             'object': 'other:post',
         }, obj.our_as1)
 
-    def test_resolve_ids_reply(self):
+    def test_resolve_ids_reply_mentions(self):
         reply = {
             'id': 'other:reply',
             'author': 'other:eve',
