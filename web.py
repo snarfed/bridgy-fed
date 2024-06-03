@@ -496,14 +496,12 @@ class Web(User, Protocol):
             logger.info(f'Discarding uid property: {props["uid"]}')
             props.pop('uid')
 
-        # store final URL in mf2 object, and also default url property to it,
-        # since that's the fallback for AS1/AS2 id
+        # store final URL in mf2 object
         if is_homepage:
             entry.setdefault('rel-urls', {}).update(parsed.get('rel-urls', {}))
             entry.setdefault('type', ['h-card'])
         if parsed['url']:
             entry['url'] = parsed['url']
-            props.setdefault('url', [parsed['url']])
         logger.info(f'Extracted microformats2 entry: {json_dumps(entry, indent=2)}')
 
         if not is_homepage:

@@ -365,7 +365,8 @@ class WebfingerTest(TestCase):
         self.user.obj_key.delete()
         protocol.objects_cache.clear()
 
-        mock_get.return_value = requests_response(test_web.ACTOR_HTML)
+        mock_get.return_value = requests_response(test_web.ACTOR_HTML,
+                                                  url='https://user.com/')
         expected = copy.deepcopy(WEBFINGER_NO_HCARD)
         expected['subject'] = 'acct:user.com@web.brid.gy'
 

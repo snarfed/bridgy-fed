@@ -387,7 +387,8 @@ class ActivityPubTest(TestCase):
         self.user.key.delete()
         protocol.objects_cache.clear()
 
-        mock_get.return_value = requests_response(test_web.ACTOR_HTML)
+        mock_get.return_value = requests_response(test_web.ACTOR_HTML,
+                                                  url='https://user.com/')
 
         got = self.client.get('/user.com')
         self.assertEqual(200, got.status_code)

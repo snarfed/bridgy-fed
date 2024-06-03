@@ -34,7 +34,7 @@ FULL_REDIR = requests_response(
 ACTOR_HTML = """\
 <html>
 <body class="h-card">
-<a class="p-name u-url" rel="me" href="https://user.com/">Ms. ☕ Baz</a>
+<a class="p-name u-url" rel="me" href="/">Ms. ☕ Baz</a>
 <a href="http://localhost/"></a>
 </body>
 </html>
@@ -54,6 +54,7 @@ ACTOR_MF2 = {
         'url': ['https://user.com/'],
         'name': ['Ms. ☕ Baz'],
     },
+    'url': 'https://user.com/',
 }
 ACTOR_MF2_REL_URLS = {
     **ACTOR_MF2,
@@ -108,7 +109,6 @@ ACTOR_AS2_FULL = {
 REPOST_HTML = """\
 <html>
 <body class="h-entry">
-<a class="u-url" href="https://user.com/repost"></a>
 <a class="u-repost-of p-name" href="https://mas.to/toot/id">reposted!</a>
 <a class="u-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
 <a href="http://localhost/"></a>
@@ -121,7 +121,6 @@ REPOST_AS2 = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Announce',
     'id': 'http://localhost/r/https://user.com/repost',
-    'url': 'http://localhost/r/https://user.com/repost',
     'name': 'reposted!',
     'object': 'https://mas.to/toot/id',
     'to': [as2.PUBLIC_AUDIENCE],
@@ -137,7 +136,7 @@ REPOST_AS2 = {
 REPOST_HCITE_HTML = """\
 <html>
 <body class="h-entry">
-<a class="u-url p-name" href="https://user.com/repost">reposted!</a>
+<span class="p-name">reposted!</span>
 <div class="u-repost-of h-cite">
   <a class="p-author h-card" href="https://mas.to/@foo">Mr. Foo</a>:</p>
   <a class="u-url" href="https://mas.to/toot/id">a post</a>
@@ -193,7 +192,6 @@ REPLY_HTML = """\
 <html>
 <body>
 <div class="h-entry">
-<a class="u-url" href="https://user.com/reply"></a>
 <p class="e-content p-name">
 <a class="u-in-reply-to" href="http://no.t/fediverse"></a>
 <a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
@@ -222,7 +220,6 @@ REPLY_AS2 = as2.from_as1(REPLY_AS1)
 LIKE_HTML = """\
 <html>
 <body class="h-entry">
-<a class="u-url" href="https://user.com/like"></a>
 <a class="u-like-of" href="https://mas.to/toot"></a>
 <!--<a class="u-like-of p-name" href="https://mas.to/toot">liked!</a>-->
 <a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
@@ -232,7 +229,6 @@ LIKE_HTML = """\
 """
 LIKE = requests_response(LIKE_HTML, url='https://user.com/like')
 LIKE_MF2 = util.parse_mf2(LIKE_HTML)['items'][0]
-
 ACTOR = TestCase.as2_resp({
     'type': 'Person',
     'name': 'Mrs. ☕ Foo',
@@ -250,7 +246,6 @@ AS2_CREATE = {
     'object': {
         'type': 'Note',
         'id': 'http://localhost/r/https://user.com/reply',
-        'url': 'http://localhost/r/https://user.com/reply',
         'name': 'foo ☕ bar',
         'content': """\
 <p><a class="u-in-reply-to" href="http://no.t/fediverse"></a>
@@ -292,7 +287,6 @@ AS2_UPDATE['object']['updated'] = NOW.isoformat()
 FOLLOW_HTML = """\
 <html>
 <body class="h-entry">
-<a class="u-url" href="https://user.com/follow"></a>
 <a class="u-follow-of" href="https://mas.to/mrs-foo"></a>
 <a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
 <a href="http://localhost/"></a>
@@ -307,7 +301,6 @@ FOLLOW_AS2 = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Follow',
     'id': 'http://localhost/r/https://user.com/follow',
-    'url': 'http://localhost/r/https://user.com/follow',
     'object': 'https://mas.to/mrs-foo',
     'actor': 'http://localhost/user.com',
     'to': [as2.PUBLIC_AUDIENCE],
@@ -320,7 +313,6 @@ FOLLOW_FRAGMENT_HTML = """\
 <h1>Ignored</h1>
 </article>
 <article class=h-entry id=2>
-<a class="u-url" href="https://user.com/follow#2"></a>
 <a class="u-follow-of" href="https://mas.to/mrs-foo"></a>
 <a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
 <a href="http://localhost/"></a>
@@ -330,18 +322,15 @@ FOLLOW_FRAGMENT_HTML = """\
 """
 FOLLOW_FRAGMENT = requests_response(
     FOLLOW_FRAGMENT_HTML, url='https://user.com/follow')
-FOLLOW_FRAGMENT_MF2 = \
-    util.parse_mf2(FOLLOW_FRAGMENT_HTML, id='2')['items'][0]
+FOLLOW_FRAGMENT_MF2 = util.parse_mf2(FOLLOW_FRAGMENT_HTML, id='2')['items'][0]
 FOLLOW_FRAGMENT_AS2 = {
     **FOLLOW_AS2,
     'id': 'http://localhost/r/https://user.com/follow#2',
-    'url': 'http://localhost/r/https://user.com/follow#2',
 }
 
 NOTE_HTML = """\
 <html>
 <body class="h-entry">
-<a class="u-url" href="https://user.com/post"></a>
 <p class="e-content p-name">hello i am a post</p>
 <a class="p-author h-card" href="https://user.com/">
   <p class="p-name">Ms. ☕ <span class="p-nickname">Baz</span></p>
@@ -366,7 +355,6 @@ CREATE_AS1 = {
 NOTE_AS2 = {
     'type': 'Note',
     'id': 'http://localhost/r/https://user.com/post',
-    'url': 'http://localhost/r/https://user.com/post',
     'attributedTo': 'http://localhost/user.com',
     'name': 'hello i am a post',
     'content': '<p>hello i am a post</p>',
@@ -524,7 +512,7 @@ class WebTest(TestCase):
     def test_get_or_create_new_creates_poll_feed_task(self, mock_create_task,
                                                       mock_get, __):
         common.RUN_TASKS_INLINE = False
-        mock_get.return_value = ACTOR_HTML_RESP
+        mock_get.return_value = requests_response(ACTOR_HTML, url='https://new.com/')
 
         user = Web.get_or_create('new.com')
         self.assert_task(mock_create_task, 'poll-feed', domain='new.com')
@@ -1063,6 +1051,34 @@ class WebTest(TestCase):
         self.assertEqual(('https://mas.to/inbox',), args)
         self.assert_equals(REPOST_AS2, json_loads(kwargs['data']))
 
+    def test_create_with_other_u_url(self, mock_get, mock_post):
+        """Source post u-url points elsewhere. AS2 id should be webmention source."""
+        missing_url = requests_response("""\
+<html>
+<body class="h-entry">
+<a class="u-url" href="https://unused"></a>
+<a class="u-repost-of p-name" href="https://mas.to/toot">reposted!</a>
+<a class="p-author h-card" href="https://user.com/">Ms. ☕ Baz</a>
+<a href="http://localhost/"></a>
+</body>
+</html>
+""", url='https://user.com/repost')
+        mock_get.side_effect = [missing_url, TOOT_AS2, ACTOR]
+        mock_post.return_value = requests_response('abc xyz')
+
+        got = self.post('/queue/webmention', data={
+            'source': 'https://user.com/repost',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(202, got.status_code)
+
+        args, kwargs = mock_post.call_args
+        self.assertEqual(('https://mas.to/inbox',), args)
+        self.assert_equals({
+            **REPOST_AS2,
+            'url': 'http://localhost/r/https://unused',
+        }, json_loads(kwargs['data']))
+
     def test_create_author_only_url(self, mock_get, mock_post):
         """Mf2 author property is just a URL. We should run full authorship.
 
@@ -1162,10 +1178,11 @@ class WebTest(TestCase):
         self.user.obj.mf2 = {
             'type': ['h-card'],
             'properties': {
-                # this is the key part to test; Object.as1 uses this as id
-                'url': ['https://www.user.com/'],
+                'url': ['https://unused'],
                 'name': ['Ms. ☕ Baz'],
             },
+            # this is the key part to test; Object.as1 uses this as id
+            'url': 'https://www.user.com/',
         }
         self.user.obj.put()
         self.make_user('www.user.com', cls=Web, use_instead=self.user.key)
@@ -1191,10 +1208,7 @@ class WebTest(TestCase):
         inboxes = ('https://inbox', 'https://public/inbox', 'https://shared/inbox')
         create_as2 = copy.deepcopy(CREATE_AS2)
         create_as2['id'] = 'http://localhost/r/https://www.user.com/post#bridgy-fed-create'
-        create_as2['object'].update({
-            'id': 'http://localhost/r/https://www.user.com/post',
-            'url': 'http://localhost/r/https://www.user.com/post',
-        })
+        create_as2['object']['id'] = 'http://localhost/r/https://www.user.com/post'
         self.assert_deliveries(mock_post, inboxes, create_as2)
 
     def test_create_post(self, mock_get, mock_post):
@@ -1392,7 +1406,13 @@ class WebTest(TestCase):
         mock_post.assert_not_called()
 
     def test_follow_fragment(self, mock_get, mock_post):
-        mock_get.side_effect = [FOLLOW_FRAGMENT, ACTOR]
+        mock_get.side_effect = [
+            FOLLOW_FRAGMENT,
+            ACTOR,
+            FOLLOW_FRAGMENT,  # protocol detection: AS2
+            FOLLOW_FRAGMENT,  # protocol detection: HTML
+            ACTOR,  # authorship
+        ]
         mock_post.return_value = requests_response('abc xyz')
 
         got = self.post('/queue/webmention', data={
@@ -2640,7 +2660,6 @@ class WebUtilTest(TestCase):
             'properties': {
                 'name': ['hello i am a post'],
                 'author': ['https://user.com/'],
-                'url': ['https://user.com/post'],
             },
             'url': 'https://user.com/post',
         }, obj.mf2)
@@ -2667,7 +2686,6 @@ class WebUtilTest(TestCase):
                     },
                     'value': 'Alice',
                 }],
-                'url': ['https://user.com/post'],
             },
             'url': 'https://user.com/post',
         }, obj.mf2)
@@ -2697,6 +2715,31 @@ class WebUtilTest(TestCase):
             'url': 'https://user.com/',
         }, obj.mf2)
         self.assert_equals(ACTOR_AS1_UNWRAPPED_URLS, obj.as1)
+
+    def test_fetch_user_homepage_other_u_url(self, mock_get, __):
+        mock_get.return_value = requests_response(
+            ACTOR_HTML.replace(
+                '<body class="h-card">',
+                '<body class="h-card"><a class="u-url" href="https://ot/her"></a>'),
+            url='https://user.com/')
+
+        obj = Object(id='https://user.com/')
+        Web.fetch(obj)
+
+        expected_mf2 = {
+            **copy.deepcopy(ACTOR_MF2_REL_URLS),
+            'url': 'https://user.com/',
+        }
+        expected_mf2['properties']['url'] = ['https://user.com/', 'https://ot/her']
+        self.assert_equals(expected_mf2, obj.mf2)
+        self.assert_equals({
+            **ACTOR_AS1_UNWRAPPED,
+            'url': 'https://ot/her',
+            'urls': [
+                {'value': 'https://ot/her'},
+                {'value': 'https://user.com/', 'displayName': 'Ms. ☕ Baz'},
+            ],
+        }, obj.as1)
 
     def test_load_user_domain(self, mock_get, __):
         loaded = Web.load('user.com')

@@ -107,8 +107,8 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual('Accept', resp.headers['Vary'])
 
     @patch('requests.get', side_effect=[
-        requests_response(ACTOR_HTML),  # AS2 fetch
-        requests_response(ACTOR_HTML),  # web fetch
+        requests_response(ACTOR_HTML, url='https://user.com/'),  # AS2 fetch
+        requests_response(ACTOR_HTML, url='https://user.com/'),  # web fetch
     ])
     def test_as2_no_user_fetch_homepage(self, mock_get):
         self.user.key.delete()
@@ -124,7 +124,7 @@ class RedirectTest(testutil.TestCase):
         del expected['endpoints']
         del expected['followers']
         del expected['following']
-        self.assert_equals(expected, resp.json, ignore=['publicKeyPem', 'summary'])
+        self.assert_equals(expected, resp.json, ignore=['publicKey', 'summary'])
 
         self.assert_user(Web, 'user.com', direct=False, obj_as2={
             '@context': 'https://www.w3.org/ns/activitystreams',

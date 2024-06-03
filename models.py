@@ -799,6 +799,12 @@ class Object(StringIdModel):
                                                rel_urls=self.mf2.get('rel-urls'))
             use_urls_as_ids(obj)
 
+            # use fetched final URL as id, not u-url
+            # https://github.com/snarfed/bridgy-fed/issues/829
+            if url := self.mf2.get('url'):
+                obj['id'] = (self.key.id() if self.key and '#' in self.key.id()
+                             else url)
+
         else:
             return None
 
