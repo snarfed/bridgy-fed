@@ -334,6 +334,19 @@ def email_me(msg):
                         subject=util.ellipsize(msg), body=msg)
 
 
+def report_error(msg, **kwargs):
+    """Reports an error to StackDriver Error Reporting.
+
+    https://cloud.google.com/error-reporting/docs/reference/libraries#client-libraries-install-python
+
+    If ``DEBUG`` is ``True``, just logs the error.
+    """
+    if DEBUG:
+        logger.error(msg)
+    else:
+        error_reporting_client.report_error(msg, **kwargs)
+
+
 def report_exception(**kwargs):
     """Reports the current exception to StackDriver Error Reporting.
 

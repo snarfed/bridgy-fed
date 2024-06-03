@@ -29,6 +29,7 @@ from common import (
     error,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
+    report_error,
     subdomain_wrap,
 )
 from ids import (
@@ -750,20 +751,21 @@ class Protocol:
                 return msg, 204
 
         # load actor user, check authorization
+        # https://www.w3.org/wiki/ActivityPub/Primer/Authentication_Authorization
         actor = as1.get_owner(obj.as1)
         if not actor:
             error('Activity missing actor or author', status=400)
         elif from_cls.owns_id(actor) is False:
             error(f"{from_cls.LABEL} doesn't own actor {actor}, this is probably a bridged activity. Skipping.", status=204)
 
-        if authed_as:
-            assert isinstance(authed_as, str)
-            authed_as = normalize_user_id(id=authed_as, proto=from_cls)
-            actor = normalize_user_id(id=actor, proto=from_cls)
-            if actor != authed_as:
-                logger.warning(f"Auth: actor {actor} isn't authed user {authed_as}")
-        else:
-            logger.warning(f"Auth: missing authed_as!")
+        assert authed_as
+        assert isinstance(authed_as, str)
+        authed_as = normalize_user_id(id=authed_as, proto=from_cls)
+        actor = normalize_user_id(id=actor, proto=from_cls)
+        if actor != authed_as:
+            msg = f"actor {actor} isn't authed user {authed_as}"
+            report_error(msg)
+            error(msg, status=403)
 
         # update copy ids to originals
         obj.normalize_ids()

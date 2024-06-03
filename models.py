@@ -31,6 +31,7 @@ from common import (
     long_to_base64,
     OLD_ACCOUNT_AGE,
     remove,
+    report_error,
     unwrap,
 )
 import ids
@@ -923,18 +924,21 @@ class Object(StringIdModel):
             obj.new = False
             orig_as1 = obj.as1
             if orig_as1:
-                if not authed_as:
-                    logger.warning(f'Auth: would cowardly refuse to overwrite {id} without checking actor')
-                    authed_as = 'https://un.known'
+                # authorization: check that the authed user is allowed to modify
+                # this object
+                # https://www.w3.org/wiki/ActivityPub/Primer/Authentication_Authorization
+                assert authed_as
                 proto = PROTOCOLS.get(obj.source_protocol)
                 assert proto, obj.source_protocol
-                owners = [ids.normalize_user_id(id=id, proto=proto)
-                          for id in (as1.get_ids(orig_as1, 'author')
-                                     + as1.get_ids(orig_as1, 'actor')
-                                     + [id])]
+                owners = [ids.normalize_user_id(id=owner, proto=proto)
+                          for owner in (as1.get_ids(orig_as1, 'author')
+                                        + as1.get_ids(orig_as1, 'actor'))]
                 if (ids.normalize_user_id(id=authed_as, proto=proto) not in owners
+                        and id != authed_as
                         and id != ids.profile_id(id=authed_as, proto=proto)):
-                    logger.warning(f"Auth: {authed_as} isn't {id} 's author or actor: {owners}")
+                    msg = f"{authed_as} isn't {id} 's author or actor: {owners}"
+                    report_error(msg)
+                    error(msg, status=403)
         else:
             obj = Object(id=id)
             obj.new = True

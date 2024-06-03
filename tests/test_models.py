@@ -17,6 +17,7 @@ from multiformats import CID
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import NOW, requests_response
 from oauth_dropins.webutil import util
+from werkzeug.exceptions import Forbidden
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import ExplicitEnableFake, Fake, OtherFake, TestCase
@@ -496,16 +497,16 @@ class ObjectTest(TestCase):
         self.assertEqual('fake', obj.source_protocol)
         self.assertEqual([user], obj.notify)
 
-        obj2 = Object.get_or_create('fake:foo', authed_as='fake:alice')
+        obj2 = Object.get_or_create('fake:foo', authed_as='fake:foo')
         self.assertFalse(obj2.new)
         self.assertFalse(obj2.changed)
         check(obj, obj2)
         check([obj2], Object.query().fetch())
 
         # non-null **props should be populated
-        obj3 = Object.get_or_create('fake:foo', our_as1={'content': 'bar'},
-                                    source_protocol=None, notify=[],
-                                    authed_as='fake:alice')
+        obj3 = Object.get_or_create('fake:foo', authed_as='fake:foo',
+                                    our_as1={'content': 'bar'},
+                                    source_protocol=None, notify=[])
         self.assertEqual('fake:foo', obj3.key.id())
         self.assertEqual({'content': 'bar', 'id': 'fake:foo'}, obj3.as1)
         self.assertEqual('fake', obj3.source_protocol)
@@ -515,8 +516,8 @@ class ObjectTest(TestCase):
         check([obj3], Object.query().fetch())
         check(obj3, Object.get_by_id('fake:foo'))
 
-        obj4 = Object.get_or_create('fake:foo', our_as1={'content': 'bar'},
-                                    authed_as='fake:alice')
+        obj4 = Object.get_or_create('fake:foo', authed_as='fake:foo',
+                                    our_as1={'content': 'bar'})
         self.assertEqual({'content': 'bar', 'id': 'fake:foo'}, obj4.as1)
         self.assertFalse(obj4.new)
         self.assertFalse(obj4.changed)
@@ -535,7 +536,8 @@ class ObjectTest(TestCase):
         # if no data property is set, don't clear existing data properties
         obj7 = Object.get_or_create('http://b.i/ff', as2={'a': 'b'}, mf2={'c': 'd'},
                                     source_protocol='web')
-        Object.get_or_create('http://b.i/ff', users=[ndb.Key(Web, 'me')])
+        Object.get_or_create('http://b.i/ff', authed_as='http://b.i/ff',
+                             users=[ndb.Key(Web, 'me')])
         self.assert_object('http://b.i/ff', as2={'a': 'b'}, mf2={'c': 'd'},
                            users=[ndb.Key(Web, 'me')],
                            source_protocol='web')
@@ -544,34 +546,29 @@ class ObjectTest(TestCase):
         Object(id='fake:foo', our_as1={'author': 'fake:alice'},
                source_protocol='fake').put()
 
-        with self.assertLogs() as logs:
-            Object.get_or_create('fake:foo', authed_as='fake:alice',
-                                 source_protocol='fake',
-                                 our_as1={'author': 'fake:alice', 'bar': 'baz'})
+        obj = Object.get_or_create('fake:foo', authed_as='fake:alice',
+                                   source_protocol='fake',
+                                   our_as1={'author': 'fake:alice', 'bar': 'baz'})
 
-        self.assertNotIn('Auth:', ' '.join(logs.output))
-        self.assertEqual({
+        expected = {
             'id': 'fake:foo',
             'bar': 'baz',
             'author': 'fake:alice',
-        }, Object.get_by_id('fake:foo').as1)
+        }
+        self.assertEqual(expected, obj.as1)
+        self.assertEqual(expected, Object.get_by_id('fake:foo').as1)
 
-        with self.assertLogs() as logs:
+        with self.assertRaises(Forbidden):
             Object.get_or_create('fake:foo', authed_as='fake:eve',
                                  our_as1={'bar': 'biff'})
-
-        self.assertIn("Auth: fake:eve isn't fake:foo 's author or actor",
-                      ' '.join(logs.output))
 
     def test_get_or_create_auth_check_profile_id(self):
         Object(id='fake:profile:alice', source_protocol='fake',
                our_as1={'x': 'y'}).put()
 
-        with self.assertLogs() as logs:
-            Object.get_or_create('fake:profile:alice', authed_as='fake:alice',
-                                 our_as1={'x': 'z'})
-
-        self.assertNotIn('Auth:', ' '.join(logs.output))
+        obj = Object.get_or_create('fake:profile:alice', authed_as='fake:alice',
+                                   our_as1={'x': 'z'})
+        self.assertEqual({'id': 'fake:profile:alice', 'x': 'z'}, obj.as1)
 
     def test_activity_changed(self):
         obj = Object()
@@ -772,7 +769,7 @@ class ObjectTest(TestCase):
             'displayName': 'Mrs. ☕ Foo',
             'image': [{'url': 'https://user.com/me.jpg'}],
             'inbox': 'http://mas.to/inbox',
-        }, Object(as2=ACTOR).as1)
+        }, Object(as2=ACTOR).as1, ignore=['publicKey'])
 
         self.assertEqual({'foo': 'bar'}, Object(our_as1={'foo': 'bar'}).as1)
         self.assertEqual({'id': 'x', 'foo': 'bar'},

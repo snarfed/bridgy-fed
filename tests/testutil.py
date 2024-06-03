@@ -18,7 +18,7 @@ from bs4 import MarkupResemblesLocatorWarning
 import dag_cbor.random
 from google.cloud import ndb
 from google.protobuf.timestamp_pb2 import Timestamp
-from granary import as2
+from granary import as1, as2
 from granary.tests.test_as1 import (
     ACTOR,
     COMMENT,
@@ -152,16 +152,18 @@ class Fake(User, protocol.Protocol):
         return 'shared:target' if shared else f'{obj.key.id()}:target'
 
     @classmethod
-    def receive(cls, obj, **kwargs):
+    def receive(cls, obj, authed_as=None, **kwargs):
         assert isinstance(obj, Object)
-        return super().receive(obj=obj, **kwargs)
+        if not authed_as:
+            authed_as = as1.get_owner(obj.as1) or obj.as1['id']
+        return super().receive(obj=obj, authed_as=authed_as, **kwargs)
 
     @classmethod
     def receive_as1(cls, our_as1, **kwargs):
         assert isinstance(our_as1, dict)
-        return super().receive(Object(id=our_as1['id'], our_as1=our_as1,
-                                      source_protocol=cls.LABEL),
-                               **kwargs)
+        return cls.receive(Object(id=our_as1['id'], our_as1=our_as1,
+                                  source_protocol=cls.LABEL),
+                           **kwargs)
 
 
 class OtherFake(Fake):
@@ -340,8 +342,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                           or util.get_url((obj_mf2 or {}), 'properties')
                           or user.profile_id())
             user.obj_key = Object.get_or_create(
-                id=obj_id, our_as1=obj_as1, as2=obj_as2, bsky=obj_bsky,
-                mf2=obj_mf2, source_protocol=cls.LABEL).key
+                id=obj_id, authed_as=obj_id, our_as1=obj_as1, as2=obj_as2,
+                bsky=obj_bsky, mf2=obj_mf2, source_protocol=cls.LABEL).key
 
         user.put()
         return user

@@ -121,7 +121,7 @@ class ActivityPub(User, Protocol):
     def handle(self):
         """Returns this user's ActivityPub address, eg ``@user@foo.com``."""
         if self.obj and self.obj.as1:
-            addr = as2.address(self.convert(self.obj, from_user=self))
+            addr = as2.address(self._convert(self.obj, from_user=self))
             if addr:
                 return addr
 
@@ -228,7 +228,7 @@ class ActivityPub(User, Protocol):
 
             logger.info(f'{obj.key} type {obj.type} is not an actor and has no author or actor with inbox')
 
-        actor = ActivityPub.convert(obj)
+        actor = cls._convert(obj)
 
         if shared:
             shared_inbox = actor.get('endpoints', {}).get('sharedInbox')

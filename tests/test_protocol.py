@@ -13,7 +13,7 @@ from oauth_dropins.webutil import appengine_info, models, util
 from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import NOW, requests_response
 import requests
-from werkzeug.exceptions import BadRequest
+from werkzeug.exceptions import BadRequest, Forbidden
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import ExplicitEnableFake, Fake, OtherFake, TestCase
@@ -30,7 +30,12 @@ from web import Web
 
 from .test_activitypub import ACTOR, NOTE
 from .test_atproto import DID_DOC
-from .test_web import ACTOR_HTML_RESP, ACTOR_AS1_UNWRAPPED_URLS, ACTOR_MF2_REL_URLS
+from .test_web import (
+    ACTOR_HTML_RESP,
+    ACTOR_AS1_UNWRAPPED_URLS,
+    ACTOR_MF2_REL_URLS,
+    NOTE as NOTE_HTML_RESP,
+)
 
 
 class ProtocolTest(TestCase):
@@ -853,17 +858,14 @@ class ProtocolReceiveTest(TestCase):
         }
         self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
 
-        with self.assertRaises(NoContent), self.assertLogs() as logs:
+        with self.assertRaises(Forbidden):
             Fake.receive_as1({
                 'id': 'fake:update',
                 'objectType': 'activity',
                 'verb': 'update',
                 'actor': 'fake:other',
                 'object': post_as1,
-            })
-
-        self.assertIn("Auth: fake:other isn't fake:post 's author or actor",
-                      ' '.join(logs.output))
+            }, authed_as='fake:eve')
 
     def test_update_post(self):
         self.make_followers()
@@ -871,6 +873,7 @@ class ProtocolReceiveTest(TestCase):
         post_as1 = {
             'id': 'fake:post',
             'objectType': 'note',
+            'author': 'fake:user',
         }
         self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
 
@@ -1119,7 +1122,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:reply',
             'objectType': 'note',
             'inReplyTo': 'other:post',
-            'author': 'fake:alice',
+            'author': 'fake:user',
         }
         self.store_object(id='fake:reply', our_as1=reply_as1, source_protocol='fake')
 
@@ -1142,7 +1145,7 @@ class ProtocolReceiveTest(TestCase):
                                  delivered=['other:post:target'],
                                  delivered_protocol='other',
                                  type='update',
-                                 users=[self.user.key, self.alice.key],
+                                 users=[self.user.key],
                                  notify=[eve.key],
                                  )
         self.assertEqual([(obj.key.id(), 'other:post:target')], OtherFake.sent)
@@ -1809,24 +1812,26 @@ class ProtocolReceiveTest(TestCase):
     @patch('requests.post')
     @patch('requests.get')
     def test_skip_web_same_domain(self, mock_get, mock_post):
-        Web.fetchable = {
-            'http://z.com/alice': {},
-            'http://z.com/bob': {},
-            'http://z.com/eve': {},
-        }
+        self.make_user('user.com', cls=Web)
+        mock_get.side_effect = [
+            ACTOR_HTML_RESP,
+            NOTE_HTML_RESP,
+            NOTE_HTML_RESP,
+            NOTE_HTML_RESP,
+            NOTE_HTML_RESP,
+        ]
 
         follow_as1 = {
-            'id': 'http://z.com/follow',
+            'id': 'http://user.com/follow',
             'objectType': 'activity',
             'verb': 'follow',
-            'actor': 'http://z.com/alice',
-            'object': ['http://z.com/bob', 'http://z.com/eve'],
+            'actor': 'http://user.com/',
+            'object': ['http://user.com/bob', 'http://user.com/eve'],
         }
 
         with self.assertRaises(NoContent):
-            Web.receive(Object(our_as1=follow_as1))
+            Web.receive(Object(our_as1=follow_as1), authed_as='user.com')
 
-        mock_get.assert_not_called()
         mock_post.assert_not_called()
         self.assertEqual(0, Follower.query().count())
 
@@ -1870,7 +1875,7 @@ class ProtocolReceiveTest(TestCase):
 
         # no matching copy users
         obj = Object(id='fake:follow', our_as1=follow, source_protocol='fake')
-        self.assertEqual(('OK', 202), Fake.receive(obj))
+        self.assertEqual(('OK', 202), Fake.receive(obj, authed_as='fake:alice'))
         self.assert_equals(follow, obj.our_as1)
 
         # matching copy user
@@ -1883,7 +1888,7 @@ class ProtocolReceiveTest(TestCase):
             'other:bob': {},
         }
 
-        self.assertEqual(('OK', 202), Fake.receive(obj))
+        self.assertEqual(('OK', 202), Fake.receive(obj, authed_as='fake:alice'))
         self.assert_equals({
             **follow,
             'actor': {'id': 'fake:alice'},
@@ -1901,7 +1906,7 @@ class ProtocolReceiveTest(TestCase):
         # no matching copy object
         obj = Object(id='fake:share', our_as1=share, source_protocol='fake')
         with self.assertRaises(NoContent):
-            Fake.receive(obj)
+            Fake.receive(obj, authed_as='fake:alice')
         self.assert_equals(share, obj.our_as1)
 
         # matching copy object
@@ -1911,7 +1916,7 @@ class ProtocolReceiveTest(TestCase):
         protocol.seen_ids.clear()
         obj.new = True
         with self.assertRaises(NoContent):
-            Fake.receive(obj)
+            Fake.receive(obj, authed_as='fake:alice')
 
         self.assert_equals({
             'id': 'fake:share',
@@ -1942,7 +1947,7 @@ class ProtocolReceiveTest(TestCase):
         # no matching copies
         obj = Object(id='other:reply', our_as1=reply, source_protocol='other')
         with self.assertRaises(NoContent):
-            OtherFake.receive(obj)
+            OtherFake.receive(obj, authed_as='other:eve')
         self.assert_equals(reply, obj.our_as1)
 
         # matching copies
@@ -2206,7 +2211,7 @@ class ProtocolReceiveTest(TestCase):
                 'verb': 'update',
                 'actor': 'https://lim.it/alice',
                 'object': actor,
-            }))
+            }), authed_as='https://lim.it/alice')
 
         self.assert_object('https://lim.it/alice',
                            source_protocol='activitypub',
@@ -2223,12 +2228,13 @@ class ProtocolReceiveTest(TestCase):
         # follow by bot user shouldn't count
         Follower.get_or_create(to=user, from_=Web(id='https://bsky.brid.gy/'))
 
-        got = self.post('/user.com/inbox', json={
-            **NOTE,
-            'id': 'https://lim.it/note',
-            'actor': actor,
-        })
-        self.assertEqual(204, got.status_code)
+        with self.assertRaises(NoContent):
+            ActivityPub.receive(Object(as2={
+                **NOTE,
+                'id': 'https://lim.it/note',
+                'actor': actor,
+            }), authed_as=actor)
+
         mock_send.assert_not_called()
 
     def test_receive_task_handler(self):
@@ -2245,11 +2251,15 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'activity',
             'verb': 'post',
             'object': note,
+            'actor': 'fake:other',
         }
         obj = self.store_object(id='fake:post#bridgy-fed-create',
                                 source_protocol='fake', our_as1=create)
 
-        resp = self.post('/queue/receive', data={'obj': obj.key.urlsafe()})
+        resp = self.post('/queue/receive', data={
+            'obj': obj.key.urlsafe(),
+            'authed_as': 'fake:other',
+        })
         self.assertEqual(204, resp.status_code)
         obj = Object.get_by_id('fake:post#bridgy-fed-create')
         self.assertEqual('ignored', obj.status)
@@ -2263,14 +2273,12 @@ class ProtocolReceiveTest(TestCase):
         obj = self.store_object(id='fake:post', our_as1=note,
                                 source_protocol='fake')
 
-        with self.assertLogs() as logs:
-            got = self.post('/queue/receive', data={
-                'obj': obj.key.urlsafe(),
-                'authed_as': 'fake:alice',
-            })
-            self.assertEqual(204, got.status_code)
-
-        self.assertNotIn("isn't authed user", ' '.join(logs.output))
+        got = self.post('/queue/receive', data={
+            'obj': obj.key.urlsafe(),
+            'authed_as': 'fake:alice',
+        })
+        self.assertEqual(204, got.status_code)
+        self.assertIsNotNone(Object.get_by_id('fake:post#bridgy-fed-create'))
 
     def test_receive_task_handler_authed_as_domain_vs_homepage(self):
         user = self.make_user('user.com', cls=Web, obj_id='https://user.com/')
@@ -2281,14 +2289,12 @@ class ProtocolReceiveTest(TestCase):
                                     'author': 'https://user.com/',
                                 })
 
-        with self.assertLogs() as logs:
-            got = self.post('/queue/receive', data={
-                'obj': obj.key.urlsafe(),
-                'authed_as': 'user.com',
-            })
-            self.assertEqual(204, got.status_code)
-
-        self.assertNotIn("isn't authed user", ' '.join(logs.output))
+        got = self.post('/queue/receive', data={
+            'obj': obj.key.urlsafe(),
+            'authed_as': 'user.com',
+        })
+        self.assertEqual(204, got.status_code)
+        self.assertIsNotNone(Object.get_by_id('https://user.com/c#bridgy-fed-create'))
 
     @patch('requests.get', return_value=requests_response('<html></html>'))
     def test_receive_task_handler_authed_as_www_subdomain(self, _):
@@ -2299,14 +2305,13 @@ class ProtocolReceiveTest(TestCase):
                                     'author': 'http://www.foo.com/bar',
                                 })
 
-        with self.assertLogs() as logs:
-            got = self.post('/queue/receive', data={
-                'obj': obj.key.urlsafe(),
-                'authed_as': 'foo.com',
-            })
-            self.assertEqual(204, got.status_code)
-
-        self.assertNotIn('Auth:', ' '.join(logs.output))
+        got = self.post('/queue/receive', data={
+            'obj': obj.key.urlsafe(),
+            'authed_as': 'foo.com',
+        })
+        self.assertEqual(204, got.status_code)
+        self.assertIsNotNone(Object.get_by_id(
+            'http://www.foo.com/post#bridgy-fed-create'))
 
     @patch('requests.get', return_value=requests_response('<html></html>'))
     def test_receive_task_handler_authed_as_mixed_subdomains(self, _):
@@ -2317,14 +2322,13 @@ class ProtocolReceiveTest(TestCase):
                                     'author': 'http://m.user.com/',
                                 })
 
-        with self.assertLogs() as logs:
-            got = self.post('/queue/receive', data={
-                'obj': obj.key.urlsafe(),
-                'authed_as': 'www.user.com',
-            })
-            self.assertEqual(204, got.status_code)
-
-        self.assertNotIn('Auth:', ' '.join(logs.output))
+        got = self.post('/queue/receive', data={
+            'obj': obj.key.urlsafe(),
+            'authed_as': 'www.user.com',
+        })
+        self.assertEqual(204, got.status_code)
+        self.assertIsNotNone(Object.get_by_id(
+            'http://user.com/post#bridgy-fed-create'))
 
     @patch('requests.get', return_value=requests_response('<html></html>'))
     def test_receive_task_handler_authed_as_wrong_domain(self, _):
@@ -2335,16 +2339,12 @@ class ProtocolReceiveTest(TestCase):
                                     'author': 'http://bar.com/',
                                 })
 
-        with self.assertLogs() as logs:
-            got = self.post('/queue/receive', data={
-                'obj': obj.key.urlsafe(),
-                'authed_as': 'foo.com',
-            })
-            self.assertEqual(204, got.status_code)
-
-        self.assertIn("Auth: actor bar.com isn't authed user foo.com",
-                      ' '.join(logs.output))
-
+        got = self.post('/queue/receive', data={
+            'obj': obj.key.urlsafe(),
+            'authed_as': 'foo.com',
+        })
+        self.assertEqual(403, got.status_code)
+        self.assertIsNone(Object.get_by_id('http://bar.com/post#bridgy-fed-create'))
 
     def test_receive_task_handler_not_authed_as(self):
         obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
@@ -2353,15 +2353,12 @@ class ProtocolReceiveTest(TestCase):
             'author': 'fake:other',
         })
 
-        with self.assertLogs() as logs:
-            got = self.post('/queue/receive', data={
-                'obj': obj.key.urlsafe(),
-                'authed_as': 'fake:eve',
-            })
-            self.assertEqual(204, got.status_code)
-
-        self.assertIn("Auth: actor fake:other isn't authed user fake:eve",
-                      ' '.join(logs.output))
+        got = self.post('/queue/receive', data={
+            'obj': obj.key.urlsafe(),
+            'authed_as': 'fake:eve',
+        })
+        self.assertEqual(403, got.status_code)
+        self.assertIsNone(Object.get_by_id('fake:post#bridgy-fed-create'))
 
     def test_like_not_authed_as_actor(self):
         Fake.fetchable['fake:post'] = {
@@ -2369,7 +2366,7 @@ class ProtocolReceiveTest(TestCase):
             'author': 'fake:bob',
         }
 
-        with self.assertLogs() as logs:
+        with self.assertRaises(Forbidden):
             Fake.receive_as1({
                 'id': 'fake:like',
                 'objectType': 'activity',
@@ -2378,8 +2375,7 @@ class ProtocolReceiveTest(TestCase):
                 'object': 'fake:post',
             }, authed_as='fake:other')
 
-        self.assertIn("Auth: actor fake:user isn't authed user fake:other",
-                      ' '.join(logs.output))
+        self.assertIsNone(Object.get_by_id('fake:like'))
 
     def test_user_opted_out(self):
         self.make_followers()

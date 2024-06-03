@@ -22,7 +22,7 @@ from models import Object, Target
 from web import Web
 
 from .testutil import ATPROTO_KEY, TestCase
-from .test_activitypub import ACTOR
+from .test_activitypub import ACTOR, add_key, sign
 from . import test_atproto
 from . import test_web
 
@@ -49,13 +49,13 @@ class IntegrationTests(TestCase):
         Repo.create(self.storage, did, signing_key=ATPROTO_KEY)
         user = self.make_user(id=ap_id, cls=ActivityPub,
                               copies=[Target(uri=did, protocol='atproto')],
-                              obj_as2={
+                              obj_as2=add_key({
                                   'type': 'Person',
                                   'id': ap_id,
                                   'name': 'My Name',
                                   'image': 'http://pic',
                                   'inbox': f'{ap_id}/inbox',
-                              })
+                              }))
 
         bob_did_doc = copy.deepcopy(test_atproto.DID_DOC)
         bob_did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
@@ -350,7 +350,11 @@ class IntegrationTests(TestCase):
             'actor': 'https://inst/bob',
             'object': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
         }
-        resp = self.post('/ap/atproto/did:plc:alice/inbox', json=like)
+        body = json_dumps(like)
+        headers = sign('/ap/atproto/did:plc:alice/inbox', body,
+                       key_id='https://inst/bob')
+        resp = self.client.post('/ap/atproto/did:plc:alice/inbox', data=body,
+                                headers=headers)
         self.assertEqual(202, resp.status_code)
 
         # check results
@@ -384,23 +388,25 @@ class IntegrationTests(TestCase):
         ATProto bot user bsky.brid.gy (did:plc:bsky)
         Follow is https://inst/follow
         """
-        mock_get.return_value = self.as2_resp({
+        mock_get.return_value = self.as2_resp(add_key({
             'type': 'Person',
             'id': 'https://inst/alice',
             'name': 'Mrs. ☕ Alice',
             'preferredUsername': 'alice',
             'inbox': 'http://inst/inbox',
             'image': 'http://pic',
-        })
+        }))
         self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
 
         # deliver follow
-        resp = self.post('/bsky.brid.gy/inbox', json={
+        body = json_dumps({
             'type': 'Follow',
             'id': 'http://inst/follow',
             'actor': 'https://inst/alice',
             'object': 'https://bsky.brid.gy/bsky.brid.gy',
         })
+        headers = sign('/bsky.brid.gy/inbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/bsky.brid.gy/inbox', data=body, headers=headers)
         self.assertEqual(204, resp.status_code)
 
         # check results
@@ -453,23 +459,25 @@ class IntegrationTests(TestCase):
         ATProto bot user bsky.brid.gy (did:plc:bsky)
         Follow is https://inst/follow
         """
-        mock_get.return_value = self.as2_resp({
+        mock_get.return_value = self.as2_resp(add_key({
             'type': 'Person',
             'id': 'https://inst/_alice_',
             'name': 'Mrs. ☕ Alice',
             'preferredUsername': '_alice_',
             'inbox': 'http://inst/inbox',
-        })
+        }))
         self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
 
         # deliver follow
-        resp = self.post('/bsky.brid.gy/inbox', json={
+        body = json_dumps({
             'type': 'Follow',
             'id': 'http://inst/follow',
             'actor': 'https://inst/_alice_',
             'object': 'https://bsky.brid.gy/bsky.brid.gy',
             'image': 'http://pic',
         })
+        headers = sign('/bsky.brid.gy/inbox', body, key_id='https://inst/_alice_')
+        resp = self.client.post('/bsky.brid.gy/inbox', data=body, headers=headers)
         self.assertEqual(304, resp.status_code)
 
         # check results
