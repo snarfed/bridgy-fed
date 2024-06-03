@@ -344,7 +344,7 @@ def report_error(msg, **kwargs):
     if DEBUG:
         logger.error(msg)
     else:
-        error_reporting_client.report_error(msg, **kwargs)
+        error_reporting_client.report(msg, **kwargs)
 
 
 def report_exception(**kwargs):
