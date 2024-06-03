@@ -183,17 +183,16 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     # reset_protocol_properties.
     enabled_protocols = ndb.StringProperty(repeated=True, choices=list(PROTOCOLS.keys()))
 
-    # protocol-specific state
-    atproto_notifs_indexed_at = ndb.TextProperty()
-    atproto_feed_indexed_at = ndb.TextProperty()
-
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
 
     # `existing` attr is set by get_or_create
 
-    # OLD. some stored entities still have this; do not reuse.
+    # OLD. some stored entities still have these; do not reuse.
     # actor_as2 = JsonProperty()
+    # protocol-specific state
+    # atproto_notifs_indexed_at = ndb.TextProperty()
+    # atproto_feed_indexed_at = ndb.TextProperty()
 
     def __init__(self, **kwargs):
         """Constructor.
