@@ -11,6 +11,7 @@ from urllib.parse import urljoin, urlparse
 import cachetools
 from Crypto.Util import number
 from flask import abort, g, make_response, request
+from google.cloud.error_reporting.util import build_flask_context
 from google.protobuf.timestamp_pb2 import Timestamp
 from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.appengine_config import error_reporting_client, tasks_client
@@ -344,7 +345,8 @@ def report_error(msg, **kwargs):
     if DEBUG:
         logger.error(msg)
     else:
-        error_reporting_client.report(msg, **kwargs)
+        error_reporting_client.report(
+            msg, http_context=build_flask_context(request), **kwargs)
 
 
 def report_exception(**kwargs):
@@ -360,7 +362,8 @@ def report_exception(**kwargs):
         raise
 
     try:
-        error_reporting_client.report_exception(**kwargs)
+        error_reporting_client.report_exception(
+            msg, http_context=build_flask_context(request), **kwargs)
     except BaseException:
         if not DEBUG:
             logger.warning(f'Failed to report error! {kwargs}', exc_info=True)

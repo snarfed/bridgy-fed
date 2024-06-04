@@ -942,9 +942,10 @@ class Object(StringIdModel):
                 if (ids.normalize_user_id(id=authed_as, proto=proto) not in owners
                         and id != authed_as
                         and id != ids.profile_id(id=authed_as, proto=proto)):
-                    msg = f"{authed_as} isn't {id} 's author or actor: {owners}"
-                    report_error(msg)
-                    error(msg, status=403)
+                    report_error("Auth: Object: authed_as doesn't match owner",
+                                 user=f'{id} authed_as {authed_as} owners {owners}')
+                    error(f"authed user {authed_as} isn't object owner {owners}",
+                          status=403)
         else:
             obj = Object(id=id)
             obj.new = True

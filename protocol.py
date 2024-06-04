@@ -763,9 +763,9 @@ class Protocol:
         authed_as = normalize_user_id(id=authed_as, proto=from_cls)
         actor = normalize_user_id(id=actor, proto=from_cls)
         if actor != authed_as:
-            msg = f"actor {actor} isn't authed user {authed_as}"
-            report_error(msg)
-            error(msg, status=403)
+            report_error("Auth: receive: authed_as doesn't match owner",
+                         user=f'{id} authed_as {authed_as} owner {actor}')
+            error(f"actor {actor} isn't authed user {authed_as}", status=403)
 
         # update copy ids to originals
         obj.normalize_ids()
