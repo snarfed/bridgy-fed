@@ -1147,6 +1147,18 @@ class ATProtoTest(TestCase):
                 self.assertEqual(0, AtpRepo.query().count())
                 mock_create_task.assert_not_called()
 
+    @patch.object(tasks_client, 'create_task')
+    def test_send_skips_add_to_collection(self, mock_create_task):
+        obj = Object(id='fake:add', source_protocol='fake', as2={
+            'type': 'Add',
+            'object': 'fake:bob',
+            'target': 'fake:list',
+        })
+        self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
+        self.assertEqual(0, AtpBlock.query().count())
+        self.assertEqual(0, AtpRepo.query().count())
+        mock_create_task.assert_not_called()
+
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_delete_actor(self, mock_create_task):
         self.make_user_and_repo()
