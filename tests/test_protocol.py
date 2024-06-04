@@ -2482,3 +2482,19 @@ class ProtocolReceiveTest(TestCase):
             'user': self.user.key.urlsafe(),
         })
         self.assertEqual(204, resp.status_code)
+
+    @patch.object(Fake, 'send', return_value=False)
+    def test_send_returns_false_task_returns_204(self, mock_send):
+        target = Target(protocol='fake', uri='fake:target')
+        obj = self.store_object(id='fake:post', undelivered=[target])
+        resp = self.post('/queue/send', data={
+            'protocol': 'fake',
+            'obj': obj.key.urlsafe(),
+            'url': 'fake:target',
+        })
+        self.assertEqual(204, resp.status_code)
+
+        obj = obj.key.get()
+        self.assertEqual([], obj.undelivered)
+        self.assertEqual([], obj.delivered)
+        self.assertEqual([], obj.failed)

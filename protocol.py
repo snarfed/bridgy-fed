@@ -1639,4 +1639,4 @@ def send_task():
 
     update_object(obj.key)
 
-    return '', 200 if sent else 304
+    return '', 200 if sent else 204 if sent is False else 304
