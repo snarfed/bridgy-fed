@@ -388,9 +388,12 @@ class ATProto(User, Protocol):
             logger.info(f'Target PDS {url} is not us')
             return False
 
-        verb = obj.as1.get('verb')
-        if verb in ('accept', 'undo'):
-            logger.info(f'Skipping sending {verb}, not supported in ATProto')
+        # TODO: unify with Web.send into something like a SUPPORTED_TYPES
+        # constant and handle that in Protocol.send_task or nearby?
+        inner_type = as1.get_object(obj.as1).get('objectType') or ''
+        if (obj.type in ('accept', 'question', 'undo')
+                or inner_type in ('question',)):
+            logger.info(f'Skipping {obj.type} {inner_type}, not supported in ATProto')
             return False
 
         # determine "base" object, if any
@@ -437,6 +440,7 @@ class ATProto(User, Protocol):
         # non-commit operations:
         # * delete actor => tombstone repo
         # * flag => send report to mod service
+        verb = obj.as1.get('verb')
         if verb == 'delete' and obj_as1['id'] == did:
             logger.info(f'Deleting bridged ATProto account {did} by tombstoning repo!')
             arroba.server.storage.tombstone_repo(repo)

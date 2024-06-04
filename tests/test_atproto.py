@@ -1114,7 +1114,7 @@ class ATProtoTest(TestCase):
         mock_create_task.assert_not_called()
 
     @patch.object(tasks_client, 'create_task')
-    def test_send_ignore_accept(self, mock_create_task):
+    def test_send_skips_accept(self, mock_create_task):
         obj = Object(id='fake:accept', as2={
             'type': 'Accept',
             'id': 'fake:accept',
@@ -1130,6 +1130,22 @@ class ATProtoTest(TestCase):
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())
         mock_create_task.assert_not_called()
+
+    @patch.object(tasks_client, 'create_task')
+    def test_send_skips_question(self, mock_create_task):
+        question = {
+            'type': 'Question',
+            'id': 'fake:q',
+            'inReplyTo': 'user.com',
+        }
+
+        for input in (question, {'type': 'Update', 'object': question}):
+            with self.subTest(input=input):
+                obj = Object(id='fake:q', source_protocol='fake', as2=input)
+                self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
+                self.assertEqual(0, AtpBlock.query().count())
+                self.assertEqual(0, AtpRepo.query().count())
+                mock_create_task.assert_not_called()
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_delete_actor(self, mock_create_task):

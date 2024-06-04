@@ -391,13 +391,12 @@ class Web(User, Protocol):
         or if webmention/microformats2 don't support the activity type.
         https://fed.brid.gy/docs#error-handling
         """
-        # we only send webmentions for responses. for sending normal posts etc
-        # to followers, we just update our stored objects (elsewhere) and web
-        # users consume them via feeds.
+        # TODO: unify with ATProto.send into something like a SUPPORTED_TYPES
+        # constant and handle that in Protocol.send_task or nearby?
         inner_type = as1.get_object(obj.as1).get('objectType') or ''
         if (obj.type in ('accept', 'question', 'undo')
                 or inner_type in ('question',)):
-            logger.info(f'Skipping sending {obj.type} {inner_type} (not supported in webmention/mf2) to {url}')
+            logger.info(f'Skipping {obj.type} {inner_type}, not supported in web')
             return False
 
         targets = as1.targets(obj.as1)
@@ -417,6 +416,9 @@ class Web(User, Protocol):
         source_url = quote(source_id, safe=':/%+')
         logger.info(f'Sending webmention from {source_url} to {url}')
 
+        # we only send webmentions for responses. for sending normal posts etc
+        # to followers, we just update our stored objects (elsewhere) and web
+        # users consume them via feeds.
         endpoint = common.webmention_discover(url).endpoint
         if not endpoint:
             return False
