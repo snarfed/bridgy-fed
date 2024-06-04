@@ -25,7 +25,7 @@ from flask_app import app, cache
 import common
 from common import (
     add,
-    CACHE_TIME,
+    CACHE_CONTROL,
     CONTENT_TYPE_HTML,
     create_task,
     DOMAINS,
@@ -908,6 +908,7 @@ def postprocess_as2_actor(actor, user):
 @app.get(f'/ap/web/<handle_or_id>')
 # special case Web users without /ap/web/ prefix, for backward compatibility
 @app.get(f'/<regex("{DOMAIN_RE}"):handle_or_id>')
+@flask_util.headers(CACHE_CONTROL)
 def actor(handle_or_id):
     """Serves a user's AS2 actor from the datastore."""
     if handle_or_id == PRIMARY_DOMAIN or handle_or_id in PROTOCOL_DOMAINS:
@@ -971,7 +972,6 @@ def actor(handle_or_id):
     return actor, {
         'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
         'Access-Control-Allow-Origin': '*',
-        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }
 
 
@@ -1054,6 +1054,7 @@ def inbox(protocol=None, id=None):
 # special case Web users without /ap/web/ prefix, for backward compatibility
 @app.route(f'/<regex("{DOMAIN_RE}"):id>/<any(followers,following):collection>',
            methods=['GET', 'HEAD'])
+@flask_util.headers(CACHE_CONTROL)
 def follower_collection(id, collection):
     """ActivityPub Followers and Following collections.
 
@@ -1112,7 +1113,6 @@ def follower_collection(id, collection):
     # logger.info(f'Returning {json_dumps(collection, indent=2)}')
     return collection, {
         'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
-        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }
 
 
@@ -1122,6 +1122,7 @@ def follower_collection(id, collection):
 @app.get(f'/ap/web/<regex("{DOMAIN_RE}"):id>/outbox')
 # special case Web users without /ap/web/ prefix, for backward compatibility
 @app.route(f'/<regex("{DOMAIN_RE}"):id>/outbox', methods=['GET', 'HEAD'])
+@flask_util.headers(CACHE_CONTROL)
 def outbox(id):
     """Serves a user's AP outbox.
 
@@ -1172,5 +1173,4 @@ def outbox(id):
         'first': page,
     }, {
         'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
-        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }

@@ -24,7 +24,7 @@ import werkzeug.exceptions
 
 from activitypub import ActivityPub, instance_actor
 import common
-from common import CACHE_TIME, DOMAIN_RE
+from common import CACHE_CONTROL, DOMAIN_RE
 from flask_app import app
 import ids
 from models import fetch_objects, fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS
@@ -96,20 +96,18 @@ def load_user(protocol, id):
 
 @app.route('/')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.headers(CACHE_CONTROL)
 def front_page():
     """View for the front page."""
-    return render_template('index.html'), {
-        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
-    }
+    return render_template('index.html')
 
 
 @app.route('/docs')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.headers(CACHE_CONTROL)
 def docs():
     """View for the docs page."""
-    return render_template('docs.html'), {
-        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
-    }
+    return render_template('docs.html')
 
 
 @app.get(f'/user/<regex("{DOMAIN_RE}"):domain>')
@@ -346,6 +344,7 @@ def stats():
 
 @app.get('/.well-known/nodeinfo')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.headers(CACHE_CONTROL)
 def nodeinfo_jrd():
     """
     https://nodeinfo.diaspora.software/protocol.html
@@ -360,7 +359,6 @@ def nodeinfo_jrd():
         }],
     }, {
         'Content-Type': 'application/jrd+json',
-        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }
 
 
@@ -417,6 +415,7 @@ def nodeinfo():
 
 @app.get('/api/v1/instance')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.headers(CACHE_CONTROL)
 def instance_info():
     """
     https://docs.joinmastodon.org/methods/instance/#v1
@@ -438,14 +437,11 @@ def instance_info():
             'display_name': 'Ryan',
             'url': 'https://snarfed.org/',
         },
-    }, {
-        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }
 
 
 @app.get('/log')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.headers(CACHE_CONTROL)
 def log():
-    return logs.log(), {
-        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
-    }
+    return logs.log()

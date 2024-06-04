@@ -25,7 +25,7 @@ from werkzeug.exceptions import BadGateway, BadRequest, HTTPException, NotFound
 
 import common
 from common import (
-    CACHE_TIME,
+    CACHE_CONTROL,
     DOMAIN_RE,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
@@ -582,10 +582,9 @@ class Web(User, Protocol):
 
 
 @app.get('/web-site')
+@flask_util.headers(CACHE_CONTROL)
 def enter_web_site():
-    return render_template('enter_web_site.html'), {
-        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
-    }
+    return render_template('enter_web_site.html')
 
 
 @app.post('/web-site')

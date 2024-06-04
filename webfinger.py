@@ -16,7 +16,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 import activitypub
 import common
 from common import (
-    CACHE_TIME,
+    CACHE_CONTROL,
     LOCAL_DOMAINS,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
@@ -37,10 +37,9 @@ class Webfinger(flask_util.XrdOrJrd):
     Supports both JRD and XRD; defaults to JRD.
     https://tools.ietf.org/html/rfc7033#section-4
     """
+    @flask_util.headers(CACHE_CONTROL)
     def dispatch_request(self, *args, **kwargs):
-        body, headers = super().dispatch_request(*args, **kwargs)
-        headers['Cache-Control'] = f'public, max-age={int(CACHE_TIME.total_seconds())}'
-        return body, headers
+        return super().dispatch_request(*args, **kwargs)
 
     def template_prefix(self):
         return 'webfinger_user'
@@ -213,11 +212,11 @@ class HostMeta(flask_util.XrdOrJrd):
 
 
 @app.get('/.well-known/host-meta.xrds')
+@flask_util.headers(CACHE_CONTROL)
 def host_meta_xrds():
     """Renders and serves the ``/.well-known/host-meta.xrds`` XRDS-Simple file."""
     return render_template('host-meta.xrds', host_uri=common.host_url()), {
         'Content-Type': 'application/xrds+xml',
-        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }
 
 

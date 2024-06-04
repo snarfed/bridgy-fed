@@ -13,7 +13,7 @@ from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 
 from activitypub import ActivityPub
-from common import CACHE_TIME, LOCAL_DOMAINS, subdomain_wrap, SUPERDOMAIN
+from common import CACHE_CONTROL, LOCAL_DOMAINS, subdomain_wrap, SUPERDOMAIN
 from flask_app import app, cache
 from models import Object, PROTOCOLS
 from protocol import Protocol
@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 @app.get(f'/convert/<dest>/<path:_>')
+@flask_util.headers(CACHE_CONTROL)
 def convert(dest, _, src=None):
     """Converts data from one protocol to another and serves it.
 
@@ -79,7 +80,6 @@ def convert(dest, _, src=None):
     headers = {
         'Content-Type': dest_cls.CONTENT_TYPE,
         'Vary': 'Accept',
-        'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
     }
 
     # don't serve deletes or deleted objects

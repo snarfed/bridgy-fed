@@ -18,7 +18,7 @@ import logging
 import re
 import urllib.parse
 
-from flask import request
+from flask import redirect, request
 from granary import as2
 from negotiator import ContentNegotiator, AcceptParameters, ContentType
 from oauth_dropins.webutil import flask_util, util
@@ -26,7 +26,7 @@ from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from activitypub import ActivityPub
-from common import CACHE_TIME, CONTENT_TYPE_HTML
+from common import CACHE_CONTROL, CONTENT_TYPE_HTML
 from flask_app import app
 from protocol import Protocol
 from web import Web
@@ -45,10 +45,11 @@ DOMAIN_ALLOWLIST = frozenset((
 
 HEADERS = {
     'Vary': 'Accept',
-    'Cache-Control': f'public, max-age={int(CACHE_TIME.total_seconds())}'
+    **CACHE_CONTROL,
 }
 
 @app.get(r'/r/<path:to>')
+@flask_util.headers(HEADERS)
 def redir(to):
     """Either redirect to a given URL or convert it to another format.
 
@@ -98,7 +99,7 @@ def redir(to):
                 break
     else:
         if not accept_as2:
-            return f'No web user found for any of {domains}', 404, HEADERS
+            return f'No web user found for any of {domains}', 404
 
     if not accept_as2:
         # redirect. include rel-alternate link to make posts discoverable by entering
@@ -114,25 +115,22 @@ def redir(to):
     <h1>Redirecting...</h1>
     <p>You should be redirected automatically to the target URL: <a href="{to}">{to}</a>. If not, click the link.
     </html>
-    """, 301, {
-        'Location': to,
-        **HEADERS,
-    }
+    """, 301, {'Location': to}
 
     # AS2 requested, fetch and convert and serve
     proto = Protocol.for_id(to)
     if not proto:
-        return f"Couldn't determine protocol for {to}", 404, HEADERS
+        return f"Couldn't determine protocol for {to}", 404
 
     obj = proto.load(to)
     if not obj or obj.deleted:
-        return f'Object not found: {to}', 404, HEADERS
+        return f'Object not found: {to}', 404
 
     # TODO: do this for other protocols too?
     if proto == Web and not web_user:
         web_user = Web.get_or_create(util.domain_from_link(to), direct=False, obj=obj)
         if not web_user:
-            return f'Object not found: {to}', 404, HEADERS
+            return f'Object not found: {to}', 404
 
     ret = ActivityPub.convert(obj, from_user=web_user)
     # logger.info(f'Returning: {json_dumps(ret, indent=2)}')
@@ -141,6 +139,5 @@ def redir(to):
                          if accept_type == as2.CONTENT_TYPE_LD
                          else accept_type),
         'Access-Control-Allow-Origin': '*',
-        **HEADERS,
     }
 
