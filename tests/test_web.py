@@ -2927,6 +2927,20 @@ class WebUtilTest(TestCase):
         mock_get.assert_not_called()
         mock_post.assert_not_called()
 
+    def test_send_skips_question(self, mock_get, mock_post):
+        question = {
+            'type': 'Question',
+            'id': 'fake:q',
+            'inReplyTo': 'user.com',
+        }
+
+        for input in (question, {'type': 'Update', 'object': question}):
+            with self.subTest(input=input):
+                obj = Object(id='fake:q', source_protocol='fake', as2=input)
+                self.assertFalse(Web.send(obj, 'https://user.com/'))
+                mock_get.assert_not_called()
+                mock_post.assert_not_called()
+
     def test_send_blocklisted(self, mock_get, mock_post):
         obj = Object(id='http://mas.to/like#ok', as2={
             **test_activitypub.LIKE,

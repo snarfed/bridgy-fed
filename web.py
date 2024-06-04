@@ -394,10 +394,10 @@ class Web(User, Protocol):
         # we only send webmentions for responses. for sending normal posts etc
         # to followers, we just update our stored objects (elsewhere) and web
         # users consume them via feeds.
-        verb = obj.as1.get('verb')
-
-        if verb in ('accept', 'undo'):
-            logger.info(f'Skipping sending {verb} (not supported in webmention/mf2) to {url}')
+        inner_type = as1.get_object(obj.as1).get('objectType') or ''
+        if (obj.type in ('accept', 'question', 'undo')
+                or inner_type in ('question',)):
+            logger.info(f'Skipping sending {obj.type} {inner_type} (not supported in webmention/mf2) to {url}')
             return False
 
         targets = as1.targets(obj.as1)
