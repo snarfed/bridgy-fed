@@ -377,8 +377,11 @@ PROFILE_ID_RE = re.compile(
       ^https://{DOMAIN_RE[1:-1]}/?$
     """, re.VERBOSE)
 
-def global_cache_policy(key):
-    """Cache users and profile objects, not other objects or activities."""
-    return (key and
-            (key.kind in ('ActivityPub', 'ATProto', 'MagicKey')
-             or key.kind == 'Object' and PROFILE_ID_RE.search(key.name)))
+def global_cache_timeout_policy(key):
+    """Cache users and profile objects longer than other objects."""
+    if (key and
+            (key.kind in ('ActivityPub', 'ATProto', 'Follower', 'MagicKey')
+             or key.kind == 'Object' and PROFILE_ID_RE.search(key.name))):
+        return int(timedelta(hours=2).total_seconds())
+
+    return int(timedelta(minutes=30).total_seconds())

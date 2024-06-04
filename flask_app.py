@@ -8,7 +8,7 @@ import arroba.server
 from arroba import xrpc_repo, xrpc_server, xrpc_sync
 from flask import Flask, g
 import flask_gae_static
-from google.cloud.ndb.global_cache import _InProcessGlobalCache
+from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
 from lexrpc.server import Server
 import lexrpc.flask_server
 from oauth_dropins.webutil import (
@@ -16,15 +16,15 @@ from oauth_dropins.webutil import (
     appengine_config,
     flask_util,
 )
+import pymemcache.client.base
 
-from common import global_cache_policy
+from common import global_cache_timeout_policy
 
 logger = logging.getLogger(__name__)
 # logging.getLogger('lexrpc').setLevel(logging.INFO)
 logging.getLogger('negotiator').setLevel(logging.WARNING)
 
 app_dir = Path(__file__).parent
-
 
 app = Flask(__name__, static_folder=None)
 app.template_folder = './templates'
@@ -43,12 +43,18 @@ if (appengine_info.LOCAL_SERVER
 app.url_map.merge_slashes = False
 app.url_map.redirect_defaults = False
 
+if appengine_info.DEBUG:
+    global_cache = _InProcessGlobalCache()
+else:
+    global_cache = MemcacheCache(pymemcache.client.base.PooledClient(
+        '10.126.144.3', timeout=10, connect_timeout=10))  # seconds
+
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client,
-    global_cache=_InProcessGlobalCache(),
-    global_cache_policy=global_cache_policy,
-    global_cache_timeout_policy=lambda key: 3600,  # 1 hour
-    # disable context-local cache since we're using a global in memory cache
+    global_cache=global_cache,
+    global_cache_timeout_policy=global_cache_timeout_policy,
+    # disable context-local cache due to this bug:
+    # https://github.com/googleapis/python-ndb/issues/888
     cache_policy=lambda key: False)
 
 lexrpc.flask_server.init_flask(arroba.server.server, app)

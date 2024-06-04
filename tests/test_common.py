@@ -116,15 +116,15 @@ class CommonTest(TestCase):
             Object(id='did:plc:foo'),
             Object(id='did:web:foo.com'),
             Object(id='at://did:plc:user/app.bsky.actor.profile/self'),
+            Follower(id='abc'),
         ):
-            self.assertTrue(common.global_cache_policy(good.key._key))
+            self.assertEqual(7200, common.global_cache_timeout_policy(good.key._key))
 
         for bad in (
-            Follower(id='abc'),
             Object(id='abc'),
             Object(id='https://mastodon.social/users/alice/statuses/123'),
             Object(id='at://did:plc:user/app.bsky.feed.post/abc'),
             Object(id='https://web.site/post'),
             AtpBlock(id='abc123'),
         ):
-            self.assertFalse(common.global_cache_policy(bad.key._key))
+            self.assertEqual(1800, common.global_cache_timeout_policy(bad.key._key))

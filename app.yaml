@@ -21,6 +21,9 @@ automatic_scaling:
 inbound_services:
 - warmup
 
+vpc_access_connector:
+  name: projects/bridgy-federated/locations/us-central1/connectors/bridgy-fed
+
 env_variables:
   PDS_HOST: fed.brid.gy
 

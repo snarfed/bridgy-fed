@@ -2,18 +2,20 @@
 from pathlib import Path
 
 from flask import Flask
-from google.cloud.ndb.global_cache import _InProcessGlobalCache
+from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
 from oauth_dropins.webutil import (
     appengine_config,
+    appengine_info,
     flask_util,
     util,
 )
 
 # all protocols
 import activitypub, atproto, web
-from common import global_cache_policy, USER_AGENT
+from common import global_cache_timeout_policy, USER_AGENT
 import models
 import protocol
+import pymemcache.client.base
 
 util.set_user_agent(USER_AGENT)
 
@@ -24,12 +26,18 @@ app = Flask(__name__)
 app_dir = Path(__file__).parent
 app.config.from_pyfile(app_dir / 'config.py')
 
+if appengine_info.DEBUG:
+    global_cache = _InProcessGlobalCache()
+else:
+    global_cache = MemcacheCache(pymemcache.client.base.PooledClient(
+        '10.126.144.3', timeout=10, connect_timeout=10))  # seconds
+
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client,
-    global_cache=_InProcessGlobalCache(),
-    global_cache_policy=global_cache_policy,
-    global_cache_timeout_policy=lambda key: 3600,  # 1 hour
-    # disable context-local cache since we're using a global in memory cache
+    global_cache=global_cache,
+    global_cache_timeout_policy=global_cache_timeout_policy,
+    # disable context-local cache due to this bug:
+    # https://github.com/googleapis/python-ndb/issues/888
     cache_policy=lambda key: False)
 
 app.add_url_rule('/queue/poll-feed', view_func=web.poll_feed_task, methods=['POST'])
