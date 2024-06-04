@@ -34,7 +34,7 @@ import requests
 
 # other modules are imported _after_ Fake etc classes is defined so that it's in
 # PROTOCOLS when URL routes are registered.
-from common import add, global_cache_policy, long_to_base64, TASKS_LOCATION
+from common import add, global_cache_timeout_policy, long_to_base64, TASKS_LOCATION
 import ids
 import models
 from models import KEY_BITS, Object, PROTOCOLS, Target, User
@@ -257,8 +257,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         requests.post(f'http://{ndb_client.host}/reset')
         self.ndb_context = ndb_client.context(
             global_cache=_InProcessGlobalCache(),
-            global_cache_policy=global_cache_policy,
-            global_cache_timeout_policy=lambda key: 3600,  # 1 hour
+            global_cache_timeout_policy=global_cache_timeout_policy,
             cache_policy=lambda key: False)
         self.ndb_context.__enter__()
 
