@@ -12,12 +12,14 @@ import cachetools
 from Crypto.Util import number
 from flask import abort, g, make_response, request
 from google.cloud.error_reporting.util import build_flask_context
+from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
 from google.protobuf.timestamp_pb2 import Timestamp
 from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.appengine_config import error_reporting_client, tasks_client
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil import flask_util
+import pymemcache.client.base
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +87,12 @@ RUN_TASKS_INLINE = False  # overridden by unit tests
 
 # for Protocol.REQUIRES_OLD_ACCOUNT, how old is old enough
 OLD_ACCOUNT_AGE = timedelta(days=14)
+
+if appengine_info.DEBUG:
+    global_cache = _InProcessGlobalCache()
+else:
+    global_cache = MemcacheCache(pymemcache.client.base.PooledClient(
+        '10.126.144.3', timeout=10, connect_timeout=10))  # seconds
 
 
 def base64_to_long(x):

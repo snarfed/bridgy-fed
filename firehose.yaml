@@ -12,7 +12,7 @@ runtime_config:
     runtime_version: "3.11"
 
 resources:
-  memory_gb: 1.6
+  memory_gb: 1.0
 
 env_variables:
   PDS_HOST: atproto.brid.gy

@@ -19,12 +19,10 @@ from oauth_dropins.webutil import (
 
 # all protocols
 import activitypub, atproto, web
-from common import USER_AGENT
+from common import global_cache, global_cache_timeout_policy, USER_AGENT
 import models
 
 logger = logging.getLogger(__name__)
-
-util.set_user_agent(USER_AGENT)
 
 models.reset_protocol_properties()
 
@@ -36,7 +34,10 @@ app.config.from_pyfile(app_dir / 'config.py')
 
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client,
-    # disable context-local in-memory cache
+    global_cache=global_cache,
+    global_cache_timeout_policy=global_cache_timeout_policy,
+    # disable context-local cache due to this bug:
+    # https://github.com/googleapis/python-ndb/issues/888
     cache_policy=lambda key: False)
 
 

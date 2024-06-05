@@ -375,8 +375,6 @@ class ATProto(User, Protocol):
     def send(to_cls, obj, url, from_user=None, orig_obj=None):
         """Creates a record if we own its repo.
 
-        Creates the repo first if it doesn't exist.
-
         If the repo's DID doc doesn't say we're its PDS, does nothing and
         returns False.
 

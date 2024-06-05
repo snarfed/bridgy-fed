@@ -2,7 +2,6 @@
 from pathlib import Path
 
 from flask import Flask
-from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
 from oauth_dropins.webutil import (
     appengine_config,
     appengine_info,
@@ -12,12 +11,9 @@ from oauth_dropins.webutil import (
 
 # all protocols
 import activitypub, atproto, web
-from common import global_cache_timeout_policy, USER_AGENT
+from common import global_cache, global_cache_timeout_policy
 import models
 import protocol
-import pymemcache.client.base
-
-util.set_user_agent(USER_AGENT)
 
 models.reset_protocol_properties()
 
@@ -25,12 +21,6 @@ models.reset_protocol_properties()
 app = Flask(__name__)
 app_dir = Path(__file__).parent
 app.config.from_pyfile(app_dir / 'config.py')
-
-if appengine_info.DEBUG:
-    global_cache = _InProcessGlobalCache()
-else:
-    global_cache = MemcacheCache(pymemcache.client.base.PooledClient(
-        '10.126.144.3', timeout=10, connect_timeout=10))  # seconds
 
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client,

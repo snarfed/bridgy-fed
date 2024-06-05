@@ -8,7 +8,6 @@ import arroba.server
 from arroba import xrpc_repo, xrpc_server, xrpc_sync
 from flask import Flask, g
 import flask_gae_static
-from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
 from lexrpc.server import Server
 import lexrpc.flask_server
 from oauth_dropins.webutil import (
@@ -16,9 +15,8 @@ from oauth_dropins.webutil import (
     appengine_config,
     flask_util,
 )
-import pymemcache.client.base
 
-from common import global_cache_timeout_policy
+from common import global_cache, global_cache_timeout_policy
 
 logger = logging.getLogger(__name__)
 # logging.getLogger('lexrpc').setLevel(logging.INFO)
@@ -42,12 +40,6 @@ if (appengine_info.LOCAL_SERVER
 # don't redirect API requests with blank path elements
 app.url_map.merge_slashes = False
 app.url_map.redirect_defaults = False
-
-if appengine_info.DEBUG:
-    global_cache = _InProcessGlobalCache()
-else:
-    global_cache = MemcacheCache(pymemcache.client.base.PooledClient(
-        '10.126.144.3', timeout=10, connect_timeout=10))  # seconds
 
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client,
