@@ -2426,8 +2426,9 @@ class ActivityPubUtilsTest(TestCase):
             'objectType': 'person',
             'id': 'https://user.com/',
         })
-        self.assert_equals(ACTOR_BASE, ActivityPub.convert(obj, from_user=self.user),
-                           ignore=['endpoints', 'followers', 'following', 'summary'])
+        self.assert_equals(
+            ACTOR_BASE, ActivityPub.convert(obj, from_user=self.user),
+            ignore=['endpoints', 'followers', 'following', 'publicKey', 'summary'])
 
     def test_convert_actor_as1_no_from_user(self):
         obj = Object(our_as1=ACTOR_AS1)

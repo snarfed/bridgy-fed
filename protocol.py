@@ -523,32 +523,14 @@ class Protocol:
             and obj.as1.get('objectType') in as1.ACTOR_TYPES
             and PROTOCOLS.get(obj.source_protocol) != cls
             and Protocol.for_bridgy_subdomain(id) not in DOMAINS
-            and 'Bridgy Fed]' not in html_to_text(obj.as1.get('summary', ''))
             # Web users are special cased, they don't get the label if they've
             # explicitly enabled Bridgy Fed with redirects or webmentions
             and not (from_user.LABEL == 'web'
                      and (from_user.last_webmention_in or from_user.has_redirects))):
+
             obj.our_as1 = copy.deepcopy(obj.as1)
             obj.our_as1['objectType'] = 'application'
-
-            if from_user.key and id == from_user.profile_id():
-                disclaimer = f'[<a href="https://{PRIMARY_DOMAIN}{from_user.user_page_path()}">bridged</a> from <a href="{from_user.web_url()}">{from_user.handle_or_id()}</a> by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
-            else:
-                url = as1.get_url(obj.our_as1) or id
-                name = obj.our_as1.get('displayName') or obj.our_as1.get('username')
-                source = (util.pretty_link(url, text=name) if url
-                          else name if name
-                          else '')
-                if source:
-                    source = ' from ' + source
-                disclaimer = f'[bridged{source} by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
-
-
-            summary = obj.our_as1.setdefault('summary', '')
-            if not summary.endswith(disclaimer):
-                if summary:
-                    obj.our_as1['summary'] += '<br><br>'
-                obj.our_as1['summary'] += disclaimer
+            cls.add_source_links(obj, from_user=from_user)
 
         return cls._convert(obj, from_user=from_user, **kwargs)
 
@@ -570,6 +552,42 @@ class Protocol:
             return the ``{}`` empty dict if the object can't be converted.
         """
         raise NotImplementedError()
+
+    @classmethod
+    def add_source_links(cls, obj, from_user):
+        """Adds "bridged from ... by Bridgy Fed" HTML to ``obj.our_as1``.
+
+        Default implementation; subclasses may override.
+
+        Args:
+          obj (models.Object):
+          from_user (models.User): user (actor) this activity/object is from
+
+        Returns:
+          str: HTML
+        """
+        assert obj.our_as1
+        assert from_user
+        summary = obj.our_as1.setdefault('summary', '')
+        if 'Bridgy Fed]' in html_to_text(summary):
+            return
+
+        id = obj.key.id() if obj.key else obj.our_as1.get('id')
+        if from_user.key and id == from_user.profile_id():
+            source_links = f'[<a href="https://{PRIMARY_DOMAIN}{from_user.user_page_path()}">bridged</a> from <a href="{from_user.web_url()}">{from_user.handle_or_id()}</a> by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
+        else:
+            url = as1.get_url(obj.our_as1) or id
+            name = obj.our_as1.get('displayName') or obj.our_as1.get('username')
+            source = (util.pretty_link(url, text=name) if url
+                      else name if name
+                      else '')
+            if source:
+                source = ' from ' + source
+            source_links = f'[bridged{source} by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
+
+        if summary:
+            summary += '<br><br>'
+        obj.our_as1['summary'] = summary + source_links
 
     @classmethod
     def target_for(cls, obj, shared=False):

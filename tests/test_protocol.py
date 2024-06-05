@@ -585,7 +585,7 @@ class ProtocolTest(TestCase):
         alice = Fake(id='fake:alice')
         summary = 'something about me<br><br>[bridged from <a href="http://al/ice">someone else</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]'
         self.assertEqual({
-            'objectType': 'person',
+            'objectType': 'application',
             'id': 'other:u:fake:alice',
             'summary': summary,
         }, OtherFake.convert(Object(id='fake:alice', source_protocol='fake', our_as1={
