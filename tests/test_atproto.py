@@ -763,8 +763,7 @@ class ATProtoTest(TestCase):
             name='_atproto.fake-handle-us-er.fa.brid.gy.', record_type='TXT',
             ttl=atproto.DNS_TTL, rrdatas=[f'"did={did}"'])
 
-        # check profile record
-        profile = repo.get_record('app.bsky.actor.profile', 'self')
+        # check profile and chat declaration records
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
@@ -779,7 +778,12 @@ class ATProtoTest(TestCase):
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val' : 'bridged-from-bridgy-fed-fake'}],
             },
-        }, profile)
+        }, repo.get_record('app.bsky.actor.profile', 'self'))
+
+        self.assertEqual({
+            "$type" : "chat.bsky.actor.declaration",
+            "allowIncoming" : "none"
+        }, repo.get_record('chat.bsky.actor.declaration', 'self'))
 
         uri = arroba.util.at_uri(did, 'app.bsky.actor.profile', 'self')
         self.assertEqual([Target(uri=uri, protocol='atproto')],

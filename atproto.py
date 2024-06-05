@@ -349,18 +349,28 @@ class ATProto(User, Protocol):
         if not user.obj:
             user.obj = user.load(user.profile_id())
 
-        initial_writes = None
+        initial_writes = []
         if user.obj and user.obj.as1:
             # create user profile
             profile = cls.convert(user.obj, fetch_blobs=True, from_user=user)
-            profile_json = json_dumps(dag_json.encode(profile).decode(), indent=2)
             logger.info(f'Storing ATProto app.bsky.actor.profile self')
-            initial_writes = [Write(
-                action=Action.CREATE, collection='app.bsky.actor.profile',
-                rkey='self', record=profile)]
+            initial_writes.append(
+                Write(action=Action.CREATE, collection='app.bsky.actor.profile',
+                      rkey='self', record=profile))
+
             uri = at_uri(did_plc.did, 'app.bsky.actor.profile', 'self')
             user.obj.add('copies', Target(uri=uri, protocol='atproto'))
             user.obj.put()
+
+        # create chat declaration
+        logger.info(f'Storing ATProto chat declaration record')
+        chat_declaration = {
+            "$type" : "chat.bsky.actor.declaration",
+            "allowIncoming" : "none",
+        }
+        initial_writes.append(
+            Write(action=Action.CREATE, collection='chat.bsky.actor.declaration',
+                  rkey='self', record=chat_declaration))
 
         repo = Repo.create(
             arroba.server.storage, did_plc.did, handle=handle,
