@@ -572,7 +572,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <p>The first time someone follows a web site via Bridgy Fed, it looks for an Atom or RSS feed. If it finds one, it extracts and bridges those posts, then periodically checks for new posts.</p>
 
-<p>Instead of waiting for that periodic poll, you can bridge a new or updated post immediately by sending Bridgy Fed a <a href="https://webmention.net/">webmention</a>. Include a link to <code><a href="fed.brid.gy">https://fed.brid.gy/</a></code> in your post, and if your web server supports webmentions, it should send one automatically. Alternatively <a href="https://indieweb.org/Webmention#Manual_Webmentions">you can send one manually.</a></p>
+<p>Instead of waiting for that periodic poll, you can bridge a new or updated post immediately by including <a href="https://microformats.org/wiki/microformats2">microformats</a> in your HTML and sending Bridgy Fed a <a href="https://webmention.net/">webmention</a>. Include a link to <code><a href="fed.brid.gy">https://fed.brid.gy/</a></code> in your post, and if your web server supports webmentions, it should send one automatically. Alternatively <a href="https://indieweb.org/Webmention#Manual_Webmentions">you can send one manually.</a> (Note that triggering via webmention <em>requires</em> your post HTML to be marked up with <a href="https://microformats.org/wiki/microformats2">microformats</a>.)</p>
 
 <p>Once you send Bridgy Fed a webmention from your site - any webmention! - it will stop reading posts from your Atom or RSS feed, and expect webmentions instead for all posts in the future. You can use this to prevent automatically bridging all posts, and instead choose proactively which of your posts to bridge.</p>
 
