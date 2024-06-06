@@ -1,4 +1,5 @@
 git+https://github.com/snarfed/arroba.git#egg=arroba
+git+https://github.com/snarfed/brevity.git@truncate_to_nearest_word#egg=brevity
 git+https://github.com/snarfed/carbox.git#egg=carbox
 git+https://github.com/snarfed/dag-json.git#egg=dag_json
 git+https://github.com/dvska/gdata-python3.git#egg=gdata

@@ -706,6 +706,56 @@ class ATProtoTest(TestCase):
             'displayName': 'Alice',
         })))
 
+    def test_convert_non_atproto_actor_adds_source_links(self):
+        user = self.make_user_and_repo()
+
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'description': '[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]',
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
+            },
+        }, ATProto.convert(Object(source_protocol='fake', our_as1={
+            'objectType': 'person',
+            'id': 'fake:user',
+            'displayName': 'Alice',
+        }), from_user=user))
+
+    def test_convert_non_atproto_update_actor_truncates_before_source_links(self):
+        user = self.make_user_and_repo()
+
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'description': """\
+Mauris laoreet dolor eu ligula vulputate aliquam.
+
+Aenean vel augue at ipsum vestibulum ultricies.
+Nam quis tristique elit.
+
+Sed tortor neque, aliquet quis posuere aliquam, imperdiet […]
+
+[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]""",
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
+            },
+        }, ATProto.convert(Object(source_protocol='fake', our_as1={
+            'objectType': 'person',
+            'id': 'fake:user',
+            'displayName': 'Alice',
+            # 255 chars when converted to plain text. the app.bsky.actor.profile
+            # description limit is 256 graphemes.
+            'summary': """\
+<p>Mauris laoreet dolor eu ligula vulputate aliquam.</p>
+Aenean vel augue at ipsum vestibulum ultricies.<br>
+Nam quis tristique elit.<br>
+<br>
+Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In molestie, mi tincidunt maximus congue, sem risus comod.""",
+        }), from_user=user))
+
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):
         user = self.make_user('did:plc:user', cls=ATProto)

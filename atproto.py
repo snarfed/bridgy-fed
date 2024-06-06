@@ -13,6 +13,7 @@ from arroba.repo import Repo, Write
 import arroba.server
 from arroba.storage import Action, CommitData
 from arroba.util import at_uri, dag_cbor_cid, next_tid, parse_at_uri, service_jwt
+import brevity
 import dag_json
 from flask import abort, request
 from google.cloud import dns
@@ -639,7 +640,9 @@ class ATProto(User, Protocol):
         """
         assert obj.our_as1
         assert from_user
-        summary = html_to_text(obj.our_as1.setdefault('summary', ''))
+        # WARNING: keep this in sync with 'description': html_to_text(..) in
+        # granary.bluesky.from_as1 for ACTOR_TYPES!
+        summary = html_to_text(obj.our_as1.setdefault('summary', ''), ignore_links=False)
         if 'fed.brid.gy ]' in summary or 'Bridgy Fed]' in summary:
             return
 
@@ -650,15 +653,26 @@ class ATProto(User, Protocol):
         if proto_phrase:
             proto_phrase = f' on {proto_phrase}'
 
-        if from_user.key and id == from_user.profile_id():
+        if from_user.key and id in (from_user.key.id(), from_user.profile_id()):
             url = from_user.web_url()
         else:
             url = as1.get_url(obj.our_as1) or id
-            url = util.pretty_link(url) if url else (proto_phrase or '?')
+            url = util.pretty_link(url) if url else '?'
 
         source_links = f'[bridged from {url}{proto_phrase} by https://{PRIMARY_DOMAIN}/ ]'
+        source_links_len = len(source_links)
         if summary:
-            summary += '<br><br>'
+            source_links = '<br><br>' + source_links
+            source_links_len += 2 # the <br>s get converted to \n's
+
+        max_graphemes = LEXICONS['app.bsky.actor.profile']['record']['properties']['description']['maxGraphemes']
+        limit = max_graphemes - source_links_len
+        if len(summary) > limit:
+            summary = brevity.truncate_to_nearest_word(summary, limit - 4) + ' […]'
+
+        # this will get html_to_text'ed again, in granary.bluesky.from_as1, so
+        # preserve newlines
+        summary = summary.replace('\n', '<br>')
         obj.our_as1['summary'] = summary + source_links
 
     @classmethod
