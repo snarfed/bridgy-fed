@@ -573,17 +573,18 @@ class Protocol:
             return
 
         id = obj.key.id() if obj.key else obj.our_as1.get('id')
+        proto_phrase = (PROTOCOLS[obj.source_protocol].PHRASE
+                        if obj.source_protocol else '')
+        if proto_phrase:
+            proto_phrase = f' on {proto_phrase}'
+
         if from_user.key and id == from_user.profile_id():
-            source_links = f'[<a href="https://{PRIMARY_DOMAIN}{from_user.user_page_path()}">bridged</a> from <a href="{from_user.web_url()}">{from_user.handle_or_id()}</a> by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
+            source_links = f'[<a href="https://{PRIMARY_DOMAIN}{from_user.user_page_path()}">bridged</a> from <a href="{from_user.web_url()}">{from_user.handle}</a>{proto_phrase} by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
+
         else:
             url = as1.get_url(obj.our_as1) or id
-            name = obj.our_as1.get('displayName') or obj.our_as1.get('username')
-            source = (util.pretty_link(url, text=name) if url
-                      else name if name
-                      else '')
-            if source:
-                source = ' from ' + source
-            source_links = f'[bridged{source} by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
+            source = util.pretty_link(url) if url else (proto_phrase or '?')
+            source_links = f'[bridged from {source}{proto_phrase} by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
 
         if summary:
             summary += '<br><br>'

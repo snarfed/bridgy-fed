@@ -102,7 +102,7 @@ class UserTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': 'hi there\n\n[bridged from fake:handle:user by Bridgy Fed]',
+            'description': 'hi there\n\n[bridged from fake:handle:user on fake-phrase by Bridgy Fed]',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val' : 'bridged-from-bridgy-fed-fake'}],

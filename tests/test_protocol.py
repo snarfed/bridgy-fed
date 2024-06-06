@@ -542,13 +542,13 @@ class ProtocolTest(TestCase):
             },
         }))
 
-    def test_convert_object_is_from_user_adds_bridged_disclaimer(self):
+    def test_convert_object_is_from_user_adds_source_links(self):
         alice = Fake(id='fake:alice')
         self.assertEqual({
             'objectType': 'application',
             'id': 'other:u:fake:alice',
             'url': 'http://unused',
-            'summary': 'something about me<br><br>[<a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from <a href="web:fake:alice">fake:handle:alice</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
+            'summary': 'something about me<br><br>[<a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from <a href="web:fake:alice">fake:handle:alice</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
         }, OtherFake.convert(Object(
             id='fake:profile:alice', source_protocol='fake', our_as1={
                 'objectType': 'application',
@@ -557,20 +557,20 @@ class ProtocolTest(TestCase):
                 'summary': 'something about me',
             }), from_user=alice))
 
-    def test_convert_object_isnt_from_user_adds_bridged_disclaimer(self):
+    def test_convert_object_isnt_from_user_adds_source_links(self):
         bob = Fake(id='fake:bob')
         self.assertEqual({
             'objectType': 'application',
             'id': 'other:u:fake:alice',
             'url': 'http://al/ice',
-            'summary': '[bridged from <a href="http://al/ice">al/ice</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
+            'summary': '[bridged from <a href="http://al/ice">al/ice</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
         }, OtherFake.convert(Object(id='fake:alice', source_protocol='fake', our_as1={
             'objectType': 'application',
             'id': 'fake:alice',
             'url': 'http://al/ice',
         }), from_user=bob))
 
-    def test_convert_actor_without_from_user_doesnt_add_disclaimer(self):
+    def test_convert_actor_without_from_user_doesnt_add_source_links(self):
         self.assertEqual({
             'objectType': 'application',
             'id': 'other:u:fake:alice',
@@ -581,7 +581,7 @@ class ProtocolTest(TestCase):
             'url': 'http://al/ice',
         })))
 
-    def test_convert_doesnt_duplicate_bridged_disclaimer(self):
+    def test_convert_doesnt_duplicate_source_links(self):
         alice = Fake(id='fake:alice')
         summary = 'something about me<br><br>[bridged from <a href="http://al/ice">someone else</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]'
         self.assertEqual({

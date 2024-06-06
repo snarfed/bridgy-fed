@@ -424,7 +424,7 @@ class ActivityPubTest(TestCase):
             **ACTOR_FAKE,
             'name': 'fake:handle:user',
             'type': 'Application',
-            'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="web:fake:user">fake:handle:user</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
+            'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="web:fake:user">fake:handle:user</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
         }, got.json, ignore=['attachment'])
 
     def test_actor_handle_new_user(self, _, __, ___):
@@ -438,7 +438,7 @@ class ActivityPubTest(TestCase):
             **ACTOR_FAKE,
             'name': 'fake:handle:user',
             'type': 'Application',
-            'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="web:fake:user">fake:handle:user</a> by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
+            'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="web:fake:user">fake:handle:user</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
         }, got.json, ignore=['attachment', 'publicKey'])
 
     def test_actor_atproto_not_enabled(self, *_):
