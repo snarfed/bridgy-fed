@@ -767,7 +767,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': 'hi there\n\n[bridged from fake:handle:us_er on fake-phrase by Bridgy Fed]',
+            'description': 'hi there\n\n[bridged from web:fake:us_er on fake-phrase by https://fed.brid.gy/ ]',
             'avatar': {
                 '$type': 'blob',
                 'mimeType': 'application/octet-stream',
@@ -881,7 +881,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
-            'description': 'hi there\n\n[bridged from fake:handle:user on fake-phrase by Bridgy Fed]',
+            'description': 'hi there\n\n[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]',
             'avatar': {
                 '$type': 'blob',
                 'ref': BLOB_CID,

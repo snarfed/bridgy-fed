@@ -514,12 +514,14 @@ class Protocol:
         Returns:
           converted object in the protocol's native format, often a dict
         """
-        id = None
-        if obj:
-            id = obj.key.id() if obj.key else obj.as1.get('id') if obj.as1 else None
+        if not obj:
+            return {}
+
+        id = obj.key.id() if obj.key else obj.as1.get('id') if obj.as1 else None
+        orig_our_as1 = obj.our_as1
 
         # mark bridged actors as bots and add "bridged by Bridgy Fed" to their bios
-        if (from_user and obj and obj.as1
+        if (from_user and obj.as1
             and obj.as1.get('objectType') in as1.ACTOR_TYPES
             and PROTOCOLS.get(obj.source_protocol) != cls
             and Protocol.for_bridgy_subdomain(id) not in DOMAINS
@@ -532,7 +534,9 @@ class Protocol:
             obj.our_as1['objectType'] = 'application'
             cls.add_source_links(obj, from_user=from_user)
 
-        return cls._convert(obj, from_user=from_user, **kwargs)
+        converted = cls._convert(obj, from_user=from_user, **kwargs)
+        obj.our_as1 = orig_our_as1
+        return converted
 
     @classmethod
     def _convert(cls, obj, from_user=None, **kwargs):
@@ -562,9 +566,6 @@ class Protocol:
         Args:
           obj (models.Object):
           from_user (models.User): user (actor) this activity/object is from
-
-        Returns:
-          str: HTML
         """
         assert obj.our_as1
         assert from_user
@@ -583,7 +584,7 @@ class Protocol:
 
         else:
             url = as1.get_url(obj.our_as1) or id
-            source = util.pretty_link(url) if url else (proto_phrase or '?')
+            source = util.pretty_link(url) if url else '?'
             source_links = f'[bridged from {source}{proto_phrase} by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
 
         if summary:

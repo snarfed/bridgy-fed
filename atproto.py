@@ -18,6 +18,7 @@ from flask import abort, request
 from google.cloud import dns
 from google.cloud import ndb
 from granary import as1, bluesky
+from granary.source import html_to_text
 from lexrpc import Client
 import requests
 from requests import RequestException
@@ -34,6 +35,7 @@ from common import (
     DOMAIN_RE,
     DOMAINS,
     error,
+    PRIMARY_DOMAIN,
     USER_AGENT,
 )
 import flask_app
@@ -619,6 +621,45 @@ class ATProto(User, Protocol):
             ret['labels'].setdefault('values', []).append({'val' : label_val})
 
         return ret
+
+    @classmethod
+    def add_source_links(cls, obj, from_user):
+        """Adds "bridged from ... by Bridgy Fed" text to ``obj.our_as1``.
+
+        Overrides the default :meth:`protocol.Protocol.add_source_links`
+        implementation to use plain text URLs because ``app.bsky.actor.profile``
+        has no ``descriptionFacets`` for the ``description`` field.
+
+        TODO: much of this duplicates
+        :meth:`protocol.Protocol.add_source_links`. Refactor somehow.
+
+        Args:
+          obj (models.Object):
+          from_user (models.User): user (actor) this activity/object is from
+        """
+        assert obj.our_as1
+        assert from_user
+        summary = html_to_text(obj.our_as1.setdefault('summary', ''))
+        if 'fed.brid.gy ]' in summary or 'Bridgy Fed]' in summary:
+            return
+
+        id = obj.key.id() if obj.key else obj.our_as1.get('id')
+
+        proto_phrase = (PROTOCOLS[obj.source_protocol].PHRASE
+                        if obj.source_protocol else '')
+        if proto_phrase:
+            proto_phrase = f' on {proto_phrase}'
+
+        if from_user.key and id == from_user.profile_id():
+            url = from_user.web_url()
+        else:
+            url = as1.get_url(obj.our_as1) or id
+            url = util.pretty_link(url) if url else (proto_phrase or '?')
+
+        source_links = f'[bridged from {url}{proto_phrase} by https://{PRIMARY_DOMAIN}/ ]'
+        if summary:
+            summary += '<br><br>'
+        obj.our_as1['summary'] = summary + source_links
 
     @classmethod
     def create_report(cls, input, from_user):
