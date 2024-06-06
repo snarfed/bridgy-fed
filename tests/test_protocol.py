@@ -594,6 +594,29 @@ class ProtocolTest(TestCase):
             'summary': summary,
         }), from_user=alice))
 
+    def test_convert_object_adds_source_links_to_create_update(self):
+        alice = Fake(id='fake:alice')
+        for verb in 'create', 'update':
+            self.assertEqual({
+                'objectType': 'activity',
+                'verb': verb,
+                'id': 'other:o:fa:fake:profile:update',
+                'object': {
+                    'objectType': 'application',
+                    'id': 'other:u:fake:profile:alice',
+                    'summary': 'something about me<br><br>[<a href="https://fed.brid.gy/fa/fake:handle:alice">bridged</a> from <a href="web:fake:alice">fake:handle:alice</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
+                },
+            }, OtherFake.convert(
+                Object(id='fake:profile:update', source_protocol='fake', our_as1={
+                    'objectType': 'activity',
+                    'verb': verb,
+                    'object': {
+                        'id': 'fake:profile:alice',
+                        'objectType': 'application',
+                        'summary': 'something about me',
+                    },
+                }), from_user=alice))
+
 
 class ProtocolReceiveTest(TestCase):
 

@@ -483,7 +483,7 @@ class ATProto(User, Protocol):
                 assert copy_did == did, (copy_did, did)
                 assert coll == type, (coll, type)
 
-            logger.info(f'Storing ATProto {action} {type} {rkey}')
+            logger.info(f'Storing ATProto {action} {type} {rkey} {dag_json.encode(record)}')
             repo.apply_writes([Write(action=action, collection=type, rkey=rkey,
                                      record=record)])
 
@@ -623,7 +623,7 @@ class ATProto(User, Protocol):
         return ret
 
     @classmethod
-    def add_source_links(cls, obj, from_user):
+    def add_source_links(cls, actor, obj, from_user):
         """Adds "bridged from ... by Bridgy Fed" text to ``obj.our_as1``.
 
         Overrides the default :meth:`protocol.Protocol.add_source_links`

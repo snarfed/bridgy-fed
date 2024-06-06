@@ -385,9 +385,12 @@ class ATProtoTest(TestCase):
         )
 
     def test_convert_bsky_pass_through(self):
+        self.store_object(id='did:plc:alice', raw=DID_DOC)
         self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
             'foo': 'bar',
-        }, ATProto.convert(Object(id='did:plc:alice', bsky={
+        }, ATProto.convert(Object(id='at://did:plc:alice', bsky={
+            '$type': 'app.bsky.actor.profile',
             'foo': 'bar',
         })))
 

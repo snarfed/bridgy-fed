@@ -514,15 +514,17 @@ class Protocol:
         Returns:
           converted object in the protocol's native format, often a dict
         """
-        if not obj:
+        if not obj or not obj.as1:
             return {}
 
-        id = obj.key.id() if obj.key else obj.as1.get('id') if obj.as1 else None
+        id = obj.key.id() if obj.key else obj.as1.get('id')
+        is_activity = obj.as1.get('verb') in ('create', 'update')
+        base_obj = as1.get_object(obj.as1) if is_activity else obj.as1
         orig_our_as1 = obj.our_as1
 
         # mark bridged actors as bots and add "bridged by Bridgy Fed" to their bios
-        if (from_user and obj.as1
-            and obj.as1.get('objectType') in as1.ACTOR_TYPES
+        if (from_user and base_obj
+            and base_obj.get('objectType') in as1.ACTOR_TYPES
             and PROTOCOLS.get(obj.source_protocol) != cls
             and Protocol.for_bridgy_subdomain(id) not in DOMAINS
             # Web users are special cased, they don't get the label if they've
@@ -531,8 +533,9 @@ class Protocol:
                      and (from_user.last_webmention_in or from_user.has_redirects))):
 
             obj.our_as1 = copy.deepcopy(obj.as1)
-            obj.our_as1['objectType'] = 'application'
-            cls.add_source_links(obj, from_user=from_user)
+            actor = as1.get_object(obj.as1) if is_activity else obj.as1
+            actor['objectType'] = 'application'
+            cls.add_source_links(actor=actor, obj=obj, from_user=from_user)
 
         converted = cls._convert(obj, from_user=from_user, **kwargs)
         obj.our_as1 = orig_our_as1
@@ -558,38 +561,38 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def add_source_links(cls, obj, from_user):
-        """Adds "bridged from ... by Bridgy Fed" HTML to ``obj.our_as1``.
+    def add_source_links(cls, actor, obj, from_user):
+        """Adds "bridged from ... by Bridgy Fed" HTML to ``actor['summary']``.
 
         Default implementation; subclasses may override.
 
         Args:
+          actor (dict): AS1 actor
           obj (models.Object):
           from_user (models.User): user (actor) this activity/object is from
         """
-        assert obj.our_as1
         assert from_user
-        summary = obj.our_as1.setdefault('summary', '')
+        summary = actor.setdefault('summary', '')
         if 'Bridgy Fed]' in html_to_text(summary):
             return
 
-        id = obj.key.id() if obj.key else obj.our_as1.get('id')
+        id = actor.get('id')
         proto_phrase = (PROTOCOLS[obj.source_protocol].PHRASE
                         if obj.source_protocol else '')
         if proto_phrase:
             proto_phrase = f' on {proto_phrase}'
 
-        if from_user.key and id == from_user.profile_id():
+        if from_user.key and id in (from_user.key.id(), from_user.profile_id()):
             source_links = f'[<a href="https://{PRIMARY_DOMAIN}{from_user.user_page_path()}">bridged</a> from <a href="{from_user.web_url()}">{from_user.handle}</a>{proto_phrase} by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
 
         else:
-            url = as1.get_url(obj.our_as1) or id
+            url = as1.get_url(actor) or id
             source = util.pretty_link(url) if url else '?'
             source_links = f'[bridged from {source}{proto_phrase} by <a href="https://{PRIMARY_DOMAIN}/">Bridgy Fed</a>]'
 
         if summary:
             summary += '<br><br>'
-        obj.our_as1['summary'] = summary + source_links
+        actor['summary'] = summary + source_links
 
     @classmethod
     def target_for(cls, obj, shared=False):
@@ -789,8 +792,7 @@ class Protocol:
 
         if (obj.type == 'follow'
                 and Protocol.for_bridgy_subdomain(as1.get_object(obj.as1).get('id'))):
-            # refresh profile for follows of bot users to re-check whether
-            # they're opted out
+            # follows of bot user; refresh user profile first
             logger.info(f'Follow of bot user, reloading {actor}')
             from_cls.load(actor, remote=True)
             from_user = from_cls.get_or_create(id=actor, allow_opt_out=True)
