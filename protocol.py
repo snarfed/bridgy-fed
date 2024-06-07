@@ -573,7 +573,7 @@ class Protocol:
         """
         assert from_user
         summary = actor.setdefault('summary', '')
-        if 'Bridgy Fed]' in html_to_text(summary):
+        if 'Bridgy Fed]' in html_to_text(summary, ignore_links=True):
             return
 
         id = actor.get('id')

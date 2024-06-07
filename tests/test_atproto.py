@@ -756,6 +756,24 @@ Nam quis tristique elit.<br>
 Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In molestie, mi tincidunt maximus congue, sem risus comod.""",
         }), from_user=user))
 
+    def test_convert_non_atproto_actor_link_in_summary(self):
+        user = self.make_user_and_repo()
+
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'description': 'bar\n\n[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]',
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
+            },
+        }, ATProto.convert(Object(source_protocol='fake', our_as1={
+            'objectType': 'person',
+            'id': 'fake:user',
+            'displayName': 'Alice',
+            'summary': '<a href="http://foo">bar</a>',
+        }), from_user=user))
+
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_web_url(self, mock_get):
         user = self.make_user('did:plc:user', cls=ATProto)
@@ -917,8 +935,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In moles
         'blob contents', content_type='image/png'))  # image blob fetch
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests.post',
-           return_value=requests_response('OK'))  # create DID on PLC
+    @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
     def test_send_new_repo_includes_user_profile(self, mock_post, mock_create_task,
                                                  _, __):
         Fake.fetchable = {'fake:profile:user': ACTOR_AS}

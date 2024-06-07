@@ -642,7 +642,8 @@ class ATProto(User, Protocol):
         assert from_user
         # WARNING: keep this in sync with 'description': html_to_text(..) in
         # granary.bluesky.from_as1 for ACTOR_TYPES!
-        summary = html_to_text(obj.our_as1.setdefault('summary', ''), ignore_links=False)
+        summary = html_to_text(obj.our_as1.setdefault('summary', ''),
+                               ignore_links=True)
         if 'fed.brid.gy ]' in summary or 'Bridgy Fed]' in summary:
             return
 

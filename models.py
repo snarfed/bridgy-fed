@@ -395,7 +395,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             return 'opt-out'
 
         for field in 'summary', 'displayName':
-            text = html_to_text(self.obj.as1.get(field, ''))
+            text = html_to_text(self.obj.as1.get(field, ''), ignore_links=True)
             for tag in OPT_OUT_TAGS:
                 if tag in text:
                     return 'opt-out'
