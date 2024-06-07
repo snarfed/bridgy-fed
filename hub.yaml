@@ -37,7 +37,7 @@ env_variables:
   MOD_SERVICE_HOST: mod.bsky.app
   MOD_SERVICE_DID: did:plc:ar7c4by46qjdydhdevvrndac
   # ...or test against labeler.dholms.xyz / did:plc:vzxheqfwpbi3lxbgdh22js66
-  ROLLBACK_WINDOW: 1000000
+  ROLLBACK_WINDOW: 50000
 
 # need only one instance so that new commits can be delivered to subscribeRepos
 # subscribers in memory
