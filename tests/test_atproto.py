@@ -69,9 +69,9 @@ class ATProtoTest(TestCase):
         arroba.util.now = lambda **kwargs: NOW
 
     def make_user_and_repo(self):
-        self.user = self.make_user(id='fake:user', cls=Fake,
-                                   copies=[Target(uri='did:plc:user',
-                                                  protocol='atproto')])
+        self.user = self.make_user(
+            id='fake:user', cls=Fake,
+            copies=[Target(uri='did:plc:user', protocol='atproto')])
 
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL

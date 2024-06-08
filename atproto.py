@@ -420,9 +420,9 @@ class ATProto(User, Protocol):
         if type in ('post', 'update', 'delete'):
             obj_as1 = as1.get_object(obj.as1)
             base_obj = PROTOCOLS[obj.source_protocol].load(obj_as1['id'])
-            if not base_obj:
+            if not base_obj or not (base_obj.as1 or base_obj.raw):
                 if type == 'delete':
-                    logger.info("Can't delete, we don't have original object {obj_as1['id']}")
+                    logger.info(f"Can't delete, we don't have original object {obj_as1['id']}")
                     return False
                 base_obj = obj
 
