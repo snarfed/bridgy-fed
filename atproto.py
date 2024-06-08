@@ -412,10 +412,11 @@ class ATProto(User, Protocol):
         base_obj = obj
         if type in ('post', 'update', 'delete'):
             obj_as1 = as1.get_object(obj.as1)
-            type = as1.object_type(obj_as1)
-            # TODO: should we not load for deletes?
             base_obj = PROTOCOLS[obj.source_protocol].load(obj_as1['id'])
             if not base_obj:
+                if type == 'delete':
+                    logger.info("Can't delete, we don't have original object {obj_as1['id']}")
+                    return False
                 base_obj = obj
 
         # convert to Bluesky record; short circuits on error

@@ -1023,13 +1023,13 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In moles
         self.test_send_note_existing_repo()
         mock_create_task.reset_mock()
 
-        update = self.store_object(id='fake:delete', source_protocol='fake', our_as1={
+        delete = self.store_object(id='fake:delete', source_protocol='fake', our_as1={
             'objectType': 'activity',
             'verb': 'delete',
             'actor': 'fake:user',
             'object': 'fake:post',
         })
-        self.assertTrue(ATProto.send(update, 'https://bsky.brid.gy/'))
+        self.assertTrue(ATProto.send(delete, 'https://bsky.brid.gy/'))
 
         # check repo, record
         did = self.user.key.get().get_copy(ATProto)
@@ -1038,6 +1038,19 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In moles
         self.assertIsNone(repo.get_record('app.bsky.feed.post', last_tid))
 
         mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task')
+    def test_send_delete_no_original(self, mock_create_task):
+        self.make_user_and_repo()
+
+        obj = Object(id='fake:delete', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
+        mock_create_task.assert_not_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_like(self, mock_create_task):
