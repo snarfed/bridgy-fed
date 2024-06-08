@@ -763,6 +763,8 @@ class Protocol:
 
             if (already_seen
                     or (obj.new is False and obj.changed is False)
+                    # TODO: how does this make sense? won't these two lines
+                    # always be true?!
                     or (obj.new is None and obj.changed is None
                         and from_cls.load(id, remote=False))):
                 msg = f'Already handled this activity {id}'
@@ -1539,11 +1541,11 @@ def receive_task():
       obj (url-safe google.cloud.ndb.key.Key): :class:`models.Object` to handle
       authed_as (str): passed to :meth:`Protocol.receive`
 
-    TODO: migrate incoming webmentions and AP inbox deliveries to this. The
+    TODO: migrate incoming webmentions to this. See how we did it for AP. The
     difficulty is that parts of :meth:`protocol.Protocol.receive` depend on
-    setup in :func:`web.webmention` and :func:`activitypub.inbox`, eg
-    :class:`models.Object` with ``new`` and ``changed``, HTTP request details,
-    etc. See stash for attempt at this for :class:`web.Web`.
+    setup in :func:`web.webmention`, eg :class:`models.Object` with ``new`` and
+    ``changed``, HTTP request details, etc. See stash for attempt at this for
+    :class:`web.Web`.
     """
     form = request.form.to_dict()
     logger.info(f'Params: {list(form.items())}')
