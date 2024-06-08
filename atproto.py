@@ -12,7 +12,14 @@ from arroba.datastore_storage import AtpRemoteBlob, AtpRepo, DatastoreStorage
 from arroba.repo import Repo, Write
 import arroba.server
 from arroba.storage import Action, CommitData
-from arroba.util import at_uri, dag_cbor_cid, next_tid, parse_at_uri, service_jwt
+from arroba.util import (
+    at_uri,
+    dag_cbor_cid,
+    next_tid,
+    parse_at_uri,
+    service_jwt,
+    TombstonedRepo,
+)
 import brevity
 import dag_json
 from flask import abort, request
@@ -445,7 +452,12 @@ class ATProto(User, Protocol):
             return False
 
         # load repo
-        repo = arroba.server.storage.load_repo(did)
+        try:
+            repo = arroba.server.storage.load_repo(did)
+        except TombstonedRepo:
+            logger.info(f'repo for {did} is tombstoned, giving up')
+            return False
+
         assert repo
         repo.callback = lambda _: common.create_task(queue='atproto-commit')
 
@@ -694,7 +706,13 @@ class ATProto(User, Protocol):
         repo_did = from_user.get_copy(ATProto)
         if not repo_did:
             return False
-        repo = arroba.server.storage.load_repo(repo_did)
+
+        try:
+            repo = arroba.server.storage.load_repo(repo_did)
+        except TombstonedRepo:
+            logger.info(f'repo for {did} is tombstoned, giving up')
+            return False
+
         mod_host = os.environ['MOD_SERVICE_HOST']
         token = service_jwt(host=mod_host,
                             aud=os.environ['MOD_SERVICE_DID'],

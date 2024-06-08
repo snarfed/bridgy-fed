@@ -76,8 +76,8 @@ class ATProtoTest(TestCase):
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
         self.store_object(id='did:plc:user', raw=did_doc)
-        Repo.create(self.storage, 'did:plc:user', handle='handull',
-                    signing_key=ATPROTO_KEY)
+        self.repo = Repo.create(self.storage, 'did:plc:user', handle='handull',
+                                signing_key=ATPROTO_KEY)
 
         return self.user
 
@@ -1271,6 +1271,17 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In moles
         }, next(self.storage.read_events_by_seq(seq)))
 
         mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_from_deleted_actor(self, mock_create_task):
+        self.make_user_and_repo()
+        self.storage.tombstone_repo(self.repo)
+
+        obj = Object(id='fake:post', source_protocol='fake', our_as1=NOTE_AS)
+        self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy'))
+
+        self.assertEqual({}, self.repo.get_contents()['app.bsky.feed.post'])
+        mock_create_task.assert_not_called()
 
     @patch.object(tasks_client, 'create_task')
     def test_send_translates_ids(self, mock_create_task):
