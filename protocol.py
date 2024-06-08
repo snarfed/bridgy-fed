@@ -1614,7 +1614,7 @@ def send_task():
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if not code and not body:
-            logger.info(str(e), exc_info=True)
+            raise
 
     if sent is False:
         logger.info(f'Failed sending {obj.key.id()} to {url}')
