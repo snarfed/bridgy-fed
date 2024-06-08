@@ -1304,6 +1304,9 @@ class Protocol:
             elif protocol.is_blocklisted(id):
                 logger.info(f'{id} is blocklisted')
                 continue
+            elif not from_user.is_enabled(protocol):
+                logger.info(f"{from_user.key.id()} hasn't enabled {protocol.LABEL}")
+                continue
 
             orig_obj = protocol.load(id)
             if not orig_obj or not orig_obj.as1:

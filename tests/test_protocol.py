@@ -749,7 +749,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([(obj.key.id(), 'shared:target')], Fake.sent)
 
     @patch.object(ATProto, 'send', return_value=True)
-    def test_create_post_user_enabled_atproto_adds_pds_target(self, mock_send):
+    def test_post_by_user_enabled_atproto_adds_pds_target(self, mock_send):
         self.user.enabled_protocols = ['atproto']
         self.user.put()
 
@@ -765,9 +765,9 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(ATProto.PDS_URL, url)
 
     @patch.object(ATProto, 'send', return_value=True)
-    def test_create_reply_to_not_bridged_account_skips_atproto(self, mock_send):
+    def test_reply_to_not_bridged_account_skips_atproto(self, mock_send):
         user = self.make_user('eefake:user', cls=ExplicitEnableFake,
-                              enabled_protocols = ['atproto'])
+                              enabled_protocols=['atproto'])
 
         self.eve = self.make_user('eefake:eve', cls=ExplicitEnableFake)
         self.store_object(id='eefake:post', our_as1={
@@ -787,9 +787,9 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(0, mock_send.call_count)
 
     @patch.object(ATProto, 'send', return_value=True)
-    def test_create_repost_of_not_bridged_account_skips_atproto(self, mock_send):
+    def test_repost_of_not_bridged_account_skips_atproto(self, mock_send):
         user = self.make_user('eefake:user', cls=ExplicitEnableFake,
-                              enabled_protocols = ['atproto'])
+                              enabled_protocols=['atproto'])
 
         self.eve = self.make_user('eefake:eve', cls=ExplicitEnableFake)
         self.store_object(id='eefake:post', our_as1={
@@ -807,6 +807,30 @@ class ProtocolReceiveTest(TestCase):
                 'object': 'eefake:post',
             })
 
+        self.assertEqual(0, mock_send.call_count)
+
+    @patch.object(ATProto, 'send', return_value=True)
+    def test_follow_of_bridged_account_by_not_bridged_account_skips_atproto(
+            self, mock_send):
+        user = self.make_user('eefake:user', cls=ExplicitEnableFake)
+        self.store_object(id='did:plc:eve', raw=DID_DOC)
+        eve = self.make_user('did:plc:eve', cls=ATProto, enabled_protocols=['eefake'],
+                             copies=[Target(uri='eefake:eve', protocol='eefake')],
+                             obj_bsky=ACTOR_PROFILE_BSKY)
+
+        with self.assertRaises(NoContent):
+            ExplicitEnableFake.receive_as1({
+                'id': 'eefake:follow',
+                'objectType': 'activity',
+                'verb': 'follow',
+                'actor': 'eefake:user',
+                'object': 'eefake:eve',
+            })
+
+        self.assert_entities_equal(Follower(from_=user.key, to=eve.key,
+                                            follow=Object(id='eefake:follow').key),
+                                   Follower.query().fetch(),
+                                   ignore=['created', 'updated'])
         self.assertEqual(0, mock_send.call_count)
 
     @patch.object(ATProto, 'send', return_value=True)

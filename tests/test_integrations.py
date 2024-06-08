@@ -48,6 +48,7 @@ class IntegrationTests(TestCase):
     def make_ap_user_with_atp(self, ap_id, did):
         Repo.create(self.storage, did, signing_key=ATPROTO_KEY)
         user = self.make_user(id=ap_id, cls=ActivityPub,
+                              enabled_protocols=['atproto'],
                               copies=[Target(uri=did, protocol='atproto')],
                               obj_as2=add_key({
                                   'type': 'Person',
@@ -556,7 +557,8 @@ class IntegrationTests(TestCase):
         """
         self.store_object(id='did:plc:alice', raw=DID_DOC)
         alice = self.make_user(id='did:plc:alice', cls=ATProto,
-                               obj_bsky=test_atproto.ACTOR_PROFILE_BSKY)
+                               obj_bsky=test_atproto.ACTOR_PROFILE_BSKY,
+                               enabled_protocols=['activitypub'])
         bob = self.make_ap_user_with_atp('https://inst/bob', 'did:plc:bob')
 
         post = {
