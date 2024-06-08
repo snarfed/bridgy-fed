@@ -478,8 +478,21 @@ class ATProto(User, Protocol):
         lex_type = LEXICONS[type]['type']
         assert lex_type == 'record', f"Can't store {type} object of type {lex_type}"
 
+        # only modify objects that we've bridged
+        rkey = None
+        if verb in ('update', 'delete'):
+            # check that they're updating the object we have
+            copy = base_obj.get_copy(to_cls)
+            if not copy:
+                logger.info(f"Can't {type}, we didn't bridge original {base_obj.key.id()}")
+                return False
+            copy_did, coll, rkey = parse_at_uri(copy)
+            assert copy_did == did, (copy_did, did)
+            assert coll == type, (coll, type)
+
         ndb.transactional()
         def write():
+            nonlocal rkey
             match verb:
                 case 'update':
                     action = Action.UPDATE
@@ -488,14 +501,6 @@ class ATProto(User, Protocol):
                 case _:
                     action = Action.CREATE
                     rkey = next_tid()
-
-            if verb in ('update', 'delete'):
-                # load existing record, check that it's the same one
-                copy = base_obj.get_copy(to_cls)
-                assert copy
-                copy_did, coll, rkey = parse_at_uri(copy)
-                assert copy_did == did, (copy_did, did)
-                assert coll == type, (coll, type)
 
             logger.info(f'Storing ATProto {action} {type} {rkey} {dag_json.encode(record)}')
             repo.apply_writes([Write(action=action, collection=type, rkey=rkey,

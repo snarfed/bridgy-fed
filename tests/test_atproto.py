@@ -1052,6 +1052,21 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In moles
         self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
         mock_create_task.assert_not_called()  # atproto-commit
 
+    @patch.object(tasks_client, 'create_task')
+    def test_send_delete_original_no_copy(self, mock_create_task):
+        self.make_user_and_repo()
+        obj = self.store_object(id='fake:post', source_protocol='fake',
+                                our_as1=NOTE_AS)
+
+        obj = Object(id='fake:delete', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
+        mock_create_task.assert_not_called()  # atproto-commit
+
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_like(self, mock_create_task):
         user = self.make_user_and_repo()
