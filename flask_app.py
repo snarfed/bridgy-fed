@@ -49,9 +49,22 @@ app.wsgi_app = flask_util.ndb_context_middleware(
     # https://github.com/googleapis/python-ndb/issues/888
     cache_policy=lambda key: False)
 
+# deregister XRPC methods we don't support
+for nsid in (
+    'com.atproto.repo.applyWrites',
+    'com.atproto.repo.createRecord',
+    'com.atproto.repo.deleteRecord',
+    'com.atproto.repo.putRecord',
+    'com.atproto.repo.uploadBlob',
+    'com.atproto.server.createSession',
+    'com.atproto.server.getAccountInviteCodes',
+    'com.atproto.server.getSession',
+    'com.atproto.server.listAppPasswords',
+    'com.atproto.server.refreshSession',
+):
+    del arroba.server.server._methods[nsid]
+
 lexrpc.flask_server.init_flask(arroba.server.server, app)
-
-
 
 ###########################################
 
