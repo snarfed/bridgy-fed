@@ -26,7 +26,8 @@ from flask import abort, request
 from google.cloud import dns
 from google.cloud import ndb
 from granary import as1, bluesky
-from granary.source import html_to_text
+from granary.bluesky import Bluesky
+from granary.source import html_to_text, INCLUDE_LINK, Source
 from lexrpc import Client
 import requests
 from requests import RequestException
@@ -679,20 +680,11 @@ class ATProto(User, Protocol):
             url = util.pretty_link(url) if url else '?'
 
         source_links = f'[bridged from {url}{proto_phrase} by https://{PRIMARY_DOMAIN}/ ]'
-        source_links_len = len(source_links)
         if summary:
-            source_links = '<br><br>' + source_links
-            source_links_len += 2 # the <br>s get converted to \n's
+            source_links = '\n\n' + source_links
 
-        max_graphemes = LEXICONS['app.bsky.actor.profile']['record']['properties']['description']['maxGraphemes']
-        limit = max_graphemes - source_links_len
-        if len(summary) > limit:
-            summary = brevity.truncate_to_nearest_word(summary, limit - 4) + ' […]'
-
-        # this will get html_to_text'ed again, in granary.bluesky.from_as1, so
-        # preserve newlines
-        summary = summary.replace('\n', '<br>')
-        obj.our_as1['summary'] = summary + source_links
+        obj.our_as1['summary'] = Bluesky('unused').truncate(summary, url=source_links,
+                                                            punctuation=('', ''))
 
     @classmethod
     def create_report(cls, input, from_user):

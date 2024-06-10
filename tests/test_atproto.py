@@ -735,7 +735,7 @@ Mauris laoreet dolor eu ligula vulputate aliquam.
 Aenean vel augue at ipsum vestibulum ultricies.
 Nam quis tristique elit.
 
-Sed tortor neque, aliquet quis posuere aliquam, imperdiet […]
+Sed tortor neque, aliquet quis posuere aliquam […] 
 
 [bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]""",
             'labels': {
