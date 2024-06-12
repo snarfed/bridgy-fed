@@ -16,7 +16,6 @@ from granary.tests.test_bluesky import (
     ACTOR_AS,
     ACTOR_PROFILE_BSKY,
     POST_AS,
-    POST_BSKY,
 )
 from multiformats import CID
 from oauth_dropins.webutil.appengine_config import tasks_client
@@ -56,6 +55,13 @@ NOTE_AS = {
     'content': 'My original post',
     'actor': 'fake:user',
     'published': '2007-07-07T03:04:05.000Z',
+}
+NOTE_BSKY = {
+  '$type': 'app.bsky.feed.post',
+  'text': 'My original post',
+  'originalText': 'My original post',
+  'originalUrl': 'fake:post',
+  'createdAt': '2007-07-07T03:04:05.000Z',
 }
 
 
@@ -434,6 +440,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
             'text': 'foo',
+            'originalText': 'foo',
             'createdAt': '2022-01-02T03:04:05.000Z',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
@@ -468,6 +475,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
             'text': 'foo',
+            'originalText': 'foo',
             'createdAt': '2022-01-02T03:04:05.000Z',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
@@ -560,6 +568,7 @@ class ATProtoTest(TestCase):
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed'}],
             },
+            'originalUrl': 'did:web:alice.com',
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
             'id': 'did:web:alice.com',
@@ -584,6 +593,7 @@ class ATProtoTest(TestCase):
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed'}],
             },
+            'originalUrl': 'did:web:alice.com',
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
             'id': 'did:web:alice.com',
@@ -610,6 +620,7 @@ class ATProtoTest(TestCase):
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed'}],
             },
+            'originalUrl': 'did:web:alice.com',
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
             'id': 'did:web:alice.com',
@@ -622,10 +633,12 @@ class ATProtoTest(TestCase):
     def test_convert_resolve_mention_handle(self, mock_get):
         self.store_object(id='did:plc:user', raw=DID_DOC)
 
+        content = 'hi <a href="https://bsky.app/profile/han.dull">@han.dull</a> hows it going'
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
             'createdAt': '2022-01-02T03:04:05.000Z',
             'text': 'hi @han.dull hows it going',
+            'originalText': content,
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
                 'features': [{
@@ -642,7 +655,7 @@ class ATProtoTest(TestCase):
             # from the link in content. make sure we merge the two and don't end
             # up with a duplicate mention of the DID or a mention of the handle.
             'objectType': 'note',
-            'content': 'hi <a href="https://bsky.app/profile/han.dull">@han.dull</a> hows it going',
+            'content': content,
             'tags': [{
                 'objectType': 'mention',
                 'url': 'did:plc:user',
@@ -655,10 +668,12 @@ class ATProtoTest(TestCase):
     def test_convert_resolve_mention_handle_drop_server(self, mock_get):
         self.store_object(id='did:plc:user', raw=DID_DOC)
 
+        content = 'hi <a href="https://bsky.brid.gy/ap/did:plc:user">@<span>han.dull</span></a> hows it going'
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
             'createdAt': '2022-01-02T03:04:05.000Z',
             'text': 'hi @han.dull hows it going',
+            'originalText': content,
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
                 'features': [{
@@ -672,7 +687,7 @@ class ATProtoTest(TestCase):
             }],
         }, ATProto.convert(Object(our_as1={
             'objectType': 'comment',
-            'content': 'hi <a href="https://bsky.brid.gy/ap/did:plc:user">@<span>han.dull</span></a> hows it going',
+            'content': content,
             'tags': [{
                 'objectType': 'mention',
                 'url': 'did:plc:user',
@@ -700,6 +715,7 @@ class ATProtoTest(TestCase):
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
             },
+            'originalUrl': 'fake:alice',
         }, ATProto.convert(Object(source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:alice',
@@ -717,6 +733,7 @@ class ATProtoTest(TestCase):
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
             },
+            'originalUrl': 'fake:user',
         }, ATProto.convert(Object(source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:user',
@@ -725,6 +742,13 @@ class ATProtoTest(TestCase):
 
     def test_convert_non_atproto_update_actor_truncates_before_source_links(self):
         user = self.make_user_and_repo()
+
+        summary = """\
+<p>Mauris laoreet dolor eu ligula vulputate aliquam.</p>
+Aenean vel augue at ipsum vestibulum ultricies.<br>
+Nam quis tristique elit.<br>
+<br>
+Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In molestie, mi tincidunt maximus congue, sem risus comod."""
 
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
@@ -738,6 +762,8 @@ Nam quis tristique elit.
 Sed tortor neque, aliquet quis posuere aliquam […] 
 
 [bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]""",
+            'originalDescription': summary,
+            'originalUrl': 'fake:user',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
@@ -748,12 +774,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'displayName': 'Alice',
             # 255 chars when converted to plain text. the app.bsky.actor.profile
             # description limit is 256 graphemes.
-            'summary': """\
-<p>Mauris laoreet dolor eu ligula vulputate aliquam.</p>
-Aenean vel augue at ipsum vestibulum ultricies.<br>
-Nam quis tristique elit.<br>
-<br>
-Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In molestie, mi tincidunt maximus congue, sem risus comod.""",
+            'summary': summary,
         }), from_user=user))
 
     def test_convert_non_atproto_actor_link_in_summary(self):
@@ -767,6 +788,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In moles
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
             },
+            'originalDescription': '<a href="http://foo">bar</a>',
+            'originalUrl': 'fake:user',
         }, ATProto.convert(Object(source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:user',
@@ -839,6 +862,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In moles
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there\n\n[bridged from web:fake:us_er on fake-phrase by https://fed.brid.gy/ ]',
+            'originalDescription': 'hi there',
+            'originalUrl': 'https://alice.com/',
             'avatar': {
                 '$type': 'blob',
                 'mimeType': 'application/octet-stream',
@@ -894,7 +919,10 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In moles
         repo = self.storage.load_repo(did)
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         record = repo.get_record('app.bsky.feed.post', last_tid)
-        self.assertEqual(POST_BSKY, record)
+        self.assertEqual({
+            **NOTE_BSKY,
+            'originalUrl': 'https://bsky.app/profile/did:alice/post/tid',
+        }, record)
 
         at_uri = f'at://{did}/app.bsky.feed.post/{last_tid}'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
@@ -952,6 +980,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In moles
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there\n\n[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]',
+            'originalDescription': 'hi there',
+            'originalUrl': 'https://alice.com/',
             'avatar': {
                 '$type': 'blob',
                 'ref': BLOB_CID,
@@ -965,7 +995,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In moles
         }, profile)
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         record = repo.get_record('app.bsky.feed.post', last_tid)
-        self.assertEqual(POST_BSKY, record)
+        self.assertEqual(NOTE_BSKY, record)
 
         at_uri = f'at://{did}/app.bsky.feed.post/{last_tid}'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
@@ -985,7 +1015,7 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In moles
         repo = self.storage.load_repo(did)
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         record = repo.get_record('app.bsky.feed.post', last_tid)
-        self.assertEqual(POST_BSKY, record)
+        self.assertEqual(NOTE_BSKY, record)
 
         at_uri = f'at://{did}/app.bsky.feed.post/{last_tid}'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
@@ -1346,6 +1376,8 @@ Sed tortor neque, aliquet quis posuere aliquam, imperdiet sitamet odio. In moles
             '$type': 'app.bsky.feed.post',
             'createdAt': '2022-01-02T03:04:05.000Z',
             'text': 'foo',
+            'originalText': 'foo',
+            'originalUrl': 'fake:reply',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
                 'root': {

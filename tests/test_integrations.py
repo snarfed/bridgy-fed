@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 from arroba.datastore_storage import DatastoreStorage
 from arroba.repo import Repo
+from arroba.util import dag_cbor_cid
 from dns.resolver import NXDOMAIN
 from granary import as2, bluesky
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY, POST_BSKY
@@ -371,12 +372,11 @@ class IntegrationTests(TestCase):
 
         records = repo.get_contents()
         self.assertEqual(['app.bsky.feed.like'], list(records.keys()))
-        cid = 'bafyreiawawn2znuek7bdc7ayb5pszivgmzwgqob75gzfakj3y5debdppwy'
         self.assertEqual([{
             '$type': 'app.bsky.feed.like',
             'subject': {
                 'uri': 'at://did:plc:alice/app.bsky.feed.post/123',
-                'cid': cid,
+                'cid': dag_cbor_cid(POST_BSKY).encode('base32'),
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }], list(records['app.bsky.feed.like'].values()))

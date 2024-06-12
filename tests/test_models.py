@@ -103,6 +103,8 @@ class UserTest(TestCase):
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there\n\n[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]',
+            'originalDescription': 'hi there',
+            'originalUrl': 'https://alice.com/',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val' : 'bridged-from-bridgy-fed-fake'}],
@@ -783,6 +785,8 @@ class ObjectTest(TestCase):
         })
         self.assert_equals({
             **ACTOR_AS,
+            'username': 'alice.com',
+            'url': ['https://bsky.app/profile/alice.com', 'https://alice.com/'],
             'image': [{
                 'url': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:web:alice.com&cid=bafkreim',
             }],

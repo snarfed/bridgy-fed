@@ -622,6 +622,9 @@ class ATProto(User, Protocol):
                             url=url, get_fn=util.requests_get)
                         blobs[url] = blob.as_object()
 
+        inner_obj = as1.get_object(obj.as1) or obj.as1
+        orig_url = as1.get_url(inner_obj) or inner_obj.get('id')
+
         # convert! using our records in the datastore and fetching code instead
         # of granary's
         client = DatastoreClient(f'https://{os.environ["APPVIEW_HOST"]}')
@@ -632,13 +635,25 @@ class ATProto(User, Protocol):
             logger.error(f"Couldn't convert to ATProto", exc_info=True)
             return {}
 
-        # bridged actors get a self label
-        if ret['$type'] == 'app.bsky.actor.profile' and from_proto != ATProto:
-            label_val = 'bridged-from-bridgy-fed'
-            if from_proto:
-                label_val += f'-{from_proto.LABEL}'
-            ret.setdefault('labels', {'$type': 'com.atproto.label.defs#selfLabels'})
-            ret['labels'].setdefault('values', []).append({'val' : label_val})
+        if from_proto != ATProto:
+            if ret['$type'] == 'app.bsky.actor.profile':
+                # populated by Protocol.convert
+                if orig_summary := obj.as1.get('originalSummary'):
+                    ret['originalDescription'] = orig_summary
+                else:
+                    # don't use granary's since it will include source links
+                    ret.pop('originalDescription', None)
+
+                # bridged actors get a self label
+                label_val = 'bridged-from-bridgy-fed'
+                if from_proto:
+                    label_val += f'-{from_proto.LABEL}'
+                ret.setdefault('labels', {'$type': 'com.atproto.label.defs#selfLabels'})
+                ret['labels'].setdefault('values', []).append({'val' : label_val})
+
+            if (ret['$type'] in ('app.bsky.actor.profile', 'app.bsky.feed.post')
+                    and orig_url):
+                ret['originalUrl'] = orig_url
 
         return ret
 
@@ -659,12 +674,14 @@ class ATProto(User, Protocol):
         """
         assert obj.our_as1
         assert from_user
-        # WARNING: keep this in sync with 'description': html_to_text(..) in
-        # granary.bluesky.from_as1 for ACTOR_TYPES!
-        summary = html_to_text(obj.our_as1.setdefault('summary', ''),
-                               ignore_links=True)
+
+        orig_summary = obj.our_as1.setdefault('summary', '')
+        summary = html_to_text(orig_summary, ignore_links=True)
         if 'fed.brid.gy ]' in summary or 'Bridgy Fed]' in summary:
             return
+
+        # consumed by _convert above
+        actor.setdefault('originalSummary', orig_summary)
 
         id = obj.key.id() if obj.key else obj.our_as1.get('id')
 
