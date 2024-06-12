@@ -103,8 +103,8 @@ class UserTest(TestCase):
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there\n\n[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]',
-            'originalDescription': 'hi there',
-            'originalUrl': 'https://alice.com/',
+            'bridgyOriginalDescription': 'hi there',
+            'bridgyOriginalUrl': 'https://alice.com/',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val' : 'bridged-from-bridgy-fed-fake'}],

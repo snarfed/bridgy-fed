@@ -59,8 +59,8 @@ NOTE_AS = {
 NOTE_BSKY = {
   '$type': 'app.bsky.feed.post',
   'text': 'My original post',
-  'originalText': 'My original post',
-  'originalUrl': 'fake:post',
+  'bridgyOriginalText': 'My original post',
+  'bridgyOriginalUrl': 'fake:post',
   'createdAt': '2007-07-07T03:04:05.000Z',
 }
 
@@ -440,7 +440,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
             'text': 'foo',
-            'originalText': 'foo',
+            'bridgyOriginalText': 'foo',
             'createdAt': '2022-01-02T03:04:05.000Z',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
@@ -475,7 +475,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
             'text': 'foo',
-            'originalText': 'foo',
+            'bridgyOriginalText': 'foo',
             'createdAt': '2022-01-02T03:04:05.000Z',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
@@ -568,7 +568,7 @@ class ATProtoTest(TestCase):
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed'}],
             },
-            'originalUrl': 'did:web:alice.com',
+            'bridgyOriginalUrl': 'did:web:alice.com',
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
             'id': 'did:web:alice.com',
@@ -593,7 +593,7 @@ class ATProtoTest(TestCase):
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed'}],
             },
-            'originalUrl': 'did:web:alice.com',
+            'bridgyOriginalUrl': 'did:web:alice.com',
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
             'id': 'did:web:alice.com',
@@ -620,7 +620,7 @@ class ATProtoTest(TestCase):
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed'}],
             },
-            'originalUrl': 'did:web:alice.com',
+            'bridgyOriginalUrl': 'did:web:alice.com',
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
             'id': 'did:web:alice.com',
@@ -638,7 +638,7 @@ class ATProtoTest(TestCase):
             '$type': 'app.bsky.feed.post',
             'createdAt': '2022-01-02T03:04:05.000Z',
             'text': 'hi @han.dull hows it going',
-            'originalText': content,
+            'bridgyOriginalText': content,
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
                 'features': [{
@@ -673,7 +673,7 @@ class ATProtoTest(TestCase):
             '$type': 'app.bsky.feed.post',
             'createdAt': '2022-01-02T03:04:05.000Z',
             'text': 'hi @han.dull hows it going',
-            'originalText': content,
+            'bridgyOriginalText': content,
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
                 'features': [{
@@ -715,7 +715,7 @@ class ATProtoTest(TestCase):
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
             },
-            'originalUrl': 'fake:alice',
+            'bridgyOriginalUrl': 'fake:alice',
         }, ATProto.convert(Object(source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:alice',
@@ -733,7 +733,7 @@ class ATProtoTest(TestCase):
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
             },
-            'originalUrl': 'fake:user',
+            'bridgyOriginalUrl': 'fake:user',
         }, ATProto.convert(Object(source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:user',
@@ -762,8 +762,8 @@ Nam quis tristique elit.
 Sed tortor neque, aliquet quis posuere aliquam […] 
 
 [bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]""",
-            'originalDescription': summary,
-            'originalUrl': 'fake:user',
+            'bridgyOriginalDescription': summary,
+            'bridgyOriginalUrl': 'fake:user',
             'labels': {
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
@@ -788,8 +788,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                 '$type': 'com.atproto.label.defs#selfLabels',
                 'values': [{'val': 'bridged-from-bridgy-fed-fake'}],
             },
-            'originalDescription': '<a href="http://foo">bar</a>',
-            'originalUrl': 'fake:user',
+            'bridgyOriginalDescription': '<a href="http://foo">bar</a>',
+            'bridgyOriginalUrl': 'fake:user',
         }, ATProto.convert(Object(source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:user',
@@ -862,8 +862,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there\n\n[bridged from web:fake:us_er on fake-phrase by https://fed.brid.gy/ ]',
-            'originalDescription': 'hi there',
-            'originalUrl': 'https://alice.com/',
+            'bridgyOriginalDescription': 'hi there',
+            'bridgyOriginalUrl': 'https://alice.com/',
             'avatar': {
                 '$type': 'blob',
                 'mimeType': 'application/octet-stream',
@@ -921,7 +921,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         record = repo.get_record('app.bsky.feed.post', last_tid)
         self.assertEqual({
             **NOTE_BSKY,
-            'originalUrl': 'https://bsky.app/profile/did:alice/post/tid',
+            'bridgyOriginalUrl': 'https://bsky.app/profile/did:alice/post/tid',
         }, record)
 
         at_uri = f'at://{did}/app.bsky.feed.post/{last_tid}'
@@ -980,8 +980,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'description': 'hi there\n\n[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]',
-            'originalDescription': 'hi there',
-            'originalUrl': 'https://alice.com/',
+            'bridgyOriginalDescription': 'hi there',
+            'bridgyOriginalUrl': 'https://alice.com/',
             'avatar': {
                 '$type': 'blob',
                 'ref': BLOB_CID,
@@ -1376,8 +1376,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             '$type': 'app.bsky.feed.post',
             'createdAt': '2022-01-02T03:04:05.000Z',
             'text': 'foo',
-            'originalText': 'foo',
-            'originalUrl': 'fake:reply',
+            'bridgyOriginalText': 'foo',
+            'bridgyOriginalUrl': 'fake:reply',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
                 'root': {

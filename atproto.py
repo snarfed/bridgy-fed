@@ -630,7 +630,7 @@ class ATProto(User, Protocol):
         client = DatastoreClient(f'https://{os.environ["APPVIEW_HOST"]}')
         try:
             ret = bluesky.from_as1(cls.translate_ids(obj.as1), blobs=blobs,
-                                   client=client)
+                                   client=client, original_fields_prefix='bridgy')
         except (ValueError, RequestException):
             logger.error(f"Couldn't convert to ATProto", exc_info=True)
             return {}
@@ -638,11 +638,11 @@ class ATProto(User, Protocol):
         if from_proto != ATProto:
             if ret['$type'] == 'app.bsky.actor.profile':
                 # populated by Protocol.convert
-                if orig_summary := obj.as1.get('originalSummary'):
-                    ret['originalDescription'] = orig_summary
+                if orig_summary := obj.as1.get('bridgyOriginalSummary'):
+                    ret['bridgyOriginalDescription'] = orig_summary
                 else:
                     # don't use granary's since it will include source links
-                    ret.pop('originalDescription', None)
+                    ret.pop('bridgyOriginalDescription', None)
 
                 # bridged actors get a self label
                 label_val = 'bridged-from-bridgy-fed'
@@ -653,7 +653,7 @@ class ATProto(User, Protocol):
 
             if (ret['$type'] in ('app.bsky.actor.profile', 'app.bsky.feed.post')
                     and orig_url):
-                ret['originalUrl'] = orig_url
+                ret['bridgyOriginalUrl'] = orig_url
 
         return ret
 
@@ -681,7 +681,7 @@ class ATProto(User, Protocol):
             return
 
         # consumed by _convert above
-        actor.setdefault('originalSummary', orig_summary)
+        actor.setdefault('bridgyOriginalSummary', orig_summary)
 
         id = obj.key.id() if obj.key else obj.our_as1.get('id')
 
