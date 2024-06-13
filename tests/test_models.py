@@ -594,23 +594,6 @@ class ObjectTest(TestCase):
         self.assertTrue(obj.activity_changed({}))
         self.assertTrue(obj.activity_changed({'content': 'x'}))
 
-    def test_put(self):
-        with self.assertRaises(AssertionError):
-            Object(id='x^^y').put()
-
-    def test_get_by_id(self):
-        self.assertIsNone(Object.get_by_id('abc'))
-        self.assertIsNone(Object.get_by_id('ab^^c'))
-
-        obj = Object(id='abc')
-        obj.put()
-        self.assertIsNotNone(obj, Object.get_by_id('abc'))
-
-        obj = Object(id='ab#c')
-        obj.put()
-        self.assert_entities_equal(obj, Object.get_by_id('ab^^c'))
-
-
     def test_actor_link(self):
         for expected, as2 in (
                 ('', {}),

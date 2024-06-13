@@ -855,7 +855,6 @@ class Object(StringIdModel):
         * Strip @context from as2 (we don't do LD) to save disk space
         """
         id = self.key.id()
-        assert '^^' not in id
 
         if self.source_protocol not in (None, 'ui'):
             proto = PROTOCOLS[self.source_protocol]
@@ -888,17 +887,6 @@ class Object(StringIdModel):
     def _post_put_hook(self, future):
         # TODO: assert that as1 id is same as key id? in pre put hook?
         logger.info(f'Wrote {self.key}')
-
-    @classmethod
-    def get_by_id(cls, id):
-        """Override :meth:`google.cloud.ndb.model.Model.get_by_id` to un-escape
-        ``^^`` to ``#``.
-
-        Only needed for compatibility with historical URL paths, we're now back
-        to URL-encoding ``#``\s instead.
-        https://github.com/snarfed/bridgy-fed/issues/469
-        """
-        return super().get_by_id(id.replace('^^', '#'))
 
     @classmethod
     @ndb.transactional()
