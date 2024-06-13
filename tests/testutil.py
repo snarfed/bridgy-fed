@@ -203,7 +203,14 @@ from activitypub import ActivityPub, CONNEG_HEADERS_AS2_HTML
 import atproto
 from atproto import ATProto
 import common
-from common import PRIMARY_DOMAIN, PROTOCOL_DOMAINS, OTHER_DOMAINS, LOCAL_DOMAINS
+from common import (
+    global_cache,
+    LOCAL_DOMAINS,
+    memcache,
+    OTHER_DOMAINS,
+    PRIMARY_DOMAIN,
+    PROTOCOL_DOMAINS,
+)
 from web import Web
 from flask_app import app
 
@@ -250,8 +257,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         self.router_client = router.app.test_client()
 
-        app.wsgi_app.kwargs['global_cache'].clear()
-        router.app.wsgi_app.kwargs['global_cache'].clear()
+        memcache.clear()
+        global_cache.clear()
 
         # clear datastore
         requests.post(f'http://{ndb_client.host}/reset')

@@ -20,6 +20,7 @@ from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil import flask_util
 import pymemcache.client.base
+from pymemcache.test.utils import MockMemcacheClient
 
 logger = logging.getLogger(__name__)
 
@@ -89,10 +90,12 @@ RUN_TASKS_INLINE = False  # overridden by unit tests
 OLD_ACCOUNT_AGE = timedelta(days=14)
 
 if appengine_info.DEBUG:
+    memcache = MockMemcacheClient()
     global_cache = _InProcessGlobalCache()
 else:
-    global_cache = MemcacheCache(pymemcache.client.base.PooledClient(
-        '10.126.144.3', timeout=10, connect_timeout=10))  # seconds
+    memcache = pymemcache.client.base.PooledClient(
+        '10.126.144.3', timeout=10, connect_timeout=10)  # seconds
+    global_cache = MemcacheCache(memcache)
 
 
 def base64_to_long(x):

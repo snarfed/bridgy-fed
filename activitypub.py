@@ -33,6 +33,7 @@ from common import (
     error,
     host_url,
     LOCAL_DOMAINS,
+    memcache,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
     redirect_wrap,
@@ -995,6 +996,16 @@ def inbox(protocol=None, id=None):
         body = request.get_data(as_text=True)
         error(f"Couldn't parse body as non-empty JSON mapping: {body}", exc_info=True)
 
+    # are we already processing or done with this activity?
+    id = activity.get('id')
+    if id:
+        key = f'AP-id-{id}'
+        if memcache.get(key):
+            logger.info(f'Already seen this activity {id}')
+            return '', 204
+        memcache.set(key, 'seen', expire=60 * 60)  # 1 hour in seconds
+
+    # check actor, signature, auth
     type = activity.get('type')
     actor = as1.get_object(activity, 'actor')
     actor_id = actor.get('id')
@@ -1040,8 +1051,8 @@ def inbox(protocol=None, id=None):
         followee_url = unwrap(util.get_url(activity, 'object'))
         activity.setdefault('url', f'{follower_url}#followed-{followee_url}')
 
-    id = (activity.get('id')
-          or f'{actor_id}#{type}-{object.get("id", "")}-{util.now().isoformat()}')
+    if not id:
+        id = f'{actor_id}#{type}-{object.get("id", "")}-{util.now().isoformat()}'
     obj = Object.get_or_create(id=id, as2=unwrap(activity), authed_as=authed_as,
                                source_protocol=ActivityPub.LABEL)
     return create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=authed_as)
