@@ -18,7 +18,6 @@ from activitypub import ActivityPub
 import app
 from atproto import ATProto, Cursor
 from atproto_firehose import handle, new_commits, Op
-import hub
 from models import Object, Target
 from web import Web
 

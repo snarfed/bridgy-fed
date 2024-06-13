@@ -26,7 +26,6 @@ from werkzeug.exceptions import BadRequest
 import atproto
 from atproto import ATProto, DatastoreClient
 import common
-import hub
 from models import Object, PROTOCOLS, Target
 import protocol
 from .testutil import ATPROTO_KEY, Fake, TestCase

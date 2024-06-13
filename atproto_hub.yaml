@@ -4,7 +4,7 @@
 
 # application: bridgy-federated
 
-service: hub
+service: atproto-hub
 env: flex
 runtime: python
 runtime_config:
@@ -15,7 +15,7 @@ resources:
   cpu: 1
   memory_gb: 1.6
 
-# can't be internal because Bluesky relay needs to be able to connect externally
+# can't be internal because Bluesky relay(s) need to be able to connect to us
 # over websocket for subscribeRepos
 network:
   instance_ip_mode: external
@@ -37,6 +37,7 @@ env_variables:
   MOD_SERVICE_HOST: mod.bsky.app
   MOD_SERVICE_DID: did:plc:ar7c4by46qjdydhdevvrndac
   # ...or test against labeler.dholms.xyz / did:plc:vzxheqfwpbi3lxbgdh22js66
+
   ROLLBACK_WINDOW: 50000
 
 # need only one instance so that new commits can be delivered to subscribeRepos
@@ -47,4 +48,4 @@ manual_scaling:
 # https://cloud.google.com/appengine/docs/flexible/python/runtime#application_startup
 # https://docs.gunicorn.org/en/latest/settings.html#timeout
 # TODO: try asyncio w/eventlet workers
-entrypoint: gunicorn --workers 1 --threads 20 -b :$PORT hub:app
+entrypoint: gunicorn --workers 1 --threads 25 -b :$PORT atproto_hub:app

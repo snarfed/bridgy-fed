@@ -1,4 +1,4 @@
-"""Single-instance hub for ATProto and Nostr websocket subscriptions."""
+"""Single-instance hub for ATProto subscription (firehose) server and client."""
 import logging
 import os
 from pathlib import Path
@@ -11,14 +11,11 @@ from flask import Flask
 import lexrpc.client
 import lexrpc.flask_server
 from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
-from oauth_dropins.webutil import (
-    appengine_config,
-    flask_util,
-    util,
-)
+from oauth_dropins.webutil import appengine_config, flask_util
 
 # all protocols
 import activitypub, atproto, web
+import atproto_firehose
 from common import global_cache, global_cache_timeout_policy, USER_AGENT
 import models
 
@@ -64,6 +61,16 @@ def atproto_commit():
     """
     xrpc_sync.send_events()
     return 'OK'
+
+
+# start firehose consumer threads
+if LOCAL_SERVER or not DEBUG:
+    threads = [t.name for t in threading.enumerate()]
+    assert 'atproto_firehose.subscriber' not in threads
+    assert 'atproto_firehose.handler' not in threads
+
+    Thread(target=atproto_firehose.subscriber, name='atproto_firehose.subscriber').start()
+    Thread(target=atproto_firehose.handler, name='atproto_firehose.handler').start()
 
 
 # send requestCrawl to relay

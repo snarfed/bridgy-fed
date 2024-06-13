@@ -6,20 +6,18 @@ import itertools
 import logging
 import os
 from queue import SimpleQueue
-import threading
 from threading import Event, Lock, Thread, Timer
 import time
 
 from arroba.datastore_storage import AtpRepo
 from carbox import read_car
 import dag_json
-from flask import Flask
 from google.cloud import ndb
 from granary.bluesky import AT_URI_PATTERN
 from lexrpc.client import Client
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
-from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
+from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.util import json_loads
 
 from atproto import ATProto, Cursor
@@ -33,13 +31,10 @@ from common import (
 )
 from models import Object, reset_protocol_properties
 
-# all protocols
-import activitypub, atproto, web
+logger = logging.getLogger(__name__)
 
 RECONNECT_DELAY = timedelta(seconds=30)
 STORE_CURSOR_FREQ = timedelta(seconds=10)
-
-logger = logging.getLogger(__name__)
 
 # a commit operation. similar to arroba.repo.Write. record is None for deletes.
 Op = namedtuple('Op', ['action', 'repo', 'path', 'seq', 'record'],
@@ -58,8 +53,6 @@ atproto_loaded_at = datetime(1900, 1, 1)
 bridged_dids = set()
 bridged_loaded_at = datetime(1900, 1, 1)
 dids_initialized = Event()
-
-reset_protocol_properties()
 
 
 def load_dids():
@@ -326,22 +319,3 @@ def handle(limit=None):
             return
 
     assert False, "handle thread shouldn't reach here!"
-
-
-# Flask app
-app = Flask(__name__)
-
-
-@app.get('/liveness_check')
-@app.get('/readiness_check')
-def health_check():
-    return 'OK'
-
-
-if LOCAL_SERVER or not DEBUG:
-    threads = [t.name for t in threading.enumerate()]
-    assert 'atproto_firehose.subscriber' not in threads
-    assert 'atproto_firehose.handler' not in threads
-
-    Thread(target=subscriber, name='atproto_firehose.subscriber').start()
-    Thread(target=handler, name='atproto_firehose.handler').start()
