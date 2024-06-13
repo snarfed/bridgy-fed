@@ -774,7 +774,7 @@ class ActivityPubTest(TestCase):
                            type='post',
                            object_ids=[NOTE_OBJECT['id']],
                            status='complete',
-                           delivered=['shared:target'],
+                           delivered=['fake:shared:target'],
                            delivered_protocol='fake')
 
     def test_repost_of_indieweb(self, mock_head, mock_get, mock_post):
@@ -843,7 +843,7 @@ class ActivityPubTest(TestCase):
                            as2=REPOST,
                            users=[self.swentel_key],
                            feed=[self.user.key, baz.key],
-                           delivered=['shared:target'],
+                           delivered=['fake:shared:target'],
                            delivered_protocol='fake',
                            type='share',
                            object_ids=[REPOST['object']],

@@ -58,6 +58,10 @@ if DEBUG:
         'other',
     )})
 
+# maps string kind (eg 'MagicKey') to Protocol subclass.
+# populated in ProtocolUserMeta
+PROTOCOLS_BY_KIND = {}
+
 
 # 2048 bits makes tests slow, so use 1024 for them
 KEY_BITS = 1024 if DEBUG else 2048
@@ -129,6 +133,8 @@ class ProtocolUserMeta(type(ndb.Model)):
             for label in (cls.LABEL, cls.ABBREV) + cls.OTHER_LABELS:
                 if label:
                     PROTOCOLS[label] = cls
+
+        PROTOCOLS_BY_KIND[cls._get_kind()] = cls
 
         return cls
 

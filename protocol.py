@@ -38,7 +38,15 @@ from ids import (
     translate_object_id,
     translate_user_id,
 )
-from models import Follower, get_originals, Object, PROTOCOLS, Target, User
+from models import (
+    Follower,
+    get_originals,
+    Object,
+    PROTOCOLS,
+    PROTOCOLS_BY_KIND,
+    Target,
+    User,
+)
 
 SUPPORTED_TYPES = (
     'accept',
@@ -1353,7 +1361,9 @@ class Protocol:
             followers = [f for f in Follower.query(Follower.to == user_key,
                                                    Follower.status == 'active')
                          # skip protocol bot users
-                         if not Protocol.for_bridgy_subdomain(f.from_.id())]
+                         if not Protocol.for_bridgy_subdomain(f.from_.id())
+                         # skip protocols this user hasn't enabled
+                         and from_user.is_enabled(PROTOCOLS_BY_KIND[f.from_.kind()])]
             user_keys = [f.from_ for f in followers]
             if is_reply:
                 user_keys = [k for k in user_keys if k.kind() in in_reply_to_protocols]
@@ -1440,9 +1450,9 @@ class Protocol:
                 trailing_slash=False)):
             if util.is_web(url) and util.domain_from_link(url) in source_domains:
                 logger.info(f'Skipping same-domain target {url}')
-            else:
-                target, obj = candidates[url]
-                targets[target] = obj
+                continue
+            target, obj = candidates[url]
+            targets[target] = obj
 
         return targets
 

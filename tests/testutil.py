@@ -150,7 +150,7 @@ class Fake(User, protocol.Protocol):
     def target_for(cls, obj, shared=False):
         assert obj.source_protocol in (cls.LABEL, cls.ABBREV, 'ui', None), \
             obj.source_protocol
-        return 'shared:target' if shared else f'{obj.key.id()}:target'
+        return f'{cls.LABEL}:shared:target' if shared else f'{obj.key.id()}:target'
 
     @classmethod
     def receive(cls, obj, authed_as=None, **kwargs):
