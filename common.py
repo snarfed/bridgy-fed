@@ -371,7 +371,7 @@ def report_exception(**kwargs):
 
     try:
         error_reporting_client.report_exception(
-            msg, http_context=build_flask_context(request), **kwargs)
+            http_context=build_flask_context(request), **kwargs)
     except BaseException:
         if not DEBUG:
             logger.warning(f'Failed to report error! {kwargs}', exc_info=True)
