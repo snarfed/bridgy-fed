@@ -700,8 +700,8 @@ class ATProto(User, Protocol):
         if summary:
             source_links = '\n\n' + source_links
 
-        obj.our_as1['summary'] = Bluesky('unused').truncate(summary, url=source_links,
-                                                            punctuation=('', ''))
+        obj.our_as1['summary'] = Bluesky('unused').truncate(
+            summary, url=source_links, punctuation=('', ''), type=obj.type)
 
     @classmethod
     def create_report(cls, input, from_user):
