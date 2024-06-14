@@ -1855,6 +1855,10 @@ class ActivityPubTest(TestCase):
         self.user.obj.put()
         self.user.put()
         resp = self.client.get(f'/user.com/following', base_url='https://web.brid.gy')
+
+    def test_following_collection_protocol_not_enabled(self, *_):
+        resp = self.client.get(f'/ap/eefake:alice/following',
+                               base_url='https://eefake.brid.gy')
         self.assertEqual(404, resp.status_code)
 
     def test_outbox_fake_empty(self, *_):
@@ -1951,6 +1955,11 @@ class ActivityPubTest(TestCase):
         self.user.put()
         resp = self.client.get(f'/ap/user.com/outbox',
                                base_url='https://web.brid.gy')
+        self.assertEqual(404, resp.status_code)
+
+    def test_outbox_protocol_not_enabled(self, *_):
+        resp = self.client.get(f'/ap/eefake:alice/outbox',
+                               base_url='https://eefake.brid.gy')
         self.assertEqual(404, resp.status_code)
 
 

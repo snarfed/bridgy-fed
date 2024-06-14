@@ -1084,7 +1084,7 @@ def follower_collection(id, collection):
     protocol = Protocol.for_request(fed='web')
     assert protocol
     user = protocol.get_by_id(id)
-    if not user:
+    if not user or not user.is_enabled(ActivityPub):
         return f'{protocol} user {id} not found', 404
 
     if request.method == 'HEAD':
@@ -1144,7 +1144,7 @@ def outbox(id):
         error(f"Couldn't determine protocol", status=404)
 
     user = protocol.get_by_id(id)
-    if not user:
+    if not user or not user.is_enabled(ActivityPub):
         error(f'User {id} not found', status=404)
 
     if request.method == 'HEAD':

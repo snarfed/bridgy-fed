@@ -2108,6 +2108,19 @@ class ProtocolReceiveTest(TestCase):
               'fake:shared:target')],
             Fake.sent)
 
+        id = 'eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00'
+        self.assert_object(id,
+                           our_as1={
+                               'objectType': 'activity',
+                               'verb': 'delete',
+                               'id': id,
+                               'actor': 'eefake:user',
+                               'object': 'eefake:user',
+                           },
+                           delivered=['fake:shared:target'],
+                           source_protocol='eefake',
+                           status='complete')
+
     def test_follow_bot_user_refreshes_profile(self):
         # bot user
         self.make_user('fa.brid.gy', cls=Web)
