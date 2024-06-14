@@ -60,7 +60,11 @@ jobs:
             if [ $CIRCLE_BRANCH = "main" ]; then
               echo $FLASK_SECRET_KEY > flask_secret_key
               echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
-              gcloud -q beta app deploy --no-cache --project bridgy-federated app.yaml router.yaml index.yaml queue.yaml
+              # deploy router in separate gcloud command because Flex services
+              # don't support --no-cache, but we need it for the default service
+              # https://issuetracker.google.com/issues/347268867
+              gcloud -q app deploy --no-cache --project bridgy-federated app.yaml router.yaml index.yaml queue.yaml
+              gcloud -q app deploy --project bridgy-federated router.yaml
             fi
 
       - save_cache:
