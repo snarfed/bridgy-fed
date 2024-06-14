@@ -798,14 +798,14 @@ class ProtocolReceiveTest(TestCase):
             'author': 'eefake:eve',
         })
 
-        with self.assertRaises(NoContent):
-            ExplicitEnableFake.receive_as1({
-                'id': 'eefake:repost',
-                'objectType': 'activity',
-                'verb': 'share',
-                'actor': 'eefake:user',
-                'object': 'eefake:post',
-            })
+        _, code = ExplicitEnableFake.receive_as1({
+            'id': 'eefake:repost',
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'eefake:user',
+            'object': 'eefake:post',
+        })
+        self.assertEqual(204, code)
 
         self.assertEqual(0, mock_send.call_count)
 
@@ -818,14 +818,14 @@ class ProtocolReceiveTest(TestCase):
                              copies=[Target(uri='eefake:eve', protocol='eefake')],
                              obj_bsky=ACTOR_PROFILE_BSKY)
 
-        with self.assertRaises(NoContent):
-            ExplicitEnableFake.receive_as1({
-                'id': 'eefake:follow',
-                'objectType': 'activity',
-                'verb': 'follow',
-                'actor': 'eefake:user',
-                'object': 'eefake:eve',
-            })
+        _, code = ExplicitEnableFake.receive_as1({
+            'id': 'eefake:follow',
+            'objectType': 'activity',
+            'verb': 'follow',
+            'actor': 'eefake:user',
+            'object': 'eefake:eve',
+        })
+        self.assertEqual(204, code)
 
         self.assert_entities_equal(Follower(from_=user.key, to=eve.key,
                                             follow=Object(id='eefake:follow').key),
@@ -873,13 +873,13 @@ class ProtocolReceiveTest(TestCase):
         Follower.get_or_create(to=user, from_=self.alice)
         Follower.get_or_create(to=user, from_=frank)
 
-        with self.assertRaises(NoContent):
-            ExplicitEnableFake.receive_as1({
-                'objectType': 'note',
-                'id': 'eefake:post',
-                'author': 'eefake:user',
-                'content': 'foo'
-            })
+        _, code = ExplicitEnableFake.receive_as1({
+            'objectType': 'note',
+            'id': 'eefake:post',
+            'author': 'eefake:user',
+            'content': 'foo'
+        })
+        self.assertEqual(204, code)
 
         self.assertEqual([], Fake.sent)
         self.assertEqual([], OtherFake.sent)
@@ -973,8 +973,8 @@ class ProtocolReceiveTest(TestCase):
         existing = Object.get_by_id('fake:post')
 
         post_as1['content'] = 'second'
-        with self.assertRaises(NoContent):
-            Fake.receive_as1(post_as1)
+        _, code = Fake.receive_as1(post_as1)
+        self.assertEqual(204, code)
 
         post_as1['updated'] = '2022-01-02T03:04:05+00:00'
         self.assert_object('fake:post',
@@ -1126,8 +1126,8 @@ class ProtocolReceiveTest(TestCase):
             'author': 'fake:user',
         }
 
-        with self.assertRaises(NoContent):
-            Fake.receive_as1(reply_as1)
+        _, code = Fake.receive_as1(reply_as1)
+        self.assertEqual(204, code)
 
         reply = self.assert_object('fake:reply', our_as1=reply_as1, type='note')
         self.assertEqual([], reply.copies)
@@ -1254,8 +1254,8 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': 'https://twitter.com/foo',
         }
-        with self.assertRaises(NoContent):
-            Fake.receive_as1(repost_as1)
+        _, code = Fake.receive_as1(repost_as1)
+        self.assertEqual(204, code)
 
         obj = self.assert_object('fake:repost',
                                  status='ignored',
@@ -1357,8 +1357,8 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': 'fake:post',
         }
-        with self.assertRaises(NoContent):
-            Fake.receive_as1(delete_as1)
+        _, code = Fake.receive_as1(delete_as1)
+        self.assertEqual(204, code)
 
         self.assert_object('fake:post',
                            deleted=True,
@@ -1382,14 +1382,14 @@ class ProtocolReceiveTest(TestCase):
         other = Follower.get_or_create(to=self.user, from_=self.bob)
         self.assertEqual(3, Follower.query().count())
 
-        with self.assertRaises(NoContent):
-            Fake.receive_as1({
-                'objectType': 'activity',
-                'verb': 'delete',
-                'id': 'fake:delete',
-                'actor': 'fake:alice',
-                'object': 'fake:alice',
-            })
+        _, code = Fake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': 'fake:delete',
+            'actor': 'fake:alice',
+            'object': 'fake:alice',
+        })
+        self.assertEqual(204, code)
 
         self.assertEqual(3, Follower.query().count())
         self.assertEqual('inactive', follower.key.get().status)
@@ -1887,8 +1887,8 @@ class ProtocolReceiveTest(TestCase):
             'object': ['http://user.com/bob', 'http://user.com/eve'],
         }
 
-        with self.assertRaises(NoContent):
-            Web.receive(Object(our_as1=follow_as1), authed_as='user.com')
+        _, code = Web.receive(Object(our_as1=follow_as1), authed_as='user.com')
+        self.assertEqual(204, code)
 
         mock_post.assert_not_called()
         self.assertEqual(0, Follower.query().count())
@@ -1963,8 +1963,8 @@ class ProtocolReceiveTest(TestCase):
 
         # no matching copy object
         obj = Object(id='fake:share', our_as1=share, source_protocol='fake')
-        with self.assertRaises(NoContent):
-            Fake.receive(obj, authed_as='fake:alice')
+        _, code = Fake.receive(obj, authed_as='fake:alice')
+        self.assertEqual(204, code)
         self.assert_equals(share, obj.our_as1)
 
         # matching copy object
@@ -1973,8 +1973,8 @@ class ProtocolReceiveTest(TestCase):
 
         protocol.seen_ids.clear()
         obj.new = True
-        with self.assertRaises(NoContent):
-            Fake.receive(obj, authed_as='fake:alice')
+        _, code = Fake.receive(obj, authed_as='fake:alice')
+        self.assertEqual(204, code)
 
         self.assert_equals({
             'id': 'fake:share',
@@ -2004,8 +2004,8 @@ class ProtocolReceiveTest(TestCase):
 
         # no matching copies
         obj = Object(id='other:reply', our_as1=reply, source_protocol='other')
-        with self.assertRaises(NoContent):
-            OtherFake.receive(obj, authed_as='other:eve')
+        _, code = OtherFake.receive(obj, authed_as='other:eve')
+        self.assertEqual(204, code)
         self.assert_equals(reply, obj.our_as1)
 
         # matching copies
@@ -2069,8 +2069,8 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.created_for)
 
         # follow should add to enabled_protocols
-        with self.assertRaises(NoContent):
-            ExplicitEnableFake.receive_as1(follow)
+        _, code = ExplicitEnableFake.receive_as1(follow)
+        self.assertEqual(204, code)
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
         self.assertEqual(['eefake:user'], Fake.created_for)
@@ -2086,13 +2086,15 @@ class ProtocolReceiveTest(TestCase):
         # another follow should be a noop
         follow['id'] += '2'
         Fake.created_for = []
-        with self.assertRaises(NoContent):
-            ExplicitEnableFake.receive_as1(follow)
+        _, code = ExplicitEnableFake.receive_as1(follow)
+        self.assertEqual(204, code)
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
+        self.assertTrue(user.is_enabled(Fake))
         self.assertEqual([], Fake.created_for)
 
         # block should remove from enabled_protocols
+        Follower.get_or_create(to=user, from_=self.alice)
         block['id'] += '2'
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(block))
         user = user.key.get()
@@ -2103,7 +2105,7 @@ class ProtocolReceiveTest(TestCase):
         # ...and delete copy actor
         self.assertEqual(
             [('eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00',
-              'fake:u:eefake:user:target')],
+              'fake:shared:target')],
             Fake.sent)
 
     def test_follow_bot_user_refreshes_profile(self):
@@ -2124,14 +2126,14 @@ class ProtocolReceiveTest(TestCase):
         }}
 
         # follow should refresh profile
-        with self.assertRaises(NoContent):
-            ExplicitEnableFake.receive_as1({
-                'objectType': 'activity',
-                'verb': 'follow',
-                'id': 'eefake:follow',
-                'actor': 'eefake:user',
-                'object': 'fa.brid.gy',
-            })
+        _, code = ExplicitEnableFake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'follow',
+            'id': 'eefake:follow',
+            'actor': 'eefake:user',
+            'object': 'fa.brid.gy',
+        })
+        self.assertEqual(204, code)
 
         user = user.key.get()
         self.assertTrue(user.is_enabled(Fake))
@@ -2156,14 +2158,14 @@ class ProtocolReceiveTest(TestCase):
         }}
 
         # follow should refresh profile
-        with self.assertRaises(NoContent):
-            ExplicitEnableFake.receive_as1({
-                'objectType': 'activity',
-                'verb': 'follow',
-                'id': 'eefake:follow',
-                'actor': 'eefake:user',
-                'object': 'eefake:bot',
-            })
+        _, code = ExplicitEnableFake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'follow',
+            'id': 'eefake:follow',
+            'actor': 'eefake:user',
+            'object': 'eefake:bot',
+        })
+        self.assertEqual(204, code)
 
         user = user.key.get()
         self.assertTrue(user.is_enabled(Fake))
@@ -2184,14 +2186,14 @@ class ProtocolReceiveTest(TestCase):
         ExplicitEnableFake.fetchable = {'eefake:user': actor}
 
         # follow should override opt out
-        with self.assertRaises(NoContent):
-            ExplicitEnableFake.receive_as1({
-                'objectType': 'activity',
-                'verb': 'follow',
-                'id': 'eefake:follow',
-                'actor': 'eefake:user',
-                'object': 'eefake:bot',
-            })
+        _, code = ExplicitEnableFake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'follow',
+            'id': 'eefake:follow',
+            'actor': 'eefake:user',
+            'object': 'eefake:bot',
+        })
+        self.assertEqual(204, code)
 
         user = user.key.get()
         self.assertIsNone(user.status)
@@ -2219,7 +2221,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], user.enabled_protocols)
         self.assertEqual([], Fake.created_for)
 
-        # yes DM should add to enabled_protocols
+        # "yes" DM should add to enabled_protocols
         dm['id'] += '2'
         dm['content'] = '<p><a href="...">@bsky.brid.gy</a> yes</p>'
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
@@ -2228,15 +2230,17 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(['eefake:user'], Fake.created_for)
         self.assertTrue(user.is_enabled(Fake))
 
-        # another yes DM should be a noop
+        # another "yes" DM should be a noop
         dm['id'] += '3'
         Fake.created_for = []
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
+        self.assertTrue(user.is_enabled(Fake))
         self.assertEqual([], Fake.created_for)
 
-        # no DM should remove from enabled_protocols
+        # "no" DM should remove from enabled_protocols
+        Follower.get_or_create(to=user, from_=self.alice)
         dm['id'] += '4'
         dm['content'] = '<p><a href="...">@bsky.brid.gy</a>\n  NO \n</p>'
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
@@ -2248,7 +2252,7 @@ class ProtocolReceiveTest(TestCase):
         # ...and delete copy actor
         self.assertEqual(
             [('eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00',
-              'fake:u:eefake:user:target')],
+              'fake:shared:target')],
             Fake.sent)
 
     @patch('protocol.LIMITED_DOMAINS', ['lim.it'])
@@ -2262,14 +2266,14 @@ class ProtocolReceiveTest(TestCase):
             self.as2_resp(actor),
         ]
 
-        with self.assertRaises(NoContent):
-            got = ActivityPub.receive(Object(our_as1={
-                'id': 'https://lim.it/alice#update',
-                'objectType': 'activity',
-                'verb': 'update',
-                'actor': 'https://lim.it/alice',
-                'object': actor,
-            }), authed_as='https://lim.it/alice')
+        _, code = got = ActivityPub.receive(Object(our_as1={
+            'id': 'https://lim.it/alice#update',
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'https://lim.it/alice',
+            'object': actor,
+        }), authed_as='https://lim.it/alice')
+        self.assertEqual(204, code)
 
         self.assert_object('https://lim.it/alice',
                            source_protocol='activitypub',
@@ -2286,12 +2290,12 @@ class ProtocolReceiveTest(TestCase):
         # follow by bot user shouldn't count
         Follower.get_or_create(to=user, from_=Web(id='https://bsky.brid.gy/'))
 
-        with self.assertRaises(NoContent):
-            ActivityPub.receive(Object(as2={
-                **NOTE,
-                'id': 'https://lim.it/note',
-                'actor': actor,
-            }), authed_as=actor)
+        _, code = ActivityPub.receive(Object(as2={
+            **NOTE,
+            'id': 'https://lim.it/note',
+            'actor': actor,
+        }), authed_as=actor)
+        self.assertEqual(204, code)
 
         mock_send.assert_not_called()
 

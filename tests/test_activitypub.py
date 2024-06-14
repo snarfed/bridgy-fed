@@ -914,13 +914,13 @@ class ActivityPubTest(TestCase):
         mock_get.return_value = self.as2_resp(ACTOR)
 
         id = 'https://inst/follow'
-        with self.assertRaises(NoContent):
-            ActivityPub.receive(Object(id=id, as2={
-                'type': 'Follow',
-                'id': id,
-                'actor': 'https://mas.to/users/swentel',
-                'object': 'https://eefake.brid.gy/eefake.brid.gy',
-            }), authed_as='https://mas.to/users/swentel')
+        _, code = ActivityPub.receive(Object(id=id, as2={
+            'type': 'Follow',
+            'id': id,
+            'actor': 'https://mas.to/users/swentel',
+            'object': 'https://eefake.brid.gy/eefake.brid.gy',
+        }), authed_as='https://mas.to/users/swentel')
+        self.assertEqual(204, code)
 
         self.assertEqual(['https://mas.to/users/swentel'],
                          ExplicitEnableFake.created_for)

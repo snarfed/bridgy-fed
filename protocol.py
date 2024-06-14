@@ -912,8 +912,8 @@ class Protocol:
                 logger.info("Ignoring block, target isn't one of our protocol domains")
                 return 'OK', 200
 
+            proto.delete_user_copy(from_user)
             from_user.disable_protocol(proto)
-            proto.maybe_delete_copy(from_user)
             return 'OK', 200
 
         elif obj.type == 'post':
@@ -932,8 +932,8 @@ class Protocol:
                         from_user.enable_protocol(proto)
                         proto.bot_follow(from_user)
                     elif content == 'no':
+                        proto.delete_user_copy(from_user)
                         from_user.disable_protocol(proto)
-                        proto.maybe_delete_copy(from_user)
                     return 'OK', 200
 
         # fetch actor if necessary
@@ -1112,26 +1112,12 @@ class Protocol:
                            user=bot.key.urlsafe())
 
     @classmethod
-    def maybe_delete_copy(copy_cls, user):
+    def delete_user_copy(copy_cls, user):
         """Deletes a user's copy actor in a given protocol.
-
-        ...if ``copy_cls`` 's :attr:`Protocol.HAS_COPIES` is True. Otherwise,
-        does nothing.
-
-        TODO: this should eventually go through receive for protocols that need
-        to deliver to all followers' targets, eg AP.
 
         Args:
           user (User)
         """
-        if not copy_cls.HAS_COPIES:
-            return
-
-        copy_user_id = user.get_copy(copy_cls)
-        if not copy_user_id:
-            logger.warning(f"Tried to delete {user.key} copy for {copy_cls.LABEL}, which doesn't exist!")
-            return
-
         now = util.now().isoformat()
         delete_id = f'{user.key.id()}#delete-copy-{copy_cls.LABEL}-{now}'
         delete = Object(id=delete_id, source_protocol=user.LABEL, our_as1={
@@ -1139,16 +1125,10 @@ class Protocol:
             'objectType': 'activity',
             'verb': 'delete',
             'actor': user.key.id(),
-            'object': copy_user_id,
+            'object': user.key.id(),
         })
-
-        target_uri = copy_cls.target_for(Object(id=copy_user_id))
-        delete.undelivered = [Target(protocol=copy_cls.LABEL, uri=target_uri)]
         delete.put()
-
-        common.create_task(queue='send', obj=delete.key.urlsafe(),
-                           url=target_uri, protocol=copy_cls.LABEL,
-                           user=user.key.urlsafe())
+        user.deliver(delete, from_user=user, to_proto=copy_cls)
 
     @classmethod
     def handle_bare_object(cls, obj, authed_as=None):
@@ -1219,20 +1199,25 @@ class Protocol:
         error(f'{obj.key.id()} is unchanged, nothing to do', status=204)
 
     @classmethod
-    def deliver(from_cls, obj, from_user):
+    def deliver(from_cls, obj, from_user, to_proto=None):
         """Delivers an activity to its external recipients.
 
         Args:
           obj (models.Object): activity to deliver
           from_user (models.User): user (actor) this activity is from
+          to_proto (protocol.Protocol): optional; if provided, only deliver to
+            targets on this protocol
         """
+        if to_proto:
+            logger.info(f'Only delivering to {to_proto.LABEL}')
+
         # find delivery targets. maps Target to Object or None
         targets = from_cls.targets(obj, from_user=from_user)
 
         if not targets:
             obj.status = 'ignored'
             obj.put()
-            error(r'No targets, nothing to do ¯\_(ツ)_/¯', status=204)
+            return r'No targets, nothing to do ¯\_(ツ)_/¯', 204
 
         # sort targets so order is deterministic for tests, debugging, etc
         sorted_targets = sorted(targets.items(), key=lambda t: t[0].uri)
@@ -1248,6 +1233,8 @@ class Protocol:
         # enqueue send task for each targets
         user = from_user.key.urlsafe()
         for i, (target, orig_obj) in enumerate(sorted_targets):
+            if to_proto and target.protocol != to_proto.LABEL:
+                continue
             orig_obj = orig_obj.key.urlsafe() if orig_obj else ''
             common.create_task(queue='send', obj=obj.key.urlsafe(),
                                url=target.uri, protocol=target.protocol,
