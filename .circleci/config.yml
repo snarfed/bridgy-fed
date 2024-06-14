@@ -60,8 +60,7 @@ jobs:
             if [ $CIRCLE_BRANCH = "main" ]; then
               echo $FLASK_SECRET_KEY > flask_secret_key
               echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
-              # TODO: add hub.yaml when we're ready
-              gcloud -q beta app deploy --no-cache --project bridgy-federated app.yaml index.yaml queue.yaml
+              gcloud -q beta app deploy --no-cache --project bridgy-federated app.yaml router.yaml index.yaml queue.yaml
             fi
 
       - save_cache:
