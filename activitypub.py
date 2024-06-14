@@ -222,7 +222,7 @@ class ActivityPub(User, Protocol):
                 # TODO: need a "soft" kwarg for load to suppress errors?
                 actor = cls.load(inner_id)
                 if actor and actor.as1:
-                    target = cls.target_for(actor)
+                    target = cls.target_for(actor, shared=shared)
                     if target:
                         logger.info(f'Target for {obj.key} via {inner_id} is {target}')
                         return target
