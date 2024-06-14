@@ -60,11 +60,16 @@ jobs:
             if [ $CIRCLE_BRANCH = "main" ]; then
               echo $FLASK_SECRET_KEY > flask_secret_key
               echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
-              # deploy router in separate gcloud command because Flex services
-              # don't support --no-cache, but we need it for the default service
+              gcloud -q app deploy --no-cache --project bridgy-federated app.yaml index.yaml queue.yaml
+
+              # can't deploy router here yet because we need the limited_domains
+              # file. next step would be to put it into a circle env var.
+              #
+              # WHEN WE DO, we have to do it in a separate gcloud command
+              # because Flex services don't support --no-cache, but we need it
+              # for the default service
               # https://issuetracker.google.com/issues/347268867
-              gcloud -q app deploy --no-cache --project bridgy-federated app.yaml router.yaml index.yaml queue.yaml
-              gcloud -q app deploy --project bridgy-federated router.yaml
+              # gcloud -q app deploy --project bridgy-federated router.yaml
             fi
 
       - save_cache:
