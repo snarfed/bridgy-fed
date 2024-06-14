@@ -704,6 +704,7 @@ class Protocol:
                   else translate_object_id)
 
         inner_is_actor = (as1.object_type(inner_obj) in as1.ACTOR_TYPES
+                          or as1.get_owner(outer_obj) == inner_obj.get('id')
                           or type in ('follow', 'stop-following'))
         translate(inner_obj, 'id',
                   translate_user_id if inner_is_actor else translate_object_id)

@@ -518,6 +518,19 @@ class ProtocolTest(TestCase):
             },
         }))
 
+    def test_translate_ids_delete_actor(self):
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'other:u:fake:alice',
+            'object': 'other:u:fake:alice',
+        }, OtherFake.translate_ids({
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:alice',
+            'object': 'fake:alice',
+        }))
+
     def test_translate_ids_copies(self):
         self.store_object(id='fake:post',
                           copies=[Target(uri='other:post', protocol='other')])

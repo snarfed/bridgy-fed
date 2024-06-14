@@ -18,7 +18,7 @@ from activitypub import ActivityPub
 import app
 from atproto import ATProto, Cursor
 from atproto_firehose import handle, new_commits, Op
-from models import Object, Target
+from models import Follower, Object, Target
 from web import Web
 
 from .testutil import ATPROTO_KEY, TestCase
@@ -45,11 +45,8 @@ class IntegrationTests(TestCase):
         super().setUp()
         self.storage = DatastoreStorage()
 
-    def make_ap_user_with_atp(self, ap_id, did):
-        Repo.create(self.storage, did, signing_key=ATPROTO_KEY)
+    def make_ap_user(self, ap_id, did=None):
         user = self.make_user(id=ap_id, cls=ActivityPub,
-                              enabled_protocols=['atproto'],
-                              copies=[Target(uri=did, protocol='atproto')],
                               obj_as2=add_key({
                                   'type': 'Person',
                                   'id': ap_id,
@@ -57,19 +54,44 @@ class IntegrationTests(TestCase):
                                   'image': 'http://pic',
                                   'inbox': f'{ap_id}/inbox',
                               }))
-
-        bob_did_doc = copy.deepcopy(test_atproto.DID_DOC)
-        bob_did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
-        bob_did_doc.update({
-            'id': did,
-            # 'alsoKnownAs': ['at://...ap.brid.gy'],
-        })
-        self.store_object(id=did, raw=bob_did_doc)
-
-        self.store_object(id=f'at://{did}/app.bsky.actor.profile/self',
-                          bsky=bluesky.from_as1(user.obj.as1))
+        if did:
+            self.make_atproto_copy(user, did)
 
         return user
+
+    def make_atproto_user(self, did, enabled_protocols=['activitypub']):
+        self.store_object(id=did, raw=DID_DOC)
+        user = self.make_user(id=did, cls=ATProto,
+                              obj_bsky=test_atproto.ACTOR_PROFILE_BSKY,
+                              enabled_protocols=enabled_protocols)
+        return user
+
+    def make_web_user(self, domain, did, enabled_protocols=['activitypub']):
+        ap_subdomain = (domain.removesuffix('.brid.gy')
+                        if domain.endswith('.brid.gy')
+                        else None)
+
+        user = self.make_user(id=domain, cls=Web, ap_subdomain=ap_subdomain,
+                              enabled_protocols=enabled_protocols)
+        if did:
+            self.make_atproto_copy(user, did)
+
+        return user
+
+    def make_atproto_copy(self, user, did):
+        user.enabled_protocols = ['atproto']
+        user.copies = [Target(uri=did, protocol='atproto')]
+        user.put()
+
+        Repo.create(self.storage, did, signing_key=ATPROTO_KEY)
+
+        did_doc = copy.deepcopy(test_atproto.DID_DOC)
+        did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
+        did_doc['id'] = did
+        self.store_object(id=did, raw=did_doc)
+        if user.obj.as1:
+            self.store_object(id=f'at://{did}/app.bsky.actor.profile/self',
+                              bsky=bluesky.from_as1(user.obj.as1))
 
 
     # TODO: port to firehose
@@ -84,20 +106,8 @@ class IntegrationTests(TestCase):
 
         https://github.com/snarfed/bridgy-fed/issues/720
         """
-        # setup
-        self.store_object(id='did:plc:alice', raw=DID_DOC)
-        alice = self.make_user(id='did:plc:alice', cls=ATProto)
-
-        Repo.create(self.storage, 'did:plc:bob', signing_key=ATPROTO_KEY)
-        bob = self.make_user(
-            id='http://inst/bob',
-            cls=ActivityPub,
-            copies=[Target(uri='did:plc:bob', protocol='atproto')],
-            enabled_protocols=['atproto'],
-            obj_as2={
-                'id': 'http://inst/bob',
-                'inbox': 'http://inst/bob/inbox',
-            })
+        alice = self.make_atproto_user('did:plc:alice')
+        bob = self.make_atproto_user('http://inst/bob', 'did:plc:alice')
 
         self.store_object(id='http://inst/post', source_protocol='activitypub',
                           our_as1={
@@ -182,8 +192,7 @@ class IntegrationTests(TestCase):
         Web user bob.com
         """
         # setup
-        self.store_object(id='did:plc:alice', raw=DID_DOC)
-        alice = self.make_user(id='did:plc:alice', cls=ATProto)
+        alice = self.make_atproto_user('did:plc:alice')
 
         Repo.create(self.storage, 'did:plc:bob', signing_key=ATPROTO_KEY)
         bob = self.make_user(id='bob.com', cls=Web,
@@ -338,10 +347,8 @@ class IntegrationTests(TestCase):
         ATProto user alice.com (did:plc:alice)
         Like is https://inst/like
         """
-        self.store_object(id='did:plc:alice', raw=DID_DOC)
-        alice = self.make_user(id='did:plc:alice', cls=ATProto)
-
-        self.make_ap_user_with_atp('https://inst/bob', 'did:plc:bob')
+        self.make_atproto_user('did:plc:alice')
+        self.make_ap_user('https://inst/bob', 'did:plc:bob')
 
         # existing Object with original post, *without* cid. we should generate.
         Object(id='at://did:plc:alice/app.bsky.feed.post/123', bsky=POST_BSKY).put()
@@ -499,15 +506,7 @@ class IntegrationTests(TestCase):
         ATProto user alice.com, did:plc:alice
         ActivityPub bot user @ap.brid.gy, did:plc:ap
         """
-        self.make_user(id='ap.brid.gy', cls=Web, ap_subdomain='ap',
-                       enabled_protocols=['atproto'],
-                       copies=[Target(uri='did:plc:ap', protocol='atproto')])
-        self.store_object(id='did:plc:ap', raw={
-            **DID_DOC,
-            'id': 'did:plc:ap',
-            'alsoKnownAs': ['at://ap.brid.gy'],
-        })
-        Repo.create(self.storage, 'did:plc:ap', signing_key=ATPROTO_KEY)
+        self.make_web_user('ap.brid.gy', did='did:plc:ap')
 
         mock_get.side_effect = [
             # ATProto listNotifications
@@ -548,17 +547,54 @@ class IntegrationTests(TestCase):
 
     @patch('requests.post')
     @patch('requests.get')
+    def test_atproto_block_ap_bot_user_disables_protocol_deletes_actor(
+            self, mock_get, mock_post):
+        """Bluesky user blocks ap.brid.gy: disables protocol, deletes their AP actor.
+
+        ATProto user alice.com, did:plc:alice
+        """
+        self.make_web_user('ap.brid.gy', did='did:plc:ap')
+        alice = self.make_atproto_user('did:plc:alice')
+        Follower.get_or_create(to=alice, from_=self.make_ap_user('http://x/bob'))
+        Follower.get_or_create(to=alice, from_=self.make_ap_user('http://y/eve'))
+
+        block = {
+            '$type': 'app.bsky.graph.block',
+            'subject': 'did:plc:ap',
+            'createdAt': '2022-01-02T03:04:05.000Z'
+        }
+        new_commits.put(Op(repo='did:plc:alice', action='create', seq=123,
+                           path='app.bsky.graph.block/123', record=block))
+        Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
+
+        handle(limit=1)
+
+        self.assertEqual(2, mock_post.call_count)
+        args, kwargs = mock_post.call_args_list
+        self.assertEqual([('http://x/bob/inbox',), ('http://y/eve/inbox',)],
+                         [args for args, _ in mock_post.call_args_list])
+
+        for _, kwargs in mock_post.call_args_list:
+            self.assert_equals({
+                '@context': 'https://www.w3.org/ns/activitystreams',
+                'type': 'Delete',
+                'id': 'https://bsky.brid.gy/convert/ap/did:plc:alice#delete-copy-activitypub-2022-01-02T03:04:05+00:00',
+                'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'object': 'https://bsky.brid.gy/ap/did:plc:alice',
+                'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            }, json_loads(kwargs['data']))
+
+
+    @patch('requests.post')
+    @patch('requests.get')
     def test_atproto_mention_activitypub(self, mock_get, mock_post):
         """Bluesky @-mention of *.ap.brid.gy user.
 
         ATProto user alice.com, did:plc:alice
         ActivityPub user bob@inst, https://inst/bob, bob.inst.ap.brid.gy, did:plc:bob
         """
-        self.store_object(id='did:plc:alice', raw=DID_DOC)
-        alice = self.make_user(id='did:plc:alice', cls=ATProto,
-                               obj_bsky=test_atproto.ACTOR_PROFILE_BSKY,
-                               enabled_protocols=['activitypub'])
-        bob = self.make_ap_user_with_atp('https://inst/bob', 'did:plc:bob')
+        alice = self.make_atproto_user('did:plc:alice')
+        bob = self.make_ap_user('https://inst/bob', 'did:plc:bob')
 
         post = {
             '$type': 'app.bsky.feed.post',
