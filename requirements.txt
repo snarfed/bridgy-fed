@@ -102,7 +102,7 @@ typing-extensions==4.9.0
 typing-validation==1.2.11.post1
 ujson==5.10.0
 update-checker==0.18.0
-urllib3==2.2.1
+urllib3==2.2.2
 webencodings==0.5.1
 WebOb==1.8.7
 websocket-client==1.8.0
