@@ -665,7 +665,8 @@ class Protocol:
         * ``object.author``
         * ``object.id``
         * ``object.inReplyTo``
-        * ``tags.[objectType=mention].url``
+        * ``attachments[].id``
+        * ``tags[objectType=mention].url``
 
         This is the inverse of :meth:`models.Object.resolve_ids`. Much of the
         same logic is duplicated there!
@@ -716,6 +717,8 @@ class Protocol:
             for tag in as1.get_objects(o, 'tags'):
                 if tag.get('objectType') == 'mention':
                     translate(tag, 'url', translate_user_id)
+            for att in as1.get_objects(o, 'attachments'):
+                translate(att, 'id', translate_object_id)
 
         outer_obj = util.trim_nulls(outer_obj)
         if outer_obj.get('object', {}).keys() == {'id'}:

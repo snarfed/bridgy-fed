@@ -531,6 +531,29 @@ class ProtocolTest(TestCase):
             'object': 'fake:alice',
         }))
 
+    def test_translate_ids_attachments_mention_tags(self):
+        self.assert_equals({
+            'objectType': 'note',
+            'attachments': [
+                {'id': 'other:o:fa:fake:123'},
+                {'url': 'fake:456'},
+            ],
+            'tags': [
+                {'objectType': 'mention', 'url': 'other:u:fake:alice'},
+                {'url': 'fake:000'},
+            ],
+        }, OtherFake.translate_ids({
+            'objectType': 'note',
+            'attachments': [
+                {'id': 'fake:123'},
+                {'url': 'fake:456'},
+            ],
+            'tags': [
+                {'objectType': 'mention', 'url': 'fake:alice'},
+                {'url': 'fake:000'},
+            ],
+        }))
+
     def test_translate_ids_copies(self):
         self.store_object(id='fake:post',
                           copies=[Target(uri='other:post', protocol='other')])
