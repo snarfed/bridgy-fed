@@ -724,7 +724,7 @@ class ObjectTest(TestCase):
                 'url': 'https://fed.brid.gy/static/bridgy_logo_square.jpg',
             }, {
                 'objectType': 'featured',
-                'url': 'https://fed.brid.gy/static/bridgy_logo.jpg',
+                'url': 'https://fed.brid.gy/static/bridgy_fed_banner.jpg',
             }],
         }, Web.load('https://fed.brid.gy/').as1, ignore=['summary'])
 
