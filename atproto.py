@@ -445,6 +445,10 @@ class ATProto(User, Protocol):
             logger.info(f'Skipping due to {e}')
             return False
 
+        if not record:
+            # _convert already logged
+            return False
+
         # find user
         from_cls = PROTOCOLS[obj.source_protocol]
         from_key = from_cls.actor_key(obj)

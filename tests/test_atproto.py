@@ -1263,6 +1263,18 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         mock_create_task.assert_not_called()
 
     @patch.object(tasks_client, 'create_task')
+    @patch.object(ATProto, '_convert', return_value={})
+    def test_send_skips_bad_convert(self, _, mock_create_task):
+        self.make_user_and_repo()
+
+        obj = Object(id='fake:bad', source_protocol='fake', our_as1={
+            'actor': 'fake:user',
+            'foo': 'bar',
+        })
+        self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
+        mock_create_task.assert_not_called()
+
+    @patch.object(tasks_client, 'create_task')
     def test_send_skips_question(self, mock_create_task):
         question = {
             'type': 'Question',
