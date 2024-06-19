@@ -671,9 +671,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         return f"""\
         <span class="logo" title="{self.__class__.__name__}">{self.LOGO_HTML}</span>
-        <a class="h-card u-author" href="{url}" title="{self.name()}">
+        <a class="h-card u-author" href="{url}" title="{self.name()} {maybe_handle}">
           {img}
-          {util.ellipsize(self.name(), chars=40)} {maybe_handle}
+          {util.ellipsize(self.name(), chars=40)}
+          {util.ellipsize(maybe_handle, chars=40)}
         </a>"""
 
     def profile_picture(self):

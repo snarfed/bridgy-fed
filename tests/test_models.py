@@ -173,17 +173,17 @@ class UserTest(TestCase):
     def test_user_link(self):
         self.assert_multiline_equals("""\
 <span class="logo" title="Web">🌐</span>
-<a class="h-card u-author" href="/web/y.z" title="y.z">
+<a class="h-card u-author" href="/web/y.z" title="y.z ">
   y.z
 </a>""", self.user.user_link(), ignore_blanks=True)
 
         self.user.obj = Object(id='a', as2=ACTOR)
         self.assert_multiline_equals("""\
 <span class="logo" title="Web">🌐</span>
-<a class="h-card u-author" href="/web/y.z" title="Mrs. ☕ Foo">
+<a class="h-card u-author" href="/web/y.z" title="Mrs. ☕ Foo ">
   <img src="https://user.com/me.jpg" class="profile">
   Mrs. ☕ Foo
-</a>""", self.user.user_link())
+</a>""", self.user.user_link(), ignore_blanks=True)
 
     def test_is_web_url(self):
         for url in 'y.z', '//y.z', 'http://y.z', 'https://y.z':
@@ -626,7 +626,7 @@ class ObjectTest(TestCase):
         obj = Object(id='x', source_protocol='ui', users=[self.user.key])
 
         got = obj.actor_link(user=self.user)
-        self.assertIn('href="web:fake:user" title="Alice">', got)
+        self.assertIn('href="web:fake:user" title="Alice ">', got)
         self.assertIn('Alice', got)
 
     def test_actor_link_object_in_datastore(self):

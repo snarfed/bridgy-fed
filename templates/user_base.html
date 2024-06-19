@@ -44,11 +44,12 @@
      {% if proto and not isinstance(user, proto) and proto.LABEL not in ('ui', 'web')
            and user.is_enabled(proto) %}
       {% set url = proto.bridged_web_url_for(user) %}
+      {% set handle = user.handle_as(proto) %}
       &middot;
-      <nobr title="{{ proto.__name__ }} (bridged)">
+      <nobr title="{{ proto.__name__ }} (bridged): {{ handle }}">
       {% if url %} <a href="{{ url }}"> {% endif %}
         <span class="logo">{{ proto.LOGO_HTML|safe }}</span>
-        {{ user.handle_as(proto) }}
+        {{ util.ellipsize(handle, chars=40) }}
       {% if url %} </a> {% endif %}
       </nobr>
     {% endif %}
