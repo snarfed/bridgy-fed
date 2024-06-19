@@ -1,6 +1,5 @@
 """Integration tests."""
 import copy
-from unittest import skip
 from unittest.mock import patch
 
 from arroba.datastore_storage import DatastoreStorage
@@ -94,11 +93,8 @@ class IntegrationTests(TestCase):
                               bsky=bluesky.from_as1(user.obj.as1))
 
 
-    # TODO: port to firehose
-    @skip
     @patch('requests.post')
-    @patch('requests.get')
-    def test_atproto_notify_reply_to_activitypub(self, mock_get, mock_post):
+    def test_atproto_notify_reply_to_activitypub(self, mock_post):
         """ATProto poll notifications, deliver reply to ActivityPub.
 
         ActivityPub original post http://inst/post by bob
@@ -107,7 +103,7 @@ class IntegrationTests(TestCase):
         https://github.com/snarfed/bridgy-fed/issues/720
         """
         alice = self.make_atproto_user('did:plc:alice')
-        bob = self.make_atproto_user('http://inst/bob', 'did:plc:alice')
+        bob = self.make_ap_user('http://inst/bob', 'did:plc:bob')
 
         self.store_object(id='http://inst/post', source_protocol='activitypub',
                           our_as1={
@@ -118,42 +114,24 @@ class IntegrationTests(TestCase):
             Target(uri='at://did:plc:bob/app.bsky.feed.post/123', protocol='atproto'),
         ])
 
-        mock_get.side_effect = [
-            # ATProto listNotifications
-            requests_response({
-                'cursor': '...',
-                'notifications': [{
-                    'uri': 'at://did:plc:alice/app.bsky.feed.post/456',
+        reply = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'I hereby reply',
+            'reply': {
+                'root': {
                     'cid': '...',
-                    'author': {
-                        '$type': 'app.bsky.actor.defs#profileView',
-                        'did': 'did:plc:alice',
-                        'handle': 'alice.com',
-                    },
-                    'reason': 'reply',
-                    'record': {
-                        '$type': 'app.bsky.feed.post',
-                        'text': 'I hereby reply',
-                        'reply': {
-                            'root': {
-                                'cid': '...',
-                                'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
-                            },
-                            'parent': {
-                                'cid': '...',
-                                'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
-                            }
-                        },
-                    },
-                    'indexedAt': '...',
-                }],
-            }),
-            # ATProto getRecord of alice's profile
-            requests_response(PROFILE_GETRECORD),
-        ]
-
-        resp = self.post('/queue/atproto-poll-notifs', client=hub.app.test_client())
-        self.assertEqual(200, resp.status_code)
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                },
+                'parent': {
+                    'cid': '...',
+                    'uri': 'at://did:plc:bob/app.bsky.feed.post/123',
+                },
+            },
+        }
+        new_commits.put(Op(repo='did:plc:alice', action='create', seq=456,
+                           path='app.bsky.feed.post/456', record=reply))
+        Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
+        handle(limit=1)
 
         web_test = test_web.WebTest()
         web_test.user = alice
@@ -180,10 +158,8 @@ class IntegrationTests(TestCase):
         })
 
 
-    # TODO: port to firehose
-    @skip
     @patch('requests.post', return_value=requests_response(''))
-    @patch('requests.get')
+    @patch('requests.get', return_value=test_web.WEBMENTION_REL_LINK)
     def test_atproto_follow_to_web(self, mock_get, mock_post):
         """ATProto poll notifications, deliver follow to Web.
 
@@ -192,42 +168,22 @@ class IntegrationTests(TestCase):
         Web user bob.com
         """
         # setup
-        alice = self.make_atproto_user('did:plc:alice')
+        alice = self.make_atproto_user('did:plc:alice', enabled_protocols=['web'])
 
         Repo.create(self.storage, 'did:plc:bob', signing_key=ATPROTO_KEY)
         bob = self.make_user(id='bob.com', cls=Web,
                              copies=[Target(uri='did:plc:bob', protocol='atproto')],
                              enabled_protocols=['atproto'])
 
-        mock_get.side_effect = [
-            # ATProto listNotifications
-            requests_response({
-                'cursor': '...',
-                'notifications': [{
-                    'uri': 'at://did:plc:alice/app.bsky.graph.follow/123',
-                    'cid': '...',
-                    'author': {
-                        '$type': 'app.bsky.actor.defs#profileView',
-                        'did': 'did:plc:alice',
-                        'handle': 'alice.com',
-                    },
-                    'reason': 'follow',
-                    'record': {
-                        '$type': 'app.bsky.graph.follow',
-                        'subject': 'did:plc:bob',
-                        'createdAt': '2022-01-02T03:04:05.000Z',
-                    },
-                    'indexedAt': '...',
-                }],
-            }),
-            # ATProto getRecord of alice's profile
-            requests_response(PROFILE_GETRECORD),
-            # webmention discovery
-            test_web.WEBMENTION_REL_LINK,
-        ]
-
-        resp = self.post('/queue/atproto-poll-notifs', client=hub.app.test_client())
-        self.assertEqual(200, resp.status_code)
+        follow = {
+            '$type': 'app.bsky.graph.follow',
+            'subject': 'did:plc:bob',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+        }
+        new_commits.put(Op(repo='did:plc:alice', action='create', seq=123,
+                           path='app.bsky.graph.follow/123', record=follow))
+        Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
+        handle(limit=1)
 
         self.assert_req(mock_get, 'https://bob.com/')
         self.assert_req(mock_post, 'https://bob.com/webmention', data={
@@ -496,50 +452,26 @@ class IntegrationTests(TestCase):
         self.assertEqual(0, len(user.copies))
 
 
-    # TODO: port to firehose
-    @skip
-    @patch('requests.post')
-    @patch('requests.get')
-    def test_atproto_follow_ap_bot_user_enables_protocol(self, mock_get, mock_post):
-        """Bluesky follow of @ap.brid.gy enables the ActivityPub protocol.
+    @patch('requests.get', side_effect=[
+        requests_response(DID_DOC),  # alice DID
+        requests_response(PROFILE_GETRECORD),  # alice profile
+    ])
+    def test_atproto_follow_ap_bot_user_enables_protocol(self, mock_get):
+        """ATProto follow of @ap.brid.gy enables the ActivityPub protocol.
 
         ATProto user alice.com, did:plc:alice
         ActivityPub bot user @ap.brid.gy, did:plc:ap
         """
         self.make_web_user('ap.brid.gy', did='did:plc:ap')
 
-        mock_get.side_effect = [
-            # ATProto listNotifications
-            requests_response({
-                'cursor': '...',
-                'notifications': [{
-                    'uri': 'at://did:plc:alice/app.bsky.graph.follow/456',
-                    'cid': '...',
-                    'author': {
-                        '$type': 'app.bsky.actor.defs#profileView',
-                        'did': 'did:plc:alice',
-                        'handle': 'alice.com',
-                    },
-                    'reason': 'follow',
-                    'record': {
-                        '$type': 'app.bsky.graph.follow',
-                        'subject': 'did:plc:ap',
-                    },
-                    'indexedAt': '...',
-                }],
-            }),
-            # alice DID
-            requests_response(DID_DOC),
-            # alice profile
-            requests_response(PROFILE_GETRECORD),
-            # alice.com handle resolution, HTTPS method
-            # requests_response('did:plc:alice', content_type='text/plain'),
-            # # alice profile
-            # requests_response(PROFILE_GETRECORD),
-        ]
-
-        resp = self.post('/queue/atproto-poll-notifs', client=hub.app.test_client())
-        self.assertEqual(200, resp.status_code)
+        follow = {
+            '$type': 'app.bsky.graph.follow',
+            'subject': 'did:plc:ap',
+        }
+        new_commits.put(Op(repo='did:plc:alice', action='create', seq=123,
+                           path='app.bsky.graph.follow/123', record=follow))
+        Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
+        handle(limit=1)
 
         user = ATProto.get_by_id('did:plc:alice')
         self.assertTrue(user.is_enabled(ActivityPub))
