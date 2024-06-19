@@ -106,11 +106,22 @@ class DatastoreClient(Client):
         assert repo and collection and rkey, (repo, collection, rkey)
 
         uri = at_uri(did=repo, collection=collection, rkey=rkey)
-        if obj := ATProto.load(uri):
+        record = None
+
+        # local record in a repo we own?
+        if repo := arroba.server.storage.load_repo(repo):
+            record = repo.get_record(collection=collection, rkey=rkey)
+
+        # remote record that we have a cached copy of?
+        if not record:
+            if obj := ATProto.load(uri):
+                record = obj.bsky
+
+        if record:
             return {
                 'uri': uri,
-                'cid': obj.bsky.get('cid') or dag_cbor_cid(obj.bsky).encode('base32'),
-                'value': obj.bsky,
+                'cid': record.get('cid') or dag_cbor_cid(record).encode('base32'),
+                'value': record,
             }
 
     def resolve_handle(self, handle=None):

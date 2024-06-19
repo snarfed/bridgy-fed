@@ -6,8 +6,8 @@ from unittest.mock import ANY, call, MagicMock, patch
 
 from arroba.datastore_storage import AtpBlock, AtpRemoteBlob, AtpRepo, DatastoreStorage
 from arroba.did import encode_did_key
-from arroba.repo import Repo
-from arroba.storage import SUBSCRIBE_REPOS_NSID
+from arroba.repo import Repo, Write
+from arroba.storage import Action, SUBSCRIBE_REPOS_NSID
 import arroba.util
 from dns.resolver import NXDOMAIN
 from google.cloud.tasks_v2.types import Task
@@ -1438,13 +1438,30 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                 },
             }, data=None, headers=ANY)
 
-    def test_datastore_client_get_record_datastore(self):
+    def test_datastore_client_get_record_datastore_object(self):
         self.make_user_and_repo()
         post = {
             '$type': 'app.bsky.feed.post',
             'text': 'foo',
         }
         self.store_object(id='at://did:plc:user/coll/post', bsky=post)
+
+        client = DatastoreClient('https://appview.local')
+        self.assertEqual({
+            'uri': 'at://did:plc:user/coll/post',
+            'cid': 'bafyreigdjrzqmcj4i3zcj3fzcfgod52ty7lfvw57ienlu4yeet3dv6zdpy',
+            'value': post,
+        }, client.com.atproto.repo.getRecord(repo='did:plc:user',
+                                             collection='coll', rkey='post'))
+
+    def test_datastore_client_get_record_datastore_repo(self):
+        self.make_user_and_repo()
+        post = {
+            '$type': 'app.bsky.feed.post',
+            'text': 'foo',
+        }
+        self.repo.apply_writes([Write(action=Action.CREATE, collection='coll',
+                                      rkey='post', record=post)])
 
         client = DatastoreClient('https://appview.local')
         self.assertEqual({
