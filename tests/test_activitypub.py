@@ -2146,14 +2146,44 @@ class ActivityPubUtilsTest(TestCase):
             }],
         }))
 
-    def test_postprocess_as2_strips_link_attachment(self):
-        self.assertNotIn('attachment', postprocess_as2({
+    def test_postprocess_as2_moves_link_attachments_to_content(self):
+        # https://github.com/snarfed/bridgy-fed/issues/958
+        self.assert_equals({
+            'type': 'Note',
+            'content': '<p><a href="http://a/link">check it out</a><br><br><a href="http://another/link">another/link</a></p>',
+            'contentMap': {
+                'en': '<p><a href="http://a/link">check it out</a><br><br><a href="http://another/link">another/link</a></p>',
+            },
+            'content_is_html': True,
+        }, postprocess_as2({
             'type': 'Note',
             'attachment': [{
                 'type': 'Link',
                 'url': 'http://a/link',
+                'displayName': 'check it out',
+            }, {
+                'type': 'Link',
+                'url': 'http://another/link',
             }],
-        }))
+        }), ignore=['to'])
+
+    def test_postprocess_as2_appends_link_attachments_to_content(self):
+        # https://github.com/snarfed/bridgy-fed/issues/958
+        self.assert_equals({
+            'type': 'Note',
+            'content': '<p>original<br><br><a href="http://a/link">a/link</a></p>',
+            'contentMap': {
+                'en': '<p>original<br><br><a href="http://a/link">a/link</a></p>',
+            },
+            'content_is_html': True,
+        }, postprocess_as2({
+            'type': 'Note',
+            'content': 'original',
+            'attachment': [{
+                'type': 'Link',
+                'url': 'http://a/link',
+            }],
+        }), ignore=['to'])
 
     def test_postprocess_as2_actor_url_attachments(self):
         got = postprocess_as2_actor(as2.from_as1({

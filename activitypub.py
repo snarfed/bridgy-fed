@@ -735,12 +735,21 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     # https://chrisbeckstrom.com/2018/12/27/32551/
     # assert activity.get('id') or (isinstance(obj, dict) and obj.get('id'))
 
-    # drop Link attachments since fediverse instances generate their own link previews
-    # https://github.com/snarfed/bridgy-fed/issues/958
     obj_or_activity = obj if obj.keys() > set(['id']) else activity
-    obj_or_activity['attachment'] = [
-        a for a in as1.get_objects(obj_or_activity, 'attachment')
-        if a.get('type') != 'Link']
+
+    # move Link attachments to links in text since fediverse instances generate
+    # their own link previews.
+    # https://github.com/snarfed/bridgy-fed/issues/958
+    atts = util.pop_list(obj_or_activity, 'attachment')
+    obj_or_activity['attachment'] = [a for a in atts if a.get('type') != 'Link']
+    link_atts = [a for a in atts if a.get('type') == 'Link']
+
+    for link in link_atts:
+        if url := link.get('url'):
+            name = link.get('displayName')
+            if obj_or_activity.setdefault('content', ''):
+                obj_or_activity['content'] += '<br><br>'
+            obj_or_activity['content'] += util.pretty_link(url, text=name)
 
     # copy image(s) into attachment(s). may be Mastodon-specific.
     # https://github.com/snarfed/bridgy-fed/issues/33#issuecomment-440965618
