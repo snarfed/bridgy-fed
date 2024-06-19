@@ -746,10 +746,9 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
 
     for link in link_atts:
         if url := link.get('url'):
-            name = link.get('displayName')
             if obj_or_activity.setdefault('content', ''):
                 obj_or_activity['content'] += '<br><br>'
-            obj_or_activity['content'] += util.pretty_link(url, text=name)
+            obj_or_activity['content'] += util.pretty_link(url, text=link.get('name'))
 
     # copy image(s) into attachment(s). may be Mastodon-specific.
     # https://github.com/snarfed/bridgy-fed/issues/33#issuecomment-440965618

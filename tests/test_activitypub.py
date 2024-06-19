@@ -2160,7 +2160,7 @@ class ActivityPubUtilsTest(TestCase):
             'attachment': [{
                 'type': 'Link',
                 'url': 'http://a/link',
-                'displayName': 'check it out',
+                'name': 'check it out',
             }, {
                 'type': 'Link',
                 'url': 'http://another/link',
