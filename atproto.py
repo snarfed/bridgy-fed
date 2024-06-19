@@ -445,10 +445,6 @@ class ATProto(User, Protocol):
             logger.info(f'Skipping due to {e}')
             return False
 
-        if not record:
-            # _convert already logged
-            return False
-
         # find user
         from_cls = PROTOCOLS[obj.source_protocol]
         from_key = from_cls.actor_key(obj)
@@ -490,6 +486,10 @@ class ATProto(User, Protocol):
             return to_cls.create_report(record, user)
 
         # write commit
+        if not record:
+            # _convert already logged
+            return False
+
         type = record['$type']
         lex_type = LEXICONS[type]['type']
         assert lex_type == 'record', f"Can't store {type} object of type {lex_type}"
