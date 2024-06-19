@@ -89,10 +89,12 @@ RUN_TASKS_INLINE = False  # overridden by unit tests
 # for Protocol.REQUIRES_OLD_ACCOUNT, how old is old enough
 OLD_ACCOUNT_AGE = timedelta(days=14)
 
-if appengine_info.DEBUG:
+if appengine_info.DEBUG or appengine_info.LOCAL_SERVER:
+    logger.info('Using in memory mock memcache')
     memcache = MockMemcacheClient()
     global_cache = _InProcessGlobalCache()
 else:
+    logger.info('Using production Memorystore memcache')
     memcache = pymemcache.client.base.PooledClient(
         '10.126.144.3', timeout=10, connect_timeout=10)  # seconds
     global_cache = MemcacheCache(memcache)
