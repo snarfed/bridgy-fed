@@ -808,8 +808,8 @@ class Protocol:
                 and Protocol.for_bridgy_subdomain(as1.get_object(obj.as1).get('id'))):
             # follows of bot user; refresh user profile first
             logger.info(f'Follow of bot user, reloading {actor}')
-            from_cls.load(actor, remote=True)
             from_user = from_cls.get_or_create(id=actor, allow_opt_out=True)
+            from_user.obj = from_cls.load(from_user.profile_id(), remote=True)
         else:
             # load actor user
             from_user = from_cls.get_or_create(id=actor)

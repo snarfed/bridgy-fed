@@ -2097,6 +2097,7 @@ class ProtocolReceiveTest(TestCase):
 
         user = self.make_user('eefake:user', cls=ExplicitEnableFake)
         self.assertFalse(user.is_enabled(Fake))
+        ExplicitEnableFake.fetchable = {'eefake:user': {'profile': 'info'}}
 
         # fake protocol isn't enabled yet, block should be a noop
         self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(block))
@@ -2108,6 +2109,11 @@ class ProtocolReceiveTest(TestCase):
         _, code = ExplicitEnableFake.receive_as1(follow)
         self.assertEqual(204, code)
         user = user.key.get()
+        self.assertEqual({
+            'id': 'eefake:user',
+            'profile': 'info',
+        }, user.obj.as1)
+
         self.assertEqual(['fake'], user.enabled_protocols)
         self.assertEqual(['eefake:user'], Fake.created_for)
         self.assertTrue(user.is_enabled(Fake))

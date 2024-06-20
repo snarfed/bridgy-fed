@@ -455,6 +455,7 @@ class IntegrationTests(TestCase):
     @patch('requests.get', side_effect=[
         requests_response(DID_DOC),  # alice DID
         requests_response(PROFILE_GETRECORD),  # alice profile
+        requests_response(PROFILE_GETRECORD),  # ...
     ])
     def test_atproto_follow_ap_bot_user_enables_protocol(self, mock_get):
         """ATProto follow of @ap.brid.gy enables the ActivityPub protocol.
