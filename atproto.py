@@ -29,7 +29,6 @@ from granary import as1, bluesky
 from granary.bluesky import Bluesky
 from granary.source import html_to_text, INCLUDE_LINK, Source
 from lexrpc import Client
-import requests
 from requests import RequestException
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
@@ -93,8 +92,7 @@ class DatastoreClient(Client):
 
     def call(self, nsid, input=None, headers={}, **params):
         if nsid == 'com.atproto.repo.getRecord':
-            if ret := self.get_record(**params):
-                return ret
+            return self.get_record(**params)  # may return {}
 
         if nsid == 'com.atproto.identity.resolveHandle':
             if ret := self.resolve_handle(**params):
@@ -112,10 +110,13 @@ class DatastoreClient(Client):
         if repo := arroba.server.storage.load_repo(repo):
             record = repo.get_record(collection=collection, rkey=rkey)
 
-        # remote record that we have a cached copy of?
+        # remote record that we may have a cached copy of
         if not record:
-            if obj := ATProto.load(uri):
-                record = obj.bsky
+            try:
+                if obj := ATProto.load(uri):
+                    record = obj.bsky
+            except RequestException as e:
+                util.interpret_http_exception(e)
 
         if record:
             return {
@@ -123,6 +124,8 @@ class DatastoreClient(Client):
                 'cid': record.get('cid') or dag_cbor_cid(record).encode('base32'),
                 'value': record,
             }
+        else:
+            return {}
 
     def resolve_handle(self, handle=None):
         assert handle
@@ -600,7 +603,7 @@ class ATProto(User, Protocol):
             try:
                 obj.raw = did.resolve(id, get_fn=util.requests_get)
                 return True
-            except (ValueError, requests.RequestException) as e:
+            except (ValueError, RequestException) as e:
                 util.interpret_http_exception(e)
                 return False
 
@@ -673,7 +676,7 @@ class ATProto(User, Protocol):
             ret = bluesky.from_as1(cls.translate_ids(obj.as1), blobs=blobs,
                                    client=client, original_fields_prefix='bridgy')
         except (ValueError, RequestException):
-            logger.error(f"Couldn't convert to ATProto", exc_info=True)
+            logger.info(f"Couldn't convert to ATProto", exc_info=True)
             return {}
 
         if from_proto != ATProto:

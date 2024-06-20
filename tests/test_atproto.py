@@ -21,6 +21,7 @@ from multiformats import CID
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil.testutil import NOW, requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads, trim_nulls
+from requests.exceptions import HTTPError
 from werkzeug.exceptions import BadRequest
 
 import atproto
@@ -1580,6 +1581,17 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             },
         }, client.com.atproto.repo.getRecord(repo='did:plc:user',
                                              collection='coll', rkey='post'))
+
+        mock_get.assert_called_with(
+            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=coll&rkey=post',
+            json=None, data=None, headers=ANY)
+
+    @patch('requests.get', side_effect=HTTPError(
+        response=requests_response(status=500)))
+    def test_datastore_client_get_record_pass_through_fails(self, mock_get):
+        client = DatastoreClient('https://appview.local')
+        self.assertEqual({}, client.com.atproto.repo.getRecord(
+            repo='did:plc:user', collection='coll', rkey='post'))
 
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=coll&rkey=post',
