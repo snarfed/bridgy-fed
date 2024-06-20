@@ -1047,6 +1047,21 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_create_task.assert_called()  # atproto-commit
 
+    def test_send_update_doesnt_exist(self):
+        self.test_send_note_existing_repo()
+        user = self.make_user_and_repo()
+
+        update = Object(id='fake:update', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'fake:user',
+            'object': {
+                'id': 'fake:post',
+                'foo': 'bar',
+            },
+        })
+        self.assertFalse(ATProto.send(update, 'https://bsky.brid.gy'))
+
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_delete_note(self, mock_create_task):
         self.test_send_note_existing_repo()
@@ -1080,6 +1095,17 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         })
         self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
         mock_create_task.assert_not_called()  # atproto-commit
+
+    def test_send_delete_already_deleted(self):
+        self.test_send_delete_note()
+
+        delete = Object(id='fake:delete', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertFalse(ATProto.send(delete, 'https://bsky.brid.gy/'))
 
     @patch.object(tasks_client, 'create_task')
     def test_send_delete_original_no_copy(self, mock_create_task):

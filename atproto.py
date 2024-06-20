@@ -537,16 +537,23 @@ class ATProto(User, Protocol):
                     rkey = next_tid()
 
             logger.info(f'Storing ATProto {action} {type} {rkey} {dag_json.encode(record)}')
-            repo.apply_writes([Write(action=action, collection=type, rkey=rkey,
-                                     record=record)])
+            try:
+                repo.apply_writes([Write(action=action, collection=type, rkey=rkey,
+                                         record=record)])
+            except KeyError as e:
+                # raised by update and delete if no record exists for this
+                # collection/rkey
+                logger.warning(e)
+                return False
 
             if verb != 'delete':
                 at_uri = f'at://{did}/{type}/{rkey}'
                 base_obj.add('copies', Target(uri=at_uri, protocol=to_cls.LABEL))
                 base_obj.put()
 
-        write()
-        return True
+            return True
+
+        return write()
 
     @classmethod
     def load(cls, id, did_doc=False, **kwargs):
