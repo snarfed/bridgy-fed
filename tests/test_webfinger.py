@@ -397,6 +397,10 @@ class WebfingerTest(TestCase):
                 'type': 'application/ld+json; profile="https://www.w3.org/ns/activitystreams"',
             }, got.json['links'])
 
+    def test_protocol_bot_user_doesnt_exist(self):
+        got = self.client.get(f'/.well-known/webfinger?resource=acct:web.brid.gy@web.brid.gy')
+        self.assertEqual(404, got.status_code, got.get_data(as_text=True))
+
     def test_internal_domain_error(self):
         got = self.client.get('/.well-known/webfinger?resource=http://localhost/')
         self.assertEqual(400, got.status_code, got.get_data(as_text=True))

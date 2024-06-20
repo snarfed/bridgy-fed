@@ -516,6 +516,10 @@ class ActivityPubTest(TestCase):
             got_json.pop(field)
         self.assertEqual(actor_as2, got_json)
 
+    def test_actor_protocol_bot_user_doesnt_exist(self, *_):
+        got = self.client.get('/web.brid.gy', base_url='https://web.brid.gy/')
+        self.assertEqual(404, got.status_code, got.get_data(as_text=True))
+
     def test_instance_actor_fetch(self, *_):
         def reset_instance_actor():
             activitypub._INSTANCE_ACTOR = testutil.global_user

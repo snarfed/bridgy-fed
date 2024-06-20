@@ -528,6 +528,10 @@ class WebTest(TestCase):
         self.user.put()
         self.assertIsNone(Web.get_or_create('uSeR.cOm'))
 
+    def test_get_or_create_bridgy_subdomain(self, *_):
+        for subdomain in '', 'fa.', 'fed.', 'web.':
+            self.assertIsNone(Web.get_or_create(f'{subdomain}brid.gy'))
+
     def test_bad_source_url(self, *mocks):
         orig_count = Object.query().count()
 

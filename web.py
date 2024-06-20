@@ -156,8 +156,10 @@ class Web(User, Protocol):
             return None  # opted out
 
         domain = key.id()
-        user = super().get_or_create(domain, **kwargs)
+        if util.domain_or_parent_in(domain, [SUPERDOMAIN.strip('.')]):
+            return super().get_by_id(domain)
 
+        user = super().get_or_create(domain, **kwargs)
         if not user.existing:
             common.create_task(queue='poll-feed', domain=domain)
 
@@ -461,8 +463,11 @@ class Web(User, Protocol):
         if is_homepage:
             domain = util.domain_from_link(url)
             if domain == PRIMARY_DOMAIN or domain in PROTOCOL_DOMAINS:
-                obj.as2 = json_loads(util.read(f'{domain}.as2.json'))
-                return True
+                profile = util.read(f'{domain}.as2.json')
+                if profile:
+                    obj.as2 = json_loads(profile)
+                    return True
+                return False
 
         require_backlink = (common.host_url().rstrip('/')
                             if check_backlink and not is_homepage
