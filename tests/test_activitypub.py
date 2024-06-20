@@ -567,6 +567,13 @@ class ActivityPubTest(TestCase):
                            as2=note, status='ignored', users=[user.key],
                            ignore=['our_as1'])
 
+    def test_inbox_bad_id(self, *_):
+        user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        # mock_get.return_value = self.as2_resp(ACTOR)
+
+        resp = self.post('/ap/sharedInbox', json={**NOTE, 'id': 'abc123'})
+        self.assertEqual(400, resp.status_code)
+
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_inbox_create_receive_task(self, mock_create_task, *mocks):
         common.RUN_TASKS_INLINE = False

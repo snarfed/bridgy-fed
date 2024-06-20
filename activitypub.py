@@ -1017,7 +1017,7 @@ def inbox(protocol=None, id=None):
     type = activity.get('type')
     actor = as1.get_object(activity, 'actor')
     actor_id = actor.get('id')
-    logger.info(f'Got {type} {activity.get("id")} from {actor_id}')
+    logger.info(f'Got {type} {id} from {actor_id}')
 
     if ActivityPub.is_blocklisted(actor_id):
         error(f'Actor {actor_id} is blocklisted')
@@ -1061,8 +1061,12 @@ def inbox(protocol=None, id=None):
 
     if not id:
         id = f'{actor_id}#{type}-{object.get("id", "")}-{util.now().isoformat()}'
-    obj = Object.get_or_create(id=id, as2=unwrap(activity), authed_as=authed_as,
-                               source_protocol=ActivityPub.LABEL)
+    try:
+        obj = Object.get_or_create(id=id, as2=unwrap(activity), authed_as=authed_as,
+                                   source_protocol=ActivityPub.LABEL)
+    except AssertionError as e:
+        error(f'Invalid activity, probably due to id: {e}', status=400)
+
     return create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=authed_as)
 
 
