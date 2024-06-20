@@ -1064,7 +1064,7 @@ class Protocol:
         # send accept. note that this is one accept for the whole
         # follow, even if it has multiple followees!
         id = f'{followee.key.id()}/followers#accept-{follow.key.id()}'
-        accept = Object.get_or_create(id, our_as1={
+        accept = Object.get_or_create(id, authed_as=followee.key.id(), our_as1={
             'id': id,
             'objectType': 'activity',
             'verb': 'accept',
