@@ -49,7 +49,7 @@ from common import (
 )
 import flask_app
 import ids
-from models import Object, PROTOCOLS, Target, User
+from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
 
 logger = logging.getLogger(__name__)
@@ -438,6 +438,20 @@ class ATProto(User, Protocol):
                     return False
                 base_obj = obj
 
+        elif type == 'stop-following':
+            assert from_user
+            to_id = as1.get_object(obj.as1).get('id')
+            assert to_id
+            to_key = Protocol.key_for(to_id)
+            follower = Follower.query(Follower.from_ == from_user.key,
+                                      Follower.to == to_key).get()
+            if not follower or not follower.follow:
+                logger.info(f"Skipping, can't find Follower for {from_user.key.id()} => {to_key.id()} with follow")
+                return False
+
+            base_obj = follower.follow.get()
+            verb = 'delete'
+
         # convert to Bluesky record; short circuits on error
         try:
             record = to_cls.convert(base_obj, fetch_blobs=True, from_user=from_user)
@@ -485,6 +499,10 @@ class ATProto(User, Protocol):
         elif verb == 'flag':
             return to_cls.create_report(record, user)
 
+        elif verb == 'stop-following':
+            assert base_obj and base_obj.type == 'follow', base_obj
+            verb = 'delete'
+
         # write commit
         if not record:
             # _convert already logged
@@ -522,9 +540,10 @@ class ATProto(User, Protocol):
             repo.apply_writes([Write(action=action, collection=type, rkey=rkey,
                                      record=record)])
 
-            at_uri = f'at://{did}/{type}/{rkey}'
-            base_obj.add('copies', Target(uri=at_uri, protocol=to_cls.LABEL))
-            base_obj.put()
+            if verb != 'delete':
+                at_uri = f'at://{did}/{type}/{rkey}'
+                base_obj.add('copies', Target(uri=at_uri, protocol=to_cls.LABEL))
+                base_obj.put()
 
         write()
         return True

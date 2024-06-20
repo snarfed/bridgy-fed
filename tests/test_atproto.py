@@ -26,7 +26,7 @@ from werkzeug.exceptions import BadRequest
 import atproto
 from atproto import ATProto, DatastoreClient
 import common
-from models import Object, PROTOCOLS, Target
+from models import Follower, Object, PROTOCOLS, Target
 import protocol
 from .testutil import ATPROTO_KEY, Fake, TestCase
 from . import test_activitypub
@@ -1209,6 +1209,55 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
                          Object.get_by_id(id='fake:follow').copies)
 
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_unfollow(self, mock_create_task):
+        user = self.make_user_and_repo()
+        self.store_object(id='did:plc:bob', raw={
+            **DID_DOC,
+            'id': 'did:plc:bob',
+        })
+        bob = self.make_user('did:plc:bob', cls=ATProto)
+
+        # store follow objects and Follower
+        self.repo.apply_writes([Write(
+            action=Action.CREATE,
+            collection='app.bsky.graph.follow',
+            rkey='123',
+            record={
+                '$type': 'app.bsky.graph.follow',
+                'subject': 'did:plc:bob',
+            })])
+        self.assertIsNotNone(self.repo.get_record('app.bsky.graph.follow', '123'))
+
+        copy = Target(uri='at://did:plc:user/app.bsky.graph.follow/123',
+                      protocol='atproto')
+        follow = self.store_object(id='fake:follow', source_protocol='fake',
+                                   copies=[copy],
+                                   our_as1={
+                                       'objectType': 'activity',
+                                       'verb': 'follow',
+                                       'id': 'fake:follow',
+                                       'actor': 'fake:user',
+                                       'object': 'did:plc:bob',
+                                   })
+        follower = Follower.get_or_create(from_=user, to=bob, status='active',
+                                          follow=follow.key)
+
+        # send stop-following
+        obj = Object(id='fake:unfollow', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'stop-following',
+            'id': 'fake:unfollow',
+            'actor': 'fake:user',
+            'object': 'did:plc:bob',
+        })
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy', from_user=self.user))
+
+        # follow record should be deleted, Follower deactivated
+        repo = self.storage.load_repo('did:plc:user')
+        self.assertIsNone(repo.get_record('app.bsky.graph.follow', '123'))
         mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task')

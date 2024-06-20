@@ -863,7 +863,7 @@ class Protocol:
             # TODO: unify with handle_follow?
             # TODO: handle multiple followees
             if not actor_id or not inner_obj_id:
-                error(f'Undo of Follow requires actor id and object id. Got: {actor_id} {inner_obj_id} {obj.as1}')
+                error(f'stop-following requires actor id and object id. Got: {actor_id} {inner_obj_id} {obj.as1}')
 
             # deactivate Follower
             from_ = from_cls.key_for(actor_id)
