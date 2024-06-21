@@ -215,7 +215,7 @@ class WebfingerTest(TestCase):
             got = self.client.get(
                 '/.well-known/webfinger?resource=acct:user.handle@bsky.brid.gy',
                 base_url=base_url, headers={'Accept': 'application/json'})
-            self.assertEqual(400, got.status_code)
+            self.assertEqual(404, got.status_code)
 
     def test_user_infer_protocol_from_request_subdomain(self):
         self.make_user('fake:user', cls=Fake)
@@ -300,7 +300,7 @@ class WebfingerTest(TestCase):
         self.assertEqual(404, got.status_code)
 
         got = self.client.get(f'/.well-known/webfinger?resource=acct:nope.com')
-        self.assertEqual(400, got.status_code)
+        self.assertEqual(404, got.status_code)
 
     def test_indirect_user_not_on_bridgy_fed_subdomain(self):
         self.user.direct = False
@@ -335,11 +335,11 @@ class WebfingerTest(TestCase):
 
     def test_bad_id(self):
         got = self.client.get(f'/.well-known/webfinger?resource=acct:nope@fa.brid.gy')
-        self.assertEqual(400, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(404, got.status_code, got.get_data(as_text=True))
 
         got = self.client.get(f'/.well-known/webfinger?resource=acct:nope@nope',
                               base_url='https://fa.brid.gy/')
-        self.assertEqual(400, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(404, got.status_code, got.get_data(as_text=True))
 
     def test_bad_tld(self):
         for tld in 'json', 'bad':
@@ -348,7 +348,7 @@ class WebfingerTest(TestCase):
                     got = self.client.get(
                         f'/.well-known/webfinger?resource=acct:user.{tld}@{host}',
                         base_url='https://web.brid.gy/')
-                    self.assertEqual(400, got.status_code, got.get_data(as_text=True))
+                    self.assertEqual(404, got.status_code, got.get_data(as_text=True))
 
     def test_no_handle(self):
         class NoHandle(Fake):

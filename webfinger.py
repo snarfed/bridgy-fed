@@ -73,7 +73,7 @@ class Webfinger(flask_util.XrdOrJrd):
             cls = Protocol.for_request(fed='web')
 
         if not cls:
-            error('Unknown protocol')
+            error(f"Couldn't determine protocol for f{resource}")
 
         # is this a handle?
         if cls.owns_id(id) is False:
@@ -85,7 +85,8 @@ class Webfinger(flask_util.XrdOrJrd):
                 id = cls.handle_to_id(handle)
 
         if not id:
-            error(f'{resource} is not a valid handle for a {cls.LABEL} user')
+            error(f'{resource} is not a valid handle for a {cls.LABEL} user',
+                  status=404)
 
         logger.info(f'Protocol {cls.LABEL}, user id {id}')
 
