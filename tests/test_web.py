@@ -193,7 +193,7 @@ REPLY_HTML = """\
 <body>
 <div class="h-entry">
 <p class="e-content p-name">
-<a class="u-in-reply-to" href="http://no.t/fediverse"></a>
+<a class="u-in-reply-to" href="http://no.tt/fediverse"></a>
 <a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a href="http://localhost/"></a>
 </p>
@@ -248,12 +248,12 @@ AS2_CREATE = {
         'id': 'http://localhost/r/https://user.com/reply',
         'name': 'foo ☕ bar',
         'content': """\
-<p><a class="u-in-reply-to" href="http://no.t/fediverse"></a>
+<p><a class="u-in-reply-to" href="http://no.tt/fediverse"></a>
 <a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a href="http://localhost/"></a></p>""",
         'contentMap': {
             'en': """\
-<p><a class="u-in-reply-to" href="http://no.t/fediverse"></a>
+<p><a class="u-in-reply-to" href="http://no.tt/fediverse"></a>
 <a class="u-in-reply-to" href="https://mas.to/toot">foo ☕ bar</a>
 <a href="http://localhost/"></a></p>""",
         },
@@ -386,7 +386,7 @@ NOT_FEDIVERSE = requests_response("""\
 <div class="e-content">foo</div>
 </body>
 </html>
-""", url='http://no.t/fediverse')
+""", url='http://no.tt/fediverse')
 ACTIVITYPUB_GETS = [
     REPLY,
     NOT_FEDIVERSE,  # AP
@@ -646,7 +646,7 @@ class WebTest(TestCase):
         mock_get.side_effect = (
             requests_response(
                 REPLY_HTML.replace('https://mas.to/toot', 'bad:nope')\
-                          .replace('http://no.t/fediverse', ''),
+                          .replace('http://no.tt/fediverse', ''),
                 content_type=CONTENT_TYPE_HTML, url='https://user.com/reply'),
             ValueError('foo bar'),  # AS2 fetch
             ValueError('foo bar'),  # HTML fetch
@@ -677,9 +677,9 @@ class WebTest(TestCase):
             requests_response(
                 REPLY_HTML.replace('https://mas.to/toot', 'bad:nope'),
                 url='https://user.com/post'),
-            # http://no.t/fediverse AP protocol discovery
+            # http://no.tt/fediverse AP protocol discovery
             requests.Timeout('foo bar'),
-            # http://no.t/fediverse web protocol discovery
+            # http://no.tt/fediverse web protocol discovery
             requests.Timeout('foo bar'),
         ]
 
@@ -688,7 +688,7 @@ class WebTest(TestCase):
         self.assertEqual(204, got.status_code)
 
     def test_target_fetch_has_no_content_type(self, mock_get, mock_post):
-        Object(id='http://no.t/fediverse', mf2=NOTE_MF2, source_protocol='web').put()
+        Object(id='http://no.tt/fediverse', mf2=NOTE_MF2, source_protocol='web').put()
 
         no_content_type = requests_response(REPLY_HTML, content_type='')
 
@@ -698,7 +698,7 @@ class WebTest(TestCase):
             no_content_type,  # https://mas.to/toot AP protocol discovery
             no_content_type,  # https://mas.to/toot Web protocol discovery
             no_content_type,  # https://user.com/ webmention discovery
-            no_content_type,  # http://no.t/fediverse webmention discovery
+            no_content_type,  # http://no.tt/fediverse webmention discovery
         )
         got = self.post('/queue/webmention', data={'source': 'https://user.com/reply'})
         self.assertEqual(204, got.status_code)
@@ -744,8 +744,8 @@ class WebTest(TestCase):
 
         mock_get.assert_has_calls((
             self.req('https://user.com/reply'),
-            self.as2_req('http://no.t/fediverse'),
-            self.req('http://no.t/fediverse'),
+            self.as2_req('http://no.tt/fediverse'),
+            self.req('http://no.tt/fediverse'),
             self.as2_req('https://mas.to/toot'),
             self.as2_req('https://mas.to/author'),
         ))
@@ -868,8 +868,8 @@ class WebTest(TestCase):
 
         mock_get.assert_has_calls((
             self.req('https://user.com/reply'),
-            self.as2_req('http://no.t/fediverse'),
-            self.req('http://no.t/fediverse'),
+            self.as2_req('http://no.tt/fediverse'),
+            self.req('http://no.tt/fediverse'),
             self.as2_req('https://mas.to/toot'),
             self.as2_req('https://mas.to/author'),
         ))
@@ -957,8 +957,8 @@ class WebTest(TestCase):
 
         mock_get.assert_has_calls((
             self.req('https://user.com/reply'),
-            self.as2_req('http://no.t/fediverse'),
-            self.req('http://no.t/fediverse'),
+            self.as2_req('http://no.tt/fediverse'),
+            self.req('http://no.tt/fediverse'),
             self.as2_req('https://mas.to/toot'),
             self.as2_req('https://mas.to/toot/id', headers=as2.CONNEG_HEADERS),
             self.as2_req('https://mas.to/author'),
@@ -2372,7 +2372,7 @@ http://this/404s
         ]
         self._test_verify(True, True, {})
 
-        # preferredUsername stays y.z despite user's username. since Mastodon
+        # preferredUsername stays y.za despite user's username. since Mastodon
         # queries Webfinger for preferredUsername@fed.brid.gy
         # https://github.com/snarfed/bridgy-fed/issues/77#issuecomment-949955109
         postprocessed = ActivityPub.convert(self.user.obj, from_user=self.user)
@@ -2480,7 +2480,7 @@ http://this/404s
         self.assertEqual(1, Web.query().count())
 
     def test_check_web_site_url_with_path(self, _, __):
-        got = self.post('/web-site', data={'url': 'https://si.te/foo/bar'})
+        got = self.post('/web-site', data={'url': 'https://a.site/foo/bar'})
         self.assert_equals(400, got.status_code)
         self.assertEqual(['Only top-level web sites and domains are supported.'],
                          get_flashed_messages())
@@ -2565,6 +2565,8 @@ class WebUtilTest(TestCase):
         self.assertIsNone(Web.owns_id('https://bar.com/baz'))
         self.assertEqual(False, Web.owns_id('at://did:plc:foo/bar/123'))
         self.assertEqual(False, Web.owns_id('e45fab982'))
+        self.assertEqual(False, Web.owns_id('foo.bad'))
+        self.assertEqual(False, Web.owns_id('foo.json'))
 
         self.assertIsNone(Web.owns_id('user.com'))
         self.user.has_redirects = True
@@ -2789,7 +2791,7 @@ class WebUtilTest(TestCase):
 
     def test_fetch_user_homepage_non_representative_hcard(self, mock_get, __):
         mock_get.return_value = requests_response(
-            '<html><body><a class="h-card u-url" href="https://a.b/">acct:me@y.z</a></body></html>',
+            '<html><body><a class="h-card u-url" href="https://a.b/">acct:me@y.za</a></body></html>',
             content_type=CONTENT_TYPE_HTML)
 
         obj = Object(id='https://user.com/')

@@ -85,7 +85,7 @@ class Webfinger(flask_util.XrdOrJrd):
                 id = cls.handle_to_id(handle)
 
         if not id:
-            error(f'{id} is not a valid {cls.LABEL} id')
+            error(f'{resource} is not a valid handle for a {cls.LABEL} user')
 
         logger.info(f'Protocol {cls.LABEL}, user id {id}')
 

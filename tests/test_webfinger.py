@@ -342,10 +342,13 @@ class WebfingerTest(TestCase):
         self.assertEqual(400, got.status_code, got.get_data(as_text=True))
 
     def test_bad_tld(self):
-        got = self.client.get(
-            f'/.well-known/webfinger?resource=acct:user.json@user.json',
-            base_url='https://web.brid.gy/')
-        self.assertEqual(400, got.status_code, got.get_data(as_text=True))
+        for tld in 'json', 'bad':
+            for host in f'user.{tld}', 'web.brid.gy', 'fed.brid.gy':
+                with self.subTest(tld=tld, host=host):
+                    got = self.client.get(
+                        f'/.well-known/webfinger?resource=acct:user.{tld}@{host}',
+                        base_url='https://web.brid.gy/')
+                    self.assertEqual(400, got.status_code, got.get_data(as_text=True))
 
     def test_no_handle(self):
         class NoHandle(Fake):

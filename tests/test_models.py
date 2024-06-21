@@ -40,15 +40,15 @@ class UserTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('y.z', cls=Web)
+        self.user = self.make_user('y.za', cls=Web)
 
     def test_get_by_id_opted_out(self):
-        self.assert_entities_equal(self.user, Web.get_by_id('y.z'))
+        self.assert_entities_equal(self.user, Web.get_by_id('y.za'))
 
         self.user.obj.our_as1 = {'summary': '#nobridge'}
         self.user.obj.put()
         self.user.put()
-        self.assertIsNone(Web.get_by_id('y.z'))
+        self.assertIsNone(Web.get_by_id('y.za'))
 
     def test_get_or_create(self):
         user = Fake.get_or_create('fake:user')
@@ -140,7 +140,7 @@ class UserTest(TestCase):
         user.put()
 
         got = Fake.get_or_create('fake:a')
-        self.assertEqual('y.z', got.key.id())
+        self.assertEqual('y.za', got.key.id())
         assert got.existing
 
     def test_get_or_create_by_copies(self):
@@ -164,8 +164,8 @@ class UserTest(TestCase):
         self.assertTrue(pem.decode().endswith('-----END RSA PRIVATE KEY-----'), pem)
 
     def test_user_page_path(self):
-        self.assertEqual('/web/y.z', self.user.user_page_path())
-        self.assertEqual('/web/y.z/followers', self.user.user_page_path('followers'))
+        self.assertEqual('/web/y.za', self.user.user_page_path())
+        self.assertEqual('/web/y.za/followers', self.user.user_page_path('followers'))
 
         fake_foo = self.make_user('fake:foo', cls=Fake)
         self.assertEqual('/fa/fake:handle:foo', fake_foo.user_page_path())
@@ -173,37 +173,37 @@ class UserTest(TestCase):
     def test_user_link(self):
         self.assert_multiline_equals("""\
 <span class="logo" title="Web">🌐</span>
-<a class="h-card u-author" href="/web/y.z" title="y.z ">
-  y.z
+<a class="h-card u-author" href="/web/y.za" title="y.za ">
+  y.za
 </a>""", self.user.user_link(), ignore_blanks=True)
 
         self.user.obj = Object(id='a', as2=ACTOR)
         self.assert_multiline_equals("""\
 <span class="logo" title="Web">🌐</span>
-<a class="h-card u-author" href="/web/y.z" title="Mrs. ☕ Foo ">
+<a class="h-card u-author" href="/web/y.za" title="Mrs. ☕ Foo ">
   <img src="https://user.com/me.jpg" class="profile">
   Mrs. ☕ Foo
 </a>""", self.user.user_link(), ignore_blanks=True)
 
     def test_is_web_url(self):
-        for url in 'y.z', '//y.z', 'http://y.z', 'https://y.z':
+        for url in 'y.za', '//y.za', 'http://y.za', 'https://y.za':
             self.assertTrue(self.user.is_web_url(url), url)
 
-        for url in (None, '', 'user', 'com', 'com.user', 'ftp://y.z',
-                    'https://user', '://y.z'):
+        for url in (None, '', 'user', 'com', 'com.user', 'ftp://y.za',
+                    'https://user', '://y.za'):
             self.assertFalse(self.user.is_web_url(url), url)
 
     def test_name(self):
-        self.assertEqual('y.z', self.user.name())
+        self.assertEqual('y.za', self.user.name())
 
         self.user.obj = Object(id='a', as2={'id': 'abc'})
-        self.assertEqual('y.z', self.user.name())
+        self.assertEqual('y.za', self.user.name())
 
         self.user.obj = Object(id='a', as2={'name': 'alice'})
         self.assertEqual('alice', self.user.name())
 
     def test_handle(self):
-        self.assertEqual('y.z', self.user.handle)
+        self.assertEqual('y.za', self.user.handle)
 
     def test_id_as(self):
         user = self.make_user('fake:user', cls=Fake)
@@ -220,10 +220,10 @@ class UserTest(TestCase):
     def test_handle_as_web_custom_username(self, *_):
         self.user.obj.our_as1 = {
             'objectType': 'person',
-            'url': 'acct:alice@y.z',
+            'url': 'acct:alice@y.za',
         }
         self.assertEqual('alice', self.user.username())
-        self.assertEqual('@y.z@web.brid.gy', self.user.handle_as('ap'))
+        self.assertEqual('@y.za@web.brid.gy', self.user.handle_as('ap'))
 
     def test_handle_as_None(self):
         class NoHandle(Fake):
@@ -355,7 +355,7 @@ class UserTest(TestCase):
         Follower(from_=Fake(id='c').key, to=self.user.key).put()
 
         # still cached
-        user = Web.get_by_id('y.z')
+        user = Web.get_by_id('y.za')
         self.assertEqual((0, 0), user.count_followers())
 
         User.count_followers.cache.clear()
@@ -537,11 +537,11 @@ class ObjectTest(TestCase):
         self.assertEqual(3, Object.query().count())
 
         # if no data property is set, don't clear existing data properties
-        obj7 = Object.get_or_create('http://b.i/ff', as2={'a': 'b'}, mf2={'c': 'd'},
+        obj7 = Object.get_or_create('http://b.ee/ff', as2={'a': 'b'}, mf2={'c': 'd'},
                                     source_protocol='web')
-        Object.get_or_create('http://b.i/ff', authed_as='http://b.i/ff',
+        Object.get_or_create('http://b.ee/ff', authed_as='http://b.ee/ff',
                              users=[ndb.Key(Web, 'me')])
-        self.assert_object('http://b.i/ff', as2={'a': 'b'}, mf2={'c': 'd'},
+        self.assert_object('http://b.ee/ff', as2={'a': 'b'}, mf2={'c': 'd'},
                            users=[ndb.Key(Web, 'me')],
                            source_protocol='web')
 
@@ -1021,7 +1021,7 @@ class ObjectTest(TestCase):
             'objectType': 'activity',
             'verb': 'follow',
             'actor': 'https://bsky.app/profile/did:plc:123',
-            'object': 'https://bsky.app/profile/han.dull',
+            'object': 'https://bsky.app/profile/ha.nl',
         })
         obj.normalize_ids()
         self.assert_equals({
@@ -1040,10 +1040,10 @@ class ObjectTest(TestCase):
             'objectType': 'activity',
             'verb': 'post',
             'object': {
-                'id': 'https://bsky.app/profile/han.dull/post/456',
+                'id': 'https://bsky.app/profile/ha.nl/post/456',
                 'objectType': 'note',
                 'inReplyTo': 'https://bsky.app/profile/did:plc:123/post/789',
-                'author': 'https://bsky.app/profile/han.dull',
+                'author': 'https://bsky.app/profile/ha.nl',
                 'tags': [{
                     'objectType': 'mention',
                     'url': 'https://bsky.app/profile/did:plc:123',

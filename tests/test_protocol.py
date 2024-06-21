@@ -116,25 +116,25 @@ class ProtocolTest(TestCase):
         self.assertEqual(Greedy, Protocol.for_id('https://bar/baz'))
 
     def test_for_id_object(self):
-        self.store_object(id='http://u.i/obj', source_protocol='ui')
-        self.assertEqual(UIProtocol, Protocol.for_id('http://u.i/obj'))
+        self.store_object(id='http://ui.org/obj', source_protocol='ui')
+        self.assertEqual(UIProtocol, Protocol.for_id('http://ui.org/obj'))
 
     @patch('requests.get', return_value=requests_response())
     def test_for_id_object_missing_source_protocol(self, _):
-        self.store_object(id='http://ba.d/obj')
-        self.assertIsNone(Protocol.for_id('http://ba.d/obj'))
+        self.store_object(id='http://b.ad/obj')
+        self.assertIsNone(Protocol.for_id('http://b.ad/obj'))
 
     @patch('requests.get')
     def test_for_id_activitypub_fetch(self, mock_get):
         mock_get.return_value = self.as2_resp(ACTOR)
-        self.assertEqual(ActivityPub, Protocol.for_id('http://a.p/actor'))
-        self.assertIn(self.as2_req('http://a.p/actor'), mock_get.mock_calls)
+        self.assertEqual(ActivityPub, Protocol.for_id('http://ap.org/actor'))
+        self.assertIn(self.as2_req('http://ap.org/actor'), mock_get.mock_calls)
 
     @patch('requests.get')
     def test_for_id_activitypub_fetch_fails(self, mock_get):
         mock_get.return_value = requests_response('', status=403)
-        self.assertIsNone(Protocol.for_id('http://a.p/actor'))
-        self.assertIn(self.as2_req('http://a.p/actor'), mock_get.mock_calls)
+        self.assertIsNone(Protocol.for_id('http://ap.org/actor'))
+        self.assertIn(self.as2_req('http://ap.org/actor'), mock_get.mock_calls)
         mock_get.assert_called_once()
 
     @patch('requests.get')
@@ -176,9 +176,9 @@ class ProtocolTest(TestCase):
         self.assertEqual((None, None), Protocol.for_handle('user.com'))
 
     @patch('dns.resolver.resolve', return_value = dns_answer(
-            '_atproto.han.dull.', '"did=did:plc:123abc"'))
+            '_atproto.ha.nl.', '"did=did:plc:123abc"'))
     def test_for_handle_atproto_resolve(self, _):
-        self.assertEqual((ATProto, 'did:plc:123abc'), Protocol.for_handle('han.dull'))
+        self.assertEqual((ATProto, 'did:plc:123abc'), Protocol.for_handle('ha.nl'))
 
     def test_load(self):
         Fake.fetchable['foo'] = {'x': 'y'}
@@ -275,7 +275,7 @@ class ProtocolTest(TestCase):
 
     @patch('requests.get', return_value=ACTOR_HTML_RESP)
     def test_load_remote_true_clear_our_as1(self, _):
-        self.store_object(id='https://fo.o', our_as1={'should': 'disappear'},
+        self.store_object(id='https://f.ooo', our_as1={'should': 'disappear'},
                           source_protocol='web')
 
         expected_mf2 = {
@@ -283,7 +283,7 @@ class ProtocolTest(TestCase):
             'url': 'https://user.com/',
         }
 
-        loaded = Web.load('https://fo.o', remote=True)
+        loaded = Web.load('https://f.ooo', remote=True)
         self.assertEqual(expected_mf2, loaded.mf2)
         self.assertIsNone(loaded.our_as1)
         self.assertEqual(ACTOR_AS1_UNWRAPPED_URLS, loaded.as1)

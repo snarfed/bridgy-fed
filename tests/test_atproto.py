@@ -34,7 +34,7 @@ from . import test_activitypub
 
 DID_DOC = {
     'id': 'did:plc:user',
-    'alsoKnownAs': ['at://han.dull'],
+    'alsoKnownAs': ['at://ha.nl'],
     'verificationMethod': [{
         'id': 'did:plc:user#atproto',
         'type': 'Multikey',
@@ -108,12 +108,12 @@ class ATProtoTest(TestCase):
 
     def test_handle(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)
-        self.assertEqual('han.dull', ATProto(id='did:plc:user').handle)
+        self.assertEqual('ha.nl', ATProto(id='did:plc:user').handle)
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_get_or_create(self, _):
         user = self.make_user('did:plc:user', cls=ATProto)
-        self.assertEqual('han.dull', user.key.get().handle)
+        self.assertEqual('ha.nl', user.key.get().handle)
 
     def test_owns_id(self):
         self.assertFalse(ATProto.owns_id('http://foo'))
@@ -148,13 +148,13 @@ class ATProtoTest(TestCase):
     def test_handle_to_id(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         self.make_user('did:plc:user', cls=ATProto)
-        self.assertEqual('did:plc:user', ATProto.handle_to_id('han.dull'))
+        self.assertEqual('did:plc:user', ATProto.handle_to_id('ha.nl'))
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     # resolving handle, HTTPS method, not found
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_handle_to_id_not_found(self, *_):
-        self.assertIsNone(ATProto.handle_to_id('han.dull'))
+        self.assertIsNone(ATProto.handle_to_id('ha.nl'))
 
     def test_bridged_web_url_for(self):
         self.assertIsNone(ATProto.bridged_web_url_for(ATProto(id='did:plc:foo')))
@@ -164,7 +164,7 @@ class ATProtoTest(TestCase):
 
         fake.copies = [Target(uri='did:plc:user', protocol='atproto')]
         self.store_object(id='did:plc:user', raw=DID_DOC)
-        self.assertEqual('https://bsky.app/profile/han.dull',
+        self.assertEqual('https://bsky.app/profile/ha.nl',
                          ATProto.bridged_web_url_for(fake))
 
     def test_pds_for_did_no_doc(self):
@@ -316,8 +316,8 @@ class ATProtoTest(TestCase):
             json=None, data=None, headers=ANY)
 
     def test_fetch_bsky_app_url_fails(self):
-        for uri in ('https://bsky.app/profile/han.dull',
-                    'https://bsky.app/profile/han.dull/post/789'):
+        for uri in ('https://bsky.app/profile/ha.nl',
+                    'https://bsky.app/profile/ha.nl/post/789'):
             with self.assertRaises(AssertionError):
                 ATProto.fetch(Object(id=uri))
 
@@ -350,7 +350,7 @@ class ATProtoTest(TestCase):
         requests_response(DID_DOC),
     ])
     def test_load_bsky_app_post_url(self, mock_get, _):
-        obj = ATProto.load('https://bsky.app/profile/han.dull/post/789')
+        obj = ATProto.load('https://bsky.app/profile/ha.nl/post/789')
         self.assertEqual('at://did:plc:user/app.bsky.feed.post/789', obj.key.id())
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
@@ -374,7 +374,7 @@ class ATProtoTest(TestCase):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         self.make_user('did:plc:user', cls=ATProto)
 
-        obj = ATProto.load('https://bsky.app/profile/han.dull')
+        obj = ATProto.load('https://bsky.app/profile/ha.nl')
         self.assertEqual('at://did:plc:user/app.bsky.actor.profile/self', obj.key.id())
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
@@ -522,7 +522,7 @@ class ATProtoTest(TestCase):
             'objectType': 'activity',
             'verb': 'like',
             # handle here should be replaced with DID in returned record's URI
-            'object': 'at://han.dull/app.bsky.feed.post/tid',
+            'object': 'at://ha.nl/app.bsky.feed.post/tid',
         })))
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=tid',
@@ -633,11 +633,11 @@ class ATProtoTest(TestCase):
     def test_convert_resolve_mention_handle(self, mock_get):
         self.store_object(id='did:plc:user', raw=DID_DOC)
 
-        content = 'hi <a href="https://bsky.app/profile/han.dull">@han.dull</a> hows it going'
+        content = 'hi <a href="https://bsky.app/profile/ha.nl">@ha.nl</a> hows it going'
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
             'createdAt': '2022-01-02T03:04:05.000Z',
-            'text': 'hi @han.dull hows it going',
+            'text': 'hi @ha.nl hows it going',
             'bridgyOriginalText': content,
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
@@ -646,7 +646,7 @@ class ATProtoTest(TestCase):
                     'did': 'did:plc:user',
                 }],
                 'index': {
-                    'byteEnd': 12,
+                    'byteEnd': 9,
                     'byteStart': 3,
                 },
             }],
@@ -659,7 +659,7 @@ class ATProtoTest(TestCase):
             'tags': [{
                 'objectType': 'mention',
                 'url': 'did:plc:user',
-                'displayName': '@han.dull'
+                'displayName': '@ha.nl'
             }],
         })))
 
@@ -668,11 +668,11 @@ class ATProtoTest(TestCase):
     def test_convert_resolve_mention_handle_drop_server(self, mock_get):
         self.store_object(id='did:plc:user', raw=DID_DOC)
 
-        content = 'hi <a href="https://bsky.brid.gy/ap/did:plc:user">@<span>han.dull</span></a> hows it going'
+        content = 'hi <a href="https://bsky.brid.gy/ap/did:plc:user">@<span>ha.nl</span></a> hows it going'
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
             'createdAt': '2022-01-02T03:04:05.000Z',
-            'text': 'hi @han.dull hows it going',
+            'text': 'hi @ha.nl hows it going',
             'bridgyOriginalText': content,
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
@@ -681,7 +681,7 @@ class ATProtoTest(TestCase):
                     'did': 'did:plc:user',
                 }],
                 'index': {
-                    'byteEnd': 12,
+                    'byteEnd': 9,
                     'byteStart': 3,
                 },
             }],
@@ -694,7 +694,7 @@ class ATProtoTest(TestCase):
                 # we should find the mentioned handle in the content text even
                 # if it doesn't have @ser.ver
                 # https://github.com/snarfed/bridgy-fed/issues/957
-                'displayName': '@han.dull@ser.ver'
+                'displayName': '@ha.nl@ser.ver'
             }],
         })))
 
@@ -803,7 +803,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual('https://bsky.app/profile/did:plc:user', user.web_url())
 
         self.store_object(id='did:plc:user', raw=DID_DOC)
-        self.assertEqual('https://bsky.app/profile/han.dull', user.web_url())
+        self.assertEqual('https://bsky.app/profile/ha.nl', user.web_url())
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_handle_or_id(self, mock_get):
@@ -812,8 +812,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual('did:plc:user', user.handle_or_id())
 
         self.store_object(id='did:plc:user', raw=DID_DOC)
-        self.assertEqual('han.dull', user.handle)
-        self.assertEqual('han.dull', user.handle_or_id())
+        self.assertEqual('ha.nl', user.handle)
+        self.assertEqual('ha.nl', user.handle_or_id())
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_handle_as(self, mock_get):
@@ -824,7 +824,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         #                  user.handle_as('activitypub'))
 
         self.store_object(id='did:plc:user', raw=DID_DOC)
-        self.assertEqual('@han.dull@bsky.brid.gy', user.handle_as('activitypub'))
+        self.assertEqual('@ha.nl@bsky.brid.gy', user.handle_as('activitypub'))
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_profile_id(self, mock_get):
@@ -1603,7 +1603,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         client = DatastoreClient('https://appview.local')
         self.assertEqual({'did': 'did:plc:user'},
-                         client.com.atproto.identity.resolveHandle(handle='han.dull'))
+                         client.com.atproto.identity.resolveHandle(handle='ha.nl'))
 
     def test_datastore_client_resolve_handle_datastore_repo(self):
         self.make_user_and_repo()

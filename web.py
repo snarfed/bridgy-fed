@@ -8,6 +8,7 @@ import urllib.parse
 from urllib.parse import quote, urlencode, urljoin, urlparse
 from xml.etree import ElementTree
 
+import brevity
 from flask import redirect, render_template, request
 from google.cloud import ndb
 from google.cloud.ndb import ComputedProperty
@@ -42,21 +43,6 @@ logger = logging.getLogger(__name__)
 WWW_DOMAINS = frozenset((
     'www.jvt.me',
 ))
-NON_TLDS = frozenset((
-    'gz',
-    'html',
-    'ini',
-    'jpg',
-    'json',
-    'php',
-    'png',
-    'sql',
-    'tgz',
-    'txt',
-    'xml',
-    'yaml',
-    'yml',
-))
 
 FEED_TYPES = {
     atom.CONTENT_TYPE.split(';')[0]: 'atom',
@@ -88,7 +74,7 @@ def is_valid_domain(domain, allow_internal=True):
         return False
 
     tld = domain.split('.')[-1]
-    if tld in NON_TLDS:
+    if tld not in brevity.TLDS:
         logger.info(f"{domain} looks like a domain but {tld} isn't a TLD")
         return False
 
