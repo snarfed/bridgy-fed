@@ -1380,17 +1380,18 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_delete_actor(self, mock_create_task):
-        self.make_user_and_repo()
+        user = self.make_user_and_repo()
 
-        did = self.user.key.get().get_copy(ATProto)
         delete = self.store_object(id='fake:delete', source_protocol='fake', our_as1={
             'objectType': 'activity',
             'verb': 'delete',
             'actor': 'fake:user',
-            'object': did,
+            'object': 'fake:user',
         })
-        self.assertTrue(ATProto.send(delete, 'https://bsky.brid.gy/'))
+        self.assertTrue(ATProto.send(delete, 'https://bsky.brid.gy/',
+                                     from_user=user))
 
+        did = self.user.key.get().get_copy(ATProto)
         with self.assertRaises(arroba.util.TombstonedRepo):
             self.storage.load_repo(did)
 

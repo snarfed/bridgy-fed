@@ -4,7 +4,7 @@ from unittest.mock import patch
 
 from arroba.datastore_storage import DatastoreStorage
 from arroba.repo import Repo
-from arroba.util import dag_cbor_cid
+from arroba.util import dag_cbor_cid, TombstonedRepo
 from dns.resolver import NXDOMAIN
 from granary import as2, bluesky
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY, POST_BSKY
@@ -516,6 +516,36 @@ class IntegrationTests(TestCase):
                 'object': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
             }, json_loads(kwargs['data']))
+
+
+    @patch('requests.get', return_value=requests_response(''))  # alice, http://pic/
+    # @patch('requests.get', return_value=requests_response(status=400))
+    def test_activitypub_block_bsky_bot_user_deletes_actor(self, mock_get):
+        """AP follow of @bsky.brid.gy@bsky.brid.gy bridges the account into BLuesky.
+
+        ActivityPub user @alice@inst , https://inst/alice , did:plc:alice
+        Block is https://inst/block
+        """
+        self.make_ap_user('https://inst/alice', 'did:plc:alice')
+        self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+
+        # deliver block
+        body = json_dumps({
+            'type': 'Block',
+            'id': 'http://inst/block',
+            'actor': 'https://inst/alice',
+            'object': 'https://bsky.brid.gy/bsky.brid.gy',
+        })
+        headers = sign('/bsky.brid.gy/inbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/bsky.brid.gy/inbox', data=body, headers=headers)
+        self.assertEqual(200, resp.status_code)
+
+        # check results
+        user = ActivityPub.get_by_id('https://inst/alice')
+        self.assertFalse(user.is_enabled(ATProto))
+
+        with self.assertRaises(TombstonedRepo):
+            self.storage.load_repo('did:plc:alice')
 
 
     @patch('requests.post')
