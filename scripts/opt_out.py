@@ -154,7 +154,7 @@ def run():
                     for t in AP_BASE_TARGETS + extra_targets]
 
     if from_proto != ATProto and user.get_copy(ATProto):
-        targets += Target(protocol='atproto', uri=ATProto.PDS_URL)
+        targets.append(Target(protocol='atproto', uri=ATProto.PDS_URL))
 
     obj.undelivered = targets
     obj.put()
