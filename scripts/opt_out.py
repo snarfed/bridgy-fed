@@ -98,7 +98,7 @@ AP_BASE_TARGETS = [
 
 def run():
     assert len(sys.argv) >= 3
-    proto, user_id, extra_targets = sys.argv[1], sys.argv[2], sys.argv[3:]
+    proto, user_id = sys.argv[1], sys.argv[2]
 
     from_proto = protocol.PROTOCOLS[proto]
     kind = from_proto._get_kind()
@@ -128,6 +128,7 @@ def run():
         user.manual_opt_out = False
         user.put()
 
+    # give AS1 delete activity to receive
     delete_base_id = user.web_url() if from_proto is Web else user_id
     delete_id = f'{delete_base_id}#bridgy-fed-delete-{util.now().isoformat()}'
     delete_as1 = {
@@ -135,26 +136,39 @@ def run():
         'verb': 'delete',
         'id': delete_id,
         'actor': user_id,
-        'object': {
-            # needed to make Protocol.translate_ids convert this id as a user id
-            # and not an object id
-            'objectType': 'person',
-            'id': user_id,
-        },
+        'object': user_id,
+    }
+    obj = Object(id=delete_id, status='new', source_protocol=from_proto.LABEL,
+                 our_as1=delete_as1)
+
+    from_proto.receive(obj, authed_as=user_id, internal=True)
+
+    # delete base and extra AP targets
+    if from_proto != ActivityPub and user.get_copy(ActivityPub):
+        delete_ap_targets(from_proto=from_proto, user=user, user_id=user_id)
+
+    if not user.manual_opt_out:
+        user.manual_opt_out = True
+        user.put()
+
+
+def delete_ap_targets(*, from_proto=None, user=None, user_id=None):
+    delete_base_id = user.web_url() if from_proto is Web else user_id
+    delete_id = f'{delete_base_id}#bridgy-fed-delete-{util.now().isoformat()}'
+    delete_as1 = {
+        'objectType': 'activity',
+        'verb': 'delete',
+        'id': delete_id,
+        'actor': user_id,
+        'object': user_id,
     }
     obj = Object(id=delete_id, status='new', source_protocol=from_proto.LABEL,
                  our_as1=delete_as1)
     obj.put()
 
-
-    targets = list(user.targets(obj, from_user=user).keys())
-
-    if from_proto != ActivityPub:
-        targets += [Target(protocol='activitypub', uri=t)
-                    for t in AP_BASE_TARGETS + extra_targets]
-
-    if from_proto != ATProto and user.get_copy(ATProto):
-        targets.append(Target(protocol='atproto', uri=ATProto.PDS_URL))
+    extra_targets = sys.argv[3:]
+    targets = [Target(protocol='activitypub', uri=t)
+               for t in AP_BASE_TARGETS + extra_targets]
 
     obj.undelivered = targets
     obj.put()
@@ -181,14 +195,10 @@ def run():
             #
             #   activitypub.instance_actor().key.urlsafe()
             #
-            # ...which gets accepted, but I'm not sure all
-            # implementations accept the instance actor as authorized
-            # to delete a different actor.
+            # ...which gets accepted, but I'm not sure all implementations
+            # accept the instance actor as authorized to delete a different
+            # actor.
             protocol.send_task()
-
-    if not user.manual_opt_out:
-        user.manual_opt_out = True
-        user.put()
 
 
 with appengine_config.ndb_client.context(), \
