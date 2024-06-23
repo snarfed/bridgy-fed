@@ -144,7 +144,7 @@ def run():
     from_proto.receive(obj, authed_as=user_id, internal=True)
 
     # delete base and extra AP targets
-    if from_proto != ActivityPub and user.get_copy(ActivityPub):
+    if from_proto != ActivityPub:
         delete_ap_targets(from_proto=from_proto, user=user, user_id=user_id)
 
     if not user.manual_opt_out:
