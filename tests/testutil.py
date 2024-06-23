@@ -259,6 +259,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         memcache.clear()
         global_cache.clear()
+        activitypub.WEB_OPT_OUT_DOMAINS = set()
 
         # clear datastore
         requests.post(f'http://{ndb_client.host}/reset')

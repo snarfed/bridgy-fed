@@ -60,6 +60,7 @@ LOCAL_DOMAINS = (
   'my.dev.com:8080',
 )
 DOMAINS = (PRIMARY_DOMAIN,) + PROTOCOL_DOMAINS + OTHER_DOMAINS + LOCAL_DOMAINS
+# TODO: unify with manual_opt_out
 # TODO: unify with Bridgy's
 DOMAIN_BLOCKLIST = (
     'bsky.social',

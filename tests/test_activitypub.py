@@ -569,10 +569,32 @@ class ActivityPubTest(TestCase):
 
     def test_inbox_bad_id(self, *_):
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
-        # mock_get.return_value = self.as2_resp(ACTOR)
 
         resp = self.post('/ap/sharedInbox', json={**NOTE, 'id': 'abc123'})
         self.assertEqual(400, resp.status_code)
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_inbox_activity_id_on_opted_out_web_domain(self, mock_create_task, *_):
+        activitypub._WEB_OPT_OUT_DOMAINS = set(['bad.com'])
+
+        resp = self.post('/ap/sharedInbox', json={**NOTE, 'id': 'https://bad.com/123'})
+        self.assertEqual(204, resp.status_code)
+        mock_create_task.assert_not_called()
+        self.assertEqual(0, ActivityPub.query().count())
+        self.assertEqual(1, Object.query().count())  # self.user
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_inbox_actor_id_on_opted_out_web_domain(self, mock_create_task, *_):
+        activitypub._WEB_OPT_OUT_DOMAINS = set(['bad.com'])
+
+        resp = self.post('/ap/sharedInbox', json={
+            **NOTE,
+            'actor': 'https://bad.com/eve',
+        })
+        self.assertEqual(204, resp.status_code)
+        mock_create_task.assert_not_called()
+        self.assertEqual(0, ActivityPub.query().count())
+        self.assertEqual(1, Object.query().count())  # self.user
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_inbox_create_receive_task(self, mock_create_task, *mocks):

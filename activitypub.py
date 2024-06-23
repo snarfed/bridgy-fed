@@ -59,7 +59,20 @@ SECURITY_CONTEXT = 'https://w3id.org/security/v1'
 _INSTANCE_ACTOR = None
 
 # populated in User.status
-WEB_OPT_OUT_DOMAINS = None
+_WEB_OPT_OUT_DOMAINS = None
+
+def web_opt_out_domains():
+    global _WEB_OPT_OUT_DOMAINS
+    if _WEB_OPT_OUT_DOMAINS is None:
+        _WEB_OPT_OUT_DOMAINS = {
+            key.id() for key in Query(
+                'MagicKey',
+                filters=FilterNode('manual_opt_out', '=', True)
+            ).fetch(keys_only=True)
+        }
+        logger.info(f'Loaded {len(_WEB_OPT_OUT_DOMAINS)} manually opted out Web users')
+
+    return _WEB_OPT_OUT_DOMAINS
 
 # we can't yet authorize activities from these domains:
 # * a.gup.pe groups sign with the group's actor but use the external author as
@@ -131,22 +144,13 @@ class ActivityPub(User, Protocol):
     @ndb.ComputedProperty
     def status(self):
         """Override :meth:`Model.status` and include Web opted out domains."""
-        global WEB_OPT_OUT_DOMAINS
-        if WEB_OPT_OUT_DOMAINS is None:
-            WEB_OPT_OUT_DOMAINS = {
-                key.id() for key in Query(
-                    'MagicKey',
-                    filters=FilterNode('manual_opt_out', '=', True)
-                ).fetch(keys_only=True)
-            }
-            logger.info(f'Loaded {len(WEB_OPT_OUT_DOMAINS)} manually opted out Web users')
 
         status = super().status
         if status:
             return status
 
         if util.domain_or_parent_in(util.domain_from_link(self.key.id()),
-                                    WEB_OPT_OUT_DOMAINS):
+                                    web_opt_out_domains()):
             return 'opt-out'
 
 
@@ -1007,6 +1011,10 @@ def inbox(protocol=None, id=None):
     # are we already processing or done with this activity?
     id = activity.get('id')
     if id:
+        if util.domain_or_parent_in(util.domain_from_link(id), web_opt_out_domains()):
+            logger.info(f'Discarding, {id} is on an opted out domain')
+            return '', 204
+
         key = f'AP-id-{id}'
         if memcache.get(key):
             logger.info(f'Already seen this activity {id}')
@@ -1021,6 +1029,10 @@ def inbox(protocol=None, id=None):
 
     if ActivityPub.is_blocklisted(actor_id):
         error(f'Actor {actor_id} is blocklisted')
+    elif util.domain_or_parent_in(util.domain_from_link(actor_id),
+                                  web_opt_out_domains()):
+        logger.info(f'Discarding, actor {actor_id} is on an opted out domain')
+        return '', 204
 
     authed_as = ActivityPub.verify_signature(activity)
 
