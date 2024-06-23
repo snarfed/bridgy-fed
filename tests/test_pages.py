@@ -115,6 +115,11 @@ class PagesTest(TestCase):
         got = self.client.get('/web/user.com')
         self.assert_equals(404, got.status_code)
 
+    def test_user_handle_opted_out(self):
+        user = self.make_user('fake:user', cls=Fake, manual_opt_out=True)
+        got = self.client.get('/fa/fake:handle:user')
+        self.assert_equals(404, got.status_code)
+
     def test_user_web_redirect(self):
         got = self.client.get('/user/user.com')
         self.assert_equals(301, got.status_code)
