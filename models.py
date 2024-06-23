@@ -275,9 +275,14 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                 return user
         else:
             if orig := get_original(id):
+                if orig.status and not allow_opt_out:
+                    return None
                 return orig
+
             user = cls(id=id, **kwargs)
             user.existing = False
+            if user.status and not allow_opt_out:
+                return None
 
         # load and propagate user and profile object
         if not user.obj_key:

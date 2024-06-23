@@ -1465,8 +1465,9 @@ class WebTest(TestCase):
             ACTOR,
             self.as2_resp({
                 'objectType': 'Person',
-                'displayName': 'Mr. ☕ Biff',
                 'id': 'https://mas.to/mr-biff',
+                'name': 'Mr. ☕ Biff',
+                'image': 'http://pic',
                 'inbox': 'https://mas.to/inbox/biff',
             }),
         ]

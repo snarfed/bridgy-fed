@@ -148,10 +148,13 @@ class UserTest(TestCase):
                                copies=[Target(uri='fake:ab', protocol='fake')])
         self.assert_entities_equal(other, Fake.get_or_create('fake:ab'))
 
-    def test_get_or_create_opted_out(self):
+    def test_get_or_create_existing_opted_out(self):
         user = self.make_user('fake:user', cls=Fake,
                               obj_as1={'summary': '#nobridge'})
         self.assertIsNone(Fake.get_or_create('fake:user'))
+
+    def test_get_or_create_new_opted_out(self):
+        self.assertIsNone(Fake.get_or_create('fake:user', manual_opt_out=True))
 
     def test_public_pem(self):
         pem = self.user.public_pem()
