@@ -30,8 +30,6 @@ logger = logging.getLogger(__name__)
 #
 # TODO: preprocess with domain2idna, then narrow this to just [a-z0-9-]
 DOMAIN_RE = r'^([^/:;@?!\']+\.)+[^/:@_?!\']+$'
-TLD_BLOCKLIST = ('7z', 'asp', 'aspx', 'gif', 'html', 'ico', 'jpg', 'jpeg', 'js',
-                 'json', 'php', 'png', 'rar', 'txt', 'yaml', 'yml', 'zip')
 
 CONTENT_TYPE_HTML = 'text/html; charset=utf-8'
 
