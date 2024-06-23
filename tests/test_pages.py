@@ -25,8 +25,9 @@ from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
 from .test_web import ACTOR_AS2, REPOST_AS2
 
 ACTOR_WITH_PREFERRED_USERNAME = {
+    'objectType': 'person',
     'displayName': 'Me',
-    'preferredUsername': 'me',
+    'username': 'me',
     'url': 'https://plus.google.com/bob',
     'image': 'http://pic',
 }
@@ -61,10 +62,10 @@ class PagesTest(TestCase):
 
     def test_user_page_handle(self):
         user = self.make_user('http://fo/o', cls=ActivityPub,
-                              obj_as2=ACTOR_WITH_PREFERRED_USERNAME)
-        self.assertEqual('@me@plus.google.com', user.handle_as(ActivityPub))
+                              obj_as1=ACTOR_WITH_PREFERRED_USERNAME)
+        self.assertEqual('@me@fo', user.handle_as(ActivityPub))
 
-        got = self.client.get('/ap/@me@plus.google.com')
+        got = self.client.get('/ap/@me@fo')
         self.assert_equals(200, got.status_code)
 
         # TODO: can't handle slashes in id segment of path. is that ok?
@@ -240,7 +241,7 @@ class PagesTest(TestCase):
         Follower.get_or_create(
             to=self.user,
             from_=self.make_user('http://masto/user', cls=ActivityPub,
-                                 obj_as2=ACTOR_WITH_PREFERRED_USERNAME))
+                                 obj_as1=ACTOR_WITH_PREFERRED_USERNAME))
 
         from models import PROTOCOLS
         got = self.client.get('/web/user.com/followers')
@@ -248,7 +249,7 @@ class PagesTest(TestCase):
 
         body = got.get_data(as_text=True)
         self.assertIn('@follow@stored', body)
-        self.assertIn('@me@plus.google.com', body)
+        self.assertIn('@me@masto', body)
 
     def test_home_fake(self):
         self.make_user('fake:foo', cls=Fake)
@@ -299,14 +300,10 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code)
 
     def test_followers_activitypub(self):
-        obj = Object(id='https://inst/user', source_protocol='activitypub', as2={
-            'id': 'https://inst/user',
-            'preferredUsername': 'user',
-        })
-        obj.put()
-        self.make_user('https://inst/user', cls=ActivityPub, obj=obj)
+        user = self.make_user('https://inst/user', cls=ActivityPub,
+                              obj_as1=ACTOR_WITH_PREFERRED_USERNAME)
 
-        got = self.client.get('/ap/@user@inst/followers')
+        got = self.client.get('/ap/@me@inst/followers')
         self.assert_equals(200, got.status_code)
         self.assert_equals('text/html', got.headers['Content-Type'].split(';')[0])
 
@@ -335,14 +332,14 @@ class PagesTest(TestCase):
         Follower.get_or_create(
             from_=self.user,
             to=self.make_user('http://masto/user', cls=ActivityPub,
-                              obj_as2=ACTOR_WITH_PREFERRED_USERNAME))
+                              obj_as1=ACTOR_WITH_PREFERRED_USERNAME))
 
         got = self.client.get('/web/user.com/following')
         self.assert_equals(200, got.status_code)
 
         body = got.get_data(as_text=True)
         self.assertIn('@follow@stored', body)
-        self.assertIn('@me@plus.google.com', body)
+        self.assertIn('@me@masto', body)
 
     def test_following_empty(self):
         got = self.client.get('/web/user.com/following')

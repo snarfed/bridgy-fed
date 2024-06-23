@@ -329,11 +329,11 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
     def make_user(self, id, cls, **kwargs):
         """Reuse RSA key across Users because generating it is expensive."""
-        obj_as1 = kwargs.pop('obj_as1', None)
-        obj_as2 = kwargs.pop('obj_as2', None)
-        obj_bsky = kwargs.pop('obj_bsky', None)
-        obj_mf2 = kwargs.pop('obj_mf2', None)
-        obj_id = kwargs.pop('obj_id', None)
+        obj_as1 = copy.deepcopy(kwargs.pop('obj_as1', None))
+        obj_as2 = copy.deepcopy(kwargs.pop('obj_as2', None))
+        obj_bsky = copy.deepcopy(kwargs.pop('obj_bsky', None))
+        obj_mf2 = copy.deepcopy(kwargs.pop('obj_mf2', None))
+        obj_id = copy.deepcopy(kwargs.pop('obj_id', None))
 
         kwargs.setdefault('direct', True)
         user = cls(id=id,
