@@ -1070,10 +1070,12 @@ class ProtocolReceiveTest(TestCase):
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(create_as1))
 
-        self.assert_object('fake:reply',
-                           our_as1=reply_as1,
-                           type='note',
-                           )
+        self.assert_object(
+            'fake:reply',
+            our_as1=reply_as1,
+            type='note',
+            copies=[Target(protocol='other', uri='other:o:fa:fake:reply')],
+        )
         obj = self.assert_object('fake:create',
                                  status='complete',
                                  our_as1=create_as1,
@@ -1103,10 +1105,12 @@ class ProtocolReceiveTest(TestCase):
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(reply_as1))
 
-        self.assert_object('fake:reply',
-                           our_as1=reply_as1,
-                           type='note',
-                           )
+        self.assert_object(
+            'fake:reply',
+            our_as1=reply_as1,
+            type='note',
+            copies=[Target(protocol='other', uri='other:o:fa:fake:reply')],
+        )
 
         create_as1 = {
             'id': 'fake:reply#bridgy-fed-create',
@@ -1147,12 +1151,79 @@ class ProtocolReceiveTest(TestCase):
                           })
         self.assertEqual(('OK', 202), Fake.receive_as1(reply_as1))
 
-        self.assert_object('fake:reply', our_as1=reply_as1, type='note',
-                           feed=[eve.key])
+        self.assert_object(
+            'fake:reply',
+            our_as1=reply_as1,
+            type='note',
+            feed=[eve.key],
+            copies=[Target(protocol='other', uri='other:o:fa:fake:reply')],
+        )
 
         obj = Object.get_by_id(id='fake:reply#bridgy-fed-create')
         self.assertEqual([(obj.key.id(), 'fake:post:target')], Fake.sent)
         self.assertEqual([(obj.key.id(), 'other:eve:target')], OtherFake.sent)
+
+    def test_create_reply_to_other_protocol(self):
+        eve = self.make_user('fake:eve', cls=Fake, obj_id='fake:eve')
+        self.store_object(id='fake:post', source_protocol='fake',
+                          copies=[Target(protocol='other', uri='other:post')],
+                          our_as1={
+                              'objectType': 'note',
+                              'id': 'fake:post',
+                              'author': 'fake:eve',
+                          })
+        self.store_object(id='other:post', source_protocol='other',
+                          our_as1={
+                              'objectType': 'note',
+                              'id': 'other:post',
+                              'author': 'fake:eve',
+                          })
+
+        reply_as1 = {
+            'id': 'fake:reply',
+            'objectType': 'note',
+            'inReplyTo': 'fake:post',
+            'author': 'fake:user',
+        }
+        self.assertEqual(('OK', 202), Fake.receive_as1(reply_as1))
+
+        copy = Target(protocol='other', uri='other:o:fa:fake:reply')
+        reply = self.assert_object('fake:reply', our_as1=reply_as1, type='note',
+                                   copies=[copy])
+        self.assertEqual([('fake:reply#bridgy-fed-create', 'other:post:target')],
+                         OtherFake.sent)
+
+
+    def test_create_self_reply_to_same_protocol_bridge_if_original_is_bridged(self):
+        # eve follows alice
+        eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
+        Follower.get_or_create(to=self.alice, from_=eve)
+
+        # alice replies to herself
+        self.store_object(id='fake:post', source_protocol='fake',
+                          copies=[Target(protocol='other', uri='other:post')],
+                          our_as1={
+                              'objectType': 'note',
+                              'id': 'fake:post',
+                              'author': 'fake:alice',
+                          })
+
+        reply_as1 = {
+            'id': 'fake:reply',
+            'objectType': 'note',
+            'inReplyTo': 'fake:post',
+            'author': 'fake:alice',
+        }
+        self.assertEqual(('OK', 202), Fake.receive_as1(reply_as1))
+
+        copy = Target(protocol='other', uri='other:o:fa:fake:reply')
+        reply = self.assert_object('fake:reply',
+                                   type='note',
+                                   our_as1=reply_as1,
+                                   copies=[copy],
+                                   feed=[eve.key])
+        self.assertEqual([('fake:reply#bridgy-fed-create', 'other:eve:target')],
+                         OtherFake.sent)
 
     def test_create_reply_isnt_bridged_if_original_isnt_bridged(self):
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
@@ -1702,14 +1773,16 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(('OK', 202), Fake.receive_as1(follow_as1))
 
         other = OtherFake.get_by_id('other:user')
-        follow_obj = self.assert_object('fake:follow',
-                                        our_as1=follow_as1,
-                                        status='complete',
-                                        users=[self.alice.key],
-                                        notify=[other.key],
-                                        delivered=['other:user:target'],
-                                        delivered_protocol='other',
-                                        )
+        follow_obj = self.assert_object(
+            'fake:follow',
+            our_as1=follow_as1,
+            copies=[Target(protocol='other', uri='other:o:fa:fake:follow')],
+            status='complete',
+            users=[self.alice.key],
+            notify=[other.key],
+            delivered=['other:user:target'],
+            delivered_protocol='other',
+        )
 
         self.assertIsNone(Object.get_by_id(
             'https://fa.brid.gy/ap/other:user/followers#accept-fake:follow'))

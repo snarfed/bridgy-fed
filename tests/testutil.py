@@ -124,9 +124,20 @@ class Fake(User, protocol.Protocol):
         return url.startswith(f'{cls.LABEL}:blocklisted')
 
     @classmethod
-    def send(cls, obj, url, from_user=None, orig_obj=None):
-        logger.info(f'{cls.__name__}.send {url} {obj.as1}')
-        cls.sent.append((obj.key.id(), url))
+    def send(to, obj, url, from_user=None, orig_obj=None):
+        logger.info(f'{to.__name__}.send {url} {obj.as1}')
+        to.sent.append((obj.key.id(), url))
+
+        from_ = PROTOCOLS.get(obj.source_protocol)
+        if (from_ and from_ != to and to.HAS_COPIES
+                and obj.type not in ('update', 'delete')):
+            if obj.type == 'post':
+                obj = Object.get_by_id(as1.get_object(obj.as1)['id'])
+            copy_id = ids.translate_object_id(
+                id=obj.key.id(), from_=from_, to=to)
+            add(obj.copies, Target(uri=copy_id, protocol=to.LABEL))
+            obj.put()
+
         return True
 
     @classmethod

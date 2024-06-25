@@ -34,7 +34,7 @@ from activitypub import (
 from atproto import ATProto
 import common
 from flask_app import app
-from models import Follower, Object
+from models import Follower, Object, Target
 import protocol
 from web import Web
 
@@ -789,11 +789,13 @@ class ActivityPubTest(TestCase):
                 {'id': 'target'},
             ],
         }
-        self.assert_object(NOTE_OBJECT['id'],
-                           source_protocol='activitypub',
-                           our_as1=expected_obj,
-                           type='note',
-                           feed=[self.user.key, baz.key])
+        self.assert_object(
+            NOTE_OBJECT['id'],
+            source_protocol='activitypub',
+            our_as1=expected_obj,
+            type='note',
+            copies=[Target(protocol='fake', uri='fake:o:ap:http://mas.to/note/id')],
+            feed=[self.user.key, baz.key])
 
         expected_create = as2.to_as1(common.unwrap(NOTE))
         expected_create.update({
@@ -870,10 +872,13 @@ class ActivityPubTest(TestCase):
 
         mock_post.assert_not_called()  # no webmention
 
+        copy = Target(protocol='fake',
+                      uri='fake:o:ap:https://mas.to/users/alice/statuses/654/activity')
         self.assert_object(REPOST['id'],
                            source_protocol='activitypub',
                            status='complete',
                            as2=REPOST,
+                           copies=[copy],
                            users=[self.swentel_key],
                            feed=[self.user.key, baz.key],
                            delivered=['fake:shared:target'],

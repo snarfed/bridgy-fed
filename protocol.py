@@ -462,6 +462,10 @@ class Protocol:
 
         To be implemented by subclasses.
 
+        NOTE: if this protocol's ``HAS_COPIES`` is True, and this method creates
+        a copy and sends it, it *must* add that copy to the *object*'s (not
+        activity's) :attr:`copies`!
+
         Args:
           obj (models.Object): with activity to send
           url (str): destination URL to send to
@@ -1275,13 +1279,13 @@ class Protocol:
         for in_reply_to in in_reply_tos:
             if proto := Protocol.for_id(in_reply_to):
                 if in_reply_to_obj := proto.load(in_reply_to):
-                    if proto.LABEL != obj.source_protocol:
-                        in_reply_to_protocols.add(proto._get_kind())
+                    if obj.source_protocol in (proto.LABEL, proto.ABBREV):
+                        for copy in in_reply_to_obj.copies:
+                            add(target_uris, copy.uri)
+                            in_reply_to_protocols.add(
+                                PROTOCOLS[copy.protocol]._get_kind())
                     else:
-                        proto_labels = proto.DEFAULT_ENABLED_PROTOCOLS + tuple(
-                            c.protocol for c in in_reply_to_obj.copies)
-                        in_reply_to_protocols.update(PROTOCOLS[c.protocol]._get_kind()
-                                                     for c in in_reply_to_obj.copies)
+                        in_reply_to_protocols.add(proto._get_kind())
 
                     if reply_owner := as1.get_owner(in_reply_to_obj.as1):
                         in_reply_to_owners.append(reply_owner)
@@ -1348,41 +1352,69 @@ class Protocol:
             return targets
 
         if (obj.type in ('post', 'update', 'delete', 'share')
-                and (not is_reply or (is_self_reply and in_reply_to_protocols))):
-            logger.info(f'Delivering to followers of {user_key}')
-            followers = [f for f in Follower.query(Follower.to == user_key,
-                                                   Follower.status == 'active')
-                         # skip protocol bot users
-                         if not Protocol.for_bridgy_subdomain(f.from_.id())
-                         # skip protocols this user hasn't enabled
-                         and from_user.is_enabled(PROTOCOLS_BY_KIND[f.from_.kind()])]
-            user_keys = [f.from_ for f in followers]
-            if is_reply:
-                user_keys = [k for k in user_keys if k.kind() in in_reply_to_protocols]
-            users = [u for u in ndb.get_multi(user_keys) if u]
-            User.load_multi(users)
+                and (not is_reply or in_reply_to_protocols)):
+            if not is_reply or (is_self_reply and in_reply_to_protocols):
+                logger.info(f'Delivering to followers of {user_key}')
+                followers = [
+                    f for f in Follower.query(Follower.to == user_key,
+                                              Follower.status == 'active')
+                    # skip protocol bot users
+                    if not Protocol.for_bridgy_subdomain(f.from_.id())
+                    # skip protocols this user hasn't enabled
+                    and from_user.is_enabled(PROTOCOLS_BY_KIND[f.from_.kind()])]
+                user_keys = [f.from_ for f in followers]
+                if is_reply:
+                    user_keys = [k for k in user_keys
+                                 if k.kind() in in_reply_to_protocols]
+                users = [u for u in ndb.get_multi(user_keys) if u]
+                User.load_multi(users)
 
-            # which object should we add to followers' feeds, if any
-            feed_obj = None
-            if obj.type == 'share':
-                feed_obj = obj
-            else:
-                inner = as1.get_object(obj.as1)
-                # don't add profile updates to feeds
-                if not (obj.type == 'update'
-                        and inner.get('objectType') in as1.ACTOR_TYPES):
-                    inner_id = inner.get('id')
-                    if inner_id:
-                        feed_obj = cls.load(inner_id)
+                # which object should we add to followers' feeds, if any
+                feed_obj = None
+                if obj.type == 'share':
+                    feed_obj = obj
+                else:
+                    inner = as1.get_object(obj.as1)
+                    # don't add profile updates to feeds
+                    if not (obj.type == 'update'
+                            and inner.get('objectType') in as1.ACTOR_TYPES):
+                        inner_id = inner.get('id')
+                        if inner_id:
+                            feed_obj = cls.load(inner_id)
 
-            # include ATProto if this user is enabled there.
-            # TODO: abstract across protocols. maybe with this, below
-            # targets.update({
-            #     Target(protocol=proto.LABEL,
-            #            uri=proto.target_for(proto.bot_user_id())): None
-            #     for proto in PROTOCOLS
-            #     if proto and proto.HAS_COPIES
-            # })
+                # include ATProto if this user is enabled there.
+                # TODO: abstract across protocols. maybe with this, below
+                # targets.update({
+                #     Target(protocol=proto.LABEL,
+                #            uri=proto.target_for(proto.bot_user_id())): None
+                #     for proto in PROTOCOLS
+                #     if proto and proto.HAS_COPIES
+                # })
+
+                for user in users:
+                    if feed_obj:
+                        feed_obj.add('feed', user.key)
+
+                    # TODO: should we pass remote=False through here to Protocol.load?
+                    target = (user.target_for(user.obj, shared=True)
+                              if user.obj else None)
+                    if not target:
+                        # TODO: surface errors like this somehow?
+                        logger.error(f'Follower {user.key} has no delivery target')
+                        continue
+
+                    # normalize URL (lower case hostname, etc)
+                    # ...but preserve our PDS URL without trailing slash in path
+                    # https://atproto.com/specs/did#did-documents
+                    target = util.dedupe_urls([target], trailing_slash=False)[0]
+
+                    # HACK: use last target object from above for reposts, which
+                    # has its resolved id
+                    targets[Target(protocol=user.LABEL, uri=target)] = \
+                        orig_obj if obj.type == 'share' else None
+
+                if feed_obj:
+                    feed_obj.put()
 
             if 'atproto' in from_user.enabled_protocols:
                 if (not followers and
@@ -1400,30 +1432,6 @@ class Protocol:
                     targets.setdefault(
                         Target(protocol=ATProto.LABEL, uri=ATProto.PDS_URL), None)
                     logger.info(f'user has ATProto enabled, adding {ATProto.PDS_URL}')
-
-            for user in users:
-                if feed_obj:
-                    feed_obj.add('feed', user.key)
-
-                # TODO: should we pass remote=False through here to Protocol.load?
-                target = user.target_for(user.obj, shared=True) if user.obj else None
-                if not target:
-                    # TODO: surface errors like this somehow?
-                    logger.error(f'Follower {user.key} has no delivery target')
-                    continue
-
-                # normalize URL (lower case hostname, etc)
-                # ...but preserve our PDS URL without trailing slash in path
-                # https://atproto.com/specs/did#did-documents
-                target = util.dedupe_urls([target], trailing_slash=False)[0]
-
-                # HACK: use last target object from above for reposts, which
-                # has its resolved id
-                targets[Target(protocol=user.LABEL, uri=target)] = \
-                    orig_obj if obj.type == 'share' else None
-
-            if feed_obj:
-                feed_obj.put()
 
         # de-dupe targets, discard same-domain
         # maps string target URL to (Target, Object) tuple
