@@ -698,6 +698,34 @@ class ATProtoTest(TestCase):
             }],
         })))
 
+    def test_convert_quote_post_translate_attachment_url_with_copy_id(self):
+        self.make_user_and_repo()
+
+        self.store_object(id='fake:orig-post', copies=[
+            Target(protocol='atproto', uri='at://did:plc:user/coll/tid'),
+        ])
+        self.repo.apply_writes([Write(action=Action.CREATE, collection='coll',
+                                      rkey='tid', record=NOTE_BSKY)])
+
+        self.assertEqual({
+            '$type': 'app.bsky.feed.post',
+            'text': '',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.record',
+                'record': {
+                    'uri': 'at://did:plc:user/coll/tid',
+                    'cid': 'bafyreiccskuaccxa6zbaf7jeaiwyzg3pqtj3rg5qra653f5cmqilvgvejy',
+                },
+            },
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'note',
+            'attachments': [{
+                'objectType': 'note',
+                'url': 'fake:orig-post',
+            }],
+        })))
+
     def test_convert_actor_from_atproto_doesnt_add_self_label(self):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
