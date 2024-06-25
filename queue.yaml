@@ -19,7 +19,7 @@ queue:
 
 - name: receive
   rate: 500/s
-  max_concurrent_requests: 80
+  max_concurrent_requests: 160
   retry_parameters:
     task_retry_limit: 2
     min_backoff_seconds: 300
@@ -27,7 +27,7 @@ queue:
 
 - name: send
   rate: 500/s
-  max_concurrent_requests: 20
+  max_concurrent_requests: 40
   retry_parameters:
     task_retry_limit: 2
     min_backoff_seconds: 300

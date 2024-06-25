@@ -12,8 +12,8 @@ runtime_config:
     runtime_version: "3.11"
 
 resources:
-  cpu: 2
-  memory_gb: 2
+  cpu: 4
+  memory_gb: 3.6
 
 env_variables:
   PDS_HOST: atproto.brid.gy
@@ -38,4 +38,4 @@ manual_scaling:
 # https://cloud.google.com/appengine/docs/flexible/python/runtime#application_startup
 # https://docs.gunicorn.org/en/latest/settings.html
 # TODO: try asyncio w/eventlet workers
-entrypoint: gunicorn --workers 2 --threads 50 -b :$PORT router:app
+entrypoint: gunicorn --workers 4 --threads 50 -b :$PORT router:app
