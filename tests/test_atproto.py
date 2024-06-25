@@ -53,7 +53,7 @@ NOTE_AS = {
     'objectType': 'note',
     'id': 'fake:post',
     'content': 'My original post',
-    'actor': 'fake:user',
+    'author': 'fake:user',
     'published': '2007-07-07T03:04:05.000Z',
 }
 NOTE_BSKY = {
@@ -74,10 +74,10 @@ class ATProtoTest(TestCase):
         common.RUN_TASKS_INLINE = False
         arroba.util.now = lambda **kwargs: NOW
 
-    def make_user_and_repo(self):
-        self.user = self.make_user(
-            id='fake:user', cls=Fake,
-            copies=[Target(uri='did:plc:user', protocol='atproto')])
+    def make_user_and_repo(self, **kwargs):
+        atp_copy = Target(uri='did:plc:user', protocol='atproto')
+        self.user = self.make_user(id='fake:user', cls=Fake, copies=[atp_copy],
+                                   **kwargs)
 
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
@@ -899,10 +899,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
            return_value=requests_response('OK'))  # create DID on PLC
     def test_send_new_repo(self, mock_post, mock_create_task, _):
         user = self.make_user(id='fake:user', cls=Fake)
-        obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
-            **POST_AS,
-            'actor': 'fake:user',
-        })
+        obj = self.store_object(id='fake:post', source_protocol='fake',
+                                our_as1=NOTE_AS)
 
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))
 
@@ -919,10 +917,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         repo = self.storage.load_repo(did)
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         record = repo.get_record('app.bsky.feed.post', last_tid)
-        self.assertEqual({
-            **NOTE_BSKY,
-            'bridgyOriginalUrl': 'https://bsky.app/profile/did:alice/post/tid',
-        }, record)
+        self.assertEqual(NOTE_BSKY, record)
 
         at_uri = f'at://{did}/app.bsky.feed.post/{last_tid}'
         self.assertEqual([Target(uri=at_uri, protocol='atproto')],
@@ -1045,6 +1040,42 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         record = repo.get_record('app.bsky.feed.post', last_tid)
         self.assertEqual('something new', record['text'])
+
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_update_actor(self, mock_create_task):
+        user = self.make_user_and_repo(obj_as1={'objectType': 'person', 'foo': 'bar'})
+
+        # create profile object, set copy
+        self.repo.apply_writes([
+            Write(action=Action.CREATE, collection='app.bsky.actor.profile',
+                  rkey='self', record=ACTOR_PROFILE_BSKY)])
+        user.obj.copies = [Target(uri='at://did:plc:user/app.bsky.actor.profile/self',
+                                  protocol='atproto')]
+        user.obj.put()
+
+        # update profile
+        update = Object(id='fake:update', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'actor': 'fake:user',
+            'object': {
+                'objectType': 'person',
+                'id': 'fake:profile:user',
+                'updated': '2024-06-24T01:02:03+00:00',
+                'displayName': 'fooey',
+            },
+        })
+        self.assertTrue(ATProto.send(update, 'https://bsky.brid.gy/', from_user=user))
+
+        repo = self.storage.load_repo('did:plc:user')
+        self.assert_equals({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'fooey',
+            'description': '[bridged from web:fake:user on fake-phrase by https://fed.brid.gy/ ]',
+        }, repo.get_record('app.bsky.actor.profile', 'self'),
+        ignore=['bridgyOriginalUrl', 'labels'])
 
         mock_create_task.assert_called()  # atproto-commit
 

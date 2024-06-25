@@ -435,13 +435,12 @@ class ATProto(User, Protocol):
         base_obj_as1 = obj.as1
         if type in ('post', 'update', 'delete'):
             base_obj_as1 = as1.get_object(obj.as1)
-            if not (from_user and base_obj_as1['id'] == from_user.key.id()):
-                base_obj = PROTOCOLS[obj.source_protocol].load(base_obj_as1['id'])
-                if not base_obj or not (base_obj.as1 or base_obj.raw):
-                    if type == 'delete':
-                        logger.info(f"Can't delete, we don't have original object {base_obj_as1['id']}")
-                        return False
-                    base_obj = obj
+            base_id = base_obj_as1['id']
+            base_obj = PROTOCOLS[obj.source_protocol].load(base_id, remote=False)
+            if type != 'delete':
+                if not base_obj:  # probably a new repo
+                    base_obj = Object(id=base_id, source_protocol=obj.source_protocol)
+                base_obj.our_as1 = base_obj_as1
 
         elif type == 'stop-following':
             assert from_user
@@ -455,7 +454,6 @@ class ATProto(User, Protocol):
                 return False
 
             base_obj = follower.follow.get()
-            verb = 'delete'
 
         # convert to Bluesky record; short circuits on error
         record = to_cls.convert(base_obj, fetch_blobs=True, from_user=from_user)
@@ -491,22 +489,23 @@ class ATProto(User, Protocol):
         # non-commit operations:
         # * delete actor => tombstone repo
         # * flag => send report to mod service
-        # * stop-following => delete follow record
+        # * stop-following => delete follow record (prepared above)
         verb = obj.as1.get('verb')
         if verb == 'delete':
-            atp_base_id = base_obj_as1['id']
-            if not ATProto.owns_id(atp_base_id):
-                atp_base_id = ids.translate_user_id(
-                    id=atp_base_id, from_=from_cls, to=to_cls)
+            atp_base_id = (base_id if ATProto.owns_id(base_id)
+                           else ids.translate_user_id(from_=from_cls, to=to_cls,
+                                                      id=base_id))
             if atp_base_id == did:
                 logger.info(f'Deleting bridged ATProto account {did} by tombstoning repo!')
                 arroba.server.storage.tombstone_repo(repo)
                 return True
 
         elif verb == 'flag':
+            logger.info(f'flag => createReport with {record}')
             return to_cls.create_report(record, user)
 
         elif verb == 'stop-following':
+            logger.info(f'stop-following => delete of {base_obj.key.id()}')
             assert base_obj and base_obj.type == 'follow', base_obj
             verb = 'delete'
 
@@ -525,7 +524,7 @@ class ATProto(User, Protocol):
             # check that they're updating the object we have
             copy = base_obj.get_copy(to_cls)
             if not copy:
-                logger.info(f"Can't {verb} {type}, we didn't bridge original {base_obj.key.id()}")
+                logger.info(f"Can't {verb} {base_obj.key.id()} {type}, we didn't create it originally")
                 return False
             copy_did, coll, rkey = parse_at_uri(copy)
             assert copy_did == did, (copy_did, did)
