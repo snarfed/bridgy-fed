@@ -1351,6 +1351,7 @@ class Protocol:
             logger.info("Can't tell who this is from! Skipping followers.")
             return targets
 
+        followers = []
         if (obj.type in ('post', 'update', 'delete', 'share')
                 and (not is_reply or in_reply_to_protocols)):
             if not is_reply or (is_self_reply and in_reply_to_protocols):
