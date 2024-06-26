@@ -2557,6 +2557,35 @@ class ActivityPubUtilsTest(TestCase):
             'object': ACTOR,
         }, ActivityPub.convert(obj))
 
+    def test_convert_quote_post(self):
+        obj = Object(id='at://did:alice/app.bsky.feed.post/123', bsky={
+            '$type': 'app.bsky.feed.post',
+            'text': 'foo bar',
+            'embed': {
+                '$type': 'app.bsky.embed.record',
+                'record': {
+                    'cid': 'bafyreih...',
+                    'uri': 'at://did:bob/app.bsky.feed.post/456'
+                }
+            },
+        })
+
+        self.assert_equals({
+            'type': 'Note',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:alice/app.bsky.feed.post/123',
+            'url': 'http://localhost/r/https://bsky.app/profile/did:alice/post/123',
+            'content': '<p>foo bar<br><br>RE: <a href="https://bsky.app/profile/did:bob/post/456">https://bsky.app/profile/did:bob/post/456</a></p>',
+            'attributedTo': 'did:alice',
+            '_misskey_quote': 'https://bsky.brid.gy/convert/ap/at://did:bob/app.bsky.feed.post/456',
+            'quoteUrl': 'https://bsky.brid.gy/convert/ap/at://did:bob/app.bsky.feed.post/456',
+            'tag': [{
+                'type': 'Link',
+                'mediaType': as2.CONTENT_TYPE_LD_PROFILE,
+                'href': 'https://bsky.brid.gy/convert/ap/at://did:bob/app.bsky.feed.post/456',
+                'name': 'RE: https://bsky.app/profile/did:bob/post/456',
+            }],
+        }, ActivityPub.convert(obj), ignore=['contentMap', 'content_is_html', 'to'])
+
     def test_postprocess_as2_idempotent(self):
         for obj in (ACTOR, REPLY_OBJECT, REPLY_OBJECT_WRAPPED, REPLY,
                     NOTE_OBJECT, NOTE, MENTION_OBJECT, MENTION, LIKE,

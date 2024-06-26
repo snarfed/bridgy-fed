@@ -723,7 +723,10 @@ class Protocol:
                     translate(tag, 'url', translate_user_id)
             for att in as1.get_objects(o, 'attachments'):
                 translate(att, 'id', translate_object_id)
-                translate(att, 'url', translate_object_id)
+                url = att.get('url')
+                if url and not att.get('id'):
+                    from_cls = Protocol.for_id(url)
+                    att['id'] = translate_object_id(from_=from_cls, to=to_cls, id=url)
 
         outer_obj = util.trim_nulls(outer_obj)
         if outer_obj.get('object', {}).keys() == {'id'}:

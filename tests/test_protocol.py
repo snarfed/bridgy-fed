@@ -536,7 +536,8 @@ class ProtocolTest(TestCase):
             'objectType': 'note',
             'attachments': [
                 {'id': 'other:o:fa:fake:123'},
-                {'url': 'other:o:fa:fake:456'},
+                {'id': 'other:o:fa:fake:456',
+                 'url': 'fake:456'},
             ],
             'tags': [
                 {'objectType': 'mention', 'url': 'other:u:fake:alice'},
@@ -570,7 +571,8 @@ class ProtocolTest(TestCase):
             },
             'attachments': [{
                 'objectType': 'note',
-                'url': 'other:post',
+                'id': 'other:post',
+                'url': 'fake:post',
             }],
         }, OtherFake.translate_ids({
             'objectType': 'activity',
