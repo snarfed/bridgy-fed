@@ -555,6 +555,15 @@ class ProtocolTest(TestCase):
             ],
         }))
 
+    def test_translate_ids_attachment_url_blocklisted(self):
+        self.assert_equals({
+            'objectType': 'note',
+            'attachments': [{'url': 'https://t.co/foo'}],
+        }, OtherFake.translate_ids({
+            'objectType': 'note',
+            'attachments': [{'url': 'https://t.co/foo'}],
+        }))
+
     def test_translate_ids_copies(self):
         self.store_object(id='fake:post',
                           copies=[Target(uri='other:post', protocol='other')])

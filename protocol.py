@@ -725,8 +725,9 @@ class Protocol:
                 translate(att, 'id', translate_object_id)
                 url = att.get('url')
                 if url and not att.get('id'):
-                    from_cls = Protocol.for_id(url)
-                    att['id'] = translate_object_id(from_=from_cls, to=to_cls, id=url)
+                    if from_cls := Protocol.for_id(url):
+                        att['id'] = translate_object_id(from_=from_cls, to=to_cls,
+                                                        id=url)
 
         outer_obj = util.trim_nulls(outer_obj)
         if outer_obj.get('object', {}).keys() == {'id'}:
