@@ -23,6 +23,7 @@ import requests
 import werkzeug.exceptions
 
 from activitypub import ActivityPub, instance_actor
+from atproto import ATProto
 import common
 from common import CACHE_CONTROL, DOMAIN_RE
 from flask_app import app
@@ -365,14 +366,15 @@ def nodeinfo_jrd():
 
 @app.get('/nodeinfo.json')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
+@flask_util.headers(CACHE_CONTROL)
 def nodeinfo():
     """
     https://nodeinfo.diaspora.software/schema.html
     """
-    user_total = None
-    stat = KindStat.query(KindStat.kind_name == 'MagicKey').get()
-    if stat:
-        user_total = stat.count
+    user_total = (ATProto.query(ATProto.enabled_protocols != None).count()
+                  + ActivityPub.query(ActivityPub.enabled_protocols != None).count())
+    if stat := KindStat.query(KindStat.kind_name == 'MagicKey').get():
+        user_total += stat.count
 
     return {
         'version': '2.1',
