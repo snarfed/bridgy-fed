@@ -1135,18 +1135,24 @@ def follower_collection(id, collection):
         # logger.info(f'Returning {json_dumps(page, indent=2)}')
         return page, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
-    # collection
-    num_followers, num_following = user.count_followers()
-    collection = {
+    ret = {
         '@context': 'https://www.w3.org/ns/activitystreams',
         'id': request.base_url,
         'type': 'Collection',
         'summary': f"{id}'s {collection}",
-        'totalItems': num_followers if collection == 'followers' else num_following,
         'first': page,
     }
+
+    # count total if it's small, <= 1k. we should eventually precompute this
+    # so that we can always return it cheaply.
+    prop = Follower.to if collection == 'followers' else Follower.from_
+    count = Follower.query(prop == user.key, Follower.status == 'active')\
+                    .count(limit=1001)
+    if count != 1001:
+        ret['totalItems'] = count
+
     # logger.info(f'Returning {json_dumps(collection, indent=2)}')
-    return collection, {
+    return ret, {
         'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
     }
 
@@ -1198,14 +1204,18 @@ def outbox(id):
         # logger.info(f'Returning {json_dumps(page, indent=2)}')
         return page, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
-    # collection
-    return {
+    ret = {
         '@context': 'https://www.w3.org/ns/activitystreams',
         'id': request.url,
         'type': 'OrderedCollection',
         'summary': f"{id}'s outbox",
-        'totalItems': query.count(),
         'first': page,
-    }, {
-        'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
     }
+
+    # count total if it's small, <= 1k. we should eventually precompute this
+    # so that we can always return it cheaply.
+    count = query.count(limit=1001)
+    if count != 1001:
+        ret['totalItems'] = count
+
+    return ret, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
