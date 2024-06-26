@@ -4,8 +4,10 @@ https://fed.brid.gy/docs#translate
 """
 import logging
 import re
+from threading import Lock
 from urllib.parse import urljoin, urlparse
 
+from cachetools import cached, LRUCache
 from flask import request
 from google.cloud.ndb.query import FilterNode, Query
 from granary.bluesky import BSKY_APP_URL_RE, web_url_to_at_uri
@@ -26,12 +28,6 @@ logger = logging.getLogger(__name__)
 # populated in models.reset_protocol_properties
 COPIES_PROTOCOLS = None
 
-# Web user domains whose AP actor ids are on fed.brid.gy, not web.brid.gy, for
-# historical compatibility. Loaded on first call to web_ap_base_domain().
-#
-# Maps string domain to string subdomain (bsky, fed, or web).
-_NON_WEB_SUBDOMAIN_SITES = None
-
 # Webfinger allows all sorts of characters that ATProto handles don't,
 # notably _ and ~. Map those to -.
 # ( : (colon) is mostly just used in the fake protocols in unit tests.)
@@ -46,12 +42,13 @@ ATPROTO_DASH_CHARS = ('_', '~', ':')
 BOT_ACTOR_AP_IDS = tuple(f'https://{domain}/{domain}' for domain in PROTOCOL_DOMAINS)
 
 
+@cached(LRUCache(10000), lock=Lock())
 def web_ap_base_domain(user_domain):
     """Returns the full Bridgy Fed domain to use for a given Web user.
 
     Specifically, returns ``http://localhost/` if we're running locally,
-    ``https://fed.brid.gy/`` if the given Web user has ``ap_subdomain='fed'``,
-    otherwise ``https://web.brid.gy/``.
+    ``https://[ap_subdomain].brid.gy/`` for the Web entity for this domain if it
+    exists, otherwise ``https://web.brid.gy/``.
 
     Args:
       user_domain (str)
@@ -63,19 +60,11 @@ def web_ap_base_domain(user_domain):
             not (user_domain == PRIMARY_DOMAIN or user_domain in PROTOCOL_DOMAINS)):
         return request.host_url
 
-    global _NON_WEB_SUBDOMAIN_SITES
-    if _NON_WEB_SUBDOMAIN_SITES is None:
-        _NON_WEB_SUBDOMAIN_SITES = {
-            user.key.id(): user.ap_subdomain
-            for user in Query('MagicKey',
-                              filters=FilterNode('ap_subdomain', '!=', 'web'),
-                              projection=['ap_subdomain'],
-                              ).fetch()
-        }
-        logger.info(f'Loaded {len(_NON_WEB_SUBDOMAIN_SITES)} non-web.brid.gy Web users')
+    from web import Web
+    if user := Web.get_by_id(user_domain):
+        return f'https://{user.ap_subdomain}{SUPERDOMAIN}/'
 
-    subdomain = _NON_WEB_SUBDOMAIN_SITES.get(user_domain, 'web')
-    return f'https://{subdomain}{SUPERDOMAIN}/'
+    return f'https://web{SUPERDOMAIN}/'
 
 
 def translate_user_id(*, id, from_, to):

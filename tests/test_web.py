@@ -20,6 +20,7 @@ from activitypub import ActivityPub
 import common
 from common import CONTENT_TYPE_HTML, TASKS_LOCATION
 from flask_app import app
+import ids
 from models import Follower, Object
 import web
 from web import Web
@@ -2424,10 +2425,12 @@ http://this/404s
     def test_id_as(self, *_):
         self.assertEqual('http://localhost/user.com', self.user.id_as(ActivityPub))
 
+        ids.web_ap_base_domain.cache.clear()
         with app.test_request_context('', base_url='https://web.brid.gy/'):
             self.assertEqual('https://web.brid.gy/user.com',
                              self.user.id_as(ActivityPub))
 
+        ids.web_ap_base_domain.cache.clear()
         self.user.ap_subdomain = 'fed'
         with app.test_request_context('', base_url='https://web.brid.gy/'):
             self.assertEqual('https://fed.brid.gy/user.com',

@@ -243,20 +243,20 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         common.RUN_TASKS_INLINE = True
         app.testing = True
         protocol.seen_ids.clear()
-        protocol.Protocol.for_id.cache.clear()
+
         common.webmention_discover.cache.clear()
-        User.count_followers.cache.clear()
         did.resolve_handle.cache.clear()
         did.resolve_plc.cache.clear()
         did.resolve_web.cache.clear()
+        ids.web_ap_base_domain.cache.clear()
+        protocol.Protocol.for_id.cache.clear()
+        User.count_followers.cache.clear()
 
         for cls in ExplicitEnableFake, Fake, OtherFake:
             cls.fetchable = {}
             cls.sent = []
             cls.fetched = []
             cls.created_for = []
-
-        ids._NON_WEB_SUBDOMAIN_SITES = None
 
         # make random test data deterministic
         arroba.util._clockid = 17
