@@ -64,7 +64,10 @@ DOMAIN_BLOCKLIST = (
     'bsky.social',
     'facebook.com',
     'fb.com',
+    'instagram.com',
+    'reddit.com',
     't.co',
+    'tiktok.com',
     'twitter.com',
     'x.com',
 )
