@@ -1235,8 +1235,9 @@ class ProtocolReceiveTest(TestCase):
                                    our_as1=reply_as1,
                                    copies=[copy],
                                    feed=[eve.key])
-        self.assertEqual([('fake:reply#bridgy-fed-create', 'other:eve:target')],
-                         OtherFake.sent)
+        self.assertEqual([('fake:reply#bridgy-fed-create', 'other:eve:target'),
+                          ('fake:reply#bridgy-fed-create', 'other:post:target'),
+                          ], OtherFake.sent)
 
     def test_update_reply(self):
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
