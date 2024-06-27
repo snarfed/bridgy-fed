@@ -1414,7 +1414,7 @@ class ProtocolReceiveTest(TestCase):
                                       our_as1=like_as1,
                                       delivered=['fake:post:target'],
                                       type='like',
-                                      object_ids=['fake:post'])
+                                      )
 
         self.assertEqual([(like_obj.key.id(), 'fake:post:target')], Fake.sent)
 
@@ -1615,7 +1615,6 @@ class ProtocolReceiveTest(TestCase):
             our_as1=update_as1,
             delivered=['fake:shared:target'],
             type='update',
-            object_ids=['fake:user'],
         )
 
         self.assertEqual([(update_obj.key.id(), 'fake:shared:target')], Fake.sent)
@@ -1654,7 +1653,6 @@ class ProtocolReceiveTest(TestCase):
             },
             delivered=['fake:shared:target'],
             type='update',
-            object_ids=['fake:user'],
         )
         self.assertEqual([(id, 'fake:shared:target')], Fake.sent)
 

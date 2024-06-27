@@ -835,12 +835,6 @@ class Object(StringIdModel):
         super().__init__(*args, **kwargs)
         self.lock = Lock()
 
-    def _object_ids(self):  # id(s) of inner objects
-        if self.as1:
-            return unwrap(as1.get_ids(self.as1, 'object'))
-
-    object_ids = ndb.ComputedProperty(_object_ids, repeated=True)
-
     def _expire(self):
         """Maybe automatically delete this Object after 90d using a TTL policy.
 

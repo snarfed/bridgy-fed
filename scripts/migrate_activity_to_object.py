@@ -128,7 +128,6 @@ def run():
                 mf2=a.source_mf2,
                 type=type,
                 # deleted=None,
-                object_ids=as1.get_ids(obj_as1, 'object'),
                 delivered=[],
                 undelivered=[],
                 failed=[],

@@ -807,7 +807,6 @@ class ActivityPubTest(TestCase):
                            our_as1=expected_create,
                            users=[ndb.Key(ActivityPub, ACTOR['id'])],
                            type='post',
-                           object_ids=[NOTE_OBJECT['id']],
                            status='complete',
                            delivered=['fake:shared:target'],
                            delivered_protocol='fake')
@@ -854,7 +853,7 @@ class ActivityPubTest(TestCase):
                            users=[self.swentel_key],
                            delivered=['https://user.com/orig'],
                            type='share',
-                           object_ids=['https://user.com/orig'])
+                           )
 
     def test_shared_inbox_repost_of_fediverse(self, mock_head, mock_get, mock_post):
         to = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
@@ -884,7 +883,6 @@ class ActivityPubTest(TestCase):
                            delivered=['fake:shared:target'],
                            delivered_protocol='fake',
                            type='share',
-                           object_ids=[REPOST['object']],
                            ignore=['our_as1'])
 
     def test_inbox_no_user(self, mock_head, mock_get, mock_post):
@@ -915,7 +913,7 @@ class ActivityPubTest(TestCase):
                            type='like',
                            notify=[self.user.key],
                            users=[self.masto_actor_key],
-                           object_ids=['http://nope.com/post'])
+                           )
 
     def test_inbox_private(self, *mocks):
         self._test_inbox_with_to_ignored([], *mocks)
@@ -1034,7 +1032,7 @@ class ActivityPubTest(TestCase):
                            our_as1=as2.to_as1(LIKE_WITH_ACTOR),
                            delivered=['https://user.com/post'],
                            type='like',
-                           object_ids=[LIKE['object']])
+                           )
 
     def test_inbox_like_indirect_user_creates_User(self, mock_get, *_):
         self.user.direct = False
@@ -1072,7 +1070,7 @@ class ActivityPubTest(TestCase):
                            our_as1=as2.to_as1(follow),
                            delivered=['https://user.com/'],
                            type='follow',
-                           object_ids=['user.com'])
+                           )
 
     def test_inbox_follow_accept_with_object(self, *mocks):
         follow = {
@@ -1099,7 +1097,7 @@ class ActivityPubTest(TestCase):
                            our_as1=as2.to_as1(follow),
                            delivered=['https://user.com/'],
                            type='follow',
-                           object_ids=['user.com'])
+                           )
 
     def test_inbox_follow_accept_shared_inbox(self, mock_head, mock_get, mock_post):
         self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT,
@@ -1120,7 +1118,7 @@ class ActivityPubTest(TestCase):
                            our_as1=as2.to_as1(follow),
                            delivered=['https://user.com/'],
                            type='follow',
-                           object_ids=['user.com'])
+                           )
 
     def test_inbox_follow_accept_webmention_fails(self, mock_head, mock_get,
                                                   mock_post):
@@ -1146,7 +1144,7 @@ class ActivityPubTest(TestCase):
                            delivered=[],
                            failed=['https://user.com/'],
                            type='follow',
-                           object_ids=['user.com'])
+                           )
 
     def _test_inbox_follow_accept(self, follow_as2, accept_as2, mock_head,
                                   mock_get, mock_post, inbox_path='/user.com/inbox'):
@@ -1690,7 +1688,7 @@ class ActivityPubTest(TestCase):
                            status='ignored',
                            our_as1=as2.to_as1(LIKE_WITH_ACTOR),
                            type='like',
-                           object_ids=[LIKE['object']])
+                           )
 
     def test_inbox_id_already_seen(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [

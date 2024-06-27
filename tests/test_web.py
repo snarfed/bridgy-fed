@@ -934,7 +934,6 @@ class WebTest(TestCase):
                            mf2=mf2,
                            delivered=inboxes,
                            type='share',
-                           object_ids=['https://mas.to/toot/id'],
                            labels=['user', 'activity', 'notification', 'feed'],
                            ignore=['our_as1'],
                            )
@@ -1346,7 +1345,6 @@ class WebTest(TestCase):
                                  our_as1=follow_as1,
                                  delivered=['https://mas.to/inbox'],
                                  type='follow',
-                                 object_ids=['https://mas.to/mrs-foo'],
                                  labels=['user', 'activity', 'notification'],
                                  ignore=['our_as1'],
                                  )
@@ -1442,7 +1440,6 @@ class WebTest(TestCase):
                            mf2=FOLLOW_FRAGMENT_MF2,
                            delivered=['https://mas.to/inbox'],
                            type='follow',
-                           object_ids=['https://mas.to/mrs-foo'],
                            labels=['user', 'activity', 'notification'],
                            ignore=['our_as1'],
                            )
@@ -1506,8 +1503,6 @@ class WebTest(TestCase):
                                  delivered=['https://mas.to/inbox',
                                             'https://mas.to/inbox/biff'],
                                  type='follow',
-                                 object_ids=['https://mas.to/mrs-foo',
-                                             'https://mas.to/mr-biff'],
                                  labels=['user', 'activity', 'notification',],
                                  ignore=['our_as1'],
                                   )
@@ -1567,7 +1562,6 @@ class WebTest(TestCase):
                            },
                            delivered=inboxes,
                            type='delete',
-                           object_ids=['https://user.com/post'],
                            labels=['user', 'activity'],
                            )
 
@@ -1622,7 +1616,6 @@ class WebTest(TestCase):
                            mf2=FOLLOW_MF2,
                            failed=['https://mas.to/inbox'],
                            type='follow',
-                           object_ids=['https://mas.to/mrs-foo'],
                            labels=['user', 'activity', 'notification',],
                            ignore=['our_as1'],
                            )
@@ -1735,7 +1728,6 @@ class WebTest(TestCase):
                            our_as1=expected_as1,
                            delivered=['https://inbox', 'https://shared/inbox'],
                            type='update',
-                           object_ids=['https://user.com/'],
                            labels=['user', 'activity'],
                            )
 
@@ -1846,7 +1838,6 @@ class WebTest(TestCase):
                                      'feed_index': 0,
                                  },
                                  type='post',
-                                 object_ids=['https://user.com/post'],
                                  labels=['user', 'activity'],
                                  )
         self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
@@ -1927,7 +1918,6 @@ class WebTest(TestCase):
                     'feed_index': i,
                 },
                 type='post',
-                object_ids=[url],
                 labels=['user', 'activity'],
             )
             self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
@@ -2011,7 +2001,6 @@ class WebTest(TestCase):
                                      'feed_index': 0,
                                  },
                                  type='post',
-                                 object_ids=['https://user.com/post'],
                                  labels=['user', 'activity'],
                                  )
         self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),

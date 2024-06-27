@@ -500,10 +500,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         if type is not None:
             self.assertEqual(type, got.type)
 
-        object_ids = props.pop('object_ids', None)
-        if object_ids is not None:
-            self.assertSetEqual(set(object_ids), set(got.object_ids))
-
         if expected_as1 := props.pop('as1', None):
             self.assert_equals(expected_as1, got.as1)
 
@@ -515,8 +511,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         self.assert_entities_equal(Object(id=id, **props), got,
                                    ignore=['as1', 'created', 'expire', 'labels',
-                                           'object_ids', 'type', 'updated'
-                                           ] + ignore)
+                                           'type', 'updated'] + ignore)
         return got
 
     def assert_user(self, cls, id, **props):
