@@ -1277,32 +1277,9 @@ class Protocol:
         targets = {}  # maps Target to Object or None
         owner = as1.get_owner(obj.as1)
 
-        in_reply_to_protocols = set()  # protocol kinds, eg 'MagicKey'
-        in_reply_to_owners = []
         in_reply_tos = as1.get_ids(as1.get_object(obj.as1), 'inReplyTo')
-        for in_reply_to in in_reply_tos:
-            if proto := Protocol.for_id(in_reply_to):
-                if in_reply_to_obj := proto.load(in_reply_to):
-                    if obj.source_protocol in (proto.LABEL, proto.ABBREV):
-                        for copy in in_reply_to_obj.copies:
-                            add(target_uris, copy.uri)
-                            in_reply_to_protocols.add(
-                                PROTOCOLS[copy.protocol]._get_kind())
-                    else:
-                        in_reply_to_protocols.add(proto._get_kind())
-
-                    if reply_owner := as1.get_owner(in_reply_to_obj.as1):
-                        in_reply_to_owners.append(reply_owner)
-
         is_reply = obj.type == 'comment' or in_reply_tos
         is_self_reply = False
-        if is_reply:
-            logger.info(f"It's a reply...")
-            if in_reply_to_protocols:
-                logger.info(f'  ...delivering to these protocols where the in-reply-to post was native or bridged: {in_reply_to_protocols}')
-            else:
-                logger.info(f"  ...skipping, in-reply-to post(s) are same protocol and weren't bridged anywhere")
-                return {}
 
         for id in sorted(target_uris):
             protocol = Protocol.for_id(id)
@@ -1327,11 +1304,16 @@ class Protocol:
                 is_self_reply = True
                 logger.info(f'Looks like a self reply! Delivering to followers')
 
+            # also add copies' targets
+            for copy in orig_obj.copies:
+                # copies generally won't have their own Objects
+                target = PROTOCOLS[copy.protocol].target_for(Object(id=copy.uri))
+                if target:
+                    logger.info(f'Adding target {target} for copy {copy.uri} of original {id}')
+                    targets[Target(protocol=copy.protocol, uri=target)] = orig_obj
+
             if protocol == cls and cls.LABEL != 'fake':
                 logger.info(f'Skipping same-protocol target {id}')
-                continue
-            elif id in in_reply_to_owners:
-                logger.info(f'Skipping mention of in-reply-to author')
                 continue
 
             target = protocol.target_for(orig_obj)
@@ -1347,7 +1329,7 @@ class Protocol:
                 logger.info(f'Recipient is {orig_user}')
                 obj.add('notify', orig_user)
 
-        logger.info(f'Direct targets: {targets.keys()}')
+        logger.info(f'Direct (and copy) targets: {targets.keys()}')
 
         # deliver to followers, if appropriate
         user_key = cls.actor_key(obj)
@@ -1356,9 +1338,8 @@ class Protocol:
             return targets
 
         followers = []
-        if (obj.type in ('post', 'update', 'delete', 'share')
-                and (not is_reply or in_reply_to_protocols)):
-            if not is_reply or (is_self_reply and in_reply_to_protocols):
+        if obj.type in ('post', 'update', 'delete', 'share'):
+            if not is_reply or is_self_reply:
                 logger.info(f'Delivering to followers of {user_key}')
                 followers = [
                     f for f in Follower.query(Follower.to == user_key,
@@ -1368,9 +1349,6 @@ class Protocol:
                     # skip protocols this user hasn't enabled
                     and from_user.is_enabled(PROTOCOLS_BY_KIND[f.from_.kind()])]
                 user_keys = [f.from_ for f in followers]
-                if is_reply:
-                    user_keys = [k for k in user_keys
-                                 if k.kind() in in_reply_to_protocols]
                 users = [u for u in ndb.get_multi(user_keys) if u]
                 User.load_multi(users)
 

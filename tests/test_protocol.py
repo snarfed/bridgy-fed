@@ -1172,7 +1172,9 @@ class ProtocolReceiveTest(TestCase):
 
         obj = Object.get_by_id(id='fake:reply#bridgy-fed-create')
         self.assertEqual([(obj.key.id(), 'fake:post:target')], Fake.sent)
-        self.assertEqual([(obj.key.id(), 'other:eve:target')], OtherFake.sent)
+        self.assertEqual([(obj.key.id(), 'other:eve:target'),
+                          (obj.key.id(), 'other:post:target'),
+                          ], OtherFake.sent)
 
     def test_create_reply_to_other_protocol(self):
         eve = self.make_user('fake:eve', cls=Fake, obj_id='fake:eve')
@@ -1235,65 +1237,6 @@ class ProtocolReceiveTest(TestCase):
                                    feed=[eve.key])
         self.assertEqual([('fake:reply#bridgy-fed-create', 'other:eve:target')],
                          OtherFake.sent)
-
-    def test_create_reply_isnt_bridged_if_original_isnt_bridged(self):
-        eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
-        Follower.get_or_create(to=self.user, from_=eve)
-
-        reply_as1 = {
-            'id': 'fake:reply',
-            'objectType': 'note',
-            'inReplyTo': 'fake:post',
-            'author': 'fake:user',
-        }
-        Fake.fetchable['fake:post'] = {
-            'objectType': 'note',
-            'id': 'fake:post',
-            'author': 'fake:user',
-        }
-
-        _, code = Fake.receive_as1(reply_as1)
-        self.assertEqual(204, code)
-
-        reply = self.assert_object('fake:reply', our_as1=reply_as1, type='note')
-        self.assertEqual([], reply.copies)
-        self.assertEqual([], Fake.sent)
-        self.assertEqual([], OtherFake.sent)
-
-    def test_reply_skips_mention_of_original_post_author(self):
-        bob = self.store_object(id='fake:bob', our_as1={'foo': 1})
-        eve = self.store_object(id='fake:eve', our_as1={'foo': 2})
-
-        reply_as1 = {
-            'id': 'other:reply',
-            'objectType': 'note',
-            'inReplyTo': 'fake:post',
-            'author': 'other:alice',
-            'content': 'foo',
-            'tags': [{
-                'objectType': 'mention',
-                'url': 'fake:eve',
-            }, {
-                'objectType': 'mention',
-                'url': 'fake:bob',
-            }],
-        }
-        Fake.fetchable = {
-            'fake:post': {
-                'objectType': 'note',
-                'id': 'fake:post',
-                'author': 'fake:bob',
-            },
-        }
-        self.assertEqual(('OK', 202), OtherFake.receive_as1(reply_as1))
-
-        obj = Object.get_by_id('other:reply#bridgy-fed-create')
-        self.assertEqual([Fake(id='fake:bob').key], obj.notify)
-        self.assertEqual([
-            # bob shouldn't be here, we should suppress the mention
-            (obj.key.id(), 'fake:eve:target'),
-            (obj.key.id(), 'fake:post:target'),
-        ], Fake.sent)
 
     def test_update_reply(self):
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')

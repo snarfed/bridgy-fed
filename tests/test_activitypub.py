@@ -737,21 +737,35 @@ class ActivityPubTest(TestCase):
                          Fake.sent)
 
     def test_inbox_reply_to_self_domain(self, mock_head, mock_get, mock_post):
-        mock_get.return_value = test_web.ACTOR_HTML_RESP
-        self._test_inbox_ignore_reply_to('http://localhost/user.com',
-                                         mock_head, mock_get, mock_post)
+        mock_get.return_value = WEBMENTION_DISCOVERY
+
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+
+        got = self.post('/user.com/inbox', json={
+            **REPLY_OBJECT,
+            'inReplyTo': 'http://localhost/user.com',
+        })
+        self.assertEqual(202, got.status_code, got.get_data(as_text=True))
+
+        self.assert_req(
+            mock_post,
+            'https://user.com/webmention',
+            headers={'Accept': '*/*'},
+            allow_redirects=False,
+            data={
+                'source': f'https://ap.brid.gy/convert/web/{REPLY_OBJECT["id"]}%23bridgy-fed-create',
+                'target': 'https://user.com/',
+            },
+        )
 
     def test_inbox_reply_to_in_blocklist(self, mock_head, mock_get, mock_post):
         mock_get.return_value = HTML
-        self._test_inbox_ignore_reply_to('https://twitter.com/foo',
-                                         mock_head, mock_get, mock_post)
-
-    def _test_inbox_ignore_reply_to(self, reply_to, mock_head, mock_get, mock_post):
         self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
-        reply = copy.deepcopy(REPLY_OBJECT)
-        reply['inReplyTo'] = reply_to
 
-        got = self.post('/user.com/inbox', json=reply)
+        got = self.post('/user.com/inbox', json={
+            **REPLY_OBJECT,
+            'inReplyTo': 'https://twitter.com/foo',
+        })
         self.assertEqual(204, got.status_code, got.get_data(as_text=True))
         mock_post.assert_not_called()
 
