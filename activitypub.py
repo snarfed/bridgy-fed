@@ -1010,16 +1010,16 @@ def inbox(protocol=None, id=None):
 
     # are we already processing or done with this activity?
     id = activity.get('id')
+    memcache_key = None
     if id:
         if util.domain_or_parent_in(util.domain_from_link(id), web_opt_out_domains()):
             logger.info(f'Discarding, {id} is on an opted out domain')
             return '', 204
 
-        key = f'AP-id-{id}'
-        if memcache.get(key):
+        memcache_key = f'AP-id-{id}'
+        if memcache.get(memcache_key):
             logger.info(f'Already seen this activity {id}')
             return '', 204
-        memcache.set(key, 'seen', expire=60 * 60)  # 1 hour in seconds
 
     # check actor, signature, auth
     type = activity.get('type')
@@ -1073,13 +1073,17 @@ def inbox(protocol=None, id=None):
 
     if not id:
         id = f'{actor_id}#{type}-{object.get("id", "")}-{util.now().isoformat()}'
+
     try:
         obj = Object.get_or_create(id=id, as2=unwrap(activity), authed_as=authed_as,
                                    source_protocol=ActivityPub.LABEL)
     except AssertionError as e:
         error(f'Invalid activity, probably due to id: {e}', status=400)
 
-    return create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=authed_as)
+    ret = create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=authed_as)
+    if memcache_key:
+        memcache.set(memcache_key, 'seen', expire=60 * 60)  # 1 hour in seconds
+    return ret
 
 
 # protocol in subdomain
