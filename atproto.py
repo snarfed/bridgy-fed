@@ -424,7 +424,7 @@ class ATProto(User, Protocol):
         # TODO: unify with Web.send into something like a SUPPORTED_TYPES
         # constant and handle that in Protocol.send_task or nearby?
         inner_type = as1.get_object(obj.as1).get('objectType') or ''
-        if (obj.type in ('accept', 'add', 'question', 'undo')
+        if (obj.type in ('accept', 'add', 'question')
                 or inner_type in ('question',)):
             logger.info(f'Skipping {obj.type} {inner_type}, not supported in ATProto')
             return False
@@ -433,11 +433,11 @@ class ATProto(User, Protocol):
         type = as1.object_type(obj.as1)
         base_obj = obj
         base_obj_as1 = obj.as1
-        if type in ('post', 'update', 'delete'):
+        if type in ('post', 'update', 'delete', 'undo'):
             base_obj_as1 = as1.get_object(obj.as1)
             base_id = base_obj_as1['id']
             base_obj = PROTOCOLS[obj.source_protocol].load(base_id, remote=False)
-            if type != 'delete':
+            if type not in ('delete', 'undo'):
                 if not base_obj:  # probably a new repo
                     base_obj = Object(id=base_id, source_protocol=obj.source_protocol)
                 base_obj.our_as1 = base_obj_as1
@@ -520,7 +520,7 @@ class ATProto(User, Protocol):
 
         # only modify objects that we've bridged
         rkey = None
-        if verb in ('update', 'delete'):
+        if verb in ('update', 'delete', 'undo'):
             # check that they're updating the object we have
             copy = base_obj.get_copy(to_cls)
             if not copy:
@@ -536,7 +536,7 @@ class ATProto(User, Protocol):
             match verb:
                 case 'update':
                     action = Action.UPDATE
-                case 'delete':
+                case 'delete' | 'undo':
                     action = Action.DELETE
                 case _:
                     action = Action.CREATE
@@ -552,7 +552,7 @@ class ATProto(User, Protocol):
                 logger.warning(e)
                 return False
 
-            if verb != 'delete':
+            if verb not in ('delete', 'undo'):
                 at_uri = f'at://{did}/{type}/{rkey}'
                 base_obj.add('copies', Target(uri=at_uri, protocol=to_cls.LABEL))
                 base_obj.put()

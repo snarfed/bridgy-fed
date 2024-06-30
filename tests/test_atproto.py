@@ -1224,6 +1224,28 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                          Object.get_by_id(id='fake:like').copies)
 
         mock_create_task.assert_called()  # atproto-commit
+        return like_obj
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_undo_like(self, mock_create_task):
+        like_obj = self.test_send_like()
+        mock_create_task.reset_mock()
+
+        undo = self.store_object(id='fake:undo', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'undo',
+            'actor': 'fake:user',
+            'object': like_obj.as1
+        })
+        self.assertTrue(ATProto.send(undo, 'https://bsky.brid.gy/'))
+
+        # check repo, record
+        did = self.user.key.get().get_copy(ATProto)
+        repo = self.storage.load_repo(did)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assertIsNone(repo.get_record('app.bsky.feed.post', last_tid))
+
+        mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get', return_value=requests_response({
@@ -1266,6 +1288,29 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Abob&collection=app.bsky.feed.post&rkey=tid',
             json=None, data=None, headers=ANY)
+        mock_create_task.assert_called()  # atproto-commit
+
+        return obj
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_send_undo_repost(self, mock_create_task):
+        repost_obj = self.test_send_repost()
+        mock_create_task.reset_mock()
+
+        undo = self.store_object(id='fake:undo', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'undo',
+            'actor': 'fake:user',
+            'object': repost_obj.as1
+        })
+        self.assertTrue(ATProto.send(undo, 'https://bsky.brid.gy/'))
+
+        # check repo, record
+        did = self.user.key.get().get_copy(ATProto)
+        repo = self.storage.load_repo(did)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assertIsNone(repo.get_record('app.bsky.feed.post', last_tid))
+
         mock_create_task.assert_called()  # atproto-commit
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
