@@ -530,7 +530,7 @@ class Protocol:
             return {}
 
         id = obj.key.id() if obj.key else obj.as1.get('id')
-        is_activity = obj.as1.get('verb') in ('create', 'update')
+        is_activity = obj.as1.get('verb') in ('post', 'update')
         base_obj = as1.get_object(obj.as1) if is_activity else obj.as1
         orig_our_as1 = obj.our_as1
 

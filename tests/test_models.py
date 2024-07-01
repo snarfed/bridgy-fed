@@ -908,7 +908,7 @@ class ObjectTest(TestCase):
     def test_resolve_ids_copies_reply(self):
         reply = {
             'objectType': 'activity',
-            'verb': 'create',
+            'verb': 'post',
             'object': {
                 'id': 'fake:reply',
                 'objectType': 'note',
@@ -941,7 +941,7 @@ class ObjectTest(TestCase):
         obj.resolve_ids()
         self.assert_equals({
             'objectType': 'activity',
-            'verb': 'create',
+            'verb': 'post',
             'object': {
                 'id': 'other:reply',
                 'objectType': 'note',
@@ -981,7 +981,7 @@ class ObjectTest(TestCase):
     def test_resolve_ids_subdomain_urls(self):
         obj = Object(our_as1={
             'objectType': 'activity',
-            'verb': 'create',
+            'verb': 'post',
             'id': 'https://fa.brid.gy/web/foo.com',
             'object': {
                 'id': 'https://web.brid.gy/fa/fake:reply',
@@ -997,7 +997,7 @@ class ObjectTest(TestCase):
         obj.resolve_ids()
         self.assert_equals({
             'objectType': 'activity',
-            'verb': 'create',
+            'verb': 'post',
             'id': 'https://foo.com/',
             'object': {
                 'id': 'fake:reply',

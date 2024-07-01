@@ -651,7 +651,7 @@ class ProtocolTest(TestCase):
 
     def test_convert_object_adds_source_links_to_create_update(self):
         alice = Fake(id='fake:alice')
-        for verb in 'create', 'update':
+        for verb in 'post', 'update':
             self.assertEqual({
                 'objectType': 'activity',
                 'verb': verb,
