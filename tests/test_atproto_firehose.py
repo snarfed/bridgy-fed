@@ -28,6 +28,7 @@ from atproto import ATProto, Cursor
 import atproto_firehose
 from atproto_firehose import handle, new_commits, Op, STORE_CURSOR_FREQ
 import common
+from models import Object
 import protocol
 from .testutil import TestCase
 from .test_atproto import DID_DOC
@@ -488,6 +489,21 @@ class ATProtoFirehoseHandleTest(TestCase):
                                  })
         self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
                          authed_as='did:plc:user')
+
+    def test_unsupported_type(self, mock_create_task):
+        orig_objs = Object.query().count()
+
+        new_commits.put(Op(repo='did:plc:user', action='delete', seq=789,
+                           path='app.bsky.graph.listitem/123', record={
+                               '$type': 'app.bsky.graph.listitem',
+                               'subject': 'did:bob',
+                               'list': 'at://did:alice/app.bsky.graph.list/456',
+                           }))
+
+        handle(limit=1)
+
+        self.assertEqual(orig_objs, Object.query().count())
+        mock_create_task.assert_not_called()
 
     def test_store_cursor(self, mock_create_task):
         now = None

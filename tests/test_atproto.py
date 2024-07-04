@@ -1399,44 +1399,12 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         mock_create_task.assert_not_called()
 
     @patch.object(tasks_client, 'create_task')
-    def test_send_accept_noop(self, mock_create_task):
-        obj = Object(id='fake:post', our_as1={
-            'objectType': 'activity',
-            'verb': 'accept',
-            'id': 'fake:accept',
-            'actor': 'fake:alice',
-            'object': 'fake:follow',
-        })
-        self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
-        self.assertEqual(0, AtpBlock.query().count())
-        self.assertEqual(0, AtpRepo.query().count())
-        mock_create_task.assert_not_called()
-
-    @patch.object(tasks_client, 'create_task')
     def test_send_did_doc_not_our_repo(self, mock_create_task):
         self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
         user = self.make_user(id='fake:user', cls=Fake,
                               copies=[Target(uri='did:plc:user', protocol='atproto')])
         obj = self.store_object(id='fake:post', source_protocol='fake',
                                 our_as1=NOTE_AS)
-        self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
-        self.assertEqual(0, AtpBlock.query().count())
-        self.assertEqual(0, AtpRepo.query().count())
-        mock_create_task.assert_not_called()
-
-    @patch.object(tasks_client, 'create_task')
-    def test_send_skips_accept(self, mock_create_task):
-        obj = Object(id='fake:accept', as2={
-            'type': 'Accept',
-            'id': 'fake:accept',
-            'actor': 'fake:followee',
-            'object': {
-                'type': 'Follow',
-                'id': 'fake:follow',
-                'object': 'fake:followee',
-                'actor': 'fake:user',
-            },
-        })
         self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())

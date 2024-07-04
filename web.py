@@ -92,6 +92,12 @@ class Web(User, Protocol):
     LOGO_HTML = '🌐'  # used to be 🕸️
     CONTENT_TYPE = common.CONTENT_TYPE_HTML
     DEFAULT_ENABLED_PROTOCOLS = ('activitypub',)
+    SUPPORTED_AS1_TYPES = (
+        tuple(as1.ACTOR_TYPES)
+        + tuple(as1.POST_TYPES)
+        + ('audio', 'bookmark', 'event', 'image', 'video')
+        + ('follow', 'like', 'share', 'stop-following')
+    )
 
     has_redirects = ndb.BooleanProperty()
     redirects_error = ndb.TextProperty()
@@ -379,14 +385,6 @@ class Web(User, Protocol):
         or if webmention/microformats2 don't support the activity type.
         https://fed.brid.gy/docs#error-handling
         """
-        # TODO: unify with ATProto.send into something like a SUPPORTED_TYPES
-        # constant and handle that in Protocol.send_task or nearby?
-        inner_type = as1.get_object(obj.as1).get('objectType') or ''
-        if (obj.type in ('accept', 'add', 'question', 'undo')
-                or inner_type in ('question',)):
-            logger.info(f'Skipping {obj.type} {inner_type}, not supported in web')
-            return False
-
         targets = as1.targets(obj.as1)
         if not (url in targets or
                 # homepage, check domain too

@@ -37,6 +37,7 @@ from common import (
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
     redirect_wrap,
+    report_error,
     subdomain_wrap,
     unwrap,
 )
@@ -107,6 +108,15 @@ class ActivityPub(User, Protocol):
     REQUIRES_NAME = True
     REQUIRES_OLD_ACCOUNT = True
     DEFAULT_ENABLED_PROTOCOLS = ('web',)
+    SUPPORTED_AS1_TYPES = (
+        tuple(as1.ACTOR_TYPES)
+        + tuple(as1.POST_TYPES)
+        + tuple(as1.VERBS_WITH_OBJECT)
+        + ('audio', 'bookmark', 'image', 'video')
+    )
+    SUPPORTED_AS2_TYPES = tuple(
+        as2.OBJECT_TYPE_TO_TYPE.get(t) or as2.VERB_TO_TYPE.get(t)
+        for t in SUPPORTED_AS1_TYPES)
 
     def _pre_put_hook(self):
         """Validate id, require URL, don't allow Bridgy Fed domains.
@@ -1008,6 +1018,14 @@ def inbox(protocol=None, id=None):
         body = request.get_data(as_text=True)
         error(f"Couldn't parse body as non-empty JSON mapping: {body}", exc_info=True)
 
+    # do we support this object type?
+    type = obj_type = activity.get('type')
+    if type in as2.CRUD_VERBS:
+        obj_type = as1.get_object(activity).get('type')
+    if obj_type and obj_type not in ActivityPub.SUPPORTED_AS2_TYPES:
+        report_error(f"inbox: ActivityPub doesn't support {type}")
+        error(f"Sorry, ActivityPub doesn't support {type} yet.", status=204)
+
     # are we already processing or done with this activity?
     id = activity.get('id')
     memcache_key = None
@@ -1022,7 +1040,6 @@ def inbox(protocol=None, id=None):
             return '', 204
 
     # check actor, signature, auth
-    type = activity.get('type')
     actor = as1.get_object(activity, 'actor')
     actor_id = actor.get('id')
     logger.info(f'Got {type} {id} from {actor_id}')

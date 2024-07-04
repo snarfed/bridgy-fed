@@ -1363,9 +1363,8 @@ class ActivityPubTest(TestCase):
         self.assertEqual(202, got.status_code)
         self.assertEqual('inactive', follower.key.get().status)
 
-    def test_inbox_unsupported_type(self, mock_head, mock_get, mock_post):
-        mock_get.return_value = self.as2_resp(ACTOR)
-
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_inbox_unsupported_type(self, mock_create_task, *_):
         got = self.post('/user.com/inbox', json={
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'https://xoxo.zone/users/aaronpk#follows/40',
@@ -1373,7 +1372,8 @@ class ActivityPubTest(TestCase):
             'actor': ACTOR['id'],
             'object': 'http://a/place',
         })
-        self.assertEqual(501, got.status_code)
+        self.assertEqual(204, got.status_code)
+        mock_create_task.assert_not_called()
 
     def test_inbox_bad_object_url(self, mock_head, mock_get, mock_post):
         # https://console.cloud.google.com/errors/detail/CMKn7tqbq-GIRA;time=P30D?project=bridgy-federated

@@ -26,6 +26,7 @@ from common import (
     create_task,
     global_cache,
     global_cache_timeout_policy,
+    report_error,
     report_exception,
     USER_AGENT,
 )
@@ -251,7 +252,7 @@ def subscribe():
 
 
 def handler():
-    """Wrapper around :func:`_handle` that catches exceptions and restarts."""
+    """Wrapper around :func:`handle` that catches exceptions and restarts."""
     logger.info(f'started handle thread to store objects and enqueue receive tasks')
 
     while True:
@@ -274,8 +275,12 @@ def handle(limit=None):
         f'{os.environ["BGS_HOST"]} com.atproto.sync.subscribeRepos')
     assert cursor
 
-    count = 0
-    while op := new_commits.get():
+    def _handle(op):
+        if op.record['$type'] not in ATProto.SUPPORTED_RECORD_TYPES:
+            logger.info(f'Skipping unsupported type {op.record["$type"]}')
+            report_error('atproto: unsupported type {op.record["$type"]}')
+            return
+
         at_uri = f'at://{op.repo}/{op.path}'
 
         # store object, enqueue receive task
@@ -295,7 +300,7 @@ def handle(limit=None):
             }}
         else:
             logger.error(f'Unknown action {action} for {op.repo} {op.path}')
-            continue
+            return
 
         try:
             # logger.info(f'enqueuing receive task for {at_uri}')
@@ -314,6 +319,9 @@ def handle(limit=None):
             cursor.cursor = op.seq
             cursor.put()
 
+    count = 0
+    while op := new_commits.get():
+        _handle(op)
         count += 1
         if limit is not None and count >= limit:
             return

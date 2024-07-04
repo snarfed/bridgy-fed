@@ -73,6 +73,11 @@ class Fake(User, protocol.Protocol):
     CONTENT_TYPE = 'fa/ke'
     HAS_COPIES = True
     LOGO_HTML = '<img src="fake-logo">'
+    SUPPORTED_AS1_TYPES = (
+        tuple(as1.ACTOR_TYPES)
+        + tuple(as1.POST_TYPES)
+        + tuple(as1.VERBS_WITH_OBJECT)
+    )
 
     # maps string ids to dict AS1 objects that can be fetched
     fetchable = {}

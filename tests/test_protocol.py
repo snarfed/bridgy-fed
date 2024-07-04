@@ -2543,6 +2543,36 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_from_protocol_unsupported_types(self, mock_create_task):
+        self.make_followers()
+
+        event = {
+            'id': 'fake:event',
+            'objectType': 'event',
+            'author': 'fake:user',
+        }
+        post_event = {
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'fake:post-event',
+            'object': event,
+        }
+        add = {
+            'objectType': 'activity',
+            'verb': 'add',
+            'id': 'fake:add',
+            'actor': 'fake:user',
+            'object': 'fake:thing',
+        }
+
+        for activity in event, post_event, add:
+            with self.subTest(activity=activity):
+                with self.assertRaises(NoContent):
+                    Fake.receive_as1(activity)
+                    self.assertEqual([], Fake.sent)
+                    mock_create_task.assert_not_called()
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_post_create_send_tasks(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
 
@@ -2637,7 +2667,9 @@ class ProtocolReceiveTest(TestCase):
     @patch.object(Fake, 'send', return_value=False)
     def test_send_returns_false_task_returns_204(self, mock_send):
         target = Target(protocol='fake', uri='fake:target')
-        obj = self.store_object(id='fake:post', undelivered=[target])
+        obj = self.store_object(id='fake:post', undelivered=[target], our_as1={
+            'objectType': 'note',
+        })
         resp = self.post('/queue/send', data={
             'protocol': 'fake',
             'obj': obj.key.urlsafe(),
@@ -2649,3 +2681,37 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], obj.undelivered)
         self.assertEqual([], obj.delivered)
         self.assertEqual([], obj.failed)
+
+    def test_send_unsupported_types(self):
+        target = Target(protocol='fake', uri='fake:target')
+
+        event = {
+            'id': 'fake:event',
+            'objectType': 'event',
+            'author': 'fake:user',
+        }
+        post_event = {
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'fake:post-event',
+            'object': event,
+        }
+        add = {
+            'objectType': 'activity',
+            'verb': 'add',
+            'id': 'fake:add',
+            'actor': 'fake:user',
+            'object': 'fake:thing',
+        }
+
+        for activity in event, post_event, add:
+            with self.subTest(activity=activity):
+                obj = self.store_object(id=activity['id'], undelivered=[target],
+                                        our_as1=activity)
+                resp = self.post('/queue/send', data={
+                    'protocol': 'fake',
+                    'obj': obj.key.urlsafe(),
+                    'url': 'fake:target',
+                })
+                self.assertEqual(204, resp.status_code)
+                self.assertEqual([], Fake.sent)

@@ -48,25 +48,6 @@ from models import (
     User,
 )
 
-SUPPORTED_TYPES = (
-    'accept',
-    'article',
-    'audio',
-    'block',
-    'comment',
-    'delete',
-    'follow',
-    'image',
-    'like',
-    'note',
-    'post',
-    'share',
-    'stop-following',
-    'undo',
-    'update',
-    'video',
-)
-
 OBJECT_REFRESH_AGE = timedelta(days=30)
 
 # require a follow for users on these domains before we deliver anything from
@@ -108,8 +89,10 @@ class Protocol:
         required to be at least :const:`common.OLD_ACCOUNT_AGE` old. If their
         profile includes creation date and it's not old enough, their
         ``User.status`` will be ``blocked``.
-      DEFAULT_ENABLED_PROTOCOLS (list of str): labels of other protocols that
-        are automatically enabled for this protocol to bridge into
+      DEFAULT_ENABLED_PROTOCOLS (sequence of str): labels of other protocols
+        that are automatically enabled for this protocol to bridge into
+      SUPPORTED_AS1_TYPES (sequence of str): AS1 objectTypes and verbs that this
+        protocol supports receiving and sending
     """
     ABBREV = None
     PHRASE = None
@@ -122,6 +105,7 @@ class Protocol:
     REQUIRES_NAME = False
     REQUIRES_OLD_ACCOUNT = False
     DEFAULT_ENABLED_PROTOCOLS = ()
+    SUPPORTED_AS1_TYPES = ()
 
     def __init__(self):
         assert False
@@ -792,6 +776,14 @@ class Protocol:
                 logger.info(msg)
                 return msg, 204
 
+        # does this protocol support this object type?
+        type = obj.type
+        if type in as1.CRUD_VERBS:
+            type = as1.object_type(as1.get_object(obj.as1))
+        if type and type not in from_cls.SUPPORTED_AS1_TYPES:
+            report_error(f"receive: {from_cls.LABEL} doesn't support {type}")
+            error(f"Sorry, {from_cls.LABEL} doesn't support {type} yet.", status=204)
+
         # load actor user, check authorization
         # https://www.w3.org/wiki/ActivityPub/Primer/Authentication_Authorization
         actor = as1.get_owner(obj.as1)
@@ -838,11 +830,8 @@ class Protocol:
         obj = from_cls.handle_bare_object(obj, authed_as=authed_as)
         obj.add('users', from_user.key)
 
-        if obj.type not in SUPPORTED_TYPES:
-            error(f'Sorry, {obj.type} activities are not supported yet.', status=501)
-
         inner_obj_as1 = as1.get_object(obj.as1)
-        if obj.as1.get('verb') in ('post', 'update', 'delete'):
+        if obj.type in as1.CRUD_VERBS:
             if inner_owner := as1.get_owner(inner_obj_as1):
                 if inner_owner_key := from_cls.key_for(inner_owner):
                     obj.add('users', inner_owner_key)
@@ -1073,7 +1062,8 @@ class Protocol:
         # send accept. note that this is one accept for the whole
         # follow, even if it has multiple followees!
         id = f'{followee.key.id()}/followers#accept-{follow.key.id()}'
-        accept = Object.get_or_create(id, authed_as=followee.key.id(), our_as1={
+        accept = Object.get_or_create(id, authed_as=followee.key.id(),
+                                      our_as1={
             'id': id,
             'objectType': 'activity',
             'verb': 'accept',
@@ -1085,13 +1075,14 @@ class Protocol:
         if not from_target:
             error(f"Couldn't find delivery target for follower {follower}")
 
-        sent = follower.send(accept, from_target, from_user=followee)
-        if sent:
-            accept.populate(
-                delivered=[Target(protocol=follower.LABEL, uri=from_target)],
-                status='complete',
-            )
-            accept.put()
+        if 'accept' in follower.SUPPORTED_AS1_TYPES:
+            sent = follower.send(accept, from_target, from_user=followee)
+            if sent:
+                accept.populate(
+                    delivered=[Target(protocol=follower.LABEL, uri=from_target)],
+                    status='complete',
+                )
+                accept.put()
 
     @classmethod
     def bot_follow(bot_cls, user):
@@ -1591,6 +1582,15 @@ def send_task():
     target = Target(uri=url, protocol=protocol)
 
     obj = ndb.Key(urlsafe=form['obj']).get()
+
+    # does this protocol support this object type?
+    type = obj.type
+    if type in as1.CRUD_VERBS:
+        type = as1.object_type(as1.get_object(obj.as1))
+    if type and type not in PROTOCOLS[protocol].SUPPORTED_AS1_TYPES:
+        report_error(f"send: {protocol} doesn't support {type}")
+        error(f"Sorry, {protocol} doesn't support {type} yet.", status=204)
+
     if (target not in obj.undelivered and target not in obj.failed
             and 'force' not in request.values):
         logger.info(f"{url} not in {obj.key.id()} undelivered or failed, giving up")

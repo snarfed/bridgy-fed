@@ -26,7 +26,7 @@ from flask import abort, request
 from google.cloud import dns
 from google.cloud import ndb
 from granary import as1, bluesky
-from granary.bluesky import Bluesky
+from granary.bluesky import Bluesky, FROM_AS1_TYPES
 from granary.source import html_to_text, INCLUDE_LINK, Source
 from lexrpc import Client
 from requests import RequestException
@@ -187,6 +187,14 @@ class ATProto(User, Protocol):
     REQUIRES_AVATAR = True
     REQUIRES_NAME = True
     DEFAULT_ENABLED_PROTOCOLS = ()
+    SUPPORTED_AS1_TYPES = frozenset(
+        tuple(as1.ACTOR_TYPES)
+        + tuple(as1.POST_TYPES)
+        + tuple(as1.VERBS_WITH_OBJECT)
+    ) - set(('accept', 'reject', 'react'))
+    SUPPORTED_RECORD_TYPES = frozenset(
+        type for type in itertools.chain(*FROM_AS1_TYPES.values())
+        if '#' not in type)
 
     def _pre_put_hook(self):
         """Validate id, require did:plc or non-blocklisted did:web."""
@@ -419,14 +427,6 @@ class ATProto(User, Protocol):
         """
         if util.domain_from_link(url) not in DOMAINS:
             logger.info(f'Target PDS {url} is not us')
-            return False
-
-        # TODO: unify with Web.send into something like a SUPPORTED_TYPES
-        # constant and handle that in Protocol.send_task or nearby?
-        inner_type = as1.get_object(obj.as1).get('objectType') or ''
-        if (obj.type in ('accept', 'add', 'question')
-                or inner_type in ('question',)):
-            logger.info(f'Skipping {obj.type} {inner_type}, not supported in ATProto')
             return False
 
         # determine "base" object, if any
