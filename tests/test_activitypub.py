@@ -323,7 +323,6 @@ class ActivityPubTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.request_context.push()
 
         self.user = self.make_user('user.com', cls=Web, has_hcard=True,
                                    has_redirects=True,

@@ -10,7 +10,7 @@ from urllib.parse import urljoin, urlparse
 
 import cachetools
 from Crypto.Util import number
-from flask import abort, g, make_response, request
+from flask import abort, g, has_request_context, make_response, request
 from google.cloud.error_reporting.util import build_flask_context
 from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -350,38 +350,35 @@ def email_me(msg):
                         subject=util.ellipsize(msg), body=msg)
 
 
-def report_error(msg, **kwargs):
+def report_exception(**kwargs):
+    return report_error(msg=None, exception=True, **kwargs)
+
+
+def report_error(msg, *, exception=False, **kwargs):
     """Reports an error to StackDriver Error Reporting.
 
-    https://cloud.google.com/error-reporting/docs/reference/libraries#client-libraries-install-python
+    https://cloud.google.com/python/docs/reference/clouderrorreporting/latest/google.cloud.error_reporting.client.Client
 
-    If ``DEBUG`` is ``True``, just logs the error.
-    """
-    if DEBUG:
-        logger.error(msg)
-    else:
-        error_reporting_client.report(
-            msg, http_context=build_flask_context(request), **kwargs)
-
-
-def report_exception(**kwargs):
-    """Reports the current exception to StackDriver Error Reporting.
-
-    https://cloud.google.com/error-reporting/docs/reference/libraries#client-libraries-install-python
-
-    If ``DEBUG`` is ``True``, re-raises the exception instead.
+    If ``DEBUG`` and ``exception`` are ``True``, re-raises the exception instead.
 
     Duplicated in ``bridgy.util``.
     """
     if DEBUG:
-        raise
+        if exception:
+            raise
+        else:
+            logger.error(msg)
+            return
+
+    http_context = build_flask_context(request) if has_request_context() else None
+    fn = (error_reporting_client.report_exception if exception
+          else error_reporting_client.report)
 
     try:
-        error_reporting_client.report_exception(
-            http_context=build_flask_context(request), **kwargs)
+        fn(msg, http_context=http_context, **kwargs)
     except BaseException:
-        if not DEBUG:
-            logger.warning(f'Failed to report error! {kwargs}', exc_info=True)
+        kwargs['exception'] = exception
+        logger.warning(f'Failed to report error! {kwargs}', exc_info=exception)
 
 
 PROFILE_ID_RE = re.compile(

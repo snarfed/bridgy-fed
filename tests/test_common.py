@@ -1,4 +1,9 @@
 """Unit tests for common.py."""
+from unittest.mock import Mock, patch
+
+import flask
+from oauth_dropins.webutil.appengine_config import error_reporting_client
+
 # import first so that Fake is defined before URL routes are registered
 from .testutil import ExplicitEnableFake, Fake, OtherFake, TestCase
 
@@ -128,3 +133,19 @@ class CommonTest(TestCase):
             AtpBlock(id='abc123'),
         ):
             self.assertEqual(1800, common.global_cache_timeout_policy(bad.key._key))
+
+    @patch('common.DEBUG', new=False)
+    @patch('common.error_reporting_client')
+    def test_report_error_no_request_context(self, mock_client):
+        mock_client.report = Mock(name='report_error')
+
+        self.request_context.pop()
+        assert not flask.has_request_context()
+
+        try:
+            common.report_error('foo', bar='baz')
+        finally:
+            self.request_context.push()
+
+        mock_client.report.assert_called_with('foo', http_context=None, bar='baz')
+
