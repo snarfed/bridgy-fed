@@ -92,7 +92,7 @@ class Protocol:
       DEFAULT_ENABLED_PROTOCOLS (sequence of str): labels of other protocols
         that are automatically enabled for this protocol to bridge into
       SUPPORTED_AS1_TYPES (sequence of str): AS1 objectTypes and verbs that this
-        protocol supports receiving and sending
+        protocol supports receiving and sending.
     """
     ABBREV = None
     PHRASE = None
@@ -776,13 +776,8 @@ class Protocol:
                 logger.info(msg)
                 return msg, 204
 
-        # does this protocol support this object type?
-        type = obj.type
-        if type in as1.CRUD_VERBS:
-            type = as1.object_type(as1.get_object(obj.as1))
-        if type and type not in from_cls.SUPPORTED_AS1_TYPES:
-            report_error(f"receive: {from_cls.LABEL} doesn't support {type}")
-            error(f"Sorry, {from_cls.LABEL} doesn't support {type} yet.", status=204)
+        # does this protocol support this activity/object type?
+        from_cls.check_supported(obj)
 
         # load actor user, check authorization
         # https://www.w3.org/wiki/ActivityPub/Primer/Authentication_Authorization
@@ -1517,6 +1512,32 @@ class Protocol:
         obj.put()
         return obj
 
+    @classmethod
+    def check_supported(cls, obj):
+        """If this protocol doesn't support this object, return 204.
+
+        Also reports an error.
+
+        (This logic is duplicated in some protocols, eg ActivityPub, so that
+        they can short circuit out early. It generally uses their native formats
+        instead of AS1, before an :class:`models.Object` is created.)
+
+        Args:
+          obj (Object)
+        """
+        if not obj.type:
+            return
+
+        inner_type = as1.get_object(obj.as1).get('objectType') or ''
+        if (obj.type not in cls.SUPPORTED_AS1_TYPES or
+            (obj.type in as1.CRUD_VERBS
+             and inner_type
+             and inner_type not in cls.SUPPORTED_AS1_TYPES)):
+            msg = f"Bridgy Fed for {cls.LABEL} doesn't support {obj.type} {inner_type} yet"
+            logger.info(f'AS1: {json_dumps(obj.as1, indent=2)}')
+            report_error(msg)
+            error(msg, status=204)
+
 
 @cloud_tasks_only
 def receive_task():
@@ -1583,13 +1604,7 @@ def send_task():
 
     obj = ndb.Key(urlsafe=form['obj']).get()
 
-    # does this protocol support this object type?
-    type = obj.type
-    if type in as1.CRUD_VERBS:
-        type = as1.object_type(as1.get_object(obj.as1))
-    if type and type not in PROTOCOLS[protocol].SUPPORTED_AS1_TYPES:
-        report_error(f"send: {protocol} doesn't support {type}")
-        error(f"Sorry, {protocol} doesn't support {type} yet.", status=204)
+    PROTOCOLS[protocol].check_supported(obj)
 
     if (target not in obj.undelivered and target not in obj.failed
             and 'force' not in request.values):

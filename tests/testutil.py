@@ -76,6 +76,7 @@ class Fake(User, protocol.Protocol):
     SUPPORTED_AS1_TYPES = (
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
+        + tuple(as1.CRUD_VERBS)
         + tuple(as1.VERBS_WITH_OBJECT)
     )
 

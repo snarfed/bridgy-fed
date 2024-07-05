@@ -672,6 +672,28 @@ class ProtocolTest(TestCase):
                     },
                 }), from_user=alice))
 
+    def test_check_supported(self):
+        for obj in (
+            {'objectType': 'note'},
+            {'objectType': 'activity', 'verb': 'post',
+             'object': {'objectType': 'note'}},
+            {'objectType': 'activity', 'verb': 'delete', 'object': 'x'},
+            {'objectType': 'activity', 'verb': 'undo', 'object': {'foo': 'bar'}},
+            {'objectType': 'activity', 'verb': 'follow'},
+        ):
+            with self.subTest(obj=obj):
+                Fake.check_supported(Object(our_as1=obj))
+
+        for obj in (
+            {'objectType': 'event'},
+            {'objectType': 'activity', 'verb': 'post',
+             'object': {'objectType': 'event'}},
+            {'objectType': 'activity', 'verb': 'flag'},
+        ):
+            with self.subTest(obj=obj):
+                with self.assertRaises(NoContent):
+                    Fake.check_supported(Object(our_as1=obj))
+
 
 class ProtocolReceiveTest(TestCase):
 

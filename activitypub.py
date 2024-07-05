@@ -111,6 +111,7 @@ class ActivityPub(User, Protocol):
     SUPPORTED_AS1_TYPES = (
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
+        + tuple(as1.CRUD_VERBS)
         + tuple(as1.VERBS_WITH_OBJECT)
         + ('audio', 'bookmark', 'image', 'video')
     )
@@ -1019,12 +1020,17 @@ def inbox(protocol=None, id=None):
         error(f"Couldn't parse body as non-empty JSON mapping: {body}", exc_info=True)
 
     # do we support this object type?
-    type = obj_type = activity.get('type')
-    if type in as2.CRUD_VERBS:
-        obj_type = as1.get_object(activity).get('type')
-    if obj_type and obj_type not in ActivityPub.SUPPORTED_AS2_TYPES:
-        report_error(f"inbox: ActivityPub doesn't support {type}")
-        error(f"Sorry, ActivityPub doesn't support {type} yet.", status=204)
+    # (this logic is duplicated in Protocol.check_supported)
+    if type := activity.get('type'):
+        inner_type = as1.get_object(activity).get('type') or ''
+        if (type not in ActivityPub.SUPPORTED_AS2_TYPES or
+            (type in as2.CRUD_VERBS
+             and inner_type
+             and inner_type not in ActivityPub.SUPPORTED_AS2_TYPES)):
+            logger.info(f'AS2: {json_dumps(activity, indent=2)}')
+            msg = f"Bridgy Fed for ActivityPub doesn't support {type} {inner_type} yet"
+            report_error(msg)
+            error(msg, status=204)
 
     # are we already processing or done with this activity?
     id = activity.get('id')

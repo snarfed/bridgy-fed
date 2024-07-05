@@ -95,6 +95,7 @@ class Web(User, Protocol):
     SUPPORTED_AS1_TYPES = (
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
+        + tuple(as1.CRUD_VERBS)
         + ('audio', 'bookmark', 'event', 'image', 'video')
         + ('follow', 'like', 'share', 'stop-following')
     )

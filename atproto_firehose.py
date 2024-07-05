@@ -18,7 +18,7 @@ from lexrpc.client import Client
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
-from oauth_dropins.webutil.util import json_loads
+from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from atproto import ATProto, Cursor
 from common import (
@@ -277,8 +277,7 @@ def handle(limit=None):
 
     def _handle(op):
         if op.record['$type'] not in ATProto.SUPPORTED_RECORD_TYPES:
-            logger.info(f'Skipping unsupported type {op.record["$type"]}')
-            report_error('atproto: unsupported type {op.record["$type"]}')
+            logger.info(f'Skipping unsupported type {op.record["$type"]}: {json_dumps(op.record, indent=2)}')
             return
 
         at_uri = f'at://{op.repo}/{op.path}'
@@ -319,11 +318,11 @@ def handle(limit=None):
             cursor.cursor = op.seq
             cursor.put()
 
-    count = 0
+    seen = 0
     while op := new_commits.get():
         _handle(op)
-        count += 1
-        if limit is not None and count >= limit:
+        seen += 1
+        if limit is not None and seen >= limit:
             return
 
     assert False, "handle thread shouldn't reach here!"
