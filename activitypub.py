@@ -1022,7 +1022,7 @@ def inbox(protocol=None, id=None):
     # do we support this object type?
     # (this logic is duplicated in Protocol.check_supported)
     if type := activity.get('type'):
-        inner_type = as1.get_object(activity).get('type') or ''
+        inner_type = as1.object_type(as1.get_object(activity)) or ''
         if (type not in ActivityPub.SUPPORTED_AS2_TYPES or
             (type in as2.CRUD_VERBS
              and inner_type

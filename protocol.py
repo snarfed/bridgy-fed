@@ -1528,7 +1528,7 @@ class Protocol:
         if not obj.type:
             return
 
-        inner_type = as1.get_object(obj.as1).get('objectType') or ''
+        inner_type = as1.object_type(as1.get_object(obj.as1)) or ''
         if (obj.type not in cls.SUPPORTED_AS1_TYPES or
             (obj.type in as1.CRUD_VERBS
              and inner_type

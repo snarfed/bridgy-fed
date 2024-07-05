@@ -677,9 +677,11 @@ class ProtocolTest(TestCase):
             {'objectType': 'note'},
             {'objectType': 'activity', 'verb': 'post',
              'object': {'objectType': 'note'}},
+            {'objectType': 'activity', 'verb': 'follow'},
             {'objectType': 'activity', 'verb': 'delete', 'object': 'x'},
             {'objectType': 'activity', 'verb': 'undo', 'object': {'foo': 'bar'}},
-            {'objectType': 'activity', 'verb': 'follow'},
+            {'objectType': 'activity', 'verb': 'undo',
+             'object': {'objectType': 'activity', 'verb': 'share'}},
         ):
             with self.subTest(obj=obj):
                 Fake.check_supported(Object(our_as1=obj))
