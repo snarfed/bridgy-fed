@@ -1533,10 +1533,7 @@ class Protocol:
             (obj.type in as1.CRUD_VERBS
              and inner_type
              and inner_type not in cls.SUPPORTED_AS1_TYPES)):
-            msg = f"Bridgy Fed for {cls.LABEL} doesn't support {obj.type} {inner_type} yet"
-            logger.info(f'AS1: {json_dumps(obj.as1, indent=2)}')
-            report_error(msg)
-            error(msg, status=204)
+            error(f"Bridgy Fed for {cls.LABEL} doesn't support {obj.type} {inner_type} yet", status=204)
 
 
 @cloud_tasks_only
