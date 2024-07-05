@@ -1027,10 +1027,7 @@ def inbox(protocol=None, id=None):
             (type in as2.CRUD_VERBS
              and inner_type
              and inner_type not in ActivityPub.SUPPORTED_AS2_TYPES)):
-            logger.info(f'AS2: {json_dumps(activity, indent=2)}')
-            msg = f"Bridgy Fed for ActivityPub doesn't support {type} {inner_type} yet"
-            report_error(msg)
-            error(msg, status=204)
+            error(f"Bridgy Fed for ActivityPub doesn't support {type} {inner_type} yet: {json_dumps(activity, indent=2)}", status=204)
 
     # are we already processing or done with this activity?
     id = activity.get('id')
