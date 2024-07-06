@@ -1040,29 +1040,27 @@ class Protocol:
         if 'accept' not in follower.SUPPORTED_AS1_TYPES:
             return
 
+        target = follower.target_for(follower.obj)
+        if not target:
+            error(f"Couldn't find delivery target for follower {follower.key}")
+
         # send accept. note that this is one accept for the whole
         # follow, even if it has multiple followees!
         id = f'{followee.key.id()}/followers#accept-{follow.key.id()}'
-        accept = Object.get_or_create(id, authed_as=followee.key.id(),
-                                      our_as1={
+        undelivered = [Target(protocol=follower.LABEL, uri=target)]
+        accept = {
             'id': id,
             'objectType': 'activity',
             'verb': 'accept',
             'actor': followee.key.id(),
             'object': follow.as1,
-        })
+        }
+        obj = Object.get_or_create(id, authed_as=followee.key.id(),
+                                      undelivered=undelivered, our_as1=accept)
 
-        from_target = follower.target_for(follower.obj)
-        if not from_target:
-            error(f"Couldn't find delivery target for follower {follower}")
-
-        sent = follower.send(accept, from_target, from_user=followee)
-        if sent:
-            accept.populate(
-                delivered=[Target(protocol=follower.LABEL, uri=from_target)],
-                status='complete',
-            )
-            accept.put()
+        common.create_task(queue='send', obj=obj.key.urlsafe(),
+                           url=target, protocol=follower.LABEL,
+                           user=followee.key.urlsafe())
 
     @classmethod
     def bot_follow(bot_cls, user):
