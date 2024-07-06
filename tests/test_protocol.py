@@ -1737,34 +1737,33 @@ class ProtocolReceiveTest(TestCase):
             ignore=['created', 'updated'],
         )
 
-    def test_follow_with_accepts_protocol(self, **extra):
-        OtherFake.fetchable['other:user'] = {}
+    def test_follow_protocol_that_doesnt_support_accept(self, **extra):
+        OtherFake.fetchable['other:eve'] = {}
 
         follow_as1 = {
-            'id': 'fake:follow',
+            'id': 'other:follow',
             'objectType': 'activity',
             'verb': 'follow',
-            'actor': 'fake:alice',
-            'object': 'other:user',
+            'actor': 'other:eve',
+            'object': 'fake:user',
         }
-        self.assertEqual(('OK', 202), Fake.receive_as1(follow_as1))
+        self.assertEqual(('OK', 202), OtherFake.receive_as1(follow_as1))
 
-        other = OtherFake.get_by_id('other:user')
-        follow_obj = self.assert_object(
-            'fake:follow',
+        other = OtherFake.get_by_id('other:eve')
+        self.assert_object(
+            'other:follow',
+            source_protocol='other',
             our_as1=follow_as1,
-            copies=[Target(protocol='other', uri='other:o:fa:fake:follow')],
+            copies=[Target(protocol='fake', uri='fake:o:other:other:follow')],
             status='complete',
-            users=[self.alice.key],
-            notify=[other.key],
-            delivered=['other:user:target'],
-            delivered_protocol='other',
+            users=[OtherFake(id='other:eve').key],
+            notify=[self.user.key],
+            delivered=['fake:user:target'],
+            delivered_protocol='fake',
         )
 
-        self.assertIsNone(Object.get_by_id(
-            'https://fa.brid.gy/ap/other:user/followers#accept-fake:follow'))
         self.assertEqual(0, Object.query(Object.type == 'accept').count())
-        self.assertEqual([], Fake.sent)
+        self.assertEqual([], OtherFake.sent)
 
     def test_follow_no_actor(self):
         with self.assertRaises(BadRequest):
@@ -1813,24 +1812,26 @@ class ProtocolReceiveTest(TestCase):
             'object': 'fake:follow'
         }
 
-        self.assertEqual('OK', OtherFake.receive_as1(accept_as1))
+        with self.assertRaises(NoContent):
+            _, status = OtherFake.receive_as1(accept_as1)
+
         self.assertEqual([], Fake.sent)
         self.assertEqual([], OtherFake.sent)
 
-    def test_accept_with_has_accepts_protocol(self, **extra):
-        OtherFake.fetchable['other:follow'] = {'id': 'other:follow'}
+    def test_follow_accept(self, **extra):
+        Fake.fetchable['fake:follow'] = {'id': 'fake:follow'}
         accept_as1 = {
             'id': 'fake:accept',
             'objectType': 'activity',
             'verb': 'accept',
             'actor': 'fake:alice',
-            'object': 'other:follow'
+            'object': 'fake:follow'
         }
 
         self.assertEqual(('OK', 202), Fake.receive_as1(accept_as1))
         self.assertEqual([
-            ('fake:accept', 'other:follow:target'),
-        ], OtherFake.sent)
+            ('fake:accept', 'fake:follow:target'),
+        ], Fake.sent)
 
     def test_stop_following(self):
         follower = Follower.get_or_create(to=self.user, from_=self.alice)
@@ -1942,10 +1943,6 @@ class ProtocolReceiveTest(TestCase):
         }
 
         self.assertEqual(('OK', 202), OtherFake.receive_as1(follow_as1))
-
-        self.assertEqual(1, len(OtherFake.sent))
-        self.assertEqual('fake:alice/followers#accept-other:follow',
-                         OtherFake.sent[0][0])
 
         self.assertEqual(1, len(Fake.sent))
         self.assertEqual('other:follow', Fake.sent[0][0])

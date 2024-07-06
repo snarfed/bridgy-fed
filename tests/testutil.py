@@ -73,7 +73,7 @@ class Fake(User, protocol.Protocol):
     CONTENT_TYPE = 'fa/ke'
     HAS_COPIES = True
     LOGO_HTML = '<img src="fake-logo">'
-    SUPPORTED_AS1_TYPES = (
+    SUPPORTED_AS1_TYPES = frozenset(
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
         + tuple(as1.CRUD_VERBS)
@@ -188,7 +188,7 @@ class OtherFake(Fake):
     """Different class because the same-protocol check special cases Fake."""
     LABEL = ABBREV = 'other'
     CONTENT_TYPE = 'ot/her'
-    HAS_FOLLOW_ACCEPTS = True
+    SUPPORTED_AS1_TYPES = Fake.SUPPORTED_AS1_TYPES - set(('accept',))
 
     fetchable = {}
     sent = []

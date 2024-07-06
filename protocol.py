@@ -74,8 +74,6 @@ class Protocol:
       LOGO_HTML (str): logo emoji or ``<img>`` tag
       CONTENT_TYPE (str): MIME type of this protocol's native data format,
         appropriate for the ``Content-Type`` HTTP header.
-      HAS_FOLLOW_ACCEPTS (bool): whether this protocol supports explicit
-        accept/reject activities in response to follows, eg ActivityPub
       HAS_COPIES (bool): whether this protocol is push and needs us to
         proactively create "copy" users and objects, as opposed to pulling
         converted objects on demand
@@ -99,7 +97,6 @@ class Protocol:
     OTHER_LABELS = ()
     LOGO_HTML = ''
     CONTENT_TYPE = None
-    HAS_FOLLOW_ACCEPTS = False
     HAS_COPIES = False
     REQUIRES_AVATAR = False
     REQUIRES_NAME = False
@@ -844,15 +841,7 @@ class Protocol:
         actor_id = actor.get('id')
 
         # handle activity!
-
-        # accept, eg in response to a follow. only send if the destination
-        # supports accepts.
-        if obj.type == 'accept':
-            to_cls = Protocol.for_id(inner_obj_id)
-            if not to_cls or not to_cls.HAS_FOLLOW_ACCEPTS:
-                return 'OK'  # noop
-
-        elif obj.type == 'stop-following':
+        if obj.type == 'stop-following':
             # TODO: unify with handle_follow?
             # TODO: handle multiple followees
             if not actor_id or not inner_obj_id:
@@ -1048,7 +1037,7 @@ class Protocol:
           followee: :class:`models.User`
           follow: :class:`models.Object`
         """
-        if followee.HAS_FOLLOW_ACCEPTS:
+        if 'accept' not in follower.SUPPORTED_AS1_TYPES:
             return
 
         # send accept. note that this is one accept for the whole
@@ -1067,14 +1056,13 @@ class Protocol:
         if not from_target:
             error(f"Couldn't find delivery target for follower {follower}")
 
-        if 'accept' in follower.SUPPORTED_AS1_TYPES:
-            sent = follower.send(accept, from_target, from_user=followee)
-            if sent:
-                accept.populate(
-                    delivered=[Target(protocol=follower.LABEL, uri=from_target)],
-                    status='complete',
-                )
-                accept.put()
+        sent = follower.send(accept, from_target, from_user=followee)
+        if sent:
+            accept.populate(
+                delivered=[Target(protocol=follower.LABEL, uri=from_target)],
+                status='complete',
+            )
+            accept.put()
 
     @classmethod
     def bot_follow(bot_cls, user):

@@ -191,8 +191,9 @@ class ATProto(User, Protocol):
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
         + tuple(as1.CRUD_VERBS)
-        + tuple(as1.VERBS_WITH_OBJECT)
-    ) - set(('accept', 'reject', 'react'))
+        + ('block', 'follow', 'like', 'share', 'stop-following')
+    )
+    
     SUPPORTED_RECORD_TYPES = frozenset(
         type for type in itertools.chain(*FROM_AS1_TYPES.values())
         if '#' not in type)

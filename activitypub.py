@@ -103,7 +103,6 @@ class ActivityPub(User, Protocol):
     PHRASE = 'the fediverse'
     LOGO_HTML = '<img src="/static/fediverse_logo.svg">'
     CONTENT_TYPE = as2.CONTENT_TYPE_LD_PROFILE
-    HAS_FOLLOW_ACCEPTS = True
     REQUIRES_AVATAR = True
     REQUIRES_NAME = True
     REQUIRES_OLD_ACCOUNT = True
@@ -648,7 +647,6 @@ def signed_request(fn, url, data=None, headers=None, from_user=None,
     kwargs.setdefault('gateway', True)
     resp = fn(url, data=data, auth=auth, headers=headers, allow_redirects=False,
               **kwargs)
-    logger.info(f'Got {resp.status_code} headers: {resp.headers}')
 
     if fn == util.requests_get:
         assert not isinstance(resp, MagicMock), \
