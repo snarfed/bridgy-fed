@@ -9,3 +9,6 @@ dispatch:
 
   - url: "*/xrpc/com.atproto.sync.subscribeRepos"
     service: atproto-hub
+
+  # - url: "*/xrpc/com.atproto.sync.getRepo"
+  #   service: atproto-sync
