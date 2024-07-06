@@ -10,6 +10,7 @@ from threading import Event, Lock, Thread, Timer
 import time
 
 from arroba.datastore_storage import AtpRepo
+from arroba.util import parse_at_uri
 from carbox import read_car
 import dag_json
 from google.cloud import ndb
@@ -275,7 +276,8 @@ def handle(limit=None):
     assert cursor
 
     def _handle(op):
-        if op.record and op.record['$type'] not in ATProto.SUPPORTED_RECORD_TYPES:
+        type, _ = op.path.strip('/').split('/', maxsplit=1)
+        if type not in ATProto.SUPPORTED_RECORD_TYPES:
             logger.info(f'Skipping unsupported type {op.record["$type"]}: {json_dumps(op.record, indent=2)}')
             return
 
@@ -288,10 +290,13 @@ def handle(limit=None):
             }
             obj_id = at_uri
         elif op.action == 'delete':
-            obj_id = f'{at_uri}#delete'
+            verb = ('delete'
+                    if type in ('app.bsky.actor.profile', 'app.bsky.feed.post')
+                    else 'undo')
+            obj_id = f'{at_uri}#{verb}'
             record_kwarg = {'our_as1': {
                 'objectType': 'activity',
-                'verb': 'delete',
+                'verb': verb,
                 'id': obj_id,
                 'actor': op.repo,
                 'object': at_uri,
