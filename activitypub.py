@@ -37,7 +37,6 @@ from common import (
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
     redirect_wrap,
-    report_error,
     subdomain_wrap,
     unwrap,
 )

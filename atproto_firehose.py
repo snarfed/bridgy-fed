@@ -26,7 +26,6 @@ from common import (
     create_task,
     global_cache,
     global_cache_timeout_policy,
-    report_error,
     report_exception,
     USER_AGENT,
 )
@@ -276,7 +275,7 @@ def handle(limit=None):
     assert cursor
 
     def _handle(op):
-        if op.record['$type'] not in ATProto.SUPPORTED_RECORD_TYPES:
+        if op.record and op.record['$type'] not in ATProto.SUPPORTED_RECORD_TYPES:
             logger.info(f'Skipping unsupported type {op.record["$type"]}: {json_dumps(op.record, indent=2)}')
             return
 

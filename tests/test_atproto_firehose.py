@@ -472,7 +472,7 @@ class ATProtoFirehoseHandleTest(TestCase):
 
     def test_delete(self, mock_create_task):
         new_commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                           path='app.bsky.feed.post/123', record=POST_BSKY))
+                           path='app.bsky.feed.post/123'))
 
         handle(limit=1)
 
