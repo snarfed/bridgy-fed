@@ -1893,6 +1893,20 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('inactive', follower.key.get().status)
         self.assertEqual([('fake:stop-following', 'fake:user:target')], Fake.sent)
 
+    def test_block(self):
+        self.bob.obj.our_as1 = {'id': 'fake:bob'}
+        self.bob.obj.put()
+
+        self.assertEqual(('OK', 202), Fake.receive_as1({
+            'id': 'fake:block',
+            'objectType': 'activity',
+            'verb': 'block',
+            'actor': 'fake:alice',
+            'object': 'fake:bob',
+        }))
+
+        self.assertEqual([('fake:block', 'fake:bob:target')], Fake.sent)
+
     @skip
     def test_from_bridgy_fed_domain_fails(self):
         with self.assertRaises(BadRequest):

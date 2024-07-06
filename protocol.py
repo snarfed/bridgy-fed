@@ -740,7 +740,7 @@ class Protocol:
         # check some invariants
         assert from_cls != Protocol
         assert isinstance(obj, Object), obj
-        logger.info(f'From {from_cls.LABEL}: {obj.key} AS1: {json_dumps(obj.as1, indent=2)}')
+        logger.info(f'From {from_cls.LABEL}: {obj.type} {obj.key} AS1: {json_dumps(obj.as1, indent=2)}')
 
         if not obj.as1:
             error('No object data provided')
@@ -904,14 +904,11 @@ class Protocol:
             # fall through to deliver to followers
 
         elif obj.type == 'block':
-            proto = Protocol.for_bridgy_subdomain(inner_obj_id)
-            if not proto:
-                logger.info("Ignoring block, target isn't one of our protocol domains")
+            if proto := Protocol.for_bridgy_subdomain(inner_obj_id):
+                # blocking protocol bot user disables that protocol
+                proto.delete_user_copy(from_user)
+                from_user.disable_protocol(proto)
                 return 'OK', 200
-
-            proto.delete_user_copy(from_user)
-            from_user.disable_protocol(proto)
-            return 'OK', 200
 
         elif obj.type == 'post':
             to_cc = (as1.get_ids(inner_obj_as1, 'to')
