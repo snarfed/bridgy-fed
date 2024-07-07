@@ -726,7 +726,7 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     # activity objects (for Like, Announce, etc): prefer id over url
     obj = as1.get_object(activity)
     id = obj.get('id')
-    if orig_id and type in as2.TYPES_WITH_OBJECT:
+    if orig_id and type in as2.TYPES_WITH_OBJECT and type != 'Undo':
         # inline most objects as bare string ids, not composite objects, for interop
         activity['object'] = orig_id
     elif not id:

@@ -519,9 +519,8 @@ class IntegrationTests(TestCase):
 
 
     @patch('requests.get', return_value=requests_response(''))  # alice, http://pic/
-    # @patch('requests.get', return_value=requests_response(status=400))
-    def test_activitypub_block_bsky_bot_user_deletes_actor(self, mock_get):
-        """AP follow of @bsky.brid.gy@bsky.brid.gy bridges the account into BLuesky.
+    def test_activitypub_block_bsky_bot_user_tombstones_atproto_repo(self, mock_get):
+        """AP follow of @bsky.brid.gy@bsky.brid.gy bridges the account into Bluesky.
 
         ActivityPub user @alice@inst , https://inst/alice , did:plc:alice
         Block is https://inst/block

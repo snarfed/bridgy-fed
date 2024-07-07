@@ -455,6 +455,27 @@ class ProtocolTest(TestCase):
         self.assertEqual({Target(protocol='fake', uri='fake:post:target')},
                          OtherFake.targets(obj, from_user=self.user).keys())
 
+    def test_targets_undo_block(self):
+        block_obj = {
+            'objectType': 'activity',
+            'verb': 'block',
+            'id': 'other:block',
+        }
+        OtherFake.fetchable['other:block'] = {
+            'objectType': 'activity',
+            'verb': 'block',
+        }
+
+        for inner_obj in block_obj, block_obj['id']:
+            with self.subTest(inner_obj=inner_obj):
+                obj = Object(our_as1={
+                    'objectType': 'activity',
+                    'verb': 'undo',
+                    'object': inner_obj,
+                })
+                self.assertEqual({Target(protocol='other', uri='other:block:target')},
+                                 Fake.targets(obj, from_user=self.user).keys())
+
     def test_translate_ids_follow(self):
         self.assert_equals({
             'id': 'other:o:fa:fake:follow',
