@@ -61,8 +61,13 @@ for nsid in (
     'com.atproto.server.getSession',
     'com.atproto.server.listAppPasswords',
     'com.atproto.server.refreshSession',
+    'com.atproto.sync.getRepo',
 ):
     del arroba.server.server._methods[nsid]
+
+@arroba.server.server.method('com.atproto.sync.getRepo')
+def get_repo(input, did=None, since=None):
+    raise NotImplementedError('Working on it')
 
 lexrpc.flask_server.init_flask(arroba.server.server, app)
 
