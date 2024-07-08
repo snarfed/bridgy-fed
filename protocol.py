@@ -1226,7 +1226,7 @@ class Protocol:
         return 'OK', 202
 
     @classmethod
-    def targets(from_cls, obj, from_user):
+    def targets(from_cls, obj, from_user, internal=False):
         """Collects the targets to send a :class:`models.Object` to.
 
         Targets are both objects - original posts, events, etc - and actors.
@@ -1234,6 +1234,7 @@ class Protocol:
         Args:
           obj (models.Object)
           from_user (User)
+          internal (bool): whether this is a recursive internal call
 
         Returns:
           dict: maps :class:`models.Target` to original (in response to)
@@ -1307,7 +1308,8 @@ class Protocol:
             else:
                 inner_obj = Object(our_as1=inner_obj_as1)
             if inner_obj:
-                targets.update(from_cls.targets(inner_obj, from_user=from_user))
+                targets.update(from_cls.targets(inner_obj, from_user=from_user,
+                                                internal=True))
 
         logger.info(f'Direct (and copy) targets: {targets.keys()}')
 
@@ -1334,16 +1336,17 @@ class Protocol:
 
                 # which object should we add to followers' feeds, if any
                 feed_obj = None
-                if obj.type == 'share':
-                    feed_obj = obj
-                else:
-                    inner = as1.get_object(obj.as1)
-                    # don't add profile updates to feeds
-                    if not (obj.type == 'update'
-                            and inner.get('objectType') in as1.ACTOR_TYPES):
-                        inner_id = inner.get('id')
-                        if inner_id:
-                            feed_obj = from_cls.load(inner_id)
+                if not internal:
+                    if obj.type == 'share':
+                        feed_obj = obj
+                    else:
+                        inner = as1.get_object(obj.as1)
+                        # don't add profile updates to feeds
+                        if not (obj.type == 'update'
+                                and inner.get('objectType') in as1.ACTOR_TYPES):
+                            inner_id = inner.get('id')
+                            if inner_id:
+                                feed_obj = from_cls.load(inner_id)
 
                 for user in users:
                     if feed_obj:

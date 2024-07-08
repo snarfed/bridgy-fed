@@ -455,27 +455,6 @@ class ProtocolTest(TestCase):
         self.assertEqual({Target(protocol='fake', uri='fake:post:target')},
                          OtherFake.targets(obj, from_user=self.user).keys())
 
-    def test_targets_undo_block(self):
-        block_obj = {
-            'objectType': 'activity',
-            'verb': 'block',
-            'id': 'other:block',
-        }
-        OtherFake.fetchable['other:block'] = {
-            'objectType': 'activity',
-            'verb': 'block',
-        }
-
-        for inner_obj in block_obj, block_obj['id']:
-            with self.subTest(inner_obj=inner_obj):
-                obj = Object(our_as1={
-                    'objectType': 'activity',
-                    'verb': 'undo',
-                    'object': inner_obj,
-                })
-                self.assertEqual({Target(protocol='other', uri='other:block:target')},
-                                 Fake.targets(obj, from_user=self.user).keys())
-
     def test_translate_ids_follow(self):
         self.assert_equals({
             'id': 'other:o:fa:fake:follow',
@@ -993,7 +972,7 @@ class ProtocolReceiveTest(TestCase):
             [Target(uri='fake:bob:target', protocol='fake')],
             list(Fake.targets(Object(our_as1=block), from_user=self.user).keys()))
 
-    def test_targets_undo_composite_object(self):
+    def test_targets_undo_composite_block(self):
         self.bob.obj.our_as1 = {'foo': 'bar'}
         self.bob.obj.put()
 
@@ -1014,7 +993,7 @@ class ProtocolReceiveTest(TestCase):
             [Target(uri='fake:bob:target', protocol='fake')],
             list(Fake.targets(Object(our_as1=undo), from_user=self.user).keys()))
 
-    def test_targets_undo_object_id(self):
+    def test_targets_undo_block_id(self):
         self.bob.obj.our_as1 = {'foo': 'bar'}
         self.bob.obj.put()
 
@@ -1037,6 +1016,29 @@ class ProtocolReceiveTest(TestCase):
             [Target(uri='fake:block:target', protocol='fake'),
              Target(uri='fake:bob:target', protocol='fake')],
             list(Fake.targets(Object(our_as1=undo), from_user=self.user).keys()))
+
+    def test_targets_undo_share_composite(self):
+        self.make_followers()
+
+        share = {
+            'objectType': 'activity',
+            'verb': 'share',
+            'id': 'fake:share',
+            'actor': 'fake:user',
+            'object': 'fake:orig',
+        }
+        Fake.fetchable['fake:share'] = share
+
+        obj = Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'undo',
+            'actor': 'fake:user',
+            'object': share,
+        })
+        self.assertEqual({
+            Target(protocol='fake', uri='fake:share:target'),
+            Target(protocol='fake', uri='fake:shared:target'),
+        }, Fake.targets(obj, from_user=self.user).keys())
 
     @patch.object(ATProto, 'send', return_value=True)
     def test_atproto_targets_normalize_pds_url(self, mock_send):
