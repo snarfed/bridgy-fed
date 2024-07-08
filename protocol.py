@@ -871,6 +871,7 @@ class Protocol:
 
             # fall through to deliver to followers
 
+        # TODO: add undo here, test for it
         elif obj.type == 'delete':
             if not inner_obj_id:
                 error("Couldn't find id of object to delete")
@@ -1225,7 +1226,7 @@ class Protocol:
         return 'OK', 202
 
     @classmethod
-    def targets(cls, obj, from_user):
+    def targets(from_cls, obj, from_user):
         """Collects the targets to send a :class:`models.Object` to.
 
         Targets are both objects - original posts, events, etc - and actors.
@@ -1281,7 +1282,7 @@ class Protocol:
                     logger.info(f'Adding target {target} for copy {copy.uri} of original {id}')
                     targets[Target(protocol=copy.protocol, uri=target)] = orig_obj
 
-            if protocol == cls and cls.LABEL != 'fake':
+            if protocol == from_cls and from_cls.LABEL != 'fake':
                 logger.info(f'Skipping same-protocol target {id}')
                 continue
 
@@ -1298,10 +1299,20 @@ class Protocol:
                 logger.info(f'Recipient is {orig_user}')
                 obj.add('notify', orig_user)
 
+        if obj.type == 'undo':
+            logger.info('Object is an undo; adding targets for inner object')
+            inner_obj_as1 = as1.get_object(obj.as1)
+            if set(inner_obj_as1.keys()) == {'id'}:
+                inner_obj = from_cls.load(inner_obj_as1['id'])
+            else:
+                inner_obj = Object(our_as1=inner_obj_as1)
+            if inner_obj:
+                targets.update(from_cls.targets(inner_obj, from_user=from_user))
+
         logger.info(f'Direct (and copy) targets: {targets.keys()}')
 
         # deliver to followers, if appropriate
-        user_key = cls.actor_key(obj)
+        user_key = from_cls.actor_key(obj)
         if not user_key:
             logger.info("Can't tell who this is from! Skipping followers.")
             return targets
@@ -1332,7 +1343,7 @@ class Protocol:
                             and inner.get('objectType') in as1.ACTOR_TYPES):
                         inner_id = inner.get('id')
                         if inner_id:
-                            feed_obj = cls.load(inner_id)
+                            feed_obj = from_cls.load(inner_id)
 
                 # include ATProto if this user is enabled there.
                 # TODO: abstract across protocols. maybe with this, below

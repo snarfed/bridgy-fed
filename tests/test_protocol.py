@@ -933,6 +933,66 @@ class ProtocolReceiveTest(TestCase):
                                    ignore=['created', 'updated'])
         self.assertEqual(0, mock_send.call_count)
 
+    def test_targets_block(self):
+        self.bob.obj.our_as1 = {'foo': 'bar'}
+        self.bob.obj.put()
+
+        block = {
+            'objectType': 'activity',
+            'verb': 'block',
+            'id': 'fake:block',
+            'actor': 'fake:alice',
+            'object': 'fake:bob',
+        }
+        self.assertEqual(
+            [Target(uri='fake:bob:target', protocol='fake')],
+            list(Fake.targets(Object(our_as1=block), from_user=self.user).keys()))
+
+    def test_targets_undo_composite_object(self):
+        self.bob.obj.our_as1 = {'foo': 'bar'}
+        self.bob.obj.put()
+
+        undo = {
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': 'fake:undo',
+            'actor': 'fake:alice',
+            'object': {
+                'objectType': 'activity',
+                'verb': 'block',
+                'id': 'fake:block',
+                'actor': 'fake:alice',
+                'object': 'fake:bob',
+            },
+        }
+        self.assertEqual(
+            [Target(uri='fake:bob:target', protocol='fake')],
+            list(Fake.targets(Object(our_as1=undo), from_user=self.user).keys()))
+
+    def test_targets_undo_object_id(self):
+        self.bob.obj.our_as1 = {'foo': 'bar'}
+        self.bob.obj.put()
+
+        self.store_object(id='fake:block', our_as1={
+            'objectType': 'activity',
+            'verb': 'block',
+            'id': 'fake:block',
+            'actor': 'fake:alice',
+            'object': 'fake:bob',
+        })
+
+        undo = {
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': 'fake:undo',
+            'actor': 'fake:alice',
+            'object': 'fake:block',
+        }
+        self.assertEqual(
+            [Target(uri='fake:block:target', protocol='fake'),
+             Target(uri='fake:bob:target', protocol='fake')],
+            list(Fake.targets(Object(our_as1=undo), from_user=self.user).keys()))
+
     @patch.object(ATProto, 'send', return_value=True)
     def test_atproto_targets_normalize_pds_url(self, mock_send):
         # we were over-normalizing our PDS URL https://atproto.brid.gy , adding
@@ -1928,6 +1988,28 @@ class ProtocolReceiveTest(TestCase):
         }))
 
         self.assertEqual([('fake:block', 'fake:bob:target')], Fake.sent)
+
+    def test_undo_block(self):
+        self.make_user(id='other:eve', cls=OtherFake, obj_as1={})
+        self.make_followers()
+
+        block = {
+            'objectType': 'activity',
+            'verb': 'block',
+            'id': 'fake:block',
+            'actor': 'fake:user',
+            'object': 'other:eve',
+        }
+        self.store_object(id='fake:block', our_as1=block)
+
+        self.assertEqual(('OK', 202), Fake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': 'fake:undo',
+            'actor': 'fake:user',
+            'object': block,
+        }))
+        self.assertEqual([('fake:undo', 'fake:block:target')], Fake.sent)
 
     @skip
     def test_from_bridgy_fed_domain_fails(self):
