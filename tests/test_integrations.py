@@ -601,3 +601,40 @@ class IntegrationTests(TestCase):
                 }],
             },
         }, json_loads(kwargs['data']), ignore=['@context', 'contentMap', 'to', 'cc'])
+
+
+    @patch('requests.post')
+    @patch('requests.get')
+    def test_atproto_undo_block_of_activitypub(self, mock_get, mock_post):
+        """Bluesky undo of a block of an AP user.
+
+        ATProto user alice.com, did:plc:alice
+        ActivityPub user bob@inst, https://inst/bob, bob.inst.ap.brid.gy, did:plc:bob
+        """
+        alice = self.make_atproto_user('did:plc:alice')
+        bob = self.make_ap_user('https://inst/bob', 'did:plc:bob')
+
+        o = self.store_object(id='at://did:plc:alice/app.bsky.graph.block/123',
+                              source_protocol='atproto', our_as1={
+                                  'objectType': 'activity',
+                                  'verb': 'block',
+                                  'id': 'at://did:plc:alice/app.bsky.graph.block/123',
+                                  'object': 'https://inst/bob',
+                                  'actor': 'did:plc:alice',
+                              })
+
+        new_commits.put(Op(repo='did:plc:alice', action='delete', seq=123,
+                           path='app.bsky.graph.block/123'))
+        Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
+        handle(limit=1)
+
+        self.assertEqual(1, mock_post.call_count)
+        args, kwargs = mock_post.call_args
+        self.assertEqual((bob.obj.as2['inbox'],), args)
+        self.assert_equals({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Undo',
+            'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.graph.block/123#undo',
+            'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
+            'object': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.graph.block/123',
+        }, json_loads(kwargs['data']), ignore=['@context', 'contentMap', 'to', 'cc'])
