@@ -1270,7 +1270,7 @@ class Protocol:
 
             # deliver self-replies to followers
             # https://github.com/snarfed/bridgy-fed/issues/639
-            if owner == as1.get_owner(orig_obj.as1):
+            if is_reply and owner == as1.get_owner(orig_obj.as1):
                 is_self_reply = True
                 logger.info(f'Looks like a self reply! Delivering to followers')
 
@@ -1345,15 +1345,6 @@ class Protocol:
                         if inner_id:
                             feed_obj = from_cls.load(inner_id)
 
-                # include ATProto if this user is enabled there.
-                # TODO: abstract across protocols. maybe with this, below
-                # targets.update({
-                #     Target(protocol=proto.LABEL,
-                #            uri=proto.target_for(proto.bot_user_id())): None
-                #     for proto in PROTOCOLS
-                #     if proto and proto.HAS_COPIES
-                # })
-
                 for user in users:
                     if feed_obj:
                         feed_obj.add('feed', user.key)
@@ -1379,19 +1370,38 @@ class Protocol:
                 if feed_obj:
                     feed_obj.put()
 
-            if 'atproto' in from_user.enabled_protocols:
+            # add enabled copy protocols
+            for label in from_user.enabled_protocols:
+                proto = PROTOCOLS[label]
+                if not proto.HAS_COPIES:
+                    continue
+
                 if (not followers and
-                    (util.domain_or_parent_in(
-                        util.domain_from_link(from_user.key.id()), LIMITED_DOMAINS)
-                     or util.domain_or_parent_in(
-                         util.domain_from_link(obj.key.id()), LIMITED_DOMAINS))):
-                    logger.info(f'skipping ATProto, {from_user.key.id()} is on a limited domain and has no followers')
+                      (util.domain_or_parent_in(
+                          util.domain_from_link(from_user.key.id()), LIMITED_DOMAINS)
+                       or util.domain_or_parent_in(
+                           util.domain_from_link(obj.key.id()), LIMITED_DOMAINS))):
+                    logger.info(f'skipping {label}, {from_user.key.id()} is on a limited domain and has no followers')
+                    continue
 
-                elif (is_reply or obj.type == 'share') and not targets:
-                    logger.info(f"skipping ATProto, repost of or reply to post that wasn't bridged")
+                if obj.type == 'share':
+                    orig = from_user.load(as1.get_object(obj.as1)['id'], remote=False)
+                    if not orig or not orig.get_copy(proto):
+                        logger.info(f"skipping {label}, repost of post that wasn't bridged there")
+                        continue
 
-                else:
-                    from atproto import ATProto
+                if is_reply:
+                    for in_reply_to in in_reply_tos:
+                        if orig := from_user.load(in_reply_to, remote=False):
+                            if orig.get_copy(proto):
+                                break
+                    else:
+                        logger.info(f"skipping {label}, reply to post that wasn't bridged there")
+                        continue
+
+                # TODO: abstract for other protocols
+                from atproto import ATProto
+                if proto == ATProto:
                     targets.setdefault(
                         Target(protocol=ATProto.LABEL, uri=ATProto.PDS_URL), None)
                     logger.info(f'user has ATProto enabled, adding {ATProto.PDS_URL}')

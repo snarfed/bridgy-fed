@@ -864,7 +864,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('fake:post#bridgy-fed-create', obj.key.id())
         self.assertEqual(ATProto.PDS_URL, url)
 
-    @patch.object(ATProto, 'send', return_value=True)
+    @patch.object(ATProto, 'send')
     def test_reply_to_not_bridged_account_skips_atproto(self, mock_send):
         user = self.make_user('eefake:user', cls=ExplicitEnableFake,
                               enabled_protocols=['atproto'])
@@ -876,13 +876,36 @@ class ProtocolReceiveTest(TestCase):
             'author': 'eefake:eve',
         })
 
-        with self.assertRaises(NoContent):
-            Fake.receive_as1({
-                'id': 'eefake:reply',
-                'objectType': 'note',
-                'author': 'eefake:user',
-                'inReplyTo': 'eefake:post',
-            })
+        ExplicitEnableFake.receive_as1({
+            'id': 'eefake:reply',
+            'objectType': 'note',
+            'author': 'eefake:user',
+            'inReplyTo': 'eefake:post',
+        })
+
+        self.assertEqual(0, mock_send.call_count)
+
+    @patch.object(ATProto, 'send')
+    def test_reply_to_non_bridged_post_with_mention_skips_atproto(self, mock_send):
+        self.user.enabled_protocols = ['atproto']
+        self.user.put()
+
+        self.store_object(id='fake:post', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:alice',
+        })
+
+        Fake.receive_as1({
+            'id': 'fake:reply',
+            'objectType': 'note',
+            'actor': 'fake:user',
+            'inReplyTo': 'fake:post',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'fake:bob'
+            }],
+        })
 
         self.assertEqual(0, mock_send.call_count)
 
@@ -906,7 +929,29 @@ class ProtocolReceiveTest(TestCase):
             'object': 'eefake:post',
         })
         self.assertEqual(204, code)
+        self.assertEqual(0, mock_send.call_count)
 
+    @patch.object(ATProto, 'send', return_value=True)
+    def test_repost_of_not_bridged_post_skips_atproto(self, mock_send):
+        user = self.make_user('eefake:user', cls=ExplicitEnableFake,
+                              enabled_protocols=['atproto'])
+
+        self.eve = self.make_user('eefake:eve', cls=ExplicitEnableFake,
+                              enabled_protocols=['atproto'])
+        self.store_object(id='eefake:post', our_as1={
+            'id': 'eefake:post',
+            'objectType': 'note',
+            'author': 'eefake:eve',
+        })
+
+        _, code = ExplicitEnableFake.receive_as1({
+            'id': 'eefake:repost',
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'eefake:user',
+            'object': 'eefake:post',
+        })
+        self.assertEqual(204, code)
         self.assertEqual(0, mock_send.call_count)
 
     @patch.object(ATProto, 'send', return_value=True)
