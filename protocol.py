@@ -1306,7 +1306,7 @@ class Protocol:
             if set(inner_obj_as1.keys()) == {'id'}:
                 inner_obj = from_cls.load(inner_obj_as1['id'])
             else:
-                inner_obj = Object(our_as1=inner_obj_as1)
+                inner_obj = Object(id=inner_obj_as1.get('id'), our_as1=inner_obj_as1)
             if inner_obj:
                 targets.update(from_cls.targets(inner_obj, from_user=from_user,
                                                 internal=True))

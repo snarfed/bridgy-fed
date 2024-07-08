@@ -434,6 +434,28 @@ class ProtocolTest(TestCase):
             Target(protocol='atproto', uri='https://atproto.brid.gy'),
         ], Protocol.targets(obj, from_user=user).keys())
 
+    def test_targets_undo_share_enabled_protocols(self):
+        # https://console.cloud.google.com/errors/detail/CJK54eaoneesMg;time=P30D?project=bridgy-federated
+        self.user = self.make_user('fake:user', cls=Fake, enabled_protocols=['other'])
+
+        share = {
+            'objectType': 'activity',
+            'verb': 'share',
+            'id': 'fake:share',
+            'actor': 'fake:user',
+            'object': 'fake:orig',
+        }
+        Fake.fetchable['fake:share'] = share
+
+        obj = Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'undo',
+            'actor': 'fake:user',
+            'object': share,
+        })
+        self.assertEqual({Target(protocol='fake', uri='fake:share:target')},
+                         Fake.targets(obj, from_user=self.user).keys())
+
     def test_targets_composite_inreplyto(self):
         Fake.fetchable['fake:post'] = {
             'objectType': 'note',
