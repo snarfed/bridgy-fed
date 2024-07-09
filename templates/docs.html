@@ -563,6 +563,14 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 &lt;img class="<span class='keyword'>u-featured</span>" src="<span class='value'>/my-header.png</span>" /&gt;
 </pre>
 </p>
+
+<p>By default, your fediverse address will be <code>@yourdomain.com@yourdomain.com</code>. Many services (eg Mastodon) default to only showing the username, so this generally shows up as just <code>@yourdomain.com</code> in posts, and the full address appears on hover.</p>
+
+<p>We recommend this for simplicity and predictability, for everyone else as well as you, but if you want a different username, you can set it by adding an <code>acct:</code> <a href="https://microformats.org/wiki/rel-me">u-url</a> link inside your h-card with <code>username@yourdomain.com</code>, eg:
+
+<pre>
+&lt;a class="<span class='keyword'>u-url</span>" href="<span class='value'>acct:alice@yourdomain.com</span>"&gt;<span class='value'></span>&lt;/a&gt;
+</pre>
 </li>
 
 
