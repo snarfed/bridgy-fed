@@ -37,7 +37,7 @@ flask-gae-static==1.0
 flask-sock==0.7.0
 google-api-core[grpc]==2.17.1
 google-auth==2.15.0
-google-cloud-appengine-logging==1.4.3
+google-cloud-appengine-logging==1.4.4
 google-cloud-audit-log==0.2.5
 google-cloud-core==2.3.2
 google-cloud-datastore==2.16.1
