@@ -926,7 +926,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     @patch('requests.post',
            return_value=requests_response('OK'))  # create DID on PLC
     def test_send_new_repo(self, mock_post, mock_create_task, _):
-        user = self.make_user(id='fake:user', cls=Fake)
+        user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['atproto'])
         obj = self.store_object(id='fake:post', source_protocol='fake',
                                 our_as1=NOTE_AS)
 
@@ -989,9 +989,12 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
     def test_send_new_repo_includes_user_profile(self, mock_post, mock_create_task,
                                                  _, __):
+        user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['atproto'],
+                              obj_as1={})
         Fake.fetchable = {'fake:profile:user': ACTOR_AS}
 
-        obj = self.store_object(id='fake:post', source_protocol='fake', our_as1=NOTE_AS)
+        obj = self.store_object(id='fake:post', source_protocol='fake',
+                                our_as1=NOTE_AS)
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))
 
         # check profile, record

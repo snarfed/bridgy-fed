@@ -1252,6 +1252,34 @@ class Protocol:
         is_reply = obj.type == 'comment' or in_reply_tos
         is_self_reply = False
 
+        # which protocols should we allow delivering to?
+        to_protocols = []
+        if DEBUG and from_user.LABEL != 'eefake':  # for unit tests
+            to_protocols = [PROTOCOLS['fake'], PROTOCOLS['other']]
+        for label in (list(from_user.DEFAULT_ENABLED_PROTOCOLS)
+                      + from_user.enabled_protocols):
+            proto = PROTOCOLS[label]
+            if proto.HAS_COPIES and (obj.type in ('update', 'delete', 'share')
+                                     or is_reply):
+                if is_reply:
+                    original_ids = in_reply_tos
+                else:
+                    inner_id = as1.get_object(obj.as1)['id']
+                    if inner_id == from_user.key.id():
+                        inner_id = from_user.profile_id()
+                    original_ids = [inner_id]
+
+                for id in original_ids:
+                    if orig := from_user.load(id, remote=False):
+                        if orig.get_copy(proto):
+                            logging.info(f'Allowing {proto.LABEL}, original post {id} was bridged there')
+                            break
+                else:
+                    continue
+
+            add(to_protocols, proto)
+
+        # process direct targets
         for id in sorted(target_uris):
             protocol = Protocol.for_id(id)
             if not protocol:
@@ -1260,7 +1288,7 @@ class Protocol:
             elif protocol.is_blocklisted(id):
                 logger.info(f'{id} is blocklisted')
                 continue
-            elif not from_user.is_enabled(protocol):
+            elif protocol not in to_protocols:
                 logger.info(f"{from_user.key.id()} hasn't enabled {protocol.LABEL}")
                 continue
 
@@ -1320,94 +1348,76 @@ class Protocol:
             return targets
 
         followers = []
-        if obj.type in ('post', 'update', 'delete', 'share'):
-            if not is_reply or is_self_reply:
-                logger.info(f'Delivering to followers of {user_key}')
-                followers = [
-                    f for f in Follower.query(Follower.to == user_key,
-                                              Follower.status == 'active')
-                    # skip protocol bot users
-                    if not Protocol.for_bridgy_subdomain(f.from_.id())
-                    # skip protocols this user hasn't enabled
-                    and from_user.is_enabled(PROTOCOLS_BY_KIND[f.from_.kind()])]
-                user_keys = [f.from_ for f in followers]
-                users = [u for u in ndb.get_multi(user_keys) if u]
-                User.load_multi(users)
+        if (obj.type in ('post', 'update', 'delete', 'share')
+                and (not is_reply or is_self_reply)):
+            logger.info(f'Delivering to followers of {user_key}')
+            followers = [
+                f for f in Follower.query(Follower.to == user_key,
+                                          Follower.status == 'active')
+                # skip protocol bot users
+                if not Protocol.for_bridgy_subdomain(f.from_.id())
+                # skip protocols this user hasn't enabled, or where the base
+                # object of this activity hasn't been bridged
+                and PROTOCOLS_BY_KIND[f.from_.kind()] in to_protocols]
+            user_keys = [f.from_ for f in followers]
+            users = [u for u in ndb.get_multi(user_keys) if u]
+            User.load_multi(users)
 
-                # which object should we add to followers' feeds, if any
-                feed_obj = None
-                if not internal:
-                    if obj.type == 'share':
-                        feed_obj = obj
-                    else:
-                        inner = as1.get_object(obj.as1)
-                        # don't add profile updates to feeds
-                        if not (obj.type == 'update'
-                                and inner.get('objectType') in as1.ACTOR_TYPES):
-                            inner_id = inner.get('id')
-                            if inner_id:
-                                feed_obj = from_cls.load(inner_id)
+            if (not followers and
+                (util.domain_or_parent_in(
+                    util.domain_from_link(from_user.key.id()), LIMITED_DOMAINS)
+                 or util.domain_or_parent_in(
+                     util.domain_from_link(obj.key.id()), LIMITED_DOMAINS))):
+                logger.info(f'skipping, {from_user.key.id()} is on a limited domain and has no followers')
+                return {}
 
-                for user in users:
-                    if feed_obj:
-                        feed_obj.add('feed', user.key)
-
-                    # TODO: should we pass remote=False through here to Protocol.load?
-                    target = (user.target_for(user.obj, shared=True)
-                              if user.obj else None)
-                    if not target:
-                        # TODO: surface errors like this somehow?
-                        logger.error(f'Follower {user.key} has no delivery target')
-                        continue
-
-                    # normalize URL (lower case hostname, etc)
-                    # ...but preserve our PDS URL without trailing slash in path
-                    # https://atproto.com/specs/did#did-documents
-                    target = util.dedupe_urls([target], trailing_slash=False)[0]
-
-                    # HACK: use last target object from above for reposts, which
-                    # has its resolved id
-                    targets[Target(protocol=user.LABEL, uri=target)] = \
-                        orig_obj if obj.type == 'share' else None
-
-                if feed_obj:
-                    feed_obj.put()
-
-            # add enabled copy protocols
-            for label in from_user.enabled_protocols:
-                proto = PROTOCOLS[label]
-                if not proto.HAS_COPIES:
-                    continue
-
-                if (not followers and
-                      (util.domain_or_parent_in(
-                          util.domain_from_link(from_user.key.id()), LIMITED_DOMAINS)
-                       or util.domain_or_parent_in(
-                           util.domain_from_link(obj.key.id()), LIMITED_DOMAINS))):
-                    logger.info(f'skipping {label}, {from_user.key.id()} is on a limited domain and has no followers')
-                    continue
-
+            # which object should we add to followers' feeds, if any
+            feed_obj = None
+            if not internal:
                 if obj.type == 'share':
-                    orig = from_user.load(as1.get_object(obj.as1)['id'], remote=False)
-                    if not orig or not orig.get_copy(proto):
-                        logger.info(f"skipping {label}, repost of post that wasn't bridged there")
-                        continue
+                    feed_obj = obj
+                else:
+                    inner = as1.get_object(obj.as1)
+                    # don't add profile updates to feeds
+                    if not (obj.type == 'update'
+                            and inner.get('objectType') in as1.ACTOR_TYPES):
+                        inner_id = inner.get('id')
+                        if inner_id:
+                            feed_obj = from_cls.load(inner_id)
 
-                if is_reply:
-                    for in_reply_to in in_reply_tos:
-                        if orig := from_user.load(in_reply_to, remote=False):
-                            if orig.get_copy(proto):
-                                break
-                    else:
-                        logger.info(f"skipping {label}, reply to post that wasn't bridged there")
-                        continue
+            for user in users:
+                if feed_obj:
+                    feed_obj.add('feed', user.key)
 
-                # TODO: abstract for other protocols
-                from atproto import ATProto
-                if proto == ATProto:
-                    targets.setdefault(
-                        Target(protocol=ATProto.LABEL, uri=ATProto.PDS_URL), None)
-                    logger.info(f'user has ATProto enabled, adding {ATProto.PDS_URL}')
+                # TODO: should we pass remote=False through here to Protocol.load?
+                target = (user.target_for(user.obj, shared=True)
+                          if user.obj else None)
+                if not target:
+                    # TODO: surface errors like this somehow?
+                    logger.error(f'Follower {user.key} has no delivery target')
+                    continue
+
+                # normalize URL (lower case hostname, etc)
+                # ...but preserve our PDS URL without trailing slash in path
+                # https://atproto.com/specs/did#did-documents
+                target = util.dedupe_urls([target], trailing_slash=False)[0]
+
+                # HACK: use last target object from above for reposts, which
+                # has its resolved id
+                targets[Target(protocol=user.LABEL, uri=target)] = \
+                    orig_obj if obj.type == 'share' else None
+
+            if feed_obj:
+                feed_obj.put()
+
+        # deliver to enabled HAS_COPIES protocols proactively
+        # TODO: abstract for other protocols
+        from atproto import ATProto
+        if (ATProto in to_protocols
+                and obj.type in ('post', 'update', 'delete', 'share')):
+            logger.info(f'user has ATProto enabled, adding {ATProto.PDS_URL}')
+            targets.setdefault(
+                Target(protocol=ATProto.LABEL, uri=ATProto.PDS_URL), None)
 
         # de-dupe targets, discard same-domain
         # maps string target URL to (Target, Object) tuple

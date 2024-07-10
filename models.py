@@ -263,7 +263,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             user.existing = True
 
             # TODO: propagate more fields?
-            for field in ['direct', 'obj', 'obj_key']:
+            for field in ['direct', 'enabled_protocols', 'obj', 'obj_key']:
                 old_val = getattr(user, field, None)
                 new_val = kwargs.get(field)
                 if ((old_val is None and new_val is not None)
@@ -289,13 +289,15 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             user.obj = cls.load(user.profile_id())
 
         if propagate:
-            for label in ids.COPIES_PROTOCOLS:
+            for label in user.enabled_protocols + list(user.DEFAULT_ENABLED_PROTOCOLS):
                 proto = PROTOCOLS[label]
-                if proto != cls and not user.get_copy(proto):
-                    if user.is_enabled(proto):
+                if proto == cls:
+                    continue
+                elif proto.HAS_COPIES:
+                    if not user.get_copy(proto) and user.is_enabled(proto):
                         proto.create_for(user)
                     else:
-                        logger.info(f'{cls.LABEL} <=> atproto not enabled, skipping')
+                        logger.info(f'{proto.LABEL} not enabled or user copy already exists, skipping propagate')
 
         # generate keys for all protocols _except_ our own
         #

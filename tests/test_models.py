@@ -69,7 +69,7 @@ class UserTest(TestCase):
         user.direct = True
         self.assert_entities_equal(same, user, ignore=['updated'])
 
-    @patch('ids.COPIES_PROTOCOLS', ['fake', 'other'])
+    @patch.object(Fake, 'DEFAULT_ENABLED_PROTOCOLS', ['other'])
     def test_get_or_create_propagate_fake_other(self):
         user = Fake.get_or_create('fake:user', propagate=True)
         self.assertEqual(['fake:user'], OtherFake.created_for)
@@ -86,7 +86,8 @@ class UserTest(TestCase):
                 'image': None,  # don't try to fetch as blob
             },
         }
-        user = Fake.get_or_create('fake:user', propagate=True)
+        user = Fake.get_or_create('fake:user', enabled_protocols=['atproto'],
+                                  propagate=True)
 
         # check that profile was fetched remotely
         self.assertEqual(['fake:profile:user'], Fake.fetched)

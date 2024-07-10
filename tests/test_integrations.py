@@ -87,11 +87,13 @@ class IntegrationTests(TestCase):
         did_doc = copy.deepcopy(test_atproto.DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
         did_doc['id'] = did
+
         self.store_object(id=did, raw=did_doc)
         if user.obj.as1:
-            self.store_object(id=f'at://{did}/app.bsky.actor.profile/self',
-                              bsky=bluesky.from_as1(user.obj.as1))
-
+            profile_id = f'at://{did}/app.bsky.actor.profile/self'
+            self.store_object(id=profile_id, bsky=bluesky.from_as1(user.obj.as1))
+            user.obj.copies = [Target(uri=profile_id, protocol='atproto')]
+            user.obj.put()
 
     @patch('requests.post')
     def test_atproto_notify_reply_to_activitypub(self, mock_post):
@@ -525,7 +527,7 @@ class IntegrationTests(TestCase):
         ActivityPub user @alice@inst , https://inst/alice , did:plc:alice
         Block is https://inst/block
         """
-        self.make_ap_user('https://inst/alice', 'did:plc:alice')
+        u = self.make_ap_user('https://inst/alice', 'did:plc:alice')
         self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
 
         # deliver block

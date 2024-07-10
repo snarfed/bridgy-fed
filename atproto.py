@@ -380,8 +380,8 @@ class ATProto(User, Protocol):
             logger.info('  done!')
 
         # fetch and store profile
-        if not user.obj:
-            user.obj = user.load(user.profile_id())
+        if not user.obj or not user.obj.as1:
+            user.obj = user.load(user.profile_id(), remote=True)
 
         initial_writes = []
         if user.obj and user.obj.as1:

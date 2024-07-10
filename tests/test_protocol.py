@@ -406,9 +406,7 @@ class ProtocolTest(TestCase):
         """_targets should call the target protocol's is_blocklisted()."""
         # non-ATProto account, ATProto target (PDS) is bsky.brid.gy
         # shouldn't be blocklisted
-        user = self.make_user(
-            id='fake:user', cls=Fake,
-            copies=[Target(uri='did:plc:foo', protocol='atproto')])
+        user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['atproto'])
 
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = 'http://localhost/'
@@ -436,7 +434,7 @@ class ProtocolTest(TestCase):
 
     def test_targets_undo_share_enabled_protocols(self):
         # https://console.cloud.google.com/errors/detail/CJK54eaoneesMg;time=P30D?project=bridgy-federated
-        self.user = self.make_user('fake:user', cls=Fake, enabled_protocols=['other'])
+        self.user = self.make_user('fake:user', cls=Fake)
 
         share = {
             'objectType': 'activity',
@@ -910,8 +908,30 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual(0, mock_send.call_count)
 
+    def test_reply_to_non_bridged_post_skips_enabled_protocol_with_followers(self):
+        # should skip even if it's enabled and we have followers there
+        self.user.enabled_protocols = ['eefake']
+        self.user.put()
+
+        eve = self.make_user('eefake:eve', cls=ExplicitEnableFake)
+        Follower.get_or_create(from_=eve, to=self.user)
+
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:alice',
+        })
+        _, code = Fake.receive_as1({
+            'id': 'fake:reply',
+            'objectType': 'note',
+            'actor': 'fake:user',
+            'inReplyTo': 'fake:post',
+        })
+        self.assertEqual(202, code)
+        self.assertEqual([], ExplicitEnableFake.sent)
+
     @patch.object(ATProto, 'send', return_value=True)
-    def test_repost_of_not_bridged_account_skips_atproto(self, mock_send):
+    def test_repost_of_non_bridged_account_skips_atproto(self, mock_send):
         user = self.make_user('eefake:user', cls=ExplicitEnableFake,
                               enabled_protocols=['atproto'])
 
@@ -954,6 +974,29 @@ class ProtocolReceiveTest(TestCase):
         })
         self.assertEqual(204, code)
         self.assertEqual(0, mock_send.call_count)
+
+    def test_repost_of_not_bridged_post_skips_enabled_protocol_with_followers(self):
+        # should skip even if it's enabled and we have followers there
+        self.user.enabled_protocols = ['eefake']
+        self.user.put()
+
+        eve = self.make_user('eefake:eve', cls=ExplicitEnableFake)
+        Follower.get_or_create(from_=eve, to=self.user)
+
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:alice',
+        })
+        _, code = Fake.receive_as1({
+            'id': 'fake:repost',
+            'objectType': 'activity',
+            'verb': 'share',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+        self.assertEqual(202, code)
+        self.assertEqual([], ExplicitEnableFake.sent)
 
     @patch.object(ATProto, 'send', return_value=True)
     def test_follow_of_bridged_account_by_not_bridged_account_skips_atproto(
@@ -1067,6 +1110,7 @@ class ProtocolReceiveTest(TestCase):
         # we were over-normalizing our PDS URL https://atproto.brid.gy , adding
         # a trailing slash, and then ending up with both versions in targets.
         # https://github.com/snarfed/bridgy-fed/issues/1032
+        self.user.enabled_protocols = ['atproto']
 
         # atproto follower
         self.store_object(id='did:plc:eve', raw={**DID_DOC, 'id': 'at://did:plc:eve'})
@@ -1087,11 +1131,6 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual({
             Target(uri='https://atproto.brid.gy', protocol='atproto'): None,
         }, Fake.targets(obj, from_user=self.user))
-
-        # self.user hasn't enabled ExplicitEnableFake, should ignore this follower
-        frank =self.make_user('eefake:frank', cls=ExplicitEnableFake,
-                              obj_id='eefake:frank')
-        Follower.get_or_create(to=self.user, from_=frank)
 
     def test_create_post_dont_deliver_to_follower_if_protocol_isnt_enabled(self):
         # user who hasn't enabled either Fake or OtherFake, so we shouldn't
@@ -2509,6 +2548,8 @@ class ProtocolReceiveTest(TestCase):
         }
 
         user = self.make_user('eefake:user', cls=ExplicitEnableFake)
+                              # obj_as1={'pro': 'file'},
+                              # copies=[Target(uri='fake:user', protocol='fake')])
         self.assertFalse(user.is_enabled(Fake))
 
         # fake protocol isn't enabled yet, no DM should be a noop

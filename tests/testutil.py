@@ -105,6 +105,11 @@ class Fake(User, protocol.Protocol):
         cls.created_for.append(id)
         add(user.copies, Target(uri=ids.translate_user_id(id=id, from_=user, to=cls),
                                 protocol=cls.LABEL))
+        if user.obj_key:
+            profile_copy_id = ids.translate_object_id(
+                id=user.profile_id(), from_=user, to=cls)
+            user.obj.copies = [Target(uri=profile_copy_id, protocol=cls.LABEL)]
+            user.obj.put()
 
     @classmethod
     def owns_id(cls, id):
