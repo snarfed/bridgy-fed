@@ -223,12 +223,12 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         logger.info(f'Wrote {self.key}')
 
     @classmethod
-    def get_by_id(cls, id, allow_opt_out=False):
+    def get_by_id(cls, id, allow_opt_out=False, **kwargs):
         """Override to follow ``use_instead`` property and ``opt-out` status.
 
         Returns None if the user is opted out.
         """
-        user = cls._get_by_id(id)
+        user = cls._get_by_id(id, **kwargs)
         if not user:
             return None
         elif user.use_instead:
