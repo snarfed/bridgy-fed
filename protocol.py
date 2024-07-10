@@ -1275,6 +1275,7 @@ class Protocol:
                             logging.info(f'Allowing {proto.LABEL}, original post {id} was bridged there')
                             break
                 else:
+                    logger.info(f"Skipping {proto.LABEL}, original posts {original_ids} weren't bridged there")
                     continue
 
             add(to_protocols, proto)
@@ -1289,7 +1290,6 @@ class Protocol:
                 logger.info(f'{id} is blocklisted')
                 continue
             elif protocol not in to_protocols:
-                logger.info(f"{from_user.key.id()} hasn't enabled {protocol.LABEL}")
                 continue
 
             orig_obj = protocol.load(id)
