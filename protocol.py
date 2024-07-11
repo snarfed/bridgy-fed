@@ -19,6 +19,7 @@ from oauth_dropins.webutil import models
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import werkzeug.exceptions
+from werkzeug.exceptions import BadGateway, HTTPException
 
 import common
 from common import (
@@ -26,7 +27,6 @@ from common import (
     DOMAIN_BLOCKLIST,
     DOMAIN_RE,
     DOMAINS,
-    error,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
     report_error,
@@ -60,6 +60,20 @@ seen_ids = LRUCache(100000)
 seen_ids_lock = Lock()
 
 logger = logging.getLogger(__name__)
+
+
+def error(*args, status=299, **kwargs):
+    """Default HTTP status code to 299 to prevent retrying task."""
+    return common.error(*args, status=status, **kwargs)
+
+
+class ErrorButDoNotRetryTask(HTTPException):
+    code = 299
+    description = 'ErrorButDoNotRetryTask'
+
+# https://github.com/pallets/flask/issues/1837#issuecomment-304996942
+werkzeug.exceptions.default_exceptions.setdefault(299, ErrorButDoNotRetryTask)
+werkzeug.exceptions._aborter.mapping.setdefault(299, ErrorButDoNotRetryTask)
 
 
 class Protocol:
@@ -311,11 +325,11 @@ class Protocol:
                 if protocol.load(id, local=False, remote=True):
                     logger.info(f'  {protocol.LABEL} owns id {id}')
                     return protocol
-            except werkzeug.exceptions.BadGateway:
+            except BadGateway:
                 # we tried and failed fetching the id over the network.
                 # this depends on ActivityPub.fetch raising this!
                 return None
-            except werkzeug.exceptions.HTTPException as e:
+            except HTTPException as e:
                 # internal error we generated ourselves; try next protocol
                 pass
             except Exception as e:
@@ -721,7 +735,7 @@ class Protocol:
         """Handles an incoming activity.
 
         If ``obj``'s key is unset, ``obj.as1``'s id field is used. If both are
-        unset, raises :class:`werkzeug.exceptions.BadRequest`.
+        unset, returns HTTP 299.
 
         Args:
           obj (models.Object)
@@ -739,8 +753,6 @@ class Protocol:
         assert isinstance(obj, Object), obj
         logger.info(f'From {from_cls.LABEL}: {obj.type} {obj.key} AS1: {json_dumps(obj.as1, indent=2)}')
 
-        # TODO: return 204 for all of these errors so we don't retry them
-        # https://cloud.google.com/tasks/docs/creating-appengine-handlers
         if not obj.as1:
             error('No object data provided')
 
@@ -789,7 +801,7 @@ class Protocol:
         # https://www.w3.org/wiki/ActivityPub/Primer/Authentication_Authorization
         actor = as1.get_owner(obj.as1)
         if not actor:
-            error('Activity missing actor or author', status=400)
+            error('Activity missing actor or author')
         elif from_cls.owns_id(actor) is False:
             error(f"{from_cls.LABEL} doesn't own actor {actor}, this is probably a bridged activity. Skipping.", status=204)
 
@@ -800,7 +812,7 @@ class Protocol:
         if actor != authed_as:
             report_error("Auth: receive: authed_as doesn't match owner",
                          user=f'{id} authed_as {authed_as} owner {actor}')
-            error(f"actor {actor} isn't authed user {authed_as}", status=403)
+            error(f"actor {actor} isn't authed user {authed_as}")
 
         # update copy ids to originals
         obj.normalize_ids()
@@ -984,7 +996,7 @@ class Protocol:
 
         from_obj = from_cls.load(from_id)
         if not from_obj:
-            error(f"Couldn't load {from_id}")
+            error(f"Couldn't load {from_id}", status=502)
 
         if not from_obj.as1:
             from_obj.our_as1 = from_as1

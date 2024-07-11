@@ -1065,7 +1065,7 @@ class ActivityPubTest(TestCase):
             'actor': ACTOR['id'],
             'object': None,
         })
-        self.assertEqual(400, got.status_code)
+        self.assertEqual(299, got.status_code)
 
     def test_inbox_follow_accept_with_id(self, *mocks):
         self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT, *mocks)
@@ -1548,7 +1548,7 @@ class ActivityPubTest(TestCase):
         })
         headers = sign('/ap/sharedInbox', body, key_id=ACTOR['id'])
         got = self.client.post('/ap/sharedInbox', data=body, headers=headers)
-        self.assertEqual(403, got.status_code, got.get_data(as_text=True))
+        self.assertEqual(299, got.status_code, got.get_data(as_text=True))
 
     def test_inbox_NO_AUTH_DOMAINS(self, *_):
         id = 'https://a.gup.pe/a-group'

@@ -17,7 +17,7 @@ from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import NOW, requests_response
 import requests
-from werkzeug.exceptions import BadRequest, Forbidden
+from werkzeug.exceptions import BadRequest
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import ExplicitEnableFake, Fake, OtherFake, TestCase
@@ -28,7 +28,7 @@ from atproto import ATProto
 import common
 from models import Follower, Object, PROTOCOLS, Target, User
 import protocol
-from protocol import Protocol
+from protocol import ErrorButDoNotRetryTask, Protocol
 from ui import UIProtocol
 from web import Web
 
@@ -1188,7 +1188,7 @@ class ProtocolReceiveTest(TestCase):
         }
         self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
 
-        with self.assertRaises(Forbidden):
+        with self.assertRaises(ErrorButDoNotRetryTask):
             Fake.receive_as1({
                 'id': 'fake:update',
                 'objectType': 'activity',
@@ -1580,7 +1580,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([(like_obj.key.id(), 'fake:post:target')], Fake.sent)
 
     def test_like_no_object_error(self):
-        with self.assertRaises(BadRequest):
+        with self.assertRaises(ErrorButDoNotRetryTask):
             Fake.receive_as1({
                 'id': 'fake:like',
                 'objectType': 'activity',
@@ -1590,7 +1590,7 @@ class ProtocolReceiveTest(TestCase):
         })
 
     def test_share_no_object_error(self):
-        with self.assertRaises(BadRequest):
+        with self.assertRaises(ErrorButDoNotRetryTask):
             Fake.receive_as1({
                 'id': 'fake:share',
                 'objectType': 'activity',
@@ -1959,7 +1959,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], OtherFake.sent)
 
     def test_follow_no_actor(self):
-        with self.assertRaises(BadRequest):
+        with self.assertRaises(ErrorButDoNotRetryTask):
             Fake.receive_as1({
                 'id': 'fake:follow',
                 'objectType': 'activity',
@@ -1971,7 +1971,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
 
     def test_follow_no_object(self):
-        with self.assertRaises(BadRequest):
+        with self.assertRaises(ErrorButDoNotRetryTask):
             Fake.receive_as1({
                 'id': 'fake:follow',
                 'objectType': 'activity',
@@ -1983,7 +1983,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
 
     def test_follow_object_unknown_protocol(self):
-        with self.assertRaises(BadRequest):
+        with self.assertRaises(ErrorButDoNotRetryTask):
             Fake.receive_as1({
                 'id': 'fake:follow',
                 'objectType': 'activity',
@@ -2233,7 +2233,7 @@ class ProtocolReceiveTest(TestCase):
             })
 
     def test_activity_id_blocklisted(self):
-        with self.assertRaises(BadRequest):
+        with self.assertRaises(ErrorButDoNotRetryTask):
             Fake.receive_as1({
                 'objectType': 'activity',
                 'verb': 'delete',
@@ -2551,7 +2551,7 @@ class ProtocolReceiveTest(TestCase):
 
         self.addCleanup(reset_seen_ids)
 
-        # pretend like the two threads below are in different processes
+        # pretend the two threads below are in different processes
         protocol.seen_ids = TTLCache(maxsize=10, ttl=0)
 
         Follower.get_or_create(to=self.user, from_=self.alice)
@@ -2812,7 +2812,7 @@ class ProtocolReceiveTest(TestCase):
             'obj': obj.key.urlsafe(),
             'authed_as': 'foo.com',
         })
-        self.assertEqual(403, got.status_code)
+        self.assertEqual(299, got.status_code)
         self.assertIsNone(Object.get_by_id('http://bar.com/post#bridgy-fed-create'))
 
     def test_receive_task_handler_not_authed_as(self):
@@ -2826,7 +2826,7 @@ class ProtocolReceiveTest(TestCase):
             'obj': obj.key.urlsafe(),
             'authed_as': 'fake:eve',
         })
-        self.assertEqual(403, got.status_code)
+        self.assertEqual(299, got.status_code)
         self.assertIsNone(Object.get_by_id('fake:post#bridgy-fed-create'))
 
     def test_like_not_authed_as_actor(self):
@@ -2835,7 +2835,7 @@ class ProtocolReceiveTest(TestCase):
             'author': 'fake:bob',
         }
 
-        with self.assertRaises(Forbidden):
+        with self.assertRaises(ErrorButDoNotRetryTask):
             Fake.receive_as1({
                 'id': 'fake:like',
                 'objectType': 'activity',
