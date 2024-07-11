@@ -739,6 +739,8 @@ class Protocol:
         assert isinstance(obj, Object), obj
         logger.info(f'From {from_cls.LABEL}: {obj.type} {obj.key} AS1: {json_dumps(obj.as1, indent=2)}')
 
+        # TODO: return 204 for all of these errors so we don't retry them
+        # https://cloud.google.com/tasks/docs/creating-appengine-handlers
         if not obj.as1:
             error('No object data provided')
 
@@ -755,10 +757,17 @@ class Protocol:
         elif from_cls.is_blocklisted(id, allow_internal=internal):
             error(f'Activity {id} is blocklisted')
 
+        # lease this object atomically
+        lease_memcache_key = f'receive-{id}'
+        if not common.memcache.add(lease_memcache_key, 'leased',
+                                   noreply=False, expire=5 * 60):  # 5 min
+            error('This object is already being received elsewhere', status=204)
+
         # short circuit if we've already seen this activity id.
         # (don't do this for bare objects since we need to check further down
         # whether they've been updated since we saw them last.)
         if obj.as1.get('objectType') == 'activity' and 'force' not in request.values:
+            # TODO: switch to memcache
             with seen_ids_lock:
                 already_seen = id in seen_ids
                 seen_ids[id] = True
