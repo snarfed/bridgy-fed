@@ -42,7 +42,7 @@ from common import (
 )
 from ids import BOT_ACTOR_AP_IDS
 from models import fetch_objects, Follower, Object, PROTOCOLS, User
-from protocol import Protocol
+from protocol import activity_id_memcache_key, Protocol
 import webfinger
 
 logger = logging.getLogger(__name__)
@@ -1028,14 +1028,12 @@ def inbox(protocol=None, id=None):
 
     # are we already processing or done with this activity?
     id = activity.get('id')
-    memcache_key = None
     if id:
         if util.domain_or_parent_in(util.domain_from_link(id), web_opt_out_domains()):
             logger.info(f'Discarding, {id} is on an opted out domain')
             return '', 204
 
-        memcache_key = common.memcache_key(f'AP-id-{id}')
-        if memcache.get(memcache_key):
+        if memcache.get(activity_id_memcache_key(id)):
             logger.info(f'Already seen this activity {id}')
             return '', 204
 
@@ -1097,10 +1095,7 @@ def inbox(protocol=None, id=None):
     except AssertionError as e:
         error(f'Invalid activity, probably due to id: {e}', status=400)
 
-    ret = create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=authed_as)
-    if memcache_key:
-        memcache.set(memcache_key, 'seen', expire=60 * 60)  # 1 hour in seconds
-    return ret
+    return create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=authed_as)
 
 
 # protocol in subdomain

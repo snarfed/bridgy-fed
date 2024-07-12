@@ -76,6 +76,10 @@ werkzeug.exceptions.default_exceptions.setdefault(299, ErrorButDoNotRetryTask)
 werkzeug.exceptions._aborter.mapping.setdefault(299, ErrorButDoNotRetryTask)
 
 
+def activity_id_memcache_key(id):
+    return common.memcache_key(f'receive-{id}')
+
+
 class Protocol:
     """Base protocol class. Not to be instantiated; classmethods only.
 
@@ -636,8 +640,6 @@ class Protocol:
           url (str):
           allow_internal (bool): whether to return False for internal domains
             like ``fed.brid.gy``, ``bsky.brid.gy``, etc
-
-        Returns: bool:
         """
         blocklist = DOMAIN_BLOCKLIST
         if not allow_internal:
@@ -769,30 +771,22 @@ class Protocol:
         elif from_cls.is_blocklisted(id, allow_internal=internal):
             error(f'Activity {id} is blocklisted')
 
-        # lease this object atomically
-        lease_memcache_key = common.memcache_key(f'receive-{id}')
-        if not common.memcache.add(lease_memcache_key, 'leased',
-                                   noreply=False, expire=5 * 60):  # 5 min
-            error('This object is already being received elsewhere', status=204)
-
+        # lease this object, atomically
+        memcache_key = activity_id_memcache_key(id)
+        leased = common.memcache.add(memcache_key, 'leased', noreply=False,
+                                     expire=5 * 60)  # 5 min
         # short circuit if we've already seen this activity id.
         # (don't do this for bare objects since we need to check further down
         # whether they've been updated since we saw them last.)
-        if obj.as1.get('objectType') == 'activity' and 'force' not in request.values:
-            # TODO: switch to memcache
-            with seen_ids_lock:
-                already_seen = id in seen_ids
-                seen_ids[id] = True
-
-            if (already_seen
-                    or (obj.new is False and obj.changed is False)
-                    # TODO: how does this make sense? won't these two lines
-                    # always be true?!
-                    or (obj.new is None and obj.changed is None
-                        and from_cls.load(id, remote=False))):
-                msg = f'Already handled this activity {id}'
-                logger.info(msg)
-                return msg, 204
+        if (obj.as1.get('objectType') == 'activity'
+            and 'force' not in request.values
+            and (not leased
+                 or (obj.new is False and obj.changed is False)
+                 # TODO: how does this make sense? won't these two lines
+                 # always be true?!
+                 or (obj.new is None and obj.changed is None
+                     and from_cls.load(id, remote=False)))):
+            error('Already seen this activity {id}', status=204)
 
         # does this protocol support this activity/object type?
         from_cls.check_supported(obj)
@@ -974,7 +968,9 @@ class Protocol:
             from_cls.handle_follow(obj)
 
         # deliver to targets
-        return from_cls.deliver(obj, from_user=from_user)
+        resp = from_cls.deliver(obj, from_user=from_user)
+        common.memcache.set(memcache_key, 'done')
+        return resp
 
     @classmethod
     def handle_follow(from_cls, obj):
@@ -1211,6 +1207,9 @@ class Protocol:
           from_user (models.User): user (actor) this activity is from
           to_proto (protocol.Protocol): optional; if provided, only deliver to
             targets on this protocol
+
+        Returns:
+          (str, int) tuple: Flask response
         """
         if to_proto:
             logger.info(f'Only delivering to {to_proto.LABEL}')
