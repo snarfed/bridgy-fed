@@ -73,14 +73,16 @@ if LOCAL_SERVER or not DEBUG:
     Thread(target=atproto_firehose.handler, name='atproto_firehose.handler').start()
 
 
-# send requestCrawl to relay
-# delay because we're not up and serving XRPCs at this point yet. not sure why not.
+# send requestCrawl to relay every 5m.
+# delay 15s at startup because we're not up and serving XRPCs at this point yet.
+# not sure why not.
 if 'GAE_INSTANCE' in os.environ:  # prod
     def request_crawl():
         bgs = lexrpc.client.Client(f'https://{os.environ["BGS_HOST"]}',
                                    headers={'User-Agent': USER_AGENT})
         resp = bgs.com.atproto.sync.requestCrawl({'hostname': os.environ['PDS_HOST']})
         logger.info(resp)
+        Timer(5 * 60, request_crawl).start()
 
     Timer(15, request_crawl).start()
     logger.info('Will send relay requestCrawl in 15s')
