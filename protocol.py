@@ -770,7 +770,7 @@ class Protocol:
             error(f'Activity {id} is blocklisted')
 
         # lease this object atomically
-        lease_memcache_key = f'receive-{id}'
+        lease_memcache_key = common.memcache_key(f'receive-{id}')
         if not common.memcache.add(lease_memcache_key, 'leased',
                                    noreply=False, expire=5 * 60):  # 5 min
             error('This object is already being received elsewhere', status=204)

@@ -91,6 +91,9 @@ RUN_TASKS_INLINE = False  # overridden by unit tests
 # for Protocol.REQUIRES_OLD_ACCOUNT, how old is old enough
 OLD_ACCOUNT_AGE = timedelta(days=14)
 
+# https://github.com/memcached/memcached/wiki/Commands#standard-protocol
+MEMCACHE_KEY_MAX_LEN = 250
+
 if appengine_info.DEBUG or appengine_info.LOCAL_SERVER:
     logger.info('Using in memory mock memcache')
     memcache = MockMemcacheClient()
@@ -98,7 +101,8 @@ if appengine_info.DEBUG or appengine_info.LOCAL_SERVER:
 else:
     logger.info('Using production Memorystore memcache')
     memcache = pymemcache.client.base.PooledClient(
-        '10.126.144.3', timeout=10, connect_timeout=10)  # seconds
+        '10.126.144.3', timeout=10, connect_timeout=10,  # seconds
+        allow_unicode_keys=True)
     global_cache = MemcacheCache(memcache)
 
 
@@ -397,3 +401,15 @@ def global_cache_timeout_policy(key):
         return int(timedelta(hours=2).total_seconds())
 
     return int(timedelta(minutes=30).total_seconds())
+
+
+def memcache_key(key):
+    """Preprocesses a memcache key. Right now just truncates it to 250 chars.
+
+    https://pymemcache.readthedocs.io/en/latest/apidoc/pymemcache.client.base.html
+    https://github.com/memcached/memcached/wiki/Commands#standard-protocol
+
+    TODO: truncate to 250 *UTF-8* chars, to handle Unicode chars in URLs. Related:
+    pymemcache Client's allow_unicode_keys constructor kwarg.
+    """
+    return key[:MEMCACHE_KEY_MAX_LEN]

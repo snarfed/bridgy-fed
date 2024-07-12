@@ -1034,7 +1034,7 @@ def inbox(protocol=None, id=None):
             logger.info(f'Discarding, {id} is on an opted out domain')
             return '', 204
 
-        memcache_key = f'AP-id-{id}'
+        memcache_key = common.memcache_key(f'AP-id-{id}')
         if memcache.get(memcache_key):
             logger.info(f'Already seen this activity {id}')
             return '', 204
