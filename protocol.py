@@ -1276,7 +1276,8 @@ class Protocol:
         to_protocols = []
         if DEBUG and from_user.LABEL != 'eefake':  # for unit tests
             to_protocols = [PROTOCOLS['fake'], PROTOCOLS['other']]
-        for label in (list(from_user.DEFAULT_ENABLED_PROTOCOLS)
+        for label in ([from_user.LABEL]
+                      + list(from_user.DEFAULT_ENABLED_PROTOCOLS)
                       + from_user.enabled_protocols):
             proto = PROTOCOLS[label]
             if proto.HAS_COPIES and (obj.type in ('update', 'delete', 'share')

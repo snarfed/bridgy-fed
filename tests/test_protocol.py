@@ -1425,35 +1425,43 @@ class ProtocolReceiveTest(TestCase):
 
 
     def test_create_self_reply_to_same_protocol_bridge_if_original_is_bridged(self):
-        # eve follows alice
-        eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
-        Follower.get_or_create(to=self.alice, from_=eve)
+        # use eefake because Protocol.targets automatically adds fake and other
+        # to to_protocols.
+        # TODO: refactor tests to not do fake-to-fake delivery, then remove
+        # these special cases
+        user = self.make_user('eefake:user', cls=ExplicitEnableFake,
+                              obj_id='eefake:user', enabled_protocols=['other'])
 
-        # alice replies to herself
-        self.store_object(id='fake:post', source_protocol='fake',
+        # eve follows user
+        eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
+        Follower.get_or_create(to=user, from_=eve)
+
+        # user replies to themselves
+        self.store_object(id='eefake:post', source_protocol='eefake',
                           copies=[Target(protocol='other', uri='other:post')],
                           our_as1={
                               'objectType': 'note',
-                              'id': 'fake:post',
-                              'author': 'fake:alice',
+                              'id': 'eefake:post',
+                              'author': 'eefake:user',
                           })
 
         reply_as1 = {
-            'id': 'fake:reply',
+            'id': 'eefake:reply',
             'objectType': 'note',
-            'inReplyTo': 'fake:post',
-            'author': 'fake:alice',
+            'inReplyTo': 'eefake:post',
+            'author': 'eefake:user',
         }
-        self.assertEqual(('OK', 202), Fake.receive_as1(reply_as1))
+        self.assertEqual(('OK', 202), ExplicitEnableFake.receive_as1(reply_as1))
 
-        copy = Target(protocol='other', uri='other:o:fa:fake:reply')
-        reply = self.assert_object('fake:reply',
+        copy = Target(protocol='other', uri='other:o:eefake:eefake:reply')
+        reply = self.assert_object('eefake:reply',
                                    type='note',
+                                   source_protocol='eefake',
                                    our_as1=reply_as1,
                                    copies=[copy],
                                    feed=[eve.key])
-        self.assertEqual([('fake:reply#bridgy-fed-create', 'other:eve:target'),
-                          ('fake:reply#bridgy-fed-create', 'other:post:target'),
+        self.assertEqual([('eefake:reply#bridgy-fed-create', 'other:eve:target'),
+                          ('eefake:reply#bridgy-fed-create', 'other:post:target'),
                           ], OtherFake.sent)
 
     def test_update_reply(self):
