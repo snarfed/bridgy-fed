@@ -1,5 +1,6 @@
 """Single-instance hub for ATProto subscription (firehose) server and client."""
 from functools import lru_cache
+from ipaddress import ip_address, ip_network
 import logging
 import os
 from pathlib import Path
@@ -21,9 +22,12 @@ import atproto_firehose
 from common import global_cache, global_cache_timeout_policy, USER_AGENT
 import models
 
-# CIDRs: 209.249.133.120/29, 108.179.139.0/24
+# as of 2024-07-10
 # https://discord.com/channels/1097580399187738645/1115973909624397855/1260356452162469969
-BSKY_RELAY_CIDRS = (')
+BSKY_TEAM_CIDRS = (
+    ip_network('209.249.133.120/29'),
+    ip_network('108.179.139.0/24'),
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +76,10 @@ def atproto_commit():
 @lru_cache
 def gethostbyaddr(addr):
     """Wrapper for :func:``socket.gethostbyaddr` that caches the result."""
+    for subnet in BSKY_TEAM_CIDRS:
+        if ip_address(addr) in subnet:
+            return 'bsky'
+
     try:
         return socket.gethostbyaddr(addr)[0]
     except socket.herror:

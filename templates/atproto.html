@@ -12,7 +12,9 @@
   <li>{{ nsid }}
   <ul>
     {% for s in subs %}
-    <li>{{ s.ip }} {{ gethostbyaddr(s.ip) }} {{s.user_agent }} {{ s.args }} {{ s.start }}
+      {% set host = gethostbyaddr(s.ip) %}
+      <li {% if host == 'bsky' %}style="background-color: lightgreen"{% endif %}>
+        {{ s.ip }} {{ host }} {{s.user_agent }} {{ s.args }} {{ s.start }}
     {% endfor %}
   <ul>
   {% endfor %}
