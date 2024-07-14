@@ -46,7 +46,7 @@ manual_scaling:
   instances: 1
 
 liveness_check:
-  # default 300; this speeds up deploy
+  # default 300; does lowering this speed up deploy? seems like no
   # https://cloud.google.com/appengine/docs/flexible/reference/app-yaml?tab=python#liveness_checks
   initial_delay_sec: 30
 

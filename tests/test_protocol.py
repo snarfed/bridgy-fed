@@ -1423,6 +1423,24 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([('fake:reply#bridgy-fed-create', 'other:post:target')],
                          OtherFake.sent)
 
+    def test_create_reply_with_copy_on_not_enabled_protocol(self):
+        self.store_object(id='fake:post', source_protocol='fake',
+                          copies=[Target(protocol='eefake', uri='eefake:post')],
+                          our_as1={
+                              'objectType': 'note',
+                              'id': 'fake:post',
+                              'author': 'fake:alice',
+                          })
+
+        _, code = Fake.receive_as1({
+            'objectType': 'note',
+            'id': 'fake:reply',
+            'author': 'fake:user',
+            'inReplyTo': 'fake:post',
+            'content': 'foo',
+        })
+        self.assertEqual(202, code)
+        self.assertEqual([], ExplicitEnableFake.sent)
 
     def test_create_self_reply_to_same_protocol_bridge_if_original_is_bridged(self):
         # use eefake because Protocol.targets automatically adds fake and other

@@ -1326,11 +1326,12 @@ class Protocol:
 
             # also add copies' targets
             for copy in orig_obj.copies:
-                # copies generally won't have their own Objects
-                target = PROTOCOLS[copy.protocol].target_for(Object(id=copy.uri))
-                if target:
-                    logger.info(f'Adding target {target} for copy {copy.uri} of original {id}')
-                    targets[Target(protocol=copy.protocol, uri=target)] = orig_obj
+                proto = PROTOCOLS[copy.protocol]
+                if proto in to_protocols:
+                    # copies generally won't have their own Objects
+                    if target := proto.target_for(Object(id=copy.uri)):
+                        logger.info(f'Adding target {target} for copy {copy.uri} of original {id}')
+                        targets[Target(protocol=copy.protocol, uri=target)] = orig_obj
 
             if protocol == from_cls and from_cls.LABEL != 'fake':
                 logger.info(f'Skipping same-protocol target {id}')
