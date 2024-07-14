@@ -1,6 +1,9 @@
 # https://cloud.google.com/appengine/docs/flexible/reference/dispatch-yaml?tab=python
 
 dispatch:
+  - url: "*/admin/atproto"
+    service: atproto-hub
+
   - url: "*/queue/atproto-commit"
     service: atproto-hub
 

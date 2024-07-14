@@ -1,13 +1,15 @@
 """Single-instance hub for ATProto subscription (firehose) server and client."""
+from functools import lru_cache
 import logging
 import os
 from pathlib import Path
+import socket
 import threading
 from threading import Thread, Timer
 
 import arroba.server
 from arroba import xrpc_sync
-from flask import Flask
+from flask import Flask, render_template
 import lexrpc.client
 import lexrpc.flask_server
 from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
@@ -18,6 +20,10 @@ import activitypub, atproto, web
 import atproto_firehose
 from common import global_cache, global_cache_timeout_policy, USER_AGENT
 import models
+
+# CIDRs: 209.249.133.120/29, 108.179.139.0/24
+# https://discord.com/channels/1097580399187738645/1115973909624397855/1260356452162469969
+BSKY_RELAY_CIDRS = (')
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +67,25 @@ def atproto_commit():
     """
     xrpc_sync.send_events()
     return 'OK'
+
+
+@lru_cache
+def gethostbyaddr(addr):
+    """Wrapper for :func:``socket.gethostbyaddr` that caches the result."""
+    try:
+        return socket.gethostbyaddr(addr)[0]
+    except socket.herror:
+        return None
+
+
+@app.get('/admin/atproto')
+def atproto_admin():
+    return render_template(
+        'atproto.html',
+        subscribers=lexrpc.flask_server.subscribers,
+        gethostbyaddr=gethostbyaddr,
+    )
+
 
 
 # start firehose consumer threads

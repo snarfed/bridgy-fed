@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}ATProto state - Bridgy Fed{% endblock %}
+
+{% block content %}
+
+<h3>ATProto state</h3>
+<ul>
+<li>Current subscribers:
+  <ul>
+  {% for nsid, subs in subscribers.items() %}
+  <li>{{ nsid }}
+  <ul>
+    {% for s in subs %}
+    <li>{{ s.ip }} {{ gethostbyaddr(s.ip) }} {{s.user_agent }} {{ s.args }} {{ s.start }}
+    {% endfor %}
+  <ul>
+  {% endfor %}
+  </ul>
+</ul>
+</h3>
+
+{% endblock %}

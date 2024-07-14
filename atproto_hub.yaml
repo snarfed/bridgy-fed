@@ -45,6 +45,11 @@ env_variables:
 manual_scaling:
   instances: 1
 
+liveness_check:
+  # default 300; this speeds up deploy
+  # https://cloud.google.com/appengine/docs/flexible/reference/app-yaml?tab=python#liveness_checks
+  initial_delay_sec: 30
+
 # https://cloud.google.com/appengine/docs/flexible/python/runtime#application_startup
 # https://docs.gunicorn.org/en/latest/settings.html#timeout
 # TODO: try asyncio w/eventlet workers
