@@ -13,8 +13,9 @@
   <ul>
     {% for s in subs %}
       {% set host = gethostbyaddr(s.ip) %}
+      {% set pt = pytz.timezone('US/Pacific') %}
       <li {% if host == 'bsky' %}style="background-color: lightgreen"{% endif %}>
-        {{ s.ip }} {{ host }} {{s.user_agent }} {{ s.args }} {{ s.start }}
+        {{ s.ip }} {{ host }} {{s.user_agent }} {{ s.args }} {{ s.start.astimezone(pt) }}
     {% endfor %}
   <ul>
   {% endfor %}

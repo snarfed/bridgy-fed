@@ -15,6 +15,7 @@ import lexrpc.client
 import lexrpc.flask_server
 from oauth_dropins.webutil.appengine_info import DEBUG, LOCAL_SERVER
 from oauth_dropins.webutil import appengine_config, flask_util
+import pytz
 
 # all protocols
 import activitypub, atproto, web
@@ -92,6 +93,7 @@ def atproto_admin():
         'atproto.html',
         subscribers=lexrpc.flask_server.subscribers,
         gethostbyaddr=gethostbyaddr,
+        pytz=pytz,
     )
 
 
