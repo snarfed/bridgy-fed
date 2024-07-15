@@ -49,7 +49,7 @@
 
 <br>
 
-<p><em>From the fediverse ⚠️ BETA ⚠️</em></p>
+<p><em>From the fediverse</em></p>
 
 <li><a href="#fediverse-get-started">How do I get started?</a></li>
 <li><a href="#fediverse-follow-bluesky">How do I find a bridged Bluesky account?</a></li>
@@ -62,7 +62,7 @@
 
 <br>
 
-<p><em>To the fediverse ⚠️ BETA ⚠️</em></p>
+<p><em>To the fediverse</em></p>
 
 <li><a href="#fediverse-servers">Which fediverse servers are supported?</a></li>
 <li><a href="#mastodon-link-verification">How do I verify my profile links (ie get green checks) in Mastodon?</a></li>
@@ -71,7 +71,7 @@
 
 <br>
 
-<p><em>From Bluesky ⚠️ BETA ⚠️</em></p>
+<p><em>From Bluesky</em></p>
 
 <li><a href="#bluesky-get-started">How do I get started?</a></li>
 <li><a href="#bluesky-follow">How do I find a bridged fediverse account?</a></li>
@@ -80,7 +80,7 @@
 
 <br>
 
-<p><em>To Bluesky ⚠️ BETA ⚠️</em></p>
+<p><em>To Bluesky</em></p>
 
 <li><a href="#bluesky-what-to">Which stuff of mine can get bridged into Bluesky?</a></li>
 <li><a href="#bluesky-what-not-to">Which stuff can't get bridged into Bluesky?</a></li>
@@ -149,7 +149,6 @@
 <li id="which-networks" class="question">Which networks are supported?</li>
 <li class="answer">
 <p>Bridgy Fed currently supports <a href="https://indieweb.org/">the web</a>, <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>, and <a href="https://bsky.social/">Bluesky</a>. We're considering adding more networks, including <a href="https://nostr.com/">Nostr</a> and <a href="https://www.farcaster.xyz/">Farcaster</a>.</p>
-<p><em>⚠️ Bridging between the fediverse and Bluesky is currently in early beta testing. Expect bugs, incomplete features, downtime, and other rough edges! ⚠️</em></p>
 <p>All bridging is fully bidirectional. If you're on a supported network, you can use Bridgy Fed to follow and interact with anyone on any other supported network.</p>
 </li>
 
@@ -318,11 +317,10 @@
 
 <br>
 
-<h3 id="from-fediverse">From the fediverse ⚠️ BETA ⚠️</h3>
+<h3 id="from-fediverse">From the fediverse</h3>
 
 <li id="fediverse-get-started" class="question">How do I get started?</li>
 <li class="answer">
-<p><em>⚠️ Bridging from the fediverse to Bluesky is currently in early beta testing. Expect bugs, incomplete features, downtime, and other rough edges! ⚠️</em></p>
 <p>To bridge your fediverse account into Bluesky and interact with people there, search for and follow <code>@bsky.brid.gy@bsky.brid.gy</code>. That account will then follow you back. Accept its follow to make sure your fediverse posts get sent the bridge and make it into Bluesky.</p>
 <p>If your fediverse account is <code>@[user]@[instance]</code>, your bridged account will have the handle <code>[user].[instance].ap.brid.gy</code> in Bluesky. For example, <a href="https://indieweb.social/@snarfed">@snarfed@indieweb.social</a> is bridged into Bluesky as <a href="https://bsky.app/profile/snarfed.indieweb.social.ap.brid.gy">@snarfed.indieweb.social.ap.brid.gy</a>.</p>
 <p>If your fediverse username has <code>_</code> (underscore) or <code>~</code> (tilde) characters, they're converted to <code>-</code> (dash) characters. For example, <code>@a_b~c@my.social</code> is bridged into Bluesky as <code>@a-b-c.my.social.ap.brid.gy</code>.</p>
@@ -372,7 +370,7 @@
 <br>
 
 
-<h3 id="to-fediverse">To the fediverse ⚠️ BETA ⚠️</h3>
+<h3 id="to-fediverse">To the fediverse</h3>
 
 <li id="fediverse-servers" class="question">Which fediverse servers are supported?</li>
 <li class="answer">
@@ -449,11 +447,10 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <br>
 
-<h3 id="from-bluesky">From Bluesky ⚠️ BETA ⚠️</h3>
+<h3 id="from-bluesky">From Bluesky</h3>
 
 <li id="bluesky-get-started" class="question">How do I get started?</li>
 <li class="answer">
-<p><em>⚠️ Bridging from Bluesky to the fediverse is currently in early beta testing. Expect bugs, incomplete features, downtime, and other rough edges! ⚠️</em></p>
 <p>To bridge your Bluesky account into the fediverse and interact with people there, follow <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a> on Bluesky.</p>
 <p>After a few minutes, your Bluesky account will appear in the fediverse as <code>@[handle]@bsky.brid.gy</code>. For example, <a href="https://bsky.app/profile/snarfed.bsky.social">@snarfed.bsky.social</a> on Bluesky is bridged into the fediverse as <code>@snarfed.bsky.social@bsky.brid.gy</code>.</p>
 <p>Alternatively, <a href="#bluesky-follow">you can find and follow bridged fediverse accounts</a> without bridging your own account, but they won't see your posts or interactions.<p>
@@ -480,7 +477,7 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <br>
 
-<h3 id="to-bluesky">To Bluesky ⚠️ BETA ⚠️</h3>
+<h3 id="to-bluesky">To Bluesky</h3>
 
 <li id="bluesky-what-to" class="question">Which stuff of mine can get bridged into Bluesky?</li>
 <li class="answer">
