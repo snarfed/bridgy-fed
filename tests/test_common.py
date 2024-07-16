@@ -149,3 +149,11 @@ class CommonTest(TestCase):
 
         mock_client.report.assert_called_with('foo', http_context=None, bar='baz')
 
+    @patch('common.MEMCACHE_KEY_MAX_LEN', new=10)
+    def test_memcache_key(self):
+        for input, expected in (
+                ('foo', 'foo'),
+                ('foo-bar-baz', 'foo-bar-ba'),
+                ('foo bar', 'foo%20bar'),
+        ):
+            self.assertEqual(expected, common.memcache_key(input))
