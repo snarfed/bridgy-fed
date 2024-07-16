@@ -1666,7 +1666,11 @@ def send_task():
         logger.info(f'Failed sending {obj.key.id()} to {url}')
 
     # write results to Object
-    @ndb.transactional()
+    #
+    # retry aggressively because this has high contention during inbox delivery.
+    # (ndb does exponential backoff.)
+    # https://console.cloud.google.com/errors/detail/CJm_4sDv9O-iKg;time=P7D?project=bridgy-federated
+    @ndb.transactional(retries=10)
     def update_object(obj_key):
         obj = obj_key.get()
         if target in obj.undelivered:
