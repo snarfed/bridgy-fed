@@ -33,7 +33,7 @@ from common import (
     SUPERDOMAIN,
 )
 from flask_app import app
-from ids import translate_object_id, translate_user_id
+from ids import normalize_user_id, translate_object_id, translate_user_id
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
 
@@ -584,7 +584,12 @@ def check_web_site():
     url = request.values['url']
 
     # this normalizes and lower cases domain
-    domain = util.domain_from_link(url, minimize=False)
+    try:
+        domain = normalize_user_id(id=url, proto=Web)
+    except (ValueError, AssertionError):
+        logger.info(f'bad web id? {url}', exc_info=True)
+        domain = None
+
     if not domain or not is_valid_domain(domain, allow_internal=False):
         flash(f'{url} is not a valid or supported web site')
         return render_template('enter_web_site.html'), 400
