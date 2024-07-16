@@ -186,7 +186,7 @@ class ATProto(User, Protocol):
     HAS_COPIES = True
     REQUIRES_AVATAR = True
     REQUIRES_NAME = True
-    DEFAULT_ENABLED_PROTOCOLS = ()
+    DEFAULT_ENABLED_PROTOCOLS = ('web',)
     SUPPORTED_AS1_TYPES = frozenset(
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)

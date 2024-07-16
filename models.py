@@ -295,7 +295,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                     continue
                 elif proto.HAS_COPIES:
                     if not user.get_copy(proto) and user.is_enabled(proto):
-                        proto.create_for(user)
+                        try:
+                            proto.create_for(user)
+                        except (ValueError, AssertionError):
+                            logging.info(f'failed creating {proto.LABEL} copy')
                     else:
                         logger.info(f'{proto.LABEL} not enabled or user copy already exists, skipping propagate')
 

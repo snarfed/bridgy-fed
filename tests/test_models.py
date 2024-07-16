@@ -372,10 +372,10 @@ class UserTest(TestCase):
         self.assertTrue(ActivityPub(id='').is_enabled(ActivityPub))
         self.assertTrue(Fake(id='').is_enabled(OtherFake))
         self.assertTrue(Fake(id='').is_enabled(ExplicitEnableFake))
+        self.assertTrue(ATProto(id='').is_enabled(Web))
 
         self.assertFalse(ActivityPub(id='').is_enabled(ATProto))
         self.assertFalse(ATProto(id='').is_enabled(ActivityPub))
-        self.assertFalse(ATProto(id='').is_enabled(Web))
         self.assertFalse(Web(id='').is_enabled(ATProto))
         self.assertFalse(ExplicitEnableFake(id='').is_enabled(Fake))
         self.assertFalse(ExplicitEnableFake(id='').is_enabled(Web))

@@ -3,6 +3,8 @@ import copy
 from datetime import timedelta
 from unittest.mock import ANY, patch
 
+import arroba.server
+from arroba.util import at_uri
 from flask import get_flashed_messages
 from google.cloud import ndb
 from granary import as1, as2, atom, microformats2, rss
@@ -17,11 +19,12 @@ from werkzeug.exceptions import BadGateway, BadRequest
 from . import testutil
 
 from activitypub import ActivityPub
+from atproto import ATProto
 import common
 from common import CONTENT_TYPE_HTML, TASKS_LOCATION
 from flask_app import app
 import ids
-from models import Follower, Object
+from models import Follower, Object, Target
 import web
 from web import Web
 from . import test_activitypub
@@ -532,6 +535,26 @@ class WebTest(TestCase):
     def test_get_or_create_bridgy_subdomain(self, *_):
         for subdomain in '', 'fa.', 'fed.', 'web.':
             self.assertIsNone(Web.get_or_create(f'{subdomain}brid.gy'))
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_get_or_create_new_propagate_atproto(self, mock_create_task,
+                                                         mock_get, mock_post):
+        common.RUN_TASKS_INLINE = False
+        mock_get.return_value = requests_response(ACTOR_HTML, url='https://new.com/')
+        mock_post.return_value = requests_response('OK')  # create DID on PLC
+
+        user = Web.get_or_create('new.com', enabled_protocols=['atproto'],
+                                 propagate=True)
+
+        # check user, repo, profile record
+        did = user.get_copy(ATProto)
+        repo = arroba.server.storage.load_repo(did)
+        self.assertIsNotNone(repo.get_record('app.bsky.actor.profile', 'self'))
+        uri = at_uri(did, 'app.bsky.actor.profile', 'self')
+        self.assertEqual([Target(uri=uri, protocol='atproto')],
+                         Object.get_by_id(id='https://new.com/').copies)
+
+        self.assert_task(mock_create_task, 'poll-feed', domain='new.com')
 
     def test_bad_source_url(self, *mocks):
         orig_count = Object.query().count()
@@ -2450,13 +2473,18 @@ http://this/404s
         got = self.post('/web-site', data={'url': 'https://☃.net/'})
         self.assert_equals(302, got.status_code)
         self.assert_equals('/web/%E2%98%83.net', got.headers['Location'])
-        self.assertIsNotNone(Web.get_by_id('☃.net'))
+        user = Web.get_by_id('☃.net')
+        self.assertIsNotNone(user)
+
+        # ☃.net isn't a valid Bluesky handle
+        self.assertIsNone(user.get_copy(ATProto))
 
     def test_check_web_site_lower_cases_domain(self, mock_get, _):
         mock_get.side_effect = (
-            requests_response(''),
-            requests_response(''),
-            requests_response(''),
+            requests_response(''),  # home page
+            requests_response(''),  # home page
+            requests_response(''),  # webfinger
+            requests_response(''),  # home page
         )
 
         got = self.post('/web-site', data={'url': 'https://AbC.oRg/'})
