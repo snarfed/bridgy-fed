@@ -2,6 +2,7 @@
 import copy
 from datetime import timedelta
 import logging
+import os
 import re
 from threading import Lock
 from urllib.parse import urljoin, urlparse
@@ -52,7 +53,8 @@ OBJECT_REFRESH_AGE = timedelta(days=30)
 
 # require a follow for users on these domains before we deliver anything from
 # them other than their profile
-LIMITED_DOMAINS = util.load_file_lines('limited_domains')
+LIMITED_DOMAINS = (os.getenv('LIMITED_DOMAINS', '').split()
+                   or util.load_file_lines('limited_domains'))
 
 # activity ids that we've already handled and can now ignore.
 # used in Protocol.receive
