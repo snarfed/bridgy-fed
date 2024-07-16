@@ -149,7 +149,7 @@ class Web(User, Protocol):
             return None  # opted out
 
         domain = key.id()
-        if util.domain_or_parent_in(domain, [SUPERDOMAIN.strip('.')]):
+        if Protocol.for_bridgy_subdomain(domain):
             return super().get_by_id(domain)
 
         user = super().get_or_create(domain, **kwargs)

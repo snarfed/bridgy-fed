@@ -958,8 +958,7 @@ class Protocol:
                 }
 
         if obj.type == 'follow':
-            proto = Protocol.for_bridgy_subdomain(inner_obj_id)
-            if proto:
+            if proto := Protocol.for_bridgy_subdomain(inner_obj_id):
                 # follow of one of our protocol bot users; enable that protocol.
                 # foll through so that we send an accept.
                 from_user.enable_protocol(proto)
