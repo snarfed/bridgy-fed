@@ -263,13 +263,17 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             user.existing = True
 
             # TODO: propagate more fields?
-            for field in ['direct', 'enabled_protocols', 'obj', 'obj_key']:
+            for field in ['direct', 'obj', 'obj_key']:
                 old_val = getattr(user, field, None)
                 new_val = kwargs.get(field)
                 if ((old_val is None and new_val is not None)
                         or (field == 'direct' and not old_val and new_val)):
                     setattr(user, field, new_val)
                     user.put()
+
+            if enabled_protocols := kwargs.get('enabled_protocols'):
+                user.enabled_protocols = (set(user.enabled_protocols)
+                                          | set(enabled_protocols))
 
             if not propagate:
                 return user
@@ -496,8 +500,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         def disable():
             user = self.key.get()
             remove(user.enabled_protocols, to_proto.LABEL)
-            # TODO: delete copy user
-            # https://github.com/snarfed/bridgy-fed/issues/783
             user.put()
 
         disable()

@@ -69,6 +69,13 @@ class UserTest(TestCase):
         user.direct = True
         self.assert_entities_equal(same, user, ignore=['updated'])
 
+    def test_get_or_create_existing_merge_enabled_protocols(self):
+        self.user.enabled_protocols = ['fake']
+        self.user.put()
+
+        user = Web.get_or_create('y.za', enabled_protocols=['other'])
+        self.assertCountEqual(['fake', 'other'], user.enabled_protocols)
+
     @patch.object(Fake, 'DEFAULT_ENABLED_PROTOCOLS', ['other'])
     def test_get_or_create_propagate_fake_other(self):
         user = Fake.get_or_create('fake:user', propagate=True)
