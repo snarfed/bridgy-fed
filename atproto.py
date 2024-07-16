@@ -185,7 +185,7 @@ class ATProto(User, Protocol):
     CONTENT_TYPE = 'application/json'
     HAS_COPIES = True
     REQUIRES_AVATAR = True
-    REQUIRES_NAME = True
+    REQUIRES_NAME = False
     DEFAULT_ENABLED_PROTOCOLS = ('web',)
     SUPPORTED_AS1_TYPES = frozenset(
         tuple(as1.ACTOR_TYPES)

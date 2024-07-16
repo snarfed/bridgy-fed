@@ -103,7 +103,7 @@ class ActivityPub(User, Protocol):
     LOGO_HTML = '<img src="/static/fediverse_logo.svg">'
     CONTENT_TYPE = as2.CONTENT_TYPE_LD_PROFILE
     REQUIRES_AVATAR = True
-    REQUIRES_NAME = True
+    REQUIRES_NAME = False
     REQUIRES_OLD_ACCOUNT = True
     DEFAULT_ENABLED_PROTOCOLS = ('web',)
     SUPPORTED_AS1_TYPES = (
