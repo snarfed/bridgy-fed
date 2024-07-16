@@ -16,9 +16,9 @@
 <p><em>Fediverse profile via Bridgy Fed</em></p>
 </div>
 
-<p>Bridgy Fed is a decentralized social network bridge. It connects the fediverse, the web, and soon Bluesky/AT Protocol and Nostr. If you're on one of these networks, you can use Bridgy Fed to follow people on other networks, see their posts, and reply and like and repost them. Likewise, they'll be able to see you and your posts too.</p>
+<p>Bridgy Fed is a decentralized social network bridge. It connects the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>, the <a href="https://indieweb.org/">web</a>, and <a href="https://bsky.social/">Bluesky</a>. If you're on one of these networks, you can use Bridgy Fed to follow people on other networks, see their posts, and reply and like and repost them. Likewise, they'll be able to see you and your posts too.</p>
 
-<p>To get started, <a href="/#instructions">follow someone on another network via Bridgy Fed</a>, then interact with them normally! See below for more information and setup details.</p>
+<p><a href="/docs#get-started">Click here to get started</a>, or read on for more information and setup details.</p>
 
 <br>
 
@@ -74,7 +74,8 @@
 <p><em>From Bluesky</em></p>
 
 <li><a href="#bluesky-get-started">How do I get started?</a></li>
-<li><a href="#bluesky-follow">How do I find a bridged fediverse account?</a></li>
+<li><a href="#bluesky-follow-fediverse">How do I find a bridged fediverse account?</a></li>
+<li><a href="#bluesky-follow-web">How do I find a bridged web site?</a></li>
 <li><a href="#bluesky-what-from">Which stuff of mine from Bluesky will get bridged?</a>
 <li><a href="#bluesky-reply-controls">Can I use Bluesky's reply controls?</a></li>
 
@@ -148,8 +149,8 @@
 
 <li id="which-networks" class="question">Which networks are supported?</li>
 <li class="answer">
-<p>Bridgy Fed currently supports <a href="https://indieweb.org/">the web</a>, <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>, and <a href="https://bsky.social/">Bluesky</a>. We're considering adding more networks, including <a href="https://nostr.com/">Nostr</a> and <a href="https://www.farcaster.xyz/">Farcaster</a>.</p>
-<p>All bridging is fully bidirectional. If you're on a supported network, you can use Bridgy Fed to follow and interact with anyone on any other supported network.</p>
+<p>Bridgy Fed currently supports <a href="https://indieweb.org/">the web</a>, <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>, and <a href="https://bsky.social/">Bluesky</a>. We're considering adding more networks, including <a href="https://www.farcaster.xyz/">Farcaster</a> and <a href="https://nostr.com/">Nostr</a>.</p>
+<p>All bridging is fully bidirectional. If you're on a supported network, you can use Bridgy Fed to follow and interact with bridged users on any other supported network.</p>
 </li>
 
 <li id="visibility" class="question">Who can see me and my stuff?</li>
@@ -168,7 +169,7 @@
 <li id="bridgy-classic" class="question">What's the difference between this and Bridgy classic, ie non-Fed?</li>
 <li class="answer">
 <p><a href="https://fed.brid.gy/">Bridgy Fed</a> and <a href="https://brid.gy/">Bridgy classic</a> are separate services. They both connect web sites and social networks and translate posts and interactions back and forth, but they each do it very differently.</p>
-<a href="https://fed.brid.gy/">Bridgy Fed</a> - this service - bridges accounts on decentralized social networks like the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>, <a href="https://bsky.social/">Bluesky</a>/<a href="https://atproto.com/">AT Protocol</a>, <a href="https://nostr.com/">Nostr</a>, and the <a href="https://indieweb.org/">IndieWeb</a> <em>directly</em> across those networks.</p>
+<a href="https://fed.brid.gy/">Bridgy Fed</a> - this service - bridges accounts on decentralized social networks like the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>, <a href="https://bsky.social/">Bluesky</a>/<a href="https://atproto.com/">AT Protocol</a>, and the <a href="https://indieweb.org/">IndieWeb</a> <em>directly</em> across those networks.</p>
 <p><a href="https://brid.gy/">Bridgy classic</a>, on the other hand, connects IndieWeb web sites to <em>existing</em> accounts on social networks, both centralized and decentralized, and provides <a href="https://indieweb.org/backfeed">backfeed</a> and <a href="https://indieweb.org/POSSE">POSSE</a> (aka cross-posting) as a service.</p>
 <p>As an example, here's a visualization of how they each connect web sites to the fediverse:</p>
 
@@ -213,7 +214,7 @@
 
 <li id="behavior-mismatches" class="question">How does this handle behavior differences between networks?</li>
 <li class="answer">
-<p>When networks work differently, we try to preserve each network's behavior as much as possible. For example, following on the web is permissionless: you can follow any web site in a feed reader. However, in the fediverse, following is generally a <em>request</em>. People choose whether to approve each follower individually.</p>
+<p>When networks work differently, we try to preserve each network's behavior as much as possible. For example, following on the web is permissionless: you can follow any web site in a feed reader. However, in the fediverse, following may require approval, ie users can choose to approve or reject each follower individually.</p>
 <p>Bridgy Fed cooperates with this. When a web user follows a fediverse user, Bridgy Fed only adds them and starts delivering posts once the fediverse user approves the follow.</p>
 </li>
 
@@ -382,7 +383,7 @@
 
 <li id="mastodon-link-verification" class="question">How do I verify my profile links (ie get green checks) in Mastodon?</li>
 <li class="answer">
-<p>Mastodon's verified profile links with ✅ green checks are fun! <a href="https://docs.joinmastodon.org/user/profile/#verification"></a> Follow these steps to get one on your Bridgy Fed profile:</p>
+<p>Mastodon's verified profile links with ✅ green checks are fun! If you've bridged your web site into the fediverse, <a href="https://docs.joinmastodon.org/user/profile/#verification"></a>follow these steps to get one:</p>
 
 <ul>
 <li>Add a <a href="https://indieweb.org/rel-me"><code>rel=me</code> link</a> on your site that points to <code>https://web.brid.gy/r/https://[DOMAIN]/</code> for your domain, eg <code>https://web.brid.gy/r/https://snarfed.org/</code></li>
@@ -393,12 +394,12 @@
 <li>Wait a minute or two (or ten 😐), then refresh the page. You should see a green check on the profile link for your web site.</li>
 </ul>
 
-<p>When you're logged into a Mastodon instance, searching for your Bridgy Fed user triggers that instance to check and verify its profile link(s) in the background. This only works when you're logged in with a native Mastodon account. Also, each instance does this independently; verified links are not synched across instances.</p>
+<p>When you're logged into a Mastodon instance, <a href="http://localhost:8080/docs#fediverse-follow-web">searching for your bridged web site</a> triggers that instance to check and verify its profile link(s) in the background. This only works when you're logged in with a native Mastodon account. Also, each instance does this independently; verified links are not synched across instances.</p>
 </li>
 
 <li id="fediverse-enhanced" class="question">Can I use my own domain as my fediverse handle?</li>
 <li class="answer">
-<p>Yes! By default, bridged fediverse handles use a subdomain of <code>brid.gy</code> as their instance, eg <code>@mysite.com@web.brid.gy</code>, but you can change the instance part to your own domain. It takes a bit of setup and technical know-how, but it's very doable.</p>
+<p>Yes! By default, fediverse handles for web sites use <code>web.brid.gy</code> as their instance, eg <code>@mysite.com@web.brid.gy</code>, but you can change that to your own domain. It takes a bit of setup and technical know-how, but it's very doable.</p>
 <p>First, your domain needs to serve HTTP requests. You don't need an actual web site, but you do need a minimal web server.<p>
 <p>Second, your web server needs to support SSL. Bridgy Fed uses your domain as your identity, so it depends on SSL to prove that you own it.</p>
 <p>Lastly, your web server needs to redirect a couple URL paths, including query parameters, to the same paths on <code>https://fed.brid.gy/</code>:</li>
@@ -460,20 +461,21 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 </li>
 
 
-<li id="bluesky-follow" class="question">How do I find a bridged fediverse account?</li>
+<li id="bluesky-follow-fediverse" class="question">How do I find a bridged fediverse account?</li>
 <li class="answer">
 <p>If a fediverse account has enabled the bridge, it will appear in Bluesky as <code>@[user].[instance].ap.brid.gy</code>. For example, <a href="https://indieweb.social/@snarfed">@snarfed@indieweb.social</a> is bridged into Bluesky as <a href="https://bsky.app/profile/snarfed.indieweb.social.ap.brid.gy">@snarfed.indieweb.social.ap.brid.gy</a>.</p>
 </li>
 
 
-<li id="bluesky-what-from" class="question">Which stuff of mine from Bluesky will get bridged?</li>
+<li id="bluesky-follow-web" class="question">How do I find a bridged web site?</li>
 <li class="answer">
-<p>Anything that interacts with fediverse users. This includes replies, @-mentions, likes, reposts, and if you have any fediverse followers, your own posts. Hashtags, links, link previews, images, and even alt text are also included.</p>
+<p>To follow a web site, first <a href="#enter-web-site">enter it here</a> to make sure it's set up, then wait a minute, then <a href="https://bsky.app/search">search for it in Bluesky</a> as <code>[domain].web.brid.gy</code>. For example, <a href="https://nature.com/">nature.com</a> is bridged into Bluesky as <a href="https://bsky.app/profile/nature.com.web.brid.gy">nature.com.web.brid.gy</a>.</p>
+</li>
 
 
 <li id="bluesky-reply-controls" class="question">Can I use Bluesky's reply controls?</li>
 <li class="answer">
-<p>Yes! Bluesky's <a href="https://bsky.app/profile/safety.bsky.app/post/3khhw67cxqg22">reply controls</a> apply to accounts bridged from the fediverse as well as to native Bluesky accounts. The fediverse itself doesn't have reply controls, so if you bridge your Bluesky account and post with reply controls, people in the fediverse will still be able to reply, but those replies won't show up in Bluesky.</p>
+<p>Yes! Bluesky's <a href="https://bsky.app/profile/safety.bsky.app/post/3khhw67cxqg22">reply controls</a> apply to accounts bridged from the web and the fediverse as well as to native Bluesky accounts. Those platforms don't have reply controls, so if you bridge your Bluesky account and post with reply controls, people on the fediverse and the web will still be able to reply, but those replies won't show up in Bluesky.</p>
 </li>
 
 
@@ -484,17 +486,12 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <li id="bluesky-what-to" class="question">Which stuff of mine can get bridged into Bluesky?</li>
 <li class="answer">
-<p>Profiles, following, posts, replies, likes, reposts, images, hashtags, and @-mentions.</p>
+<p>Profiles, following, posts, replies, likes, reposts, images, hashtags, @-mentions, and <a href="https://docs.joinmastodon.org/user/posting/#cw">content warnings</a>.</p>
 </li>
 
 <li id="bluesky-what-not-to" class="question">Which stuff can't get bridged into Bluesky?</li>
 <li class="answer">
-<p><a href="https://github.com/bluesky-social/atproto/discussions/1310">Polls</a>, edits/updates, <a href="https://docs.joinmastodon.org/user/posting/#cw">content warnings</a>, videos or (most) GIFs.</p>
-</li>
-
-<li id="bluesky-hashtags-in-text" class="question">Why didn't my hashtag show up?</li>
-<li class="answer">
-<p>To appear in Bluesky, hashtags need to be in your post text, not just attached separately.</a></p>
+<p><a href="https://github.com/bluesky-social/atproto/discussions/1310">Polls</a>, <a href="https://github.com/snarfed/bridgy-fed/issues/947">edits/updates</a>, videos or (most) GIFs.</p>
 </li>
 
 <li id="bluesky-report" class="question">What happens when I report a bridged Bluesky user?</li>
@@ -549,6 +546,8 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 &lt;img class="<span class='keyword'>u-featured</span>" src="<span class='value'>/my-header.png</span>" /&gt;
 </pre>
 </p>
+
+<p>Your Bluesky handle will be <code>yourdomain.com.web.brid.gy</code>.</p>
 
 <p>By default, your fediverse address will be <code>@yourdomain.com@yourdomain.com</code>. Many services (eg Mastodon) default to only showing the username, so this generally shows up as just <code>@yourdomain.com</code> in posts, and the full address appears on hover.</p>
 
@@ -616,10 +615,10 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 </p>
 </li>
 
-<li id="web-reply" class="question">How do I reply to a fediverse post?</li>
+<li id="web-reply" class="question">How do I reply to a fediverse or Bluesky post?</li>
 <li class="answer">
 <p>
-Put the reply in a new post on your web site, and include a link to the fediverse post you're replying to with class <code><a href="http://microformats.org/wiki/rel-in-reply-to">u-in-reply-to</a></code>, as if you were publishing a normal <a href="https://indieweb.org/comment">IndieWeb reply</a>. For example:
+Put the reply in a new post on your web site, and include a link to the post you're replying to with class <code><a href="http://microformats.org/wiki/rel-in-reply-to">u-in-reply-to</a></code>, as if you were publishing a normal <a href="https://indieweb.org/comment">IndieWeb reply</a>. For example:
 
 <pre>&lt;div class="<span class='keyword'>h-entry</span>"&gt;
   &lt;p class="<span class='keyword'>e-content</span>"&gt;<span class='value'>Highly entertaining. Please subscribe me to your newsletter.</span>&lt;/p&gt;
@@ -630,9 +629,9 @@ Put the reply in a new post on your web site, and include a link to the fedivers
 </p>
 </li>
 
-<li id="web-like" class="question">How do I favorite (aka like) or boost (aka repost) a fediverse post?</li>
+<li id="web-like" class="question">How do I like or repost a fediverse or Bluesky post?</li>
 <li class="answer">
-<p>Favoriting and boosting are almost exactly the <a href="#web-reply">same as replying</a>. The only difference is that you use <code><a href="https://indieweb.org/like">u-like-of</a></code> for a favorite/like or <code><a href="https://indieweb.org/repost">u-repost-of</a></code> for a boost/repost.
+<p>Liking and reposting are almost exactly the <a href="#web-reply">same as replying</a>. The only difference is that you use <code><a href="https://indieweb.org/like">u-like-of</a></code> for a like or <code><a href="https://indieweb.org/repost">u-repost-of</a></code> for a repost.
 
 <pre>
 &lt;a class="<span class='keyword'>u-like-of</span>" href="<a href='https://indieweb.social/@tchambers/109374703563569354'>https://indieweb.social/@tchambers/109374703563569354</a>"&gt;&lt;/a&gt;
@@ -710,7 +709,7 @@ Dancing dancing dancing
 
 <li id="web-mention" class="question">How do I @-mention someone?</li>
 <li class="answer">
-<p>Include a link to their fediverse profile in your post's content with an <code>@</code> character at the beginning of the link text. For example:
+<p>Include a link to their profile in your post's content with an <code>@</code> character at the beginning of the link text. For example:
 </p>
 
 <pre>
@@ -722,7 +721,7 @@ Hi &lt;a href="<a href='https://mastodon.social/@adactio'>https://mastodon.socia
 
 <li id="web-update" class="question">How do I edit an existing post?</li>
 <li class="answer">
-<p>Edit the post on your web site, then send another webmention to Bridgy Fed for it. Bridgy Fed will refetch the post and send an <a href="https://www.w3.org/TR/activitypub/#update-activity-outbox"><code>Update</code> activity</a> for it to the fediverse.
+<p>Edit the post on your web site, then send another webmention to Bridgy Fed for it. Bridgy Fed will refetch the post and updated it everywhere it was originally bridged.
 </p>
 </li>
 
@@ -742,16 +741,16 @@ Hi &lt;a href="<a href='https://mastodon.social/@adactio'>https://mastodon.socia
 <p>...add the id to your page's URL in a fragment, e.g. <code>http://site/post#b</code> here.</p>
 </li>
 
-<li id="web-backfeed" class="question">How do fediverse replies, likes, and other interactions show up on my site?</li>
+<li id="web-backfeed" class="question">How do replies, likes, and other interactions show up on my site?</li>
 <li class="answer">
 <p>
-To receive likes, reposts, replies, @-mentions, and follows from the fediverse, make sure your site accepts <a href="https://webmention.net/">webmentions</a>! Bridgy Fed translates those interactions and sends them to your site as webmentions. The source URL will usually be a proxy page on a subdomain of <code>brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>.
+To receive likes, reposts, replies, @-mentions, and follows from other networks, make sure your site accepts <a href="https://webmention.net/">webmentions</a>! Bridgy Fed translates those interactions and sends them to your site as webmentions. The source URL will usually be a proxy page on a subdomain of <code>brid.gy</code>. For best results, <a href="https://brid.gy/about#appspot">make sure your webmention handler detects and handles <code>u-url</code> links</a>.
 </p>
 </li>
 
-<li id="web-read" class="question">How do I read my fediverse timeline/feed?</li>
+<li id="web-read" class="question">How do I read my timeline/feed?</li>
 <li class="answer">
-<p><a href="#user-page">Your user page</a> has links to your fediverse timeline/feed, ie posts from people you follow, in HTML, Atom, and RSS formats. Add them to your feed <a href="https://indieweb.org/social_reader">reader</a> or read them in your browser!
+<p><a href="#user-page">Your user page</a> has links to your timeline/feed, ie posts from people you follow, in HTML, Atom, and RSS formats. Add them to your feed <a href="https://indieweb.org/social_reader">reader</a> or read them in your browser!
 </p>
 </li>
 
@@ -761,17 +760,18 @@ To receive likes, reposts, replies, @-mentions, and follows from the fediverse, 
 </p>
 </li>
 
-<li id="web-discovery" class="question">How can people on the fediverse find and follow me?</li>
+<li id="web-discovery" class="question">How can people find and follow me?</li>
 <li class="answer">
-<p>They can search for your web site in any Mastodon instance! Often you can enter your domain, eg <code>yourdomain.com</code>, in any Mastodon search box. If that doesn't work, try your full fediverse address, either <code>@yourdomain.com@yourdomain.com</code> or <code>@yourdomain.com@web.brid.gy</code>.</p>
+<p>They can search for your web site! Often you can enter your domain, eg <code>yourdomain.com</code>, in any fediverse or Bluesky search box. If that doesn't work, try your full address, either <code>@yourdomain.com@yourdomain.com</code> or <code>@yourdomain.com@web.brid.gy</code> in the fediverse and <code>yourdomain.com.web.brid.gy</code> in Bluesky.</p>
 
-<p><a href="#user-page">Your user page</a> has a <em>Followers</em> link that shows you all of your fediverse followers. It has a "remote follow" form where people can enter their fediverse address and follow you directly.
+<p><a href="#user-page">Your user page</a> has a <em>Followers</em> link that shows you all of your followers. It has a "remote follow" form where people can enter their fediverse address and follow you directly.
 </p>
 </li>
 
-<li id="web-see-posts" class="question">How can I see what my posts look like inside the fediverse?</li>
+<li id="web-see-posts" class="question">How can I see what my posts look like on other networks?</li>
 <li class="answer">
-<p>This <a href="fediverse-servers">varies by server</a>. For Mastodon, <a href="#currently+following_you">open your list of followers in Bridgy Fed</a> and click on one to open their profile. Then, inside that Mastodon instance, <a href="discovery">search for your site's address</a>, click on it in the search results, and you'll see your fediverse profile and all of your posts that were delivered to that instance. This may not be all of them, depending on how long and when people on that instance have been following you.</p>
+<p>On Bluesky, <a href="#Your+Bluesky+handle">just check out your bridged profile</a>!
+<p>In the fediverse, it <a href="fediverse-servers">varies by server</a>. For Mastodon, <a href="#currently+following_you">open your list of followers in Bridgy Fed</a> and click on one to open their profile. Then, inside that Mastodon instance, <a href="discovery">search for your site's address</a>, click on it in the search results, and you'll see your fediverse profile and all of your posts that were delivered to that instance. This may not be all of them, depending on how long and when people on that instance have been following you.</p>
 
 <p>This general process should often work in other fediverse servers too.</p>
 
@@ -779,7 +779,7 @@ To receive likes, reposts, replies, @-mentions, and follows from the fediverse, 
 </p>
 </li>
 
-<li id="web-searchable" class="question">Can I make my posts show up when people search for them in the fediverse?</li>
+<li id="web-searchable" class="question">Can I make my posts show up when people search for their URLs in the fediverse?</li>
 <li class="answer">
 <p>Yes! Add this line of HTML to each post that you publish with Bridgy Fed and want to be searchable, replacing <code>[URL]</code> with that post's URL:</p>
 
@@ -791,19 +791,20 @@ To receive likes, reposts, replies, @-mentions, and follows from the fediverse, 
 
 <li id="web-enhanced" class="question">Can I use my own domain as my handle on other networks?</li>
 <li class="answer">
-<p>Yes! By default, your web site's bridged handle on other networks includes <code>web.brid.gy</code>, eg <code>@yoursite.com@web.brid.gy</code> on the fediverse, but you can use your own domain instead. <a href="#fediverse-enhanced">Here are instructions for fediverse handles.</a></p>
+<p>For the fediverse, yes! By default, your web site's bridged handle on other networks includes <code>web.brid.gy</code>, eg <code>@yoursite.com@web.brid.gy</code> on the fediverse, but you can use your own domain instead. <a href="#fediverse-enhanced">Here are instructions for fediverse handles.</a></p>
+<p>For Bluesky, not yet, but hopefully eventually. <a href="https://github.com/snarfed/bridgy-fed/issues/826">Follow this GitHub issue.</a>
 </li>
 
-<li id="instance-subdomains" class="question">Could other networks' instances get their own brid.gy subdomains, so that fediverse admins can federate with or block them individually?</li>
+<li id="instance-subdomains" class="question">Could other networks' instances get their own brid.gy subdomains, so that admins can federate with or block them individually?</li>
 <li class="answer">
 <p>This is a great idea! <a href="https://github.com/snarfed/bridgy-fed/issues/711">It's difficult to implement technically</a> - I'd need to build and run my own DNS server with custom behavior for resolving multi-level wildcard records - but it's definitely doable.</p>
 <p>However, servers and domains on other networks are very different from fediverse instances:</p>
 <ul>
 <li>Bluesky <a href="https://atproto.com/guides/overview#federation">PDSes</a> are similar to shared web hosts; they're more generic and interchangeable than fediverse instances. They don't define affinity groups, user-visible communities, or moderation boundaries. It's not clear that they're useful for domain level federation decisions like fediverse instances are.</li>
 <li>IndieWeb sites generally represent a single person. They're often domains, but when they're subdomains, eg on <a href="https://wordpress.com/">wordpress.com</a> or <a href="https://blogspot.com">blogspot.com</a>, those are often shared hosting platforms that don't define clear communities or moderation boundaries either.</li>
-<li>Nostr users don't live on specific servers at all. They publish to <a href="https://nostr.com/relays">relays</a>, usually multiple at a time, and may change those relays often. Relays are primarily network infrastructure.</li>
+<!-- <li>Nostr users don't live on specific servers at all. They publish to <a href="https://nostr.com/relays">relays</a>, usually multiple at a time, and may change those relays often. Relays are primarily network infrastructure.</li> -->
 </ul>
-<p>Another difficulty is that accounts on Bluesky and Nostr have long-lived, server-independent ids. If we used a Bluesky user's PDS domain in their fediverse handle, that handle would change every time they migrated to a new PDS, and they'd lose all of their followers and followings, even though their Bluesky account ID itself hadn't changed.</p>
+<p>Another difficulty is that accounts on Bluesky have long-lived, server-independent ids. If we used a Bluesky user's PDS domain in their fediverse handle, that handle would change every time they migrated to a new PDS, and they'd lose all of their followers and followings, even though their Bluesky account ID itself hadn't changed.</p>
 </li>
 
 

@@ -27,7 +27,7 @@
 <p>Bridgy Fed connects <a class="web" href="https://indieweb.org/">web sites</a>, the <a class="fediverse" href="https://enwp.org/fediverse">fediverse</a>, and <a class="bluesky" href="https://bsky.social/">Bluesky</a>. You can use it to make your profile on one visible in another, follow people, see their posts, and reply and like and repost them. Interactions work in both directions as much as possible. <a href="/docs">See the docs for more info.</a></p>
 </div>
 
-<div class="row big front-dark">
+<div id="enter-web-site" class="row big front-dark">
 <p>Got a <span class="web">web</span> site? Enter it here to use it on the <a class="fediverse" href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a> and <a class="bluesky" href="https://bsky.social/">Bluesky</a>:
 <form method="post" action="/web-site">
   <input required type="url" name="url" id="url" placeholder="example.com" />
@@ -44,7 +44,9 @@
 </div>
 
 <div class="row big front-dark">
-<p>Got a <a class="bluesky" href="https://bsky.social/">Bluesky</a> account? <a href="/docs#bluesky-get-started">Bridge it to the <span class="fediverse">fediverse</span></a> by following <a class="handle" href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a>. <!-- <a href="http://localhost:8080/docs#bluesky-get-started">More details.</a> --></p>
+<p>Got a <a class="bluesky" href="https://bsky.social/">Bluesky</a> account? <a href="/docs#bluesky-get-started">Bridge it to the <span class="fediverse">fediverse</span></a> by following <a class="handle" href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a>. <!-- <a href="/docs#bluesky-get-started">More details.</a> --></p>
+<br>
+<p>Or, to <a href="/docs#bluesky-follow-web">follow a web site</a> like <a class="handle" href="https://example.com/">example.com</a>, first <a href="#enter-web-site">enter it above</a>, then <a href="https://bsky.app/search">search in Bluesky</a> for <span class="handle">example.com.web.brid.gy<button class="btn btn-default btn-copy glyphicon glyphicon-duplicate" onclick="navigator.clipboard.writeText('example.com.web.brid.gy')"></button></span>. <!-- <a href="/docs#bluesky-follow-web">More details.</a> --></p>
 </ul>
 </div>
 
