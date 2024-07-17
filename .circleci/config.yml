@@ -100,9 +100,9 @@ jobs:
               # for the default service.
               # https://issuetracker.google.com/issues/347268867
               if [[ $service == 'app' ]]; then
-                nocache = '--no-cache'
+                nocache='--no-cache'
               fi
-              echo gcloud -q app deploy $nocache --project bridgy-federated << pipeline.parameters.service >>.yaml index.yaml queue.yaml
+              gcloud -q app deploy $nocache --project bridgy-federated index.yaml queue.yaml << pipeline.parameters.service >>.yaml
             fi
 
 
