@@ -29,16 +29,6 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y apt-transport-https ca-certificates gnupg google-cloud-sdk
 
-      - run:
-          name: oauth-dropins, for static assets
-          command: |
-            pip install -U pip flake8
-            pip -V
-            # make sure we install at head
-            pip uninstall -y oauth-dropins
-            pip install oauth-dropins
-            ln -sf `pyenv prefix`/lib/python3.11/site-packages/oauth_dropins/fonts oauth_dropins_fonts
-            ln -sf `pyenv prefix`/lib/python3.11/site-packages/oauth_dropins/static oauth_dropins_static
 
       - when:
           condition:
@@ -66,10 +56,14 @@ jobs:
             - run:
                 name: Python dependencies
                 command: |
+                  pip install -U pip flake8
+                  pip  -V
                   # make sure we install these at head, below
-                  pip uninstall -y arroba dag-json granary lexrpc
+                  pip uninstall -y arroba dag-json granary lexrpc oauth-dropins
                   pip install -U -r requirements.txt
                   pip install coverage coveralls
+                  ln -sf `pyenv prefix`/lib/python3.11/site-packages/oauth_dropins/fonts oauth_dropins_fonts
+                  ln -sf `pyenv prefix`/lib/python3.11/site-packages/oauth_dropins/static oauth_dropins_static
 
             - run:
                 name: Build and test
@@ -96,6 +90,17 @@ jobs:
                   # - /usr/lib/google-cloud-sdk
                   # - /usr/lib/jvm/java-11-openjdk-amd64
 
+      - when:
+          condition:
+            not:
+              equal: [ default, << pipeline.parameters.service >> ]
+
+          steps:
+            - run:
+                name: oauth-dropins, for static assets
+                command: |
+                  git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
+
       - run:
           name: Deploy
           command: |
@@ -114,7 +119,7 @@ jobs:
               if [[ $service == 'app' ]]; then
                 nocache='--no-cache'
               fi
-              gcloud -q app deploy $nocache --project bridgy-federated index.yaml queue.yaml << pipeline.parameters.service >>.yaml
+              gcloud -q app deploy $nocache --project bridgy-federated index.yaml queue.yaml ${service}.yaml
             fi
 
 
