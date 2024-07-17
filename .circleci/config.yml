@@ -6,6 +6,12 @@
 # https://circleci.com/docs/2.1/sample-config/
 version: 2.1
 
+parameters:
+  service:
+    type: enum
+    enum: ["app", "router", "atproto_hub", "default"]
+    default: "default"
+
 jobs:
   build:
     docker:
@@ -13,9 +19,6 @@ jobs:
 
     steps:
       - checkout
-
-      - restore_cache:
-          key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
 
       - run:
           name: Base dependencies
@@ -26,35 +29,61 @@ jobs:
             sudo apt-get update
             sudo apt-get install -y apt-transport-https ca-certificates gnupg google-cloud-sdk google-cloud-cli-firestore-emulator default-jre
 
-      - run:
-          name: Python dependencies
-          command: |
-            pip install -U pip flake8
-            pip  -V
-            # make sure we install these at head, below
-            pip uninstall -y arroba dag-json granary lexrpc oauth-dropins
-            pip install -U -r requirements.txt
-            pip install coverage coveralls
+      - when:
+          condition:
+            equal: [ default, << pipeline.parameters.service >> ]
 
-            ln -sf `pyenv prefix`/lib/python3.11/site-packages/oauth_dropins/fonts oauth_dropins_fonts
-            ln -sf `pyenv prefix`/lib/python3.11/site-packages/oauth_dropins/static oauth_dropins_static
+            # I could get rid of "default" with eg pipeline.trigger_source, if it
+            # distinguished manual from push, but I can't tell that it does.
+            # https://circleci.com/docs/pipeline-variables/#pipeline-values
+            #
+            # pipeline.trigger_parameters.circleci.trigger_type looks promising!
+            # https://stackoverflow.com/questions/75616644/how-to-detect-whether-a-circleci-pipeline-build-was-manually-triggered#comment133409450_75616644
+            #
+            # ...but it's only available to GitHub App logins, and I'm on Github OAuth :(
+            # https://circleci.com/docs/github-integration/
 
-      - run:
-          name: Build and test
-          command: |
-            CLOUDSDK_CORE_PROJECT=brid-gy gcloud emulators firestore start --host-port=:8089 --database-mode=datastore-mode < /dev/null >& /tmp/firestore-emulator.log &
-            sleep 5s
-            python -m coverage run --source=. --omit=appengine_config.py,logs.py,tests/\* -m unittest discover -v
-            python -m coverage html -d /tmp/coverage_html
-            if [ "$COVERALLS_REPO_TOKEN" != "" ]; then coveralls || true; fi
+          steps:
+            - restore_cache:
+                key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
 
-            # check for unintentionally overridden test methods
-            # https://flake8.pycqa.org/en/latest/user/error-codes.html#error-codes
-            # https://flake8.pycqa.org/en/latest/user/options.html#cmdoption-flake8-select
-            flake8 --select=F811 tests/test_*.py
+            - run:
+                name: Python dependencies
+                command: |
+                  pip install -U pip flake8
+                  pip  -V
+                  # make sure we install these at head, below
+                  pip uninstall -y arroba dag-json granary lexrpc oauth-dropins
+                  pip install -U -r requirements.txt
+                  pip install coverage coveralls
+                  ln -sf `pyenv prefix`/lib/python3.11/site-packages/oauth_dropins/fonts oauth_dropins_fonts
+                  ln -sf `pyenv prefix`/lib/python3.11/site-packages/oauth_dropins/static oauth_dropins_static
 
-      # only runs if all previous steps succeed, including tests
-      # https://circleci.com/docs/configuration-reference/#the-when-attribute
+            - run:
+                name: Build and test
+                command: |
+                  CLOUDSDK_CORE_PROJECT=brid-gy gcloud emulators firestore start --host-port=:8089 --database-mode=datastore-mode < /dev/null >& /tmp/firestore-emulator.log &
+                  sleep 5s
+                  python -m coverage run --source=. --omit=appengine_config.py,logs.py,tests/\* -m unittest discover -v
+                  python -m coverage html -d /tmp/coverage_html
+                  if [ "$COVERALLS_REPO_TOKEN" != "" ]; then coveralls || true; fi
+
+                  # check for unintentionally overridden test methods
+                  # https://flake8.pycqa.org/en/latest/user/error-codes.html#error-codes
+                  # https://flake8.pycqa.org/en/latest/user/options.html#cmdoption-flake8-select
+                  flake8 --select=F811 tests/test_*.py
+
+            - save_cache:
+                key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
+                paths:
+                  - /home/circleci/.pyenv
+                  # Ideally we'd cache these, but they need root, and the cimg/python
+                  # Docker image's default user is circleci :/
+                  # https://github.com/cypress-io/circleci-orb/issues/269
+                  #
+                  # - /usr/lib/google-cloud-sdk
+                  # - /usr/lib/jvm/java-11-openjdk-amd64
+
       - run:
           name: Deploy
           command: |
@@ -62,28 +91,20 @@ jobs:
             if [ $CIRCLE_BRANCH = "main" ]; then
               echo $FLASK_SECRET_KEY > flask_secret_key
               echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
-              gcloud -q app deploy --no-cache --project bridgy-federated app.yaml index.yaml queue.yaml
 
-              # can't deploy router here yet because we need the limited_domains
-              # file. next step would be to put it into a circle env var.
-              #
-              # WHEN WE DO, we have to do it in a separate gcloud command
-              # because Flex services don't support --no-cache, but we need it
-              # for the default service
+              service='<< pipeline.parameters.service >>'
+              if [[ $service == 'default' ]]; then
+                service='app'
+              fi
+              # Flex services don't support --no-cache, but we need it
+              # for the default service.
               # https://issuetracker.google.com/issues/347268867
-              # gcloud -q app deploy --project bridgy-federated router.yaml
+              if [[ $service == 'app' ]]; then
+                nocache = '--no-cache'
+              fi
+              echo gcloud -q app deploy $nocache --project bridgy-federated << pipeline.parameters.service >>.yaml index.yaml queue.yaml
             fi
 
-      - save_cache:
-          key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
-          paths:
-            - /home/circleci/.pyenv
-            # Ideally we'd cache these, but they need root, and the cimg/python
-            # Docker image's default user is circleci :/
-            # https://github.com/cypress-io/circleci-orb/issues/269
-            #
-            # - /usr/lib/google-cloud-sdk
-            # - /usr/lib/jvm/java-11-openjdk-amd64
 
       - store_artifacts:
           path: /tmp/coverage_html
