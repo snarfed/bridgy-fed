@@ -7,7 +7,7 @@
 {% if user.LABEL == 'web' and not user.has_redirects %}
 <div class="row promo warning">
 
-<p>Bridgy Fed is providing <a href="{{ user.web_url() }}">{{ user.handle_or_id() }}</a> a presence in the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a>. This account was generated automatically when someone first followed it. <a href="/docs#web-how-post">Learn more here</a>.</p>
+<p>Bridgy Fed is providing <a href="{{ user.web_url() }}">{{ user.handle_or_id() }}</a> a presence in the <a href="https://en.wikipedia.org/wiki/Fediverse">fediverse</a> and/or <a href="https://bsky.social/">Bluesky</a>. This account was generated automatically when someone first followed it. <a href="/docs#web-how-post">Learn more here</a>.</p>
 
 <p>Do you own <a href="{{ user.web_url() }}">{{ user.handle_or_id() }}</a>? You can <a href="/docs#opt-out">opt out</a> or <a href="/docs#fediverse-enhanced">upgrade your fediverse handle</a> from <code>@web.brid.gy</code> to <code>@{{ user.handle_or_id() }}</code>.</p>
 
