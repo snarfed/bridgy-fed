@@ -27,7 +27,18 @@ jobs:
             echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
             curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
             sudo apt-get update
-            sudo apt-get install -y apt-transport-https ca-certificates gnupg google-cloud-sdk google-cloud-cli-firestore-emulator default-jre
+            sudo apt-get install -y apt-transport-https ca-certificates gnupg google-cloud-sdk
+
+      - run:
+          name: oauth-dropins, for static assets
+          command: |
+            pip install -U pip flake8
+            pip -V
+            # make sure we install at head
+            pip uninstall -y oauth-dropins
+            pip install oauth-dropins
+            ln -sf `pyenv prefix`/lib/python3.11/site-packages/oauth_dropins/fonts oauth_dropins_fonts
+            ln -sf `pyenv prefix`/lib/python3.11/site-packages/oauth_dropins/static oauth_dropins_static
 
       - when:
           condition:
@@ -48,16 +59,17 @@ jobs:
                 key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
 
             - run:
+                name: Base dependencies for tests
+                command: |
+                  sudo apt-get install -y google-cloud-cli-firestore-emulator default-jre
+
+            - run:
                 name: Python dependencies
                 command: |
-                  pip install -U pip flake8
-                  pip  -V
                   # make sure we install these at head, below
-                  pip uninstall -y arroba dag-json granary lexrpc oauth-dropins
+                  pip uninstall -y arroba dag-json granary lexrpc
                   pip install -U -r requirements.txt
                   pip install coverage coveralls
-                  ln -sf `pyenv prefix`/lib/python3.11/site-packages/oauth_dropins/fonts oauth_dropins_fonts
-                  ln -sf `pyenv prefix`/lib/python3.11/site-packages/oauth_dropins/static oauth_dropins_static
 
             - run:
                 name: Build and test
