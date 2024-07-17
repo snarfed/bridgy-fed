@@ -1,0 +1,41 @@
+# Deploy pipeline.
+#
+# CircleCI automatically reads this file from our repo and uses it for
+# configuration. Docs:
+# https://circleci.com/docs/2.1/configuration-reference/
+# https://circleci.com/docs/2.1/sample-config/
+version: 2.1
+
+parameters:
+  service:
+    type: enum
+    enum: ["app", "router", "atproto_hub"]
+    default: "router"
+
+jobs:
+  build:
+    docker:
+      # - image: cimg/python:3.11
+      - image: google/cloud-sdk
+
+    steps:
+      - checkout
+
+      # - run:
+      #     name: Install gcloud
+      #     command: |
+      #       # google-cloud-sdk: https://cloud.google.com/sdk/docs/install#deb
+      #       echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+      #       curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
+      #       sudo apt-get update
+      #       sudo apt-get install -y apt-transport-https ca-certificates gnupg google-cloud-sdk
+
+      - run:
+          name: Deploy
+          command: |
+            echo $FLASK_SECRET_KEY > flask_secret_key
+            echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
+            if [[ '<< pipeline.parameters.service >>' == 'app' ]]; then
+              nocache = '--no-cache'
+            fi
+            echo gcloud -q app deploy $nocache --project bridgy-federated << pipeline.parameters.service >>.yaml index.yaml queue.yaml
