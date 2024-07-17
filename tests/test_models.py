@@ -780,7 +780,8 @@ class ObjectTest(TestCase):
         self.assert_equals({
             **ACTOR_AS,
             'username': 'alice.com',
-            'url': ['https://bsky.app/profile/alice.com', 'https://alice.com/'],
+            'url': 'https://bsky.app/profile/alice.com',
+            'urls': ['https://bsky.app/profile/alice.com', 'https://alice.com/'],
             'image': [{
                 'url': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:web:alice.com&cid=bafkreim',
             }],
