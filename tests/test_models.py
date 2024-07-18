@@ -787,6 +787,14 @@ class ObjectTest(TestCase):
             }],
         }, obj.as1)
 
+    def test_as1_from_bsky_unsupported_type(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        obj = Object(id='at://did:plc:user/un.known/123', bsky={
+            '$type': 'un.known',
+            'foo': 'bar',
+        })
+        self.assertIsNone(obj.as1)
+
     def test_as1_from_mf2_uses_url_as_id(self):
         mf2 = {
             'properties': {

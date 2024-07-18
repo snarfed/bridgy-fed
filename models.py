@@ -22,6 +22,7 @@ from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.models import JsonProperty, StringIdModel
 from oauth_dropins.webutil.util import json_dumps, json_loads
+from requests import RequestException
 
 import common
 from common import (
@@ -810,8 +811,12 @@ class Object(StringIdModel):
             owner, _, _ = parse_at_uri(self.key.id())
             ATProto = PROTOCOLS['atproto']
             handle = ATProto(id=owner).handle
-            obj = bluesky.to_as1(self.bsky, repo_did=owner, repo_handle=handle,
-                                 uri=self.key.id(), pds=ATProto.pds_for(self))
+            try:
+                obj = bluesky.to_as1(self.bsky, repo_did=owner, repo_handle=handle,
+                                     uri=self.key.id(), pds=ATProto.pds_for(self))
+            except (ValueError, RequestException):
+                logger.info(f"Couldn't convert to ATProto", exc_info=True)
+                return None
 
         elif self.mf2:
             obj = microformats2.json_to_object(self.mf2,
