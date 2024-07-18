@@ -756,7 +756,6 @@ class Protocol:
         # check some invariants
         assert from_cls != Protocol
         assert isinstance(obj, Object), obj
-        logger.info(f'From {from_cls.LABEL}: {obj.type} {obj.key} AS1: {json_dumps(obj.as1, indent=2)}')
 
         if not obj.as1:
             error('No object data provided')
@@ -769,6 +768,7 @@ class Protocol:
             id = obj.as1.get('id')
             obj.key = ndb.Key(Object, id)
 
+        logger.info(f'From {from_cls.LABEL}: {obj.type} {id} AS1: {json_dumps(obj.as1, indent=2)}')
         if not id:
             error('No id provided')
         elif from_cls.is_blocklisted(id, allow_internal=internal):
