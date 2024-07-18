@@ -5,7 +5,7 @@ https://flask.palletsprojects.com/en/latest/config/
 import logging
 import os
 
-from oauth_dropins.webutil import appengine_info, util
+from oauth_dropins.webutil import appengine_config, appengine_info, util
 
 # This is primarily for flashed messages, since we don't use session data
 # otherwise.
@@ -28,6 +28,10 @@ else:
 os.environ.setdefault('APPVIEW_HOST', 'api.bsky-sandbox.dev')
 os.environ.setdefault('BGS_HOST', 'bgs.bsky-sandbox.dev')
 os.environ.setdefault('PLC_HOST', 'plc.bsky-sandbox.dev')
+
+logging.getLogger().setLevel(logging.INFO)
+if logging_client := getattr(appengine_config, 'logging_client'):
+    logging_client.setup_logging(log_level=logging.INFO)
 
 for logger in ('oauth_dropins.webutil.webmention', 'lexrpc'):
     logging.getLogger(logger).setLevel(logging.DEBUG)
