@@ -286,7 +286,7 @@ class Protocol:
           Protocol subclass: matching protocol, or None if no single known
           protocol definitively owns this id
         """
-        logger.info(f'Determining protocol for id {id}')
+        logger.debug(f'Determining protocol for id {id}')
         if not id:
             return None
 
@@ -295,7 +295,7 @@ class Protocol:
             is_homepage = urlparse(id).path.strip('/') == ''
             by_subdomain = Protocol.for_bridgy_subdomain(id)
             if by_subdomain and not is_homepage and id not in BOT_ACTOR_AP_IDS:
-                logger.info(f'  {by_subdomain.LABEL} owns id {id}')
+                logger.debug(f'  {by_subdomain.LABEL} owns id {id}')
                 return by_subdomain
 
         # step 2: check if any Protocols say conclusively that they own it
@@ -306,19 +306,19 @@ class Protocol:
         for protocol in protocols:
             owns = protocol.owns_id(id)
             if owns:
-                logger.info(f'  {protocol.LABEL} owns id {id}')
+                logger.debug(f'  {protocol.LABEL} owns id {id}')
                 return protocol
             elif owns is not False:
                 candidates.append(protocol)
 
         if len(candidates) == 1:
-            logger.info(f'  {candidates[0].LABEL} owns id {id}')
+            logger.debug(f'  {candidates[0].LABEL} owns id {id}')
             return candidates[0]
 
         # step 3: look for existing Objects in the datastore
         obj = Protocol.load(id, remote=False)
         if obj and obj.source_protocol:
-            logger.info(f'  {obj.key} owned by source_protocol {obj.source_protocol}')
+            logger.debug(f'  {obj.key} owned by source_protocol {obj.source_protocol}')
             return PROTOCOLS[obj.source_protocol]
 
         # step 4: fetch over the network, if necessary
@@ -326,10 +326,10 @@ class Protocol:
             return None
 
         for protocol in candidates:
-            logger.info(f'Trying {protocol.LABEL}')
+            logger.debug(f'Trying {protocol.LABEL}')
             try:
                 if protocol.load(id, local=False, remote=True):
-                    logger.info(f'  {protocol.LABEL} owns id {id}')
+                    logger.debug(f'  {protocol.LABEL} owns id {id}')
                     return protocol
             except BadGateway:
                 # we tried and failed fetching the id over the network.
@@ -363,7 +363,7 @@ class Protocol:
           resolved), or ``(None, None)`` if no known protocol owns this handle
         """
         # TODO: normalize, eg convert domains to lower case
-        logger.info(f'Determining protocol for handle {handle}')
+        logger.debug(f'Determining protocol for handle {handle}')
         if not handle:
             return (None, None)
 
@@ -375,13 +375,13 @@ class Protocol:
         for proto in protocols:
             owns = proto.owns_handle(handle)
             if owns:
-                logger.info(f'  {proto.LABEL} owns handle {handle}')
+                logger.debug(f'  {proto.LABEL} owns handle {handle}')
                 return (proto, None)
             elif owns is not False:
                 candidates.append(proto)
 
         if len(candidates) == 1:
-            logger.info(f'  {candidates[0].LABEL} owns handle {handle}')
+            logger.debug(f'  {candidates[0].LABEL} owns handle {handle}')
             return (candidates[0], None)
 
         # step 2: look for matching User in the datastore
@@ -390,16 +390,17 @@ class Protocol:
             if user:
                 if user.status:
                     return (None, None)
-                logger.info(f'  user {user.key} owns handle {handle}')
+                logger.debug(f'  user {user.key} owns handle {handle}')
                 return (proto, user.key.id())
 
         # step 3: resolve handle to id
         for proto in candidates:
             id = proto.handle_to_id(handle)
             if id:
-                logger.info(f'  {proto.LABEL} resolved handle {handle} to id {id}')
+                logger.debug(f'  {proto.LABEL} resolved handle {handle} to id {id}')
                 return (proto, id)
 
+        logger.info(f'No matching protocol found for handle {handle} !')
         return (None, None)
 
     @classmethod
@@ -1294,7 +1295,7 @@ class Protocol:
                 for id in original_ids:
                     if orig := from_user.load(id, remote=False):
                         if orig.get_copy(proto):
-                            logging.info(f'Allowing {proto.LABEL}, original post {id} was bridged there')
+                            logger.info(f'Allowing {proto.LABEL}, original post {id} was bridged there')
                             break
                 else:
                     logger.info(f"Skipping {proto.LABEL}, original posts {original_ids} weren't bridged there")

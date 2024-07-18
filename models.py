@@ -221,7 +221,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         raise NotImplementedError()
 
     def _post_put_hook(self, future):
-        logger.info(f'Wrote {self.key}')
+        logger.debug(f'Wrote {self.key}')
 
     @classmethod
     def get_by_id(cls, id, allow_opt_out=False, **kwargs):
@@ -303,7 +303,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                         try:
                             proto.create_for(user)
                         except (ValueError, AssertionError):
-                            logging.info(f'failed creating {proto.LABEL} copy')
+                            logger.info(f'failed creating {proto.LABEL} copy')
                     else:
                         logger.info(f'{proto.LABEL} not enabled or user copy already exists, skipping propagate')
 
@@ -898,7 +898,7 @@ class Object(StringIdModel):
 
     def _post_put_hook(self, future):
         # TODO: assert that as1 id is same as key id? in pre put hook?
-        logger.info(f'Wrote {self.key}')
+        logger.debug(f'Wrote {self.key}')
 
     @classmethod
     @ndb.transactional()
@@ -1275,7 +1275,7 @@ class Follower(ndb.Model):
         assert self.from_.kind() != self.to.kind(), f'from {self.from_} to {self.to}'
 
     def _post_put_hook(self, future):
-        logger.info(f'Wrote {self.key}')
+        logger.debug(f'Wrote {self.key}')
 
     @classmethod
     @ndb.transactional()

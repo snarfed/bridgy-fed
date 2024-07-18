@@ -70,7 +70,7 @@ def is_valid_domain(domain, allow_internal=True):
         return False
 
     if Web.is_blocklisted(domain, allow_internal=allow_internal):
-        logger.debug(f'{domain} is blocklisted')
+        logger.info(f'{domain} is blocklisted')
         return False
 
     tld = domain.split('.')[-1]
@@ -708,7 +708,7 @@ def poll_feed_task():
         return msg
 
     if len(activities) > MAX_FEED_ITEMS_PER_POLL:
-        logging.warning(f'Got {len(activities)} feed items! Only processing the first {MAX_FEED_ITEMS_PER_POLL}')
+        logger.info(f'Got {len(activities)} feed items, only processing the first {MAX_FEED_ITEMS_PER_POLL}')
         activities = activities[:MAX_FEED_ITEMS_PER_POLL]
 
     # create Objects and receive tasks
