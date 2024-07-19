@@ -768,7 +768,7 @@ class Protocol:
             id = obj.as1.get('id')
             obj.key = ndb.Key(Object, id)
 
-        logger.info(f'From {from_cls.LABEL}: {obj.type} {id} AS1: {json_dumps(obj.as1, indent=2)}')
+        logger.info(f'Receiving {from_cls.LABEL} {obj.type} {id} AS1: {json_dumps(obj.as1, indent=2)}')
         if not id:
             error('No id provided')
         elif from_cls.is_blocklisted(id, allow_internal=internal):
@@ -1656,7 +1656,7 @@ def send_task():
                 if form.get('orig_obj') else None)
 
     # send
-    logger.info(f'Sending {obj.key.id()} AS1: {json_dumps(obj.as1, indent=2)}')
+    logger.info(f'Sending {protocol} {obj.type} {obj.key.id()} AS1: {json_dumps(obj.as1, indent=2)}')
     sent = None
     try:
         sent = PROTOCOLS[protocol].send(obj, url, from_user=user, orig_obj=orig_obj)
