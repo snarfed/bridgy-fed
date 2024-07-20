@@ -72,6 +72,8 @@ def _load_dids():
         if not DEBUG:
             Timer(STORE_CURSOR_FREQ.total_seconds(), _load_dids).start()
 
+        # TODO: ATProto entities get updated a lot, we're reloading 50-100 ATProto
+        # every 10s with this query. fix that!
         atproto_query = ATProto.query(ATProto.enabled_protocols != None,
                                       ATProto.updated > atproto_loaded_at)
         atproto_loaded_at = ATProto.query().order(-ATProto.created).get().created
