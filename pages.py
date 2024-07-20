@@ -376,6 +376,8 @@ def nodeinfo():
     if stat := KindStat.query(KindStat.kind_name == 'MagicKey').get():
         user_total += stat.count
 
+    logger.info(f'Total users {user_total}')
+
     return {
         'version': '2.1',
         'software': {
