@@ -789,7 +789,7 @@ class Protocol:
                  # always be true?!
                  or (obj.new is None and obj.changed is None
                      and from_cls.load(id, remote=False)))):
-            error('Already seen this activity {id}', status=204)
+            error(f'Already seen this activity {id}', status=204)
 
         # does this protocol support this activity/object type?
         from_cls.check_supported(obj)
