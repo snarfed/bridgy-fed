@@ -72,11 +72,9 @@ def _load_dids():
         if not DEBUG:
             Timer(STORE_CURSOR_FREQ.total_seconds(), _load_dids).start()
 
-        # TODO: ATProto entities get updated a lot, we're reloading 50-100 ATProto
-        # every 10s with this query. fix that!
         atproto_query = ATProto.query(ATProto.enabled_protocols != None,
                                       ATProto.updated > atproto_loaded_at)
-        atproto_loaded_at = ATProto.query().order(-ATProto.created).get().created
+        atproto_loaded_at = ATProto.query().order(-ATProto.updated).get().updated
         new_atproto = [key.id() for key in atproto_query.iter(keys_only=True)]
         atproto_dids.update(new_atproto)
 
@@ -86,7 +84,8 @@ def _load_dids():
         bridged_dids.update(new_bridged)
 
         dids_initialized.set()
-        logger.info(f'DIDs: ATProto {len(atproto_dids)} (+{len(new_atproto)}), AtpRepo {len(bridged_dids)} (+{len(new_bridged)})')
+        total = len(atproto_dids) + len(new_bridged)
+        logger.info(f'DIDs: {total} ATProto {len(atproto_dids)} (+{len(new_atproto)}), AtpRepo {len(bridged_dids)} (+{len(new_bridged)})')
 
 
 def subscriber():
