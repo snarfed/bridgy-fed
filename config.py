@@ -25,13 +25,13 @@ else:
     CACHE_TYPE = 'SimpleCache'
     SECRET_KEY = util.read('flask_secret_key')
 
+    logging.getLogger().setLevel(logging.INFO)
+    if logging_client := getattr(appengine_config, 'logging_client'):
+        logging_client.setup_logging(log_level=logging.INFO)
+
+    for logger in ('oauth_dropins.webutil.webmention', 'lexrpc'):
+        logging.getLogger(logger).setLevel(logging.DEBUG)
+
 os.environ.setdefault('APPVIEW_HOST', 'api.bsky-sandbox.dev')
 os.environ.setdefault('BGS_HOST', 'bgs.bsky-sandbox.dev')
 os.environ.setdefault('PLC_HOST', 'plc.bsky-sandbox.dev')
-
-logging.getLogger().setLevel(logging.INFO)
-if logging_client := getattr(appengine_config, 'logging_client'):
-    logging_client.setup_logging(log_level=logging.INFO)
-
-for logger in ('oauth_dropins.webutil.webmention', 'lexrpc'):
-    logging.getLogger(logger).setLevel(logging.DEBUG)
