@@ -427,7 +427,8 @@ class Web(User, Protocol):
         return super().load(id, **kwargs)
 
     @classmethod
-    def fetch(cls, obj, gateway=False, check_backlink=False, **kwargs):
+    def fetch(cls, obj, gateway=False, check_backlink=False,
+              authorship_fetch_mf2=True, **kwargs):
         """Fetches a URL over HTTP and extracts its microformats2.
 
         Follows redirects, but doesn't change the original URL in ``obj``'s id!
@@ -442,6 +443,8 @@ class Web(User, Protocol):
             :func:`oauth_dropins.webutil.util.fetch_mf2`
           check_backlink (bool): optional, whether to require a link to Bridgy
             Fed. Ignored if the URL is a homepage, ie has no path.
+          authorship_fetch_mf2 (bool): optional, when running the authorship
+            algorithm, fetch author URL if necessary
           kwargs: ignored
         """
         url = obj.key.id()
@@ -464,7 +467,7 @@ class Web(User, Protocol):
                             else None)
 
         try:
-            parsed = util.fetch_mf2(url, gateway=gateway, metaformats_hcard=True,
+            parsed = util.fetch_mf2(url, gateway=gateway, metaformats=True,
                                     require_backlink=require_backlink)
         except ValueError as e:
             error(str(e))
@@ -518,8 +521,9 @@ class Web(User, Protocol):
             author = util.get_first(props, 'author')
             if not isinstance(author, dict):
                 logger.info(f'Fetching full authorship for author {author}')
+                fetch_fn = util.fetch_mf2 if authorship_fetch_mf2 else None
                 author = mf2util.find_author({'items': [entry]}, hentry=entry,
-                                             fetch_mf2_func=util.fetch_mf2)
+                                             fetch_mf2_func=fetch_fn)
                 logger.info(f'Got: {author}')
                 if author:
                     props['author'] = util.trim_nulls([{
@@ -742,6 +746,12 @@ def poll_feed_task():
         if Web.owns_id(id) is False:
             logger.warning(f'Skipping bad id {id}')
             continue
+
+        if not obj.get('image'):
+            # check the post itself
+            if post := Web.load(id, metaformats=True, authorship_fetch_mf2=False):
+                if post.as1:
+                    obj['image'] = post.as1.get('image')
 
         activity['feed_index'] = i
         obj = Object.get_or_create(id=id, authed_as=domain, our_as1=activity,
