@@ -459,59 +459,6 @@ class PagesTest(TestCase):
         # COMMENT's author
         self.assertIn('Dr. Eve', got.text)
 
-    # TODO: re-enable for launch
-    @skip
-    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests.post',
-           return_value=requests_response('OK'))  # create DID on PLC
-    def test_bridge_user(self, mock_post, mock_create_task):
-        common.RUN_TASKS_INLINE = False
-
-        Fake.fetchable = {
-            'fake:user': {
-                **ACTOR_AS,
-                'image': None,  # don't try to fetch as blob
-            },
-        }
-
-        got = self.client.post('/bridge-user', data={'handle': 'fake:handle:user'})
-        self.assertEqual(200, got.status_code)
-        self.assertEqual(
-            ['Bridging <a href="fake:user">fake:handle:user</a> into Bluesky. <a href="https://bsky.app/search">Try searching for them</a> in a minute!'],
-            get_flashed_messages())
-
-        # check user, repo
-        user = Fake.get_by_id('fake:user')
-        self.assertEqual('fake:handle:user', user.handle)
-        did = user.get_copy(ATProto)
-        repo = arroba.server.storage.load_repo(did)
-
-        # check profile
-        profile = repo.get_record('app.bsky.actor.profile', 'self')
-        self.assertEqual({
-            '$type': 'app.bsky.actor.profile',
-            'displayName': 'Alice',
-            'description': 'hi there',
-            'labels': {
-                '$type': 'com.atproto.label.defs#selfLabels',
-                'values': [{'val' : 'bridged-from-bridgy-fed-fake'}],
-            },
-        }, profile)
-
-        at_uri = f'at://{did}/app.bsky.actor.profile/self'
-        self.assertEqual([Target(uri=at_uri, protocol='atproto')],
-                         Object.get_by_id(id='fake:user').copies)
-
-        mock_create_task.assert_called()
-
-    # TODO: re-enable for launch
-    @skip
-    def test_bridge_user_bad_handle(self):
-        got = self.client.post('/bridge-user', data={'handle': 'bad xyz'})
-        self.assertEqual(400, got.status_code)
-        self.assertEqual(["Couldn't determine protocol for bad xyz"],
-                         get_flashed_messages())
-
     def test_nodeinfo(self):
         # just check that it doesn't crash
         self.client.get('/nodeinfo.json')
