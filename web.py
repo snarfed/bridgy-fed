@@ -428,7 +428,7 @@ class Web(User, Protocol):
 
     @classmethod
     def fetch(cls, obj, gateway=False, check_backlink=False,
-              authorship_fetch_mf2=True, **kwargs):
+              authorship_fetch_mf2=True, metaformats=None, **kwargs):
         """Fetches a URL over HTTP and extracts its microformats2.
 
         Follows redirects, but doesn't change the original URL in ``obj``'s id!
@@ -465,9 +465,12 @@ class Web(User, Protocol):
         require_backlink = (common.host_url().rstrip('/')
                             if check_backlink and not is_homepage
                             else None)
+        if metaformats is None:
+            # default to only for homepages
+            metaformats = urlparse(url).path in ('', '/')
 
         try:
-            parsed = util.fetch_mf2(url, gateway=gateway, metaformats=True,
+            parsed = util.fetch_mf2(url, gateway=gateway, metaformats=metaformats,
                                     require_backlink=require_backlink)
         except ValueError as e:
             error(str(e))

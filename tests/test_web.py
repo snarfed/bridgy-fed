@@ -2904,6 +2904,14 @@ class WebUtilTest(TestCase):
         self.assertFalse(Web.fetch(obj))
         self.assertIsNone(obj.as1)
 
+    def test_fetch_metaformats_not_homepage_default_off(self, mock_get, __):
+        mock_get.return_value = requests_response(
+            ACTOR_HTML_METAFORMATS, url='https://user.com/post')
+
+        obj = Object(id='https://user.com/post')
+        self.assertFalse(Web.fetch(obj))
+        self.assertIsNone(obj.as1)
+
     def test_fetch_instance_actor(self, _, __):
         obj = Object(id=f'https://{common.PRIMARY_DOMAIN}/')
         self.assertTrue(Web.fetch(obj))
