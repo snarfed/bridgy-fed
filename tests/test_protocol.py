@@ -2542,7 +2542,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertTrue(user.is_enabled(Fake))
         self.assertEqual(['eefake:user'], ExplicitEnableFake.fetched)
 
-    def test_follow_bot_user_overrides_opt_out(self):
+    def test_follow_bot_user_overrides_nobot(self):
         # bot user
         self.make_user('fa.brid.gy', cls=Web,
                        copies=[Target(uri='eefake:bot', protocol='eefake')])
@@ -2550,13 +2550,13 @@ class ProtocolReceiveTest(TestCase):
         # profile that's opted out
         actor = {
             'id': 'eefake:user',
-            'summary': '#nobridge',
+            'summary': '#nobot',
         }
         user = self.make_user('eefake:user', cls=ExplicitEnableFake, obj_as1=actor)
         self.assertFalse(user.is_enabled(Fake))
         ExplicitEnableFake.fetchable = {'eefake:user': actor}
 
-        # follow should override opt out
+        # follow should override #nobot
         _, code = ExplicitEnableFake.receive_as1({
             'objectType': 'activity',
             'verb': 'follow',

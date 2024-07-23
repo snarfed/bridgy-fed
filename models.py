@@ -82,8 +82,6 @@ OBJECT_EXPIRE_TYPES = (
 )
 OBJECT_EXPIRE_AGE = timedelta(days=90)
 
-OPT_OUT_TAGS = frozenset(('#nobot', '#nobridge'))
-
 logger = logging.getLogger(__name__)
 
 
@@ -407,19 +405,24 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                 if util.now() - util.parse_iso8601(published) < OLD_ACCOUNT_AGE:
                     return 'blocked'
 
+        summary = html_to_text(self.obj.as1.get('summary', ''), ignore_links=True)
+        name = self.obj.as1.get('displayName', '')
+
+        # #nobridge overrides enabled_protocols
+        if '#nobridge' in summary or '#nobridge' in name:
+            return 'opt-out'
+
         # user has explicitly opted in. should go after quality (REQUIRES_*)
-        # checks, but before is_public and other opt out checks.
+        # checks, but before is_public and #nobot
         if self.enabled_protocols:
             return None
 
         if not as1.is_public(self.obj.as1, unlisted=False):
             return 'opt-out'
 
-        for field in 'summary', 'displayName':
-            text = html_to_text(self.obj.as1.get(field, ''), ignore_links=True)
-            for tag in OPT_OUT_TAGS:
-                if tag in text:
-                    return 'opt-out'
+        # enabled_protocols overrides #nobot
+        if '#nobot' in summary or '#nobot' in name:
+            return 'opt-out'
 
     def is_enabled(self, to_proto, explicit=False):
         """Returns True if this user can be bridged to a given protocol.

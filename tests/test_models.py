@@ -297,6 +297,14 @@ class UserTest(TestCase):
         user = User(manual_opt_out=True)
         self.assertEqual('opt-out', user.status)
 
+    def test_status_nobridge_overrides_enabled_protocols(self):
+        self.assertIsNone(self.user.status)
+
+        self.user.obj.our_as1 = {'summary': '#nobridge'}
+        self.user.obj.put()
+        self.user.enabled_protocols = ['activitypub']
+        self.assertEqual('opt-out', self.user.status)
+
     @patch.object(Fake, 'REQUIRES_AVATAR', True)
     def test_requires_avatar(self):
         user = self.make_user(id='fake:user', cls=Fake,
@@ -394,9 +402,9 @@ class UserTest(TestCase):
         assert 'activitypub' in Web.DEFAULT_ENABLED_PROTOCOLS
         self.assertFalse(self.user.is_enabled(ActivityPub, explicit=True))
 
-    def test_is_enabled_enabled_protocols_overrides_bio_opt_out(self):
+    def test_is_enabled_enabled_protocols_overrides_nobot(self):
         user = self.make_user('eefake:user', cls=ExplicitEnableFake,
-                              obj_as1={'summary': '#nobridge'})
+                              obj_as1={'summary': '#nobot'})
         self.assertFalse(user.is_enabled(Web))
         self.assertEqual('opt-out', user.status)
 
