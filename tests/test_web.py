@@ -1822,11 +1822,15 @@ class WebTest(TestCase):
   <content>I hereby ☕ post</content>
 </entry>
 """
-        mock_get.return_value = requests_response(feed, headers={
-            'Content-Type': atom.CONTENT_TYPE,
-            'Last-Modified': 'Sat, 01 Jan 2024 01:02:03 GMT',
-            'ETag': '"abc123"',
-        })
+        mock_get.side_effect = [
+            requests_response(feed, headers={
+                'Content-Type': atom.CONTENT_TYPE,
+                'Last-Modified': 'Sat, 01 Jan 2024 01:02:03 GMT',
+                'ETag': '"abc123"',
+            }),
+            # fetch post to look for image
+            WEBMENTION_NO_REL_LINK,
+        ]
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
@@ -1903,8 +1907,13 @@ class WebTest(TestCase):
 </channel>
 </rss>
 """
-        mock_get.return_value = requests_response(
-            feed, headers={'Content-Type': rss.CONTENT_TYPE})
+        mock_get.side_effect = [
+            requests_response(feed, headers={'Content-Type': rss.CONTENT_TYPE}),
+            # fetch posts to look for images
+            WEBMENTION_NO_REL_LINK,
+            WEBMENTION_NO_REL_LINK,
+            WEBMENTION_NO_REL_LINK,
+        ]
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
@@ -1964,8 +1973,12 @@ class WebTest(TestCase):
 <content>I hereby ☕ post</content>
 </entry>
 """
-        mock_get.return_value = requests_response(
-            feed, headers={'Content-Type': 'application/xml; charset=utf-8'})
+        mock_get.side_effect = [
+            requests_response(
+                feed, headers={'Content-Type': 'application/xml; charset=utf-8'}),
+            # fetch post to look for image
+            WEBMENTION_NO_REL_LINK,
+        ]
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
@@ -1990,8 +2003,11 @@ class WebTest(TestCase):
   <content>I hereby ☕ post</content>
 </entry>
 """
-        mock_get.return_value = requests_response(
-            feed, headers={'Content-Type': atom.CONTENT_TYPE})
+        mock_get.side_effect = [
+            requests_response(feed, headers={'Content-Type': atom.CONTENT_TYPE}),
+            # fetch post to look for image
+            WEBMENTION_NO_REL_LINK,
+        ]
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
@@ -2121,8 +2137,11 @@ class WebTest(TestCase):
   <content>I hereby ☕ post</content>
 </entry>
 """
-        mock_get.return_value = requests_response(
-            feed, headers={'Content-Type': atom.CONTENT_TYPE})
+        mock_get.side_effect = [
+            requests_response(feed, headers={'Content-Type': atom.CONTENT_TYPE}),
+            # fetch post to look for image
+            WEBMENTION_NO_REL_LINK,
+        ]
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
 
@@ -2263,8 +2282,12 @@ class WebTest(TestCase):
 </entry>
 </feed>
 """
-        mock_get.return_value = requests_response(
-            feed, headers={'Content-Type': atom.CONTENT_TYPE})
+        mock_get.side_effect = [
+            requests_response(feed, headers={'Content-Type': atom.CONTENT_TYPE}),
+            # fetch posts to look for images
+            WEBMENTION_NO_REL_LINK,
+            WEBMENTION_NO_REL_LINK,
+        ]
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
 
