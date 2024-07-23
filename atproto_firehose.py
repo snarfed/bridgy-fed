@@ -78,7 +78,8 @@ def _load_dids():
         new_atproto = [key.id() for key in atproto_query.iter(keys_only=True)]
         atproto_dids.update(new_atproto)
 
-        bridged_query = AtpRepo.query(AtpRepo.created > bridged_loaded_at)
+        bridged_query = AtpRepo.query(AtpRepo.status == None,
+                                      AtpRepo.created > bridged_loaded_at)
         bridged_loaded_at = AtpRepo.query().order(-AtpRepo.created).get().created
         new_bridged = [key.id() for key in bridged_query.iter(keys_only=True)]
         bridged_dids.update(new_bridged)

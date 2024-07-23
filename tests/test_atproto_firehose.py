@@ -429,6 +429,17 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         })
         self.assertIn('did:plc:eve', atproto_firehose.bridged_dids)
 
+    def test_load_dids_tombstoned_atprepo(self):
+        FakeWebsocketClient.to_receive = [({'op': 1, 't': '#info'}, {})]
+
+        AtpRepo(id='did:plc:eve', head='', signing_key_pem=b'',
+                status=arroba.util.TOMBSTONED).put()
+
+        self.subscribe()
+
+        # tombstoned AtpRepo shouldn't be loaded into bridged_dids
+        self.assertNotIn('did:plc:eve', atproto_firehose.bridged_dids)
+
 
 @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
 class ATProtoFirehoseHandleTest(TestCase):
