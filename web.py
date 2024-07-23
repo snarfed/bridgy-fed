@@ -751,10 +751,13 @@ def poll_feed_task():
             continue
 
         if not obj.get('image'):
-            # check the post itself
-            if post := Web.load(id, metaformats=True, authorship_fetch_mf2=False):
-                if post.as1:
-                    obj['image'] = post.as1.get('image')
+            # fetch and check the post itself
+            post = Web.load(id, metaformats=True, authorship_fetch_mf2=False)
+            if post and post.as1:
+                profile_images = (as1.get_ids(user.obj.as1, 'image')
+                                  if user.obj.as1 else [])
+                obj['image'] = [img for img in as1.get_ids(post.as1, 'image')
+                                if img not in profile_images]
 
         activity['feed_index'] = i
         obj = Object.get_or_create(id=id, authed_as=domain, our_as1=activity,
