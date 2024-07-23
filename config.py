@@ -32,6 +32,6 @@ else:
     for logger in ('oauth_dropins.webutil.webmention', 'lexrpc'):
         logging.getLogger(logger).setLevel(logging.DEBUG)
 
-os.environ.setdefault('APPVIEW_HOST', 'api.bsky-sandbox.dev')
-os.environ.setdefault('BGS_HOST', 'bgs.bsky-sandbox.dev')
-os.environ.setdefault('PLC_HOST', 'plc.bsky-sandbox.dev')
+os.environ.setdefault('APPVIEW_HOST', 'api.bsky.local')
+os.environ.setdefault('BGS_HOST', 'bgs.bsky.local')
+os.environ.setdefault('PLC_HOST', 'plc.bsky.local')

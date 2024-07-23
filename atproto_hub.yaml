@@ -22,15 +22,6 @@ network:
 
 env_variables:
   PDS_HOST: atproto.brid.gy
-
-  # # sandbox
-  # PLC_HOST: plc.bsky-sandbox.dev
-  # APPVIEW_HOST: api.bsky-sandbox.dev
-  # BGS_HOST: bgs.bsky-sandbox.dev
-  # MOD_SERVICE_HOST: ?
-  # MOD_SERVICE_DID: ?
-
-  # prod
   PLC_HOST: plc.directory
   APPVIEW_HOST: api.bsky.app
   BGS_HOST: bsky.network
