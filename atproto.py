@@ -363,21 +363,7 @@ class ATProto(User, Protocol):
         # TODO: move this to ATProto.get_or_create?
         add(user.copies, Target(uri=did_plc.did, protocol='atproto'))
 
-        # create _atproto DNS record for handle resolution
-        # https://atproto.com/specs/handle#handle-resolution
-        name = f'_atproto.{handle}.'
-        val = f'"did={did_plc.did}"'
-        logger.info(f'adding GCP DNS TXT record for {name} {val}')
-        if DEBUG:
-            logger.info('  skipped since DEBUG is true')
-        else:
-            zone = dns_client.zone(DNS_ZONE)
-            r = zone.resource_record_set(name=name, record_type='TXT', ttl=DNS_TTL,
-                                         rrdatas=[val])
-            changes = zone.changes()
-            changes.add_record_set(r)
-            changes.create()
-            logger.info('  done!')
+        cls.set_dns_did(handle, did_plc.did)
 
         # fetch and store profile
         if not user.obj or not user.obj.as1:
@@ -414,6 +400,40 @@ class ATProto(User, Protocol):
             rotation_key=did_plc.rotation_key)
 
         user.put()
+
+    @staticmethod
+    def set_dns_did(handle, did):
+        """Create _atproto DNS record for handle resolution
+
+        https://atproto.com/specs/handle#handle-resolution
+
+        If the DNS record already exists, or if we're not in prod, does nothing.
+        If the DNS record exists with a different DID, deletes it and recreates
+        it with this DID.
+        """
+        name = f'_atproto.{handle}.'
+        val = f'"did={did}"'
+        logger.info(f'adding GCP DNS TXT record for {name} {val}')
+        if DEBUG:
+            logger.info('  skipped since DEBUG is true')
+            return
+
+        # https://cloud.google.com/python/docs/reference/dns/latest
+        # https://cloud.google.com/dns/docs/reference/rest/v1/
+        zone = dns_client.zone(DNS_ZONE)
+
+        # TODO: zone.list_resource_record_sets with name
+        # https://cloud.google.com/python/docs/reference/dns/latest/zone#listresourcerecordsetsmaxresultsnone-pagetokennone-clientnone
+        # evidently need to use a discovery-based generic API lib
+        # https://github.com/googleapis/python-dns/issues/31#issuecomment-1595105412
+        # https://cloud.google.com/apis/docs/client-libraries-explained
+        # https://googleapis.github.io/google-api-python-client/docs/dyn/dns_v1.resourceRecordSets.html
+        r = zone.resource_record_set(name=name, record_type='TXT', ttl=DNS_TTL,
+                                     rrdatas=[val])
+        changes = zone.changes()
+        changes.add_record_set(r)
+        changes.create()
+        logger.info('  done!')
 
     @classmethod
     def send(to_cls, obj, url, from_user=None, orig_obj=None):
