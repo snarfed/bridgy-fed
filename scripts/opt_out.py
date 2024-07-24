@@ -11,7 +11,7 @@ EXTRA_TARGETS: bridged profiles will also be deleted here. currently AP only!
 Run with:
 
 source local/bin/activate.csh
-env PYTHONPATH=. GOOGLE_APPLICATION_CREDENTIALS=service_account_creds.json \
+env PYTHONPATH=. GOOGLE_APPLICATION_CREDENTIALS=service_account_creds.json APPVIEW_HOST=bsky.social PLC_HOST=plc.directory BGS_HOST=bsky.network \
   python scripts/opt_out.py ...
 """
 import logging
@@ -115,8 +115,7 @@ def run():
         print(f'Converted {proto} handle {handle} to user id {user_id}')
         assert from_proto.owns_id(user_id) is not False
 
-    # can't do get_by_id because they might be opted out
-    user = ndb.Key(kind, user_id).get()
+    user = from_proto.get_by_id(user_id, allow_opt_out=True)
 
     if not user:
         print(f"user {kind} {user_id} doesn't exist. Creating new and marking as opted out.")

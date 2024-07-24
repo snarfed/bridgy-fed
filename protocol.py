@@ -246,7 +246,7 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def key_for(cls, id):
+    def key_for(cls, id, allow_opt_out=False):
         """Returns the :class:`google.cloud.ndb.Key` for a given id's :class:`models.User`.
 
         To be implemented by subclasses. Canonicalizes the id if necessary.
@@ -255,18 +255,22 @@ class Protocol:
         :meth:`for_id`. If called with a concrete subclass, uses that subclass
         as is.
 
+        Args:
+          id (str):
+          allow_opt_out (bool): whether to allow users who are currently opted out
+
         Returns:
           google.cloud.ndb.Key: matching key, or None if the given id is not a
           valid :class:`User` id for this protocol.
         """
         if cls == Protocol:
             proto = Protocol.for_id(id)
-            return proto.key_for(id) if proto else None
+            return proto.key_for(id, allow_opt_out=allow_opt_out) if proto else None
 
         # load user so that we follow use_instead
         existing = cls.get_by_id(id, allow_opt_out=True)
         if existing:
-            if existing.status:
+            if existing.status and not allow_opt_out:
                 return None
             return existing.key
 
@@ -745,7 +749,8 @@ class Protocol:
         Args:
           obj (models.Object)
           authed_as (str): authenticated actor id who sent this activity
-          internal (bool): whether to allow activity ids on internal domains
+          internal (bool): whether to allow activity ids on internal domains,
+            from opted out/blocked users, etc.
 
         Returns:
           (str, int) tuple: (response body, HTTP status code) Flask response
@@ -823,9 +828,9 @@ class Protocol:
             from_user.obj = from_cls.load(from_user.profile_id(), remote=True)
         else:
             # load actor user
-            from_user = from_cls.get_or_create(id=actor)
+            from_user = from_cls.get_or_create(id=actor, allow_opt_out=internal)
 
-        if not from_user or from_user.manual_opt_out:
+        if not internal and (not from_user or from_user.manual_opt_out):
             error(f'Actor {actor} is opted out or blocked', status=204)
 
         # write Object to datastore

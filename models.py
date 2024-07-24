@@ -247,7 +247,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         Args:
           propagate (bool): whether to create copies of this user in push-based
             protocols, eg ATProto and Nostr.
-
           allow_opt_out (bool): whether to allow and create the user if they're
             currently opted out
 

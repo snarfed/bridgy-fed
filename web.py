@@ -140,13 +140,13 @@ class Web(User, Protocol):
         assert id.lower() == id, f'upper case is not allowed in Web key id: {id}'
 
     @classmethod
-    def get_or_create(cls, id, **kwargs):
+    def get_or_create(cls, id, allow_opt_out=False, **kwargs):
         """Normalize domain, then pass through to :meth:`User.get_or_create`.
 
         Normalizing currently consists of lower casing and removing leading and
         trailing dots.
         """
-        key = cls.key_for(id)
+        key = cls.key_for(id, allow_opt_out=allow_opt_out)
         if not key:
             return None  # opted out
 
@@ -154,7 +154,7 @@ class Web(User, Protocol):
         if util.domain_or_parent_in(domain, [SUPERDOMAIN.strip('.')]):
             return super().get_by_id(domain)
 
-        user = super().get_or_create(domain, **kwargs)
+        user = super().get_or_create(domain, allow_opt_out=allow_opt_out, **kwargs)
         if not user.existing:
             common.create_task(queue='poll-feed', domain=domain)
 
@@ -304,7 +304,7 @@ class Web(User, Protocol):
         return self
 
     @classmethod
-    def key_for(cls, id):
+    def key_for(cls, id, allow_opt_out=False):
         """Returns the :class:`ndb.Key` for a given id.
 
         If id is a domain, uses it as is. If it's a home page URL or fed.brid.gy
@@ -313,6 +313,7 @@ class Web(User, Protocol):
 
         Args:
           id (str)
+          allow_opt_out (bool): whether to allow users who are currently opted out
 
         Returns:
         ndb.Key or None:
@@ -327,9 +328,8 @@ class Web(User, Protocol):
                 id = parsed.netloc
 
         if is_valid_domain(id, allow_internal=True):
-            return super().key_for(id)
+            return super().key_for(id, allow_opt_out=allow_opt_out)
 
-        # logger.info(f'{id} is not a domain or usable home page URL')
         return None
 
     @classmethod
