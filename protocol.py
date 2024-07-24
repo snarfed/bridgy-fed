@@ -56,11 +56,6 @@ OBJECT_REFRESH_AGE = timedelta(days=30)
 LIMITED_DOMAINS = (os.getenv('LIMITED_DOMAINS', '').split()
                    or util.load_file_lines('limited_domains'))
 
-# activity ids that we've already handled and can now ignore.
-# used in Protocol.receive
-seen_ids = LRUCache(100000)
-seen_ids_lock = Lock()
-
 logger = logging.getLogger(__name__)
 
 

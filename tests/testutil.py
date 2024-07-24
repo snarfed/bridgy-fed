@@ -253,7 +253,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         appengine_info.LOCAL_SERVER = False
         common.RUN_TASKS_INLINE = True
         app.testing = True
-        protocol.seen_ids.clear()
 
         common.webmention_discover.cache.clear()
         did.resolve_handle.cache.clear()

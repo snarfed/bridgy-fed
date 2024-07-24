@@ -2286,7 +2286,6 @@ class ProtocolReceiveTest(TestCase):
         self.make_user('other:bob', cls=OtherFake,
                        copies=[Target(uri='fake:bob', protocol='fake')])
 
-        protocol.seen_ids.clear()
         common.memcache.clear()
 
         obj.new = True
@@ -2319,7 +2318,6 @@ class ProtocolReceiveTest(TestCase):
         self.store_object(id='other:post',
                           copies=[Target(uri='fake:post', protocol='fake')])
 
-        protocol.seen_ids.clear()
         common.memcache.clear()
         obj.new = True
 
@@ -2369,7 +2367,6 @@ class ProtocolReceiveTest(TestCase):
             id='fake:post', our_as1={'foo': 9}, source_protocol='fake',
             copies=[Target(uri='other:post', protocol='other')])
 
-        protocol.seen_ids.clear()
         common.memcache.clear()
 
         obj.new = True
@@ -2572,14 +2569,6 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(['eefake:user'], ExplicitEnableFake.fetched)
 
     def test_receive_activity_lease(self):
-        def reset_seen_ids():
-            protocol.seen_ids = LRUCache(100000)
-
-        self.addCleanup(reset_seen_ids)
-
-        # pretend the two threads below are in different processes
-        protocol.seen_ids = TTLCache(maxsize=10, ttl=0)
-
         Follower.get_or_create(to=self.user, from_=self.alice)
 
         note = {
