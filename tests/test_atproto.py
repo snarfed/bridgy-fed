@@ -10,6 +10,8 @@ from arroba.repo import Repo, Write
 from arroba.storage import Action, SUBSCRIBE_REPOS_NSID
 import arroba.util
 from dns.resolver import NXDOMAIN
+import google.cloud.dns.client
+from google.cloud.dns.zone import ManagedZone
 from google.cloud.tasks_v2.types import Task
 from granary.bluesky import NO_AUTHENTICATED_LABEL
 from granary.tests.test_bluesky import (
@@ -25,7 +27,7 @@ from requests.exceptions import HTTPError
 from werkzeug.exceptions import BadRequest
 
 import atproto
-from atproto import ATProto, DatastoreClient
+from atproto import ATProto, DatastoreClient, DNS_GCP_PROJECT, DNS_ZONE
 import common
 from models import Follower, Object, PROTOCOLS, Target
 import protocol
@@ -879,12 +881,17 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                          self.make_user('did:plc:user', cls=ATProto).profile_id())
 
     @patch('atproto.DEBUG', new=False)
+    @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
-    def test_create_for(self, mock_post, mock_create_task, mock_zone):
+    def test_create_for(self, mock_post, mock_create_task, mock_zone, mock_rrsets):
         mock_zone.return_value = zone = MagicMock()
         zone.resource_record_set = MagicMock()
+
+        mock_rrsets.return_value = rrsets = MagicMock()
+        rrsets.list.return_value = list_ = MagicMock()
+        list_.execute.return_value = {'rrsets': []}
 
         Fake.fetchable = {'fake:profile:us_er': ACTOR_AS}
         user = Fake(id='fake:us_er')
@@ -939,10 +946,81 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             with self.assertRaises(ValueError):
                 ATProto.create_for(Fake(id=bad))
 
+    @patch('atproto.DEBUG', new=False)
+    @patch.object(google.cloud.dns.client.ManagedZone, 'changes')
+    @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')
+    def test_set_dns_new(self, mock_rrsets, mock_changes):
+        mock_changes.return_value = changes = MagicMock()
+        mock_rrsets.return_value = rrsets = MagicMock()
+        rrsets.list.return_value = list_ = MagicMock()
+        list_.execute.return_value = {  # no existing record
+            'rrsets': [],
+            'kind': 'dns#resourceRecordSetsListResponse',
+        }
+
+        ATProto.set_dns('han.dull.fa.brid.gy', 'did:foo')
+
+        # the call to see if this record already exists
+        name = '_atproto.han.dull.fa.brid.gy.'
+        rrsets.list.assert_called_with(
+            project=DNS_GCP_PROJECT, managedZone=DNS_ZONE, type='TXT', name=name)
+
+        # the changeset: add, no delete
+        changes.delete_record_set.assert_not_called()
+        changes.add_record_set.assert_called_once()
+        rrset = changes.add_record_set.call_args[0][0]
+        self.assertEqual(DNS_ZONE, rrset.zone.name)
+        self.assertEqual(name, rrset.name)
+        self.assertEqual('TXT', rrset.record_type)
+        self.assertEqual(atproto.DNS_TTL, rrset.ttl)
+        self.assertEqual(['"did=did:foo"'], rrset.rrdatas)
+
+    @patch('atproto.DEBUG', new=False)
+    @patch.object(google.cloud.dns.client.ManagedZone, 'changes')
+    @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')
+    def test_set_dns_existing(self, mock_rrsets, mock_changes):
+        name = '_atproto.han.dull.fa.brid.gy.'
+
+        mock_changes.return_value = changes = MagicMock()
+        mock_rrsets.return_value = rrsets = MagicMock()
+        rrsets.list.return_value = list_ = MagicMock()
+        list_.execute.return_value = {  # existing record
+            'rrsets': [{
+                'name': name,
+                'type': 'TXT',
+                'ttl': 300,
+                'rrdatas': ['"did=did:abc:xyz"'],
+                'kind': 'dns#resourceRecordSet',
+            }],
+            'kind': 'dns#resourceRecordSetsListResponse',
+        }
+
+        ATProto.set_dns('han.dull.fa.brid.gy', 'did:foo')
+
+        # the call to see if this record already exists
+        rrsets.list.assert_called_with(
+            project=DNS_GCP_PROJECT, managedZone=DNS_ZONE, type='TXT', name=name)
+
+        # the changeset: delete and add
+        changes.delete_record_set.assert_called_once()
+        rrset = changes.delete_record_set.call_args[0][0]
+        self.assertEqual(DNS_ZONE, rrset.zone.name)
+        self.assertEqual(name, rrset.name)
+        self.assertEqual('TXT', rrset.record_type)
+        self.assertEqual(300, rrset.ttl)
+        self.assertEqual(['"did=did:abc:xyz"'], rrset.rrdatas)
+
+        changes.add_record_set.assert_called_once()
+        rrset = changes.add_record_set.call_args[0][0]
+        self.assertEqual(DNS_ZONE, rrset.zone.name)
+        self.assertEqual(name, rrset.name)
+        self.assertEqual('TXT', rrset.record_type)
+        self.assertEqual(atproto.DNS_TTL, rrset.ttl)
+        self.assertEqual(['"did=did:foo"'], rrset.rrdatas)
+
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests.post',
-           return_value=requests_response('OK'))  # create DID on PLC
+    @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
     def test_send_new_repo(self, mock_post, mock_create_task, _):
         user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['atproto'])
         obj = self.store_object(id='fake:post', source_protocol='fake',

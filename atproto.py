@@ -24,7 +24,9 @@ import brevity
 import dag_json
 from flask import abort, request
 from google.cloud import dns
+from google.cloud.dns.resource_record_set import ResourceRecordSet
 from google.cloud import ndb
+import googleapiclient.discovery
 from granary import as1, bluesky
 from granary.bluesky import Bluesky, FROM_AS1_TYPES
 from granary.source import html_to_text, INCLUDE_LINK, Source
@@ -72,7 +74,10 @@ DNS_GCP_PROJECT = 'brid-gy'
 DNS_ZONE = 'brid-gy'
 DNS_TTL = 10800  # seconds
 logger.info(f'Using GCP DNS project {DNS_GCP_PROJECT} zone {DNS_ZONE}')
+# "Cloud DNS API" https://github.com/googleapis/python-dns
 dns_client = dns.Client(project=DNS_GCP_PROJECT)
+# "Discovery API" https://github.com/googleapis/google-api-python-client
+dns_discovery_api = googleapiclient.discovery.build('dns', 'v1')
 
 
 class DatastoreClient(Client):
@@ -363,7 +368,7 @@ class ATProto(User, Protocol):
         # TODO: move this to ATProto.get_or_create?
         add(user.copies, Target(uri=did_plc.did, protocol='atproto'))
 
-        cls.set_dns_did(handle, did_plc.did)
+        cls.set_dns(handle=handle, did=did_plc.did)
 
         # fetch and store profile
         if not user.obj or not user.obj.as1:
@@ -402,14 +407,17 @@ class ATProto(User, Protocol):
         user.put()
 
     @staticmethod
-    def set_dns_did(handle, did):
-        """Create _atproto DNS record for handle resolution
+    def set_dns(handle, did):
+        """Create _atproto DNS record for handle resolution.
 
         https://atproto.com/specs/handle#handle-resolution
 
         If the DNS record already exists, or if we're not in prod, does nothing.
         If the DNS record exists with a different DID, deletes it and recreates
         it with this DID.
+
+        Args:
+          handle (str): Bluesky handle, eg ``snarfed.org.web.brid.gy``
         """
         name = f'_atproto.{handle}.'
         val = f'"did={did}"'
@@ -421,19 +429,27 @@ class ATProto(User, Protocol):
         # https://cloud.google.com/python/docs/reference/dns/latest
         # https://cloud.google.com/dns/docs/reference/rest/v1/
         zone = dns_client.zone(DNS_ZONE)
+        changes = zone.changes()
 
-        # TODO: zone.list_resource_record_sets with name
+        # sadly can't check if the record exists with the google.cloud.dns API
+        # because it doesn't support list_resource_record_sets's name param.
+        # heed to use the generic discovery-based API instead.
         # https://cloud.google.com/python/docs/reference/dns/latest/zone#listresourcerecordsetsmaxresultsnone-pagetokennone-clientnone
-        # evidently need to use a discovery-based generic API lib
         # https://github.com/googleapis/python-dns/issues/31#issuecomment-1595105412
         # https://cloud.google.com/apis/docs/client-libraries-explained
         # https://googleapis.github.io/google-api-python-client/docs/dyn/dns_v1.resourceRecordSets.html
-        r = zone.resource_record_set(name=name, record_type='TXT', ttl=DNS_TTL,
-                                     rrdatas=[val])
-        changes = zone.changes()
-        changes.add_record_set(r)
+        logging.info('Checking for existing record')
+        resp = dns_discovery_api.resourceRecordSets().list(
+            project=DNS_GCP_PROJECT, managedZone=DNS_ZONE, type='TXT', name=name,
+        ).execute()
+        for existing in resp.get('rrsets', []):
+            logging.info(f'  deleting {existing}')
+            changes.delete_record_set(ResourceRecordSet.from_api_repr(existing, zone=zone))
+
+        changes.add_record_set(zone.resource_record_set(name=name, record_type='TXT',
+                                                        ttl=DNS_TTL, rrdatas=[val]))
         changes.create()
-        logger.info('  done!')
+        logger.info('done!')
 
     @classmethod
     def send(to_cls, obj, url, from_user=None, orig_obj=None):
