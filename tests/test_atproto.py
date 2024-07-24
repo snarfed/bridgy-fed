@@ -31,6 +31,8 @@ from models import Follower, Object, PROTOCOLS, Target
 import protocol
 from .testutil import ATPROTO_KEY, Fake, TestCase
 from . import test_activitypub
+from web import Web
+
 
 DID_DOC = {
     'id': 'did:plc:user',
@@ -765,6 +767,23 @@ class ATProtoTest(TestCase):
         }, ATProto.convert(Object(source_protocol='fake', our_as1={
             'objectType': 'person',
             'id': 'fake:user',
+            'displayName': 'Alice',
+        }), from_user=user))
+
+    def test_convert_web_actor_source_links_link_to_user_page(self):
+        user = self.make_user(id='user.com', cls=Web, obj_id='user.com')
+        self.assertEqual({
+            '$type': 'app.bsky.actor.profile',
+            'displayName': 'Alice',
+            'description': '[bridged from https://user.com/ on the web: https://fed.brid.gy/web/user.com ]',
+            'labels': {
+                '$type': 'com.atproto.label.defs#selfLabels',
+                'values': [{'val': 'bridged-from-bridgy-fed-web'}],
+            },
+            'bridgyOriginalUrl': 'user.com',
+        }, ATProto.convert(Object(source_protocol='web', our_as1={
+            'objectType': 'person',
+            'id': 'user.com',
             'displayName': 'Alice',
         }), from_user=user))
 

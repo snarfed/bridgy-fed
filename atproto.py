@@ -746,7 +746,12 @@ class ATProto(User, Protocol):
             url = as1.get_url(obj.our_as1) or id
             url = util.pretty_link(url) if url else '?'
 
-        source_links = f'[bridged from {url}{proto_phrase} by https://{PRIMARY_DOMAIN}/ ]'
+        if from_user.LABEL == 'web':
+            # link web users to their user pages
+            source_links = f'[bridged from {url}{proto_phrase}: https://{PRIMARY_DOMAIN}{from_user.user_page_path()} ]'
+        else:
+            source_links = f'[bridged from {url}{proto_phrase} by https://{PRIMARY_DOMAIN}/ ]'
+
         if summary:
             source_links = '\n\n' + source_links
 
