@@ -702,9 +702,12 @@ class ATProto(User, Protocol):
             for o in obj.as1, as1.get_object(obj.as1):
                 for url in util.get_urls(o, 'image'):
                     if url not in blobs:
-                        blob = AtpRemoteBlob.get_or_create(
-                            url=url, get_fn=util.requests_get)
-                        blobs[url] = blob.as_object()
+                        try:
+                            blob = AtpRemoteBlob.get_or_create(
+                                url=url, get_fn=util.requests_get)
+                            blobs[url] = blob.as_object()
+                        except RequestException:
+                            logging.info(f'skipping {url} , fetch failed')
 
         inner_obj = as1.get_object(obj.as1) or obj.as1
         orig_url = as1.get_url(inner_obj) or inner_obj.get('id')

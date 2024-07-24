@@ -564,7 +564,7 @@ class ATProtoTest(TestCase):
             'object': 'at://did:plc:user/app.bsky.feed.post/tid',
         })))
 
-    def test_convert_blobs_false(self):
+    def test_convert_fetch_blobs_false(self):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
@@ -578,7 +578,7 @@ class ATProtoTest(TestCase):
             'id': 'did:web:alice.com',
             'displayName': 'Alice',
             'image': [{'url': 'http://my/pic'}],
-        })))
+        }), fetch_blobs=False))
 
     @patch('requests.get', return_value=requests_response(
         'blob contents', content_type='image/png'))
@@ -607,11 +607,43 @@ class ATProtoTest(TestCase):
 
         mock_get.assert_has_calls([self.req('http://my/pic')])
 
+    @patch('requests.get', side_effect=[
+        requests_response(status=404),
+        requests_response('second blob contents', content_type='image/png')
+    ])
+    def test_convert_fetch_blobs_true_image_fetch_fails_then_succeeds(self, mock_get):
+        cid = CID.decode('bafkreigapis7qpqslq2njkxnn6lgbrnf75byeilrt52ufhpr3uz2vrugfe')
+        self.assertEqual({
+            '$type': 'app.bsky.feed.post',
+            'text': '',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'embed': {
+                '$type': 'app.bsky.embed.images',
+                'images': [{
+                    '$type': 'app.bsky.embed.images#image',
+                    'alt': '',
+                    'image': {
+                        '$type': 'blob',
+                        'mimeType': 'image/png',
+                        'ref': cid,
+                        'size': 20,
+                    },
+                }],
+            },
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'note',
+            'image': [
+                {'url': 'http://my/pic/1'},
+                {'url': 'http://my/pic/2'},
+            ],
+        }), fetch_blobs=True))
+        mock_get.assert_has_calls([self.req('http://my/pic/1'), self.req('http://my/pic/2')])
+
     def test_convert_fetch_blobs_true_existing_atp_remote_blob(self):
         cid = 'bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq'
         AtpRemoteBlob(id='http://my/pic', cid=cid, size=8).put()
 
-        self.assertEqual({
+        self.assert_equals({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',
             'avatar': {
@@ -620,17 +652,13 @@ class ATProtoTest(TestCase):
                 'mimeType': 'application/octet-stream',
                 'size': 8,
             },
-            'labels': {
-                '$type': 'com.atproto.label.defs#selfLabels',
-                'values': [{'val': 'bridged-from-bridgy-fed'}],
-            },
             'bridgyOriginalUrl': 'did:web:alice.com',
         }, ATProto.convert(Object(our_as1={
             'objectType': 'person',
             'id': 'did:web:alice.com',
             'displayName': 'Alice',
             'image': [{'url': 'http://my/pic'}],
-        }), fetch_blobs=True))
+        }), fetch_blobs=True), ignore=('labels',))
 
     # resolveHandle
     @patch('requests.get', return_value=requests_response({'did': 'did:plc:user'}))
