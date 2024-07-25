@@ -768,7 +768,6 @@ class Protocol:
             id = obj.as1.get('id')
             obj.key = ndb.Key(Object, id)
 
-        logger.info(f'Receiving {from_cls.LABEL} {obj.type} {id} AS1: {json_dumps(obj.as1, indent=2)}')
         if not id:
             error('No id provided')
         elif from_cls.is_blocklisted(id, allow_internal=internal):
@@ -790,6 +789,8 @@ class Protocol:
                  or (obj.new is None and obj.changed is None
                      and from_cls.load(id, remote=False)))):
             error(f'Already seen this activity {id}', status=204)
+
+        logger.info(f'Receiving {from_cls.LABEL} {obj.type} {id} AS1: {json_dumps(obj.as1, indent=2)}')
 
         # does this protocol support this activity/object type?
         from_cls.check_supported(obj)
@@ -1172,7 +1173,8 @@ class Protocol:
                     **obj.as1,
                 },
             }
-            logger.info(f'Wrapping in update: {json_dumps(update_as1, indent=2)}')
+            logger.info(f'Wrapping in update')
+            logger.debug(f'  AS1: {json_dumps(update_as1, indent=2)}')
             return Object(id=id, our_as1=update_as1,
                           source_protocol=obj.source_protocol)
 
@@ -1193,7 +1195,8 @@ class Protocol:
                 'object': obj.as1,
                 'published': now,
             }
-            logger.info(f'Wrapping in post: {json_dumps(create_as1, indent=2)}')
+            logger.info(f'Wrapping in post')
+            logger.debug(f'  AS1: {json_dumps(create_as1, indent=2)}')
             return Object.get_or_create(create_id, our_as1=create_as1,
                                         source_protocol=obj.source_protocol,
                                         authed_as=authed_as)
@@ -1656,7 +1659,8 @@ def send_task():
                 if form.get('orig_obj') else None)
 
     # send
-    logger.info(f'Sending {protocol} {obj.type} {obj.key.id()} AS1: {json_dumps(obj.as1, indent=2)}')
+    logger.info(f'Sending {protocol} {obj.type} {obj.key.id()}')
+    logger.debug(f'  AS1: {json_dumps(obj.as1, indent=2)}')
     sent = None
     try:
         sent = PROTOCOLS[protocol].send(obj, url, from_user=user, orig_obj=orig_obj)

@@ -471,7 +471,7 @@ class ActivityPub(User, Protocol):
             error('No HTTP Signature', status=401)
 
         logger.info('Verifying HTTP Signature')
-        # logger.info(f'Headers: {json_dumps(headers, indent=2)}')
+        logger.debug(f'Headers: {json_dumps(headers, indent=2)}')
 
         # parse_signature_header lower-cases all keys
         sig_fields = parse_signature_header(sig)
@@ -615,7 +615,7 @@ def signed_request(fn, url, data=None, headers=None, from_user=None,
         from_user = instance_actor()
 
     if data:
-        logger.info(f'Sending AS2 object: {json_dumps(data, indent=2)}')
+        logger.debug(f'Sending AS2 object: {json_dumps(data, indent=2)}')
         data = json_dumps(data).encode()
 
     headers = {
@@ -667,7 +667,7 @@ def signed_request(fn, url, data=None, headers=None, from_user=None,
     if (type and type != 'text/html' and
         (type.startswith('text/') or type.endswith('+json')
          or type.endswith('/json'))):
-        logger.info(resp.text)
+        logger.debug(resp.text)
 
     return resp
 
@@ -989,7 +989,7 @@ def actor(handle_or_id):
         # 'alsoKnownAs': [host_url(id)],
     })
 
-    # logger.info(f'Returning: {json_dumps(actor, indent=2)}')
+    logger.debug(f'Returning: {json_dumps(actor, indent=2)}')
     return actor, {
         'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
         'Access-Control-Allow-Origin': '*',
@@ -1148,7 +1148,7 @@ def follower_collection(id, collection):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': request.url,
         })
-        # logger.info(f'Returning {json_dumps(page, indent=2)}')
+        logger.debug(f'Returning {json_dumps(page, indent=2)}')
         return page, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
     ret = {
@@ -1167,7 +1167,7 @@ def follower_collection(id, collection):
     if count != 1001:
         ret['totalItems'] = count
 
-    # logger.info(f'Returning {json_dumps(collection, indent=2)}')
+    logger.debug(f'Returning {json_dumps(collection, indent=2)}')
     return ret, {
         'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
     }
@@ -1217,7 +1217,7 @@ def outbox(id):
             '@context': 'https://www.w3.org/ns/activitystreams',
             'id': request.url,
         })
-        # logger.info(f'Returning {json_dumps(page, indent=2)}')
+        logger.debug(f'Returning {json_dumps(page, indent=2)}')
         return page, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
     ret = {
