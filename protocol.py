@@ -972,7 +972,7 @@ class Protocol:
 
         # deliver to targets
         resp = from_cls.deliver(obj, from_user=from_user)
-        common.memcache.set(memcache_key, 'done')
+        common.memcache.set(memcache_key, 'done', expire=7 * 24 * 60 * 60)  # 1w
         return resp
 
     @classmethod
