@@ -230,7 +230,8 @@ class Protocol:
 
         To be implemented by subclasses.
 
-        May incur network requests, eg DNS queries or HTTP requests.
+        May incur network requests, eg DNS queries or HTTP requests. Avoids
+        blocked or opted out users.
 
         Args:
           handle (str)
@@ -923,6 +924,7 @@ class Protocol:
             to_cc = (as1.get_ids(inner_obj_as1, 'to')
                      + as1.get_ids(inner_obj_as1, 'cc'))
             if len(to_cc) == 1 and to_cc != [as2.PUBLIC_AUDIENCE]:
+                # TODO: also check that to_cc isn't the sender's followers collection
                 proto = Protocol.for_bridgy_subdomain(to_cc[0])
                 if proto:
                     # remove @-mentions of bot user in HTML links

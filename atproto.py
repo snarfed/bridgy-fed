@@ -244,9 +244,9 @@ class ATProto(User, Protocol):
 
         # TODO: shortcut our own handles? eg snarfed.org.web.brid.gy
 
-        user = ATProto.query(ATProto.handle == handle).get()
-        if user:
-            return user.key.id()
+        for user in ATProto.query(ATProto.handle == handle):
+            if not user.status:
+                return user.key.id()
 
         return did.resolve_handle(handle, get_fn=util.requests_get)
 
