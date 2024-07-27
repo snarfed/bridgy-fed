@@ -513,7 +513,7 @@ class IntegrationTests(TestCase):
             self.assert_equals({
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 'type': 'Delete',
-                'id': 'https://bsky.brid.gy/convert/ap/did:plc:alice#delete-copy-activitypub-2022-01-02T03:04:05+00:00',
+                'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.actor.profile/self#delete-copy-activitypub-2022-01-02T03:04:05+00:00',
                 'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'object': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],

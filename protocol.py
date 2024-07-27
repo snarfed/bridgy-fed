@@ -33,6 +33,7 @@ from common import (
     report_error,
     subdomain_wrap,
 )
+import ids
 from ids import (
     BOT_ACTOR_AP_IDS,
     normalize_user_id,
@@ -1124,7 +1125,7 @@ class Protocol:
           user (User)
         """
         now = util.now().isoformat()
-        delete_id = f'{user.key.id()}#delete-copy-{copy_cls.LABEL}-{now}'
+        delete_id = f'{ids.profile_id(id=user.key.id(), proto=user)}#delete-copy-{copy_cls.LABEL}-{now}'
         delete = Object(id=delete_id, source_protocol=user.LABEL, our_as1={
             'id': delete_id,
             'objectType': 'activity',
