@@ -706,6 +706,7 @@ class ProtocolTest(TestCase):
             {'objectType': 'activity', 'verb': 'undo', 'object': {'foo': 'bar'}},
             {'objectType': 'activity', 'verb': 'undo',
              'object': {'objectType': 'activity', 'verb': 'share'}},
+            {'objectType': 'activity', 'verb': 'flag'},
         ):
             with self.subTest(obj=obj):
                 Fake.check_supported(Object(our_as1=obj))
@@ -714,7 +715,6 @@ class ProtocolTest(TestCase):
             {'objectType': 'event'},
             {'objectType': 'activity', 'verb': 'post',
              'object': {'objectType': 'event'}},
-            {'objectType': 'activity', 'verb': 'flag'},
         ):
             with self.subTest(obj=obj):
                 with self.assertRaises(NoContent):
