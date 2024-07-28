@@ -74,6 +74,7 @@ AP_BASE_TARGETS = [
     'https://mastodon.uno/inbox',
     'https://mastodon.world/inbox',
     'https://mastodonapp.uk/inbox',
+    'https://mozilla.social/inbox',
     'https://mstdn.jp/inbox',
     'https://mstdn.social/inbox',
     'https://pawoo.net/inbox',
