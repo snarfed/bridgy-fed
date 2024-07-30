@@ -1,6 +1,7 @@
 """Misc common utilities."""
 import base64
 from datetime import timedelta
+import functools
 import logging
 from pathlib import Path
 import re
@@ -9,6 +10,7 @@ import urllib.parse
 from urllib.parse import urljoin, urlparse
 
 import cachetools
+from cachetools.keys import hashkey
 from Crypto.Util import number
 from flask import abort, g, has_request_context, make_response, request
 from google.cloud.error_reporting.util import build_flask_context
@@ -413,3 +415,29 @@ def memcache_key(key):
     pymemcache Client's allow_unicode_keys constructor kwarg.
     """
     return key[:MEMCACHE_KEY_MAX_LEN].replace(' ', '%20').encode()
+
+
+def memcache_memoize(expire=None):
+    """Memoize function decorator that stores the cached value in memcache.
+
+    Only caches non-null/empty values.
+
+    Args:
+      expire (int): optional, expiration in seconds
+    """
+    def decorator(fn):
+        @functools.wraps(fn)
+        def wrapped(*args, **kwargs):
+            key = memcache_key(f'{fn.__name__}-{str(hashkey(*args, **kwargs))}')
+            if val := memcache.get(key):
+                logger.debug(f'cache hit {key}')
+                return val
+
+            logger.debug(f'cache miss {key}')
+            val = fn(*args, **kwargs)
+            memcache.set(key, val)
+            return val
+
+        return wrapped
+
+    return decorator

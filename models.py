@@ -30,6 +30,7 @@ from common import (
     base64_to_long,
     DOMAIN_RE,
     long_to_base64,
+    memcache_memoize,
     OLD_ACCOUNT_AGE,
     remove,
     report_error,
@@ -1563,6 +1564,7 @@ def get_original(copy_id, keys_only=None):
         return got[0]
 
 
+@memcache_memoize(expire=60 * 60 * 24)  # 1d
 def get_originals(copy_ids, keys_only=None):
     """Fetches users (across all protocols) for a given set of copies.
 
@@ -1577,7 +1579,7 @@ def get_originals(copy_ids, keys_only=None):
     """
     assert copy_ids
 
-    classes = set(cls for cls in PROTOCOLS.values() if cls)
+    classes = set(cls for cls in PROTOCOLS.values() if cls and cls.LABEL != 'ui')
     classes.add(Object)
 
     return list(itertools.chain(*(
