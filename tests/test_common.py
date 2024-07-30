@@ -152,8 +152,9 @@ class CommonTest(TestCase):
     @patch('common.MEMCACHE_KEY_MAX_LEN', new=10)
     def test_memcache_key(self):
         for input, expected in (
-                ('foo', 'foo'),
-                ('foo-bar-baz', 'foo-bar-ba'),
-                ('foo bar', 'foo%20bar'),
+                ('foo', b'foo'),
+                ('foo-bar-baz', b'foo-bar-ba'),
+                ('foo bar', b'foo%20bar'),
+                ('☃.net', b'\xe2\x98\x83.net'),
         ):
             self.assertEqual(expected, common.memcache_key(input))

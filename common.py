@@ -412,4 +412,4 @@ def memcache_key(key):
     TODO: truncate to 250 *UTF-8* chars, to handle Unicode chars in URLs. Related:
     pymemcache Client's allow_unicode_keys constructor kwarg.
     """
-    return key[:MEMCACHE_KEY_MAX_LEN].replace(' ', '%20')
+    return key[:MEMCACHE_KEY_MAX_LEN].replace(' ', '%20').encode()
