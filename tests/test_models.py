@@ -1102,7 +1102,7 @@ class ObjectTest(TestCase):
         user = self.make_user('other:user', cls=OtherFake,
                               copies=[Target(uri='fake:bar', protocol='fake')])
 
-        memcache_key = "get_originals-(['other:foo',%20'fake:bar',%20'baz'],)"
+        memcache_key = "get_originals-(['other:foo',%20'fake:bar',%20'baz'],)-{}"
         self.assertIsNone(common.memcache.get(memcache_key))
 
         self.assert_entities_equal(

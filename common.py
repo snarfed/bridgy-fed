@@ -10,7 +10,6 @@ import urllib.parse
 from urllib.parse import urljoin, urlparse
 
 import cachetools
-from cachetools.keys import hashkey
 from Crypto.Util import number
 from flask import abort, g, has_request_context, make_response, request
 from google.cloud.error_reporting.util import build_flask_context
@@ -428,7 +427,7 @@ def memcache_memoize(expire=None):
     def decorator(fn):
         @functools.wraps(fn)
         def wrapped(*args, **kwargs):
-            key = memcache_key(f'{fn.__name__}-{str(hashkey(*args, **kwargs))}')
+            key = memcache_key(f'{fn.__name__}-{repr(args)}-{repr(kwargs)}')
             if val := memcache.get(key):
                 logger.debug(f'cache hit {key}')
                 return val

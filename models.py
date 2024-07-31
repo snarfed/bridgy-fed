@@ -1564,7 +1564,8 @@ def get_original(copy_id, keys_only=None):
         return got[0]
 
 
-@memcache_memoize(expire=60 * 60 * 24)  # 1d
+# TODO
+# @memcache_memoize(expire=60 * 60)  # 1h
 def get_originals(copy_ids, keys_only=None):
     """Fetches users (across all protocols) for a given set of copies.
 
