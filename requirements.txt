@@ -39,7 +39,7 @@ google-api-core[grpc]==2.19.1
 google-api-python-client==2.138.0
 google-auth==2.15.0
 google-auth-httplib2==0.2.0
-google-cloud-appengine-logging==1.4.4
+google-cloud-appengine-logging==1.4.5
 google-cloud-audit-log==0.2.5
 google-cloud-core==2.3.2
 google-cloud-datastore==2.19.0
