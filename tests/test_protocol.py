@@ -720,6 +720,14 @@ class ProtocolTest(TestCase):
                 with self.assertRaises(NoContent):
                     Fake.check_supported(Object(our_as1=obj))
 
+        # DM
+        with self.assertRaises(NoContent):
+            Fake.check_supported(Object(our_as1={
+                'objectType': 'note',
+                'actor': 'did:alice',
+                'to': ['did:bob'],
+                'content': 'hello world',
+            }))
 
 class ProtocolReceiveTest(TestCase):
 

@@ -1576,11 +1576,14 @@ class Protocol:
             return
 
         inner_type = as1.object_type(as1.get_object(obj.as1)) or ''
-        if (obj.type not in cls.SUPPORTED_AS1_TYPES or
-            (obj.type in as1.CRUD_VERBS
-             and inner_type
-             and inner_type not in cls.SUPPORTED_AS1_TYPES)):
+        if (obj.type not in cls.SUPPORTED_AS1_TYPES
+            or (obj.type in as1.CRUD_VERBS
+                and inner_type
+                and inner_type not in cls.SUPPORTED_AS1_TYPES)):
             error(f"Bridgy Fed for {cls.LABEL} doesn't support {obj.type} {inner_type} yet", status=204)
+
+        if as1.is_dm(obj.as1):
+            error(f"Bridgy Fed doesn't support DMs", status=204)
 
 
 @cloud_tasks_only
