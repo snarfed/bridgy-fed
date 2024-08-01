@@ -46,7 +46,7 @@ app.wsgi_app = flask_util.ndb_context_middleware(
     # https://github.com/googleapis/python-ndb/issues/888
     cache_policy=cache_policy,
     global_cache=global_cache,
-    global_cache_timeout_policy=global_cache_timeout_policy,
+    global_cache_timeout_policy=global_cache_timeout_policy)
 
 
 @app.get('/liveness_check')
