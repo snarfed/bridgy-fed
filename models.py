@@ -1,6 +1,7 @@
 """Datastore model classes."""
 import copy
 from datetime import timedelta, timezone
+from functools import lru_cache
 import itertools
 import json
 import logging
@@ -30,7 +31,6 @@ from common import (
     base64_to_long,
     DOMAIN_RE,
     long_to_base64,
-    memcache_memoize,
     OLD_ACCOUNT_AGE,
     remove,
     report_error,
@@ -1135,7 +1135,7 @@ class Object(StringIdModel):
 
         # batch lookup matching users
         origs = {}  # maps str copy URI to str original URI
-        for obj in get_originals(ids):
+        for obj in get_originals(tuple(ids)):
             for copy in obj.copies:
                 if copy.protocol in (self_proto.LABEL, self_proto.ABBREV):
                     origs[copy.uri] = obj.key.id()
@@ -1559,20 +1559,19 @@ def get_original(copy_id, keys_only=None):
     Returns:
       User or Object:
     """
-    got = get_originals([copy_id], keys_only=keys_only)
+    got = get_originals((copy_id,), keys_only=keys_only)
     if got:
         return got[0]
 
 
-# TODO
-# @memcache_memoize(expire=60 * 60)  # 1h
+@lru_cache(maxsize=10000)
 def get_originals(copy_ids, keys_only=None):
     """Fetches users (across all protocols) for a given set of copies.
 
     Also see :Object:`get_copy` and :User:`get_copy`.
 
     Args:
-      copy_ids (sequence of str)
+      copy_ids (tuple (not list!) of str)
       keys_only (bool): passed through to :class:`google.cloud.ndb.Query`
 
     Returns:

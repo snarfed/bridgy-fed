@@ -12,7 +12,7 @@ from google.cloud import ndb
 from google.cloud.ndb.global_cache import _InProcessGlobalCache
 from granary import as2
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY
-from oauth_dropins.webutil import appengine_info, models, util
+from oauth_dropins.webutil import appengine_info, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import NOW, requests_response
@@ -26,6 +26,7 @@ from activitypub import ActivityPub
 from app import app
 from atproto import ATProto
 import common
+import models
 from models import Follower, Object, PROTOCOLS, Target, User
 import protocol
 from protocol import ErrorButDoNotRetryTask, Protocol
@@ -2295,6 +2296,7 @@ class ProtocolReceiveTest(TestCase):
                        copies=[Target(uri='fake:bob', protocol='fake')])
 
         common.memcache.clear()
+        models.get_originals.cache_clear()
 
         obj.new = True
         OtherFake.fetchable = {
@@ -2327,6 +2329,7 @@ class ProtocolReceiveTest(TestCase):
                           copies=[Target(uri='fake:post', protocol='fake')])
 
         common.memcache.clear()
+        models.get_originals.cache_clear()
         obj.new = True
 
         _, code = Fake.receive(obj, authed_as='fake:alice')
@@ -2375,7 +2378,7 @@ class ProtocolReceiveTest(TestCase):
             id='fake:post', our_as1={'foo': 9}, source_protocol='fake',
             copies=[Target(uri='other:post', protocol='other')])
 
-        common.memcache.clear()
+        models.get_originals.cache_clear()
 
         obj.new = True
         self.assertEqual(('OK', 202),

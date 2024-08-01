@@ -280,6 +280,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         memcache.clear()
         global_cache.clear()
+        models.get_originals.cache_clear()
         activitypub.WEB_OPT_OUT_DOMAINS = set()
 
         # clear datastore

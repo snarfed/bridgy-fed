@@ -42,7 +42,6 @@ from ids import (
 )
 from models import (
     Follower,
-    get_originals,
     Object,
     PROTOCOLS,
     PROTOCOLS_BY_KIND,

@@ -456,6 +456,8 @@ def memcache_key(key):
 def memcache_memoize(expire=None):
     """Memoize function decorator that stores the cached value in memcache.
 
+    NOT YET WORKING! CURRENTLY UNUSED!
+
     Only caches non-null/empty values.
 
     Args:

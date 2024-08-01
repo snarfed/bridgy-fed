@@ -918,6 +918,8 @@ class ObjectTest(TestCase):
         obj.resolve_ids()
         self.assert_equals(follow, obj.our_as1)
 
+        models.get_originals.cache_clear()
+
         # matching copy users
         self.make_user('other:alice', cls=OtherFake,
                        copies=[Target(uri='fake:alice', protocol='fake')])
@@ -952,6 +954,8 @@ class ObjectTest(TestCase):
         # no matching copy users or objects
         obj.resolve_ids()
         self.assert_equals(reply, obj.our_as1)
+
+        models.get_originals.cache_clear()
 
         # matching copies
         self.make_user('other:alice', cls=OtherFake,
@@ -990,6 +994,8 @@ class ObjectTest(TestCase):
         # no matching copy users or objects
         obj.resolve_ids()
         self.assert_equals(note, obj.our_as1)
+
+        models.get_originals.cache_clear()
 
         # matching copies
         self.store_object(id='other:a',
@@ -1095,23 +1101,18 @@ class ObjectTest(TestCase):
         }, obj.our_as1)
 
     def test_get_originals(self):
-        self.assertEqual([], models.get_originals(['foo', 'did:plc:bar']))
+        self.assertEqual([], models.get_originals(('foo', 'did:plc:bar')))
 
         obj = self.store_object(id='fake:post',
                                 copies=[Target(uri='other:foo', protocol='other')])
         user = self.make_user('other:user', cls=OtherFake,
                               copies=[Target(uri='fake:bar', protocol='fake')])
 
-        # TODO
-        # memcache_key = "get_originals-(['other:foo',%20'fake:bar',%20'baz'],)-{}"
-        # self.assertIsNone(common.memcache.get(memcache_key))
+        self.assert_entities_equal(
+            [obj, user], models.get_originals(('other:foo', 'fake:bar', 'baz')))
 
         self.assert_entities_equal(
-            [obj, user], models.get_originals(['other:foo', 'fake:bar', 'baz']))
-
-        # self.assertIsNotNone(common.memcache.get(memcache_key))
-        self.assert_entities_equal(
-            [obj, user], models.get_originals(['other:foo', 'fake:bar', 'baz']))
+            [obj, user], models.get_originals(('other:foo', 'fake:bar', 'baz')))
 
     def test_get_copy(self):
         obj = Object(id='x')
