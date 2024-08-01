@@ -113,7 +113,7 @@ class CommonTest(TestCase):
 
     def test_cache_policy(self):
         for id in 'did:plc:foo', 'did:web:foo':
-            self.assertTrue(common.cache_policy(Object(id=id).key._key))
+            self.assertTrue(common.cache_policy(Object(id=id).key))
 
         for obj in (
             ATProto(id='alice'),
@@ -123,7 +123,7 @@ class CommonTest(TestCase):
             Object(id='at://did:plc:user/app.bsky.actor.profile/self'),
             Follower(id='abc'),
         ):
-            self.assertFalse(common.cache_policy(obj.key._key))
+            self.assertFalse(common.cache_policy(obj.key))
 
     def test_global_cache_timeout_policy(self):
         for good in (
