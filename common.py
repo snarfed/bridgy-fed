@@ -386,6 +386,22 @@ def report_error(msg, *, exception=False, **kwargs):
         logger.warning(f'Failed to report error! {kwargs}', exc_info=exception)
 
 
+def cache_policy(key):
+    """In memory ndb cache, only DID docs right now.
+
+    https://github.com/snarfed/bridgy-fed/issues/1149#issuecomment-2261383697
+
+    Args:
+      key (google.cloud.datastore.key.Key): not ``google.cloud.ndb.key.Key``!
+        see https://github.com/googleapis/python-ndb/issues/987
+
+    Returns:
+      bool: whether to cache this object
+    """
+    logger.info(f'ndb-cache-key {key.__class__}')
+    return key and key.kind == 'Object' and key.name.startswith('did:')
+
+
 PROFILE_ID_RE = re.compile(
     fr"""
       /users?/[^/]+$ |
@@ -395,7 +411,16 @@ PROFILE_ID_RE = re.compile(
     """, re.VERBOSE)
 
 def global_cache_timeout_policy(key):
-    """Cache users and profile objects longer than other objects."""
+    """Cache users and profile objects longer than other objects.
+
+    Args:
+      key (google.cloud.datastore.key.Key): not ``google.cloud.ndb.key.Key``!
+        see https://github.com/googleapis/python-ndb/issues/987
+
+    Returns:
+      int: cache expiration for this object, in seconds
+    """
+    logger.info(f'ndb-cache-key {key.__class__}')
     if (key and
             (key.kind in ('ActivityPub', 'ATProto', 'Follower', 'MagicKey')
              or key.kind == 'Object' and PROFILE_ID_RE.search(key.name))):

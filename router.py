@@ -11,7 +11,7 @@ from oauth_dropins.webutil import (
 
 # all protocols
 import activitypub, atproto, web
-from common import global_cache, global_cache_timeout_policy
+from common import cache_policy, global_cache, global_cache_timeout_policy
 import models
 import protocol
 
@@ -24,11 +24,11 @@ app.config.from_pyfile(app_dir / 'config.py')
 
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client,
-    global_cache=global_cache,
-    global_cache_timeout_policy=global_cache_timeout_policy,
-    # disable context-local cache due to this bug:
+    # limited context-local cache. avoid full one due to this bug:
     # https://github.com/googleapis/python-ndb/issues/888
-    cache_policy=lambda key: False)
+    cache_policy=cache_policy,
+    global_cache=global_cache,
+    global_cache_timeout_policy=global_cache_timeout_policy)
 
 app.add_url_rule('/queue/poll-feed', view_func=web.poll_feed_task, methods=['POST'])
 app.add_url_rule('/queue/receive', view_func=protocol.receive_task, methods=['POST'])

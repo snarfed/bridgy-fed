@@ -16,7 +16,7 @@ from oauth_dropins.webutil import (
     flask_util,
 )
 
-from common import global_cache, global_cache_timeout_policy
+from common import cache_policy, global_cache, global_cache_timeout_policy
 
 logger = logging.getLogger(__name__)
 # logging.getLogger('lexrpc').setLevel(logging.INFO)
@@ -43,11 +43,11 @@ app.url_map.redirect_defaults = False
 
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client,
-    global_cache=global_cache,
-    global_cache_timeout_policy=global_cache_timeout_policy,
-    # disable context-local cache due to this bug:
+    # limited context-local cache. avoid full one due to this bug:
     # https://github.com/googleapis/python-ndb/issues/888
-    cache_policy=lambda key: False)
+    cache_policy=cache_policy,
+    global_cache=global_cache,
+    global_cache_timeout_policy=global_cache_timeout_policy)
 
 # deregister XRPC methods we don't support
 for nsid in (

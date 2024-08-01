@@ -20,7 +20,7 @@ import pytz
 # all protocols
 import activitypub, atproto, web
 import atproto_firehose
-from common import global_cache, global_cache_timeout_policy, USER_AGENT
+from common import cache_policy, global_cache, global_cache_timeout_policy, USER_AGENT
 import models
 
 # as of 2024-07-10
@@ -42,11 +42,11 @@ app.config.from_pyfile(app_dir / 'config.py')
 
 app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client,
+    # limited context-local cache. avoid full one due to this bug:
+    # https://github.com/googleapis/python-ndb/issues/888
+    cache_policy=cache_policy,
     global_cache=global_cache,
     global_cache_timeout_policy=global_cache_timeout_policy,
-    # disable context-local cache due to this bug:
-    # https://github.com/googleapis/python-ndb/issues/888
-    cache_policy=lambda key: False)
 
 
 @app.get('/liveness_check')

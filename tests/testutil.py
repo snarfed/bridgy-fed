@@ -285,9 +285,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         # clear datastore
         requests.post(f'http://{ndb_client.host}/reset')
         self.ndb_context = ndb_client.context(
+            cache_policy=common.cache_policy,
             global_cache=_InProcessGlobalCache(),
-            global_cache_timeout_policy=global_cache_timeout_policy,
-            cache_policy=lambda key: False)
+            global_cache_timeout_policy=global_cache_timeout_policy)
         self.ndb_context.__enter__()
 
         util.now = lambda **kwargs: testutil.NOW

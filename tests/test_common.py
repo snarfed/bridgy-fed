@@ -111,7 +111,21 @@ class CommonTest(TestCase):
         with app.test_request_context(base_url='https://bsky.brid.gy', path='/foo'):
             self.assertEqual('https://bsky.brid.gy/asdf', common.host_url('asdf'))
 
-    def test_global_cache_policy(self):
+    def test_cache_policy(self):
+        for id in 'did:plc:foo', 'did:web:foo':
+            self.assertTrue(common.cache_policy(Object(id=id).key._key))
+
+        for obj in (
+            ATProto(id='alice'),
+            ActivityPub(id='alice'),
+            Web(id='alice'),
+            Object(id='https://mastodon.social/users/alice'),
+            Object(id='at://did:plc:user/app.bsky.actor.profile/self'),
+            Follower(id='abc'),
+        ):
+            self.assertFalse(common.cache_policy(obj.key._key))
+
+    def test_global_cache_timeout_policy(self):
         for good in (
             ATProto(id='alice'),
             ActivityPub(id='alice'),

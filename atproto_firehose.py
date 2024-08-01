@@ -24,6 +24,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from atproto import ATProto, Cursor
 from common import (
     add,
+    cache_policy,
     create_task,
     global_cache,
     global_cache_timeout_policy,
@@ -67,7 +68,7 @@ def load_dids():
 def _load_dids():
     global atproto_dids, atproto_loaded_at, bridged_dids, bridged_loaded_at
 
-    with ndb_client.context(global_cache=global_cache,
+    with ndb_client.context(cache_policy=cache_policy, global_cache=global_cache,
                             global_cache_timeout_policy=global_cache_timeout_policy):
         if not DEBUG:
             Timer(STORE_CURSOR_FREQ.total_seconds(), _load_dids).start()
@@ -97,9 +98,8 @@ def subscriber():
     while True:
         try:
             with ndb_client.context(
-                    global_cache=global_cache,
-                    global_cache_timeout_policy=global_cache_timeout_policy,
-                    cache_policy=lambda key: False):
+                    cache_policy=cache_policy, global_cache=global_cache,
+                    global_cache_timeout_policy=global_cache_timeout_policy):
                 subscribe()
 
             logger.info(f'disconnected! waiting {RECONNECT_DELAY} and then reconnecting')
@@ -260,9 +260,8 @@ def handler():
     while True:
         try:
             with ndb_client.context(
-                    global_cache=global_cache,
-                    global_cache_timeout_policy=global_cache_timeout_policy,
-                    cache_policy=lambda key: False):
+                    cache_policy=cache_policy, global_cache=global_cache,
+                    global_cache_timeout_policy=global_cache_timeout_policy):
                 handle()
 
             # if we return cleanly, that means we hit the limit
