@@ -14,6 +14,7 @@ from Crypto.Util import number
 from flask import abort, g, has_request_context, make_response, request
 from google.cloud.error_reporting.util import build_flask_context
 from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
+from google.cloud.ndb.key import Key
 from google.protobuf.timestamp_pb2 import Timestamp
 from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.appengine_config import error_reporting_client, tasks_client
@@ -392,13 +393,17 @@ def cache_policy(key):
     https://github.com/snarfed/bridgy-fed/issues/1149#issuecomment-2261383697
 
     Args:
-      key (google.cloud.datastore.key.Key): not ``google.cloud.ndb.key.Key``!
+      key (google.cloud.datastore.key.Key or google.cloud.ndb.key.Key):
         see https://github.com/googleapis/python-ndb/issues/987
 
     Returns:
       bool: whether to cache this object
     """
-    logger.info(f'ndb-cache-key {key.__class__}')
+    if isinstance(key, Key):
+        # use internal google.cloud.datastore.key.Key
+        # https://github.com/googleapis/python-ndb/issues/987
+        key = key._key
+
     return key and key.kind == 'Object' and key.name.startswith('did:')
 
 
@@ -414,16 +419,19 @@ def global_cache_timeout_policy(key):
     """Cache users and profile objects longer than other objects.
 
     Args:
-      key (google.cloud.datastore.key.Key): not ``google.cloud.ndb.key.Key``!
+      key (google.cloud.datastore.key.Key or google.cloud.ndb.key.Key):
         see https://github.com/googleapis/python-ndb/issues/987
 
     Returns:
       int: cache expiration for this object, in seconds
     """
-    logger.info(f'ndb-cache-key {key.__class__}')
-    if (key and
-            (key.kind in ('ActivityPub', 'ATProto', 'Follower', 'MagicKey')
-             or key.kind == 'Object' and PROFILE_ID_RE.search(key.name))):
+    if isinstance(key, Key):
+        # use internal google.cloud.datastore.key.Key
+        # https://github.com/googleapis/python-ndb/issues/987
+        key = key._key
+
+    if (key and (key.kind in ('ActivityPub', 'ATProto', 'Follower', 'MagicKey')
+                 or key.kind == 'Object' and PROFILE_ID_RE.search(key.name))):
         return int(timedelta(hours=2).total_seconds())
 
     return int(timedelta(minutes=30).total_seconds())
