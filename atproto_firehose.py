@@ -27,6 +27,7 @@ from common import (
     cache_policy,
     create_task,
     global_cache,
+    global_cache_policy,
     global_cache_timeout_policy,
     report_exception,
     USER_AGENT,
@@ -69,6 +70,7 @@ def _load_dids():
     global atproto_dids, atproto_loaded_at, bridged_dids, bridged_loaded_at
 
     with ndb_client.context(cache_policy=cache_policy, global_cache=global_cache,
+                            global_cache_policy=global_cache_policy,
                             global_cache_timeout_policy=global_cache_timeout_policy):
         if not DEBUG:
             Timer(STORE_CURSOR_FREQ.total_seconds(), _load_dids).start()
@@ -99,6 +101,7 @@ def subscriber():
         try:
             with ndb_client.context(
                     cache_policy=cache_policy, global_cache=global_cache,
+                    global_cache_policy=global_cache_policy,
                     global_cache_timeout_policy=global_cache_timeout_policy):
                 subscribe()
 
@@ -261,6 +264,7 @@ def handler():
         try:
             with ndb_client.context(
                     cache_policy=cache_policy, global_cache=global_cache,
+                    global_cache_policy=global_cache_policy,
                     global_cache_timeout_policy=global_cache_timeout_policy):
                 handle()
 

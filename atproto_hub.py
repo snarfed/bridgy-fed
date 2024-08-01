@@ -20,7 +20,7 @@ import pytz
 # all protocols
 import activitypub, atproto, web
 import atproto_firehose
-from common import cache_policy, global_cache, global_cache_timeout_policy, USER_AGENT
+import common
 import models
 
 # as of 2024-07-10
@@ -44,9 +44,10 @@ app.wsgi_app = flask_util.ndb_context_middleware(
     app.wsgi_app, client=appengine_config.ndb_client,
     # limited context-local cache. avoid full one due to this bug:
     # https://github.com/googleapis/python-ndb/issues/888
-    cache_policy=cache_policy,
-    global_cache=global_cache,
-    global_cache_timeout_policy=global_cache_timeout_policy)
+    cache_policy=common.cache_policy,
+    global_cache=common.global_cache,
+    global_cache_policy=common.global_cache_policy,
+    global_cache_timeout_policy=common.global_cache_timeout_policy)
 
 
 @app.get('/liveness_check')
@@ -114,7 +115,7 @@ if LOCAL_SERVER or not DEBUG:
 if 'GAE_INSTANCE' in os.environ:  # prod
     def request_crawl():
         bgs = lexrpc.client.Client(f'https://{os.environ["BGS_HOST"]}',
-                                   headers={'User-Agent': USER_AGENT})
+                                   headers={'User-Agent': common.USER_AGENT})
         resp = bgs.com.atproto.sync.requestCrawl({'hostname': os.environ['PDS_HOST']})
         logger.info(resp)
         Timer(5 * 60, request_crawl).start()

@@ -407,6 +407,10 @@ def cache_policy(key):
     return key and key.kind == 'Object' and key.name.startswith('did:')
 
 
+def global_cache_policy(key):
+    return True
+
+
 PROFILE_ID_RE = re.compile(
     fr"""
       /users?/[^/]+$ |
