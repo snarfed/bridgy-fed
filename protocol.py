@@ -791,7 +791,9 @@ class Protocol:
                      and from_cls.load(id, remote=False)))):
             error(f'Already seen this activity {id}', status=204)
 
-        logger.info(f'Receiving {from_cls.LABEL} {obj.type} {id} AS1: {json_dumps(obj.as1, indent=2)}')
+        pruned = {k: v for k, v in obj.as1.items()
+                  if k not in ('contentMap', 'replies', 'signature')}
+        logger.info(f'Receiving {from_cls.LABEL} {obj.type} {id} AS1: {json_dumps(pruned, indent=2)}')
 
         # does this protocol support this activity/object type?
         from_cls.check_supported(obj)
@@ -943,7 +945,7 @@ class Protocol:
 
         # fetch actor if necessary
         if actor and actor.keys() == set(['id']):
-            logger.info('Fetching actor so we have name, profile photo, etc')
+            logger.debug('Fetching actor so we have name, profile photo, etc')
             actor_obj = from_cls.load(actor['id'])
             if actor_obj and actor_obj.as1:
                 obj.our_as1 = {**obj.as1, 'actor': actor_obj.as1}
@@ -952,7 +954,7 @@ class Protocol:
         if (obj.type == 'share'
                 and inner_obj_as1.keys() == set(['id'])
                 and from_cls.owns_id(inner_obj_id)):
-            logger.info('Fetching object so we can render it in feeds')
+            logger.debug('Fetching object so we can render it in feeds')
             inner_obj = from_cls.load(inner_obj_id)
             if inner_obj and inner_obj.as1:
                 obj.our_as1 = {
@@ -987,7 +989,7 @@ class Protocol:
         Args:
           obj (models.Object): follow activity
         """
-        logger.info('Got follow. Loading users, storing Follow(s), sending accept(s)')
+        logger.debug('Got follow. Loading users, storing Follow(s), sending accept(s)')
 
         # Prepare follower (from) users' data
         from_as1 = as1.get_object(obj.as1, 'actor')
@@ -1159,6 +1161,8 @@ class Protocol:
         if obj.changed or is_actor:
             if obj.changed:
                 logger.info(f'Content has changed from last time at {obj.updated}! Redelivering to all inboxes')
+            else:
+                logger.info(f'Got actor profile object, wrapping in update')
             id = f'{obj.key.id()}#bridgy-fed-update-{now}'
             update_as1 = {
                 'objectType': 'activity',
@@ -1175,7 +1179,6 @@ class Protocol:
                     **obj.as1,
                 },
             }
-            logger.info(f'Wrapping in update')
             logger.debug(f'  AS1: {json_dumps(update_as1, indent=2)}')
             return Object(id=id, our_as1=update_as1,
                           source_protocol=obj.source_protocol)
@@ -1186,7 +1189,7 @@ class Protocol:
                 # HACK: force query param here is specific to webmention
                 or 'force' in request.form):
             if create:
-                logger.info(f'Existing create {create.key} status {create.status}')
+                logger.info(f'Existing create {create.key.id()} status {create.status}')
             else:
                 logger.info(f'No existing create activity')
             create_as1 = {
@@ -1329,7 +1332,7 @@ class Protocol:
             # https://github.com/snarfed/bridgy-fed/issues/639
             if is_reply and owner == as1.get_owner(orig_obj.as1):
                 is_self_reply = True
-                logger.info(f'Looks like a self reply! Delivering to followers')
+                logger.info(f'self reply!')
 
             # also add copies' targets
             for copy in orig_obj.copies:
