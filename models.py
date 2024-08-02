@@ -322,7 +322,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         except AssertionError as e:
             error(f'Bad {cls.__name__} id {id} : {e}')
 
-        logger.info(('Updated ' if user.existing else 'Created new ') + str(user))
+        logger.debug(('Updated ' if user.existing else 'Created new ') + str(user))
         return user
 
     @property

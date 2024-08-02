@@ -318,7 +318,7 @@ class Protocol:
         # step 3: look for existing Objects in the datastore
         obj = Protocol.load(id, remote=False)
         if obj and obj.source_protocol:
-            logger.debug(f'  {obj.key} owned by source_protocol {obj.source_protocol}')
+            logger.debug(f'  {obj.key.id()} owned by source_protocol {obj.source_protocol}')
             return PROTOCOLS[obj.source_protocol]
 
         # step 4: fetch over the network, if necessary
@@ -390,7 +390,7 @@ class Protocol:
             if user:
                 if user.status:
                     return (None, None)
-                logger.debug(f'  user {user.key} owns handle {handle}')
+                logger.debug(f'  user {user.key} handle {handle}')
                 return (proto, user.key.id())
 
         # step 3: resolve handle to id
@@ -1065,7 +1065,7 @@ class Protocol:
 
         target = follower.target_for(follower.obj)
         if not target:
-            error(f"Couldn't find delivery target for follower {follower.key}")
+            error(f"Couldn't find delivery target for follower {follower.key.id()}")
 
         # send accept. note that this is one accept for the whole
         # follow, even if it has multiple followees!
@@ -1675,7 +1675,7 @@ def send_task():
             raise
 
     if sent is False:
-        logger.info(f'Failed sending {obj.key.id()} to {url}')
+        logger.info(f'Failed sending!')
 
     # write results to Object
     #

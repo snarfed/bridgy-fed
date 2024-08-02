@@ -97,7 +97,7 @@ class Webfinger(flask_util.XrdOrJrd):
         else:
             user = cls.get_by_id(id)
             if user and not user.direct:
-                error(f"{user.key} hasn't signed up yet", status=404)
+                error(f"{user.key.id()} hasn't signed up yet", status=404)
 
         if (not user
                 or not user.is_enabled(activitypub.ActivityPub)
@@ -118,7 +118,7 @@ class Webfinger(flask_util.XrdOrJrd):
             raise Found(location=url)
 
         actor = user.obj.as1 if user.obj and user.obj.as1 else {}
-        logger.info(f'Generating WebFinger data for {user.key}')
+        logger.info(f'Generating WebFinger data for {user.key.id()}')
 
         actor_id = user.id_as(activitypub.ActivityPub)
         logger.info(f'AS1 actor: {actor_id}')

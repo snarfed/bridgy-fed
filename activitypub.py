@@ -631,7 +631,7 @@ def signed_request(fn, url, data=None, headers=None, from_user=None,
         'Digest': f'SHA-256={b64encode(sha256(data or b"").digest()).decode()}',
     }
 
-    logger.info(f"Signing with {from_user.key}'s key")
+    logger.info(f"Signing with {from_user.key.id()} 's key")
     # (request-target) is a special HTTP Signatures header that some fediverse
     # implementations require, eg Peertube.
     # https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.3

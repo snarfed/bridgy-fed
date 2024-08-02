@@ -376,7 +376,7 @@ class Web(User, Protocol):
         # assert obj.source_protocol in (cls.LABEL, cls.ABBREV, 'ui', None), str(obj)
 
         if not util.is_web(obj.key.id()):
-            logger.warning(f"{obj.key} is source_protocol web but id isn't a URL!")
+            logger.warning(f"{obj.key.id()} is source_protocol web but id isn't a URL!")
             return None
 
         return obj.key.id()
@@ -817,7 +817,7 @@ def webmention_task():
     user = Web.get_by_id(domain)
     if not user:
         error(f'No user found for domain {domain}', status=304)
-    logger.info(f'User: {user.key}')
+    logger.info(f'User: {user.key.id()}')
 
     # fetch source page
     try:

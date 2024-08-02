@@ -361,7 +361,7 @@ class ATProto(User, Protocol):
         # https://atproto.com/specs/did#did-documents
         pds_url = common.host_url().rstrip('/') if DEBUG else cls.PDS_URL
         handle = user.handle_as('atproto')
-        logger.info(f'Creating new did:plc for {user.key} {handle} {pds_url}')
+        logger.info(f'Creating new did:plc for {user.key.id()} {handle} {pds_url}')
         did_plc = did.create_plc(handle, pds_url=pds_url, post_fn=util.requests_post)
 
         Object.get_or_create(did_plc.did, raw=did_plc.doc, authed_as=did_plc)
@@ -499,18 +499,18 @@ class ATProto(User, Protocol):
         from_cls = PROTOCOLS[obj.source_protocol]
         from_key = from_cls.actor_key(obj)
         if not from_key:
-            logger.info(f"Couldn't find {obj.source_protocol} user for {obj.key}")
+            logger.info(f"Couldn't find {obj.source_protocol} user for {obj.key.id()}")
             return False
 
         # load user
         user = from_cls.get_or_create(from_key.id(), propagate=True)
         did = user.get_copy(ATProto)
         assert did
-        logger.info(f'{user.key} is {did}')
+        logger.info(f'{user.key.id()} is {did}')
         did_doc = to_cls.load(did, did_doc=True)
         pds = to_cls.pds_for(did_doc)
         if not pds or util.domain_from_link(pds) not in DOMAINS:
-            logger.warning(f'{from_key} {did} PDS {pds} is not us')
+            logger.warning(f'  PDS {pds} is not us')
             return False
 
         # load repo
