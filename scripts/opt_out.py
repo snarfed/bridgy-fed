@@ -48,19 +48,22 @@ AP_BASE_TARGETS = [
     # kbin (not sharedInbox)
     'https://kbin.social/i/inbox',
 
-    # Lemmy (not sharedInbox)
+    # Lemmy (not sharedInbox); these tend to fail on BF objects right now
     'https://alien.top/inbox',
     # 'https://enterprise.lemmy.ml/inbox',
     'https://lemmy.ml/inbox',
     'https://lemmy.world/inbox',
     'https://pasta.faith/inbox',
+    'https://r-sauna.fi/inbox',
 
     # Mastodon
     'https://baraag.net/inbox',
     'https://c.im/inbox',
-    'https://daystorm.netz.org/inbox',
+    # down as of 2024-08-03
+    # 'https://daystorm.netz.org/inbox',
     'https://fosstodon.org/inbox',
-    'https://gc2.jp/inbox',
+    # down as of 2024-08-03
+    # 'https://gc2.jp/inbox',
     'https://hachyderm.io/inbox',
     'https://indieweb.social/inbox',
     'https://infosec.exchange/inbox',
@@ -79,7 +82,6 @@ AP_BASE_TARGETS = [
     'https://mstdn.social/inbox',
     'https://pawoo.net/inbox',
     'https://pravda.me/inbox',
-    'https://r-sauna.fi/inbox',
     'https://techhub.social/inbox',
     'https://universeodon.com/inbox',
 
