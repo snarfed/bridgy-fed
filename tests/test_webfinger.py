@@ -308,6 +308,18 @@ class WebfingerTest(TestCase):
         got = self.client.get(f'/.well-known/webfinger?resource=acct:user.com@user.com')
         self.assertEqual(404, got.status_code)
 
+    def test_no_redirects_user_not_on_bridgy_fed_subdomain(self):
+        self.user.has_redirects = False
+        self.user.put()
+
+        got = self.client.get(
+            f'/.well-known/webfinger?resource=acct:user.com@user.com')
+        self.assertEqual(404, got.status_code)
+
+        got = self.client.get(
+            f'/.well-known/webfinger?resource=acct:user.com@web.brid.gy')
+        self.assertEqual(200, got.status_code)
+
     def test_user_not_custom_username(self):
         for base_url in (None, 'https://web.brid.gy/', 'https://fed.brid.gy/'):
             with self.subTest(base_url=base_url):

@@ -69,6 +69,7 @@ class Webfinger(flask_util.XrdOrJrd):
 
         if id == PRIMARY_DOMAIN or id in PROTOCOL_DOMAINS:
             cls = Web
+            allow_indirect = True
         elif not cls:
             cls = Protocol.for_request(fed='web')
 
@@ -90,8 +91,8 @@ class Webfinger(flask_util.XrdOrJrd):
 
         logger.info(f'Protocol {cls.LABEL}, user id {id}')
 
-        # only allow indirect users if this id is "on" a brid.gy subdomain,
-        # eg user.com@bsky.brid.gy but not user.com@user.com
+        # only allow indirect/no-redirects users if this id is "on" a brid.gy
+        # subdomain, eg user.com@bsky.brid.gy but not user.com@user.com
         if allow_indirect:
             user = cls.get_or_create(id)
         else:
@@ -101,7 +102,8 @@ class Webfinger(flask_util.XrdOrJrd):
 
         if (not user
                 or not user.is_enabled(activitypub.ActivityPub)
-                or (cls == Web and username not in (user.key.id(), user.username()))):
+                or (cls == Web and username not in (user.key.id(), user.username()))
+                or (cls == Web and not allow_indirect and not user.has_redirects)):
             error(f'No {cls.LABEL} user found for {id}', status=404)
 
         ap_handle = user.handle_as('activitypub')
