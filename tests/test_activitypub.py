@@ -21,7 +21,7 @@ from werkzeug.exceptions import BadGateway, BadRequest
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
-from .testutil import ExplicitEnableFake, Fake, global_user, TestCase
+from .testutil import ExplicitEnableFake, Fake, global_user, OtherFake, TestCase
 
 import activitypub
 from activitypub import (
@@ -161,13 +161,13 @@ LIKE = {
     'id': 'http://mas.to/like#ok',
     'type': 'Like',
     'object': 'https://user.com/post',
-    'actor': 'https://mas.to/actor',
+    'actor': 'https://mas.to/me',
 }
 LIKE_WRAPPED = copy.deepcopy(LIKE)
 LIKE_WRAPPED['object'] = 'http://localhost/r/https://user.com/post'
 LIKE_ACTOR = {
     '@context': 'https://www.w3.org/ns/activitystreams',
-    'id': 'https://mas.to/actor',
+    'id': 'https://mas.to/me',
     'type': 'Person',
     'name': 'Ms. Actor',
     'preferredUsername': 'msactor',
@@ -328,7 +328,7 @@ class ActivityPubTest(TestCase):
                                    has_redirects=True,
                                    obj_as1={**ACTOR_AS1, 'id': 'https://user.com/'})
         self.swentel_key = ndb.Key(ActivityPub, 'https://mas.to/users/swentel')
-        self.masto_actor_key = ndb.Key(ActivityPub, 'https://mas.to/actor')
+        self.masto_actor_key = ndb.Key(ActivityPub, 'https://mas.to/me')
 
         self.key_id_obj = Object(id='http://my/key/id', as2={
             **ACTOR,
@@ -547,7 +547,7 @@ class ActivityPubTest(TestCase):
         }
         self._test_inbox_reply(reply, mock_head, mock_get, mock_post)
 
-        self.assert_user(ActivityPub, 'https://mas.to/actor', obj_as2=LIKE_ACTOR)
+        self.assert_user(ActivityPub, 'https://mas.to/me', obj_as2=LIKE_ACTOR)
 
     def test_inbox_transient_activity_generates_id(self, mock_head, mock_get,
                                                    mock_post):
@@ -778,7 +778,7 @@ class ActivityPubTest(TestCase):
         author = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
         Follower.get_or_create(to=author, from_=self.user)
         bar = self.make_user('fake:bar', cls=Fake, obj_id='fake:bar')
-        Follower.get_or_create(to=self.make_user('https://other/actor',
+        Follower.get_or_create(to=self.make_user('https://other/person',
                                                  cls=ActivityPub),
                                from_=bar)
         baz = self.make_user('fake:baz', cls=Fake, obj_id='fake:baz')
@@ -1027,7 +1027,7 @@ class ActivityPubTest(TestCase):
         got = self.post('/user.com/inbox', json=LIKE)
         self.assertEqual(202, got.status_code)
 
-        self.assertIn(self.as2_req('https://mas.to/actor'), mock_get.mock_calls)
+        self.assertIn(self.as2_req('https://mas.to/me'), mock_get.mock_calls)
         self.assertIn(self.req('https://user.com/post'), mock_get.mock_calls)
 
         args, kwargs = mock_post.call_args
@@ -1047,14 +1047,14 @@ class ActivityPubTest(TestCase):
                            type='like',
                            )
 
-    def test_inbox_like_indirect_user_creates_User(self, mock_get, *_):
+    def test_inbox_like_indirect_user_creates_user(self, mock_get, *_):
         self.user.direct = False
         self.user.put()
 
         mock_get.return_value = self.as2_resp(LIKE_ACTOR)
 
         self.test_inbox_like()
-        self.assert_user(ActivityPub, 'https://mas.to/actor', obj_as2=LIKE_ACTOR)
+        self.assert_user(ActivityPub, 'https://mas.to/me', obj_as2=LIKE_ACTOR)
 
     def test_inbox_like_no_object_error(self, *_):
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
@@ -1723,6 +1723,29 @@ class ActivityPubTest(TestCase):
         self.assertEqual(204, got.status_code)
         self.assertEqual(1, Follower.query().count())
 
+    @patch('activitypub.PROTOCOLS', new={'fake': Fake, 'other': OtherFake})
+    def test_inbox_server_actor_create_with_propagate(
+            self, mock_head, mock_get, mock_post):
+        mock_get.side_effect = [
+            self.as2_resp(add_key({
+                'id': 'https://mas.to/actor',
+                'type': 'Person',
+            })),
+            self.as2_resp(NOTE),
+        ]
+
+        got = self.post('/user.com/inbox', json={
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'http://mas.to/like',
+            'type': 'Like',
+            'object': 'https://mas.to/note/as2',
+            'actor': 'https://mas.to/actor',
+        })
+        self.assertEqual(204, got.status_code)
+
+        actor = ActivityPub.get_by_id('https://mas.to/actor')
+        self.assertEqual(['fake', 'other'], actor.enabled_protocols)
+
     def test_followers_collection_unknown_user(self, *_):
         resp = self.client.get('/nope.com/followers')
         self.assertEqual(404, resp.status_code)
@@ -1751,7 +1774,7 @@ class ActivityPubTest(TestCase):
             from_=self.make_user('http://bar', cls=ActivityPub, obj_as2=ACTOR),
             follow=follow)
         Follower.get_or_create(
-            to=self.make_user('https://other/actor', cls=ActivityPub),
+            to=self.make_user('https://other/person', cls=ActivityPub),
             from_=self.user)
         Follower.get_or_create(
             to=self.user,
@@ -1848,7 +1871,7 @@ class ActivityPubTest(TestCase):
             follow=follow)
         Follower.get_or_create(
             to=self.user,
-            from_=self.make_user('https://other/actor', cls=ActivityPub))
+            from_=self.make_user('https://other/person', cls=ActivityPub))
         Follower.get_or_create(
             to=self.make_user('http://baz', cls=ActivityPub, obj_as2=ACTOR),
             from_=self.user, follow=follow)
@@ -2644,15 +2667,15 @@ class ActivityPubUtilsTest(TestCase):
                 'value': '<span class="h-card"><a href="https://techhub.social/@foo" class="u-url mention">@<span>foo</span></a></span>',
             }],
         }
-        user = self.make_user('http://foo/actor', cls=ActivityPub, obj_as2=actor_as2)
+        user = self.make_user('http://foo/person', cls=ActivityPub, obj_as2=actor_as2)
         self.assertEqual('https://techhub.social/@foo', user.web_url())
 
     def test_web_url(self):
-        user = self.make_user('http://foo/actor', cls=ActivityPub)
-        self.assertEqual('http://foo/actor', user.web_url())
+        user = self.make_user('http://foo/person', cls=ActivityPub)
+        self.assertEqual('http://foo/person', user.web_url())
 
         user.obj = Object(id='a', as2=copy.deepcopy(ACTOR))  # no url
-        self.assertEqual('http://foo/actor', user.web_url())
+        self.assertEqual('http://foo/person', user.web_url())
 
         user.obj.as2['url'] = ['http://my/url']
         self.assertEqual('http://my/url', user.web_url())
@@ -2666,10 +2689,17 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual('@swentel@mas.to', user.handle)
         self.assertEqual('@swentel@mas.to', user.handle_or_id())
 
-    @skip
-    def test_target_for_not_activitypub(self):
-        with self.assertRaises(AssertionError):
-            ActivityPub.target_for(Object(source_protocol='web'))
+    def test_server_actor_override_status(self):
+        actor = self.make_user('http://inst/person', cls=ActivityPub,
+                               obj_as2={'id': 'http://inst/actor'})
+        self.assertIsNone(actor.status)
+
+        self.user.manual_opt_out = True
+        self.user.put()
+        activitypub._WEB_OPT_OUT_DOMAINS = None
+        actor = self.make_user('http://user.com/person', cls=ActivityPub,
+                               obj_as2={'id': 'http://inst/actor'})
+        self.assertEqual('opt-out', actor.status)
 
     def test_target_for_actor(self):
         self.assertEqual(ACTOR['inbox'], ActivityPub.target_for(

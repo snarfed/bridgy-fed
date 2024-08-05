@@ -153,15 +153,16 @@ class ActivityPub(User, Protocol):
     @ndb.ComputedProperty
     def status(self):
         """Override :meth:`Model.status` and include Web opted out domains."""
-
-        status = super().status
-        if status:
-            return status
-
         if util.domain_or_parent_in(util.domain_from_link(self.key.id()),
                                     web_opt_out_domains()):
             return 'opt-out'
 
+        if self.obj and self.obj.as2 and as2.is_server_actor(self.obj.as2):
+            return None
+
+        status = super().status
+        if status:
+            return status
 
     @classmethod
     def owns_id(cls, id):
@@ -1094,6 +1095,16 @@ def inbox(protocol=None, id=None):
                                    source_protocol=ActivityPub.LABEL)
     except AssertionError as e:
         error(f'Invalid activity, probably due to id: {e}', status=400)
+
+    # automatically bridge server aka instance actors
+    # https://codeberg.org/fediverse/fep/src/branch/main/fep/d556/fep-d556.md
+    if as2.is_server_actor(actor):
+        all_protocols = [label for label, proto in PROTOCOLS.items()
+                         if label and proto and label not in ('ui', 'activitypub')]
+        user = ActivityPub.get_or_create(actor_id, propagate=True,
+                                         enabled_protocols=all_protocols)
+        if user and not user.existing:
+            logger.info(f'Automatically enabled AP server actor {actor_id} for {user.enabled_protocols}')
 
     return create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=authed_as)
 

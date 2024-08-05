@@ -1,6 +1,6 @@
 """Integration tests."""
 import copy
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from arroba.datastore_storage import DatastoreStorage
 from arroba.repo import Repo
@@ -640,3 +640,54 @@ class IntegrationTests(TestCase):
             'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
             'object': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.graph.block/123',
         }, json_loads(kwargs['data']), ignore=['@context', 'contentMap', 'to', 'cc'])
+
+
+    @patch('requests.post', side_effect=[
+        requests_response('OK'),       # create DID
+        requests_response({'id': 3}),  # createReport
+    ])
+    @patch('requests.get', side_effect=[
+        requests_response(PROFILE_GETRECORD),
+        requests_response(DID_DOC),
+    ])
+    def test_activitypub_server_actor_flag_to_atproto_report(
+            self, mock_get, mock_post):
+        """AP Flag activity from server actor translates to Bluesky report.
+
+        ActivityPub user @actor@inst , https://inst/actor , did:plc:actor
+          creates new ATProto repo for them
+        """
+        self.make_user(id='https://inst/actor', cls=ActivityPub,
+                       obj_as2=add_key({
+                           'type': 'Application',
+                           'id': 'https://inst/actor',
+                           'preferredUsername': 'inst',
+                       }))
+
+        # deliver flag
+        body = json_dumps({
+            'type': 'Flag',
+            'id': 'http://inst/flag',
+            'actor': 'https://inst/actor',
+            'object': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.actor.profile/self',
+        })
+        headers = sign('/bsky.brid.gy/inbox', body, key_id='https://inst/actor')
+        resp = self.client.post('/bsky.brid.gy/inbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
+
+        # check results
+        user = ActivityPub.get_by_id('https://inst/actor')
+        self.assertTrue(user.is_enabled(ATProto))
+
+        mock_post.assert_called_with(
+            'https://mod.service.local/xrpc/com.atproto.moderation.createReport',
+            json={
+                '$type': 'com.atproto.moderation.createReport#input',
+                'reasonType': 'com.atproto.moderation.defs#reasonOther',
+                'reason': '',
+                'subject': {
+                    '$type': 'com.atproto.repo.strongRef',
+                    'uri': 'at://did:plc:alice/app.bsky.actor.profile/self',
+                    'cid': 'alice sidd',
+                },
+            }, data=None, headers=ANY)
