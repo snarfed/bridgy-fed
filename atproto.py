@@ -196,7 +196,7 @@ class ATProto(User, Protocol):
         tuple(as1.ACTOR_TYPES)
         + tuple(as1.POST_TYPES)
         + tuple(as1.CRUD_VERBS)
-        + ('block', 'follow', 'like', 'share', 'stop-following')
+        + ('block', 'follow', 'flag', 'like', 'share', 'stop-following')
     )
     SUPPORTED_RECORD_TYPES = frozenset(
         type for type in itertools.chain(*FROM_AS1_TYPES.values())
@@ -539,7 +539,7 @@ class ATProto(User, Protocol):
 
         elif verb == 'flag':
             logger.info(f'flag => createReport with {record}')
-            return to_cls.create_report(record, user)
+            return to_cls.create_report(record, from_user=user)
 
         elif verb == 'stop-following':
             logger.info(f'stop-following => delete of {base_obj.key.id()}')
