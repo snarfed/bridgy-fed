@@ -268,13 +268,13 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                 if ((old_val is None and new_val is not None)
                         or (field == 'direct' and not old_val and new_val)):
                     setattr(user, field, new_val)
-                    user.put()
 
             if enabled_protocols := kwargs.get('enabled_protocols'):
                 user.enabled_protocols = (set(user.enabled_protocols)
                                           | set(enabled_protocols))
 
             if not propagate:
+                user.put()
                 return user
         else:
             if orig := get_original(id):
