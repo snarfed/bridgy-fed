@@ -10,7 +10,7 @@ git+https://github.com/snarfed/mox3.git#egg=mox3
 git+https://github.com/snarfed/negotiator.git@py3#egg=negotiator
 git+https://github.com/snarfed/oauth-dropins.git#egg=oauth_dropins
 
-attrs==23.2.0
+attrs==24.1.0
 bases==0.3.0
 beautifulsoup4==4.12.3
 bech32==1.2.0
