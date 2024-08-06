@@ -170,9 +170,14 @@ class IdsTest(TestCase):
             (Web, 'bsky.brid.gy', ActivityPub, '@bsky.brid.gy@bsky.brid.gy'),
             (Web, 'ap.brid.gy', ATProto, 'ap.brid.gy'),
         ]:
-            with self.subTest(from_=from_.LABEL, to=to.LABEL):
+            with self.subTest(from_=from_.LABEL, handle=handle, to=to.LABEL):
                 self.assertEqual(expected, translate_handle(
                     handle=handle, from_=from_, to=to, enhanced=False))
+
+        for input in '@_user@instance', '@user~@instance':
+            with self.subTest(input=input), self.assertRaises(ValueError):
+                translate_handle(handle=input, from_=ActivityPub, to=ATProto,
+                                 enhanced=False)
 
     def test_translate_handle_enhanced(self):
         for from_, handle, to, expected in [
