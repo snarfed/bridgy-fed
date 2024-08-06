@@ -622,6 +622,23 @@ class ProtocolTest(TestCase):
             }],
         }))
 
+    def test_translate_ids_multiple_objects(self):
+        self.assert_equals({
+            'objectType': 'activity',
+            'verb': 'flag',
+            'object': [
+                'other:eve',
+                'other:o:fa:fake:bob',
+            ],
+        }, OtherFake.translate_ids({
+            'objectType': 'activity',
+            'verb': 'flag',
+            'object': [
+                'other:eve',
+                'fake:bob',
+            ]
+        }))
+
     def test_convert_object_is_from_user_adds_source_links(self):
         alice = Fake(id='fake:alice')
         self.assertEqual({

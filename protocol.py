@@ -690,7 +690,7 @@ class Protocol:
             return obj
 
         outer_obj = copy.deepcopy(obj)
-        inner_obj = outer_obj['object'] = as1.get_object(outer_obj)
+        inner_objs = outer_obj['object'] = as1.get_objects(outer_obj)
 
         def translate(elem, field, fn):
             elem[field] = as1.get_object(elem, field)
@@ -708,13 +708,13 @@ class Protocol:
                   translate_user_id if type in as1.ACTOR_TYPES
                   else translate_object_id)
 
-        inner_is_actor = (as1.object_type(inner_obj) in as1.ACTOR_TYPES
-                          or as1.get_owner(outer_obj) == inner_obj.get('id')
-                          or type in ('follow', 'stop-following'))
-        translate(inner_obj, 'id',
-                  translate_user_id if inner_is_actor else translate_object_id)
+        for o in inner_objs:
+            is_actor = (as1.object_type(o) in as1.ACTOR_TYPES
+                        or as1.get_owner(outer_obj) == o.get('id')
+                        or type in ('follow', 'stop-following'))
+            translate(o, 'id', translate_user_id if is_actor else translate_object_id)
 
-        for o in outer_obj, inner_obj:
+        for o in [outer_obj] + inner_objs:
             translate(o, 'inReplyTo', translate_object_id)
             for field in 'actor', 'author':
                 translate(o, field, translate_user_id)
@@ -730,8 +730,11 @@ class Protocol:
                                                         id=url)
 
         outer_obj = util.trim_nulls(outer_obj)
-        if outer_obj.get('object', {}).keys() == {'id'}:
-            outer_obj['object'] = inner_obj['id']
+
+        if objs := outer_obj.get('object', []):
+            outer_obj['object'] = [o['id'] if o.keys() == {'id'} else o for o in objs]
+            if len(outer_obj['object']) == 1:
+                outer_obj['object'] = outer_obj['object'][0]
 
         return outer_obj
 
