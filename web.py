@@ -140,11 +140,15 @@ class Web(User, Protocol):
         assert id.lower() == id, f'upper case is not allowed in Web key id: {id}'
 
     @classmethod
-    def get_or_create(cls, id, allow_opt_out=False, **kwargs):
+    def get_or_create(cls, id, allow_opt_out=False, verify=None, **kwargs):
         """Normalize domain, then pass through to :meth:`User.get_or_create`.
 
         Normalizing currently consists of lower casing and removing leading and
         trailing dots.
+
+        Args:
+          verify (bool): whether to call :meth:`verify` to load h-card, check
+            redirects, etc. Defaults to calling it only if the user is new.
         """
         key = cls.key_for(id, allow_opt_out=allow_opt_out)
         if not key:
@@ -155,8 +159,12 @@ class Web(User, Protocol):
             return super().get_by_id(domain)
 
         user = super().get_or_create(domain, allow_opt_out=allow_opt_out, **kwargs)
+
+        if verify or (verify is None and not user.existing):
+            user = user.verify()
+
         if not user.existing:
-            common.create_task(queue='poll-feed', domain=domain)
+            common.create_task(queue='poll-feed', domain=user.key.id())
 
         return user
 
@@ -247,7 +255,7 @@ class Web(User, Protocol):
         if domain.startswith('www.') and domain not in WWW_DOMAINS:
             # if root domain serves ok, use it instead
             # https://github.com/snarfed/bridgy-fed/issues/314
-            root = domain.removeprefix("www.")
+            root = domain.removeprefix('www.')
             root_site = f'https://{root}/'
             try:
                 resp = util.requests_get(root_site, gateway=False)
@@ -612,11 +620,10 @@ def check_web_site():
 
     try:
         user = Web.get_or_create(domain, enabled_protocols=['atproto'],
-                                 propagate=True, direct=True)
+                                 propagate=True, direct=True, verify=True)
         if not user:  # opted out
             flash(f'{url} is not a valid or supported web site')
             return render_template('enter_web_site.html'), 400
-        user = user.verify()
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if code:

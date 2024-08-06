@@ -526,7 +526,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                                            'type', 'updated'] + ignore)
         return got
 
-    def assert_user(self, cls, id, **props):
+    def assert_user(self, cls, id, ignore=(), **props):
         got = cls.get_by_id(id)
         assert got, id
 
@@ -536,7 +536,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         # generated, computed, etc
         ignore = ['created', 'mod', 'handle', 'obj_key', 'private_exponent',
-                  'public_exponent', 'updated']
+                  'public_exponent', 'updated'] + list(ignore)
         for prop in ignore:
             assert prop not in props
 

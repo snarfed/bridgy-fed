@@ -2456,6 +2456,20 @@ http://this/404s
         self.assertEqual(root_user.key, www_user.key.get().use_instead)
         self.assertEqual(root_user.key, Web.get_or_create('www.user.com').key)
 
+    def test_get_or_create_www_new_use_instead(self, mock_get, _):
+        mock_get.side_effect = [
+            requests_response(status=302, redirected_url='https://www.user.com/'),
+            ACTOR_HTML_RESP,
+            requests_response(status=404),  # webfinger for @user.com@user.com
+            ACTOR_HTML_RESP,
+        ]
+
+        got = Web.get_or_create('www.user.com')
+        self.assertEqual('user.com', got.key.id())
+
+        www_user = ndb.Key(Web, 'www.user.com').get()
+        self.assertEqual(got.key, www_user.use_instead)
+
     def test_verify_actor_rel_me_links(self, mock_get, _):
         mock_get.side_effect = [
             FULL_REDIR,

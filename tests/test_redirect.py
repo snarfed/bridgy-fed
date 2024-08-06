@@ -20,6 +20,7 @@ from .test_activitypub import ACTOR_BASE_FULL
 from .test_web import (
     ACTOR_AS2,
     ACTOR_HTML,
+    ACTOR_HTML_RESP,
     REPOST_AS2,
     REPOST_HTML,
     TOOT_AS2,
@@ -84,7 +85,11 @@ class RedirectTest(testutil.TestCase):
     def test_as2_ld(self):
         self._test_as2(as2.CONTENT_TYPE_LD_PROFILE)
 
-    def test_as2_creates_user(self):
+    @patch('requests.get', side_effect=[
+        requests_response(status=404),  # webfinger
+        ACTOR_HTML_RESP,  # h-card fetch
+    ])
+    def test_as2_creates_user(self, _):
         Object(id='https://user.com/repost', source_protocol='web',
                as2=REPOST_AS2).put()
 
@@ -96,7 +101,8 @@ class RedirectTest(testutil.TestCase):
         self.assert_equals(REPOST_AS2, resp.json)
         self.assertEqual('Accept', resp.headers['Vary'])
 
-        self.assert_user(Web, 'user.com', direct=False)
+        self.assert_user(Web, 'user.com', has_hcard=True, has_redirects=False,
+                         direct=False, ignore=['redirects_error'])
 
     @patch('requests.get')
     def test_as2_fetch_post(self, mock_get):
@@ -111,6 +117,8 @@ class RedirectTest(testutil.TestCase):
     @patch('requests.get', side_effect=[
         requests_response(ACTOR_HTML, url='https://user.com/'),  # AS2 fetch
         requests_response(ACTOR_HTML, url='https://user.com/'),  # web fetch
+        requests_response(status=404),  # webfinger
+        requests_response(ACTOR_HTML, url='https://user.com/'),  # h-card fetch
     ])
     def test_as2_no_user_fetch_homepage(self, mock_get):
         self.user.key.delete()
@@ -127,7 +135,8 @@ class RedirectTest(testutil.TestCase):
         del expected['following']
         self.assert_equals(expected, resp.json, ignore=['publicKey', 'summary'])
 
-        self.assert_user(Web, 'user.com', direct=False, obj_as2={
+        self.assert_user(Web, 'user.com', has_hcard=True, has_redirects=False,
+                         direct=False, obj_as2={
             '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Person',
             'id': 'https://user.com/',
@@ -138,7 +147,7 @@ class RedirectTest(testutil.TestCase):
                 'name': 'Ms. ☕ Baz',
                 'value': '<a rel="me" href="https://user.com"><span class="invisible">https://</span>user.com</a>',
             }],
-        })
+        }, ignore=['redirects_error'])
 
     # TODO: is this test still useful?
     def test_accept_header_across_requests(self):

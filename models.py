@@ -280,6 +280,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             if orig := get_original(id):
                 if orig.status and not allow_opt_out:
                     return None
+                orig.existing = False
                 return orig
 
             user = cls(id=id, **kwargs)
