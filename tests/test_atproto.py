@@ -1735,7 +1735,11 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                     'uri': uri,
                     'cid': 'bafy...',
                 },
-            }, data=None, headers=ANY)
+            }, data=None, headers={
+                'Content-Type': 'application/json',
+                'User-Agent': common.USER_AGENT,
+                'Authorization': ANY,
+            })
 
     def test_datastore_client_get_record_datastore_object(self):
         self.make_user_and_repo()

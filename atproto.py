@@ -827,8 +827,10 @@ class ATProto(User, Protocol):
                             repo_did=repo_did,
                             privkey=repo.signing_key)
 
-        client = Client(f'https://{mod_host}', truncate=True,
-                        headers={'User-Agent': USER_AGENT})
+        client = Client(f'https://{mod_host}', truncate=True, headers={
+                            'User-Agent': USER_AGENT,
+                            'Authorization': f'Bearer {token}',
+                        })
         output = client.com.atproto.moderation.createReport(input)
         logger.info(f'Created report on {mod_host}: {json_dumps(output)}')
         return True
