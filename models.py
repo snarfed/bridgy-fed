@@ -262,20 +262,25 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             user.existing = True
 
             # TODO: propagate more fields?
+            changed = False
             for field in ['direct', 'obj', 'obj_key']:
                 old_val = getattr(user, field, None)
                 new_val = kwargs.get(field)
                 if ((old_val is None and new_val is not None)
                         or (field == 'direct' and not old_val and new_val)):
                     setattr(user, field, new_val)
+                    changed = True
 
             if enabled_protocols := kwargs.get('enabled_protocols'):
                 user.enabled_protocols = (set(user.enabled_protocols)
                                           | set(enabled_protocols))
+                changed = True
 
             if not propagate:
-                user.put()
+                if changed:
+                    user.put()
                 return user
+
         else:
             if orig := get_original(id):
                 if orig.status and not allow_opt_out:
