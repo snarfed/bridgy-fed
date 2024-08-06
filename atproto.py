@@ -818,7 +818,7 @@ class ATProto(User, Protocol):
         try:
             repo = arroba.server.storage.load_repo(repo_did)
         except TombstonedRepo:
-            logger.info(f'repo for {did} is tombstoned, giving up')
+            logger.info(f'repo for {repo_did} is tombstoned, giving up')
             return False
 
         mod_host = os.environ['MOD_SERVICE_HOST']
