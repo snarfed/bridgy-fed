@@ -1746,6 +1746,28 @@ class ActivityPubTest(TestCase):
         actor = ActivityPub.get_by_id('https://mas.to/actor')
         self.assertEqual(['fake', 'other'], actor.enabled_protocols)
 
+    @patch('activitypub.PROTOCOLS', new={'fake': Fake, 'other': OtherFake})
+    def test_inbox_existing_server_actor_adds_enabled_protocols(
+            self, mock_head, mock_get, mock_post):
+        server_actor = self.make_user('https://mas.to/actor', cls=ActivityPub,
+                                      enabled_protocols=['ui'], obj_as2=add_key({
+                                          'id': 'https://mas.to/actor',
+                                          'type': 'Person',
+                                      }))
+
+        mock_get.return_value = self.as2_resp(NOTE)
+        got = self.post('/user.com/inbox', json={
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'http://mas.to/like',
+            'type': 'Like',
+            'object': 'https://mas.to/note/as2',
+            'actor': 'https://mas.to/actor',
+        })
+        self.assertEqual(204, got.status_code)
+
+        actor = ActivityPub.get_by_id('https://mas.to/actor')
+        self.assertCountEqual(['ui', 'fake', 'other'], actor.enabled_protocols)
+
     def test_followers_collection_unknown_user(self, *_):
         resp = self.client.get('/nope.com/followers')
         self.assertEqual(404, resp.status_code)
