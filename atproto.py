@@ -834,3 +834,40 @@ class ATProto(User, Protocol):
         output = client.com.atproto.moderation.createReport(input)
         logger.info(f'Created report on {mod_host}: {json_dumps(output)}')
         return True
+
+    def send_chat(self, msg, from_user):
+        """Sends a chat message to this user.
+
+        Args:
+          msg (dict): ``chat.bsky.convo.defs#messageInput``
+          from_user (models.User)
+
+        Returns:
+          bool: True if the report was sent successfully, False if the flag's
+            actor is not bridged into ATProto
+        """
+        assert msg['$type'] == 'chat.bsky.convo.defs#messageInput'
+
+        to_did = self.key.id()
+        from_did = from_user.get_copy(ATProto)
+        if not from_did or not from_user.is_enabled(ATProto):
+            return False
+
+        repo = arroba.server.storage.load_repo(from_did)
+
+        chat_host = os.environ['CHAT_HOST']
+        token = service_jwt(host=chat_host,
+                            aud=os.environ['CHAT_DID'],
+                            repo_did=from_did,
+                            privkey=repo.signing_key)
+        client = Client(f'https://{chat_host}', truncate=True, headers={
+                            'User-Agent': USER_AGENT,
+                            'Authorization': f'Bearer {token}',
+                        })
+        convo = client.chat.bsky.convo.getConvoForMembers(members=[to_did])
+        output = client.chat.bsky.convo.sendMessage({
+            'convoId': convo['convo']['id'],
+            'message': msg,
+        })
+        logger.info(f'Sent chat message from {from_user.handle} to {self.handle} {to_did}: {json_dumps(output)}')
+        return True

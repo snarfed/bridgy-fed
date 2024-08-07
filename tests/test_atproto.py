@@ -1741,6 +1741,55 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                 'Authorization': ANY,
             })
 
+    # sendMessage
+    @patch('requests.post', return_value=requests_response({
+        'id': 'chat456',
+        'rev': '22222222tef2d',
+        'sender': {'did': 'did:plc:user'},
+        'text': 'hello world',
+    }))
+    @patch('requests.get', side_effect=[
+        requests_response({  # getConvoForMembers
+            'convo': {
+                'id': 'convo123',
+                'rev': '22222222fuozt',
+                'members': [{
+                    'did': 'did:plc:alice',
+                    'handle': 'alice.bsky.social',
+                }, {
+                    'did': 'did:plc:user',
+                    'handle': 'handull',
+                }],
+            },
+        }),
+        requests_response(DID_DOC),
+    ])
+    def test_send_chat(self, mock_get, mock_post):
+        user = self.make_user_and_repo()
+        alice = ATProto(id='did:plc:alice')
+
+        self.assertTrue(alice.send_chat({
+            '$type': 'chat.bsky.convo.defs#messageInput',
+            'text': 'hello world',
+        }, from_user=user))
+
+        mock_get.assert_any_call(
+            'https://chat.service.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
+            json=None, data=None, headers=ANY)
+        mock_post.assert_called_with(
+            'https://chat.service.local/xrpc/chat.bsky.convo.sendMessage',
+            json={
+                'convoId': 'convo123',
+                'message': {
+                    '$type': 'chat.bsky.convo.defs#messageInput',
+                    'text': 'hello world',
+                },
+            }, data=None, headers={
+                'Content-Type': 'application/json',
+                'User-Agent': common.USER_AGENT,
+                'Authorization': ANY,
+            })
+
     def test_datastore_client_get_record_datastore_object(self):
         self.make_user_and_repo()
         post = {

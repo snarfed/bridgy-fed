@@ -22,6 +22,9 @@ env_variables:
   BGS_HOST: bsky.network
   MOD_SERVICE_HOST: mod.bsky.app
   MOD_SERVICE_DID: did:plc:ar7c4by46qjdydhdevvrndac
+  # https://bsky.app/profile/gargaj.umlaut.hu/post/3kxsvpqiuln26
+  CHAT_HOST: api.bsky.chat
+  CHAT_DID: did:web:api.bsky.chat
 
 manual_scaling:
   instances: 1
