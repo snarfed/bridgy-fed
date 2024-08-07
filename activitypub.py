@@ -1019,8 +1019,9 @@ def inbox(protocol=None, id=None):
 
     # do we support this object type?
     # (this logic is duplicated in Protocol.check_supported)
+    object = as1.get_object(activity)
     if type := activity.get('type'):
-        inner_type = as1.object_type(as1.get_object(activity)) or ''
+        inner_type = as1.object_type(object) or ''
         if (type not in ActivityPub.SUPPORTED_AS2_TYPES or
             (type in as2.CRUD_VERBS
              and inner_type
@@ -1037,6 +1038,19 @@ def inbox(protocol=None, id=None):
         if memcache.get(activity_id_memcache_key(id)):
             logger.info(f'Already seen this activity {id}')
             return '', 204
+
+    # check that this activity is public. only do this for creates, not likes,
+    # follows, or other activity types, since Mastodon doesn't currently mark
+    # those as explicitly public. Use as2's is_public instead of as1's because
+    # as1's interprets unlisted as true.
+    # TODO: move this to Protocol
+    to_cc = set(as1.get_ids(object, 'to') + as1.get_ids(activity, 'cc') +
+                as1.get_ids(object, 'to') + as1.get_ids(object, 'cc'))
+    if (type == 'Create' and not as2.is_public(activity, unlisted=False)
+            # DM to one of our protocol bot users
+            and not (len(to_cc) == 1 and to_cc.pop() in BOT_ACTOR_AP_IDS)):
+        logger.info('Dropping non-public activity')
+        return 'OK'
 
     # check actor, signature, auth
     actor = as1.get_object(activity, 'actor')
@@ -1060,20 +1074,6 @@ def inbox(protocol=None, id=None):
     # those yet
     if authed_as != actor_id and activity.get('signature'):
         error(f"Ignoring LD Signature, sorry, we can't verify those yet. https://github.com/snarfed/bridgy-fed/issues/566", status=202)
-
-    # check that this activity is public. only do this for creates, not likes,
-    # follows, or other activity types, since Mastodon doesn't currently mark
-    # those as explicitly public. Use as2's is_public instead of as1's because
-    # as1's interprets unlisted as true.
-    # TODO: move this to Protocol
-    object = as1.get_object(activity)
-    to_cc = set(as1.get_ids(object, 'to') + as1.get_ids(activity, 'cc') +
-                as1.get_ids(object, 'to') + as1.get_ids(object, 'cc'))
-    if (type == 'Create' and not as2.is_public(activity, unlisted=False)
-            # DM to one of our protocol bot users
-            and not (len(to_cc) == 1 and to_cc.pop() in BOT_ACTOR_AP_IDS)):
-        logger.info('Dropping non-public activity')
-        return 'OK'
 
     if type == 'Follow':
         # rendered mf2 HTML proxy pages (in render.py) fall back to redirecting
