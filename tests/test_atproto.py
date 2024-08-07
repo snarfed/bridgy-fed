@@ -1790,6 +1790,24 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                 'Authorization': ANY,
             })
 
+    # getConvoForMembers
+    @patch('requests.get', return_value=requests_response({
+        'error': 'InvalidRequest',
+        'message': 'recipient has disabled incoming messages',
+    }, status=400))
+    def test_send_chat_recipient_disabled(self, mock_get):
+        user = self.make_user_and_repo()
+        alice = ATProto(id='did:plc:alice')
+
+        self.assertFalse(alice.send_chat({
+            '$type': 'chat.bsky.convo.defs#messageInput',
+            'text': 'hello world',
+        }, from_user=user))
+
+        mock_get.assert_any_call(
+            'https://chat.service.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
+            json=None, data=None, headers=ANY)
+
     def test_datastore_client_get_record_datastore_object(self):
         self.make_user_and_repo()
         post = {

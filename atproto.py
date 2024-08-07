@@ -864,10 +864,17 @@ class ATProto(User, Protocol):
                             'User-Agent': USER_AGENT,
                             'Authorization': f'Bearer {token}',
                         })
-        convo = client.chat.bsky.convo.getConvoForMembers(members=[to_did])
-        output = client.chat.bsky.convo.sendMessage({
-            'convoId': convo['convo']['id'],
-            'message': msg,
-        })
-        logger.info(f'Sent chat message from {from_user.handle} to {self.handle} {to_did}: {json_dumps(output)}')
+
+        try:
+            convo = client.chat.bsky.convo.getConvoForMembers(members=[to_did])
+            sent = client.chat.bsky.convo.sendMessage({
+                'convoId': convo['convo']['id'],
+                'message': msg,
+            })
+        except RequestException as e:
+            # getConvoForMembers returns eg 400 if the recipient has disabled chat
+            util.interpret_http_exception(e)
+            return False
+
+        logger.info(f'Sent chat message from {from_user.handle} to {self.handle} {to_did}: {json_dumps(sent)}')
         return True
