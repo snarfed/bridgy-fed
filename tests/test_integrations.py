@@ -17,6 +17,7 @@ from activitypub import ActivityPub
 import app
 from atproto import ATProto, Cursor
 from atproto_firehose import handle, new_commits, Op
+import common
 from models import Follower, Object, Target
 from web import Web
 
@@ -454,12 +455,23 @@ class IntegrationTests(TestCase):
         self.assertEqual(0, len(user.copies))
 
 
+    @patch('requests.post', return_value=requests_response({  # sendMessage
+        'id': 'chat456',
+        'rev': '22222222tef2d',
+        # ...
+    }))
     @patch('requests.get', side_effect=[
         requests_response(DID_DOC),  # alice DID
         requests_response(PROFILE_GETRECORD),  # alice profile
         requests_response(PROFILE_GETRECORD),  # ...
+        requests_response({  # getConvoForMembers
+            'convo': {
+                'id': 'convo123',
+                'rev': '22222222fuozt',
+            },
+        }),
     ])
-    def test_atproto_follow_ap_bot_user_enables_protocol(self, mock_get):
+    def test_atproto_follow_ap_bot_user_enables_protocol(self, mock_get, mock_post):
         """ATProto follow of @ap.brid.gy enables the ActivityPub protocol.
 
         ATProto user alice.com, did:plc:alice
@@ -478,6 +490,27 @@ class IntegrationTests(TestCase):
 
         user = ATProto.get_by_id('did:plc:alice')
         self.assertTrue(user.is_enabled(ActivityPub))
+
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': common.USER_AGENT,
+            'Authorization': ANY,
+        }
+        mock_get.assert_any_call(
+            'https://chat.service.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
+            json=None, data=None, headers=headers)
+        mock_post.assert_called_with(
+            'https://chat.service.local/xrpc/chat.bsky.convo.sendMessage',
+            json={
+                'convoId': 'convo123',
+                'message': {
+                    '$type': 'chat.bsky.convo.defs#messageInput',
+                    'text': 'hello world',
+                    'createdAt': '2022-01-02T03:04:05.000Z',
+                    'bridgyOriginalText': 'hello world',
+                    'bridgyOriginalUrl': 'https://ap.brid.gy/#welcome-dm-did:plc:alice-2022-01-02T03:04:05+00:00',
+                },
+            }, data=None, headers=headers)
 
 
     @patch('requests.post')

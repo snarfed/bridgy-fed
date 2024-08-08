@@ -479,23 +479,34 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
         return False
 
-    @ndb.transactional()
     def enable_protocol(self, to_proto):
         """Adds ``to_proto` to :attr:`enabled_protocols`.
+
+        Also sends a welcome DM to the user (via a send task) if their protocol
+        supports DMs.
 
         Args:
           to_proto (:class:`protocol.Protocol` subclass)
         """
+        added = False
+
         @ndb.transactional()
         def enable():
             user = self.key.get()
-            add(user.enabled_protocols, to_proto.LABEL)
+            if to_proto.LABEL not in user.enabled_protocols:
+                user.enabled_protocols.append(to_proto.LABEL)
+                user.put()
+                nonlocal added
+                added = True
+
             if to_proto.LABEL in ids.COPIES_PROTOCOLS and not user.get_copy(to_proto):
                 to_proto.create_for(user)
-            user.put()
 
         enable()
         add(self.enabled_protocols, to_proto.LABEL)
+
+        if added:
+            to_proto.bot_dm(to_user=self, text='hello world')
 
         msg = f'Enabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
         logger.info(msg)

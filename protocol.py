@@ -1122,6 +1122,36 @@ class Protocol:
                            user=bot.key.urlsafe())
 
     @classmethod
+    def bot_dm(bot_cls, to_user, text):
+        """Sends a DM from this protocol's bot user.
+
+        Creates a task to send the DM asynchronously.
+
+        Args:
+          to_user (models.User)
+          text (str)
+
+        Returns
+          bool: True if the DM was successfully sent, False otherwise
+        """
+        from web import Web
+        bot = Web.get_by_id(bot_cls.bot_user_id())
+        logger.info(f'Sending DM from {bot.key.id()} to {to_user.key.id()}: {text[:100]}')
+
+        id = f'{bot.profile_id()}#welcome-dm-{to_user.key.id()}-{util.now().isoformat()}'
+        target = Target(protocol=to_user.LABEL, uri=to_user.target_for(to_user.obj))
+        obj_key = Object(id=id, source_protocol='web', undelivered=[target], our_as1={
+            'objectType': 'note',
+            'id': id,
+            'actor': bot.key.id(),
+            'content': text,
+            'to': [to_user.key.id()],
+        }).put()
+
+        common.create_task(queue='send', obj=obj_key.urlsafe(), protocol=to_user.LABEL,
+                           url=target.uri, user=bot.key.urlsafe())
+
+    @classmethod
     def delete_user_copy(copy_cls, user):
         """Deletes a user's copy actor in a given protocol.
 
@@ -1587,7 +1617,7 @@ class Protocol:
                 and inner_type not in cls.SUPPORTED_AS1_TYPES)):
             error(f"Bridgy Fed for {cls.LABEL} doesn't support {obj.type} {inner_type} yet", status=204)
 
-        if as1.is_dm(obj.as1):
+        if as1.is_dm(obj.as1) and as1.get_owner(obj.as1) not in PROTOCOL_DOMAINS:
             error(f"Bridgy Fed doesn't support DMs", status=204)
 
 

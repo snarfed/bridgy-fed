@@ -725,6 +725,13 @@ class ProtocolTest(TestCase):
             {'objectType': 'activity', 'verb': 'undo',
              'object': {'objectType': 'activity', 'verb': 'share'}},
             {'objectType': 'activity', 'verb': 'flag'},
+            # DM from protocol bot
+            {
+                'objectType': 'note',
+                'actor': 'ap.brid.gy',
+                'to': ['did:bob'],
+                'content': 'hello world',
+            },
         ):
             with self.subTest(obj=obj):
                 Fake.check_supported(Object(our_as1=obj))
@@ -733,19 +740,17 @@ class ProtocolTest(TestCase):
             {'objectType': 'event'},
             {'objectType': 'activity', 'verb': 'post',
              'object': {'objectType': 'event'}},
-        ):
-            with self.subTest(obj=obj):
-                with self.assertRaises(NoContent):
-                    Fake.check_supported(Object(our_as1=obj))
-
-        # DM
-        with self.assertRaises(NoContent):
-            Fake.check_supported(Object(our_as1={
+            # DM
+            {
                 'objectType': 'note',
                 'actor': 'did:alice',
                 'to': ['did:bob'],
                 'content': 'hello world',
-            }))
+            },
+        ):
+            with self.subTest(obj=obj):
+                with self.assertRaises(NoContent):
+                    Fake.check_supported(Object(our_as1=obj))
 
 class ProtocolReceiveTest(TestCase):
 
