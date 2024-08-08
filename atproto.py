@@ -461,6 +461,10 @@ class ATProto(User, Protocol):
         Doesn't deliver anywhere externally! Relays will receive this record
         through ``subscribeRepos`` and then deliver it to AppView(s), which will
         notify recipients as necessary.
+
+        Exceptions:
+        * ``flag``s are translated to ``createReport`` to the mod service
+        * DMs are translated to ``sendMessage`` to the chat service
         """
         if util.domain_from_link(url) not in DOMAINS:
             logger.info(f'Target PDS {url} is not us')
@@ -527,6 +531,7 @@ class ATProto(User, Protocol):
         # * delete actor => tombstone repo
         # * flag => send report to mod service
         # * stop-following => delete follow record (prepared above)
+        # * dm => chat message
         verb = obj.as1.get('verb')
         if verb == 'delete':
             atp_base_id = (base_id if ATProto.owns_id(base_id)
@@ -537,7 +542,11 @@ class ATProto(User, Protocol):
                 arroba.server.storage.tombstone_repo(repo)
                 return True
 
-        elif verb == 'flag':
+        if not record:
+            # _convert already logged
+            return False
+
+        if verb == 'flag':
             logger.info(f'flag => createReport with {record}')
             return to_cls.create_report(record, from_user=user)
 
@@ -546,11 +555,13 @@ class ATProto(User, Protocol):
             assert base_obj and base_obj.type == 'follow', base_obj
             verb = 'delete'
 
-        # write commit
-        if not record:
-            # _convert already logged
-            return False
+        elif as1.is_dm(obj.as1):
+            # is_dm checked that `to` has one elem
+            to_id = as1.get_ids(base_obj_as1, 'to')[0]
+            assert to_id.startswith('did:'), to_id
+            return ATProto.send_chat(record, from_repo=repo, to_did=to_id)
 
+        # write commit
         type = record['$type']
         lex_type = LEXICONS[type]['type']
         assert lex_type == 'record', f"Can't store {type} object of type {lex_type}"
@@ -835,12 +846,14 @@ class ATProto(User, Protocol):
         logger.info(f'Created report on {mod_host}: {json_dumps(output)}')
         return True
 
-    def send_chat(self, msg, from_user):
+    @classmethod
+    def send_chat(cls, msg, from_repo, to_did):
         """Sends a chat message to this user.
 
         Args:
           msg (dict): ``chat.bsky.convo.defs#messageInput``
-          from_user (models.User)
+          from_repo (arroba.repo.Repo)
+          to_did (str)
 
         Returns:
           bool: True if the report was sent successfully, False if the flag's
@@ -848,18 +861,11 @@ class ATProto(User, Protocol):
         """
         assert msg['$type'] == 'chat.bsky.convo.defs#messageInput'
 
-        to_did = self.key.id()
-        from_did = from_user.get_copy(ATProto)
-        if not from_did or not from_user.is_enabled(ATProto):
-            return False
-
-        repo = arroba.server.storage.load_repo(from_did)
-
         chat_host = os.environ['CHAT_HOST']
         token = service_jwt(host=chat_host,
                             aud=os.environ['CHAT_DID'],
-                            repo_did=from_did,
-                            privkey=repo.signing_key)
+                            repo_did=from_repo.did,
+                            privkey=from_repo.signing_key)
         client = Client(f'https://{chat_host}', truncate=True, headers={
                             'User-Agent': USER_AGENT,
                             'Authorization': f'Bearer {token}',
@@ -876,5 +882,5 @@ class ATProto(User, Protocol):
             util.interpret_http_exception(e)
             return False
 
-        logger.info(f'Sent chat message from {from_user.handle} to {self.handle} {to_did}: {json_dumps(sent)}')
+        logger.info(f'Sent chat message from {from_repo.handle} to {to_did}: {json_dumps(sent)}')
         return True

@@ -1741,8 +1741,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                 'Authorization': ANY,
             })
 
-    # sendMessage
-    @patch('requests.post', return_value=requests_response({
+    @patch('requests.post', return_value=requests_response({  # sendMessage
         'id': 'chat456',
         'rev': '22222222tef2d',
         'sender': {'did': 'did:plc:user'},
@@ -1764,18 +1763,25 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         }),
         requests_response(DID_DOC),
     ])
-    def test_send_chat(self, mock_get, mock_post):
+    def test_send_dm_chat(self, mock_get, mock_post):
         user = self.make_user_and_repo()
-        alice = ATProto(id='did:plc:alice')
 
-        self.assertTrue(alice.send_chat({
-            '$type': 'chat.bsky.convo.defs#messageInput',
-            'text': 'hello world',
-        }, from_user=user))
+        dm = Object(id='fake:dm', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'actor': user.key.id(),
+            'content': 'hello world',
+            'to': ['did:plc:alice'],
+        })
+        self.assertTrue(ATProto.send(dm, 'https://bsky.brid.gy/'))
 
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': common.USER_AGENT,
+            'Authorization': ANY,
+        }
         mock_get.assert_any_call(
             'https://chat.service.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
-            json=None, data=None, headers=ANY)
+            json=None, data=None, headers=headers)
         mock_post.assert_called_with(
             'https://chat.service.local/xrpc/chat.bsky.convo.sendMessage',
             json={
@@ -1783,12 +1789,12 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                 'message': {
                     '$type': 'chat.bsky.convo.defs#messageInput',
                     'text': 'hello world',
+                    # unused
+                    'createdAt': '2022-01-02T03:04:05.000Z',
+                    'bridgyOriginalText': 'hello world',
+                    'bridgyOriginalUrl': 'fake:dm',
                 },
-            }, data=None, headers={
-                'Content-Type': 'application/json',
-                'User-Agent': common.USER_AGENT,
-                'Authorization': ANY,
-            })
+            }, data=None, headers=headers)
 
     # getConvoForMembers
     @patch('requests.get', return_value=requests_response({
@@ -1797,12 +1803,14 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     }, status=400))
     def test_send_chat_recipient_disabled(self, mock_get):
         user = self.make_user_and_repo()
-        alice = ATProto(id='did:plc:alice')
 
-        self.assertFalse(alice.send_chat({
-            '$type': 'chat.bsky.convo.defs#messageInput',
-            'text': 'hello world',
-        }, from_user=user))
+        dm = Object(id='fake:dm', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'actor': user.key.id(),
+            'content': 'hello world',
+            'to': ['did:plc:alice'],
+        })
+        self.assertFalse(ATProto.send(dm, 'https://bsky.brid.gy/'))
 
         mock_get.assert_any_call(
             'https://chat.service.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
