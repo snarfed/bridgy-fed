@@ -350,11 +350,11 @@ def nodeinfo():
             'name': 'bridgy-fed',
             'version': os.getenv('GAE_VERSION'),
             'repository': 'https://github.com/snarfed/bridgy-fed',
-            'web_url': 'https://fed.brid.gy/',
+            'homepage': 'https://fed.brid.gy/',
         },
         'protocols': [
             'activitypub',
-            'bluesky',
+            'atproto',
             'webmention',
         ],
         'services': {
