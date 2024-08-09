@@ -502,11 +502,17 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             if to_proto.LABEL in ids.COPIES_PROTOCOLS and not user.get_copy(to_proto):
                 to_proto.create_for(user)
 
-        enable()
+            return user
+
+        self_with_copy = enable()
         add(self.enabled_protocols, to_proto.LABEL)
 
         if added:
-            to_proto.bot_dm(to_user=self, text='hello world')
+            handle = self.handle_as(to_proto)
+            if url := to_proto.bridged_web_url_for(self_with_copy):
+                handle = f'<a href="{url}">{handle}</a>'
+            to_proto.bot_dm(to_user=self, text=f"""\
+Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {handle}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{common.PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
 
         msg = f'Enabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
         logger.info(msg)

@@ -396,12 +396,13 @@ class IntegrationTests(TestCase):
         # bot user DM
         args, kwargs = mock_post.call_args_list[1]
         self.assert_equals(('http://inst/inbox',), args)
+        message = '<p>Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at <a href="https://bsky.app/profile/alice.inst.ap.brid.gy">alice.inst.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@inst">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>'
         self.assert_equals({
             'type': 'Note',
             'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#welcome-dm-https://inst/alice-2022-01-02T03:04:05+00:00',
             'actor': 'https://bsky.brid.gy/bsky.brid.gy',
-            'content': '<p>hello world</p>',
-            'contentMap': {'en': '<p>hello world</p>'},
+            'content': message,
+            'contentMap': {'en': message},
             'content_is_html': True,
             'to': ['https://inst/alice'],
         }, json_loads(kwargs['data']), ignore=['to', '@context'])
@@ -518,9 +519,24 @@ class IntegrationTests(TestCase):
                 'convoId': 'convo123',
                 'message': {
                     '$type': 'chat.bsky.convo.defs#messageInput',
-                    'text': 'hello world',
+                    'text': 'Welcome to Bridgy Fed! Your account will soon be bridged to the fediverse at @alice.com@bsky.brid.gy. See the docs and your user page for more information. To disable this and delete your bridged profile, block this account.',
+                    'facets': [{
+                        '$type': 'app.bsky.richtext.facet',
+                        'index': {'byteStart': 102, 'byteEnd': 114},
+                        'features': [{
+                            '$type': 'app.bsky.richtext.facet#link',
+                            'uri': 'https://fed.brid.gy/docs',
+                        }],
+                    }, {
+                        '$type': 'app.bsky.richtext.facet',
+                        'index': {'byteStart': 119, 'byteEnd': 133},
+                        'features': [{
+                            '$type': 'app.bsky.richtext.facet#link',
+                            'uri': 'https://fed.brid.gy/bsky/alice.com',
+                        }],
+                    }],
                     'createdAt': '2022-01-02T03:04:05.000Z',
-                    'bridgyOriginalText': 'hello world',
+                    'bridgyOriginalText': 'Welcome to Bridgy Fed! Your account will soon be bridged to the fediverse at @alice.com@bsky.brid.gy. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/bsky/alice.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.',
                     'bridgyOriginalUrl': 'https://ap.brid.gy/#welcome-dm-did:plc:alice-2022-01-02T03:04:05+00:00',
                 },
             }, data=None, headers=headers)
