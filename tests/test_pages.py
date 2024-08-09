@@ -93,6 +93,13 @@ class PagesTest(TestCase):
         self.assert_equals(200, got.status_code)
         self.assertIn('@baz@user.com', got.get_data(as_text=True))
 
+    def test_user_www_domain_special_case(self):
+        """https://github.com/snarfed/bridgy-fed/issues/1244"""
+        www = self.make_user('www.jvt.me', cls=Web)
+
+        got = self.client.get('/web/www.jvt.me')
+        self.assert_equals(200, got.status_code)
+
     def test_user_objects(self):
         self.add_objects()
         got = self.client.get('/web/user.com')
