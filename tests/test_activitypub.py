@@ -2376,6 +2376,16 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual(['https://masto.foo/@other'],
                          postprocess_as2(obj)['cc'])
 
+    def test_postprocess_as2_dm(self):
+        dm = {
+            'objectType': 'note',
+            'author': 'web.brid.gy',
+            'content': '<p>hello world</p>',
+            'contentMap': {'en': '<p>hello world</p>'},
+            'to': ['http://inst/user'],
+        }
+        self.assertEqual(dm, postprocess_as2(copy.deepcopy(dm)))
+
     @patch('requests.get')
     def test_signed_get_redirects_manually_with_new_sig_headers(self, mock_get):
         mock_get.side_effect = [
@@ -2790,10 +2800,8 @@ class ActivityPubUtilsTest(TestCase):
                                           'https://fed.brid.gy/ap/sharedInbox'))
         mock_post.assert_not_called()
 
-    @patch('requests.post')
+    @patch('requests.post', return_value=requests_response())
     def test_send_convert_ids(self, mock_post):
-        mock_post.return_value = requests_response()
-
         like = Object(our_as1={
             'id': 'fake:like',
             'objectType': 'activity',
@@ -2813,4 +2821,32 @@ class ActivityPubUtilsTest(TestCase):
             'object': 'https://fa.brid.gy/convert/ap/fake:post',
             'actor': 'https://fa.brid.gy/ap/fake:user',
             'to': [as2.PUBLIC_AUDIENCE],
+        }, json_loads(kwargs['data']))
+
+    @patch('requests.post', return_value=requests_response())
+    def test_send_dm(self, mock_post):
+        bot = self.make_user('web.brid.gy', cls=Web)
+        user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+
+        dm = Object(id='https://internal.brid.gy/dm', source_protocol='web', our_as1={
+            'objectType': 'note',
+            'author': 'web.brid.gy',
+            'content': 'hello world',
+            'to': [ACTOR['id']],
+        })
+        dm.put()
+        self.assertTrue(ActivityPub.send(dm, ACTOR['inbox'], from_user=bot))
+
+        self.assertEqual(1, len(mock_post.call_args_list))
+        args, kwargs = mock_post.call_args_list[0]
+        self.assertEqual((ACTOR['inbox'],), args)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Note',
+            'id': 'http://localhost/r/https://internal.brid.gy/dm',
+            'attributedTo': 'https://web.brid.gy/web.brid.gy',
+            'content': '<p>hello world</p>',
+            'contentMap': {'en': '<p>hello world</p>'},
+            'content_is_html': True,
+            'to': [ACTOR['id']],
         }, json_loads(kwargs['data']))

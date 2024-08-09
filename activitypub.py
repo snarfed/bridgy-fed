@@ -777,25 +777,29 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     # https://www.w3.org/TR/activitystreams-vocabulary/#audienceTargeting
     # https://w3c.github.io/activitypub/#delivery
     # https://docs.joinmastodon.org/spec/activitypub/#Mention
-    obj_or_activity.setdefault('cc', [])
+    cc = obj_or_activity.setdefault('cc', [])
 
     tags = util.get_list(activity, 'tag') + util.get_list(obj, 'tag')
     for tag in tags:
         href = tag.get('href')
         if (href and tag.get('type') == 'Mention'
                 and not ActivityPub.is_blocklisted(href)):
-            add(obj_or_activity['cc'], href)
+            add(cc, href)
 
     if orig_obj and type in as2.TYPE_TO_VERB:
         for field in 'actor', 'attributedTo', 'to', 'cc':
             for recip in as1.get_objects(orig_obj, field):
-                add(obj_or_activity['cc'], util.get_url(recip) or recip.get('id'))
+                add(cc, util.get_url(recip) or recip.get('id'))
 
-    # to public, since Mastodon interprets to public as public, cc public as unlisted:
-    # https://socialhub.activitypub.rocks/t/visibility-to-cc-mapping/284
-    # https://wordsmith.social/falkreon/securing-activitypub
+    # ideally I'd use as1.is_dm here, but it's for AS1, not AS2
     to = activity.setdefault('to', [])
-    add(to, as2.PUBLIC_AUDIENCE)
+    is_dm = not cc and len(to) == 1
+    if not is_dm:
+        # to public, since Mastodon interprets to public as public, cc public as
+        # unlisted:
+        # https://socialhub.activitypub.rocks/t/visibility-to-cc-mapping/284
+        # https://wordsmith.social/falkreon/securing-activitypub
+        add(to, as2.PUBLIC_AUDIENCE)
 
     # hashtags. Mastodon requires:
     # * type: Hashtag

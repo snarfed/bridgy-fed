@@ -2464,8 +2464,10 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(['eefake:user'], Fake.created_for)
         self.assertTrue(user.is_enabled(Fake))
 
+        dm_id = 'https://fa.brid.gy/#welcome-dm-eefake:user-2022-01-02T03:04:05+00:00'
         follow_back_id = 'https://fa.brid.gy/#follow-back-eefake:user-2022-01-02T03:04:05+00:00'
         self.assertEqual([
+            (dm_id, 'eefake:user:target'),
             # fa.brid.gy follows back
             (follow_back_id, 'eefake:user:target'),
             ('fa.brid.gy/followers#accept-eefake:follow', 'eefake:user:target'),

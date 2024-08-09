@@ -1139,7 +1139,8 @@ class Protocol:
         logger.info(f'Sending DM from {bot.key.id()} to {to_user.key.id()}: {text[:100]}')
 
         id = f'{bot.profile_id()}#welcome-dm-{to_user.key.id()}-{util.now().isoformat()}'
-        target = Target(protocol=to_user.LABEL, uri=to_user.target_for(to_user.obj))
+        target_uri = to_user.target_for(to_user.obj, shared=False)
+        target = Target(protocol=to_user.LABEL, uri=target_uri)
         obj_key = Object(id=id, source_protocol='web', undelivered=[target], our_as1={
             'objectType': 'note',
             'id': id,
