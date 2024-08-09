@@ -1138,7 +1138,7 @@ class Protocol:
         """
         from web import Web
         bot = Web.get_by_id(bot_cls.bot_user_id())
-        logger.info(f'Sending DM from {bot.key.id()} to {to_user.key.id()}: {text[:100]}')
+        logger.info(f'Sending DM from {bot.key.id()} to {to_user.key.id()}: {text}')
 
         id = f'{bot.profile_id()}#welcome-dm-{to_user.key.id()}-{util.now().isoformat()}'
         target_uri = to_user.target_for(to_user.obj, shared=False)
