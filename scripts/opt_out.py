@@ -26,7 +26,6 @@ import ids
 from models import Object, Target
 import protocol
 from activitypub import ActivityPub
-from atproto import ATProto
 from web import Web
 from app import app
 
@@ -46,7 +45,8 @@ AP_BASE_TARGETS = [
     'https://venera.social/inbox',
 
     # kbin (not sharedInbox)
-    'https://kbin.social/i/inbox',
+    # dead!
+    # 'https://kbin.social/i/inbox',
 
     # Lemmy (not sharedInbox); these tend to fail on BF objects right now
     'https://alien.top/inbox',
