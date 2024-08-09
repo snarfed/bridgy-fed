@@ -283,7 +283,7 @@ class Web(User, Protocol):
             domain_urls = ([f'https://{domain}/' for domain in common.DOMAINS] +
                            [common.host_url()])
             expected = [urljoin(url, path) for url in domain_urls]
-            if resp.ok and resp.url:
+            if resp.url:
                 got = urllib.parse.unquote(resp.url)
                 if got in expected:
                     self.has_redirects = True

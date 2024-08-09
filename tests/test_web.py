@@ -2381,15 +2381,19 @@ Current vs expected:<pre>- http://localhost/.well-known/webfinger
         mock_get.side_effect = [two_redirs, no_hcard]
         self._test_verify(True, False, None)
 
-    def test_verify_redirect_404(self, mock_get, _):
+    def test_verify_redirect_404_wrong_destination(self, mock_get, _):
         redir_404 = requests_response(status=404, redirected_url='http://this/404s')
         no_hcard = requests_response('<html><body></body></html>')
         mock_get.side_effect = [redir_404, no_hcard]
         self._test_verify(False, False, None, """\
-<pre>https://user.com/.well-known/webfinger?resource=acct:user.com@user.com
-  redirected to:
-http://this/404s
-  returned HTTP 404</pre>""")
+Current vs expected:<pre>- http://this/404s
++ https://fed.brid.gy/.well-known/webfinger?resource=acct:user.com@user.com</pre>""")
+
+    def test_verify_redirect_404_right_destination(self, mock_get, _):
+        redir_404 = requests_response(status=404, redirected_url='http://localhost/.well-known/webfinger?resource=acct:user.com@user.com')
+        no_hcard = requests_response('<html><body></body></html>')
+        mock_get.side_effect = [redir_404, no_hcard]
+        self._test_verify(True, False, None)
 
     def test_verify_webfinger_urlencoded(self, mock_get, _):
         mock_get.side_effect = [
