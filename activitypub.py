@@ -116,6 +116,7 @@ class ActivityPub(User, Protocol):
     SUPPORTED_AS2_TYPES = tuple(
         as2.OBJECT_TYPE_TO_TYPE.get(t) or as2.VERB_TO_TYPE.get(t)
         for t in SUPPORTED_AS1_TYPES)
+    SUPPORTS_DMS = True
 
     def _pre_put_hook(self):
         """Validate id, require URL, don't allow Bridgy Fed domains.

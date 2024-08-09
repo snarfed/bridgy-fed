@@ -211,6 +211,7 @@ class OtherFake(Fake):
 class ExplicitEnableFake(Fake):
     LABEL = ABBREV = 'eefake'
     CONTENT_TYPE = 'un/known'
+    SUPPORTS_DMS = True
 
     fetchable = {}
     sent = []

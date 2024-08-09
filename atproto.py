@@ -201,6 +201,7 @@ class ATProto(User, Protocol):
     SUPPORTED_RECORD_TYPES = frozenset(
         type for type in itertools.chain(*FROM_AS1_TYPES.values())
         if '#' not in type)
+    SUPPORTS_DMS = True
 
     def _pre_put_hook(self):
         """Validate id, require did:plc or non-blocklisted did:web."""

@@ -106,6 +106,7 @@ class Protocol:
         that are automatically enabled for this protocol to bridge into
       SUPPORTED_AS1_TYPES (sequence of str): AS1 objectTypes and verbs that this
         protocol supports receiving and sending.
+      SUPPORTS_DMS (bool): whether this protocol can receive DMs (chat messages)
     """
     ABBREV = None
     PHRASE = None
@@ -118,6 +119,7 @@ class Protocol:
     REQUIRES_OLD_ACCOUNT = False
     DEFAULT_ENABLED_PROTOCOLS = ()
     SUPPORTED_AS1_TYPES = ()
+    SUPPORTS_DMS = False
 
     def __init__(self):
         assert False
@@ -1618,7 +1620,8 @@ class Protocol:
                 and inner_type not in cls.SUPPORTED_AS1_TYPES)):
             error(f"Bridgy Fed for {cls.LABEL} doesn't support {obj.type} {inner_type} yet", status=204)
 
-        if as1.is_dm(obj.as1) and as1.get_owner(obj.as1) not in PROTOCOL_DOMAINS:
+        if as1.is_dm(obj.as1) and (not cls.SUPPORTS_DMS
+                                   or as1.get_owner(obj.as1) not in PROTOCOL_DOMAINS):
             error(f"Bridgy Fed doesn't support DMs", status=204)
 
 

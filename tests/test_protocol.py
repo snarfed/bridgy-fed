@@ -725,13 +725,6 @@ class ProtocolTest(TestCase):
             {'objectType': 'activity', 'verb': 'undo',
              'object': {'objectType': 'activity', 'verb': 'share'}},
             {'objectType': 'activity', 'verb': 'flag'},
-            # DM from protocol bot
-            {
-                'objectType': 'note',
-                'actor': 'ap.brid.gy',
-                'to': ['did:bob'],
-                'content': 'hello world',
-            },
         ):
             with self.subTest(obj=obj):
                 Fake.check_supported(Object(our_as1=obj))
@@ -740,17 +733,30 @@ class ProtocolTest(TestCase):
             {'objectType': 'event'},
             {'objectType': 'activity', 'verb': 'post',
              'object': {'objectType': 'event'}},
-            # DM
-            {
-                'objectType': 'note',
-                'actor': 'did:alice',
-                'to': ['did:bob'],
-                'content': 'hello world',
-            },
         ):
-            with self.subTest(obj=obj):
-                with self.assertRaises(NoContent):
-                    Fake.check_supported(Object(our_as1=obj))
+            with self.subTest(obj=obj), self.assertRaises(NoContent):
+                Fake.check_supported(Object(our_as1=obj))
+
+        # Fake doesn't support DMs, ExplicitEnableFake does
+        bot_dm = Object(our_as1={
+            'objectType': 'note',
+            'actor': 'ap.brid.gy',
+            'to': ['did:bob'],
+            'content': 'hello world',
+        })
+        ExplicitEnableFake.check_supported(bot_dm)
+        with self.assertRaises(NoContent):
+            Fake.check_supported(bot_dm)
+
+        dm = Object(our_as1={
+            'objectType': 'note',
+            'actor': 'did:alice',
+            'to': ['did:bob'],
+            'content': 'hello world',
+        })
+        for proto in Fake, ExplicitEnableFake:
+            with self.subTest(proto=proto), self.assertRaises(NoContent):
+                proto.check_supported(dm)
 
 class ProtocolReceiveTest(TestCase):
 
