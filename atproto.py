@@ -575,9 +575,11 @@ class ATProto(User, Protocol):
             if not copy:
                 logger.info(f"Can't {verb} {base_obj.key.id()} {type}, we didn't create it originally")
                 return False
+
             copy_did, coll, rkey = parse_at_uri(copy)
-            assert copy_did == did, (copy_did, did)
-            assert coll == type, (coll, type)
+            if copy_did != did or coll != type:
+                logger.info(f"Can't {verb} {base_obj.key.id()} {type}, original {copy} is in a different repo or collection")
+                return False
 
         ndb.transactional()
         def write():

@@ -1263,6 +1263,30 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         })
         self.assertFalse(ATProto.send(update, 'https://bsky.brid.gy'))
 
+    def test_send_update_wrong_repo(self):
+        self.test_send_note_existing_repo()
+
+        orig = Object.get_by_id('fake:post')
+        _, _, rkey = arroba.util.parse_at_uri(orig.copies[0].uri)
+        orig.copies[0].uri = orig.copies[0].uri.replace('did:plc:user', 'did:plc:eve')
+        orig.put()
+
+        update = self.store_object(id='fake:update', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'update',
+            'object': {
+                **NOTE_AS,
+                'content': 'nope',
+            },
+        })
+        self.assertFalse(ATProto.send(update, 'https://bsky.brid.gy'))
+
+        # check repo, record
+        did = self.user.key.get().get_copy(ATProto)
+        repo = self.storage.load_repo(did)
+        record = repo.get_record('app.bsky.feed.post', rkey)
+        self.assertEqual(orig.as1['content'], record['text'])
+
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_delete_note(self, mock_create_task):
         self.test_send_note_existing_repo()
