@@ -1132,13 +1132,14 @@ class Protocol:
         Args:
           to_user (models.User)
           text (str)
-
-        Returns
-          bool: True if the DM was successfully sent, False otherwise
         """
         from web import Web
         bot = Web.get_by_id(bot_cls.bot_user_id())
         logger.info(f'Sending DM from {bot.key.id()} to {to_user.key.id()}: {text}')
+
+        if not to_user.obj:
+            logger.info("  can't send DM, recipient has no profile obj")
+            return
 
         id = f'{bot.profile_id()}#welcome-dm-{to_user.key.id()}-{util.now().isoformat()}'
         target_uri = to_user.target_for(to_user.obj, shared=False)

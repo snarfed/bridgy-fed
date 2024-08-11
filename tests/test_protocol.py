@@ -758,6 +758,24 @@ class ProtocolTest(TestCase):
             with self.subTest(proto=proto), self.assertRaises(NoContent):
                 proto.check_supported(dm)
 
+    def test_bot_dm(self):
+        self.make_user(id='other.brid.gy', cls=Web)
+        user = self.make_user(id='other:user', cls=OtherFake, obj_id='other:user')
+        OtherFake.bot_dm(user, 'hi hi hi')
+
+        self.assertEqual([
+            ('https://other.brid.gy/#welcome-dm-other:user-2022-01-02T03:04:05+00:00',
+             'other:user:target'),
+        ], OtherFake.sent)
+
+    def test_bot_dm_user_missing_obj(self):
+        self.make_user(id='other.brid.gy', cls=Web)
+        user = OtherFake(id='other:user')
+        assert not user.obj
+        OtherFake.bot_dm(user, 'nope')
+        self.assertEqual([], OtherFake.sent)
+
+
 class ProtocolReceiveTest(TestCase):
 
     def setUp(self):

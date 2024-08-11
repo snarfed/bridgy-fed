@@ -196,6 +196,7 @@ class OtherFake(Fake):
     LABEL = ABBREV = 'other'
     CONTENT_TYPE = 'ot/her'
     SUPPORTED_AS1_TYPES = Fake.SUPPORTED_AS1_TYPES - set(('accept',))
+    SUPPORTS_DMS = True
 
     fetchable = {}
     sent = []
