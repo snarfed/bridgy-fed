@@ -758,6 +758,23 @@ class ProtocolTest(TestCase):
             with self.subTest(proto=proto), self.assertRaises(NoContent):
                 proto.check_supported(dm)
 
+    def test_bot_follow(self):
+        self.make_user(id='fa.brid.gy', cls=Web)
+        user = self.make_user(id='fake:user', cls=Fake, obj_id='fake:user')
+        Fake.bot_follow(user)
+
+        self.assertEqual([
+            ('https://fa.brid.gy/#follow-back-fake:user-2022-01-02T03:04:05+00:00',
+             'fake:user:target'),
+        ], Fake.sent)
+
+    def test_bot_follow_user_missing_obj(self):
+        self.make_user(id='fa.brid.gy', cls=Web)
+        user = Fake(id='fake:user')
+        assert not user.obj
+        Fake.bot_follow(user)
+        self.assertEqual([], Fake.sent)
+
     def test_bot_dm(self):
         self.make_user(id='other.brid.gy', cls=Web)
         user = self.make_user(id='other:user', cls=OtherFake, obj_id='other:user')

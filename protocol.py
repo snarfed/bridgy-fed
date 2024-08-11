@@ -1107,6 +1107,10 @@ class Protocol:
         now = util.now().isoformat()
         logger.info(f'Following {user.key.id()} back from bot user {bot.key.id()}')
 
+        if not user.obj:
+            logger.info("  can't follow, user has no profile obj")
+            return
+
         target = user.target_for(user.obj)
         follow_back_id = f'https://{bot.key.id()}/#follow-back-{user.key.id()}-{now}'
         follow_back = Object(id=follow_back_id, source_protocol='web',
