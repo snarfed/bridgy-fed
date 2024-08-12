@@ -264,6 +264,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         did.resolve_web.cache.clear()
         ids.web_ap_base_domain.cache.clear()
         protocol.Protocol.for_id.cache.clear()
+        protocol.Protocol.for_handle.cache.clear()
         User.count_followers.cache.clear()
 
         for cls in ExplicitEnableFake, Fake, OtherFake:

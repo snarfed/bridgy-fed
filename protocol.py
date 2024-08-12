@@ -350,6 +350,7 @@ class Protocol:
         logger.info(f'No matching protocol found for {id} !')
         return None
 
+    @cached(LRUCache(20000), lock=Lock())
     @staticmethod
     def for_handle(handle):
         """Returns the protocol for a given handle.
