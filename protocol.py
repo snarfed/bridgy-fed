@@ -1323,6 +1323,14 @@ class Protocol:
         is_reply = obj.type == 'comment' or in_reply_tos
         is_self_reply = False
 
+        if is_reply:
+            original_ids = in_reply_tos
+        else:
+            inner_id = as1.get_object(obj.as1).get('id')
+            if inner_id == from_user.key.id():
+                inner_id = from_user.profile_id()
+            original_ids = [inner_id]
+
         # which protocols should we allow delivering to?
         to_protocols = []
         if DEBUG and from_user.LABEL != 'eefake':  # for unit tests
@@ -1333,14 +1341,6 @@ class Protocol:
             proto = PROTOCOLS[label]
             if proto.HAS_COPIES and (obj.type in ('update', 'delete', 'share')
                                      or is_reply):
-                if is_reply:
-                    original_ids = in_reply_tos
-                else:
-                    inner_id = as1.get_object(obj.as1)['id']
-                    if inner_id == from_user.key.id():
-                        inner_id = from_user.profile_id()
-                    original_ids = [inner_id]
-
                 for id in original_ids:
                     if orig := from_user.load(id, remote=False):
                         if orig.get_copy(proto):
