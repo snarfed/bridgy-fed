@@ -509,7 +509,7 @@ class Protocol:
           False otherwise
 
         Raises:
-          werkzeug.HTTPException: if the fetch fails
+          requests.RequestException or werkzeug.HTTPException: if the fetch fails
         """
         raise NotImplementedError()
 

@@ -105,7 +105,7 @@ def check_bridged_to(obj, from_proto, to_proto):
 
     # don't serve for a given protocol if we haven't bridged it there
     if to_proto.HAS_COPIES and not obj.get_copy(to_proto):
-        error(f"{id} hasn't been bridged to {to_proto.LABEL}", status=404)
+        error(f"{obj.key.id()} hasn't been bridged to {to_proto.LABEL}", status=404)
 
     # check that owner has this protocol enabled
     if owner := as1.get_owner(obj.as1):
