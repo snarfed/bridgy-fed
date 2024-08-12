@@ -52,7 +52,7 @@ googleapis-common-protos==1.63.2
 grpc-google-iam-v1==0.13.1
 grpcio==1.65.4
 grpcio-status==1.62.2
-gunicorn==22.0.0
+gunicorn==23.0.0
 h11==0.14.0
 html2text==2024.2.26
 html5lib==1.1
