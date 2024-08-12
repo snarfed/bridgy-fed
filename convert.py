@@ -22,80 +22,96 @@ from web import Web
 logger = logging.getLogger(__name__)
 
 
-@app.get(f'/convert/<dest>/<path:_>')
+@app.get(f'/convert/<to>/<path:_>')
 @flask_util.headers(CACHE_CONTROL)
-def convert(dest, _, src=None):
+def convert(to, _, from_=None):
     """Converts data from one protocol to another and serves it.
 
     Fetches the source data if it's not already stored.
 
     Args:
-      dest (str): protocol
-      src (str): protocol, only used when called by
+      to (str): protocol
+      from_ (str): protocol, only used when called by
         :func:`convert_source_path_redirect`
     """
-    if src:
-        src_cls = PROTOCOLS.get(src)
-        if not src_cls:
-            error(f'No protocol found for {src}', status=404)
-        logger.info(f'Overriding any domain protocol with {src}')
+    if from_:
+        from_proto = PROTOCOLS.get(from_)
+        if not from_proto:
+            error(f'No protocol found for {from_}', status=404)
+        logger.info(f'Overriding any domain protocol with {from_}')
     else:
-        src_cls = Protocol.for_request(fed=Protocol)
-    if not src_cls:
+        from_proto = Protocol.for_request(fed=Protocol)
+    if not from_proto:
         error(f'Unknown protocol {request.host.removesuffix(SUPERDOMAIN)}', status=404)
 
-    dest_cls = PROTOCOLS.get(dest)
-    if not dest_cls:
-        error('Unknown protocol {dest}', status=404)
+    to_proto = PROTOCOLS.get(to)
+    if not to_proto:
+        error('Unknown protocol {to}', status=404)
 
     # don't use urllib.parse.urlencode(request.args) because that doesn't
     # guarantee us the same query param string as in the original URL, and we
     # want exactly the same thing since we're looking up the URL's Object by id
-    path_prefix = f'convert/{dest}/'
+    path_prefix = f'convert/{to}/'
     id = unquote(request.url.removeprefix(request.root_url).removeprefix(path_prefix))
 
     # our redirects evidently collapse :// down to :/ , maybe to prevent URL
     # parsing bugs? if that happened to this URL, expand it back to ://
     id = re.sub(r'^(https?:/)([^/])', r'\1/\2', id)
 
-    logger.info(f'Converting from {src_cls.LABEL} to {dest}: {id}')
+    logger.info(f'Converting from {from_proto.LABEL} to {to}: {id}')
 
     # load, and maybe fetch. if it's a post/update, redirect to inner object.
-    obj = src_cls.load(id)
+    obj = from_proto.load(id)
     if not obj:
         error(f"Couldn't load {id}", status=404)
     elif not obj.as1:
         error(f'Stored object for {id} has no data', status=404)
 
     type = as1.object_type(obj.as1)
-    if type in ('post', 'update', 'delete'):
-        obj_id = as1.get_object(obj.as1).get('id')
-        if obj_id:
-            obj_obj = src_cls.load(obj_id, remote=False)
-            if (obj_obj and obj_obj.as1
-                    and not obj_obj.as1.keys() <= set(['id', 'url', 'objectType'])):
-                logger.info(f'{type} activity, redirecting to Object {obj_id}')
-                return redirect(f'/{path_prefix}{obj_id}', code=301)
+    if type in as1.CRUD_VERBS or type == 'share':
+        if obj_id := as1.get_object(obj.as1).get('id'):
+            if obj_obj := from_proto.load(obj_id, remote=False):
+                if type == 'share':
+                    # TODO: should this be Source.base_object? That's broad
+                    # though, includes inReplyTo
+                    check_bridged_to(obj_obj, from_proto=from_proto,
+                                     to_proto=to_proto)
+                elif (type in as1.CRUD_VERBS
+                      and obj_obj.as1
+                      and obj_obj.as1.keys() - set(['id', 'url', 'objectType'])):
+                    logger.info(f'{type} activity, redirecting to Object {obj_id}')
+                    return redirect(f'/{path_prefix}{obj_id}', code=301)
 
+    check_bridged_to(obj, from_proto=from_proto, to_proto=to_proto)
+
+    # convert and serve
+    return to_proto.convert(obj), {
+        'Content-Type': to_proto.CONTENT_TYPE,
+        'Vary': 'Accept',
+    }
+
+
+def check_bridged_to(obj, from_proto, to_proto):
+    """If ``object`` or its owner isn't bridged to ``to_proto``, raises :class:`werkzeug.exceptions.HTTPException`.
+
+    Args:
+      obj (models.Object)
+      from_proto (subclass of protocol.Protocol)
+      to_proto (subclass of protocol.Protocol)
+    """
     # don't serve deletes or deleted objects
-    if obj.deleted or type == 'delete':
+    if obj.deleted or obj.type == 'delete':
         error('Deleted', status=410)
 
     # don't serve for a given protocol if we haven't bridged it there
-    if dest_cls.HAS_COPIES and not obj.get_copy(dest_cls):
-        error(f"{id} hasn't been bridged to {dest_cls.LABEL}", status=404)
+    if to_proto.HAS_COPIES and not obj.get_copy(to_proto):
+        error(f"{id} hasn't been bridged to {to_proto.LABEL}", status=404)
 
     # check that owner has this protocol enabled
     if owner := as1.get_owner(obj.as1):
-        user = src_cls.get_or_create(owner)
-        if not user or not user.is_enabled(dest_cls):
-            error(f"{src_cls.LABEL} user {owner} isn't bridged to {dest_cls.LABEL}", status=404)
-
-    # convert and serve
-    return dest_cls.convert(obj), {
-        'Content-Type': dest_cls.CONTENT_TYPE,
-        'Vary': 'Accept',
-    }
+        user = from_proto.get_or_create(owner)
+        if not user or not user.is_enabled(to_proto):
+            error(f"{from_proto.LABEL} user {owner} isn't bridged to {to_proto.LABEL}", status=404)
 
 
 @app.get('/render')
@@ -105,8 +121,8 @@ def render_redirect():
     return redirect(subdomain_wrap(ActivityPub, f'/convert/web/{id}'), code=301)
 
 
-@app.get(f'/convert/<src>/<dest>/<path:_>')
-def convert_source_path_redirect(src, dest, _):
+@app.get(f'/convert/<from_>/<to>/<path:_>')
+def convert_source_path_redirect(from_, to, _):
     """Old route that included source protocol in path instead of subdomain.
 
     DEPRECATED! Only kept to support old webmention source URLs.
@@ -116,15 +132,15 @@ def convert_source_path_redirect(src, dest, _):
 
     # in prod, eg gunicorn, the path somehow gets URL-decoded before we see
     # it, so we need to re-encode.
-    new_path = quote(request.full_path.rstrip('?').replace(f'/{src}/', '/'),
+    new_path = quote(request.full_path.rstrip('?').replace(f'/{from_}/', '/'),
                      safe=':/%')
 
     if request.host in LOCAL_DOMAINS:
-        request.url = request.url.replace(f'/{src}/', '/')
-        return convert(dest, None, src)
+        request.url = request.url.replace(f'/{from_}/', '/')
+        return convert(to, None, from_=from_)
 
-    proto = PROTOCOLS.get(src)
+    proto = PROTOCOLS.get(from_)
     if not proto:
-        error(f'No protocol found for {src}', status=404)
+        error(f'No protocol found for {from_}', status=404)
 
     return redirect(subdomain_wrap(proto, new_path), code=301)
