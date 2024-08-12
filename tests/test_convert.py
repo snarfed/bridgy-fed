@@ -5,13 +5,13 @@ from unittest.mock import patch
 
 from granary import as2
 from granary.tests.test_as1 import ACTOR, COMMENT, DELETE_OF_ID, UPDATE
-from models import Object
+from models import Object, Target
 from oauth_dropins.webutil.testutil import requests_response
 from oauth_dropins.webutil.util import json_loads, parse_mf2
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
-from .testutil import Fake, OtherFake
+from .testutil import ExplicitEnableFake, Fake, OtherFake
 
 from activitypub import ActivityPub
 from common import CONTENT_TYPE_HTML
@@ -92,15 +92,49 @@ class ConvertTest(testutil.TestCase):
         self.assertEqual(404, resp.status_code)
 
     def test_fake_to_other(self):
-        self.store_object(id='fake:post', our_as1={'foo': 'bar'})
+        self.make_user('eefake:user', cls=ExplicitEnableFake,
+                       enabled_protocols=['other'])
+        self.store_object(id='eefake:post', our_as1={'actor': 'eefake:user'},
+                          copies=[Target(protocol='other', uri='other:post')])
+        resp = self.client.get('/convert/other/eefake:post',
+                               base_url='https://eefake.brid.gy/')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual(OtherFake.CONTENT_TYPE, resp.content_type)
+        self.assertEqual({
+            'id': 'other:post',
+            'actor': 'other:u:eefake:user',
+        }, json_loads(resp.get_data()))
+
+    def test_fake_to_other_no_object_owner(self):
+        self.store_object(id='fake:post', our_as1={'foo': 'bar'},
+                          copies=[Target(protocol='other', uri='other:post')])
         resp = self.client.get('/convert/other/fake:post',
                                base_url='https://fa.brid.gy/')
         self.assertEqual(200, resp.status_code)
         self.assertEqual(OtherFake.CONTENT_TYPE, resp.content_type)
         self.assertEqual({
-            'id': 'other:o:fa:fake:post',
+            'id': 'other:post',
             'foo': 'bar',
         }, json_loads(resp.get_data()))
+
+    def test_fake_to_other_no_copy(self):
+        """https://github.com/snarfed/bridgy-fed/issues/1248"""
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['other'])
+        self.store_object(id='fake:post', our_as1={'foo': 'bar'}, copies=[])
+
+        resp = self.client.get(f'/convert/other/fake:post',
+                               base_url='https://fa.brid.gy/')
+        self.assertEqual(404, resp.status_code)
+
+    def test_fake_to_other_user_not_enabled_protocol(self):
+        """https://github.com/snarfed/bridgy-fed/issues/1248"""
+        self.make_user('eefake:user', cls=ExplicitEnableFake, enabled_protocols=[])
+        self.store_object(id='eefake:post', our_as1={'author': 'eefake:user'},
+                          copies=[Target(protocol='other', uri='other:post')])
+
+        resp = self.client.get(f'/convert/other/eefake:post',
+                               base_url='https://eefake.brid.gy/')
+        self.assertEqual(404, resp.status_code)
 
     def test_fake_to_activitypub(self):
         self.make_user('fake:alice', cls=Fake)
@@ -311,6 +345,7 @@ A ☕ reply
             hcard,
             hcard,
             hcard,
+            requests_response('<html></html>'),  # user for is_enabled protocol check
         ]
 
         resp = self.client.get(f'/convert/ap/https://nope.com/post',

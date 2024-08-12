@@ -77,17 +77,25 @@ def convert(dest, _, src=None):
                 logger.info(f'{type} activity, redirecting to Object {obj_id}')
                 return redirect(f'/{path_prefix}{obj_id}', code=301)
 
-    headers = {
+    # don't serve deletes or deleted objects
+    if obj.deleted or type == 'delete':
+        error('Deleted', status=410)
+
+    # don't serve for a given protocol if we haven't bridged it there
+    if dest_cls.HAS_COPIES and not obj.get_copy(dest_cls):
+        error(f"{id} hasn't been bridged to {dest_cls.LABEL}", status=404)
+
+    # check that owner has this protocol enabled
+    if owner := as1.get_owner(obj.as1):
+        user = src_cls.get_or_create(owner)
+        if not user or not user.is_enabled(dest_cls):
+            error(f"{src_cls.LABEL} user {owner} isn't bridged to {dest_cls.LABEL}", status=404)
+
+    # convert and serve
+    return dest_cls.convert(obj), {
         'Content-Type': dest_cls.CONTENT_TYPE,
         'Vary': 'Accept',
     }
-
-    # don't serve deletes or deleted objects
-    if obj.deleted or type == 'delete':
-        return '', 410, headers
-
-    # convert and serve
-    return dest_cls.convert(obj), headers
 
 
 @app.get('/render')
