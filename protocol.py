@@ -1334,9 +1334,8 @@ class Protocol:
         # which protocols should we allow delivering to?
         to_protocols = []
         if DEBUG and from_user.LABEL != 'eefake':  # for unit tests
-            to_protocols = [PROTOCOLS['fake'], PROTOCOLS['other']]
-        for label in ([from_user.LABEL]
-                      + list(from_user.DEFAULT_ENABLED_PROTOCOLS)
+            to_protocols += [PROTOCOLS['fake'], PROTOCOLS['other']]
+        for label in (list(from_user.DEFAULT_ENABLED_PROTOCOLS)
                       + from_user.enabled_protocols):
             proto = PROTOCOLS[label]
             if proto.HAS_COPIES and (obj.type in ('update', 'delete', 'share')
@@ -1361,7 +1360,8 @@ class Protocol:
             elif protocol.is_blocklisted(id):
                 logger.info(f'{id} is blocklisted')
                 continue
-            elif protocol not in to_protocols:
+            elif (protocol not in to_protocols
+                  and obj.source_protocol != protocol.LABEL):
                 continue
 
             orig_obj = protocol.load(id)
