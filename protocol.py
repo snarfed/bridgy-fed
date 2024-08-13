@@ -696,15 +696,20 @@ class Protocol:
         inner_objs = outer_obj['object'] = as1.get_objects(outer_obj)
 
         def translate(elem, field, fn):
-            elem[field] = as1.get_object(elem, field)
-            if id := elem[field].get('id'):
-                from_cls = Protocol.for_id(id)
-                # TODO: what if from_cls is None? relax translate_object_id,
-                # make it a noop if we don't know enough about from/to?
-                if from_cls and from_cls != to_cls:
-                    elem[field]['id'] = fn(id=id, from_=from_cls, to=to_cls)
-            if elem[field].keys() == {'id'}:
-                elem[field] = elem[field]['id']
+            elem[field] = as1.get_objects(elem, field)
+            for obj in elem[field]:
+                if id := obj.get('id'):
+                    from_cls = Protocol.for_id(id)
+                    # TODO: what if from_cls is None? relax translate_object_id,
+                    # make it a noop if we don't know enough about from/to?
+                    if from_cls and from_cls != to_cls:
+                        obj['id'] = fn(id=id, from_=from_cls, to=to_cls)
+
+            elem[field] = [o['id'] if o.keys() == {'id'} else o
+                           for o in elem[field]]
+
+            if len(elem[field]) == 1:
+                elem[field] = elem[field][0]
 
         type = as1.object_type(outer_obj)
         translate(outer_obj, 'id',

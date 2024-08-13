@@ -792,6 +792,18 @@ class ProtocolTest(TestCase):
         OtherFake.bot_dm(user, 'nope')
         self.assertEqual([], OtherFake.sent)
 
+    # TODO: translate_ids tests that actually test translation
+    def test_translate_ids_empty(self):
+        self.assertEqual({}, Fake.translate_ids({}))
+
+    def test_translate_ids_single_inReplyTo(self):
+        obj = {'inReplyTo': 'foo'}
+        self.assertEqual(obj, Fake.translate_ids(obj))
+
+    def test_translate_ids_multiple_inReplyTo(self):
+        obj = {'inReplyTo': ['foo', 'bar']}
+        self.assertEqual(obj, Fake.translate_ids(obj))
+
 
 class ProtocolReceiveTest(TestCase):
 
