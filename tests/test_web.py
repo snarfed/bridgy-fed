@@ -1892,17 +1892,17 @@ class WebTest(TestCase):
   <item>
     <guid>http://po.st/a</guid>
     <description>I hereby ☕ post a</description>
-    <pubDate>Tue, 08 Dec 2012 00:00:00 +0000</pubDate>
+    <pubDate>Tue, 08 Dec 2012 08:00:00 +0000</pubDate>
   </item>
   <item>
     <guid>http://po.st/b</guid>
     <description>I hereby ☕ post b</description>
-    <pubDate>Tue, 05 Dec 2012 00:00:00 +0000</pubDate>
+    <pubDate>Tue, 08 Dec 2012 05:00:00 +0000</pubDate>
   </item>
   <item>
     <guid>http://po.st/c</guid>
     <description>I hereby ☕ post c</description>
-    <pubDate>Tue, 04 Dec 2012 00:00:00 +0000</pubDate>
+    <pubDate>Tue, 08 Dec 2012 04:00:00 +0000</pubDate>
   </item>
 </channel>
 </rss>
@@ -1925,7 +1925,7 @@ class WebTest(TestCase):
         mock_get.assert_has_calls((
             self.req('https://foo/rss'),
         ))
-        for i, (id, day) in enumerate([('a', 8), ('b', 5), ('c', 4)]):
+        for i, (id, hour) in enumerate([('a', 8), ('b', 5), ('c', 4)]):
             url = f'http://po.st/{id}'
             obj = self.assert_object(
                 url,
@@ -1945,7 +1945,7 @@ class WebTest(TestCase):
                         'url': url,
                         'author': {'id': 'https://user.com/'},
                         'content': f'I hereby ☕ post {id}',
-                        'published': f'2012-12-0{day}T00:00:00+00:00',
+                        'published': f'2012-12-08T0{hour}:00:00+00:00',
                     },
                     'feed_index': i,
                 },
@@ -1955,8 +1955,8 @@ class WebTest(TestCase):
             self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
                              authed_as='user.com')
 
-        # delay is average of 1d and 3d between posts
-        expected_eta = NOW_SECONDS + timedelta(days=2).total_seconds()
+        # delay is average of 1h and 3h between posts
+        expected_eta = NOW_SECONDS + timedelta(hours=2).total_seconds()
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
                          eta_seconds=expected_eta)
 

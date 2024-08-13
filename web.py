@@ -52,7 +52,7 @@ FEED_TYPES = {
     'text/xml': 'xml',
 }
 MIN_FEED_POLL_PERIOD = timedelta(hours=2)
-MAX_FEED_POLL_PERIOD = timedelta(weeks=1)
+MAX_FEED_POLL_PERIOD = timedelta(days=1)
 MAX_FEED_PROPERTY_SIZE = 500 * 1000  # Object.atom/rss
 MAX_FEED_ITEMS_PER_POLL = 10
 
