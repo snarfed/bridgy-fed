@@ -904,8 +904,7 @@ class Protocol:
 
             # fall through to deliver to followers
 
-        # TODO: add undo here, test for it
-        elif obj.type == 'delete':
+        elif obj.type in ('delete', 'undo'):
             if not inner_obj_id:
                 error("Couldn't find id of object to delete")
 

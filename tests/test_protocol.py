@@ -2240,7 +2240,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': 'other:eve',
         }
-        self.store_object(id='fake:block', our_as1=block)
+        self.store_object(id='fake:block', our_as1=block, source_protocol='fake')
 
         self.assertEqual(('OK', 202), Fake.receive_as1({
             'objectType': 'activity',
@@ -2250,6 +2250,36 @@ class ProtocolReceiveTest(TestCase):
             'object': block,
         }))
         self.assertEqual([('fake:undo', 'fake:block:target')], Fake.sent)
+
+    def test_undo_repost(self):
+        self.make_followers()
+
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:post',
+            'actor': 'fake:user',
+        })
+        self.store_object(id='fake:repost', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'id': 'fake:repost',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+
+        self.assertEqual(('OK', 202), Fake.receive_as1({
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': 'fake:undo',
+            'actor': 'fake:user',
+            'object': 'fake:repost',
+        }))
+        self.assertTrue(Object.get_by_id('fake:repost').deleted)
+        self.assertEqual([
+            ('fake:undo', 'fake:post:target'),
+            ('fake:undo', 'fake:repost:target'),
+            ('fake:undo', 'fake:shared:target'),
+        ], Fake.sent)
 
     @skip
     def test_from_bridgy_fed_domain_fails(self):
