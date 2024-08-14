@@ -37,4 +37,4 @@ liveness_check:
 # https://cloud.google.com/appengine/docs/flexible/python/runtime#application_startup
 # https://docs.gunicorn.org/en/latest/settings.html
 # TODO: try asyncio w/eventlet workers
-entrypoint: gunicorn --workers 4 --threads 50 -b :$PORT router:app
+entrypoint: gunicorn --workers 4 --threads 30 -b :$PORT router:app
