@@ -1218,32 +1218,37 @@ def outbox(id):
     objects, new_before, new_after = fetch_objects(query, by=Object.updated,
                                                    user=user)
 
-    # page
-    page = {
-        'type': 'CollectionPage',
-        'partOf': request.base_url,
-        'items': util.trim_nulls([ActivityPub.convert(obj, from_user=user)
-                                  for obj in objects]),
-    }
-    if new_before:
-        page['next'] = f'{request.base_url}?before={new_before}'
-    if new_after:
-        page['prev'] = f'{request.base_url}?after={new_after}'
+    # TODO: bring this back once we filter it by author status, etc
+    # page = {
+    #     'type': 'CollectionPage',
+    #     'partOf': request.base_url,
+    #     'items': util.trim_nulls([ActivityPub.convert(obj, from_user=user)
+    #                               for obj in objects]),
+    # }
+    # if new_before:
+    #     page['next'] = f'{request.base_url}?before={new_before}'
+    # if new_after:
+    #     page['prev'] = f'{request.base_url}?after={new_after}'
 
-    if 'before' in request.args or 'after' in request.args:
-        page.update({
-            '@context': 'https://www.w3.org/ns/activitystreams',
-            'id': request.url,
-        })
-        logger.debug(f'Returning {json_dumps(page, indent=2)}')
-        return page, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
+    # if 'before' in request.args or 'after' in request.args:
+    #     page.update({
+    #         '@context': 'https://www.w3.org/ns/activitystreams',
+    #         'id': request.url,
+    #     })
+    #     logger.debug(f'Returning {json_dumps(page, indent=2)}')
+    #     return page, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
     ret = {
         '@context': 'https://www.w3.org/ns/activitystreams',
         'id': request.url,
         'type': 'OrderedCollection',
         'summary': f"{id}'s outbox",
-        'first': page,
+        # 'first': page,
+        'first': {
+            'type': 'CollectionPage',
+            'partOf': request.base_url,
+            'items': [],
+        },
     }
 
     # count total if it's small, <= 1k. we should eventually precompute this

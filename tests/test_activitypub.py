@@ -1978,6 +1978,9 @@ class ActivityPubTest(TestCase):
         for i, obj in enumerate([REPLY, MENTION, LIKE, DELETE]):
             self.store_object(id=obj['id'], users=[user.key], as2=obj)
 
+    # TODO once we're serving outboxes again
+    # https://github.com/snarfed/bridgy-fed/issues/1248
+    @skip
     @patch('models.PAGE_SIZE', 2)
     def test_outbox_fake_objects(self, *_):
         user = self.make_user('fake:foo', cls=Fake)
@@ -2002,6 +2005,9 @@ class ActivityPubTest(TestCase):
             },
         }, resp.json)
 
+    # TODO once we're serving outboxes again
+    # https://github.com/snarfed/bridgy-fed/issues/1248
+    @skip
     @patch('models.PAGE_SIZE', 2)
     def test_outbox_fake_objects_page(self, *_):
         user = self.make_user('fake:foo', cls=Fake)
