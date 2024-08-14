@@ -1214,11 +1214,11 @@ def outbox(id):
     if request.method == 'HEAD':
         return '', {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
 
-    query = Object.query(Object.users == user.key)
-    objects, new_before, new_after = fetch_objects(query, by=Object.updated,
-                                                   user=user)
-
     # TODO: bring this back once we filter it by author status, etc
+    # query = Object.query(Object.users == user.key)
+    # objects, new_before, new_after = fetch_objects(query, by=Object.updated,
+    #                                                user=user)
+
     # page = {
     #     'type': 'CollectionPage',
     #     'partOf': request.base_url,
@@ -1243,6 +1243,7 @@ def outbox(id):
         'id': request.url,
         'type': 'OrderedCollection',
         'summary': f"{id}'s outbox",
+        'totalItems': 0,
         # 'first': page,
         'first': {
             'type': 'CollectionPage',
@@ -1251,10 +1252,10 @@ def outbox(id):
         },
     }
 
-    # count total if it's small, <= 1k. we should eventually precompute this
-    # so that we can always return it cheaply.
-    count = query.count(limit=1001)
-    if count != 1001:
-        ret['totalItems'] = count
+    # # count total if it's small, <= 1k. we should eventually precompute this
+    # # so that we can always return it cheaply.
+    # count = query.count(limit=1001)
+    # if count != 1001:
+    #     ret['totalItems'] = count
 
     return ret, {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
