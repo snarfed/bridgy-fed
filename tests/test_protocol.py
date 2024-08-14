@@ -1791,6 +1791,27 @@ class ProtocolReceiveTest(TestCase):
                            )
         self.assertEqual([], Fake.sent)
 
+    def test_delete_not_authed_as_object_owner(self):
+        self.make_followers()
+
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:post',
+            'author': 'fake:user',
+        })
+
+        with self.assertRaises(ErrorButDoNotRetryTask):
+            Fake.receive_as1({
+                'objectType': 'activity',
+                'verb': 'delete',
+                'id': 'fake:delete',
+                'actor': 'fake:user',
+                'object': 'fake:post',
+            }, authed_as='fake:eve')
+
+        self.assertFalse(Object.get_by_id('fake:post').deleted)
+        self.assertEqual([], Fake.sent)
+
     def test_delete_actor(self):
         follower = Follower.get_or_create(to=self.user, from_=self.alice)
         followee = Follower.get_or_create(to=self.alice, from_=self.bob)
@@ -2280,6 +2301,27 @@ class ProtocolReceiveTest(TestCase):
             ('fake:undo', 'fake:repost:target'),
             ('fake:undo', 'fake:shared:target'),
         ], Fake.sent)
+
+    def test_undo_not_authed_as_object_owner(self):
+        self.store_object(id='fake:repost', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'id': 'fake:repost',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        })
+
+        with self.assertRaises(ErrorButDoNotRetryTask):
+            Fake.receive_as1({
+                'objectType': 'activity',
+                'verb': 'undo',
+                'id': 'fake:undo',
+                'actor': 'fake:user',
+                'object': 'fake:repost',
+            }, authed_as='fake:eve')
+
+        self.assertFalse(Object.get_by_id('fake:repost').deleted)
+        self.assertEqual([], Fake.sent)
 
     @skip
     def test_from_bridgy_fed_domain_fails(self):
