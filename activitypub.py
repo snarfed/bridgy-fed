@@ -677,6 +677,8 @@ def signed_request(fn, url, data=None, headers=None, from_user=None,
 def postprocess_as2(activity, orig_obj=None, wrap=True):
     """Prepare an AS2 object to be served or sent via ActivityPub.
 
+    TODO: get rid of orig_obj! https://github.com/snarfed/bridgy-fed/issues/1257
+
     Args:
       activity (dict): AS2 object or activity
       orig_obj (dict): AS2 object, optional. The target of activity's
@@ -694,19 +696,18 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     # inReplyTo: singly valued, prefer id over url
     # TODO: ignore orig_obj, do for all inReplyTo
     orig_id = orig_obj.get('id') if orig_obj else None
-    in_reply_to = activity.get('inReplyTo')
+    in_reply_to = util.get_list(activity, 'inReplyTo')
     if in_reply_to:
-        if orig_id:
+        if orig_id:  # TODO: and orig_id in in_reply_to ...or get rid of orig_obj
             activity['inReplyTo'] = orig_id
-        elif isinstance(in_reply_to, list):
-            if len(in_reply_to) > 1:
-                # this isn't actually true, AS2 inReplyTo can be multiply
-                # valued. Why do we truncate it to one value? interop somewhere?
-                # it's not marked Functional:
-                # https://www.w3.org/TR/activitystreams-vocabulary/#dfn-inreplyto
-                logger.warning(
-                    "AS2 doesn't support multiple inReplyTo URLs! "
-                    f'Only using the first: {in_reply_to[0]}')
+        elif len(in_reply_to) > 1:
+            # AS2 inReplyTo can be multiply valued, it's not marked Functional:
+            # https://www.w3.org/TR/activitystreaams-vocabulary/#dfn-inreplyto
+            # ...but most fediverse projects don't support that:
+            # https://funfedi.dev/support_tables/generated/in_reply_to/
+            logger.warning(
+                "AS2 doesn't support multiple inReplyTo URLs! "
+                f'Only using the first: {in_reply_to[0]}')
             activity['inReplyTo'] = in_reply_to[0]
 
         # Mastodon evidently requires a Mention tag for replies to generate a
