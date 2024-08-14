@@ -83,6 +83,13 @@ OBJECT_EXPIRE_TYPES = (
 )
 OBJECT_EXPIRE_AGE = timedelta(days=90)
 
+# Types of DMs that we send
+DMS = (
+    'follow_request_from_bridged_user',
+    'replied_to_bridged_user',
+    'welcome',
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -189,6 +196,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     # require explicit opt in are omitted here. choices is populated in
     # reset_protocol_properties.
     enabled_protocols = ndb.StringProperty(repeated=True, choices=list(PROTOCOLS.keys()))
+
+    # DMs that we've attempted to send to this user
+    sent_dms = ndb.StringProperty(repeated=True, choices=DMS)
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
@@ -495,6 +505,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             user = self.key.get()
             if to_proto.LABEL not in user.enabled_protocols:
                 user.enabled_protocols.append(to_proto.LABEL)
+                add(user.sent_dms, 'welcome')
                 user.put()
                 nonlocal added
                 added = True

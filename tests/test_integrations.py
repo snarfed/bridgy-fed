@@ -380,6 +380,7 @@ class IntegrationTests(TestCase):
         # check results
         user = ActivityPub.get_by_id('https://inst/alice')
         self.assertTrue(user.is_enabled(ATProto))
+        self.assertEqual(['welcome'], user.sent_dms)
 
         self.assertEqual(1, len(user.copies))
         self.assertEqual('atproto', user.copies[0].protocol)
@@ -504,6 +505,7 @@ class IntegrationTests(TestCase):
 
         user = ATProto.get_by_id('did:plc:alice')
         self.assertTrue(user.is_enabled(ActivityPub))
+        self.assertEqual(['welcome'], user.sent_dms)
 
         headers = {
             'Content-Type': 'application/json',
