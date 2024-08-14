@@ -480,6 +480,24 @@ class ProtocolTest(TestCase):
         self.assertEqual({Target(protocol='fake', uri='fake:post:target')},
                          OtherFake.targets(obj, from_user=self.user).keys())
 
+    def test_targets_link_tag_has_no_orig_obj(self):
+        # https://github.com/snarfed/bridgy-fed/issues/1237
+        Fake.fetchable['fake:linked-post'] = {
+            'objectType': 'note',
+        }
+
+        obj = Object(our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'objectType': 'note',
+                'id': 'fake:post',
+                'tags': [{'url': 'fake:linked-post'}],
+            },
+        })
+        self.assertEqual({Target(protocol='fake', uri='fake:linked-post:target'): None},
+                         OtherFake.targets(obj, from_user=self.user))
+
     def test_translate_ids_follow(self):
         self.assert_equals({
             'id': 'other:o:fa:fake:follow',

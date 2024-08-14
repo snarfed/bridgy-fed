@@ -1329,13 +1329,14 @@ class Protocol:
         is_reply = obj.type == 'comment' or in_reply_tos
         is_self_reply = False
 
+        inner_obj_as1 = as1.get_object(obj.as1)
+        inner_obj_id = inner_obj_as1.get('id')
         if is_reply:
             original_ids = in_reply_tos
         else:
-            inner_id = as1.get_object(obj.as1).get('id')
-            if inner_id == from_user.key.id():
-                inner_id = from_user.profile_id()
-            original_ids = [inner_id]
+            if inner_obj_id == from_user.key.id():
+                inner_obj_id = from_user.profile_id()
+            original_ids = [inner_obj_id]
 
         # which protocols should we allow delivering to?
         to_protocols = []
@@ -1377,7 +1378,7 @@ class Protocol:
 
             # deliver self-replies to followers
             # https://github.com/snarfed/bridgy-fed/issues/639
-            if is_reply and owner == as1.get_owner(orig_obj.as1):
+            if id in in_reply_tos and owner == as1.get_owner(orig_obj.as1):
                 is_self_reply = True
                 logger.info(f'self reply!')
 
@@ -1401,7 +1402,12 @@ class Protocol:
                 continue
 
             logger.info(f'Target for {id} is {target}')
-            targets[Target(protocol=protocol.LABEL, uri=target)] = orig_obj
+            # only use orig_obj for inReplyTos and repost objects
+            # https://github.com/snarfed/bridgy-fed/issues/1237
+            targets[Target(protocol=protocol.LABEL, uri=target)] = (
+                orig_obj if id in in_reply_tos or id in as1.get_ids(obj.as1, 'object')
+                else None)
+
             orig_user = protocol.actor_key(orig_obj)
             if orig_user:
                 logger.info(f'Recipient is {orig_user}')
@@ -1409,11 +1415,10 @@ class Protocol:
 
         if obj.type == 'undo':
             logger.info('Object is an undo; adding targets for inner object')
-            inner_obj_as1 = as1.get_object(obj.as1)
             if set(inner_obj_as1.keys()) == {'id'}:
-                inner_obj = from_cls.load(inner_obj_as1['id'])
+                inner_obj = from_cls.load(inner_obj_id)
             else:
-                inner_obj = Object(id=inner_obj_as1.get('id'), our_as1=inner_obj_as1)
+                inner_obj = Object(id=inner_obj_id, our_as1=inner_obj_as1)
             if inner_obj:
                 targets.update(from_cls.targets(inner_obj, from_user=from_user,
                                                 internal=True))
