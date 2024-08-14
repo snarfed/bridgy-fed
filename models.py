@@ -83,7 +83,7 @@ OBJECT_EXPIRE_TYPES = (
 )
 OBJECT_EXPIRE_AGE = timedelta(days=90)
 
-# Types of DMs that we send
+# Types of DMs that we send. Used in User.sent_dms
 DMS = (
     'follow_request_from_bridged_user',
     'replied_to_bridged_user',
@@ -197,8 +197,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     # reset_protocol_properties.
     enabled_protocols = ndb.StringProperty(repeated=True, choices=list(PROTOCOLS.keys()))
 
-    # DMs that we've attempted to send to this user
-    sent_dms = ndb.StringProperty(repeated=True, choices=DMS)
+    # DMs that we've attempted to send to this user. Target.protocol is the
+    # protocol we sent the DM about (and the bot account it came from),
+    # Target.uri is the type of DM.
+    sent_dms = ndb.StructuredProperty(Target, repeated=True, choices=DMS)
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
@@ -505,7 +507,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             user = self.key.get()
             if to_proto.LABEL not in user.enabled_protocols:
                 user.enabled_protocols.append(to_proto.LABEL)
-                add(user.sent_dms, 'welcome')
+                add(user.sent_dms, Target(protocol=to_proto.LABEL, uri='welcome'))
                 user.put()
                 nonlocal added
                 added = True
