@@ -556,11 +556,9 @@ class ATProto(User, Protocol):
             assert base_obj and base_obj.type == 'follow', base_obj
             verb = 'delete'
 
-        elif as1.is_dm(obj.as1):
-            # is_dm checked that `to` has one elem
-            to_id = as1.get_ids(base_obj_as1, 'to')[0]
-            assert to_id.startswith('did:'), to_id
-            return ATProto.send_chat(record, from_repo=repo, to_did=to_id)
+        elif recip := as1.recipient_if_dm(obj.as1):
+            assert recip.startswith('did:'), recip
+            return ATProto.send_chat(record, from_repo=repo, to_did=recip)
 
         # write commit
         type = record['$type']
