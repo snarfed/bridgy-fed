@@ -294,7 +294,12 @@ class Protocol:
 
         if util.is_web(id):
             # step 1: check for our per-protocol subdomains
-            is_homepage = urlparse(id).path.strip('/') == ''
+            try:
+                is_homepage = urlparse(id).path.strip('/') == ''
+            except ValueError as e:
+                logger.info(f'urlparse ValueError: {e}')
+                return None
+
             by_subdomain = Protocol.for_bridgy_subdomain(id)
             if by_subdomain and not is_homepage and id not in BOT_ACTOR_AP_IDS:
                 logger.debug(f'  {by_subdomain.LABEL} owns id {id}')

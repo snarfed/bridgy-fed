@@ -98,6 +98,9 @@ class ProtocolTest(TestCase):
                 (None, None),
                 ('', None),
                 ('foo://bar', None),
+                ('https:/abc/', None),
+                ('https:/[DOMAIN]/', None),
+                ('https://[DOMAIN]/', None),
                 ('fake:foo', Fake),
                 ('at://foo', ATProto),
                 # TODO: remove? should we require normalized ids?
