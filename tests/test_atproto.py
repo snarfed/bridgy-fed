@@ -154,6 +154,11 @@ class ATProtoTest(TestCase):
         self.make_user('did:plc:user', cls=ATProto)
         self.assertEqual('did:plc:user', ATProto.handle_to_id('ha.nl'))
 
+    def test_handle_to_id_bad(self):
+        for bad in None, '', '.bsky.social':
+            with self.subTest(bad=bad):
+                self.assertIsNone(ATProto.handle_to_id(bad))
+
     def test_handle_to_id_first_opted_out(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         user = self.make_user('did:plc:user', cls=ATProto)

@@ -50,6 +50,26 @@ class RedirectTest(testutil.TestCase):
         got = self.client.get('/r/user.com')
         self.assertEqual(400, got.status_code)
 
+    def test_redirect_not_url(self):
+        got = self.client.get('/r/foo:bar:baz')
+        self.assertEqual(400, got.status_code)
+
+    def test_as2_not_web(self):
+        got = self.client.get('/r/foo:bar:baz',
+                              headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
+        self.assertEqual(400, got.status_code)
+
+    def test_redirect_bsky_app_url(self):
+        got = self.client.get('/r/https://bsky.app/profile/.bsky.social')
+        self.assertEqual(301, got.status_code)
+        self.assertEqual('https://bsky.app/profile/.bsky.social',
+                         got.headers['Location'])
+
+    def test_as2_bsky_app_url(self):
+        got = self.client.get('/r/https://bsky.app/profile/.bsky.social',
+                              headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
+        self.assertEqual(404, got.status_code)
+
     def test_redirect_url_missing(self):
         got = self.client.get('/r/')
         self.assertEqual(404, got.status_code)

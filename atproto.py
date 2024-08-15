@@ -241,7 +241,8 @@ class ATProto(User, Protocol):
 
     @classmethod
     def handle_to_id(cls, handle):
-        assert cls.owns_handle(handle) is not False
+        if not handle or cls.owns_handle(handle) is False:
+            return None
 
         # TODO: shortcut our own handles? eg snarfed.org.web.brid.gy
 
