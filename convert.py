@@ -74,15 +74,14 @@ def convert(to, _, from_=None):
                 if type == 'share':
                     # TODO: should this be Source.base_object? That's broad
                     # though, includes inReplyTo
-                    check_bridged_to(obj_obj, from_proto=from_proto,
-                                     to_proto=to_proto)
+                    check_bridged_to(obj_obj, to_proto=to_proto)
                 elif (type in as1.CRUD_VERBS
                       and obj_obj.as1
                       and obj_obj.as1.keys() - set(['id', 'url', 'objectType'])):
                     logger.info(f'{type} activity, redirecting to Object {obj_id}')
                     return redirect(f'/{path_prefix}{obj_id}', code=301)
 
-    check_bridged_to(obj, from_proto=from_proto, to_proto=to_proto)
+    check_bridged_to(obj, to_proto=to_proto)
 
     # convert and serve
     return to_proto.convert(obj), {
@@ -91,12 +90,11 @@ def convert(to, _, from_=None):
     }
 
 
-def check_bridged_to(obj, from_proto, to_proto):
+def check_bridged_to(obj, to_proto):
     """If ``object`` or its owner isn't bridged to ``to_proto``, raises :class:`werkzeug.exceptions.HTTPException`.
 
     Args:
       obj (models.Object)
-      from_proto (subclass of protocol.Protocol)
       to_proto (subclass of protocol.Protocol)
     """
     # don't serve deletes or deleted objects
@@ -109,9 +107,10 @@ def check_bridged_to(obj, from_proto, to_proto):
 
     # check that owner has this protocol enabled
     if owner := as1.get_owner(obj.as1):
-        user = from_proto.get_or_create(owner)
-        if not user or not user.is_enabled(to_proto):
-            error(f"{from_proto.LABEL} user {owner} isn't bridged to {to_proto.LABEL}", status=404)
+        if from_proto := Protocol.for_id(owner):
+            user = from_proto.get_or_create(owner)
+            if not user or not user.is_enabled(to_proto):
+                error(f"{from_proto.LABEL} user {owner} isn't bridged to {to_proto.LABEL}", status=404)
 
 
 @app.get('/render')

@@ -127,7 +127,7 @@ class ConvertTest(testutil.TestCase):
         self.assertEqual(404, resp.status_code)
 
     @patch.object(Fake, 'HAS_COPIES', new=False)
-    def test_fake_to_other_user_not_enabled(self):
+    def test_eefake_to_other_user_not_enabled(self):
         """https://github.com/snarfed/bridgy-fed/issues/1248"""
         self.make_user('eefake:user', cls=ExplicitEnableFake, enabled_protocols=[])
         self.store_object(id='eefake:post', our_as1={'author': 'eefake:user'},
@@ -137,7 +137,7 @@ class ConvertTest(testutil.TestCase):
                                base_url='https://eefake.brid.gy/')
         self.assertEqual(404, resp.status_code)
 
-    def test_fake_to_other_repost_original_post_no_copy(self):
+    def test_eefake_to_other_repost_original_post_no_copy(self):
         """https://github.com/snarfed/bridgy-fed/issues/1248"""
         self.make_user('eefake:user', cls=ExplicitEnableFake,
                        enabled_protocols=['other'])
@@ -153,12 +153,12 @@ class ConvertTest(testutil.TestCase):
             'actor': 'eefake:user',
         })
 
-        resp = self.client.get(f'/convert/other/fake:repost',
-                               base_url='https://fa.brid.gy/')
+        resp = self.client.get(f'/convert/other/eefake:repost',
+                               base_url='https://eefake.brid.gy/')
         self.assertEqual(404, resp.status_code)
 
     @patch.object(Fake, 'HAS_COPIES', new=False)
-    def test_fake_to_other_repost_original_author_not_enabled(self):
+    def test_eefake_to_other_repost_original_author_not_enabled(self):
         """https://github.com/snarfed/bridgy-fed/issues/1248"""
         self.make_user('eefake:user', cls=ExplicitEnableFake,
                        enabled_protocols=['other'])
@@ -171,6 +171,24 @@ class ConvertTest(testutil.TestCase):
             'verb': 'share',
             'object': 'eefake:post',
             'actor': 'eefake:user',
+        })
+
+        resp = self.client.get(f'/convert/other/eefake:repost',
+                               base_url='https://eefake.brid.gy/')
+        self.assertEqual(404, resp.status_code)
+
+    @patch.object(Fake, 'HAS_COPIES', new=False)
+    def test_fake_to_other_repost_of_eefake_original_author_not_enabled(self):
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['other'])
+        self.make_user('eefake:orig-user', cls=ExplicitEnableFake,
+                       enabled_protocols=['fake'])  # not other
+
+        self.store_object(id='eefake:post', our_as1={'author': 'eefake:orig-user'})
+        self.store_object(id='fake:repost', our_as1={
+            'objectType': 'activity',
+            'verb': 'share',
+            'object': 'eefake:post',
+            'actor': 'fake:user',
         })
 
         resp = self.client.get(f'/convert/other/fake:repost',
@@ -385,6 +403,7 @@ A ☕ reply
             hcard,
             hcard,
             hcard,
+            requests_response(status=404),       # webfinger for protocol inference
             requests_response('<html></html>'),  # user for is_enabled protocol check
         ]
 
