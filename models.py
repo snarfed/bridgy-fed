@@ -84,7 +84,7 @@ OBJECT_EXPIRE_TYPES = (
 OBJECT_EXPIRE_AGE = timedelta(days=90)
 
 # Types of DMs that we send. Used in User.sent_dms
-DMS = (
+DM_TYPES = (
     'follow_request_from_bridged_user',
     'replied_to_bridged_user',
     'welcome',
@@ -118,8 +118,6 @@ class Target(ndb.Model):
     https://googleapis.dev/python/python-ndb/latest/model.html#google.cloud.ndb.model.StructuredProperty
     """
     uri = ndb.StringProperty(required=True)
-    # choices is populated in app via reset_protocol_properties, after all User
-    # subclasses are created, so that PROTOCOLS is fully populated
     protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()), required=True)
 
     def __eq__(self, other):
@@ -129,6 +127,21 @@ class Target(ndb.Model):
     def __hash__(self):
         """Allow hashing so these can be dict keys."""
         return hash((self.protocol, self.uri))
+
+
+class DM(ndb.Model):
+    """:class:`protocol.Protocol` + type pairs for identifying sent DMs.
+
+    Used in :attr:`User.sent_dms`.
+
+    https://googleapis.dev/python/python-ndb/latest/model.html#google.cloud.ndb.model.StructuredProperty
+    """
+    type = ndb.StringProperty(choices=DM_TYPES, required=True)
+    protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()), required=True)
+
+    def __eq__(self, other):
+        """Equality excludes Targets' :class:`Key`."""
+        return self.type == other.type and self.protocol == other.protocol
 
 
 class ProtocolUserMeta(type(ndb.Model)):
@@ -197,10 +210,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
     # reset_protocol_properties.
     enabled_protocols = ndb.StringProperty(repeated=True, choices=list(PROTOCOLS.keys()))
 
-    # DMs that we've attempted to send to this user. Target.protocol is the
-    # protocol we sent the DM about (and the bot account it came from),
-    # Target.uri is the type of DM.
-    sent_dms = ndb.StructuredProperty(Target, repeated=True, choices=DMS)
+    # DMs that we've attempted to send to this user
+    sent_dms = ndb.StructuredProperty(DM, repeated=True)
 
     created = ndb.DateTimeProperty(auto_now_add=True)
     updated = ndb.DateTimeProperty(auto_now=True)
@@ -507,7 +518,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             user = self.key.get()
             if to_proto.LABEL not in user.enabled_protocols:
                 user.enabled_protocols.append(to_proto.LABEL)
-                add(user.sent_dms, Target(protocol=to_proto.LABEL, uri='welcome'))
+                add(user.sent_dms, DM(protocol=to_proto.LABEL, type='welcome'))
                 user.put()
                 nonlocal added
                 added = True

@@ -18,7 +18,7 @@ import app
 from atproto import ATProto, Cursor
 from atproto_firehose import handle, new_commits, Op
 import common
-from models import Follower, Object, Target
+from models import DM, Follower, Object, Target
 from web import Web
 
 from .testutil import ATPROTO_KEY, TestCase
@@ -380,7 +380,7 @@ class IntegrationTests(TestCase):
         # check results
         user = ActivityPub.get_by_id('https://inst/alice')
         self.assertTrue(user.is_enabled(ATProto))
-        self.assertEqual([Target(protocol='atproto', uri='welcome')], user.sent_dms)
+        self.assertEqual([DM(protocol='atproto', type='welcome')], user.sent_dms)
 
         self.assertEqual(1, len(user.copies))
         self.assertEqual('atproto', user.copies[0].protocol)
@@ -505,7 +505,7 @@ class IntegrationTests(TestCase):
 
         user = ATProto.get_by_id('did:plc:alice')
         self.assertTrue(user.is_enabled(ActivityPub))
-        self.assertEqual([Target(protocol='activitypub', uri='welcome')],
+        self.assertEqual([DM(protocol='activitypub', type='welcome')],
                          user.sent_dms)
 
         headers = {
