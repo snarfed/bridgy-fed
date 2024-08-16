@@ -864,18 +864,24 @@ class ATProto(User, Protocol):
         assert msg['$type'] == 'chat.bsky.convo.defs#messageInput'
 
         chat_host = os.environ['CHAT_HOST']
-        token = service_jwt(host=chat_host,
-                            aud=os.environ['CHAT_DID'],
-                            repo_did=from_repo.did,
-                            privkey=from_repo.signing_key)
-        client = Client(f'https://{chat_host}', truncate=True, headers={
-                            'User-Agent': USER_AGENT,
-                            'Authorization': f'Bearer {token}',
-                        })
+
+        def client(lxm):
+            token = service_jwt(host=chat_host,
+                                aud=os.environ['CHAT_DID'],
+                                repo_did=from_repo.did,
+                                privkey=from_repo.signing_key,
+                                lxm=lxm)
+            return Client(f'https://{chat_host}', truncate=True, headers={
+                'User-Agent': USER_AGENT,
+                'Authorization': f'Bearer {token}',
+            })
 
         try:
-            convo = client.chat.bsky.convo.getConvoForMembers(members=[to_did])
-            sent = client.chat.bsky.convo.sendMessage({
+            cli = client(lxm='chat.bsky.convo.getConvoForMembers')
+            convo = cli.chat.bsky.convo.getConvoForMembers(members=[to_did])
+
+            cli = client(lxm='chat.bsky.convo.sendMessage')
+            sent = cli.chat.bsky.convo.sendMessage({
                 'convoId': convo['convo']['id'],
                 'message': msg,
             })
