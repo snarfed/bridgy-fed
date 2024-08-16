@@ -27,7 +27,7 @@ from app import app
 from atproto import ATProto
 import common
 import models
-from models import Follower, Object, PROTOCOLS, Target, User
+from models import DM, Follower, Object, PROTOCOLS, Target, User
 import protocol
 from protocol import ErrorButDoNotRetryTask, Protocol
 from ui import UIProtocol
@@ -796,22 +796,55 @@ class ProtocolTest(TestCase):
         Fake.bot_follow(user)
         self.assertEqual([], Fake.sent)
 
-    def test_bot_dm(self):
-        self.make_user(id='other.brid.gy', cls=Web)
-        user = self.make_user(id='other:user', cls=OtherFake, obj_id='other:user')
-        OtherFake.bot_dm(user, 'hi hi hi')
+    def test_maybe_bot_dm(self):
+        self.make_user(id='fa.brid.gy', cls=Web)
+        user = self.make_user(id='other:user', cls=OtherFake, obj_as1={'x': 'y'})
 
+        Fake.maybe_bot_dm(user, text='hi hi hi', type='replied_to_bridged_user')
         self.assertEqual([
-            ('https://other.brid.gy/#welcome-dm-other:user-2022-01-02T03:04:05+00:00',
+            ('https://fa.brid.gy/#replied_to_bridged_user-dm-other:user-2022-01-02T03:04:05+00:00',
              'other:user:target'),
         ], OtherFake.sent)
+        expected_sent_dms = [DM(protocol='fake', type='replied_to_bridged_user')]
+        self.assertEqual(expected_sent_dms, user.key.get().sent_dms)
 
-    def test_bot_dm_user_missing_obj(self):
+        # now that this type is in sent_dms, another attempt should be a noop
+        OtherFake.sent = []
+        Fake.maybe_bot_dm(user, text='hi again', type='replied_to_bridged_user')
+        self.assertEqual([], OtherFake.sent)
+        self.assertEqual(expected_sent_dms, user.key.get().sent_dms)
+
+    def test_maybe_bot_dm_welcome_allows_multiple(self):
+        self.make_user(id='fa.brid.gy', cls=Web)
+        user = self.make_user(id='other:user', cls=OtherFake, obj_as1={'x': 'y'})
+
+        Fake.maybe_bot_dm(user, text='hi hi hi', type='welcome')
+        self.assertEqual([
+            ('https://fa.brid.gy/#welcome-dm-other:user-2022-01-02T03:04:05+00:00',
+             'other:user:target'),
+        ], OtherFake.sent)
+        self.assertEqual([DM(protocol='fake', type='welcome')],
+                         user.key.get().sent_dms)
+
+        # should be able to send another welcome
+        OtherFake.sent = []
+        Fake.maybe_bot_dm(user, text='hi again', type='welcome')
+        self.assertEqual([
+            ('https://fa.brid.gy/#welcome-dm-other:user-2022-01-02T03:04:05+00:00',
+             'other:user:target'),
+        ], OtherFake.sent)
+        self.assertEqual([DM(protocol='fake', type='welcome'),
+                          DM(protocol='fake', type='welcome')],
+                         user.key.get().sent_dms)
+
+    def test_maybe_bot_dm_user_missing_obj(self):
         self.make_user(id='other.brid.gy', cls=Web)
         user = OtherFake(id='other:user')
         assert not user.obj
-        OtherFake.bot_dm(user, 'nope')
+
+        OtherFake.maybe_bot_dm(user, text='nope', type='welcome')
         self.assertEqual([], OtherFake.sent)
+        self.assertEqual([], user.sent_dms)
 
     # TODO: translate_ids tests that actually test translation
     def test_translate_ids_empty(self):

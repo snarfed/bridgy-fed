@@ -83,13 +83,6 @@ OBJECT_EXPIRE_TYPES = (
 )
 OBJECT_EXPIRE_AGE = timedelta(days=90)
 
-# Types of DMs that we send. Used in User.sent_dms
-DM_TYPES = (
-    'follow_request_from_bridged_user',
-    'replied_to_bridged_user',
-    'welcome',
-)
-
 logger = logging.getLogger(__name__)
 
 
@@ -136,7 +129,12 @@ class DM(ndb.Model):
 
     https://googleapis.dev/python/python-ndb/latest/model.html#google.cloud.ndb.model.StructuredProperty
     """
-    type = ndb.StringProperty(choices=DM_TYPES, required=True)
+    TYPES = (
+        'follow_request_from_bridged_user',
+        'replied_to_bridged_user',
+        'welcome',
+    )
+    type = ndb.StringProperty(choices=TYPES, required=True)
     protocol = ndb.StringProperty(choices=list(PROTOCOLS.keys()), required=True)
 
     def __eq__(self, other):
@@ -528,14 +526,16 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
             return user
 
-        self_with_copy = enable()
-        add(self.enabled_protocols, to_proto.LABEL)
+        new_self = enable()
+        # populate newly enabled protocol in this instance
+        self.enabled_protocols = new_self.enabled_protocols
+        self.copies = new_self.copies
 
         if added:
             handle = self.handle_as(to_proto)
-            if url := to_proto.bridged_web_url_for(self_with_copy):
+            if url := to_proto.bridged_web_url_for(self):
                 handle = f'<a href="{url}">{handle}</a>'
-            to_proto.bot_dm(to_user=self, text=f"""\
+            to_proto.maybe_bot_dm(to_user=self, type='welcome', text=f"""\
 Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {handle}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{common.PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
 
         msg = f'Enabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'

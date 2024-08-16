@@ -41,6 +41,7 @@ from ids import (
     translate_user_id,
 )
 from models import (
+    DM,
     Follower,
     Object,
     PROTOCOLS,
@@ -1138,24 +1139,32 @@ class Protocol:
                            user=bot.key.urlsafe())
 
     @classmethod
-    def bot_dm(bot_cls, to_user, text):
-        """Sends a DM from this protocol's bot user.
+    def maybe_bot_dm(bot_cls, to_user, *, text, type):
+        """Sends a DM from this protocol's bot user if we haven't already.
 
         Creates a task to send the DM asynchronously.
+
+        If ``type`` isn't ``welcome``, and we've already sent this user a DM of
+        this type from this protocol, does nothing.
 
         Args:
           to_user (models.User)
           text (str)
+          type (str): one of DM.TYPES
         """
+        dm = DM(protocol=bot_cls.LABEL, type=type)
+        if dm in to_user.sent_dms and type != 'welcome':
+            return
+
         from web import Web
         bot = Web.get_by_id(bot_cls.bot_user_id())
-        logger.info(f'Sending DM from {bot.key.id()} to {to_user.key.id()}: {text}')
+        logger.info(f'Sending DM from {bot.key.id()} to {to_user.key.id()} : {text}')
 
-        if not to_user.obj:
+        if not to_user.obj or not to_user.obj.as1:
             logger.info("  can't send DM, recipient has no profile obj")
             return
 
-        id = f'{bot.profile_id()}#welcome-dm-{to_user.key.id()}-{util.now().isoformat()}'
+        id = f'{bot.profile_id()}#{type}-dm-{to_user.key.id()}-{util.now().isoformat()}'
         target_uri = to_user.target_for(to_user.obj, shared=False)
         target = Target(protocol=to_user.LABEL, uri=target_uri)
         obj_key = Object(id=id, source_protocol='web', undelivered=[target], our_as1={
@@ -1168,6 +1177,9 @@ class Protocol:
 
         common.create_task(queue='send', obj=obj_key.urlsafe(), protocol=to_user.LABEL,
                            url=target.uri, user=bot.key.urlsafe())
+
+        to_user.sent_dms.append(dm)
+        to_user.put()
 
     @classmethod
     def delete_user_copy(copy_cls, user):
