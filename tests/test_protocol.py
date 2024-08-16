@@ -759,15 +759,19 @@ class ProtocolTest(TestCase):
                 Fake.check_supported(Object(our_as1=obj))
 
         # Fake doesn't support DMs, ExplicitEnableFake does
-        bot_dm = Object(our_as1={
-            'objectType': 'note',
-            'actor': 'ap.brid.gy',
-            'to': ['did:bob'],
-            'content': 'hello world',
-        })
-        ExplicitEnableFake.check_supported(bot_dm)
-        with self.assertRaises(NoContent):
-            Fake.check_supported(bot_dm)
+        for actor, recip in (
+                ('ap.brid.gy', 'did:bob'),
+                ('did:bob', 'ap.brid.gy'),
+        ):
+            bot_dm = Object(our_as1={
+                'objectType': 'note',
+                'actor': actor,
+                'to': [recip],
+                'content': 'hello world',
+            })
+            ExplicitEnableFake.check_supported(bot_dm)
+            with self.assertRaises(NoContent):
+                Fake.check_supported(bot_dm)
 
         dm = Object(our_as1={
             'objectType': 'note',

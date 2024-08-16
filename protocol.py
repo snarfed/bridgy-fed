@@ -1649,8 +1649,11 @@ class Protocol:
                 and inner_type not in cls.SUPPORTED_AS1_TYPES)):
             error(f"Bridgy Fed for {cls.LABEL} doesn't support {obj.type} {inner_type} yet", status=204)
 
+        # DMs are only allowed to/from protocol bot accounts
         if recip := as1.recipient_if_dm(obj.as1):
-            if not cls.SUPPORTS_DMS or recip not in PROTOCOL_DOMAINS:
+            if (not cls.SUPPORTS_DMS
+                    or (recip not in PROTOCOL_DOMAINS
+                        and as1.get_owner(obj.as1) not in PROTOCOL_DOMAINS)):
                 error(f"Bridgy Fed doesn't support DMs", status=204)
 
 
