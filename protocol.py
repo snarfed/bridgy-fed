@@ -1373,20 +1373,31 @@ class Protocol:
 
         # process direct targets
         for id in sorted(target_uris):
-            protocol = Protocol.for_id(id)
-            if not protocol:
+            target_proto = Protocol.for_id(id)
+            if not target_proto:
                 logger.info(f"Can't determine protocol for {id}")
                 continue
-            elif protocol.is_blocklisted(id):
+            elif target_proto.is_blocklisted(id):
                 logger.info(f'{id} is blocklisted')
                 continue
-            elif (protocol not in to_protocols
-                  and obj.source_protocol != protocol.LABEL):
-                continue
 
-            orig_obj = protocol.load(id)
+            orig_obj = target_proto.load(id)
             if not orig_obj or not orig_obj.as1:
                 logger.info(f"Couldn't load {id}")
+                continue
+
+            target_author_key = target_proto.actor_key(orig_obj)
+            if (target_proto not in to_protocols
+                  and obj.source_protocol != target_proto.LABEL):
+                # if author isn't bridged and inReplyTo author is, DM a prompt
+                if id in in_reply_tos:
+                    if target_author := target_author_key.get():
+                        if target_author.is_enabled(from_cls):
+                            target_proto.maybe_bot_dm(to_user=from_user,
+                                                      type='replied_to_bridged_user',
+                                                      text=f"""\
+    Hi! You <a href="{obj.as1.get('url') or obj.key.id()}">recently replied</a> to {obj.actor_link(image=False)}, who's bridged here from {target_proto.PHRASE}. If you want them to see your replies in the future, you can bridge your account into {target_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+
                 continue
 
             # deliver self-replies to followers
@@ -1404,11 +1415,11 @@ class Protocol:
                         logger.info(f'Adding target {target} for copy {copy.uri} of original {id}')
                         targets[Target(protocol=copy.protocol, uri=target)] = orig_obj
 
-            if protocol == from_cls and from_cls.LABEL != 'fake':
+            if target_proto == from_cls and from_cls.LABEL != 'fake':
                 logger.info(f'Skipping same-protocol target {id}')
                 continue
 
-            target = protocol.target_for(orig_obj)
+            target = target_proto.target_for(orig_obj)
             if not target:
                 # TODO: surface errors like this somehow?
                 logger.error(f"Can't find delivery target for {id}")
@@ -1417,14 +1428,13 @@ class Protocol:
             logger.info(f'Target for {id} is {target}')
             # only use orig_obj for inReplyTos and repost objects
             # https://github.com/snarfed/bridgy-fed/issues/1237
-            targets[Target(protocol=protocol.LABEL, uri=target)] = (
+            targets[Target(protocol=target_proto.LABEL, uri=target)] = (
                 orig_obj if id in in_reply_tos or id in as1.get_ids(obj.as1, 'object')
                 else None)
 
-            orig_user = protocol.actor_key(orig_obj)
-            if orig_user:
-                logger.info(f'Recipient is {orig_user}')
-                obj.add('notify', orig_user)
+            if target_author_key:
+                logger.info(f'Recipient is {target_author_key}')
+                obj.add('notify', target_author_key)
 
         if obj.type == 'undo':
             logger.info('Object is an undo; adding targets for inner object')

@@ -1055,6 +1055,8 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(0, mock_send.call_count)
 
     def test_reply_to_non_bridged_post_skips_enabled_protocol_with_followers(self):
+        self.make_user(id='fa.brid.gy', cls=Web)
+
         # should skip even if it's enabled and we have followers there
         self.user.enabled_protocols = ['eefake']
         self.user.put()
@@ -1075,6 +1077,40 @@ class ProtocolReceiveTest(TestCase):
         })
         self.assertEqual(202, code)
         self.assertEqual([], ExplicitEnableFake.sent)
+
+    def test_reply_from_non_bridged_post_isnt_bridged_but_gets_dm_prompt(self):
+        self.make_user(id='fa.brid.gy', cls=Web)
+        self.user.enabled_protocols = ['eefake']
+        self.user.put()
+
+        eve = self.make_user('eefake:eve', cls=ExplicitEnableFake, obj_as1={
+            'id': 'eefake:eve',
+        })
+
+        self.store_object(id='fake:post', source_protocol='fake', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:alice',
+        })
+
+        # with self.assertRaises(NoContent):
+        _, code = ExplicitEnableFake.receive_as1({
+            'id': 'eefake:reply',
+            'objectType': 'note',
+            'actor': 'eefake:eve',
+            'inReplyTo': 'fake:post',
+        })
+        self.assertEqual(204, code)
+
+        self.assertEqual([], Fake.sent)
+        self.assertEqual([
+            ('https://fa.brid.gy/#replied_to_bridged_user-dm-eefake:eve-2022-01-02T03:04:05+00:00',
+             'eefake:eve:target'),
+        ], ExplicitEnableFake.sent)
+
+        eve = eve.key.get()
+        self.assertEqual([DM(protocol='fake', type='replied_to_bridged_user')],
+                         eve.sent_dms)
 
     @patch.object(ATProto, 'send', return_value=True)
     def test_repost_of_non_bridged_account_skips_atproto(self, mock_send):
