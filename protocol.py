@@ -939,18 +939,15 @@ class Protocol:
                 return 'OK', 200
 
         elif obj.type == 'post':
-            to_cc = (as1.get_ids(inner_obj_as1, 'to')
-                     + as1.get_ids(inner_obj_as1, 'cc'))
-            if len(to_cc) == 1 and to_cc != [as2.PUBLIC_AUDIENCE]:
-                # TODO: also check that to_cc isn't the sender's followers collection
-                proto = Protocol.for_bridgy_subdomain(to_cc[0])
-                if proto:
-                    # remove @-mentions of bot user in HTML links
+            # handle DMs to bot users. remove @-mentions of bot user in HTML links
+            # TODO: when we do more with incoming DMs, extract out into separate method
+            if recip := as1.recipient_if_dm(obj.as1):
+                if proto := Protocol.for_bridgy_subdomain(recip):
                     soup = util.parse_html(inner_obj_as1.get('content', ''))
                     for link in soup.find_all('a'):
                         link.extract()
                     content = soup.get_text().strip().lower()
-                    logger.info(f'got DM to {to_cc}: {content}')
+                    logger.info(f'got DM to {recip} : {content}')
                     if content in ('yes', 'ok'):
                         from_user.enable_protocol(proto)
                         proto.bot_follow(from_user)
@@ -1652,9 +1649,9 @@ class Protocol:
                 and inner_type not in cls.SUPPORTED_AS1_TYPES)):
             error(f"Bridgy Fed for {cls.LABEL} doesn't support {obj.type} {inner_type} yet", status=204)
 
-        if as1.is_dm(obj.as1) and (not cls.SUPPORTS_DMS
-                                   or as1.get_owner(obj.as1) not in PROTOCOL_DOMAINS):
-            error(f"Bridgy Fed doesn't support DMs", status=204)
+        if recip := as1.recipient_if_dm(obj.as1):
+            if not cls.SUPPORTS_DMS or recip not in PROTOCOL_DOMAINS:
+                error(f"Bridgy Fed doesn't support DMs", status=204)
 
 
 @cloud_tasks_only

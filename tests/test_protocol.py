@@ -2847,8 +2847,6 @@ class ProtocolReceiveTest(TestCase):
         }
 
         user = self.make_user('eefake:user', cls=ExplicitEnableFake)
-                              # obj_as1={'pro': 'file'},
-                              # copies=[Target(uri='fake:user', protocol='fake')])
         self.assertFalse(user.is_enabled(Fake))
 
         # fake protocol isn't enabled yet, no DM should be a noop
