@@ -1146,7 +1146,7 @@ class Protocol:
 
         Args:
           to_user (models.User)
-          text (str)
+          text (str): message content. May be HTML.
           type (str): one of DM.TYPES
         """
         dm = DM(protocol=bot_cls.LABEL, type=type)
@@ -1165,10 +1165,17 @@ class Protocol:
         target_uri = to_user.target_for(to_user.obj, shared=False)
         target = Target(protocol=to_user.LABEL, uri=target_uri)
         obj_key = Object(id=id, source_protocol='web', undelivered=[target], our_as1={
-            'objectType': 'note',
-            'id': id,
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': f'{id}-create',
             'actor': bot.key.id(),
-            'content': text,
+            'object': {
+                'objectType': 'note',
+                'id': id,
+                'author': bot.key.id(),
+                'content': text,
+                'to': [to_user.key.id()],
+            },
             'to': [to_user.key.id()],
         }).put()
 

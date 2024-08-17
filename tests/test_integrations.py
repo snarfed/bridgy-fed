@@ -399,12 +399,18 @@ class IntegrationTests(TestCase):
         self.assert_equals(('http://inst/inbox',), args)
         message = '<p>Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at <a href="https://bsky.app/profile/alice.inst.ap.brid.gy">alice.inst.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@inst">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>'
         self.assert_equals({
-            'type': 'Note',
-            'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#welcome-dm-https://inst/alice-2022-01-02T03:04:05+00:00',
+            'type': 'Create',
+            'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#welcome-dm-https://inst/alice-2022-01-02T03:04:05+00:00-create',
             'actor': 'https://bsky.brid.gy/bsky.brid.gy',
-            'content': message,
-            'contentMap': {'en': message},
-            'content_is_html': True,
+            'object': {
+                'type': 'Note',
+                'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#welcome-dm-https://inst/alice-2022-01-02T03:04:05+00:00',
+                'attributedTo': 'https://bsky.brid.gy/bsky.brid.gy',
+                'content': message,
+                'contentMap': {'en': message},
+                'content_is_html': True,
+                'to': ['https://inst/alice'],
+            },
             'to': ['https://inst/alice'],
         }, json_loads(kwargs['data']), ignore=['to', '@context'])
 
