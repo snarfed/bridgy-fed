@@ -1093,7 +1093,6 @@ class ProtocolReceiveTest(TestCase):
             'author': 'fake:alice',
         })
 
-        # with self.assertRaises(NoContent):
         _, code = ExplicitEnableFake.receive_as1({
             'id': 'eefake:reply',
             'objectType': 'note',

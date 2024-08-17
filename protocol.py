@@ -1338,12 +1338,12 @@ class Protocol:
         targets = {}  # maps Target to Object or None
         owner = as1.get_owner(obj.as1)
 
-        in_reply_tos = as1.get_ids(as1.get_object(obj.as1), 'inReplyTo')
+        inner_obj_as1 = as1.get_object(obj.as1)
+        inner_obj_id = inner_obj_as1.get('id')
+        in_reply_tos = as1.get_ids(inner_obj_as1, 'inReplyTo')
         is_reply = obj.type == 'comment' or in_reply_tos
         is_self_reply = False
 
-        inner_obj_as1 = as1.get_object(obj.as1)
-        inner_obj_id = inner_obj_as1.get('id')
         if is_reply:
             original_ids = in_reply_tos
         else:
@@ -1396,7 +1396,7 @@ class Protocol:
                             target_proto.maybe_bot_dm(to_user=from_user,
                                                       type='replied_to_bridged_user',
                                                       text=f"""\
-    Hi! You <a href="{obj.as1.get('url') or obj.key.id()}">recently replied</a> to {obj.actor_link(image=False)}, who's bridged here from {target_proto.PHRASE}. If you want them to see your replies in the future, you can bridge your account into {target_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a> to {orig_obj.actor_link(image=False)}, who's bridged here from {target_proto.PHRASE}. If you want them to see your replies, you can bridge your account into {target_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
 
                 continue
 
