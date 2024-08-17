@@ -476,13 +476,13 @@ class ActivityPubTest(TestCase):
         self.user.ap_subdomain = 'web'
         self.user.put()
         resp = self.client.get('/user.com', base_url='https://fed.brid.gy/')
-        self.assertEqual(302, resp.status_code)
+        self.assertEqual(301, resp.status_code)
         self.assertEqual('https://web.brid.gy/user.com', resp.headers['Location'])
 
         self.user.ap_subdomain = 'fed'
         self.user.put()
         got = self.client.get('/user.com', base_url='https://web.brid.gy/')
-        self.assertEqual(302, got.status_code)
+        self.assertEqual(301, got.status_code)
         self.assertEqual('https://fed.brid.gy/user.com', got.headers['Location'])
 
     def test_actor_opted_out(self, *_):
@@ -493,8 +493,6 @@ class ActivityPubTest(TestCase):
         got = self.client.get('/user.com')
         self.assertEqual(404, got.status_code)
 
-    # skip _pre_put_hook since it doesn't allow internal domains
-    @patch.object(Web, '_pre_put_hook', new=lambda self: None)
     def test_actor_protocol_bot_user(self, *_):
         """Web users are special cased to drop the /web/ prefix."""
         actor_as2 = json_loads(util.read('bsky.brid.gy.as2.json'))
@@ -1844,6 +1842,26 @@ class ActivityPubTest(TestCase):
             },
         }, resp.json)
 
+    def test_followers_collection_protocol_bot_user(self, *_):
+        self.user = self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+        self.store_followers()
+
+        resp = self.client.get('/bsky.brid.gy/followers',
+                               base_url='https://bsky.brid.gy')
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'https://bsky.brid.gy/bsky.brid.gy/followers',
+            'type': 'Collection',
+            'summary': "bsky.brid.gy's followers",
+            'totalItems': 2,
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': 'https://bsky.brid.gy/bsky.brid.gy/followers',
+                'items': [ACTOR, ACTOR],
+            },
+        }, resp.json)
+
     @patch('models.PAGE_SIZE', 1)
     def test_followers_collection_page(self, *_):
         self.store_followers()
@@ -1863,6 +1881,15 @@ class ActivityPubTest(TestCase):
             'prev': f'http://localhost/user.com/followers?after={before}',
             'items': [ACTOR],
         }, resp.json)
+
+    def test_followers_collection_page_protocol_bot_user(self, *_):
+        self.user = self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+        self.store_followers()
+
+        before = (datetime.utcnow() + timedelta(seconds=1)).isoformat()
+        resp = self.client.get(f'/bsky.brid.gy/followers?before={before}',
+                               base_url='https://bsky.brid.gy')
+        self.assertEqual(200, resp.status_code)
 
     def test_following_collection_unknown_user(self, *_):
         resp = self.client.get('/nope.com/following')
@@ -1920,6 +1947,26 @@ class ActivityPubTest(TestCase):
             },
         }, resp.json)
 
+    def test_following_collection_protocol_bot_user(self, *_):
+        self.user = self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+        self.store_following()
+
+        resp = self.client.get('/bsky.brid.gy/following',
+                               base_url='https://bsky.brid.gy')
+        self.assertEqual(200, resp.status_code)
+        self.assert_equals({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'https://bsky.brid.gy/bsky.brid.gy/following',
+            'type': 'Collection',
+            'summary': "bsky.brid.gy's following",
+            'totalItems': 2,
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': 'https://bsky.brid.gy/bsky.brid.gy/following',
+                'items': [ACTOR, ACTOR],
+            },
+        }, resp.json)
+
     @patch('models.PAGE_SIZE', 1)
     def test_following_collection_page(self, *_):
         self.store_following()
@@ -1939,6 +1986,15 @@ class ActivityPubTest(TestCase):
             'next': f'http://localhost/user.com/following?before={after}',
             'items': [ACTOR],
         }, resp.json)
+
+    def test_following_collection_page_protocol_bot_user(self, *_):
+        self.user = self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+        self.store_following()
+
+        before = (datetime.utcnow() + timedelta(seconds=1)).isoformat()
+        resp = self.client.get(f'/bsky.brid.gy/following?before={before}',
+                               base_url='https://bsky.brid.gy')
+        self.assertEqual(200, resp.status_code)
 
     def test_following_collection_head(self, *_):
         resp = self.client.head(f'/user.com/following')
@@ -1970,6 +2026,24 @@ class ActivityPubTest(TestCase):
             'first': {
                 'type': 'CollectionPage',
                 'partOf': 'https://fa.brid.gy/ap/fake:foo/outbox',
+                'items': [],
+            },
+        }, resp.json)
+
+    def test_outbox_protocol_bot_user_empty(self, *_):
+        self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
+        resp = self.client.get(f'/bsky.brid.gy/outbox',
+                               base_url='https://bsky.brid.gy')
+        self.assertEqual(200, resp.status_code)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'id': 'https://bsky.brid.gy/bsky.brid.gy/outbox',
+            'summary': "bsky.brid.gy's outbox",
+            'type': 'OrderedCollection',
+            'totalItems': 0,
+            'first': {
+                'type': 'CollectionPage',
+                'partOf': 'https://bsky.brid.gy/bsky.brid.gy/outbox',
                 'items': [],
             },
         }, resp.json)

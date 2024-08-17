@@ -7,7 +7,7 @@ import re
 from urllib.parse import quote_plus, urljoin, urlparse
 from unittest.mock import MagicMock
 
-from flask import abort, g, redirect, request
+from flask import abort, g, request
 from google.cloud import ndb
 from google.cloud.ndb.query import FilterNode, OR, Query
 from granary import as1, as2
@@ -15,6 +15,7 @@ from httpsig import HeaderVerifier
 from httpsig.requests_auth import HTTPSignatureAuth
 from httpsig.utils import parse_signature_header
 from oauth_dropins.webutil import appengine_info, flask_util, util
+from oauth_dropins.webutil.flask_util import MovedPermanently
 from oauth_dropins.webutil.util import fragmentless, json_dumps, json_loads
 import requests
 from requests import TooManyRedirects
@@ -928,6 +929,36 @@ def postprocess_as2_actor(actor, user):
 
     return actor
 
+
+def _load_user(handle_or_id, create=False):
+    if handle_or_id == PRIMARY_DOMAIN or handle_or_id in PROTOCOL_DOMAINS:
+        from web import Web
+        proto = Web
+    else:
+        proto = Protocol.for_request(fed='web')
+
+    if not proto:
+        error(f"Couldn't determine protocol", status=404)
+
+    if proto.owns_id(handle_or_id) is False:
+        if proto.owns_handle(handle_or_id) is False:
+            error(f"{handle_or_id} doesn't look like a {proto.LABEL} id or handle",
+                  status=404)
+        id = proto.handle_to_id(handle_or_id)
+        if not id:
+            error(f"Couldn't resolve {handle_or_id} as a {proto.LABEL} handle",
+                  status=404)
+    else:
+        id = handle_or_id
+
+    assert id
+    user = proto.get_or_create(id) if create else proto.get_by_id(id)
+    if not user or not user.is_enabled(ActivityPub):
+        error(f'{proto.LABEL} user {id} not found', status=404)
+
+    return user
+
+
 # source protocol in subdomain.
 # WARNING: the user page handler in pages.py overrides this for fediverse
 # addresses with leading @ character. be careful when changing this route!
@@ -939,42 +970,21 @@ def postprocess_as2_actor(actor, user):
 @flask_util.headers(CACHE_CONTROL)
 def actor(handle_or_id):
     """Serves a user's AS2 actor from the datastore."""
-    if handle_or_id == PRIMARY_DOMAIN or handle_or_id in PROTOCOL_DOMAINS:
-        from web import Web
-        cls = Web
-    else:
-        cls = Protocol.for_request(fed='web')
+    user = _load_user(handle_or_id, create=True)
+    proto = user
 
-    if not cls:
-        error(f"Couldn't determine protocol", status=404)
-    elif cls.LABEL == 'web' and request.path.startswith('/ap/'):
+    if proto.LABEL == 'web' and request.path.startswith('/ap/'):
         # we started out with web users' AP ids as fed.brid.gy/[domain], so we
         # need to preserve those for backward compatibility
-        return redirect(subdomain_wrap(None, f'/{handle_or_id}'), code=301)
-
-    if cls.owns_id(handle_or_id) is False:
-        if cls.owns_handle(handle_or_id) is False:
-            error(f"{handle_or_id} doesn't look like a {cls.LABEL} id or handle",
-                  status=404)
-        id = cls.handle_to_id(handle_or_id)
-        if not id:
-            error(f"Couldn't resolve {handle_or_id} as a {cls.LABEL} handle",
-                  status=404)
-    else:
-        id = handle_or_id
-
-    assert id
-    user = cls.get_or_create(id)
-    if not user or not user.is_enabled(ActivityPub):
-        error(f'{cls.LABEL} user {id} not found', status=404)
+        raise MovedPermanently(location=subdomain_wrap(None, f'/{handle_or_id}'))
 
     id = user.id_as(ActivityPub)
     # check that we're serving from the right subdomain
     if request.host != urlparse(id).netloc:
-        return redirect(id)
+        raise MovedPermanently(location=id)
 
     if not user.obj or not user.obj.as1:
-        user.obj = cls.load(user.profile_id(), gateway=True)
+        user.obj = proto.load(user.profile_id(), gateway=True)
         if user.obj:
             user.obj.put()
 
@@ -990,7 +1000,7 @@ def actor(handle_or_id):
         'following': id + '/following',
         'followers': id + '/followers',
         'endpoints': {
-            'sharedInbox': subdomain_wrap(cls, '/ap/sharedInbox'),
+            'sharedInbox': subdomain_wrap(proto, '/ap/sharedInbox'),
         },
         # add this if we ever change the Web actor ids to be /web/[id]
         # 'alsoKnownAs': [host_url(id)],
@@ -1139,11 +1149,7 @@ def follower_collection(id, collection):
         import pages
         return pages.followers_or_following('ap', id, collection)
 
-    protocol = Protocol.for_request(fed='web')
-    assert protocol
-    user = protocol.get_by_id(id)
-    if not user or not user.is_enabled(ActivityPub):
-        return f'{protocol} user {id} not found', 404
+    user = _load_user(id)
 
     if request.method == 'HEAD':
         return '', {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}
@@ -1203,13 +1209,7 @@ def outbox(id):
 
     TODO: unify page generation with follower_collection()
     """
-    protocol = Protocol.for_request(fed='web')
-    if not protocol:
-        error(f"Couldn't determine protocol", status=404)
-
-    user = protocol.get_by_id(id)
-    if not user or not user.is_enabled(ActivityPub):
-        error(f'User {id} not found', status=404)
+    user = _load_user(id)
 
     if request.method == 'HEAD':
         return '', {'Content-Type': as2.CONTENT_TYPE_LD_PROFILE}

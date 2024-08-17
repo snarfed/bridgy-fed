@@ -68,7 +68,7 @@ def is_valid_domain(domain, allow_internal=True):
     Valid means TLD is ok, not blacklisted, etc.
     """
     if not domain or not re.match(DOMAIN_RE, domain):
-        # logger.debug(f"{domain} doesn't look like a domain")
+        logger.debug(f"{domain} doesn't look like a domain")
         return False
 
     if Web.is_blocklisted(domain, allow_internal=allow_internal):
@@ -404,7 +404,7 @@ class Web(User, Protocol):
                 # homepage, check domain too
                 (urlparse(url).path.strip('/') == ''
                  and util.domain_from_link(url) in targets)):
-            # logger.info(f'Skipping sending to {url} , not a target in the object')
+            logger.debug(f'Skipping sending to {url} , not a target in the object')
             return False
 
         if to_cls.is_blocklisted(url):
@@ -739,7 +739,7 @@ def poll_feed_task():
             if url := elem.get('url'):
                 elem['id'] = elem['url']
 
-        # logger.info(f'Converted to AS1: {json_dumps(activity, indent=2)}')
+        logger.debug(f'Converted to AS1: {json_dumps(activity, indent=2)}')
 
         id = Object(our_as1=activity).as1.get('id')
         if not id:
