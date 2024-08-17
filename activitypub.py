@@ -785,7 +785,9 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
     tags = util.get_list(activity, 'tag') + util.get_list(obj, 'tag')
     for tag in tags:
         href = tag.get('href')
-        if (href and tag.get('type') == 'Mention'
+        if (tag.get('type') == 'Mention'
+                and href
+                and href not in util.get_list(obj_or_activity, 'to')
                 and not ActivityPub.is_blocklisted(href)):
             add(cc, href)
 
@@ -794,15 +796,15 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
             for recip in as1.get_objects(orig_obj, field):
                 add(cc, util.get_url(recip) or recip.get('id'))
 
-    # ideally I'd use as1.is_dm here, but it's for AS1, not AS2
-    to = activity.setdefault('to', [])
-    is_dm = not cc and len(to) == 1
-    if not is_dm:
+    # WARNING: activity here is AS2, but we're using as1.is_dm. right now the
+    # logic is effectively the same for our purposes, but watch out here if that
+    # ever changes.
+    if not as1.is_dm(activity):
         # to public, since Mastodon interprets to public as public, cc public as
         # unlisted:
         # https://socialhub.activitypub.rocks/t/visibility-to-cc-mapping/284
         # https://wordsmith.social/falkreon/securing-activitypub
-        add(to, as2.PUBLIC_AUDIENCE)
+        add(activity.setdefault('to', []), as2.PUBLIC_AUDIENCE)
 
     # hashtags. Mastodon requires:
     # * type: Hashtag

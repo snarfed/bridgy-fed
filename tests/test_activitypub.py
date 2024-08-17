@@ -2456,7 +2456,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual(['https://masto.foo/@other'],
                          postprocess_as2(obj)['cc'])
 
-    def test_postprocess_as2_dm(self):
+    def test_postprocess_as2_dm_note(self):
         dm = {
             'objectType': 'note',
             'author': 'web.brid.gy',
@@ -2465,6 +2465,41 @@ class ActivityPubUtilsTest(TestCase):
             'to': ['http://inst/user'],
         }
         self.assertEqual(dm, postprocess_as2(copy.deepcopy(dm)))
+
+    def test_postprocess_as2_dm_note_with_mention_tag(self):
+        dm = {
+            'objectType': 'note',
+            'author': 'web.brid.gy',
+            'content': '<p>hello world</p>',
+            'contentMap': {'en': '<p>hello world</p>'},
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'https://inst/user',
+            }],
+            'to': ['http://inst/user'],
+        }
+        self.assertEqual(dm, postprocess_as2(copy.deepcopy(dm)))
+
+    def test_postprocess_as2_dm_create(self):
+        dm = {
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'https://inst/dm#create',
+            'actor': 'web.brid.gy',
+            'object': {
+                'objectType': 'note',
+                'id': 'https://inst/dm',
+                'author': 'web.brid.gy',
+                'content': '<p>hello world</p>',
+                'contentMap': {'en': '<p>hello world</p>'},
+                'to': ['http://inst/user'],
+            },
+            'to': ['http://inst/user'],
+        }
+        self.assertEqual({
+            **dm,
+            'id': 'http://localhost/r/https://inst/dm#create',
+        }, postprocess_as2(copy.deepcopy(dm)))
 
     @patch('requests.get')
     def test_signed_get_redirects_manually_with_new_sig_headers(self, mock_get):

@@ -1174,6 +1174,10 @@ class Protocol:
                 'id': id,
                 'author': bot.key.id(),
                 'content': text,
+                'tags': [{
+                    'objectType': 'mention',
+                    'url': to_user.key.id(),
+                }],
                 'to': [to_user.key.id()],
             },
             'to': [to_user.key.id()],

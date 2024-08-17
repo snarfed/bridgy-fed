@@ -409,10 +409,14 @@ class IntegrationTests(TestCase):
                 'content': message,
                 'contentMap': {'en': message},
                 'content_is_html': True,
+                'tag': [{
+                    'type': 'Mention',
+                    'href': 'https://inst/alice',
+                }],
                 'to': ['https://inst/alice'],
             },
             'to': ['https://inst/alice'],
-        }, json_loads(kwargs['data']), ignore=['to', '@context'])
+        }, json_loads(kwargs['data']), ignore=['@context'])
 
         # bot user follows back
         args, kwargs = mock_post.call_args_list[2]
