@@ -1150,7 +1150,7 @@ class Protocol:
           type (str): one of DM.TYPES
         """
         dm = DM(protocol=bot_cls.LABEL, type=type)
-        if dm in to_user.sent_dms and type != 'welcome':
+        if dm in to_user.sent_dms:
             return
 
         from web import Web

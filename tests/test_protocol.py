@@ -818,29 +818,6 @@ class ProtocolTest(TestCase):
         self.assertEqual([], OtherFake.sent)
         self.assertEqual(expected_sent_dms, user.key.get().sent_dms)
 
-    def test_maybe_bot_dm_welcome_allows_multiple(self):
-        self.make_user(id='fa.brid.gy', cls=Web)
-        user = self.make_user(id='other:user', cls=OtherFake, obj_as1={'x': 'y'})
-
-        Fake.maybe_bot_dm(user, text='hi hi hi', type='welcome')
-        self.assertEqual([
-            ('https://fa.brid.gy/#welcome-dm-other:user-2022-01-02T03:04:05+00:00',
-             'other:user:target'),
-        ], OtherFake.sent)
-        self.assertEqual([DM(protocol='fake', type='welcome')],
-                         user.key.get().sent_dms)
-
-        # should be able to send another welcome
-        OtherFake.sent = []
-        Fake.maybe_bot_dm(user, text='hi again', type='welcome')
-        self.assertEqual([
-            ('https://fa.brid.gy/#welcome-dm-other:user-2022-01-02T03:04:05+00:00',
-             'other:user:target'),
-        ], OtherFake.sent)
-        self.assertEqual([DM(protocol='fake', type='welcome'),
-                          DM(protocol='fake', type='welcome')],
-                         user.key.get().sent_dms)
-
     def test_maybe_bot_dm_user_missing_obj(self):
         self.make_user(id='other.brid.gy', cls=Web)
         user = OtherFake(id='other:user')
