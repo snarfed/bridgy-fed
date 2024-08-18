@@ -36,7 +36,6 @@ from common import (
     report_error,
     unwrap,
 )
-import dms
 import ids
 
 # maps string label to Protocol subclass. values are populated by ProtocolUserMeta.
@@ -536,6 +535,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             handle = self.handle_as(to_proto)
             if url := to_proto.bridged_web_url_for(self):
                 handle = f'<a href="{url}">{handle}</a>'
+            import dms
             dms.maybe_send(from_proto=to_proto, to_user=self, type='welcome',
                            text=f"""\
 Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {handle}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{common.PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")

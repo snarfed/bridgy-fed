@@ -2823,61 +2823,6 @@ class ProtocolReceiveTest(TestCase):
         # only one receive call should try to send
         self.assertEqual([('fake:post', 'fake:shared:target')], Fake.sent)
 
-    def test_dm_no_yes_sets_enabled_protocols(self):
-        # bot user
-        self.make_user('fa.brid.gy', cls=Web)
-
-        dm = {
-            'objectType': 'note',
-            'id': 'eefake:dm',
-            'actor': 'eefake:user',
-            'to': ['fa.brid.gy'],
-            'content': 'no',
-        }
-
-        user = self.make_user('eefake:user', cls=ExplicitEnableFake)
-        self.assertFalse(user.is_enabled(Fake))
-
-        # fake protocol isn't enabled yet, no DM should be a noop
-        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
-        user = user.key.get()
-        self.assertEqual([], user.enabled_protocols)
-        self.assertEqual([], Fake.created_for)
-
-        # "yes" DM should add to enabled_protocols
-        dm['id'] += '2'
-        dm['content'] = '<p><a href="...">@bsky.brid.gy</a> yes</p>'
-        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
-        user = user.key.get()
-        self.assertEqual(['fake'], user.enabled_protocols)
-        self.assertEqual(['eefake:user'], Fake.created_for)
-        self.assertTrue(user.is_enabled(Fake))
-
-        # another "yes" DM should be a noop
-        dm['id'] += '3'
-        Fake.created_for = []
-        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
-        user = user.key.get()
-        self.assertEqual(['fake'], user.enabled_protocols)
-        self.assertTrue(user.is_enabled(Fake))
-        self.assertEqual([], Fake.created_for)
-
-        # "no" DM should remove from enabled_protocols
-        Follower.get_or_create(to=user, from_=self.alice)
-        dm['id'] += '4'
-        dm['content'] = '<p><a href="...">@bsky.brid.gy</a>\n  NO \n</p>'
-        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(dm))
-        user = user.key.get()
-        self.assertEqual([], user.enabled_protocols)
-        self.assertEqual([], Fake.created_for)
-        self.assertFalse(user.is_enabled(Fake))
-
-        # ...and delete copy actor
-        self.assertEqual(
-            [('eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00',
-              'fake:shared:target')],
-            Fake.sent)
-
     @patch('protocol.LIMITED_DOMAINS', ['lim.it'])
     @patch('requests.get')
     def test_limited_domain_update_profile_without_follow(self, mock_get):

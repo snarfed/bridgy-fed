@@ -940,22 +940,9 @@ class Protocol:
                 return 'OK', 200
 
         elif obj.type == 'post':
-            # handle DMs to bot users. remove @-mentions of bot user in HTML links
-            # TODO: when we do more with incoming DMs, extract out into separate method
-            if recip := as1.recipient_if_dm(obj.as1):
-                if proto := Protocol.for_bridgy_subdomain(recip):
-                    soup = util.parse_html(inner_obj_as1.get('content', ''))
-                    for link in soup.find_all('a'):
-                        link.extract()
-                    content = soup.get_text().strip().lower()
-                    logger.info(f'got DM to {recip} : {content}')
-                    if content in ('yes', 'ok'):
-                        from_user.enable_protocol(proto)
-                        proto.bot_follow(from_user)
-                    elif content == 'no':
-                        proto.delete_user_copy(from_user)
-                        from_user.disable_protocol(proto)
-                    return 'OK', 200
+            # handle DMs to bot users
+            if as1.is_dm(obj.as1):
+                return dms.receive(from_user=from_user, obj=obj)
 
         # fetch actor if necessary
         if actor and actor.keys() == set(['id']):

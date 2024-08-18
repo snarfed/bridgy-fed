@@ -1,10 +1,12 @@
 """Protocol-independent code for sending and receiving DMs aka chat messages."""
 import logging
 
+from granary import as1
 from oauth_dropins.webutil import util
 
 import common
 import models
+import protocol
 
 logger = logging.getLogger(__name__)
 
@@ -64,3 +66,38 @@ def maybe_send(*, from_proto, to_user, text, type):
     to_user.sent_dms.append(dm)
     to_user.put()
 
+
+def receive(*, from_user, obj):
+    """Handles a DM that a user sent to one of our protocol bot users.
+
+    Args:
+      from_user (models.User)
+      obj (Object): DM
+
+    Returns:
+      (str, int) tuple: (response body, HTTP status code) Flask response
+    """
+    recip = as1.recipient_if_dm(obj.as1)
+    assert recip
+
+    to_proto = protocol.Protocol.for_bridgy_subdomain(recip)
+    assert to_proto  # already checked in check_supported call in Protocol.receive
+
+    inner_obj = (as1.get_object(obj.as1) if as1.object_type(obj.as1) == 'post'
+                 else obj.as1)
+    logger.info(f'got DM from {from_user.key.id()} to {to_proto.LABEL}: {inner_obj.get("content")}')
+
+    # remove @-mentions of bot user in HTML links
+    soup = util.parse_html(inner_obj.get('content', ''))
+    for link in soup.find_all('a'):
+        link.extract()
+    content = soup.get_text().strip().lower()
+
+    if content in ('yes', 'ok'):
+        from_user.enable_protocol(to_proto)
+        to_proto.bot_follow(from_user)
+    elif content == 'no':
+        to_proto.delete_user_copy(from_user)
+        from_user.disable_protocol(to_proto)
+
+    return 'OK', 200
