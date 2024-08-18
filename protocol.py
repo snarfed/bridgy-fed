@@ -33,6 +33,7 @@ from common import (
     report_error,
     subdomain_wrap,
 )
+import dms
 import ids
 from ids import (
     BOT_ACTOR_AP_IDS,
@@ -1136,60 +1137,6 @@ class Protocol:
                            user=bot.key.urlsafe())
 
     @classmethod
-    def maybe_bot_dm(bot_cls, to_user, *, text, type):
-        """Sends a DM from this protocol's bot user if we haven't already.
-
-        Creates a task to send the DM asynchronously.
-
-        If ``type`` isn't ``welcome``, and we've already sent this user a DM of
-        this type from this protocol, does nothing.
-
-        Args:
-          to_user (models.User)
-          text (str): message content. May be HTML.
-          type (str): one of DM.TYPES
-        """
-        dm = DM(protocol=bot_cls.LABEL, type=type)
-        if dm in to_user.sent_dms:
-            return
-
-        from web import Web
-        bot = Web.get_by_id(bot_cls.bot_user_id())
-        logger.info(f'Sending DM from {bot.key.id()} to {to_user.key.id()} : {text}')
-
-        if not to_user.obj or not to_user.obj.as1:
-            logger.info("  can't send DM, recipient has no profile obj")
-            return
-
-        id = f'{bot.profile_id()}#{type}-dm-{to_user.key.id()}-{util.now().isoformat()}'
-        target_uri = to_user.target_for(to_user.obj, shared=False)
-        target = Target(protocol=to_user.LABEL, uri=target_uri)
-        obj_key = Object(id=id, source_protocol='web', undelivered=[target], our_as1={
-            'objectType': 'activity',
-            'verb': 'post',
-            'id': f'{id}-create',
-            'actor': bot.key.id(),
-            'object': {
-                'objectType': 'note',
-                'id': id,
-                'author': bot.key.id(),
-                'content': text,
-                'tags': [{
-                    'objectType': 'mention',
-                    'url': to_user.key.id(),
-                }],
-                'to': [to_user.key.id()],
-            },
-            'to': [to_user.key.id()],
-        }).put()
-
-        common.create_task(queue='send', obj=obj_key.urlsafe(), protocol=to_user.LABEL,
-                           url=target.uri, user=bot.key.urlsafe())
-
-        to_user.sent_dms.append(dm)
-        to_user.put()
-
-    @classmethod
     def delete_user_copy(copy_cls, user):
         """Deletes a user's copy actor in a given protocol.
 
@@ -1404,9 +1351,9 @@ class Protocol:
                 if id in in_reply_tos:
                     if target_author := target_author_key.get():
                         if target_author.is_enabled(from_cls):
-                            target_proto.maybe_bot_dm(to_user=from_user,
-                                                      type='replied_to_bridged_user',
-                                                      text=f"""\
+                            dms.maybe_send(
+                                from_proto=target_proto, to_user=from_user,
+                                type='replied_to_bridged_user', text=f"""\
 Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a> to {orig_obj.actor_link(image=False)}, who's bridged here from {target_proto.PHRASE}. If you want them to see your replies, you can bridge your account into {target_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
 
                 continue
