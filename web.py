@@ -645,7 +645,7 @@ def webmention_external():
     logger.info(f'Params: {list(request.form.items())}')
 
     source = flask_util.get_required_param('source').strip()
-    if not util.is_web(source):
+    if Web.owns_id(source) is False:
         error(f'Bad URL {source}')
     elif urlparse(source).scheme != 'https':
         error('source URLs must be https (with SSL)')

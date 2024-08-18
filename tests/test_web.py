@@ -557,6 +557,8 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'poll-feed', domain='new.com')
 
     def test_bad_source_url(self, *mocks):
+        self.user = self.make_user('fed.brid.gy', cls=Web)
+
         orig_count = Object.query().count()
 
         for data in [
@@ -564,6 +566,7 @@ class WebTest(TestCase):
                 {'source': 'bad'},
                 {'source': 'https://'},
                 {'source': 'http://user.com/not/https'},
+                {'source': 'https://fed.brid.gy/r/https://user.com/foo'},
         ]:
             got = self.post('/webmention', data=data)
             self.assertEqual(400, got.status_code)
@@ -1613,7 +1616,7 @@ class WebTest(TestCase):
         self.assertEqual(304, got.status_code, got.text)
         mock_post.assert_not_called()
 
-    def test_error(self, mock_get, mock_post):
+    def test_inbox_delivery_error(self, mock_get, mock_post):
         mock_get.side_effect = [FOLLOW, ACTOR]
         mock_post.return_value = requests_response(
             'abc xyz', status=405, url='https://mas.to/inbox')
