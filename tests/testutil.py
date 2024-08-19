@@ -194,6 +194,7 @@ class Fake(User, protocol.Protocol):
 class OtherFake(Fake):
     """Different class because the same-protocol check special cases Fake."""
     LABEL = ABBREV = 'other'
+    PHRASE = 'other-phrase'
     CONTENT_TYPE = 'ot/her'
     SUPPORTED_AS1_TYPES = Fake.SUPPORTED_AS1_TYPES - set(('accept',))
     SUPPORTS_DMS = True
@@ -211,6 +212,7 @@ class OtherFake(Fake):
 
 class ExplicitEnableFake(Fake):
     LABEL = ABBREV = 'eefake'
+    PHRASE = 'eefake-phrase'
     CONTENT_TYPE = 'un/known'
     SUPPORTS_DMS = True
 

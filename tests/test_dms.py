@@ -36,6 +36,8 @@ class DmsTest(TestCase):
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], user.sent_dms)
 
+    # def test_receive_unknown_text(self):
+
     def test_receive_no_yes_sets_enabled_protocols(self):
         alice = self.make_user('fake:alice', cls=Fake, obj_id='fake:alice')
         # bot user
@@ -91,3 +93,33 @@ class DmsTest(TestCase):
             [('eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00',
               'fake:shared:target')],
             Fake.sent)
+
+    def test_receive_handle_sends_request_dm(self):
+        self.make_user(id='other.brid.gy', cls=Web)
+        self.make_user(id='eefake.brid.gy', cls=Web)
+        alice = self.make_user(id='eefake:alice', cls=ExplicitEnableFake,
+                               enabled_protocols=['other'], obj_as1={'x': 'y'})
+        bob = self.make_user(id='other:bob', cls=OtherFake, obj_as1={'x': 'y'})
+
+        dm = Object(our_as1={
+            'objectType': 'note',
+            'id': 'eefake:dm',
+            'actor': 'eefake:alice',
+            'to': ['other.brid.gy'],
+            'content': ' other:handle:bob ',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=dm))
+        self.assertEqual(
+            [('https://eefake.brid.gy/#request_bridging-dm-other:bob-2022-01-02T03:04:05+00:00',
+              'other:bob:target')],
+            OtherFake.sent)
+
+    # def test_receive_handle_from_user_not_bridged(self):
+
+    # def test_receive_handle_already_bridged(self):
+
+    # def test_receive_handle_fetch_user(self):
+
+    # def test_receive_handle_wrong_protocol(self):
+
+    # def test_receive_handle_user_doesnt_exist(self):

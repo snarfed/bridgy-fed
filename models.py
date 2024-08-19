@@ -130,7 +130,7 @@ class DM(ndb.Model):
     https://googleapis.dev/python/python-ndb/latest/model.html#google.cloud.ndb.model.StructuredProperty
     """
     TYPES = (
-        'follow_request_from_bridged_user',
+        'request_bridging',
         'replied_to_bridged_user',
         'welcome',
     )

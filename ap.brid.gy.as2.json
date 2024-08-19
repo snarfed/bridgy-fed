@@ -10,7 +10,7 @@
     "https://ap.brid.gy/"
   ],
   "preferredUsername": "ap.brid.gy",
-  "summary": "Bridgy Fed (https://fed.brid.gy/) bot user for the fediverse. To bridge your Bluesky account to the fediverse, follow this account. More info: https://fed.brid.gy/docs",
+  "summary": "Bridgy Fed (https://fed.brid.gy/) bot user for the fediverse. To bridge your Bluesky account to the fediverse, follow this account.\n\nTo ask a fediverse user to bridge their account, send their address (eg @user@instance) to this account in a chat message.\n\nMore info: https://fed.brid.gy/docs",
   "name": "Bridgy Fed for the fediverse",
   "image": [
     {
