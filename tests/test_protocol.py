@@ -959,6 +959,24 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('fake:post#bridgy-fed-create', obj.key.id())
         self.assertEqual(ATProto.PDS_URL, url)
 
+    def test_post_not_public_ignored(self):
+        self.assertEqual(('OK', 200), Fake.receive_as1({
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'to': ['fake:user/followers'],
+        }))
+        self.assertIsNone(Object.get_by_id('fake:post'))
+
+    def test_post_unlisted_ignored(self):
+        self.assertEqual(('OK', 200), Fake.receive_as1({
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'to': ['@unlisted'],
+        }))
+        self.assertIsNone(Object.get_by_id('fake:post'))
+
     @patch.object(ATProto, 'send')
     def test_reply_to_not_bridged_account_skips_atproto(self, mock_send):
         user = self.make_user('eefake:user', cls=ExplicitEnableFake,

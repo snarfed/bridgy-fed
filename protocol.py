@@ -791,6 +791,14 @@ class Protocol:
             error('No id provided')
         elif from_cls.is_blocklisted(id, allow_internal=internal):
             error(f'Activity {id} is blocklisted')
+        # check that this activity is public. only do this for some activities,
+        # not eg likes or follows, since Mastodon doesn't currently mark those
+        # as explicitly public.
+        elif (obj.type in set(('post', 'update')) | as1.POST_TYPES | as1.ACTOR_TYPES
+                  and not as1.is_public(obj.as1, unlisted=False)
+                  and not as1.is_dm(obj.as1)):
+              logger.info('Dropping non-public activity')
+              return ('OK', 200)
 
         # lease this object, atomically
         memcache_key = activity_id_memcache_key(id)

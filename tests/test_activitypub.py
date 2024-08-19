@@ -927,7 +927,7 @@ class ActivityPubTest(TestCase):
                            )
 
     def test_inbox_private(self, *mocks):
-        self._test_inbox_with_to_ignored([], *mocks)
+        self._test_inbox_with_to_ignored(['https://mas.to/author/followers'], *mocks)
 
     def test_inbox_unlisted(self, *mocks):
         self._test_inbox_with_to_ignored(['@unlisted'], *mocks)
@@ -946,7 +946,10 @@ class ActivityPubTest(TestCase):
 
         got = self.post('/user.com/inbox', json=not_public)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
-        self.assertIsNone(Object.get_by_id(not_public['id']))
+
+        activity = Object.get_by_id(not_public['id'])
+        self.assertIsNone(activity.status)
+        self.assertEqual([], activity.delivered)
         self.assertIsNone(Object.get_by_id(not_public['object']['id']))
 
     def test_follow_bot_user_enables_protocol(self, _, mock_get, __):
