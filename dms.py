@@ -107,6 +107,10 @@ def receive(*, from_user, obj):
         return 'OK', 200
 
     elif to_proto.owns_handle(content) is not False:
+        if not from_user.is_enabled(to_proto):
+            maybe_send(from_proto=to_proto, to_user=from_user, text=f'Please bridge your account to {to_proto.PHRASE} by following this account before requesting another user.')
+            return 'OK', 200
+
         if to_id := to_proto.handle_to_id(content):
             if to_user := to_proto.get_or_create(to_id):
                 maybe_send(from_proto=from_user, to_user=to_user,
@@ -116,3 +120,4 @@ def receive(*, from_user, obj):
 <p>Bridgy Fed will only send you this message once.""")
                 return 'OK', 200
 
+    return "Couldn't understand DM: foo bar", 304
