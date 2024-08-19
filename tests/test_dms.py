@@ -27,6 +27,26 @@ class DmsTest(TestCase):
         self.assertEqual([], OtherFake.sent)
         self.assertEqual(expected_sent_dms, user.key.get().sent_dms)
 
+    def test_maybe_send_no_type(self):
+        self.make_user(id='fa.brid.gy', cls=Web)
+        user = self.make_user(id='other:user', cls=OtherFake, obj_as1={'x': 'y'})
+
+        maybe_send(from_proto=Fake, to_user=user, text='hi hi hi')
+        self.assertEqual([
+            ('https://fa.brid.gy/#?-dm-other:user-2022-01-02T03:04:05+00:00',
+             'other:user:target'),
+        ], OtherFake.sent)
+        self.assertEqual([], user.key.get().sent_dms)
+
+        # another DM without type should also work
+        OtherFake.sent = []
+        maybe_send(from_proto=Fake, to_user=user, text='hi again')
+        self.assertEqual([
+            ('https://fa.brid.gy/#?-dm-other:user-2022-01-02T03:04:05+00:00',
+             'other:user:target'),
+        ], OtherFake.sent)
+        self.assertEqual([], user.key.get().sent_dms)
+
     def test_maybe_send_user_missing_obj(self):
         self.make_user(id='other.brid.gy', cls=Web)
         user = OtherFake(id='other:user')
