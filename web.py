@@ -759,6 +759,7 @@ def poll_feed_task():
 
         if not obj.get('image'):
             # fetch and check the post itself
+            logger.info(f'No image in {id} , trying metaformats')
             post = Web.load(id, metaformats=True, authorship_fetch_mf2=False)
             if post and post.as1:
                 profile_images = (as1.get_ids(user.obj.as1, 'image')
