@@ -106,17 +106,37 @@ def receive(*, from_user, obj):
         from_user.disable_protocol(to_proto)
         return 'OK', 200
 
+    # request a user
     elif to_proto.owns_handle(content) is not False:
-        if not from_user.is_enabled(to_proto):
-            maybe_send(from_proto=to_proto, to_user=from_user, text=f'Please bridge your account to {to_proto.PHRASE} by following this account before requesting another user.')
+        def error_reply(text, type=None):
+            maybe_send(from_proto=to_proto, to_user=from_user, text=text, type=type)
             return 'OK', 200
 
+        if not from_user.is_enabled(to_proto):
+            return error_reply(f'Please bridge your account to {to_proto.PHRASE} by following this account before requesting another user.')
+
         if to_id := to_proto.handle_to_id(content):
+            handle = content
             if to_user := to_proto.get_or_create(to_id):
-                maybe_send(from_proto=from_user, to_user=to_user,
+                from_proto = from_user.__class__
+
+                if not to_user.obj:
+                    # doesn't exist
+                    return error_reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
+
+                elif to_user.is_enabled(from_proto):
+                    # already bridged
+                    return error_reply(f'{to_user.user_link(handle=True, maybe_internal_link=False)} is already bridged into {from_proto.PHRASE}.')
+
+                elif (models.DM(protocol=from_proto.LABEL, type='request_bridging')
+                      in to_user.sent_dms):
+                    # already requested
+                    return error_reply(f'That user is already bridged into {from_proto.PHRASE}: {to_user.user_link(handle=True, maybe_internal_link=False)}')
+
+                maybe_send(from_proto=from_proto, to_user=to_user,
                            type='request_bridging', text=f"""\
-<p>Hi! {obj.actor_link(image=False)} ({from_user.handle_as(to_proto)}) is using Bridgy Fed to bridge their account on {from_user.PHRASE} into {to_proto.PHRASE} here, and they'd like to follow you. To let bridged {from_user.PHRASE} users see and interact with you, follow this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
-<p>If you do nothing, your account won't be bridged, and users on {from_user.PHRASE} won't be able to see or interact with you.
+<p>Hi! {obj.actor_link(image=False)} ({from_user.handle_as(to_proto)}) is using Bridgy Fed to bridge their account on {from_proto.PHRASE} into {to_proto.PHRASE} here, and they'd like to follow you. To let {from_proto.PHRASE} users see and interact with you, follow this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
+<p>If you do nothing, your account won't be bridged, and users on {from_proto.PHRASE} won't be able to see or interact with you.
 <p>Bridgy Fed will only send you this message once.""")
                 return 'OK', 200
 
