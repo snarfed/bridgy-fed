@@ -282,8 +282,9 @@ def handle(limit=None):
 
     def _handle(op):
         type, _ = op.path.strip('/').split('/', maxsplit=1)
+        record_json = dag_json.encode(op.record, dialect='atproto')
         if type not in ATProto.SUPPORTED_RECORD_TYPES:
-            logger.info(f'Skipping unsupported type {op.record["$type"]}: {json_dumps(op.record, indent=2)}')
+            logger.info(f'Skipping unsupported type {op.record["$type"]}: {record_json}')
             return
 
         at_uri = f'at://{op.repo}/{op.path}'
@@ -291,7 +292,7 @@ def handle(limit=None):
         # store object, enqueue receive task
         if op.action in ('create', 'update'):
             record_kwarg = {
-                'bsky': json_loads(dag_json.encode(op.record, dialect='atproto')),
+                'bsky': json_loads(record_json),
             }
             obj_id = at_uri
         elif op.action == 'delete':

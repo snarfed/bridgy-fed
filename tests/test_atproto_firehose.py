@@ -527,6 +527,7 @@ class ATProtoFirehoseHandleTest(TestCase):
                                '$type': 'app.bsky.graph.listitem',
                                'subject': 'did:bob',
                                'list': 'at://did:alice/app.bsky.graph.list/456',
+                               'a_cid': A_CID,  # check that we encode this ok
                            }))
 
         handle(limit=1)
