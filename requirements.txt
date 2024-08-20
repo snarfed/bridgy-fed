@@ -40,7 +40,7 @@ google-api-python-client==2.141.0
 google-auth==2.15.0
 google-auth-httplib2==0.2.0
 google-cloud-appengine-logging==1.4.5
-google-cloud-audit-log==0.2.5
+google-cloud-audit-log==0.3.0
 google-cloud-core==2.3.2
 google-cloud-datastore==2.19.0
 google-cloud-dns==0.35.0
