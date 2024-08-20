@@ -147,7 +147,10 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assertEqual([], ExplicitEnableFake.sent)
+        self.assertEqual(
+            [('https://other.brid.gy/#?-dm-eefake:alice-2022-01-02T03:04:05+00:00',
+              'eefake:alice:target')],
+            ExplicitEnableFake.sent)
         self.assertEqual(
             [('https://eefake.brid.gy/#request_bridging-dm-other:bob-2022-01-02T03:04:05+00:00',
               'other:bob:target')],
@@ -162,7 +165,10 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assertEqual([], ExplicitEnableFake.sent)
+        self.assertEqual(
+            [('https://other.brid.gy/#?-dm-eefake:alice-2022-01-02T03:04:05+00:00',
+              'eefake:alice:target')],
+            ExplicitEnableFake.sent)
         self.assertEqual(
             [('https://eefake.brid.gy/#request_bridging-dm-other:bob-2022-01-02T03:04:05+00:00',
               'other:bob:target')],

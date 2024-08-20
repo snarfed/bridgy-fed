@@ -716,8 +716,9 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
     def user_link(self, handle=False, maybe_internal_link=True):
         """Returns a pretty link to the user with name and profile picture.
 
-        If they're opted in, links to their Bridgy Fed user page. Otherwise,
-        links to their external account.
+        Links to their Bridgy Fed user page if they're opted in and
+        ``maybe_internal_link`` is True. Otherwise, links to their external
+        account.
 
         TODO: unify with :meth:`Object.actor_link`?
 
