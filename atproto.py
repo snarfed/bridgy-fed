@@ -858,8 +858,8 @@ class ATProto(User, Protocol):
           to_did (str)
 
         Returns:
-          bool: True if the report was sent successfully, False if the flag's
-            actor is not bridged into ATProto
+          bool: True if the message was sent successfully, False otherwise, eg
+            if the recipient has disabled chat
         """
         assert msg['$type'] == 'chat.bsky.convo.defs#messageInput'
 
@@ -876,19 +876,23 @@ class ATProto(User, Protocol):
                 'Authorization': f'Bearer {token}',
             })
 
+        cli = client(lxm='chat.bsky.convo.getConvoForMembers')
         try:
-            cli = client(lxm='chat.bsky.convo.getConvoForMembers')
             convo = cli.chat.bsky.convo.getConvoForMembers(members=[to_did])
-
-            cli = client(lxm='chat.bsky.convo.sendMessage')
-            sent = cli.chat.bsky.convo.sendMessage({
-                'convoId': convo['convo']['id'],
-                'message': msg,
-            })
         except RequestException as e:
-            # getConvoForMembers returns eg 400 if the recipient has disabled chat
             util.interpret_http_exception(e)
-            return False
+            if e.response is not None and e.response.status_code == 400:
+                body = e.response.json()
+                if (body.get('error') == 'InvalidRequest'
+                        and body.get('message') == 'recipient has disabled incoming messages'):
+                    return False
+            raise
+
+        cli = client(lxm='chat.bsky.convo.sendMessage')
+        sent = cli.chat.bsky.convo.sendMessage({
+            'convoId': convo['convo']['id'],
+            'message': msg,
+        })
 
         logger.info(f'Sent chat message from {from_repo.handle} to {to_did}: {json_dumps(sent)}')
         return True
