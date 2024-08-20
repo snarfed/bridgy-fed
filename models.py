@@ -758,11 +758,11 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         """
         num_followers = Follower.query(Follower.to == self.key,
                                        Follower.status == 'active')\
-                                .count()
+                                .count_async()
         num_following = Follower.query(Follower.from_ == self.key,
                                        Follower.status == 'active')\
-                                .count()
-        return num_followers, num_following
+                                .count_async()
+        return num_followers.get_result(), num_following.get_result()
 
 
 class Object(StringIdModel):
