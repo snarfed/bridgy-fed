@@ -1048,8 +1048,8 @@ class ProtocolReceiveTest(TestCase):
 
     def test_reply_from_non_bridged_post_isnt_bridged_but_gets_dm_prompt(self):
         self.make_user(id='fa.brid.gy', cls=Web)
-        self.user.enabled_protocols = ['eefake']
-        self.user.put()
+        self.alice.enabled_protocols = ['eefake']
+        self.alice.put()
 
         eve = self.make_user('eefake:eve', cls=ExplicitEnableFake, obj_as1={
             'id': 'eefake:eve',

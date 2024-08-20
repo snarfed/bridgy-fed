@@ -479,7 +479,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         to_label = to_proto.LABEL
 
         # unit tests
-        if DEBUG and (from_label in ('fake', 'other')
+        if DEBUG and ((from_label in ('fake', 'other') and to_label != 'eefake')
                       or (to_label in ('fake', 'other') and from_label != 'eefake')):
             return True
 
