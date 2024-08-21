@@ -397,7 +397,8 @@ class IntegrationTests(TestCase):
         # bot user DM
         args, kwargs = mock_post.call_args_list[1]
         self.assert_equals(('http://inst/inbox',), args)
-        message = '<p>Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at <a href="https://bsky.app/profile/alice.inst.ap.brid.gy">alice.inst.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@inst">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>'
+        message = """\
+<p>Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at  <a class="h-card u-author" href="https://bsky.app/profile/alice.inst.ap.brid.gy" title="alice.inst.ap.brid.gy"> alice.inst.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@inst">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>"""
         self.assert_equals({
             'type': 'Create',
             'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#welcome-dm-https://inst/alice-2022-01-02T03:04:05+00:00-create',
@@ -549,7 +550,7 @@ class IntegrationTests(TestCase):
                         }],
                     }],
                     'createdAt': '2022-01-02T03:04:05.000Z',
-                    'bridgyOriginalText': 'Welcome to Bridgy Fed! Your account will soon be bridged to the fediverse at @alice.com@bsky.brid.gy. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/bsky/alice.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.',
+                    'bridgyOriginalText': 'Welcome to Bridgy Fed! Your account will soon be bridged to the fediverse at   @alice.com@bsky.brid.gy. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/bsky/alice.com">your user page</a> for more information. To disable this and delete your bridged profile, block this account.',
                     'bridgyOriginalUrl': 'https://ap.brid.gy/#welcome-dm-did:plc:alice-2022-01-02T03:04:05+00:00',
                 },
             }, data=None, headers=headers)

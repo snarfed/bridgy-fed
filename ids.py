@@ -2,6 +2,7 @@
 
 https://fed.brid.gy/docs#translate
 """
+import inspect
 import logging
 import re
 from threading import Lock
@@ -42,6 +43,22 @@ ATPROTO_DASH_CHARS = ('_', '~', ':')
 BOT_ACTOR_AP_IDS = tuple(f'https://{domain}/{domain}' for domain in PROTOCOL_DOMAINS)
 
 
+def validate(id, from_, to):
+    """Validates args.
+
+    Asserts that all args are non-None. If ``from_`` or ``to`` are instances,
+    returns their classes.
+    """
+    assert id and from_ and to, (id, from_, to)
+
+    if not inspect.isclass(from_):
+        from_ = from_.__class__
+    if not inspect.isclass(to):
+        to = to.__class__
+
+    return id, from_, to
+
+
 @cached(LRUCache(10000), lock=Lock())
 def web_ap_base_domain(user_domain):
     """Returns the full Bridgy Fed domain to use for a given Web user.
@@ -80,7 +97,7 @@ def translate_user_id(*, id, from_, to):
     Returns:
       str: the corresponding id in ``to``
     """
-    assert id and from_ and to, (id, from_, to)
+    id, from_, to = validate(id, from_, to)
     assert from_.owns_id(id) is not False or from_.LABEL == 'ui', \
         (id, from_.LABEL, to.LABEL)
 
@@ -219,13 +236,14 @@ def translate_handle(*, handle, from_, to, enhanced):
       ValueError: if the user's handle is invalid, eg begins or ends with an
         underscore or dash
     """
-    assert handle and from_ and to, (handle, from_, to)
-    if not from_.LABEL == 'ui':
-        if from_.owns_handle(handle, allow_internal=True) is False:
-            raise ValueError(f'input handle {handle} is not valid for {from_.LABEL}')
+    handle, from_, to = validate(handle, from_, to)
 
     if from_ == to:
         return handle
+
+    if from_.LABEL != 'ui':
+        if from_.owns_handle(handle, allow_internal=True) is False:
+            raise ValueError(f'input handle {handle} is not valid for {from_.LABEL}')
 
     output = None
     match from_.LABEL, to.LABEL:
@@ -280,7 +298,7 @@ def translate_object_id(*, id, from_, to):
     Returns:
       str: the corresponding id in ``to``
     """
-    assert id and from_ and to, (id, from_, to)
+    id, from_, to = validate(id, from_, to)
     assert from_.owns_id(id) is not False or from_.LABEL == 'ui'
 
     # bsky.app profile URL to DID

@@ -4,7 +4,7 @@
 {% for f in followers %}
 <li class="row">
   <span class="follower col-xs-10 col-sm-10 col-lg-6">
-    {{ f.user.user_link(handle=True)|safe }}
+    {{ f.user.user_link(pictures=True)|safe }}
   </span>
 
   {% if user.LABEL == 'web' and page_name == 'following' %}

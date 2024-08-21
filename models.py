@@ -532,13 +532,10 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         self.copies = new_self.copies
 
         if added:
-            handle = self.handle_as(to_proto)
-            if url := to_proto.bridged_web_url_for(self):
-                handle = f'<a href="{url}">{handle}</a>'
             import dms
             dms.maybe_send(from_proto=to_proto, to_user=self, type='welcome',
                            text=f"""\
-Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {handle}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{common.PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
+Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at {self.user_link(proto=to_proto, name=False)}. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://{common.PRIMARY_DOMAIN}{self.user_page_path()}">your user page</a> for more information. To disable this and delete your bridged profile, block this account.""")
 
         msg = f'Enabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
         logger.info(msg)
@@ -713,35 +710,54 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
             if copy.protocol in (proto.LABEL, proto.ABBREV):
                 return copy.uri
 
-    def user_link(self, handle=False, maybe_internal_link=True):
-        """Returns a pretty link to the user with name and profile picture.
+    def user_link(self, name=True, handle=True, pictures=False, proto=None):
+        """Returns a pretty HTML link to the user's profile.
 
-        Links to their Bridgy Fed user page if they're opted in and
-        ``maybe_internal_link`` is True. Otherwise, links to their external
-        account.
+        Can optionally include display name, handle, profile
+        picture, and/or link to a different protocol that they've enabled.
 
         TODO: unify with :meth:`Object.actor_link`?
 
         Args:
-          handle (bool): include handle as well as display name
-          maybe_internal_link (bool): if True, link to Bridgy Fed user page
-            instead of external account
+          name (bool): include display name
+          handle (bool): include handle
+          pictures (bool): include profile picture and protocol logo
+          proto (protocol.Protocol): link to this protocol instead of the user's
+            native protocol
         """
-        url = (self.user_page_path()
-               if maybe_internal_link and (self.enabled_protocols
-                                           or self.LABEL == 'web' or self.direct)
-               else self.web_url())
-        pic = self.profile_picture()
-        img = f'<img src="{pic}" class="profile">' if pic else ''
-        maybe_handle = f'&middot; {self.handle}' if handle else ''
+        img = label = label_short = logo = a_open = a_close = ''
 
-        return f"""\
-        <span class="logo" title="{self.__class__.__name__}">{self.LOGO_HTML}</span>
-        <a class="h-card u-author" href="{url}" title="{self.name()} {maybe_handle}">
-          {img}
-          {util.ellipsize(self.name(), chars=40)}
-          {util.ellipsize(maybe_handle, chars=40)}
-        </a>"""
+        if proto:
+            assert self.is_enabled(proto), f"{proto.LABEL} isn't enabled"
+            url = proto.bridged_web_url_for(self)
+        else:
+            proto = self.__class__
+            url = self.web_url()
+
+        if pictures:
+            logo = f'<span class="logo" title="{proto.__name__}">{proto.LOGO_HTML}</span>'
+            if pic := self.profile_picture():
+                img = f'<img src="{pic}" class="profile">'
+
+        if name:
+            label = self.name()
+            label_short = util.ellipsize(self.name(), chars=40)
+
+        if handle:
+            handle_str = ids.translate_handle(handle=self.handle, from_=self,
+                                              to=proto, enhanced=False)
+            if name:
+                label += ' &middot; '
+                label_short += ' &middot; '
+
+            label += handle_str
+            label_short += util.ellipsize(handle_str, chars=40)
+
+        if url:
+            a_open = f'<a class="h-card u-author" href="{url}" title="{label}">'
+            a_close = '</a>'
+
+        return f'{logo} {a_open}{img} {label_short}{a_close}'
 
     def profile_picture(self):
         """Returns the user's profile picture image URL, if available, or None."""
@@ -1064,7 +1080,7 @@ class Object(StringIdModel):
 
         if user and (user.key in self.users or user.key.id() in self.domains):
             # outbound; show a nice link to the user
-            return user.user_link()
+            return user.user_link(handle=False, pictures=True)
 
         proto = PROTOCOLS.get(self.source_protocol)
 
