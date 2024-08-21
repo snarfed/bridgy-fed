@@ -796,6 +796,14 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
             for recip in as1.get_objects(orig_obj, field):
                 add(cc, util.get_url(recip) or recip.get('id'))
 
+    # for CRUD activities, Pleroma (and Akkoma?) seem to crash if the activity's
+    # to and cc aren't exactly the same as the object's. (I think?)
+    # https://indieweb.social/@diego@lounge.collabfc.com/112977955332152430
+    # https://git.pleroma.social/pleroma/pleroma/-/issues/3206#note_108296
+    if type in ('Create', 'Update'):
+        activity['to'] = util.get_list(obj, 'to')
+        activity['cc'] = util.get_list(obj, 'cc')
+
     # WARNING: activity here is AS2, but we're using as1.is_dm. right now the
     # logic is effectively the same for our purposes, but watch out here if that
     # ever changes.

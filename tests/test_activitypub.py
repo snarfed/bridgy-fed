@@ -2459,6 +2459,19 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual(['https://masto.foo/@other'],
                          postprocess_as2(obj)['cc'])
 
+    def test_postprocess_as2_object_to_cc_into_activity(self):
+        got = postprocess_as2({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Create',
+            'object': {
+                'to': ['abc'],
+                'cc': ['def', 'xyz'],
+            },
+        })
+        self.assertEqual(['abc', 'https://www.w3.org/ns/activitystreams#Public'],
+                         got['to'])
+        self.assertEqual(['def', 'xyz'], got['cc'])
+
     def test_postprocess_as2_dm_note(self):
         dm = {
             'objectType': 'note',

@@ -277,6 +277,12 @@ AS2_CREATE = {
         }],
     },
     'to': [as2.PUBLIC_AUDIENCE],
+    'cc': [
+        'https://mas.to/author',
+        'https://mas.to/bystander',
+        'https://mas.to/recipient',
+        as2.PUBLIC_AUDIENCE,
+    ],
 }
 AS2_UPDATE = copy.deepcopy(AS2_CREATE)
 AS2_UPDATE.update({
