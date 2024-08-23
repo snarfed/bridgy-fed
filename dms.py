@@ -144,7 +144,7 @@ def receive(*, from_user, obj):
                 attempts = memcache.incr(attempts_key, 1)
                 if not attempts:
                     memcache.add(attempts_key, 1,
-                                 expire=REQUESTS_LIMIT_EXPIRE.total_seconds())
+                                 expire=int(REQUESTS_LIMIT_EXPIRE.total_seconds()))
                 elif attempts > REQUESTS_LIMIT_USER:
                     return reply(f"Sorry, you've hit your limit of {REQUESTS_LIMIT_USER} requests per day. Try again tomorrow!")
 
