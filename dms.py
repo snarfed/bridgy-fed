@@ -1,14 +1,18 @@
 """Protocol-independent code for sending and receiving DMs aka chat messages."""
+from datetime import timedelta
 import logging
 
 from granary import as1
 from oauth_dropins.webutil import util
 
-import common
+from common import create_task, memcache, memcache_key
 import models
 import protocol
 
 logger = logging.getLogger(__name__)
+
+REQUESTS_LIMIT_EXPIRE = timedelta(days=1)
+REQUESTS_LIMIT_USER = 10
 
 
 def maybe_send(*, from_proto, to_user, text, type=None):
@@ -61,8 +65,8 @@ def maybe_send(*, from_proto, to_user, text, type=None):
         'to': [to_user.key.id()],
     }).put()
 
-    common.create_task(queue='send', obj=obj_key.urlsafe(), protocol=to_user.LABEL,
-                       url=target.uri, user=bot.key.urlsafe())
+    create_task(queue='send', obj=obj_key.urlsafe(), protocol=to_user.LABEL,
+                url=target.uri, user=bot.key.urlsafe())
 
     if type:
         to_user.sent_dms.append(dm)
@@ -133,11 +137,25 @@ def receive(*, from_user, obj):
                     # already requested
                     return reply(f"We've already sent {to_user.user_link()} a DM. Fingers crossed!")
 
+                # check and update rate limits
+                attempts_key = f'dm-user-requests-{from_user.LABEL}-{from_user.key.id()}'
+                # incr leaves existing expiration as is, doesn't change it
+                # https://stackoverflow.com/a/4084043/186123
+                attempts = memcache.incr(attempts_key, 1)
+                if not attempts:
+                    memcache.add(attempts_key, 1,
+                                 expire=REQUESTS_LIMIT_EXPIRE.total_seconds())
+                elif attempts > REQUESTS_LIMIT_USER:
+                    return reply(f"Sorry, you've hit your limit of {REQUESTS_LIMIT_USER} requests per day. Try again tomorrow!")
+
+                # send the DM request!
                 maybe_send(from_proto=from_proto, to_user=to_user,
                            type='request_bridging', text=f"""\
 <p>Hi! {from_user.user_link(proto=to_proto)}) is using Bridgy Fed to bridge their account on {from_proto.PHRASE} into {to_proto.PHRASE} here, and they'd like to follow you. To let {from_proto.PHRASE} users see and interact with you, follow this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
 <p>If you do nothing, your account won't be bridged, and users on {from_proto.PHRASE} won't be able to see or interact with you.
 <p>Bridgy Fed will only send you this message once.""")
                 return reply(f"Got it! We'll send {to_user.user_link()} a DM. Fingers crossed!")
+
+        return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
 
     return "Couldn't understand DM: foo bar", 304

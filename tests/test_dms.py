@@ -1,4 +1,8 @@
 """Unit tests for dms.py."""
+from unittest import mock
+
+from common import memcache
+import dms
 from dms import maybe_send, receive
 from models import DM, Follower, Object
 from web import Web
@@ -229,6 +233,45 @@ class DmsTest(TestCase):
             ExplicitEnableFake.sent)
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
+
+    @mock.patch.object(dms, 'REQUESTS_LIMIT_USER', 2)
+    def test_receive_handle_request_rate_limit(self):
+        alice, bob = self.make_alice_bob()
+        eve = self.make_user(id='other:eve', cls=OtherFake, obj_as1={'x': 'y'})
+        frank = self.make_user(id='other:frank', cls=OtherFake, obj_as1={'x': 'y'})
+
+        obj = Object(our_as1=DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB)
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        obj = Object(our_as1={
+            **DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB,
+            'content': 'other:handle:eve',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+
+        self.assertEqual([
+            ('https://eefake.brid.gy/#request_bridging-dm-other:bob-2022-01-02T03:04:05+00:00',
+              'other:bob:target'),
+            ('https://eefake.brid.gy/#request_bridging-dm-other:eve-2022-01-02T03:04:05+00:00',
+              'other:eve:target'),
+        ], OtherFake.sent)
+        self.assertEqual(2, memcache.get('dm-user-requests-eefake-eefake:alice'))
+
+        # over the limit
+        OtherFake.sent = []
+        ExplicitEnableFake.sent = []
+        obj = Object(our_as1={
+            **DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB,
+            'content': 'other:handle:frank',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assertEqual([], OtherFake.sent)
+        self.assertEqual(
+            [('https://other.brid.gy/#?-dm-eefake:alice-2022-01-02T03:04:05+00:00',
+              'eefake:alice:target')],
+            ExplicitEnableFake.sent)
+        self.assertEqual(3, memcache.get('dm-user-requests-eefake-eefake:alice'))
+
 
     def test_receive_handle_wrong_protocol(self):
         self.make_user(id='other.brid.gy', cls=Web)
