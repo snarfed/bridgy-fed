@@ -182,32 +182,44 @@ class UserTest(TestCase):
         self.assertEqual('/fa/fake:handle:foo', fake_foo.user_page_path())
 
     def test_user_link_pictures_true(self):
-        self.assert_multiline_equals("""\
-<span class="logo" title="Web">🌐</span> <a class="h-card u-author" href="https://y.za/" title="y.za"> y.za</a>""", self.user.user_link(pictures=True, handle=False))
+        self.assert_multiline_equals(
+            '<span class="logo" title="Web">🌐</span> <a class="h-card u-author" href="https://y.za/" title="y.za"> y.za</a>',
+            self.user.user_link(pictures=True, handle=False))
 
         self.user.obj = Object(id='a', as2=ACTOR)
-        self.assert_multiline_equals("""\
-<span class="logo" title="Web">🌐</span> <a class="h-card u-author" href="https://y.za/" title="Mrs. ☕ Foo"><img src="https://user.com/me.jpg" class="profile"> Mrs. ☕ Foo</a>""", self.user.user_link(pictures=True, handle=False))
+        self.assert_multiline_equals(
+            '<span class="logo" title="Web">🌐</span> <a class="h-card u-author" href="https://y.za/" title="Mrs. ☕ Foo"><img src="https://user.com/me.jpg" class="profile"> Mrs. ☕ Foo</a>',
+            self.user.user_link(pictures=True, handle=False))
 
     def test_user_pictures_false(self):
         self.user.obj = Object(id='a', as2=ACTOR)
-        self.assert_multiline_equals("""\
-<a class="h-card u-author" href="https://y.za/" title="Mrs. ☕ Foo"> Mrs. ☕ Foo</a>""", self.user.user_link(pictures=False, handle=False))
+        self.assert_multiline_equals(
+            '<a class="h-card u-author" href="https://y.za/" title="Mrs. ☕ Foo"> Mrs. ☕ Foo</a>',
+            self.user.user_link(pictures=False, handle=False))
 
     def test_user_handle_true(self):
         self.user.obj = Object(id='a', as2=ACTOR)
-        self.assert_multiline_equals("""\
-<a class="h-card u-author" href="https://y.za/" title="Mrs. ☕ Foo &middot; y.za"> Mrs. ☕ Foo &middot; y.za</a>""", self.user.user_link(pictures=False, handle=True))
+        self.assert_multiline_equals(
+            '<a class="h-card u-author" href="https://y.za/" title="Mrs. ☕ Foo &middot; y.za"> Mrs. ☕ Foo &middot; y.za</a>',
+            self.user.user_link(pictures=False, handle=True))
 
     def test_user_name_false(self):
         self.user.obj = Object(id='a', as2=ACTOR)
-        self.assert_multiline_equals("""\
-<a class="h-card u-author" href="https://y.za/" title="y.za"> y.za</a>""", self.user.user_link(pictures=False, name=False))
+        self.assert_multiline_equals(
+            '<a class="h-card u-author" href="https://y.za/" title="y.za"> y.za</a>',
+            self.user.user_link(pictures=False, name=False))
+
+    def test_user_dont_duplicate_handle_as_name(self):
+        self.user.obj = Object(id='a', as2=ACTOR)
+        self.assert_multiline_equals(
+            '<a class="h-card u-author" href="https://y.za/" title="y.za"> y.za</a>',
+            self.user.user_link(pictures=False, name=False))
 
     def test_user_link_proto(self):
         self.user.obj = Object(id='y.za', as2=ACTOR)
-        self.assert_multiline_equals("""\
-<a class="h-card u-author" href="web:fake:y.za" title="Mrs. ☕ Foo &middot; fake:handle:y.za"> Mrs. ☕ Foo &middot; fake:handle:y.za</a>""", self.user.user_link(proto=Fake, handle=True))
+        self.assert_multiline_equals(
+            '<a class="h-card u-author" href="web:fake:y.za" title="Mrs. ☕ Foo &middot; fake:handle:y.za"> Mrs. ☕ Foo &middot; fake:handle:y.za</a>',
+            self.user.user_link(proto=Fake, handle=True))
 
     def test_user_proto_not_enabled(self):
         with self.assertRaises(AssertionError):
