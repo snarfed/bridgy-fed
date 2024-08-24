@@ -22,7 +22,7 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.models import JsonProperty, StringIdModel
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from oauth_dropins.webutil.util import ellipsize, json_dumps, json_loads
 from requests import RequestException
 
 import common
@@ -725,7 +725,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
           proto (protocol.Protocol): link to this protocol instead of the user's
             native protocol
         """
-        img = label = label_short = logo = a_open = a_close = ''
+        img = name_str = handle_str = dot = logo = a_open = a_close = ''
 
         if proto:
             assert self.is_enabled(proto), f"{proto.LABEL} isn't enabled"
@@ -735,29 +735,25 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
             url = self.web_url()
 
         if pictures:
-            logo = f'<span class="logo" title="{proto.__name__}">{proto.LOGO_HTML}</span>'
+            logo = f'<span class="logo" title="{proto.__name__}">{proto.LOGO_HTML}</span> '
             if pic := self.profile_picture():
-                img = f'<img src="{pic}" class="profile">'
-
-        if name:
-            label = self.name()
-            label_short = util.ellipsize(self.name(), chars=40)
+                img = f'<img src="{pic}" class="profile"> '
 
         if handle:
             handle_str = ids.translate_handle(handle=self.handle, from_=self,
                                               to=proto, enhanced=False)
-            if name:
-                label += ' &middot; '
-                label_short += ' &middot; '
 
-            label += handle_str
-            label_short += util.ellipsize(handle_str, chars=40)
+        if name and self.name() != handle_str:
+            name_str = self.name()
+
+        if handle_str and name_str:
+            dot = ' &middot; '
 
         if url:
-            a_open = f'<a class="h-card u-author" href="{url}" title="{label}">'
+            a_open = f'<a class="h-card u-author" href="{url}" title="{name_str}{dot}{handle_str}">'
             a_close = '</a>'
 
-        return f'{logo} {a_open}{img} {label_short}{a_close}'
+        return f'{logo}{a_open}{img}{ellipsize(name_str, chars=40)}{dot}{ellipsize(handle_str, chars=40)}{a_close}'
 
     def profile_picture(self):
         """Returns the user's profile picture image URL, if available, or None."""
