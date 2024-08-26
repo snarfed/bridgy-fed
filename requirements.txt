@@ -59,7 +59,7 @@ html5lib==1.1
 httplib2==0.22.0
 humanfriendly==10.0
 humanize==4.10.0
-idna==3.7
+idna==3.8
 iterators==0.2.0
 itsdangerous==2.2.0
 Jinja2==3.1.4
