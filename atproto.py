@@ -574,7 +574,7 @@ class ATProto(User, Protocol):
 
         if verb == 'flag':
             logger.info(f'flag => createReport with {record}')
-            return to_cls.create_report(record, from_user=user)
+            return create_report(input=record, from_user=user)
 
         elif verb == 'stop-following':
             logger.info(f'stop-following => delete of {base_obj.key.id()}')
@@ -583,7 +583,7 @@ class ATProto(User, Protocol):
 
         elif recip := as1.recipient_if_dm(obj.as1):
             assert recip.startswith('did:'), recip
-            return ATProto.send_chat(record, from_repo=repo, to_did=recip)
+            return send_chat(msg=record, from_repo=repo, to_did=recip)
 
         # write commit
         type = record['$type']
@@ -834,77 +834,76 @@ class ATProto(User, Protocol):
         obj.our_as1['summary'] = Bluesky('unused').truncate(
             summary, url=source_links, punctuation=('', ''), type=obj.type)
 
-    @classmethod
-    def create_report(cls, input, from_user):
-        """Sends a ``createReport`` for a ``flag`` activity.
+def create_report(*, input, from_user):
+    """Sends a ``createReport`` for a ``flag`` activity.
 
-        Args:
-          input (dict): ``createReport`` input
-          from_user (models.User): user (actor) this flag is from
+    Args:
+      input (dict): ``createReport`` input
+      from_user (models.User): user (actor) this flag is from
 
-        Returns:
-          bool: True if the report was sent successfully, False if the flag's
-            actor is not bridged into ATProto
-        """
-        assert input['$type'] == 'com.atproto.moderation.createReport#input'
+    Returns:
+      bool: True if the report was sent successfully, False if the flag's
+        actor is not bridged into ATProto
+    """
+    assert input['$type'] == 'com.atproto.moderation.createReport#input'
 
-        repo_did = from_user.get_copy(ATProto)
-        if not repo_did:
-            return False
+    repo_did = from_user.get_copy(ATProto)
+    if not repo_did:
+        return False
 
-        try:
-            repo = arroba.server.storage.load_repo(repo_did)
-        except TombstonedRepo:
-            logger.info(f'repo for {repo_did} is tombstoned, giving up')
-            return False
+    try:
+        repo = arroba.server.storage.load_repo(repo_did)
+    except TombstonedRepo:
+        logger.info(f'repo for {repo_did} is tombstoned, giving up')
+        return False
 
-        mod_host = os.environ['MOD_SERVICE_HOST']
-        token = service_jwt(host=mod_host,
-                            aud=os.environ['MOD_SERVICE_DID'],
-                            repo_did=repo_did,
-                            privkey=repo.signing_key)
+    mod_host = os.environ['MOD_SERVICE_HOST']
+    token = service_jwt(host=mod_host,
+                        aud=os.environ['MOD_SERVICE_DID'],
+                        repo_did=repo_did,
+                        privkey=repo.signing_key)
 
-        client = Client(f'https://{mod_host}', truncate=True, headers={
-                            'User-Agent': USER_AGENT,
-                            'Authorization': f'Bearer {token}',
-                        })
-        output = client.com.atproto.moderation.createReport(input)
-        logger.info(f'Created report on {mod_host}: {json_dumps(output)}')
-        return True
+    client = Client(f'https://{mod_host}', truncate=True, headers={
+                        'User-Agent': USER_AGENT,
+                        'Authorization': f'Bearer {token}',
+                    })
+    output = client.com.atproto.moderation.createReport(input)
+    logger.info(f'Created report on {mod_host}: {json_dumps(output)}')
+    return True
 
-    @classmethod
-    def send_chat(cls, msg, from_repo, to_did):
-        """Sends a chat message to this user.
 
-        Args:
-          msg (dict): ``chat.bsky.convo.defs#messageInput``
-          from_repo (arroba.repo.Repo)
-          to_did (str)
+def send_chat(*, msg, from_repo, to_did):
+    """Sends a chat message to this user.
 
-        Returns:
-          bool: True if the message was sent successfully, False otherwise, eg
-            if the recipient has disabled chat
-        """
-        assert msg['$type'] == 'chat.bsky.convo.defs#messageInput'
+    Args:
+      msg (dict): ``chat.bsky.convo.defs#messageInput``
+      from_repo (arroba.repo.Repo)
+      to_did (str)
 
-        client = chat_client(repo=from_repo,
-                             method='chat.bsky.convo.getConvoForMembers')
-        try:
-            convo = client.chat.bsky.convo.getConvoForMembers(members=[to_did])
-        except RequestException as e:
-            util.interpret_http_exception(e)
-            if e.response is not None and e.response.status_code == 400:
-                body = e.response.json()
-                if (body.get('error') == 'InvalidRequest'
-                        and body.get('message') == 'recipient has disabled incoming messages'):
-                    return False
-            raise
+    Returns:
+      bool: True if the message was sent successfully, False otherwise, eg
+        if the recipient has disabled chat
+    """
+    assert msg['$type'] == 'chat.bsky.convo.defs#messageInput'
 
-        client = chat_client(repo=from_repo, method='chat.bsky.convo.sendMessage')
-        sent = client.chat.bsky.convo.sendMessage({
-            'convoId': convo['convo']['id'],
-            'message': msg,
-        })
+    client = chat_client(repo=from_repo,
+                         method='chat.bsky.convo.getConvoForMembers')
+    try:
+        convo = client.chat.bsky.convo.getConvoForMembers(members=[to_did])
+    except RequestException as e:
+        util.interpret_http_exception(e)
+        if e.response is not None and e.response.status_code == 400:
+            body = e.response.json()
+            if (body.get('error') == 'InvalidRequest'
+                    and body.get('message') == 'recipient has disabled incoming messages'):
+                return False
+        raise
 
-        logger.info(f'Sent chat message from {from_repo.handle} to {to_did}: {json_dumps(sent)}')
-        return True
+    client = chat_client(repo=from_repo, method='chat.bsky.convo.sendMessage')
+    sent = client.chat.bsky.convo.sendMessage({
+        'convoId': convo['convo']['id'],
+        'message': msg,
+    })
+
+    logger.info(f'Sent chat message from {from_repo.handle} to {to_did}: {json_dumps(sent)}')
+    return True
