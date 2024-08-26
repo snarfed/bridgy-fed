@@ -80,6 +80,30 @@ dns_client = dns.Client(project=DNS_GCP_PROJECT)
 dns_discovery_api = googleapiclient.discovery.build('dns', 'v1')
 
 
+def chat_client(*, repo, method, **kwargs):
+    """Returns a new Bluesky chat :class:`Client` for a given XRPC method.
+
+    Args:
+      repo (arroba.repo.Repo): ATProto user
+      method (str): XRPC method NSID, eg ``chat.bsky.convo.sendMessage``
+      kwargs: passed through to the :class:`lexrpc.Client` constructor
+
+    Returns:
+      lexrpc.Client:
+    """
+    token = service_jwt(host=os.environ['CHAT_HOST'],
+                        aud=os.environ['CHAT_DID'],
+                        repo_did=repo.did,
+                        privkey=repo.signing_key,
+                        lxm=method)
+    kwargs.setdefault('headers', {}).update({
+        'User-Agent': USER_AGENT,
+        'Authorization': f'Bearer {token}',
+    })
+    kwargs.setdefault('truncate', True)
+    return Client(f'https://{os.environ["CHAT_HOST"]}', **kwargs)
+
+
 class DatastoreClient(Client):
     """Bluesky client that uses the datastore as well as remote XRPC calls.
 
@@ -863,22 +887,10 @@ class ATProto(User, Protocol):
         """
         assert msg['$type'] == 'chat.bsky.convo.defs#messageInput'
 
-        chat_host = os.environ['CHAT_HOST']
-
-        def client(lxm):
-            token = service_jwt(host=chat_host,
-                                aud=os.environ['CHAT_DID'],
-                                repo_did=from_repo.did,
-                                privkey=from_repo.signing_key,
-                                lxm=lxm)
-            return Client(f'https://{chat_host}', truncate=True, headers={
-                'User-Agent': USER_AGENT,
-                'Authorization': f'Bearer {token}',
-            })
-
-        cli = client(lxm='chat.bsky.convo.getConvoForMembers')
+        client = chat_client(repo=from_repo,
+                             method='chat.bsky.convo.getConvoForMembers')
         try:
-            convo = cli.chat.bsky.convo.getConvoForMembers(members=[to_did])
+            convo = client.chat.bsky.convo.getConvoForMembers(members=[to_did])
         except RequestException as e:
             util.interpret_http_exception(e)
             if e.response is not None and e.response.status_code == 400:
@@ -888,8 +900,8 @@ class ATProto(User, Protocol):
                     return False
             raise
 
-        cli = client(lxm='chat.bsky.convo.sendMessage')
-        sent = cli.chat.bsky.convo.sendMessage({
+        client = chat_client(repo=from_repo, method='chat.bsky.convo.sendMessage')
+        sent = client.chat.bsky.convo.sendMessage({
             'convoId': convo['convo']['id'],
             'message': msg,
         })
