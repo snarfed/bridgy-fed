@@ -48,7 +48,7 @@ google-cloud-error-reporting==1.11.0
 google-cloud-logging==3.11.2
 google-cloud-ndb==2.3.1
 google-cloud-tasks==2.16.5
-googleapis-common-protos==1.63.2
+googleapis-common-protos==1.64.0
 grpc-google-iam-v1==0.13.1
 grpcio==1.66.0
 grpcio-status==1.62.2
