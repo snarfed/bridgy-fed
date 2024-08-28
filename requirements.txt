@@ -72,7 +72,7 @@ multiformats==0.3.1.post4
 multiformats-config==0.3.1
 oauthlib==3.2.2
 packaging==24.1
-pbr==6.0.0
+pbr==6.1.0
 pkce==1.0.3
 praw==7.7.1
 prawcore==2.4.0
