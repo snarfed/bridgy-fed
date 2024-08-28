@@ -924,26 +924,22 @@ def poll_chat_task():
     logger.info(f'Polling incoming chat messages for {proto.LABEL}')
 
     from web import Web
-    user = Web.get_by_id(proto.bot_user_id())
-    repo = arroba.server.storage.load_repo(user.get_copy(ATProto))
+    bot = Web.get_by_id(proto.bot_user_id())
+    assert bot.atproto_last_chat_log_cursor
+    repo = arroba.server.storage.load_repo(bot.get_copy(ATProto))
     client = chat_client(repo=repo, method='chat.bsky.convo.getLog')
 
-    logger.info(f'Last chat log rev: {user.atproto_last_chat_log_rev}')
-    if not user.atproto_last_chat_log_rev:
-        user.atproto_last_chat_log_rev = ''
-    last_rev = max_rev = user.atproto_last_chat_log_rev
-
-    cursor = None
     while True:
-        logs = client.chat.bsky.convo.getLog(cursor=cursor)
+        # getLog returns logs in ascending order, starting from cursor
+        # https://github.com/bluesky-social/atproto/issues/2760
+        #
+        # we could use rev for idempotence, but we don't yet, since cursor alone
+        # should mostly avoid dupes, and we also de-dupe on chat message id, so
+        # we should hopefully be ok as is
+        logs = client.chat.bsky.convo.getLog(cursor=bot.atproto_last_chat_log_cursor)
         for log in logs['logs']:
-            if log['rev'] <= last_rev:
-                continue
-            max_rev = max(log['rev'], max_rev)
-
             if (log['$type'] == 'chat.bsky.convo.defs#logCreateMessage'
                     and log['message']['$type'] == 'chat.bsky.convo.defs#messageView'):
-                max_rev = max(log['message']['rev'], max_rev)
                 sender = log['message']['sender']['did']
                 id = at_uri(did=sender,
                             collection='chat.bsky.convo.defs.messageView',
@@ -953,16 +949,15 @@ def poll_chat_task():
                 common.create_task(queue='receive', obj=obj.key.urlsafe(),
                                    authed_as=sender)
 
-        # check if we've seen all the new logs since last poll
+        # check if we've caught up yet
         cursor = logs.get('cursor')
-        if not logs['logs'] or not cursor or logs['logs'][-1]['rev'] <= last_rev:
+        if cursor:
+            bot.atproto_last_chat_log_cursor = cursor
+        if not logs['logs'] or not cursor:
             break
 
     # done!
-    user.atproto_last_chat_log_rev = max_rev
-    logger.info(f'New chat log rev: {user.atproto_last_chat_log_rev}')
-    user.put()
-
+    bot.put()
     common.create_task(queue='atproto-poll-chat', proto=proto.LABEL,
                        delay=CHAT_POLL_PERIOD)
     return 'OK'

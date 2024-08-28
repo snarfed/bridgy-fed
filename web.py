@@ -113,7 +113,7 @@ class Web(User, Protocol):
 
     # only used by protocol bot users in Bluesky, for polling their chat
     # messages with chat.bsky.convo.getLog
-    atproto_last_chat_log_rev = ndb.StringProperty()
+    atproto_last_chat_log_cursor = ndb.StringProperty()
 
     # Originally, BF served Web users' AP actor ids on fed.brid.gy, eg
     # https://fed.brid.gy/snarfed.org . When we started adding new protocols, we

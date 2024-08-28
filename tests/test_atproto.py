@@ -1957,46 +1957,55 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
     @patch.object(tasks_client, 'create_task')
     @patch('requests.get', side_effect=[
-        requests_response({'logs': []}),
+        requests_response({'logs': [], 'cursor': 'neckst'}),
     ])
     def test_poll_atproto_chat_empty(self, mock_get, mock_create_task):
-        fa = self.make_user_and_repo(cls=Web, id='fa.brid.gy')
+        fa = self.make_user_and_repo(cls=Web, id='fa.brid.gy',
+                                     atproto_last_chat_log_cursor='kursur')
         resp = self.post('/queue/atproto-poll-chat?proto=fake')
         self.assert_equals(200, resp.status_code)
 
         mock_get.assert_called_with(
-            'https://chat.local/xrpc/chat.bsky.convo.getLog',
+            'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=kursur',
             json=None, data=None, headers=ANY)
-        self.assertEqual('', fa.key.get().atproto_last_chat_log_rev)
+        self.assertEqual('neckst', fa.key.get().atproto_last_chat_log_cursor)
         self.assert_task(mock_create_task, 'atproto-poll-chat', proto='fake',
                          eta_seconds=NOW_SECONDS + CHAT_POLL_PERIOD.total_seconds())
 
     @patch.object(tasks_client, 'create_task')
-    @patch('requests.get', return_value=requests_response({
-        'logs': [{
-            '$type': 'chat.bsky.convo.defs#logBeginConvo',
-            'rev': '4',
-            'convoId': 'abc',
-        }, {
-            '$type': 'chat.bsky.convo.defs#logLeaveConvo',
-            'rev': '3',
-            'convoId': 'def',
-        }, {
-            '$type': 'chat.bsky.convo.defs#logDeleteMessage',
-            'rev': '2',
-            'convoId': 'ghi',
-            'message': {},  # ...
-        }],
-    }))
+    @patch('requests.get', side_effect=[
+        requests_response({
+            'cursor': 'neckst',
+            'logs': [{
+                '$type': 'chat.bsky.convo.defs#logBeginConvo',
+                'convoId': 'abc',
+            }, {
+                '$type': 'chat.bsky.convo.defs#logLeaveConvo',
+                'convoId': 'def',
+            }, {
+                '$type': 'chat.bsky.convo.defs#logDeleteMessage',
+                'convoId': 'ghi',
+                'message': {},  # ...
+            }],
+        }),
+        requests_response({
+            'cursor': 'dunn',
+            'logs': [],
+        }),
+    ])
     def test_poll_atproto_chat_no_messages(self, mock_get, mock_create_task):
-        fa = self.make_user_and_repo(cls=Web, id='fa.brid.gy')
+        fa = self.make_user_and_repo(cls=Web, id='fa.brid.gy',
+                                     atproto_last_chat_log_cursor='kursur')
         resp = self.post('/queue/atproto-poll-chat?proto=fake')
         self.assert_equals(200, resp.status_code)
 
-        mock_get.assert_called_with(
-            'https://chat.local/xrpc/chat.bsky.convo.getLog',
+        mock_get.assert_any_call(
+            'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=kursur',
             json=None, data=None, headers=ANY)
-        self.assertEqual('4', fa.key.get().atproto_last_chat_log_rev)
+        mock_get.assert_any_call(
+            'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=neckst',
+            json=None, data=None, headers=ANY)
+        self.assertEqual('dunn', fa.key.get().atproto_last_chat_log_cursor)
         self.assert_task(mock_create_task, 'atproto-poll-chat', proto='fake',
                          eta_seconds=NOW_SECONDS + CHAT_POLL_PERIOD.total_seconds())
 
@@ -2005,21 +2014,18 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     def test_poll_atproto_chat_messages(self, mock_get, mock_create_task):
         msg_alice = {
             '$type': 'chat.bsky.convo.defs#messageView',
-            'rev': '5',
             'id': 'uvw',
             'text': 'foo bar',
             'sender': {'did': 'did:alice'},
         }
         msg_bob = {
             '$type': 'chat.bsky.convo.defs#messageView',
-            'rev': '2',
             'id': 'xyz',
             'text': 'baz biff',
             'sender': {'did': 'did:bob'},
         }
         msg_eve = {
             '$type': 'chat.bsky.convo.defs#messageView',
-            'rev': '1',
             'id': 'rst',
             'text': 'boff',
             'sender': {'did': 'did:eve'},
@@ -2027,38 +2033,45 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_get.side_effect = [
             requests_response({
+                'cursor': 'neckst',
                 'logs': [{
                     '$type': 'chat.bsky.convo.defs#logCreateMessage',
-                    'rev': '4',
                     'convoId': 'abc',
                     'message': msg_alice,
                 }, {
                     '$type': 'chat.bsky.convo.defs#logCreateMessage',
-                    'rev': '3',
                     'convoId': 'def',
                     'message': msg_bob,
                 }],
-                'cursor': 'kursur',
+                'cursor': 'neckst',
             }),
             requests_response({
+                'cursor': 'moar',
                 'logs': [{
                     '$type': 'chat.bsky.convo.defs#logCreateMessage',
-                    'rev': '1',
                     'convoId': 'abc',
                     'message': msg_eve,
                 }],
             }),
+            requests_response({
+                'cursor': 'dunn',
+                'logs': [],
+            }),
         ]
 
-        fa = self.make_user_and_repo(cls=Web, id='fa.brid.gy')
+        fa = self.make_user_and_repo(cls=Web, id='fa.brid.gy',
+                                     atproto_last_chat_log_cursor='kursur')
         resp = self.post('/queue/atproto-poll-chat?proto=fake')
         self.assert_equals(200, resp.status_code)
 
         mock_get.assert_any_call(
-            'https://chat.local/xrpc/chat.bsky.convo.getLog',
+            'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=kursur',
             json=None, data=None, headers=ANY)
         mock_get.assert_any_call(
-            'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=kursur',
+            'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=neckst',
+            json=None, data=None, headers=ANY)
+        mock_get.assert_any_call(
+            'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=moar',
             json=None, data=None, headers=ANY)
 
         id = 'at://did:alice/chat.bsky.convo.defs.messageView/uvw'
@@ -2076,6 +2089,6 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                          obj=Object(id=id).key.urlsafe())
         self.assert_object(id, source_protocol='atproto', bsky=msg_eve)
 
-        self.assertEqual('5', fa.key.get().atproto_last_chat_log_rev)
+        self.assertEqual('dunn', fa.key.get().atproto_last_chat_log_cursor)
         self.assert_task(mock_create_task, 'atproto-poll-chat', proto='fake',
                          eta_seconds=NOW_SECONDS + CHAT_POLL_PERIOD.total_seconds())
