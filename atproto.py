@@ -2,6 +2,7 @@
 
 https://atproto.com/
 """
+from datetime import timedelta
 import itertools
 import logging
 import os
@@ -32,10 +33,11 @@ from granary.bluesky import Bluesky, FROM_AS1_TYPES
 from granary.source import html_to_text, INCLUDE_LINK, Source
 from lexrpc import Client
 from requests import RequestException
+from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
+from oauth_dropins.webutil.flask_util import cloud_tasks_only, get_required_param
 from oauth_dropins.webutil.models import StringIdModel
-from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 import common
@@ -78,6 +80,8 @@ logger.info(f'Using GCP DNS project {DNS_GCP_PROJECT} zone {DNS_ZONE}')
 dns_client = dns.Client(project=DNS_GCP_PROJECT)
 # "Discovery API" https://github.com/googleapis/google-api-python-client
 dns_discovery_api = googleapiclient.discovery.build('dns', 'v1')
+
+CHAT_POLL_PERIOD = timedelta(minutes=1)
 
 
 def chat_client(*, repo, method, **kwargs):
@@ -907,3 +911,58 @@ def send_chat(*, msg, from_repo, to_did):
 
     logger.info(f'Sent chat message from {from_repo.handle} to {to_did}: {json_dumps(sent)}')
     return True
+
+
+@cloud_tasks_only
+def poll_chat_task():
+    """Polls for incoming chat messages for our protocol bot users.
+
+    Params:
+      proto: protocol label, eg ``activitypub``
+    """
+    proto = PROTOCOLS[get_required_param('proto')]
+    logger.info(f'Polling incoming chat messages for {proto.LABEL}')
+
+    from web import Web
+    user = Web.get_by_id(proto.bot_user_id())
+    repo = arroba.server.storage.load_repo(user.get_copy(ATProto))
+    client = chat_client(repo=repo, method='chat.bsky.convo.getLog')
+
+    logger.info(f'Last chat log rev: {user.atproto_last_chat_log_rev}')
+    if not user.atproto_last_chat_log_rev:
+        user.atproto_last_chat_log_rev = ''
+    last_rev = max_rev = user.atproto_last_chat_log_rev
+
+    cursor = None
+    while True:
+        logs = client.chat.bsky.convo.getLog(cursor=cursor)
+        for log in logs['logs']:
+            if log['rev'] <= last_rev:
+                continue
+            max_rev = max(log['rev'], max_rev)
+
+            if (log['$type'] == 'chat.bsky.convo.defs#logCreateMessage'
+                    and log['message']['$type'] == 'chat.bsky.convo.defs#messageView'):
+                max_rev = max(log['message']['rev'], max_rev)
+                sender = log['message']['sender']['did']
+                id = at_uri(did=sender,
+                            collection='chat.bsky.convo.defs.messageView',
+                            rkey=log['message']['id'])
+                obj = Object(id=id, bsky=log['message'], source_protocol='atproto')
+                obj.put()
+                common.create_task(queue='receive', obj=obj.key.urlsafe(),
+                                   authed_as=sender)
+
+        # check if we've seen all the new logs since last poll
+        cursor = logs.get('cursor')
+        if not logs['logs'] or not cursor or logs['logs'][-1]['rev'] <= last_rev:
+            break
+
+    # done!
+    user.atproto_last_chat_log_rev = max_rev
+    logger.info(f'New chat log rev: {user.atproto_last_chat_log_rev}')
+    user.put()
+
+    common.create_task(queue='atproto-poll-chat', proto=proto.LABEL,
+                       delay=CHAT_POLL_PERIOD)
+    return 'OK'

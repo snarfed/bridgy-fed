@@ -328,8 +328,8 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             'PLC_HOST': 'plc.local',
             'MOD_SERVICE_HOST': 'mod.service.local',
             'MOD_SERVICE_DID': 'did:mod-service',
-            'CHAT_HOST': 'chat.service.local',
-            'CHAT_DID': 'did:chat-service',
+            'CHAT_HOST': 'chat.local',
+            'CHAT_DID': 'did:chat',
         })
         atproto.appview.address = 'https://appview.local'
 

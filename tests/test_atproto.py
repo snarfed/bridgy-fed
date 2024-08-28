@@ -21,13 +21,19 @@ from granary.tests.test_bluesky import (
 )
 from multiformats import CID
 from oauth_dropins.webutil.appengine_config import tasks_client
-from oauth_dropins.webutil.testutil import NOW, requests_response
+from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads, trim_nulls
 from requests.exceptions import HTTPError
 from werkzeug.exceptions import BadRequest
 
 import atproto
-from atproto import ATProto, DatastoreClient, DNS_GCP_PROJECT, DNS_ZONE
+from atproto import (
+    ATProto,
+    CHAT_POLL_PERIOD,
+    DatastoreClient,
+    DNS_GCP_PROJECT,
+    DNS_ZONE,
+)
 import common
 from models import Follower, Object, PROTOCOLS, Target
 import protocol
@@ -78,10 +84,9 @@ class ATProtoTest(TestCase):
         common.RUN_TASKS_INLINE = False
         arroba.util.now = lambda **kwargs: NOW
 
-    def make_user_and_repo(self, **kwargs):
+    def make_user_and_repo(self, cls=Fake, id='fake:user', **kwargs):
         atp_copy = Target(uri='did:plc:user', protocol='atproto')
-        self.user = self.make_user(id='fake:user', cls=Fake, copies=[atp_copy],
-                                   **kwargs)
+        self.user = self.make_user(id=id, cls=cls, copies=[atp_copy], **kwargs)
 
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
@@ -1809,10 +1814,10 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'Authorization': ANY,
         }
         mock_get.assert_any_call(
-            'https://chat.service.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
+            'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
             json=None, data=None, headers=headers)
         mock_post.assert_called_with(
-            'https://chat.service.local/xrpc/chat.bsky.convo.sendMessage',
+            'https://chat.local/xrpc/chat.bsky.convo.sendMessage',
             json={
                 'convoId': 'convo123',
                 'message': {
@@ -1842,7 +1847,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertFalse(ATProto.send(dm, 'https://bsky.brid.gy/'))
 
         mock_get.assert_any_call(
-            'https://chat.service.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
+            'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
             json=None, data=None, headers=ANY)
 
     def test_datastore_client_get_record_datastore_object(self):
@@ -1949,3 +1954,128 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.repo.describeRepo?x=y',
             json=None, data=None, headers=ANY)
+
+    @patch.object(tasks_client, 'create_task')
+    @patch('requests.get', side_effect=[
+        requests_response({'logs': []}),
+    ])
+    def test_poll_atproto_chat_empty(self, mock_get, mock_create_task):
+        fa = self.make_user_and_repo(cls=Web, id='fa.brid.gy')
+        resp = self.post('/queue/atproto-poll-chat?proto=fake')
+        self.assert_equals(200, resp.status_code)
+
+        mock_get.assert_called_with(
+            'https://chat.local/xrpc/chat.bsky.convo.getLog',
+            json=None, data=None, headers=ANY)
+        self.assertEqual('', fa.key.get().atproto_last_chat_log_rev)
+        self.assert_task(mock_create_task, 'atproto-poll-chat', proto='fake',
+                         eta_seconds=NOW_SECONDS + CHAT_POLL_PERIOD.total_seconds())
+
+    @patch.object(tasks_client, 'create_task')
+    @patch('requests.get', return_value=requests_response({
+        'logs': [{
+            '$type': 'chat.bsky.convo.defs#logBeginConvo',
+            'rev': '4',
+            'convoId': 'abc',
+        }, {
+            '$type': 'chat.bsky.convo.defs#logLeaveConvo',
+            'rev': '3',
+            'convoId': 'def',
+        }, {
+            '$type': 'chat.bsky.convo.defs#logDeleteMessage',
+            'rev': '2',
+            'convoId': 'ghi',
+            'message': {},  # ...
+        }],
+    }))
+    def test_poll_atproto_chat_no_messages(self, mock_get, mock_create_task):
+        fa = self.make_user_and_repo(cls=Web, id='fa.brid.gy')
+        resp = self.post('/queue/atproto-poll-chat?proto=fake')
+        self.assert_equals(200, resp.status_code)
+
+        mock_get.assert_called_with(
+            'https://chat.local/xrpc/chat.bsky.convo.getLog',
+            json=None, data=None, headers=ANY)
+        self.assertEqual('4', fa.key.get().atproto_last_chat_log_rev)
+        self.assert_task(mock_create_task, 'atproto-poll-chat', proto='fake',
+                         eta_seconds=NOW_SECONDS + CHAT_POLL_PERIOD.total_seconds())
+
+    @patch.object(tasks_client, 'create_task')
+    @patch('requests.get')
+    def test_poll_atproto_chat_messages(self, mock_get, mock_create_task):
+        msg_alice = {
+            '$type': 'chat.bsky.convo.defs#messageView',
+            'rev': '5',
+            'id': 'uvw',
+            'text': 'foo bar',
+            'sender': {'did': 'did:alice'},
+        }
+        msg_bob = {
+            '$type': 'chat.bsky.convo.defs#messageView',
+            'rev': '2',
+            'id': 'xyz',
+            'text': 'baz biff',
+            'sender': {'did': 'did:bob'},
+        }
+        msg_eve = {
+            '$type': 'chat.bsky.convo.defs#messageView',
+            'rev': '1',
+            'id': 'rst',
+            'text': 'boff',
+            'sender': {'did': 'did:eve'},
+        }
+
+        mock_get.side_effect = [
+            requests_response({
+                'logs': [{
+                    '$type': 'chat.bsky.convo.defs#logCreateMessage',
+                    'rev': '4',
+                    'convoId': 'abc',
+                    'message': msg_alice,
+                }, {
+                    '$type': 'chat.bsky.convo.defs#logCreateMessage',
+                    'rev': '3',
+                    'convoId': 'def',
+                    'message': msg_bob,
+                }],
+                'cursor': 'kursur',
+            }),
+            requests_response({
+                'logs': [{
+                    '$type': 'chat.bsky.convo.defs#logCreateMessage',
+                    'rev': '1',
+                    'convoId': 'abc',
+                    'message': msg_eve,
+                }],
+            }),
+        ]
+
+        fa = self.make_user_and_repo(cls=Web, id='fa.brid.gy')
+        resp = self.post('/queue/atproto-poll-chat?proto=fake')
+        self.assert_equals(200, resp.status_code)
+
+        mock_get.assert_any_call(
+            'https://chat.local/xrpc/chat.bsky.convo.getLog',
+            json=None, data=None, headers=ANY)
+        mock_get.assert_any_call(
+            'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=kursur',
+            json=None, data=None, headers=ANY)
+
+        id = 'at://did:alice/chat.bsky.convo.defs.messageView/uvw'
+        self.assert_task(mock_create_task, 'receive', authed_as='did:alice',
+                         obj=Object(id=id).key.urlsafe())
+        self.assert_object(id, source_protocol='atproto', bsky=msg_alice)
+
+        id = 'at://did:bob/chat.bsky.convo.defs.messageView/xyz'
+        self.assert_task(mock_create_task, 'receive', authed_as='did:bob',
+                         obj=Object(id=id).key.urlsafe())
+        self.assert_object(id, source_protocol='atproto', bsky=msg_bob)
+
+        id = 'at://did:eve/chat.bsky.convo.defs.messageView/rst'
+        self.assert_task(mock_create_task, 'receive', authed_as='did:eve',
+                         obj=Object(id=id).key.urlsafe())
+        self.assert_object(id, source_protocol='atproto', bsky=msg_eve)
+
+        self.assertEqual('5', fa.key.get().atproto_last_chat_log_rev)
+        self.assert_task(mock_create_task, 'atproto-poll-chat', proto='fake',
+                         eta_seconds=NOW_SECONDS + CHAT_POLL_PERIOD.total_seconds())

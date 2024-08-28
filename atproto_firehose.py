@@ -1,5 +1,4 @@
-"""Bridgy Fed firehose client. Enqueues receive tasks for events for bridged users.
- """
+"""ATProto firehose client. Enqueues receive tasks for events for bridged users."""
 from collections import namedtuple
 from datetime import datetime, timedelta
 import itertools

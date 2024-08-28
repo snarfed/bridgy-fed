@@ -35,6 +35,8 @@ app.add_url_rule('/queue/poll-feed', view_func=web.poll_feed_task, methods=['POS
 app.add_url_rule('/queue/receive', view_func=protocol.receive_task, methods=['POST'])
 app.add_url_rule('/queue/send', view_func=protocol.send_task, methods=['POST'])
 app.add_url_rule('/queue/webmention', view_func=web.webmention_task, methods=['POST'])
+app.add_url_rule('/queue/atproto-poll-chat', view_func=atproto.poll_chat_task,
+                 methods=['POST'])
 
 
 @app.get('/liveness_check')

@@ -526,10 +526,10 @@ class IntegrationTests(TestCase):
             'Authorization': ANY,
         }
         mock_get.assert_any_call(
-            'https://chat.service.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
+            'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
             json=None, data=None, headers=headers)
         mock_post.assert_called_with(
-            'https://chat.service.local/xrpc/chat.bsky.convo.sendMessage',
+            'https://chat.local/xrpc/chat.bsky.convo.sendMessage',
             json={
                 'convoId': 'convo123',
                 'message': {
