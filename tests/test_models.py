@@ -825,6 +825,23 @@ class ObjectTest(TestCase):
             }],
         }, obj.as1)
 
+    def test_as1_from_bsky_messageView(self):
+        self.store_object(id='did:alice', raw=DID_DOC)
+        obj = Object(id='at://did:alice/chat.bsky.convo.defs.messageView/123', bsky={
+            '$type': 'chat.bsky.convo.defs#messageView',
+            'id': '123',
+            'rev': '456',
+            'sender': {'did': 'did:bob'},
+            'text': 'foo bar',
+        })
+        self.assert_equals({
+            'author': 'did:bob',
+            'content': 'foo bar',
+            'id': 'at://did:alice/chat.bsky.convo.defs.messageView/123',
+            'objectType': 'note',
+            'to': ['did:alice'],
+        }, obj.as1)
+
     def test_as1_from_bsky_unsupported_type(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         obj = Object(id='at://did:plc:user/un.known/123', bsky={

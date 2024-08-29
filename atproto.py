@@ -942,10 +942,16 @@ def poll_chat_task():
                     and log['message']['$type'] == 'chat.bsky.convo.defs#messageView'):
                 sender = log['message']['sender']['did']
                 if sender != repo.did:
+                    # generate synthetic at:// URI for this message
                     id = at_uri(did=sender,
                                 collection='chat.bsky.convo.defs.messageView',
                                 rkey=log['message']['id'])
-                    obj = Object(id=id, bsky=log['message'], source_protocol='atproto')
+                    msg_as1 = {
+                        **bluesky.to_as1(log['message']),
+                        'to': [bot.key.id()],
+                    }
+                    obj = Object(id=id, source_protocol='atproto', bsky=log['message'],
+                                 our_as1=msg_as1)
                     obj.put()
                     common.create_task(queue='receive', obj=obj.key.urlsafe(),
                                        authed_as=sender)

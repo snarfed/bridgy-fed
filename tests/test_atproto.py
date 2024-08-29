@@ -2089,12 +2089,24 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         id = 'at://did:alice/chat.bsky.convo.defs.messageView/uvw'
         self.assert_task(mock_create_task, 'receive', authed_as='did:alice',
                          obj=Object(id=id).key.urlsafe())
-        self.assert_object(id, source_protocol='atproto', bsky=msg_alice)
+        self.assert_object(id, source_protocol='atproto', our_as1={
+            'objectType': 'note',
+            'id': 'at://did:alice/chat.bsky.convo.defs.messageView/uvw',
+            'author': 'did:alice',
+            'content': 'foo bar',
+            'to': ['fa.brid.gy'],
+        })
 
         id = 'at://did:bob/chat.bsky.convo.defs.messageView/xyz'
         self.assert_task(mock_create_task, 'receive', authed_as='did:bob',
                          obj=Object(id=id).key.urlsafe())
-        self.assert_object(id, source_protocol='atproto', bsky=msg_bob)
+        self.assert_object(id, source_protocol='atproto', our_as1={
+            'objectType': 'note',
+            'id': 'at://did:bob/chat.bsky.convo.defs.messageView/xyz',
+            'author': 'did:bob',
+            'content': 'baz biff',
+            'to': ['fa.brid.gy'],
+        })
 
         id = 'at://did:plc:user/chat.bsky.convo.defs.messageView/lmno'
         self.assertIsNone(Object.get_by_id(id))
@@ -2102,7 +2114,13 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         id = 'at://did:eve/chat.bsky.convo.defs.messageView/rst'
         self.assert_task(mock_create_task, 'receive', authed_as='did:eve',
                          obj=Object(id=id).key.urlsafe())
-        self.assert_object(id, source_protocol='atproto', bsky=msg_eve)
+        self.assert_object(id, source_protocol='atproto', our_as1={
+            'objectType': 'note',
+            'id': 'at://did:eve/chat.bsky.convo.defs.messageView/rst',
+            'author': 'did:eve',
+            'content': 'boff',
+            'to': ['fa.brid.gy'],
+        })
 
         self.assertEqual('dunn', fa.key.get().atproto_last_chat_log_cursor)
         self.assert_task(mock_create_task, 'atproto-poll-chat', proto='fake',
