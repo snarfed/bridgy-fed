@@ -941,13 +941,14 @@ def poll_chat_task():
             if (log['$type'] == 'chat.bsky.convo.defs#logCreateMessage'
                     and log['message']['$type'] == 'chat.bsky.convo.defs#messageView'):
                 sender = log['message']['sender']['did']
-                id = at_uri(did=sender,
-                            collection='chat.bsky.convo.defs.messageView',
-                            rkey=log['message']['id'])
-                obj = Object(id=id, bsky=log['message'], source_protocol='atproto')
-                obj.put()
-                common.create_task(queue='receive', obj=obj.key.urlsafe(),
-                                   authed_as=sender)
+                if sender != repo.did:
+                    id = at_uri(did=sender,
+                                collection='chat.bsky.convo.defs.messageView',
+                                rkey=log['message']['id'])
+                    obj = Object(id=id, bsky=log['message'], source_protocol='atproto')
+                    obj.put()
+                    common.create_task(queue='receive', obj=obj.key.urlsafe(),
+                                       authed_as=sender)
 
         # check if we've caught up yet
         cursor = logs.get('cursor')
