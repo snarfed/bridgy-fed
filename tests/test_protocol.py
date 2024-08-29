@@ -759,13 +759,13 @@ class ProtocolTest(TestCase):
                 Fake.check_supported(Object(our_as1=obj))
 
         # Fake doesn't support DMs, ExplicitEnableFake does
-        for actor, recip in (
+        for author, recip in (
                 ('ap.brid.gy', 'did:bob'),
                 ('did:bob', 'ap.brid.gy'),
         ):
             bot_dm = Object(our_as1={
                 'objectType': 'note',
-                'actor': actor,
+                'author': author,
                 'to': [recip],
                 'content': 'hello world',
             })
@@ -773,15 +773,29 @@ class ProtocolTest(TestCase):
             with self.assertRaises(NoContent):
                 Fake.check_supported(bot_dm)
 
+        # not from or to a protocol bot user
         dm = Object(our_as1={
             'objectType': 'note',
-            'actor': 'did:alice',
+            'author': 'did:alice',
             'to': ['did:bob'],
             'content': 'hello world',
         })
         for proto in Fake, ExplicitEnableFake:
             with self.subTest(proto=proto), self.assertRaises(NoContent):
                 proto.check_supported(dm)
+
+        # from and to a copy id of a protocol bot user
+        self.make_user(cls=Web, id='ap.brid.gy',
+                       copies=[Target(protocol='fake', uri='fake:ap-bot')])
+        common.protocol_user_copy_ids.cache_clear()
+        dm.our_as1['author'] = 'fake:ap-bot'
+        proto.check_supported(dm)
+
+        dm.our_as1.update({
+            'author': 'did:alice',
+            'to': ['fake:ap-bot'],
+        })
+        proto.check_supported(dm)
 
     def test_bot_follow(self):
         self.make_user(id='fa.brid.gy', cls=Web)

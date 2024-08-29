@@ -1614,9 +1614,10 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
 
         # DMs are only allowed to/from protocol bot accounts
         if recip := as1.recipient_if_dm(obj.as1):
+            protocol_user_ids = PROTOCOL_DOMAINS + common.protocol_user_copy_ids()
             if (not cls.SUPPORTS_DMS
-                    or (recip not in PROTOCOL_DOMAINS
-                        and as1.get_owner(obj.as1) not in PROTOCOL_DOMAINS)):
+                    or (recip not in protocol_user_ids
+                        and as1.get_owner(obj.as1) not in protocol_user_ids)):
                 error(f"Bridgy Fed doesn't support DMs", status=204)
 
 

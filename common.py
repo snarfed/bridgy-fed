@@ -13,6 +13,7 @@ import cachetools
 from Crypto.Util import number
 from flask import abort, g, has_request_context, make_response, request
 from google.cloud.error_reporting.util import build_flask_context
+from google.cloud import ndb
 from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
 from google.cloud.ndb.key import Key
 from google.protobuf.timestamp_pb2 import Timestamp
@@ -106,6 +107,19 @@ else:
         '10.126.144.3', timeout=10, connect_timeout=10,  # seconds
         allow_unicode_keys=True)
     global_cache = MemcacheCache(memcache)
+
+
+@functools.cache
+def protocol_user_copy_ids():
+    """Returns all copy ids for protocol bot users."""
+    ids = []
+
+    from web import Web
+    for user in ndb.get_multi(Web(id=domain).key for domain in PROTOCOL_DOMAINS):
+        if user:
+            ids.extend(copy.uri for copy in user.copies)
+
+    return tuple(ids)
 
 
 def base64_to_long(x):
