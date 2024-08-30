@@ -839,7 +839,7 @@ class ObjectTest(TestCase):
             'content': 'foo bar',
             'id': 'at://did:alice/chat.bsky.convo.defs.messageView/123',
             'objectType': 'note',
-            'to': ['did:alice'],
+            'to': ['?'],
         }, obj.as1)
 
     def test_as1_from_bsky_unsupported_type(self):
