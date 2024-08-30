@@ -140,7 +140,8 @@ def subscribe():
             logger.warning(f'Got error from relay! {payload}')
             continue
         elif header.get('t') != '#commit':
-            logger.info(f'Got {header.get("t")} from relay: {payload}')
+            if header.get('t') not in ('#account', '#identity', '#handle'):
+                logger.info(f'Got {header.get("t")} from relay: {payload}')
             continue
 
         # parse payload
