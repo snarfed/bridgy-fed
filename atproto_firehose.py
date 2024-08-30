@@ -92,7 +92,7 @@ def _load_dids():
 
         dids_initialized.set()
         total = len(atproto_dids) + len(new_bridged)
-        logger.info(f'DIDs: {total} ATProto {len(atproto_dids)} (+{len(new_atproto)}), AtpRepo {len(bridged_dids)} (+{len(new_bridged)})')
+        logger.info(f'DIDs: {total} ATProto {len(atproto_dids)} (+{len(new_atproto)}), AtpRepo {len(bridged_dids)} (+{len(new_bridged)}); new_commits {new_commits.qsize()}')
 
 
 def subscriber():
