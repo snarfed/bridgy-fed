@@ -391,11 +391,14 @@ def report_error(msg, *, exception=False, **kwargs):
             return
 
     http_context = build_flask_context(request) if has_request_context() else None
-    fn = (error_reporting_client.report_exception if exception
-          else error_reporting_client.report)
 
     try:
-        fn(msg, http_context=http_context, **kwargs)
+        if exception:
+            error_reporting_client.report_exception(
+                http_context=http_context, **kwargs)
+        else:
+            error_reporting_client.report(
+                msg, http_context=http_context, **kwargs)
     except BaseException:
         kwargs['exception'] = exception
         logger.warning(f'Failed to report error! {kwargs}', exc_info=exception)
