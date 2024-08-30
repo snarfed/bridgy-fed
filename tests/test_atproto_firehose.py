@@ -546,14 +546,23 @@ class ATProtoFirehoseHandleTest(TestCase):
     def test_unsupported_type(self, mock_create_task):
         orig_objs = Object.query().count()
 
-        new_commits.put(Op(repo='did:plc:user', action='delete', seq=789,
+        new_commits.put(Op(repo='did:plc:user', action='update', seq=789,
                            path='app.bsky.graph.listitem/123', record={
                                '$type': 'app.bsky.graph.listitem',
                                'subject': 'did:bob',
                                'list': 'at://did:alice/app.bsky.graph.list/456',
                                'a_cid': A_CID,  # check that we encode this ok
                            }))
+        handle(limit=1)
 
+        self.assertEqual(orig_objs, Object.query().count())
+        mock_create_task.assert_not_called()
+
+    def test_delete_unsupported_type_no_record(self, mock_create_task):
+        orig_objs = Object.query().count()
+
+        new_commits.put(Op(repo='did:plc:user', action='delete', seq=789,
+                           path='app.bsky.graph.listitem/123', record=None))
         handle(limit=1)
 
         self.assertEqual(orig_objs, Object.query().count())
