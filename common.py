@@ -394,9 +394,11 @@ def report_error(msg, *, exception=False, **kwargs):
 
     try:
         if exception:
+            logger.error('', exc_info=True)
             error_reporting_client.report_exception(
                 http_context=http_context, **kwargs)
         else:
+            logger.error(msg)
             error_reporting_client.report(
                 msg, http_context=http_context, **kwargs)
     except BaseException:
