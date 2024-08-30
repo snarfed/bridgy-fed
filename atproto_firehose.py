@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import itertools
 import logging
 import os
-from queue import SimpleQueue
+from queue import Queue
 from threading import Event, Lock, Thread, Timer
 import time
 
@@ -44,7 +44,11 @@ Op = namedtuple('Op', ['action', 'repo', 'path', 'seq', 'record'],
                 defaults=[None])
 
 # contains Ops
-new_commits = SimpleQueue()
+#
+# maxsize is important here! if we hit this limit, subscribe will block when it
+# tries to add more commits until handle consumes some. this keeps subscribe
+# from getting too far ahead of handle and using too much memory in this queue.
+new_commits = Queue(maxsize=500)
 
 # global so that subscribe can reuse it across calls
 subscribe_cursor = None
