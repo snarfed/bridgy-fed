@@ -287,7 +287,7 @@ def handle(limit=None):
         type, _ = op.path.strip('/').split('/', maxsplit=1)
         record_json = dag_json.encode(op.record, dialect='atproto')
         if type not in ATProto.SUPPORTED_RECORD_TYPES:
-            logger.info(f'Skipping unsupported type {op.record["$type"]}: {record_json}')
+            logger.info(f'Skipping unsupported type {op.record.get("$type")}: {record_json}')
             return
 
         at_uri = f'at://{op.repo}/{op.path}'

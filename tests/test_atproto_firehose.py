@@ -535,6 +535,16 @@ class ATProtoFirehoseHandleTest(TestCase):
         self.assertEqual(orig_objs, Object.query().count())
         mock_create_task.assert_not_called()
 
+    def test_missing_type(self, mock_create_task):
+        orig_objs = Object.query().count()
+
+        new_commits.put(Op(repo='did:plc:user', action='delete', seq=789,
+                           path='app.bsky.graph.listitem/123', record={'foo': 'bar'}))
+        handle(limit=1)
+
+        self.assertEqual(orig_objs, Object.query().count())
+        mock_create_task.assert_not_called()
+
     def test_store_cursor(self, mock_create_task):
         now = None
         def _now(tz=None):
