@@ -94,7 +94,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         self.cursor.put()
         assert new_commits.empty()
 
-        atproto_firehose.subscribe_cursor = None
+        atproto_firehose.cursor = None
         atproto_firehose.atproto_dids = set()
         atproto_firehose.atproto_loaded_at = datetime(1900, 1, 1)
         atproto_firehose.bridged_dids = set()
@@ -440,6 +440,33 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         # tombstoned AtpRepo shouldn't be loaded into bridged_dids
         self.assertNotIn('did:plc:eve', atproto_firehose.bridged_dids)
 
+    def test_store_cursor(self):
+        now = None
+        def _now(tz=None):
+            assert tz is None
+            nonlocal now
+            return now
+
+        util.now = _now
+
+        self.cursor.cursor = 444
+        self.cursor.put()
+
+        op = Op(repo='did:x', action='create', path='y', seq=789, record={'a': 'b'})
+        # hasn't quite been long enough to store new cursor
+        now = (self.cursor.updated.replace(tzinfo=timezone.utc)
+               + STORE_CURSOR_FREQ - timedelta(seconds=1))
+        FakeWebsocketClient.setup_receive(op)
+        self.subscribe()
+        self.assertEqual(444, self.cursor.key.get().cursor)
+
+        # now it's been long enough
+        now = (self.cursor.updated.replace(tzinfo=timezone.utc)
+               + STORE_CURSOR_FREQ + timedelta(seconds=1))
+        FakeWebsocketClient.setup_receive(op)
+        self.subscribe()
+        self.assertEqual(790, self.cursor.key.get().cursor)
+
 
 @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
 class ATProtoFirehoseHandleTest(TestCase):
@@ -451,9 +478,6 @@ class ATProtoFirehoseHandleTest(TestCase):
         user = self.make_user('did:plc:user', cls=ATProto,
                               enabled_protocols=['eefake'],
                               obj_bsky=ACTOR_PROFILE_BSKY)
-
-        self.cursor = Cursor(id='bgs.local com.atproto.sync.subscribeRepos')
-        self.cursor.put()
 
         atproto_firehose.atproto_dids = None
         atproto_firehose.bridged_dids = None
@@ -544,32 +568,3 @@ class ATProtoFirehoseHandleTest(TestCase):
 
         self.assertEqual(orig_objs, Object.query().count())
         mock_create_task.assert_not_called()
-
-    def test_store_cursor(self, mock_create_task):
-        now = None
-        def _now(tz=None):
-            assert tz is None
-            nonlocal now
-            return now
-
-        util.now = _now
-
-        self.cursor.cursor = 444
-        self.cursor.put()
-
-        op = Op(repo='did:plc:user', action='create', seq=789,
-                path='app.bsky.feed.post/123', record=POST_BSKY)
-
-        # hasn't quite been long enough to store new cursor
-        now = (self.cursor.updated.replace(tzinfo=timezone.utc)
-               + STORE_CURSOR_FREQ - timedelta(seconds=1))
-        new_commits.put(op)
-        handle(limit=1)
-        self.assertEqual(444, self.cursor.key.get().cursor)
-
-        # now it's been long enough
-        now = (self.cursor.updated.replace(tzinfo=timezone.utc)
-               + STORE_CURSOR_FREQ + timedelta(seconds=1))
-        new_commits.put(op)
-        handle(limit=1)
-        self.assertEqual(789, self.cursor.key.get().cursor)

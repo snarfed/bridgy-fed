@@ -51,7 +51,7 @@ Op = namedtuple('Op', ['action', 'repo', 'path', 'seq', 'record'],
 new_commits = Queue(maxsize=500)
 
 # global so that subscribe can reuse it across calls
-subscribe_cursor = None
+cursor = None
 
 # global: _load_dids populates them, subscribe and handle use them
 atproto_dids = set()
@@ -123,18 +123,19 @@ def subscribe():
     Args:
       reconnect (bool): whether to always reconnect after we get disconnected
     """
-    global subscribe_cursor
-    if not subscribe_cursor:
-        cursor = Cursor.get_by_id(
+    global cursor
+    if not cursor:
+        cursor = Cursor.get_or_insert(
             f'{os.environ["BGS_HOST"]} com.atproto.sync.subscribeRepos')
-        assert cursor
-        subscribe_cursor = cursor.cursor + 1 if cursor.cursor else None
+        # TODO: remove? does this make us skip events? if we remove it, will we
+        # infinite loop when we fail on an event?
+        if cursor.cursor:
+            cursor.cursor += 1
 
     client = Client(f'https://{os.environ["BGS_HOST"]}',
                     headers={'User-Agent': USER_AGENT})
 
-    for header, payload in client.com.atproto.sync.subscribeRepos(
-            cursor=subscribe_cursor):
+    for header, payload in client.com.atproto.sync.subscribeRepos(cursor=cursor.cursor):
         # parse header
         if header.get('op') == -1:
             logger.warning(f'Got error from relay! {payload}')
@@ -146,7 +147,9 @@ def subscribe():
 
         # parse payload
         repo = payload.get('repo')
-        assert repo
+        if not repo:
+            logger.warning(f'Payload missing repo! {payload}')
+            continue
 
         seq = payload.get('seq')
         if not seq:
@@ -155,7 +158,12 @@ def subscribe():
 
         # if we fail processing this commit and raise an exception up to subscriber,
         # skip it and start with the next commit when we're restarted
-        subscribe_cursor = seq + 1
+        cursor.cursor = seq + 1
+
+        if util.now().replace(tzinfo=None) - cursor.updated > STORE_CURSOR_FREQ:
+            # it's been long enough, update our stored cursor
+            logger.info(f'updating stored cursor to {cursor.cursor}')
+            cursor.put()
 
         # ops = ' '.join(f'{op.get("action")} {op.get("path")}'
         #                for op in payload.get('ops', []))
@@ -280,10 +288,6 @@ def handler():
 
 
 def handle(limit=None):
-    cursor = Cursor.get_by_id(
-        f'{os.environ["BGS_HOST"]} com.atproto.sync.subscribeRepos')
-    assert cursor
-
     def _handle(op):
         type, _ = op.path.strip('/').split('/', maxsplit=1)
         record_json = dag_json.encode(op.record, dialect='atproto')
@@ -322,15 +326,7 @@ def handle(limit=None):
                                        source_protocol=ATProto.LABEL, **record_kwarg)
             create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=op.repo)
         except BaseException:
-            if DEBUG:
-                raise
             report_exception()
-
-        if util.now().replace(tzinfo=None) - cursor.updated > STORE_CURSOR_FREQ:
-            # it's been long enough, update our stored cursor
-            logger.info(f'updating stored cursor to {op.seq}')
-            cursor.cursor = op.seq
-            cursor.put()
 
     seen = 0
     while op := new_commits.get():
