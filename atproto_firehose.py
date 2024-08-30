@@ -164,6 +164,8 @@ def subscribe():
             # it's been long enough, update our stored cursor
             logger.info(f'updating stored cursor to {cursor.cursor}')
             cursor.put()
+            # when running locally, comment out put above and uncomment this
+            # cursor.updated = util.now().replace(tzinfo=None)
 
         # ops = ' '.join(f'{op.get("action")} {op.get("path")}'
         #                for op in payload.get('ops', []))
@@ -320,11 +322,12 @@ def handle(limit=None):
             return
 
         try:
-            # logger.info(f'enqueuing receive task for {at_uri}')
             obj = Object.get_or_create(id=obj_id, authed_as=op.repo, status='new',
                                        users=[ATProto(id=op.repo).key],
                                        source_protocol=ATProto.LABEL, **record_kwarg)
             create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=op.repo)
+            # when running locally, comment out above and uncomment this
+            # logger.info(f'enqueuing receive task for {at_uri}')
         except BaseException:
             report_exception()
 
