@@ -30,6 +30,8 @@ BSKY_TEAM_CIDRS = (
     ip_network('108.179.139.0/24'),
 )
 
+HANDLE_THREADS = 10
+
 logger = logging.getLogger(__name__)
 
 models.reset_protocol_properties()
@@ -106,7 +108,8 @@ if LOCAL_SERVER or not DEBUG:
     assert 'atproto_firehose.handler' not in threads
 
     Thread(target=atproto_firehose.subscriber, name='atproto_firehose.subscriber').start()
-    Thread(target=atproto_firehose.handler, name='atproto_firehose.handler').start()
+    for i in range(HANDLE_THREADS):
+        Thread(target=atproto_firehose.handler, name=f'atproto_firehose.handler-{i}').start()
 
 
 # send requestCrawl to relay every 5m.
