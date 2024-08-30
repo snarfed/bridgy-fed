@@ -7,7 +7,6 @@ from unittest import skip
 from unittest.mock import patch
 
 from arroba.tests.testutil import dns_answer
-from cachetools import LRUCache, TTLCache
 from google.cloud import ndb
 from google.cloud.ndb.global_cache import _InProcessGlobalCache
 from granary import as2

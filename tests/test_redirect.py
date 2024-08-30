@@ -11,7 +11,6 @@ from oauth_dropins.webutil.testutil import requests_response
 from . import testutil
 
 from flask_app import app
-from google.cloud.ndb.global_cache import _InProcessGlobalCache
 from models import Object
 import protocol
 from web import Web
