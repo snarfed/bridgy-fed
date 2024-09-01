@@ -30,7 +30,7 @@ BSKY_TEAM_CIDRS = (
     ip_network('108.179.139.0/24'),
 )
 
-HANDLE_THREADS = 10
+HANDLE_THREADS = 40
 
 logger = logging.getLogger(__name__)
 

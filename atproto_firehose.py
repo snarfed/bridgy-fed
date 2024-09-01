@@ -1,20 +1,24 @@
 """ATProto firehose client. Enqueues receive tasks for events for bridged users."""
 from collections import namedtuple
 from datetime import datetime, timedelta
+from io import BytesIO
 import itertools
 import logging
 import os
 from queue import Queue
 from threading import Event, Lock, Thread, Timer
+import threading
 import time
 
 from arroba.datastore_storage import AtpRepo
 from arroba.util import parse_at_uri
 from carbox import read_car
+import dag_cbor
 import dag_json
 from google.cloud import ndb
 from granary.bluesky import AT_URI_PATTERN
 from lexrpc.client import Client
+import libipld
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
@@ -43,12 +47,12 @@ Op = namedtuple('Op', ['action', 'repo', 'path', 'seq', 'record'],
                 # record is optional
                 defaults=[None])
 
-# contains payload JSON dicts
+# contains bytes, websocket frames
 #
 # maxsize is important here! if we hit this limit, subscribe will block when it
 # tries to add more commits until handle consumes some. this keeps subscribe
 # from getting too far ahead of handle and using too much memory in this queue.
-new_commits = Queue(maxsize=200)
+events = Queue(maxsize=200)
 
 # global so that subscribe can reuse it across calls
 cursor = None
@@ -92,7 +96,7 @@ def _load_dids():
 
         dids_initialized.set()
         total = len(atproto_dids) + len(bridged_dids)
-        logger.info(f'DIDs: {total} ATProto {len(atproto_dids)} (+{len(new_atproto)}), AtpRepo {len(bridged_dids)} (+{len(new_bridged)}); new_commits {new_commits.qsize()}')
+        logger.info(f'DIDs: {total} ATProto {len(atproto_dids)} (+{len(new_atproto)}), AtpRepo {len(bridged_dids)} (+{len(new_bridged)}); events {events.qsize()}')
 
 
 def subscriber():
@@ -135,43 +139,12 @@ def subscribe():
     client = Client(f'https://{os.environ["BGS_HOST"]}',
                     headers={'User-Agent': USER_AGENT})
 
-    for header, payload in client.com.atproto.sync.subscribeRepos(cursor=cursor.cursor):
-        # parse header
-        if header.get('op') == -1:
-            logger.warning(f'Got error from relay! {payload}')
-            continue
-        elif header.get('t') != '#commit':
-            if header.get('t') not in ('#account', '#identity', '#handle'):
-                logger.info(f'Got {header.get("t")} from relay: {payload}')
-            continue
-
-        # parse payload
-        repo = payload.get('repo')
-        if not repo:
-            logger.warning(f'Payload missing repo! {payload}')
-            continue
-
-        seq = payload.get('seq')
-        if not seq:
-            logger.warning(f'Payload missing seq! {payload}')
-            continue
-
-        # if we fail processing this commit and raise an exception up to subscriber,
-        # skip it and start with the next commit when we're restarted
-        cursor.cursor = seq + 1
-
-        if util.now().replace(tzinfo=None) - cursor.updated > STORE_CURSOR_FREQ:
-            # it's been long enough, update our stored cursor
-            # logger.info(f'updating stored cursor to {cursor.cursor}')
-            # cursor.put()
-            # when running locally, comment out put above and uncomment this
-            cursor.updated = util.now().replace(tzinfo=None)
-
+    for frame in client.com.atproto.sync.subscribeRepos(cursor=cursor.cursor):
         # ops = ' '.join(f'{op.get("action")} {op.get("path")}'
         #                for op in payload.get('ops', []))
         # logger.info(f'seeing {payload.get("seq")} {repo} {ops}')
 
-        new_commits.put(payload)
+        events.put(frame)
 
 
 def handler():
@@ -200,13 +173,15 @@ def handle(limit=None):
         type, _ = op.path.strip('/').split('/', maxsplit=1)
         record_json = dag_json.encode(op.record, dialect='atproto')
         if type not in ATProto.SUPPORTED_RECORD_TYPES:
-            logger.info(f'Skipping unsupported type {type}: {record_json}')
+            logger.info(f'Skipping unsupported type {type}: {record_json}[:1000]')
             return
 
         at_uri = f'at://{op.repo}/{op.path}'
 
         # store object, enqueue receive task
         if op.action in ('create', 'update'):
+            if created_at := op.record.get('createdAt'):
+                logger.info(f'record createdAt {created_at}')
             record_kwarg = {
                 'bsky': json_loads(record_json),
             }
@@ -228,12 +203,12 @@ def handle(limit=None):
             return
 
         try:
-            # obj = Object.get_or_create(id=obj_id, authed_as=op.repo, status='new',
-            #                            users=[ATProto(id=op.repo).key],
-            #                            source_protocol=ATProto.LABEL, **record_kwarg)
-            # create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=op.repo)
+            obj = Object.get_or_create(id=obj_id, authed_as=op.repo, status='new',
+                                       users=[ATProto(id=op.repo).key],
+                                       source_protocol=ATProto.LABEL, **record_kwarg)
+            create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=op.repo)
             # when running locally, comment out above and uncomment this
-            logger.info(f'enqueuing receive task for {at_uri}')
+            # logger.info(f'enqueuing receive task for {at_uri}')
         except BaseException:
             report_exception()
 
@@ -242,7 +217,44 @@ def handle(limit=None):
         if limit is not None and seen >= limit:
             return
 
-    while payload := new_commits.get():
+    while frame := events.get():
+        # header, payload = libipld.decode_dag_cbor_multi(frame)
+        buf = BytesIO(frame)
+        header = dag_cbor.decode(buf, allow_concat=True)
+        payload = dag_cbor.decode(buf)
+
+        # parse header
+        if header.get('op') == -1:
+            logger.warning(f'Got error from relay! {payload}')
+            continue
+        elif header.get('t') != '#commit':
+            if header.get('t') not in ('#account', '#identity', '#handle'):
+                logger.info(f'Got {header.get("t")} from relay: {payload}')
+            continue
+
+        # parse payload
+        repo = payload.get('repo')
+        if not repo:
+            logger.warning(f'Payload missing repo! {payload}')
+            continue
+
+        seq = payload.get('seq')
+        if not seq:
+            logger.warning(f'Payload missing seq! {payload}')
+            continue
+
+        # if we fail processing this commit and raise an exception up to subscriber,
+        # skip it and start with the next commit when we're restarted
+        cursor.cursor = seq + 1
+
+        if (threading.current_thread().name == 'atproto_firehose.handler-0'
+            and util.now().replace(tzinfo=None) - cursor.updated > STORE_CURSOR_FREQ):
+            # it's been long enough, update our stored cursor
+            logger.info(f'updating stored cursor to {cursor.cursor}')
+            cursor.put()
+            # when running locally, comment out put above and uncomment this
+            # cursor.updated = util.now().replace(tzinfo=None)
+
         if payload['repo'] in bridged_dids:
             logger.info(f'Ignoring record from our non-ATProto bridged user {payload["repo"]}')
             continue
