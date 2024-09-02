@@ -299,7 +299,7 @@ def translate_object_id(*, id, from_, to):
       str: the corresponding id in ``to``
     """
     id, from_, to = validate(id, from_, to)
-    assert from_.owns_id(id) is not False or from_.LABEL == 'ui'
+    assert from_.owns_id(id) is not False or from_.LABEL == 'ui', (from_.LABEL, id)
 
     # bsky.app profile URL to DID
     if to.LABEL == 'atproto':
