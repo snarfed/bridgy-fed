@@ -1700,7 +1700,7 @@ def send_task():
                 if form.get('orig_obj') else None)
 
     # send
-    logger.info(f'Sending {protocol} {obj.type} {obj.key.id()} to {url}')
+    logger.info(f'Sending {obj.source_protocol} {obj.type} {obj.key.id()} to {protocol} {url}')
     logger.debug(f'  AS1: {json_dumps(obj.as1, indent=2)}')
     sent = None
     try:
