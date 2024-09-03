@@ -130,6 +130,8 @@ def run():
         user.manual_opt_out = False
         user.put()
 
+    assert not user.status, user.status
+
     # give AS1 delete activity to receive
     delete_base_id = user.web_url() if from_proto is Web else user_id
     delete_id = f'{delete_base_id}#bridgy-fed-delete-{util.now().isoformat()}'
