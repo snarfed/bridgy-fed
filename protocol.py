@@ -953,7 +953,8 @@ class Protocol:
                 return dms.receive(from_user=from_user, obj=obj)
 
         # fetch actor if necessary
-        if actor and actor.keys() == set(['id']):
+        if (actor and actor.keys() == set(['id'])
+                and obj.type not in ('delete', 'undo')):
             logger.debug('Fetching actor so we have name, profile photo, etc')
             actor_obj = from_cls.load(actor['id'])
             if actor_obj and actor_obj.as1:

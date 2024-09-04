@@ -1622,10 +1622,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(204, resp.status_code)
         self.assertTrue(obj.key.get().deleted)
         self.assert_object(delete['id'],
-                           our_as1={
-                               **as2.to_as1(delete),
-                               'actor': as2.to_as1(ACTOR),
-                           },
+                           as2=delete,
                            type='delete',
                            source_protocol='activitypub',
                            status='ignored',

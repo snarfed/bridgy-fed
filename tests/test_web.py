@@ -1590,7 +1590,7 @@ class WebTest(TestCase):
                            status='complete',
                            our_as1={
                                **DELETE_AS1,
-                               'actor': ACTOR_AS1_UNWRAPPED,
+                               'actor': 'user.com',
                            },
                            delivered=inboxes,
                            type='delete',

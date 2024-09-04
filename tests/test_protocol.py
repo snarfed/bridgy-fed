@@ -1820,6 +1820,29 @@ class ProtocolReceiveTest(TestCase):
                                  )
         self.assertEqual([(obj.key.id(), 'fake:shared:target')], Fake.sent)
 
+    def test_delete_doesnt_fetch_author(self):
+        self.user.obj_key.delete()
+
+        delete_as1 = {
+            'id': 'fake:delete',
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': 'fake:user',
+            'object': 'fake:post',
+        }
+        _, status = Fake.receive_as1(delete_as1, authed_as='fake:user')
+        self.assertEqual(204, status)
+
+        self.assert_object('fake:post', source_protocol=None, deleted=True)
+
+        obj = self.assert_object('fake:delete',
+                                 status='ignored',
+                                 our_as1=delete_as1,
+                                 type='delete',
+                                 users=[self.user.key],
+                                 )
+        self.assertEqual([], Fake.fetched)
+
     def test_delete_no_followers_no_stored_object(self):
         delete_as1 = {
             'id': 'fake:delete',
