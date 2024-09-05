@@ -21,7 +21,7 @@ cffi==1.17.0
 charset-normalizer==3.3.2
 click==8.1.7
 colorama==0.4.6
-cryptography==43.0.0
+cryptography==43.0.1
 dag-cbor==0.3.3
 Deprecated==1.2.14
 dnspython==2.6.1
