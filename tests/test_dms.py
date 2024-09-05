@@ -7,6 +7,7 @@ from dms import maybe_send, receive
 from models import DM, Follower, Object
 from web import Web
 
+from oauth_dropins.webutil.flask_util import NotModified
 from .testutil import ExplicitEnableFake, Fake, OtherFake, TestCase
 
 DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB = {
@@ -85,8 +86,10 @@ class DmsTest(TestCase):
             **DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB,
             'content': 'foo bar',
         })
-        self.assertEqual(("Couldn't understand DM: foo bar", 304),
-                         receive(from_user=alice, obj=obj))
+        with self.assertRaises(NotModified) as e:
+            receive(from_user=alice, obj=obj)
+
+        self.assertIn("Couldn't understand DM: foo bar", str(e.exception))
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
 
@@ -150,6 +153,23 @@ class DmsTest(TestCase):
         alice, _ = self.make_alice_bob()
 
         obj = Object(our_as1=DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB)
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assertEqual(
+            [('https://other.brid.gy/#?-dm-eefake:alice-2022-01-02T03:04:05+00:00',
+              'eefake:alice:target')],
+            ExplicitEnableFake.sent)
+        self.assertEqual(
+            [('https://eefake.brid.gy/#request_bridging-dm-other:bob-2022-01-02T03:04:05+00:00',
+              'other:bob:target')],
+            OtherFake.sent)
+
+    def test_receive_handle_strips_leading_at_sign(self):
+        alice, _ = self.make_alice_bob()
+
+        obj = Object(our_as1={
+            **DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB,
+            'content': '@other:handle:bob',
+        })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assertEqual(
             [('https://other.brid.gy/#?-dm-eefake:alice-2022-01-02T03:04:05+00:00',
@@ -280,8 +300,10 @@ class DmsTest(TestCase):
             **DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB,
                              'content': 'fake:eve',
         })
-        self.assertEqual(("Couldn't understand DM: foo bar", 304),
-                         receive(from_user=Fake(id='fake:user'), obj=obj))
+        with self.assertRaises(NotModified) as e:
+            receive(from_user=Fake(id='fake:user'), obj=obj)
+
+        self.assertIn("Couldn't understand DM: foo bar", str(e.exception))
         self.assertEqual([], ExplicitEnableFake.sent)
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)

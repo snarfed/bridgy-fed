@@ -3,6 +3,7 @@ from datetime import timedelta
 import logging
 
 from granary import as1
+from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil import util
 
 from common import create_task, memcache, memcache_key
@@ -110,8 +111,16 @@ def receive(*, from_user, obj):
         from_user.disable_protocol(to_proto)
         return 'OK', 200
 
-    # request a user
-    elif to_proto.owns_handle(content) is not False:
+    # are they requesting a user?
+    if not to_proto.owns_handle(content) and content.startswith('@'):
+        logging.info("doesn't look like a handle, trying without leading @")
+        content = content.removeprefix('@')
+
+    if to_proto.owns_handle(content) is not False:
+        to_id = to_proto.handle_to_id(content)
+        if not to_id:
+            return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
+
         def reply(text, type=None):
             maybe_send(from_proto=to_proto, to_user=from_user, text=text, type=type)
             return 'OK', 200
@@ -119,43 +128,42 @@ def receive(*, from_user, obj):
         if not from_user.is_enabled(to_proto):
             return reply(f'Please bridge your account to {to_proto.PHRASE} by following this account before requesting another user.')
 
-        if to_id := to_proto.handle_to_id(content):
-            handle = content
-            if to_user := to_proto.get_or_create(to_id):
-                from_proto = from_user.__class__
+        handle = content
+        to_user = to_proto.get_or_create(to_id)
+        if not to_user:
+            return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
 
-                if not to_user.obj:
-                    # doesn't exist
-                    return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
+        from_proto = from_user.__class__
 
-                elif to_user.is_enabled(from_proto):
-                    # already bridged
-                    return reply(f'{to_user.user_link()} is already bridged into {from_proto.PHRASE}.')
+        if not to_user.obj:
+            # doesn't exist
+            return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
 
-                elif (models.DM(protocol=from_proto.LABEL, type='request_bridging')
-                      in to_user.sent_dms):
-                    # already requested
-                    return reply(f"We've already sent {to_user.user_link()} a DM. Fingers crossed!")
+        elif to_user.is_enabled(from_proto):
+            # already bridged
+            return reply(f'{to_user.user_link()} is already bridged into {from_proto.PHRASE}.')
 
-                # check and update rate limits
-                attempts_key = f'dm-user-requests-{from_user.LABEL}-{from_user.key.id()}'
-                # incr leaves existing expiration as is, doesn't change it
-                # https://stackoverflow.com/a/4084043/186123
-                attempts = memcache.incr(attempts_key, 1)
-                if not attempts:
-                    memcache.add(attempts_key, 1,
-                                 expire=int(REQUESTS_LIMIT_EXPIRE.total_seconds()))
-                elif attempts > REQUESTS_LIMIT_USER:
-                    return reply(f"Sorry, you've hit your limit of {REQUESTS_LIMIT_USER} requests per day. Try again tomorrow!")
+        elif (models.DM(protocol=from_proto.LABEL, type='request_bridging')
+              in to_user.sent_dms):
+            # already requested
+            return reply(f"We've already sent {to_user.user_link()} a DM. Fingers crossed!")
 
-                # send the DM request!
-                maybe_send(from_proto=from_proto, to_user=to_user,
-                           type='request_bridging', text=f"""\
+        # check and update rate limits
+        attempts_key = f'dm-user-requests-{from_user.LABEL}-{from_user.key.id()}'
+        # incr leaves existing expiration as is, doesn't change it
+        # https://stackoverflow.com/a/4084043/186123
+        attempts = memcache.incr(attempts_key, 1)
+        if not attempts:
+            memcache.add(attempts_key, 1,
+                         expire=int(REQUESTS_LIMIT_EXPIRE.total_seconds()))
+        elif attempts > REQUESTS_LIMIT_USER:
+            return reply(f"Sorry, you've hit your limit of {REQUESTS_LIMIT_USER} requests per day. Try again tomorrow!")
+
+        # send the DM request!
+        maybe_send(from_proto=from_proto, to_user=to_user, type='request_bridging', text=f"""\
 <p>Hi! {from_user.user_link(proto=to_proto)} is using Bridgy Fed to bridge their account from {from_proto.PHRASE} into {to_proto.PHRASE}, and they'd like to follow you. You can bridge your account into {from_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
 <p>If you do nothing, your account won't be bridged, and users on {from_proto.PHRASE} won't be able to see or interact with you.
 <p>Bridgy Fed will only send you this message once.""")
-                return reply(f"Got it! We'll send {to_user.user_link()} a DM. Fingers crossed!")
+        return reply(f"Got it! We'll send {to_user.user_link()} a DM. Fingers crossed!")
 
-        return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
-
-    return "Couldn't understand DM: foo bar", 304
+    error("Couldn't understand DM: foo bar", status=304)
