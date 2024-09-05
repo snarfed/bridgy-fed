@@ -221,18 +221,21 @@ def handle(limit=None):
         # header, payload = libipld.decode_dag_cbor_multi(frame)
         buf = BytesIO(frame)
         header = dag_cbor.decode(buf, allow_concat=True)
-        payload = dag_cbor.decode(buf)
 
         # parse header
         if header.get('op') == -1:
+            payload = dag_cbor.decode(buf)
             logger.warning(f'Got error from relay! {payload}')
             continue
-        elif header.get('t') != '#commit':
-            if header.get('t') not in ('#account', '#identity', '#handle'):
-                logger.info(f'Got {header.get("t")} from relay: {payload}')
+
+        t = header.get('t')
+        if t != '#commit':
+            if t not in ('#account', '#identity', '#handle'):
+                logger.info(f'Got {t} from relay')
             continue
 
         # parse payload
+        payload = dag_cbor.decode(buf)
         repo = payload.get('repo')
         if not repo:
             logger.warning(f'Payload missing repo! {payload}')
