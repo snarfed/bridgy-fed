@@ -218,21 +218,23 @@ def handle(limit=None):
             return
 
     while frame := events.get():
-        header, payload = libipld.decode_dag_cbor_multi(frame)
-        buf = BytesIO(frame)
+        header = libipld.decode_dag_cbor(frame)
+        # buf = BytesIO(frame)
 
         # parse header
         if header.get('op') == -1:
+            _, payload = libipld.decode_dag_cbor_multi(frame)
             logger.warning(f'Got error from relay! {payload}')
             continue
 
         t = header.get('t')
         if t != '#commit':
-            if t not in ('#account', '#identity', '#handle'):
+            if t not in ('#account', '#identity', '#handle', '#tombstone'):
                 logger.info(f'Got {t} from relay')
             continue
 
         # parse payload
+        _, payload = libipld.decode_dag_cbor_multi(frame)
         repo = payload.get('repo')
         if not repo:
             logger.warning(f'Payload missing repo! {payload}')
