@@ -12,7 +12,6 @@ import time
 
 from arroba.datastore_storage import AtpRepo
 from arroba.util import parse_at_uri
-from carbox import read_car
 import dag_cbor
 import dag_json
 from google.cloud import ndb
@@ -47,12 +46,12 @@ Op = namedtuple('Op', ['action', 'repo', 'path', 'seq', 'record'],
                 # record is optional
                 defaults=[None])
 
-# contains bytes, websocket frames
+# contains Ops
 #
 # maxsize is important here! if we hit this limit, subscribe will block when it
 # tries to add more commits until handle consumes some. this keeps subscribe
 # from getting too far ahead of handle and using too much memory in this queue.
-events = Queue(maxsize=200)
+commits = Queue(maxsize=1000)
 
 # global so that subscribe can reuse it across calls
 cursor = None
@@ -96,7 +95,7 @@ def _load_dids():
 
         dids_initialized.set()
         total = len(atproto_dids) + len(bridged_dids)
-        logger.info(f'DIDs: {total} ATProto {len(atproto_dids)} (+{len(new_atproto)}), AtpRepo {len(bridged_dids)} (+{len(new_bridged)}); events {events.qsize()}')
+        logger.info(f'DIDs: {total} ATProto {len(atproto_dids)} (+{len(new_atproto)}), AtpRepo {len(bridged_dids)} (+{len(new_bridged)}); commits {commits.qsize()}')
 
 
 def subscriber():
@@ -136,92 +135,14 @@ def subscribe():
         if cursor.cursor:
             cursor.cursor += 1
 
+    last_stored_cursor = cur_timestamp = None
+
     client = Client(f'https://{os.environ["BGS_HOST"]}',
                     headers={'User-Agent': USER_AGENT})
 
     for frame in client.com.atproto.sync.subscribeRepos(cursor=cursor.cursor):
-        # ops = ' '.join(f'{op.get("action")} {op.get("path")}'
-        #                for op in payload.get('ops', []))
-        # logger.info(f'seeing {payload.get("seq")} {repo} {ops}')
-
-        events.put(frame)
-
-
-def handler():
-    """Wrapper around :func:`handle` that catches exceptions and restarts."""
-    logger.info(f'started handle thread to store objects and enqueue receive tasks')
-
-    while True:
-        try:
-            with ndb_client.context(
-                    cache_policy=cache_policy, global_cache=global_cache,
-                    global_cache_policy=global_cache_policy,
-                    global_cache_timeout_policy=global_cache_timeout_policy):
-                handle()
-
-            # if we return cleanly, that means we hit the limit
-            break
-
-        except BaseException:
-            report_exception()
-
-
-def handle(limit=None):
-    seen = 0
-
-    def _handle(op):
-        type, _ = op.path.strip('/').split('/', maxsplit=1)
-        record_json = dag_json.encode(op.record, dialect='atproto')
-        if type not in ATProto.SUPPORTED_RECORD_TYPES:
-            logger.info(f'Skipping unsupported type {type}: {record_json}[:1000]')
-            return
-
-        at_uri = f'at://{op.repo}/{op.path}'
-
-        # store object, enqueue receive task
-        if op.action in ('create', 'update'):
-            record_kwarg = {
-                'bsky': json_loads(record_json),
-            }
-            obj_id = at_uri
-        elif op.action == 'delete':
-            verb = ('delete'
-                    if type in ('app.bsky.actor.profile', 'app.bsky.feed.post')
-                    else 'undo')
-            obj_id = f'{at_uri}#{verb}'
-            record_kwarg = {'our_as1': {
-                'objectType': 'activity',
-                'verb': verb,
-                'id': obj_id,
-                'actor': op.repo,
-                'object': at_uri,
-            }}
-        else:
-            logger.error(f'Unknown action {action} for {op.repo} {op.path}')
-            return
-
-        try:
-            obj = Object.get_or_create(id=obj_id, authed_as=op.repo, status='new',
-                                       users=[ATProto(id=op.repo).key],
-                                       source_protocol=ATProto.LABEL, **record_kwarg)
-            create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=op.repo)
-            # when running locally, comment out above and uncomment this
-            # logger.info(f'enqueuing receive task for {at_uri}')
-        except BaseException:
-            report_exception()
-
-        nonlocal seen
-        seen += 1
-        if limit is not None and seen >= limit:
-            return
-
-    last_stored_cursor = cur_timestamp = None
-
-    while frame := events.get():
-        header = libipld.decode_dag_cbor(frame)
-        # buf = BytesIO(frame)
-
         # parse header
+        header = libipld.decode_dag_cbor(frame)
         if header.get('op') == -1:
             _, payload = libipld.decode_dag_cbor_multi(frame)
             logger.warning(f'Got error from relay! {payload}')
@@ -252,8 +173,7 @@ def handle(limit=None):
         cursor.cursor = seq + 1
 
         elapsed = util.now().replace(tzinfo=None) - cursor.updated
-        if (threading.current_thread().name == 'atproto_firehose.handler-0'
-                and elapsed > STORE_CURSOR_FREQ):
+        if elapsed > STORE_CURSOR_FREQ:
             events_s = 0
             if last_stored_cursor:
                 events_s = int((cursor.cursor - last_stored_cursor) /
@@ -274,8 +194,6 @@ def handle(limit=None):
 
         blocks = {}
         if block_bytes := payload.get('blocks'):
-           # _, blocks = read_car(block_bytes)
-           #  blocks = {block.cid: block for block in blocks}
             _, blocks = libipld.decode_car(block_bytes)
 
         # detect records that reference an ATProto user, eg replies, likes,
@@ -294,7 +212,7 @@ def handle(limit=None):
                 # TODO: also detect deletes of records that *reference* our bridged
                 # users, eg a delete of a follow or like or repost of them.
                 # not easy because we need to getRecord the record to check
-                _handle(op)
+                commits.put(op)
                 continue
 
             cid = p_op.get('cid')
@@ -305,7 +223,6 @@ def handle(limit=None):
                 continue
 
             try:
-                # op = Op(*op[:-1], record=block)
                 op = Op(*op[:-1], record=block)
             except BaseException:
                 # https://github.com/hashberg-io/dag-cbor/issues/14
@@ -321,7 +238,7 @@ def handle(limit=None):
 
             if is_ours:
                 logger.info(f'Got one from our ATProto user: {op.action} {op.repo} {op.path}')
-                _handle(op)
+                commits.put(op)
                 continue
 
             subjects = []
@@ -366,6 +283,74 @@ def handle(limit=None):
 
             if subjects:
                 logger.info(f'Got one re our ATProto users {subjects}: {op.action} {op.repo} {op.path}')
-                _handle(op)
+                commits.put(op)
+
+
+def handler():
+    """Wrapper around :func:`handle` that catches exceptions and restarts."""
+    logger.info(f'started handle thread to store objects and enqueue receive tasks')
+
+    while True:
+        try:
+            with ndb_client.context(
+                    cache_policy=cache_policy, global_cache=global_cache,
+                    global_cache_policy=global_cache_policy,
+                    global_cache_timeout_policy=global_cache_timeout_policy):
+                handle()
+
+            # if we return cleanly, that means we hit the limit
+            break
+
+        except BaseException:
+            report_exception()
+
+
+def handle(limit=None):
+    def _handle(op):
+        at_uri = f'at://{op.repo}/{op.path}'
+
+        type, _ = op.path.strip('/').split('/', maxsplit=1)
+        if type not in ATProto.SUPPORTED_RECORD_TYPES:
+            logger.info(f'Skipping unsupported type {type}: at_uri')
+            return
+
+        # store object, enqueue receive task
+        if op.action in ('create', 'update'):
+            record_kwarg = {
+                'bsky': op.record,
+            }
+            obj_id = at_uri
+        elif op.action == 'delete':
+            verb = ('delete'
+                    if type in ('app.bsky.actor.profile', 'app.bsky.feed.post')
+                    else 'undo')
+            obj_id = f'{at_uri}#{verb}'
+            record_kwarg = {'our_as1': {
+                'objectType': 'activity',
+                'verb': verb,
+                'id': obj_id,
+                'actor': op.repo,
+                'object': at_uri,
+            }}
+        else:
+            logger.error(f'Unknown action {action} for {op.repo} {op.path}')
+            return
+
+        try:
+            obj = Object.get_or_create(id=obj_id, authed_as=op.repo, status='new',
+                                       users=[ATProto(id=op.repo).key],
+                                       source_protocol=ATProto.LABEL, **record_kwarg)
+            create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=op.repo)
+            # when running locally, comment out above and uncomment this
+            # logger.info(f'enqueuing receive task for {at_uri}')
+        except BaseException:
+            report_exception()
+
+    seen = 0
+    while op := commits.get():
+        _handle(op)
+        seen += 1
+        if limit is not None and seen >= limit:
+            return
 
     assert False, "handle thread shouldn't reach here!"

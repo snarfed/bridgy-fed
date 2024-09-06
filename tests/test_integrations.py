@@ -17,7 +17,7 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from activitypub import ActivityPub
 import app
 from atproto import ATProto, Cursor
-from atproto_firehose import handle, events, Op
+from atproto_firehose import handle, commits, Op
 import common
 from models import DM, Follower, Object, Target
 from web import Web

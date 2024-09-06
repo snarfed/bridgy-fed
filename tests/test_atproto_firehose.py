@@ -26,7 +26,7 @@ import simple_websocket
 
 from atproto import ATProto, Cursor
 import atproto_firehose
-from atproto_firehose import handle, events, Op, STORE_CURSOR_FREQ
+from atproto_firehose import commits, handle, Op, STORE_CURSOR_FREQ
 import common
 from models import Object
 import protocol
@@ -82,8 +82,6 @@ class FakeWebsocketClient:
         })]
 
 
-# TODO: bring back! after https://github.com/snarfed/bridgy-fed/issues/1295
-@skip
 class ATProtoFirehoseSubscribeTest(TestCase):
     def setUp(self):
         super().setUp()
@@ -94,7 +92,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
 
         self.cursor = Cursor(id='bgs.local com.atproto.sync.subscribeRepos')
         self.cursor.put()
-        assert new_commits.empty()
+        assert commits.empty()
 
         atproto_firehose.cursor = None
         atproto_firehose.atproto_dids = set()
@@ -118,20 +116,20 @@ class ATProtoFirehoseSubscribeTest(TestCase):
             Op(repo=repo, action=action, path=path, seq=789, record=record))
         self.subscribe()
 
-        op = new_commits.get()
+        op = commits.get()
         self.assertEqual(repo, op.repo)
         self.assertEqual(action, op.action)
         self.assertEqual(path, op.path)
         self.assertEqual(789, op.seq)
         self.assertEqual(record, op.record)
-        self.assertTrue(new_commits.empty())
+        self.assertTrue(commits.empty())
 
     def assert_doesnt_enqueue(self, record=None, repo='did:plc:user', action='create',
                               path='app.bsky.feed.post/abc123'):
         FakeWebsocketClient.setup_receive(
             Op(repo=repo, action=action, path=path, seq=789, record=record))
         self.subscribe()
-        self.assertTrue(new_commits.empty())
+        self.assertTrue(commits.empty())
 
     def test_error_message(self):
         FakeWebsocketClient.to_receive = [(
@@ -140,7 +138,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         )]
 
         self.subscribe()
-        self.assertTrue(new_commits.empty())
+        self.assertTrue(commits.empty())
 
     def test_info_message(self):
         FakeWebsocketClient.to_receive = [(
@@ -149,14 +147,14 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         )]
 
         self.subscribe()
-        self.assertTrue(new_commits.empty())
+        self.assertTrue(commits.empty())
 
     def test_cursor(self):
         self.cursor.cursor = 444
         self.cursor.put()
 
         self.subscribe()
-        self.assertTrue(new_commits.empty())
+        self.assertTrue(commits.empty())
         self.assertEqual(
             'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=445',
             FakeWebsocketClient.url)
@@ -168,7 +166,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         )]
 
         self.subscribe()
-        self.assertTrue(new_commits.empty())
+        self.assertTrue(commits.empty())
         self.assertEqual('https://bgs.local/xrpc/com.atproto.sync.subscribeRepos',
                          FakeWebsocketClient.url)
 
@@ -202,12 +200,12 @@ class ATProtoFirehoseSubscribeTest(TestCase):
                 '$type': 'app.bsky.feed.post#replyRef',
                 'parent': {
                     'uri': 'at://did:alice/app.bsky.feed.post/tid',
-                    # test that we encode CIDs and bytes as JSON
-                    'cid': A_CID,
+                    # test that we handle CIDs
+                    'cid': A_CID.encode(),
                 },
                 'root': {
                     'uri': '-',
-                    'cid': A_CID,
+                    'cid': A_CID.encode(),
                 },
             },
         })
@@ -381,11 +379,11 @@ class ATProtoFirehoseSubscribeTest(TestCase):
 
         FakeWebsocketClient.setup_receive(
             Op(repo='did:x', action='create', path='y', seq=4, record={'foo': 'bar'}))
-        with patch('atproto_firehose.read_car', side_effect=RuntimeError('oops')), \
+        with patch('libipld.decode_car', side_effect=RuntimeError('oops')), \
              self.assertRaises(RuntimeError):
             self.subscribe()
 
-        self.assertTrue(new_commits.empty())
+        self.assertTrue(commits.empty())
         self.assertEqual(
             'https://bgs.local/xrpc/com.atproto.sync.subscribeRepos?cursor=2',
             FakeWebsocketClient.url)
@@ -408,7 +406,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         self.assertLess(eve.created, util.now())
 
         self.subscribe()
-        self.assertTrue(new_commits.empty())
+        self.assertTrue(commits.empty())
         self.assertNotIn('did:plc:eve', atproto_firehose.atproto_dids)
 
         # updating a previously created ATProto should be enough to load it into
@@ -419,7 +417,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         self.assert_enqueues({'$type': 'app.bsky.feed.post'}, repo='did:plc:eve')
         self.assertIn('did:plc:eve', atproto_firehose.atproto_dids)
 
-    def test_load_dids_new_atprepo(self):
+    def test_load_dids_atprepo(self):
         FakeWebsocketClient.to_receive = [({'op': 1, 't': '#info'}, {})]
         self.subscribe()
 
@@ -470,8 +468,6 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         self.assertEqual(790, self.cursor.key.get().cursor)
 
 
-# TODO: bring back! after https://github.com/snarfed/bridgy-fed/issues/1295
-@skip
 @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
 class ATProtoFirehoseHandleTest(TestCase):
     def setUp(self):
@@ -489,29 +485,26 @@ class ATProtoFirehoseHandleTest(TestCase):
 
     def test_create(self, mock_create_task):
         reply = copy.deepcopy(REPLY_BSKY)
-        # test that we encode CIDs as JSON
-        reply['reply']['root']['cid'] = reply['reply']['parent']['cid'] = A_CID
+        # test that we handle actual CIDs
+        reply['reply']['root']['cid'] = \
+            reply['reply']['parent']['cid'] = A_CID.encode()
 
-        new_commits.put(Op(repo='did:plc:user', action='create', seq=789,
-                           path='app.bsky.feed.post/123', record=reply))
+        commits.put(Op(repo='did:plc:user', action='create', seq=789,
+                       path='app.bsky.feed.post/123', record=reply))
 
         handle(limit=1)
 
-        expected = copy.deepcopy(REPLY_BSKY)
-        expected['reply']['root']['cid'] = expected['reply']['parent']['cid'] = {
-            '$link': A_CID.encode(),
-        }
         user_key = ATProto(id='did:plc:user').key
         obj = self.assert_object('at://did:plc:user/app.bsky.feed.post/123',
-                                 bsky=expected, source_protocol='atproto',
+                                 bsky=reply, source_protocol='atproto',
                                  status='new', users=[user_key],
                                  ignore=['our_as1'])
         self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
                          authed_as='did:plc:user')
 
     def test_delete_post(self, mock_create_task):
-        new_commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                           path='app.bsky.feed.post/123'))
+        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
+                       path='app.bsky.feed.post/123'))
         handle(limit=1)
 
         obj_id = 'at://did:plc:user/app.bsky.feed.post/123'
@@ -529,8 +522,8 @@ class ATProtoFirehoseHandleTest(TestCase):
                          authed_as='did:plc:user')
 
     def test_delete_block_is_undo(self, mock_create_task):
-        new_commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                           path='app.bsky.graph.block/123'))
+        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
+                       path='app.bsky.graph.block/123'))
         handle(limit=1)
 
         obj_id = 'at://did:plc:user/app.bsky.graph.block/123'
@@ -550,13 +543,13 @@ class ATProtoFirehoseHandleTest(TestCase):
     def test_unsupported_type(self, mock_create_task):
         orig_objs = Object.query().count()
 
-        new_commits.put(Op(repo='did:plc:user', action='update', seq=789,
-                           path='app.bsky.graph.listitem/123', record={
-                               '$type': 'app.bsky.graph.listitem',
-                               'subject': 'did:bob',
-                               'list': 'at://did:alice/app.bsky.graph.list/456',
-                               'a_cid': A_CID,  # check that we encode this ok
-                           }))
+        commits.put(Op(repo='did:plc:user', action='update', seq=789,
+                       path='app.bsky.graph.listitem/123', record={
+                           '$type': 'app.bsky.graph.listitem',
+                           'subject': 'did:bob',
+                           'list': 'at://did:alice/app.bsky.graph.list/456',
+                           'a_cid': A_CID,  # check that we encode this ok
+                       }))
         handle(limit=1)
 
         self.assertEqual(orig_objs, Object.query().count())
@@ -565,8 +558,8 @@ class ATProtoFirehoseHandleTest(TestCase):
     def test_delete_unsupported_type_no_record(self, mock_create_task):
         orig_objs = Object.query().count()
 
-        new_commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                           path='app.bsky.graph.listitem/123', record=None))
+        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
+                       path='app.bsky.graph.listitem/123', record=None))
         handle(limit=1)
 
         self.assertEqual(orig_objs, Object.query().count())
@@ -575,8 +568,8 @@ class ATProtoFirehoseHandleTest(TestCase):
     def test_missing_type(self, mock_create_task):
         orig_objs = Object.query().count()
 
-        new_commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                           path='app.bsky.graph.listitem/123', record={'foo': 'bar'}))
+        commits.put(Op(repo='did:plc:user', action='delete', seq=789,
+                       path='app.bsky.graph.listitem/123', record={'foo': 'bar'}))
         handle(limit=1)
 
         self.assertEqual(orig_objs, Object.query().count())
