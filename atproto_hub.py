@@ -35,7 +35,7 @@ BSKY_TEAM_CIDRS = (
 # from handler. No clue why. They happen more often as the number of threads
 # increases. Are ndb clients/contexts not thread safe?!
 # https://console.cloud.google.com/errors/detail/CJrBqKnRzPfNRA;time=PT1H;refresh=true;locations=global?project=bridgy-federated
-HANDLE_THREADS = 20
+HANDLE_THREADS = 100
 
 logger = logging.getLogger(__name__)
 
