@@ -12,7 +12,7 @@ runtime_config:
     runtime_version: "3.11"
 
 resources:
-  cpu: 2
+  cpu: 4
   memory_gb: 7.6
 
 env_variables:
