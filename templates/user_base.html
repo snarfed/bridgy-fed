@@ -47,7 +47,7 @@
       {% set handle = user.handle_as(proto) %}
       &middot;
       <nobr title="{{ proto.__name__ }} (bridged): {{ handle }}">
-      {% if url %} <a href="{{ url }}"> {% endif %}
+      {% if url %} <a rel="me" href="{{ url }}"> {% endif %}
         <span class="logo">{{ proto.LOGO_HTML|safe }}</span>
         {{ util.ellipsize(handle, chars=40) }}
       {% if url %} </a> {% endif %}

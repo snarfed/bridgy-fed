@@ -97,8 +97,6 @@ class IntegrationTests(TestCase):
             user.obj.copies = [Target(uri=profile_id, protocol='atproto')]
             user.obj.put()
 
-    # TODO: bring back! after https://github.com/snarfed/bridgy-fed/issues/1295
-    @skip
     @patch('requests.post')
     def test_atproto_notify_reply_to_activitypub(self, mock_post):
         """ATProto poll notifications, deliver reply to ActivityPub.
@@ -134,8 +132,8 @@ class IntegrationTests(TestCase):
                 },
             },
         }
-        new_commits.put(Op(repo='did:plc:alice', action='create', seq=456,
-                           path='app.bsky.feed.post/456', record=reply))
+        commits.put(Op(repo='did:plc:alice', action='create', seq=456,
+                       path='app.bsky.feed.post/456', record=reply))
         Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
         handle(limit=1)
 
@@ -165,8 +163,6 @@ class IntegrationTests(TestCase):
         })
 
 
-    # TODO: bring back! after https://github.com/snarfed/bridgy-fed/issues/1295
-    @skip
     @patch('requests.post', return_value=requests_response(''))
     @patch('requests.get', return_value=test_web.WEBMENTION_REL_LINK)
     def test_atproto_follow_to_web(self, mock_get, mock_post):
@@ -189,8 +185,8 @@ class IntegrationTests(TestCase):
             'subject': 'did:plc:bob',
             'createdAt': '2022-01-02T03:04:05.000Z',
         }
-        new_commits.put(Op(repo='did:plc:alice', action='create', seq=123,
-                           path='app.bsky.graph.follow/123', record=follow))
+        commits.put(Op(repo='did:plc:alice', action='create', seq=123,
+                       path='app.bsky.graph.follow/123', record=follow))
         Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
         handle(limit=1)
 
@@ -404,7 +400,7 @@ class IntegrationTests(TestCase):
         args, kwargs = mock_post.call_args_list[1]
         self.assert_equals(('http://inst/inbox',), args)
         message = """\
-<p>Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at <a class="h-card u-author" href="https://bsky.app/profile/alice.inst.ap.brid.gy" title="alice.inst.ap.brid.gy">alice.inst.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@inst">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>"""
+<p>Welcome to Bridgy Fed! Your account will soon be bridged to Bluesky at <a class="h-card u-author" rel="me" href="https://bsky.app/profile/alice.inst.ap.brid.gy" title="alice.inst.ap.brid.gy">alice.inst.ap.brid.gy</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/ap/@alice@inst">your user page</a> for more information. To disable this and delete your bridged profile, block this account.</p>"""
         self.assert_equals({
             'type': 'Create',
             'id': 'https://bsky.brid.gy/r/https://bsky.brid.gy/#welcome-dm-https://inst/alice-2022-01-02T03:04:05+00:00-create',
@@ -487,8 +483,6 @@ class IntegrationTests(TestCase):
         self.assertEqual(0, len(user.copies))
 
 
-    # TODO: bring back! after https://github.com/snarfed/bridgy-fed/issues/1295
-    @skip
     @patch('requests.post', return_value=requests_response({  # sendMessage
         'id': 'chat456',
         'rev': '22222222tef2d',
@@ -517,8 +511,8 @@ class IntegrationTests(TestCase):
             '$type': 'app.bsky.graph.follow',
             'subject': 'did:plc:ap',
         }
-        new_commits.put(Op(repo='did:plc:alice', action='create', seq=123,
-                           path='app.bsky.graph.follow/123', record=follow))
+        commits.put(Op(repo='did:plc:alice', action='create', seq=123,
+                       path='app.bsky.graph.follow/123', record=follow))
         Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
         handle(limit=1)
 
@@ -564,8 +558,6 @@ class IntegrationTests(TestCase):
             }, data=None, headers=headers)
 
 
-    # TODO: bring back! after https://github.com/snarfed/bridgy-fed/issues/1295
-    @skip
     @patch('requests.post')
     @patch('requests.get')
     def test_atproto_block_ap_bot_user_disables_protocol_deletes_actor(
@@ -584,8 +576,8 @@ class IntegrationTests(TestCase):
             'subject': 'did:plc:ap',
             'createdAt': '2022-01-02T03:04:05.000Z'
         }
-        new_commits.put(Op(repo='did:plc:alice', action='create', seq=123,
-                           path='app.bsky.graph.block/123', record=block))
+        commits.put(Op(repo='did:plc:alice', action='create', seq=123,
+                       path='app.bsky.graph.block/123', record=block))
         Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
 
         handle(limit=1)
@@ -635,8 +627,6 @@ class IntegrationTests(TestCase):
             self.storage.load_repo('did:plc:alice')
 
 
-    # TODO: bring back! after https://github.com/snarfed/bridgy-fed/issues/1295
-    @skip
     @patch('requests.post')
     @patch('requests.get')
     def test_atproto_mention_activitypub(self, mock_get, mock_post):
@@ -663,8 +653,8 @@ class IntegrationTests(TestCase):
                 },
             }],
         }
-        new_commits.put(Op(repo='did:plc:alice', action='create', seq=123,
-                           path='app.bsky.feed.post/123', record=post))
+        commits.put(Op(repo='did:plc:alice', action='create', seq=123,
+                       path='app.bsky.feed.post/123', record=post))
         Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
         handle(limit=1)
 
@@ -693,8 +683,6 @@ class IntegrationTests(TestCase):
         }, json_loads(kwargs['data']), ignore=['@context', 'contentMap', 'to', 'cc'])
 
 
-    # TODO: bring back! after https://github.com/snarfed/bridgy-fed/issues/1295
-    @skip
     @patch('requests.post')
     @patch('requests.get')
     def test_atproto_undo_block_of_activitypub(self, mock_get, mock_post):
@@ -715,8 +703,8 @@ class IntegrationTests(TestCase):
                                   'actor': 'did:plc:alice',
                               })
 
-        new_commits.put(Op(repo='did:plc:alice', action='delete', seq=123,
-                           path='app.bsky.graph.block/123'))
+        commits.put(Op(repo='did:plc:alice', action='delete', seq=123,
+                       path='app.bsky.graph.block/123'))
         Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
         handle(limit=1)
 

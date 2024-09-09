@@ -750,7 +750,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
             dot = ' &middot; '
 
         if url:
-            a_open = f'<a class="h-card u-author" href="{url}" title="{name_str}{dot}{handle_str}">'
+            a_open = f'<a class="h-card u-author" rel="me" href="{url}" title="{name_str}{dot}{handle_str}">'
             a_close = '</a>'
 
         return f'{logo}{a_open}{img}{ellipsize(name_str, chars=40)}{dot}{ellipsize(handle_str, chars=40)}{a_close}'
