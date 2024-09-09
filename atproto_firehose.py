@@ -103,19 +103,17 @@ def subscriber():
     logger.info(f'started thread to subscribe to {os.environ["BGS_HOST"]} firehose')
     load_dids()
 
-    while True:
-        try:
-            with ndb_client.context(
-                    cache_policy=cache_policy, global_cache=global_cache,
-                    global_cache_policy=global_cache_policy,
-                    global_cache_timeout_policy=global_cache_timeout_policy):
+    with ndb_client.context(
+            cache_policy=cache_policy, global_cache=global_cache,
+            global_cache_policy=global_cache_policy,
+            global_cache_timeout_policy=global_cache_timeout_policy):
+         while True:
+            try:
                 subscribe()
-
-            logger.info(f'disconnected! waiting {RECONNECT_DELAY} and then reconnecting')
-            time.sleep(RECONNECT_DELAY.total_seconds())
-
-        except BaseException:
-            report_exception()
+                logger.info(f'disconnected! waiting {RECONNECT_DELAY} and then reconnecting')
+                time.sleep(RECONNECT_DELAY.total_seconds())
+            except BaseException:
+                report_exception()
 
 
 def subscribe():
@@ -290,19 +288,17 @@ def handler():
     """Wrapper around :func:`handle` that catches exceptions and restarts."""
     logger.info(f'started handle thread to store objects and enqueue receive tasks')
 
-    while True:
-        try:
-            with ndb_client.context(
-                    cache_policy=cache_policy, global_cache=global_cache,
-                    global_cache_policy=global_cache_policy,
-                    global_cache_timeout_policy=global_cache_timeout_policy):
+    with ndb_client.context(
+            cache_policy=cache_policy, global_cache=global_cache,
+            global_cache_policy=global_cache_policy,
+            global_cache_timeout_policy=global_cache_timeout_policy):
+        while True:
+            try:
                 handle()
-
-            # if we return cleanly, that means we hit the limit
-            break
-
-        except BaseException:
-            report_exception()
+                # if we return cleanly, that means we hit the limit
+                break
+            except BaseException:
+                report_exception()
 
 
 def handle(limit=None):
