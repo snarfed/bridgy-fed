@@ -190,7 +190,7 @@ def subscribe():
             logger.info(f'Ignoring record from our non-ATProto bridged user {payload["repo"]}')
             continue
 
-        blocks = {}
+        blocks = {}  # maps bytes CID to dict block
         if block_bytes := payload.get('blocks'):
             _, blocks = libipld.decode_car(block_bytes)
 
@@ -220,14 +220,7 @@ def subscribe():
             if not cid or not block:
                 continue
 
-            try:
-                op = Op(*op[:-1], record=block)
-            except BaseException:
-                # https://github.com/hashberg-io/dag-cbor/issues/14
-                logger.error(f"Couldn't decode block {cid} seq {op.seq}",
-                             exc_info=True)
-                continue
-
+            op = Op(*op[:-1], record=block)
             type = op.record.get('$type')
             if not type:
                 logger.warning('commit record missing $type! {op.action} {op.repo} {op.path} {cid}')
@@ -288,6 +281,12 @@ def handler():
     """Wrapper around :func:`handle` that catches exceptions and restarts."""
     logger.info(f'started handle thread to store objects and enqueue receive tasks')
 
+    # important that this is outside the loop! it used to be inside, and we'd
+    # sometimes see a steady stream of google.cloud.ndb.exceptions.ContextError:
+    # No current context. NDB calls must be made in context established by
+    # google.cloud.ndb.Client.context. moving it outside the loop fixed that.
+    # not sure why.
+    # https://console.cloud.google.com/errors/detail/CIvwj_7MmsfOWw;time=PT1H;refresh=true;locations=global?project=bridgy-federated
     with ndb_client.context(
             cache_policy=cache_policy, global_cache=global_cache,
             global_cache_policy=global_cache_policy,
