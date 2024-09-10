@@ -298,12 +298,12 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1={
             **DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB,
-                             'content': 'fake:eve',
+            'content': 'fake:eve',
         })
         with self.assertRaises(NotModified) as e:
             receive(from_user=Fake(id='fake:user'), obj=obj)
 
-        self.assertIn("Couldn't understand DM: foo bar", str(e.exception))
+        self.assertIn("Couldn't understand DM: fake:eve", str(e.exception))
         self.assertEqual([], ExplicitEnableFake.sent)
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)

@@ -166,4 +166,4 @@ def receive(*, from_user, obj):
 <p>Bridgy Fed will only send you this message once.""")
         return reply(f"Got it! We'll send {to_user.user_link()} a DM. Fingers crossed!")
 
-    error("Couldn't understand DM: foo bar", status=304)
+    error(f"Couldn't understand DM: {content}", status=304)
