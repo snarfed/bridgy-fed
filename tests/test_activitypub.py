@@ -1,7 +1,7 @@
 """Unit tests for activitypub.py."""
 from base64 import b64encode
 import copy
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, UTC
 from hashlib import sha256
 import logging
 from unittest import skip
@@ -1865,7 +1865,8 @@ class ActivityPubTest(TestCase):
     @patch('models.PAGE_SIZE', 1)
     def test_followers_collection_page(self, *_):
         self.store_followers()
-        before = (datetime.utcnow() + timedelta(seconds=1)).isoformat()
+        before = (datetime.now(UTC) + timedelta(seconds=1)
+                  ).replace(tzinfo=None).isoformat()
         next = Follower.query(Follower.from_ == ActivityPub(id='http://baz').key,
                               Follower.to == self.user.key,
                               ).get().updated.isoformat()
@@ -1886,7 +1887,7 @@ class ActivityPubTest(TestCase):
         self.user = self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
         self.store_followers()
 
-        before = (datetime.utcnow() + timedelta(seconds=1)).isoformat()
+        before = (datetime.now(UTC) + timedelta(seconds=1)).isoformat()
         resp = self.client.get(f'/bsky.brid.gy/followers?before={before}',
                                base_url='https://bsky.brid.gy')
         self.assertEqual(200, resp.status_code)
@@ -1991,7 +1992,7 @@ class ActivityPubTest(TestCase):
         self.user = self.make_user('bsky.brid.gy', cls=Web, ap_subdomain='bsky')
         self.store_following()
 
-        before = (datetime.utcnow() + timedelta(seconds=1)).isoformat()
+        before = (datetime.now(UTC) + timedelta(seconds=1)).isoformat()
         resp = self.client.get(f'/bsky.brid.gy/following?before={before}',
                                base_url='https://bsky.brid.gy')
         self.assertEqual(200, resp.status_code)

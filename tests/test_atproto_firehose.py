@@ -1,6 +1,6 @@
 """Unit tests for atproto_firehose.py."""
 import copy
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, UTC
 from unittest import skip
 from unittest.mock import patch
 
@@ -402,7 +402,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
 
         self.store_object(id='did:plc:eve', raw=DID_DOC)
         eve = self.make_user('did:plc:eve', cls=ATProto)
-        util.now = datetime.utcnow
+        util.now = lambda: datetime.now(UTC).replace(tzinfo=None)
         self.assertLess(eve.created, util.now())
 
         self.subscribe()

@@ -15,7 +15,7 @@ parameters:
 jobs:
   build:
     docker:
-      - image: cimg/python:3.11
+      - image: cimg/python:3.12
 
     steps:
       - checkout

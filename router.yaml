@@ -9,7 +9,7 @@ env: flex
 runtime: python
 runtime_config:
     operating_system: ubuntu22
-    runtime_version: "3.11"
+    runtime_version: "3.12"
 
 resources:
   cpu: 6

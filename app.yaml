@@ -2,7 +2,7 @@
 
 # application: bridgy-federated
 
-runtime: python311
+runtime: python312
 
 # default_expiration: 1h
 
