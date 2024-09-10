@@ -31,6 +31,7 @@ from common import (
     global_cache,
     global_cache_policy,
     global_cache_timeout_policy,
+    report_error,
     report_exception,
     USER_AGENT,
 )

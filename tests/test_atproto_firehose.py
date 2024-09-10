@@ -574,3 +574,12 @@ class ATProtoFirehoseHandleTest(TestCase):
 
         self.assertEqual(orig_objs, Object.query().count())
         mock_create_task.assert_not_called()
+
+    @patch.object(common.error_reporting_client, 'report_exception')
+    @patch.object(Object, 'get_or_create', side_effect=RuntimeError('oops'))
+    @patch('common.DEBUG', new=False)  # with DEBUG True, report_error just raises
+    def test_exception_continues(self, mock_create_task, _, __):
+        commits.put(Op(repo='did:plc:user', action='create', seq=789,
+                       path='app.bsky.feed.post/123', record=REPLY_BSKY))
+        handle(limit=1)
+        # just check that we return instead of raising
