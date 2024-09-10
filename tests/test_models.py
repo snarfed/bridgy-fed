@@ -220,6 +220,12 @@ class UserTest(TestCase):
             '<a class="h-card u-author" rel="me" href="web:fake:y.za" title="Mrs. ☕ Foo &middot; fake:handle:y.za">Mrs. ☕ Foo &middot; fake:handle:y.za</a>',
             self.user.user_link(proto=Fake, handle=True))
 
+    def test_user_link_proto_fallback(self):
+        self.user.obj = Object(id='y.za', as2=ACTOR)
+        self.assert_multiline_equals(
+            '<a class="h-card u-author" rel="me" href="https://y.za/" title="Mrs. ☕ Foo &middot; @y.za@web.brid.gy">Mrs. ☕ Foo &middot; @y.za@web.brid.gy</a>',
+            self.user.user_link(proto=ActivityPub, proto_fallback=True, handle=True))
+
     def test_user_link_proto_not_enabled(self):
         with self.assertRaises(AssertionError):
             self.user.user_link(proto=ExplicitEnableFake)

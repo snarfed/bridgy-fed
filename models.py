@@ -710,7 +710,8 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
             if copy.protocol in (proto.LABEL, proto.ABBREV):
                 return copy.uri
 
-    def user_link(self, name=True, handle=True, pictures=False, proto=None):
+    def user_link(self, name=True, handle=True, pictures=False, proto=None,
+                  proto_fallback=False):
         """Returns a pretty HTML link to the user's profile.
 
         Can optionally include display name, handle, profile
@@ -724,12 +725,15 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
           pictures (bool): include profile picture and protocol logo
           proto (protocol.Protocol): link to this protocol instead of the user's
             native protocol
+          proto_fallback (bool): if True, and ``proto`` is provided and has no
+            no canonical profile URL for bridged users, uses the user's profile
+            URL in their native protocol
         """
         img = name_str = handle_str = dot = logo = a_open = a_close = ''
 
         if proto:
             assert self.is_enabled(proto), f"{proto.LABEL} isn't enabled"
-            url = proto.bridged_web_url_for(self)
+            url = proto.bridged_web_url_for(self, fallback=proto_fallback)
         else:
             proto = self.__class__
             url = self.web_url()

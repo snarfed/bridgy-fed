@@ -98,7 +98,7 @@ class Fake(User, protocol.Protocol):
         return f'web:{self.key.id()}'
 
     @classmethod
-    def bridged_web_url_for(cls, user):
+    def bridged_web_url_for(cls, user, fallback=False):
         return f'web:{cls.LABEL}:{user.key.id()}'
 
     @classmethod

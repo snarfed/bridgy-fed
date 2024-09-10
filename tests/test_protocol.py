@@ -409,6 +409,11 @@ class ProtocolTest(TestCase):
         self.user.obj.put()
         self.assertIsNone(Protocol.key_for(self.user.key.id()))
 
+    def test_bridged_web_url_for(self):
+        self.assertIsNone(Protocol.bridged_web_url_for(self.user))
+        self.assertEqual('https://foo.com/',
+                         Protocol.bridged_web_url_for(self.user, fallback=True))
+
     def test_targets_checks_blocklisted_per_protocol(self):
         """_targets should call the target protocol's is_blocklisted()."""
         # non-ATProto account, ATProto target (PDS) is bsky.brid.gy

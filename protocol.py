@@ -414,7 +414,7 @@ class Protocol:
         return (None, None)
 
     @classmethod
-    def bridged_web_url_for(cls, user):
+    def bridged_web_url_for(cls, user, fallback=False):
         """Returns the web URL for a user's bridged profile in this protocol.
 
         For example, for Web user ``alice.com``, :meth:`ATProto.bridged_web_url_for`
@@ -422,11 +422,14 @@ class Protocol:
 
         Args:
           user (models.User)
+          fallback (bool): if True, and bridged users have no canonical user
+            profile URL in this protocol, return the native protocol's profile URL
 
         Returns:
           str, or None if there isn't a canonical URL
         """
-        return None
+        if fallback:
+            return user.web_url()
 
     @classmethod
     def actor_key(cls, obj):
