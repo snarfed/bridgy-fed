@@ -335,7 +335,7 @@ def create_task(queue, delay=None, **params):
         logger.info(f'Running task inline: {queue} {params}')
         from router import app
         return app.test_client().post(
-            path, data=params, headers={flask_util.CLOUD_TASKS_QUEUE_HEADER: ''})
+            path, data=params, headers={flask_util.CLOUD_TASKS_TASK_HEADER: 'x'})
 
         # # alternative: run inline in this request context
         # request.form = params

@@ -164,6 +164,6 @@ def receive(*, from_user, obj):
 <p>Hi! {from_user.user_link(proto=to_proto)} is using Bridgy Fed to bridge their account from {from_proto.PHRASE} into {to_proto.PHRASE}, and they'd like to follow you. You can bridge your account into {from_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
 <p>If you do nothing, your account won't be bridged, and users on {from_proto.PHRASE} won't be able to see or interact with you.
 <p>Bridgy Fed will only send you this message once.""")
-        return reply(f"Got it! We'll send {to_user.user_link()} a DM. Fingers crossed!")
+        return reply(f"Got it! We'll send {to_user.user_link()} a message and say that you hope they'll enable the bridge. Fingers crossed!")
 
     error(f"Couldn't understand DM: {content}", status=304)

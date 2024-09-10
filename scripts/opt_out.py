@@ -188,7 +188,7 @@ def delete_ap_targets(*, from_proto=None, user=None, user_id=None):
         }
         with app.test_request_context('/queue/send', base_url='https://fed.brid.gy/',
                                       data=params, headers={
-                                          flask_util.CLOUD_TASKS_QUEUE_HEADER: '',
+                                          flask_util.CLOUD_TASKS_TASK_HEADER: 'x',
                                       }):
             # in ActivityPub, if the actor is already deleted on this instance,
             # it may return 502 here because it no longer has the actor's public

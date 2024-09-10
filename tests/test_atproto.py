@@ -29,7 +29,6 @@ from werkzeug.exceptions import BadRequest
 import atproto
 from atproto import (
     ATProto,
-    CHAT_POLL_PERIOD,
     DatastoreClient,
     DNS_GCP_PROJECT,
     DNS_ZONE,
@@ -1962,15 +1961,14 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     def test_poll_atproto_chat_empty(self, mock_get, mock_create_task):
         fa = self.make_user_and_repo(cls=Web, id='fa.brid.gy',
                                      atproto_last_chat_log_cursor='kursur')
-        resp = self.post('/queue/atproto-poll-chat', data={'proto': 'fake'})
+        resp = self.get('/cron/atproto-poll-chat?proto=fake')
         self.assert_equals(200, resp.status_code)
 
         mock_get.assert_called_with(
             'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=kursur',
             json=None, data=None, headers=ANY)
         self.assertEqual('neckst', fa.key.get().atproto_last_chat_log_cursor)
-        self.assert_task(mock_create_task, 'atproto-poll-chat', proto='fake',
-                         eta_seconds=NOW_SECONDS + CHAT_POLL_PERIOD.total_seconds())
+        mock_create_task.assert_not_called()
 
     @patch.object(tasks_client, 'create_task')
     @patch('requests.get', side_effect=[
@@ -1996,7 +1994,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     def test_poll_atproto_chat_no_messages(self, mock_get, mock_create_task):
         fa = self.make_user_and_repo(cls=Web, id='fa.brid.gy',
                                      atproto_last_chat_log_cursor='kursur')
-        resp = self.post('/queue/atproto-poll-chat', data={'proto': 'fake'})
+        resp = self.get('/cron/atproto-poll-chat?proto=fake')
         self.assert_equals(200, resp.status_code)
 
         mock_get.assert_any_call(
@@ -2006,8 +2004,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=neckst',
             json=None, data=None, headers=ANY)
         self.assertEqual('dunn', fa.key.get().atproto_last_chat_log_cursor)
-        self.assert_task(mock_create_task, 'atproto-poll-chat', proto='fake',
-                         eta_seconds=NOW_SECONDS + CHAT_POLL_PERIOD.total_seconds())
+        mock_create_task.assert_not_called()
 
     @patch.object(tasks_client, 'create_task')
     @patch('requests.get')
@@ -2071,7 +2068,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         fa = self.make_user_and_repo(cls=Web, id='fa.brid.gy',
                                      atproto_last_chat_log_cursor='kursur')
-        resp = self.post('/queue/atproto-poll-chat', data={'proto': 'fake'})
+        resp = self.get('/cron/atproto-poll-chat?proto=fake')
         self.assert_equals(200, resp.status_code)
 
         mock_get.assert_any_call(
@@ -2084,7 +2081,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'https://chat.local/xrpc/chat.bsky.convo.getLog?cursor=moar',
             json=None, data=None, headers=ANY)
 
-        self.assertEqual(4, mock_create_task.call_count)
+        self.assertEqual(3, mock_create_task.call_count)
 
         id = 'at://did:alice/chat.bsky.convo.defs.messageView/uvw'
         self.assert_task(mock_create_task, 'receive', authed_as='did:alice',
@@ -2123,5 +2120,3 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         })
 
         self.assertEqual('dunn', fa.key.get().atproto_last_chat_log_cursor)
-        self.assert_task(mock_create_task, 'atproto-poll-chat', proto='fake',
-                         eta_seconds=NOW_SECONDS + CHAT_POLL_PERIOD.total_seconds())

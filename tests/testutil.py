@@ -362,12 +362,21 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         result.failures = prune(result.failures)
         return result
 
-    def post(self, url, client=None, **kwargs):
+    def get(self, url, **kwargs):
+        """Adds Cloud tasks header to ``self.client.get``."""
+        return self._request('get', url, **kwargs)
+
+    def post(self, url, **kwargs):
         """Adds Cloud tasks header to ``self.client.post``."""
+        return self._request('post', url, **kwargs)
+
+    def _request(self, fn, url, client=None, **kwargs):
         if client is None:
-            client = self.router_client if url.startswith('/queue/') else self.client
-        kwargs.setdefault('headers', {})[flask_util.CLOUD_TASKS_QUEUE_HEADER] = ''
-        return client.post(url, **kwargs)
+            client = (self.router_client
+                      if url.startswith('/queue/') or url.startswith('/cron/')
+                      else self.client)
+        kwargs.setdefault('headers', {})[flask_util.CLOUD_TASKS_TASK_HEADER] = 'x'
+        return getattr(client, fn)(url, **kwargs)
 
     def make_user(self, id, cls, **kwargs):
         """Reuse RSA key across Users because generating it is expensive."""

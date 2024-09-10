@@ -2,3 +2,6 @@
 # docs: https://cloud.google.com/appengine/docs/standard/python3/scheduling-jobs-with-cron-yaml
 
 cron:
+- description: poll for Bluesky chat messages to @ap.brid.gy
+  url: /cron/atproto-poll-chat?proto=activitypub
+  schedule: every 999 hours

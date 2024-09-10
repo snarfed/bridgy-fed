@@ -10,6 +10,9 @@ dispatch:
   - url: "*/queue/*"
     service: router
 
+  - url: "*/cron/*"
+    service: router
+
   - url: "*/xrpc/com.atproto.sync.subscribeRepos"
     service: atproto-hub
 

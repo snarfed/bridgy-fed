@@ -81,8 +81,6 @@ dns_client = dns.Client(project=DNS_GCP_PROJECT)
 # "Discovery API" https://github.com/googleapis/google-api-python-client
 dns_discovery_api = googleapiclient.discovery.build('dns', 'v1')
 
-CHAT_POLL_PERIOD = timedelta(minutes=1)
-
 
 def chat_client(*, repo, method, **kwargs):
     """Returns a new Bluesky chat :class:`Client` for a given XRPC method.
@@ -959,6 +957,4 @@ def poll_chat_task():
 
     # done!
     bot.put()
-    common.create_task(queue='atproto-poll-chat', proto=proto.LABEL,
-                       delay=CHAT_POLL_PERIOD)
     return 'OK'
