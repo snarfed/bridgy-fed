@@ -190,7 +190,7 @@ def subscribe():
             logger.info(f'Ignoring record from our non-ATProto bridged user {payload["repo"]}')
             continue
 
-        blocks = {}  # maps bytes CID to dict block
+        blocks = {}  # maps base32 str CID to dict block
         if block_bytes := payload.get('blocks'):
             _, blocks = libipld.decode_car(block_bytes)
 
@@ -339,7 +339,7 @@ def handle(limit=None):
             # when running locally, comment out above and uncomment this
             # logger.info(f'enqueuing receive task for {at_uri}')
         except BaseException:
-            report_exception()
+            report_error(obj_id, exception=True)
 
     seen = 0
     while op := commits.get():

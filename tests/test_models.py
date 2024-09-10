@@ -821,7 +821,7 @@ class ObjectTest(TestCase):
             'url': 'https://bsky.app/profile/alice.com',
             'urls': ['https://bsky.app/profile/alice.com', 'https://alice.com/'],
             'image': [{
-                'url': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:web:alice.com&cid=bafkreim',
+                'url': 'https://some.pds/xrpc/com.atproto.sync.getBlob?did=did:web:alice.com&cid=bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq',
             }],
         }, obj.as1)
 
