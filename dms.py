@@ -7,6 +7,7 @@ from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil import util
 
 from common import create_task, memcache, memcache_key
+import ids
 import models
 import protocol
 
@@ -117,23 +118,30 @@ def receive(*, from_user, obj):
         content = content.removeprefix('@')
 
     if to_proto.owns_handle(content) is not False:
-        to_id = to_proto.handle_to_id(content)
-        if not to_id:
-            return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
+        handle = content
+        from_proto = from_user.__class__
 
         def reply(text, type=None):
             maybe_send(from_proto=to_proto, to_user=from_user, text=text, type=type)
             return 'OK', 200
 
+        try:
+            ids.translate_handle(handle=handle, from_=to_proto, to=from_user,
+                                 enhanced=False)
+        except ValueError as e:
+            logger.warning(e)
+            return reply(f"Sorry, Bridgy Fed doesn't yet support bridging handle {handle} from {to_proto.PHRASE} to {from_proto.PHRASE}.")
+
+        to_id = to_proto.handle_to_id(handle)
+        if not to_id:
+            return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
+
         if not from_user.is_enabled(to_proto):
             return reply(f'Please bridge your account to {to_proto.PHRASE} by following this account before requesting another user.')
 
-        handle = content
         to_user = to_proto.get_or_create(to_id)
         if not to_user:
             return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
-
-        from_proto = from_user.__class__
 
         if not to_user.obj:
             # doesn't exist

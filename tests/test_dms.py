@@ -1,14 +1,17 @@
 """Unit tests for dms.py."""
 from unittest import mock
 
+from atproto import ATProto
 from common import memcache
 import dms
 from dms import maybe_send, receive
+import ids
 from models import DM, Follower, Object
 from web import Web
 
 from oauth_dropins.webutil.flask_util import NotModified
 from .testutil import ExplicitEnableFake, Fake, OtherFake, TestCase
+from .test_atproto import DID_DOC
 
 DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB = {
     'objectType': 'note',
@@ -292,7 +295,6 @@ class DmsTest(TestCase):
             ExplicitEnableFake.sent)
         self.assertEqual(3, memcache.get('dm-user-requests-eefake-eefake:alice'))
 
-
     def test_receive_handle_wrong_protocol(self):
         self.make_user(id='other.brid.gy', cls=Web)
 
@@ -307,3 +309,15 @@ class DmsTest(TestCase):
         self.assertEqual([], ExplicitEnableFake.sent)
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
+
+    @mock.patch('ids.translate_handle', side_effect=ValueError('nope'))
+    def test_receive_handle_not_supported_in_target_protocol(self, _):
+        alice, bob = self.make_alice_bob()
+        obj = Object(our_as1=DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB)
+
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assertEqual(
+            [('https://other.brid.gy/#?-dm-eefake:alice-2022-01-02T03:04:05+00:00',
+              'eefake:alice:target')],
+            ExplicitEnableFake.sent)
+        self.assertEqual([], OtherFake.sent)
