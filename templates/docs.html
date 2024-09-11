@@ -33,6 +33,7 @@
 <li><a href="#format-mismatches">How does this handle formatting differences between networks?</a></li>
 <li><a href="#moderation">What about moderation? How do blocks, mutes, etc work?</a></li>
 <li><a href="#opt-out">How do I opt out and remove my site or account?</a></li>
+<li><a href="#dms">Why is Bridgy Fed chatting or DMing with me?</a></li>
 
 <br>
 
@@ -45,6 +46,8 @@
 <li><a href="#user-page">Can I see my account's status and recent activity?</a></li>
 <li><a href="#delete">How do I delete a post?</a></li>
 <!-- <li><a href="#enhanced">The <code>*.brid.gy</code> domain in my bridged account is ugly. Can I get rid of it and use my own domain/web site instead?</a></li> -->
+<li><a href="#dm-request">I want to follow someone, but they're not bridged!</a></li>
+
 
 <br>
 
@@ -238,6 +241,17 @@
 <p>If you're on the web, feel free to <a href="mailto:feedback@brid.gy">email me</a>, or you can put the text <code>#nobridge</code> in the <a href="#web-profile">profile on your home page</a> and then <a href="#update-profile">update your profile</a> on <a href="#user-page">your user page</a>.</p>
 </li>
 
+<li id="dms" class="question">Why is Bridgy Fed chatting or DMing with me?</li>
+<li class="answer">
+<p>Bridgy Fed sends a few different types of chat messages (aka DMs, or direct messages):</p>
+<ul>
+<li>When you first enable it for your account.
+<li>When you first reply to a bridged account, but you haven't enabled the bridge yourself, so they won't see your reply.
+<li>If you haven't enabled the bridge, and someone on a different network <a href="#dm-request">requests that you enable it so they can follow you</a>. (Bridgy Fed includes a link to their profile in this message.)
+<li>A confirmation or other reply when you <a href="#dm-request">message it to request that someone else enables the bridge</a>.
+</ul>
+<p>Bridgy Fed tries hard to avoid spamming. Apart from replying to your own messages, it will only send you at most one of each of these types of messages, ever.</p>
+</li>
 
 
 <br>
@@ -312,6 +326,13 @@
 <!-- <p>Yes! All supported networks let you use <a href="https://indieweb.org/personal-domain">your own domain</a> as your handle in various ways. This takes a bit of technical setup with DNS and/or a web server, but it's very doable. <a href="#fediverse-enhanced">Here are instructions for web sites bridged into the fediverse.</a></p> -->
 <!-- </li> -->
 
+
+<li id="dm-request" class="question">I want to follow someone, but they're not bridged!</li>
+<li class="answer">
+<p>Start a chat or DM with the Bridgy Fed account and send it their handle! Bridgy Fed will send them a message and say that you've requested that they enable the bridge.</p>
+<p>For example, if you're on Bluesky, and you want to follow the fediverse account <a href="https://indieweb.social/@snarfed">@snarfed@indieweb.social</a>, but they're not bridged, send a Bluesky chat message to <a href="https://bsky.app/profile/ap.brid.gy">@ap.brid.gy</a> with the text <code>@snarfed@indieweb.social</code>, and Bridgy Fed will send them a DM.</p>
+<p>Similarly, if you're on the fediverse, and you want to follow the Bluesky account <a href="https://bsky.app/profile/snarfed.bsky.social">@snarfed.bsky.social</a>, but they're not bridged, send a DM to @bsky.brid.gy@bsky.brid.gy with the text <code>@snarfed.bsky.social</code>, and Bridgy Fed will send them a chat message.</p>
+</li>
 
 
 <br>
@@ -458,7 +479,9 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <li id="bluesky-follow-fediverse" class="question">How do I find a bridged fediverse account?</li>
 <li class="answer">
-<p>If a fediverse account has enabled the bridge, it will appear in Bluesky as <code>@[user].[instance].ap.brid.gy</code>. For example, <a href="https://indieweb.social/@snarfed">@snarfed@indieweb.social</a> is bridged into Bluesky as <a href="https://bsky.app/profile/snarfed.indieweb.social.ap.brid.gy">@snarfed.indieweb.social.ap.brid.gy</a>.</p>
+<p><a href="https://bsky.app/search">Search in Bluesky</a> for their fediverse address (eg <code>@snarfed@indieweb.social</code>) or profile URL (eg <code><a href="https://indieweb.social/@snarfed">https://indieweb.social/@snarfed</a></code>), and then click the <em>People</em> tab. If they've enabled the bridge, they'll show up there.
+
+<p>Bridged fediverse accounts will appear in Bluesky as <code>@[user].[instance].ap.brid.gy</code>. For example, <a href="https://indieweb.social/@snarfed">@snarfed@indieweb.social</a> is bridged into Bluesky as <a href="https://bsky.app/profile/snarfed.indieweb.social.ap.brid.gy">@snarfed.indieweb.social.ap.brid.gy</a>.</p>
 </li>
 
 
