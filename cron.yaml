@@ -4,4 +4,4 @@
 cron:
 - description: poll for Bluesky chat messages to @ap.brid.gy
   url: /cron/atproto-poll-chat?proto=activitypub
-  schedule: every 999 hours
+  schedule: every 1 minutes
