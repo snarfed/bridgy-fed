@@ -354,7 +354,7 @@ def nodeinfo():
         },
         'protocols': [
             'activitypub',
-            'atproto',
+            'atprotocol',
             'webmention',
         ],
         'services': {
