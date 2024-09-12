@@ -4,7 +4,7 @@ from datetime import timedelta
 import logging
 from threading import Condition, Thread
 from unittest import skip
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 from arroba.tests.testutil import dns_answer
 from google.cloud import ndb
@@ -3253,3 +3253,23 @@ class ProtocolReceiveTest(TestCase):
                 })
                 self.assertEqual(204, resp.status_code)
                 self.assertEqual([], Fake.sent)
+
+    @patch.object(Fake, 'send', return_value=True)
+    def test_send_task_follow_user_use_instead(self, mock_send):
+        self.bob.use_instead = self.alice.key
+        self.bob.put()
+
+        target = Target(uri='fake:target', protocol='fake')
+        note = self.store_object(id='fake:note', undelivered=[target], our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+        })
+        resp = self.post('/queue/send', data={
+            'protocol': 'fake',
+            'obj': note.key.urlsafe(),
+            'url': 'fake:target',
+            'user': self.bob.key.urlsafe(),
+        })
+
+        _, kwargs = mock_send.call_args
+        self.assertEqual('fake:alice', kwargs['from_user'].key.id())

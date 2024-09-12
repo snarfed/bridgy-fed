@@ -1699,7 +1699,10 @@ def send_task():
 
     user = None
     if user_key := form.get('user'):
-        user = ndb.Key(urlsafe=user_key).get()
+        key = ndb.Key(urlsafe=user_key)
+        # use get_by_id so that we follow use_instead
+        user = PROTOCOLS_BY_KIND[key.kind()].get_by_id(key.id())
+
     orig_obj = (ndb.Key(urlsafe=form['orig_obj']).get()
                 if form.get('orig_obj') else None)
 
