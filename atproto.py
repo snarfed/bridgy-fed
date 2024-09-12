@@ -733,8 +733,11 @@ class ATProto(User, Protocol):
         blobs = {}  # maps str URL to dict blob object
         if fetch_blobs:
             for o in obj.as1, as1.get_object(obj.as1):
-                for url in util.get_urls(o, 'image'):
-                    if url not in blobs:
+                stream_urls = [att.get('stream', {}).get('url')
+                               for att in util.get_list(o, 'attachments')
+                               if isinstance(att, dict)]
+                for url in util.get_urls(o, 'image') + stream_urls:
+                    if url and url not in blobs:
                         try:
                             blob = AtpRemoteBlob.get_or_create(
                                 url=url, get_fn=util.requests_get)

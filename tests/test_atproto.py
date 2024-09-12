@@ -630,6 +630,38 @@ class ATProtoTest(TestCase):
 
         mock_get.assert_has_calls([self.req('http://my/pic')])
 
+    @patch('requests.get', return_value=requests_response(
+        'blob contents', content_type='video/mp4'))
+    def test_convert_fetch_blobs_true_video(self, mock_get):
+        cid = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
+        self.assertEqual({
+            '$type': 'app.bsky.feed.post',
+            'text': 'foo bar',
+            'embed': {
+                '$type': 'app.bsky.embed.video',
+                'video': {
+                    '$type': 'blob',
+                    'mimeType': 'video/mp4',
+                    'ref': cid,
+                    'size': 13,
+                },
+                'alt': 'my alt',
+            },
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'bridgyOriginalText': 'foo bar',
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'note',
+            'content': 'foo bar',
+            'attachments': [{
+                'objectType': 'video',
+                'stream': {'url': 'https://my/vid'},
+                'mimeType': 'video/mp4',
+                'displayName': 'my alt',
+            }],
+        }), fetch_blobs=True))
+
+        mock_get.assert_has_calls([self.req('https://my/vid')])
+
     @patch('requests.get', side_effect=[
         requests_response(status=404),
         requests_response('second blob contents', content_type='image/png')
