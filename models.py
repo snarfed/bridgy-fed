@@ -262,7 +262,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return user
 
     @classmethod
-    @ndb.transactional()
     def get_or_create(cls, id, propagate=False, allow_opt_out=False, **kwargs):
         """Loads and returns a :class:`User`. Creates it if necessary.
 
@@ -276,80 +275,89 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
           User: existing or new user, or None if the user is opted out
         """
         assert cls != User
-        user = cls.get_by_id(id, allow_opt_out=True)
-        if user:
-            if user.status and not allow_opt_out:
-                return None
-            user.existing = True
 
-            # TODO: propagate more fields?
-            changed = False
-            for field in ['direct', 'obj', 'obj_key']:
-                old_val = getattr(user, field, None)
-                new_val = kwargs.get(field)
-                if ((old_val is None and new_val is not None)
-                        or (field == 'direct' and not old_val and new_val)):
-                    setattr(user, field, new_val)
+        @ndb.transactional()
+        def _run():
+            user = cls.get_by_id(id, allow_opt_out=True)
+            if user:
+                if user.status and not allow_opt_out:
+                    return None
+                user.existing = True
+
+                # TODO: propagate more fields?
+                changed = False
+                for field in ['direct', 'obj', 'obj_key']:
+                    old_val = getattr(user, field, None)
+                    new_val = kwargs.get(field)
+                    if ((old_val is None and new_val is not None)
+                            or (field == 'direct' and not old_val and new_val)):
+                        setattr(user, field, new_val)
+                        changed = True
+
+                if enabled_protocols := kwargs.get('enabled_protocols'):
+                    user.enabled_protocols = (set(user.enabled_protocols)
+                                              | set(enabled_protocols))
                     changed = True
 
-            if enabled_protocols := kwargs.get('enabled_protocols'):
-                user.enabled_protocols = (set(user.enabled_protocols)
-                                          | set(enabled_protocols))
-                changed = True
+                if not propagate:
+                    if changed:
+                        user.put()
+                    return user
 
-            if not propagate:
-                if changed:
-                    user.put()
-                return user
+            else:
+                if orig := get_original(id):
+                    if orig.status and not allow_opt_out:
+                        return None
+                    orig.existing = False
+                    return orig
 
-        else:
-            if orig := get_original(id):
-                if orig.status and not allow_opt_out:
+                user = cls(id=id, **kwargs)
+                user.existing = False
+                if user.status and not allow_opt_out:
                     return None
-                orig.existing = False
-                return orig
 
-            user = cls(id=id, **kwargs)
-            user.existing = False
-            if user.status and not allow_opt_out:
-                return None
+            if propagate:
+                for label in user.enabled_protocols + list(user.DEFAULT_ENABLED_PROTOCOLS):
+                    proto = PROTOCOLS[label]
+                    if proto == cls:
+                        continue
+                    elif proto.HAS_COPIES:
+                        if not user.get_copy(proto) and user.is_enabled(proto):
+                            try:
+                                proto.create_for(user)
+                            except (ValueError, AssertionError):
+                                logger.info(f'failed creating {proto.LABEL} copy')
+                        else:
+                            logger.info(f'{proto.LABEL} not enabled or user copy already exists, skipping propagate')
+
+            # generate keys for all protocols _except_ our own
+            #
+            # these can use urandom() and do nontrivial math, so they can take time
+            # depending on the amount of randomness available and compute needed.
+            if not user.existing:
+                if cls.LABEL != 'activitypub':
+                    key = RSA.generate(KEY_BITS,
+                                       randfunc=random.randbytes if DEBUG else None)
+                    user.mod = long_to_base64(key.n)
+                    user.public_exponent = long_to_base64(key.e)
+                    user.private_exponent = long_to_base64(key.d)
+
+            try:
+                user.put()
+            except AssertionError as e:
+                error(f'Bad {cls.__name__} id {id} : {e}')
+
+            return user
+
+        user = _run()
 
         # load and propagate user and profile object
-        if not user.obj_key:
-            user.obj = cls.load(user.profile_id())
+        if user:
+            logger.debug(('Updated ' if user.existing else 'Created new ') + str(user))
+            if not user.obj_key:
+                user.obj = cls.load(user.profile_id())
+                user.put()
 
-        if propagate:
-            for label in user.enabled_protocols + list(user.DEFAULT_ENABLED_PROTOCOLS):
-                proto = PROTOCOLS[label]
-                if proto == cls:
-                    continue
-                elif proto.HAS_COPIES:
-                    if not user.get_copy(proto) and user.is_enabled(proto):
-                        try:
-                            proto.create_for(user)
-                        except (ValueError, AssertionError):
-                            logger.info(f'failed creating {proto.LABEL} copy')
-                    else:
-                        logger.info(f'{proto.LABEL} not enabled or user copy already exists, skipping propagate')
-
-        # generate keys for all protocols _except_ our own
-        #
-        # these can use urandom() and do nontrivial math, so they can take time
-        # depending on the amount of randomness available and compute needed.
-        if not user.existing:
-            if cls.LABEL != 'activitypub':
-                key = RSA.generate(KEY_BITS,
-                                   randfunc=random.randbytes if DEBUG else None)
-                user.mod = long_to_base64(key.n)
-                user.public_exponent = long_to_base64(key.e)
-                user.private_exponent = long_to_base64(key.d)
-
-        try:
-            user.put()
-        except AssertionError as e:
-            error(f'Bad {cls.__name__} id {id} : {e}')
-
-        logger.debug(('Updated ' if user.existing else 'Created new ') + str(user))
         return user
 
     @property

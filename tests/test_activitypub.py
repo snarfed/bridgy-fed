@@ -441,8 +441,8 @@ class ActivityPubTest(TestCase):
         }, got.json, ignore=['attachment', 'publicKey'])
 
     def test_actor_atproto_not_enabled(self, *_):
-        self.store_object(id='did:plc:user', raw={'foo': 'baz'})
-        self.make_user('did:plc:user', cls=ATProto)
+        obj = self.store_object(id='did:plc:user', raw={'foo': 'baz'})
+        self.make_user('did:plc:user', cls=ATProto, obj_key=obj.key)
         got = self.client.get('/ap/did:plc:user', base_url='https://bsky.brid.gy/')
         self.assertEqual(404, got.status_code)
 
