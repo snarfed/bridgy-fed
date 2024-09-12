@@ -15,6 +15,11 @@ atproto
 .. automodule:: atproto
     :exclude-members: __eq__, __getnewargs__, __getstate__, __hash__, __new__, __repr__, __str__, __weakref__
 
+atproto_firehose
+----------------
+.. automodule:: atproto_firehose
+    :exclude-members: __eq__, __getnewargs__, __getstate__, __hash__, __new__, __repr__, __str__, __weakref__
+
 common
 ------
 .. automodule:: common
@@ -25,9 +30,19 @@ convert
 .. automodule:: convert
     :exclude-members: __eq__, __getnewargs__, __getstate__, __hash__, __new__, __repr__, __str__, __weakref__
 
+dms
+------
+.. automodule:: dms
+    :exclude-members: __eq__, __getnewargs__, __getstate__, __hash__, __new__, __repr__, __str__, __weakref__
+
 follow
 ------
 .. automodule:: follow
+    :exclude-members: __eq__, __getnewargs__, __getstate__, __hash__, __new__, __repr__, __str__, __weakref__
+
+ids
+------
+.. automodule:: ids
     :exclude-members: __eq__, __getnewargs__, __getstate__, __hash__, __new__, __repr__, __str__, __weakref__
 
 models

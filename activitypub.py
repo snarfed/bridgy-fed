@@ -120,7 +120,7 @@ class ActivityPub(User, Protocol):
     SUPPORTS_DMS = True
 
     def _pre_put_hook(self):
-        """Validate id, require URL, don't allow Bridgy Fed domains.
+        r"""Validate id, require URL, don't allow Bridgy Fed domains.
 
         TODO: normalize scheme and domain to lower case. Add that to
         :class:`oauth_dropins.webutil.util.UrlCanonicalizer`\?

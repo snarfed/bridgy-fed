@@ -5,14 +5,15 @@ Bridgy Fed connects different decentralized social network protocols. It
 currently supports the
 `fediverse <https://en.wikipedia.org/wiki/Fediverse>`__ (eg
 `Mastodon <https://joinmastodon.org>`__) via
-`ActivityPub <https://activitypub.rocks/>`__, and the
+`ActivityPub <https://activitypub.rocks/>`__,
+`Bluesky <https://bsky.social/>`__ via the `AT
+Protocol <https://atproto.com/>`__, and the
 `IndieWeb <https://indieweb.org/>`__ via
 `webmentions <https://webmention.net/>`__ and
 `microformats2 <https://microformats.org/wiki/microformats2>`__.
-`Bluesky/AT
-Protocol <https://github.com/snarfed/bridgy-fed/issues/381>`__ and
-`Nostr <https://github.com/snarfed/bridgy-fed/issues/446>`__ are planned
-for 2024. Bridgy Fed translates profiles, likes, reposts, mentions,
+`Farcaster <https://github.com/snarfed/bridgy-fed/issues/447>`__ and
+`Nostr <https://github.com/snarfed/bridgy-fed/issues/446>`__ are under
+consideration. Bridgy Fed translates profiles, likes, reposts, mentions,
 follows, and more from any supported network to any other. `See the user
 docs <https://fed.brid.gy/docs>`__ and `developer
 docs <https://bridgy-fed.readthedocs.io/>`__ for more details.

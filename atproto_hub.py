@@ -84,7 +84,7 @@ def atproto_commit():
 
 @lru_cache
 def gethostbyaddr(addr):
-    """Wrapper for :func:``socket.gethostbyaddr` that caches the result."""
+    """Wrapper for :func:`socket.gethostbyaddr` that caches the result."""
     for subnet in BSKY_TEAM_CIDRS:
         if ip_address(addr) in subnet:
             return 'bsky'

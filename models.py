@@ -87,7 +87,7 @@ logger = logging.getLogger(__name__)
 
 
 class Target(ndb.Model):
-    """:class:`protocol.Protocol` + URI pairs for identifying objects.
+    r""":class:`protocol.Protocol` + URI pairs for identifying objects.
 
     These are currently used for:
 
@@ -1389,7 +1389,7 @@ class Follower(ndb.Model):
 
     @staticmethod
     def fetch_page(collection, user):
-        """Fetches a page of :class:`Follower`s for a given user.
+        r"""Fetches a page of :class:`Follower`\s for a given user.
 
         Wraps :func:`fetch_page`. Paging uses the ``before`` and ``after`` query
         parameters, if available in the request.
