@@ -193,6 +193,14 @@ class ATProtoFirehoseSubscribeTest(TestCase):
             },
         }, repo='did:alice')
 
+    def test_skip_unsupported_type(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        user = self.make_user('did:plc:user', cls=ATProto,
+                              enabled_protocols=['eefake'])
+        self.assert_doesnt_enqueue({
+            '$type': 'app.bsky.nopey.nope',
+        }, repo='did:plc:user')
+
     def test_reply_direct_to_our_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.feed.post',

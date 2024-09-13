@@ -243,7 +243,7 @@ class Web(User, Protocol):
                         logger.info(f'Found custom username: {urluser}')
                         return urluser
 
-        logger.info(f'Defaulting username to key id {id}')
+        # logger.debug(f'Defaulting username to key id {id}')
         return id
 
     def verify(self):

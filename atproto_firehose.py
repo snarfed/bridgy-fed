@@ -227,6 +227,8 @@ def subscribe():
                 logger.warning('commit record missing $type! {op.action} {op.repo} {op.path} {cid}')
                 logger.warning(dag_json.encode(op.record).decode())
                 continue
+            elif type not in ATProto.SUPPORTED_RECORD_TYPES:
+                continue
 
             if is_ours:
                 logger.info(f'Got one from our ATProto user: {op.action} {op.repo} {op.path}')
