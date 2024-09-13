@@ -201,7 +201,7 @@ REPOST_FULL = {
 
 FOLLOW = {
     '@context': 'https://www.w3.org/ns/activitystreams',
-    'id': 'https://mas.to/6d1a',
+    'id': 'https://mas.to/follow',
     'type': 'Follow',
     'actor': ACTOR['id'],
     'object': 'https://user.com/',
@@ -223,11 +223,11 @@ ACCEPT_FOLLOW['object'] = 'http://localhost/user.com'
 ACCEPT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
     'type': 'Accept',
-    'id': 'http://localhost/r/user.com/followers#accept-https://mas.to/6d1a',
+    'id': 'http://localhost/r/user.com/followers#accept-https://mas.to/follow',
     'actor': 'http://localhost/user.com',
     'object': {
         'type': 'Follow',
-        'id': 'https://mas.to/6d1a',
+        'id': 'https://mas.to/follow',
         'object': 'http://localhost/user.com',
         'actor': 'https://mas.to/users/swentel',
         'url': 'https://mas.to/users/swentel#followed-user.com',
@@ -1076,7 +1076,7 @@ class ActivityPubTest(TestCase):
             'url': 'https://mas.to/users/swentel#followed-user.com',
             'object': 'user.com'
         }
-        self.assert_object('https://mas.to/6d1a',
+        self.assert_object('https://mas.to/follow',
                            users=[self.swentel_key],
                            notify=[self.user.key],
                            source_protocol='activitypub',
@@ -1103,7 +1103,7 @@ class ActivityPubTest(TestCase):
             'url': 'https://mas.to/users/swentel#followed-https://user.com/',
         })
         follow['object']['id'] = 'user.com'
-        self.assert_object('https://mas.to/6d1a',
+        self.assert_object('https://mas.to/follow',
                            users=[self.swentel_key],
                            notify=[self.user.key],
                            source_protocol='activitypub',
@@ -1112,6 +1112,32 @@ class ActivityPubTest(TestCase):
                            delivered=['https://user.com/'],
                            type='follow',
                            )
+
+    def test_inbox_follow_accept_inner_follow_to(self, *mocks):
+        follow = {
+            'type': 'Follow',
+            'id': 'https://mas.to/follow',
+            'actor': 'https://mas.to/users/swentel',
+            'object': 'http://localhost/user.com',
+            'to': ['http://localhost/user.com'],
+        }
+
+        accept = {
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Accept',
+            'id': 'http://localhost/r/user.com/followers#accept-https://mas.to/follow',
+            'actor': 'http://localhost/user.com',
+            'object': {
+                'type': 'Follow',
+                'id': 'https://mas.to/follow',
+                'actor': 'https://mas.to/users/swentel',
+                'object': 'http://localhost/user.com',
+                'url': 'https://mas.to/users/swentel#followed-user.com',
+                'to': ['http://localhost/user.com']
+            },
+            'to': ['https://www.w3.org/ns/activitystreams#Public']
+        }
+        self._test_inbox_follow_accept(follow, accept, *mocks)
 
     def test_inbox_follow_accept_shared_inbox(self, mock_head, mock_get, mock_post):
         self._test_inbox_follow_accept(FOLLOW_WRAPPED, ACCEPT,
@@ -1124,7 +1150,7 @@ class ActivityPubTest(TestCase):
             'url': url,
             'object': 'user.com',
         }
-        self.assert_object('https://mas.to/6d1a',
+        self.assert_object('https://mas.to/follow',
                            users=[self.swentel_key],
                            notify=[self.user.key],
                            source_protocol='activitypub',
@@ -1149,7 +1175,7 @@ class ActivityPubTest(TestCase):
             'url': url,
             'object': 'user.com',
         }
-        self.assert_object('https://mas.to/6d1a',
+        self.assert_object('https://mas.to/follow',
                            users=[self.swentel_key],
                            notify=[self.user.key],
                            source_protocol='activitypub',
@@ -1191,7 +1217,7 @@ class ActivityPubTest(TestCase):
         args, kwargs = mock_post.call_args_list[1]
         self.assertEqual(('https://user.com/webmention',), args)
         self.assertEqual({
-            'source': 'https://ap.brid.gy/convert/web/https://mas.to/6d1a',
+            'source': 'https://ap.brid.gy/convert/web/https://mas.to/follow',
             'target': 'https://user.com/',
         }, kwargs['data'])
 
@@ -1266,11 +1292,11 @@ class ActivityPubTest(TestCase):
         self.assert_equals(('http://mas.to/inbox',), args)
         self.assert_equals({
             'type': 'Accept',
-            'id': 'http://localhost/r/user.com/followers#accept-https://mas.to/6d1a',
+            'id': 'http://localhost/r/user.com/followers#accept-https://mas.to/follow',
             'actor': 'http://localhost/user.com',
             'object': {
                 'type': 'Follow',
-                'id': 'https://mas.to/6d1a',
+                'id': 'https://mas.to/follow',
                 'object': 'http://localhost/user.com',
                 'actor': 'https://mas.to/users/swentel',
                 'url': 'https://mas.to/users/swentel#followed-user.com',
@@ -2710,7 +2736,7 @@ class ActivityPubUtilsTest(TestCase):
 
     def test_convert_follow_as1_no_from_user(self):
         # prevent HTTP fetches to infer protocol
-        self.store_object(id='https://mas.to/6d1a', source_protocol='activitypub')
+        self.store_object(id='https://mas.to/follow', source_protocol='activitypub')
         self.store_object(id='https://user.com/', source_protocol='web')
 
         obj = Object(our_as1=as2.to_as1(FOLLOW))
@@ -2752,6 +2778,17 @@ class ActivityPubUtilsTest(TestCase):
             'type': 'Update',
             'object': ACTOR,
         }, ActivityPub.convert(obj))
+
+    def test_convert_to_cc(self):
+        self.assert_equals({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'to': ['http://localhost/alice.com',
+                   'https://www.w3.org/ns/activitystreams#Public'],
+            'cc': ['http://localhost/bob.com'],
+        }, ActivityPub.convert(Object(our_as1={
+            'to': ['alice.com'],
+            'cc': ['bob.com'],
+        })))
 
     def test_convert_quote_post(self):
         obj = Object(id='at://did:alice/app.bsky.feed.post/123', bsky={

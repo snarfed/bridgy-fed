@@ -796,10 +796,11 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
             for recip in as1.get_objects(orig_obj, field):
                 add(cc, util.get_url(recip) or recip.get('id'))
 
-    # for CRUD activities, Pleroma (and Akkoma?) seem to crash if the activity's
+    # for some activities, Pleroma (and Akkoma?) seem to crash if the activity's
     # to and cc aren't exactly the same as the object's. (I think?)
     # https://indieweb.social/@diego@lounge.collabfc.com/112977955332152430
     # https://git.pleroma.social/pleroma/pleroma/-/issues/3206#note_108296
+    # https://github.com/snarfed/bridgy-fed/issues/12#issuecomment-2302776658
     if type in ('Create', 'Update'):
         activity['to'] = util.get_list(obj, 'to')
         activity['cc'] = util.get_list(obj, 'cc')

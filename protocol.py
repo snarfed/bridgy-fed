@@ -677,6 +677,9 @@ class Protocol:
         * ``id``
         * ``actor``
         * ``author``
+        * ``bcc``
+        * ``bto``
+        * ``cc``
         * ``object``
         * ``object.actor``
         * ``object.author``
@@ -684,6 +687,7 @@ class Protocol:
         * ``object.inReplyTo``
         * ``attachments[].id``
         * ``tags[objectType=mention].url``
+        * ``to``
 
         This is the inverse of :meth:`models.Object.resolve_ids`. Much of the
         same logic is duplicated there!
@@ -709,6 +713,8 @@ class Protocol:
             elem[field] = as1.get_objects(elem, field)
             for obj in elem[field]:
                 if id := obj.get('id'):
+                    if field in ('to', 'cc', 'bcc', 'bto') and as1.is_audience(id):
+                        continue
                     from_cls = Protocol.for_id(id)
                     # TODO: what if from_cls is None? relax translate_object_id,
                     # make it a noop if we don't know enough about from/to?
@@ -734,7 +740,7 @@ class Protocol:
 
         for o in [outer_obj] + inner_objs:
             translate(o, 'inReplyTo', translate_object_id)
-            for field in 'actor', 'author':
+            for field in 'actor', 'author', 'to', 'cc', 'bto', 'bcc':
                 translate(o, field, translate_user_id)
             for tag in as1.get_objects(o, 'tags'):
                 if tag.get('objectType') == 'mention':

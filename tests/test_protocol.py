@@ -664,6 +664,17 @@ class ProtocolTest(TestCase):
             ]
         }))
 
+    def test_translate_ids_to_cc(self):
+        self.assert_equals({
+            'id': 'xyz',
+            'to': ['other:u:fake:alice', 'other:bob'],
+            'cc': ['other:u:eefake:eve', as2.PUBLIC_AUDIENCE],
+        }, OtherFake.translate_ids({
+            'id': 'xyz',
+            'to': ['fake:alice', 'other:bob'],
+            'cc': ['eefake:eve', as2.PUBLIC_AUDIENCE],
+        }))
+
     def test_convert_object_is_from_user_adds_source_links(self):
         alice = Fake(id='fake:alice')
         self.assertEqual({
