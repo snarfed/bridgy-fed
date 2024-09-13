@@ -859,7 +859,7 @@ class ActivityPubTest(TestCase):
                            as2={
                                **REPOST,
                                'actor': ACTOR,
-                               'object': orig_url,
+                               'object': repost['object'],
                            },
                            users=[self.swentel_key],
                            delivered=['https://user.com/orig'],

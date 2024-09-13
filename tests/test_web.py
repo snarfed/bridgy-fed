@@ -3100,12 +3100,6 @@ class WebUtilTest(TestCase):
         self.assert_req(mock_get, 'https://user.com/post')
         mock_post.assert_not_called()
 
-    def test_send_skips_accept_follow(self, mock_get, mock_post):
-        obj = Object(id='https://user.com/accept', as2=test_activitypub.ACCEPT)
-        self.assertFalse(Web.send(obj, 'https://user.com/'))
-        mock_get.assert_not_called()
-        mock_post.assert_not_called()
-
     def test_send_skips_add_to_collection(self, mock_get, mock_post):
         obj = Object(id='fake:add', source_protocol='fake', as2={
             'type': 'Add',

@@ -329,11 +329,7 @@ class IntegrationTests(TestCase):
         self.assertEqual(202, resp.status_code)
 
         # check results
-        self.assertEqual({
-            **like,
-            # TODO: stop normalizing this in the original protocol's data
-            'object': 'at://did:plc:alice/app.bsky.feed.post/123',
-        }, Object.get_by_id('http://inst/like').as2)
+        self.assertEqual(like, Object.get_by_id('http://inst/like').as2)
 
         repo = self.storage.load_repo('did:plc:bob')
 

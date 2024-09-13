@@ -1104,7 +1104,7 @@ def inbox(protocol=None, id=None):
         id = f'{actor_id}#{type}-{object.get("id", "")}-{util.now().isoformat()}'
 
     try:
-        obj = Object.get_or_create(id=id, as2=unwrap(activity), authed_as=authed_as,
+        obj = Object.get_or_create(id=id, as2=activity, authed_as=authed_as,
                                    source_protocol=ActivityPub.LABEL)
     except AssertionError as e:
         error(f'Invalid activity, probably due to id: {e}', status=400)

@@ -882,7 +882,7 @@ class Object(StringIdModel):
                 use_urls_as_ids(obj)
 
         elif self.as2:
-            obj = as2.to_as1(self.as2)
+            obj = as2.to_as1(unwrap(self.as2))
 
         elif self.bsky:
             owner, _, _ = parse_at_uri(self.key.id())
