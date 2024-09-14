@@ -1823,7 +1823,6 @@ class ProtocolReceiveTest(TestCase):
                            our_as1=post_as1,
                            deleted=True,
                            source_protocol='fake',
-                           feed=[self.alice.key, self.bob.key],
                            )
 
         obj = self.assert_object('fake:delete',
@@ -1920,7 +1919,7 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:alice',
             'object': 'fake:alice',
         })
-        self.assertEqual(204, code)
+        self.assertEqual(202, code)
 
         self.assertEqual(3, Follower.query().count())
         self.assertEqual('inactive', follower.key.get().status)

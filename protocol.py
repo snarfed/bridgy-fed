@@ -935,22 +935,9 @@ class Protocol:
             logger.info(f'Marking Object {inner_obj_id} deleted')
             Object.get_or_create(inner_obj_id, deleted=True, authed_as=authed_as)
 
-            # if this is a user, deactivate its followers/followings
-            # https://github.com/snarfed/bridgy-fed/issues/1304
-            if user_key := from_cls.key_for(id=inner_obj_id):
-                if user := user_key.get():
-                    for copy in user.copies:
-                        proto = PROTOCOLS[copy.protocol]
-                        user.disable_protocol(proto)
-
-                    logger.info(f'Deactivating Followers from or to = {inner_obj_id}')
-                    followers = Follower.query(
-                        OR(Follower.to == user_key, Follower.from_ == user_key)
-                        ).fetch()
-                    for f in followers:
-                        f.status = 'inactive'
-                    ndb.put_multi(followers)
-
+            # if this is an actor, handle deleting it later so that
+            # in case it's from_user, user.enabled_protocols is still populated
+            #
             # fall through to deliver to followers and delete copy if necessary.
             # should happen via protocol-specific copy target and send of
             # delete activity.
@@ -1002,6 +989,23 @@ class Protocol:
 
         # deliver to targets
         resp = from_cls.deliver(obj, from_user=from_user)
+
+        # if this is a user, deactivate its followers/followings
+        # https://github.com/snarfed/bridgy-fed/issues/1304
+        if obj.type == 'delete':
+            if user_key := from_cls.key_for(id=inner_obj_id):
+                if user := user_key.get():
+                    for proto in user.enabled_protocols:
+                        user.disable_protocol(PROTOCOLS[proto])
+
+                    logger.info(f'Deactivating Followers from or to = {inner_obj_id}')
+                    followers = Follower.query(
+                        OR(Follower.to == user_key, Follower.from_ == user_key)
+                        ).fetch()
+                    for f in followers:
+                        f.status = 'inactive'
+                    ndb.put_multi(followers)
+
         common.memcache.set(memcache_key, 'done', expire=7 * 24 * 60 * 60)  # 1w
         return resp
 
@@ -1453,7 +1457,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
             if not internal:
                 if obj.type == 'share':
                     feed_obj = obj
-                else:
+                elif obj.type not in ('delete', 'undo', 'stop-following'):
                     inner = as1.get_object(obj.as1)
                     # don't add profile updates to feeds
                     if not (obj.type == 'update'
