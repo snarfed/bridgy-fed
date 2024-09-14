@@ -2963,7 +2963,15 @@ class ActivityPubUtilsTest(TestCase):
     @patch('requests.post')
     def test_send_blocklisted(self, mock_post):
         self.assertFalse(ActivityPub.send(Object(as2=NOTE),
-                                          'https://fed.brid.gy/ap/sharedInbox'))
+                                          'https://fed.brid.gy/ap/sharedInbox',
+                                          from_user=self.user))
+        mock_post.assert_not_called()
+
+    @patch('requests.post')
+    def test_send_no_from_user(self, mock_post):
+        self.assertFalse(ActivityPub.send(Object(as2=NOTE),
+                                          ACTOR['inbox'],
+                                          from_user=None))
         mock_post.assert_not_called()
 
     @patch('requests.post', return_value=requests_response())

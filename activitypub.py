@@ -261,7 +261,10 @@ class ActivityPub(User, Protocol):
         If ``obj.recipient_obj`` is set, it's interpreted as the receiving actor
         who we're delivering to and its id is populated into ``cc``.
         """
-        if to_cls.is_blocklisted(url):
+        if not from_user:
+            logger.info('Skipping sending, no from_user!')
+            return False
+        elif to_cls.is_blocklisted(url):
             logger.info(f'Skipping sending to blocklisted {url}')
             return False
 
