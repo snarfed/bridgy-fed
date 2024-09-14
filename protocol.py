@@ -935,19 +935,26 @@ class Protocol:
             logger.info(f'Marking Object {inner_obj_id} deleted')
             Object.get_or_create(inner_obj_id, deleted=True, authed_as=authed_as)
 
-            # if this is an actor, deactivate its followers/followings
-            # https://github.com/snarfed/bridgy-fed/issues/63
-            deleted_user = from_cls.key_for(id=inner_obj_id)
-            if deleted_user:
-                logger.info(f'Deactivating Followers from or to = {inner_obj_id}')
-                followers = Follower.query(OR(Follower.to == deleted_user,
-                                              Follower.from_ == deleted_user)
-                                           ).fetch()
-                for f in followers:
-                    f.status = 'inactive'
-                ndb.put_multi(followers)
+            # if this is a user, deactivate its followers/followings
+            # https://github.com/snarfed/bridgy-fed/issues/1304
+            if user_key := from_cls.key_for(id=inner_obj_id):
+                if user := user_key.get():
+                    for copy in user.copies:
+                        proto = PROTOCOLS[copy.protocol]
+                        user.disable_protocol(proto)
 
-            # fall through to deliver to followers
+                    logger.info(f'Deactivating Followers from or to = {inner_obj_id}')
+                    followers = Follower.query(
+                        OR(Follower.to == user_key, Follower.from_ == user_key)
+                        ).fetch()
+                    for f in followers:
+                        f.status = 'inactive'
+                    ndb.put_multi(followers)
+
+            # fall through to deliver to followers and delete copy if necessary.
+            # should happen via protocol-specific copy target and send of
+            # delete activity.
+            # https://github.com/snarfed/bridgy-fed/issues/63
 
         elif obj.type == 'block':
             if proto := Protocol.for_bridgy_subdomain(inner_obj_id):

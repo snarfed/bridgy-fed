@@ -596,12 +596,12 @@ class IntegrationTests(TestCase):
 
     @patch('requests.get', return_value=requests_response(''))  # alice, http://pic/
     def test_activitypub_block_bsky_bot_user_tombstones_atproto_repo(self, mock_get):
-        """AP follow of @bsky.brid.gy@bsky.brid.gy bridges the account into Bluesky.
+        """AP Block of @bsky.brid.gy@bsky.brid.gy tombstones the Bluesky repo.
 
         ActivityPub user @alice@inst , https://inst/alice , did:plc:alice
         Block is https://inst/block
         """
-        u = self.make_ap_user('https://inst/alice', 'did:plc:alice')
+        self.make_ap_user('https://inst/alice', 'did:plc:alice')
         self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
 
         # deliver block
@@ -614,6 +614,35 @@ class IntegrationTests(TestCase):
         headers = sign('/bsky.brid.gy/inbox', body, key_id='https://inst/alice')
         resp = self.client.post('/bsky.brid.gy/inbox', data=body, headers=headers)
         self.assertEqual(200, resp.status_code)
+
+        # check results
+        user = ActivityPub.get_by_id('https://inst/alice')
+        self.assertFalse(user.is_enabled(ATProto))
+
+        with self.assertRaises(TombstonedRepo):
+            self.storage.load_repo('did:plc:alice')
+
+
+    @patch('requests.get', return_value=requests_response(''))  # alice, http://pic/
+    def test_activitypub_delete_user_tombstones_atproto_repo(self, mock_get):
+        """AP Delete of user tombstones the Bluesky repo.
+
+        ActivityPub user @alice@inst , https://inst/alice , did:plc:alice
+        Delete is https://inst/block
+        """
+        user = self.make_ap_user('https://inst/alice', 'did:plc:alice')
+        self.assertTrue(user.is_enabled(ATProto))
+
+        # deliver delete
+        body = json_dumps({
+            'type': 'Delete',
+            'id': 'http://inst/block',
+            'actor': 'https://inst/alice',
+            'object': 'https://inst/alice',
+        })
+        headers = sign('/ap/sharedInbox', body, key_id='https://inst/alice')
+        resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
+        self.assertEqual(202, resp.status_code)
 
         # check results
         user = ActivityPub.get_by_id('https://inst/alice')

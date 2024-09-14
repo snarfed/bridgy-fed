@@ -538,6 +538,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         # populate newly enabled protocol in this instance
         self.enabled_protocols = new_self.enabled_protocols
         self.copies = new_self.copies
+        if self.obj:
+            self.obj.copies = new_self.obj.copies
 
         if added:
             import dms
