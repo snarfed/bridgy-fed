@@ -829,7 +829,10 @@ class Protocol:
 
         pruned = {k: v for k, v in obj.as1.items()
                   if k not in ('contentMap', 'replies', 'signature')}
-        logger.info(f'Receiving {from_cls.LABEL} {obj.type} {id} AS1: {json_dumps(pruned, indent=2)}')
+        delay = ''
+        if request.headers.get('X-AppEngine-TaskRetryCount') == '0' and obj.created:
+            delay = f'({(util.now().replace(tzinfo=None) - obj.created).total_seconds()} s behind)'
+        logger.info(f'Receiving {from_cls.LABEL} {obj.type} {id} {delay} AS1: {json_dumps(pruned, indent=2)}')
 
         # does this protocol support this activity/object type?
         from_cls.check_supported(obj)

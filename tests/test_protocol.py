@@ -2958,7 +2958,7 @@ class ProtocolReceiveTest(TestCase):
         resp = self.post('/queue/receive', data={
             'obj': obj.key.urlsafe(),
             'authed_as': 'fake:other',
-        })
+        }, headers={'X-AppEngine-TaskRetryCount': '0'})
         self.assertEqual(204, resp.status_code)
         obj = Object.get_by_id('fake:post#bridgy-fed-create')
         self.assertEqual('ignored', obj.status)
