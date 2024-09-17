@@ -378,6 +378,25 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         else:
             self._obj = self.obj_key = None
 
+    def delete(self, proto=None):
+        """Deletes a user's bridged actors in all protocols or a specific one.
+
+        Args:
+          proto (Protocol): optional
+        """
+        now = util.now().isoformat()
+        proto_label = proto.LABEL if proto else 'all'
+        delete_id = f'{self.profile_id()}#delete-user-{proto_label}-{now}'
+        delete = Object(id=delete_id, source_protocol=self.LABEL, our_as1={
+            'id': delete_id,
+            'objectType': 'activity',
+            'verb': 'delete',
+            'actor': self.key.id(),
+            'object': self.key.id(),
+        })
+        delete.put()
+        self.deliver(delete, from_user=self, to_proto=proto)
+
     @classmethod
     def load_multi(cls, users):
         """Loads :attr:`obj` for multiple users in parallel.

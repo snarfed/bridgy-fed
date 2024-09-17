@@ -148,7 +148,7 @@ class DmsTest(TestCase):
 
         # ...and delete copy actor
         self.assertEqual(
-            [('eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00',
+            [('eefake:user#delete-user-fake-2022-01-02T03:04:05+00:00',
               'fake:shared:target')],
             Fake.sent)
 

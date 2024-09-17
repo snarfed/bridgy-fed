@@ -108,7 +108,7 @@ def receive(*, from_user, obj):
         return 'OK', 200
 
     elif content == 'no':
-        to_proto.delete_user_copy(from_user)
+        from_user.delete(to_proto)
         from_user.disable_protocol(to_proto)
         return 'OK', 200
 

@@ -2731,11 +2731,11 @@ class ProtocolReceiveTest(TestCase):
 
         # ...and delete copy actor
         self.assertEqual(
-            [('eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00',
+            [('eefake:user#delete-user-fake-2022-01-02T03:04:05+00:00',
               'fake:shared:target')],
             Fake.sent)
 
-        id = 'eefake:user#delete-copy-fake-2022-01-02T03:04:05+00:00'
+        id = 'eefake:user#delete-user-fake-2022-01-02T03:04:05+00:00'
         self.assert_object(id,
                            our_as1={
                                'objectType': 'activity',

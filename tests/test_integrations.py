@@ -73,7 +73,11 @@ class IntegrationTests(TestCase):
                         else None)
 
         user = self.make_user(id=domain, cls=Web, ap_subdomain=ap_subdomain,
-                              enabled_protocols=enabled_protocols)
+                              enabled_protocols=enabled_protocols, obj_as1={
+                                  'objectType': 'person',
+                                  'id': f'https://{domain}/',
+                              })
+
         if did:
             self.make_atproto_copy(user, did)
 
@@ -587,7 +591,7 @@ class IntegrationTests(TestCase):
             self.assert_equals({
                 '@context': 'https://www.w3.org/ns/activitystreams',
                 'type': 'Delete',
-                'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.actor.profile/self#delete-copy-activitypub-2022-01-02T03:04:05+00:00',
+                'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.actor.profile/self#delete-user-activitypub-2022-01-02T03:04:05+00:00',
                 'actor': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'object': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
@@ -650,6 +654,50 @@ class IntegrationTests(TestCase):
 
         with self.assertRaises(TombstonedRepo):
             self.storage.load_repo('did:plc:alice')
+
+
+    @patch('requests.post', return_value=requests_response(''))
+    @patch('requests.get', return_value=requests_response("""\
+<html>
+  <body class="h-card"><a rel="me" href="/">me</a> #nobridge</body>
+</html>""", url='https://alice.com/'))
+    def test_web_nobridge_refresh_profile_deletes_user_tombstones_atproto_repo(
+            self, mock_get, mock_post):
+        """Web user adds #nobridge and refreshes their profile.
+
+        Should delete their bridged accounts.
+
+        Web user alice.com, did:plc:alice
+        ActivityPub user bob@inst, https://inst/bob,
+        """
+        # users
+        alice = self.make_web_user('alice.com', 'did:plc:alice')
+        self.assertTrue(alice.is_enabled(ATProto))
+        self.assertTrue(alice.is_enabled(ActivityPub))
+
+        bob = self.make_ap_user('https://inst/bob')
+        Follower.get_or_create(to=alice, from_=bob)
+
+        # update profile
+        resp = self.client.post('/web/alice.com/update-profile')
+        self.assertEqual(302, resp.status_code)
+
+        # should be deleted everywhere
+        self.assertEqual('opt-out', alice.key.get().status)
+
+        with self.assertRaises(TombstonedRepo):
+            self.storage.load_repo('did:plc:alice')
+
+        self.assertEqual(1, mock_post.call_count)
+        args, kwargs = mock_post.call_args
+        self.assertEqual((bob.obj.as2['inbox'],), args)
+        self.assert_equals({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Delete',
+            'id': 'http://localhost/r/https://alice.com/#delete-user-all-2022-01-02T03:04:05+00:00',
+            'actor': 'http://localhost/alice.com',
+            'object': 'http://localhost/alice.com',
+        }, json_loads(kwargs['data']), ignore=['@context', 'contentMap', 'to', 'cc'])
 
 
     @patch('requests.post')

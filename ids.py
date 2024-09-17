@@ -124,7 +124,7 @@ def translate_user_id(*, id, from_, to):
         return id
 
     # follow use_instead
-    user = from_.get_by_id(id)
+    user = from_.get_by_id(id, allow_opt_out=True)
     if user:
         id = user.key.id()
 
@@ -192,7 +192,7 @@ def profile_id(*, id, proto):
 
     Examples:
 
-    * Web: user.com => https:///user.com/
+    * Web: user.com => https://user.com/
     * ActivityPub: https://inst.ance/alice => https://inst.ance/alice
     * ATProto: did:plc:123 => at://did:plc:123/app.bsky.actor.profile/self
 

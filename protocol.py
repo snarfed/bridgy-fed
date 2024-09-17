@@ -432,18 +432,19 @@ class Protocol:
             return user.web_url()
 
     @classmethod
-    def actor_key(cls, obj):
+    def actor_key(cls, obj, allow_opt_out=False):
         """Returns the :class:`User`: key for a given object's author or actor.
 
         Args:
           obj (models.Object)
+          allow_opt_out (bool): whether to return a user key if they're opted out
 
         Returns:
           google.cloud.ndb.key.Key or None:
         """
         owner = as1.get_owner(obj.as1)
         if owner:
-            return cls.key_for(owner)
+            return cls.key_for(owner, allow_opt_out=allow_opt_out)
 
     @classmethod
     def bot_user_id(cls):
@@ -946,7 +947,7 @@ class Protocol:
         elif obj.type == 'block':
             if proto := Protocol.for_bridgy_subdomain(inner_obj_id):
                 # blocking protocol bot user disables that protocol
-                proto.delete_user_copy(from_user)
+                from_user.delete(proto)
                 from_user.disable_protocol(proto)
                 return 'OK', 200
 
@@ -1153,25 +1154,6 @@ class Protocol:
                            user=bot.key.urlsafe())
 
     @classmethod
-    def delete_user_copy(copy_cls, user):
-        """Deletes a user's copy actor in a given protocol.
-
-        Args:
-          user (User)
-        """
-        now = util.now().isoformat()
-        delete_id = f'{ids.profile_id(id=user.key.id(), proto=user)}#delete-copy-{copy_cls.LABEL}-{now}'
-        delete = Object(id=delete_id, source_protocol=user.LABEL, our_as1={
-            'id': delete_id,
-            'objectType': 'activity',
-            'verb': 'delete',
-            'actor': user.key.id(),
-            'object': user.key.id(),
-        })
-        delete.put()
-        user.deliver(delete, from_user=user, to_proto=copy_cls)
-
-    @classmethod
     def handle_bare_object(cls, obj, authed_as=None):
         """If obj is a bare object, wraps it in a create or update activity.
 
@@ -1311,7 +1293,7 @@ class Protocol:
         orig_obj = None
         targets = {}  # maps Target to Object or None
         owner = as1.get_owner(obj.as1)
-
+        allow_opt_out = (obj.type == 'delete')
         inner_obj_as1 = as1.get_object(obj.as1)
         inner_obj_id = inner_obj_as1.get('id')
         in_reply_tos = as1.get_ids(inner_obj_as1, 'inReplyTo')
@@ -1423,7 +1405,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
         logger.info(f'Direct (and copy) targets: {targets.keys()}')
 
         # deliver to followers, if appropriate
-        user_key = from_cls.actor_key(obj)
+        user_key = from_cls.actor_key(obj, allow_opt_out=allow_opt_out)
         if not user_key:
             logger.info("Can't tell who this is from! Skipping followers.")
             return targets
@@ -1706,8 +1688,8 @@ def send_task():
     target = Target(uri=url, protocol=protocol)
 
     obj = ndb.Key(urlsafe=form['obj']).get()
-
     PROTOCOLS[protocol].check_supported(obj)
+    allow_opt_out = (obj.type == 'delete')
 
     if (target not in obj.undelivered and target not in obj.failed
             and 'force' not in request.values):
@@ -1718,7 +1700,7 @@ def send_task():
     if user_key := form.get('user'):
         key = ndb.Key(urlsafe=user_key)
         # use get_by_id so that we follow use_instead
-        user = PROTOCOLS_BY_KIND[key.kind()].get_by_id(key.id())
+        user = PROTOCOLS_BY_KIND[key.kind()].get_by_id(key.id(), allow_opt_out=allow_opt_out)
 
     orig_obj = (ndb.Key(urlsafe=form['orig_obj']).get()
                 if form.get('orig_obj') else None)

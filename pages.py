@@ -171,16 +171,21 @@ def update_profile(protocol, id):
     link = f'<a href="{user.web_url()}">{user.handle_or_id()}</a>'
 
     try:
-        profile_obj = user.load(user.profile_id(), remote=True)
+        user.obj = user.load(user.profile_id(), remote=True)
     except (requests.RequestException, werkzeug.exceptions.HTTPException) as e:
         _, msg = util.interpret_http_exception(e)
         flash(f"Couldn't update profile for {link}: {msg}")
         return redirect(user.user_page_path(), code=302)
 
-    if profile_obj:
-        common.create_task(queue='receive', obj=profile_obj.key.urlsafe(),
+    if user.obj:
+        common.create_task(queue='receive', obj=user.obj.key.urlsafe(),
                            authed_as=user.key.id())
         flash(f'Updating profile from {link}...')
+
+        if user.LABEL == 'web':
+            logger.info(f'Disabling web user {user.key.id()}')
+            user.delete()
+
     else:
         flash(f"Couldn't update profile for {link}")
 

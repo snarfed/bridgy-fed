@@ -496,6 +496,7 @@ class ATProto(User, Protocol):
         type = as1.object_type(obj.as1)
         base_obj = obj
         base_obj_as1 = obj.as1
+        allow_opt_out = (type == 'delete')
         if type in ('post', 'update', 'delete', 'undo'):
             base_obj_as1 = as1.get_object(obj.as1)
             base_id = base_obj_as1['id']
@@ -523,13 +524,13 @@ class ATProto(User, Protocol):
 
         # find user
         from_cls = PROTOCOLS[obj.source_protocol]
-        from_key = from_cls.actor_key(obj)
+        from_key = from_cls.actor_key(obj, allow_opt_out=allow_opt_out)
         if not from_key:
             logger.info(f"Couldn't find {obj.source_protocol} user for {obj.key.id()}")
             return False
 
         # load user
-        user = from_cls.get_or_create(from_key.id(), propagate=True)
+        user = from_cls.get_or_create(from_key.id(), allow_opt_out=allow_opt_out, propagate=True)
         did = user.get_copy(ATProto)
         assert did
         logger.info(f'{user.key.id()} is {did}')
