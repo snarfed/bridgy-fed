@@ -2819,6 +2819,63 @@ class ActivityPubUtilsTest(TestCase):
             }],
         }, ActivityPub.convert(obj), ignore=['contentMap', 'content_is_html', 'to'])
 
+    def test_send_convert_mention_non_bridged_id_uses_profile_url(self):
+        self.store_object(id='did:plc:5zspv27pk4iqtrl2ql2nykjh', raw={'foo': 'bar'})
+        self.make_user(id='did:plc:5zspv27pk4iqtrl2ql2nykjh', cls=ATProto)
+        obj = Object(our_as1={
+            'objectType': 'note',
+            'content': 'hello @snarfed2.bsky.social',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'did:plc:5zspv27pk4iqtrl2ql2nykjh',
+                'displayName': '@snarfed2.bsky.social',
+                'startIndex': 6,
+                'length': 21,
+            }],
+        })
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Note',
+            'content': '<p>hello <a href="https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>',
+            'contentMap': {'en': '<p>hello <a href="https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>'},
+            'tag': [{
+                'type': 'Mention',
+                'name': '@snarfed2.bsky.social',
+                'href': 'https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh',
+            }],
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'cc': ['https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh'],
+            'content_is_html': True,
+        }, ActivityPub.convert(obj))
+
+    @patch('requests.post', return_value=requests_response())
+    def test_send_dm(self, mock_post):
+        bot = self.make_user('web.brid.gy', cls=Web)
+        user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+
+        dm = Object(id='https://internal.brid.gy/dm', source_protocol='web', our_as1={
+            'objectType': 'note',
+            'author': 'web.brid.gy',
+            'content': 'hello world',
+            'to': [ACTOR['id']],
+        })
+        dm.put()
+        self.assertTrue(ActivityPub.send(dm, ACTOR['inbox'], from_user=bot))
+
+        self.assertEqual(1, len(mock_post.call_args_list))
+        args, kwargs = mock_post.call_args_list[0]
+        self.assertEqual((ACTOR['inbox'],), args)
+        self.assertEqual({
+            '@context': 'https://www.w3.org/ns/activitystreams',
+            'type': 'Note',
+            'id': 'http://localhost/r/https://internal.brid.gy/dm',
+            'attributedTo': 'https://web.brid.gy/web.brid.gy',
+            'content': '<p>hello world</p>',
+            'contentMap': {'en': '<p>hello world</p>'},
+            'content_is_html': True,
+            'to': [ACTOR['id']],
+        }, json_loads(kwargs['data']))
+
     def test_postprocess_as2_idempotent(self):
         for obj in (ACTOR, REPLY_OBJECT, REPLY_OBJECT_WRAPPED, REPLY,
                     NOTE_OBJECT, NOTE, MENTION_OBJECT, MENTION, LIKE,

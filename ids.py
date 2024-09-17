@@ -148,6 +148,9 @@ def translate_user_id(*, id, from_, to):
             return id
 
         case _, 'activitypub' | 'web':
+            from activitypub import ActivityPub
+            if user and not user.is_enabled(ActivityPub):
+                return user.web_url()
             return subdomain_wrap(from_, f'/{to.ABBREV}/{id}')
 
         # only for unit tests
