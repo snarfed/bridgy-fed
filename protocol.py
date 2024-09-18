@@ -1709,7 +1709,10 @@ def send_task():
                 if form.get('orig_obj') else None)
 
     # send
-    logger.info(f'Sending {obj.source_protocol} {obj.type} {obj.key.id()} to {protocol} {url}')
+    delay = ''
+    if request.headers.get('X-AppEngine-TaskRetryCount') == '0' and obj.created:
+        delay = f'({(util.now().replace(tzinfo=None) - obj.created).total_seconds()} s behind)'
+    logger.info(f'Sending {obj.source_protocol} {obj.type} {obj.key.id()} to {protocol} {url} {delay}')
     logger.debug(f'  AS1: {json_dumps(obj.as1, indent=2)}')
     sent = None
     try:

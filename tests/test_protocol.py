@@ -3199,7 +3199,7 @@ class ProtocolReceiveTest(TestCase):
             'orig_obj': note.key.urlsafe(),
             'url': 'fake:shared:target',
             'user': self.user.key.urlsafe(),
-        })
+        }, headers={'X-AppEngine-TaskRetryCount': '0'})
         self.assertEqual(200, resp.status_code)
 
     def test_send_task_missing_url(self):
