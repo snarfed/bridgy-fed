@@ -831,7 +831,8 @@ class Protocol:
                   if k not in ('contentMap', 'replies', 'signature')}
         delay = ''
         if request.headers.get('X-AppEngine-TaskRetryCount') == '0' and obj.created:
-            delay = f'({(util.now().replace(tzinfo=None) - obj.created).total_seconds()} s behind)'
+            delay_s = int((util.now().replace(tzinfo=None) - obj.created).total_seconds())
+            delay = f'({delay_s} s behind)'
         logger.info(f'Receiving {from_cls.LABEL} {obj.type} {id} {delay} AS1: {json_dumps(pruned, indent=2)}')
 
         # does this protocol support this activity/object type?
@@ -1711,7 +1712,8 @@ def send_task():
     # send
     delay = ''
     if request.headers.get('X-AppEngine-TaskRetryCount') == '0' and obj.created:
-        delay = f'({(util.now().replace(tzinfo=None) - obj.created).total_seconds()} s behind)'
+        delay_s = int((util.now().replace(tzinfo=None) - obj.created).total_seconds())
+        delay = f'({delay_s} s behind)'
     logger.info(f'Sending {obj.source_protocol} {obj.type} {obj.key.id()} to {protocol} {url} {delay}')
     logger.debug(f'  AS1: {json_dumps(obj.as1, indent=2)}')
     sent = None
