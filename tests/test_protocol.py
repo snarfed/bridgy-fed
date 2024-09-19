@@ -2963,6 +2963,12 @@ class ProtocolReceiveTest(TestCase):
         obj = Object.get_by_id('fake:post#bridgy-fed-create')
         self.assertEqual('ignored', obj.status)
 
+    @patch.object(Fake, 'receive', side_effect=requests.ConnectionError('foo'))
+    def test_receive_task_handler_connection_error(self, _):
+        obj = self.store_object(id='fake:post', source_protocol='fake')
+        got = self.post('/queue/receive', data={'obj': obj.key.urlsafe()})
+        self.assertEqual(304, got.status_code)
+
     def test_receive_task_handler_authed_as(self):
         note = {
             'id': 'fake:post',

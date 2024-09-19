@@ -19,6 +19,7 @@ from oauth_dropins.webutil.flask_util import cloud_tasks_only
 from oauth_dropins.webutil import models
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
+from requests import RequestException
 import werkzeug.exceptions
 from werkzeug.exceptions import BadGateway, HTTPException
 
@@ -1658,6 +1659,9 @@ def receive_task():
     try:
         return PROTOCOLS[obj.source_protocol].receive(obj=obj, authed_as=authed_as,
                                                       internal=internal)
+    except RequestException as e:
+        util.interpret_http_exception(e)
+        error(e, status=304)
     except ValueError as e:
         logger.warning(e, exc_info=True)
         error(e, status=304)
