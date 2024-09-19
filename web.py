@@ -739,14 +739,14 @@ def poll_feed_task():
     elif type == 'atom' or (type == 'xml' and rel_type == 'atom'):
         try:
             activities = atom.atom_to_activities(resp.text)
-        except (ValueError, ElementTree.ParseError) as e:
+        except (RequestException, ValueError, ElementTree.ParseError) as e:
             # TODO: should probably still create the next poll-feed task
             error(f"Couldn't parse feed as Atom: {e}", status=502)
         obj_feed_prop = {'atom': resp.text[:MAX_FEED_PROPERTY_SIZE]}
     elif type == 'rss' or (type == 'xml' and rel_type == 'rss'):
         try:
             activities = rss.to_activities(resp.text)
-        except ValueError as e:
+        except (RequestException, ValueError) as e:
             error(f"Couldn't parse feed as RSS: {e}", status=502)
         obj_feed_prop = {'rss': resp.text[:MAX_FEED_PROPERTY_SIZE]}
     else:
