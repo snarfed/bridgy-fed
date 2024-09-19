@@ -10,6 +10,7 @@ from google.cloud import ndb
 from granary import as1, as2, atom, microformats2, rss
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil import appengine_info
+from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import NOW, NOW_SECONDS, requests_response
 from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
@@ -2375,7 +2376,11 @@ class WebTest(TestCase):
         half_redir = requests_response(
             status=302, redirected_url='http://localhost/.well-known/webfinger')
         no_hcard = requests_response('<html><body></body></html>')
-        mock_get.side_effect = [half_redir, no_hcard]
+        mock_get.side_effect = [
+            half_redir,  # webfinger
+            half_redir,  # host-meta
+            no_hcard,
+        ]
         self._test_verify(False, False, None, """\
 Current vs expected:<pre>- http://localhost/.well-known/webfinger
 + https://fed.brid.gy/.well-known/webfinger?resource=acct:user.com@user.com</pre>""")
@@ -2393,7 +2398,7 @@ Current vs expected:<pre>- http://localhost/.well-known/webfinger
     def test_verify_redirect_404_wrong_destination(self, mock_get, _):
         redir_404 = requests_response(status=404, redirected_url='http://this/404s')
         no_hcard = requests_response('<html><body></body></html>')
-        mock_get.side_effect = [redir_404, no_hcard]
+        mock_get.side_effect = [redir_404, redir_404, no_hcard]
         self._test_verify(False, False, None, """\
 Current vs expected:<pre>- http://this/404s
 + https://fed.brid.gy/.well-known/webfinger?resource=acct:user.com@user.com</pre>""")
@@ -2412,6 +2417,25 @@ Current vs expected:<pre>- http://this/404s
             requests_response(''),
         ]
         self._test_verify(True, False, None)
+
+    def test_verify_non_bridgy_fed_webfinger(self, mock_get, _):
+        mock_get.side_effect = [
+            # webfinger
+            requests_response(
+                {}, status=404,
+                url='https://user.com/.well-known/webfinger?resource=acct:user.com@user.com'),
+            # host-meta
+            requests_response('some XRD', url='https://user.com/.well-known/host-meta'),
+            # h-card
+            requests_response(''),
+        ]
+
+        self.user.has_redirects = False
+        self.user.put()
+        got = self.user.verify()
+        self.assertFalse(self.user.has_redirects)
+        self.assertEqual(web.OWNS_WEBFINGER, self.user.redirects_error)
+        self.assertEqual('blocked', self.user.status)
 
     def test_verify_no_hcard(self, mock_get, _):
         mock_get.side_effect = [
@@ -2676,18 +2700,24 @@ Current vs expected:<pre>- http://this/404s
                          get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
-    def test_check_webfinger_redirects_then_fails(self, mock_get, _):
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_check_webfinger_redirects_then_fails(self, mock_task, mock_get, __):
+        common.RUN_TASKS_INLINE = False
+
         redir = 'http://localhost/.well-known/webfinger?resource=acct:orig@orig'
         mock_get.side_effect = (
             ACTOR_HTML_RESP,
-            requests_response('', status=302, redirected_url=redir),
-            requests_response('', status=503),
+            # webfinger
+            requests_response('', status=503, redirected_url=redir),
+            # host-meta
+            requests_response('', status=404),
+            # h-card
+            requests_response(''),
         )
 
         got = self.post('/web-site', data={'url': 'https://orig.co/'})
-        self.assert_equals(200, got.status_code, got.headers)
-        self.assertTrue(get_flashed_messages()[0].startswith(
-            "Couldn't connect to https://orig.co/: "))
+        self.assert_equals(302, got.status_code, got.headers)
+        self.assert_equals('/web/orig.co', got.headers['Location'])
 
     def test_check_web_site_fetch_fails(self, mock_get, _):
         mock_get.return_value = requests_response('', status=503)

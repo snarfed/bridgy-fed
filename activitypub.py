@@ -68,6 +68,9 @@ def web_opt_out_domains():
         _WEB_OPT_OUT_DOMAINS = {
             key.id() for key in Query(
                 'MagicKey',
+                # don't add status to this! we use status=blocked for Web users
+                # that are fediverse servers - see Web.status - but we don't
+                # want that to extend to ActivityPub users on those domains
                 filters=FilterNode('manual_opt_out', '=', True)
             ).fetch(keys_only=True)
         }
@@ -154,7 +157,7 @@ class ActivityPub(User, Protocol):
 
     @ndb.ComputedProperty
     def status(self):
-        """Override :meth:`Model.status` and include Web opted out domains."""
+        """Override :meth:`Model.status` and exclude Web opted out domains."""
         if util.domain_or_parent_in(util.domain_from_link(self.key.id()),
                                     web_opt_out_domains()):
             return 'opt-out'

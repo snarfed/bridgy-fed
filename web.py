@@ -18,7 +18,7 @@ from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.appengine_config import tasks_client
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.flask_util import cloud_tasks_only, error, flash
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from oauth_dropins.webutil.util import domain_from_link, json_dumps, json_loads
 from oauth_dropins.webutil import webmention
 from requests import HTTPError, RequestException
 from requests.auth import HTTPBasicAuth
@@ -55,6 +55,9 @@ MIN_FEED_POLL_PERIOD = timedelta(hours=2)
 MAX_FEED_POLL_PERIOD = timedelta(days=1)
 MAX_FEED_PROPERTY_SIZE = 500 * 1000  # Object.atom/rss
 MAX_FEED_ITEMS_PER_POLL = 10
+
+# populated into Web.redirects_error
+OWNS_WEBFINGER = 'This site serves its own Webfinger, and likely ActivityPub too.'
 
 
 def is_valid_domain(domain, allow_internal=True):
@@ -178,7 +181,7 @@ class Web(User, Protocol):
         # prettify if domain, noop if username
         username = self.username()
         if username != self.key.id():
-            return util.domain_from_link(username, minimize=False)
+            return domain_from_link(username, minimize=False)
         return username
 
     def handle_as(self, to_proto):
@@ -246,6 +249,14 @@ class Web(User, Protocol):
         # logger.debug(f'Defaulting username to key id {id}')
         return id
 
+    @ndb.ComputedProperty
+    def status(self):
+        if self.redirects_error == OWNS_WEBFINGER:
+            # looks like this site is already its own fediverse server
+            return 'blocked'
+
+        return super().status
+
     def verify(self):
         """Fetches site a couple ways to check for redirects and h-card.
 
@@ -291,9 +302,16 @@ class Web(User, Protocol):
                 got = urllib.parse.unquote(resp.url)
                 if got in expected:
                     self.has_redirects = True
-                elif got:
-                    diff = '\n'.join(difflib.Differ().compare([got], [expected[0]]))
-                    self.redirects_error = f'Current vs expected:<pre>{diff}</pre>'
+                else:
+                    # check host-meta to see if they serve their own Webfinger
+                    resp = util.requests_get(
+                        urljoin(self.web_url(), '/.well-known/host-meta'),
+                        gateway=False)
+                    if resp.ok and domain_from_link(resp.url) not in common.DOMAINS:
+                        self.redirects_error = OWNS_WEBFINGER
+                    else:
+                        diff = '\n'.join(difflib.Differ().compare([got], [expected[0]]))
+                        self.redirects_error = f'Current vs expected:<pre>{diff}</pre>'
             else:
                 lines = [url, f'  returned HTTP {resp.status_code}']
                 if resp.url and resp.url != url:
@@ -362,7 +380,7 @@ class Web(User, Protocol):
         # we allowed internal domains for protocol bot actors above, but we
         # don't want to allow non-homepage URLs on those domains, eg
         # https://bsky.brid.gy/foo, so don't allow internal here
-        domain = util.domain_from_link(id)
+        domain = domain_from_link(id)
         if util.is_web(id) and is_valid_domain(domain, allow_internal=False):
             return None
 
@@ -407,7 +425,7 @@ class Web(User, Protocol):
         if not (url in targets or
                 # homepage, check domain too
                 (urlparse(url).path.strip('/') == ''
-                 and util.domain_from_link(url) in targets)):
+                 and domain_from_link(url) in targets)):
             logger.debug(f'Skipping sending to {url} , not a target in the object')
             return False
 
@@ -466,7 +484,7 @@ class Web(User, Protocol):
 
         is_homepage = urlparse(url).path.strip('/') == ''
         if is_homepage:
-            domain = util.domain_from_link(url)
+            domain = domain_from_link(url)
             if domain == PRIMARY_DOMAIN or domain in PROTOCOL_DOMAINS:
                 profile = util.read(f'{domain}.as2.json')
                 if profile:
@@ -654,7 +672,7 @@ def webmention_external():
     elif urlparse(source).scheme != 'https':
         error('source URLs must be https (with SSL)')
 
-    domain = util.domain_from_link(source, minimize=False)
+    domain = domain_from_link(source, minimize=False)
     if not domain:
         error(f'Bad source URL {source}')
 
@@ -823,7 +841,7 @@ def webmention_task():
 
     # load user
     source = flask_util.get_required_param('source').strip()
-    domain = util.domain_from_link(source, minimize=False)
+    domain = domain_from_link(source, minimize=False)
     logger.info(f'webmention from {domain}')
 
     user = Web.get_by_id(domain)

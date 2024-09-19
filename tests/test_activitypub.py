@@ -385,8 +385,13 @@ class ActivityPubTest(TestCase):
         self.user.obj_key.delete()
         self.user.key.delete()
 
-        mock_get.return_value = requests_response(test_web.ACTOR_HTML,
-                                                  url='https://user.com/')
+        hcard = requests_response(test_web.ACTOR_HTML, url='https://user.com/')
+        mock_get.side_effect = [
+            hcard,
+            requests_response(status=404),
+            hcard,
+            hcard,
+        ]
 
         got = self.client.get('/user.com')
         self.assertEqual(200, got.status_code)

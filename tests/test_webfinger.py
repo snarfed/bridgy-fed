@@ -379,8 +379,13 @@ class WebfingerTest(TestCase):
         self.user.key.delete()
         self.user.obj_key.delete()
 
-        mock_get.return_value = requests_response(test_web.ACTOR_HTML,
-                                                  url='https://user.com/')
+        hcard = return_value = requests_response(test_web.ACTOR_HTML,
+                                                 url='https://user.com/')
+        mock_get.side_effect = [
+            hcard,
+            requests_response(status=404),
+            hcard,
+        ]
         expected = copy.deepcopy(WEBFINGER_NO_HCARD)
         expected['subject'] = 'acct:user.com@web.brid.gy'
 
