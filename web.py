@@ -308,6 +308,7 @@ class Web(User, Protocol):
                         urljoin(self.web_url(), '/.well-known/host-meta'),
                         gateway=False)
                     if resp.ok and domain_from_link(resp.url) not in common.DOMAINS:
+                        logger.info(f"{domain} serves Webfinger! probably a fediverse server")
                         self.redirects_error = OWNS_WEBFINGER
                     else:
                         diff = '\n'.join(difflib.Differ().compare([got], [expected[0]]))
@@ -643,9 +644,6 @@ def check_web_site():
     try:
         user = Web.get_or_create(domain, enabled_protocols=['atproto'],
                                  propagate=True, direct=True, verify=True)
-        if not user:  # opted out
-            flash(f'{url} is not a valid or supported web site')
-            return render_template('enter_web_site.html'), 400
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if code:
@@ -653,7 +651,16 @@ def check_web_site():
             return render_template('enter_web_site.html')
         raise
 
+    if not user:  # opted out
+        flash(f'{url} is not a valid or supported web site')
+        return render_template('enter_web_site.html'), 400
+
     user.put()
+
+    if user.redirects_error == OWNS_WEBFINGER:
+        flash(f'{url} looks like a fediverse server! Try a normal web site.')
+        return render_template('enter_web_site.html'), 400
+
     return redirect(user.user_page_path())
 
 
