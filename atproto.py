@@ -250,7 +250,7 @@ class ATProto(User, Protocol):
         return did_to_handle(self.key.id())
 
     def web_url(self):
-        return bluesky.Bluesky.user_url(self.handle_or_id())
+        return Bluesky.user_url(self.handle_or_id())
 
     @classmethod
     def owns_id(cls, id):
@@ -287,7 +287,7 @@ class ATProto(User, Protocol):
         """
         if not isinstance(user, ATProto):
             if did := user.get_copy(ATProto):
-                return bluesky.Bluesky.user_url(did_to_handle(did) or did)
+                return Bluesky.user_url(did_to_handle(did) or did)
 
     @classmethod
     def target_for(cls, obj, shared=False):
