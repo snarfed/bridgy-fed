@@ -57,6 +57,7 @@ def redir(to):
     ``https://foo.com/bar?baz``, or if it's requested with AS2 conneg in the
     ``Accept`` header, fetches and converts and serves it as AS2.
     """
+    to = to.strip()
     if request.args:
         to += '?' + urllib.parse.urlencode(request.args)
     # some browsers collapse repeated /s in the path down to a single slash.

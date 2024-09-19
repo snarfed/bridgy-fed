@@ -94,6 +94,11 @@ class RedirectTest(testutil.TestCase):
         got = self.client.get(r'/r/https://v2.jacky.wtf\"')
         self.assertEqual(404, got.status_code)
 
+    def test_redirect_trailing_encoded_newline(self):
+        got = self.client.get('/r/https://user.com%0D')
+        self.assertEqual(301, got.status_code)
+        self.assertEqual('https://user.com', got.headers['Location'])
+
     def test_redirect_url_parse_value_error(self):
         got = self.client.get(r'/r/https:/[DOMAIN]/')
         self.assertEqual(400, got.status_code)
