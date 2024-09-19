@@ -166,6 +166,8 @@ class Web(User, Protocol):
             return super().get_by_id(domain)
 
         user = super().get_or_create(domain, allow_opt_out=allow_opt_out, **kwargs)
+        if not user:
+            return None
 
         if verify or (verify is None and not user.existing):
             user = user.verify()

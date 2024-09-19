@@ -2507,6 +2507,11 @@ Current vs expected:<pre>- http://this/404s
         www_user = ndb.Key(Web, 'www.user.com').get()
         self.assertEqual(got.key, www_user.use_instead)
 
+    def test_get_or_create_opted_out(self, _, __):
+        self.user.manual_opt_out = True
+        self.user.put()
+        self.assertIsNone(Web.get_or_create('user.com'))
+
     def test_verify_actor_rel_me_links(self, mock_get, _):
         mock_get.side_effect = [
             FULL_REDIR,
