@@ -2437,6 +2437,23 @@ Current vs expected:<pre>- http://this/404s
         self.assertEqual(web.OWNS_WEBFINGER, self.user.redirects_error)
         self.assertEqual('blocked', self.user.status)
 
+    def test_verify_non_bridgy_fed_webfinger_host_meta_redirects(self, mock_get, _):
+        mock_get.side_effect = [
+            # webfinger
+            requests_response({}, status=404, url='-'),
+            # host-meta
+            requests_response(url='https://user.com/other', status=302),
+            # h-card
+            requests_response(''),
+        ]
+
+        self.user.has_redirects = False
+        self.user.put()
+        got = self.user.verify()
+        self.assertFalse(self.user.has_redirects)
+        self.assertNotEqual(web.OWNS_WEBFINGER, self.user.redirects_error)
+        self.assertIsNone(self.user.status)
+
     def test_verify_no_hcard(self, mock_get, _):
         mock_get.side_effect = [
             FULL_REDIR,

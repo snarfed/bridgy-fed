@@ -309,7 +309,8 @@ class Web(User, Protocol):
                     resp = util.requests_get(
                         urljoin(self.web_url(), '/.well-known/host-meta'),
                         gateway=False)
-                    if resp.ok and domain_from_link(resp.url) not in common.DOMAINS:
+                    if (resp.status_code == 200
+                            and domain_from_link(resp.url) not in common.DOMAINS):
                         logger.info(f"{domain} serves Webfinger! probably a fediverse server")
                         self.redirects_error = OWNS_WEBFINGER
                     else:
