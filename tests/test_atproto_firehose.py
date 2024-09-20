@@ -82,7 +82,16 @@ class FakeWebsocketClient:
         })]
 
 
-class ATProtoFirehoseSubscribeTest(TestCase):
+class ATProtoTestCase(TestCase):
+    """Utilities used by both test classes."""
+    def make_bridged_atproto_user(self):
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        return self.make_user('did:plc:user', cls=ATProto,
+                              enabled_protocols=['eefake'],
+                              obj_bsky=ACTOR_PROFILE_BSKY)
+
+
+class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
     def setUp(self):
         super().setUp()
 
@@ -171,10 +180,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
                          FakeWebsocketClient.url)
 
     def test_post_by_our_atproto_user(self):
-        self.store_object(id='did:plc:user', raw=DID_DOC)
-        user = self.make_user('did:plc:user', cls=ATProto,
-                              enabled_protocols=['eefake'],
-                              obj_bsky=ACTOR_PROFILE_BSKY)
+        self.make_bridged_atproto_user()
         self.assert_enqueues(POST_BSKY, repo='did:plc:user')
 
     def test_post_by_other(self):
@@ -194,9 +200,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         }, repo='did:alice')
 
     def test_skip_unsupported_type(self):
-        self.store_object(id='did:plc:user', raw=DID_DOC)
-        user = self.make_user('did:plc:user', cls=ATProto,
-                              enabled_protocols=['eefake'])
+        self.make_bridged_atproto_user()
         self.assert_doesnt_enqueue({
             '$type': 'app.bsky.nopey.nope',
         }, repo='did:plc:user')
@@ -353,11 +357,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         })
 
     def test_delete_by_our_atproto_user(self):
-        self.store_object(id='did:plc:user', raw=DID_DOC)
-        user = self.make_user('did:plc:user', cls=ATProto,
-                              enabled_protocols=['eefake'],
-                              obj_bsky=ACTOR_PROFILE_BSKY)
-
+        self.make_bridged_atproto_user()
         path = 'app.bsky.feed.post/abc123'
         self.assert_enqueues(path=path, action='delete')
 
@@ -365,11 +365,7 @@ class ATProtoFirehoseSubscribeTest(TestCase):
         self.assert_doesnt_enqueue(action='delete')
 
     def test_update_by_our_atproto_user(self):
-        self.store_object(id='did:plc:user', raw=DID_DOC)
-        user = self.make_user('did:plc:user', cls=ATProto,
-                              enabled_protocols=['eefake'],
-                              obj_bsky=ACTOR_PROFILE_BSKY)
-
+        self.make_bridged_atproto_user()
         self.assert_enqueues(action='delete')
 
     def test_update_by_other(self):
@@ -477,16 +473,12 @@ class ATProtoFirehoseSubscribeTest(TestCase):
 
 
 @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
-class ATProtoFirehoseHandleTest(TestCase):
+class ATProtoFirehoseHandleTest(ATProtoTestCase):
     def setUp(self):
         super().setUp()
         common.RUN_TASKS_INLINE = False
 
-        self.store_object(id='did:plc:user', raw=DID_DOC)
-        user = self.make_user('did:plc:user', cls=ATProto,
-                              enabled_protocols=['eefake'],
-                              obj_bsky=ACTOR_PROFILE_BSKY)
-
+        self.make_bridged_atproto_user()
         atproto_firehose.atproto_dids = None
         atproto_firehose.bridged_dids = None
         atproto_firehose.dids_initialized.clear()
