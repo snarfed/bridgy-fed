@@ -695,64 +695,46 @@ def webmention_external():
     return common.create_task('webmention', **request.form)
 
 
-@app.post(f'/queue/poll-feed')
-@cloud_tasks_only
-def poll_feed_task():
+def poll_feed(user, feed_url, rel_type):
     """Fetches a :class:`Web` site's feed and delivers new/updated posts.
 
-    Params:
-      ``domain`` (str): key id of the :class:`Web` user
+    Args:
+      user (Web)
+      feed_url (str)
+      rel_type (str): feed link's top-level rel type in home page HTML, usually
+        either ``atom`` or ``rss`
+
+    Returns:
+      list of dict AS1 activities:
     """
-    domain = flask_util.get_required_param('domain')
-    logger.info(f'Polling feed for {domain}')
-
-    user = Web.get_by_id(domain)
-    if not (user and user.obj and user.obj.mf2):
-        error(f'No Web user or object found for domain {domain}', status=304)
-    elif user.last_webmention_in:
-        logger.info(f'Dropping since last_webmention_in is set')
-        return 'OK'
-
-    # discover feed URL
-    for url, info in user.obj.mf2.get('rel-urls', {}).items():
-        rel_type = FEED_TYPES.get(info.get('type', '').split(';')[0])
-        if 'alternate' in info.get('rels', []) and rel_type:
-            break
-    else:
-        msg = f"User {user.key.id()} has no feed URL, can't fetch feed"
-        logger.info(msg)
-        return msg
-
     # fetch feed
     headers = {}
     if user.feed_etag:
         headers['If-None-Match'] = user.feed_etag
     if user.feed_last_modified:
         headers['If-Modified-Since'] = user.feed_last_modified
-    resp = util.requests_get(url, headers=headers, gateway=True)
+    resp = util.requests_get(feed_url, headers=headers, gateway=True)
 
+    # update user
+    user.last_polled_feed = util.now()
+    user.feed_etag = resp.headers.get('ETag')
+    user.feed_last_modified = resp.headers.get('Last-Modified')
+
+    # parse feed
     content_type = resp.headers.get('Content-Type') or ''
     type = FEED_TYPES.get(content_type.split(';')[0])
     if resp.status_code == 304:
         logger.info('Feed is unchanged since last poll')
-        activities = []
+        user.put()
+        return []
     elif type == 'atom' or (type == 'xml' and rel_type == 'atom'):
-        try:
-            activities = atom.atom_to_activities(resp.text)
-        except (RequestException, ValueError, ElementTree.ParseError) as e:
-            # TODO: should probably still create the next poll-feed task
-            error(f"Couldn't parse feed as Atom: {e}", status=502)
+        activities = atom.atom_to_activities(resp.text)
         obj_feed_prop = {'atom': resp.text[:MAX_FEED_PROPERTY_SIZE]}
     elif type == 'rss' or (type == 'xml' and rel_type == 'rss'):
-        try:
-            activities = rss.to_activities(resp.text)
-        except (RequestException, ValueError) as e:
-            error(f"Couldn't parse feed as RSS: {e}", status=502)
+        activities = rss.to_activities(resp.text)
         obj_feed_prop = {'rss': resp.text[:MAX_FEED_PROPERTY_SIZE]}
     else:
-        msg = f'Unknown feed type {content_type}'
-        logger.info(msg)
-        return msg
+        raise ValueError(f'Unknown feed type {content_type}')
 
     if len(activities) > MAX_FEED_ITEMS_PER_POLL:
         logger.info(f'Got {len(activities)} feed items, only processing the first {MAX_FEED_ITEMS_PER_POLL}')
@@ -799,11 +781,59 @@ def poll_feed_task():
                                 if img not in profile_images]
 
         activity['feed_index'] = i
-        obj = Object.get_or_create(id=id, authed_as=domain, our_as1=activity,
+        obj = Object.get_or_create(id=id, authed_as=user.key.id(), our_as1=activity,
                                    status='new', source_protocol=Web.ABBREV,
                                    users=[user.key], **obj_feed_prop)
         common.create_task(queue='receive', obj=obj.key.urlsafe(),
                            authed_as=user.key.id())
+
+    user.put()
+    return activities
+
+
+@app.post(f'/queue/poll-feed')
+@cloud_tasks_only
+def poll_feed_task():
+    """Task handler for polling a :class:`Web` user's feed.
+
+    Params:
+      ``domain`` (str): key id of the :class:`Web` user
+    """
+    domain = flask_util.get_required_param('domain')
+    logger.info(f'Polling feed for {domain}')
+
+    user = Web.get_by_id(domain)
+    if not (user and user.obj and user.obj.mf2):
+        error(f'No Web user or object found for domain {domain}', status=304)
+    elif user.last_webmention_in:
+        logger.info(f'Dropping since last_webmention_in is set')
+        return 'OK'
+
+    # discover feed URL
+    for url, info in user.obj.mf2.get('rel-urls', {}).items():
+        rel_type = FEED_TYPES.get(info.get('type', '').split(';')[0])
+        if 'alternate' in info.get('rels', []) and rel_type:
+            break
+    else:
+        msg = f"User {user.key.id()} has no feed URL, can't fetch feed"
+        logger.info(msg)
+        return msg
+
+    # go go go!
+    activities = []
+    status = 200
+    try:
+        activities = poll_feed(user, url, rel_type)
+    except (ValueError, ElementTree.ParseError) as e:
+        logger.error(f"Couldn't parse feed: {e}")
+        status = 304
+    except BaseException as e:
+        code, _ = util.interpret_http_exception(e)
+        if code or util.is_connection_failure(e):
+            logger.error(f"Couldn't fetch feed: {e}")
+            status = 304
+        else:
+            raise
 
     # determine posting frequency
     published_last = None
@@ -828,14 +858,7 @@ def poll_feed_task():
                                     or user.created.replace(tzinfo=timezone.utc)))
 
     common.create_task(queue='poll-feed', domain=user.key.id(), delay=delay)
-
-    # update user
-    user.last_polled_feed = util.now()
-    user.feed_etag = resp.headers.get('ETag')
-    user.feed_last_modified = resp.headers.get('Last-Modified')
-    user.put()
-
-    return 'OK'
+    return 'OK', status
 
 
 @app.post('/queue/webmention')

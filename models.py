@@ -329,7 +329,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                             except (ValueError, AssertionError):
                                 logger.info(f'failed creating {proto.LABEL} copy')
                         else:
-                            logger.info(f'{proto.LABEL} not enabled or user copy already exists, skipping propagate')
+                            logger.debug(f'{proto.LABEL} not enabled or user copy already exists, skipping propagate')
 
             # generate keys for all protocols _except_ our own
             #

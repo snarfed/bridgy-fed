@@ -635,8 +635,7 @@ class WebTest(TestCase):
             requests_response(REPLY_HTML, status=405),
         )
 
-        got = self.post('/queue/webmention',
-                               data={'source': 'https://user.com/post'})
+        got = self.post('/queue/webmention', data={'source': 'https://user.com/post'})
         self.assertEqual(502, got.status_code)
         self.assertEqual(orig_count, Object.query().count())
 
@@ -2055,7 +2054,8 @@ class WebTest(TestCase):
         self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
                          authed_as='user.com')
 
-    def test_poll_feed_fails(self, mock_get, _):
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_fails(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
         self.user.obj.put()
@@ -2063,10 +2063,15 @@ class WebTest(TestCase):
         mock_get.side_effect = requests.ConnectionError()
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
-        self.assertEqual(502, got.status_code)
+        self.assertEqual(304, got.status_code)
         self.assertIsNone(self.user.key.get().last_polled_feed)
 
-    def test_poll_feed_unsupported_content_types(self, mock_get, _):
+        expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
+        self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
+                         eta_seconds=expected_eta)
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_unsupported_content_types(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
         self.user.obj.put()
@@ -2075,10 +2080,15 @@ class WebTest(TestCase):
             mock_get.return_value = requests_response(
                 'nope', headers={'Content-Type': content_type})
             got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
-            self.assertEqual(200, got.status_code)
+            self.assertEqual(304, got.status_code)
             self.assertIsNone(self.user.key.get().last_polled_feed)
 
-    def test_poll_feed_mismatched_content_type(self, mock_get, _):
+        expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
+        self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
+                         eta_seconds=expected_eta)
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_mismatched_content_type(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
         self.user.obj.put()
@@ -2086,10 +2096,15 @@ class WebTest(TestCase):
         mock_get.return_value = requests_response(
             '<rss version="2.0"></rss>', headers={'Content-Type': atom.CONTENT_TYPE})
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
-        self.assertEqual(502, got.status_code)
+        self.assertEqual(304, got.status_code)
         self.assertIsNone(self.user.key.get().last_polled_feed)
 
-    def test_poll_feed_parse_error(self, mock_get, _):
+        expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
+        self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
+                         eta_seconds=expected_eta)
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_parse_error(self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
         self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
         self.user.obj.put()
@@ -2108,8 +2123,12 @@ class WebTest(TestCase):
             mock_get.return_value = requests_response(
                 'nope', headers={'Content-Type': content_type})
             got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
-            self.assertEqual(200, got.status_code)
+            self.assertEqual(304, got.status_code)
             self.assertIsNone(self.user.key.get().last_polled_feed)
+
+        expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
+        self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
+                         eta_seconds=expected_eta)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_user_feed_last_item(self, mock_create_task, mock_get, _):
@@ -2128,9 +2147,12 @@ class WebTest(TestCase):
             feed, headers={'Content-Type': atom.CONTENT_TYPE})
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
 
-        self.assertEqual(502, got.status_code)
+        self.assertEqual(304, got.status_code)
         self.assertEqual(1, Object.query().count())  # only user profile
-        mock_create_task.assert_not_called()  # doesn't create a next poll-feed task
+
+        expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
+        self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
+                         eta_seconds=expected_eta)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_blocklisted_entry_url(self, mock_create_task, mock_get, _):
