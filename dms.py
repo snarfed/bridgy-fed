@@ -149,7 +149,7 @@ def receive(*, from_user, obj):
 
         elif to_user.is_enabled(from_proto):
             # already bridged
-            return reply(f'{to_user.user_link()} is already bridged into {from_proto.PHRASE}.')
+            return reply(f'{to_user.user_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.')
 
         elif (models.DM(protocol=from_proto.LABEL, type='request_bridging')
               in to_user.sent_dms):
