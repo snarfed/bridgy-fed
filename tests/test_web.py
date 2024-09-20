@@ -2767,29 +2767,17 @@ class WebUtilTest(TestCase):
         self.assertEqual(False, Web.owns_id('e45fab982'))
         self.assertEqual(False, Web.owns_id('foo.bad'))
         self.assertEqual(False, Web.owns_id('foo.json'))
-
-        self.assertIsNone(Web.owns_id('user.com'))
-        self.user.has_redirects = True
-        self.user.put()
         self.assertTrue(Web.owns_id('user.com'))
-        self.user.key.delete()
-        self.assertIsNone(Web.owns_id('user.com'))
 
         # extra /, urlparse thinks domain is None
         self.assertFalse(Web.owns_id('https:///github.com/puddly'))
-
-    def test_owns_id_returns_None(self, *_):
-        self.user.manual_opt_out = True
-        self.user.put()
-        self.assertIsNone(Web.owns_id('https://user.com/'))
-        self.assertIsNone(Web.owns_id('user.com'))
 
     def test_owns_id_blocklisted(self, *_):
         self.assertIs(False, Web.owns_id('localhost'))
         self.assertIs(False, Web.owns_id('http://localhost/foo'))
         self.assertIs(False, Web.owns_id('http://localhost:8080/foo'))
         self.assertIs(False, Web.owns_id('https://twitter.com/'))
-        self.assertIs(False, Web.owns_id('https://ap.brid.gy/foo'))
+        self.assertIs(True, Web.owns_id('https://ap.brid.gy/foo'))
 
     def test_owns_handle(self, *_):
         self.assertIsNone(Web.owns_handle('foo.com'))

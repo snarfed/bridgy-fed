@@ -367,23 +367,22 @@ class Web(User, Protocol):
 
     @classmethod
     def owns_id(cls, id):
-        """Returns None if id is a domain or http(s) URL, False otherwise.
+        """Returns True on domains and internal URLs, None on other URLs.
 
         All web pages are http(s) URLs, but not all http(s) URLs are web pages.
         """
         if not id:
             return False
+        elif is_valid_domain(id, allow_internal=True):
+            return True
 
-        if key := cls.key_for(id):
-            user = key.get()
-            return True if user and user.has_redirects else None
-        elif is_valid_domain(id):
-            return None
+        domain = domain_from_link(id)
+        if domain == PRIMARY_DOMAIN or domain in PROTOCOL_DOMAINS:
+            return True
 
         # we allowed internal domains for protocol bot actors above, but we
         # don't want to allow non-homepage URLs on those domains, eg
         # https://bsky.brid.gy/foo, so don't allow internal here
-        domain = domain_from_link(id)
         if util.is_web(id) and is_valid_domain(domain, allow_internal=False):
             return None
 
@@ -852,6 +851,9 @@ def webmention_task():
     source = flask_util.get_required_param('source').strip()
     domain = domain_from_link(source, minimize=False)
     logger.info(f'webmention from {domain}')
+
+    if domain in common.DOMAINS:
+        error(f'URL not supported: {source}')
 
     user = Web.get_by_id(domain)
     if not user:
