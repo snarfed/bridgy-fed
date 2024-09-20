@@ -305,7 +305,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                     return user
 
             else:
-                if orig := get_original(id):
+                if orig_key := get_original_user_key(id):
+                    orig = orig_key.get()
                     if orig.status and not allow_opt_out:
                         return None
                     orig.existing = False
@@ -1212,60 +1213,46 @@ class Object(StringIdModel):
             return
 
         inner_obj = outer_obj['object'] = as1.get_object(outer_obj)
-        fields = ['actor', 'author', 'inReplyTo']
-
-        # collect relevant ids
-        ids = [inner_obj.get('id')]
-        for obj in outer_obj, inner_obj:
-            for tag in as1.get_objects(obj, 'tags'):
-                if tag.get('objectType') == 'mention':
-                    ids.append(tag.get('url'))
-            for field in fields:
-                for val in as1.get_objects(obj, field):
-                    ids.append(val.get('id'))
-
-        ids = util.trim_nulls(ids)
-        if not ids:
-            return
-
-        # batch lookup matching users
-        origs = {}  # maps str copy URI to str original URI
-        for obj in get_originals(tuple(ids)):
-            for copy in obj.copies:
-                if copy.protocol in (self_proto.LABEL, self_proto.ABBREV):
-                    origs[copy.uri] = obj.key.id()
-
-        logger.debug(f'Resolving {self_proto.LABEL} ids; originals: {origs}')
         replaced = False
 
-        def replace(val):
+        def replace(val, orig_fn):
             id = val.get('id') if isinstance(val, dict) else val
-            orig = origs.get(id)
+            if not id:
+                return id
+
+            orig = orig_fn(id)
             if not orig:
                 return val
 
             nonlocal replaced
             replaced = True
-            if isinstance(val, dict) and val.keys() > {'id'}:
-                val['id'] = orig
+            logger.debug(f'Resolved copy id {val} to original {orig.id()}')
+
+            if isinstance(val, dict) and util.trim_nulls(val).keys() > {'id'}:
+                val['id'] = orig.id()
                 return val
             else:
-                return orig
+                return orig.id()
 
         # actually replace ids
+        #
+        # object field could be either object (eg repost) or actor (eg follow)
+        outer_obj['object'] = replace(inner_obj, get_original_object_key)
+        if not replaced:
+            outer_obj['object'] = replace(inner_obj, get_original_user_key)
+
         for obj in outer_obj, inner_obj:
             for tag in as1.get_objects(obj, 'tags'):
                 if tag.get('objectType') == 'mention':
-                    tag['url'] = replace(tag.get('url'))
-            for field in fields:
-                obj[field] = [replace(val) for val in util.get_list(obj, field)]
+                    tag['url'] = replace(tag.get('url'), get_original_user_key)
+            for field, fn in (
+                    ('actor', get_original_user_key),
+                    ('author', get_original_user_key),
+                    ('inReplyTo', get_original_object_key),
+                ):
+                obj[field] = [replace(val, fn) for val in util.get_list(obj, field)]
                 if len(obj[field]) == 1:
                     obj[field] = obj[field][0]
-
-        outer_obj['object'] = replace(inner_obj)
-
-        if util.trim_nulls(outer_obj['object']).keys() == {'id'}:
-            outer_obj['object'] = outer_obj['object']['id']
 
         if replaced:
             self.our_as1 = util.trim_nulls(outer_obj)
@@ -1639,47 +1626,35 @@ def fetch_page(query, model_class, by=None):
     return results, new_before, new_after
 
 
-def get_original(copy_id, keys_only=None):
-    """Fetches a user or object with a given id in copies.
-
-    Thin wrapper around :func:`get_copies` that returns the first
-    matching result.
-
-    Also see :Object:`get_copy` and :User:`get_copy`.
+@lru_cache(maxsize=100000)
+def get_original_object_key(copy_id):
+    """Finds the :class:`Object` with a given copy id, if any.
 
     Args:
       copy_id (str)
-      keys_only (bool): passed through to :class:`google.cloud.ndb.Query`
 
     Returns:
-      User or Object:
+      google.cloud.ndb.Key or None
     """
-    got = get_originals((copy_id,), keys_only=keys_only)
-    if got:
-        return got[0]
+    assert copy_id
+
+    return Object.query(Object.copies.uri == copy_id).get(keys_only=True)
 
 
-@lru_cache(maxsize=10000)
-def get_originals(copy_ids, keys_only=None):
-    """Fetches users (across all protocols) for a given set of copies.
-
-    Also see :Object:`get_copy` and :User:`get_copy`.
+@lru_cache(maxsize=100000)
+def get_original_user_key(copy_id):
+    """Finds the user with a given copy id, if any.
 
     Args:
-      copy_ids (tuple (not list!) of str)
-      keys_only (bool): passed through to :class:`google.cloud.ndb.Query`
+      copy_id (str)
+      not_proto (Protocol): optional, don't query this protocol
 
     Returns:
-      sequence of User and/or Object
+      google.cloud.ndb.Key or None
     """
-    assert copy_ids
+    assert copy_id
 
-    classes = set(cls for cls in PROTOCOLS.values() if cls and cls.LABEL != 'ui')
-    classes.add(Object)
-
-    return list(itertools.chain(*(
-        cls.query(cls.copies.uri.IN(copy_ids)).iter(keys_only=keys_only)
-        for cls in classes)))
-
-    # TODO: default to looking up copy_ids as key ids, across protocols? is
-    # that useful anywhere?
+    for proto in PROTOCOLS.values():
+        if proto and proto.LABEL != 'ui' and not proto.owns_id(copy_id):
+            if orig := proto.query(proto.copies.uri == copy_id).get(keys_only=True):
+                return orig

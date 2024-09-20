@@ -132,9 +132,9 @@ def translate_user_id(*, id, from_, to):
         if user:
             if copy := user.get_copy(to):
                 return copy
-        if orig := models.get_original(id):
-            if isinstance(orig, to):
-                return orig.key.id()
+        if orig := models.get_original_user_key(id):
+            if orig.kind() == to._get_kind():
+                return orig.id()
 
     match from_.LABEL, to.LABEL:
         case _, 'atproto' | 'nostr':
@@ -327,8 +327,8 @@ def translate_object_id(*, id, from_, to):
         if obj := from_.load(id, remote=False):
             if copy := obj.get_copy(to):
                 return copy
-        if orig := models.get_original(id):
-            return orig.key.id()
+        if orig := models.get_original_object_key(id):
+            return orig.id()
 
     match from_.LABEL, to.LABEL:
         case _, 'atproto' | 'nostr':

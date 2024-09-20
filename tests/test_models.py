@@ -971,7 +971,8 @@ class ObjectTest(TestCase):
         obj.resolve_ids()
         self.assert_equals(follow, obj.our_as1)
 
-        models.get_originals.cache_clear()
+        models.get_original_user_key.cache_clear()
+        models.get_original_object_key.cache_clear()
 
         # matching copy users
         self.make_user('other:alice', cls=OtherFake,
@@ -1008,7 +1009,8 @@ class ObjectTest(TestCase):
         obj.resolve_ids()
         self.assert_equals(reply, obj.our_as1)
 
-        models.get_originals.cache_clear()
+        models.get_original_user_key.cache_clear()
+        models.get_original_object_key.cache_clear()
 
         # matching copies
         self.make_user('other:alice', cls=OtherFake,
@@ -1048,7 +1050,8 @@ class ObjectTest(TestCase):
         obj.resolve_ids()
         self.assert_equals(note, obj.our_as1)
 
-        models.get_originals.cache_clear()
+        models.get_original_user_key.cache_clear()
+        models.get_original_object_key.cache_clear()
 
         # matching copies
         self.store_object(id='other:a',
@@ -1153,19 +1156,19 @@ class ObjectTest(TestCase):
             },
         }, obj.our_as1)
 
-    def test_get_originals(self):
-        self.assertEqual([], models.get_originals(('foo', 'did:plc:bar')))
+    def test_get_original_user_key(self):
+        self.assertIsNone(models.get_original_user_key('other:user'))
+        models.get_original_user_key.cache_clear()
+        user = self.make_user('fake:user', cls=Fake,
+                              copies=[Target(uri='other:user', protocol='other')])
+        self.assertEqual(user.key, models.get_original_user_key('other:user'))
 
+    def test_get_original_object_key(self):
+        self.assertIsNone(models.get_original_object_key('other:post'))
+        models.get_original_object_key.cache_clear()
         obj = self.store_object(id='fake:post',
-                                copies=[Target(uri='other:foo', protocol='other')])
-        user = self.make_user('other:user', cls=OtherFake,
-                              copies=[Target(uri='fake:bar', protocol='fake')])
-
-        self.assert_entities_equal(
-            [obj, user], models.get_originals(('other:foo', 'fake:bar', 'baz')))
-
-        self.assert_entities_equal(
-            [obj, user], models.get_originals(('other:foo', 'fake:bar', 'baz')))
+                                copies=[Target(uri='other:post', protocol='other')])
+        self.assertEqual(obj.key, models.get_original_object_key('other:post'))
 
     def test_get_copy(self):
         obj = Object(id='x')

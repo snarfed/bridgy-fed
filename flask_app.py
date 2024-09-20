@@ -19,7 +19,6 @@ from oauth_dropins.webutil import (
 import common
 
 logger = logging.getLogger(__name__)
-# logging.getLogger('lexrpc').setLevel(logging.INFO)
 logging.getLogger('negotiator').setLevel(logging.WARNING)
 
 app_dir = Path(__file__).parent

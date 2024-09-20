@@ -2555,7 +2555,8 @@ class ProtocolReceiveTest(TestCase):
                        copies=[Target(uri='fake:bob', protocol='fake')])
 
         common.memcache.clear()
-        models.get_originals.cache_clear()
+        models.get_original_user_key.cache_clear()
+        models.get_original_object_key.cache_clear()
 
         obj.new = True
         OtherFake.fetchable = {
@@ -2588,7 +2589,8 @@ class ProtocolReceiveTest(TestCase):
                           copies=[Target(uri='fake:post', protocol='fake')])
 
         common.memcache.clear()
-        models.get_originals.cache_clear()
+        models.get_original_user_key.cache_clear()
+        models.get_original_object_key.cache_clear()
         obj.new = True
 
         _, code = Fake.receive(obj, authed_as='fake:alice')
@@ -2637,7 +2639,8 @@ class ProtocolReceiveTest(TestCase):
             id='fake:post', our_as1={'foo': 9}, source_protocol='fake',
             copies=[Target(uri='other:post', protocol='other')])
 
-        models.get_originals.cache_clear()
+        models.get_original_user_key.cache_clear()
+        models.get_original_object_key.cache_clear()
 
         obj.new = True
         self.assertEqual(('OK', 202),
