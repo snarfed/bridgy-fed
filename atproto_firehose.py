@@ -187,26 +187,23 @@ def subscribe():
             # when running locally, comment out put above and uncomment this
             # cursor.updated = util.now().replace(tzinfo=None)
 
-        if payload['repo'] in bridged_dids:
-            logger.info(f'Ignoring record from our non-ATProto bridged user {payload["repo"]}')
+        if payload['repo'] not in atproto_dids:
             continue
 
         blocks = {}  # maps base32 str CID to dict block
         if block_bytes := payload.get('blocks'):
             _, blocks = libipld.decode_car(block_bytes)
 
-        # detect records that reference an ATProto user, eg replies, likes,
-        # reposts, mentions
+        # detect records from bridged ATProto users that we should handle
         for p_op in payload.get('ops', []):
             op = Op(repo=payload['repo'], action=p_op.get('action'),
                     path=p_op.get('path'), seq=payload['seq'])
             if not op.action or not op.path:
                 logger.info(
-                    f'bad payload! seq {op.seq} has action {op.action} path {op.path}!')
+                    f'bad payload! seq {op.seq} action {op.action} path {op.path}!')
                 continue
 
-            is_ours = op.repo in atproto_dids
-            if is_ours and op.action == 'delete':
+            if op.action == 'delete':
                 logger.info(f'Got delete from our ATProto user: {op}')
                 # TODO: also detect deletes of records that *reference* our bridged
                 # users, eg a delete of a follow or like or repost of them.
@@ -230,54 +227,32 @@ def subscribe():
             elif type not in ATProto.SUPPORTED_RECORD_TYPES:
                 continue
 
-            if is_ours:
-                logger.info(f'Got one from our ATProto user: {op.action} {op.repo} {op.path}')
-                commits.put(op)
-                continue
+            def is_ours(ref, also_atproto_users=False):
+                """Returns True if the arg is a bridge user."""
+                if match := AT_URI_PATTERN.match(ref['uri']):
+                    did = match.group('repo')
+                    return did and (did in bridged_dids
+                                    or also_atproto_users and did in atproto_dids)
 
-            subjects = []
+            if type == 'app.bsky.feed.repost':
+                if not is_ours(op.record['subject'], also_atproto_users=True):
+                    continue
 
-            def maybe_add(did_or_ref):
-                if isinstance(did_or_ref, dict):
-                    match = AT_URI_PATTERN.match(did_or_ref['uri'])
-                    if match:
-                        did = match.group('repo')
-                    else:
-                        return
-                else:
-                    did = did_or_ref
-
-                if did and did in bridged_dids:
-                    add(subjects, did)
-
-            if type in ('app.bsky.feed.like', 'app.bsky.feed.repost'):
-                maybe_add(op.record['subject'])
+            elif type == 'app.bsky.feed.like':
+                if not is_ours(op.record['subject'], also_atproto_users=False):
+                    continue
 
             elif type in ('app.bsky.graph.block', 'app.bsky.graph.follow'):
-                maybe_add(op.record['subject'])
+                if op.record['subject'] not in bridged_dids:
+                    continue
 
             elif type == 'app.bsky.feed.post':
-                # replies
                 if reply := op.record.get('reply'):
-                    for ref in 'parent', 'root':
-                        maybe_add(reply[ref])
+                    if not is_ours(reply['parent'], also_atproto_users=True):
+                        continue
 
-                # mentions
-                for facet in op.record.get('facets', []):
-                    for feature in facet['features']:
-                        if feature['$type'] == 'app.bsky.richtext.facet#mention':
-                            maybe_add(feature['did'])
-
-                # quote posts
-                if embed := op.record.get('embed'):
-                    if embed['$type'] == 'app.bsky.embed.record':
-                        maybe_add(embed['record'])
-                    elif embed['$type'] == 'app.bsky.embed.recordWithMedia':
-                        maybe_add(embed['record']['record'])
-
-            if subjects:
-                logger.info(f'Got one re our ATProto users {subjects}: {op.action} {op.repo} {op.path}')
-                commits.put(op)
+            logger.info(f'Got one: {op.action} {op.repo} {op.path}')
+            commits.put(op)
 
 
 def handler():

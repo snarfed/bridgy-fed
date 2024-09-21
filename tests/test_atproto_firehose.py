@@ -84,10 +84,9 @@ class FakeWebsocketClient:
 
 class ATProtoTestCase(TestCase):
     """Utilities used by both test classes."""
-    def make_bridged_atproto_user(self):
-        self.store_object(id='did:plc:user', raw=DID_DOC)
-        return self.make_user('did:plc:user', cls=ATProto,
-                              enabled_protocols=['eefake'],
+    def make_bridged_atproto_user(self, did='did:plc:user'):
+        self.store_object(id=did, raw=DID_DOC)
+        return self.make_user(did, cls=ATProto, enabled_protocols=['eefake'],
                               obj_bsky=ACTOR_PROFILE_BSKY)
 
 
@@ -110,6 +109,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         atproto_firehose.bridged_loaded_at = datetime(1900, 1, 1)
         atproto_firehose.dids_initialized.clear()
 
+        self.make_bridged_atproto_user()
         AtpRepo(id='did:alice', head='', signing_key_pem=b'').put()
         self.store_object(id='did:plc:bob', raw=DID_DOC)
         ATProto(id='did:plc:bob').put()
@@ -180,13 +180,10 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
                          FakeWebsocketClient.url)
 
     def test_post_by_our_atproto_user(self):
-        self.make_bridged_atproto_user()
-        self.assert_enqueues(POST_BSKY, repo='did:plc:user')
+        self.assert_enqueues(POST_BSKY)
 
     def test_post_by_other(self):
-        self.store_object(id='did:plc:eve', raw={**DID_DOC, 'id': 'did:plc:eve'})
-        self.make_user('did:plc:eve', cls=ATProto, enabled_protocols=['eefake'])
-        self.assert_doesnt_enqueue(POST_BSKY, repo='did:plc:user')
+        self.assert_doesnt_enqueue(POST_BSKY, repo='did:plc:bob')
 
     def test_skip_post_by_bridged_user(self):
         # reply to bridged user, but also from bridged user, so we should skip
@@ -199,13 +196,24 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             },
         }, repo='did:alice')
 
+    def test_like_by_our_atproto_user(self):
+        self.assert_enqueues({
+            '$type': 'app.bsky.feed.like',
+            'subject': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
+        })
+
+    def test_like_by_our_atproto_user_of_non_bridged_user(self):
+        self.assert_doesnt_enqueue({
+            '$type': 'app.bsky.feed.like',
+            'subject': {'uri': 'at://did:eve/app.bsky.feed.post/tid'},
+        })
+
     def test_skip_unsupported_type(self):
-        self.make_bridged_atproto_user()
         self.assert_doesnt_enqueue({
             '$type': 'app.bsky.nopey.nope',
         }, repo='did:plc:user')
 
-    def test_reply_direct_to_our_user(self):
+    def test_reply_direct_to_atproto_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.feed.post',
             'reply': {
@@ -215,15 +223,24 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
                     # test that we handle CIDs
                     'cid': A_CID.encode(),
                 },
-                'root': {
-                    'uri': '-',
+            },
+        })
+
+    def test_reply_direct_to_bridged_user(self):
+        self.make_bridged_atproto_user('did:web:carol.com')
+        self.assert_enqueues({
+            '$type': 'app.bsky.feed.post',
+            'reply': {
+                '$type': 'app.bsky.feed.post#replyRef',
+                'parent': {
+                    'uri': 'at://did:web:carol.com/app.bsky.feed.post/tid',
                     'cid': A_CID.encode(),
                 },
             },
         })
 
     def test_reply_indirect_to_our_user(self):
-        self.assert_enqueues({
+        self.assert_doesnt_enqueue({
             '$type': 'app.bsky.feed.post',
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
@@ -239,72 +256,6 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
                 '$type': 'app.bsky.feed.post#replyRef',
                 'parent': {'uri': 'at://did:eve/app.bsky.feed.post/tid'},
                 'root': {'uri': '-'},
-            },
-        })
-
-    def test_mention_our_user(self):
-        self.assert_enqueues({
-            '$type': 'app.bsky.feed.post',
-            'facets': [{
-                '$type': 'app.bsky.richtext.facet',
-                'features': [{
-                    '$type': 'app.bsky.richtext.facet#mention',
-                    'did': 'did:alice',
-                }],
-            }],
-        })
-
-    def test_mention_other(self):
-        self.assert_doesnt_enqueue({
-            '$type': 'app.bsky.feed.post',
-            'facets': [{
-                '$type': 'app.bsky.richtext.facet',
-                'features': [{
-                    '$type': 'app.bsky.richtext.facet#mention',
-                    'did': 'did:eve',
-                }],
-            }],
-        })
-
-    def test_quote_of_our_user(self):
-        self.assert_enqueues({
-            '$type': 'app.bsky.feed.post',
-            'embed': {
-                '$type': 'app.bsky.embed.record',
-                'record': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
-            },
-        })
-
-    def test_quote_of_other(self):
-        self.assert_doesnt_enqueue({
-            '$type': 'app.bsky.feed.post',
-            'embed': {
-                '$type': 'app.bsky.embed.record',
-                'record': {'uri': 'at://did:eve/app.bsky.feed.post/tid'},
-            },
-        })
-
-    def test_quote_of_our_user_with_image(self):
-        self.assert_enqueues({
-            '$type': 'app.bsky.feed.post',
-            'embed': {
-                '$type': 'app.bsky.embed.recordWithMedia',
-                'record': {
-                    'record': {'uri': 'at://did:alice/app.bsky.feed.post/tid'},
-                },
-                'media': {'$type': 'app.bsky.embed.images'},
-            },
-        })
-
-    def test_quote_of_other_with_image(self):
-        self.assert_doesnt_enqueue({
-            '$type': 'app.bsky.feed.post',
-            'embed': {
-                '$type': 'app.bsky.embed.recordWithMedia',
-                'record': {
-                    'record': {'uri': 'at://did:eve/app.bsky.feed.post/tid'},
-                },
-                'media': {'$type': 'app.bsky.embed.images'},
             },
         })
 
@@ -357,19 +308,18 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         })
 
     def test_delete_by_our_atproto_user(self):
-        self.make_bridged_atproto_user()
         path = 'app.bsky.feed.post/abc123'
         self.assert_enqueues(path=path, action='delete')
 
     def test_delete_by_other(self):
-        self.assert_doesnt_enqueue(action='delete')
+        self.assert_doesnt_enqueue(action='delete', repo='did:plc:carol')
 
     def test_update_by_our_atproto_user(self):
-        self.make_bridged_atproto_user()
-        self.assert_enqueues(action='delete')
+        self.assert_enqueues(action='update', record=POST_BSKY)
 
     def test_update_by_other(self):
-        self.assert_doesnt_enqueue(action='delete')
+        self.assert_doesnt_enqueue(action='update', repo='did:plc:carol',
+                                   record=POST_BSKY)
 
     def test_update_like_of_our_user(self):
         self.assert_enqueues(action='update', record={
@@ -381,10 +331,10 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         self.cursor.cursor = 1
         self.cursor.put()
 
-        FakeWebsocketClient.setup_receive(
-            Op(repo='did:x', action='create', path='y', seq=4, record={'foo': 'bar'}))
+        FakeWebsocketClient.setup_receive(Op(repo='did:plc:user', action='create',
+                                             path='y', seq=4, record={'foo': 'bar'}))
         with patch('libipld.decode_car', side_effect=RuntimeError('oops')), \
-             self.assertRaises(RuntimeError):
+              self.assertRaises(RuntimeError):
             self.subscribe()
 
         self.assertTrue(commits.empty())
@@ -418,10 +368,12 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         eve.enabled_protocols = ['eefake']
         eve.put()
         self.assertGreater(eve.updated, atproto_firehose.atproto_loaded_at)
+
         self.assert_enqueues({'$type': 'app.bsky.feed.post'}, repo='did:plc:eve')
         self.assertIn('did:plc:eve', atproto_firehose.atproto_dids)
 
     def test_load_dids_atprepo(self):
+
         FakeWebsocketClient.to_receive = [({'op': 1, 't': '#info'}, {})]
         self.subscribe()
 
