@@ -2074,7 +2074,7 @@ class WebTest(TestCase):
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(204, got.status_code)
-        self.assertIsNone(self.user.key.get().last_polled_feed)
+        self.assertEqual(NOW, self.user.key.get().last_polled_feed)
 
         expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
@@ -2091,7 +2091,7 @@ class WebTest(TestCase):
                 'nope', headers={'Content-Type': content_type})
             got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
             self.assertEqual(204, got.status_code)
-            self.assertIsNone(self.user.key.get().last_polled_feed)
+            self.assertEqual(NOW, self.user.key.get().last_polled_feed)
 
         expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
@@ -2107,7 +2107,7 @@ class WebTest(TestCase):
             '<rss version="2.0"></rss>', headers={'Content-Type': atom.CONTENT_TYPE})
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(204, got.status_code)
-        self.assertIsNone(self.user.key.get().last_polled_feed)
+        self.assertEqual(NOW, self.user.key.get().last_polled_feed)
 
         expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
@@ -2134,7 +2134,7 @@ class WebTest(TestCase):
                 'nope', headers={'Content-Type': content_type})
             got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
             self.assertEqual(204, got.status_code)
-            self.assertIsNone(self.user.key.get().last_polled_feed)
+            self.assertEqual(NOW, self.user.key.get().last_polled_feed)
 
         expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',

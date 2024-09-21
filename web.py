@@ -788,7 +788,6 @@ def poll_feed(user, feed_url, rel_type):
         common.create_task(queue='receive', obj=obj.key.urlsafe(),
                            authed_as=user.key.id())
 
-    user.put()
     return activities
 
 
@@ -845,6 +844,8 @@ def poll_feed_task():
             status = 204
         else:
             raise
+
+    user.put()
 
     # determine posting frequency
     published_last = None
