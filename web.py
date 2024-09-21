@@ -826,12 +826,12 @@ def poll_feed_task():
         activities = poll_feed(user, url, rel_type)
     except (ValueError, ElementTree.ParseError) as e:
         logger.error(f"Couldn't parse feed: {e}")
-        status = 304
+        status = 204
     except BaseException as e:
         code, _ = util.interpret_http_exception(e)
         if code or util.is_connection_failure(e):
             logger.error(f"Couldn't fetch feed: {e}")
-            status = 304
+            status = 204
         else:
             raise
 
@@ -854,8 +854,9 @@ def poll_feed_task():
         delay = clamp(timedelta(seconds=statistics.mean(
             t.total_seconds() for t in published_deltas)))
     else:
-        delay = clamp(util.now() - (user.last_polled_feed
-                                    or user.created.replace(tzinfo=timezone.utc)))
+        delay = clamp(util.now() -
+                      (user.last_polled_feed if user.last_polled_feed and activities
+                       else user.created.replace(tzinfo=timezone.utc)))
 
     common.create_task(queue='poll-feed', domain=user.key.id(), delay=delay)
     return 'OK', status

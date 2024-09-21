@@ -357,7 +357,7 @@ def create_task(queue, delay=None, **params):
 
     parent = tasks_client.queue_path(appengine_info.APP_ID, TASKS_LOCATION, queue)
     task = tasks_client.create_task(parent=parent, task=task)
-    msg = f'Added {queue} task {task.name}'
+    msg = f'Added {queue} task {task.name} delay {delay}'
     logger.info(msg)
     return msg, 202
 

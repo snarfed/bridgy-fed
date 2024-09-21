@@ -2063,7 +2063,7 @@ class WebTest(TestCase):
         mock_get.side_effect = requests.ConnectionError()
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
-        self.assertEqual(304, got.status_code)
+        self.assertEqual(204, got.status_code)
         self.assertIsNone(self.user.key.get().last_polled_feed)
 
         expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
@@ -2080,7 +2080,7 @@ class WebTest(TestCase):
             mock_get.return_value = requests_response(
                 'nope', headers={'Content-Type': content_type})
             got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
-            self.assertEqual(304, got.status_code)
+            self.assertEqual(204, got.status_code)
             self.assertIsNone(self.user.key.get().last_polled_feed)
 
         expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
@@ -2096,7 +2096,7 @@ class WebTest(TestCase):
         mock_get.return_value = requests_response(
             '<rss version="2.0"></rss>', headers={'Content-Type': atom.CONTENT_TYPE})
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
-        self.assertEqual(304, got.status_code)
+        self.assertEqual(204, got.status_code)
         self.assertIsNone(self.user.key.get().last_polled_feed)
 
         expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
@@ -2123,7 +2123,7 @@ class WebTest(TestCase):
             mock_get.return_value = requests_response(
                 'nope', headers={'Content-Type': content_type})
             got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
-            self.assertEqual(304, got.status_code)
+            self.assertEqual(204, got.status_code)
             self.assertIsNone(self.user.key.get().last_polled_feed)
 
         expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
@@ -2147,7 +2147,7 @@ class WebTest(TestCase):
             feed, headers={'Content-Type': atom.CONTENT_TYPE})
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
 
-        self.assertEqual(304, got.status_code)
+        self.assertEqual(204, got.status_code)
         self.assertEqual(1, Object.query().count())  # only user profile
 
         expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
