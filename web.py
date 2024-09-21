@@ -707,6 +707,8 @@ def poll_feed(user, feed_url, rel_type):
     Returns:
       list of dict AS1 activities:
     """
+    user.last_polled_feed = util.now()
+
     # fetch feed
     headers = {}
     if user.feed_etag:
@@ -716,7 +718,6 @@ def poll_feed(user, feed_url, rel_type):
     resp = util.requests_get(feed_url, headers=headers, gateway=True)
 
     # update user
-    user.last_polled_feed = util.now()
     user.feed_etag = resp.headers.get('ETag')
     user.feed_last_modified = resp.headers.get('Last-Modified')
 
@@ -798,7 +799,10 @@ def poll_feed_task():
 
     Params:
       ``domain`` (str): key id of the :class:`Web` user
+      ``last_polled`` (str): should match the user's ``last_polled_feed``. Used
+        to detect duplicate poll tasks for the same user.
     """
+    logger.info(f'Params: {request.values}')
     domain = flask_util.get_required_param('domain')
     logger.info(f'Polling feed for {domain}')
 
@@ -808,6 +812,13 @@ def poll_feed_task():
     elif user.last_webmention_in:
         logger.info(f'Dropping since last_webmention_in is set')
         return 'OK'
+
+    logger.info(f'Last poll: {user.last_polled_feed}')
+    last_polled = request.form.get('last_polled')
+    if (last_polled and user.last_polled_feed
+            and last_polled != user.last_polled_feed.isoformat()):
+        logger.warning('duplicate poll feed task! deferring to other task')
+        return '', 204
 
     # discover feed URL
     for url, info in user.obj.mf2.get('rel-urls', {}).items():
@@ -858,7 +869,8 @@ def poll_feed_task():
                       (user.last_polled_feed if user.last_polled_feed and activities
                        else user.created.replace(tzinfo=timezone.utc)))
 
-    common.create_task(queue='poll-feed', domain=user.key.id(), delay=delay)
+    common.create_task(queue='poll-feed', delay=delay, domain=user.key.id(),
+                       last_polled=user.last_polled_feed.isoformat())
     return 'OK', status
 
 

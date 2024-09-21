@@ -343,11 +343,12 @@ def create_task(queue, delay=None, **params):
         #                             .match(path, method='POST')
         # return app.view_functions[endpoint](**args)
 
+    body = urllib.parse.urlencode(sorted(params.items()))
     task = {
         'app_engine_http_request': {
             'http_method': 'POST',
             'relative_uri': path,
-            'body': urllib.parse.urlencode(sorted(params.items())).encode(),
+            'body': body.encode(),
             'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
         },
     }
@@ -357,7 +358,7 @@ def create_task(queue, delay=None, **params):
 
     parent = tasks_client.queue_path(appengine_info.APP_ID, TASKS_LOCATION, queue)
     task = tasks_client.create_task(parent=parent, task=task)
-    msg = f'Added {queue} task {task.name} delay {delay}'
+    msg = f'Added {queue} task {task.name} delay {delay} {body}'
     logger.info(msg)
     return msg, 202
 
