@@ -905,8 +905,9 @@ def webmention_task():
                        check_backlink=not appengine_info.LOCAL_SERVER)
     except BadRequest as e:
         error(str(e.description), status=304)
-    except HTTPError as e:
-        if e.response.status_code not in (410, 404):
+    except RequestException as e:
+        code, body = util.interpret_http_exception(e)
+        if code not in ('410', '404'):
             error(f'{e} ; {e.response.text if e.response else ""}', status=502)
 
         create_id = f'{source}#bridgy-fed-create'
