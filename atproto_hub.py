@@ -34,6 +34,7 @@ BSKY_TEAM_CIDRS = (
 # "ContextError: No current context," in _handle, even though it has an ndb context
 # from handler. No clue why. They happen more often as the number of threads
 # increases. Are ndb clients/contexts not thread safe?!
+# https://github.com/snarfed/bridgy-fed/issues/1315
 # https://console.cloud.google.com/errors/detail/CJrBqKnRzPfNRA;time=PT1H;refresh=true;locations=global?project=bridgy-federated
 HANDLE_THREADS = 100
 

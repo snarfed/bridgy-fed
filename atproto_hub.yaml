@@ -13,7 +13,7 @@ runtime_config:
 
 resources:
   cpu: 1
-  memory_gb: 3.6
+  memory_gb: 1.6
 
 # can't be internal because Bluesky relay(s) need to be able to connect to us
 # over websocket for subscribeRepos
