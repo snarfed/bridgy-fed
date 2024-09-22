@@ -139,7 +139,8 @@ def subscribe():
     client = Client(f'https://{os.environ["BGS_HOST"]}',
                     headers={'User-Agent': USER_AGENT})
 
-    for frame in client.com.atproto.sync.subscribeRepos(cursor=cursor.cursor):
+    for frame in client.com.atproto.sync.subscribeRepos(decode=False,
+                                                        cursor=cursor.cursor):
         # parse header
         header = libipld.decode_dag_cbor(frame)
         if header.get('op') == -1:
