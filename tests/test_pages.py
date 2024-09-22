@@ -22,7 +22,13 @@ from models import Object, Follower, Target
 from web import Web
 
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
-from .test_web import ACTOR_AS2, REPOST_AS2
+from .test_web import (
+  ACTOR_AS2,
+  ACTOR_HTML,
+  ACTOR_HTML_RESP,
+  ACTOR_MF2_REL_URLS,
+  REPOST_AS2,
+)
 
 ACTOR_WITH_PREFERRED_USERNAME = {
     'objectType': 'person',
@@ -236,6 +242,42 @@ class PagesTest(TestCase):
         self.assert_task(mock_create_task, 'receive',
                          obj=Object(id='fake:profile:user').key.urlsafe(),
                          authed_as='fake:user')
+
+    @patch('requests.get', return_value=ACTOR_HTML_RESP)
+    def test_update_profile_web(self, mock_get):
+        Follower.get_or_create(from_=self.make_user('fake:user', cls=Fake),
+                               to=self.user)
+
+        got = self.client.post('/web/user.com/update-profile')
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/web/user.com', got.headers['Location'])
+
+        user = self.user.key.get()
+        self.assertIsNone(user.status)
+        self.assertEqual(ACTOR_MF2_REL_URLS, user.obj.mf2)
+
+        self.assertEqual(
+            [('https://user.com/#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+              'fake:shared:target')],
+             Fake.sent)
+
+    @patch('requests.get', return_value=requests_response(
+        ACTOR_HTML.replace('Ms. ☕ Baz', 'Ms. ☕ Baz #nobridge'),
+        url='https://user.com/'))
+    def test_update_profile_web_delete(self, mock_get):
+        Follower.get_or_create(from_=self.make_user('fake:user', cls=Fake),
+                               to=self.user)
+
+        got = self.client.post('/web/user.com/update-profile')
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/web/user.com', got.headers['Location'])
+
+        user = self.user.key.get()
+        self.assertEqual('opt-out', user.status)
+        self.assertEqual(
+            [('https://user.com/#delete-user-all-2022-01-02T03:04:05+00:00',
+              'fake:shared:target')],
+             Fake.sent)
 
     def test_followers(self):
         Follower.get_or_create(

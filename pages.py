@@ -182,7 +182,7 @@ def update_profile(protocol, id):
                            authed_as=user.key.id())
         flash(f'Updating profile from {link}...')
 
-        if user.LABEL == 'web':
+        if user.status and user.LABEL == 'web':
             logger.info(f'Disabling web user {user.key.id()}')
             user.delete()
 
