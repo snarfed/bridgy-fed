@@ -907,7 +907,7 @@ def webmention_task():
         error(str(e.description), status=304)
     except RequestException as e:
         code, body = util.interpret_http_exception(e)
-        if code not in ('410', '404'):
+        if code not in ('410', '404') or user.is_web_url(source):
             error(f'{e} ; {e.response.text if e.response else ""}', status=502)
 
         create_id = f'{source}#bridgy-fed-create'

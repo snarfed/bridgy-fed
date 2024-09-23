@@ -29,7 +29,7 @@ from models import Follower, Object, Target
 import web
 from web import Web
 from . import test_activitypub
-from .testutil import Fake, TestCase
+from .testutil import ExplicitEnableFake, Fake, TestCase
 
 
 FULL_REDIR = requests_response(
@@ -1621,6 +1621,25 @@ class WebTest(TestCase):
         })
         self.assertEqual(304, got.status_code, got.text)
         mock_post.assert_not_called()
+
+    def test_webmention_home_page_404_doesnt_delete_user(self, mock_get, mock_post):
+        mock_get.return_value = requests_response('', status=404)
+        self.make_followers()
+
+        self.user.enabled_protocols = ['eefake']
+        self.user.copies = [Target(protocol='eefake', uri='eefake:user')]
+        self.user.put()
+
+        got = self.post('/queue/webmention', data={
+            'source': 'https://user.com/',
+            'target': 'https://fed.brid.gy/',
+        })
+        self.assertEqual(502, got.status_code, got.text)
+
+        user = self.user.key.get()
+        self.assertIsNone(user.status)
+        mock_post.assert_not_called()
+        self.assertEqual([], ExplicitEnableFake.sent)
 
     def test_inbox_delivery_error(self, mock_get, mock_post):
         mock_get.side_effect = [FOLLOW, ACTOR]
