@@ -28,10 +28,11 @@ from atproto import ATProto, Cursor
 import atproto_firehose
 from atproto_firehose import commits, handle, Op, STORE_CURSOR_FREQ
 import common
-from models import Object
+from models import Object, Target
 import protocol
 from .testutil import TestCase
 from .test_atproto import DID_DOC
+from web import Web
 
 A_CID = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
 
@@ -109,7 +110,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         atproto_firehose.bridged_loaded_at = datetime(1900, 1, 1)
         atproto_firehose.dids_initialized.clear()
 
-        self.make_bridged_atproto_user()
+        self.user = self.make_bridged_atproto_user()
         AtpRepo(id='did:alice', head='', signing_key_pem=b'').put()
         self.store_object(id='did:plc:bob', raw=DID_DOC)
         ATProto(id='did:plc:bob').put()
@@ -295,6 +296,19 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
             'subject': 'did:eve',
         })
 
+    def test_follow_of_protocol_bot_account_by_unbridged_user(self):
+        self.user.enabled_protocols = []
+        self.user.put()
+
+        self.make_user('fa.brid.gy', cls=Web, enabled_protocols=['atproto'],
+                       copies=[Target(protocol='atproto', uri='did:fa')])
+        AtpRepo(id='did:fa', head='', signing_key_pem=b'').put()
+
+        self.assert_enqueues({
+            '$type': 'app.bsky.graph.follow',
+            'subject': 'did:fa',
+        })
+
     def test_block_of_our_user(self):
         self.assert_enqueues({
             '$type': 'app.bsky.graph.block',
@@ -373,7 +387,6 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         self.assertIn('did:plc:eve', atproto_firehose.atproto_dids)
 
     def test_load_dids_atprepo(self):
-
         FakeWebsocketClient.to_receive = [({'op': 1, 't': '#info'}, {})]
         self.subscribe()
 

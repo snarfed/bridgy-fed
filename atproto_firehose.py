@@ -31,11 +31,13 @@ from common import (
     global_cache,
     global_cache_policy,
     global_cache_timeout_policy,
+    PROTOCOL_DOMAINS,
     report_error,
     report_exception,
     USER_AGENT,
 )
 from models import Object, reset_protocol_properties
+from web import Web
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +64,7 @@ atproto_dids = set()
 atproto_loaded_at = datetime(1900, 1, 1)
 bridged_dids = set()
 bridged_loaded_at = datetime(1900, 1, 1)
+protocol_bot_dids = None
 dids_initialized = Event()
 
 
@@ -69,6 +72,16 @@ def load_dids():
     # run in a separate thread since it needs to make its own NDB
     # context when it runs in the timer thread
     Thread(target=_load_dids).start()
+
+    global protocol_bot_dids
+    protocol_bot_dids = set()
+    bot_keys = [Web(id=domain).key for domain in PROTOCOL_DOMAINS]
+    for bot in ndb.get_multi(bot_keys):
+        if bot:
+            if did := bot.get_copy(ATProto):
+                logger.info(f'Loaded protocol bot user {bot.key.id()} {did}')
+                protocol_bot_dids.add(did)
+
     dids_initialized.wait()
     dids_initialized.clear()
 
@@ -188,9 +201,6 @@ def subscribe():
             # when running locally, comment out put above and uncomment this
             # cursor.updated = util.now().replace(tzinfo=None)
 
-        if payload['repo'] not in atproto_dids:
-            continue
-
         blocks = {}  # maps base32 str CID to dict block
         if block_bytes := payload.get('blocks'):
             _, blocks = libipld.decode_car(block_bytes)
@@ -204,7 +214,7 @@ def subscribe():
                     f'bad payload! seq {op.seq} action {op.action} path {op.path}!')
                 continue
 
-            if op.action == 'delete':
+            if op.repo in atproto_dids and op.action == 'delete':
                 logger.info(f'Got delete from our ATProto user: {op}')
                 # TODO: also detect deletes of records that *reference* our bridged
                 # users, eg a delete of a follow or like or repost of them.
@@ -226,6 +236,13 @@ def subscribe():
                 logger.warning(dag_json.encode(op.record).decode())
                 continue
             elif type not in ATProto.SUPPORTED_RECORD_TYPES:
+                continue
+
+            # generally we only want records from bridged Bluesky users. the one
+            # exception is follows of protocol bot users.
+            if (op.repo not in atproto_dids
+                and not (type == 'app.bsky.graph.follow'
+                         and op.record['subject'] in protocol_bot_dids)):
                 continue
 
             def is_ours(ref, also_atproto_users=False):
