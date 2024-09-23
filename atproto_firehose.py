@@ -64,7 +64,7 @@ atproto_dids = set()
 atproto_loaded_at = datetime(1900, 1, 1)
 bridged_dids = set()
 bridged_loaded_at = datetime(1900, 1, 1)
-protocol_bot_dids = None
+protocol_bot_dids = set()
 dids_initialized = Event()
 
 
@@ -72,16 +72,6 @@ def load_dids():
     # run in a separate thread since it needs to make its own NDB
     # context when it runs in the timer thread
     Thread(target=_load_dids).start()
-
-    global protocol_bot_dids
-    protocol_bot_dids = set()
-    bot_keys = [Web(id=domain).key for domain in PROTOCOL_DOMAINS]
-    for bot in ndb.get_multi(bot_keys):
-        if bot:
-            if did := bot.get_copy(ATProto):
-                logger.info(f'Loaded protocol bot user {bot.key.id()} {did}')
-                protocol_bot_dids.add(did)
-
     dids_initialized.wait()
     dids_initialized.clear()
 
@@ -106,6 +96,14 @@ def _load_dids():
         bridged_loaded_at = AtpRepo.query().order(-AtpRepo.created).get().created
         new_bridged = [key.id() for key in bridged_query.iter(keys_only=True)]
         bridged_dids.update(new_bridged)
+
+        if not protocol_bot_dids:
+            bot_keys = [Web(id=domain).key for domain in PROTOCOL_DOMAINS]
+            for bot in ndb.get_multi(bot_keys):
+                if bot:
+                    if did := bot.get_copy(ATProto):
+                        logger.info(f'Loaded protocol bot user {bot.key.id()} {did}')
+                        protocol_bot_dids.add(did)
 
         dids_initialized.set()
         total = len(atproto_dids) + len(bridged_dids)
