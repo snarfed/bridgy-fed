@@ -37,6 +37,26 @@ from web import Web
 A_CID = CID.decode('bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq')
 
 
+def setup_firehose():
+    simple_websocket.Client = FakeWebsocketClient
+    FakeWebsocketClient.sent = []
+    FakeWebsocketClient.to_receive = []
+
+    assert commits.empty()
+
+    atproto_firehose.cursor = None
+    atproto_firehose.atproto_dids = set()
+    atproto_firehose.atproto_loaded_at = datetime(1900, 1, 1)
+    atproto_firehose.bridged_dids = set()
+    atproto_firehose.bridged_loaded_at = datetime(1900, 1, 1)
+    atproto_firehose.protocol_bot_dids = set()
+    atproto_firehose.dids_initialized.clear()
+
+    cursor = Cursor(id='bgs.local com.atproto.sync.subscribeRepos')
+    cursor.put()
+    return cursor
+
+
 class FakeWebsocketClient:
     """Fake of :class:`simple_websocket.Client`."""
 
@@ -95,21 +115,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
     def setUp(self):
         super().setUp()
 
-        simple_websocket.Client = FakeWebsocketClient
-        FakeWebsocketClient.sent = []
-        FakeWebsocketClient.to_receive = []
-
-        self.cursor = Cursor(id='bgs.local com.atproto.sync.subscribeRepos')
-        self.cursor.put()
-        assert commits.empty()
-
-        atproto_firehose.cursor = None
-        atproto_firehose.atproto_dids = set()
-        atproto_firehose.atproto_loaded_at = datetime(1900, 1, 1)
-        atproto_firehose.bridged_dids = set()
-        atproto_firehose.bridged_loaded_at = datetime(1900, 1, 1)
-        atproto_firehose.dids_initialized.clear()
-
+        self.cursor = setup_firehose()
         self.user = self.make_bridged_atproto_user()
         AtpRepo(id='did:alice', head='', signing_key_pem=b'').put()
         self.store_object(id='did:plc:bob', raw=DID_DOC)

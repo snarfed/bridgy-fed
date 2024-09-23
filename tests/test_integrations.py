@@ -1,5 +1,6 @@
 """Integration tests."""
 import copy
+from datetime import datetime
 from unittest import skip
 from unittest.mock import ANY, patch
 
@@ -17,13 +18,15 @@ from oauth_dropins.webutil.util import json_dumps, json_loads
 from activitypub import ActivityPub
 import app
 from atproto import ATProto, Cursor
-from atproto_firehose import handle, commits, Op
+import atproto_firehose
 import common
 from models import DM, Follower, Object, Target
+import simple_websocket
 from web import Web
 
 from .testutil import ATPROTO_KEY, TestCase
 from .test_activitypub import ACTOR, add_key, sign
+from .test_atproto_firehose import FakeWebsocketClient, setup_firehose
 from . import test_atproto
 from . import test_web
 
@@ -101,6 +104,14 @@ class IntegrationTests(TestCase):
             user.obj.copies = [Target(uri=profile_id, protocol='atproto')]
             user.obj.put()
 
+    def firehose(self, **op):
+        setup_firehose()
+        FakeWebsocketClient.setup_receive(atproto_firehose.Op(**op))
+        atproto_firehose.load_dids()
+        atproto_firehose.subscribe()
+        atproto_firehose.handle(limit=1)
+        assert atproto_firehose.commits.empty()
+
     @patch('requests.post')
     def test_atproto_notify_reply_to_activitypub(self, mock_post):
         """ATProto poll notifications, deliver reply to ActivityPub.
@@ -136,10 +147,8 @@ class IntegrationTests(TestCase):
                 },
             },
         }
-        commits.put(Op(repo='did:plc:alice', action='create', seq=456,
-                       path='app.bsky.feed.post/456', record=reply))
-        Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
-        handle(limit=1)
+        self.firehose(repo='did:plc:alice', action='create', seq=456,
+                      path='app.bsky.feed.post/456', record=reply)
 
         web_test = test_web.WebTest()
         web_test.user = alice
@@ -189,10 +198,8 @@ class IntegrationTests(TestCase):
             'subject': 'did:plc:bob',
             'createdAt': '2022-01-02T03:04:05.000Z',
         }
-        commits.put(Op(repo='did:plc:alice', action='create', seq=123,
-                       path='app.bsky.graph.follow/123', record=follow))
-        Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
-        handle(limit=1)
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='app.bsky.graph.follow/123', record=follow)
 
         self.assert_req(mock_get, 'https://bob.com/')
         self.assert_req(mock_post, 'https://bob.com/webmention', data={
@@ -506,15 +513,15 @@ class IntegrationTests(TestCase):
         ActivityPub bot user @ap.brid.gy, did:plc:ap
         """
         self.make_web_user('ap.brid.gy', did='did:plc:ap')
+        # only needed for atproto_firehose.load_dids
+        self.make_atproto_user('did:plc:eve')
 
         follow = {
             '$type': 'app.bsky.graph.follow',
             'subject': 'did:plc:ap',
         }
-        commits.put(Op(repo='did:plc:alice', action='create', seq=123,
-                       path='app.bsky.graph.follow/123', record=follow))
-        Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
-        handle(limit=1)
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='app.bsky.graph.follow/123', record=follow)
 
         user = ATProto.get_by_id('did:plc:alice')
         self.assertTrue(user.is_enabled(ActivityPub))
@@ -576,11 +583,8 @@ class IntegrationTests(TestCase):
             'subject': 'did:plc:ap',
             'createdAt': '2022-01-02T03:04:05.000Z'
         }
-        commits.put(Op(repo='did:plc:alice', action='create', seq=123,
-                       path='app.bsky.graph.block/123', record=block))
-        Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
-
-        handle(limit=1)
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='app.bsky.graph.block/123', record=block)
 
         self.assertEqual(2, mock_post.call_count)
         args, kwargs = mock_post.call_args_list
@@ -726,10 +730,8 @@ class IntegrationTests(TestCase):
                 },
             }],
         }
-        commits.put(Op(repo='did:plc:alice', action='create', seq=123,
-                       path='app.bsky.feed.post/123', record=post))
-        Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
-        handle(limit=1)
+        self.firehose(repo='did:plc:alice', action='create', seq=123,
+                      path='app.bsky.feed.post/123', record=post)
 
         self.assertEqual(1, mock_post.call_count)
         args, kwargs = mock_post.call_args
@@ -776,10 +778,8 @@ class IntegrationTests(TestCase):
                                   'actor': 'did:plc:alice',
                               })
 
-        commits.put(Op(repo='did:plc:alice', action='delete', seq=123,
-                       path='app.bsky.graph.block/123'))
-        Cursor(id='bgs.local com.atproto.sync.subscribeRepos').put()
-        handle(limit=1)
+        self.firehose(repo='did:plc:alice', action='delete', seq=123,
+                      path='app.bsky.graph.block/123')
 
         self.assertEqual(1, mock_post.call_count)
         args, kwargs = mock_post.call_args
