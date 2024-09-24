@@ -1080,7 +1080,8 @@ class Protocol:
             # If followee user is already direct, follower may not know they're
             # interacting with a bridge. if followee user is indirect though,
             # follower should know, so they're direct.
-            to_user = to_cls.get_or_create(id=to_key.id(), obj=to_obj, direct=False)
+            to_user = to_cls.get_or_create(id=to_key.id(), obj=to_obj, direct=False,
+                                           allow_opt_out=True)
             follower_obj = Follower.get_or_create(to=to_user, from_=from_user,
                                                   follow=obj.key, status='active')
             obj.add('notify', to_key)

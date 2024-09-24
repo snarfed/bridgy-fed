@@ -270,6 +270,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             protocols, eg ATProto and Nostr.
           allow_opt_out (bool): whether to allow and create the user if they're
             currently opted out
+          kwargs: passed through to ``cls`` constructor
 
         Returns:
           User: existing or new user, or None if the user is opted out
