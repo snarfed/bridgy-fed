@@ -91,6 +91,9 @@ class CommonTest(TestCase):
             {'object': {'id': 'https://foo.com/'}},
             common.unwrap({'object': {'id': 'http://localhost/foo.com'}}))
 
+    def test_unwrap_int_id(self):
+        self.assert_equals({'id': 3}, common.unwrap({'id': 3}))
+
     def test_host_url(self):
         with app.test_request_context():
             self.assertEqual('http://localhost/', common.host_url())

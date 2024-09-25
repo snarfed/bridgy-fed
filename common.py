@@ -243,8 +243,9 @@ def unwrap(val, field=None):
     if isinstance(val, dict):
         # TODO: clean up. https://github.com/snarfed/bridgy-fed/issues/967
         id = val.get('id')
-        if (id and urlparse(id).path.strip('/') in DOMAINS + ('',)
-            and util.domain_from_link(id) in DOMAINS):
+        if (isinstance(id, str)
+                and urlparse(id).path.strip('/') in DOMAINS + ('',)
+                and util.domain_from_link(id) in DOMAINS):
             # protocol bot user, don't touch its URLs
             return {**val, 'id': unwrap(id)}
 
