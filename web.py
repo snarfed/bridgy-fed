@@ -508,9 +508,7 @@ class Web(User, Protocol):
         except ValueError as e:
             error(str(e))
 
-        if parsed is None:
-            error(f'id {urlparse(url).fragment} not found in {url}')
-        elif not parsed.get('items'):
+        if parsed is None or not parsed.get('items'):
             logger.info(f'No microformats2 found in {url}')
             return False
 
@@ -558,8 +556,12 @@ class Web(User, Protocol):
             if not isinstance(author, dict):
                 logger.info(f'Fetching full authorship for author {author}')
                 fetch_fn = util.fetch_mf2 if authorship_fetch_mf2 else None
-                author = mf2util.find_author({'items': [entry]}, hentry=entry,
-                                             fetch_mf2_func=fetch_fn)
+                try:
+                    author = mf2util.find_author({'items': [entry]}, hentry=entry,
+                                                 fetch_mf2_func=fetch_fn)
+                except (ValueError, TypeError) as e:
+                    logger.warning(e)
+                    author = None
                 logger.info(f'Got: {author}')
                 if author:
                     props['author'] = util.trim_nulls([{

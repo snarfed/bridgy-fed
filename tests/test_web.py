@@ -2253,7 +2253,7 @@ class WebTest(TestCase):
   <meta property="og:image" content="http://example.com/pic.png" />
 </head>
 </html>
-""", url='https://user.com/post', headers={'Content-Type': 'application/text/html'}),
+""", url='https://user.com/post', headers={'Content-Type': 'text/html'}),
         ]
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
@@ -2309,7 +2309,7 @@ class WebTest(TestCase):
 <html><head>
   <meta property="og:image" content="http://ava/tar" />
 </head></html>
-""", url='https://user.com/post', headers={'Content-Type': 'application/text/html'}),
+""", url='https://user.com/post', headers={'Content-Type': 'text/html'}),
         ]
 
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
