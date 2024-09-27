@@ -37,7 +37,7 @@ DID_DOC = {
 }
 PROFILE_GETRECORD = {
     'uri': 'at://did:plc:alice/app.bsky.actor.profile/self',
-    'cid': 'alice sidd',
+    'cid': 'alice+sidd',
     'value': test_atproto.ACTOR_PROFILE_BSKY,
 }
 
@@ -503,6 +503,9 @@ class IntegrationTests(TestCase):
             'convo': {
                 'id': 'convo123',
                 'rev': '22222222fuozt',
+                'members': [],
+                'muted': False,
+                'unreadCount': 0,
             },
         }),
     ])
@@ -839,6 +842,6 @@ class IntegrationTests(TestCase):
                 'subject': {
                     '$type': 'com.atproto.repo.strongRef',
                     'uri': 'at://did:plc:alice/app.bsky.actor.profile/self',
-                    'cid': 'alice sidd',
+                    'cid': 'alice+sidd',
                 },
             }, data=None, headers=ANY)

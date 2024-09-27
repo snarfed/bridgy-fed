@@ -90,7 +90,7 @@ class ATProtoTest(TestCase):
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
         self.store_object(id='did:plc:user', raw=did_doc)
-        self.repo = Repo.create(self.storage, 'did:plc:user', handle='handull',
+        self.repo = Repo.create(self.storage, 'did:plc:user', handle='han.dull',
                                 signing_key=ATPROTO_KEY)
 
         return self.user
@@ -209,10 +209,10 @@ class ATProtoTest(TestCase):
 
     def test_pds_for_bsky_record_stored_did(self):
         # check that we don't use Object.as1, which would cause an infinite loop
-        self.assertIsNone(ATProto.pds_for(Object(id='at://did:bob/coll/post', bsky={
+        self.assertIsNone(ATProto.pds_for(Object(id='at://did:bo:b/co.l.l/post', bsky={
             '$type': 'app.bsky.feed.post',
-            'uri': 'at://did:bob/coll/post',
-            'cid': 'my sidd',
+            'uri': 'at://did:bo:b/co.l.l/post',
+            'cid': 'my++sidd',
         })))
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
@@ -311,7 +311,7 @@ class ATProtoTest(TestCase):
 
     @patch('requests.get', return_value=requests_response({
         'uri': 'at://did:plc:abc/app.bsky.feed.post/123',
-        'cid': 'bafy...',
+        'cid': 'bafyreigd',
         'value': {'foo': 'bar'},
     }))
     def test_fetch_at_uri_record(self, mock_get):
@@ -319,7 +319,7 @@ class ATProtoTest(TestCase):
         self.assertTrue(ATProto.fetch(obj))
         self.assertEqual({
             'foo': 'bar',
-            'cid': 'bafy...',
+            'cid': 'bafyreigd',
         }, obj.bsky)
         # eg https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
         mock_get.assert_called_once_with(
@@ -370,7 +370,8 @@ class ATProtoTest(TestCase):
         requests_response('did:plc:user', content_type='text/plain'),
         # AppView getRecord
         requests_response({
-            'cid': 'bafy...',
+            'uri': 'at://did:plc:user/app.bsky.actor.profile/self',
+            'cid': 'bafyreigd',
             'value': {'$type': 'app.bsky.actor.profile', 'bar': 'baz'},
         }),
         # fetching DID doc
@@ -382,7 +383,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'bar': 'baz',
-            'cid': 'bafy...',
+            'cid': 'bafyreigd',
         }, obj.bsky)
 
         mock_get.assert_any_call(
@@ -394,7 +395,8 @@ class ATProtoTest(TestCase):
         self.assert_req(mock_get, 'https://plc.local/did:plc:user')
 
     @patch('requests.get', return_value=requests_response({
-        'cid': 'bafy...',
+        'uri': 'at://did:plc:user/app.bsky.actor.profile/self',
+        'cid': 'bafyreigd',
         'value': {'$type': 'app.bsky.actor.profile', 'bar': 'baz'},
     }))
     def test_load_bsky_profile_url(self, mock_get):
@@ -406,7 +408,7 @@ class ATProtoTest(TestCase):
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'bar': 'baz',
-            'cid': 'bafy...',
+            'cid': 'bafyreigd',
         }, obj.bsky)
 
         mock_get.assert_called_with(
@@ -434,14 +436,14 @@ class ATProtoTest(TestCase):
         })
         post = self.store_object(id='at://did:plc:bob/app.bsky.feed.post/tid', bsky={
             '$type': 'app.bsky.feed.post',
-            'cid': 'my sidd',
+            'cid': 'my++sidd',
         })
 
         self.assertEqual({
             '$type': 'app.bsky.feed.like',
             'subject': {
                 'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
-                'cid': 'my sidd',
+                'cid': 'my++sidd',
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }, ATProto.convert(Object(our_as1={
@@ -454,7 +456,7 @@ class ATProtoTest(TestCase):
             '$type': 'app.bsky.feed.repost',
             'subject': {
                 'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
-                'cid': 'my sidd',
+                'cid': 'my++sidd',
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }, ATProto.convert(Object(our_as1={
@@ -473,11 +475,11 @@ class ATProtoTest(TestCase):
                 '$type': 'app.bsky.feed.post#replyRef',
                 'root': {
                     'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
-                    'cid': 'my sidd',
+                    'cid': 'my++sidd',
                 },
                 'parent': {
                     'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
-                    'cid': 'my sidd',
+                    'cid': 'my++sidd',
                 },
             },
         }, ATProto.convert(Object(our_as1={
@@ -512,7 +514,7 @@ class ATProtoTest(TestCase):
                 },
                 'parent': {
                     'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
-                    'cid': 'my sidd',
+                    'cid': 'my++sidd',
                 },
             },
         }, ATProto.convert(Object(our_as1={
@@ -528,7 +530,7 @@ class ATProtoTest(TestCase):
         # AppView getRecord
         requests_response({
             'uri': 'at://did:plc:user/app.bsky.feed.post/tid',
-            'cid': 'my sidd',
+            'cid': 'my++sidd',
             'value': {
                 '$type': 'app.bsky.feed.post',
                 'foo': 'bar',
@@ -542,7 +544,7 @@ class ATProtoTest(TestCase):
             '$type': 'app.bsky.feed.like',
             'subject': {
                 'uri': 'at://did:plc:user/app.bsky.feed.post/tid',
-                'cid': 'my sidd',
+                'cid': 'my++sidd',
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }, ATProto.convert(Object(our_as1={
@@ -789,9 +791,9 @@ class ATProtoTest(TestCase):
         self.make_user_and_repo()
 
         self.store_object(id='fake:orig-post', copies=[
-            Target(protocol='atproto', uri='at://did:plc:user/coll/tid'),
+            Target(protocol='atproto', uri='at://did:plc:user/co.l.l/tid'),
         ])
-        self.repo.apply_writes([Write(action=Action.CREATE, collection='coll',
+        self.repo.apply_writes([Write(action=Action.CREATE, collection='co.l.l',
                                       rkey='tid', record=NOTE_BSKY)])
 
         self.assertEqual({
@@ -801,7 +803,7 @@ class ATProtoTest(TestCase):
             'embed': {
                 '$type': 'app.bsky.embed.record',
                 'record': {
-                    'uri': 'at://did:plc:user/coll/tid',
+                    'uri': 'at://did:plc:user/co.l.l/tid',
                     'cid': 'bafyreiccskuaccxa6zbaf7jeaiwyzg3pqtj3rg5qra653f5cmqilvgvejy',
                 },
             },
@@ -1454,8 +1456,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get', return_value=requests_response({
-        'uri': 'at://did:bob/app.bsky.feed.post/tid',
-        'cid': 'my sidd',
+        'uri': 'at://did:bo:b/app.bsky.feed.post/tid',
+        'cid': 'my++sidd',
         'value': {
             '$type': 'app.bsky.feed.post',
             'foo': 'bar',
@@ -1468,7 +1470,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'verb': 'share',
             'id': 'fake:repost',
             'actor': 'fake:user',
-            'object': 'at://did:bob/app.bsky.feed.post/tid',
+            'object': 'at://did:bo:b/app.bsky.feed.post/tid',
         })
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
 
@@ -1480,8 +1482,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual({
             '$type': 'app.bsky.feed.repost',
             'subject': {
-                'uri': 'at://did:bob/app.bsky.feed.post/tid',
-                'cid': 'my sidd',
+                'uri': 'at://did:bo:b/app.bsky.feed.post/tid',
+                'cid': 'my++sidd',
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }, record)
@@ -1491,7 +1493,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                          Object.get_by_id(id='fake:repost').copies)
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Abob&collection=app.bsky.feed.post&rkey=tid',
+            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Abo%3Ab&collection=app.bsky.feed.post&rkey=tid',
             json=None, data=None, headers=ANY)
         mock_create_task.assert_called()  # atproto-commit
 
@@ -1695,15 +1697,15 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     def test_send_translates_ids(self, mock_create_task):
         user = self.make_user_and_repo()
         alice = self.make_user(id='fake:alice', cls=Fake,
-                               copies=[Target(uri='did:alice', protocol='atproto')])
-        self.store_object(id='at://did:bob/coll/post', bsky={
+                               copies=[Target(uri='did:al:ice', protocol='atproto')])
+        self.store_object(id='at://did:bo:b/co.l.l/post', bsky={
             '$type': 'app.bsky.feed.post',
-            'uri': 'at://did:bob/coll/post',
-            'cid': 'my sidd',
+            'uri': 'at://did:bo:b/co.l.l/post',
+            'cid': 'my++sidd',
         })
         self.store_object(
             id='fake:post', source_protocol='fake',
-            copies=[Target(uri='at://did:bob/coll/post', protocol='atproto')])
+            copies=[Target(uri='at://did:bo:b/co.l.l/post', protocol='atproto')])
 
         reply_as1 = {
             'id': 'fake:reply',
@@ -1744,12 +1746,12 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'reply': {
                 '$type': 'app.bsky.feed.post#replyRef',
                 'root': {
-                    'uri': 'at://did:bob/coll/post',
-                    'cid': 'my sidd',
+                    'uri': 'at://did:bo:b/co.l.l/post',
+                    'cid': 'my++sidd',
                 },
                 'parent': {
-                    'uri': 'at://did:bob/coll/post',
-                    'cid': 'my sidd',
+                    'uri': 'at://did:bo:b/co.l.l/post',
+                    'cid': 'my++sidd',
                 },
             },
         }, record)
@@ -1762,7 +1764,17 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         mock_create_task.assert_called()  # atproto-commit
 
     # createReport
-    @patch('requests.post', return_value=requests_response({'id': 3}))
+    @patch('requests.post', return_value=requests_response({
+        'id': 3,
+        'reasonType': 'com.atproto.moderation.defs#reasonSpam',
+        'reason': '',
+        'subject': {
+            '$type': 'com.atproto.admin.defs#repoRef',
+            'did': 'did:plc:eve',
+        },
+        'reportedBy': 'did:plc:bob',
+        'createdAt': NOW.isoformat(),
+    }))
     # did:plc:eve
     @patch('requests.get', return_value=requests_response({
             **DID_DOC,
@@ -1781,7 +1793,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         })
         self.store_object(id=uri, source_protocol='bsky', bsky={
             '$type': 'app.bsky.feed.post',
-            'cid': 'bafy...',
+            'cid': 'bafyreigd',
         })
 
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))
@@ -1798,7 +1810,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                 'subject': {
                     '$type': 'com.atproto.repo.strongRef',
                     'uri': uri,
-                    'cid': 'bafy...',
+                    'cid': 'bafyreigd',
                 },
             }, data=None, headers={
                 'Content-Type': 'application/json',
@@ -1822,8 +1834,10 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                     'handle': 'alice.bsky.social',
                 }, {
                     'did': 'did:plc:user',
-                    'handle': 'handull',
+                    'handle': 'han.dull',
                 }],
+                'muted': False,
+                'unreadCount': 0,
             },
         }),
         requests_response(DID_DOC),
@@ -1887,15 +1901,15 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             '$type': 'app.bsky.feed.post',
             'text': 'foo',
         }
-        self.store_object(id='at://did:plc:user/coll/post', bsky=post)
+        self.store_object(id='at://did:plc:user/co.l.l/post', bsky=post)
 
         client = DatastoreClient('https://appview.local')
         self.assertEqual({
-            'uri': 'at://did:plc:user/coll/post',
+            'uri': 'at://did:plc:user/co.l.l/post',
             'cid': 'bafyreigdjrzqmcj4i3zcj3fzcfgod52ty7lfvw57ienlu4yeet3dv6zdpy',
             'value': post,
         }, client.com.atproto.repo.getRecord(repo='did:plc:user',
-                                             collection='coll', rkey='post'))
+                                             collection='co.l.l', rkey='post'))
 
     def test_datastore_client_get_record_datastore_repo(self):
         self.make_user_and_repo()
@@ -1903,20 +1917,20 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             '$type': 'app.bsky.feed.post',
             'text': 'foo',
         }
-        self.repo.apply_writes([Write(action=Action.CREATE, collection='coll',
+        self.repo.apply_writes([Write(action=Action.CREATE, collection='co.l.l',
                                       rkey='post', record=post)])
 
         client = DatastoreClient('https://appview.local')
         self.assertEqual({
-            'uri': 'at://did:plc:user/coll/post',
+            'uri': 'at://did:plc:user/co.l.l/post',
             'cid': 'bafyreigdjrzqmcj4i3zcj3fzcfgod52ty7lfvw57ienlu4yeet3dv6zdpy',
             'value': post,
         }, client.com.atproto.repo.getRecord(repo='did:plc:user',
-                                             collection='coll', rkey='post'))
+                                             collection='co.l.l', rkey='post'))
 
     @patch('requests.get', return_value=requests_response({
-        'uri': 'at://did:plc:user/coll/tid',
-        'cid': 'my sidd',
+        'uri': 'at://did:plc:user/co.l.l/tid',
+        'cid': 'my++sidd',
         'value': {
             '$type': 'app.bsky.feed.post',
             'foo': 'bar',
@@ -1927,18 +1941,18 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         client = DatastoreClient('https://appview.local')
         self.assertEqual({
-            'uri': 'at://did:plc:user/coll/post',
-            'cid': 'my sidd',
+            'uri': 'at://did:plc:user/co.l.l/post',
+            'cid': 'my++sidd',
             'value': {
                 '$type': 'app.bsky.feed.post',
                 'foo': 'bar',
-                'cid': 'my sidd',
+                'cid': 'my++sidd',
             },
         }, client.com.atproto.repo.getRecord(repo='did:plc:user',
-                                             collection='coll', rkey='post'))
+                                             collection='co.l.l', rkey='post'))
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=coll&rkey=post',
+            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
             json=None, data=None, headers=ANY)
 
     @patch('requests.get', side_effect=HTTPError(
@@ -1946,10 +1960,10 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     def test_datastore_client_get_record_pass_through_fails(self, mock_get):
         client = DatastoreClient('https://appview.local')
         self.assertEqual({}, client.com.atproto.repo.getRecord(
-            repo='did:plc:user', collection='coll', rkey='post'))
+            repo='did:plc:user', collection='co.l.l', rkey='post'))
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=coll&rkey=post',
+            'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=co.l.l&rkey=post',
             json=None, data=None, headers=ANY)
 
     def test_datastore_client_resolve_handle_datastore_user(self):
@@ -1965,25 +1979,33 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         client = DatastoreClient('https://appview.local')
         self.assertEqual({'did': 'did:plc:user'},
-                         client.com.atproto.identity.resolveHandle(handle='handull'))
+                         client.com.atproto.identity.resolveHandle(handle='han.dull'))
 
-    @patch('requests.get', return_value=requests_response({'did': 'dydd'}))
+    @patch('requests.get', return_value=requests_response({'did': 'did:dy:d'}))
     def test_datastore_client_resolve_handle_pass_through(self, mock_get):
         client = DatastoreClient('https://appview.local')
-        self.assertEqual({'did': 'dydd'},
-                         client.com.atproto.identity.resolveHandle(handle='handull'))
+        self.assertEqual({'did': 'did:dy:d'},
+                         client.com.atproto.identity.resolveHandle(handle='han.dull'))
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.identity.resolveHandle?handle=handull',
+            'https://appview.local/xrpc/com.atproto.identity.resolveHandle?handle=han.dull',
             json=None, data=None, headers=ANY)
 
-    @patch('requests.get', return_value=requests_response({'foo': 'bar'}))
+    @patch('requests.get')
     def test_datastore_client_other_call_pass_through(self, mock_get):
+        output = {
+            'handle': 'y.z',
+            'did': 'did:y:z',
+            'didDoc': '',
+            'collections': [],
+            'handleIsCorrect': True,
+        }
+        mock_get.return_value = requests_response(output)
         client = DatastoreClient('https://appview.local')
-        self.assertEqual({'foo': 'bar'}, client.com.atproto.repo.describeRepo(x='y'))
+        self.assertEqual(output, client.com.atproto.repo.describeRepo(repo='y.z'))
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.repo.describeRepo?x=y',
+            'https://appview.local/xrpc/com.atproto.repo.describeRepo?repo=y.z',
             json=None, data=None, headers=ANY)
 
     @patch.object(tasks_client, 'create_task')
@@ -2009,13 +2031,22 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'logs': [{
                 '$type': 'chat.bsky.convo.defs#logBeginConvo',
                 'convoId': 'abc',
+                'rev': '123',
             }, {
                 '$type': 'chat.bsky.convo.defs#logLeaveConvo',
                 'convoId': 'def',
+                'rev': '456',
             }, {
                 '$type': 'chat.bsky.convo.defs#logDeleteMessage',
                 'convoId': 'ghi',
-                'message': {},  # ...
+                'message': {
+                    '$type': 'chat.bsky.convo.defs#deletedMessageView',
+                    'id': 'abc',
+                    'rev': '000',
+                    'sender': {'did': 'did:plc:user'},
+                    'sentAt': NOW.isoformat(),
+                },
+                'rev': '789',
             }],
         }),
         requests_response({
@@ -2045,25 +2076,33 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             '$type': 'chat.bsky.convo.defs#messageView',
             'id': 'uvw',
             'text': 'foo bar',
-            'sender': {'did': 'did:alice'},
+            'sender': {'did': 'did:al:ice'},
+            'rev': '123',
+            'sentAt': NOW.isoformat(),
         }
         msg_bob = {
             '$type': 'chat.bsky.convo.defs#messageView',
             'id': 'xyz',
             'text': 'baz biff',
-            'sender': {'did': 'did:bob'},
+            'sender': {'did': 'did:bo:b'},
+            'rev': '456',
+            'sentAt': NOW.isoformat(),
         }
         msg_from_bot = {
             '$type': 'chat.bsky.convo.defs#messageView',
             'id': 'lmno',
             'text': 'beep boop this should not be received',
             'sender': {'did': 'did:plc:user'},
+            'rev': '789',
+            'sentAt': NOW.isoformat(),
         }
         msg_eve = {
             '$type': 'chat.bsky.convo.defs#messageView',
             'id': 'rst',
             'text': 'boff',
-            'sender': {'did': 'did:eve'},
+            'sender': {'did': 'did:ev:e'},
+            'rev': '000',
+            'sentAt': NOW.isoformat(),
         }
 
         mock_get.side_effect = [
@@ -2073,10 +2112,12 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                     '$type': 'chat.bsky.convo.defs#logCreateMessage',
                     'convoId': 'abc',
                     'message': msg_alice,
+                    'rev': '123',
                 }, {
                     '$type': 'chat.bsky.convo.defs#logCreateMessage',
                     'convoId': 'def',
                     'message': msg_bob,
+                    'rev': '456',
                 }],
                 'cursor': 'neckst',
             }),
@@ -2086,10 +2127,12 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                     '$type': 'chat.bsky.convo.defs#logCreateMessage',
                     'convoId': 'ghi',
                     'message': msg_from_bot,
+                    'rev': '123',
                 }, {
                     '$type': 'chat.bsky.convo.defs#logCreateMessage',
                     'convoId': 'jkl',
                     'message': msg_eve,
+                    'rev': '456',
                 }],
             }),
             requests_response({
@@ -2115,40 +2158,43 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         self.assertEqual(3, mock_create_task.call_count)
 
-        id = 'at://did:alice/chat.bsky.convo.defs.messageView/uvw'
-        self.assert_task(mock_create_task, 'receive', authed_as='did:alice',
+        id = 'at://did:al:ice/chat.bsky.convo.defs.messageView/uvw'
+        self.assert_task(mock_create_task, 'receive', authed_as='did:al:ice',
                          obj=Object(id=id).key.urlsafe())
         self.assert_object(id, source_protocol='atproto', our_as1={
             'objectType': 'note',
-            'id': 'at://did:alice/chat.bsky.convo.defs.messageView/uvw',
-            'author': 'did:alice',
+            'id': 'at://did:al:ice/chat.bsky.convo.defs.messageView/uvw',
+            'author': 'did:al:ice',
             'content': 'foo bar',
             'to': ['fa.brid.gy'],
+            'published': NOW.isoformat(),
         })
 
-        id = 'at://did:bob/chat.bsky.convo.defs.messageView/xyz'
-        self.assert_task(mock_create_task, 'receive', authed_as='did:bob',
+        id = 'at://did:bo:b/chat.bsky.convo.defs.messageView/xyz'
+        self.assert_task(mock_create_task, 'receive', authed_as='did:bo:b',
                          obj=Object(id=id).key.urlsafe())
         self.assert_object(id, source_protocol='atproto', our_as1={
             'objectType': 'note',
-            'id': 'at://did:bob/chat.bsky.convo.defs.messageView/xyz',
-            'author': 'did:bob',
+            'id': 'at://did:bo:b/chat.bsky.convo.defs.messageView/xyz',
+            'author': 'did:bo:b',
             'content': 'baz biff',
             'to': ['fa.brid.gy'],
+            'published': NOW.isoformat(),
         })
 
         id = 'at://did:plc:user/chat.bsky.convo.defs.messageView/lmno'
         self.assertIsNone(Object.get_by_id(id))
 
-        id = 'at://did:eve/chat.bsky.convo.defs.messageView/rst'
-        self.assert_task(mock_create_task, 'receive', authed_as='did:eve',
+        id = 'at://did:ev:e/chat.bsky.convo.defs.messageView/rst'
+        self.assert_task(mock_create_task, 'receive', authed_as='did:ev:e',
                          obj=Object(id=id).key.urlsafe())
         self.assert_object(id, source_protocol='atproto', our_as1={
             'objectType': 'note',
-            'id': 'at://did:eve/chat.bsky.convo.defs.messageView/rst',
-            'author': 'did:eve',
+            'id': 'at://did:ev:e/chat.bsky.convo.defs.messageView/rst',
+            'author': 'did:ev:e',
             'content': 'boff',
             'to': ['fa.brid.gy'],
+            'published': NOW.isoformat(),
         })
 
         self.assertEqual('dunn', fa.key.get().atproto_last_chat_log_cursor)
