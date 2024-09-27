@@ -14,6 +14,7 @@ source local/bin/activate.csh
 env PYTHONPATH=. GOOGLE_APPLICATION_CREDENTIALS=service_account_creds.json APPVIEW_HOST=bsky.social PLC_HOST=plc.directory BGS_HOST=bsky.network \
   python scripts/opt_out.py ...
 """
+import argparse
 import logging
 import sys
 
@@ -48,13 +49,13 @@ AP_BASE_TARGETS = [
     # dead!
     # 'https://kbin.social/i/inbox',
 
-    # Lemmy (not sharedInbox); these tend to fail on BF objects right now
-    'https://alien.top/inbox',
-    # 'https://enterprise.lemmy.ml/inbox',
-    'https://lemmy.ml/inbox',
-    'https://lemmy.world/inbox',
-    'https://pasta.faith/inbox',
-    'https://r-sauna.fi/inbox',
+    # # Lemmy (not sharedInbox); these tend to fail on BF objects right now
+    # 'https://alien.top/inbox',
+    # # 'https://enterprise.lemmy.ml/inbox',
+    # 'https://lemmy.ml/inbox',
+    # 'https://lemmy.world/inbox',
+    # 'https://pasta.faith/inbox',
+    # 'https://r-sauna.fi/inbox',
 
     # Mastodon
     'https://baraag.net/inbox',
@@ -99,14 +100,20 @@ AP_BASE_TARGETS = [
 ]
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument('protocol')
+parser.add_argument('user_id')
+parser.add_argument('extra_targets', nargs='*')
+parser.add_argument('--no-extra', action='store_true')
+args = parser.parse_args()
+
+
 def run():
-    assert len(sys.argv) >= 3
-    proto, user_id = sys.argv[1], sys.argv[2]
-
-    from_proto = protocol.PROTOCOLS[proto]
+    from_proto = protocol.PROTOCOLS[args.protocol]
     kind = from_proto._get_kind()
+    user_id = args.user_id
 
-    if proto == 'activitypub' and user_id.count('@') == 1:
+    if args.protocol == 'activitypub' and user_id.count('@') == 1:
         instance, user = user_id.strip().removeprefix('https://').split('/@')
         user_id = f'@{user}@{instance}'
         print(f'Cleaned up user id to {user_id}')
@@ -115,7 +122,7 @@ def run():
             and from_proto.owns_handle(user_id) is not False):
         handle = user_id
         user_id = from_proto.handle_to_id(handle)
-        print(f'Converted {proto} handle {handle} to user id {user_id}')
+        print(f'Converted {args.protocol} handle {handle} to user id {user_id}')
         assert from_proto.owns_id(user_id) is not False
 
     user = from_proto.get_by_id(user_id, allow_opt_out=True)
@@ -148,7 +155,7 @@ def run():
     from_proto.receive(obj, authed_as=user_id, internal=True)
 
     # delete base and extra AP targets
-    if from_proto != ActivityPub:
+    if from_proto != ActivityPub and not args.no_extra:
         delete_ap_targets(from_proto=from_proto, user=user, user_id=user_id)
 
     if not user.manual_opt_out:
@@ -170,9 +177,8 @@ def delete_ap_targets(*, from_proto=None, user=None, user_id=None):
                  our_as1=delete_as1)
     obj.put()
 
-    extra_targets = sys.argv[3:]
     targets = [Target(protocol='activitypub', uri=t)
-               for t in AP_BASE_TARGETS + extra_targets]
+               for t in AP_BASE_TARGETS + args.extra_targets]
 
     obj.undelivered = targets
     obj.put()
