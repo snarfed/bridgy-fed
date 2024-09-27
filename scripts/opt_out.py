@@ -104,7 +104,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument('protocol')
 parser.add_argument('user_id')
 parser.add_argument('extra_targets', nargs='*')
-parser.add_argument('--no-extra', action='store_true')
+parser.add_argument('-o', '--only',
+                    help='only disable bridging to this protocol')
+parser.add_argument('--no-extra', action='store_true',
+                    help="don't send Deletes to extra fediverse instances")
 args = parser.parse_args()
 
 
@@ -112,6 +115,7 @@ def run():
     from_proto = protocol.PROTOCOLS[args.protocol]
     kind = from_proto._get_kind()
     user_id = args.user_id
+    only_proto = protocol.PROTOCOLS[args.only] if args.only else None
 
     if args.protocol == 'activitypub' and user_id.count('@') == 1:
         instance, user = user_id.strip().removeprefix('https://').split('/@')
@@ -152,10 +156,14 @@ def run():
     obj = Object(id=delete_id, status='new', source_protocol=from_proto.LABEL,
                  our_as1=delete_as1)
 
-    from_proto.receive(obj, authed_as=user_id, internal=True)
+    if only_proto:
+        from_proto.deliver(obj, from_user=user, to_proto=only_proto)
+    else:
+        from_proto.receive(obj, authed_as=user_id, internal=True)
 
     # delete base and extra AP targets
-    if from_proto != ActivityPub and not args.no_extra:
+    if (from_proto != ActivityPub and not args.no_extra
+            and only_proto in (None, ActivityPub)):
         delete_ap_targets(from_proto=from_proto, user=user, user_id=user_id)
 
     if not user.manual_opt_out:
