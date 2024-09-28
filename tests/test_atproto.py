@@ -1565,6 +1565,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             record={
                 '$type': 'app.bsky.graph.follow',
                 'subject': 'did:plc:bob',
+                'createdAt': '2022-01-02T03:04:05.000Z',
             })])
         self.assertIsNotNone(self.repo.get_record('app.bsky.graph.follow', '123'))
 
@@ -1917,6 +1918,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         post = {
             '$type': 'app.bsky.feed.post',
             'text': 'foo',
+            'createdAt': '2022-01-02T03:04:05.000Z',
         }
         self.repo.apply_writes([Write(action=Action.CREATE, collection='co.l.l',
                                       rkey='post', record=post)])
@@ -1924,7 +1926,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         client = DatastoreClient('https://appview.local')
         self.assertEqual({
             'uri': 'at://did:plc:user/co.l.l/post',
-            'cid': 'bafyreigdjrzqmcj4i3zcj3fzcfgod52ty7lfvw57ienlu4yeet3dv6zdpy',
+            'cid': 'bafyreiam6fisrctmj7uv6is5wkk4fqw6bxzlooepaapxntuv45j3mu34p4',
             'value': post,
         }, client.com.atproto.repo.getRecord(repo='did:plc:user',
                                              collection='co.l.l', rkey='post'))
