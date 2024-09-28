@@ -365,7 +365,7 @@ class IntegrationTests(TestCase):
         ATProto bot user bsky.brid.gy (did:plc:bsky)
         Follow is https://inst/follow
         """
-        mock_get.return_value = self.as2_resp(add_key({
+        actor = mock_get.return_value = self.as2_resp(add_key({
             'type': 'Person',
             'id': 'https://inst/alice',
             'name': 'Mrs. ☕ Alice',
@@ -373,6 +373,12 @@ class IntegrationTests(TestCase):
             'inbox': 'http://inst/inbox',
             'image': 'http://pic',
         }))
+        mock_get.side_effect = [
+            actor,
+            actor,
+            requests_response('blob', headers={'Content-Type': 'image/jpeg'}),
+        ]
+
         self.make_user(id='bsky.brid.gy', cls=Web, ap_subdomain='bsky')
 
         # deliver follow
@@ -605,7 +611,9 @@ class IntegrationTests(TestCase):
             }, json_loads(kwargs['data']))
 
 
-    @patch('requests.get', return_value=requests_response(''))  # alice, http://pic/
+    @patch('requests.get', side_effect=[
+        requests_response('blob', headers={'Content-Type': 'image/jpeg'}), # http://pic/
+    ])
     def test_activitypub_block_bsky_bot_user_tombstones_atproto_repo(self, mock_get):
         """AP Block of @bsky.brid.gy@bsky.brid.gy tombstones the Bluesky repo.
 
@@ -634,7 +642,9 @@ class IntegrationTests(TestCase):
             self.storage.load_repo('did:plc:alice')
 
 
-    @patch('requests.get', return_value=requests_response(''))  # alice, http://pic/
+    @patch('requests.get', side_effect=[
+        requests_response('blob', headers={'Content-Type': 'image/jpeg'}), # http://pic/
+    ])
     def test_activitypub_delete_user_tombstones_atproto_repo(self, mock_get):
         """AP Delete of user tombstones the Bluesky repo.
 

@@ -495,7 +495,7 @@ class ATProtoTest(TestCase):
                 'uri': 'at://did:plc:bob/app.bsky.feed.post/parent-tid',
             },
             'root': {
-                'cid': 'root sidd',
+                'cid': 'root+sidd',
                 'uri': 'at://did:plc:bob/app.bsky.feed.post/root-tid',
             },
         }
@@ -510,7 +510,7 @@ class ATProtoTest(TestCase):
                 '$type': 'app.bsky.feed.post#replyRef',
                 'root': {
                     'uri': 'at://did:plc:bob/app.bsky.feed.post/root-tid',
-                    'cid': 'root sidd',
+                    'cid': 'root+sidd',
                 },
                 'parent': {
                     'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
@@ -698,7 +698,8 @@ class ATProtoTest(TestCase):
 
     def test_convert_fetch_blobs_true_existing_atp_remote_blob(self):
         cid = 'bafkreicqpqncshdd27sgztqgzocd3zhhqnnsv6slvzhs5uz6f57cq6lmtq'
-        AtpRemoteBlob(id='http://my/pic', cid=cid, size=8).put()
+        AtpRemoteBlob(id='http://my/pic', cid=cid, size=8,
+                      mime_type='image/png').put()
 
         self.assert_equals({
             '$type': 'app.bsky.actor.profile',
@@ -706,7 +707,7 @@ class ATProtoTest(TestCase):
             'avatar': {
                 '$type': 'blob',
                 'ref': CID.decode(cid),
-                'mimeType': 'application/octet-stream',
+                'mimeType': 'image/png',
                 'size': 8,
             },
             'bridgyOriginalUrl': 'did:web:alice.com',
@@ -980,7 +981,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         Fake.fetchable = {'fake:profile:us_er': ACTOR_AS}
         user = Fake(id='fake:us_er')
-        AtpRemoteBlob(id='https://alice.com/alice.jpg',
+        AtpRemoteBlob(id='https://alice.com/alice.jpg', mime_type='image/png',
                       cid=BLOB_CID.encode('base32'), size=8).put()
 
         ATProto.create_for(user)
@@ -1004,7 +1005,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'bridgyOriginalUrl': 'https://alice.com/',
             'avatar': {
                 '$type': 'blob',
-                'mimeType': 'application/octet-stream',
+                'mimeType': 'image/png',
                 'ref': BLOB_CID,
                 'size': 8,
             },
@@ -1401,7 +1402,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         post_obj = self.store_object(id='at://did:plc:bob/app.bsky.feed.post/tid',
                                      source_protocol='atproto', bsky={
             '$type': 'app.bsky.feed.post',
-            'cid': 'bafyCID',
+            'cid': 'bafy+CID',
         })
 
         like_obj = self.store_object(id='fake:like', source_protocol='fake', our_as1={
@@ -1422,7 +1423,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             '$type': 'app.bsky.feed.like',
             'subject': {
                 'uri': 'at://did:plc:bob/app.bsky.feed.post/tid',
-                'cid': 'bafyCID',
+                'cid': 'bafy+CID',
             },
             'createdAt': '2022-01-02T03:04:05.000Z',
         }, record)
@@ -1647,8 +1648,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     def test_send_skips_add_to_collection(self, mock_create_task):
         obj = Object(id='fake:add', source_protocol='fake', as2={
             'type': 'Add',
-            'object': 'fake:bob',
-            'target': 'fake:list',
+            'object': 'did:bo:b',
+            'target': 'at://did:bo:b/li.s.t/foo',
         })
         self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
         self.assertEqual(0, AtpBlock.query().count())

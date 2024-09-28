@@ -781,6 +781,14 @@ class ATProto(User, Protocol):
                     and orig_url):
                 ret['bridgyOriginalUrl'] = orig_url
 
+        # check that this record validates against its schema
+        type = 'record'
+        nsid = ret['$type']
+        if nsid.endswith('#input'):
+            nsid = nsid.removesuffix('#input')
+            type = 'input'
+        appview.validate(nsid, type, ret)
+
         return ret
 
     @classmethod
