@@ -328,7 +328,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                             try:
                                 proto.create_for(user)
                             except (ValueError, AssertionError):
-                                logger.info(f'failed creating {proto.LABEL} copy')
+                                logger.info(f'failed creating {proto.LABEL} copy',
+                                            exc_info=True)
+                                remove(user.enabled_protocols, proto.LABEL)
                         else:
                             logger.debug(f'{proto.LABEL} not enabled or user copy already exists, skipping propagate')
 

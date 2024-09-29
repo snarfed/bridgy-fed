@@ -142,6 +142,12 @@ class UserTest(TestCase):
         self.assertEqual([], user.copies)
         self.assertEqual(0, AtpRepo.query().count())
 
+    @patch.object(ExplicitEnableFake, 'create_for', side_effect=ValueError('foo'))
+    def test_get_or_create_propagate_create_for_fails_re_disable_protocol(self, _):
+        user = Fake.get_or_create('fake:a', enabled_protocols=['eefake'],
+                                  propagate=True)
+        self.assertEqual([], user.enabled_protocols)
+
     def test_get_or_create_use_instead(self):
         user = Fake.get_or_create('fake:a')
         user.use_instead = self.user.key
