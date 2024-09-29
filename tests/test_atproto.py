@@ -342,6 +342,19 @@ class ATProtoTest(TestCase):
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Aabc&collection=app.bsky.feed.post&rkey=123',
             json=None, data=None, headers=ANY)
 
+    @patch('requests.get')
+    def test_fetch_bad_at_uri(self, mock_get):
+        for uri in ('at://did:plc:abc/app.bsky.feed.post',
+                    'at://did:plc:abc/app.bsky.feed.post/',
+                    'at://did:plc:abc//456',
+                    'at://did:plc:abc/123/456',  # bad nsid
+                    'at://did:plc:abc/123/a b',  # bad rkey
+                    'at://did:plc:abc//',
+                    ):
+            with self.subTest(uri=uri):
+                self.assertFalse(ATProto.fetch(Object(id=uri)))
+                mock_get.assert_not_called()
+
     def test_fetch_bsky_app_url_fails(self):
         for uri in ('https://bsky.app/profile/ha.nl',
                     'https://bsky.app/profile/ha.nl/post/789'):

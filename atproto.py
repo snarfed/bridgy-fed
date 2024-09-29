@@ -686,6 +686,9 @@ class ATProto(User, Protocol):
         # at://did:plc:s2koow7r6t7tozgd4slc3dsg/app.bsky.feed.post/3jqcpv7bv2c2q
         # https://bsky.social/xrpc/com.atproto.repo.getRecord?repo=did:plc:s2koow7r6t7tozgd4slc3dsg&collection=app.bsky.feed.post&rkey=3jqcpv7bv2c2q
         repo, collection, rkey = parse_at_uri(id)
+        if not repo or not collection or not rkey:
+            return False
+
         if not repo.startswith('did:'):
             handle = repo
             repo = cls.handle_to_id(repo)
@@ -700,6 +703,9 @@ class ATProto(User, Protocol):
                 repo=repo, collection=collection, rkey=rkey)
         except RequestException as e:
             util.interpret_http_exception(e)
+            return False
+        except ValidationError as e:
+            logger.warning(e)
             return False
 
         # TODO: verify sig?
