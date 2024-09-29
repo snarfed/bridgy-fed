@@ -31,7 +31,7 @@ import googleapiclient.discovery
 from granary import as1, bluesky
 from granary.bluesky import Bluesky, FROM_AS1_TYPES
 from granary.source import html_to_text, INCLUDE_LINK, Source
-from lexrpc import Client
+from lexrpc import Client, ValidationError
 from requests import RequestException
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.appengine_config import ndb_client
@@ -733,18 +733,29 @@ class ATProto(User, Protocol):
 
         blobs = {}  # maps str URL to dict blob object
         if fetch_blobs:
+            def fetch_blob(url, max_size):
+                if url and url not in blobs:
+                    try:
+                        blob = AtpRemoteBlob.get_or_create(
+                            url=url, get_fn=util.requests_get, max_size=max_size)
+                        blobs[url] = blob.as_object()
+                    except (RequestException, ValidationError) as e:
+                        logging.info(f'failed, skipping {url} : {e}')
+
             for o in obj.as1, as1.get_object(obj.as1):
-                stream_urls = [att.get('stream', {}).get('url')
-                               for att in util.get_list(o, 'attachments')
-                               if isinstance(att, dict)]
-                for url in util.get_urls(o, 'image') + stream_urls:
-                    if url and url not in blobs:
-                        try:
-                            blob = AtpRemoteBlob.get_or_create(
-                                url=url, get_fn=util.requests_get)
-                            blobs[url] = blob.as_object()
-                        except RequestException:
-                            logging.info(f'skipping {url} , fetch failed')
+                for url in util.get_urls(o, 'image'):
+                    fetch_blob(url, None)
+                    # TODO: maybe eventually check image maxSize? the current
+                    # 1MB limit feels too small though, and the AppView doesn't
+                    # seem to validate, it's happily allowing bigger image blobs
+                    # as of 9/29/2024:
+                    # https://github.com/snarfed/bridgy-fed/issues/1348#issuecomment-2381056468
+                    # appview.defs['app.bsky.embed.images#image']['properties']['image']['maxSize'])
+
+                for att in util.get_list(o, 'attachments'):
+                    if isinstance(att, dict):
+                        fetch_blob(att.get('stream', {}).get('url'),
+                                   appview.defs['app.bsky.embed.video']['properties']['video']['maxSize'])
 
         inner_obj = as1.get_object(obj.as1) or obj.as1
         orig_url = as1.get_url(inner_obj) or inner_obj.get('id')
