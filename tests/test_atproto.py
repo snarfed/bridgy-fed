@@ -667,7 +667,7 @@ class ATProtoTest(TestCase):
 
     @patch('requests.get', return_value=requests_response(
         'blob contents', content_type='video/mp4', headers={
-            'Content-Length': atproto.appview.defs['app.bsky.embed.video']['properties']['video']['maxSize'] + 1,
+            'Content-Length': str(atproto.appview.defs['app.bsky.embed.video']['properties']['video']['maxSize'] + 1),
         }))
     def test_convert_fetch_blobs_true_video_over_maxSize(self, mock_get):
         self.assertEqual({
