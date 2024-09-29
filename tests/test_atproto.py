@@ -686,6 +686,28 @@ class ATProtoTest(TestCase):
             }],
         }), fetch_blobs=True))
 
+        self.assertEqual(0, AtpRemoteBlob.query().count())
+        mock_get.assert_has_calls([self.req('https://my/vid')])
+
+    @patch('requests.get', return_value=requests_response(
+        'blob contents', content_type='not/ok'))
+    def test_convert_fetch_blobs_true_video_type_not_in_accept(self, mock_get):
+        self.assertEqual({
+            '$type': 'app.bsky.feed.post',
+            'text': 'foo bar',
+            'createdAt': '2022-01-02T03:04:05.000Z',
+            'bridgyOriginalText': 'foo bar',
+        }, ATProto.convert(Object(our_as1={
+            'objectType': 'note',
+            'content': 'foo bar',
+            'attachments': [{
+                'objectType': 'video',
+                'stream': {'url': 'https://my/vid'},
+                'displayName': 'my alt',
+            }],
+        }), fetch_blobs=True))
+
+        self.assertEqual(0, AtpRemoteBlob.query().count())
         mock_get.assert_has_calls([self.req('https://my/vid')])
 
     @patch('requests.get', side_effect=[

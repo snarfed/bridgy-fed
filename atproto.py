@@ -733,29 +733,32 @@ class ATProto(User, Protocol):
 
         blobs = {}  # maps str URL to dict blob object
         if fetch_blobs:
-            def fetch_blob(url, max_size):
+            def fetch_blob(url, blob_field, check_size=True):
                 if url and url not in blobs:
+                    max_size = blob_field.get('maxSize') if check_size else None
+                    accept = blob_field.get('accept')
                     try:
                         blob = AtpRemoteBlob.get_or_create(
-                            url=url, get_fn=util.requests_get, max_size=max_size)
+                            url=url, get_fn=util.requests_get, max_size=max_size,
+                            accept_types=accept)
                         blobs[url] = blob.as_object()
                     except (RequestException, ValidationError) as e:
                         logging.info(f'failed, skipping {url} : {e}')
 
             for o in obj.as1, as1.get_object(obj.as1):
                 for url in util.get_urls(o, 'image'):
-                    fetch_blob(url, None)
-                    # TODO: maybe eventually check image maxSize? the current
+                    # TODO: maybe eventually check size? the current
                     # 1MB limit feels too small though, and the AppView doesn't
                     # seem to validate, it's happily allowing bigger image blobs
                     # as of 9/29/2024:
                     # https://github.com/snarfed/bridgy-fed/issues/1348#issuecomment-2381056468
-                    # appview.defs['app.bsky.embed.images#image']['properties']['image']['maxSize'])
+                    fetch_blob(url, appview.defs['app.bsky.embed.images#image']['properties']['image'],
+                               check_size=False)
 
                 for att in util.get_list(o, 'attachments'):
                     if isinstance(att, dict):
                         fetch_blob(att.get('stream', {}).get('url'),
-                                   appview.defs['app.bsky.embed.video']['properties']['video']['maxSize'])
+                                   appview.defs['app.bsky.embed.video']['properties']['video'])
 
         inner_obj = as1.get_object(obj.as1) or obj.as1
         orig_url = as1.get_url(inner_obj) or inner_obj.get('id')
