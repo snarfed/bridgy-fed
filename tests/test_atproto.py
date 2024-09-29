@@ -533,7 +533,8 @@ class ATProtoTest(TestCase):
             'cid': 'my++sidd',
             'value': {
                 '$type': 'app.bsky.feed.post',
-                'foo': 'bar',
+                'text': 'foo',
+                'createdAt': '2022-01-02T03:04:05.000Z',
             },
         }),
     ])
@@ -1461,7 +1462,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         'cid': 'my++sidd',
         'value': {
             '$type': 'app.bsky.feed.post',
-            'foo': 'bar',
+            'text': 'foo',
+            'createdAt': '2022-01-02T03:04:05.000Z',
         },
     }))
     def test_send_repost(self, mock_get, mock_create_task):
@@ -1936,7 +1938,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         'cid': 'my++sidd',
         'value': {
             '$type': 'app.bsky.feed.post',
-            'foo': 'bar',
+            'text': 'baz',
+            'createdAt': NOW.isoformat(),
         },
     }))
     def test_datastore_client_get_record_pass_through(self, mock_get):
@@ -1948,7 +1951,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'cid': 'my++sidd',
             'value': {
                 '$type': 'app.bsky.feed.post',
-                'foo': 'bar',
+                'text': 'baz',
+                'createdAt': NOW.isoformat(),
                 'cid': 'my++sidd',
             },
         }, client.com.atproto.repo.getRecord(repo='did:plc:user',
