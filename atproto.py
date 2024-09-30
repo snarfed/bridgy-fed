@@ -739,10 +739,10 @@ class ATProto(User, Protocol):
 
         blobs = {}  # maps str URL to dict blob object
         if fetch_blobs:
-            def fetch_blob(url, blob_field, check_size=True):
+            def fetch_blob(url, blob_field, name, check_size=True):
                 if url and url not in blobs:
-                    max_size = blob_field.get('maxSize') if check_size else None
-                    accept = blob_field.get('accept')
+                    max_size = blob_field[name].get('maxSize') if check_size else None
+                    accept = blob_field[name].get('accept')
                     try:
                         blob = AtpRemoteBlob.get_or_create(
                             url=url, get_fn=util.requests_get, max_size=max_size,
@@ -758,13 +758,14 @@ class ATProto(User, Protocol):
                     # seem to validate, it's happily allowing bigger image blobs
                     # as of 9/29/2024:
                     # https://github.com/snarfed/bridgy-fed/issues/1348#issuecomment-2381056468
-                    fetch_blob(url, appview.defs['app.bsky.embed.images#image']['properties']['image'],
-                               check_size=False)
+                    fetch_blob(url, appview.defs['app.bsky.embed.images#image']['properties'],
+                               name='image', check_size=False)
 
                 for att in util.get_list(o, 'attachments'):
                     if isinstance(att, dict):
                         fetch_blob(att.get('stream', {}).get('url'),
-                                   appview.defs['app.bsky.embed.video']['properties']['video'])
+                                   appview.defs['app.bsky.embed.video']['properties'],
+                                   name='video')
 
         inner_obj = as1.get_object(obj.as1) or obj.as1
         orig_url = as1.get_url(inner_obj) or inner_obj.get('id')
