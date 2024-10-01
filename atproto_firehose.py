@@ -15,6 +15,7 @@ from arroba.util import parse_at_uri
 import dag_cbor
 import dag_json
 from google.cloud import ndb
+from google.cloud.ndb.exceptions import ContextError
 from granary.bluesky import AT_URI_PATTERN
 from lexrpc.client import Client
 import libipld
@@ -275,23 +276,20 @@ def handler():
     """Wrapper around :func:`handle` that catches exceptions and restarts."""
     logger.info(f'started handle thread to store objects and enqueue receive tasks')
 
-    # important that this is outside the loop! it used to be inside, and we'd
-    # sometimes see a steady stream of google.cloud.ndb.exceptions.ContextError:
-    # No current context. NDB calls must be made in context established by
-    # google.cloud.ndb.Client.context. moving it outside the loop fixed that.
-    # not sure why.
-    # https://console.cloud.google.com/errors/detail/CIvwj_7MmsfOWw;time=PT1H;refresh=true;locations=global?project=bridgy-federated
-    with ndb_client.context(
-            cache_policy=cache_policy, global_cache=global_cache,
-            global_cache_policy=global_cache_policy,
-            global_cache_timeout_policy=global_cache_timeout_policy):
-        while True:
+    while True:
+        with ndb_client.context(
+                cache_policy=cache_policy, global_cache=global_cache,
+                global_cache_policy=global_cache_policy,
+                global_cache_timeout_policy=global_cache_timeout_policy):
             try:
                 handle()
                 # if we return cleanly, that means we hit the limit
                 break
             except BaseException:
                 report_exception()
+                # fall through to loop to create new ndb context in case this is
+                # a ContextError
+                # https://console.cloud.google.com/errors/detail/CIvwj_7MmsfOWw;time=P1D;locations=global?project=bridgy-federated
 
 
 def handle(limit=None):
@@ -332,6 +330,8 @@ def handle(limit=None):
             create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=op.repo)
             # when running locally, comment out above and uncomment this
             # logger.info(f'enqueuing receive task for {at_uri}')
+        except ContextError:
+            raise  # handled in handle()
         except BaseException:
             report_error(obj_id, exception=True)
 
