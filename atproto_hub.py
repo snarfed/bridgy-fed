@@ -36,7 +36,7 @@ BSKY_TEAM_CIDRS = (
 # increases. Are ndb clients/contexts not thread safe?!
 # https://github.com/snarfed/bridgy-fed/issues/1315
 # https://console.cloud.google.com/errors/detail/CJrBqKnRzPfNRA;time=PT1H;refresh=true;locations=global?project=bridgy-federated
-HANDLE_THREADS = 100
+HANDLE_THREADS = 10
 
 logger = logging.getLogger(__name__)
 
