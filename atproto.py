@@ -967,10 +967,8 @@ def poll_chat_task():
                         **bluesky.to_as1(log['message']),
                         'to': [bot.key.id()],
                     }
-                    obj = Object(id=id, source_protocol='atproto', bsky=log['message'],
-                                 our_as1=msg_as1)
-                    obj.put()
-                    common.create_task(queue='receive', obj=obj.key.urlsafe(),
+                    common.create_task(queue='receive', id=id, bsky=log['message'],
+                                       our_as1=msg_as1, source_protocol=ATProto.LABEL,
                                        authed_as=sender)
 
         # check if we've caught up yet

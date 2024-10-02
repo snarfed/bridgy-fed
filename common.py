@@ -22,6 +22,7 @@ from oauth_dropins.webutil.appengine_config import error_reporting_client, tasks
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil import flask_util
+from oauth_dropins.webutil.util import json_dumps
 import pymemcache.client.base
 from pymemcache.test.utils import MockMemcacheClient
 
@@ -332,6 +333,9 @@ def create_task(queue, delay=None, **params):
     assert queue
     path = f'/queue/{queue}'
 
+    params = {k: json_dumps(v, sort_keys=True) if isinstance(v, dict) else v
+              for k, v in params.items()}
+
     if RUN_TASKS_INLINE or appengine_info.LOCAL_SERVER:
         logger.info(f'Running task inline: {queue} {params}')
         from router import app
@@ -344,12 +348,12 @@ def create_task(queue, delay=None, **params):
         #                             .match(path, method='POST')
         # return app.view_functions[endpoint](**args)
 
-    body = urllib.parse.urlencode(sorted(params.items()))
+    body = urllib.parse.urlencode(sorted(params.items())).encode()
     task = {
         'app_engine_http_request': {
             'http_method': 'POST',
             'relative_uri': path,
-            'body': body.encode(),
+            'body': body,
             'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
         },
     }

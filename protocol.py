@@ -800,6 +800,8 @@ class Protocol:
 
         if not id:
             error('No id provided')
+        elif from_cls.owns_id(id) is False:
+            error(f'Protocol {from_cls.LABEL} does not own id {id}')
         elif from_cls.is_blocklisted(id, allow_internal=internal):
             error(f'Activity {id} is blocklisted')
         # check that this activity is public. only do this for some activities,
@@ -1637,8 +1639,10 @@ def receive_task():
     Calls :meth:`Protocol.receive` with the form parameters.
 
     Parameters:
-      obj (url-safe google.cloud.ndb.key.Key): :class:`models.Object` to handle
       authed_as (str): passed to :meth:`Protocol.receive`
+      obj (url-safe google.cloud.ndb.key.Key): :class:`models.Object` to handle
+      *: If ``obj`` is unset, all other parameters are properties for a new
+        :class:`models.Object` to handle
 
     TODO: migrate incoming webmentions to this. See how we did it for AP. The
     difficulty is that parts of :meth:`protocol.Protocol.receive` depend on
@@ -1647,16 +1651,24 @@ def receive_task():
     :class:`web.Web`.
     """
     form = request.form.to_dict()
-    logger.info(f'Params: {list(form.items())}')
+    logger.info(f'Params:\n' + '\n'.join(f'{k} = {v[:100]}' for k, v in form.items()))
 
-    obj = ndb.Key(urlsafe=form['obj']).get()
-    assert obj
-    obj.new = True
-
-    authed_as = form.get('authed_as')
-
+    authed_as = form.pop('authed_as', None)
     internal = (authed_as == common.PRIMARY_DOMAIN
                 or authed_as in common.PROTOCOL_DOMAINS)
+
+    if obj_key := form.get('obj'):
+        obj = ndb.Key(urlsafe=obj_key).get()
+    else:
+        for json_prop in 'as2', 'bsky', 'mf2', 'our_as1', 'raw':
+            if val := form.get(json_prop):
+                form[json_prop] = json_loads(val)
+        obj = Object(**form)
+
+    assert obj
+    assert obj.source_protocol
+    obj.new = True
+
     try:
         return PROTOCOLS[obj.source_protocol].receive(obj=obj, authed_as=authed_as,
                                                       internal=internal)

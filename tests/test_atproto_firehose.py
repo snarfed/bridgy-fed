@@ -466,11 +466,9 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         handle(limit=1)
 
         user_key = ATProto(id='did:plc:user').key
-        obj = self.assert_object('at://did:plc:user/app.bsky.feed.post/123',
-                                 bsky=reply, source_protocol='atproto',
-                                 status='new', users=[user_key],
-                                 ignore=['our_as1'])
-        self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
+        self.assert_task(mock_create_task, 'receive',
+                         id='at://did:plc:user/app.bsky.feed.post/123',
+                         bsky=reply, source_protocol='atproto',
                          authed_as='did:plc:user')
 
     def test_delete_post(self, mock_create_task):
@@ -481,15 +479,15 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         obj_id = 'at://did:plc:user/app.bsky.feed.post/123'
         delete_id = f'{obj_id}#delete'
         user_key = ATProto(id='did:plc:user').key
-        obj = self.assert_object(delete_id, source_protocol='atproto',
-                                 status='new', users=[user_key], our_as1={
-                                     'objectType': 'activity',
-                                     'verb': 'delete',
-                                     'id': delete_id,
-                                     'actor': 'did:plc:user',
-                                     'object': obj_id,
-                                 })
-        self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
+        expected_as1 = {
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': delete_id,
+            'actor': 'did:plc:user',
+            'object': obj_id,
+        }
+        self.assert_task(mock_create_task, 'receive', id=delete_id,
+                         our_as1=expected_as1, source_protocol='atproto',
                          authed_as='did:plc:user')
 
     def test_delete_block_is_undo(self, mock_create_task):
@@ -500,15 +498,16 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         obj_id = 'at://did:plc:user/app.bsky.graph.block/123'
         undo_id = f'{obj_id}#undo'
         user_key = ATProto(id='did:plc:user').key
-        obj = self.assert_object(undo_id, source_protocol='atproto',
-                                 status='new', users=[user_key], our_as1={
-                                     'objectType': 'activity',
-                                     'verb': 'undo',
-                                     'id': undo_id,
-                                     'actor': 'did:plc:user',
-                                     'object': obj_id,
-                                 })
-        self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
+
+        expected_as1 = {
+            'objectType': 'activity',
+            'verb': 'undo',
+            'id': undo_id,
+            'actor': 'did:plc:user',
+            'object': obj_id,
+        }
+        self.assert_task(mock_create_task, 'receive', id=undo_id,
+                         our_as1=expected_as1, source_protocol='atproto',
                          authed_as='did:plc:user')
 
     def test_unsupported_type(self, mock_create_task):

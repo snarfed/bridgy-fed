@@ -8,7 +8,7 @@ import random
 import re
 import unittest
 from unittest.mock import ANY, call
-from urllib.parse import urlencode
+from urllib.parse import parse_qs, urlencode
 import warnings
 
 from arroba import did
@@ -30,6 +30,7 @@ from oauth_dropins.webutil import flask_util, testutil, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.util import json_dumps, json_loads
 import requests
 
 # other modules are imported _after_ Fake etc classes is defined so that it's in
@@ -578,11 +579,23 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         return got
 
     def assert_task(self, mock_create_task, queue, eta_seconds=None, **params):
+        # if only one task was created in this queue, extract and decode HTTP
+        # body so we can pretty-print a comparison
+        bodies = [body for task_queue, body in self.parse_tasks(mock_create_task)
+                 if task_queue == queue]
+        if len(bodies) == 1:
+            self.assertEqual({k: v.decode() if isinstance(v, bytes) else v
+                              for k, v in params.items()},
+                             bodies[0])
+
+        # check for exact task
+        params = [(k, json_dumps(v, sort_keys=True) if isinstance(v, dict) else v)
+                  for k, v in params.items()]
         expected = {
             'app_engine_http_request': {
                 'http_method': 'POST',
                 'relative_uri': f'/queue/{queue}',
-                'body': urlencode(sorted(params.items())).encode(),
+                'body': urlencode(sorted(params)).encode(),
                 'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
             },
         }
@@ -594,6 +607,19 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             task=expected,
         )
 
+    def parse_tasks(self, mock_create_task):
+        """Returns (queue, {param name: value}) tuples, where JSON param values
+        are parsed."""
+        tasks = []
+
+        for call in mock_create_task.call_args_list:
+            task = call.kwargs['task']['app_engine_http_request']
+            queue = task['relative_uri'].removeprefix('/queue/')
+            body = {name: json_loads(val[0]) if val and val[0][0] == '{' else val[0]
+                    for name, val in parse_qs(task['body'].decode()).items()}
+            tasks.append((queue, body))
+
+        return tasks
 
     def assert_equals(self, expected, actual, msg=None, ignore=(), **kwargs):
         return super().assert_equals(

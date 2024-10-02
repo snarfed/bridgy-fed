@@ -1110,12 +1110,6 @@ def inbox(protocol=None, id=None):
     if not id:
         id = f'{actor_id}#{type}-{object.get("id", "")}-{util.now().isoformat()}'
 
-    try:
-        obj = Object.get_or_create(id=id, as2=activity, authed_as=authed_as,
-                                   source_protocol=ActivityPub.LABEL)
-    except AssertionError as e:
-        error(f'Invalid activity, probably due to id: {e}', status=400)
-
     # automatically bridge server aka instance actors
     # https://codeberg.org/fediverse/fep/src/branch/main/fep/d556/fep-d556.md
     if as2.is_server_actor(actor):
@@ -1127,7 +1121,8 @@ def inbox(protocol=None, id=None):
         if user and not user.existing:
             logger.info(f'Automatically enabled AP server actor {actor_id} for {user.enabled_protocols}')
 
-    return create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=authed_as)
+    return create_task(queue='receive', id=id, as2=activity,
+                       source_protocol=ActivityPub.LABEL, authed_as=authed_as)
 
 
 # protocol in subdomain

@@ -312,22 +312,22 @@ def handle(limit=None):
                     if type in ('app.bsky.actor.profile', 'app.bsky.feed.post')
                     else 'undo')
             obj_id = f'{at_uri}#{verb}'
-            record_kwarg = {'our_as1': {
-                'objectType': 'activity',
-                'verb': verb,
-                'id': obj_id,
-                'actor': op.repo,
-                'object': at_uri,
-            }}
+            record_kwarg = {
+                'our_as1': {
+                    'objectType': 'activity',
+                    'verb': verb,
+                    'id': obj_id,
+                    'actor': op.repo,
+                    'object': at_uri,
+                },
+            }
         else:
             logger.error(f'Unknown action {action} for {op.repo} {op.path}')
             return
 
         try:
-            obj = Object.get_or_create(id=obj_id, authed_as=op.repo, status='new',
-                                       users=[ATProto(id=op.repo).key],
-                                       source_protocol=ATProto.LABEL, **record_kwarg)
-            create_task(queue='receive', obj=obj.key.urlsafe(), authed_as=op.repo)
+            create_task(queue='receive', id=obj_id, source_protocol=ATProto.LABEL,
+                        authed_as=op.repo, **record_kwarg)
             # when running locally, comment out above and uncomment this
             # logger.info(f'enqueuing receive task for {at_uri}')
         except ContextError:

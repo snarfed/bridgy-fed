@@ -1861,6 +1861,22 @@ class WebTest(TestCase):
             # fetch post to look for image
             WEBMENTION_NO_REL_LINK,
         ]
+        # order matters here for assert_task below
+        post_as1 = {
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'https://user.com/post',
+            'url': 'https://user.com/post',
+            'object':{
+                'objectType': 'note',
+                'id': 'https://user.com/post',
+                'url': 'https://user.com/post',
+                'content': 'I hereby ☕ post',
+                'author': {'id': 'https://user.com/'},
+            },
+            'actor': {'id': 'https://user.com/'},
+            'feed_index': 0,
+        }
 
         got = self.post('/queue/poll-feed', data={
             'domain': 'user.com',
@@ -1877,30 +1893,8 @@ class WebTest(TestCase):
         mock_get.assert_has_calls((
             self.req('https://foo/feed'),
         ))
-        obj = self.assert_object('https://user.com/post',
-                                 users=[self.user.key],
-                                 source_protocol='web',
-                                 status='new',
-                                 atom=feed,
-                                 our_as1={
-                                     'objectType': 'activity',
-                                     'verb': 'post',
-                                     'id': 'https://user.com/post',
-                                     'url': 'https://user.com/post',
-                                     'actor': {'id': 'https://user.com/'},
-                                     'object':{
-                                         'objectType': 'note',
-                                         'id': 'https://user.com/post',
-                                         'url': 'https://user.com/post',
-                                         'author': {'id': 'https://user.com/'},
-                                         'content': 'I hereby ☕ post',
-                                     },
-                                     'feed_index': 0,
-                                 },
-                                 type='post',
-                                 labels=['user', 'activity'],
-                                 )
-        self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
+        self.assert_task(mock_create_task, 'receive', id='https://user.com/post',
+                         source_protocol='web', atom=feed, our_as1=post_as1,
                          authed_as='user.com')
 
         expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
@@ -1963,35 +1957,29 @@ class WebTest(TestCase):
         mock_get.assert_has_calls((
             self.req('https://foo/rss'),
         ))
+
         for i, (id, hour) in enumerate([('a', 8), ('b', 5), ('c', 4)]):
             url = f'http://po.st/{id}'
-            obj = self.assert_object(
-                url,
-                users=[self.user.key],
-                source_protocol='web',
-                status='new',
-                rss=feed,
-                our_as1={
-                    'objectType': 'activity',
-                    'verb': 'post',
+            expected_as1 = {
+                'objectType': 'activity',
+                'verb': 'post',
+                'id': url,
+                'url': url,
+                'actor': {'id': 'https://user.com/'},
+                'object':{
+                    'objectType': 'note',
                     'id': url,
                     'url': url,
-                    'actor': {'id': 'https://user.com/'},
-                    'object':{
-                        'objectType': 'note',
-                        'id': url,
-                        'url': url,
-                        'author': {'id': 'https://user.com/'},
-                        'content': f'I hereby ☕ post {id}',
-                        'published': f'2012-12-08T0{hour}:00:00+00:00',
-                    },
-                    'feed_index': i,
+                    'author': {'id': 'https://user.com/'},
+                    'content': f'I hereby ☕ post {id}',
+                    'published': f'2012-12-08T0{hour}:00:00+00:00',
                 },
-                type='post',
-                labels=['user', 'activity'],
-            )
-            self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
-                             authed_as='user.com')
+                'feed_index': i,
+            }
+            with self.subTest(id=id):
+                self.assert_task(mock_create_task, 'receive', id=url,
+                                 our_as1=expected_as1, rss=feed,
+                                 source_protocol='web', authed_as='user.com')
 
         # delay is average of 1h and 3h between posts
         expected_eta = NOW_SECONDS + timedelta(hours=2).total_seconds()
@@ -2025,7 +2013,10 @@ class WebTest(TestCase):
         mock_get.assert_has_calls((
             self.req('https://foo/feed'),
         ))
-        assert Object.get_by_id('https://user.com/post')
+
+        queue, body = self.parse_tasks(mock_create_task)[0]
+        self.assertEqual('receive', queue)
+        self.assertEqual('https://user.com/post', body['id'])
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_use_url_as_id(self, mock_create_task, mock_get, _):
@@ -2057,30 +2048,24 @@ class WebTest(TestCase):
         mock_get.assert_has_calls((
             self.req('https://foo/feed'),
         ))
-        obj = self.assert_object('https://user.com/post',
-                                 users=[self.user.key],
-                                 source_protocol='web',
-                                 status='new',
-                                 atom=feed,
-                                 our_as1={
-                                     'objectType': 'activity',
-                                     'verb': 'post',
-                                     'id': 'https://user.com/post',
-                                     'url': 'https://user.com/post',
-                                     'actor': {'id': 'https://user.com/'},
-                                     'object':{
-                                         'objectType': 'note',
-                                         'id': 'https://user.com/post',
-                                         'url': 'https://user.com/post',
-                                         'author': {'id': 'https://user.com/'},
-                                         'content': 'I hereby ☕ post',
-                                     },
-                                     'feed_index': 0,
-                                 },
-                                 type='post',
-                                 labels=['user', 'activity'],
-                                 )
-        self.assert_task(mock_create_task, 'receive', obj=obj.key.urlsafe(),
+
+        expected_as1 = {
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'https://user.com/post',
+            'url': 'https://user.com/post',
+            'actor': {'id': 'https://user.com/'},
+            'object':{
+                'objectType': 'note',
+                'id': 'https://user.com/post',
+                'url': 'https://user.com/post',
+                'author': {'id': 'https://user.com/'},
+                'content': 'I hereby ☕ post',
+            },
+            'feed_index': 0,
+        }
+        self.assert_task(mock_create_task, 'receive', id='https://user.com/post',
+                         our_as1=expected_as1, atom=feed, source_protocol='web',
                          authed_as='user.com')
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
@@ -2264,28 +2249,26 @@ class WebTest(TestCase):
             self.req('https://foo/feed'),
             self.req('https://user.com/post'),
         ))
-        self.assert_object(
-            'https://user.com/post',
-            source_protocol='web',
-            atom=feed,
-            status='new',
-            users=[self.user.key],
-            our_as1={
-                'objectType': 'activity',
-                'verb': 'post',
+
+        expected_as1 = {
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'https://user.com/post',
+            'url': 'https://user.com/post',
+            'actor': {'id': 'https://user.com/'},
+            'object': {
+                'objectType': 'note',
                 'id': 'https://user.com/post',
                 'url': 'https://user.com/post',
-                'actor': {'id': 'https://user.com/'},
-                'object': {
-                    'objectType': 'note',
-                    'id': 'https://user.com/post',
-                    'url': 'https://user.com/post',
-                    'author': {'id': 'https://user.com/'},
-                    'content': 'I hereby ☕ post',
-                    'image': ['http://example.com/pic.png'],
-                },
-                'feed_index': 0,
-            })
+                'author': {'id': 'https://user.com/'},
+                'content': 'I hereby ☕ post',
+                'image': ['http://example.com/pic.png'],
+            },
+            'feed_index': 0,
+        }
+        self.assert_task(mock_create_task, 'receive', id='https://user.com/post',
+                         source_protocol='web', atom=feed, our_as1=expected_as1,
+                         authed_as='user.com')
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_fetch_post_for_image_same_as_user_profile(
@@ -2320,9 +2303,11 @@ class WebTest(TestCase):
             self.req('https://foo/feed'),
             self.req('https://user.com/post'),
         ))
-        obj = Object.get_by_id('https://user.com/post')
-        self.assertNotIn('image', obj.our_as1)
-        self.assertEqual([], obj.our_as1['object']['image'])
+
+        queue, body = self.parse_tasks(mock_create_task)[0]
+        self.assertEqual('receive', queue)
+        self.assertNotIn('image', body['our_as1'])
+        self.assertEqual([], body['our_as1']['object']['image'])
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_etag_last_modified(self, mock_create_task, mock_get, _):
@@ -2389,9 +2374,13 @@ class WebTest(TestCase):
         got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
         self.assertEqual(200, got.status_code)
 
-        self.assertIsNotNone(Object.get_by_id('https://user.com/A'))
-        self.assertIsNotNone(Object.get_by_id('https://user.com/B'))
-        self.assertIsNone(Object.get_by_id('https://user.com/C'))
+        tasks = self.parse_tasks(mock_create_task)
+        self.assertEqual(3, len(tasks))
+        self.assertEqual('receive', tasks[0][0])
+        self.assertEqual('https://user.com/A', tasks[0][1]['id'])
+        self.assertEqual('receive', tasks[1][0])
+        self.assertEqual('https://user.com/B', tasks[1][1]['id'])
+        self.assertEqual('poll-feed', tasks[2][0])
 
         user = self.user.key.get()
         self.assertEqual(NOW, user.last_polled_feed)

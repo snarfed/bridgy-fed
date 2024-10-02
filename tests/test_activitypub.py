@@ -571,9 +571,9 @@ class ActivityPubTest(TestCase):
 
     def test_inbox_bad_id(self, *_):
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
-
         resp = self.post('/ap/sharedInbox', json={**NOTE, 'id': 'abc123'})
-        self.assertEqual(400, resp.status_code)
+        self.assertEqual(299, resp.status_code)
+        self.assertIsNone(Object.get_by_id('abc123'))
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_inbox_activity_id_on_opted_out_web_domain(self, mock_create_task, *_):
@@ -604,8 +604,8 @@ class ActivityPubTest(TestCase):
 
         author = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
         resp = self.post('/ap/sharedInbox', json=NOTE)
-        obj_key = Object(id=NOTE['id']).key.urlsafe()
-        self.assert_task(mock_create_task, 'receive', obj=obj_key,
+        self.assert_task(mock_create_task, 'receive', id='http://mas.to/note/as2',
+                         source_protocol='activitypub', as2=NOTE,
                          authed_as=NOTE['actor'])
 
     def test_inbox_reply_object(self, mock_head, mock_get, mock_post):
@@ -943,6 +943,7 @@ class ActivityPubTest(TestCase):
     def _test_inbox_with_to_ignored(self, to, mock_head, mock_get, mock_post):
         author = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
         Follower.get_or_create(to=author, from_=self.user)
+        orig_obj_count = Object.query().count()
 
         mock_head.return_value = requests_response(url='http://target')
 
@@ -952,10 +953,7 @@ class ActivityPubTest(TestCase):
         got = self.post('/user.com/inbox', json=not_public)
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
 
-        activity = Object.get_by_id(not_public['id'])
-        self.assertIsNone(activity.status)
-        self.assertEqual([], activity.delivered)
-        self.assertIsNone(Object.get_by_id(not_public['object']['id']))
+        self.assertEqual(orig_obj_count, Object.query().count())
 
     def test_follow_bot_user_enables_protocol(self, _, mock_get, __):
         # bot user

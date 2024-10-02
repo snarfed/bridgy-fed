@@ -15,6 +15,7 @@ from oauth_dropins.webutil import appengine_info, util
 from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.flask_util import NoContent
 from oauth_dropins.webutil.testutil import NOW, requests_response
+from oauth_dropins.webutil.util import json_dumps
 import requests
 from werkzeug.exceptions import BadRequest
 
@@ -2939,7 +2940,7 @@ class ProtocolReceiveTest(TestCase):
 
         mock_send.assert_not_called()
 
-    def test_receive_task_handler(self):
+    def test_receive_task_handler_obj(self):
         note = {
             'id': 'fake:post',
             'objectType': 'note',
@@ -2966,11 +2967,46 @@ class ProtocolReceiveTest(TestCase):
         obj = Object.get_by_id('fake:post#bridgy-fed-create')
         self.assertEqual('ignored', obj.status)
 
+    def test_receive_task_handler_id(self):
+        note = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:other',
+        }
+        create = {
+            'id': 'fake:post#bridgy-fed-create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': note,
+            'actor': 'fake:other',
+        }
+
+        resp = self.post('/queue/receive', data={
+            'our_as1': json_dumps(note),
+            'source_protocol': 'fake',
+            'authed_as': 'fake:other',
+        }, headers={'X-AppEngine-TaskRetryCount': '0'})
+        self.assertEqual(204, resp.status_code)
+
+        obj = Object.get_by_id('fake:post')
+        self.assertEqual(note, obj.our_as1)
+
+        obj = Object.get_by_id('fake:post#bridgy-fed-create')
+        self.assertEqual({
+            **create,
+            'published': '2022-01-02T03:04:05+00:00',
+        }, obj.our_as1)
+        self.assertEqual('ignored', obj.status)
+
     @patch.object(Fake, 'receive', side_effect=requests.ConnectionError('foo'))
     def test_receive_task_handler_connection_error(self, _):
-        obj = self.store_object(id='fake:post', source_protocol='fake')
-        got = self.post('/queue/receive', data={'obj': obj.key.urlsafe()})
+        orig_count = Object.query().count()
+        got = self.post('/queue/receive', data={
+            'our_as1': json_dumps({'id': 'fake:post'}),
+            'source_protocol': 'fake',
+        })
         self.assertEqual(304, got.status_code)
+        self.assertEqual(orig_count, Object.query().count())
 
     def test_receive_task_handler_authed_as(self):
         note = {
@@ -2978,95 +3014,97 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'author': 'fake:alice',
         }
-        obj = self.store_object(id='fake:post', our_as1=note,
-                                source_protocol='fake')
 
         got = self.post('/queue/receive', data={
-            'obj': obj.key.urlsafe(),
+            'our_as1': json_dumps(note),
+            'source_protocol': 'fake',
             'authed_as': 'fake:alice',
         })
         self.assertEqual(204, got.status_code)
-        self.assertIsNotNone(Object.get_by_id('fake:post#bridgy-fed-create'))
+        self.assertEqual(note, Object.get_by_id('fake:post').our_as1)
 
     def test_receive_task_handler_authed_as_domain_vs_homepage(self):
         user = self.make_user('user.com', cls=Web, obj_id='https://user.com/')
-        obj = self.store_object(id='https://user.com/c', source_protocol='web',
-                                our_as1= {
-                                    'id': 'https://user.com/c',
-                                    'objectType': 'note',
-                                    'author': 'https://user.com/',
-                                })
+        note = {
+            'id': 'https://user.com/c',
+            'objectType': 'note',
+            'author': 'https://user.com/',
+        }
 
         got = self.post('/queue/receive', data={
-            'obj': obj.key.urlsafe(),
+            'our_as1': json_dumps(note),
+            'source_protocol': 'web',
             'authed_as': 'user.com',
         })
         self.assertEqual(204, got.status_code)
-        self.assertIsNotNone(Object.get_by_id('https://user.com/c#bridgy-fed-create'))
+        self.assertEqual({
+            **note,
+            'author': 'user.com',
+        }, Object.get_by_id('https://user.com/c').our_as1)
 
     @patch('requests.get', return_value=requests_response('<html></html>'))
     def test_receive_task_handler_authed_as_www_subdomain(self, _):
-        obj = self.store_object(id='http://www.foo.com/post', source_protocol='web',
-                                our_as1={
-                                    'id': 'http://www.foo.com/post',
-                                    'objectType': 'note',
-                                    'author': 'http://www.foo.com/bar',
-                                })
+        note = {
+            'id': 'http://www.foo.com/post',
+            'objectType': 'note',
+            'author': 'http://www.foo.com/bar',
+        }
 
         got = self.post('/queue/receive', data={
-            'obj': obj.key.urlsafe(),
+            'our_as1': json_dumps(note),
+            'source_protocol': 'web',
             'authed_as': 'foo.com',
         })
         self.assertEqual(204, got.status_code)
-        self.assertIsNotNone(Object.get_by_id(
-            'http://www.foo.com/post#bridgy-fed-create'))
+        self.assertEqual(note, Object.get_by_id('http://www.foo.com/post').our_as1)
 
     @patch('requests.get', return_value=requests_response('<html></html>'))
     def test_receive_task_handler_authed_as_mixed_subdomains(self, _):
         user = self.make_user('user.com', cls=Web, obj_id='https://user.com/')
-        obj = self.store_object(id='http://user.com/post', source_protocol='web',
-                                our_as1={
-                                    'objectType': 'note',
-                                    'author': 'http://m.user.com/',
-                                })
+        note = {
+            'objectType': 'note',
+            'id': 'http://user.com/post',
+            'author': 'http://m.user.com/',
+        }
 
         got = self.post('/queue/receive', data={
-            'obj': obj.key.urlsafe(),
+            'our_as1': json_dumps(note),
+            'source_protocol': 'web',
             'authed_as': 'www.user.com',
         })
         self.assertEqual(204, got.status_code)
-        self.assertIsNotNone(Object.get_by_id(
-            'http://user.com/post#bridgy-fed-create'))
+        self.assertEqual(note, Object.get_by_id('http://user.com/post').our_as1)
 
     @patch('requests.get', return_value=requests_response('<html></html>'))
     def test_receive_task_handler_authed_as_wrong_domain(self, _):
-        obj = self.store_object(id='http://bar.com/post', source_protocol='web',
-                                our_as1={
-                                    'id': 'http://bar.com/post',
-                                    'objectType': 'note',
-                                    'author': 'http://bar.com/',
-                                })
+        note = {
+            'id': 'http://bar.com/post',
+            'objectType': 'note',
+            'author': 'http://bar.com/',
+        }
 
         got = self.post('/queue/receive', data={
-            'obj': obj.key.urlsafe(),
+            'our_as1': json_dumps(note),
+            'source_protocol': 'web',
             'authed_as': 'foo.com',
         })
         self.assertEqual(299, got.status_code)
-        self.assertIsNone(Object.get_by_id('http://bar.com/post#bridgy-fed-create'))
+        self.assertIsNone(Object.get_by_id('https://bar.com/post'))
 
     def test_receive_task_handler_not_authed_as(self):
-        obj = self.store_object(id='fake:post', source_protocol='fake', our_as1={
+        note = {
             'id': 'fake:post',
             'objectType': 'note',
             'author': 'fake:other',
-        })
+        }
 
         got = self.post('/queue/receive', data={
-            'obj': obj.key.urlsafe(),
+            'our_as1': json_dumps(note),
+            'source_protocol': 'fake',
             'authed_as': 'fake:eve',
         })
         self.assertEqual(299, got.status_code)
-        self.assertIsNone(Object.get_by_id('fake:post#bridgy-fed-create'))
+        self.assertIsNone(Object.get_by_id('fake:post'))
 
     def test_like_not_authed_as_actor(self):
         Fake.fetchable['fake:post'] = {

@@ -743,7 +743,7 @@ def poll_feed(user, feed_url, rel_type):
         logger.info(f'Got {len(activities)} feed items, only processing the first {MAX_FEED_ITEMS_PER_POLL}')
         activities = activities[:MAX_FEED_ITEMS_PER_POLL]
 
-    # create Objects and receive tasks
+    # create receive tasks
     for i, activity in enumerate(activities):
         # default actor and author to user
         activity.setdefault('actor', {}).setdefault('id', user.profile_id())
@@ -776,19 +776,18 @@ def poll_feed(user, feed_url, rel_type):
         if not obj.get('image'):
             # fetch and check the post itself
             logger.info(f'No image in {id} , trying metaformats')
-            post = Web.load(id, metaformats=True, authorship_fetch_mf2=False)
-            if post and post.as1:
+            post = Object(id=id)
+            fetched = Web.fetch(post, metaformats=True, authorship_fetch_mf2=False)
+            if fetched and post.as1:
                 profile_images = (as1.get_ids(user.obj.as1, 'image')
                                   if user.obj.as1 else [])
                 obj['image'] = [img for img in as1.get_ids(post.as1, 'image')
                                 if img not in profile_images]
 
         activity['feed_index'] = i
-        obj = Object.get_or_create(id=id, authed_as=user.key.id(), our_as1=activity,
-                                   status='new', source_protocol=Web.ABBREV,
-                                   users=[user.key], **obj_feed_prop)
-        common.create_task(queue='receive', obj=obj.key.urlsafe(),
-                           authed_as=user.key.id())
+        common.create_task(queue='receive', id=id, our_as1=activity,
+                           source_protocol=Web.ABBREV, authed_as=user.key.id(),
+                           **obj_feed_prop)
 
     return activities
 

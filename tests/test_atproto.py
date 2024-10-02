@@ -13,7 +13,7 @@ from dns.resolver import NXDOMAIN
 import google.cloud.dns.client
 from google.cloud.dns.zone import ManagedZone
 from google.cloud.tasks_v2.types import Task
-from granary.bluesky import NO_AUTHENTICATED_LABEL
+from granary import bluesky
 from granary.tests.test_bluesky import (
     ACTOR_AS,
     ACTOR_PROFILE_BSKY,
@@ -269,7 +269,7 @@ class ATProtoTest(TestCase):
                                     **ACTOR_PROFILE_BSKY,
                                     'labels': {
                                         'values': [{
-                                            'val' : NO_AUTHENTICATED_LABEL,
+                                            'val' : bluesky.NO_AUTHENTICATED_LABEL,
                                             'neg' : False,
                                         }],
                                     },
@@ -2145,6 +2145,15 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'rev': '123',
             'sentAt': NOW.isoformat(),
         }
+        # note that order matters in these for the assert_task calls below!
+        msg_alice_as1 = {
+            'objectType': 'note',
+            'id': 'at://did:al:ice/chat.bsky.convo.defs.messageView/uvw',
+            'content': 'foo bar',
+            'published': NOW.isoformat(),
+            'author': 'did:al:ice',
+            'to': ['fa.brid.gy'],
+        }
         msg_bob = {
             '$type': 'chat.bsky.convo.defs#messageView',
             'id': 'xyz',
@@ -2152,6 +2161,14 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'sender': {'did': 'did:bo:b'},
             'rev': '456',
             'sentAt': NOW.isoformat(),
+        }
+        msg_bob_as1 = {
+            'objectType': 'note',
+            'id': 'at://did:bo:b/chat.bsky.convo.defs.messageView/xyz',
+            'content': 'baz biff',
+            'published': NOW.isoformat(),
+            'author': 'did:bo:b',
+            'to': ['fa.brid.gy'],
         }
         msg_from_bot = {
             '$type': 'chat.bsky.convo.defs#messageView',
@@ -2168,6 +2185,14 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'sender': {'did': 'did:ev:e'},
             'rev': '000',
             'sentAt': NOW.isoformat(),
+        }
+        msg_eve_as1 = {
+            'objectType': 'note',
+            'id': 'at://did:ev:e/chat.bsky.convo.defs.messageView/rst',
+            'content': 'boff',
+            'published': NOW.isoformat(),
+            'author': 'did:ev:e',
+            'to': ['fa.brid.gy'],
         }
 
         mock_get.side_effect = [
@@ -2225,41 +2250,20 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         id = 'at://did:al:ice/chat.bsky.convo.defs.messageView/uvw'
         self.assert_task(mock_create_task, 'receive', authed_as='did:al:ice',
-                         obj=Object(id=id).key.urlsafe())
-        self.assert_object(id, source_protocol='atproto', our_as1={
-            'objectType': 'note',
-            'id': 'at://did:al:ice/chat.bsky.convo.defs.messageView/uvw',
-            'author': 'did:al:ice',
-            'content': 'foo bar',
-            'to': ['fa.brid.gy'],
-            'published': NOW.isoformat(),
-        })
+                         id=id, source_protocol='atproto',
+                         bsky=msg_alice, our_as1=msg_alice_as1)
 
         id = 'at://did:bo:b/chat.bsky.convo.defs.messageView/xyz'
         self.assert_task(mock_create_task, 'receive', authed_as='did:bo:b',
-                         obj=Object(id=id).key.urlsafe())
-        self.assert_object(id, source_protocol='atproto', our_as1={
-            'objectType': 'note',
-            'id': 'at://did:bo:b/chat.bsky.convo.defs.messageView/xyz',
-            'author': 'did:bo:b',
-            'content': 'baz biff',
-            'to': ['fa.brid.gy'],
-            'published': NOW.isoformat(),
-        })
+                         id=id, source_protocol='atproto',
+                         bsky=msg_bob, our_as1=msg_bob_as1)
 
         id = 'at://did:plc:user/chat.bsky.convo.defs.messageView/lmno'
         self.assertIsNone(Object.get_by_id(id))
 
         id = 'at://did:ev:e/chat.bsky.convo.defs.messageView/rst'
         self.assert_task(mock_create_task, 'receive', authed_as='did:ev:e',
-                         obj=Object(id=id).key.urlsafe())
-        self.assert_object(id, source_protocol='atproto', our_as1={
-            'objectType': 'note',
-            'id': 'at://did:ev:e/chat.bsky.convo.defs.messageView/rst',
-            'author': 'did:ev:e',
-            'content': 'boff',
-            'to': ['fa.brid.gy'],
-            'published': NOW.isoformat(),
-        })
+                         id=id, source_protocol='atproto',
+                         bsky=msg_eve, our_as1=msg_eve_as1)
 
         self.assertEqual('dunn', fa.key.get().atproto_last_chat_log_cursor)
