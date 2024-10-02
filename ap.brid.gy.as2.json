@@ -1,7 +1,8 @@
 {
   "@context": [
     "https://www.w3.org/ns/activitystreams",
-    "https://w3id.org/security/v1"
+    "https://w3id.org/security/v1",
+    {"alsoKnownAs": {"@id": "as:alsoKnownAs", "@type": "@id"}}
   ],
   "type": "Application",
   "id": "https://ap.brid.gy/ap.brid.gy",
@@ -27,5 +28,9 @@
     "name": "Bridgy Fed for the fediverse",
     "type": "Image",
     "url": "https://fed.brid.gy/static/bridgy_logo_square.jpg"
-  }
+  },
+  "alsoKnownAs": [
+    "https://ap.brid.gy/",
+    "https://fed.brid.gy/"
+  ]
 }

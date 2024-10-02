@@ -56,6 +56,10 @@ HTTP_SIG_HEADERS = ('Date', 'Host', 'Digest', '(request-target)')
 
 SECURITY_CONTEXT = 'https://w3id.org/security/v1'
 
+# https://www.w3.org/ns/activitystreams#did-core
+# https://docs.joinmastodon.org/spec/activitypub/#properties-used-1
+AKA_CONTEXT = {'alsoKnownAs': {'@id': 'as:alsoKnownAs', '@type': '@id'}}
+
 # https://seb.jambor.dev/posts/understanding-activitypub-part-4-threads/#the-instance-actor
 _INSTANCE_ACTOR = None
 
@@ -403,9 +407,8 @@ class ActivityPub(User, Protocol):
         if not obj or not obj.as1:
             return {}
 
-        from_proto = PROTOCOLS.get(obj.source_protocol)
-        user_id = from_user.key.id() if from_user and from_user.key else None
         # TODO: uncomment
+        # from_proto = PROTOCOLS.get(obj.source_protocol)
         # if from_proto and not from_user.is_enabled(cls):
         #     error(f'{cls.LABEL} <=> {from_proto.LABEL} not enabled')
 
@@ -1010,6 +1013,11 @@ def actor(handle_or_id):
         'type': 'Person',
     }
     actor = postprocess_as2_actor(actor, user=user)
+
+    actor['@context'] = util.get_list(actor, '@context')
+    add(actor['@context'], AKA_CONTEXT)
+    actor.setdefault('alsoKnownAs', [user.id_uri()])
+
     actor.update({
         'id': id,
         'inbox': id + '/inbox',
@@ -1019,8 +1027,6 @@ def actor(handle_or_id):
         'endpoints': {
             'sharedInbox': subdomain_wrap(proto, '/ap/sharedInbox'),
         },
-        # add this if we ever change the Web actor ids to be /web/[id]
-        # 'alsoKnownAs': [host_url(id)],
     })
 
     logger.debug(f'Returning: {json_dumps(actor, indent=2)}')

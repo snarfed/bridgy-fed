@@ -211,6 +211,9 @@ class Web(User, Protocol):
 
     web_url = User.profile_id
 
+    def id_uri(self):
+        return self.web_url()
+
     def is_web_url(self, url):
         return super().is_web_url(url, ignore_www=True)
 

@@ -154,10 +154,9 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual('Accept', resp.headers['Vary'])
 
         expected = copy.deepcopy(ACTOR_BASE_FULL)
-        del expected['endpoints']
-        del expected['followers']
-        del expected['following']
-        self.assert_equals(expected, resp.json, ignore=['publicKey', 'summary'])
+        self.assert_equals(ACTOR_BASE_FULL, resp.json,
+                           ignore=['alsoKnownAs', 'endpoints', 'followers',
+                                   'following', 'publicKey', 'summary'])
 
         self.assert_user(Web, 'user.com', has_hcard=True, has_redirects=False,
                          direct=False, obj_as2={

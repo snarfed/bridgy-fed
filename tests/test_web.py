@@ -2812,6 +2812,9 @@ class WebUtilTest(TestCase):
         super().setUp()
         self.user = self.make_user('user.com', cls=Web)
 
+    def test_id_uri(self, *_):
+        self.assertEqual('https://user.com/', self.user.id_uri())
+
     def test_key_for(self, *_):
         for id in 'user.com', 'http://user.com', 'https://user.com/', 'uSeR.cOm':
             self.assertEqual(Web(id='user.com').key, Web.key_for(id))

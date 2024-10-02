@@ -696,6 +696,18 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         return (url == this or url == parsed_this.netloc or
                 parsed_url[1:] == parsed_this[1:])  # ignore http vs https
 
+    def id_uri(self):
+        """Returns the user id as a URI.
+
+        Sometimes this is the user id itself, eg ActivityPub actor ids.
+        Sometimes it's a bit different, eg at://did:plc:... for ATProto user,
+        https://site.com for Web users.
+
+        Returns:
+          str
+        """
+        return self.key.id()
+
     def profile_id(self):
         """Returns the id of this user's profile object in its native protocol.
 

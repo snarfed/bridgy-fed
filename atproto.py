@@ -252,6 +252,9 @@ class ATProto(User, Protocol):
     def web_url(self):
         return Bluesky.user_url(self.handle_or_id())
 
+    def id_uri(self):
+        return f'at://{self.key.id()}'
+
     @classmethod
     def owns_id(cls, id):
         return (id.startswith('at://')

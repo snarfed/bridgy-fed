@@ -55,7 +55,8 @@ ACTOR_AS1 = as2.to_as1(ACTOR)
 ACTOR_BASE = {
     '@context': [
         'https://www.w3.org/ns/activitystreams',
-        'https://w3id.org/security/v1',
+        activitypub.SECURITY_CONTEXT,
+        activitypub.AKA_CONTEXT,
     ],
     'type': 'Application',
     'id': 'http://localhost/user.com',
@@ -69,6 +70,7 @@ ACTOR_BASE = {
     'endpoints': {
         'sharedInbox': 'https://web.brid.gy/ap/sharedInbox',
     },
+    'alsoKnownAs': ['https://user.com/'],
 }
 ACTOR_BASE_FULL = {
     **ACTOR_BASE,
@@ -82,7 +84,8 @@ ACTOR_BASE_FULL = {
 ACTOR_FAKE = {
     '@context': [
         'https://www.w3.org/ns/activitystreams',
-        'https://w3id.org/security/v1',
+        activitypub.SECURITY_CONTEXT,
+        activitypub.AKA_CONTEXT,
     ],
     'type': 'Person',
     'id': 'https://fa.brid.gy/ap/fake:user',
@@ -94,6 +97,7 @@ ACTOR_FAKE = {
     'endpoints': {'sharedInbox': 'https://fa.brid.gy/ap/sharedInbox'},
     'preferredUsername': 'fake:handle:user',
     'summary': '',
+    'alsoKnownAs': ['uri:fake:user'],
 }
 REPLY_OBJECT = {
     '@context': 'https://www.w3.org/ns/activitystreams',
@@ -2186,6 +2190,9 @@ class ActivityPubUtilsTest(TestCase):
             with self.assertRaises(AssertionError):
                 ActivityPub(id=bad).put()
 
+    def test_id_uri(self):
+        self.assertEqual('http://inst/me', ActivityPub(id='http://inst/me').id_uri())
+
     def test_owns_id(self):
         self.assertIsNone(ActivityPub.owns_id('http://foo'))
         self.assertIsNone(ActivityPub.owns_id('https://bar/baz'))
@@ -2728,9 +2735,9 @@ class ActivityPubUtilsTest(TestCase):
             'objectType': 'person',
             'id': 'https://user.com/',
         })
-        self.assert_equals(
-            ACTOR_BASE, ActivityPub.convert(obj, from_user=self.user),
-            ignore=['endpoints', 'followers', 'following', 'publicKey', 'summary'])
+        self.assert_equals(ACTOR_BASE, ActivityPub.convert(obj, from_user=self.user),
+                           ignore=['endpoints', 'followers', 'following',
+                                   'publicKey', 'summary', 'alsoKnownAs'])
 
     def test_convert_actor_as1_no_from_user(self):
         obj = Object(our_as1=ACTOR_AS1)
