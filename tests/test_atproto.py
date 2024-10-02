@@ -1209,6 +1209,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                 'rotationKeys': [encode_did_key(repo.rotation_key.public_key())],
                 'alsoKnownAs': [
                     'at://fake-handle-user.fa.brid.gy',
+                    'fake:profile:user',
                 ],
                 'services': {
                     'atproto_pds': {

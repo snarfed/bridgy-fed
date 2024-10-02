@@ -384,7 +384,8 @@ class ATProto(User, Protocol):
         pds_url = common.host_url().rstrip('/') if DEBUG else cls.PDS_URL
         handle = user.handle_as('atproto')
         logger.info(f'Creating new did:plc for {user.key.id()} {handle} {pds_url}')
-        did_plc = did.create_plc(handle, pds_url=pds_url, post_fn=util.requests_post)
+        did_plc = did.create_plc(handle, pds_url=pds_url, post_fn=util.requests_post,
+                                 also_known_as=user.profile_id())
 
         Object.get_or_create(did_plc.did, raw=did_plc.doc, authed_as=did_plc)
         # TODO: move this to ATProto.get_or_create?
