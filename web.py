@@ -780,7 +780,10 @@ def poll_feed(user, feed_url, rel_type):
             # fetch and check the post itself
             logger.info(f'No image in {id} , trying metaformats')
             post = Object(id=id)
-            fetched = Web.fetch(post, metaformats=True, authorship_fetch_mf2=False)
+            try:
+                fetched = Web.fetch(post, metaformats=True, authorship_fetch_mf2=False)
+            except (RequestException, HTTPException):
+                fetched = False
             if fetched and post.as1:
                 profile_images = (as1.get_ids(user.obj.as1, 'image')
                                   if user.obj.as1 else [])

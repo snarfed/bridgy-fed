@@ -2271,6 +2271,54 @@ class WebTest(TestCase):
                          authed_as='user.com')
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_poll_feed_fetch_post_for_image_fails(self, mock_create_task,
+                                                  mock_get, _):
+        common.RUN_TASKS_INLINE = False
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.user.obj.put()
+
+        feed = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<entry xmlns="http://www.w3.org/2005/Atom">
+<uri>https://user.com/post</uri>
+<content>I hereby ☕ post</content>
+</entry>
+"""
+        mock_get.side_effect = [
+            requests_response(
+                feed, headers={'Content-Type': 'application/atom+xml; charset=utf-8'}),
+            # eg if we fetch the post to look for metaformats and find nothing
+            BadRequest('foo'),
+        ]
+
+        got = self.post('/queue/poll-feed', data={'domain': 'user.com'})
+        self.assertEqual(200, got.status_code)
+
+        mock_get.assert_has_calls((
+            self.req('https://foo/feed'),
+            self.req('https://user.com/post'),
+        ))
+
+        expected_as1 = {
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'https://user.com/post',
+            'url': 'https://user.com/post',
+            'actor': {'id': 'https://user.com/'},
+            'object': {
+                'objectType': 'note',
+                'id': 'https://user.com/post',
+                'url': 'https://user.com/post',
+                'author': {'id': 'https://user.com/'},
+                'content': 'I hereby ☕ post',
+            },
+            'feed_index': 0,
+        }
+        self.assert_task(mock_create_task, 'receive', id='https://user.com/post',
+                         source_protocol='web', atom=feed, our_as1=expected_as1,
+                         authed_as='user.com')
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_fetch_post_for_image_same_as_user_profile(
             self, mock_create_task, mock_get, _):
         common.RUN_TASKS_INLINE = False
