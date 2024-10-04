@@ -506,6 +506,38 @@ class ProtocolTest(TestCase):
         self.assertEqual({Target(protocol='fake', uri='fake:linked-post:target'): None},
                          OtherFake.targets(obj, from_user=self.user))
 
+    @patch.object(Fake, 'fetch')
+    def test_targets_continues_on_fetch_error(self, mock_fetch):
+        def fetch(obj, **_):
+            if obj.key.id() == 'fake:post-1':
+                raise requests.ConnectionError('foo')
+            elif obj.key.id() == 'fake:post-2':
+                obj.our_as1 = {
+                    'objectType': 'note',
+                    'id': 'fake:post-2',
+                    'author': 'fake:user',
+                }
+                return True
+
+        mock_fetch.side_effect = fetch
+
+        obj = Object(source_protocol='other', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': {
+                'id': 'other:reply',
+                'objectType': 'note',
+                'author': 'other:user',
+                'inReplyTo': [
+                    'fake:post-1',
+                    'fake:post-2',
+                ],
+            },
+        })
+
+        self.assertEqual({Target(protocol='fake', uri='fake:post-2:target')},
+                         OtherFake.targets(obj, from_user=self.user).keys())
+
     def test_translate_ids_follow(self):
         self.assert_equals({
             'id': 'other:o:fa:fake:follow',

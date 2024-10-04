@@ -1345,7 +1345,7 @@ class Protocol:
                 logger.info(f'{id} is blocklisted')
                 continue
 
-            orig_obj = target_proto.load(id)
+            orig_obj = target_proto.load(id, raise_=False)
             if not orig_obj or not orig_obj.as1:
                 logger.info(f"Couldn't load {id}")
                 continue
@@ -1403,7 +1403,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
         if obj.type == 'undo':
             logger.info('Object is an undo; adding targets for inner object')
             if set(inner_obj_as1.keys()) == {'id'}:
-                inner_obj = from_cls.load(inner_obj_id)
+                inner_obj = from_cls.load(inner_obj_id, raise_=False)
             else:
                 inner_obj = Object(id=inner_obj_id, our_as1=inner_obj_as1)
             if inner_obj:
@@ -1454,7 +1454,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
                             and inner.get('objectType') in as1.ACTOR_TYPES):
                         inner_id = inner.get('id')
                         if inner_id:
-                            feed_obj = from_cls.load(inner_id)
+                            feed_obj = from_cls.load(inner_id, raise_=False)
 
             for user in users:
                 if feed_obj:
@@ -1514,13 +1514,11 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
         return targets
 
     @classmethod
-    def load(cls, id, remote=None, local=True, **kwargs):
-        """Loads and returns an Object from memory cache, datastore, or HTTP fetch.
+    def load(cls, id, remote=None, local=True, raise_=True, **kwargs):
+        """Loads and returns an Object from datastore or HTTP fetch.
 
         Sets the :attr:`new` and :attr:`changed` attributes if we know either
         one for the loaded object, ie local is True and remote is True or None.
-
-        Note that :meth:`Object._post_put_hook` updates the cache.
 
         Args:
           id (str)
@@ -1532,15 +1530,19 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
           local (bool): whether to load from the datastore before
             fetching over the network. If False, still stores back to the
             datastore after a successful remote fetch.
+          raise_ (bool): if False, catches any :class:`request.RequestException`
+            or :class:`HTTPException` raised by :meth:`fetch()` and returns
+            ``None`` instead
           kwargs: passed through to :meth:`fetch()`
 
         Returns:
           models.Object: loaded object, or None if it isn't fetchable, eg a
           non-URL string for Web, or ``remote`` is False and it isn't in the
-          cache or datastore
+          datastore
 
         Raises:
-          requests.HTTPError: anything that :meth:`fetch` raises
+          requests.HTTPError: anything that :meth:`fetch` raises, if ``raise_``
+            is True
         """
         assert id
         assert local or remote is not False
@@ -1576,7 +1578,14 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
                 obj.new = True
                 obj.changed = False
 
-        fetched = cls.fetch(obj, **kwargs)
+        try:
+            fetched = cls.fetch(obj, **kwargs)
+        except (RequestException, HTTPException) as e:
+            if raise_:
+                raise
+            util.interpret_http_exception(e)
+            return None
+
         if not fetched:
             return None
 
