@@ -967,7 +967,7 @@ class Protocol:
         if (actor and actor.keys() == set(['id'])
                 and obj.type not in ('delete', 'undo')):
             logger.debug('Fetching actor so we have name, profile photo, etc')
-            actor_obj = from_cls.load(actor['id'])
+            actor_obj = from_cls.load(actor['id'], raise_=False)
             if actor_obj and actor_obj.as1:
                 obj.our_as1 = {**obj.as1, 'actor': actor_obj.as1}
 
@@ -976,7 +976,7 @@ class Protocol:
                 and inner_obj_as1.keys() == set(['id'])
                 and from_cls.owns_id(inner_obj_id)):
             logger.debug('Fetching object so we can render it in feeds')
-            inner_obj = from_cls.load(inner_obj_id)
+            inner_obj = from_cls.load(inner_obj_id, raise_=False)
             if inner_obj and inner_obj.as1:
                 obj.our_as1 = {
                     **obj.as1,
@@ -1035,7 +1035,7 @@ class Protocol:
         if not from_id:
             error(f'Follow activity requires actor. Got: {obj.as1}')
 
-        from_obj = from_cls.load(from_id)
+        from_obj = from_cls.load(from_id, raise_=False)
         if not from_obj:
             error(f"Couldn't load {from_id}", status=502)
 

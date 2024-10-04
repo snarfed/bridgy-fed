@@ -143,11 +143,8 @@ class DatastoreClient(Client):
 
         # remote record that we may have a cached copy of
         if not record:
-            try:
-                if obj := ATProto.load(uri):
-                    record = obj.bsky
-            except RequestException as e:
-                util.interpret_http_exception(e)
+            if obj := ATProto.load(uri, raise_=False):
+                record = obj.bsky
 
         if record:
             return {

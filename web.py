@@ -330,12 +330,9 @@ class Web(User, Protocol):
         # check home page
         self.obj = None
         self.has_hcard = False
-        try:
-            self.obj = Web.load(self.web_url(), remote=True, gateway=True)
-            if self.obj:
-                self.has_hcard = True
-        except (BadRequest, NotFound):
-            pass
+        self.reload_profile(gateway=True, raise_=False)
+        if self.obj:
+            self.has_hcard = True
 
         self.put()
         return self
@@ -602,7 +599,7 @@ class Web(User, Protocol):
             for field in 'author', 'actor':
                 val = as1.get_object(obj.as1, field)
                 if val.keys() == set(['id']) and val['id']:
-                    loaded = from_proto.load(val['id'])
+                    loaded = from_proto.load(val['id'], raise_=False)
                     if loaded and loaded.as1:
                         obj_as1 = {**obj_as1, field: loaded.as1}
         else:

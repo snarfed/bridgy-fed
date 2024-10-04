@@ -242,8 +242,7 @@ class ActivityPub(User, Protocol):
                         or (obj.key and inner_id == obj.key.id())):
                     continue
 
-                # TODO: need a "soft" kwarg for load to suppress errors?
-                actor = cls.load(inner_id)
+                actor = cls.load(inner_id, raise_=False)
                 if actor and actor.as1:
                     target = cls.target_for(actor, shared=shared)
                     if target:
