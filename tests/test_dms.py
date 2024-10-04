@@ -20,6 +20,11 @@ DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB = {
     'to': ['other.brid.gy'],
     'content': ' other:handle:bob ',
 }
+ALICE_CONFIRMATION_CONTENT = """Got it! We'll send <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> a message and say that you hope they'll enable the bridge. Fingers crossed!"""
+ALICE_REQUEST_CONTENT = """\
+<p>Hi! <a class="h-card u-author" rel="me" href="web:other:eefake:alice" title="eefake:handle:alice &middot; other:handle:eefake:handle:alice">eefake:handle:alice &middot; other:handle:eefake:handle:alice</a> is using Bridgy Fed to bridge their account from eefake-phrase into other-phrase, and they'd like to follow you. You can bridge your account into eefake-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
+<p>If you do nothing, your account won't be bridged, and users on eefake-phrase won't be able to see or interact with you.
+<p>Bridgy Fed will only send you this message once."""
 
 
 class DmsTest(TestCase):
@@ -31,16 +36,35 @@ class DmsTest(TestCase):
         bob = self.make_user(id='other:bob', cls=OtherFake, obj_as1={'x': 'y'})
         return alice, bob
 
+    def assert_sent(self, from_cls, tos, type, text):
+        if not isinstance(tos, list):
+            tos = [tos]
+        from_id = f'{from_cls.ABBREV}.brid.gy'
+        self.assertEqual([
+            (f'{to.key.id()}:target', {
+                'objectType': 'activity',
+                'verb': 'post',
+                'id': f'https://{from_id}/#{type}-dm-{to.key.id()}-2022-01-02T03:04:05+00:00-create',
+                'actor': from_id,
+                'object': {
+                    'objectType': 'note',
+                    'id': f'https://{from_id}/#{type}-dm-{to.key.id()}-2022-01-02T03:04:05+00:00',
+                    'author': from_id,
+                    'content': text,
+                    'tags': [{'objectType': 'mention', 'url': to.key.id()}],
+                    'to': [to.key.id()],
+                },
+                'to': [to.key.id()],
+             })
+            for to in tos], tos[0].sent)
+
     def test_maybe_send(self):
         self.make_user(id='fa.brid.gy', cls=Web)
         user = self.make_user(id='other:user', cls=OtherFake, obj_as1={'x': 'y'})
 
         maybe_send(from_proto=Fake, to_user=user, text='hi hi hi',
                    type='replied_to_bridged_user')
-        self.assertEqual([
-            ('https://fa.brid.gy/#replied_to_bridged_user-dm-other:user-2022-01-02T03:04:05+00:00',
-             'other:user:target'),
-        ], OtherFake.sent)
+        self.assert_sent(Fake, user, 'replied_to_bridged_user', 'hi hi hi')
         expected_sent_dms = [DM(protocol='fake', type='replied_to_bridged_user')]
         self.assertEqual(expected_sent_dms, user.key.get().sent_dms)
 
@@ -56,19 +80,13 @@ class DmsTest(TestCase):
         user = self.make_user(id='other:user', cls=OtherFake, obj_as1={'x': 'y'})
 
         maybe_send(from_proto=Fake, to_user=user, text='hi hi hi')
-        self.assertEqual([
-            ('https://fa.brid.gy/#?-dm-other:user-2022-01-02T03:04:05+00:00',
-             'other:user:target'),
-        ], OtherFake.sent)
+        self.assert_sent(Fake, user, '?', 'hi hi hi')
         self.assertEqual([], user.key.get().sent_dms)
 
         # another DM without type should also work
         OtherFake.sent = []
         maybe_send(from_proto=Fake, to_user=user, text='hi again')
-        self.assertEqual([
-            ('https://fa.brid.gy/#?-dm-other:user-2022-01-02T03:04:05+00:00',
-             'other:user:target'),
-        ], OtherFake.sent)
+        self.assert_sent(Fake, user, '?', 'hi again')
         self.assertEqual([], user.key.get().sent_dms)
 
     def test_maybe_send_user_missing_obj(self):
@@ -147,41 +165,35 @@ class DmsTest(TestCase):
         self.assertFalse(user.is_enabled(Fake))
 
         # ...and delete copy actor
-        self.assertEqual(
-            [('eefake:user#delete-user-fake-2022-01-02T03:04:05+00:00',
-              'fake:shared:target')],
-            Fake.sent)
+        self.assertEqual([('fake:shared:target', {
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': 'eefake:user#delete-user-fake-2022-01-02T03:04:05+00:00',
+            'actor': 'eefake:user',
+            'object': 'eefake:user',
+        })], Fake.sent)
 
     def test_receive_handle_sends_request_dm(self):
-        alice, _ = self.make_alice_bob()
+        alice, bob = self.make_alice_bob()
 
         obj = Object(our_as1=DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assertEqual(
-            [('https://other.brid.gy/#?-dm-eefake:alice-2022-01-02T03:04:05+00:00',
-              'eefake:alice:target')],
-            ExplicitEnableFake.sent)
-        self.assertEqual(
-            [('https://eefake.brid.gy/#request_bridging-dm-other:bob-2022-01-02T03:04:05+00:00',
-              'other:bob:target')],
-            OtherFake.sent)
+
+        self.assert_sent(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
+        self.assert_sent(ExplicitEnableFake, bob, 'request_bridging',
+                         ALICE_REQUEST_CONTENT)
 
     def test_receive_handle_strips_leading_at_sign(self):
-        alice, _ = self.make_alice_bob()
+        alice, bob = self.make_alice_bob()
 
         obj = Object(our_as1={
             **DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB,
             'content': '@other:handle:bob',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assertEqual(
-            [('https://other.brid.gy/#?-dm-eefake:alice-2022-01-02T03:04:05+00:00',
-              'eefake:alice:target')],
-            ExplicitEnableFake.sent)
-        self.assertEqual(
-            [('https://eefake.brid.gy/#request_bridging-dm-other:bob-2022-01-02T03:04:05+00:00',
-              'other:bob:target')],
-            OtherFake.sent)
+        self.assert_sent(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
+        self.assert_sent(ExplicitEnableFake, bob, 'request_bridging',
+                         ALICE_REQUEST_CONTENT)
 
     def test_receive_handle_fetch_user(self):
         self.make_user(id='eefake.brid.gy', cls=Web)
@@ -192,14 +204,10 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assertEqual(
-            [('https://other.brid.gy/#?-dm-eefake:alice-2022-01-02T03:04:05+00:00',
-              'eefake:alice:target')],
-            ExplicitEnableFake.sent)
-        self.assertEqual(
-            [('https://eefake.brid.gy/#request_bridging-dm-other:bob-2022-01-02T03:04:05+00:00',
-              'other:bob:target')],
-            OtherFake.sent)
+        self.assert_sent(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
+        self.assert_sent(ExplicitEnableFake, OtherFake(id='other:bob'),
+                         'request_bridging', ALICE_REQUEST_CONTENT)
+        self.assertEqual(['other:bob'], OtherFake.fetched)
 
     def test_receive_handle_user_doesnt_exist(self):
         self.make_user(id='other.brid.gy', cls=Web)
@@ -209,10 +217,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assertEqual(
-            [('https://other.brid.gy/#?-dm-eefake:alice-2022-01-02T03:04:05+00:00',
-              'eefake:alice:target')],
-            ExplicitEnableFake.sent)
+        self.assert_sent(OtherFake, alice, '?', "Couldn't find other-phrase user other:handle:bob")
         self.assertEqual([], OtherFake.sent)
 
     def test_receive_handle_from_user_not_bridged(self):
@@ -223,10 +228,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assertEqual(
-            [('https://other.brid.gy/#?-dm-eefake:alice-2022-01-02T03:04:05+00:00',
-              'eefake:alice:target')],
-            ExplicitEnableFake.sent)
+        self.assert_sent(OtherFake, alice, '?', 'Please bridge your account to other-phrase by following this account before requesting another user.')
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
 
@@ -237,10 +239,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assertEqual(
-            [('https://other.brid.gy/#?-dm-eefake:alice-2022-01-02T03:04:05+00:00',
-              'eefake:alice:target')],
-            ExplicitEnableFake.sent)
+        self.assert_sent(OtherFake, alice, '?', """<a class="h-card u-author" rel="me" href="web:eefake:other:bob" title="other:handle:bob &middot; eefake:handle:other:handle:bob">other:handle:bob &middot; eefake:handle:other:handle:bob</a> is already bridged into eefake-phrase.""")
         self.assertEqual([], OtherFake.sent)
 
     def test_receive_handle_already_requested(self):
@@ -250,10 +249,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assertEqual(
-            [('https://other.brid.gy/#?-dm-eefake:alice-2022-01-02T03:04:05+00:00',
-              'eefake:alice:target')],
-            ExplicitEnableFake.sent)
+        self.assert_sent(OtherFake, alice, '?', """We've already sent <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> a DM. Fingers crossed!""")
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
 
@@ -272,12 +268,8 @@ class DmsTest(TestCase):
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
-        self.assertEqual([
-            ('https://eefake.brid.gy/#request_bridging-dm-other:bob-2022-01-02T03:04:05+00:00',
-              'other:bob:target'),
-            ('https://eefake.brid.gy/#request_bridging-dm-other:eve-2022-01-02T03:04:05+00:00',
-              'other:eve:target'),
-        ], OtherFake.sent)
+        self.assert_sent(ExplicitEnableFake, [bob, eve], 'request_bridging',
+                         ALICE_REQUEST_CONTENT)
         self.assertEqual(2, memcache.get('dm-user-requests-eefake-eefake:alice'))
 
         # over the limit
@@ -289,10 +281,7 @@ class DmsTest(TestCase):
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assertEqual([], OtherFake.sent)
-        self.assertEqual(
-            [('https://other.brid.gy/#?-dm-eefake:alice-2022-01-02T03:04:05+00:00',
-              'eefake:alice:target')],
-            ExplicitEnableFake.sent)
+        self.assert_sent(OtherFake, alice, '?', "Sorry, you've hit your limit of 2 requests per day. Try again tomorrow!")
         self.assertEqual(3, memcache.get('dm-user-requests-eefake-eefake:alice'))
 
     def test_receive_handle_wrong_protocol(self):
@@ -316,8 +305,5 @@ class DmsTest(TestCase):
         obj = Object(our_as1=DM_EEFAKE_ALICE_REQUESTS_OTHER_BOB)
 
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assertEqual(
-            [('https://other.brid.gy/#?-dm-eefake:alice-2022-01-02T03:04:05+00:00',
-              'eefake:alice:target')],
-            ExplicitEnableFake.sent)
+        self.assert_sent(OtherFake, alice, '?', "Sorry, Bridgy Fed doesn't yet support bridging handle other:handle:bob from other-phrase to eefake-phrase.")
         self.assertEqual([], OtherFake.sent)

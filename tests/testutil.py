@@ -147,7 +147,7 @@ class Fake(User, protocol.Protocol):
     @classmethod
     def send(to, obj, url, from_user=None, orig_obj=None):
         logger.info(f'{to.__name__}.send {url} {obj.as1}')
-        to.sent.append((obj.key.id(), url))
+        to.sent.append((url, obj.as1))
 
         from_ = PROTOCOLS.get(obj.source_protocol)
         if (from_ and from_ != to and to.HAS_COPIES

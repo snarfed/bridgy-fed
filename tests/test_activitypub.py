@@ -739,8 +739,15 @@ class ActivityPubTest(TestCase):
         got = self.post('/ap/fake:user/inbox', json=reply,
                         base_url='https://fa.brid.gy/')
         self.assertEqual(202, got.status_code)
-        self.assertEqual([('http://my/reply#bridgy-fed-create', 'fake:post:target')],
-                         Fake.sent)
+        self.assert_equals(
+            [('fake:post:target', {
+                'objectType': 'activity',
+                'verb': 'post',
+                'id': 'http://my/reply#bridgy-fed-create',
+                'published': '2022-01-02T03:04:05+00:00',
+                'object': as2.to_as1(reply),
+                'actor': as2.to_as1(ACTOR),
+            })], Fake.sent)
 
     def test_inbox_reply_to_self_domain(self, mock_head, mock_get, mock_post):
         mock_get.return_value = WEBMENTION_DISCOVERY
