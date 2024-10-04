@@ -281,6 +281,11 @@ class ATProto(User, Protocol):
 
         return did.resolve_handle(handle, get_fn=util.requests_get)
 
+    def reload_profile(self):
+        """Reloads this user's DID doc along with their profile object."""
+        super().reload_profile()
+        self.load(self.key.id(), did_doc=True, remote=True)
+
     @classmethod
     def bridged_web_url_for(cls, user, fallback=False):
         """Returns a bridged user's profile URL on bsky.app.
@@ -398,7 +403,7 @@ class ATProto(User, Protocol):
 
         # fetch and store profile
         if not user.obj or not user.obj.as1:
-            user.obj = user.load(user.profile_id(), remote=True)
+            user.reload_profile()
 
         initial_writes = []
         if user.obj and user.obj.as1:

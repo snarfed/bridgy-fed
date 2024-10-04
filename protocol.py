@@ -867,7 +867,7 @@ class Protocol:
             # follows of bot user; refresh user profile first
             logger.info(f'Follow of bot user, reloading {actor}')
             from_user = from_cls.get_or_create(id=actor, allow_opt_out=True)
-            from_user.obj = from_cls.load(from_user.profile_id(), remote=True)
+            from_user.reload_profile()
         else:
             # load actor user
             from_user = from_cls.get_or_create(id=actor, allow_opt_out=internal)

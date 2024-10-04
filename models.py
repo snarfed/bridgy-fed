@@ -724,6 +724,13 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         """
         return ids.profile_id(id=self.key.id(), proto=self)
 
+    def reload_profile(self):
+        """Reloads this user's identity and profile from their native protocol.
+
+        Populates the reloaded profile :class:`Object` in ``self.obj``.
+        """
+        self.obj = self.load(self.profile_id(), remote=True)
+
     def user_page_path(self, rest=None):
         """Returns the user's Bridgy Fed user page path."""
         path = f'/{self.ABBREV}/{self.handle_or_id()}'

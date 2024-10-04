@@ -186,6 +186,20 @@ class ATProtoTest(TestCase):
     def test_handle_to_id_not_found(self, *_):
         self.assertIsNone(ATProto.handle_to_id('ha.nl'))
 
+    @patch('requests.get', side_effect=[
+        requests_response({
+            'uri': 'at://did:plc:user/app.bsky.actor.profile/self',
+            'cid': 'bafyreigd',
+            'value': ACTOR_PROFILE_BSKY,
+        }),
+        requests_response(DID_DOC),
+    ])
+    def test_reload_profile(self, mock_get):
+        user = ATProto(id='did:plc:user')
+        user.reload_profile()
+        self.assertEqual({**ACTOR_PROFILE_BSKY, 'cid': 'bafyreigd'}, user.obj.bsky)
+        self.assertEqual(DID_DOC, Object.get_by_id('did:plc:user').raw)
+
     def test_bridged_web_url_for(self):
         self.assertIsNone(ATProto.bridged_web_url_for(ATProto(id='did:plc:foo')))
 

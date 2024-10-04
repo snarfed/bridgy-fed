@@ -502,9 +502,9 @@ class IntegrationTests(TestCase):
         # ...
     }))
     @patch('requests.get', side_effect=[
-        requests_response(DID_DOC),  # alice DID
         requests_response(PROFILE_GETRECORD),  # alice profile
         requests_response(PROFILE_GETRECORD),  # ...
+        requests_response(DID_DOC),  # alice DID
         requests_response({  # getConvoForMembers
             'convo': {
                 'id': 'convo123',
@@ -524,6 +524,9 @@ class IntegrationTests(TestCase):
         self.make_web_user('ap.brid.gy', did='did:plc:ap')
         # only needed for atproto_firehose.load_dids
         self.make_atproto_user('did:plc:eve')
+
+        # existing stale stored DID doc for alice, should be reloaded and overwritten
+        self.store_object(id='did:plc:alice', raw={'not': 'used'})
 
         follow = {
             '$type': 'app.bsky.graph.follow',
