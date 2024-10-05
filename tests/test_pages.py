@@ -23,11 +23,12 @@ from web import Web
 
 from granary.tests.test_bluesky import ACTOR_AS, ACTOR_PROFILE_BSKY
 from .test_web import (
-  ACTOR_AS2,
-  ACTOR_HTML,
-  ACTOR_HTML_RESP,
-  ACTOR_MF2_REL_URLS,
-  REPOST_AS2,
+    ACTOR_AS1_UNWRAPPED_URLS,
+    ACTOR_AS2,
+    ACTOR_HTML,
+    ACTOR_HTML_RESP,
+    ACTOR_MF2_REL_URLS,
+    REPOST_AS2,
 )
 
 ACTOR_WITH_PREFERRED_USERNAME = {
@@ -256,10 +257,17 @@ class PagesTest(TestCase):
         self.assertIsNone(user.status)
         self.assertEqual(ACTOR_MF2_REL_URLS, user.obj.mf2)
 
-        self.assertEqual(
-            [('https://user.com/#bridgy-fed-update-2022-01-02T03:04:05+00:00',
-              'fake:shared:target')],
-             Fake.sent)
+        actor_as1 = {
+            **ACTOR_AS1_UNWRAPPED_URLS,
+            'updated': '2022-01-02T03:04:05+00:00',
+        }
+        self.assertEqual([('fake:shared:target', {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': 'https://user.com/#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+            'actor': actor_as1,
+            'object': actor_as1,
+        })], Fake.sent)
 
     @patch('requests.get', return_value=requests_response(
         ACTOR_HTML.replace('Ms. ☕ Baz', 'Ms. ☕ Baz #nobridge'),
@@ -274,10 +282,13 @@ class PagesTest(TestCase):
 
         user = self.user.key.get()
         self.assertEqual('opt-out', user.status)
-        self.assertEqual(
-            [('https://user.com/#delete-user-all-2022-01-02T03:04:05+00:00',
-              'fake:shared:target')],
-             Fake.sent)
+        self.assertEqual([('fake:shared:target', {
+            'objectType': 'activity',
+            'verb': 'delete',
+            'id': 'https://user.com/#delete-user-all-2022-01-02T03:04:05+00:00',
+            'actor': 'user.com',
+            'object': 'user.com',
+        })], Fake.sent)
 
     def test_followers(self):
         Follower.get_or_create(
