@@ -8,7 +8,7 @@ from oauth_dropins.webutil import util
 from oauth_dropins.webutil.testutil import requests_response
 
 # import first so that Fake is defined before URL routes are registered
-from .testutil import ExplicitEnableFake, Fake, TestCase
+from .testutil import ExplicitFake, Fake, TestCase
 
 from models import PROTOCOLS
 import protocol
@@ -335,14 +335,14 @@ class WebfingerTest(TestCase):
         self.assertEqual(404, got.status_code)
 
     def test_protocol_not_enabled(self):
-        self.make_user('eefake:user', cls=ExplicitEnableFake)
-        got = self.client.get(f'/.well-known/webfinger?resource=acct:eefake:user@eefake.brid.gy')
+        self.make_user('efake:user', cls=ExplicitFake)
+        got = self.client.get(f'/.well-known/webfinger?resource=acct:efake:user@efake.brid.gy')
         self.assertEqual(404, got.status_code)
 
     def test_protocol_enabled(self):
-        self.make_user('eefake:user', cls=ExplicitEnableFake,
+        self.make_user('efake:user', cls=ExplicitFake,
                        enabled_protocols=['activitypub'])
-        got = self.client.get(f'/.well-known/webfinger?resource=acct:eefake:user@eefake.brid.gy')
+        got = self.client.get(f'/.well-known/webfinger?resource=acct:efake:user@efake.brid.gy')
         self.assertEqual(200, got.status_code)
 
     def test_bad_id(self):

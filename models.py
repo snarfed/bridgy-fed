@@ -56,7 +56,7 @@ if DEBUG:
     PROTOCOLS.update({label: None for label in (
         'fa',
         'fake',
-        'eefake',
+        'efake',
         'other',
     )})
 
@@ -510,8 +510,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         to_label = to_proto.LABEL
 
         # unit tests
-        if DEBUG and ((from_label in ('fake', 'other') and to_label != 'eefake')
-                      or (to_label in ('fake', 'other') and from_label != 'eefake')):
+        if DEBUG and ((from_label in ('fake', 'other') and to_label != 'efake')
+                      or (to_label in ('fake', 'other') and from_label != 'efake')):
             return True
 
         elif bot_protocol := Protocol.for_bridgy_subdomain(self.key.id()):

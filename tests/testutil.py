@@ -218,9 +218,10 @@ class OtherFake(Fake):
         return f'{obj.key.id()}:target'
 
 
-class ExplicitEnableFake(Fake):
-    LABEL = ABBREV = 'eefake'
-    PHRASE = 'eefake-phrase'
+class ExplicitFake(Fake):
+    """Fake protocol class that isn't default enabled for any other protocols."""
+    LABEL = ABBREV = 'efake'
+    PHRASE = 'efake-phrase'
     CONTENT_TYPE = 'un/known'
     SUPPORTS_DMS = True
 
@@ -279,7 +280,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         User.count_followers.cache.clear()
         common.protocol_user_copy_ids.cache_clear()
 
-        for cls in ExplicitEnableFake, Fake, OtherFake:
+        for cls in ExplicitFake, Fake, OtherFake:
             cls.fetchable = {}
             cls.sent = []
             cls.fetched = []

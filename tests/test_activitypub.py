@@ -21,7 +21,7 @@ from werkzeug.exceptions import BadGateway, BadRequest
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
-from .testutil import ExplicitEnableFake, Fake, global_user, OtherFake, TestCase
+from .testutil import ExplicitFake, Fake, global_user, OtherFake, TestCase
 
 import activitypub
 from activitypub import (
@@ -968,11 +968,11 @@ class ActivityPubTest(TestCase):
 
     def test_follow_bot_user_enables_protocol(self, _, mock_get, __):
         # bot user
-        self.make_user('eefake.brid.gy', cls=Web, ap_subdomain='eefake')
+        self.make_user('efake.brid.gy', cls=Web, ap_subdomain='efake')
 
         user = self.make_user('https://mas.to/users/swentel', cls=ActivityPub,
                               obj_as2=ACTOR)
-        self.assertFalse(user.is_enabled(ExplicitEnableFake))
+        self.assertFalse(user.is_enabled(ExplicitFake))
 
         # actor gets reloaded
         mock_get.return_value = self.as2_resp(ACTOR)
@@ -982,38 +982,38 @@ class ActivityPubTest(TestCase):
             'type': 'Follow',
             'id': id,
             'actor': 'https://mas.to/users/swentel',
-            'object': 'https://eefake.brid.gy/eefake.brid.gy',
+            'object': 'https://efake.brid.gy/efake.brid.gy',
         }), authed_as='https://mas.to/users/swentel')
         self.assertEqual(204, code)
 
         self.assertEqual(['https://mas.to/users/swentel'],
-                         ExplicitEnableFake.created_for)
+                         ExplicitFake.created_for)
         user = user.key.get()
-        self.assertTrue(user.is_enabled(ExplicitEnableFake))
+        self.assertTrue(user.is_enabled(ExplicitFake))
 
     def test_inbox_dm_yes_to_bot_user_enables_protocol(self, *mocks):
         # bot user
-        self.make_user('eefake.brid.gy', cls=Web)
+        self.make_user('efake.brid.gy', cls=Web)
 
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
-        self.assertFalse(user.is_enabled(ExplicitEnableFake))
+        self.assertFalse(user.is_enabled(ExplicitFake))
 
         got = self.post('/ap/sharedInbox', json={
             'type': 'Create',
             'id': 'https://mas.to/dm#create',
-            'to': ['https://eefake.brid.gy/eefake.brid.gy'],
+            'to': ['https://efake.brid.gy/efake.brid.gy'],
             'actor': ACTOR['id'],
             'object': {
                 'type': 'Note',
                 'id': 'https://mas.to/dm',
                 'attributedTo': ACTOR['id'],
-                'to': ['https://eefake.brid.gy/eefake.brid.gy'],
+                'to': ['https://efake.brid.gy/efake.brid.gy'],
                 'content': 'yes',
             },
         })
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         user = user.key.get()
-        self.assertTrue(user.is_enabled(ExplicitEnableFake))
+        self.assertTrue(user.is_enabled(ExplicitFake))
 
     def test_inbox_actor_blocklisted(self, mock_head, mock_get, mock_post):
         got = self.post('/ap/sharedInbox', json={
@@ -2049,8 +2049,8 @@ class ActivityPubTest(TestCase):
         resp = self.client.get(f'/user.com/following', base_url='https://web.brid.gy')
 
     def test_following_collection_protocol_not_enabled(self, *_):
-        resp = self.client.get(f'/ap/eefake:alice/following',
-                               base_url='https://eefake.brid.gy')
+        resp = self.client.get(f'/ap/efake:alice/following',
+                               base_url='https://efake.brid.gy')
         self.assertEqual(404, resp.status_code)
 
     def test_outbox_fake_empty(self, *_):
@@ -2174,8 +2174,8 @@ class ActivityPubTest(TestCase):
         self.assertEqual(404, resp.status_code)
 
     def test_outbox_protocol_not_enabled(self, *_):
-        resp = self.client.get(f'/ap/eefake:alice/outbox',
-                               base_url='https://eefake.brid.gy')
+        resp = self.client.get(f'/ap/efake:alice/outbox',
+                               base_url='https://efake.brid.gy')
         self.assertEqual(404, resp.status_code)
 
 

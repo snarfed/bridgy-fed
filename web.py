@@ -128,7 +128,7 @@ class Web(User, Protocol):
     #
     # So, this property tracks which subdomain a given Web user's AP actor uses.
     ap_subdomain = ndb.StringProperty(
-        choices=['ap', 'bsky', 'fed', 'web', 'fake', 'other', 'eefake'],
+        choices=['ap', 'bsky', 'fed', 'web', 'fake', 'other', 'efake'],
         default='web')
 
     # OLD. some stored entities still have these; do not reuse.

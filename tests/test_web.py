@@ -29,7 +29,7 @@ from models import Follower, Object, Target
 import web
 from web import Web
 from . import test_activitypub
-from .testutil import ExplicitEnableFake, Fake, TestCase
+from .testutil import ExplicitFake, Fake, TestCase
 
 
 FULL_REDIR = requests_response(
@@ -1626,8 +1626,8 @@ class WebTest(TestCase):
         mock_get.return_value = requests_response('', status=404)
         self.make_followers()
 
-        self.user.enabled_protocols = ['eefake']
-        self.user.copies = [Target(protocol='eefake', uri='eefake:user')]
+        self.user.enabled_protocols = ['efake']
+        self.user.copies = [Target(protocol='efake', uri='efake:user')]
         self.user.put()
 
         got = self.post('/queue/webmention', data={
@@ -1639,7 +1639,7 @@ class WebTest(TestCase):
         user = self.user.key.get()
         self.assertIsNone(user.status)
         mock_post.assert_not_called()
-        self.assertEqual([], ExplicitEnableFake.sent)
+        self.assertEqual([], ExplicitFake.sent)
 
     def test_inbox_delivery_error(self, mock_get, mock_post):
         mock_get.side_effect = [FOLLOW, ACTOR]

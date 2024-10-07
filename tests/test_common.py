@@ -5,7 +5,7 @@ import flask
 from oauth_dropins.webutil.appengine_config import error_reporting_client
 
 # import first so that Fake is defined before URL routes are registered
-from .testutil import ExplicitEnableFake, Fake, OtherFake, TestCase
+from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 
 from activitypub import ActivityPub
 from atproto import ATProto

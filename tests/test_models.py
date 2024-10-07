@@ -21,7 +21,7 @@ from oauth_dropins.webutil import util
 from werkzeug.exceptions import Forbidden
 
 # import first so that Fake is defined before URL routes are registered
-from .testutil import ExplicitEnableFake, Fake, OtherFake, TestCase
+from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 
 from activitypub import ActivityPub
 from atproto import ATProto
@@ -125,7 +125,7 @@ class UserTest(TestCase):
 
         mock_create_task.assert_called()
 
-    @patch('ids.COPIES_PROTOCOLS', ['eefake', 'atproto'])
+    @patch('ids.COPIES_PROTOCOLS', ['efake', 'atproto'])
     @patch.object(tasks_client, 'create_task')
     @patch('requests.post')
     @patch('requests.get')
@@ -142,9 +142,9 @@ class UserTest(TestCase):
         self.assertEqual([], user.copies)
         self.assertEqual(0, AtpRepo.query().count())
 
-    @patch.object(ExplicitEnableFake, 'create_for', side_effect=ValueError('foo'))
+    @patch.object(ExplicitFake, 'create_for', side_effect=ValueError('foo'))
     def test_get_or_create_propagate_create_for_fails_re_disable_protocol(self, _):
-        user = Fake.get_or_create('fake:a', enabled_protocols=['eefake'],
+        user = Fake.get_or_create('fake:a', enabled_protocols=['efake'],
                                   propagate=True)
         self.assertEqual([], user.enabled_protocols)
 
@@ -234,7 +234,7 @@ class UserTest(TestCase):
 
     def test_user_link_proto_not_enabled(self):
         with self.assertRaises(AssertionError):
-            self.user.user_link(proto=ExplicitEnableFake)
+            self.user.user_link(proto=ExplicitFake)
 
     def test_is_web_url(self):
         for url in 'y.za', '//y.za', 'http://y.za', 'https://y.za':
@@ -351,7 +351,7 @@ class UserTest(TestCase):
                               obj_as1={'displayName': 'Alice'})
         self.assertEqual('blocked', user.status)
 
-        user.enabled_protocols = ['eefake']
+        user.enabled_protocols = ['efake']
         self.assertEqual('blocked', user.status)
 
         user.obj.our_as1['image'] = 'http://pic'
@@ -369,7 +369,7 @@ class UserTest(TestCase):
         user.obj.our_as1['displayName'] = 'fake:handle:user'
         self.assertEqual('blocked', user.status)
 
-        user.enabled_protocols = ['eefake']
+        user.enabled_protocols = ['efake']
         self.assertEqual('blocked', user.status)
 
         user.obj.our_as1['displayName'] = 'Alice'
@@ -386,7 +386,7 @@ class UserTest(TestCase):
         user.obj.our_as1['published'] = too_young.isoformat()
         self.assertEqual('blocked', user.status)
 
-        user.enabled_protocols = ['eefake']
+        user.enabled_protocols = ['efake']
         self.assertEqual('blocked', user.status)
 
         user.obj.our_as1['published'] = (too_young - timedelta(minutes=2)).isoformat()
@@ -431,11 +431,11 @@ class UserTest(TestCase):
         self.assertFalse(ActivityPub(id='').is_enabled(ATProto))
         self.assertFalse(ATProto(id='').is_enabled(ActivityPub))
         self.assertFalse(Web(id='').is_enabled(ATProto))
-        self.assertFalse(ExplicitEnableFake(id='').is_enabled(Fake))
-        self.assertFalse(ExplicitEnableFake(id='').is_enabled(OtherFake))
-        self.assertFalse(ExplicitEnableFake(id='').is_enabled(Web))
-        self.assertFalse(Fake(id='').is_enabled(ExplicitEnableFake))
-        self.assertFalse(OtherFake(id='').is_enabled(ExplicitEnableFake))
+        self.assertFalse(ExplicitFake(id='').is_enabled(Fake))
+        self.assertFalse(ExplicitFake(id='').is_enabled(OtherFake))
+        self.assertFalse(ExplicitFake(id='').is_enabled(Web))
+        self.assertFalse(Fake(id='').is_enabled(ExplicitFake))
+        self.assertFalse(OtherFake(id='').is_enabled(ExplicitFake))
 
     def test_is_enabled_default_enabled_protocols_explicit(self):
         self.user.enabled_protocols = ['atproto']
@@ -445,7 +445,7 @@ class UserTest(TestCase):
         self.assertFalse(self.user.is_enabled(ActivityPub, explicit=True))
 
     def test_is_enabled_enabled_protocols_overrides_nobot(self):
-        user = self.make_user('eefake:user', cls=ExplicitEnableFake,
+        user = self.make_user('efake:user', cls=ExplicitFake,
                               obj_as1={'summary': '#nobot'})
         self.assertFalse(user.is_enabled(Web))
         self.assertEqual('opt-out', user.status)
@@ -489,7 +489,7 @@ class UserTest(TestCase):
         self.assertFalse(user.is_enabled(ActivityPub))
 
     def test_is_enabled_enabled_protocols(self):
-        user = self.make_user(id='eefake:foo', cls=ExplicitEnableFake)
+        user = self.make_user(id='efake:foo', cls=ExplicitFake)
         self.assertFalse(user.is_enabled(Fake))
 
         user.enabled_protocols = ['web']
@@ -502,8 +502,8 @@ class UserTest(TestCase):
 
     def test_is_enabled_protocol_bot_users(self):
         # protocol bot users should always be enabled to *other* protocols
-        self.assertTrue(Web(id='eefake.brid.gy').is_enabled(Fake))
-        self.assertTrue(Web(id='fa.brid.gy').is_enabled(ExplicitEnableFake))
+        self.assertTrue(Web(id='efake.brid.gy').is_enabled(Fake))
+        self.assertTrue(Web(id='fa.brid.gy').is_enabled(ExplicitFake))
         self.assertTrue(Web(id='other.brid.gy').is_enabled(Fake))
         self.assertTrue(Web(id='ap.brid.gy').is_enabled(ATProto))
         self.assertTrue(Web(id='bsky.brid.gy').is_enabled(ActivityPub))

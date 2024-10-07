@@ -48,7 +48,7 @@ PROTOCOL_DOMAINS = (
     'atproto.brid.gy',
     'bsky.brid.gy',
     'web.brid.gy',
-    'eefake.brid.gy',
+    'efake.brid.gy',
     'fa.brid.gy',
     'other.brid.gy',
 )

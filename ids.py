@@ -154,7 +154,7 @@ def translate_user_id(*, id, from_, to):
             return subdomain_wrap(from_, f'/{to.ABBREV}/{id}')
 
         # only for unit tests
-        case _, 'fake' | 'other' | 'eefake':
+        case _, 'fake' | 'other' | 'efake':
             return f'{to.LABEL}:u:{id}'
         case 'fake' | 'other', _:
             return id
@@ -276,7 +276,7 @@ def translate_handle(*, handle, from_, to, enhanced):
             output = handle
 
         # only for unit tests
-        case _, 'fake' | 'other' | 'eefake':
+        case _, 'fake' | 'other' | 'efake':
             output = f'{to.LABEL}:handle:{handle}'
 
     assert output, (handle, from_.LABEL, to.LABEL)
@@ -342,7 +342,7 @@ def translate_object_id(*, id, from_, to):
             return subdomain_wrap(from_, f'/convert/{to.ABBREV}/{id}')
 
         # only for unit tests
-        case _, 'fake' | 'other' | 'eefake':
+        case _, 'fake' | 'other' | 'efake':
             return f'{to.LABEL}:o:{from_.ABBREV}:{id}'
 
     assert False, (id, from_.LABEL, to.LABEL)

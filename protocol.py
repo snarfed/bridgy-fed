@@ -1317,7 +1317,7 @@ class Protocol:
 
         # which protocols should we allow delivering to?
         to_protocols = []
-        if DEBUG and from_user.LABEL != 'eefake':  # for unit tests
+        if DEBUG and from_user.LABEL != 'efake':  # for unit tests
             to_protocols += [PROTOCOLS['fake'], PROTOCOLS['other']]
         for label in (list(from_user.DEFAULT_ENABLED_PROTOCOLS)
                       + from_user.enabled_protocols):

@@ -11,7 +11,7 @@ from oauth_dropins.webutil.util import json_loads, parse_mf2
 
 # import first so that Fake is defined before URL routes are registered
 from . import testutil
-from .testutil import ExplicitEnableFake, Fake, OtherFake
+from .testutil import ExplicitFake, Fake, OtherFake
 
 from activitypub import ActivityPub
 from common import CONTENT_TYPE_HTML
@@ -92,17 +92,17 @@ class ConvertTest(testutil.TestCase):
         self.assertEqual(404, resp.status_code)
 
     def test_fake_to_other(self):
-        self.make_user('eefake:user', cls=ExplicitEnableFake,
+        self.make_user('efake:user', cls=ExplicitFake,
                        enabled_protocols=['other'])
-        self.store_object(id='eefake:post', our_as1={'actor': 'eefake:user'},
+        self.store_object(id='efake:post', our_as1={'actor': 'efake:user'},
                           copies=[Target(protocol='other', uri='other:post')])
-        resp = self.client.get('/convert/other/eefake:post',
-                               base_url='https://eefake.brid.gy/')
+        resp = self.client.get('/convert/other/efake:post',
+                               base_url='https://efake.brid.gy/')
         self.assertEqual(200, resp.status_code)
         self.assertEqual(OtherFake.CONTENT_TYPE, resp.content_type)
         self.assertEqual({
             'id': 'other:post',
-            'actor': 'other:u:eefake:user',
+            'actor': 'other:u:efake:user',
         }, json_loads(resp.get_data()))
 
     def test_fake_to_other_no_object_owner(self):
@@ -127,67 +127,67 @@ class ConvertTest(testutil.TestCase):
         self.assertEqual(404, resp.status_code)
 
     @patch.object(Fake, 'HAS_COPIES', new=False)
-    def test_eefake_to_other_user_not_enabled(self):
+    def test_efake_to_other_user_not_enabled(self):
         """https://github.com/snarfed/bridgy-fed/issues/1248"""
-        self.make_user('eefake:user', cls=ExplicitEnableFake, enabled_protocols=[])
-        self.store_object(id='eefake:post', our_as1={'author': 'eefake:user'},
+        self.make_user('efake:user', cls=ExplicitFake, enabled_protocols=[])
+        self.store_object(id='efake:post', our_as1={'author': 'efake:user'},
                           copies=[Target(protocol='other', uri='other:post')])
 
-        resp = self.client.get(f'/convert/other/eefake:post',
-                               base_url='https://eefake.brid.gy/')
+        resp = self.client.get(f'/convert/other/efake:post',
+                               base_url='https://efake.brid.gy/')
         self.assertEqual(404, resp.status_code)
 
-    def test_eefake_to_other_repost_original_post_no_copy(self):
+    def test_efake_to_other_repost_original_post_no_copy(self):
         """https://github.com/snarfed/bridgy-fed/issues/1248"""
-        self.make_user('eefake:user', cls=ExplicitEnableFake,
+        self.make_user('efake:user', cls=ExplicitFake,
                        enabled_protocols=['other'])
-        self.make_user('eefake:orig-user', cls=ExplicitEnableFake,
+        self.make_user('efake:orig-user', cls=ExplicitFake,
                        enabled_protocols=['other'])
 
-        self.store_object(id='eefake:post', our_as1={'author': 'eefake:orig-user'},
+        self.store_object(id='efake:post', our_as1={'author': 'efake:orig-user'},
                           copies=[])
-        self.store_object(id='eefake:repost', our_as1={
+        self.store_object(id='efake:repost', our_as1={
             'objectType': 'activity',
             'verb': 'share',
-            'object': 'eefake:post',
-            'actor': 'eefake:user',
+            'object': 'efake:post',
+            'actor': 'efake:user',
         })
 
-        resp = self.client.get(f'/convert/other/eefake:repost',
-                               base_url='https://eefake.brid.gy/')
+        resp = self.client.get(f'/convert/other/efake:repost',
+                               base_url='https://efake.brid.gy/')
         self.assertEqual(404, resp.status_code)
 
     @patch.object(Fake, 'HAS_COPIES', new=False)
-    def test_eefake_to_other_repost_original_author_not_enabled(self):
+    def test_efake_to_other_repost_original_author_not_enabled(self):
         """https://github.com/snarfed/bridgy-fed/issues/1248"""
-        self.make_user('eefake:user', cls=ExplicitEnableFake,
+        self.make_user('efake:user', cls=ExplicitFake,
                        enabled_protocols=['other'])
-        self.make_user('eefake:orig-user', cls=ExplicitEnableFake,
+        self.make_user('efake:orig-user', cls=ExplicitFake,
                        enabled_protocols=[])
 
-        self.store_object(id='eefake:post', our_as1={'author': 'eefake:orig-user'})
-        self.store_object(id='eefake:repost', our_as1={
+        self.store_object(id='efake:post', our_as1={'author': 'efake:orig-user'})
+        self.store_object(id='efake:repost', our_as1={
             'objectType': 'activity',
             'verb': 'share',
-            'object': 'eefake:post',
-            'actor': 'eefake:user',
+            'object': 'efake:post',
+            'actor': 'efake:user',
         })
 
-        resp = self.client.get(f'/convert/other/eefake:repost',
-                               base_url='https://eefake.brid.gy/')
+        resp = self.client.get(f'/convert/other/efake:repost',
+                               base_url='https://efake.brid.gy/')
         self.assertEqual(404, resp.status_code)
 
     @patch.object(Fake, 'HAS_COPIES', new=False)
-    def test_fake_to_other_repost_of_eefake_original_author_not_enabled(self):
+    def test_fake_to_other_repost_of_efake_original_author_not_enabled(self):
         self.make_user('fake:user', cls=Fake, enabled_protocols=['other'])
-        self.make_user('eefake:orig-user', cls=ExplicitEnableFake,
+        self.make_user('efake:orig-user', cls=ExplicitFake,
                        enabled_protocols=['fake'])  # not other
 
-        self.store_object(id='eefake:post', our_as1={'author': 'eefake:orig-user'})
+        self.store_object(id='efake:post', our_as1={'author': 'efake:orig-user'})
         self.store_object(id='fake:repost', our_as1={
             'objectType': 'activity',
             'verb': 'share',
-            'object': 'eefake:post',
+            'object': 'efake:post',
             'actor': 'fake:user',
         })
 

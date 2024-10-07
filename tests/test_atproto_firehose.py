@@ -107,7 +107,7 @@ class ATProtoTestCase(TestCase):
     """Utilities used by both test classes."""
     def make_bridged_atproto_user(self, did='did:plc:user'):
         self.store_object(id=did, raw=DID_DOC)
-        return self.make_user(did, cls=ATProto, enabled_protocols=['eefake'],
+        return self.make_user(did, cls=ATProto, enabled_protocols=['efake'],
                               obj_bsky=ACTOR_PROFILE_BSKY)
 
 
@@ -385,7 +385,7 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
 
         # updating a previously created ATProto should be enough to load it into
         # atproto_dids
-        eve.enabled_protocols = ['eefake']
+        eve.enabled_protocols = ['efake']
         eve.put()
         self.assertGreater(eve.updated, atproto_firehose.atproto_loaded_at)
 

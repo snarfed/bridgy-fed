@@ -20,7 +20,7 @@ import requests
 from werkzeug.exceptions import BadRequest
 
 # import first so that Fake is defined before URL routes are registered
-from .testutil import ExplicitEnableFake, Fake, OtherFake, TestCase
+from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 
 from activitypub import ActivityPub
 from app import app
@@ -702,11 +702,11 @@ class ProtocolTest(TestCase):
         self.assert_equals({
             'id': 'xyz',
             'to': ['other:u:fake:alice', 'other:bob'],
-            'cc': ['other:u:eefake:eve', as2.PUBLIC_AUDIENCE],
+            'cc': ['other:u:efake:eve', as2.PUBLIC_AUDIENCE],
         }, OtherFake.translate_ids({
             'id': 'xyz',
             'to': ['fake:alice', 'other:bob'],
-            'cc': ['eefake:eve', as2.PUBLIC_AUDIENCE],
+            'cc': ['efake:eve', as2.PUBLIC_AUDIENCE],
         }))
 
     def test_convert_object_is_from_user_adds_source_links(self):
@@ -807,7 +807,7 @@ class ProtocolTest(TestCase):
             with self.subTest(obj=obj), self.assertRaises(NoContent):
                 Fake.check_supported(Object(our_as1=obj))
 
-        # Fake doesn't support DMs, ExplicitEnableFake does
+        # Fake doesn't support DMs, ExplicitFake does
         for author, recip in (
                 ('ap.brid.gy', 'did:bob'),
                 ('did:bob', 'ap.brid.gy'),
@@ -818,7 +818,7 @@ class ProtocolTest(TestCase):
                 'to': [recip],
                 'content': 'hello world',
             })
-            ExplicitEnableFake.check_supported(bot_dm)
+            ExplicitFake.check_supported(bot_dm)
             with self.assertRaises(NoContent):
                 Fake.check_supported(bot_dm)
 
@@ -829,7 +829,7 @@ class ProtocolTest(TestCase):
             'to': ['did:bob'],
             'content': 'hello world',
         })
-        for proto in Fake, ExplicitEnableFake:
+        for proto in Fake, ExplicitFake:
             with self.subTest(proto=proto), self.assertRaises(NoContent):
                 proto.check_supported(dm)
 
@@ -1045,21 +1045,21 @@ class ProtocolReceiveTest(TestCase):
 
     @patch.object(ATProto, 'send')
     def test_reply_to_not_bridged_account_skips_atproto(self, mock_send):
-        user = self.make_user('eefake:user', cls=ExplicitEnableFake,
+        user = self.make_user('efake:user', cls=ExplicitFake,
                               enabled_protocols=['atproto'])
 
-        self.eve = self.make_user('eefake:eve', cls=ExplicitEnableFake)
-        self.store_object(id='eefake:post', our_as1={
-            'id': 'eefake:post',
+        self.eve = self.make_user('efake:eve', cls=ExplicitFake)
+        self.store_object(id='efake:post', our_as1={
+            'id': 'efake:post',
             'objectType': 'note',
-            'author': 'eefake:eve',
+            'author': 'efake:eve',
         })
 
-        ExplicitEnableFake.receive_as1({
-            'id': 'eefake:reply',
+        ExplicitFake.receive_as1({
+            'id': 'efake:reply',
             'objectType': 'note',
-            'author': 'eefake:user',
-            'inReplyTo': 'eefake:post',
+            'author': 'efake:user',
+            'inReplyTo': 'efake:post',
         })
 
         self.assertEqual(0, mock_send.call_count)
@@ -1092,10 +1092,10 @@ class ProtocolReceiveTest(TestCase):
         self.make_user(id='fa.brid.gy', cls=Web)
 
         # should skip even if it's enabled and we have followers there
-        self.user.enabled_protocols = ['eefake']
+        self.user.enabled_protocols = ['efake']
         self.user.put()
 
-        eve = self.make_user('eefake:eve', cls=ExplicitEnableFake)
+        eve = self.make_user('efake:eve', cls=ExplicitFake)
         Follower.get_or_create(from_=eve, to=self.user)
 
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
@@ -1110,15 +1110,15 @@ class ProtocolReceiveTest(TestCase):
             'inReplyTo': 'fake:post',
         })
         self.assertEqual(202, code)
-        self.assertEqual([], ExplicitEnableFake.sent)
+        self.assertEqual([], ExplicitFake.sent)
 
     def test_reply_from_non_bridged_post_isnt_bridged_but_gets_dm_prompt(self):
         self.make_user(id='fa.brid.gy', cls=Web)
-        self.alice.enabled_protocols = ['eefake']
+        self.alice.enabled_protocols = ['efake']
         self.alice.put()
 
-        eve = self.make_user('eefake:eve', cls=ExplicitEnableFake, obj_as1={
-            'id': 'eefake:eve',
+        eve = self.make_user('efake:eve', cls=ExplicitFake, obj_as1={
+            'id': 'efake:eve',
         })
 
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
@@ -1127,16 +1127,16 @@ class ProtocolReceiveTest(TestCase):
             'author': 'fake:alice',
         })
 
-        _, code = ExplicitEnableFake.receive_as1({
-            'id': 'eefake:reply',
+        _, code = ExplicitFake.receive_as1({
+            'id': 'efake:reply',
             'objectType': 'note',
-            'actor': 'eefake:eve',
+            'actor': 'efake:eve',
             'inReplyTo': 'fake:post',
         })
         self.assertEqual(204, code)
 
         self.assertEqual([], Fake.sent)
-        DmsTest().assert_sent(Fake, eve, 'replied_to_bridged_user', """Hi! You <a href="eefake:reply">recently replied</a> to <a class="h-card u-author" href="fake:alice">fake:alice</a>, who's bridged here from fake-phrase. If you want them to see your replies, you can bridge your account into fake-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+        DmsTest().assert_sent(Fake, eve, 'replied_to_bridged_user', """Hi! You <a href="efake:reply">recently replied</a> to <a class="h-card u-author" href="fake:alice">fake:alice</a>, who's bridged here from fake-phrase. If you want them to see your replies, you can bridge your account into fake-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
 
         eve = eve.key.get()
         self.assertEqual([DM(protocol='fake', type='replied_to_bridged_user')],
@@ -1144,55 +1144,55 @@ class ProtocolReceiveTest(TestCase):
 
     @patch.object(ATProto, 'send', return_value=True)
     def test_repost_of_non_bridged_account_skips_atproto(self, mock_send):
-        user = self.make_user('eefake:user', cls=ExplicitEnableFake,
+        user = self.make_user('efake:user', cls=ExplicitFake,
                               enabled_protocols=['atproto'])
 
-        self.eve = self.make_user('eefake:eve', cls=ExplicitEnableFake)
-        self.store_object(id='eefake:post', our_as1={
-            'id': 'eefake:post',
+        self.eve = self.make_user('efake:eve', cls=ExplicitFake)
+        self.store_object(id='efake:post', our_as1={
+            'id': 'efake:post',
             'objectType': 'note',
-            'author': 'eefake:eve',
+            'author': 'efake:eve',
         })
 
-        _, code = ExplicitEnableFake.receive_as1({
-            'id': 'eefake:repost',
+        _, code = ExplicitFake.receive_as1({
+            'id': 'efake:repost',
             'objectType': 'activity',
             'verb': 'share',
-            'actor': 'eefake:user',
-            'object': 'eefake:post',
+            'actor': 'efake:user',
+            'object': 'efake:post',
         })
         self.assertEqual(204, code)
         self.assertEqual(0, mock_send.call_count)
 
     @patch.object(ATProto, 'send', return_value=True)
     def test_repost_of_not_bridged_post_skips_atproto(self, mock_send):
-        user = self.make_user('eefake:user', cls=ExplicitEnableFake,
+        user = self.make_user('efake:user', cls=ExplicitFake,
                               enabled_protocols=['atproto'])
 
-        self.eve = self.make_user('eefake:eve', cls=ExplicitEnableFake,
+        self.eve = self.make_user('efake:eve', cls=ExplicitFake,
                               enabled_protocols=['atproto'])
-        self.store_object(id='eefake:post', our_as1={
-            'id': 'eefake:post',
+        self.store_object(id='efake:post', our_as1={
+            'id': 'efake:post',
             'objectType': 'note',
-            'author': 'eefake:eve',
+            'author': 'efake:eve',
         })
 
-        _, code = ExplicitEnableFake.receive_as1({
-            'id': 'eefake:repost',
+        _, code = ExplicitFake.receive_as1({
+            'id': 'efake:repost',
             'objectType': 'activity',
             'verb': 'share',
-            'actor': 'eefake:user',
-            'object': 'eefake:post',
+            'actor': 'efake:user',
+            'object': 'efake:post',
         })
         self.assertEqual(204, code)
         self.assertEqual(0, mock_send.call_count)
 
     def test_repost_of_not_bridged_post_skips_enabled_protocol_with_followers(self):
         # should skip even if it's enabled and we have followers there
-        self.user.enabled_protocols = ['eefake']
+        self.user.enabled_protocols = ['efake']
         self.user.put()
 
-        eve = self.make_user('eefake:eve', cls=ExplicitEnableFake)
+        eve = self.make_user('efake:eve', cls=ExplicitFake)
         Follower.get_or_create(from_=eve, to=self.user)
 
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
@@ -1208,28 +1208,28 @@ class ProtocolReceiveTest(TestCase):
             'object': 'fake:post',
         })
         self.assertEqual(202, code)
-        self.assertEqual([], ExplicitEnableFake.sent)
+        self.assertEqual([], ExplicitFake.sent)
 
     @patch.object(ATProto, 'send', return_value=True)
     def test_follow_of_bridged_account_by_not_bridged_account_skips_atproto(
             self, mock_send):
-        user = self.make_user('eefake:user', cls=ExplicitEnableFake)
+        user = self.make_user('efake:user', cls=ExplicitFake)
         self.store_object(id='did:plc:eve', raw=DID_DOC)
-        eve = self.make_user('did:plc:eve', cls=ATProto, enabled_protocols=['eefake'],
-                             copies=[Target(uri='eefake:eve', protocol='eefake')],
+        eve = self.make_user('did:plc:eve', cls=ATProto, enabled_protocols=['efake'],
+                             copies=[Target(uri='efake:eve', protocol='efake')],
                              obj_bsky=ACTOR_PROFILE_BSKY)
 
-        _, code = ExplicitEnableFake.receive_as1({
-            'id': 'eefake:follow',
+        _, code = ExplicitFake.receive_as1({
+            'id': 'efake:follow',
             'objectType': 'activity',
             'verb': 'follow',
-            'actor': 'eefake:user',
-            'object': 'eefake:eve',
+            'actor': 'efake:user',
+            'object': 'efake:eve',
         })
         self.assertEqual(204, code)
 
         self.assert_entities_equal(Follower(from_=user.key, to=eve.key,
-                                            follow=Object(id='eefake:follow').key),
+                                            follow=Object(id='efake:follow').key),
                                    Follower.query().fetch(),
                                    ignore=['created', 'updated'])
         self.assertEqual(0, mock_send.call_count)
@@ -1347,23 +1347,23 @@ class ProtocolReceiveTest(TestCase):
     def test_create_post_dont_deliver_to_follower_if_protocol_isnt_enabled(self):
         # user who hasn't enabled either Fake or OtherFake, so we shouldn't
         # deliver to followers on those protocols
-        user = self.make_user('eefake:user', cls=ExplicitEnableFake,
-                              obj_id='eefake:user')
+        user = self.make_user('efake:user', cls=ExplicitFake,
+                              obj_id='efake:user')
         frank = self.make_user('other:frank', cls=OtherFake, obj_id='other:frank')
         Follower.get_or_create(to=user, from_=self.alice)
         Follower.get_or_create(to=user, from_=frank)
 
-        _, code = ExplicitEnableFake.receive_as1({
+        _, code = ExplicitFake.receive_as1({
             'objectType': 'note',
-            'id': 'eefake:post',
-            'author': 'eefake:user',
+            'id': 'efake:post',
+            'author': 'efake:user',
             'content': 'foo'
         })
         self.assertEqual(204, code)
 
         self.assertEqual([], Fake.sent)
         self.assertEqual([], OtherFake.sent)
-        obj = Object.get_by_id('eefake:post#bridgy-fed-create')
+        obj = Object.get_by_id('efake:post#bridgy-fed-create')
         self.assertEqual([], obj.delivered)
 
     def test_create_post_use_instead(self):
@@ -1639,7 +1639,7 @@ class ProtocolReceiveTest(TestCase):
 
     def test_create_reply_with_copy_on_not_enabled_protocol(self):
         self.store_object(id='fake:post', source_protocol='fake',
-                          copies=[Target(protocol='eefake', uri='eefake:post')],
+                          copies=[Target(protocol='efake', uri='efake:post')],
                           our_as1={
                               'objectType': 'note',
                               'id': 'fake:post',
@@ -1654,50 +1654,50 @@ class ProtocolReceiveTest(TestCase):
             'content': 'foo',
         })
         self.assertEqual(202, code)
-        self.assertEqual([], ExplicitEnableFake.sent)
+        self.assertEqual([], ExplicitFake.sent)
 
     def test_create_self_reply_to_same_protocol_bridge_if_original_is_bridged(self):
-        # use eefake because Protocol.targets automatically adds fake and other
+        # use efake because Protocol.targets automatically adds fake and other
         # to to_protocols.
         # TODO: refactor tests to not do fake-to-fake delivery, then remove
         # these special cases
-        user = self.make_user('eefake:user', cls=ExplicitEnableFake,
-                              obj_id='eefake:user', enabled_protocols=['other'])
+        user = self.make_user('efake:user', cls=ExplicitFake,
+                              obj_id='efake:user', enabled_protocols=['other'])
 
         # eve follows user
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
         Follower.get_or_create(to=user, from_=eve)
 
         # user replies to themselves
-        self.store_object(id='eefake:post', source_protocol='eefake',
+        self.store_object(id='efake:post', source_protocol='efake',
                           copies=[Target(protocol='other', uri='other:post')],
                           our_as1={
                               'objectType': 'note',
-                              'id': 'eefake:post',
-                              'author': 'eefake:user',
+                              'id': 'efake:post',
+                              'author': 'efake:user',
                           })
 
         reply_as1 = {
-            'id': 'eefake:reply',
+            'id': 'efake:reply',
             'objectType': 'note',
-            'inReplyTo': 'eefake:post',
-            'author': 'eefake:user',
+            'inReplyTo': 'efake:post',
+            'author': 'efake:user',
         }
-        self.assertEqual(('OK', 202), ExplicitEnableFake.receive_as1(reply_as1))
+        self.assertEqual(('OK', 202), ExplicitFake.receive_as1(reply_as1))
 
-        copy = Target(protocol='other', uri='other:o:eefake:eefake:reply')
-        reply = self.assert_object('eefake:reply',
+        copy = Target(protocol='other', uri='other:o:efake:efake:reply')
+        reply = self.assert_object('efake:reply',
                                    type='note',
-                                   source_protocol='eefake',
+                                   source_protocol='efake',
                                    our_as1=reply_as1,
                                    copies=[copy],
                                    feed=[eve.key])
         expected_create = {
             'objectType': 'activity',
             'verb': 'post',
-            'id': 'eefake:reply#bridgy-fed-create',
+            'id': 'efake:reply#bridgy-fed-create',
             'published': '2022-01-02T03:04:05+00:00',
-            'actor': 'eefake:user',
+            'actor': 'efake:user',
             'object': reply_as1,
         }
 
@@ -2720,73 +2720,73 @@ class ProtocolReceiveTest(TestCase):
         follow = {
             'objectType': 'activity',
             'verb': 'follow',
-            'id': 'eefake:follow',
-            'actor': 'eefake:user',
+            'id': 'efake:follow',
+            'actor': 'efake:user',
             'object': 'fa.brid.gy',
         }
         block = {
             'objectType': 'activity',
             'verb': 'block',
-            'id': 'eefake:block',
-            'actor': 'eefake:user',
+            'id': 'efake:block',
+            'actor': 'efake:user',
             'object': 'fa.brid.gy',
         }
 
-        user = self.make_user('eefake:user', cls=ExplicitEnableFake)
+        user = self.make_user('efake:user', cls=ExplicitFake)
         self.assertFalse(user.is_enabled(Fake))
-        ExplicitEnableFake.fetchable = {'eefake:user': {'profile': 'info'}}
+        ExplicitFake.fetchable = {'efake:user': {'profile': 'info'}}
 
         # fake protocol isn't enabled yet, block should be a noop
-        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(block))
+        self.assertEqual(('OK', 200), ExplicitFake.receive_as1(block))
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)
         self.assertEqual([], Fake.created_for)
 
         # follow should add to enabled_protocols
-        _, code = ExplicitEnableFake.receive_as1(follow)
+        _, code = ExplicitFake.receive_as1(follow)
         self.assertEqual(204, code)
         user = user.key.get()
         self.assertEqual({
-            'id': 'eefake:user',
+            'id': 'efake:user',
             'profile': 'info',
         }, user.obj.as1)
 
         self.assertEqual(['fake'], user.enabled_protocols)
-        self.assertEqual(['eefake:user'], Fake.created_for)
+        self.assertEqual(['efake:user'], Fake.created_for)
         self.assertTrue(user.is_enabled(Fake))
 
-        dm_id = 'https://fa.brid.gy/#welcome-dm-eefake:user-2022-01-02T03:04:05+00:00'
-        follow_back_id = 'https://fa.brid.gy/#follow-back-eefake:user-2022-01-02T03:04:05+00:00'
+        dm_id = 'https://fa.brid.gy/#welcome-dm-efake:user-2022-01-02T03:04:05+00:00'
+        follow_back_id = 'https://fa.brid.gy/#follow-back-efake:user-2022-01-02T03:04:05+00:00'
 
         self.assertEqual([
             # fa.brid.gy follows back
-            ('eefake:user:target', {
+            ('efake:user:target', {
                 'objectType': 'activity',
                 'verb': 'follow',
-                'id': 'https://fa.brid.gy/#follow-back-eefake:user-2022-01-02T03:04:05+00:00',
+                'id': 'https://fa.brid.gy/#follow-back-efake:user-2022-01-02T03:04:05+00:00',
                 'actor': 'fa.brid.gy',
-                'object': 'eefake:user',
+                'object': 'efake:user',
             }),
             # accept follow
-            ('eefake:user:target', {
+            ('efake:user:target', {
                 'objectType': 'activity',
                 'verb': 'accept',
-                'id': 'fa.brid.gy/followers#accept-eefake:follow',
+                'id': 'fa.brid.gy/followers#accept-efake:follow',
                 'actor': 'fa.brid.gy',
                 'object': {
                     **follow,
-                    'actor': {'id': 'eefake:user', 'profile': 'info'},
+                    'actor': {'id': 'efake:user', 'profile': 'info'},
                 },
             }),
-        ], ExplicitEnableFake.sent[1:])
+        ], ExplicitFake.sent[1:])
 
-        ExplicitEnableFake.sent = ExplicitEnableFake.sent[:1]
-        DmsTest().assert_sent(Fake, user, 'welcome', 'Welcome to Bridgy Fed! Your account will soon be bridged to fake-phrase at <a class="h-card u-author" rel="me" href="web:fake:eefake:user" title="fake:handle:eefake:handle:user">fake:handle:eefake:handle:user</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/eefake/eefake:handle:user">your user page</a> for more information. To disable this and delete your bridged profile, block this account.')
+        ExplicitFake.sent = ExplicitFake.sent[:1]
+        DmsTest().assert_sent(Fake, user, 'welcome', 'Welcome to Bridgy Fed! Your account will soon be bridged to fake-phrase at <a class="h-card u-author" rel="me" href="web:fake:efake:user" title="fake:handle:efake:handle:user">fake:handle:efake:handle:user</a>. <a href="https://fed.brid.gy/docs">See the docs</a> and <a href="https://fed.brid.gy/efake/efake:handle:user">your user page</a> for more information. To disable this and delete your bridged profile, block this account.')
 
         # another follow should be a noop
         follow['id'] += '2'
         Fake.created_for = []
-        _, code = ExplicitEnableFake.receive_as1(follow)
+        _, code = ExplicitFake.receive_as1(follow)
         self.assertEqual(204, code)
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
@@ -2796,7 +2796,7 @@ class ProtocolReceiveTest(TestCase):
         # block should remove from enabled_protocols
         Follower.get_or_create(to=user, from_=self.alice)
         block['id'] += '2'
-        self.assertEqual(('OK', 200), ExplicitEnableFake.receive_as1(block))
+        self.assertEqual(('OK', 200), ExplicitFake.receive_as1(block))
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)
         self.assertEqual([], Fake.created_for)
@@ -2806,22 +2806,22 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([('fake:shared:target', {
             'objectType': 'activity',
             'verb': 'delete',
-            'id': 'eefake:user#delete-user-fake-2022-01-02T03:04:05+00:00',
-            'actor': 'eefake:user',
-            'object': 'eefake:user',
+            'id': 'efake:user#delete-user-fake-2022-01-02T03:04:05+00:00',
+            'actor': 'efake:user',
+            'object': 'efake:user',
         })], Fake.sent)
 
-        id = 'eefake:user#delete-user-fake-2022-01-02T03:04:05+00:00'
+        id = 'efake:user#delete-user-fake-2022-01-02T03:04:05+00:00'
         self.assert_object(id,
                            our_as1={
                                'objectType': 'activity',
                                'verb': 'delete',
                                'id': id,
-                               'actor': 'eefake:user',
-                               'object': 'eefake:user',
+                               'actor': 'efake:user',
+                               'object': 'efake:user',
                            },
                            delivered=['fake:shared:target'],
-                           source_protocol='eefake',
+                           source_protocol='efake',
                            status='complete')
 
     def test_follow_bot_user_refreshes_profile(self):
@@ -2829,92 +2829,92 @@ class ProtocolReceiveTest(TestCase):
         self.make_user('fa.brid.gy', cls=Web)
 
         # store profile that's opted out
-        user = self.make_user('eefake:user', cls=ExplicitEnableFake, obj_as1={
-            'id': 'eefake:user',
+        user = self.make_user('efake:user', cls=ExplicitFake, obj_as1={
+            'id': 'efake:user',
             'summary': '#nobridge',
         })
         self.assertFalse(user.is_enabled(Fake))
 
         # updated profile isn't opted out
-        ExplicitEnableFake.fetchable = {'eefake:user': {
-            'id': 'eefake:user',
+        ExplicitFake.fetchable = {'efake:user': {
+            'id': 'efake:user',
             'summary': 'never mind',
         }}
 
         # follow should refresh profile
-        _, code = ExplicitEnableFake.receive_as1({
+        _, code = ExplicitFake.receive_as1({
             'objectType': 'activity',
             'verb': 'follow',
-            'id': 'eefake:follow',
-            'actor': 'eefake:user',
+            'id': 'efake:follow',
+            'actor': 'efake:user',
             'object': 'fa.brid.gy',
         })
         self.assertEqual(204, code)
 
         user = user.key.get()
         self.assertTrue(user.is_enabled(Fake))
-        self.assertEqual(['eefake:user'], ExplicitEnableFake.fetched)
+        self.assertEqual(['efake:user'], ExplicitFake.fetched)
 
     def test_follow_bot_user_copy_id_refreshes_profile(self):
         # bot user
         self.make_user('fa.brid.gy', cls=Web,
-                       copies=[Target(uri='eefake:bot', protocol='eefake')])
+                       copies=[Target(uri='efake:bot', protocol='efake')])
 
         # profile that's opted out
-        user = self.make_user('eefake:user', cls=ExplicitEnableFake, obj_as1={
-            'id': 'eefake:user',
+        user = self.make_user('efake:user', cls=ExplicitFake, obj_as1={
+            'id': 'efake:user',
             'summary': '#nobridge',
         })
         self.assertFalse(user.is_enabled(Fake))
 
         # updated profile isn't opted out
-        ExplicitEnableFake.fetchable = {'eefake:user': {
-            'id': 'eefake:user',
+        ExplicitFake.fetchable = {'efake:user': {
+            'id': 'efake:user',
             'summary': 'never mind',
         }}
 
         # follow should refresh profile
-        _, code = ExplicitEnableFake.receive_as1({
+        _, code = ExplicitFake.receive_as1({
             'objectType': 'activity',
             'verb': 'follow',
-            'id': 'eefake:follow',
-            'actor': 'eefake:user',
-            'object': 'eefake:bot',
+            'id': 'efake:follow',
+            'actor': 'efake:user',
+            'object': 'efake:bot',
         })
         self.assertEqual(204, code)
 
         user = user.key.get()
         self.assertTrue(user.is_enabled(Fake))
-        self.assertEqual(['eefake:user'], ExplicitEnableFake.fetched)
+        self.assertEqual(['efake:user'], ExplicitFake.fetched)
 
     def test_follow_bot_user_overrides_nobot(self):
         # bot user
         self.make_user('fa.brid.gy', cls=Web,
-                       copies=[Target(uri='eefake:bot', protocol='eefake')])
+                       copies=[Target(uri='efake:bot', protocol='efake')])
 
         # profile that's opted out
         actor = {
-            'id': 'eefake:user',
+            'id': 'efake:user',
             'summary': '#nobot',
         }
-        user = self.make_user('eefake:user', cls=ExplicitEnableFake, obj_as1=actor)
+        user = self.make_user('efake:user', cls=ExplicitFake, obj_as1=actor)
         self.assertFalse(user.is_enabled(Fake))
-        ExplicitEnableFake.fetchable = {'eefake:user': actor}
+        ExplicitFake.fetchable = {'efake:user': actor}
 
         # follow should override #nobot
-        _, code = ExplicitEnableFake.receive_as1({
+        _, code = ExplicitFake.receive_as1({
             'objectType': 'activity',
             'verb': 'follow',
-            'id': 'eefake:follow',
-            'actor': 'eefake:user',
-            'object': 'eefake:bot',
+            'id': 'efake:follow',
+            'actor': 'efake:user',
+            'object': 'efake:bot',
         })
         self.assertEqual(204, code)
 
         user = user.key.get()
         self.assertIsNone(user.status)
         self.assertTrue(user.is_enabled(Fake))
-        self.assertEqual(['eefake:user'], ExplicitEnableFake.fetched)
+        self.assertEqual(['efake:user'], ExplicitFake.fetched)
 
     def test_receive_activity_lease(self):
         Follower.get_or_create(to=self.user, from_=self.alice)
