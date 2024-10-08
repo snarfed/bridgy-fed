@@ -883,7 +883,7 @@ class Protocol:
         if orig.changed is not None:
             obj.changed = orig.changed
 
-        # if this is a post, ie not an activity, wrap it in a create or update
+        # if this is an object, ie not an activity, wrap it in a create or update
         obj = from_cls.handle_bare_object(obj, authed_as=authed_as)
         obj.add('users', from_user.key)
 
@@ -1317,8 +1317,6 @@ class Protocol:
 
         # which protocols should we allow delivering to?
         to_protocols = []
-        if DEBUG and from_user.LABEL != 'efake':  # for unit tests
-            to_protocols += [PROTOCOLS['fake'], PROTOCOLS['other']]
         for label in (list(from_user.DEFAULT_ENABLED_PROTOCOLS)
                       + from_user.enabled_protocols):
             proto = PROTOCOLS[label]
@@ -1351,8 +1349,7 @@ class Protocol:
                 continue
 
             target_author_key = target_proto.actor_key(orig_obj)
-            if (target_proto not in to_protocols
-                  and obj.source_protocol != target_proto.LABEL):
+            if not from_user.is_enabled(target_proto):
                 # if author isn't bridged and inReplyTo author is, DM a prompt
                 if id in in_reply_tos:
                     if target_author := target_author_key.get():

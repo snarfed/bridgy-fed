@@ -28,6 +28,9 @@ ALICE_REQUEST_CONTENT = """\
 
 
 class DmsTest(TestCase):
+    # def setUp(self):
+    #     print('@@@')
+
     def make_alice_bob(self):
         self.make_user(id='efake.brid.gy', cls=Web)
         self.make_user(id='other.brid.gy', cls=Web)

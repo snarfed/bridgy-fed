@@ -881,16 +881,18 @@ class ActivityPubTest(TestCase):
                            delivered=['https://user.com/orig'],
                            type='share',
                            )
-
     def test_shared_inbox_repost_of_fediverse(self, mock_head, mock_get, mock_post):
         to = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
         Follower.get_or_create(to=to, from_=self.user)
-        baz = self.make_user('fake:baz', cls=Fake, obj_id='fake:baz')
+        baz = self.make_user('fake:baz', cls=Fake, obj_id='fake:baz',
+                             enabled_protocols=['activitypub'])
         Follower.get_or_create(to=to, from_=baz)
-        baj = self.make_user('fake:baj', cls=Fake, obj_id='fake:baj')
+        baj = self.make_user('fake:baj', cls=Fake, obj_id='fake:baj',
+                             enabled_protocols=['activitypub'])
         Follower.get_or_create(to=to, from_=baj, status='inactive')
 
-        mock_head.return_value = requests_response(url='http://target')
+        self.store_object(id=NOTE_OBJECT['id'],
+                          copies=[Target(protocol='fake', uri='fake:o:ap:note')])
         mock_get.return_value = self.as2_resp(NOTE_OBJECT)
 
         got = self.post('/ap/sharedInbox', json=REPOST)

@@ -266,9 +266,9 @@ class IntegrationTests(TestCase):
 
         # check results
         bob = bob.key.get()
-        self.assertEqual(1, len(bob.copies))
-        self.assertEqual('atproto', bob.copies[0].protocol)
-        bob_did = bob.copies[0].uri
+        self.assertTrue(bob.is_enabled(ATProto))
+        bob_did = bob.get_copy(ATProto)
+        assert bob_did
 
         self.assertEqual({
             'type': ['h-entry'],

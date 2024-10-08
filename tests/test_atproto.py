@@ -1194,7 +1194,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         user = user.key.get()
         did = user.get_copy(ATProto)
         assert did
-        self.assertEqual([Target(uri=did, protocol='atproto')], user.copies)
+        self.assertIn(Target(uri=did, protocol='atproto'), user.copies)
         did_obj = ATProto.load(did, did_doc=True)
         self.assertEqual('http://localhost',
                          did_obj.raw['service'][0]['serviceEndpoint'])

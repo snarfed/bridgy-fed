@@ -72,6 +72,7 @@ class Fake(User, protocol.Protocol):
     ABBREV = 'fa'
     PHRASE = 'fake-phrase'
     CONTENT_TYPE = 'fa/ke'
+    DEFAULT_ENABLED_PROTOCOLS = ('other',)
     HAS_COPIES = True
     LOGO_HTML = '<img src="fake-logo">'
     SUPPORTED_AS1_TYPES = frozenset(
@@ -118,7 +119,7 @@ class Fake(User, protocol.Protocol):
         if user.obj_key:
             profile_copy_id = ids.translate_object_id(
                 id=user.profile_id(), from_=user, to=cls)
-            user.obj.copies = [Target(uri=profile_copy_id, protocol=cls.LABEL)]
+            user.obj.add('copies', Target(uri=profile_copy_id, protocol=cls.LABEL))
             user.obj.put()
 
     @classmethod
@@ -181,7 +182,7 @@ class Fake(User, protocol.Protocol):
     @classmethod
     def target_for(cls, obj, shared=False):
         assert obj.source_protocol in (cls.LABEL, cls.ABBREV, 'ui', None), \
-            obj.source_protocol
+            (obj.source_protocol, cls.LABEL)
         return f'{cls.LABEL}:shared:target' if shared else f'{obj.key.id()}:target'
 
     @classmethod
@@ -204,6 +205,7 @@ class OtherFake(Fake):
     LABEL = ABBREV = 'other'
     PHRASE = 'other-phrase'
     CONTENT_TYPE = 'ot/her'
+    DEFAULT_ENABLED_PROTOCOLS = ('fake',)
     SUPPORTED_AS1_TYPES = Fake.SUPPORTED_AS1_TYPES - set(('accept',))
     SUPPORTS_DMS = True
 
@@ -223,6 +225,7 @@ class ExplicitFake(Fake):
     LABEL = ABBREV = 'efake'
     PHRASE = 'efake-phrase'
     CONTENT_TYPE = 'un/known'
+    DEFAULT_ENABLED_PROTOCOLS = ()
     SUPPORTS_DMS = True
 
     fetchable = {}
@@ -250,6 +253,10 @@ from common import (
 )
 from web import Web
 from flask_app import app
+
+ActivityPub.DEFAULT_ENABLED_PROTOCOLS += ('fake', 'other')
+ATProto.DEFAULT_ENABLED_PROTOCOLS += ('fake', 'other')
+Web.DEFAULT_ENABLED_PROTOCOLS += ('fake', 'other')
 
 # used in TestCase.make_user() to reuse keys across Users since they're
 # expensive to generate.

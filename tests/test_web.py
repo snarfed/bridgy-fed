@@ -558,8 +558,8 @@ class WebTest(TestCase):
         repo = arroba.server.storage.load_repo(did)
         self.assertIsNotNone(repo.get_record('app.bsky.actor.profile', 'self'))
         uri = at_uri(did, 'app.bsky.actor.profile', 'self')
-        self.assertEqual([Target(uri=uri, protocol='atproto')],
-                         Object.get_by_id(id='https://new.com/').copies)
+        self.assertIn(Target(uri=uri, protocol='atproto'),
+                      Object.get_by_id(id='https://new.com/').copies)
 
         self.assert_task(mock_create_task, 'poll-feed', domain='new.com')
 

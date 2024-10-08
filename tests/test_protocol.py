@@ -884,8 +884,8 @@ class ProtocolReceiveTest(TestCase):
     def setUp(self):
         super().setUp()
         self.user = self.make_user('fake:user', cls=Fake, obj_id='fake:user')
-        self.alice = self.make_user('fake:alice', cls=Fake, obj_id='fake:alice')
-        self.bob = self.make_user('fake:bob', cls=Fake, obj_id='fake:bob')
+        self.alice = self.make_user('other:alice', cls=OtherFake, obj_id='other:alice')
+        self.bob = self.make_user('other:bob', cls=OtherFake, obj_id='other:bob')
 
     def assert_object(self, id, **props):
         props.setdefault('source_protocol', 'fake')
@@ -895,7 +895,7 @@ class ProtocolReceiveTest(TestCase):
     def make_followers(self):
         Follower.get_or_create(to=self.user, from_=self.alice)
         Follower.get_or_create(to=self.user, from_=self.bob)
-        Follower.get_or_create(to=self.user, from_=Fake(id='fake:eve'),
+        Follower.get_or_create(to=self.user, from_=Fake(id='other:eve'),
                                status='inactive')
 
     def test_create_post(self):
@@ -917,18 +917,23 @@ class ProtocolReceiveTest(TestCase):
         self.assert_object('fake:post',
                            our_as1=post_as1,
                            type='note',
+                           copies=[Target(protocol='other',
+                                          uri='other:o:fa:fake:post')],
                            feed=[self.alice.key, self.bob.key],
                            )
         obj = self.assert_object('fake:create',
                                  status='complete',
                                  our_as1=create_as1,
-                                 delivered=['fake:shared:target'],
+                                 delivered=['other:alice:target', 'other:bob:target'],
+                                 delivered_protocol='other',
                                  type='post',
                                  users=[self.user.key],
                                  notify=[],
                                  )
-
-        self.assertEqual([('fake:shared:target', obj.as1)], Fake.sent)
+        self.assertEqual([
+            ('other:alice:target', obj.as1),
+            ('other:bob:target', obj.as1),
+        ], OtherFake.sent)
 
     def test_create_post_bare_object(self):
         self.make_followers()
@@ -940,11 +945,13 @@ class ProtocolReceiveTest(TestCase):
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(post_as1))
 
-        self.assert_object('fake:post',
-                           our_as1=post_as1,
-                           type='note',
-                           feed=[self.alice.key, self.bob.key],
-                           )
+        self.assert_object(
+            'fake:post',
+            our_as1=post_as1,
+            type='note',
+            copies=[Target(protocol='other', uri='other:o:fa:fake:post')],
+            feed=[self.alice.key, self.bob.key],
+        )
 
         obj = self.assert_object('fake:post#bridgy-fed-create',
                                  status='complete',
@@ -956,13 +963,16 @@ class ProtocolReceiveTest(TestCase):
                                      'object': post_as1,
                                      'published': '2022-01-02T03:04:05+00:00',
                                  },
-                                 delivered=['fake:shared:target'],
+                                 delivered=['other:alice:target', 'other:bob:target'],
+                                 delivered_protocol='other',
                                  type='post',
                                  users=[Fake(id='fake:user').key],
                                  notify=[],
                                  )
-
-        self.assertEqual([('fake:shared:target', obj.as1)], Fake.sent)
+        self.assertEqual([
+            ('other:alice:target', obj.as1),
+            ('other:bob:target', obj.as1),
+        ], OtherFake.sent)
 
     def test_create_post_bare_object_existing_failed_create(self):
         self.make_followers()
@@ -979,13 +989,16 @@ class ProtocolReceiveTest(TestCase):
 
         obj = self.assert_object('fake:post#bridgy-fed-create',
                                  status='complete',
-                                 delivered=['fake:shared:target'],
+                                 delivered=['other:alice:target', 'other:bob:target'],
+                                 delivered_protocol='other',
                                  type='post',
                                  users=[self.user.key],
                                  ignore=['our_as1'],
                                  )
-
-        self.assertEqual([('fake:shared:target', obj.as1)], Fake.sent)
+        self.assertEqual([
+            ('other:alice:target', obj.as1),
+            ('other:bob:target', obj.as1),
+        ], OtherFake.sent)
 
     def test_create_post_bare_object_no_existing_create(self):
         self.make_followers()
@@ -1001,13 +1014,16 @@ class ProtocolReceiveTest(TestCase):
 
         obj = self.assert_object('fake:post#bridgy-fed-create',
                                  status='complete',
-                                 delivered=['fake:shared:target'],
+                                 delivered=['other:alice:target', 'other:bob:target'],
+                                 delivered_protocol='other',
                                  type='post',
                                  users=[self.user.key],
                                  ignore=['our_as1'],
                                  )
-
-        self.assertEqual([('fake:shared:target', obj.as1)], Fake.sent)
+        self.assertEqual([
+            ('other:alice:target', obj.as1),
+            ('other:bob:target', obj.as1),
+        ], OtherFake.sent)
 
     @patch.object(ATProto, 'send', return_value=True)
     def test_post_by_user_enabled_atproto_adds_pds_target(self, mock_send):
@@ -1072,7 +1088,7 @@ class ProtocolReceiveTest(TestCase):
         self.store_object(id='fake:post', our_as1={
             'id': 'fake:post',
             'objectType': 'note',
-            'author': 'fake:alice',
+            'author': 'other:alice',
         })
 
         Fake.receive_as1({
@@ -1082,7 +1098,7 @@ class ProtocolReceiveTest(TestCase):
             'inReplyTo': 'fake:post',
             'tags': [{
                 'objectType': 'mention',
-                'url': 'fake:bob'
+                'url': 'other:bob'
             }],
         })
 
@@ -1101,7 +1117,7 @@ class ProtocolReceiveTest(TestCase):
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
             'id': 'fake:post',
             'objectType': 'note',
-            'author': 'fake:alice',
+            'author': 'other:alice',
         })
         _, code = Fake.receive_as1({
             'id': 'fake:reply',
@@ -1114,8 +1130,8 @@ class ProtocolReceiveTest(TestCase):
 
     def test_reply_from_non_bridged_post_isnt_bridged_but_gets_dm_prompt(self):
         self.make_user(id='fa.brid.gy', cls=Web)
-        self.alice.enabled_protocols = ['efake']
-        self.alice.put()
+        self.user.enabled_protocols = ['efake']
+        self.user.put()
 
         eve = self.make_user('efake:eve', cls=ExplicitFake, obj_as1={
             'id': 'efake:eve',
@@ -1124,7 +1140,7 @@ class ProtocolReceiveTest(TestCase):
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
             'id': 'fake:post',
             'objectType': 'note',
-            'author': 'fake:alice',
+            'author': 'fake:user',
         })
 
         _, code = ExplicitFake.receive_as1({
@@ -1136,7 +1152,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(204, code)
 
         self.assertEqual([], Fake.sent)
-        DmsTest().assert_sent(Fake, eve, 'replied_to_bridged_user', """Hi! You <a href="efake:reply">recently replied</a> to <a class="h-card u-author" href="fake:alice">fake:alice</a>, who's bridged here from fake-phrase. If you want them to see your replies, you can bridge your account into fake-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
+        DmsTest().assert_sent(Fake, eve, 'replied_to_bridged_user', """Hi! You <a href="efake:reply">recently replied</a> to <a class="h-card u-author" href="fake:user">fake:user</a>, who's bridged here from fake-phrase. If you want them to see your replies, you can bridge your account into fake-phrase by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.""")
 
         eve = eve.key.get()
         self.assertEqual([DM(protocol='fake', type='replied_to_bridged_user')],
@@ -1198,7 +1214,7 @@ class ProtocolReceiveTest(TestCase):
         self.store_object(id='fake:post', source_protocol='fake', our_as1={
             'id': 'fake:post',
             'objectType': 'note',
-            'author': 'fake:alice',
+            'author': 'other:alice',
         })
         _, code = Fake.receive_as1({
             'id': 'fake:repost',
@@ -1241,12 +1257,12 @@ class ProtocolReceiveTest(TestCase):
         block = {
             'objectType': 'activity',
             'verb': 'block',
-            'id': 'fake:block',
-            'actor': 'fake:alice',
-            'object': 'fake:bob',
+            'id': 'other:block',
+            'actor': 'other:alice',
+            'object': 'other:bob',
         }
         self.assertEqual(
-            [Target(uri='fake:bob:target', protocol='fake')],
+            [Target(uri='other:bob:target', protocol='other')],
             list(Fake.targets(Object(our_as1=block), from_user=self.user).keys()))
 
     def test_targets_undo_composite_block(self):
@@ -1256,18 +1272,18 @@ class ProtocolReceiveTest(TestCase):
         undo = {
             'objectType': 'activity',
             'verb': 'undo',
-            'id': 'fake:undo',
-            'actor': 'fake:alice',
+            'id': 'other:undo',
+            'actor': 'fake:user',
             'object': {
                 'objectType': 'activity',
                 'verb': 'block',
-                'id': 'fake:block',
-                'actor': 'fake:alice',
-                'object': 'fake:bob',
+                'id': 'other:block',
+                'actor': 'fake:user',
+                'object': 'other:bob',
             },
         }
         self.assertEqual(
-            [Target(uri='fake:bob:target', protocol='fake')],
+            [Target(uri='other:bob:target', protocol='other')],
             list(Fake.targets(Object(our_as1=undo), from_user=self.user).keys()))
 
     def test_targets_undo_block_id(self):
@@ -1278,20 +1294,20 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'activity',
             'verb': 'block',
             'id': 'fake:block',
-            'actor': 'fake:alice',
-            'object': 'fake:bob',
+            'actor': 'fake:user',
+            'object': 'other:bob',
         })
 
         undo = {
             'objectType': 'activity',
             'verb': 'undo',
             'id': 'fake:undo',
-            'actor': 'fake:alice',
+            'actor': 'fake:user',
             'object': 'fake:block',
         }
         self.assertEqual(
             [Target(uri='fake:block:target', protocol='fake'),
-             Target(uri='fake:bob:target', protocol='fake')],
+             Target(uri='other:bob:target', protocol='other')],
             list(Fake.targets(Object(our_as1=undo), from_user=self.user).keys()))
 
     def test_targets_undo_share_composite(self):
@@ -1314,7 +1330,6 @@ class ProtocolReceiveTest(TestCase):
         })
         self.assertEqual({
             Target(protocol='fake', uri='fake:share:target'),
-            Target(protocol='fake', uri='fake:shared:target'),
         }, Fake.targets(obj, from_user=self.user).keys())
 
     @patch.object(ATProto, 'send', return_value=True)
@@ -1376,17 +1391,33 @@ class ProtocolReceiveTest(TestCase):
         })
         self.make_followers()
 
-        post_as1 = {
+        note_as1 = {
             'id': 'fake:post',
             'objectType': 'note',
             'author': 'fake:user',
         }
-        obj = self.store_object(id='fake:post', our_as1=post_as1,
+        obj = self.store_object(id='fake:post', our_as1=note_as1,
                                 source_protocol='fake')
 
-        self.assertEqual(('OK', 202), Fake.receive_as1(post_as1))
-        self.assertEqual(1, len(Fake.sent))
-        self.assertEqual('fake:shared:target', Fake.sent[0][0])
+        self.assertEqual(('OK', 202), Fake.receive_as1(note_as1))
+        self.assertEqual(2, len(OtherFake.sent))
+
+        post_as1 = {
+            'objectType': 'activity',
+            'verb': 'post',
+            'id': 'fake:post#bridgy-fed-create',
+            'actor': {
+                'objectType': 'person',
+                'id': 'fake:user',
+                'url': 'fake:user',
+            },
+            'object': note_as1,
+            'published': '2022-01-02T03:04:05+00:00',
+        }
+        self.assertEqual([
+            ('other:alice:target', post_as1),
+            ('other:bob:target', post_as1),
+        ], OtherFake.sent)
 
     def test_update_post_wrong_actor_error(self):
         post_as1 = {
@@ -1413,7 +1444,8 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'author': 'fake:user',
         }
-        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
+        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake',
+                             copies=[Target(uri='other:post', protocol='other')])
 
         update_as1 = {
             'id': 'fake:update',
@@ -1428,17 +1460,22 @@ class ProtocolReceiveTest(TestCase):
                            our_as1=post_as1,
                            type='note',
                            feed=[self.alice.key, self.bob.key],
+                           copies=[Target(uri='other:post', protocol='other')],
                            )
         obj = self.assert_object('fake:update',
                                  status='complete',
                                  our_as1=update_as1,
-                                 delivered=['fake:shared:target'],
+                                 delivered=['other:alice:target', 'other:bob:target'],
+                                 delivered_protocol='other',
                                  type='update',
                                  users=[self.user.key],
                                  notify=[],
                                  )
 
-        self.assertEqual([('fake:shared:target', obj.as1)], Fake.sent)
+        self.assertEqual([
+            ('other:alice:target', obj.as1),
+            ('other:bob:target', obj.as1),
+        ], OtherFake.sent)
 
     def test_update_post_bare_object(self):
         self.make_followers()
@@ -1446,7 +1483,7 @@ class ProtocolReceiveTest(TestCase):
         post_as1 = {
             'id': 'fake:post',
             'objectType': 'note',
-            'author': 'fake:alice',
+            'author': 'fake:user',
             'content': 'first',
         }
         self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
@@ -1470,12 +1507,12 @@ class ProtocolReceiveTest(TestCase):
                                      'objectType': 'activity',
                                      'verb': 'update',
                                      'id': update_id,
-                                     'actor': 'fake:alice',
+                                     'actor': 'fake:user',
                                      'object': post_as1,
                                  },
                                  delivered=[],
                                  type='update',
-                                 users=[Fake(id='fake:alice').key],
+                                 users=[Fake(id='fake:user').key],
                                  notify=[],
                                  )
 
@@ -1483,9 +1520,8 @@ class ProtocolReceiveTest(TestCase):
 
     def test_create_reply(self):
         eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
-
         frank = self.make_user('other:frank', cls=OtherFake, obj_id='other:frank')
-        Follower.get_or_create(to=self.alice, from_=frank)
+        Follower.get_or_create(to=self.user, from_=frank)
 
         OtherFake.fetchable['other:post'] = {
             'objectType': 'note',
@@ -1495,13 +1531,13 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:reply',
             'objectType': 'note',
             'inReplyTo': 'other:post',
-            'author': 'fake:alice',
+            'author': 'fake:user',
         }
         create_as1 = {
             'id': 'fake:create',
             'objectType': 'activity',
             'verb': 'post',
-            'actor': 'fake:alice',
+            'actor': 'fake:user',
             'object': reply_as1,
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(create_as1))
@@ -1518,7 +1554,7 @@ class ProtocolReceiveTest(TestCase):
                                  delivered=['other:post:target'],
                                  delivered_protocol='other',
                                  type='post',
-                                 users=[self.alice.key],
+                                 users=[self.user.key],
                                  notify=[eve.key],
                                  )
 
@@ -1532,7 +1568,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:reply',
             'objectType': 'note',
             'inReplyTo': 'other:post',
-            'author': 'fake:alice',
+            'author': 'fake:user',
         }
         OtherFake.fetchable['other:post'] = {
             'objectType': 'note',
@@ -1552,7 +1588,7 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:reply#bridgy-fed-create',
             'objectType': 'activity',
             'verb': 'post',
-            'actor': 'fake:alice',
+            'actor': 'fake:user',
             'object': reply_as1,
             'published': '2022-01-02T03:04:05+00:00',
         }
@@ -1562,7 +1598,7 @@ class ProtocolReceiveTest(TestCase):
                                  delivered=['other:post:target'],
                                  delivered_protocol='other',
                                  type='post',
-                                 users=[self.alice.key],
+                                 users=[self.user.key],
                                  notify=[eve.key],
                                  )
 
@@ -1643,7 +1679,7 @@ class ProtocolReceiveTest(TestCase):
                           our_as1={
                               'objectType': 'note',
                               'id': 'fake:post',
-                              'author': 'fake:alice',
+                              'author': 'other:alice',
                           })
 
         _, code = Fake.receive_as1({
@@ -1747,39 +1783,33 @@ class ProtocolReceiveTest(TestCase):
     def test_repost(self):
         self.make_followers()
 
-        Fake.fetchable['fake:post'] = {
+        OtherFake.fetchable['other:post'] = {
             'objectType': 'note',
-            'author': 'fake:bob',
+            'author': 'other:bob',
         }
         repost_as1 = {
             'id': 'fake:repost',
             'objectType': 'activity',
             'verb': 'share',
             'actor': 'fake:user',
-            'object': 'fake:post',
+            'object': 'other:post',
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(repost_as1))
 
         obj = self.assert_object('fake:repost',
                                  status='complete',
-                                 our_as1={
-                                     **repost_as1,
-                                     'object': {
-                                         'id': 'fake:post',
-                                         'objectType': 'note',
-                                         'author': 'fake:bob',
-                                     },
-                                 },
-                                 delivered=['fake:post:target', 'fake:shared:target'],
+                                 our_as1=repost_as1,
+                                 copies=[Target(protocol='other',
+                                                uri='other:o:fa:fake:repost')],
+                                 delivered=['other:post:target'],
+                                 delivered_protocol='other',
                                  type='share',
                                  users=[self.user.key],
                                  notify=[self.bob.key],
-                                 feed=[self.alice.key, self.bob.key],
                                  )
         self.assertEqual([
-            ('fake:post:target', obj.as1),
-            ('fake:shared:target', obj.as1),
-        ], Fake.sent)
+            ('other:post:target', obj.as1),
+        ], OtherFake.sent)
 
     def test_repost_twitter_blocklisted(self):
         """Reposts of non-fediverse (ie blocklisted) sites aren't yet supported."""
@@ -1803,9 +1833,9 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
 
     def test_like(self):
-        Fake.fetchable['fake:post'] = {
+        OtherFake.fetchable['other:post'] = {
             'objectType': 'note',
-            'author': 'fake:bob',
+            'author': 'other:bob',
         }
 
         like_as1 = {
@@ -1813,20 +1843,23 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'activity',
             'verb': 'like',
             'actor': 'fake:user',
-            'object': 'fake:post',
+            'object': 'other:post',
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(like_as1))
 
         like_obj = self.assert_object('fake:like',
-                                      users=[self.user.key],
-                                      notify=[self.bob.key],
                                       status='complete',
                                       our_as1=like_as1,
-                                      delivered=['fake:post:target'],
+                                      copies=[Target(protocol='other',
+                                                     uri='other:o:fa:fake:like')],
+                                      users=[self.user.key],
+                                      notify=[self.bob.key],
+                                      delivered=['other:post:target'],
+                                      delivered_protocol='other',
                                       type='like',
                                       )
 
-        self.assertEqual([('fake:post:target', like_obj.as1)], Fake.sent)
+        self.assertEqual([('other:post:target', like_obj.as1)], OtherFake.sent)
 
     def test_like_no_object_error(self):
         with self.assertRaises(ErrorButDoNotRetryTask):
@@ -1856,7 +1889,8 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'note',
             'author': 'fake:user',
         }
-        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake')
+        self.store_object(id='fake:post', our_as1=post_as1, source_protocol='fake',
+                          copies=[Target(protocol='other', uri='other:post')])
 
         delete_as1 = {
             'id': 'fake:delete',
@@ -1872,17 +1906,22 @@ class ProtocolReceiveTest(TestCase):
                            our_as1=post_as1,
                            deleted=True,
                            source_protocol='fake',
+                           copies=[Target(protocol='other', uri='other:post')],
                            )
 
         obj = self.assert_object('fake:delete',
                                  status='complete',
                                  our_as1=delete_as1,
-                                 delivered=['fake:shared:target'],
+                                 delivered=['other:alice:target', 'other:bob:target'],
+                                 delivered_protocol='other',
                                  type='delete',
                                  users=[self.user.key],
                                  notify=[],
                                  )
-        self.assertEqual([('fake:shared:target', obj.as1)], Fake.sent)
+        self.assertEqual([
+            ('other:alice:target', obj.as1),
+            ('other:bob:target', obj.as1),
+        ], OtherFake.sent)
 
     def test_delete_doesnt_fetch_author(self):
         self.user.obj_key.delete()
@@ -1956,17 +1995,20 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
 
     def test_delete_actor(self):
+        self.alice.obj.copies = [Target(protocol='fake', uri='fa:profile:other:alice')]
+        self.alice.obj.put()
+
         follower = Follower.get_or_create(to=self.user, from_=self.alice)
-        followee = Follower.get_or_create(to=self.alice, from_=self.bob)
+        followee = Follower.get_or_create(to=self.alice, from_=self.user)
         other = Follower.get_or_create(to=self.user, from_=self.bob)
         self.assertEqual(3, Follower.query().count())
 
-        _, code = Fake.receive_as1({
+        _, code = OtherFake.receive_as1({
             'objectType': 'activity',
             'verb': 'delete',
-            'id': 'fake:delete',
-            'actor': 'fake:alice',
-            'object': 'fake:alice',
+            'id': 'other:delete',
+            'actor': 'other:alice',
+            'object': 'other:alice',
         })
         self.assertEqual(202, code)
 
@@ -1974,19 +2016,13 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual('inactive', follower.key.get().status)
         self.assertEqual('inactive', followee.key.get().status)
         self.assertEqual('active', other.key.get().status)
-
-        self.assert_object('fake:alice', deleted=True, source_protocol='fake')
+        self.assert_object('other:alice', deleted=True, source_protocol='other',
+                           ignore=['copies'])
 
     @patch.object(Fake, 'send')
-    @patch.object(Fake, 'target_for')
-    def test_send_error(self, mock_target_for, mock_send):
+    def test_send_error(self, mock_send):
         """Two targets. First send fails, second succeeds."""
         self.make_followers()
-
-        mock_target_for.side_effect = [
-            'target:1',
-            'target:2',
-        ]
 
         post_as1 = {
             'id': 'fake:post',
@@ -2004,11 +2040,11 @@ class ProtocolReceiveTest(TestCase):
         def send(obj, url, from_user=None, orig_obj=None):
             self.assertEqual(create_as1, obj.as1)
             if not sent:
-                self.assertEqual('target:1', url)
+                self.assertEqual('other:alice:target', url)
                 sent.append('fail')
                 raise BadRequest()
             else:
-                self.assertEqual('target:2', url)
+                self.assertEqual('other:bob:target', url)
                 sent.append('sent')
                 return True
 
@@ -2024,8 +2060,9 @@ class ProtocolReceiveTest(TestCase):
         obj = self.assert_object('fake:create',
                                  status='complete',
                                  our_as1=create_as1,
-                                 delivered=['target:2'],
-                                 failed=['target:1'],
+                                 delivered=['other:bob:target'],
+                                 delivered_protocol='other',
+                                 failed=['other:alice:target'],
                                  type='post',
                                  users=[self.user.key],
                                  )
@@ -2033,6 +2070,10 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(['fail', 'sent'], sent)
 
     def test_update_profile(self):
+        self.user.obj = self.store_object(
+            id='fake:profile:user',
+            copies = [Target(protocol='other', uri='other:profile:fake:user')])
+        self.user.put()
         self.make_followers()
 
         id = 'fake:user#update-2022-01-02T03:04:05+00:00'
@@ -2043,76 +2084,86 @@ class ProtocolReceiveTest(TestCase):
             'actor': 'fake:user',
             'object': {
                 'objectType': 'person',
-                'id': 'fake:user',
+                'id': 'fake:profile:user',
                 'displayName': 'Ms. ☕ Baz',
                 'urls': [{'displayName': 'Ms. ☕ Baz', 'value': 'https://user.com/'}],
                 'updated': '2022-01-02T03:04:05+00:00',
             },
         }
-
         Fake.receive_as1(update_as1)
 
         # profile object
-        self.assert_object('fake:user',
+        self.assert_object('fake:profile:user',
                            our_as1=update_as1['object'],
-                           type='person',
+                           copies=self.user.obj.copies,
                            feed=[],
                            )
 
         # update activity
-        update_as1['actor'] = update_as1['object']
         update_obj = self.assert_object(
             id,
-            users=[self.user.key],
+            users=[self.user.key, Fake(id='fake:profile:user').key],
             status='complete',
             our_as1=update_as1,
-            delivered=['fake:shared:target'],
+            delivered=['other:alice:target', 'other:bob:target'],
+            delivered_protocol='other',
             type='update',
         )
-
-        self.assertEqual([('fake:shared:target', update_obj.as1)], Fake.sent)
+        self.assertEqual([
+            ('other:alice:target', update_obj.as1),
+            ('other:bob:target', update_obj.as1),
+        ], OtherFake.sent)
 
     def test_update_profile_bare_object(self):
-        self.make_followers()
-
-        actor = self.user.obj.our_as1 = {
+        profile = {
             'objectType': 'person',
-            'id': 'fake:user',
+            'id': 'other:alice',
             'displayName': 'Ms. ☕ Baz',
             'summary': 'first',
         }
-        self.user.obj.put()
+        self.alice.obj = self.store_object(
+            id='other:alice',
+            copies = [Target(protocol='fake', uri='fake:profile:other:alice')])
+        self.alice.put()
+
+        Follower.get_or_create(to=self.alice, from_=self.user)
 
         # unchanged from what's already in the datastore. we should send update
         # anyway (instead of create) since it's an actor.
-        Fake.receive_as1(actor)
+        OtherFake.receive_as1(profile)
 
         # profile object
-        actor['updated'] = '2022-01-02T03:04:05+00:00'
-        self.assert_object('fake:user', our_as1=actor, type='person')
+        profile['updated'] = '2022-01-02T03:04:05+00:00'
+        self.assert_object('other:alice',
+                           our_as1=profile,
+                           copies=[Target(protocol='fake',
+                                          uri='fake:profile:other:alice')],
+                           source_protocol='other',
+                           )
 
         # update activity
-        id = 'fake:user#bridgy-fed-update-2022-01-02T03:04:05+00:00'
+        id = 'other:alice#bridgy-fed-update-2022-01-02T03:04:05+00:00'
         update_obj = self.assert_object(
             id,
-            users=[self.user.key],
+            users=[self.alice.key],
             status='complete',
             our_as1={
                 'objectType': 'activity',
                 'verb': 'update',
                 'id': id,
-                'actor': actor,
-                'object': actor,
+                'actor': profile,
+                'object': profile,
             },
             delivered=['fake:shared:target'],
             type='update',
+            source_protocol='other',
         )
         self.assertEqual([('fake:shared:target', update_obj.as1)], Fake.sent)
 
     def test_mention_object(self, *mocks):
-        self.alice.obj.our_as1 = {'id': 'fake:alice', 'objectType': 'person'}
+        self.alice.obj.our_as1 = {'id': 'other:alice', 'objectType': 'person'}
         self.alice.obj.put()
-        self.bob.obj.our_as1 = {'id': 'fake:bob', 'objectType': 'person'}
+        self.bob.obj.our_as1 = {'id': 'other:bob', 'objectType': 'person'}
         self.bob.obj.put()
 
         mention_as1 = {
@@ -2122,10 +2173,10 @@ class ProtocolReceiveTest(TestCase):
             'content': 'something',
             'tags': [{
                 'objectType': 'mention',
-                'url': 'fake:alice',
+                'url': 'other:alice',
             }, {
                 'objectType': 'mention',
-                'url': 'fake:bob',
+                'url': 'other:bob',
             }],
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(mention_as1))
@@ -2133,6 +2184,8 @@ class ProtocolReceiveTest(TestCase):
         self.assert_object('fake:mention',
                            our_as1=mention_as1,
                            type='note',
+                           copies=[Target(protocol='other',
+                                          uri='other:o:fa:fake:mention')],
                            )
 
         obj = self.assert_object('fake:mention#bridgy-fed-create',
@@ -2145,78 +2198,79 @@ class ProtocolReceiveTest(TestCase):
                                      'object': mention_as1,
                                      'published': '2022-01-02T03:04:05+00:00',
                                  },
-                                 delivered=['fake:alice:target', 'fake:bob:target'],
+                                 delivered=['other:alice:target', 'other:bob:target'],
+                                 delivered_protocol='other',
                                  type='post',
                                  users=[self.user.key],
                                  notify=[self.alice.key, self.bob.key],
                                  )
 
         self.assertEqual([
-            ('fake:alice:target', obj.as1),
-            ('fake:bob:target', obj.as1),
-        ], Fake.sent)
+            ('other:alice:target', obj.as1),
+            ('other:bob:target', obj.as1),
+        ], OtherFake.sent)
 
     def test_follow(self):
         self._test_follow()
 
     def test_follow_existing_inactive(self):
-        follower = Follower.get_or_create(to=self.user, from_=self.alice,
+        follower = Follower.get_or_create(to=self.alice, from_=self.user,
                                           status='inactive')
         self._test_follow()
 
     def test_follow_actor_object_composite_objects(self):
-        self._test_follow(actor={'id': 'fake:alice', 'objectType': 'person'},
-                          object={'id': 'fake:user', 'objectType': 'person'})
+        self._test_follow(actor={'id': 'fake:user', 'objectType': 'person'},
+                          object={'id': 'other:alice', 'objectType': 'person'})
 
     def _test_follow(self, **extra):
-        Fake.fetchable['fake:alice'] = {}
+        OtherFake.fetchable['other:alice'] = {}
 
         follow_as1 = {
             'id': 'fake:follow',
             'objectType': 'activity',
             'verb': 'follow',
-            'actor': 'fake:alice',
-            'object': 'fake:user',
+            'actor': 'fake:user',
+            'object': 'other:alice',
             **extra,
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(follow_as1))
 
-        user = Fake.get_by_id('fake:user')
-        follow_obj = self.assert_object('fake:follow',
-                                        our_as1=follow_as1,
-                                        status='complete',
-                                        users=[self.alice.key],
-                                        notify=[user.key],
-                                        feed=[],
-                                        delivered=['fake:user:target'],
-                                        )
+        follow_obj = self.assert_object(
+            'fake:follow',
+            our_as1=follow_as1,
+            copies=[Target(protocol='other', uri='other:o:fa:fake:follow')],
+            status='complete',
+            users=[self.user.key],
+            notify=[self.alice.key],
+            feed=[],
+            delivered=['other:alice:target'],
+            delivered_protocol='other',
+        )
 
-        accept_id = 'fake:user/followers#accept-fake:follow'
+        accept_id = 'other:alice/followers#accept-fake:follow'
         accept_as1 = {
             'id': accept_id,
             'objectType': 'activity',
             'verb': 'accept',
-            'actor': 'fake:user',
+            'actor': 'other:alice',
             'object': follow_as1,
         }
         accept_obj = self.assert_object(accept_id,
                                         our_as1=accept_as1,
                                         type='accept',
                                         status='complete',
-                                        delivered=['fake:alice:target'],
+                                        delivered=['fake:user:target'],
                                         users=[],
                                         notify=[],
                                         feed=[],
                                         source_protocol=None,
                                         )
 
-        self.assertEqual([
-            ('fake:alice:target', accept_obj.as1),
-            ('fake:user:target', follow_obj.as1),
-        ], Fake.sent)
+        self.assertEqual([('other:alice:target', follow_obj.as1)], OtherFake.sent)
+        self.assertEqual([('fake:user:target', accept_obj.as1)], Fake.sent)
 
         self.assert_entities_equal(
-            Follower(to=user.key, from_=self.alice.key, status='active',
+            Follower(to=self.alice.key, from_=self.user.key, status='active',
                      follow=follow_obj.key),
             Follower.query().fetch(),
             ignore=['created', 'updated'],
@@ -2265,10 +2319,10 @@ class ProtocolReceiveTest(TestCase):
     def test_follow_no_object(self):
         with self.assertRaises(ErrorButDoNotRetryTask):
             Fake.receive_as1({
-                'id': 'fake:follow',
+                'id': 'other:follow',
                 'objectType': 'activity',
                 'verb': 'follow',
-                'actor': 'fake:alice',
+                'actor': 'other:alice',
             })
 
         self.assertEqual([], Follower.query().fetch())
@@ -2277,10 +2331,10 @@ class ProtocolReceiveTest(TestCase):
     def test_follow_object_unknown_protocol(self):
         with self.assertRaises(ErrorButDoNotRetryTask):
             Fake.receive_as1({
-                'id': 'fake:follow',
+                'id': 'other:follow',
                 'objectType': 'activity',
                 'verb': 'follow',
-                'actor': 'fake:alice',
+                'actor': 'other:alice',
                 'object': 'unknown:bob',
             })
 
@@ -2303,18 +2357,20 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.sent)
         self.assertEqual([], OtherFake.sent)
 
-    def test_follow_accept(self, **extra):
-        Fake.fetchable['fake:follow'] = {'id': 'fake:follow'}
+    @patch('dms.maybe_send')
+    def test_follow_accept(self, _, **extra):
+        self.user.enable_protocol(ExplicitFake)
+        ExplicitFake.fetchable['efake:follow'] = {'id': 'efake:follow'}
         accept_as1 = {
             'id': 'fake:accept',
             'objectType': 'activity',
             'verb': 'accept',
-            'actor': 'fake:alice',
-            'object': 'fake:follow'
+            'actor': 'fake:user',
+            'object': 'efake:follow'
         }
 
         self.assertEqual(('OK', 202), Fake.receive_as1(accept_as1))
-        self.assertEqual([('fake:follow:target', accept_as1)], Fake.sent)
+        self.assertEqual([('efake:follow:target', accept_as1)], ExplicitFake.sent)
 
     def test_stop_following(self):
         follower = Follower.get_or_create(to=self.user, from_=self.alice)
@@ -2323,15 +2379,17 @@ class ProtocolReceiveTest(TestCase):
         self.user.obj.put()
 
         stop_as1 = {
-            'id': 'fake:stop-following',
+            'id': 'other:stop-following',
             'objectType': 'activity',
             'verb': 'stop-following',
-            'actor': 'fake:alice',
+            'actor': 'other:alice',
             'object': 'fake:user',
         }
-        self.assertEqual(('OK', 202), Fake.receive_as1(stop_as1))
+        _, code = OtherFake.receive_as1(stop_as1)
+        self.assertEqual(202, code)
 
-        stop_obj = self.assert_object('fake:stop-following',
+        stop_obj = self.assert_object('other:stop-following',
+                                      source_protocol='other',
                                       our_as1=stop_as1,
                                       type='stop-following',
                                       status='complete',
@@ -2339,6 +2397,7 @@ class ProtocolReceiveTest(TestCase):
                                       users=[self.alice.key],
                                       notify=[],
                                       feed=[],
+                                      ignore=['copies'],
                                       )
 
         self.assertEqual('inactive', follower.key.get().status)
@@ -2349,13 +2408,13 @@ class ProtocolReceiveTest(TestCase):
         self.user.obj.put()
 
         stop_following_as1 = {
-            'id': 'fake:stop-following',
+            'id': 'other:stop-following',
             'objectType': 'activity',
             'verb': 'stop-following',
-            'actor': 'fake:alice',
+            'actor': 'other:alice',
             'object': 'fake:user',
         }
-        self.assertEqual(('OK', 202), Fake.receive_as1(stop_following_as1))
+        self.assertEqual(('OK', 202), OtherFake.receive_as1(stop_following_as1))
 
         self.assertEqual(0, Follower.query().count())
         self.assertEqual([('fake:user:target', stop_following_as1)], Fake.sent)
@@ -2363,35 +2422,35 @@ class ProtocolReceiveTest(TestCase):
     def test_stop_following_inactive(self):
         follower = Follower.get_or_create(to=self.user, from_=self.alice,
                                           status='inactive')
-        Fake.fetchable['fake:alice'] = {}
+        OtherFake.fetchable['other:alice'] = {}
         self.user.obj.our_as1 = {'id': 'fake:user'}
         self.user.obj.put()
 
         stop_following_as1 = {
-            'id': 'fake:stop-following',
+            'id': 'other:stop-following',
             'objectType': 'activity',
             'verb': 'stop-following',
-            'actor': 'fake:alice',
+            'actor': 'other:alice',
             'object': 'fake:user',
         }
-        self.assertEqual(('OK', 202), Fake.receive_as1(stop_following_as1))
+        self.assertEqual(('OK', 202), OtherFake.receive_as1(stop_following_as1))
 
         self.assertEqual('inactive', follower.key.get().status)
         self.assertEqual([('fake:user:target', stop_following_as1)], Fake.sent)
 
     def test_block(self):
-        self.bob.obj.our_as1 = {'id': 'fake:bob'}
+        self.bob.obj.our_as1 = {'id': 'other:bob'}
         self.bob.obj.put()
 
         block_as1 = {
             'id': 'fake:block',
             'objectType': 'activity',
             'verb': 'block',
-            'actor': 'fake:alice',
-            'object': 'fake:bob',
+            'actor': 'fake:user',
+            'object': 'other:bob',
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(block_as1))
-        self.assertEqual([('fake:bob:target', block_as1)], Fake.sent)
+        self.assertEqual([('other:bob:target', block_as1)], OtherFake.sent)
 
     def test_undo_block(self):
         self.make_user(id='other:eve', cls=OtherFake, obj_as1={})
@@ -2444,7 +2503,6 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([
             ('fake:post:target', undo_as1),
             ('fake:repost:target', undo_as1),
-            ('fake:shared:target', undo_as1),
         ], Fake.sent)
 
     def test_undo_not_authed_as_object_owner(self):
@@ -2499,7 +2557,7 @@ class ProtocolReceiveTest(TestCase):
             'objectType': 'activity',
             'verb': 'follow',
             'actor': 'other:carol',
-            'object': ['other:dan', 'fake:alice'],
+            'object': ['other:dan', 'fake:user'],
         }
 
         self.assertEqual(('OK', 202), OtherFake.receive_as1(follow_as1))
@@ -2509,7 +2567,7 @@ class ProtocolReceiveTest(TestCase):
 
         followers = Follower.query().fetch()
         self.assertEqual(1, len(followers))
-        self.assertEqual(self.alice.key, followers[0].to)
+        self.assertEqual(self.user.key, followers[0].to)
 
     def test_skip_bridged_user(self):
         """If the actor isn't from the source protocol, skip the activity.
@@ -2526,7 +2584,7 @@ class ProtocolReceiveTest(TestCase):
                 'objectType': 'activity',
                 'verb': 'follow',
                 'actor': 'fake:user',
-                'object': 'fake:alice',
+                'object': 'other:alice',
             })
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
@@ -2592,46 +2650,47 @@ class ProtocolReceiveTest(TestCase):
             'id': 'fake:follow',
             'objectType': 'activity',
             'verb': 'follow',
-            'actor': 'fake:alice',
-            'object': 'fake:bob',
+            'actor': 'fake:user',
+            'object': 'fake:alice',
         }
 
         # no matching copy users
         obj = Object(id='fake:follow', our_as1=follow, source_protocol='fake')
-        self.assertEqual(('OK', 202), Fake.receive(obj, authed_as='fake:alice'))
+        _, code = Fake.receive(obj, authed_as='fake:user')
+        self.assertEqual(204, code)
         self.assert_equals(follow, obj.our_as1)
 
         # matching copy user
-        self.make_user('other:bob', cls=OtherFake,
-                       copies=[Target(uri='fake:bob', protocol='fake')])
+        self.alice.copies = [Target(uri='fake:alice', protocol='fake')]
+        self.alice.put()
 
         common.memcache.clear()
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
 
         obj.new = True
-        OtherFake.fetchable = {
-            'other:bob': {},
+        Fake.fetchable = {
+            'fake:alice': {},
         }
 
-        self.assertEqual(('OK', 202), Fake.receive(obj, authed_as='fake:alice'))
+        self.assertEqual(('OK', 202), Fake.receive(obj, authed_as='fake:user'))
         self.assert_equals({
             **follow,
-            'actor': {'id': 'fake:alice'},
-            'object': 'other:bob',
+            'actor': {'id': 'fake:user'},
+            'object': 'other:alice',
         }, Object.get_by_id('fake:follow').our_as1)
 
     def test_resolve_ids_share(self):
         share = {
             'objectType': 'activity',
-            'actor': 'fake:alice',
+            'actor': 'fake:user',
             'verb': 'share',
             'object': 'fake:post',
         }
 
         # no matching copy object
         obj = Object(id='fake:share', our_as1=share, source_protocol='fake')
-        _, code = Fake.receive(obj, authed_as='fake:alice')
+        _, code = Fake.receive(obj, authed_as='fake:user')
         self.assertEqual(204, code)
         self.assert_equals(share, obj.our_as1)
 
@@ -2644,64 +2703,24 @@ class ProtocolReceiveTest(TestCase):
         models.get_original_object_key.cache_clear()
         obj.new = True
 
-        _, code = Fake.receive(obj, authed_as='fake:alice')
+        _, code = Fake.receive(obj, authed_as='fake:user')
         self.assertEqual(204, code)
 
         self.assert_equals({
             'id': 'fake:share',
             'objectType': 'activity',
-            'actor': 'fake:alice',
+            'actor': 'fake:user',
             'verb': 'share',
             'object': 'other:post',
         }, obj.our_as1)
 
     def test_resolve_ids_reply_mentions(self):
         reply = {
-            'id': 'other:reply',
-            'author': 'other:eve',
+            'id': 'fake:reply',
+            'author': 'fake:user',
             'objectType': 'note',
             'inReplyTo': [
-                'other:unknown-post',
-                'other:post',
-            ],
-            'tags': [{
-                'objectType': 'mention',
-                'url': 'other:alice',
-            }, {
-                'objectType': 'mention',
-                'url': 'other:bob',
-            }],
-        }
-
-        # no matching copies
-        obj = Object(id='other:reply', our_as1=reply, source_protocol='other')
-        _, code = OtherFake.receive(obj, authed_as='other:eve')
-        self.assertEqual(204, code)
-        self.assert_equals(reply, obj.our_as1)
-
-        # matching copies
-        self.make_user(
-            'fake:alice', cls=Fake,
-            copies=[Target(uri='other:alice', protocol='other')])
-        self.make_user(
-            'fake:bob', cls=Fake,
-            copies=[Target(uri='other:bob', protocol='other')])
-        self.store_object(
-            id='fake:post', our_as1={'foo': 9}, source_protocol='fake',
-            copies=[Target(uri='other:post', protocol='other')])
-
-        models.get_original_user_key.cache_clear()
-        models.get_original_object_key.cache_clear()
-
-        obj.new = True
-        self.assertEqual(('OK', 202),
-                         OtherFake.receive(obj, authed_as='other:eve'))
-        self.assertEqual({
-            'id': 'other:reply',
-            'objectType': 'note',
-            'author': 'other:eve',
-            'inReplyTo': [
-                'other:unknown-post',
+                'fake:unknown-post',
                 'fake:post',
             ],
             'tags': [{
@@ -2710,6 +2729,46 @@ class ProtocolReceiveTest(TestCase):
             }, {
                 'objectType': 'mention',
                 'url': 'fake:bob',
+            }],
+        }
+
+        # no matching copies
+        obj = Object(id='fake:reply', our_as1=reply, source_protocol='fake')
+        _, code = Fake.receive(obj, authed_as='fake:user')
+        self.assertEqual(204, code)
+        self.assert_equals(reply, obj.our_as1)
+
+        # matching copies
+        self.alice.copies=[Target(uri='fake:alice', protocol='fake')]
+        self.alice.put()
+        self.alice.obj = Object(id='other:alice', our_as1={'a': 'b'})
+        self.alice.obj.our_as1 = {'a': 'b'}
+
+        self.bob.copies=[Target(uri='fake:bob', protocol='fake')]
+        self.bob.put()
+        self.bob.obj = Object(id='other:bob', our_as1={'x': 'y'})
+        self.bob.obj.our_as1 = {'a': 'b'}
+        self.bob.obj.put()
+
+        models.get_original_user_key.cache_clear()
+        models.get_original_object_key.cache_clear()
+
+        obj.new = True
+        self.assertEqual(('OK', 202), Fake.receive(obj, authed_as='fake:user'))
+        self.assertEqual({
+            'id': 'fake:reply',
+            'objectType': 'note',
+            'author': 'fake:user',
+            'inReplyTo': [
+                'fake:unknown-post',
+                'fake:post',
+            ],
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'other:alice',
+            }, {
+                'objectType': 'mention',
+                'url': 'other:bob',
             }],
         }, obj.key.get().our_as1)
 
@@ -2794,7 +2853,7 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual([], Fake.created_for)
 
         # block should remove from enabled_protocols
-        Follower.get_or_create(to=user, from_=self.alice)
+        Follower.get_or_create(to=user, from_=self.user)
         block['id'] += '2'
         self.assertEqual(('OK', 200), ExplicitFake.receive_as1(block))
         user = user.key.get()
@@ -2803,23 +2862,17 @@ class ProtocolReceiveTest(TestCase):
         self.assertFalse(user.is_enabled(Fake))
 
         # ...and delete copy actor
-        self.assertEqual([('fake:shared:target', {
+        id = 'efake:user#delete-user-fake-2022-01-02T03:04:05+00:00'
+        delete_efake = {
             'objectType': 'activity',
             'verb': 'delete',
-            'id': 'efake:user#delete-user-fake-2022-01-02T03:04:05+00:00',
+            'id': id,
             'actor': 'efake:user',
             'object': 'efake:user',
-        })], Fake.sent)
-
-        id = 'efake:user#delete-user-fake-2022-01-02T03:04:05+00:00'
+        }
+        self.assertEqual([('fake:shared:target', delete_efake)], Fake.sent)
         self.assert_object(id,
-                           our_as1={
-                               'objectType': 'activity',
-                               'verb': 'delete',
-                               'id': id,
-                               'actor': 'efake:user',
-                               'object': 'efake:user',
-                           },
+                           our_as1=delete_efake,
                            delivered=['fake:shared:target'],
                            source_protocol='efake',
                            status='complete')
@@ -2931,15 +2984,15 @@ class ProtocolReceiveTest(TestCase):
             },
         }
 
-        orig_fake_send = Fake.send
+        orig_send = OtherFake.send
         at_send = Condition()
         continue_send = Condition()
         def send(*args, **kwargs):
             with at_send:
                 at_send.notify()
             with continue_send:
-                continue_send.wait()
-            return orig_fake_send(*args, **kwargs)
+                continue_send.wait(10)  # timeout in seconds
+            return orig_send(*args, **kwargs)
 
         def receive():
             with app.test_request_context('/'), \
@@ -2955,18 +3008,18 @@ class ProtocolReceiveTest(TestCase):
         first = Thread(target=receive)
         second = Thread(target=receive)
 
-        with patch.object(Fake, 'send', side_effect=send):
+        with patch.object(OtherFake, 'send', side_effect=send):
             first.start()
             second.start()
             with at_send:
-                at_send.wait()
+                at_send.wait(10)  # timeout in seconds
             with continue_send:
                 continue_send.notify(1)
             first.join()
             second.join()
 
         # only one receive call should try to send
-        self.assertEqual([('fake:shared:target', post_as1)], Fake.sent)
+        self.assertEqual([('other:alice:target', post_as1)], OtherFake.sent)
 
     @patch('protocol.LIMITED_DOMAINS', ['lim.it'])
     @patch('requests.get')
@@ -3084,13 +3137,13 @@ class ProtocolReceiveTest(TestCase):
         note = {
             'id': 'fake:post',
             'objectType': 'note',
-            'author': 'fake:alice',
+            'author': 'fake:user',
         }
 
         got = self.post('/queue/receive', data={
             'our_as1': json_dumps(note),
             'source_protocol': 'fake',
-            'authed_as': 'fake:alice',
+            'authed_as': 'fake:user',
         })
         self.assertEqual(204, got.status_code)
         self.assertEqual(note, Object.get_by_id('fake:post').our_as1)
@@ -3181,7 +3234,7 @@ class ProtocolReceiveTest(TestCase):
     def test_like_not_authed_as_actor(self):
         Fake.fetchable['fake:post'] = {
             'objectType': 'note',
-            'author': 'fake:bob',
+            'author': 'other:bob',
         }
 
         with self.assertRaises(ErrorButDoNotRetryTask):
@@ -3244,8 +3297,6 @@ class ProtocolReceiveTest(TestCase):
         common.RUN_TASKS_INLINE = False
 
         self.make_followers()
-        eve = self.make_user('other:eve', cls=OtherFake, obj_id='other:eve')
-        Follower.get_or_create(to=self.user, from_=eve)
 
         note_as1 = {
             'id': 'fake:post',
@@ -3255,11 +3306,12 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(('OK', 202), Fake.receive_as1(note_as1))
 
         create_key = Object.get_by_id('fake:post#bridgy-fed-create').key.urlsafe()
+        self.assertEqual(2, mock_create_task.call_count)
         self.assert_task(mock_create_task, 'send', protocol='other',
-                         obj=create_key, orig_obj='', url='other:eve:target',
+                         obj=create_key, orig_obj='', url='other:alice:target',
                          user=self.user.key.urlsafe())
-        self.assert_task(mock_create_task, 'send', protocol='fake',
-                         obj=create_key, orig_obj='', url='fake:shared:target',
+        self.assert_task(mock_create_task, 'send', protocol='other',
+                         obj=create_key, orig_obj='', url='other:bob:target',
                          user=self.user.key.urlsafe())
 
         self.assertEqual([], OtherFake.sent)
@@ -3401,4 +3453,4 @@ class ProtocolReceiveTest(TestCase):
         })
 
         _, kwargs = mock_send.call_args
-        self.assertEqual('fake:alice', kwargs['from_user'].key.id())
+        self.assertEqual('other:alice', kwargs['from_user'].key.id())

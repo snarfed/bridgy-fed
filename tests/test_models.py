@@ -82,8 +82,7 @@ class UserTest(TestCase):
         self.assertEqual(['fake:user'], OtherFake.created_for)
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    @patch('requests.post',
-           return_value=requests_response('OK'))  # create DID on PLC
+    @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
     def test_get_or_create_propagate_atproto(self, mock_post, mock_create_task):
         common.RUN_TASKS_INLINE = False
 
@@ -119,9 +118,12 @@ class UserTest(TestCase):
             },
         }, profile)
 
-        uri = at_uri(did, 'app.bsky.actor.profile', 'self')
-        self.assertEqual([Target(uri=uri, protocol='atproto')],
-                         Object.get_by_id(id='fake:profile:user').copies)
+        obj = Object.get_by_id('fake:profile:user')
+        self.assertEqual([
+            Target(protocol='atproto',
+                   uri=at_uri(did, 'app.bsky.actor.profile', 'self')),
+            Target(protocol='other', uri='other:o:fa:fake:profile:user'),
+        ], obj.copies)
 
         mock_create_task.assert_called()
 
@@ -139,7 +141,7 @@ class UserTest(TestCase):
         mock_create_task.assert_not_called()
 
         user = ActivityPub.get_by_id('https://mas.to/actor')
-        self.assertEqual([], user.copies)
+        self.assertIsNone(user.get_copy(ATProto))
         self.assertEqual(0, AtpRepo.query().count())
 
     @patch.object(ExplicitFake, 'create_for', side_effect=ValueError('foo'))
