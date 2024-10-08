@@ -565,7 +565,7 @@ class ProtocolTest(TestCase):
                 'author': 'other:u:fake:alice',
                 'tags': [{
                     'objectType': 'mention',
-                    'url': 'other:u:fake:bob',
+                    'url': 'uri:other:u:fake:bob',
                 }],
             },
         }, OtherFake.translate_ids({
@@ -624,7 +624,7 @@ class ProtocolTest(TestCase):
                  'url': 'fake:456'},
             ],
             'tags': [
-                {'objectType': 'mention', 'url': 'other:u:fake:alice'},
+                {'objectType': 'mention', 'url': 'uri:other:u:fake:alice'},
                 {'url': 'fake:000'},
             ],
         }, OtherFake.translate_ids({

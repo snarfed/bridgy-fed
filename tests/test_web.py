@@ -3333,6 +3333,24 @@ class WebUtilTest(TestCase):
 <a class="u-in-reply-to" href="https://ap.brid.gy/convert/web/http://fed/post"></a>
 </article>""", Web.convert(obj, from_user=None), ignore_blanks=True)
 
+    def test_convert_mention_web_user_translate_domain_id_to_homepage_url(self, *_):
+        obj = self.store_object(id='fake:mention', source_protocol='fake', our_as1={
+            'objectType': 'note',
+            'id': 'fake:mention',
+            'tags': [{
+                'objectType': 'mention',
+                'url': 'user.com',
+                'displayName': '@user.com@user.com',
+            }],
+        })
+        self.assert_multiline_in("""\
+<article class="h-entry">
+<span class="p-uid">https://fa.brid.gy/convert/web/fake:mention</span>
+<div class="e-content p-name">
+<a class="u-mention" aria-hidden="true" href="https://user.com/"></a>
+</div>
+</article>""", Web.convert(obj), ignore_blanks=True)
+
     def test_target_for(self, _, __):
         self.assertIsNone(Web.target_for(Object(id='x')))
 

@@ -711,7 +711,7 @@ class Protocol:
         outer_obj = copy.deepcopy(obj)
         inner_objs = outer_obj['object'] = as1.get_objects(outer_obj)
 
-        def translate(elem, field, fn):
+        def translate(elem, field, fn, uri=False):
             elem[field] = as1.get_objects(elem, field)
             for obj in elem[field]:
                 if id := obj.get('id'):
@@ -722,6 +722,8 @@ class Protocol:
                     # make it a noop if we don't know enough about from/to?
                     if from_cls and from_cls != to_cls:
                         obj['id'] = fn(id=id, from_=from_cls, to=to_cls)
+                    if obj['id'] and uri:
+                        obj['id'] = to_cls(id=obj['id']).id_uri()
 
             elem[field] = [o['id'] if o.keys() == {'id'} else o
                            for o in elem[field]]
@@ -746,7 +748,7 @@ class Protocol:
                 translate(o, field, translate_user_id)
             for tag in as1.get_objects(o, 'tags'):
                 if tag.get('objectType') == 'mention':
-                    translate(tag, 'url', translate_user_id)
+                    translate(tag, 'url', translate_user_id, uri=True)
             for att in as1.get_objects(o, 'attachments'):
                 translate(att, 'id', translate_object_id)
                 url = att.get('url')
