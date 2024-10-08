@@ -71,16 +71,16 @@ def is_valid_domain(domain, allow_internal=True):
     Valid means TLD is ok, not blacklisted, etc.
     """
     if not domain or not re.match(DOMAIN_RE, domain):
-        logger.debug(f"{domain} doesn't look like a domain")
+        # logger.debug(f"{domain} doesn't look like a domain")
         return False
 
     if Web.is_blocklisted(domain, allow_internal=allow_internal):
-        logger.info(f'{domain} is blocklisted')
+        # logger.info(f'{domain} is blocklisted')
         return False
 
     tld = domain.split('.')[-1]
     if tld not in brevity.TLDS:
-        logger.info(f"{domain} looks like a domain but {tld} isn't a TLD")
+        # logger.info(f"{domain} looks like a domain but {tld} isn't a TLD")
         return False
 
     return True
