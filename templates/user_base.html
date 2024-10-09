@@ -50,7 +50,14 @@
       {% if url %} <a rel="me" href="{{ url }}"> {% endif %}
         <span class="logo">{{ proto.LOGO_HTML|safe }}</span>
         {{ util.ellipsize(handle, chars=40) }}
-      {% if url %} </a> {% endif %}
+      {% if url %}
+        </a>
+      {% else %}
+        <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
+                onclick="navigator.clipboard.writeText('{{ handle }}')"
+                title="Copy {{ handle }} to clipboard">
+        </button>
+      {% endif %}
       </nobr>
     {% endif %}
   {% endfor %}
