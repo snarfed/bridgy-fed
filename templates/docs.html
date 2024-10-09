@@ -969,128 +969,14 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 <thead>
 <tr>
   <th></th>
-  <th>IndieWeb</th>
-  <th>ActivityPub + WebFinger</th>
-  <th>AT Protocol</th>
-  <th>Nostr</th>
+  <th><a href="https://indieweb.org/">IndieWeb</a></th>
+  <th><a href="https://activitypub.rocks/">ActivityPub</a> + <a href="https://webfinger.net/">WebFinger</a></th>
+  <th><a href="https://atproto.com/">AT Protocol</a></th>
+  <th><a href="https://nostr.com/">Nostr</a></th>
+  <th><a href="https://www.farcaster.xyz/">Farcaster</a></th>
 </tr>
 </thead>
 <tbody>
-
-<tr>
-  <th>user identity</th>
-  <td><a href="https://indieweb.org/personal-domain">DNS</a></td>
-  <td>username + DNS</td>
-  <td><a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a>/<a href="https://w3c-ccg.github.io/did-method-web/"><code>did:web</code></a>,<br>
-    <a href="https://atproto.com/specs/handle">DNS handles</a></td>
-  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">public key</a>,
-    <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">DNS handles</a></td>
-</tr>
-
-<tr>
-  <th>object ids</th>
-  <td><a href="https://indieweb.org/permalink">URLs</a></td>
-  <td><a href="https://www.w3.org/TR/activitypub/#obj-id">URLs</a></td>
-  <td><a href="https://atproto.com/specs/at-uri-scheme"><code>at://</code> URIs</a>,<br><a href="https://atproto.com/specs/repository">data hashes</a></td>
-  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">data hashes</a></td>
-</tr>
-
-<tr>
-  <th>data format</th>
-  <td><a href="https://microformats.org/wiki/microformats2">microformats2</a></td>
-  <td><a href="https://www.w3.org/TR/activitystreams-core/">ActivityStreams 2</a></td>
-  <td><a href="https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky"><code>app.bsky</code> lexicons</a></td>
-  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">Nostr events</a></td>
-</tr>
-
-<tr>
-  <th>serialization</th>
-  <td>HTML</td>
-  <td>JSON</td>
-  <td>JSON (<a href="https://atproto.com/specs/lexicon">Lexicon</a>)</td>
-  <td>JSON</td>
-</tr>
-
-<tr>
-  <th>delivery</th>
-  <td><a href="https://websub.net/">push</a>/<a href="https://indieweb.org/Microsub">pull</a> posts</a>,<br>
-    <a href="https://webmention.net/">push responses</a></td>
-  <td><a href="https://www.w3.org/TR/activitypub/#delivery">push</a></td>
-  <td><a href="https://bsky.social/about/blog/5-5-2023-federation-architecture">pull</a></td>
-  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">pull</a></td>
-</tr>
-
-<tr>
-  <th>transport</th>
-  <td>HTTP</td>
-  <td><a href="https://www.w3.org/TR/activitypub/#retrieving-objects">HTTP</a></td>
-  <td>HTTP + <a href="https://atproto.com/specs/event-stream">WebSocket</a> (<a href="https://atproto.com/specs/xrpc">XRPC</a>)</td>
-  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#communication-between-clients-and-relays">WebSocket</a></td>
-</tr>
-
-<tr>
-  <th>topology</th>
-  <td>peer to peer</td>
-  <td><a href="https://activitypub.rocks/">federated servers, two tier</a></td>
-  <td><a href="https://bsky.social/about/blog/5-5-2023-federation-architecture">federated servers</a>,<br>
-    <a href="https://bsky.social/about/blog/4-13-2023-moderation">decoupled</a> <a href="https://bsky.social/about/blog/3-30-2023-algorithmic-choice">services</a>, multi-tier</td>
-  <td><a href="https://github.com/nostr-protocol/nostr#how-does-nostr-work">interchangeable relays,<br>two tier</a></td>
-</tr>
-
-<tr>
-  <th>security model</th>
-  <td>SSL, one user per domain</td>
-  <td><a href="https://www.w3.org/wiki/SocialCG/ActivityPub/Authentication_Authorization#Signing_requests_using_HTTP_Signatures">transport signatures,<br>
-    custodial keys</a></td>
-  <td><a href="https://atproto.com/specs/repository">data signatures</a>,<br>
-    <a href="https://atproto.com/guides/overview#account-portability">custodial + user-owned keys</a></td>
-  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">data signatures,<br>
-    user-owned keys</a></td>
-</tr>
-
-<tr>
-  <th>app semantics live in...</th>
-  <td>servers, clients</td>
-  <td>servers, clients</td>
-  <td><a href="https://bsky.social/about/blog/5-5-2023-federation-architecture">dedicated service</a>, clients</td>
-  <td>clients</td>
-</tr>
-
-<tr>
-  <th>blockchain</th>
-  <td>no</td>
-  <td>no</td>
-  <td>no</td>
-  <td>no</td>
-</tr>
-
-<tr>
-  <th>monetization</th>
-  <td><a href="https://indieweb.org/business-models">hosting</a></td>
-  <td>donations</td>
-  <td><a href="https://bsky.social/about/blog/7-05-2023-business-plan">services</a></td>
-  <td><a href="https://nostr.how/en/zaps">microtransactions</a></td>
-</tr>
-
-<tr>
-  <th>active user estimates<br>
-    (as of 2023-09-04)</th>
-  <td>
-    <!-- <a href="https://indiemap.org/">2k</a>, <a href="https://w3techs.com/technologies/overview/content_management">43M</a><br> -->
-    <a href="https://indiemap.org/docs.html#sites">not well defined</a></td>
-  <td><a href="https://fedidb.org/">1.6M</a>, <a href="https://fediverse.observer/stats#user_growth_active">2M</a>, <a href="https://the-federation.info/">2.7M</a></td>
-  <td><a href="https://discord.com/channels/1097580399187738645/1097580399187738648/1143696514825326685">360k</a> (still invite-only)</td>
-  <td><a href="https://stats.nostr.band/#weekly_active_users">25k</a>, <a href="https://stats.nostr.band/">100k</a></a></td>
-</tr>
-
-<tr>
-  <th>server estimates<br>
-    (as of 2023-09-04)</th>
-  <td><a href="https://indiemap.org/docs.html#sites">not well defined</a></td>
-  <td><a href="https://fediverse.observer/stats#pod_growth">23k</a>, <a href="https://fedidb.org/">25k</a>, <a href="https://the-federation.info/">26k</a></td>
-  <td>1</td>
-  <td><a href="https://nostr.watch/relays/statistics">170</a>, <a href="https://stats.nostr.band/">1800</a></td>
-</tr>
 
 <tr>
   <th>governance</th>
@@ -1101,6 +987,136 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
     <a href="https://blue.amazingca.dev/user/did:plc:44ybard66vv44zksje25o7dz/post/3k3p6upex4x2l">IETF eventually?</a></td>
   <td><a href="https://fiatjaf.com/">mildly BDFL(s) now</a>,<br>
     <a href="https://github.com/nostr-protocol/nips/issues/162">decentralized eventually?</a></td>
+  <td><a href="https://docs.farcaster.xyz/learn/contributing/governance">adoption based</a>, <a href="https://docs.farcaster.xyz/learn/contributing/fips">FIPs</a></td>
+</tr>
+
+<tr>
+  <th>user identity</th>
+  <td><a href="https://indieweb.org/personal-domain">DNS</a></td>
+  <td>username + DNS</td>
+  <td><a href="https://atproto.com/specs/did-plc"><code>did:plc</code></a> + <a href="https://w3c-ccg.github.io/did-method-web/"><code>did:web</code></a>,<br>
+    <a href="https://atproto.com/specs/handle">DNS handles</a></td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">public key</a>,
+    <a href="https://github.com/nostr-protocol/nips/blob/master/05.md">DNS handles</a></td>
+  <td><a href="https://docs.farcaster.xyz/learn/what-is-farcaster/accounts">public key, blockchain</a>, <a href="https://docs.farcaster.xyz/learn/what-is-farcaster/usernames">ENS usernames</a></td>
+</tr>
+
+<tr>
+  <th>object ids</th>
+  <td><a href="https://indieweb.org/permalink">URL</a></td>
+  <td><a href="https://www.w3.org/TR/activitypub/#obj-id">URL</a></td>
+  <td><a href="https://atproto.com/specs/at-uri-scheme"><code>at://</code> URI</a>, <br><a href="https://atproto.com/specs/repository">data hash</a></td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">data hash</a></td>
+  <td><a href="https://github.com/farcasterxyz/protocol/blob/main/docs/SPECIFICATION.md#24-casts">user id + data hash</a></td>
+</tr>
+
+<tr>
+  <th>data format</th>
+  <td><a href="https://microformats.org/wiki/microformats2">microformats2</a></td>
+  <td><a href="https://www.w3.org/TR/activitystreams-core/">ActivityStreams 2</a></td>
+  <td><a href="https://github.com/bluesky-social/atproto/tree/main/lexicons/app/bsky"><code>app.bsky</code> lexicons</a></td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">Nostr events</a></td>
+  <td><a href="https://protobuf.dev/">Protocol Buffers</a></td>
+</tr>
+
+<tr>
+  <th>serialization</th>
+  <td>HTML</td>
+  <td>JSON</td>
+  <td>JSON (<a href="https://atproto.com/specs/lexicon">Lexicon</a>)</td>
+  <td>JSON</td>
+  <td><a href="https://protobuf.dev/programming-guides/encoding/">Protocol Buffers</a></td>
+</tr>
+
+<tr>
+  <th>delivery</th>
+  <td><a href="https://websub.net/">push</a>/<a href="https://indieweb.org/Microsub">pull</a> posts</a>,<br>
+    <a href="https://webmention.net/">push responses</a></td>
+  <td><a href="https://www.w3.org/TR/activitypub/#delivery">push</a></td>
+  <td><a href="https://bsky.social/about/blog/5-5-2023-federation-architecture">pull</a></td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#from-client-to-relay-sending-events-and-creating-subscriptions">pull</a></td>
+  <td><a href="https://docs.farcaster.xyz/learn/architecture/hubs">gossip + pull</a></td>
+</tr>
+
+<tr>
+  <th>transport</th>
+  <td>HTTP</td>
+  <td><a href="https://www.w3.org/TR/activitypub/#retrieving-objects">HTTP</a></td>
+  <td>HTTP + <a href="https://atproto.com/specs/event-stream">WebSocket</a> (<a href="https://atproto.com/specs/xrpc">XRPC</a>)</td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#communication-between-clients-and-relays">WebSocket</a></td>
+  <td><a href="https://github.com/farcasterxyz/protocol/blob/main/docs/SPECIFICATION.md#423-rpc-endpoints">gRPC</a> + <a href="https://github.com/farcasterxyz/protocol/blob/main/docs/SPECIFICATION.md#41-gossip-specifications">libp2p</a></td>
+</tr>
+
+<tr>
+  <th>topology</th>
+  <td>peer to peer</td>
+  <td><a href="https://activitypub.rocks/">federated servers, two tier</a></td>
+  <td><a href="https://bsky.social/about/blog/5-5-2023-federation-architecture">federated servers</a>,<br>
+    <a href="https://bsky.social/about/blog/4-13-2023-moderation">decoupled</a> <a href="https://bsky.social/about/blog/3-30-2023-algorithmic-choice">services</a>, multi-tier</td>
+  <td><a href="https://github.com/nostr-protocol/nostr#how-does-nostr-work">interchangeable relays,<br>two tier</a></td>
+  <td><a href="https://docs.farcaster.xyz/learn/architecture/hubs">interchangeable hubs,<br>two tier</a></td>
+</tr>
+
+<tr>
+  <th>security model</th>
+  <td>SSL, one user per domain</td>
+  <td><a href="https://www.w3.org/wiki/SocialCG/ActivityPub/Authentication_Authorization#Signing_requests_using_HTTP_Signatures">transport signatures,<br>
+    custodial keys</a></td>
+  <td><a href="https://atproto.com/specs/repository">data signatures</a>,<br>
+    <a href="https://atproto.com/guides/overview#account-portability">custodial + user-owned keys</a></td>
+  <td><a href="https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures">data signatures,<br>user-owned keys</a></td>
+  <td><a href="https://github.com/farcasterxyz/protocol/blob/main/docs/SPECIFICATION.md#2-message-specifications">data signatures,<br>user-owned keys</a></td>
+</tr>
+
+<tr>
+  <th>app semantics live in...</th>
+  <td>servers, clients</td>
+  <td>servers, clients</td>
+  <td><a href="https://bsky.social/about/blog/5-5-2023-federation-architecture">dedicated service</a>, clients</td>
+  <td>clients</td>
+  <td><a href="https://github.com/farcasterxyz/protocol/blob/main/docs/SPECIFICATION.md#user-content-423-rpc-endpoints">servers (hubs)</a></td>
+</tr>
+
+<tr>
+  <th>blockchain</th>
+  <td>no</td>
+  <td>no</td>
+  <td>no</td>
+  <td><a href="https://atproto.com/guides/faq#is-the-at-protocol-a-blockchain">no</a></td>
+  <td><a href="https://docs.farcaster.xyz/learn/what-is-farcaster/accounts">yes</a></td>
+</tr>
+
+<tr>
+  <th>monetization</th>
+  <td><a href="https://indieweb.org/business-models">hosting</a></td>
+  <td>donations</td>
+  <td><a href="https://bsky.social/about/blog/7-05-2023-business-plan">services</a></td>
+  <td><a href="https://nostr.how/en/zaps">microtransactions</a></td>
+  <td><a href="https://docs.farcaster.xyz/reference/contracts/reference/id-gateway#price">signup</a>, <a href="https://docs.farcaster.xyz/learn/what-is-farcaster/messages#storage">storage</a>, <a href="https://docs.farcaster.xyz/developers/frames/spec#tx">microtransactions</a>
+</td>
+</tr>
+
+<tr>
+  <th>user base estimates<br>
+    (as of Oct 2024)</th>
+  <td>
+    <!-- <a href="https://indiemap.org/">2k</a>, <a href="https://w3techs.com/technologies/overview/content_management">43M</a><br> -->
+    <a href="https://indiemap.org/docs.html#sites">not well defined</a></td>
+  <td><a href="https://fedidb.org/">1M MAU, 11M</a>-<a href="https://fediverse.observer/stats#user_growth_active">13M</a> total</td>
+  <td><a href="https://bskycharts.edavis.dev/edavis.dev/bskycharts.edavis.dev/bsky_users_total.html">4.8M MAU, 1.2M DAU</a>, <a href="https://bsky.jazco.dev/stats">10.8M total</a>
+</td>
+  <td><a href="https://stats.nostr.band/">32k WAU, 15k DAU, 190k total</a></a></td>
+  <td><a href="https://dune.com/pixelhack/farcaster">167k MAU, 50k DAU, 690k total</a></td>
+</tr>
+
+<tr>
+  <th>server estimates<br>
+    (as of Oct 2024)</th>
+  <td><a href="https://indiemap.org/docs.html#sites">not well defined</a></td>
+  <td><a href="https://fediverse.observer/stats#pod_growth">21k</a>-<a href="https://fedidb.org/">30k</a></td>  <!-- https://the-federation.info/ -->
+  <td><a href="https://blue.mackuba.eu/directory/pdses">~300 PDSes</a>, <a href="https://discord.com/channels/1097580399187738645/1099808924691075293" title="whtwnd, frontpage.fyi, smoke signal, atproto.camp">5+ AppViews</a>, <a href="https://bsky.app/profile/did:plc:2cxgdrgtsmrbqnjkwyplmp43/post/3l37herhgxh2r">? relays</a></td>
+  <td><a href="https://legacy.nostr.watch/relays/statistics">800</a>-<a href="https://stats.nostr.band/">2800</a></td>
+  <td><a href="https://www.farcaster.network/">19k</a></td>
 </tr>
 
 </tbody>
