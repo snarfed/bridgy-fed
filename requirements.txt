@@ -42,9 +42,9 @@ google-auth-httplib2==0.2.0
 google-cloud-appengine-logging==1.4.5
 google-cloud-audit-log==0.3.0
 google-cloud-core==2.3.2
-google-cloud-datastore==2.19.0
+google-cloud-datastore==2.20.1
 google-cloud-dns==0.35.0
-google-cloud-error-reporting==1.11.0
+google-cloud-error-reporting==1.11.1
 google-cloud-logging==3.11.2
 google-cloud-ndb==2.3.2
 google-cloud-tasks==2.16.5
@@ -79,7 +79,7 @@ pkce==1.0.3
 praw==7.7.1
 prawcore==2.4.0
 proto-plus==1.24.0
-protobuf==4.25.4
+protobuf==5.28.2
 pyasn1==0.6.1
 pyasn1-modules==0.4.1
 pycparser==2.22
