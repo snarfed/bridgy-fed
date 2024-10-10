@@ -1460,8 +1460,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
                     feed_obj.add('feed', user.key)
 
                 # TODO: should we pass remote=False through here to Protocol.load?
-                target = (user.target_for(user.obj, shared=True)
-                          if user.obj else None)
+                target = user.target_for(user.obj, shared=True) if user.obj else None
                 if not target:
                     # TODO: surface errors like this somehow?
                     logger.error(f'Follower {user.key} has no delivery target')
@@ -1472,10 +1471,8 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
                 # https://atproto.com/specs/did#did-documents
                 target = util.dedupe_urls([target], trailing_slash=False)[0]
 
-                # HACK: use last target object from above for reposts, which
-                # has its resolved id
                 targets[Target(protocol=user.LABEL, uri=target)] = \
-                    orig_obj if obj.type == 'share' else None
+                    Object.get_by_id(inner_obj_id) if obj.type == 'share' else None
 
             if feed_obj:
                 feed_obj.put()

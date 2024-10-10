@@ -1332,6 +1332,53 @@ class ProtocolReceiveTest(TestCase):
             Target(protocol='fake', uri='fake:share:target'),
         }, Fake.targets(obj, from_user=self.user).keys())
 
+    def test_targets_repost_of_quote_with_article_tag_uses_quote_post_as_orig_obj(self):
+        """https://github.com/snarfed/bridgy-fed/issues/1357"""
+        self.make_followers()
+
+        eve = self.make_user('eve.com', cls=Web)
+        web_link = self.store_object(id='http://eve.com/link', source_protocol='web',
+                                     our_as1={'foo': 'bar'})
+
+        quote_as1 = {
+            'objectType': 'note',
+            'id': 'fake:quote',
+            'author': 'fake:user',
+            'content': 'foo bar baz',
+            'tags': [{
+                'objectType': 'article',
+                'url': 'http://eve.com/link',
+                'displayName': 'bar',
+                'startIndex': 4,
+                'length': 3
+            }],
+            'attachments': [{
+                'objectType': 'note',
+                'id': 'fake:orig',
+                'url': 'url:fake:orig',
+            }]
+        }
+        quote_obj = self.store_object(id='fake:quote', source_protocol='fake',
+                                      our_as1=quote_as1,
+                                      copies=[Target(protocol='other', uri='other:quote')])
+
+        repost_as1 = {
+            'objectType': 'activity',
+            'verb': 'share',
+            'id': 'fake:repost',
+            'actor': 'fake:user',
+            'object': quote_as1,
+        }
+        targets = Fake.targets(Object(id='fake:repost', our_as1=repost_as1),
+                               from_user=self.user)
+        self.assertEqual({
+            'fake:quote:target': quote_obj.key.id(),
+            'other:quote:target': quote_obj.key.id(),
+            'other:alice:target': quote_obj.key.id(),
+            'other:bob:target': quote_obj.key.id(),
+            'http://eve.com/link': None,
+        }, {target.uri: obj.key.id() if obj else None for target, obj in targets.items()})
+
     @patch.object(ATProto, 'send', return_value=True)
     def test_atproto_targets_normalize_pds_url(self, mock_send):
         # we were over-normalizing our PDS URL https://atproto.brid.gy , adding
@@ -3264,6 +3311,7 @@ class ProtocolReceiveTest(TestCase):
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_from_protocol_unsupported_types(self, mock_create_task):
+        common.RUN_TASKS_INLINE = False
         self.make_followers()
 
         event = {
@@ -3295,7 +3343,6 @@ class ProtocolReceiveTest(TestCase):
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_post_create_send_tasks(self, mock_create_task):
         common.RUN_TASKS_INLINE = False
-
         self.make_followers()
 
         note_as1 = {
