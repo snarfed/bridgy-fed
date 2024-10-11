@@ -1067,7 +1067,7 @@ class Protocol:
             to_cls = Protocol.for_id(to_id)
             if not to_cls:
                 error(f"Couldn't determine protocol for {to_id}")
-            elif from_cls == to_cls and from_cls.LABEL != 'fake':
+            elif from_cls == to_cls:
                 logger.info(f'Skipping same-protocol Follower {from_id} => {to_id}')
                 continue
 
@@ -1322,15 +1322,18 @@ class Protocol:
         for label in (list(from_user.DEFAULT_ENABLED_PROTOCOLS)
                       + from_user.enabled_protocols):
             proto = PROTOCOLS[label]
-            if proto.HAS_COPIES and (obj.type in ('update', 'delete', 'share')
+            if proto.HAS_COPIES and (obj.type in ('update', 'delete', 'share', 'undo')
                                      or is_reply):
                 for id in original_ids:
-                    if orig := from_user.load(id, remote=False):
+                    if Protocol.for_id(id) == proto:
+                        logger.info(f'Allowing {label} for original post {id}')
+                        break
+                    elif orig := from_user.load(id, remote=False):
                         if orig.get_copy(proto):
-                            logger.info(f'Allowing {proto.LABEL}, original post {id} was bridged there')
+                            logger.info(f'Allowing {label}, original post {id} was bridged there')
                             break
                 else:
-                    logger.info(f"Skipping {proto.LABEL}, original posts {original_ids} weren't bridged there")
+                    logger.info(f"Skipping {label}, original posts {original_ids} weren't bridged there")
                     continue
 
             add(to_protocols, proto)
@@ -1378,7 +1381,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
                         logger.info(f'Adding target {target} for copy {copy.uri} of original {id}')
                         targets[Target(protocol=copy.protocol, uri=target)] = orig_obj
 
-            if target_proto == from_cls and from_cls.LABEL != 'fake':
+            if target_proto == from_cls:
                 logger.info(f'Skipping same-protocol target {id}')
                 continue
 
