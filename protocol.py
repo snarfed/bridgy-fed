@@ -1741,12 +1741,8 @@ def send_task():
     logger.debug(f'  AS1: {json_dumps(obj.as1, indent=2)}')
     sent = None
     try:
-        if orig_obj := form.get('orig_obj'):
-            orig_obj_id = ndb.Key(urlsafe=form['orig_obj']).id()
-        else:
-            orig_obj_id = form.get('orig_obj_id')
         sent = PROTOCOLS[protocol].send(obj, url, from_user=user,
-                                        orig_obj_id=orig_obj_id)
+                                        orig_obj_id=form.get('orig_obj_id'))
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if not code and not body:
