@@ -899,7 +899,7 @@ class ProtocolReceiveTest(TestCase):
     def make_followers(self):
         Follower.get_or_create(to=self.user, from_=self.alice)
         Follower.get_or_create(to=self.user, from_=self.bob)
-        Follower.get_or_create(to=self.user, from_=Fake(id='other:eve'),
+        Follower.get_or_create(to=self.user, from_=OtherFake(id='other:eve'),
                                status='inactive')
 
     def test_create_post(self):

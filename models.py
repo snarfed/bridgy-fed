@@ -1375,9 +1375,6 @@ class Follower(ndb.Model):
     # last_follow = JsonProperty()
 
     def _pre_put_hook(self):
-        if self.from_.kind() == 'Fake' and self.to.kind() == 'Fake':
-            return
-
         # we're a bridge! stick with bridging.
         assert self.from_.kind() != self.to.kind(), f'from {self.from_} to {self.to}'
 

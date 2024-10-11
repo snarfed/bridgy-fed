@@ -1202,7 +1202,7 @@ class FollowerTest(TestCase):
     def setUp(self):
         super().setUp()
         self.user = self.make_user('fake:foo', cls=Fake)
-        self.other_user = self.make_user('fake:bar', cls=Fake)
+        self.other_user = self.make_user('other:bar', cls=OtherFake)
 
     def test_from_to_same_type_fails(self):
         with self.assertRaises(AssertionError):
@@ -1223,7 +1223,8 @@ class FollowerTest(TestCase):
         self.assertEqual(1, Follower.query().count())
 
         Follower.get_or_create(to=self.user, from_=self.other_user)
-        Follower.get_or_create(from_=self.user, to=self.make_user('fake:baz', cls=Fake))
+        Follower.get_or_create(from_=self.user,
+                               to=self.make_user('efake:baz', cls=ExplicitFake))
         self.assertEqual(3, Follower.query().count())
 
         # check that kwargs get set on existing entity
