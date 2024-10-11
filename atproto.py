@@ -480,7 +480,7 @@ class ATProto(User, Protocol):
         logger.info('done!')
 
     @classmethod
-    def send(to_cls, obj, url, from_user=None, orig_obj=None):
+    def send(to_cls, obj, url, from_user=None, orig_obj_id=None):
         """Creates a record if we own its repo.
 
         If the repo's DID doc doesn't say we're its PDS, does nothing and

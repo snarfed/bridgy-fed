@@ -2139,7 +2139,7 @@ class ProtocolReceiveTest(TestCase):
         }
 
         sent = []
-        def send(obj, url, from_user=None, orig_obj=None):
+        def send(obj, url, from_user=None, orig_obj_id=None):
             self.assertEqual(create_as1, obj.as1)
             if not sent:
                 self.assertEqual('other:alice:target', url)
@@ -3379,10 +3379,10 @@ class ProtocolReceiveTest(TestCase):
 
         self.assertEqual(2, mock_create_task.call_count)
         self.assert_task(mock_create_task, 'send', protocol='other',
-                         obj_id='fake:post#bridgy-fed-create', orig_obj='',
+                         obj_id='fake:post#bridgy-fed-create', orig_obj_id='',
                          url='other:alice:target', user=self.user.key.urlsafe())
         self.assert_task(mock_create_task, 'send', protocol='other',
-                         obj_id='fake:post#bridgy-fed-create', orig_obj='',
+                         obj_id='fake:post#bridgy-fed-create', orig_obj_id='',
                          url='other:bob:target', user=self.user.key.urlsafe())
 
         self.assertEqual([], OtherFake.sent)
@@ -3411,10 +3411,9 @@ class ProtocolReceiveTest(TestCase):
                            type='note',
                            )
 
-        orig_obj_key = Object(id='other:post').key.urlsafe()
         self.assert_task(mock_create_task, 'send', protocol='other',
                          obj_id='fake:reply#bridgy-fed-create',
-                         orig_obj=orig_obj_key, url='other:post:target',
+                         orig_obj_id='other:post', url='other:post:target',
                          user=self.user.key.urlsafe())
 
         self.assertEqual([], OtherFake.sent)
@@ -3438,7 +3437,7 @@ class ProtocolReceiveTest(TestCase):
         resp = self.post('/queue/send', data={
             'protocol': 'fake',
             'obj_id': 'fake:create',
-            'orig_obj': note.key.urlsafe(),
+            'orig_obj_id': 'fake:note',
             'url': 'fake:shared:target',
             'user': self.user.key.urlsafe(),
         }, headers={'X-AppEngine-TaskRetryCount': '0'})

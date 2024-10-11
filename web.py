@@ -415,7 +415,7 @@ class Web(User, Protocol):
         return obj.key.id()
 
     @classmethod
-    def send(to_cls, obj, url, from_user=None, orig_obj=None, **kwargs):
+    def send(to_cls, obj, url, from_user=None, orig_obj_id=None, **kwargs):
         """Sends a webmention to a given target URL.
 
         See :meth:`Protocol.send` for details.

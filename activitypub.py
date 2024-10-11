@@ -261,7 +261,7 @@ class ActivityPub(User, Protocol):
         return actor.get('publicInbox') or actor.get('inbox')
 
     @classmethod
-    def send(to_cls, obj, url, from_user=None, orig_obj=None):
+    def send(to_cls, obj, url, from_user=None, orig_obj_id=None):
         """Delivers an activity to an inbox URL.
 
         If ``obj.recipient_obj`` is set, it's interpreted as the receiving actor
@@ -274,7 +274,10 @@ class ActivityPub(User, Protocol):
             logger.info(f'Skipping sending to blocklisted {url}')
             return False
 
-        orig_obj = to_cls.convert(orig_obj, from_user=from_user)
+        orig_obj = None
+        if orig_obj_id:
+            orig_obj = to_cls.convert(Object.get_by_id(orig_obj_id),
+                                      from_user=from_user)
         activity = to_cls.convert(obj, from_user=from_user, orig_obj=orig_obj)
 
         return signed_post(url, data=activity, from_user=from_user).ok

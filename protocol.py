@@ -474,7 +474,7 @@ class Protocol:
         raise NotImplementedError()
 
     @classmethod
-    def send(to_cls, obj, url, from_user=None, orig_obj=None):
+    def send(to_cls, obj, url, from_user=None, orig_obj_id=None):
         """Sends an outgoing activity.
 
         To be implemented by subclasses.
@@ -487,8 +487,8 @@ class Protocol:
           obj (models.Object): with activity to send
           url (str): destination URL to send to
           from_user (models.User): user (actor) this activity is from
-          orig_obj (models.Object): the "original object" that this object
-            refers to, eg replies to or reposts or likes
+          orig_obj_id (str): :class:`models.Object` key id of the "original object"
+            that this object refers to, eg replies to or reposts or likes
 
         Returns:
           bool: True if the activity is sent successfully, False if it is
@@ -1272,10 +1272,10 @@ class Protocol:
         for i, (target, orig_obj) in enumerate(sorted_targets):
             if to_proto and target.protocol != to_proto.LABEL:
                 continue
-            orig_obj = orig_obj.key.urlsafe() if orig_obj else ''
+            orig_obj_id = orig_obj.key.id() if orig_obj else ''
             common.create_task(queue='send', obj_id=obj.key.id(),
                                url=target.uri, protocol=target.protocol,
-                               orig_obj=orig_obj, user=user)
+                               orig_obj_id=orig_obj_id, user=user)
 
         return 'OK', 202
 
@@ -1696,9 +1696,9 @@ def send_task():
       protocol (str): :class:`Protocol` to send to
       url (str): destination URL to send to
       obj_id (str): key id of :class:`models.Object` to send
-      orig_obj (url-safe google.cloud.ndb.key.Key): optional "original object"
-        :class:`models.Object` that this object refers to, eg replies to or
-        reposts or likes
+      orig_obj_id (str): optional, :class:`models.Object` key id of the
+        "original object" that this object refers to, eg replies to or reposts
+        or likes
       user (url-safe google.cloud.ndb.key.Key): :class:`models.User` (actor)
         this activity is from
     """
@@ -1732,9 +1732,6 @@ def send_task():
         user = PROTOCOLS_BY_KIND[key.kind()].get_by_id(
             key.id(), allow_opt_out=allow_opt_out)
 
-    orig_obj = (ndb.Key(urlsafe=form['orig_obj']).get()
-                if form.get('orig_obj') else None)
-
     # send
     delay = ''
     if request.headers.get('X-AppEngine-TaskRetryCount') == '0' and obj.created:
@@ -1744,7 +1741,12 @@ def send_task():
     logger.debug(f'  AS1: {json_dumps(obj.as1, indent=2)}')
     sent = None
     try:
-        sent = PROTOCOLS[protocol].send(obj, url, from_user=user, orig_obj=orig_obj)
+        if orig_obj := form.get('orig_obj'):
+            orig_obj_id = ndb.Key(urlsafe=form['orig_obj']).id()
+        else:
+            orig_obj_id = form.get('orig_obj_id')
+        sent = PROTOCOLS[protocol].send(obj, url, from_user=user,
+                                        orig_obj_id=orig_obj_id)
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if not code and not body:
