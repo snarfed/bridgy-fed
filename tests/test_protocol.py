@@ -3165,6 +3165,32 @@ class ProtocolReceiveTest(TestCase):
         obj = Object.get_by_id('fake:post#bridgy-fed-create')
         self.assertEqual('ignored', obj.status)
 
+    def test_receive_task_handler_obj_id(self):
+        note = {
+            'id': 'fake:post',
+            'objectType': 'note',
+            'author': 'fake:other',
+        }
+        self.store_object(id='fake:post', our_as1=note, source_protocol='fake')
+
+        create = {
+            'id': 'fake:post#bridgy-fed-create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': note,
+            'actor': 'fake:other',
+        }
+        self.store_object(id='fake:post#bridgy-fed-create',
+                          source_protocol='fake', our_as1=create)
+
+        resp = self.post('/queue/receive', data={
+            'obj_id': 'fake:post#bridgy-fed-create',
+            'authed_as': 'fake:other',
+        }, headers={'X-AppEngine-TaskRetryCount': '0'})
+        self.assertEqual(204, resp.status_code)
+        obj = Object.get_by_id('fake:post#bridgy-fed-create')
+        self.assertEqual('ignored', obj.status)
+
     def test_receive_task_handler_id(self):
         note = {
             'id': 'fake:post',
@@ -3378,14 +3404,13 @@ class ProtocolReceiveTest(TestCase):
         }
         self.assertEqual(('OK', 202), Fake.receive_as1(note_as1))
 
-        create_key = Object.get_by_id('fake:post#bridgy-fed-create').key.urlsafe()
         self.assertEqual(2, mock_create_task.call_count)
         self.assert_task(mock_create_task, 'send', protocol='other',
-                         obj=create_key, orig_obj='', url='other:alice:target',
-                         user=self.user.key.urlsafe())
+                         obj_id='fake:post#bridgy-fed-create', orig_obj='',
+                         url='other:alice:target', user=self.user.key.urlsafe())
         self.assert_task(mock_create_task, 'send', protocol='other',
-                         obj=create_key, orig_obj='', url='other:bob:target',
-                         user=self.user.key.urlsafe())
+                         obj_id='fake:post#bridgy-fed-create', orig_obj='',
+                         url='other:bob:target', user=self.user.key.urlsafe())
 
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
@@ -3413,11 +3438,11 @@ class ProtocolReceiveTest(TestCase):
                            type='note',
                            )
 
-        create_key = Object(id='fake:reply#bridgy-fed-create').key.urlsafe()
         orig_obj_key = Object(id='other:post').key.urlsafe()
         self.assert_task(mock_create_task, 'send', protocol='other',
-                         obj=create_key, orig_obj=orig_obj_key,
-                         url='other:post:target', user=self.user.key.urlsafe())
+                         obj_id='fake:reply#bridgy-fed-create',
+                         orig_obj=orig_obj_key, url='other:post:target',
+                         user=self.user.key.urlsafe())
 
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
@@ -3440,6 +3465,31 @@ class ProtocolReceiveTest(TestCase):
         resp = self.post('/queue/send', data={
             'protocol': 'fake',
             'obj': create.key.urlsafe(),
+            'orig_obj': note.key.urlsafe(),
+            'url': 'fake:shared:target',
+            'user': self.user.key.urlsafe(),
+        }, headers={'X-AppEngine-TaskRetryCount': '0'})
+        self.assertEqual(200, resp.status_code)
+
+
+    def test_send_task_handler_obj_id(self):
+        self.make_followers()
+
+        note = self.store_object(id='fake:note', our_as1={
+            'id': 'fake:post',
+            'objectType': 'note',
+        })
+        target = Target(uri='fake:shared:target', protocol='fake')
+        create = self.store_object(id='fake:create', undelivered=[target], our_as1={
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'object': note.as1,
+        })
+        resp = self.post('/queue/send', data={
+            'protocol': 'fake',
+            'obj_id': 'fake:create',
             'orig_obj': note.key.urlsafe(),
             'url': 'fake:shared:target',
             'user': self.user.key.urlsafe(),

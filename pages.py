@@ -178,7 +178,7 @@ def update_profile(protocol, id):
         return redirect(user.user_page_path(), code=302)
 
     if user.obj:
-        common.create_task(queue='receive', obj=user.obj.key.urlsafe(),
+        common.create_task(queue='receive', obj_id=user.obj_key.id(),
                            authed_as=user.key.id())
         flash(f'Updating profile from {link}...')
 

@@ -1121,12 +1121,11 @@ class Protocol:
             'actor': followee.key.id(),
             'object': follow.as1,
         }
-        obj = Object.get_or_create(id, authed_as=followee.key.id(),
-                                      undelivered=undelivered, our_as1=accept)
+        Object.get_or_create(id, authed_as=followee.key.id(),
+                             undelivered=undelivered, our_as1=accept)
 
-        common.create_task(queue='send', obj=obj.key.urlsafe(),
-                           url=target, protocol=follower.LABEL,
-                           user=followee.key.urlsafe())
+        common.create_task(queue='send', obj_id=id, url=target,
+                           protocol=follower.LABEL, user=followee.key.urlsafe())
 
     @classmethod
     def bot_follow(bot_cls, user):
@@ -1149,19 +1148,18 @@ class Protocol:
 
         target = user.target_for(user.obj)
         follow_back_id = f'https://{bot.key.id()}/#follow-back-{user.key.id()}-{now}'
-        follow_back = Object(id=follow_back_id, source_protocol='web',
-                             undelivered=[Target(protocol=user.LABEL, uri=target)],
-                             our_as1={
-            'objectType': 'activity',
-            'verb': 'follow',
-            'id': follow_back_id,
-            'actor': bot.key.id(),
-            'object': user.key.id(),
-        }).put()
+        Object(id=follow_back_id, source_protocol='web',
+               undelivered=[Target(protocol=user.LABEL, uri=target)],
+               our_as1={
+                   'objectType': 'activity',
+                   'verb': 'follow',
+                   'id': follow_back_id,
+                   'actor': bot.key.id(),
+                   'object': user.key.id(),
+               }).put()
 
-        common.create_task(queue='send', obj=follow_back.urlsafe(),
-                           url=target, protocol=user.LABEL,
-                           user=bot.key.urlsafe())
+        common.create_task(queue='send', obj_id=follow_back_id, url=target,
+                           protocol=user.LABEL, user=bot.key.urlsafe())
 
     @classmethod
     def handle_bare_object(cls, obj, authed_as=None):
@@ -1275,7 +1273,7 @@ class Protocol:
             if to_proto and target.protocol != to_proto.LABEL:
                 continue
             orig_obj = orig_obj.key.urlsafe() if orig_obj else ''
-            common.create_task(queue='send', obj=obj.key.urlsafe(),
+            common.create_task(queue='send', obj_id=obj.key.id(),
                                url=target.uri, protocol=target.protocol,
                                orig_obj=orig_obj, user=user)
 
@@ -1665,7 +1663,9 @@ def receive_task():
     internal = (authed_as == common.PRIMARY_DOMAIN
                 or authed_as in common.PROTOCOL_DOMAINS)
 
-    if obj_key := form.get('obj'):
+    if obj_id := form.get('obj_id'):
+        obj = Object.get_by_id(obj_id)
+    elif obj_key := form.get('obj'):
         obj = ndb.Key(urlsafe=obj_key).get()
     else:
         for json_prop in 'as2', 'bsky', 'mf2', 'our_as1', 'raw':
@@ -1698,6 +1698,8 @@ def send_task():
       protocol (str): :class:`Protocol` to send to
       url (str): destination URL to send to
       obj (url-safe google.cloud.ndb.key.Key): :class:`models.Object` to send
+        OR
+      obj_id (str): key id of :class:`models.Object` to send
       orig_obj (url-safe google.cloud.ndb.key.Key): optional "original object"
         :class:`models.Object` that this object refers to, eg replies to or
         reposts or likes
@@ -1716,7 +1718,12 @@ def send_task():
 
     target = Target(uri=url, protocol=protocol)
 
-    obj = ndb.Key(urlsafe=form['obj']).get()
+    if obj_id := form.get('obj_id'):
+        obj = Object.get_by_id(obj_id)
+    else:
+        obj = ndb.Key(urlsafe=form['obj']).get()
+    assert obj
+
     PROTOCOLS[protocol].check_supported(obj)
     allow_opt_out = (obj.type == 'delete')
 
@@ -1729,7 +1736,8 @@ def send_task():
     if user_key := form.get('user'):
         key = ndb.Key(urlsafe=user_key)
         # use get_by_id so that we follow use_instead
-        user = PROTOCOLS_BY_KIND[key.kind()].get_by_id(key.id(), allow_opt_out=allow_opt_out)
+        user = PROTOCOLS_BY_KIND[key.kind()].get_by_id(
+            key.id(), allow_opt_out=allow_opt_out)
 
     orig_obj = (ndb.Key(urlsafe=form['orig_obj']).get()
                 if form.get('orig_obj') else None)

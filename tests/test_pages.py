@@ -240,8 +240,7 @@ class PagesTest(TestCase):
         self.assert_equals('/fa/fake:handle:user', got.headers['Location'])
 
         self.assert_equals(['fake:profile:user'], Fake.fetched)
-        self.assert_task(mock_create_task, 'receive',
-                         obj=Object(id='fake:profile:user').key.urlsafe(),
+        self.assert_task(mock_create_task, 'receive', obj_id='fake:profile:user',
                          authed_as='fake:user')
 
     @patch('requests.get', return_value=ACTOR_HTML_RESP)
