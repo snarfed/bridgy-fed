@@ -619,7 +619,7 @@ class ATProto(User, Protocol):
                     action = Action.CREATE
                     rkey = next_tid()
 
-            logger.info(f'Storing ATProto {action} {type} {rkey} {dag_json.encode(record)}')
+            logger.info(f'Storing ATProto {action} {type} {rkey} {dag_json.encode(record, dialect="atproto")}')
             try:
                 repo.apply_writes([Write(action=action, collection=type, rkey=rkey,
                                          record=record)])

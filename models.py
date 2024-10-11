@@ -1312,7 +1312,7 @@ class Object(StringIdModel):
 
             translated = translate_fn(id=orig, from_=proto, to=proto)
             if translated and translated != orig:
-                logger.info(f'Normalized {proto.LABEL} id {orig} to {translated}')
+                # logger.debug(f'Normalized {proto.LABEL} id {orig} to {translated}')
                 replaced = True
                 if isinstance(val, dict):
                     val['id'] = translated
