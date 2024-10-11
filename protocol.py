@@ -1646,8 +1646,8 @@ def receive_task():
 
     Parameters:
       authed_as (str): passed to :meth:`Protocol.receive`
-      obj (url-safe google.cloud.ndb.key.Key): :class:`models.Object` to handle
-      *: If ``obj`` is unset, all other parameters are properties for a new
+      obj_id (str): key id of :class:`models.Object` to handle
+      *: If ``obj_id`` is unset, all other parameters are properties for a new
         :class:`models.Object` to handle
 
     TODO: migrate incoming webmentions to this. See how we did it for AP. The
@@ -1665,8 +1665,6 @@ def receive_task():
 
     if obj_id := form.get('obj_id'):
         obj = Object.get_by_id(obj_id)
-    elif obj_key := form.get('obj'):
-        obj = ndb.Key(urlsafe=obj_key).get()
     else:
         for json_prop in 'as2', 'bsky', 'mf2', 'our_as1', 'raw':
             if val := form.get(json_prop):
@@ -1697,8 +1695,6 @@ def send_task():
     Parameters:
       protocol (str): :class:`Protocol` to send to
       url (str): destination URL to send to
-      obj (url-safe google.cloud.ndb.key.Key): :class:`models.Object` to send
-        OR
       obj_id (str): key id of :class:`models.Object` to send
       orig_obj (url-safe google.cloud.ndb.key.Key): optional "original object"
         :class:`models.Object` that this object refers to, eg replies to or
@@ -1718,10 +1714,7 @@ def send_task():
 
     target = Target(uri=url, protocol=protocol)
 
-    if obj_id := form.get('obj_id'):
-        obj = Object.get_by_id(obj_id)
-    else:
-        obj = ndb.Key(urlsafe=form['obj']).get()
+    obj = Object.get_by_id(form['obj_id'])
     assert obj
 
     PROTOCOLS[protocol].check_supported(obj)
