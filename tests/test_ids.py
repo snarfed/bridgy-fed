@@ -22,8 +22,9 @@ class IdsTest(TestCase):
             copies=[Target(uri='did:plc:123', protocol='atproto')]).put()
         ActivityPub(id='https://inst/user',
                     copies=[Target(uri='did:plc:456', protocol='atproto')]).put()
-        Fake(id='fake:user',
-             copies=[Target(uri='did:plc:789', protocol='atproto')]).put()
+        fake_user = Fake(id='fake:user',
+             copies=[Target(uri='did:plc:789', protocol='atproto')])
+        fake_user.put()
 
         # ATProto with DID docs, used to resolve handle in bsky.app URL
         did = self.store_object(id='did:plc:123', raw={
@@ -63,10 +64,10 @@ class IdsTest(TestCase):
             # user, not enabled, no copy
             (ATProto, 'did:plc:000', ActivityPub, 'https://bsky.app/profile/zero.com'),
 
-            (Fake, 'fake:user', ActivityPub, 'https://fa.brid.gy/ap/fake:user'),
+            (Fake, 'fake:user', ActivityPub, 'web:fake:user'),
             (Fake, 'fake:user', ATProto, 'did:plc:789'),
             (Fake, 'fake:user', Fake, 'fake:user'),
-            (Fake, 'fake:user', Web, 'https://fa.brid.gy/web/fake:user'),
+            (Fake, 'fake:user', Web, 'web:fake:user'),
 
             (Web, 'user.com', ActivityPub, 'http://localhost/user.com'),
             (Web, 'https://user.com/', ActivityPub, 'http://localhost/user.com'),
@@ -85,6 +86,15 @@ class IdsTest(TestCase):
             with self.subTest(id=id, from_=from_.LABEL, to=to.LABEL):
                 self.assertEqual(expected, translate_user_id(
                     id=id, from_=from_, to=to))
+
+        fake_user.enabled_protocols = ['activitypub', 'web']
+        fake_user.put()
+        self.assertEqual(
+            'https://fa.brid.gy/ap/fake:user',
+            translate_user_id(id='fake:user', from_=Fake, to=ActivityPub))
+        self.assertEqual(
+            'https://fa.brid.gy/web/fake:user',
+            translate_user_id(id='fake:user', from_=Fake, to=Web))
 
     def test_translate_user_id_no_copy_did_stored(self):
         for proto, id in [

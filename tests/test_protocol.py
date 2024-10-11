@@ -1379,6 +1379,9 @@ class ProtocolReceiveTest(TestCase):
         """https://github.com/snarfed/bridgy-fed/issues/1357"""
         self.make_followers()
 
+        self.user.enabled_protocols=['web']
+        self.user.put()
+
         eve = self.make_user('eve.com', cls=Web)
         web_link = self.store_object(id='http://eve.com/link', source_protocol='web',
                                      our_as1={'foo': 'bar'})
@@ -1401,9 +1404,11 @@ class ProtocolReceiveTest(TestCase):
                 'url': 'url:fake:orig',
             }]
         }
-        quote_obj = self.store_object(id='fake:quote', source_protocol='fake',
-                                      our_as1=quote_as1,
-                                      copies=[Target(protocol='other', uri='other:quote')])
+        quote_obj = self.store_object(
+            id='fake:quote',
+            source_protocol='fake',
+            our_as1=quote_as1,
+            copies=[Target(protocol='other', uri='other:quote')])
 
         repost_as1 = {
             'objectType': 'activity',

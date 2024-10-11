@@ -509,12 +509,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         from_label = self.LABEL
         to_label = to_proto.LABEL
 
-        # unit tests
-        if DEBUG and ((from_label in ('fake', 'other') and to_label != 'efake')
-                      or (to_label in ('fake', 'other') and from_label != 'efake')):
-            return True
-
-        elif bot_protocol := Protocol.for_bridgy_subdomain(self.key.id()):
+        if bot_protocol := Protocol.for_bridgy_subdomain(self.key.id()):
             return to_proto != bot_protocol
 
         elif self.manual_opt_out:

@@ -195,6 +195,7 @@ class WebfingerTest(TestCase):
         self.assertEqual(f'https://fed.brid.gy{path}', got.headers['Location'])
 
     def test_user_infer_protocol_from_resource_subdomain(self):
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
         got = self.client.get(
             '/.well-known/webfinger?resource=acct:fake:handle:user@fake.brid.gy',
             base_url='https://fed.brid.gy/',
@@ -218,7 +219,7 @@ class WebfingerTest(TestCase):
             self.assertEqual(404, got.status_code)
 
     def test_user_infer_protocol_from_request_subdomain(self):
-        self.make_user('fake:user', cls=Fake)
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
         got = self.client.get(
             '/.well-known/webfinger?resource=acct:user@fake:user',
             base_url='https://fake.brid.gy/',
@@ -228,6 +229,7 @@ class WebfingerTest(TestCase):
         self.assert_equals(WEBFINGER_FAKE_FA_BRID_GY, got.json)
 
     def test_user_infer_protocol_resource_overrides_request(self):
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
         got = self.client.get(
             '/.well-known/webfinger?resource=acct:fake:handle:user@fake.brid.gy',
             base_url='https://ap.brid.gy/',
@@ -236,8 +238,11 @@ class WebfingerTest(TestCase):
         self.assertEqual('application/jrd+json', got.headers['Content-Type'])
         self.assert_equals(WEBFINGER_FAKE_FA_BRID_GY, got.json)
 
+    @patch.object(Fake, 'DEFAULT_ENABLED_PROTOCOLS', ['activitypub'])
     def test_handle_new_user(self):
         self.assertIsNone(Fake.get_by_id('fake:user'))
+
+        Fake.fetchable['fake:user'] = {'id': 'fake:user'}
 
         got = self.client.get(
             '/.well-known/webfinger?resource=acct:fake:handle:user@fake.brid.gy',

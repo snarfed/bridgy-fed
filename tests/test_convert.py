@@ -196,7 +196,7 @@ class ConvertTest(testutil.TestCase):
         self.assertEqual(404, resp.status_code)
 
     def test_fake_to_activitypub(self):
-        self.make_user('fake:alice', cls=Fake)
+        self.make_user('fake:alice', cls=Fake, enabled_protocols=['activitypub'])
         self.store_object(id='fake:post', our_as1={
             'actor': 'fake:alice',
             'foo': 'bar',

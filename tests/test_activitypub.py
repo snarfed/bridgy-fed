@@ -355,14 +355,14 @@ class ActivityPubTest(TestCase):
                                 base_url=base_url, **kwargs)
 
     def test_actor_fake(self, *_):
-        self.make_user('fake:user', cls=Fake)
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
         got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, got.headers['Content-Type'])
         self.assertEqual(ACTOR_FAKE, got.json)
 
     def test_actor_fake_protocol_subdomain(self, *_):
-        self.make_user('fake:user', cls=Fake)
+        self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
         got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
         self.assertEqual(200, got.status_code)
         self.assertEqual(ACTOR_FAKE, got.json)
@@ -425,7 +425,8 @@ class ActivityPubTest(TestCase):
         self.make_user('fake:user', cls=Fake, obj_as1=as2.to_as1({
             **ACTOR_FAKE,
             'id': 'fake:profile:user',
-        }))
+        }), enabled_protocols=['activitypub'])
+
         got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
         self.assertEqual(200, got.status_code)
         self.assert_equals({
@@ -435,6 +436,7 @@ class ActivityPubTest(TestCase):
             'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="web:fake:user">fake:handle:user</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
         }, got.json, ignore=['attachment'])
 
+    @patch.object(Fake, 'DEFAULT_ENABLED_PROTOCOLS', new=['activitypub'])
     def test_actor_handle_new_user(self, _, __, ___):
         Fake.fetchable['fake:profile:user'] = as2.to_as1({
             **ACTOR_FAKE,
@@ -1849,7 +1851,7 @@ class ActivityPubTest(TestCase):
             status='inactive')
 
     def test_followers_collection_fake(self, *_):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['activitypub'])
 
         resp = self.client.get('/ap/fake:foo/followers',
                                base_url='https://fa.brid.gy')
@@ -2057,7 +2059,7 @@ class ActivityPubTest(TestCase):
         self.assertEqual(404, resp.status_code)
 
     def test_outbox_fake_empty(self, *_):
-        self.make_user('fake:foo', cls=Fake)
+        self.make_user('fake:foo', cls=Fake, enabled_protocols=['activitypub'])
         resp = self.client.get(f'/ap/fake:foo/outbox',
                                base_url='https://fa.brid.gy')
         self.assertEqual(200, resp.status_code)
