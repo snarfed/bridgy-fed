@@ -367,7 +367,6 @@ class ATProto(User, Protocol):
         return util.domain_or_parent_in(util.domain_from_link(url), DOMAIN_BLOCKLIST)
 
     @classmethod
-    @ndb.transactional()
     def create_for(cls, user):
         """Creates an ATProto repo and profile for a non-ATProto user.
 

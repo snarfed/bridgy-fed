@@ -537,6 +537,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """
         added = False
 
+        if to_proto.LABEL in ids.COPIES_PROTOCOLS and not self.get_copy(to_proto):
+            to_proto.create_for(self)
+
         @ndb.transactional()
         def enable():
             user = self.key.get()
@@ -546,9 +549,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                 user.put()
                 nonlocal added
                 added = True
-
-            if to_proto.LABEL in ids.COPIES_PROTOCOLS and not user.get_copy(to_proto):
-                to_proto.create_for(user)
 
             return user
 
