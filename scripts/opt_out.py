@@ -196,7 +196,7 @@ def delete_ap_targets(*, from_proto=None, user=None, user_id=None):
         params = {
             'protocol': target.protocol,
             'url': target.uri,
-            'obj': obj.key.urlsafe(),
+            'obj_id': delete_id,
             'user': user.key.urlsafe(),
             'force': 'true',
         }
