@@ -504,6 +504,12 @@ class ActivityPubTest(TestCase):
         got = self.client.get('/user.com')
         self.assertEqual(404, got.status_code)
 
+    def test_actor_bad_id(self, *_):
+        # Web.get_or_create => urllib.parse.urlparse raises
+        # ValueError: Invalid IPv6 URL
+        got = self.client.get('/bsky]foo.bar')
+        self.assertEqual(404, got.status_code)
+
     def test_actor_protocol_bot_user(self, *_):
         """Web users are special cased to drop the /web/ prefix."""
         actor_as2 = json_loads(util.read('bsky.brid.gy.as2.json'))

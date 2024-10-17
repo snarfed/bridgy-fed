@@ -974,7 +974,12 @@ def _load_user(handle_or_id, create=False):
         id = handle_or_id
 
     assert id
-    user = proto.get_or_create(id) if create else proto.get_by_id(id)
+    try:
+        user = proto.get_or_create(id) if create else proto.get_by_id(id)
+    except ValueError as e:
+        logging.warning(e)
+        user = None
+
     if not user or not user.is_enabled(ActivityPub):
         error(f'{proto.LABEL} user {id} not found', status=404)
 
