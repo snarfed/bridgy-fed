@@ -537,7 +537,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """
         added = False
 
-        if to_proto.LABEL in ids.COPIES_PROTOCOLS and not self.get_copy(to_proto):
+        if to_proto.LABEL in ids.COPIES_PROTOCOLS:
+            # do this even if there's an existing copy since we might need to
+            # reactivate it, which create_for should do
             to_proto.create_for(self)
 
         @ndb.transactional()

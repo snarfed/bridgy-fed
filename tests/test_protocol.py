@@ -2923,7 +2923,7 @@ class ProtocolReceiveTest(TestCase):
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
         self.assertTrue(user.is_enabled(Fake))
-        self.assertEqual([], Fake.created_for)
+        self.assertEqual(['efake:user'], Fake.created_for)
 
         # block should remove from enabled_protocols
         Follower.get_or_create(to=user, from_=self.user)
@@ -2931,7 +2931,6 @@ class ProtocolReceiveTest(TestCase):
         self.assertEqual(('OK', 200), ExplicitFake.receive_as1(block))
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)
-        self.assertEqual([], Fake.created_for)
         self.assertFalse(user.is_enabled(Fake))
 
         # ...and delete copy actor
@@ -3041,6 +3040,44 @@ class ProtocolReceiveTest(TestCase):
         self.assertIsNone(user.status)
         self.assertTrue(user.is_enabled(Fake))
         self.assertEqual(['efake:user'], ExplicitFake.fetched)
+
+    def test_block_then_follow_protocol_user_recreates_copy(self):
+        # bot user
+        self.make_user('fa.brid.gy', cls=Web)
+
+        follow = {
+            'objectType': 'activity',
+            'verb': 'follow',
+            'id': 'efake:follow',
+            'actor': 'efake:user',
+            'object': 'fa.brid.gy',
+        }
+        block = {
+            'objectType': 'activity',
+            'verb': 'block',
+            'id': 'efake:block',
+            'actor': 'efake:user',
+            'object': 'fa.brid.gy',
+        }
+
+        copy = Target(uri='fake:user', protocol='fake')
+        user = self.make_user('efake:user', cls=ExplicitFake,
+                              enabled_protocols=['fake'], copies=[copy])
+        self.assertTrue(user.is_enabled(Fake))
+        self.assertEqual([copy], user.copies)
+
+        self.assertEqual(('OK', 200), ExplicitFake.receive_as1(block))
+        user = user.key.get()
+        self.assertFalse(user.is_enabled(Fake))
+        self.assertEqual([copy], user.copies)
+
+        # fake protocol isn't enabled yet, block should be a noop
+        ExplicitFake.fetchable = {'efake:user': {'profile': 'info'}}
+        _, code = ExplicitFake.receive_as1(follow)
+        self.assertEqual(204, code)
+        user = user.key.get()
+        self.assertEqual(['fake'], user.enabled_protocols)
+        self.assertEqual(['efake:user'], Fake.created_for)
 
     def test_receive_activity_lease(self):
         Follower.get_or_create(to=self.user, from_=self.alice)

@@ -155,7 +155,7 @@ class DmsTest(TestCase):
         user = user.key.get()
         self.assertEqual(['fake'], user.enabled_protocols)
         self.assertTrue(user.is_enabled(Fake))
-        self.assertEqual([], Fake.created_for)
+        self.assertEqual(['efake:user'], Fake.created_for)
 
         # "no" DM should remove from enabled_protocols
         Follower.get_or_create(to=user, from_=alice)
@@ -164,7 +164,6 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=user, obj=dm))
         user = user.key.get()
         self.assertEqual([], user.enabled_protocols)
-        self.assertEqual([], Fake.created_for)
         self.assertFalse(user.is_enabled(Fake))
 
         # ...and delete copy actor
