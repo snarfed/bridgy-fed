@@ -404,11 +404,13 @@ class ATProtoFirehoseSubscribeTest(ATProtoTestCase):
         })
         self.assertIn('did:plc:eve', atproto_firehose.bridged_dids)
 
-    def test_load_dids_tombstoned_atprepo(self):
+    def test_load_dids_tombstoned_deactivated_atprepos(self):
         FakeWebsocketClient.to_receive = [({'op': 1, 't': '#info'}, {})]
 
         AtpRepo(id='did:plc:eve', head='', signing_key_pem=b'',
                 status=arroba.util.TOMBSTONED).put()
+        AtpRepo(id='did:plc:frank', head='', signing_key_pem=b'',
+                status=arroba.util.DEACTIVATED).put()
 
         self.subscribe()
 

@@ -460,9 +460,11 @@ class Protocol:
 
     @classmethod
     def create_for(cls, user):
-        """Creates a copy user in this protocol.
+        """Creates or re-activate a copy user in this protocol.
 
         Should add the copy user to :attr:`copies`.
+
+        If the copy user already exists and active, should do nothing.
 
         Args:
           user (models.User): original source user. Shouldn't already have a

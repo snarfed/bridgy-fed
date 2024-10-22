@@ -370,6 +370,9 @@ class ATProto(User, Protocol):
     def create_for(cls, user):
         """Creates an ATProto repo and profile for a non-ATProto user.
 
+        If the repo already exists, reactivates it by emitting an #account event
+        with active: True.
+
         Args:
           user (models.User)
 
@@ -379,7 +382,10 @@ class ATProto(User, Protocol):
         """
         assert not isinstance(user, ATProto)
 
-        if user.get_copy(ATProto):
+        if copy_did := user.get_copy(ATProto):
+            repo = arroba.server.storage.load_repo(copy_did)
+            arroba.server.storage.activate_repo(repo)
+            common.create_task(queue='atproto-commit')
             return
 
         # create new DID, repo
@@ -556,7 +562,7 @@ class ATProto(User, Protocol):
         repo.callback = lambda _: common.create_task(queue='atproto-commit')
 
         # non-commit operations:
-        # * delete actor => tombstone repo
+        # * delete actor => deactivate repo
         # * flag => send report to mod service
         # * stop-following => delete follow record (prepared above)
         # * dm => chat message
@@ -566,8 +572,8 @@ class ATProto(User, Protocol):
                            else ids.translate_user_id(from_=from_cls, to=to_cls,
                                                       id=base_id))
             if atp_base_id == did:
-                logger.info(f'Deleting bridged ATProto account {did} by tombstoning repo!')
-                arroba.server.storage.tombstone_repo(repo)
+                logger.info(f'Deactivating bridged ATProto account {did} !')
+                arroba.server.storage.deactivate_repo(repo)
                 return True
 
         if not record:

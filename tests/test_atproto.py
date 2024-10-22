@@ -1108,6 +1108,31 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             with self.assertRaises(ValueError):
                 ATProto.create_for(Fake(id=bad))
 
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_create_for_already_exists(self, mock_create_task):
+        """Should mostly be a noop, but should emit an active: True #account event."""
+        self.make_user_and_repo()
+        repo = arroba.server.storage.load_repo('did:plc:user')
+        arroba.server.storage.deactivate_repo(repo)
+
+        ATProto.create_for(self.user)
+
+        # check repo
+        repo = arroba.server.storage.load_repo('did:plc:user')
+        self.assertIsNone(repo.status)
+
+        # check #account event
+        seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)
+        self.assertEqual({
+            '$type': 'com.atproto.sync.subscribeRepos#account',
+            'seq': seq,
+            'did': 'did:plc:user',
+            'time': NOW.isoformat(),
+            'active': True,
+        }, next(self.storage.read_events_by_seq(seq)))
+
+        mock_create_task.assert_called()  # atproto-commit
+
     @patch('atproto.DEBUG', new=False)
     @patch.object(google.cloud.dns.client.ManagedZone, 'changes')
     @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')
@@ -1238,7 +1263,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             }, genesis_op)
 
         # check atproto-commit task
-        self.assertEqual(2, mock_create_task.call_count)
+        self.assertEqual(4, mock_create_task.call_count)
         self.assert_task(mock_create_task, 'atproto-commit')
 
     @patch('requests.get', return_value=requests_response(
@@ -1748,16 +1773,18 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertTrue(ATProto.send(delete, 'https://bsky.brid.gy/',
                                      from_user=user))
 
+        self.assertFalse(self.user.is_enabled(ATProto))
         did = self.user.key.get().get_copy(ATProto)
-        with self.assertRaises(arroba.util.TombstonedRepo):
-            self.storage.load_repo(did)
+        assert did
 
         seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)
         self.assertEqual({
-            '$type': 'com.atproto.sync.subscribeRepos#tombstone',
+            '$type': 'com.atproto.sync.subscribeRepos#account',
             'seq': seq,
             'did': did,
             'time': NOW.isoformat(),
+            'active': False,
+            'status': 'deactivated',
         }, next(self.storage.read_events_by_seq(seq)))
 
         mock_create_task.assert_called()  # atproto-commit

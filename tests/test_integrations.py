@@ -6,7 +6,7 @@ from unittest.mock import ANY, patch
 
 from arroba.datastore_storage import DatastoreStorage
 from arroba.repo import Repo
-from arroba.util import dag_cbor_cid, TombstonedRepo
+from arroba.util import dag_cbor_cid
 from dns.resolver import NXDOMAIN
 from granary import as2, bluesky
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY, POST_BSKY
@@ -617,8 +617,8 @@ class IntegrationTests(TestCase):
     @patch('requests.get', side_effect=[
         requests_response('blob', headers={'Content-Type': 'image/jpeg'}), # http://pic/
     ])
-    def test_activitypub_block_bsky_bot_user_tombstones_atproto_repo(self, mock_get):
-        """AP Block of @bsky.brid.gy@bsky.brid.gy tombstones the Bluesky repo.
+    def test_activitypub_block_bsky_bot_user_deactivates_atproto_repo(self, mock_get):
+        """AP Block of @bsky.brid.gy@bsky.brid.gy deactivates the Bluesky repo.
 
         ActivityPub user @alice@inst , https://inst/alice , did:plc:alice
         Block is https://inst/block
@@ -641,15 +641,14 @@ class IntegrationTests(TestCase):
         user = ActivityPub.get_by_id('https://inst/alice')
         self.assertFalse(user.is_enabled(ATProto))
 
-        with self.assertRaises(TombstonedRepo):
-            self.storage.load_repo('did:plc:alice')
+        self.assertEqual('deactivated', self.storage.load_repo('did:plc:alice').status)
 
 
     @patch('requests.get', side_effect=[
         requests_response('blob', headers={'Content-Type': 'image/jpeg'}), # http://pic/
     ])
-    def test_activitypub_delete_user_tombstones_atproto_repo(self, mock_get):
-        """AP Delete of user tombstones the Bluesky repo.
+    def test_activitypub_delete_user_deactivates_atproto_repo(self, mock_get):
+        """AP Delete of user deactivates the Bluesky repo.
 
         ActivityPub user @alice@inst , https://inst/alice , did:plc:alice
         Delete is https://inst/block
@@ -672,16 +671,14 @@ class IntegrationTests(TestCase):
         user = ActivityPub.get_by_id('https://inst/alice')
         self.assertFalse(user.is_enabled(ATProto))
 
-        with self.assertRaises(TombstonedRepo):
-            self.storage.load_repo('did:plc:alice')
-
+        self.assertEqual('deactivated', self.storage.load_repo('did:plc:alice').status)
 
     @patch('requests.post', return_value=requests_response(''))
     @patch('requests.get', return_value=requests_response("""\
 <html>
   <body class="h-card"><a rel="me" href="/">me</a> #nobridge</body>
 </html>""", url='https://alice.com/'))
-    def test_web_nobridge_refresh_profile_deletes_user_tombstones_atproto_repo(
+    def test_web_nobridge_refresh_profile_deletes_user_deactivates_atproto_repo(
             self, mock_get, mock_post):
         """Web user adds #nobridge and refreshes their profile.
 
@@ -705,8 +702,7 @@ class IntegrationTests(TestCase):
         # should be deleted everywhere
         self.assertEqual('opt-out', alice.key.get().status)
 
-        with self.assertRaises(TombstonedRepo):
-            self.storage.load_repo('did:plc:alice')
+        self.assertEqual('deactivated', self.storage.load_repo('did:plc:alice').status)
 
         self.assertEqual(1, mock_post.call_count)
         args, kwargs = mock_post.call_args
