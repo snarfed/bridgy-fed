@@ -471,12 +471,12 @@ class ATProto(User, Protocol):
         # https://github.com/googleapis/python-dns/issues/31#issuecomment-1595105412
         # https://cloud.google.com/apis/docs/client-libraries-explained
         # https://googleapis.github.io/google-api-python-client/docs/dyn/dns_v1.resourceRecordSets.html
-        logging.info('Checking for existing record')
+        logger.info('Checking for existing record')
         resp = dns_discovery_api.resourceRecordSets().list(
             project=DNS_GCP_PROJECT, managedZone=DNS_ZONE, type='TXT', name=name,
         ).execute()
         for existing in resp.get('rrsets', []):
-            logging.info(f'  deleting {existing}')
+            logger.info(f'  deleting {existing}')
             changes.delete_record_set(ResourceRecordSet.from_api_repr(existing, zone=zone))
 
         changes.add_record_set(zone.resource_record_set(name=name, record_type='TXT',
@@ -760,7 +760,7 @@ class ATProto(User, Protocol):
                             accept_types=accept)
                         blobs[url] = blob.as_object()
                     except (RequestException, ValidationError) as e:
-                        logging.info(f'failed, skipping {url} : {e}')
+                        logger.info(f'failed, skipping {url} : {e}')
 
             for o in obj.as1, as1.get_object(obj.as1):
                 for url in util.get_urls(o, 'image'):

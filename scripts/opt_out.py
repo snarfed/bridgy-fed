@@ -143,6 +143,10 @@ def run():
 
     # assert not user.status, user.status
 
+    # delete base and extra AP targets
+    if from_proto != ActivityPub and only_proto in (None, ActivityPub):
+        delete_ap_targets(from_proto=from_proto, user=user, user_id=user_id)
+
     # give AS1 delete activity to receive
     delete_base_id = user.web_url() if from_proto is Web else user_id
     delete_id = f'{delete_base_id}#bridgy-fed-delete-{util.now().isoformat()}'
@@ -161,17 +165,16 @@ def run():
     else:
         from_proto.receive(obj, authed_as=user_id, internal=True)
 
-    # delete base and extra AP targets
-    if (from_proto != ActivityPub and not args.no_extra
-            and only_proto in (None, ActivityPub)):
-        delete_ap_targets(from_proto=from_proto, user=user, user_id=user_id)
-
     if not user.manual_opt_out:
         user.manual_opt_out = True
         user.put()
 
 
 def delete_ap_targets(*, from_proto=None, user=None, user_id=None):
+    if not user.is_enabled(ActivityPub):
+        user.enabled_protocols.append('activitypub')
+        user.put()
+
     delete_base_id = user.web_url() if from_proto is Web else user_id
     delete_id = f'{delete_base_id}#bridgy-fed-delete-{util.now().isoformat()}'
     delete_as1 = {
@@ -185,8 +188,10 @@ def delete_ap_targets(*, from_proto=None, user=None, user_id=None):
                  our_as1=delete_as1)
     obj.put()
 
-    targets = [Target(protocol='activitypub', uri=t)
-               for t in AP_BASE_TARGETS + args.extra_targets]
+    targets = args.extra_targets
+    if not args.no_extra:
+        targets += AP_BASE_TARGETS
+    targets = [Target(protocol='activitypub', uri=t) for t in targets]
 
     obj.undelivered = targets
     obj.put()
