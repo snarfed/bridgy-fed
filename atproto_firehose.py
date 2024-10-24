@@ -46,9 +46,9 @@ RECONNECT_DELAY = timedelta(seconds=30)
 STORE_CURSOR_FREQ = timedelta(seconds=10)
 
 # a commit operation. similar to arroba.repo.Write. record is None for deletes.
-Op = namedtuple('Op', ['action', 'repo', 'path', 'seq', 'record'],
+Op = namedtuple('Op', ['action', 'repo', 'path', 'seq', 'record', 'time'],
                 # record is optional
-                defaults=[None])
+                defaults=[None, None])
 
 # contains Ops
 #
@@ -207,7 +207,7 @@ def subscribe():
         # detect records from bridged ATProto users that we should handle
         for p_op in payload.get('ops', []):
             op = Op(repo=payload['repo'], action=p_op.get('action'),
-                    path=p_op.get('path'), seq=payload['seq'])
+                    path=p_op.get('path'), seq=payload['seq'], time=payload['time'])
             if not op.action or not op.path:
                 logger.info(
                     f'bad payload! seq {op.seq} action {op.action} path {op.path}!')
@@ -228,7 +228,7 @@ def subscribe():
             if not cid or not block:
                 continue
 
-            op = Op(*op[:-1], record=block)
+            op = op._replace(record=block)
             type = op.record.get('$type')
             if not type:
                 logger.warning('commit record missing $type! {op.action} {op.repo} {op.path} {cid}')
@@ -327,7 +327,7 @@ def handle(limit=None):
 
         try:
             create_task(queue='receive', id=obj_id, source_protocol=ATProto.LABEL,
-                        authed_as=op.repo, **record_kwarg)
+                        authed_as=op.repo, received_at=op.time, **record_kwarg)
             # when running locally, comment out above and uncomment this
             # logger.info(f'enqueuing receive task for {at_uri}')
         except ContextError:

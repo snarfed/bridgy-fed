@@ -2188,14 +2188,14 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'text': 'foo bar',
             'sender': {'did': 'did:al:ice'},
             'rev': '123',
-            'sentAt': NOW.isoformat(),
+            'sentAt': '1900-01-01T00:01:01Z',
         }
         # note that order matters in these for the assert_task calls below!
         msg_alice_as1 = {
             'objectType': 'note',
             'id': 'at://did:al:ice/chat.bsky.convo.defs.messageView/uvw',
             'content': 'foo bar',
-            'published': NOW.isoformat(),
+            'published': '1900-01-01T00:01:01Z',
             'author': 'did:al:ice',
             'to': ['fa.brid.gy'],
         }
@@ -2205,13 +2205,13 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'text': 'baz biff',
             'sender': {'did': 'did:bo:b'},
             'rev': '456',
-            'sentAt': NOW.isoformat(),
+            'sentAt': '1900-02-02T00:02:02Z',
         }
         msg_bob_as1 = {
             'objectType': 'note',
             'id': 'at://did:bo:b/chat.bsky.convo.defs.messageView/xyz',
             'content': 'baz biff',
-            'published': NOW.isoformat(),
+            'published': '1900-02-02T00:02:02Z',
             'author': 'did:bo:b',
             'to': ['fa.brid.gy'],
         }
@@ -2221,7 +2221,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'text': 'beep boop this should not be received',
             'sender': {'did': 'did:plc:user'},
             'rev': '789',
-            'sentAt': NOW.isoformat(),
+            'sentAt': '1900-03-03T00:03:03Z',
         }
         msg_eve = {
             '$type': 'chat.bsky.convo.defs#messageView',
@@ -2229,13 +2229,13 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'text': 'boff',
             'sender': {'did': 'did:ev:e'},
             'rev': '000',
-            'sentAt': NOW.isoformat(),
+            'sentAt': '1900-04-04T00:04:04Z',
         }
         msg_eve_as1 = {
             'objectType': 'note',
             'id': 'at://did:ev:e/chat.bsky.convo.defs.messageView/rst',
             'content': 'boff',
-            'published': NOW.isoformat(),
+            'published': '1900-04-04T00:04:04Z',
             'author': 'did:ev:e',
             'to': ['fa.brid.gy'],
         }
@@ -2296,12 +2296,14 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         id = 'at://did:al:ice/chat.bsky.convo.defs.messageView/uvw'
         self.assert_task(mock_create_task, 'receive', authed_as='did:al:ice',
                          id=id, source_protocol='atproto',
-                         bsky=msg_alice, our_as1=msg_alice_as1)
+                         bsky=msg_alice, our_as1=msg_alice_as1,
+                         received_at='1900-01-01T00:01:01Z')
 
         id = 'at://did:bo:b/chat.bsky.convo.defs.messageView/xyz'
         self.assert_task(mock_create_task, 'receive', authed_as='did:bo:b',
                          id=id, source_protocol='atproto',
-                         bsky=msg_bob, our_as1=msg_bob_as1)
+                         bsky=msg_bob, our_as1=msg_bob_as1,
+                         received_at='1900-02-02T00:02:02Z')
 
         id = 'at://did:plc:user/chat.bsky.convo.defs.messageView/lmno'
         self.assertIsNone(Object.get_by_id(id))
@@ -2309,6 +2311,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         id = 'at://did:ev:e/chat.bsky.convo.defs.messageView/rst'
         self.assert_task(mock_create_task, 'receive', authed_as='did:ev:e',
                          id=id, source_protocol='atproto',
-                         bsky=msg_eve, our_as1=msg_eve_as1)
+                         bsky=msg_eve, our_as1=msg_eve_as1,
+                         received_at='1900-04-04T00:04:04Z')
 
         self.assertEqual('dunn', fa.key.get().atproto_last_chat_log_cursor)

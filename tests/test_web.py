@@ -1895,7 +1895,8 @@ class WebTest(TestCase):
         ))
         self.assert_task(mock_create_task, 'receive', id='https://user.com/post',
                          source_protocol='web', atom=feed, our_as1=post_as1,
-                         authed_as='user.com')
+                         authed_as='user.com',
+                         received_at='2022-01-02T03:04:05+00:00')
 
         expected_eta = NOW_SECONDS + web.MIN_FEED_POLL_PERIOD.total_seconds()
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com',
@@ -1979,7 +1980,8 @@ class WebTest(TestCase):
             with self.subTest(id=id):
                 self.assert_task(mock_create_task, 'receive', id=url,
                                  our_as1=expected_as1, rss=feed,
-                                 source_protocol='web', authed_as='user.com')
+                                 source_protocol='web', authed_as='user.com',
+                                 received_at='2022-01-02T03:04:05+00:00')
 
         # delay is average of 1h and 3h between posts
         expected_eta = NOW_SECONDS + timedelta(hours=2).total_seconds()
@@ -2066,7 +2068,7 @@ class WebTest(TestCase):
         }
         self.assert_task(mock_create_task, 'receive', id='https://user.com/post',
                          our_as1=expected_as1, atom=feed, source_protocol='web',
-                         authed_as='user.com')
+                         authed_as='user.com', received_at='2022-01-02T03:04:05+00:00')
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_fails(self, mock_create_task, mock_get, _):
@@ -2268,7 +2270,7 @@ class WebTest(TestCase):
         }
         self.assert_task(mock_create_task, 'receive', id='https://user.com/post',
                          source_protocol='web', atom=feed, our_as1=expected_as1,
-                         authed_as='user.com')
+                         authed_as='user.com', received_at='2022-01-02T03:04:05+00:00')
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_fetch_post_for_image_fails(self, mock_create_task,
@@ -2316,7 +2318,7 @@ class WebTest(TestCase):
         }
         self.assert_task(mock_create_task, 'receive', id='https://user.com/post',
                          source_protocol='web', atom=feed, our_as1=expected_as1,
-                         authed_as='user.com')
+                         authed_as='user.com', received_at='2022-01-02T03:04:05+00:00')
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_poll_feed_fetch_post_for_image_same_as_user_profile(

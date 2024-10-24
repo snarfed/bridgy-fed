@@ -1,6 +1,6 @@
 """Base protocol class and common code."""
 import copy
-from datetime import timedelta
+from datetime import datetime, timedelta
 import logging
 import os
 import re
@@ -769,7 +769,7 @@ class Protocol:
         return outer_obj
 
     @classmethod
-    def receive(from_cls, obj, authed_as=None, internal=False):
+    def receive(from_cls, obj, authed_as=None, internal=False, received_at=None):
         """Handles an incoming activity.
 
         If ``obj``'s key is unset, ``obj.as1``'s id field is used. If both are
@@ -780,6 +780,8 @@ class Protocol:
           authed_as (str): authenticated actor id who sent this activity
           internal (bool): whether to allow activity ids on internal domains,
             from opted out/blocked users, etc.
+          received_at (datetime): when we first saw (received) this activity.
+            Right now only used for monitoring.
 
         Returns:
           (str, int) tuple: (response body, HTTP status code) Flask response
@@ -837,8 +839,8 @@ class Protocol:
         pruned = {k: v for k, v in obj.as1.items()
                   if k not in ('contentMap', 'replies', 'signature')}
         delay = ''
-        if request.headers.get('X-AppEngine-TaskRetryCount') == '0' and obj.created:
-            delay_s = int((util.now().replace(tzinfo=None) - obj.created).total_seconds())
+        if received_at and request.headers.get('X-AppEngine-TaskRetryCount') == '0':
+            delay_s = int((util.now().replace(tzinfo=None) - received_at).total_seconds())
             delay = f'({delay_s} s behind)'
         logger.info(f'Receiving {from_cls.LABEL} {obj.type} {id} {delay} AS1: {json_dumps(pruned, indent=2)}')
 
@@ -1649,6 +1651,8 @@ def receive_task():
     Parameters:
       authed_as (str): passed to :meth:`Protocol.receive`
       obj_id (str): key id of :class:`models.Object` to handle
+      received_at (str, ISO 8601 timestamp): when we first saw (received)
+        this activity
       *: If ``obj_id`` is unset, all other parameters are properties for a new
         :class:`models.Object` to handle
 
@@ -1664,6 +1668,8 @@ def receive_task():
     authed_as = form.pop('authed_as', None)
     internal = (authed_as == common.PRIMARY_DOMAIN
                 or authed_as in common.PROTOCOL_DOMAINS)
+    if received_at := form.pop('received_at', None):
+        received_at = datetime.fromisoformat(received_at)
 
     if obj_id := form.get('obj_id'):
         obj = Object.get_by_id(obj_id)
@@ -1678,8 +1684,8 @@ def receive_task():
     obj.new = True
 
     try:
-        return PROTOCOLS[obj.source_protocol].receive(obj=obj, authed_as=authed_as,
-                                                      internal=internal)
+        return PROTOCOLS[obj.source_protocol].receive(
+            obj=obj, authed_as=authed_as, internal=internal, received_at=received_at)
     except RequestException as e:
         util.interpret_http_exception(e)
         error(e, status=304)

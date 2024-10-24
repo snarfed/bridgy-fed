@@ -463,7 +463,8 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
             reply['reply']['parent']['cid'] = A_CID.encode()
 
         commits.put(Op(repo='did:plc:user', action='create', seq=789,
-                       path='app.bsky.feed.post/123', record=reply))
+                       path='app.bsky.feed.post/123', record=reply,
+                       time='1900-02-04'))
 
         handle(limit=1)
 
@@ -471,11 +472,11 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         self.assert_task(mock_create_task, 'receive',
                          id='at://did:plc:user/app.bsky.feed.post/123',
                          bsky=reply, source_protocol='atproto',
-                         authed_as='did:plc:user')
+                         authed_as='did:plc:user', received_at='1900-02-04')
 
     def test_delete_post(self, mock_create_task):
         commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                       path='app.bsky.feed.post/123'))
+                       path='app.bsky.feed.post/123', time='1900-02-04'))
         handle(limit=1)
 
         obj_id = 'at://did:plc:user/app.bsky.feed.post/123'
@@ -490,11 +491,11 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         }
         self.assert_task(mock_create_task, 'receive', id=delete_id,
                          our_as1=expected_as1, source_protocol='atproto',
-                         authed_as='did:plc:user')
+                         authed_as='did:plc:user', received_at='1900-02-04')
 
     def test_delete_block_is_undo(self, mock_create_task):
         commits.put(Op(repo='did:plc:user', action='delete', seq=789,
-                       path='app.bsky.graph.block/123'))
+                       path='app.bsky.graph.block/123', time='1900-02-04'))
         handle(limit=1)
 
         obj_id = 'at://did:plc:user/app.bsky.graph.block/123'
@@ -510,7 +511,7 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
         }
         self.assert_task(mock_create_task, 'receive', id=undo_id,
                          our_as1=expected_as1, source_protocol='atproto',
-                         authed_as='did:plc:user')
+                         authed_as='did:plc:user', received_at='1900-02-04')
 
     def test_unsupported_type(self, mock_create_task):
         orig_objs = Object.query().count()

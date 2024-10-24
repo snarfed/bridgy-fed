@@ -1135,7 +1135,8 @@ def inbox(protocol=None, id=None):
             logger.info(f'Automatically enabled AP server actor {actor_id} for {user.enabled_protocols}')
 
     return create_task(queue='receive', id=id, as2=activity,
-                       source_protocol=ActivityPub.LABEL, authed_as=authed_as)
+                       source_protocol=ActivityPub.LABEL, authed_as=authed_as,
+                       received_at=util.now().isoformat())
 
 
 # protocol in subdomain

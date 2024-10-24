@@ -790,7 +790,7 @@ def poll_feed(user, feed_url, rel_type):
         activity['feed_index'] = i
         common.create_task(queue='receive', id=id, our_as1=activity,
                            source_protocol=Web.ABBREV, authed_as=user.key.id(),
-                           **obj_feed_prop)
+                           received_at=util.now().isoformat(), **obj_feed_prop)
 
     return activities
 

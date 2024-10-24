@@ -980,7 +980,8 @@ def poll_chat_task():
                     }
                     common.create_task(queue='receive', id=id, bsky=log['message'],
                                        our_as1=msg_as1, source_protocol=ATProto.LABEL,
-                                       authed_as=sender)
+                                       authed_as=sender,
+                                       received_at=log['message']['sentAt'])
 
         # check if we've caught up yet
         cursor = logs.get('cursor')

@@ -618,7 +618,8 @@ class ActivityPubTest(TestCase):
         resp = self.post('/ap/sharedInbox', json=NOTE)
         self.assert_task(mock_create_task, 'receive', id='http://mas.to/note/as2',
                          source_protocol='activitypub', as2=NOTE,
-                         authed_as=NOTE['actor'])
+                         authed_as=NOTE['actor'],
+                         received_at='2022-01-02T03:04:05+00:00')
 
     def test_inbox_reply_object(self, mock_head, mock_get, mock_post):
         self._test_inbox_reply(REPLY_OBJECT, mock_head, mock_get, mock_post)
