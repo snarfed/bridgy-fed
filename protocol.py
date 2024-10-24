@@ -840,7 +840,9 @@ class Protocol:
                   if k not in ('contentMap', 'replies', 'signature')}
         delay = ''
         if received_at and request.headers.get('X-AppEngine-TaskRetryCount') == '0':
-            delay_s = int((util.now().replace(tzinfo=None) - received_at).total_seconds())
+            delay_s = int((util.now().replace(tzinfo=None)
+                           - received_at.replace(tzinfo=None)
+                           ).total_seconds())
             delay = f'({delay_s} s behind)'
         logger.info(f'Receiving {from_cls.LABEL} {obj.type} {id} {delay} AS1: {json_dumps(pruned, indent=2)}')
 
