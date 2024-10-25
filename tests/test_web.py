@@ -2598,6 +2598,19 @@ Current vs expected:<pre>- http://this/404s
             ],
         })
 
+    def test_verify_representative_hcard_url_without_trailing_slash(self, mock_get, _):
+        hcard = requests_response("""
+<html><body class="h-card">
+  <a class="u-url" href="https://user.com"></a>
+</body></html>""",
+            url='https://user.com/',
+        )
+        mock_get.side_effect = [FULL_REDIR, hcard]
+        self._test_verify(True, True, {
+            'objectType': 'person',
+            'url': 'https://user.com',
+        })
+
     def test_verify_www_redirect(self, mock_get, _):
         www_user = self.make_user('www.user.com', cls=Web)
 

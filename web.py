@@ -500,7 +500,7 @@ class Web(User, Protocol):
                             else None)
         if metaformats is None:
             # default to only for homepages
-            metaformats = urlparse(url).path in ('', '/')
+            metaformats = is_homepage
 
         try:
             parsed = util.fetch_mf2(url, gateway=gateway, metaformats=metaformats,
@@ -515,9 +515,12 @@ class Web(User, Protocol):
         # find mf2 item
         if is_homepage:
             logger.info(f"{url} is user's web url")
-            entry = mf2util.representative_hcard(parsed, parsed['url'])
+            parsed_url = (parsed['url'] or '').rstrip('/')
+            # try both with and without trailing slash
+            entry = (mf2util.representative_hcard(parsed, parsed_url)
+                     or mf2util.representative_hcard(parsed, parsed_url + '/'))
             if not entry:
-                error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-hcard-parsing) on {parsed['url']}")
+                error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-h-card-parsing) on {parsed['url']}")
             logger.info(f'Found representative h-card')
         else:
             entry = mf2util.find_first_entry(parsed, ['h-entry'])
