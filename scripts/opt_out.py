@@ -164,10 +164,9 @@ def run():
         from_proto.deliver(obj, from_user=user, to_proto=only_proto)
     else:
         from_proto.receive(obj, authed_as=user_id, internal=True)
-
-    if not user.manual_opt_out:
-        user.manual_opt_out = True
-        user.put()
+        if not user.manual_opt_out:
+            user.manual_opt_out = True
+            user.put()
 
 
 def delete_ap_targets(*, from_proto=None, user=None, user_id=None):
