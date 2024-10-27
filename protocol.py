@@ -626,6 +626,20 @@ class Protocol:
         actor['summary'] = summary + source_links
 
     @classmethod
+    def set_username(to_cls, user, username):
+        """Sets a custom username for a user's bridged account in this protocol.
+
+        Args:
+          user (models.User)
+          username (str)
+
+        Raises:
+          ValueError: if the username is invalid
+          RuntimeError: if the username could not be set
+        """
+        raise NotImplementedError()
+
+    @classmethod
     def target_for(cls, obj, shared=False):
         """Returns an :class:`Object`'s delivery target (endpoint).
 

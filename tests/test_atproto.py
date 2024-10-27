@@ -1205,6 +1205,61 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual(atproto.DNS_TTL, rrset.ttl)
         self.assertEqual(['"did=did:foo"'], rrset.rrdatas)
 
+    # resolve handle, DNS method, not found
+    @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
+    @patch('requests.get', side_effect=[
+        # resolve handle, HTTPS method
+        requests_response('did:plc:user', content_type='text/plain'),
+        # fetch PLC operation log
+        requests_response([{
+            'cid': 'orig',
+            'operation': {'alsoKnownAs': ['at://ol.d', 'http://ol.d']},
+        }]),
+    ])
+    @patch('requests.post', return_value=requests_response('OK'))  # update DID on PLC
+    def test_set_username(self, mock_post, mock_get, _):
+        user = self.make_user_and_repo(enabled_protocols=['atproto'])
+        ATProto.set_username(user, 'ne.w')
+
+    # resolve handle, DNS method, not found
+    @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
+    # resolve handle, HTTPS method, not found
+    @patch('requests.get', return_value=requests_response(status=404))
+    def test_set_username_handle_doesnt_resolve(self, _, __):
+        user = self.make_user_and_repo(enabled_protocols=['atproto'])
+        with self.assertRaises(RuntimeError) as e:
+            ATProto.set_username(user, 'ne.w')
+
+        self.assertIn("You'll need to connect that domain", str(e.exception))
+
+    # resolve handle, DNS method, not found
+    @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
+    # resolve handle, HTTPS method, wrong did
+    @patch('requests.get', return_value=requests_response(
+        'did:plc:nope', content_type='text/plain'))
+    def test_set_username_handle_resolves_to_wrong_did(self, _, __):
+        user = self.make_user_and_repo(enabled_protocols=['atproto'])
+        with self.assertRaises(RuntimeError) as e:
+            ATProto.set_username(user, 'ne.w')
+
+        self.assertIn("You'll need to connect that domain", str(e.exception))
+
+    def test_set_username_atproto_not_enabled(self):
+        user = self.make_user_and_repo()
+
+        with self.assertRaises(ValueError) as e:
+            ATProto.set_username(user, 'new.org')
+
+        self.assertEqual("First, you'll need to bridge your account into Bluesky by following this account.", str(e.exception))
+
+    def test_set_username_not_domain(self):
+        user = self.make_user_and_repo(enabled_protocols=['atproto'])
+
+        with self.assertRaises(ValueError) as e:
+            ATProto.set_username(user, 'bad nope')
+
+        self.assertEqual("bad nope doesn't look like a domain", str(e.exception))
+
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC

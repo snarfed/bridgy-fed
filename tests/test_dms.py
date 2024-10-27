@@ -26,11 +26,17 @@ ALICE_REQUEST_CONTENT = """\
 <p>If you do nothing, your account won't be bridged, and users on efake-phrase won't be able to see or interact with you.
 <p>Bridgy Fed will only send you this message once."""
 
+DM_EFAKE_ALICE_SET_USERNAME_OTHER = {
+    'objectType': 'note',
+    'id': 'efake:dm',
+    'actor': 'efake:alice',
+    'to': ['other.brid.gy'],
+    'content': 'username new-handle',
+}
+ALICE_USERNAME_CONFIRMATION_CONTENT = 'Your username in other-phrase has been set to new-handle. It should appear soon!'
+
 
 class DmsTest(TestCase):
-    # def setUp(self):
-    #     print('@@@')
-
     def make_alice_bob(self):
         self.make_user(id='efake.brid.gy', cls=Web)
         self.make_user(id='other.brid.gy', cls=Web)
@@ -175,7 +181,7 @@ class DmsTest(TestCase):
             'object': 'efake:user',
         })], Fake.sent)
 
-    def test_receive_handle_sends_request_dm(self):
+    def test_receive_prompt_sends_request_dm(self):
         alice, bob = self.make_alice_bob()
 
         obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
@@ -185,7 +191,7 @@ class DmsTest(TestCase):
         self.assert_sent(ExplicitFake, bob, 'request_bridging',
                          ALICE_REQUEST_CONTENT)
 
-    def test_receive_handle_strips_leading_at_sign(self):
+    def test_receive_prompt_strips_leading_at_sign(self):
         alice, bob = self.make_alice_bob()
 
         obj = Object(our_as1={
@@ -197,7 +203,7 @@ class DmsTest(TestCase):
         self.assert_sent(ExplicitFake, bob, 'request_bridging',
                          ALICE_REQUEST_CONTENT)
 
-    def test_receive_handle_fetch_user(self):
+    def test_receive_prompt_fetch_user(self):
         self.make_user(id='efake.brid.gy', cls=Web)
         self.make_user(id='other.brid.gy', cls=Web)
         alice = self.make_user(id='efake:alice', cls=ExplicitFake,
@@ -211,7 +217,7 @@ class DmsTest(TestCase):
                          'request_bridging', ALICE_REQUEST_CONTENT)
         self.assertEqual(['other:bob'], OtherFake.fetched)
 
-    def test_receive_handle_user_doesnt_exist(self):
+    def test_receive_prompt_user_doesnt_exist(self):
         self.make_user(id='other.brid.gy', cls=Web)
         alice = self.make_user(id='efake:alice', cls=ExplicitFake,
                                enabled_protocols=['other'], obj_as1={'x': 'y'})
@@ -222,7 +228,7 @@ class DmsTest(TestCase):
         self.assert_sent(OtherFake, alice, '?', "Couldn't find other-phrase user other:handle:bob")
         self.assertEqual([], OtherFake.sent)
 
-    def test_receive_handle_from_user_not_bridged(self):
+    def test_receive_prompt_from_user_not_bridged(self):
         alice, _ = self.make_alice_bob()
         # not bridged into OtherFake
         alice.enabled_protocols = ['fake']
@@ -234,7 +240,7 @@ class DmsTest(TestCase):
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
 
-    def test_receive_handle_already_bridged(self):
+    def test_receive_prompt_already_bridged(self):
         alice, bob = self.make_alice_bob()
         bob.enabled_protocols = ['efake']
         bob.put()
@@ -244,7 +250,7 @@ class DmsTest(TestCase):
         self.assert_sent(OtherFake, alice, '?', """<a class="h-card u-author" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob">other:handle:bob &middot; efake:handle:other:handle:bob</a> is already bridged into efake-phrase.""")
         self.assertEqual([], OtherFake.sent)
 
-    def test_receive_handle_already_requested(self):
+    def test_receive_prompt_already_requested(self):
         alice, bob = self.make_alice_bob()
         bob.sent_dms = [DM(protocol='efake', type='request_bridging')]
         bob.put()
@@ -256,7 +262,7 @@ class DmsTest(TestCase):
         self.assertEqual([], Fake.sent)
 
     @mock.patch.object(dms, 'REQUESTS_LIMIT_USER', 2)
-    def test_receive_handle_request_rate_limit(self):
+    def test_receive_prompt_request_rate_limit(self):
         alice, bob = self.make_alice_bob()
         eve = self.make_user(id='other:eve', cls=OtherFake, obj_as1={'x': 'y'})
         frank = self.make_user(id='other:frank', cls=OtherFake, obj_as1={'x': 'y'})
@@ -286,7 +292,7 @@ class DmsTest(TestCase):
         self.assert_sent(OtherFake, alice, '?', "Sorry, you've hit your limit of 2 requests per day. Try again tomorrow!")
         self.assertEqual(3, memcache.get('dm-user-requests-efake-efake:alice'))
 
-    def test_receive_handle_wrong_protocol(self):
+    def test_receive_prompt_wrong_protocol(self):
         self.make_user(id='other.brid.gy', cls=Web)
 
         obj = Object(our_as1={
@@ -302,10 +308,33 @@ class DmsTest(TestCase):
         self.assertEqual([], Fake.sent)
 
     @mock.patch('ids.translate_handle', side_effect=ValueError('nope'))
-    def test_receive_handle_not_supported_in_target_protocol(self, _):
+    def test_receive_prompt_not_supported_in_target_protocol(self, _):
         alice, bob = self.make_alice_bob()
         obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
 
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_sent(OtherFake, alice, '?', "Sorry, Bridgy Fed doesn't yet support bridging handle other:handle:bob from other-phrase to efake-phrase.")
         self.assertEqual([], OtherFake.sent)
+
+    def test_receive_username(self):
+        self.make_user(id='efake.brid.gy', cls=Web)
+        self.make_user(id='other.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               enabled_protocols=['other'], obj_as1={'x': 'y'})
+
+        obj = Object(our_as1=DM_EFAKE_ALICE_SET_USERNAME_OTHER)
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_sent(OtherFake, alice, '?', ALICE_USERNAME_CONFIRMATION_CONTENT)
+        self.assertEqual({OtherFake: 'new-handle'}, alice.usernames)
+
+    @mock.patch.object(OtherFake, 'set_username', side_effect=RuntimeError('nopey'))
+    def test_receive_username_fails(self, _):
+        self.make_user(id='efake.brid.gy', cls=Web)
+        self.make_user(id='other.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               enabled_protocols=['other'], obj_as1={'x': 'y'})
+
+        obj = Object(our_as1=DM_EFAKE_ALICE_SET_USERNAME_OTHER)
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_sent(OtherFake, alice, '?', 'nopey')
+        self.assertEqual({}, alice.usernames)

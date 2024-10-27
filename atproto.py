@@ -485,6 +485,29 @@ class ATProto(User, Protocol):
         logger.info('done!')
 
     @classmethod
+    def set_username(to_cls, user, username):
+        if not user.is_enabled(ATProto):
+            raise ValueError("First, you'll need to bridge your account into Bluesky by following this account.")
+        copy_did = user.get_copy(ATProto)
+
+        username = username.removeprefix('@')
+
+        # resolve_handle checks that username is a valid domain
+        resolved = did.resolve_handle(username, get_fn=util.requests_get)
+        if resolved != copy_did:
+            raise RuntimeError(f"""Sure! You'll need to connect that domain to your bridged Bluesky account, either <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">with DNS</a> <a href="https://atproto.com/specs/handle#handle-resolution">or HTTP</a>. Once you're done, <a href="https://bsky-debug.app/handle?handle={username}">check your work here</a>, then DM me <code>username {username}</code> again.""")
+
+        try:
+            repo = arroba.server.storage.load_repo(copy_did)
+        except TombstonedRepo:
+            logger.info(f'repo for {did} is tombstoned, giving up')
+            return False
+
+        did.update_plc(did=copy_did, handle=username,
+                       signing_key=repo.signing_key, rotation_key=repo.rotation_key,
+                       get_fn=util.requests_get, post_fn=util.requests_post)
+
+    @classmethod
     def send(to_cls, obj, url, from_user=None, orig_obj_id=None):
         """Creates a record if we own its repo.
 

@@ -92,6 +92,13 @@ class Fake(User, protocol.Protocol):
     fetched = []
     created_for = []
 
+    # instance attr, dict mapping Protocol class to str username
+    usernames = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.usernames = {}
+
     @ndb.ComputedProperty
     def handle(self):
         return self.key.id().replace(f'{self.LABEL}:', f'{self.LABEL}:handle:')
@@ -220,6 +227,10 @@ class OtherFake(Fake):
     def target_for(cls, obj, shared=False):
         """No shared target."""
         return f'{obj.key.id()}:target'
+
+    @classmethod
+    def set_username(cls, user, username):
+        user.usernames[cls] = username
 
 
 class ExplicitFake(Fake):

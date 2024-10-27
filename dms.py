@@ -100,6 +100,10 @@ def receive(*, from_user, obj):
         link.extract()
     content = soup.get_text().strip().lower()
 
+    def reply(text, type=None):
+        maybe_send(from_proto=to_proto, to_user=from_user, text=text, type=type)
+        return 'OK', 200
+
     # parse and handle message
     if content in ('yes', 'ok'):
         from_user.enable_protocol(to_proto)
@@ -111,6 +115,14 @@ def receive(*, from_user, obj):
         from_user.disable_protocol(to_proto)
         return 'OK', 200
 
+    elif content.startswith('username '):
+        username = content.split(maxsplit=1)[1]
+        try:
+            to_proto.set_username(from_user, username)
+        except (ValueError, RuntimeError) as e:
+            return reply(str(e))
+        return reply(f"Your username in {to_proto.PHRASE} has been set to {username}. It should appear soon!")
+
     # are they requesting a user?
     if not to_proto.owns_handle(content) and content.startswith('@'):
         logging.info("doesn't look like a handle, trying without leading @")
@@ -119,10 +131,6 @@ def receive(*, from_user, obj):
     if to_proto.owns_handle(content) is not False:
         handle = content
         from_proto = from_user.__class__
-
-        def reply(text, type=None):
-            maybe_send(from_proto=to_proto, to_user=from_user, text=text, type=type)
-            return 'OK', 200
 
         try:
             ids.translate_handle(handle=handle, from_=to_proto, to=from_user,
