@@ -91,7 +91,7 @@ class ATProtoTest(TestCase):
         did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
         self.store_object(id='did:plc:user', raw=did_doc)
         self.repo = Repo.create(self.storage, 'did:plc:user', handle='han.dull',
-                                signing_key=ATPROTO_KEY)
+                                signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
 
         return self.user
 
@@ -1207,6 +1207,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
     # resolve handle, DNS method, not found
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get', side_effect=[
         # resolve handle, HTTPS method
         requests_response('did:plc:user', content_type='text/plain'),
@@ -1217,9 +1218,45 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         }]),
     ])
     @patch('requests.post', return_value=requests_response('OK'))  # update DID on PLC
-    def test_set_username(self, mock_post, mock_get, _):
+    def test_set_username(self, mock_post, mock_get, mock_create_task, _):
         user = self.make_user_and_repo(enabled_protocols=['atproto'])
         ATProto.set_username(user, 'ne.w')
+
+        mock_get.assert_has_calls([
+            call('https://ne.w/.well-known/atproto-did',
+                 timeout=15, stream=True, headers=ANY),
+            call('https://plc.local/did:plc:user/log/audit',
+                 timeout=15, stream=True, headers=ANY),
+        ])
+
+        mock_post.call_args.kwargs['json'].pop('sig')
+        did_key = encode_did_key(ATPROTO_KEY.public_key())
+        mock_post.assert_called_with('https://plc.local/did:plc:user', json={
+            'type': 'plc_operation',
+            'rotationKeys': [did_key],
+            'verificationMethods': {'atproto': did_key},
+            'alsoKnownAs': ['at://ne.w', 'http://ol.d'],
+            'services': {
+                'atproto_pds': {
+                    'type': 'AtprotoPersonalDataServer',
+                    'endpoint': 'https://pds.local',
+                },
+            },
+            'prev': 'orig',
+            'did': 'did:plc:user',
+        }, timeout=15, stream=True, headers=ANY)
+
+        # check #identity event
+        seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)
+        self.assertEqual({
+            '$type': 'com.atproto.sync.subscribeRepos#identity',
+            'seq': seq,
+            'did': 'did:plc:user',
+            'handle': 'ne.w',
+            'time': NOW.isoformat(),
+        }, next(self.storage.read_events_by_seq(seq)))
+
+        mock_create_task.assert_called()  # atproto-commit
 
     # resolve handle, DNS method, not found
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())

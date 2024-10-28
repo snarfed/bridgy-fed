@@ -33,7 +33,7 @@ DM_EFAKE_ALICE_SET_USERNAME_OTHER = {
     'to': ['other.brid.gy'],
     'content': 'username new-handle',
 }
-ALICE_USERNAME_CONFIRMATION_CONTENT = 'Your username in other-phrase has been set to new-handle. It should appear soon!'
+ALICE_USERNAME_CONFIRMATION_CONTENT = 'Your username in other-phrase has been set to <a class="h-card u-author" rel="me" href="web:other:efake:alice" title="other:handle:efake:handle:alice">other:handle:efake:handle:alice</a>. It should appear soon!'
 
 
 class DmsTest(TestCase):

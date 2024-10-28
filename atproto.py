@@ -503,9 +503,11 @@ class ATProto(User, Protocol):
             logger.info(f'repo for {did} is tombstoned, giving up')
             return False
 
+        repo.callback = lambda _: common.create_task(queue='atproto-commit')
         did.update_plc(did=copy_did, handle=username,
                        signing_key=repo.signing_key, rotation_key=repo.rotation_key,
                        get_fn=util.requests_get, post_fn=util.requests_post)
+        arroba.server.storage.write_event(repo=repo, type='identity', handle=username)
 
     @classmethod
     def send(to_cls, obj, url, from_user=None, orig_obj_id=None):

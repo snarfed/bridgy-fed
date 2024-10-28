@@ -121,7 +121,7 @@ def receive(*, from_user, obj):
             to_proto.set_username(from_user, username)
         except (ValueError, RuntimeError) as e:
             return reply(str(e))
-        return reply(f"Your username in {to_proto.PHRASE} has been set to {username}. It should appear soon!")
+        return reply(f"Your username in {to_proto.PHRASE} has been set to {from_user.user_link(proto=to_proto, name=False, handle=True)}. It should appear soon!")
 
     # are they requesting a user?
     if not to_proto.owns_handle(content) and content.startswith('@'):
