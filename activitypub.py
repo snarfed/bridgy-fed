@@ -752,6 +752,8 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         activity['id'] = util.get_first(activity, 'url')
 
     if wrap:
+        # TODO: for getting Accept off fed.brid.gy, should this use actor's subdomain?
+        # https://github.com/snarfed/bridgy-fed/issues/1093#issuecomment-2299247639
         activity['id'] = redirect_wrap(activity.get('id'))
         activity['url'] = [redirect_wrap(u) for u in util.get_list(activity, 'url')]
         if len(activity['url']) == 1:

@@ -17,7 +17,7 @@ REQUESTS_LIMIT_EXPIRE = timedelta(days=1)
 REQUESTS_LIMIT_USER = 10
 
 
-def maybe_send(*, from_proto, to_user, text, type=None):
+def maybe_send(*, from_proto, to_user, text, type=None, in_reply_to=None):
     """Sends a DM.
 
     Creates a task to send the DM asynchronously.
@@ -30,6 +30,7 @@ def maybe_send(*, from_proto, to_user, text, type=None):
       to_user (models.User)
       text (str): message content. May be HTML.
       type (str): optional, one of DM.TYPES
+      in_reply_to (str): optional, ``id`` of a DM to reply to
     """
     if type:
         dm = models.DM(protocol=from_proto.LABEL, type=type)
@@ -52,6 +53,7 @@ def maybe_send(*, from_proto, to_user, text, type=None):
         'verb': 'post',
         'id': f'{id}-create',
         'actor': bot.key.id(),
+        'inReplyTo': in_reply_to,
         'object': {
             'objectType': 'note',
             'id': id,
@@ -101,21 +103,26 @@ def receive(*, from_user, obj):
     content = soup.get_text().strip().lower()
 
     def reply(text, type=None):
-        maybe_send(from_proto=to_proto, to_user=from_user, text=text, type=type)
+        maybe_send(from_proto=to_proto, to_user=from_user, text=text, type=type,
+                   in_reply_to=inner_obj.get('id'))
         return 'OK', 200
 
     # parse and handle message
-    if content in ('yes', 'ok'):
+    split = content.split(maxsplit=1)
+    cmd = split[0]
+    arg = split[1] if len(split) > 1 else None
+
+    if cmd in ('yes', 'ok') and not arg:
         from_user.enable_protocol(to_proto)
         to_proto.bot_follow(from_user)
         return 'OK', 200
 
-    elif content == 'no':
+    elif cmd in ('no', 'stop') and not arg:
         from_user.delete(to_proto)
         from_user.disable_protocol(to_proto)
         return 'OK', 200
 
-    elif content.startswith('username '):
+    elif cmd in ('username', 'handle') and arg:
         username = content.split(maxsplit=1)[1]
         try:
             to_proto.set_username(from_user, username)

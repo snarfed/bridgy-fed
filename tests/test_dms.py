@@ -45,7 +45,10 @@ class DmsTest(TestCase):
         bob = self.make_user(id='other:bob', cls=OtherFake, obj_as1={'x': 'y'})
         return alice, bob
 
-    def assert_sent(self, from_cls, tos, type, text):
+    def assert_replied(self, *args):
+        self.assert_sent(*args, in_reply_to='efake:dm')
+
+    def assert_sent(self, from_cls, tos, type, text, in_reply_to=None):
         if not isinstance(tos, list):
             tos = [tos]
         from_id = f'{from_cls.ABBREV}.brid.gy'
@@ -55,6 +58,7 @@ class DmsTest(TestCase):
                 'verb': 'post',
                 'id': f'https://{from_id}/#{type}-dm-{to.key.id()}-2022-01-02T03:04:05+00:00-create',
                 'actor': from_id,
+                'inReplyTo': in_reply_to,
                 'object': {
                     'objectType': 'note',
                     'id': f'https://{from_id}/#{type}-dm-{to.key.id()}-2022-01-02T03:04:05+00:00',
@@ -187,7 +191,7 @@ class DmsTest(TestCase):
         obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
-        self.assert_sent(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
         self.assert_sent(ExplicitFake, bob, 'request_bridging',
                          ALICE_REQUEST_CONTENT)
 
@@ -199,7 +203,7 @@ class DmsTest(TestCase):
             'content': '@other:handle:bob',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_sent(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
         self.assert_sent(ExplicitFake, bob, 'request_bridging',
                          ALICE_REQUEST_CONTENT)
 
@@ -212,7 +216,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_sent(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
         self.assert_sent(ExplicitFake, OtherFake(id='other:bob'),
                          'request_bridging', ALICE_REQUEST_CONTENT)
         self.assertEqual(['other:bob'], OtherFake.fetched)
@@ -225,7 +229,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_sent(OtherFake, alice, '?', "Couldn't find other-phrase user other:handle:bob")
+        self.assert_replied(OtherFake, alice, '?', "Couldn't find other-phrase user other:handle:bob")
         self.assertEqual([], OtherFake.sent)
 
     def test_receive_prompt_from_user_not_bridged(self):
@@ -236,7 +240,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_sent(OtherFake, alice, '?', 'Please bridge your account to other-phrase by following this account before requesting another user.')
+        self.assert_replied(OtherFake, alice, '?', 'Please bridge your account to other-phrase by following this account before requesting another user.')
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
 
@@ -247,7 +251,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_sent(OtherFake, alice, '?', """<a class="h-card u-author" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob">other:handle:bob &middot; efake:handle:other:handle:bob</a> is already bridged into efake-phrase.""")
+        self.assert_replied(OtherFake, alice, '?', """<a class="h-card u-author" rel="me" href="web:efake:other:bob" title="other:handle:bob &middot; efake:handle:other:handle:bob">other:handle:bob &middot; efake:handle:other:handle:bob</a> is already bridged into efake-phrase.""")
         self.assertEqual([], OtherFake.sent)
 
     def test_receive_prompt_already_requested(self):
@@ -257,7 +261,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_sent(OtherFake, alice, '?', """We've already sent <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> a DM. Fingers crossed!""")
+        self.assert_replied(OtherFake, alice, '?', """We've already sent <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> a DM. Fingers crossed!""")
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
 
@@ -289,7 +293,7 @@ class DmsTest(TestCase):
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assertEqual([], OtherFake.sent)
-        self.assert_sent(OtherFake, alice, '?', "Sorry, you've hit your limit of 2 requests per day. Try again tomorrow!")
+        self.assert_replied(OtherFake, alice, '?', "Sorry, you've hit your limit of 2 requests per day. Try again tomorrow!")
         self.assertEqual(3, memcache.get('dm-user-requests-efake-efake:alice'))
 
     def test_receive_prompt_wrong_protocol(self):
@@ -313,7 +317,7 @@ class DmsTest(TestCase):
         obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
 
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_sent(OtherFake, alice, '?', "Sorry, Bridgy Fed doesn't yet support bridging handle other:handle:bob from other-phrase to efake-phrase.")
+        self.assert_replied(OtherFake, alice, '?', "Sorry, Bridgy Fed doesn't yet support bridging handle other:handle:bob from other-phrase to efake-phrase.")
         self.assertEqual([], OtherFake.sent)
 
     def test_receive_username(self):
@@ -324,7 +328,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EFAKE_ALICE_SET_USERNAME_OTHER)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_sent(OtherFake, alice, '?', ALICE_USERNAME_CONFIRMATION_CONTENT)
+        self.assert_replied(OtherFake, alice, '?', ALICE_USERNAME_CONFIRMATION_CONTENT)
         self.assertEqual({OtherFake: 'new-handle'}, alice.usernames)
 
     @mock.patch.object(OtherFake, 'set_username', side_effect=RuntimeError('nopey'))
@@ -336,5 +340,5 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EFAKE_ALICE_SET_USERNAME_OTHER)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_sent(OtherFake, alice, '?', 'nopey')
+        self.assert_replied(OtherFake, alice, '?', 'nopey')
         self.assertEqual({}, alice.usernames)
