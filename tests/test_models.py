@@ -632,6 +632,16 @@ class ObjectTest(TestCase):
             Object.get_or_create('fake:foo', authed_as='fake:eve',
                                  our_as1={'bar': 'biff'})
 
+    def test_get_or_create_auth_check_normalize_profile_id(self):
+        Object(id='https://www.foo.com', source_protocol='web',
+               our_as1={'foo': 'bar'}).put()
+        obj = Object.get_or_create('https://www.foo.com', authed_as='foo.com',
+                                   our_as1={'foo': 'baz'})
+        self.assertEqual({
+            'id': 'https://www.foo.com',
+            'foo': 'baz',
+        }, obj.as1)
+
     def test_get_or_create_auth_check_profile_id(self):
         Object(id='fake:profile:alice', source_protocol='fake',
                our_as1={'x': 'y'}).put()

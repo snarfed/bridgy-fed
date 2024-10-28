@@ -2262,6 +2262,41 @@ class ProtocolReceiveTest(TestCase):
         )
         self.assertEqual([('fake:shared:target', update_obj.as1)], Fake.sent)
 
+    def test_update_profile_use_instead(self):
+        user_instead = self.make_user('fake:user-instead', cls=Fake,
+                                       use_instead=self.user.key)
+
+        profile = {
+            'objectType': 'person',
+            'id': 'fake:profile:user-instead',
+            'foo': 'bar',
+        }
+        obj = Object(id='fake:profile:user', source_protocol='fake', our_as1=profile)
+        Fake.receive(obj)
+
+        # profile object
+        self.assert_object('fake:profile:user', our_as1=profile,
+                           source_protocol='fake')
+
+        # update activity
+        id = 'fake:profile:user#bridgy-fed-update-2022-01-02T03:04:05+00:00'
+        profile['updated'] = '2022-01-02T03:04:05+00:00'
+        self.assert_object(
+            id,
+            # TODO: fix this
+            users=[Fake(id='fake:profile:user-instead').key],
+            status='ignored',
+            our_as1={
+                'objectType': 'activity',
+                'verb': 'update',
+                'id': id,
+                'actor': profile,
+                'object': profile,
+            },
+            type='update',
+            source_protocol='fake',
+        )
+
     def test_mention_object(self, *mocks):
         self.alice.obj.our_as1 = {'id': 'other:alice', 'objectType': 'person'}
         self.alice.obj.put()

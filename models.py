@@ -1053,10 +1053,10 @@ class Object(StringIdModel):
                 assert proto, obj.source_protocol
                 owners = [ids.normalize_user_id(id=owner, proto=proto)
                           for owner in (as1.get_ids(orig_as1, 'author')
-                                        + as1.get_ids(orig_as1, 'actor'))]
+                                        + as1.get_ids(orig_as1, 'actor'))
+                                        + [id]]
                 if (ids.normalize_user_id(id=authed_as, proto=proto) not in owners
-                        and id != authed_as
-                        and id != ids.profile_id(id=authed_as, proto=proto)):
+                        and ids.profile_id(id=authed_as, proto=proto) not in owners):
                     report_error("Auth: Object: authed_as doesn't match owner",
                                  user=f'{id} authed_as {authed_as} owners {owners}')
                     error(f"authed user {authed_as} isn't object owner {owners}",

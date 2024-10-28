@@ -212,11 +212,11 @@ def profile_id(*, id, proto):
         case 'atproto':
             return f'at://{id}/app.bsky.actor.profile/self'
 
-        case 'web':
+        case 'web' if not (id.startswith('https://') or id.startswith('http://')):
             return f'https://{id}/'
 
         # only for unit tests
-        case 'fake':
+        case 'fake' if not id.startswith('fake:profile:'):
             return id.replace('fake:', 'fake:profile:')
 
         case _:
