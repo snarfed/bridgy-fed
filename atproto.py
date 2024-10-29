@@ -499,7 +499,7 @@ class ATProto(User, Protocol):
         # resolve_handle checks that username is a valid domain
         resolved = did.resolve_handle(username, get_fn=util.requests_get)
         if resolved != copy_did:
-            raise RuntimeError(f"""You'll need to connect that domain to your bridged Bluesky account, either <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">with DNS</a> <a href="https://atproto.com/specs/handle#handle-resolution">or HTTP</a>. Once you're done, <a href="https://bsky-debug.app/handle?handle={username}">check your work here</a>, then DM me <code>username {username}</code> again.""")
+            raise RuntimeError(f"""<p>You'll need to connect that domain to your bridged Bluesky account, either <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">with DNS</a> <a href="https://atproto.com/specs/handle#handle-resolution">or HTTP</a>. Your DID is: <code>{copy_did}</code><p>Once you're done, <a href="https://bsky-debug.app/handle?handle={username}">check your work here</a>, then DM me <em>username {username}</em> again.""")
 
         try:
             repo = arroba.server.storage.load_repo(copy_did)

@@ -114,13 +114,13 @@ def receive(*, from_user, obj):
 
     if cmd in ('?', 'help', 'commands', 'info', 'hi', 'hello'):
         return reply(f"""\
-<p>Hi! I'm a friendly bot that can help you bridge your account into {to_proto.LABEL}. Here are some commands I respond to:</p>
+<p>Hi! I'm a friendly bot that can help you bridge your account into {to_proto.PHRASE}. Here are some commands I respond to:</p>
 <ul>
-<li><code>start</code>: enable bridging for your account
-<li><code>stop</code>: disable bridging for your account
-<li><code>username [domain]</code>: set a custom domain username for your bridged account
-<li><code>[handle]</code>: make me DM a user on {to_proto.LABEL} to request that they bridge their account into {from_user.LABEL}
-<li><code>help</code>: print this message
+<li><em>start</em>: enable bridging for your account
+<li><em>stop</em>: disable bridging for your account
+<li><em>username [domain]</em>: set a custom domain username (handle)
+<li><em>[handle]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
+<li><em>help</em>: print this message
 </ul>""")
 
     if cmd in ('yes', 'ok', 'start') and not arg:
