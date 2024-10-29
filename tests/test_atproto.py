@@ -1216,6 +1216,11 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'cid': 'orig',
             'operation': {'alsoKnownAs': ['at://ol.d', 'http://ol.d']},
         }]),
+        # fetch updated DID doc
+        requests_response({
+            **DID_DOC,
+            'alsoKnownAs': ['at://ne.w'],
+        }),
     ])
     @patch('requests.post', return_value=requests_response('OK'))  # update DID on PLC
     def test_set_username(self, mock_post, mock_get, mock_create_task, _):
@@ -1245,6 +1250,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'prev': 'orig',
             'did': 'did:plc:user',
         }, timeout=15, stream=True, headers=ANY)
+
+        self.assertEqual('ne.w', user.handle_as(ATProto))
 
         # check #identity event
         seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)

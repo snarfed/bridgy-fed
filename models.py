@@ -600,6 +600,13 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         if isinstance(to_proto, str):
             to_proto = PROTOCOLS[to_proto]
 
+        # override to-ATProto to use custom domain handle in DID doc
+        from atproto import ATProto, did_to_handle
+        if to_proto == ATProto:
+            if did := self.get_copy(ATProto):
+                if handle := did_to_handle(did, remote=False):
+                    return handle
+
         # override web users to always use domain instead of custom username
         # TODO: fall back to id if handle is unset?
         handle = self.key.id() if self.LABEL == 'web' else self.handle
@@ -798,8 +805,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
                 img = f'<img src="{pic}" class="profile"> '
 
         if handle:
-            handle_str = ids.translate_handle(handle=self.handle, from_=self,
-                                              to=proto, enhanced=False)
+            handle_str = self.handle_as(proto)
 
         if name and self.name() != handle_str:
             name_str = self.name()

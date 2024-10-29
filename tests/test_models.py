@@ -282,6 +282,15 @@ class UserTest(TestCase):
         self.assertEqual('alice', self.user.username())
         self.assertEqual('@y.za@web.brid.gy', self.user.handle_as('ap'))
 
+    def test_handle_as_atproto_custom_handle(self, *_):
+        self.assertEqual('y.za.web.brid.gy', self.user.handle_as(ATProto))
+
+        self.user.copies = [Target(uri='did:plc:user', protocol='atproto')]
+        self.assertEqual('y.za.web.brid.gy', self.user.handle_as(ATProto))
+
+        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.assertEqual('ha.nl', self.user.handle_as(ATProto))
+
     def test_handle_as_None(self):
         class NoHandle(Fake):
             ABBREV = 'nohandle'
