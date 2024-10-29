@@ -9,6 +9,7 @@ from oauth_dropins.webutil import util
 from common import create_task, memcache, memcache_key
 import ids
 import models
+from models import PROTOCOLS
 import protocol
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,10 @@ def receive(*, from_user, obj):
     cmd = split[0].lstrip('/')
     arg = split[1] if len(split) > 1 else None
 
+    extra = ''
+    if to_proto.LABEL == 'atproto':
+        extra = """<li><em>did</em>: get your bridged Bluesky account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>"""
+
     if cmd in ('?', 'help', 'commands', 'info', 'hi', 'hello'):
         return reply(f"""\
 <p>Hi! I'm a friendly bot that can help you bridge your account into {to_proto.PHRASE}. Here are some commands I respond to:</p>
@@ -120,6 +125,7 @@ def receive(*, from_user, obj):
 <li><em>stop</em>: disable bridging for your account
 <li><em>username [domain]</em>: set a custom domain username (handle)
 <li><em>[handle]</em>: ask me to DM a user on {to_proto.PHRASE} to request that they bridge their account into {from_user.PHRASE}
+{extra}
 <li><em>help</em>: print this message
 </ul>""")
 
@@ -132,15 +138,18 @@ def receive(*, from_user, obj):
     if not from_user.is_enabled(to_proto):
         return reply(f"Looks like you're not bridged to {to_proto.PHRASE} yet! Please bridge your account first by following this account.")
 
+    if cmd == 'did' and not arg and to_proto.LABEL == 'atproto':
+        return reply(f'Your DID is <code>{from_user.get_copy(PROTOCOLS["atproto"])}</code>')
+        return 'OK', 200
+
     if cmd in ('no', 'stop') and not arg:
         from_user.delete(to_proto)
         from_user.disable_protocol(to_proto)
         return 'OK', 200
 
     if cmd in ('username', 'handle') and arg:
-        username = content.split(maxsplit=1)[1]
         try:
-            to_proto.set_username(from_user, username)
+            to_proto.set_username(from_user, arg)
         except NotImplementedError:
             return reply(f"Sorry, Bridgy Fed doesn't support custom usernames for {to_proto.PHRASE} yet.")
         except (ValueError, RuntimeError) as e:

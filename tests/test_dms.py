@@ -6,7 +6,7 @@ from common import memcache
 import dms
 from dms import maybe_send, receive
 import ids
-from models import DM, Follower, Object
+from models import DM, Follower, Object, Target
 from web import Web
 
 from oauth_dropins.webutil.flask_util import NotModified
@@ -370,3 +370,17 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', "<p>Hi! I'm a friendly bot")
         self.assertEqual({}, OtherFake.usernames)
+
+    def test_receive_did_atproto(self):
+        self.make_user(id='bsky.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               enabled_protocols=['atproto'], obj_as1={'x': 'y'},
+                               copies=[Target(protocol='atproto', uri='did:abc:123')])
+        obj = Object(our_as1={
+            **DM_BASE,
+            'to': ['bsky.brid.gy'],
+            'content': 'did',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(ATProto, alice, '?',
+                            'Your DID is <code>did:abc:123</code>')
