@@ -17,7 +17,6 @@ from oauth_dropins.webutil.flask_util import (
     canonicalize_request_domain,
     error,
     flash,
-    redirect,
 )
 import requests
 import werkzeug.exceptions
@@ -27,6 +26,7 @@ from atproto import ATProto
 import common
 from common import CACHE_CONTROL, DOMAIN_RE
 from flask_app import app
+from flask import redirect
 import ids
 from models import fetch_objects, fetch_page, Follower, Object, PAGE_SIZE, PROTOCOLS
 from protocol import Protocol
@@ -169,27 +169,35 @@ def notifications(protocol, id):
 def update_profile(protocol, id):
     user = load_user(protocol, id)
     link = f'<a href="{user.web_url()}">{user.handle_or_id()}</a>'
+    redir = redirect(user.user_page_path(), code=302)
 
     try:
         user.reload_profile()
     except (requests.RequestException, werkzeug.exceptions.HTTPException) as e:
         _, msg = util.interpret_http_exception(e)
         flash(f"Couldn't update profile for {link}: {msg}")
-        return redirect(user.user_page_path(), code=302)
+        return redir
 
-    if user.obj:
-        common.create_task(queue='receive', obj_id=user.obj_key.id(),
-                           authed_as=user.key.id())
-        flash(f'Updating profile from {link}...')
+    if not user.obj:
+        flash(f"Couldn't update profile for {link}")
+        return redir
 
-        if user.status and user.LABEL == 'web':
+    common.create_task(queue='receive', obj_id=user.obj_key.id(),
+                       authed_as=user.key.id())
+    flash(f'Updating profile from {link}...')
+
+    if user.LABEL == 'web':
+        if user.status:
             logger.info(f'Disabling web user {user.key.id()}')
             user.delete()
+        else:
+            for label in list(user.DEFAULT_ENABLED_PROTOCOLS) + user.enabled_protocols:
+                try:
+                    PROTOCOLS[label].set_username(user, id)
+                except (ValueError, RuntimeError, NotImplementedError) as e:
+                    pass
 
-    else:
-        flash(f"Couldn't update profile for {link}")
-
-    return redirect(user.user_page_path(), code=302)
+    return redir
 
 
 @app.get(f'/<any({",".join(PROTOCOLS)}):protocol>/<id>/<any(followers,following):collection>')

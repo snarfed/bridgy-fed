@@ -13,7 +13,7 @@ from oauth_dropins.webutil.testutil import requests_response
 from requests import ConnectionError
 
 # import first so that Fake is defined before URL routes are registered
-from .testutil import Fake, TestCase, ACTOR, COMMENT, MENTION, NOTE
+from .testutil import Fake, OtherFake, TestCase, ACTOR, COMMENT, MENTION, NOTE
 
 from activitypub import ActivityPub
 from atproto import ATProto
@@ -245,7 +245,11 @@ class PagesTest(TestCase):
 
     @patch('requests.get', return_value=ACTOR_HTML_RESP)
     def test_update_profile_web(self, mock_get):
-        self.user.obj.copies = [Target(protocol='fake', uri='fa:profile:web:user.com')]
+        self.user.obj.copies = [
+            Target(protocol='fake', uri='fa:profile:web:user.com'),
+            Target(protocol='other', uri='other:profile:web:user.com'),
+        ]
+        self.user.enabled_protocols = ['other']
         self.user.obj.put()
         Follower.get_or_create(from_=self.make_user('fake:user', cls=Fake),
                                to=self.user)
@@ -269,6 +273,8 @@ class PagesTest(TestCase):
             'actor': actor_as1,
             'object': actor_as1,
         })], Fake.sent)
+
+        self.assertEqual({'user.com': 'user.com'}, OtherFake.usernames)
 
     @patch('requests.get', return_value=requests_response(
         ACTOR_HTML.replace('Ms. ☕ Baz', 'Ms. ☕ Baz #nobridge'),

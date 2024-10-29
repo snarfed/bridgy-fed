@@ -507,6 +507,7 @@ class ATProto(User, Protocol):
             logger.info(f'repo for {did} is tombstoned, giving up')
             return False
 
+        logger.info(f'Setting ATProto handle for {user.key.id()} to {username}')
         repo.callback = lambda _: common.create_task(queue='atproto-commit')
         did.update_plc(did=copy_did, handle=username,
                        signing_key=repo.signing_key, rotation_key=repo.rotation_key,

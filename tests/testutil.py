@@ -92,12 +92,8 @@ class Fake(User, protocol.Protocol):
     fetched = []
     created_for = []
 
-    # instance attr, dict mapping Protocol class to str username
-    usernames = None
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.usernames = {}
+    # maps str user id to str username
+    usernames = {}
 
     @ndb.ComputedProperty
     def handle(self):
@@ -222,6 +218,7 @@ class OtherFake(Fake):
     sent = []
     fetched = []
     created_for = []
+    usernames = {}
 
     @classmethod
     def target_for(cls, obj, shared=False):
@@ -230,7 +227,8 @@ class OtherFake(Fake):
 
     @classmethod
     def set_username(cls, user, username):
-        user.usernames[cls] = username
+        logger.info(f'Setting custom username for {user.key.id()} in {cls.LABEL} to {username}')
+        cls.usernames[user.key.id()] = username
 
 
 class ExplicitFake(Fake):
@@ -245,6 +243,7 @@ class ExplicitFake(Fake):
     sent = []
     fetched = []
     created_for = []
+    usernames = {}
 
 
 # import other modules that register Flask handlers *after* Fake is defined
@@ -305,6 +304,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
             cls.sent = []
             cls.fetched = []
             cls.created_for = []
+            cls.usernames = {}
 
         # make random test data deterministic
         arroba.util._clockid = 17

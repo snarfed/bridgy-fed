@@ -333,7 +333,7 @@ class DmsTest(TestCase):
         obj = Object(our_as1=DM_EFAKE_ALICE_SET_USERNAME_OTHER)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', ALICE_USERNAME_CONFIRMATION_CONTENT)
-        self.assertEqual({OtherFake: 'new-handle'}, alice.usernames)
+        self.assertEqual({'efake:alice': 'new-handle'}, OtherFake.usernames)
 
     def test_receive_username_not_implemented(self):
         self.make_user(id='fa.brid.gy', cls=Web)
@@ -357,7 +357,7 @@ class DmsTest(TestCase):
         obj = Object(our_as1=DM_EFAKE_ALICE_SET_USERNAME_OTHER)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', 'nopey')
-        self.assertEqual({}, alice.usernames)
+        self.assertEqual({}, OtherFake.usernames)
 
     def test_receive_help(self):
         self.make_user(id='other.brid.gy', cls=Web)
@@ -369,4 +369,4 @@ class DmsTest(TestCase):
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', "<p>Hi! I'm a friendly bot")
-        self.assertEqual({}, alice.usernames)
+        self.assertEqual({}, OtherFake.usernames)
