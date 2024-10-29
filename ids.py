@@ -233,6 +233,8 @@ def translate_handle(*, handle, from_, to, enhanced):
       enhanced (bool): whether to convert to an "enhanced" handle based on the
         user's domain
 
+    TODO: drop enhanced arg, always use if available?
+
     Returns:
       str: the corresponding handle in ``to``
 

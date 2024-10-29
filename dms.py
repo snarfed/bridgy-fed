@@ -53,12 +53,12 @@ def maybe_send(*, from_proto, to_user, text, type=None, in_reply_to=None):
         'verb': 'post',
         'id': f'{id}-create',
         'actor': bot.key.id(),
-        'inReplyTo': in_reply_to,
         'object': {
             'objectType': 'note',
             'id': id,
             'author': bot.key.id(),
             'content': text,
+            'inReplyTo': in_reply_to,
             'tags': [{
                 'objectType': 'mention',
                 'url': to_user.key.id(),
@@ -109,10 +109,21 @@ def receive(*, from_user, obj):
 
     # parse and handle message
     split = content.split(maxsplit=1)
-    cmd = split[0]
+    cmd = split[0].lstrip('/')
     arg = split[1] if len(split) > 1 else None
 
-    if cmd in ('yes', 'ok') and not arg:
+    if cmd in ('?', 'help', 'commands', 'info', 'hi', 'hello'):
+        return reply(f"""\
+<p>Hi! I'm a friendly bot that can help you bridge your account into {to_proto.LABEL}. Here are some commands I respond to:</p>
+<ul>
+<li><code>start</code>: enable bridging for your account
+<li><code>stop</code>: disable bridging for your account
+<li><code>username [domain]</code>: set a custom domain username for your bridged account
+<li><code>[handle]</code>: make me DM a user on {to_proto.LABEL} to request that they bridge their account into {from_user.LABEL}
+<li><code>help</code>: print this message
+</ul>""")
+
+    elif cmd in ('yes', 'ok', 'start') and not arg:
         from_user.enable_protocol(to_proto)
         to_proto.bot_follow(from_user)
         return 'OK', 200

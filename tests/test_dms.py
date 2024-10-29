@@ -13,11 +13,15 @@ from oauth_dropins.webutil.flask_util import NotModified
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 from .test_atproto import DID_DOC
 
-DM_EFAKE_ALICE_REQUESTS_OTHER_BOB = {
+DM_BASE = {
     'objectType': 'note',
     'id': 'efake:dm',
     'actor': 'efake:alice',
     'to': ['other.brid.gy'],
+}
+
+DM_EFAKE_ALICE_REQUESTS_OTHER_BOB = {
+    **DM_BASE,
     'content': ' other:handle:bob ',
 }
 ALICE_CONFIRMATION_CONTENT = """Got it! We'll send <a class="h-card u-author" rel="me" href="web:other:bob" title="other:handle:bob">other:handle:bob</a> a message and say that you hope they'll enable the bridge. Fingers crossed!"""
@@ -27,10 +31,7 @@ ALICE_REQUEST_CONTENT = """\
 <p>Bridgy Fed will only send you this message once."""
 
 DM_EFAKE_ALICE_SET_USERNAME_OTHER = {
-    'objectType': 'note',
-    'id': 'efake:dm',
-    'actor': 'efake:alice',
-    'to': ['other.brid.gy'],
+    **DM_BASE,
     'content': 'username new-handle',
 }
 ALICE_USERNAME_CONFIRMATION_CONTENT = 'Your username in other-phrase has been set to <a class="h-card u-author" rel="me" href="web:other:efake:alice" title="other:handle:efake:handle:alice">other:handle:efake:handle:alice</a>. It should appear soon!'
@@ -51,25 +52,29 @@ class DmsTest(TestCase):
     def assert_sent(self, from_cls, tos, type, text, in_reply_to=None):
         if not isinstance(tos, list):
             tos = [tos]
+
         from_id = f'{from_cls.ABBREV}.brid.gy'
-        self.assertEqual([
-            (f'{to.key.id()}:target', {
+        for expected, (target, activity) in zip(tos, tos[0].sent):
+            id = expected.key.id()
+            self.assertEqual(f'{id}:target', target)
+            content = activity['object'].pop('content')
+            if content != text:
+                assert content.startswith(text), content
+            self.assertEqual({
                 'objectType': 'activity',
                 'verb': 'post',
-                'id': f'https://{from_id}/#{type}-dm-{to.key.id()}-2022-01-02T03:04:05+00:00-create',
+                'id': f'https://{from_id}/#{type}-dm-{id}-2022-01-02T03:04:05+00:00-create',
                 'actor': from_id,
-                'inReplyTo': in_reply_to,
                 'object': {
                     'objectType': 'note',
-                    'id': f'https://{from_id}/#{type}-dm-{to.key.id()}-2022-01-02T03:04:05+00:00',
+                    'id': f'https://{from_id}/#{type}-dm-{id}-2022-01-02T03:04:05+00:00',
                     'author': from_id,
-                    'content': text,
-                    'tags': [{'objectType': 'mention', 'url': to.key.id()}],
-                    'to': [to.key.id()],
+                    'inReplyTo': in_reply_to,
+                    'tags': [{'objectType': 'mention', 'url': id}],
+                    'to': [id],
                 },
-                'to': [to.key.id()],
-             })
-            for to in tos], tos[0].sent)
+                'to': [id],
+            }, activity)
 
     def test_maybe_send(self):
         self.make_user(id='fa.brid.gy', cls=Web)
@@ -117,7 +122,7 @@ class DmsTest(TestCase):
                                enabled_protocols=['other'], obj_id='efake:alice')
 
         obj = Object(our_as1={
-            **DM_EFAKE_ALICE_REQUESTS_OTHER_BOB,
+            **DM_BASE,
             'content': 'foo bar',
         })
         with self.assertRaises(NotModified) as e:
@@ -199,7 +204,7 @@ class DmsTest(TestCase):
         alice, bob = self.make_alice_bob()
 
         obj = Object(our_as1={
-            **DM_EFAKE_ALICE_REQUESTS_OTHER_BOB,
+            **DM_BASE,
             'content': '@other:handle:bob',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
@@ -275,7 +280,7 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
 
         obj = Object(our_as1={
-            **DM_EFAKE_ALICE_REQUESTS_OTHER_BOB,
+            **DM_BASE,
             'content': 'other:handle:eve',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
@@ -288,7 +293,7 @@ class DmsTest(TestCase):
         OtherFake.sent = []
         ExplicitFake.sent = []
         obj = Object(our_as1={
-            **DM_EFAKE_ALICE_REQUESTS_OTHER_BOB,
+            **DM_BASE,
             'content': 'other:handle:frank',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
@@ -300,7 +305,7 @@ class DmsTest(TestCase):
         self.make_user(id='other.brid.gy', cls=Web)
 
         obj = Object(our_as1={
-            **DM_EFAKE_ALICE_REQUESTS_OTHER_BOB,
+            **DM_BASE,
             'content': 'fake:eve',
         })
         with self.assertRaises(NotModified) as e:
@@ -341,4 +346,16 @@ class DmsTest(TestCase):
         obj = Object(our_as1=DM_EFAKE_ALICE_SET_USERNAME_OTHER)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', 'nopey')
+        self.assertEqual({}, alice.usernames)
+
+    def test_receive_help(self):
+        self.make_user(id='other.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               enabled_protocols=['other'], obj_as1={'x': 'y'})
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': '/help',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(OtherFake, alice, '?', "<p>Hi! I'm a friendly bot")
         self.assertEqual({}, alice.usernames)
