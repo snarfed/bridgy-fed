@@ -245,7 +245,7 @@ class DmsTest(TestCase):
 
         obj = Object(our_as1=DM_EFAKE_ALICE_REQUESTS_OTHER_BOB)
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
-        self.assert_replied(OtherFake, alice, '?', 'Please bridge your account to other-phrase by following this account before requesting another user.')
+        self.assert_replied(OtherFake, alice, '?', "Looks like you're not bridged to other-phrase yet!")
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
 
@@ -326,7 +326,6 @@ class DmsTest(TestCase):
         self.assertEqual([], OtherFake.sent)
 
     def test_receive_username(self):
-        self.make_user(id='efake.brid.gy', cls=Web)
         self.make_user(id='other.brid.gy', cls=Web)
         alice = self.make_user(id='efake:alice', cls=ExplicitFake,
                                enabled_protocols=['other'], obj_as1={'x': 'y'})
@@ -336,9 +335,21 @@ class DmsTest(TestCase):
         self.assert_replied(OtherFake, alice, '?', ALICE_USERNAME_CONFIRMATION_CONTENT)
         self.assertEqual({OtherFake: 'new-handle'}, alice.usernames)
 
+    def test_receive_username_not_implemented(self):
+        self.make_user(id='fa.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               enabled_protocols=['fake'], obj_as1={'x': 'y'})
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': 'username fake:handle:alice',
+            'to': ['fa.brid.gy'],
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(Fake, alice, '?', "Sorry, Bridgy Fed doesn't support custom usernames for fake-phrase yet.")
+
     @mock.patch.object(OtherFake, 'set_username', side_effect=RuntimeError('nopey'))
     def test_receive_username_fails(self, _):
-        self.make_user(id='efake.brid.gy', cls=Web)
         self.make_user(id='other.brid.gy', cls=Web)
         alice = self.make_user(id='efake:alice', cls=ExplicitFake,
                                enabled_protocols=['other'], obj_as1={'x': 'y'})

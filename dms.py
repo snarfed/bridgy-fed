@@ -123,20 +123,26 @@ def receive(*, from_user, obj):
 <li><code>help</code>: print this message
 </ul>""")
 
-    elif cmd in ('yes', 'ok', 'start') and not arg:
+    if cmd in ('yes', 'ok', 'start') and not arg:
         from_user.enable_protocol(to_proto)
         to_proto.bot_follow(from_user)
         return 'OK', 200
 
-    elif cmd in ('no', 'stop') and not arg:
+    # all other commands require the user to be bridged to this protocol first
+    if not from_user.is_enabled(to_proto):
+        return reply(f"Looks like you're not bridged to {to_proto.PHRASE} yet! Please bridge your account first by following this account.")
+
+    if cmd in ('no', 'stop') and not arg:
         from_user.delete(to_proto)
         from_user.disable_protocol(to_proto)
         return 'OK', 200
 
-    elif cmd in ('username', 'handle') and arg:
+    if cmd in ('username', 'handle') and arg:
         username = content.split(maxsplit=1)[1]
         try:
             to_proto.set_username(from_user, username)
+        except NotImplementedError:
+            return reply(f"Sorry, Bridgy Fed doesn't support custom usernames for {to_proto.PHRASE} yet.")
         except (ValueError, RuntimeError) as e:
             return reply(str(e))
         return reply(f"Your username in {to_proto.PHRASE} has been set to {from_user.user_link(proto=to_proto, name=False, handle=True)}. It should appear soon!")
@@ -160,9 +166,6 @@ def receive(*, from_user, obj):
         to_id = to_proto.handle_to_id(handle)
         if not to_id:
             return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
-
-        if not from_user.is_enabled(to_proto):
-            return reply(f'Please bridge your account to {to_proto.PHRASE} by following this account before requesting another user.')
 
         to_user = to_proto.get_or_create(to_id)
         if not to_user:
