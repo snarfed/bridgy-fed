@@ -46,8 +46,11 @@
 <li><a href="#user-page">Can I see my account's status and recent activity?</a></li>
 <li><a href="#mention">How do I @-mention a bridged user?</a></li>
 <li><a href="#delete">How do I delete a post?</a></li>
-<!-- <li><a href="#enhanced">The <code>*.brid.gy</code> domain in my bridged account is ugly. Can I get rid of it and use my own domain/web site instead?</a></li> -->
+<li><a href="#enhanced">The <code>*.brid.gy</code> domain in my bridged account is ugly. Can I use my own domain instead?</a></li>
+<li><a href="#dm-commands">What commands can I DM the bot account?</a></li>
 <li><a href="#dm-request">I want to follow someone, but they're not bridged!</a></li>
+<li><a href="#migration">Is account migration supported?</a></li>
+<li><a href="#use-like-normal">Can I log into my bridged account and use it like a normal account?</a></li>
 
 
 <br>
@@ -58,8 +61,6 @@
 <li><a href="#fediverse-follow-bluesky">How do I find a bridged Bluesky account?</a></li>
 <li><a href="#fediverse-protocol-bot-user-blocked">I can't find <code>@bsky.brid.gy@bsky.brid.gy</code> on the fediverse!</a></li>
 <li><a href="#fediverse-follow-web">How do I find a bridged web site?</a></li>
-<!-- <li><a href="#fediverse-DM">What is this DM I got from a <code>*.brid.gy</code> account?</a></li> -->
-<!-- <li><a href="#fediverse-no-DM">Someone requested to follow me, but I never got the DM!</a></li> -->
 <li><a href="#fediverse-what">Which stuff of mine from the fediverse will get bridged?</a></li>
 
 
@@ -92,6 +93,8 @@
 <li><a href="#bluesky-report">What happens when I report a bridged Bluesky user?</a></li>
 <li><a href="#bluesky-edits">I edited a post, but it didn't get edited in Bluesky!</a></li>
 <li><a href="#bluesky-video">Why can't I see a video?</a></li>
+<li><a href="#bluesky-enhanced">Can I use my own domain as my Bluesky handle?</a></li>
+<li><a href="#bluesky-fields">How can I see the full text or original URL for a bridged post?</a></li>
 
 <br>
 
@@ -119,7 +122,7 @@
 <li><a href="#web-discovery">How can people on the fediverse find and follow me?</a></li>
 <li><a href="#web-see-posts">How can I see what my posts look like inside the fediverse?</a></li>
 <li><a href="#web-searchable">Can I make my posts show up when people search for them in the fediverse?</a></li>
-<li><a href="#web-enhanced">Can I use my own domain in my fediverse handle?</a></li>
+<li><a href="#web-enhanced">Can I use my own domain as my handle on other networks?</a></li>
 
 <br>
 
@@ -334,11 +337,23 @@
 </li>
 
 
-<!-- <li id="enhanced" class="question">The <code>*.brid.gy</code> domain in my bridged account's handle is ugly. Can I get rid of it and use my own domain/web site instead?</li> -->
-<!-- <li class="answer"> -->
-<!-- <p>Yes! All supported networks let you use <a href="https://indieweb.org/personal-domain">your own domain</a> as your handle in various ways. This takes a bit of technical setup with DNS and/or a web server, but it's very doable. <a href="#fediverse-enhanced">Here are instructions for web sites bridged into the fediverse.</a></p> -->
-<!-- </li> -->
+<li id="enhanced" class="question">The <code>*.brid.gy</code> domain in my bridged account's handle is ugly. Can I get rid of it and use my own domain/web site instead?</li>
+<li class="answer">
+<p>Yes! Many supported networks let you use <a href="https://indieweb.org/personal-domain">your own domain</a> as your handle one way or another. This takes a bit of technical setup with DNS or a web server, but it's very doable. Here are instructions for <a href="#bluesky-enhanced">web sites and fediverse accounts bridged into Bluesky</a>, and for <a href="#fediverse-enhanced">web sites bridged into the fediverse</a>.</p>
+</li>
 
+
+<li id="dm-commands" class="question">What commands can I chat or DM to the bot account?</li>
+<li class="answer">
+<p>DM it <em>help</em> to see! Here's the full list:
+<ul>
+<li><em>start</em>: <a href="#get-started">enable bridging for your account</a>
+<li><em>stop</em>: <a href="#opt-out">disable bridging for your account</a>
+<li><em>username [domain]</em>: <a href="#enhanced">set a custom domain username (aka handle)</a>
+<li><em>[handle]</em>: <a href="#dm-request">ask it to DM a user to request that they bridge their account</a>
+<li><em>did</em>: get your bridged Bluesky account's <a href="https://atproto.com/guides/identity#identifiers">DID</a> (only supported with the Bluesky bot)
+</ul>
+</li>
 
 <li id="dm-request" class="question">I want to follow someone, but they're not bridged!</li>
 <li class="answer">
@@ -349,6 +364,19 @@
 <p>Bridgy Fed will only message a given recipient once, the first time they're requested. If you or someone else request them again, Bridgy Fed won't message them again.</p>
 <p>Also, you can only request 10 users per day. Use them wisely!</p>
 <p>On Bluesky, Bridgy Fed has to poll for chat messages, so if you send it a message, it may not respond immediately. It will within a minute at most!
+</li>
+
+<li id="migration" class="question">Is account migration supported?</li>
+<li class="answer">
+<p>Not yet. If you bridge your fediverse account and then <a href="https://docs.joinmastodon.org/user/moving/#migration">migrate to a new instance</a>, or bridge your Bluesky account and then <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">change your handle</a>, or bridge your web site and then move it to a new domain, Bridgy Fed doesn't officially support that right now. Some parts of bridging may continue to work, but probably not all.
+<p>Details in <a href="https://github.com/snarfed/bridgy-fed/issues/330">these</a> <a href="https://github.com/snarfed/bridgy-fed/issues/1074">issues</a>. Hopefully this will be more fully supported in the future.
+<p><a href="https://github.com/snarfed/bridgy-fed/issues/1137">Bridgy Fed also doesn't support migrating an existing account into it to become a bridged account, or migrating a bridged account out to be a normal account.</a> Those are unlikely to be supported, even in the future.
+</li>
+
+<li id="use-like-normal" class="question">Can I log into my bridged account and use it like a normal account?</a></li>
+<li class="answer">
+<p>Sorry, no, Bridgy Fed doesn't support this. It would be difficult to manage and resolve the conflicts that would inevitably arise between bridging and interactive use. This would also take a huge amount of effort; we'd have to build a full-fledged, interactive fediverse instance, Bluesky PDS, web server CMS, etc, on top of the current bridge functionality.
+<p>
 </li>
 
 
@@ -545,6 +573,27 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <p><a href="https://bsky.social/about/blog/09-11-2024-video">Bluesky currently limits videos to 60 seconds, 50MB, and .mp4, .mpeg, .webm, or .mov.</a> If you're seeing a "Video not found. Retry" error, the original video may not satisfy those requirements.</p>
 </li>
 
+<li id="bluesky-enhanced" class="question">Can I use my own domain as my Bluesky handle?</li>
+<li class="answer">
+<p>Yes! First, you'll need your bridged account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>. You can get it by DMing <em>did</em> to the Bluesky Bridgy Fed bot account (eg <code>@bsky.brid.gy@bsky.brid.gy</code>), or go to your <a href="#user-page">user page</a> and click the <button class="btn btn-default glyphicon glyphicon-tag"></button> next to to your bridged Bluesky account link.
+<p>Then you'll need to connect your domain to your bridged Bluesky account, either <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">with DNS</a> <a href="https://atproto.com/specs/handle#handle-resolution">or HTTP</a>. Once you're done, you can <a href="https://bsky-debug.app/handle?handle={username}">check your work here</a>.
+<p>Finally, if you're on the fediverse, DM <em>username [domain]</em> to <code>@bsky.brid.gy@bsky.brid.gy</code>. If you're on the web, click the <button class="btn btn-default glyphicon glyphicon-refresh"></button> button on your <a href="#user-page">user page</a>.
+</li>
+
+<li id="bluesky-fields" class="question">How can I see the full text or original URL for a bridged post?</li>
+<li class="answer">
+<p>If a post bridged into Bluesky is truncated, it will include an embed with a link to the original post. You can also find the original post link indirectly by opening the author's profile and following the link in their bio to their original account.
+<p>For developers, Bridgy Fed includes the full text and URL for bridged posts and profiles inside their AT Protocol records. Bridged <code>app.bsky.actor.profile</code> records have <code>bridgyOriginalDescription</code> and <code>bridgyOriginalUrl</code> fields, and bridged <code>app.bsky.feed.post</code> records have <code>bridgyOriginalText</code> and <code>bridgyOriginalUrl</code> fields. Here's an example:
+<pre>
+{
+  "$type": "app.bsky.feed.post",
+  "text": "This is a very long post that got cut off and ...",
+  "bridgyOriginalText": "&lt;p&gt;This is a very long post that got cut off and has more to say.&lt;/p&gt;",
+  "bridgyOriginalUrl": "https://indieweb.social/@snarfed/abc123",
+  "..."
+}
+</pre>
+</li>
 
 <br>
 
@@ -864,7 +913,7 @@ I'm <a href="https://snarfed.org/">Ryan Barrett</a>. I'm just a guy who likes <a
 
 <li id="cost" class="question">How much does it cost?</li>
 <li class="answer">
-<p>Nothing! Bridgy Fed is small, and it doesn't cost much to run. I don't need or want donations, paying customers, ads, venture capital, or any other form of money. I spend far more on coffee than on hosting Bridgy Fed, and it would have to grow 10-100x for that to change meaningfully. If that happens, I'll celebrate, and continue running it as is. I have experience scaling services like these as personal projects. I'm in the fortunate position to be able to do that; it's one way I try to give back to the open web and the decentralized social ecosystem.</p>
+<p>Nothing! Bridgy Fed is small, and it doesn't cost much to run. I don't need or want donations, paying customers, ads, venture capital, or any other form of money. Hosting costs are manageable right now, and it would have to grow 10-100x for that to change meaningfully. If that happens, I'll celebrate, and I'll still continue running it as is. I have experience scaling services like these as personal projects. I'm in the fortunate position to be able to do that; it's one way I try to give back to the open web and the decentralized social ecosystem.</p>
 <p>If you <em>really</em> want to contribute, <a href="https://github.com/snarfed/bridgy-fed/issues">file an issue</a> or <a href="https://github.com/snarfed/bridgy-fed">send a pull request</a>, or donate to your network or instance of choice!
 </p></li>
 
