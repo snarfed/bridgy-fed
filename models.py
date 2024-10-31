@@ -27,12 +27,10 @@ from requests import RequestException
 
 import common
 from common import (
-    add,
     base64_to_long,
     DOMAIN_RE,
     long_to_base64,
     OLD_ACCOUNT_AGE,
-    remove,
     report_error,
     unwrap,
 )
@@ -330,7 +328,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
                             except (ValueError, AssertionError):
                                 logger.info(f'failed creating {proto.LABEL} copy',
                                             exc_info=True)
-                                remove(user.enabled_protocols, proto.LABEL)
+                                util.remove(user.enabled_protocols, proto.LABEL)
                         else:
                             logger.debug(f'{proto.LABEL} not enabled or user copy already exists, skipping propagate')
 
@@ -547,7 +545,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             user = self.key.get()
             if to_proto.LABEL not in user.enabled_protocols:
                 user.enabled_protocols.append(to_proto.LABEL)
-                add(user.sent_dms, DM(protocol=to_proto.LABEL, type='welcome'))
+                util.add(user.sent_dms, DM(protocol=to_proto.LABEL, type='welcome'))
                 user.put()
                 nonlocal added
                 added = True
@@ -579,11 +577,11 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         @ndb.transactional()
         def disable():
             user = self.key.get()
-            remove(user.enabled_protocols, to_proto.LABEL)
+            util.remove(user.enabled_protocols, to_proto.LABEL)
             user.put()
 
         disable()
-        remove(self.enabled_protocols, to_proto.LABEL)
+        util.remove(self.enabled_protocols, to_proto.LABEL)
 
         msg = f'Disabled {to_proto.LABEL} for {self.key.id()} : {self.user_page_path()}'
         logger.info(msg)
@@ -1091,7 +1089,7 @@ class Object(StringIdModel):
           val
         """
         with self.lock:
-            add(getattr(self, prop), val)
+            util.add(getattr(self, prop), val)
 
     def remove(self, prop, val):
         """Removes a value from a multiply-valued property. Uses ``self.lock``.

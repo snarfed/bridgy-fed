@@ -25,7 +25,6 @@ from werkzeug.exceptions import BadGateway, HTTPException
 
 import common
 from common import (
-    add,
     DOMAIN_BLOCKLIST,
     DOMAIN_RE,
     DOMAINS,
@@ -1354,7 +1353,7 @@ class Protocol:
                     logger.info(f"Skipping {label}, original posts {original_ids} weren't bridged there")
                     continue
 
-            add(to_protocols, proto)
+            util.add(to_protocols, proto)
 
         # process direct targets
         for id in sorted(target_uris):

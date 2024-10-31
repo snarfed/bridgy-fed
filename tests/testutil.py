@@ -35,7 +35,7 @@ import requests
 
 # other modules are imported _after_ Fake etc classes is defined so that it's in
 # PROTOCOLS when URL routes are registered.
-from common import add, long_to_base64, TASKS_LOCATION
+from common import long_to_base64, TASKS_LOCATION
 import ids
 import models
 from models import KEY_BITS, Object, PROTOCOLS, Target, User
@@ -118,7 +118,7 @@ class Fake(User, protocol.Protocol):
         if not user.get_copy(cls):
             copy = Target(uri=ids.translate_user_id(id=id, from_=user, to=cls),
                           protocol=cls.LABEL)
-            add(user.copies, copy)
+            util.add(user.copies, copy)
             user.put()
 
         if user.obj and not user.obj.get_copy(cls):
@@ -162,7 +162,7 @@ class Fake(User, protocol.Protocol):
                 obj = Object.get_by_id(as1.get_object(obj.as1)['id'])
             copy_id = ids.translate_object_id(
                 id=obj.key.id(), from_=from_, to=to)
-            add(obj.copies, Target(uri=copy_id, protocol=to.LABEL))
+            util.add(obj.copies, Target(uri=copy_id, protocol=to.LABEL))
             obj.put()
 
         return True

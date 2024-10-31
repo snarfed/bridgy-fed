@@ -38,11 +38,10 @@ from oauth_dropins.webutil.appengine_config import ndb_client
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil.flask_util import cloud_tasks_only, get_required_param
 from oauth_dropins.webutil.models import StringIdModel
-from oauth_dropins.webutil.util import json_dumps, json_loads
+from oauth_dropins.webutil.util import add, json_dumps, json_loads
 
 import common
 from common import (
-    add,
     DOMAIN_BLOCKLIST,
     DOMAIN_RE,
     DOMAINS,

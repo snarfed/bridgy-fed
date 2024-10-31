@@ -296,24 +296,6 @@ def webmention_discover(url, **kwargs):
     return webmention.discover(url, **kwargs)
 
 
-def add(seq, val):
-    """Appends ``val`` to ``seq`` if seq doesn't already contain it.
-
-    Useful for treating repeated ndb properties like sets instead of lists.
-    """
-    if val not in seq:
-        seq.append(val)
-
-
-def remove(seq, val):
-    """Removes ``val`` to ``seq`` if seq contains it.
-
-    Useful for treating repeated ndb properties like sets instead of lists.
-    """
-    if val in seq:
-        seq.remove(val)
-
-
 def create_task(queue, delay=None, **params):
     """Adds a Cloud Tasks task.
 

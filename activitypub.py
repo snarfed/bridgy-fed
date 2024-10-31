@@ -16,7 +16,7 @@ from httpsig.requests_auth import HTTPSignatureAuth
 from httpsig.utils import parse_signature_header
 from oauth_dropins.webutil import appengine_info, flask_util, util
 from oauth_dropins.webutil.flask_util import MovedPermanently
-from oauth_dropins.webutil.util import fragmentless, json_dumps, json_loads
+from oauth_dropins.webutil.util import add, fragmentless, json_dumps, json_loads
 import requests
 from requests import TooManyRedirects
 from requests.models import DEFAULT_REDIRECT_LIMIT
@@ -25,7 +25,6 @@ from werkzeug.exceptions import BadGateway
 from flask_app import app
 import common
 from common import (
-    add,
     CACHE_CONTROL,
     CONTENT_TYPE_HTML,
     create_task,
