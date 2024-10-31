@@ -153,24 +153,27 @@ class RedirectTest(testutil.TestCase):
         self.assertEqual(200, resp.status_code, resp.get_data(as_text=True))
         self.assertEqual('Accept', resp.headers['Vary'])
 
-        expected = copy.deepcopy(ACTOR_BASE_FULL)
-        self.assert_equals(ACTOR_BASE_FULL, resp.json,
-                           ignore=['alsoKnownAs', 'endpoints', 'followers',
-                                   'following', 'publicKey', 'summary'])
+        self.assert_equals({
+            **ACTOR_BASE_FULL,
+            'discoverable': True,
+            'indexable': True,
+        }, resp.json, ignore=['@context', 'alsoKnownAs', 'endpoints', 'followers',
+                              'following', 'publicKey', 'summary'])
 
         self.assert_user(Web, 'user.com', has_hcard=True, has_redirects=False,
                          direct=False, obj_as2={
-            '@context': 'https://www.w3.org/ns/activitystreams',
             'type': 'Person',
             'id': 'https://user.com/',
             'url': 'https://user.com/',
             'name': 'Ms. ☕ Baz',
+            'discoverable': True,
+            'indexable': True,
             'attachment': [{
                 'type': 'PropertyValue',
                 'name': 'Ms. ☕ Baz',
                 'value': '<a rel="me" href="https://user.com"><span class="invisible">https://</span>user.com</a>',
             }],
-        }, ignore=['redirects_error'])
+        }, ignore=['@context', 'redirects_error'])
 
     # TODO: is this test still useful?
     def test_accept_header_across_requests(self):

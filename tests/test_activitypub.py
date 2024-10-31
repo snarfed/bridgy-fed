@@ -43,13 +43,15 @@ from . import test_web
 from . import test_webfinger
 
 ACTOR = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
+    '@context': ['https://www.w3.org/ns/activitystreams'],
     'id': 'https://mas.to/users/swentel',
     'type': 'Person',
     'inbox': 'http://mas.to/inbox',
     'name': 'Mrs. ☕ Foo',
     'icon': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
     'image': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
+    'discoverable': True,
+    'indexable': True,
 }
 ACTOR_AS1 = as2.to_as1(ACTOR)
 ACTOR_BASE = {
@@ -99,8 +101,24 @@ ACTOR_FAKE = {
     'summary': '',
     'alsoKnownAs': ['uri:fake:user'],
 }
+ACTOR_FAKE_USER = {
+    **ACTOR_FAKE,
+    '@context': [
+        'https://www.w3.org/ns/activitystreams',
+        as2.DISCOVERABLE_INDEXABLE_CONTEXT,
+        as2.PROPERTY_VALUE_CONTEXT,
+        activitypub.SECURITY_CONTEXT,
+        activitypub.AKA_CONTEXT,
+    ],
+    'name': 'fake:handle:user',
+    'type': 'Application',
+    'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="web:fake:user">fake:handle:user</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
+    'discoverable': True,
+    'indexable': True,
+}
+
 REPLY_OBJECT = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
+    '@context': ['https://www.w3.org/ns/activitystreams'],
     'type': 'Note',
     'content': 'A ☕ reply',
     'id': 'http://mas.to/reply/id',
@@ -112,13 +130,13 @@ REPLY_OBJECT = {
 REPLY_OBJECT_WRAPPED = copy.deepcopy(REPLY_OBJECT)
 REPLY_OBJECT_WRAPPED['inReplyTo'] = 'http://localhost/r/https://user.com/post'
 REPLY = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
+    '@context': ['https://www.w3.org/ns/activitystreams'],
     'type': 'Create',
     'id': 'http://mas.to/reply/as2',
     'object': REPLY_OBJECT,
 }
 NOTE_OBJECT = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
+    '@context': ['https://www.w3.org/ns/activitystreams'],
     'type': 'Note',
     'content': '☕ just a normal post',
     'id': 'http://mas.to/note/id',
@@ -131,7 +149,7 @@ NOTE_OBJECT = {
     ],
 }
 NOTE = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
+    '@context': ['https://www.w3.org/ns/activitystreams'],
     'type': 'Create',
     'id': 'http://mas.to/note/as2',
     'actor': 'https://mas.to/users/swentel',
@@ -152,7 +170,7 @@ MENTION_OBJECT.update({
     }],
 })
 MENTION = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
+    '@context': ['https://www.w3.org/ns/activitystreams'],
     'type': 'Create',
     'id': 'http://mas.to/mention/as2',
     'object': MENTION_OBJECT,
@@ -161,7 +179,7 @@ MENTION = {
 # https://github.com/snarfed/bridgy-fed/issues/4#issuecomment-334212362
 # (reposts are very similar)
 LIKE = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
+    '@context': ['https://www.w3.org/ns/activitystreams'],
     'id': 'http://mas.to/like#ok',
     'type': 'Like',
     'object': 'https://user.com/post',
@@ -170,7 +188,7 @@ LIKE = {
 LIKE_WRAPPED = copy.deepcopy(LIKE)
 LIKE_WRAPPED['object'] = 'http://localhost/r/https://user.com/post'
 LIKE_ACTOR = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
+    '@context': ['https://www.w3.org/ns/activitystreams'],
     'id': 'https://mas.to/me',
     'type': 'Person',
     'name': 'Ms. Actor',
@@ -180,6 +198,8 @@ LIKE_ACTOR = {
         {'type': 'Image', 'url': 'https://user.com/thumb.jpg'},
         {'type': 'Image', 'url': 'https://user.com/pic.jpg'},
     ],
+    'discoverable': True,
+    'indexable': True,
 }
 LIKE_WITH_ACTOR = {
     **LIKE,
@@ -189,7 +209,7 @@ LIKE_WITH_ACTOR = {
 # repost, should be delivered to followers if object is a fediverse post,
 # translated to webmention if object is an indieweb post
 REPOST = {
-  '@context': 'https://www.w3.org/ns/activitystreams',
+  '@context': ['https://www.w3.org/ns/activitystreams'],
   'id': 'https://mas.to/users/alice/statuses/654/activity',
   'type': 'Announce',
   'actor': ACTOR['id'],
@@ -204,7 +224,7 @@ REPOST_FULL = {
 }
 
 FOLLOW = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
+    '@context': ['https://www.w3.org/ns/activitystreams'],
     'id': 'https://mas.to/follow',
     'type': 'Follow',
     'actor': ACTOR['id'],
@@ -225,7 +245,7 @@ del ACCEPT_FOLLOW['actor']['@context']
 ACCEPT_FOLLOW['actor']['image'] = {'type': 'Image', 'url': 'https://user.com/me.jpg'}
 ACCEPT_FOLLOW['object'] = 'http://localhost/user.com'
 ACCEPT = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
+    '@context': ['https://www.w3.org/ns/activitystreams'],
     'type': 'Accept',
     'id': 'http://localhost/r/user.com/followers#accept-https://mas.to/follow',
     'actor': 'http://localhost/user.com',
@@ -241,7 +261,7 @@ ACCEPT = {
 }
 
 UNDO_FOLLOW_WRAPPED = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
+    '@context': ['https://www.w3.org/ns/activitystreams'],
     'id': 'https://mas.to/6d1b',
     'type': 'Undo',
     'actor': 'https://mas.to/users/swentel',
@@ -249,7 +269,7 @@ UNDO_FOLLOW_WRAPPED = {
 }
 
 DELETE = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
+    '@context': ['https://www.w3.org/ns/activitystreams'],
     'id': 'https://mas.to/users/swentel#delete',
     'type': 'Delete',
     'actor': 'https://mas.to/users/swentel',
@@ -257,7 +277,7 @@ DELETE = {
 }
 
 UPDATE_PERSON = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
+    '@context': ['https://www.w3.org/ns/activitystreams'],
     'id': 'https://a/person#update',
     'type': 'Update',
     'actor': 'https://mas.to/users/swentel',
@@ -267,7 +287,7 @@ UPDATE_PERSON = {
     },
 }
 UPDATE_NOTE = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
+    '@context': ['https://www.w3.org/ns/activitystreams'],
     'id': 'https://a/note#update',
     'type': 'Update',
     'actor': 'https://mas.to/users/swentel',
@@ -372,14 +392,16 @@ class ActivityPubTest(TestCase):
         got = self.client.get('/user.com')
         self.assertEqual(200, got.status_code)
         self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, got.headers['Content-Type'])
-        self.assertEqual({
-            **ACTOR_BASE,
+        self.assert_equals({
+            **ACTOR_BASE_FULL,
             'type': 'Person',
             'name': 'Mrs. ☕ Foo',
             'summary': '',
             'icon': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
             'image': {'type': 'Image', 'url': 'https://user.com/me.jpg'},
-        }, got.json)
+            'discoverable': True,
+            'indexable': True,
+        }, got.json, ignore=['@context', 'attachment', 'publicKey'])
 
     def test_actor_blocked_tld(self, _, __, ___):
         got = self.client.get('/foo.json')
@@ -399,8 +421,11 @@ class ActivityPubTest(TestCase):
 
         got = self.client.get('/user.com')
         self.assertEqual(200, got.status_code)
-        self.assert_equals(add_key(ACTOR_BASE_FULL), got.json,
-                           ignore=['publicKeyPem', 'summary'])
+        self.assert_equals(add_key({
+            **ACTOR_BASE_FULL,
+            'discoverable': True,
+            'indexable': True,
+        }), got.json, ignore=['@context', 'publicKeyPem', 'summary'])
 
     def test_actor_new_user_fetch_no_mf2(self, _, mock_get, __):
         self.user.obj_key.delete()
@@ -429,12 +454,8 @@ class ActivityPubTest(TestCase):
 
         got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
         self.assertEqual(200, got.status_code)
-        self.assert_equals({
-            **ACTOR_FAKE,
-            'name': 'fake:handle:user',
-            'type': 'Application',
-            'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="web:fake:user">fake:handle:user</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
-        }, got.json, ignore=['attachment'])
+        self.assert_equals(ACTOR_FAKE_USER, got.json,
+                           ignore=['attachment', 'publicKey'])
 
     @patch.object(Fake, 'DEFAULT_ENABLED_PROTOCOLS', new=['activitypub'])
     def test_actor_handle_new_user(self, _, __, ___):
@@ -444,12 +465,8 @@ class ActivityPubTest(TestCase):
         })
         got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
         self.assertEqual(200, got.status_code)
-        self.assert_equals({
-            **ACTOR_FAKE,
-            'name': 'fake:handle:user',
-            'type': 'Application',
-            'summary': '[<a href="https://fed.brid.gy/fa/fake:handle:user">bridged</a> from <a href="web:fake:user">fake:handle:user</a> on fake-phrase by <a href="https://fed.brid.gy/">Bridgy Fed</a>]',
-        }, got.json, ignore=['attachment', 'publicKey'])
+        self.assert_equals(ACTOR_FAKE_USER, got.json,
+                           ignore=['attachment', 'publicKey'])
 
     def test_actor_atproto_not_enabled(self, *_):
         obj = self.store_object(id='did:plc:user', raw={'foo': 'baz'})
@@ -1149,7 +1166,7 @@ class ActivityPubTest(TestCase):
         }
 
         accept = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Accept',
             'id': 'http://localhost/r/user.com/followers#accept-https://mas.to/follow',
             'actor': 'http://localhost/user.com',
@@ -1434,7 +1451,7 @@ class ActivityPubTest(TestCase):
         id = 'https://mas.to/users/tmichellemoore#likes/56486252'
         bad_url = 'http://localhost/r/Testing \u2013 Brid.gy \u2013 Post to Mastodon 3'
         bad = {
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': id,
             'type': 'Like',
             'actor': ACTOR['id'],
@@ -1785,7 +1802,7 @@ class ActivityPubTest(TestCase):
         ]
 
         got = self.post('/user.com/inbox', json={
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'http://mas.to/like',
             'type': 'Like',
             'object': 'https://mas.to/note/as2',
@@ -1807,7 +1824,7 @@ class ActivityPubTest(TestCase):
 
         mock_get.return_value = self.as2_resp(NOTE)
         got = self.post('/user.com/inbox', json={
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'http://mas.to/like',
             'type': 'Like',
             'object': 'https://mas.to/note/as2',
@@ -1882,7 +1899,7 @@ class ActivityPubTest(TestCase):
         resp = self.client.get('/user.com/followers')
         self.assertEqual(200, resp.status_code)
         self.assert_equals({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'http://localhost/user.com/followers',
             'type': 'Collection',
             'summary': "user.com's followers",
@@ -1902,7 +1919,7 @@ class ActivityPubTest(TestCase):
                                base_url='https://bsky.brid.gy')
         self.assertEqual(200, resp.status_code)
         self.assert_equals({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'https://bsky.brid.gy/bsky.brid.gy/followers',
             'type': 'Collection',
             'summary': "bsky.brid.gy's followers",
@@ -1926,7 +1943,7 @@ class ActivityPubTest(TestCase):
         resp = self.client.get(f'/user.com/followers?before={before}')
         self.assertEqual(200, resp.status_code)
         self.assert_equals({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': f'http://localhost/user.com/followers?before={before}',
             'type': 'CollectionPage',
             'partOf': 'http://localhost/user.com/followers',
@@ -1988,7 +2005,7 @@ class ActivityPubTest(TestCase):
         resp = self.client.get('/user.com/following')
         self.assertEqual(200, resp.status_code)
         self.assert_equals({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'http://localhost/user.com/following',
             'summary': "user.com's following",
             'type': 'Collection',
@@ -2008,7 +2025,7 @@ class ActivityPubTest(TestCase):
                                base_url='https://bsky.brid.gy')
         self.assertEqual(200, resp.status_code)
         self.assert_equals({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'https://bsky.brid.gy/bsky.brid.gy/following',
             'type': 'Collection',
             'summary': "bsky.brid.gy's following",
@@ -2031,7 +2048,7 @@ class ActivityPubTest(TestCase):
         resp = self.client.get(f'/user.com/following?after={after}')
         self.assertEqual(200, resp.status_code)
         self.assert_equals({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': f'http://localhost/user.com/following?after={after}',
             'type': 'CollectionPage',
             'partOf': 'http://localhost/user.com/following',
@@ -2119,7 +2136,7 @@ class ActivityPubTest(TestCase):
 
         after = Object.get_by_id(LIKE['id']).updated.isoformat()
         self.assert_equals({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'https://fa.brid.gy/ap/fake:foo/outbox',
             'summary': "fake:foo's outbox",
             'type': 'OrderedCollection',
@@ -2514,7 +2531,7 @@ class ActivityPubUtilsTest(TestCase):
 
     def test_postprocess_as2_object_to_cc_into_activity(self):
         got = postprocess_as2({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Create',
             'object': {
                 'to': ['abc'],
@@ -2735,7 +2752,7 @@ class ActivityPubUtilsTest(TestCase):
             'object': 'https://mas.to/thing',
         }
         self.assertEqual({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'https://fa.brid.gy/convert/ap/fake:like',
             'type': 'Like',
             'actor': 'https://fa.brid.gy/ap/fake:user',
@@ -2754,9 +2771,14 @@ class ActivityPubUtilsTest(TestCase):
             'objectType': 'person',
             'id': 'https://user.com/',
         })
-        self.assert_equals(ACTOR_BASE, ActivityPub.convert(obj, from_user=self.user),
-                           ignore=['endpoints', 'followers', 'following',
-                                   'publicKey', 'summary', 'alsoKnownAs'])
+        self.assert_equals(
+            {
+                **ACTOR_BASE,
+                'discoverable': True,
+                'indexable': True,
+            }, ActivityPub.convert(obj, from_user=self.user),
+            ignore=['@context', 'endpoints', 'followers', 'following',
+                    'publicKey', 'summary', 'alsoKnownAs', 'attachment'])
 
     def test_convert_actor_as1_no_from_user(self):
         obj = Object(our_as1=ACTOR_AS1)
@@ -2810,7 +2832,7 @@ class ActivityPubUtilsTest(TestCase):
 
     def test_convert_to_cc(self):
         self.assert_equals({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'to': ['http://localhost/alice.com',
                    'https://www.w3.org/ns/activitystreams#Public'],
             'cc': ['http://localhost/bob.com'],
@@ -2863,7 +2885,7 @@ class ActivityPubUtilsTest(TestCase):
             }],
         })
         self.assertEqual({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Note',
             'content': '<p>hello <a href="https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>',
             'contentMap': {'en': '<p>hello <a href="https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>'},
@@ -3047,7 +3069,7 @@ class ActivityPubUtilsTest(TestCase):
         args, kwargs = mock_post.call_args_list[0]
         self.assertEqual(('https://inbox',), args)
         self.assertEqual({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'id': 'https://fa.brid.gy/convert/ap/fake:like',
             'type': 'Like',
             'object': 'https://fa.brid.gy/convert/ap/fake:post',
@@ -3073,7 +3095,7 @@ class ActivityPubUtilsTest(TestCase):
         args, kwargs = mock_post.call_args_list[0]
         self.assertEqual((ACTOR['inbox'],), args)
         self.assertEqual({
-            '@context': 'https://www.w3.org/ns/activitystreams',
+            '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Note',
             'id': 'http://localhost/r/https://internal.brid.gy/dm',
             'attributedTo': 'https://web.brid.gy/web.brid.gy',

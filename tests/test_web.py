@@ -88,6 +88,8 @@ ACTOR_AS2 = {
     'url': 'http://localhost/r/https://user.com/',
     'name': 'Ms. ☕ Baz',
     'preferredUsername': 'user.com',
+    'discoverable': True,
+    'indexable': True,
     'inbox': 'http://localhost/user.com/inbox',
     'outbox': 'http://localhost/user.com/outbox',
 }
@@ -309,7 +311,7 @@ FOLLOW = requests_response(FOLLOW_HTML, url='https://user.com/follow')
 FOLLOW_MF2 = util.parse_mf2(FOLLOW_HTML)['items'][0]
 FOLLOW_AS1 = microformats2.json_to_object(FOLLOW_MF2)
 FOLLOW_AS2 = {
-    '@context': 'https://www.w3.org/ns/activitystreams',
+    '@context': ['https://www.w3.org/ns/activitystreams'],
     'type': 'Follow',
     'id': 'http://localhost/r/https://user.com/follow',
     'object': 'https://mas.to/mrs-foo',
@@ -1382,12 +1384,19 @@ class WebTest(TestCase):
                                  )
 
         to = self.assert_user(ActivityPub, 'https://mas.to/mrs-foo', obj_as2={
+            '@context': [
+                'https://www.w3.org/ns/activitystreams',
+                as2.DISCOVERABLE_INDEXABLE_CONTEXT,
+                as2.PROPERTY_VALUE_CONTEXT,
+            ],
             'type': 'Person',
             'id': 'https://mas.to/mrs-foo',
             'name': 'Mrs. ☕ Foo',
             'image': {'url': 'http://pic/', 'type': 'Image'},
             'icon': {'url': 'http://pic/', 'type': 'Image'},
             'inbox': 'https://mas.to/inbox',
+            'discoverable': True,
+            'indexable': True,
         })
 
         followers = Follower.query().fetch()
@@ -1735,6 +1744,11 @@ class WebTest(TestCase):
 
         # updated Web user
         expected_actor_as2 = {
+            '@context': [
+                'https://www.w3.org/ns/activitystreams',
+                as2.DISCOVERABLE_INDEXABLE_CONTEXT,
+                as2.PROPERTY_VALUE_CONTEXT,
+            ],
             'type': 'Person',
             'id': 'https://user.com/',
             'url': 'https://user.com/',
@@ -1745,6 +1759,8 @@ class WebTest(TestCase):
                 'value': '<a rel="me" href="https://user.com"><span class="invisible">https://</span>user.com</a>',
             }],
             'updated': '2022-01-02T03:04:05+00:00',
+            'discoverable': True,
+            'indexable': True,
         }
         self.assert_user(Web, 'user.com', obj_as2=expected_actor_as2, direct=True,
                          has_redirects=True)
@@ -1825,10 +1841,17 @@ class WebTest(TestCase):
 
         # updated Web user
         self.assert_user(Web, 'user.com', direct=True, has_redirects=True, obj_as2={
+            '@context': [
+                'https://www.w3.org/ns/activitystreams',
+                as2.DISCOVERABLE_INDEXABLE_CONTEXT,
+                as2.PROPERTY_VALUE_CONTEXT,
+            ],
             'type': 'Person',
             'id': 'https://user.com/',
             'url': 'https://user.com/',
             'name': 'user.com',
+            'discoverable': True,
+            'indexable': True,
             'attachment': [{
                 'name': 'Link',
                 'type': 'PropertyValue',
