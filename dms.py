@@ -6,7 +6,7 @@ from granary import as1
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil import util
 
-from common import create_task, memcache, memcache_key
+from common import create_task, DOMAINS, memcache, memcache_key
 import ids
 import models
 from models import PROTOCOLS
@@ -97,11 +97,16 @@ def receive(*, from_user, obj):
                  else obj.as1)
     logger.info(f'got DM from {from_user.key.id()} to {to_proto.LABEL}: {inner_obj.get("content")}')
 
-    # remove @-mentions in HTML links
     soup = util.parse_html(inner_obj.get('content', ''))
-    for link in soup.find_all('a'):
-        link.extract()
+
+    # remove @-mention of bot
+    if first_link := soup.a:
+        if first_link.get_text().strip().lstrip('@') in DOMAINS + ids.BOT_ACTOR_AP_IDS:
+            first_link.extract()
+
     content = soup.get_text().strip().lower()
+    if not content:
+        return r'¯\_(ツ)_/¯', 204
 
     def reply(text, type=None):
         maybe_send(from_proto=to_proto, to_user=from_user, text=text, type=type,

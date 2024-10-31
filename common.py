@@ -81,7 +81,7 @@ SMTP_PORT = 587
 
 # populated in models.reset_protocol_properties
 SUBDOMAIN_BASE_URL_RE = None
-ID_FIELDS = ['id', 'object', 'actor', 'author', 'inReplyTo', 'url']
+ID_FIELDS = ('id', 'object', 'actor', 'author', 'inReplyTo', 'url')
 
 CACHE_CONTROL = {'Cache-Control': 'public, max-age=3600'}  # 1 hour
 
