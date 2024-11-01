@@ -55,14 +55,13 @@
       {% else %}
         <button class="btn btn-default btn-copy glyphicon glyphicon-duplicate"
                 onclick="navigator.clipboard.writeText('{{ handle }}')"
-                title="Copy {{ handle }} to clipboard">
-        </button>
+                title="Copy {{ handle }} to clipboard"> </button>
       {% endif %}
       {% if proto.LABEL == 'atproto' %}
         {% set did = user.get_copy(PROTOCOLS['atproto']) %}
         <button class="btn btn-default btn-copy glyphicon glyphicon-tag"
                 onclick="navigator.clipboard.writeText('{{ did }}')"
-                title="Copy {{ did }} to clipboard">
+                title="Copy {{ did }} to clipboard"></button>
       {% endif %}
       </nobr>
     {% endif %}
