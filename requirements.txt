@@ -113,6 +113,6 @@ webencodings==0.5.1
 WebOb==1.8.9
 websocket-client==1.8.0
 websockets==13.1
-Werkzeug==3.0.6
+Werkzeug==3.1.0
 wrapt==1.16.0
 wsproto==1.2.0
