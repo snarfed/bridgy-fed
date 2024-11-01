@@ -17,12 +17,14 @@ from google.cloud import ndb
 from google.cloud.ndb.global_cache import _InProcessGlobalCache, MemcacheCache
 from google.cloud.ndb.key import Key
 from google.protobuf.timestamp_pb2 import Timestamp
+from granary import as2
 from oauth_dropins.webutil import util, webmention
 from oauth_dropins.webutil.appengine_config import error_reporting_client, tasks_client
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.appengine_info import DEBUG
 from oauth_dropins.webutil import flask_util
 from oauth_dropins.webutil.util import json_dumps
+from negotiator import ContentNegotiator, AcceptParameters, ContentType
 import pymemcache.client.base
 from pymemcache.test.utils import MockMemcacheClient
 
@@ -108,6 +110,12 @@ else:
         '10.126.144.3', timeout=10, connect_timeout=10,  # seconds
         allow_unicode_keys=True)
     global_cache = MemcacheCache(memcache)
+
+_negotiator = ContentNegotiator(acceptable=[
+    AcceptParameters(ContentType(CONTENT_TYPE_HTML)),
+    AcceptParameters(ContentType(as2.CONTENT_TYPE)),
+    AcceptParameters(ContentType(as2.CONTENT_TYPE_LD)),
+])
 
 
 @functools.cache
@@ -486,3 +494,29 @@ def memcache_memoize(expire=None):
         return wrapped
 
     return decorator
+
+
+def as2_request_type():
+    """If this request has conneg (ie the ``Accept`` header) for AS2, returns its type.
+
+    Specifically, returns either
+    ``application/ld+json; profile="https://www.w3.org/ns/activitystreams"`` or
+    ``application/activity+json``.
+
+    If the current request's conneg isn't asking for AS2, returns None.
+
+    https://www.w3.org/TR/activitypub/#retrieving-objects
+    https://snarfed.org/2023-03-24_49619-2
+    """
+    if accept := request.headers.get('Accept'):
+        try:
+            negotiated = _negotiator.negotiate(accept)
+        except ValueError:
+            # work around https://github.com/CottageLabs/negotiator/issues/6
+            negotiated = None
+        if negotiated:
+            accept_type = str(negotiated.content_type)
+            if accept_type == as2.CONTENT_TYPE:
+                return as2.CONTENT_TYPE
+            elif accept_type in (as2.CONTENT_TYPE_LD, as2.CONTENT_TYPE_LD_PROFILE):
+                return as2.CONTENT_TYPE_LD_PROFILE

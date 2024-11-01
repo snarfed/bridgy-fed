@@ -2,12 +2,13 @@
 from unittest.mock import Mock, patch
 
 import flask
+from granary import as2
 from oauth_dropins.webutil.appengine_config import error_reporting_client
 
 # import first so that Fake is defined before URL routes are registered
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 
-from activitypub import ActivityPub
+from activitypub import ActivityPub, CONNEG_HEADERS_AS2_HTML
 from atproto import ATProto
 import common
 from arroba.datastore_storage import AtpBlock
@@ -172,3 +173,19 @@ class CommonTest(TestCase):
                 ('☃.net', b'\xe2\x98\x83.net'),
         ):
             self.assertEqual(expected, common.memcache_key(input))
+
+    def test_as2_request_type(self):
+        for accept, expected in (
+                (as2.CONTENT_TYPE_LD_PROFILE, as2.CONTENT_TYPE_LD_PROFILE),
+                (as2.CONTENT_TYPE_LD, as2.CONTENT_TYPE_LD_PROFILE),
+                (as2.CONTENT_TYPE, as2.CONTENT_TYPE),
+                # TODO: handle eventually; this should return non-None
+                (CONNEG_HEADERS_AS2_HTML['Accept'], None),
+                ('', None),
+                ('*/*', None),
+                ('text/html', None),
+        ):
+            with (self.subTest(accept=accept),
+                  app.test_request_context('/', headers={'Accept': accept})):
+                self.assertEqual(expected, common.as2_request_type())
+

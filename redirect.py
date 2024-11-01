@@ -20,24 +20,17 @@ import urllib.parse
 
 from flask import redirect, request
 from granary import as2
-from negotiator import ContentNegotiator, AcceptParameters, ContentType
 from oauth_dropins.webutil import flask_util, util
 from oauth_dropins.webutil.flask_util import error
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
 from activitypub import ActivityPub
-from common import CACHE_CONTROL, CONTENT_TYPE_HTML
+from common import CACHE_CONTROL, CONTENT_TYPE_HTML, as2_request_type
 from flask_app import app
 from protocol import Protocol
 from web import Web
 
 logger = logging.getLogger(__name__)
-
-_negotiator = ContentNegotiator(acceptable=[
-    AcceptParameters(ContentType(CONTENT_TYPE_HTML)),
-    AcceptParameters(ContentType(as2.CONTENT_TYPE)),
-    AcceptParameters(ContentType(as2.CONTENT_TYPE_LD)),
-])
 
 DOMAIN_ALLOWLIST = frozenset((
     'bsky.app',
@@ -73,18 +66,7 @@ def redir(to):
         error(f'Invalid URL {to} : {e}')
 
     # check conneg
-    accept_as2 = False
-    accept = request.headers.get('Accept')
-    if accept:
-        try:
-            negotiated = _negotiator.negotiate(accept)
-        except ValueError:
-            # work around https://github.com/CottageLabs/negotiator/issues/6
-            negotiated = None
-        if negotiated:
-            accept_type = str(negotiated.content_type)
-            if accept_type in (as2.CONTENT_TYPE, as2.CONTENT_TYPE_LD):
-                accept_as2 = True
+    as2_request = as2_request_type()
 
     # check that we've seen this domain before so we're not an open redirect
     domains = set((util.domain_from_link(to, minimize=True),
@@ -99,10 +81,10 @@ def redir(to):
                 logger.info(f'Found web user for domain {domain}')
                 break
     else:
-        if not accept_as2:
+        if not as2_request:
             return f'No web user found for any of {domains}', 404
 
-    if not accept_as2:
+    if not as2_request:
         # redirect. include rel-alternate link to make posts discoverable by entering
         # https://fed.brid.gy/r/[URL] in a fediverse instance's search.
         logger.info(f'redirecting to {to}')
@@ -136,9 +118,7 @@ def redir(to):
     ret = ActivityPub.convert(obj, from_user=web_user)
     # logger.info(f'Returning: {json_dumps(ret, indent=2)}')
     return ret, {
-        'Content-Type': (as2.CONTENT_TYPE_LD_PROFILE
-                         if accept_type == as2.CONTENT_TYPE_LD
-                         else accept_type),
+        'Content-Type': as2_request,
         'Access-Control-Allow-Origin': '*',
     }
 

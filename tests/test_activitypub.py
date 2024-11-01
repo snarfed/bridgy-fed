@@ -376,22 +376,24 @@ class ActivityPubTest(TestCase):
 
     def test_actor_fake(self, *_):
         self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
-        got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
+        got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/',
+                              headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, got.headers['Content-Type'])
         self.assertEqual(ACTOR_FAKE, got.json)
 
     def test_actor_fake_protocol_subdomain(self, *_):
         self.make_user('fake:user', cls=Fake, enabled_protocols=['activitypub'])
-        got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
+        got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/',
+                              headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, got.status_code)
         self.assertEqual(ACTOR_FAKE, got.json)
 
     def test_actor_web(self, *_):
         """Web users are special cased to drop the /web/ prefix."""
-        got = self.client.get('/user.com')
+        got = self.client.get('/user.com', headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, got.status_code)
-        self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, got.headers['Content-Type'])
+        self.assertEqual(as2.CONTENT_TYPE, got.headers['Content-Type'])
         self.assert_equals({
             **ACTOR_BASE_FULL,
             'type': 'Person',
@@ -407,6 +409,21 @@ class ActivityPubTest(TestCase):
         got = self.client.get('/foo.json')
         self.assertEqual(404, got.status_code)
 
+    def test_actor_no_conneg_redirect_to_profile(self, _, __, ___):
+        got = self.client.get('/user.com')
+        self.assertEqual(302, got.status_code)
+        self.assertEqual('https://user.com/', got.headers['Location'])
+
+    def test_actor_conneg_star_redirect_to_profile(self, _, __, ___):
+        got = self.client.get('/user.com', headers={'Accept': '*/*'})
+        self.assertEqual(302, got.status_code)
+        self.assertEqual('https://user.com/', got.headers['Location'])
+
+    def test_actor_conneg_html_redirect_to_profile(self, _, __, ___):
+        got = self.client.get('/user.com', headers={'Accept': 'text/html'})
+        self.assertEqual(302, got.status_code)
+        self.assertEqual('https://user.com/', got.headers['Location'])
+
     def test_actor_new_user_fetch(self, _, mock_get, __):
         self.user.obj_key.delete()
         self.user.key.delete()
@@ -419,7 +436,7 @@ class ActivityPubTest(TestCase):
             hcard,
         ]
 
-        got = self.client.get('/user.com')
+        got = self.client.get('/user.com', headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, got.status_code)
         self.assert_equals(add_key({
             **ACTOR_BASE_FULL,
@@ -433,7 +450,7 @@ class ActivityPubTest(TestCase):
 
         mock_get.return_value = requests_response('<html></html>')
 
-        got = self.client.get('/user.com')
+        got = self.client.get('/user.com', headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, got.status_code)
         self.assert_equals({
             **ACTOR_BASE,
@@ -443,7 +460,7 @@ class ActivityPubTest(TestCase):
 
     def test_actor_new_user_fetch_fails(self, _, mock_get, ___):
         mock_get.side_effect = ReadTimeoutError(None, None, None)
-        got = self.client.get('/nope.com')
+        got = self.client.get('/nope.com', headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(504, got.status_code)
 
     def test_actor_handle_existing_user(self, _, __, ___):
@@ -452,7 +469,8 @@ class ActivityPubTest(TestCase):
             'id': 'fake:profile:user',
         }), enabled_protocols=['activitypub'])
 
-        got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
+        got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/',
+                              headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, got.status_code)
         self.assert_equals(ACTOR_FAKE_USER, got.json,
                            ignore=['attachment', 'publicKey'])
@@ -463,7 +481,8 @@ class ActivityPubTest(TestCase):
             **ACTOR_FAKE,
             'id': 'fake:profile:user',
         })
-        got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/')
+        got = self.client.get('/ap/fake:user', base_url='https://fa.brid.gy/',
+                              headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, got.status_code)
         self.assert_equals(ACTOR_FAKE_USER, got.json,
                            ignore=['attachment', 'publicKey'])
@@ -483,33 +502,38 @@ class ActivityPubTest(TestCase):
 
         self.make_user('did:plc:user', cls=ATProto, enabled_protocols=['activitypub'])
 
-        got = self.client.get('/ap/did:plc:user', base_url='https://bsky.brid.gy/')
+        got = self.client.get('/ap/did:plc:user', base_url='https://bsky.brid.gy/',
+                              headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, got.status_code)
         self.assertNotIn('preferredUsername', got.json)
 
     def test_actor_handle_user_fetch_fails(self, _, __, ___):
-        got = self.client.get('/ap/fake/fake:nope')
+        got = self.client.get('/ap/fake/fake:nope',
+                              headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(404, got.status_code)
 
     def test_actor_no_matching_protocol(self, *_):
         resp = self.client.get('/foo.json',
-                               base_url='https://bridgy-federated.appspot.com/')
+                               base_url='https://bridgy-federated.appspot.com/',
+                               headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(404, resp.status_code)
 
     def test_actor_web_redirects(self, *_):
-        resp = self.client.get('/ap/user.com')
+        resp = self.client.get('/ap/user.com', headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(301, resp.status_code)
         self.assertEqual('https://fed.brid.gy/user.com', resp.headers['Location'])
 
         self.user.ap_subdomain = 'web'
         self.user.put()
-        resp = self.client.get('/user.com', base_url='https://fed.brid.gy/')
+        resp = self.client.get('/user.com', base_url='https://fed.brid.gy/',
+                               headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(301, resp.status_code)
         self.assertEqual('https://web.brid.gy/user.com', resp.headers['Location'])
 
         self.user.ap_subdomain = 'fed'
         self.user.put()
-        got = self.client.get('/user.com', base_url='https://web.brid.gy/')
+        got = self.client.get('/user.com', base_url='https://web.brid.gy/',
+                              headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(301, got.status_code)
         self.assertEqual('https://fed.brid.gy/user.com', got.headers['Location'])
 
@@ -518,13 +542,16 @@ class ActivityPubTest(TestCase):
         self.user.obj.put()
         self.user.put()
 
+        got = self.client.get('/user.com', headers={'Accept': as2.CONTENT_TYPE})
+        self.assertEqual(404, got.status_code)
+
         got = self.client.get('/user.com')
         self.assertEqual(404, got.status_code)
 
     def test_actor_bad_id(self, *_):
         # Web.get_or_create => urllib.parse.urlparse raises
         # ValueError: Invalid IPv6 URL
-        got = self.client.get('/bsky]foo.bar')
+        got = self.client.get('/bsky]foo.bar', headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(404, got.status_code)
 
     def test_actor_protocol_bot_user(self, *_):
@@ -534,9 +561,10 @@ class ActivityPubTest(TestCase):
                        obj_as2=copy.deepcopy(actor_as2),
                        obj_id='https://bsky.brid.gy/')
 
-        got = self.client.get('/bsky.brid.gy', base_url='https://bsky.brid.gy/')
+        got = self.client.get('/bsky.brid.gy', base_url='https://bsky.brid.gy/',
+                              headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, got.status_code)
-        self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, got.headers['Content-Type'])
+        self.assertEqual(as2.CONTENT_TYPE, got.headers['Content-Type'])
 
         # assertEqual instead of assert_equals so that we check that nothing in
         # @context is duplicated
@@ -548,7 +576,8 @@ class ActivityPubTest(TestCase):
         self.assertEqual(actor_as2, got_json)
 
     def test_actor_protocol_bot_user_doesnt_exist(self, *_):
-        got = self.client.get('/web.brid.gy', base_url='https://web.brid.gy/')
+        got = self.client.get('/web.brid.gy', base_url='https://web.brid.gy/',
+                              headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(404, got.status_code, got.get_data(as_text=True))
 
     def test_instance_actor_fetch(self, *_):
@@ -562,7 +591,8 @@ class ActivityPubTest(TestCase):
                        has_redirects=True)
 
         activitypub._INSTANCE_ACTOR = None
-        got = self.client.get(f'/fed.brid.gy', base_url='https://fed.brid.gy/')
+        got = self.client.get('/fed.brid.gy', base_url='https://fed.brid.gy/',
+                              headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, got.status_code)
         self.assert_equals(actor_as2, got.json,
                            ignore=['inbox', 'outbox', 'endpoints', 'followers',

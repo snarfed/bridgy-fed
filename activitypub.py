@@ -7,7 +7,7 @@ import re
 from urllib.parse import quote_plus, urljoin, urlparse
 from unittest.mock import MagicMock
 
-from flask import abort, g, request
+from flask import abort, g, redirect, request
 from google.cloud import ndb
 from google.cloud.ndb.query import FilterNode, OR, Query
 from granary import as1, as2
@@ -1001,6 +1001,10 @@ def actor(handle_or_id):
     user = _load_user(handle_or_id, create=True)
     proto = user
 
+    as2_type = common.as2_request_type()
+    if not as2_type:
+        return redirect(user.web_url(), code=302)
+
     if proto.LABEL == 'web' and request.path.startswith('/ap/'):
         # we started out with web users' AP ids as fed.brid.gy/[domain], so we
         # need to preserve those for backward compatibility
@@ -1039,7 +1043,7 @@ def actor(handle_or_id):
 
     logger.debug(f'Returning: {json_dumps(actor, indent=2)}')
     return actor, {
-        'Content-Type': as2.CONTENT_TYPE_LD_PROFILE,
+        'Content-Type': as2_type,
         'Access-Control-Allow-Origin': '*',
     }
 
