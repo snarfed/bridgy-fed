@@ -197,13 +197,14 @@ def content_type(resp):
         return type.split(';')[0]
 
 
-def redirect_wrap(url):
+def redirect_wrap(url, domain=None):
     """Returns a URL on our domain that redirects to this URL.
 
     ...to satisfy Mastodon's non-standard domain matching requirement. :(
 
     Args:
       url (str)
+      domain (str): optional Bridgy Fed domain to use. Must be in :attr:`DOMAINS`
 
     * https://github.com/snarfed/bridgy-fed/issues/16#issuecomment-424799599
     * https://github.com/tootsuite/mastodon/pull/6219#issuecomment-429142747
@@ -214,7 +215,13 @@ def redirect_wrap(url):
     if not url or util.domain_from_link(url) in DOMAINS:
         return url
 
-    return host_url('/r/') + url
+    path = '/r/' + url
+
+    if domain:
+        assert domain in DOMAINS, (domain, url)
+        return urljoin(f'https://{domain}/', path)
+
+    return host_url(path)
 
 
 def subdomain_wrap(proto, path=None):

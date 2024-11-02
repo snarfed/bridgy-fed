@@ -449,7 +449,7 @@ class IntegrationTests(TestCase):
         self.assert_equals(('http://inst/inbox',), args)
         self.assert_equals({
             'type': 'Accept',
-            'id': 'http://localhost/r/bsky.brid.gy/followers#accept-http://inst/follow',
+            'id': 'https://bsky.brid.gy/r/bsky.brid.gy/followers#accept-http://inst/follow',
             'actor': 'https://bsky.brid.gy/bsky.brid.gy',
             'object': {
                 'actor': 'https://inst/alice',

@@ -751,9 +751,13 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         activity['id'] = util.get_first(activity, 'url')
 
     if wrap:
-        # TODO: for getting Accept off fed.brid.gy, should this use actor's subdomain?
+        # some fediverse servers (eg Misskey) require activity id and actor id
+        # to be on the same domain
         # https://github.com/snarfed/bridgy-fed/issues/1093#issuecomment-2299247639
-        activity['id'] = redirect_wrap(activity.get('id'))
+        redirect_domain = util.domain_from_link(as1.get_id(activity, 'actor'))
+        if redirect_domain not in DOMAINS:
+            redirect_domain = None
+        activity['id'] = redirect_wrap(activity.get('id'), domain=redirect_domain)
         activity['url'] = [redirect_wrap(u) for u in util.get_list(activity, 'url')]
         if len(activity['url']) == 1:
             activity['url'] = activity['url'][0]

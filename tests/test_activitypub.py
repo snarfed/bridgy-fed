@@ -247,7 +247,7 @@ ACCEPT_FOLLOW['object'] = 'http://localhost/user.com'
 ACCEPT = {
     '@context': ['https://www.w3.org/ns/activitystreams'],
     'type': 'Accept',
-    'id': 'http://localhost/r/user.com/followers#accept-https://mas.to/follow',
+    'id': 'https://localhost/r/user.com/followers#accept-https://mas.to/follow',
     'actor': 'http://localhost/user.com',
     'object': {
         'type': 'Follow',
@@ -1198,7 +1198,7 @@ class ActivityPubTest(TestCase):
         accept = {
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Accept',
-            'id': 'http://localhost/r/user.com/followers#accept-https://mas.to/follow',
+            'id': 'https://localhost/r/user.com/followers#accept-https://mas.to/follow',
             'actor': 'http://localhost/user.com',
             'object': {
                 'type': 'Follow',
@@ -1365,7 +1365,7 @@ class ActivityPubTest(TestCase):
         self.assert_equals(('http://mas.to/inbox',), args)
         self.assert_equals({
             'type': 'Accept',
-            'id': 'http://localhost/r/user.com/followers#accept-https://mas.to/follow',
+            'id': 'https://localhost/r/user.com/followers#accept-https://mas.to/follow',
             'actor': 'http://localhost/user.com',
             'object': {
                 'type': 'Follow',
@@ -2614,7 +2614,7 @@ class ActivityPubUtilsTest(TestCase):
         }
         self.assertEqual({
             **dm,
-            'id': 'http://localhost/r/https://inst/dm#create',
+            'id': 'https://web.brid.gy/r/https://inst/dm#create',
         }, postprocess_as2(copy.deepcopy(dm)))
 
     @patch('requests.get')
