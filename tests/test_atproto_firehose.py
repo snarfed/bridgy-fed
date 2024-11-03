@@ -60,8 +60,9 @@ def setup_firehose():
 class FakeWebsocketClient:
     """Fake of :class:`simple_websocket.Client`."""
 
-    def __init__(self, url):
+    def __init__(self, url, headers=None, **kwargs):
         FakeWebsocketClient.url = url
+        FakeWebsocketClient.headers = headers
 
     def send(self, msg):
         self.sent.append(json.loads(msg))
