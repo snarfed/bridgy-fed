@@ -74,7 +74,7 @@ def load_user(protocol, id):
 
     if cls.ABBREV != 'web':
         if not user:
-            user = cls.query(cls.handle == id).get()
+            user = cls.query(cls.handle == id, cls.status == None).get()
             if user and user.use_instead:
                 user = user.use_instead.get()
 
