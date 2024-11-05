@@ -30,6 +30,7 @@ env_variables:
   # ...or test against labeler.dholms.xyz / did:plc:vzxheqfwpbi3lxbgdh22js66
 
   ROLLBACK_WINDOW: 50000
+  SUBSCRIBE_REPOS_BATCH_DELAY: 10
 
 # need only one instance so that new commits can be delivered to subscribeRepos
 # subscribers in memory
