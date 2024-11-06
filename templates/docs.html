@@ -233,7 +233,7 @@
 
 <li id="moderation" class="question">What about moderation? How do blocks, mutes, etc work?</li>
 <li class="answer">
-<p>In general, native moderation tools within each network work with bridged users just like with native users. Blocking or muting a bridged user works just like you'd expect. Similarly, if you or an admin block an entire bridged network, that works just like blocking a native instance.</p>
+<p>In general, native moderation tools within each network work with bridged users just like with native users. <a href="https://docs.bsky.app/docs/advanced-guides/moderation#global-label-values">Bluesky labels</a> are translated to/from the fediverse's <a href="https://swicg.github.io/miscellany/#sensitive"><code>sensitive</code> flag</a> and <a href="https://docs.joinmastodon.org/user/posting/#cw">content warnings</a>. Blocking and muting is translated too, and works just like normal. Similarly, if you or an admin block an entire bridged network, that works just like blocking a native instance.</p>
 <p>Bridgy Fed also incorporates and obeys lower level mitigation techniques such as the fediverse’s <a href="https://fedi.tips/authorized-fetch/">authorized fetch</a> aka secure mode. It always includes valid HTTP Signatures when fetching actors and other objects.</p>
 <p>For more background, see our <a href="#moderation-policy">content moderation policy</a> and <a href="https://snarfed.org/2024-01-19_moderate-people-not-code">this blog post</a>.</p>
 </li>
