@@ -2395,29 +2395,29 @@ class ActivityPubUtilsTest(TestCase):
         }))
 
     def test_postprocess_as2_plain_text_content_links_hashtags_mentions(self):
-        expected = '<p>foo <a href="http://inst/bar">@bar</a> <a href="http://inst/baz">#baz</a></p>'
+        expected = '<p>foo <a class="mention" href="http://inst/bar">@bar</a> <a href="http://inst/baz">#baz</a></p>'
         self.assert_equals({
             'content': expected,
             'contentMap': {'en': expected},
             'content_is_html': True,
             'tag': [{
-                'type': 'Tag',
+                'type': 'Mention',
                 'href': 'http://inst/bar',
             }, {
-                'type': 'Mention',
+                'type': 'Tag',
                 'href': 'http://inst/baz',
             }],
             'to': [as2.PUBLIC_AUDIENCE],
-            'cc': ['http://inst/baz'],
+            'cc': ['http://inst/bar'],
         }, postprocess_as2({
             'content': 'foo @bar #baz',
             'tag': [{
-                'type': 'Tag',
+                'type': 'Mention',
                 'href': 'http://inst/bar',
                 'startIndex': 4,
                 'length': 4,
             }, {
-                'type': 'Mention',
+                'type': 'Tag',
                 'href': 'http://inst/baz',
                 'startIndex': 9,
                 'length': 4,
@@ -2917,8 +2917,8 @@ class ActivityPubUtilsTest(TestCase):
         self.assertEqual({
             '@context': ['https://www.w3.org/ns/activitystreams'],
             'type': 'Note',
-            'content': '<p>hello <a href="https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>',
-            'contentMap': {'en': '<p>hello <a href="https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>'},
+            'content': '<p>hello <a class="mention" href="https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>',
+            'contentMap': {'en': '<p>hello <a class="mention" href="https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh">@snarfed2.bsky.social</a></p>'},
             'tag': [{
                 'type': 'Mention',
                 'name': '@snarfed2.bsky.social',

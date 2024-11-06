@@ -759,7 +759,7 @@ class IntegrationTests(TestCase):
                 'id': 'https://bsky.brid.gy/convert/ap/at://did:plc:alice/app.bsky.feed.post/123',
                 'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
-                'content': '<p>maybe if <a href="https://inst/bob">@bob.inst.ap.brid.gy</a> and Alf meet up</p>',
+                'content': '<p>maybe if <a class="mention" href="https://inst/bob">@bob.inst.ap.brid.gy</a> and Alf meet up</p>',
                 'content_is_html': True,
                 'tag': [{
                     'type': 'Mention',
