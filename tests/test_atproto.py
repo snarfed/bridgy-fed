@@ -2190,6 +2190,14 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual({'did': 'did:plc:user'},
                          client.com.atproto.identity.resolveHandle(handle='han.dull'))
 
+        # tombstone first repo, make a new one, we should get the new one
+        arroba.server.storage.tombstone_repo(self.repo)
+        Repo.create(self.storage, 'did:plc:user-new', handle='han.dull',
+                    signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
+
+        self.assertEqual({'did': 'did:plc:user-new'},
+                         client.com.atproto.identity.resolveHandle(handle='han.dull'))
+
     @patch('requests.get', return_value=requests_response({'did': 'did:dy:d'}))
     def test_datastore_client_resolve_handle_pass_through(self, mock_get):
         client = DatastoreClient('https://appview.local')

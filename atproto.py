@@ -156,8 +156,11 @@ class DatastoreClient(Client):
 
     def resolve_handle(self, handle=None):
         assert handle
-        got = (ATProto.query(ATProto.handle == handle).get()  # native Bluesky user
-                or AtpRepo.query(AtpRepo.handles == handle).get())  # bridged user
+
+        got = (ATProto.query(ATProto.handle == handle).get()   # native Bluesky user
+               or AtpRepo.query(AtpRepo.handles == handle,     # bridged user,
+                                 AtpRepo.status == None).get() # non-tombstoned first
+               or AtpRepo.query(AtpRepo.handles == handle).get())
         if got:
             return {'did': got.key.id()}
 
