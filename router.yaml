@@ -12,7 +12,7 @@ runtime_config:
     runtime_version: "3.12"
 
 resources:
-  cpu: 4
+  cpu: 6
   memory_gb: 9.6
 
 env_variables:
@@ -37,4 +37,4 @@ liveness_check:
 # https://cloud.google.com/appengine/docs/flexible/python/runtime#application_startup
 # https://docs.gunicorn.org/en/latest/settings.html
 # TODO: try asyncio w/eventlet workers
-entrypoint: gunicorn --workers 4 --threads 20 -b :$PORT router:app
+entrypoint: gunicorn --workers 6 --threads 20 -b :$PORT router:app
