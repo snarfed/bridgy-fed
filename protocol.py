@@ -893,7 +893,10 @@ class Protocol:
             # load actor user
             from_user = from_cls.get_or_create(id=actor, allow_opt_out=internal)
 
-        if not internal and (not from_user or from_user.manual_opt_out):
+        if not internal and (not from_user
+                             or from_user.manual_opt_out
+                             # we want to override opt-out but not manual or blocked
+                             or (from_user.status and from_user.status != 'opt-out')):
             error(f'Actor {actor} is opted out or blocked', status=204)
 
         # write Object to datastore
@@ -1066,7 +1069,7 @@ class Protocol:
 
         from_key = from_cls.key_for(from_id)
         if not from_key:
-            error(f'Invalid {from_cls} user key: {from_id}')
+            error(f'Invalid {from_cls.LABEL} user key: {from_id}')
         obj.users = [from_key]
         from_user = from_cls.get_or_create(id=from_key.id(), obj=from_obj)
 
@@ -1097,7 +1100,7 @@ class Protocol:
 
             to_key = to_cls.key_for(to_id)
             if not to_key:
-                logger.info(f'Skipping invalid {from_cls} user key: {from_id}')
+                logger.info(f'Skipping invalid {from_cls.LABEL} user key: {from_id}')
                 continue
 
             # If followee user is already direct, follower may not know they're

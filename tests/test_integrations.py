@@ -488,7 +488,7 @@ class IntegrationTests(TestCase):
         })
         headers = sign('/bsky.brid.gy/inbox', body, key_id='https://inst/_alice_')
         resp = self.client.post('/bsky.brid.gy/inbox', data=body, headers=headers)
-        self.assertEqual(304, resp.status_code)
+        self.assertEqual(204, resp.status_code)
 
         # check results
         user = ActivityPub.get_by_id('https://inst/_alice_', allow_opt_out=True)

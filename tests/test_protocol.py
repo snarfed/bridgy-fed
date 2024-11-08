@@ -3076,6 +3076,28 @@ class ProtocolReceiveTest(TestCase):
         self.assertTrue(user.is_enabled(Fake))
         self.assertEqual(['efake:user'], ExplicitFake.fetched)
 
+    @patch.object(ExplicitFake, 'REQUIRES_NAME', new=True)
+    def test_follow_bot_user_spam_filter_doesnt_enable(self):
+        self.make_user('fa.brid.gy', cls=Web,
+                       copies=[Target(uri='efake:bot', protocol='efake')])
+
+        user = self.make_user('efake:user', cls=ExplicitFake)
+        ExplicitFake.fetchable = {'efake:user': {'id': 'efake:user'}}
+
+        with self.assertRaises(NoContent):
+            _, code = ExplicitFake.receive_as1({
+                'objectType': 'activity',
+                'verb': 'follow',
+                'id': 'efake:follow',
+                'actor': 'efake:user',
+                'object': 'efake:bot',
+            })
+
+        user = user.key.get()
+        self.assertEqual('blocked', user.status)
+        self.assertFalse(user.is_enabled(Fake))
+        self.assertEqual(['efake:user'], ExplicitFake.fetched)
+
     def test_block_then_follow_protocol_user_recreates_copy(self):
         # bot user
         self.make_user('fa.brid.gy', cls=Web)
