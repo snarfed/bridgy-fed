@@ -167,17 +167,10 @@ class ATProtoTest(TestCase):
                 self.assertIsNone(ATProto.handle_to_id(bad))
 
     def test_handle_to_id_first_opted_out(self):
-        self.store_object(id='did:plc:user', raw=DID_DOC)
-        user = self.make_user('did:plc:user', cls=ATProto)
-
-        self.store_object(id='did:plc:other', raw=DID_DOC)
-        other = self.make_user('did:plc:other', cls=ATProto, manual_opt_out=True)
-
-        # check that the datastore query returns other first, so that we have to
-        # skip it
-        self.assertEqual([other, user],
-                         ATProto.query(ATProto.handle == 'ha.nl').fetch())
-
+        AtpRepo(id='did:plc:other', handles=['ha.nl'], head='', signing_key_pem=b'',
+                status=arroba.util.TOMBSTONED).put()
+        AtpRepo(id='did:plc:user', handles=['ha.nl'], head='', signing_key_pem=b'',
+                ).put()
         self.assertEqual('did:plc:user', ATProto.handle_to_id('ha.nl'))
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())

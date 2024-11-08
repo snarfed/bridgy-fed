@@ -468,7 +468,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if '#nobridge' in summary or '#nobridge' in name:
             return 'opt-out'
 
-        # user has explicitly opted in. should go after quality (REQUIRES_*)
+        # user has explicitly opted in. should go after spam filter (REQUIRES_*)
         # checks, but before is_public and #nobot
         if self.enabled_protocols:
             return None

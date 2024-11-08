@@ -154,12 +154,13 @@ class DatastoreClient(Client):
         else:
             return {}
 
-    def resolve_handle(self, handle=None):
+    @staticmethod
+    def resolve_handle(handle=None):
         assert handle
 
         got = (ATProto.query(ATProto.handle == handle).get()   # native Bluesky user
                or AtpRepo.query(AtpRepo.handles == handle,     # bridged user,
-                                 AtpRepo.status == None).get() # non-tombstoned first
+                                AtpRepo.status == None).get()  # non-tombstoned first
                or AtpRepo.query(AtpRepo.handles == handle).get())
         if got:
             return {'did': got.key.id()}
@@ -276,11 +277,8 @@ class ATProto(User, Protocol):
         if not handle or cls.owns_handle(handle) is False:
             return None
 
-        # TODO: shortcut our own handles? eg snarfed.org.web.brid.gy
-
-        for user in ATProto.query(ATProto.handle == handle):
-            if not user.status:
-                return user.key.id()
+        if resp := DatastoreClient.resolve_handle(handle):
+            return resp['did']
 
         return did.resolve_handle(handle, get_fn=util.requests_get)
 
@@ -557,6 +555,10 @@ class ATProto(User, Protocol):
             to_id = as1.get_object(obj.as1).get('id')
             assert to_id
             to_key = Protocol.key_for(to_id)
+            if not to_key:
+                logger.info(f'Skipping, {to_id} is opted out')
+                return False
+
             follower = Follower.query(Follower.from_ == from_user.key,
                                       Follower.to == to_key).get()
             if not follower or not follower.follow:
