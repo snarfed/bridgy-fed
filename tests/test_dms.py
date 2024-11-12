@@ -54,7 +54,7 @@ class DmsTest(TestCase):
             tos = [tos]
 
         from_id = f'{from_cls.ABBREV}.brid.gy'
-        for expected, (target, activity) in zip(tos, tos[0].sent):
+        for expected, (target, activity) in zip(tos, tos[-1].sent):
             id = expected.key.id()
             self.assertEqual(f'{id}:target', target)
             content = activity['object'].pop('content')
@@ -395,6 +395,26 @@ class DmsTest(TestCase):
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', "<p>Hi! I'm a friendly bot")
         self.assertEqual({}, OtherFake.usernames)
+
+    def test_receive_help_strip_mention_of_bot(self):
+        self.make_user(id='other.brid.gy', cls=Web)
+        alice = self.make_user(id='efake:alice', cls=ExplicitFake,
+                               enabled_protocols=['other'], obj_as1={'x': 'y'})
+
+        for content in (
+                '@other.brid.gy /help',
+                'other.brid.gy@other.brid.gy /help',
+                '@other.brid.gy@other.brid.gy /help',
+                'https://other.brid.gy/other.brid.gy /help',
+        ):
+            ExplicitFake.sent = []
+            with self.subTest(content=content):
+                obj = Object(our_as1={
+                    **DM_BASE,
+                    'content': content,
+                })
+                self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+                self.assert_replied(OtherFake, alice, '?', "<p>Hi! I'm a friendly bot")
 
     def test_receive_did_atproto(self):
         self.make_user(id='bsky.brid.gy', cls=Web)

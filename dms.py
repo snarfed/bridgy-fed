@@ -99,11 +99,6 @@ def receive(*, from_user, obj):
 
     soup = util.parse_html(inner_obj.get('content', ''))
 
-    # remove @-mention of bot
-    if first_link := soup.a:
-        if first_link.get_text().strip().lstrip('@') in DOMAINS + ids.BOT_ACTOR_AP_IDS:
-            first_link.extract()
-
     content = soup.get_text().strip().lower()
     if not content:
         return r'¯\_(ツ)_/¯', 204
@@ -114,9 +109,16 @@ def receive(*, from_user, obj):
         return 'OK', 200
 
     # parse and handle message
-    split = content.split(maxsplit=1)
-    cmd = split[0].lstrip('/')
-    arg = split[1] if len(split) > 1 else None
+    tokens = content.split()
+
+    # remove @-mention of bot, if any
+    bot_handles = (DOMAINS + ids.BOT_ACTOR_AP_IDS
+                   + tuple(h.lstrip('@') for h in ids.BOT_ACTOR_AP_HANDLES))
+    if tokens[0].lstrip('@') in bot_handles:
+        tokens = tokens[1:]
+
+    cmd = tokens[0].lstrip('/')
+    arg = tokens[1] if len(tokens) > 1 else None
 
     extra = ''
     if to_proto.LABEL == 'atproto':
