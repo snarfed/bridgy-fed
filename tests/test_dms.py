@@ -129,6 +129,18 @@ class DmsTest(TestCase):
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
 
+    def test_receive_empty_strip_mention_of_bot(self):
+        alice, bob = self.make_alice_bob()
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': '<a href="https://other.brid.gy/other.brid.gy">@other.brid.gy</a> ',
+        })
+        self.assertEqual(('¯\\_(ツ)_/¯', 204), receive(from_user=alice, obj=obj))
+        self.assert_replied(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
+        self.assert_sent(ExplicitFake, bob, 'request_bridging',
+                         ALICE_REQUEST_CONTENT)
+
     def test_receive_unknown_text(self):
         self.make_user(id='other.brid.gy', cls=Web)
         alice = self.make_user('efake:alice', cls=ExplicitFake,

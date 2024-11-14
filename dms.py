@@ -108,27 +108,21 @@ def receive(*, from_user, obj):
                  else obj.as1)
     logger.info(f'got DM from {from_user.key.id()} to {to_proto.LABEL}: {inner_obj.get("content")}')
 
-    soup = util.parse_html(inner_obj.get('content', ''))
-
-    content = soup.get_text().strip().lower()
-    if not content:
-        return r'¯\_(ツ)_/¯', 204
-
-    def reply(text, type=None):
-        maybe_send(from_proto=to_proto, to_user=from_user, text=text, type=type,
-                   in_reply_to=inner_obj.get('id'))
-        return 'OK', 200
-
     # parse and handle message
+    soup = util.parse_html(inner_obj.get('content', ''))
+    content = soup.get_text().strip().lower()
     tokens = content.split()
     logger.info(f'  tokens: {tokens}')
 
     # remove @-mention of bot, if any
     bot_handles = (DOMAINS + ids.BOT_ACTOR_AP_IDS
                    + tuple(h.lstrip('@') for h in ids.BOT_ACTOR_AP_HANDLES))
-    if tokens[0].lstrip('@') in bot_handles:
+    if tokens and tokens[0].lstrip('@') in bot_handles:
         logger.info(f'  first token is bot mention, removing')
         tokens = tokens[1:]
+
+    if not tokens:
+        return r'¯\_(ツ)_/¯', 204
 
     if tokens[0].lstrip('/') in COMMANDS:
         cmd = tokens[0].lstrip('/')
@@ -138,6 +132,11 @@ def receive(*, from_user, obj):
         arg = tokens[0]
 
     # handle commands
+    def reply(text, type=None):
+        maybe_send(from_proto=to_proto, to_user=from_user, text=text, type=type,
+                   in_reply_to=inner_obj.get('id'))
+        return 'OK', 200
+
     if cmd in ('?', 'help', 'commands', 'info', 'hi', 'hello'):
         extra = ''
         if to_proto.LABEL == 'atproto':
