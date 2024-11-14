@@ -6,19 +6,10 @@
 # https://circleci.com/docs/2.1/sample-config/
 version: 2.1
 
-# I could get rid of "default" with eg pipeline.trigger_source, if it
-# distinguished manual from push, but I can't tell that it does.
-# https://circleci.com/docs/pipeline-variables/#pipeline-values
-#
-# pipeline.trigger_parameters.circleci.trigger_type looks promising!
-# https://stackoverflow.com/questions/75616644/how-to-detect-whether-a-circleci-pipeline-build-was-manually-triggered#comment133409450_75616644
-#
-# ...but it's only available to GitHub App logins, and I'm on Github OAuth :(
-# https://circleci.com/docs/github-integration/
 parameters:
   service:
     type: enum
-    enum: ["app", "router", "atproto_hub", "default"]
+    enum: ["atproto_hub", "default"]
     default: "default"
 
 jobs:
@@ -88,15 +79,11 @@ jobs:
 
               service='<< pipeline.parameters.service >>'
               if [[ $service == 'default' ]]; then
-                service='app'
+                services='app.yaml router.yaml'
+              else
+                services='atproto_hub.yaml'
               fi
-              # Flex services don't support --no-cache, but we need it
-              # for the default service.
-              # https://issuetracker.google.com/issues/347268867
-              if [[ $service == 'app' ]]; then
-                nocache='--no-cache'
-              fi
-              gcloud -q app deploy $nocache --project bridgy-federated index.yaml queue.yaml ${service}.yaml
+              gcloud -q app deploy --project bridgy-federated index.yaml queue.yaml ${services}
             fi
 
       - save_cache:
