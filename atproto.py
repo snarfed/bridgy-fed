@@ -515,7 +515,7 @@ class ATProto(User, Protocol):
         arroba.server.storage.write_event(repo=repo, type='identity', handle=username)
 
         # refresh our stored DID doc
-        user.obj = to_cls.load(copy_did, did_doc=True, remote=True)
+        to_cls.load(copy_did, did_doc=True, remote=True)
 
     @classmethod
     def send(to_cls, obj, url, from_user=None, orig_obj_id=None):
