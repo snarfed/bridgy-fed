@@ -6,6 +6,15 @@
 # https://circleci.com/docs/2.1/sample-config/
 version: 2.1
 
+# I could get rid of "default" with eg pipeline.trigger_source, if it
+# distinguished manual from push, but I can't tell that it does.
+# https://circleci.com/docs/pipeline-variables/#pipeline-values
+#
+# pipeline.trigger_parameters.circleci.trigger_type looks promising!
+# https://stackoverflow.com/questions/75616644/how-to-detect-whether-a-circleci-pipeline-build-was-manually-triggered#comment133409450_75616644
+#
+# ...but it's only available to GitHub App logins, and I'm on Github OAuth :(
+# https://circleci.com/docs/github-integration/
 parameters:
   service:
     type: enum
@@ -20,6 +29,9 @@ jobs:
     steps:
       - checkout
 
+      - restore_cache:
+          key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
+
       - run:
           name: Base dependencies
           command: |
@@ -30,76 +42,41 @@ jobs:
             sudo apt-get install -y apt-transport-https ca-certificates gnupg google-cloud-sdk
 
 
-      - when:
-          condition:
-            equal: [ default, << pipeline.parameters.service >> ]
+      - run:
+          name: Base dependencies for tests
+          command: |
+            sudo apt-get install -y google-cloud-cli-firestore-emulator default-jre
 
-            # I could get rid of "default" with eg pipeline.trigger_source, if it
-            # distinguished manual from push, but I can't tell that it does.
-            # https://circleci.com/docs/pipeline-variables/#pipeline-values
-            #
-            # pipeline.trigger_parameters.circleci.trigger_type looks promising!
-            # https://stackoverflow.com/questions/75616644/how-to-detect-whether-a-circleci-pipeline-build-was-manually-triggered#comment133409450_75616644
-            #
-            # ...but it's only available to GitHub App logins, and I'm on Github OAuth :(
-            # https://circleci.com/docs/github-integration/
+      - run:
+          name: Python dependencies
+          command: |
+            pip install -U pip flake8
+            pip  -V
+            # make sure we install these at head, below
+            pip uninstall -y arroba dag-json granary lexrpc oauth-dropins
+            pip install -U -r requirements.txt
+            pip install coverage coveralls
+            ln -sf `pyenv prefix`/lib/python3.12/site-packages/oauth_dropins/fonts oauth_dropins_fonts
+            ln -sf `pyenv prefix`/lib/python3.12/site-packages/oauth_dropins/static oauth_dropins_static
 
-          steps:
-            - restore_cache:
-                key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
+      - run:
+          name: Build and test
+          command: |
+            CLOUDSDK_CORE_PROJECT=brid-gy gcloud emulators firestore start --host-port=:8089 --database-mode=datastore-mode < /dev/null >& /tmp/firestore-emulator.log &
+            sleep 5s
+            python -m coverage run --source=. --omit=appengine_config.py,logs.py,tests/\* -m unittest discover -v
+            python -m coverage html -d /tmp/coverage_html
+            if [ "$COVERALLS_REPO_TOKEN" != "" ]; then coveralls || true; fi
 
-            - run:
-                name: Base dependencies for tests
-                command: |
-                  sudo apt-get install -y google-cloud-cli-firestore-emulator default-jre
+            # check for unintentionally overridden test methods
+            # https://flake8.pycqa.org/en/latest/user/error-codes.html#error-codes
+            # https://flake8.pycqa.org/en/latest/user/options.html#cmdoption-flake8-select
+            flake8 --select=F811 tests/test_*.py
 
-            - run:
-                name: Python dependencies
-                command: |
-                  pip install -U pip flake8
-                  pip  -V
-                  # make sure we install these at head, below
-                  pip uninstall -y arroba dag-json granary lexrpc oauth-dropins
-                  pip install -U -r requirements.txt
-                  pip install coverage coveralls
-                  ln -sf `pyenv prefix`/lib/python3.12/site-packages/oauth_dropins/fonts oauth_dropins_fonts
-                  ln -sf `pyenv prefix`/lib/python3.12/site-packages/oauth_dropins/static oauth_dropins_static
-
-            - run:
-                name: Build and test
-                command: |
-                  CLOUDSDK_CORE_PROJECT=brid-gy gcloud emulators firestore start --host-port=:8089 --database-mode=datastore-mode < /dev/null >& /tmp/firestore-emulator.log &
-                  sleep 5s
-                  python -m coverage run --source=. --omit=appengine_config.py,logs.py,tests/\* -m unittest discover -v
-                  python -m coverage html -d /tmp/coverage_html
-                  if [ "$COVERALLS_REPO_TOKEN" != "" ]; then coveralls || true; fi
-
-                  # check for unintentionally overridden test methods
-                  # https://flake8.pycqa.org/en/latest/user/error-codes.html#error-codes
-                  # https://flake8.pycqa.org/en/latest/user/options.html#cmdoption-flake8-select
-                  flake8 --select=F811 tests/test_*.py
-
-            - save_cache:
-                key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
-                paths:
-                  - /home/circleci/.pyenv
-                  # Ideally we'd cache these, but they need root, and the cimg/python
-                  # Docker image's default user is circleci :/
-                  # https://github.com/cypress-io/circleci-orb/issues/269
-                  #
-                  # - /usr/lib/google-cloud-sdk
-                  # - /usr/lib/jvm/java-11-openjdk-amd64
-
-      - when:
-          condition:
-            not:
-              equal: [ default, << pipeline.parameters.service >> ]
-
-          steps:
-            - run:
-                name: oauth-dropins, for static assets
-                command: |
-                  git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
+      - run:
+          name: oauth-dropins, for static assets
+          command: |
+            git clone --depth=1 https://github.com/snarfed/oauth-dropins.git ../oauth-dropins
 
       - run:
           name: Deploy
@@ -122,6 +99,16 @@ jobs:
               gcloud -q app deploy $nocache --project bridgy-federated index.yaml queue.yaml ${service}.yaml
             fi
 
+      - save_cache:
+          key: venv-7-{{ .Branch }}-{{ checksum "requirements.txt" }}
+          paths:
+            - /home/circleci/.pyenv
+            # Ideally we'd cache these, but they need root, and the cimg/python
+            # Docker image's default user is circleci :/
+            # https://github.com/cypress-io/circleci-orb/issues/269
+            #
+            # - /usr/lib/google-cloud-sdk
+            # - /usr/lib/jvm/java-11-openjdk-amd64
 
       - store_artifacts:
           path: /tmp/coverage_html
