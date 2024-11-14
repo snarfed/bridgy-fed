@@ -1127,6 +1127,58 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         mock_create_task.assert_called()  # atproto-commit
 
     @patch('atproto.DEBUG', new=False)
+    @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')
+    @patch('google.cloud.dns.client.ManagedZone', autospec=True)
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
+    def test_create_for_tombstoned(self, mock_post, mock_create_task, mock_zone,
+                                   mock_rrsets):
+        """Should wipe existing copies and start from scratch with a new DID."""
+        mock_zone.return_value = zone = MagicMock()
+        zone.resource_record_set = MagicMock()
+        mock_rrsets.return_value = rrsets = MagicMock()
+        rrsets.list.return_value = list_ = MagicMock()
+        list_.execute.return_value = {'rrsets': []}
+
+        Fake.fetchable = {'fake:profile:user': ACTOR_AS}
+
+        user = self.make_user_and_repo()#obj_as1={'id': 'fake:profile:user'})
+        orig_did = user.get_copy(ATProto)
+        assert orig_did
+
+        user.obj.copies = [Target(uri='at://orig', protocol='atproto')]
+        user.obj.put()
+
+        repo = arroba.server.storage.load_repo('did:plc:user')
+        arroba.server.storage.tombstone_repo(repo)
+
+        ATProto.create_for(self.user)
+
+        # check user and repo
+        user = self.user.key.get()
+        did = user.key.get().get_copy(ATProto)
+        self.assertNotEqual(orig_did, did)
+        self.assertEqual([Target(uri=did, protocol='atproto')], user.copies)
+
+        self.assertEqual(f'at://{did}/app.bsky.actor.profile/self',
+                         user.obj.get_copy(ATProto))
+
+        repo = arroba.server.storage.load_repo(did)
+        self.assertIsNone(repo.status)
+
+        # check #account event
+        seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)
+        self.assertEqual({
+            '$type': 'com.atproto.sync.subscribeRepos#account',
+            'seq': seq,
+            'did': did,
+            'time': NOW.isoformat(),
+            'active': True,
+        }, next(self.storage.read_events_by_seq(seq)))
+
+        mock_create_task.assert_called()  # atproto-commit
+
+    @patch('atproto.DEBUG', new=False)
     @patch.object(google.cloud.dns.client.ManagedZone, 'changes')
     @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')
     def test_set_dns_new(self, mock_rrsets, mock_changes):

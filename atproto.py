@@ -19,7 +19,7 @@ from arroba.util import (
     next_tid,
     parse_at_uri,
     service_jwt,
-    TombstonedRepo,
+    TOMBSTONED,
 )
 import brevity
 import dag_json
@@ -387,10 +387,21 @@ class ATProto(User, Protocol):
         assert not isinstance(user, ATProto)
 
         if copy_did := user.get_copy(ATProto):
+            # already bridged and inactive
             repo = arroba.server.storage.load_repo(copy_did)
-            arroba.server.storage.activate_repo(repo)
-            common.create_task(queue='atproto-commit')
-            return
+            assert repo.status
+            if repo.status == TOMBSTONED:
+                # tombstoned repos can't be reactivated, have to wipe and start fresh
+                user.copies = []
+                if user.obj:
+                    user.obj.copies = []
+                    user.obj.put()
+                # fall through to create new DID, repo
+            elif repo.status:
+                # deactivated or deleted
+                arroba.server.storage.activate_repo(repo)
+                common.create_task(queue='atproto-commit')
+                return
 
         # create new DID, repo
         # PDS URL shouldn't include trailing slash!
@@ -501,10 +512,10 @@ class ATProto(User, Protocol):
         if resolved != copy_did:
             raise RuntimeError(f"""<p>You'll need to connect that domain to your bridged Bluesky account, either <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">with DNS</a> <a href="https://atproto.com/specs/handle#handle-resolution">or HTTP</a>. Your DID is: <code>{copy_did}</code><p>Once you're done, <a href="https://bsky-debug.app/handle?handle={username}">check your work here</a>, then DM me <em>username {username}</em> again.""")
 
-        try:
-            repo = arroba.server.storage.load_repo(copy_did)
-        except TombstonedRepo:
-            logger.info(f'repo for {did} is tombstoned, giving up')
+        repo = arroba.server.storage.load_repo(copy_did)
+        assert repo
+        if repo.status:
+            logger.info(f'{repo.did} is {repo.status}, giving up')
             return False
 
         logger.info(f'Setting ATProto handle for {user.key.id()} to {username}')
@@ -589,13 +600,12 @@ class ATProto(User, Protocol):
             return False
 
         # load repo
-        try:
-            repo = arroba.server.storage.load_repo(did)
-        except TombstonedRepo:
-            logger.info(f'repo for {did} is tombstoned, giving up')
+        repo = arroba.server.storage.load_repo(did)
+        assert repo
+        if repo.status:
+            logger.info(f'{repo.did} is {repo.status}, giving up')
             return False
 
-        assert repo
         repo.callback = lambda _: common.create_task(queue='atproto-commit')
 
         # non-commit operations:
@@ -920,10 +930,10 @@ def create_report(*, input, from_user):
     if not repo_did:
         return False
 
-    try:
-        repo = arroba.server.storage.load_repo(repo_did)
-    except TombstonedRepo:
-        logger.info(f'repo for {repo_did} is tombstoned, giving up')
+    repo = arroba.server.storage.load_repo(repo_did)
+    assert repo
+    if repo.status:
+        logger.info(f'{repo.did} is {repo.status}, giving up')
         return False
 
     mod_host = os.environ['MOD_SERVICE_HOST']
