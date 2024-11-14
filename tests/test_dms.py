@@ -141,7 +141,7 @@ class DmsTest(TestCase):
         with self.assertRaises(NotModified) as e:
             receive(from_user=alice, obj=obj)
 
-        self.assertIn("Couldn't understand DM: foo bar", str(e.exception))
+        self.assertIn("Couldn't understand DM: ['foo', 'bar']", str(e.exception))
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)
 
@@ -231,6 +231,18 @@ class DmsTest(TestCase):
         obj = Object(our_as1={
             **DM_BASE,
             'content': '<a href="http://bob">@other:handle:bob</a>',
+        })
+        self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
+        self.assert_replied(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
+        self.assert_sent(ExplicitFake, bob, 'request_bridging',
+                         ALICE_REQUEST_CONTENT)
+
+    def test_receive_prompt_strip_mention_of_bot(self):
+        alice, bob = self.make_alice_bob()
+
+        obj = Object(our_as1={
+            **DM_BASE,
+            'content': '<a href="https://other.brid.gy/other.brid.gy">@other.brid.gy</a> other:handle:bob',
         })
         self.assertEqual(('OK', 200), receive(from_user=alice, obj=obj))
         self.assert_replied(OtherFake, alice, '?', ALICE_CONFIRMATION_CONTENT)
@@ -336,7 +348,7 @@ class DmsTest(TestCase):
         with self.assertRaises(NotModified) as e:
             receive(from_user=Fake(id='fake:user'), obj=obj)
 
-        self.assertIn("Couldn't understand DM: fake:eve", str(e.exception))
+        self.assertIn("Couldn't understand DM: ['fake:eve']", str(e.exception))
         self.assertEqual([], ExplicitFake.sent)
         self.assertEqual([], OtherFake.sent)
         self.assertEqual([], Fake.sent)

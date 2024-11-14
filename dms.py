@@ -17,6 +17,17 @@ logger = logging.getLogger(__name__)
 REQUESTS_LIMIT_EXPIRE = timedelta(days=1)
 REQUESTS_LIMIT_USER = 10
 
+COMMANDS = (
+    'did',
+    'help',
+    'no',
+    'ok',
+    'start',
+    'stop',
+    'username',
+    'yes',
+)
+
 
 def maybe_send(*, from_proto, to_user, text, type=None, in_reply_to=None):
     """Sends a DM.
@@ -110,21 +121,27 @@ def receive(*, from_user, obj):
 
     # parse and handle message
     tokens = content.split()
+    logger.info(f'  tokens: {tokens}')
 
     # remove @-mention of bot, if any
     bot_handles = (DOMAINS + ids.BOT_ACTOR_AP_IDS
                    + tuple(h.lstrip('@') for h in ids.BOT_ACTOR_AP_HANDLES))
     if tokens[0].lstrip('@') in bot_handles:
+        logger.info(f'  first token is bot mention, removing')
         tokens = tokens[1:]
 
-    cmd = tokens[0].lstrip('/')
-    arg = tokens[1] if len(tokens) > 1 else None
+    if tokens[0].lstrip('/') in COMMANDS:
+        cmd = tokens[0].lstrip('/')
+        arg = tokens[1] if len(tokens) > 1 else None
+    else:
+        cmd = None
+        arg = tokens[0]
 
-    extra = ''
-    if to_proto.LABEL == 'atproto':
-        extra = """<li><em>did</em>: get your bridged Bluesky account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>"""
-
+    # handle commands
     if cmd in ('?', 'help', 'commands', 'info', 'hi', 'hello'):
+        extra = ''
+        if to_proto.LABEL == 'atproto':
+            extra = """<li><em>did</em>: get your bridged Bluesky account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>"""
         return reply(f"""\
 <p>Hi! I'm a friendly bot that can help you bridge your account into {to_proto.PHRASE}. Here are some commands I respond to:</p>
 <ul>
@@ -164,58 +181,59 @@ def receive(*, from_user, obj):
         return reply(f"Your username in {to_proto.PHRASE} has been set to {from_user.user_link(proto=to_proto, name=False, handle=True)}. It should appear soon!")
 
     # are they requesting a user?
-    if not to_proto.owns_handle(content) and content.startswith('@'):
-        logging.info("doesn't look like a handle, trying without leading @")
-        content = content.removeprefix('@')
+    if not cmd:
+        if not to_proto.owns_handle(arg) and arg.startswith('@'):
+            logging.info(f"doesn't look like a handle, trying without leading @")
+            arg = arg.removeprefix('@')
 
-    if to_proto.owns_handle(content) is not False:
-        handle = content
-        from_proto = from_user.__class__
+        if to_proto.owns_handle(arg) is not False:
+            handle = arg
+            from_proto = from_user.__class__
 
-        try:
-            ids.translate_handle(handle=handle, from_=to_proto, to=from_user,
-                                 enhanced=False)
-        except ValueError as e:
-            logger.warning(e)
-            return reply(f"Sorry, Bridgy Fed doesn't yet support bridging handle {handle} from {to_proto.PHRASE} to {from_proto.PHRASE}.")
+            try:
+                ids.translate_handle(handle=handle, from_=to_proto, to=from_user,
+                                     enhanced=False)
+            except ValueError as e:
+                logger.warning(e)
+                return reply(f"Sorry, Bridgy Fed doesn't yet support bridging handle {handle} from {to_proto.PHRASE} to {from_proto.PHRASE}.")
 
-        to_id = to_proto.handle_to_id(handle)
-        if not to_id:
-            return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
+            to_id = to_proto.handle_to_id(handle)
+            if not to_id:
+                return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
 
-        to_user = to_proto.get_or_create(to_id)
-        if not to_user:
-            return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
+            to_user = to_proto.get_or_create(to_id)
+            if not to_user:
+                return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
 
-        if not to_user.obj:
-            # doesn't exist
-            return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
+            if not to_user.obj:
+                # doesn't exist
+                return reply(f"Couldn't find {to_proto.PHRASE} user {handle}")
 
-        elif to_user.is_enabled(from_proto):
-            # already bridged
-            return reply(f'{to_user.user_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.')
+            elif to_user.is_enabled(from_proto):
+                # already bridged
+                return reply(f'{to_user.user_link(proto=from_proto)} is already bridged into {from_proto.PHRASE}.')
 
-        elif (models.DM(protocol=from_proto.LABEL, type='request_bridging')
-              in to_user.sent_dms):
-            # already requested
-            return reply(f"We've already sent {to_user.user_link()} a DM. Fingers crossed!")
+            elif (models.DM(protocol=from_proto.LABEL, type='request_bridging')
+                  in to_user.sent_dms):
+                # already requested
+                return reply(f"We've already sent {to_user.user_link()} a DM. Fingers crossed!")
 
-        # check and update rate limits
-        attempts_key = f'dm-user-requests-{from_user.LABEL}-{from_user.key.id()}'
-        # incr leaves existing expiration as is, doesn't change it
-        # https://stackoverflow.com/a/4084043/186123
-        attempts = memcache.incr(attempts_key, 1)
-        if not attempts:
-            memcache.add(attempts_key, 1,
-                         expire=int(REQUESTS_LIMIT_EXPIRE.total_seconds()))
-        elif attempts > REQUESTS_LIMIT_USER:
-            return reply(f"Sorry, you've hit your limit of {REQUESTS_LIMIT_USER} requests per day. Try again tomorrow!")
+            # check and update rate limits
+            attempts_key = f'dm-user-requests-{from_user.LABEL}-{from_user.key.id()}'
+            # incr leaves existing expiration as is, doesn't change it
+            # https://stackoverflow.com/a/4084043/186123
+            attempts = memcache.incr(attempts_key, 1)
+            if not attempts:
+                memcache.add(attempts_key, 1,
+                             expire=int(REQUESTS_LIMIT_EXPIRE.total_seconds()))
+            elif attempts > REQUESTS_LIMIT_USER:
+                return reply(f"Sorry, you've hit your limit of {REQUESTS_LIMIT_USER} requests per day. Try again tomorrow!")
 
-        # send the DM request!
-        maybe_send(from_proto=from_proto, to_user=to_user, type='request_bridging', text=f"""\
+            # send the DM request!
+            maybe_send(from_proto=from_proto, to_user=to_user, type='request_bridging', text=f"""\
 <p>Hi! {from_user.user_link(proto=to_proto, proto_fallback=True)} is using Bridgy Fed to bridge their account from {from_proto.PHRASE} into {to_proto.PHRASE}, and they'd like to follow you. You can bridge your account into {from_proto.PHRASE} by following this account. <a href="https://fed.brid.gy/docs">See the docs</a> for more information.
 <p>If you do nothing, your account won't be bridged, and users on {from_proto.PHRASE} won't be able to see or interact with you.
 <p>Bridgy Fed will only send you this message once.""")
-        return reply(f"Got it! We'll send {to_user.user_link()} a message and say that you hope they'll enable the bridge. Fingers crossed!")
+            return reply(f"Got it! We'll send {to_user.user_link()} a message and say that you hope they'll enable the bridge. Fingers crossed!")
 
-    error(f"Couldn't understand DM: {content}", status=304)
+    error(f"Couldn't understand DM: {tokens}", status=304)
