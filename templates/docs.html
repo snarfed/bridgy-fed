@@ -691,6 +691,8 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 <li class="answer">
 <p>If a post has <a href="http://microformats.org/">microformats</a>, Bridgy Fed looks first for the <code><a href="https://microformats.org/wiki/h-entry#Core_Properties">e-content</a></code> class, then the legacy <code><a href="https://microformats.org/wiki/hatom#Entry_Content">entry-content</a></code> class. It also understands and translates microformats2 classes like <code><a href="#web-image">u-photo</a></code>, <code><a href="#web-video">u-video</a></code>, <code><a href="#web-hashtags">p-category</a></code>, and more.</p>
 
+<p>Otherwise, Bridgy Fed uses <a href="https://developer.twitter.com/en/docs/twitter-for-websites/cards/guides/getting-started">Twitter card</a>, <a href="https://ogp.me/">Open Graph</a>, and related meta tags in your HTML.</p>
+
 <p>Bridgy Fed includes the full contents of all posts, specifically everything inside <code><a href="https://microformats.org/wiki/h-entry#Core_Properties">e-content</a></code>. However, not all bridged networks currently <em>show</em> the full contents of all posts.</p>
 
 <p>For example, text-based posts fall into two broad buckets: short <a href="https://indieweb.org/note">notes</a> for microblogging and longer <a href="https://indieweb.org/article">articles</a> for long-form articles and blog posts. In the IndieWeb, <a href="https://indieweb.org/post-type-discovery#Algorithm">we differentiate based on whether the post has a title</a>: articles generally have titles, notes don't.</p>
