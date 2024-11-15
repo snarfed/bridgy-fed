@@ -71,6 +71,7 @@
 <li><a href="#fediverse-servers">Which fediverse servers are supported?</a></li>
 <li><a href="#mastodon-link-verification">How do I verify my profile links (ie get green checks) in Mastodon?</a></li>
 <li><a href="#fediverse-enhanced">Can I use my own domain as my fediverse handle?</a></li>
+<li><a href="#fediverse-delete">I disabled my bridged profile, or deleted a post, but it's still visible in the fediverse!</a></li>
 <li><a href="#instance-subdomains">Could other networks' instances get their own brid.gy subdomains, so that fediverse admins can federate with or block them individually?</a></li>
 
 <br>
@@ -890,6 +891,11 @@ To receive likes, reposts, replies, @-mentions, and follows from other networks,
 <li class="answer">
 <p>For the fediverse, yes! By default, your web site's bridged handle on other networks includes <code>web.brid.gy</code>, eg <code>@yoursite.com@web.brid.gy</code> on the fediverse, but you can use your own domain instead. <a href="#fediverse-enhanced">Here are instructions for fediverse handles.</a></p>
 <p>For Bluesky, not yet, but hopefully eventually. <a href="https://github.com/snarfed/bridgy-fed/issues/826">Follow this GitHub issue.</a>
+</li>
+
+<li id="fediverse-delete" class="question">I disabled my bridged profile, or deleted a post, but it's still visible in the fediverse!</li>
+<li class="answer">
+<p>Sadly, this is a somewhat inherent part of the fediverse itself. When you disable the bridge for your account, Bridgy Fed sends <code>Delete</code>s to every fediverse instance where you had a follower, but it doesn't currently know about other instances that may have loaded and cached your profile. Same with posts bridged into the fediverse that you later delete. Those cached profiles and posts will eventually disappear over time.
 </li>
 
 <li id="instance-subdomains" class="question">Could other networks' instances get their own brid.gy subdomains, so that admins can federate with or block them individually?</li>
