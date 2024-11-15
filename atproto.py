@@ -668,7 +668,7 @@ class ATProto(User, Protocol):
                     action = Action.DELETE
                 case _:
                     action = Action.CREATE
-                    rkey = next_tid()
+                    rkey = 'self' if type == 'app.bsky.actor.profile' else next_tid()
 
             logger.info(f'Storing ATProto {action} {type} {rkey} {dag_json.encode(record, dialect="atproto")}')
             try:
