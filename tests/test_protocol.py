@@ -288,14 +288,26 @@ class ProtocolTest(TestCase):
                           source_protocol='web')
 
         expected_mf2 = {
-            **ACTOR_MF2_REL_URLS,
-            'url': 'https://user.com/',
+            'type': ['h-card'],
+            'properties': {
+                'url': ['https://f.ooo'],
+                'name': ['Ms. ☕ Baz'],
+            },
+            'rel-urls': {'https://f.ooo': {'rels': ['me'], 'text': 'Ms. ☕ Baz'}},
+            'url': 'https://f.ooo',
         }
 
         loaded = Web.load('https://f.ooo', remote=True)
         self.assertEqual(expected_mf2, loaded.mf2)
         self.assertIsNone(loaded.our_as1)
-        self.assertEqual(ACTOR_AS1_UNWRAPPED_URLS, loaded.as1)
+        self.assertEqual({
+            'objectType': 'person',
+            'id': 'https://f.ooo',
+            'url': 'https://f.ooo',
+            'displayName': 'Ms. ☕ Baz',
+            'urls': [{'value': 'https://f.ooo', 'displayName': 'Ms. ☕ Baz'}],
+        }
+, loaded.as1)
         self.assertTrue(loaded.changed)
         self.assertFalse(loaded.new)
 

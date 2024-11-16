@@ -277,6 +277,32 @@ class PagesTest(TestCase):
         self.assertEqual({'user.com': 'user.com'}, OtherFake.usernames)
 
     @patch('requests.get', return_value=requests_response(
+        ACTOR_HTML, url='https://www.user.com/'))
+    def test_update_profile_web_www(self, mock_get):
+        self.user.obj.copies = [
+            Target(protocol='fake', uri='fa:profile:web:user.com'),
+        ]
+        self.user.obj.put()
+        Follower.get_or_create(from_=self.make_user('fake:user', cls=Fake),
+                               to=self.user)
+
+        got = self.client.post('/web/user.com/update-profile')
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/web/user.com', got.headers['Location'])
+
+        actor_as1 = {
+            **ACTOR_AS1_UNWRAPPED_URLS,
+            'updated': '2022-01-02T03:04:05+00:00',
+        }
+        self.assertEqual([('fake:shared:target', {
+            'objectType': 'activity',
+            'verb': 'update',
+            'id': 'https://user.com/#bridgy-fed-update-2022-01-02T03:04:05+00:00',
+            'actor': actor_as1,
+            'object': actor_as1,
+        })], Fake.sent)
+
+    @patch('requests.get', return_value=requests_response(
         ACTOR_HTML.replace('Ms. ☕ Baz', 'Ms. ☕ Baz #nobridge'),
         url='https://user.com/'))
     def test_update_profile_web_delete(self, mock_get):

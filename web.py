@@ -522,6 +522,15 @@ class Web(User, Protocol):
             if not entry:
                 error(f"Couldn't find a representative h-card (http://microformats.org/wiki/representative-h-card-parsing) on {parsed['url']}")
             logger.info(f'Found representative h-card')
+            # handle when eg https://user.com/ redirects to https://www.user.com/
+            # we need to store this as https://user.com/
+            if parsed['url'] != url:
+                logger.info(f'overriding {parsed["url"]} with {url}')
+                entry['properties']['url'] = [url]
+                if rel_url := parsed['rel-urls'].pop(parsed['url'], None):
+                    parsed['rel-urls'][url] = rel_url
+                parsed['url'] = url
+
         else:
             entry = mf2util.find_first_entry(parsed, ['h-entry'])
             if not entry:
