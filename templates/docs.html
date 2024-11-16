@@ -34,6 +34,9 @@
 <li><a href="#moderation">What about moderation? How do blocks, mutes, etc work?</a></li>
 <li><a href="#opt-out">How do I opt out and remove my site or account?</a></li>
 <li><a href="#dms">Why is Bridgy Fed chatting or DMing with me?</a></li>
+<li><a href="#migration">Is account migration supported?</a></li>
+<li><a href="#use-like-normal">Can I log into my bridged account and use it like a normal account?</a></li>
+<li><a href="#cross-post">Can I use this to bridge two existing accounts that I already have?</a></li>
 
 <br>
 
@@ -49,8 +52,6 @@
 <li><a href="#enhanced">The <code>*.brid.gy</code> domain in my bridged account is ugly. Can I use my own domain instead?</a></li>
 <li><a href="#dm-commands">What commands can I DM the bot account?</a></li>
 <li><a href="#dm-request">I want to follow someone, but they're not bridged!</a></li>
-<li><a href="#migration">Is account migration supported?</a></li>
-<li><a href="#use-like-normal">Can I log into my bridged account and use it like a normal account?</a></li>
 
 
 <br>
@@ -260,6 +261,24 @@
 <p>Also, chats with Bridgy Fed bot accounts are not monitored by a human. Feel free to <a href="#bug">file an issue in GitHub if you have a bug report or feature request!</a>
 </li>
 
+<li id="migration" class="question">Is account migration supported?</li>
+<li class="answer">
+<p>Not yet. If you bridge your fediverse account and then <a href="https://docs.joinmastodon.org/user/moving/#migration">migrate to a new instance</a>, or bridge your Bluesky account and then <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">change your handle</a>, or bridge your web site and then move it to a new domain, Bridgy Fed doesn't officially support that right now. Some parts of bridging may continue to work, but probably not all.
+<p>Details in <a href="https://github.com/snarfed/bridgy-fed/issues/330">these</a> <a href="https://github.com/snarfed/bridgy-fed/issues/1074">issues</a>. Hopefully this will be more fully supported in the future.
+<p><a href="https://github.com/snarfed/bridgy-fed/issues/1137">Bridgy Fed also doesn't support migrating an existing account into it to become a bridged account, or migrating a bridged account out to be a normal account.</a> Those are unlikely to be supported, even in the future.
+</li>
+
+<li id="use-like-normal" class="question">Can I log into my bridged account and use it like a normal account?</a></li>
+<li class="answer">
+<p>Sorry, no, Bridgy Fed doesn't support this. It would be difficult to manage and resolve the conflicts that would inevitably arise between bridging and interactive use. This would also take a huge amount of effort; we'd have to build a full-fledged, interactive fediverse instance, Bluesky PDS, web server CMS, etc, on top of the current bridge functionality.
+<p>
+</li>
+
+<li id="cross-post" class="question">Can I use this to bridge two existing accounts that I already have?</a></li>
+<li class="answer">
+<p>Sorry, no, Bridgy Fed doesn't support this. When it bridges one of your accounts into a new network, Bridgy Fed fully owns the bridged account in the new network. Fortunately, there are <a href="https://www.google.com/search?q=cross-post+bluesky+fediverse">many other cross-posting and clients tools that can copy posts between existing accounts</a>!
+</li>
+
 
 <br>
 
@@ -371,19 +390,6 @@
 <p>If you do nothing, your account won't be bridged, and users on the fediverse won't be able to see or interact with you.
 <p>Bridgy Fed will only send you this message once.
 </blockquote>
-</li>
-
-<li id="migration" class="question">Is account migration supported?</li>
-<li class="answer">
-<p>Not yet. If you bridge your fediverse account and then <a href="https://docs.joinmastodon.org/user/moving/#migration">migrate to a new instance</a>, or bridge your Bluesky account and then <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">change your handle</a>, or bridge your web site and then move it to a new domain, Bridgy Fed doesn't officially support that right now. Some parts of bridging may continue to work, but probably not all.
-<p>Details in <a href="https://github.com/snarfed/bridgy-fed/issues/330">these</a> <a href="https://github.com/snarfed/bridgy-fed/issues/1074">issues</a>. Hopefully this will be more fully supported in the future.
-<p><a href="https://github.com/snarfed/bridgy-fed/issues/1137">Bridgy Fed also doesn't support migrating an existing account into it to become a bridged account, or migrating a bridged account out to be a normal account.</a> Those are unlikely to be supported, even in the future.
-</li>
-
-<li id="use-like-normal" class="question">Can I log into my bridged account and use it like a normal account?</a></li>
-<li class="answer">
-<p>Sorry, no, Bridgy Fed doesn't support this. It would be difficult to manage and resolve the conflicts that would inevitably arise between bridging and interactive use. This would also take a huge amount of effort; we'd have to build a full-fledged, interactive fediverse instance, Bluesky PDS, web server CMS, etc, on top of the current bridge functionality.
-<p>
 </li>
 
 
