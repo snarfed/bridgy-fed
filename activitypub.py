@@ -999,7 +999,7 @@ def _load_user(handle_or_id, create=False):
 @app.get(f'/ap/web/<handle_or_id>')
 # special case Web users without /ap/web/ prefix, for backward compatibility
 @app.get(f'/<regex("{DOMAIN_RE}"):handle_or_id>')
-@flask_util.headers(CACHE_CONTROL)
+@flask_util.headers({**CACHE_CONTROL, 'Vary': 'Accept'})
 def actor(handle_or_id):
     """Serves a user's AS2 actor from the datastore."""
     user = _load_user(handle_or_id, create=True)

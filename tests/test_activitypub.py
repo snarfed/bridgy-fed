@@ -380,6 +380,7 @@ class ActivityPubTest(TestCase):
                               headers={'Accept': as2.CONTENT_TYPE_LD_PROFILE})
         self.assertEqual(200, got.status_code, got.get_data(as_text=True))
         self.assertEqual(as2.CONTENT_TYPE_LD_PROFILE, got.headers['Content-Type'])
+        self.assertEqual('Accept', got.headers['Vary'])
         self.assertEqual(ACTOR_FAKE, got.json)
 
     def test_actor_fake_protocol_subdomain(self, *_):
@@ -388,12 +389,14 @@ class ActivityPubTest(TestCase):
                               headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, got.status_code)
         self.assertEqual(ACTOR_FAKE, got.json)
+        self.assertEqual('Accept', got.headers['Vary'])
 
     def test_actor_web(self, *_):
         """Web users are special cased to drop the /web/ prefix."""
         got = self.client.get('/user.com', headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, got.status_code)
         self.assertEqual(as2.CONTENT_TYPE, got.headers['Content-Type'])
+        self.assertEqual('Accept', got.headers['Vary'])
         self.assert_equals({
             **ACTOR_BASE_FULL,
             'type': 'Person',
@@ -413,16 +416,19 @@ class ActivityPubTest(TestCase):
         got = self.client.get('/user.com')
         self.assertEqual(302, got.status_code)
         self.assertEqual('https://user.com/', got.headers['Location'])
+        self.assertEqual('Accept', got.headers['Vary'])
 
     def test_actor_conneg_star_redirect_to_profile(self, _, __, ___):
         got = self.client.get('/user.com', headers={'Accept': '*/*'})
         self.assertEqual(302, got.status_code)
         self.assertEqual('https://user.com/', got.headers['Location'])
+        self.assertEqual('Accept', got.headers['Vary'])
 
     def test_actor_conneg_html_redirect_to_profile(self, _, __, ___):
         got = self.client.get('/user.com', headers={'Accept': 'text/html'})
         self.assertEqual(302, got.status_code)
         self.assertEqual('https://user.com/', got.headers['Location'])
+        self.assertEqual('Accept', got.headers['Vary'])
 
     def test_actor_new_user_fetch(self, _, mock_get, __):
         self.user.obj_key.delete()
