@@ -366,14 +366,6 @@ def create_task(queue, delay=None, **params):
     return msg, 202
 
 
-def email_me(msg):
-    assert False  # not working, SMTP woes :(
-    if not DEBUG:
-        util.send_email(smtp_host=SMTP_HOST, smtp_port=SMTP_PORT,
-                        from_='scufflechuck@gmail.com', to='bridgy-fed@ryanb.org',
-                        subject=util.ellipsize(msg), body=msg)
-
-
 def report_exception(**kwargs):
     return report_error(msg=None, exception=True, **kwargs)
 
