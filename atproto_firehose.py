@@ -297,7 +297,7 @@ def handle(limit=None):
 
         type, _ = op.path.strip('/').split('/', maxsplit=1)
         if type not in ATProto.SUPPORTED_RECORD_TYPES:
-            logger.info(f'Skipping unsupported type {type}: at_uri')
+            logger.info(f'Skipping unsupported type {type}: {at_uri}')
             return
 
         # store object, enqueue receive task
