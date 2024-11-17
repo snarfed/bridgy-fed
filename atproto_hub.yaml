@@ -13,7 +13,10 @@ runtime_config:
 
 resources:
   cpu: 1
-  memory_gb: 1.6
+  # steady state memory usage is only .5-1G, but spikes when we're working
+  # through a backlog of commits
+  # https://github.com/snarfed/bridgy-fed/issues/1266#issuecomment-2321863960
+  memory_gb: 3.6
 
 # can't be internal because Bluesky relay(s) need to be able to connect to us
 # over websocket for subscribeRepos
@@ -29,7 +32,7 @@ env_variables:
   MOD_SERVICE_DID: did:plc:ar7c4by46qjdydhdevvrndac
   # ...or test against labeler.dholms.xyz / did:plc:vzxheqfwpbi3lxbgdh22js66
 
-  ROLLBACK_WINDOW: 50000
+  ROLLBACK_WINDOW: 100000
   SUBSCRIBE_REPOS_BATCH_DELAY: 10
 
 # need only one instance so that new commits can be delivered to subscribeRepos
