@@ -677,6 +677,7 @@ def check_web_site():
         flash(f'{url} looks like a fediverse server! Try a normal web site.')
         return render_template('enter_web_site.html'), 400
 
+    common.create_task(queue='poll-feed', domain=domain)
     return redirect(user.user_page_path())
 
 

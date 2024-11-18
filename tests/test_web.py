@@ -2778,7 +2778,10 @@ Current vs expected:<pre>- http://this/404s
             self.assertEqual('https://fed.brid.gy/user.com',
                              self.user.id_as(ActivityPub))
 
-    def test_check_web_site(self, mock_get, _):
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_check_web_site(self, mock_create_task, mock_get, _):
+        common.RUN_TASKS_INLINE = False
+
         redir = 'http://localhost/.well-known/webfinger?resource=acct:user.com@user.com'
         mock_get.side_effect = (
             requests_response('', status=302, redirected_url=redir),
@@ -2792,6 +2795,8 @@ Current vs expected:<pre>- http://this/404s
         user = Web.get_by_id('user.com')
         self.assertTrue(user.has_hcard)
         self.assertEqual('person', user.obj.as1['objectType'])
+
+        self.assert_task(mock_create_task, 'poll-feed', domain='user.com')
 
     def test_check_web_site_unicode_domain(self, mock_get, _):
         mock_get.side_effect = (
