@@ -21,6 +21,7 @@ import requests
 from requests import TooManyRedirects
 from requests.models import DEFAULT_REDIRECT_LIMIT
 from werkzeug.exceptions import BadGateway
+import atproto
 
 from flask_app import app
 import common
@@ -590,6 +591,17 @@ class ActivityPub(User, Protocol):
                     return cls._load_key(owner, follow_owner=False)
 
         return actor
+
+    @classmethod
+    def bridged_web_url_for(cls, user, fallback=False):
+        """Returns a bridged user's profile URL on ``https://bsky.brid.gy/r/*``.
+
+        For example, returns ``https://bsky.brid.gy/r/https://bsky.app/profile/alice.bsky.social``
+        for BlueSky user ``alice.bsky.social``.
+        """
+        if isinstance(user, atproto.ATProto):
+            return f"https://bsky.brid.gy/r/{user.web_url()}"
+        return super().bridged_web_url_for(user, fallback)
 
 
 def signed_get(url, from_user=None, **kwargs):
