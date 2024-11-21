@@ -330,6 +330,7 @@ def create_task(queue, delay=None, **params):
     assert queue
     path = f'/queue/{queue}'
 
+    loggable = {k: '{...}' if isinstance(v, dict) else v for k, v in params.items()}
     params = {k: json_dumps(v, sort_keys=True) if isinstance(v, dict) else v
               for k, v in params.items()}
 
@@ -360,7 +361,6 @@ def create_task(queue, delay=None, **params):
 
     parent = tasks_client.queue_path(appengine_info.APP_ID, TASKS_LOCATION, queue)
     task = tasks_client.create_task(parent=parent, task=task)
-    loggable = {k: '{...}' if isinstance(v, dict) else v for k, v in params.items()}
     msg = f'Added {queue} task {task.name} delay {delay} {loggable}'
     logger.info(msg)
     return msg, 202
