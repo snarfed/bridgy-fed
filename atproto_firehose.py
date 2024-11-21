@@ -87,15 +87,21 @@ def _load_dids():
 
         atproto_query = ATProto.query(ATProto.enabled_protocols != None,
                                       ATProto.updated > atproto_loaded_at)
-        atproto_loaded_at = ATProto.query().order(-ATProto.updated).get().updated
+        loaded_at = ATProto.query().order(-ATProto.updated).get().updated
         new_atproto = [key.id() for key in atproto_query.iter(keys_only=True)]
         atproto_dids.update(new_atproto)
+        # set *after* we populate atproto_dids so that if we crash earlier, we
+        # re-query from the earlier timestamp
+        atproto_loaded_at = loaded_at
 
         bridged_query = AtpRepo.query(AtpRepo.status == None,
                                       AtpRepo.created > bridged_loaded_at)
-        bridged_loaded_at = AtpRepo.query().order(-AtpRepo.created).get().created
+        loaded_at = AtpRepo.query().order(-AtpRepo.created).get().created
         new_bridged = [key.id() for key in bridged_query.iter(keys_only=True)]
         bridged_dids.update(new_bridged)
+        # set *after* we populate bridged_dids so that if we crash earlier, we
+        # re-query from the earlier timestamp
+        bridged_loaded_at = loaded_at
 
         if not protocol_bot_dids:
             bot_keys = [Web(id=domain).key for domain in PROTOCOL_DOMAINS]
