@@ -122,10 +122,10 @@ def subscriber():
          while True:
             try:
                 subscribe()
-                logger.info(f'disconnected! waiting {RECONNECT_DELAY} and then reconnecting')
-                time.sleep(RECONNECT_DELAY.total_seconds())
             except BaseException:
                 report_exception()
+            logger.info(f'disconnected! waiting {RECONNECT_DELAY} and then reconnecting')
+            time.sleep(RECONNECT_DELAY.total_seconds())
 
 
 def subscribe():
