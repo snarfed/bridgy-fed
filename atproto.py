@@ -679,6 +679,7 @@ class ATProto(User, Protocol):
                 # collection/rkey
                 logger.warning(e)
                 return False
+            logger.info(f'  seq {repo.head.seq}')
 
             if verb not in ('delete', 'undo'):
                 at_uri = f'at://{did}/{type}/{rkey}'
