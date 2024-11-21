@@ -162,6 +162,7 @@ def run():
 
     if only_proto:
         from_proto.deliver(obj, from_user=user, to_proto=only_proto)
+        user.disable_protocol(ATProto)
     else:
         from_proto.receive(obj, authed_as=user_id, internal=True)
         if not user.manual_opt_out:
