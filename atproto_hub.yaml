@@ -16,7 +16,7 @@ resources:
   # steady state memory usage is only .5-1G, but spikes when we're working
   # through a backlog of commits
   # https://github.com/snarfed/bridgy-fed/issues/1266#issuecomment-2321863960
-  memory_gb: 3.6
+  memory_gb: 6.0
 
 # can't be internal because Bluesky relay(s) need to be able to connect to us
 # over websocket for subscribeRepos
