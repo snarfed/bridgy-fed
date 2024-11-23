@@ -32,7 +32,7 @@ env_variables:
   MOD_SERVICE_DID: did:plc:ar7c4by46qjdydhdevvrndac
   # ...or test against labeler.dholms.xyz / did:plc:vzxheqfwpbi3lxbgdh22js66
 
-  ROLLBACK_WINDOW: 50000
+  ROLLBACK_WINDOW: 200000
   SUBSCRIBE_REPOS_BATCH_DELAY: 10
 
 # need only one instance so that new commits can be delivered to subscribeRepos
