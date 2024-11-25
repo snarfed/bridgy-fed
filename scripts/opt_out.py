@@ -27,6 +27,7 @@ import ids
 from models import Object, Target
 import protocol
 from activitypub import ActivityPub
+from atproto import ATProto
 from web import Web
 from app import app
 
