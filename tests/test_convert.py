@@ -16,6 +16,7 @@ from .testutil import ExplicitFake, Fake, OtherFake
 from activitypub import ActivityPub
 from common import CONTENT_TYPE_HTML
 from web import Web
+from .test_web import ACTOR_HTML
 
 COMMENT_AS2 = {
     'type': 'Note',
@@ -390,13 +391,7 @@ A ☕ reply
 
     @patch('requests.get')
     def test_web_to_activitypub_no_user(self, mock_get):
-        hcard = requests_response("""
-<html>
-<body class="h-card">
-<a rel="me" class="u-url" href="/">
-</a>
-</body>
-</html>""", url='https://nope.com/')
+        hcard = requests_response(ACTOR_HTML, url='https://nope.com/')
         mock_get.side_effect = [
             # post protocol inference
             requests_response('<html><body class="h-entry"></body></html>'),
@@ -404,7 +399,7 @@ A ☕ reply
             hcard,
             hcard,
             requests_response(status=404),       # webfinger for protocol inference
-            requests_response('<html></html>'),  # user for is_enabled protocol check
+            hcard,  # user for is_enabled protocol check
         ]
 
         resp = self.client.get(f'/convert/ap/https://nope.com/post',

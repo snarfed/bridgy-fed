@@ -413,6 +413,9 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         obj_id = copy.deepcopy(kwargs.pop('obj_id', None))
 
         kwargs.setdefault('direct', True)
+        if cls == Web and not obj_mf2:
+            kwargs.setdefault('last_webmention_in', testutil.NOW)
+
         user = cls(id=id,
                    mod=global_user.mod,
                    public_exponent=global_user.public_exponent,
@@ -589,7 +592,7 @@ class TestCase(unittest.TestCase, testutil.Asserts):
 
         # generated, computed, etc
         ignore = ['created', 'mod', 'handle', 'obj_key', 'private_exponent',
-                  'public_exponent', 'updated'] + list(ignore)
+                  'public_exponent', 'status', 'updated'] + list(ignore)
         for prop in ignore:
             assert prop not in props
 

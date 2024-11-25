@@ -41,6 +41,7 @@ from .test_web import (
     ACTOR_AS1_UNWRAPPED_URLS,
     ACTOR_MF2_REL_URLS,
     NOTE as NOTE_HTML_RESP,
+    WEB_USER_GETS,
 )
 
 
@@ -293,7 +294,10 @@ class ProtocolTest(TestCase):
                 'url': ['https://f.ooo'],
                 'name': ['Ms. ☕ Baz'],
             },
-            'rel-urls': {'https://f.ooo': {'rels': ['me'], 'text': 'Ms. ☕ Baz'}},
+            'rel-urls': {
+                'https://f.ooo': {'rels': ['me'], 'text': 'Ms. ☕ Baz'},
+                'https://user.com/webmention': {'rels': ['webmention'], 'text': ''},
+            },
             'url': 'https://f.ooo',
         }
 
@@ -3345,7 +3349,7 @@ class ProtocolReceiveTest(TestCase):
             'author': 'user.com',
         }, Object.get_by_id('https://user.com/c').our_as1)
 
-    @patch('requests.get', return_value=requests_response('<html></html>'))
+    @patch('requests.get', side_effect=WEB_USER_GETS + [ACTOR_HTML_RESP])
     def test_receive_task_handler_authed_as_www_subdomain(self, _):
         note = {
             'id': 'http://www.foo.com/post',

@@ -8,6 +8,7 @@ from arroba.util import at_uri
 from flask import get_flashed_messages
 from google.cloud import ndb
 from granary import as1, as2, atom, microformats2, rss
+from granary.source import html_to_text
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil import appengine_info
 from oauth_dropins.webutil.flask_util import NoContent
@@ -38,6 +39,7 @@ FULL_REDIR = requests_response(
 
 ACTOR_HTML = """\
 <html>
+<head><link rel="webmention" href="/webmention" /></head>
 <body class="h-card">
 <a class="p-name u-url" rel="me" href="/">Ms. ☕ Baz</a>
 <a href="http://localhost/"></a>
@@ -72,6 +74,8 @@ ACTOR_MF2_REL_FEED_URL = {
         'https://foo/feed': {'rels': ['alternate'], 'type': atom.CONTENT_TYPE},
     },
 }
+ACTOR_MF2_REL_WEBMENTION_URL = copy.deepcopy(ACTOR_MF2_REL_URLS)
+ACTOR_MF2_REL_WEBMENTION_URL['rel-urls']['https://foo/wm'] = {'rels': ['webmention']}
 ACTOR_AS1_UNWRAPPED = {
     'objectType': 'person',
     'id': 'https://user.com/',
@@ -407,6 +411,11 @@ ACTIVITYPUB_GETS = [
     TOOT_AS2,       # AP
     ACTOR,
 ]
+WEB_USER_GETS = [
+    ACTOR_HTML_RESP,
+    requests_response('', status=404),  # webfinger
+    ACTOR_HTML_RESP,
+]
 
 
 @patch('requests.post')
@@ -417,7 +426,8 @@ class WebTest(TestCase):
 
         obj = Object(id='https://user.com/', mf2=ACTOR_MF2, source_protocol='web')
         obj.put()
-        self.user = self.make_user('user.com', cls=Web, has_redirects=True, obj=obj)
+        self.user = self.make_user('user.com', cls=Web, has_redirects=True, obj=obj,
+                                   last_webmention_in=None)
 
         self.mrs_foo = ndb.Key(ActivityPub, 'https://mas.to/mrs-foo')
 
@@ -487,30 +497,26 @@ class WebTest(TestCase):
                     Web(id=bad).put()
 
     def test_get_or_create_lower_cases_domain(self, mock_get, mock_post):
-        mock_get.return_value = requests_response('')
-
+        mock_get.side_effect = WEB_USER_GETS
         user = Web.get_or_create('AbC.oRg')
         self.assertEqual('abc.org', user.key.id())
         self.assert_entities_equal(user, Web.get_by_id('abc.org'))
         self.assertIsNone(Web.get_by_id('AbC.oRg'))
 
     def test_get_or_create_unicode_domain(self, mock_get, mock_post):
-        mock_get.return_value = requests_response('')
-
+        mock_get.side_effect = WEB_USER_GETS
         user = Web.get_or_create('☃.net')
         self.assertEqual('☃.net', user.key.id())
         self.assert_entities_equal(user, Web.get_by_id('☃.net'))
 
     def test_get_or_create_home_page_url(self, mock_get, mock_post):
-        mock_get.return_value = requests_response('')
-
+        mock_get.side_effect = WEB_USER_GETS
         user = Web.get_or_create('https://foo.com/')
         self.assertEqual('foo.com', user.key.id())
         self.assert_entities_equal(user, Web.get_by_id('foo.com'))
 
     def test_get_or_create_scripts_leading_trailing_dots(self, mock_get, mock_post):
-        mock_get.return_value = requests_response('')
-
+        mock_get.side_effect = WEB_USER_GETS
         user = Web.get_or_create('..foo.bar.')
         self.assertEqual('foo.bar', user.key.id())
         self.assert_entities_equal(user, Web.get_by_id('foo.bar'))
@@ -525,8 +531,12 @@ class WebTest(TestCase):
     def test_get_or_create_new_creates_poll_feed_task(self, mock_create_task,
                                                       mock_get, __):
         common.RUN_TASKS_INLINE = False
-        mock_get.return_value = requests_response(ACTOR_HTML, url='https://new.com/')
-
+        new = requests_response(ACTOR_HTML, url='https://new.com/')
+        mock_get.side_effect = [
+            new,
+            requests_response(status=404),  # webfinger
+            new,
+        ]
         user = Web.get_or_create('new.com')
         self.assert_task(mock_create_task, 'poll-feed', domain='new.com')
 
@@ -547,9 +557,17 @@ class WebTest(TestCase):
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_get_or_create_new_propagate_atproto(self, mock_create_task,
-                                                         mock_get, mock_post):
+                                                 mock_get, mock_post):
+        mock_get.side_effect = WEB_USER_GETS
         common.RUN_TASKS_INLINE = False
-        mock_get.return_value = requests_response(ACTOR_HTML, url='https://new.com/')
+        html = requests_response(ACTOR_HTML, url='https://new.com/')
+        mock_get.side_effect = [
+            html,
+            html,
+            html,
+            requests_response('', status=404),  # webfinger
+            html,
+        ]
         mock_post.return_value = requests_response('OK')  # create DID on PLC
 
         user = Web.get_or_create('new.com', enabled_protocols=['atproto'],
@@ -1700,7 +1718,7 @@ class WebTest(TestCase):
         mock_post.assert_not_called()
 
     def test_update_profile(self, mock_get, mock_post):
-        mock_get.side_effect = [ACTOR_HTML_RESP]
+        mock_get.side_effect = WEB_USER_GETS
         mock_post.return_value = requests_response('abc xyz')
         Follower.get_or_create(to=self.user, from_=self.make_user(
             'http://c/cc', cls=ActivityPub, obj_as2={
@@ -2562,7 +2580,7 @@ Current vs expected:<pre>- http://this/404s
         got = self.user.verify()
         self.assertFalse(self.user.has_redirects)
         self.assertEqual(web.OWNS_WEBFINGER, self.user.redirects_error)
-        self.assertEqual('blocked', self.user.status)
+        self.assertEqual('owns-webfinger', self.user.status)
 
     def test_verify_non_bridgy_fed_webfinger_host_meta_redirects(self, mock_get, _):
         mock_get.side_effect = [
@@ -2571,7 +2589,7 @@ Current vs expected:<pre>- http://this/404s
             # host-meta
             requests_response(url='https://user.com/other', status=302),
             # h-card
-            requests_response(''),
+            ACTOR_HTML_RESP,
         ]
 
         self.user.has_redirects = False
@@ -2637,10 +2655,10 @@ Current vs expected:<pre>- http://this/404s
     def test_verify_www_redirect(self, mock_get, _):
         www_user = self.make_user('www.user.com', cls=Web)
 
-        empty = requests_response('')
         mock_get.side_effect = [
             requests_response(status=302, redirected_url='https://www.user.com/'),
-            empty, empty,
+            requests_response(status=404),  # webfinger
+            requests_response(ACTOR_HTML, url='https://www.user.com/')
         ]
 
         got = www_user.verify()
@@ -2799,11 +2817,7 @@ Current vs expected:<pre>- http://this/404s
         self.assert_task(mock_create_task, 'poll-feed', domain='user.com')
 
     def test_check_web_site_unicode_domain(self, mock_get, _):
-        mock_get.side_effect = (
-            requests_response(''),
-            requests_response(''),
-            requests_response(''),
-        )
+        mock_get.side_effect = WEB_USER_GETS
 
         got = self.post('/web-site', data={'url': 'https://☃.net/'})
         self.assert_equals(302, got.status_code)
@@ -2815,13 +2829,13 @@ Current vs expected:<pre>- http://this/404s
         self.assertIsNone(user.get_copy(ATProto))
 
     def test_check_web_site_lower_cases_domain(self, mock_get, _):
-        mock_get.side_effect = (
-            requests_response(''),  # home page
-            requests_response(''),  # home page
-            requests_response(''),  # webfinger
-            requests_response(''),  # home page
-        )
-
+        mock_get.side_effect = [
+            ACTOR_HTML_RESP,
+            ACTOR_HTML_RESP,
+            ACTOR_HTML_RESP,
+            requests_response('', status=404),  # webfinger
+            ACTOR_HTML_RESP,
+        ]
         got = self.post('/web-site', data={'url': 'https://AbC.oRg/'})
         self.assert_equals(302, got.status_code)
         self.assert_equals('/web/abc.org', got.headers['Location'])
@@ -2831,8 +2845,9 @@ Current vs expected:<pre>- http://this/404s
     def test_check_web_site_bad_url(self, _, __):
         got = self.post('/web-site', data={'url': '!!!'})
         self.assert_equals(400, got.status_code)
-        self.assertEqual(['!!! is not a valid or supported web site'],
-                         get_flashed_messages())
+        self.assertEqual(
+            ['!!! is not a <a href="/docs#web-get-started">valid or supported web site</a>'],
+            get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
     def test_check_web_site_url_with_path(self, _, __):
@@ -2846,15 +2861,16 @@ Current vs expected:<pre>- http://this/404s
         got = self.post('/web-site', data={'url': 'https://web.brid.gy/foo'})
         self.assert_equals(400, got.status_code)
         self.assertEqual(
-            ['https://web.brid.gy/foo is not a valid or supported web site'],
+            ['<a href="https://web.brid.gy/foo">web.brid.gy/foo</a> is not a <a href="/docs#web-get-started">valid or supported web site</a>'],
             get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
     def test_check_web_site_blocklisted(self, _, __):
         got = self.post('/web-site', data={'url': 'https://t.co/'})
         self.assert_equals(400, got.status_code)
-        self.assertEqual(['https://t.co/ is not a valid or supported web site'],
-                         get_flashed_messages())
+        self.assertEqual(
+            ['<a href="https://t.co/">t.co</a> is not a <a href="/docs#web-get-started">valid or supported web site</a>'],
+            get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
     def test_check_web_site_opted_out(self, _, __):
@@ -2863,8 +2879,9 @@ Current vs expected:<pre>- http://this/404s
 
         got = self.post('/web-site', data={'url': 'user.com'})
         self.assert_equals(400, got.status_code)
-        self.assertEqual(['user.com is not a valid or supported web site'],
-                         get_flashed_messages())
+        self.assertEqual(
+            ['<a href="http://user.com">user.com</a> is not a <a href="/docs#web-get-started">valid or supported web site</a>'],
+            get_flashed_messages())
         self.assertEqual(1, Web.query().count())
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
@@ -2879,7 +2896,7 @@ Current vs expected:<pre>- http://this/404s
             # host-meta
             requests_response('', status=404),
             # h-card
-            requests_response(''),
+            ACTOR_HTML_RESP,
         )
 
         got = self.post('/web-site', data={'url': 'https://orig.co/'})
@@ -2891,8 +2908,9 @@ Current vs expected:<pre>- http://this/404s
 
         got = self.post('/web-site', data={'url': 'https://orig.co/'})
         self.assert_equals(200, got.status_code, got.headers)
-        self.assertTrue(get_flashed_messages()[0].startswith(
-            "Couldn't connect to https://orig.co/: "))
+        msg = get_flashed_messages()[0]
+        self.assertTrue(msg.startswith(
+            'Couldn\'t connect to <a href=\"https://orig.co/">orig.co</a>: '), msg)
 
 
 @patch('requests.post')
@@ -2901,7 +2919,8 @@ class WebUtilTest(TestCase):
 
     def setUp(self):
         super().setUp()
-        self.user = self.make_user('user.com', cls=Web)
+        self.user = self.make_user('user.com', cls=Web,
+                                   obj_mf2=ACTOR_MF2_REL_WEBMENTION_URL)
 
     def test_id_uri(self, *_):
         self.assertEqual('https://user.com/', self.user.id_uri())
@@ -2963,6 +2982,27 @@ class WebUtilTest(TestCase):
 
     def test_profile_id(self, *_):
         self.assertEqual('https://foo.com/', Web(id='foo.com').profile_id())
+
+    def test_status(self, *_):
+        self.user.obj.mf2 = None
+        self.assertEqual('no-feed-or-webmention', self.user.status)
+
+        self.user.last_webmention_in = NOW
+        self.assertIsNone(self.user.status)
+
+        self.user.last_webmention_in = None
+        self.user.obj.mf2 = ACTOR_MF2_REL_FEED_URL
+        self.assertIsNone(self.user.status)
+
+        self.user.obj.mf2 = ACTOR_MF2_REL_WEBMENTION_URL
+        self.assertIsNone(self.user.status)
+
+        self.user.obj.mf2 = ACTOR_MF2_REL_URLS
+        self.assertEqual('no-feed-or-webmention', self.user.status)
+
+        self.user.obj.mf2 = ACTOR_MF2
+        self.user.key = Web(id='fa.brid.gy').key
+        self.assertIsNone(self.user.status)
 
     def test_fetch(self, mock_get, __):
         mock_get.return_value = REPOST
@@ -3070,9 +3110,9 @@ class WebUtilTest(TestCase):
         Web.fetch(obj)
 
         self.assert_equals({
-            **ACTOR_MF2_REL_URLS,
+            **ACTOR_MF2_REL_WEBMENTION_URL,
             'url': 'https://user.com/',
-        }, obj.mf2)
+        }, obj.mf2, ignore=['rel-urls'])
         self.assert_equals(ACTOR_AS1_UNWRAPPED_URLS, obj.as1)
 
     def test_fetch_user_homepage_other_u_url(self, mock_get, __):
@@ -3086,11 +3126,11 @@ class WebUtilTest(TestCase):
         Web.fetch(obj)
 
         expected_mf2 = {
-            **copy.deepcopy(ACTOR_MF2_REL_URLS),
+            **copy.deepcopy(ACTOR_MF2_REL_WEBMENTION_URL),
             'url': 'https://user.com/',
         }
         expected_mf2['properties']['url'] = ['https://user.com/', 'https://ot/her']
-        self.assert_equals(expected_mf2, obj.mf2)
+        self.assert_equals(expected_mf2, obj.mf2, ignore=['rel-urls'])
         self.assert_equals({
             **ACTOR_AS1_UNWRAPPED,
             'url': 'https://ot/her',

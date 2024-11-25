@@ -430,7 +430,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         """Whether this user is blocked or opted out.
 
         Optional. Current possible values:
-
           * ``opt-out``: if ``#nobridge`` or ``#nobot`` is in the profile
             description/bio, or if the user or domain has manually opted out.
             Some protocols also have protocol-specific opt out logic, eg Bluesky
@@ -438,6 +437,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
           * ``blocked``: if the user fails our validation checks, eg
             ``REQUIRES_NAME`` or ``REQUIRES_AVATAR`` if either of those are
             ``True` for this protocol.
+          * `owns-webfinger`: a :class:`web.Web` user that looks like a
+            fediverse server
+          * `no-feed-or-webmention`: a :class:`web.Web` user that doesn't have
+            an RSS or Atom feed or webmention endpoint and has never sent us a
+            webmention
 
         Duplicates ``util.is_opt_out`` in Bridgy!
 

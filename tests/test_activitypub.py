@@ -11,7 +11,7 @@ from google.cloud import ndb
 from granary import as1, as2, microformats2
 from httpsig import HeaderSigner
 from oauth_dropins.webutil.flask_util import NoContent
-from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.testutil import NOW, requests_response
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import domain_from_link, json_dumps, json_loads
 import requests
@@ -433,14 +433,7 @@ class ActivityPubTest(TestCase):
     def test_actor_new_user_fetch(self, _, mock_get, __):
         self.user.obj_key.delete()
         self.user.key.delete()
-
-        hcard = requests_response(test_web.ACTOR_HTML, url='https://user.com/')
-        mock_get.side_effect = [
-            hcard,
-            requests_response(status=404),
-            hcard,
-            hcard,
-        ]
+        mock_get.side_effect = test_web.WEB_USER_GETS
 
         got = self.client.get('/user.com', headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, got.status_code)
@@ -454,15 +447,14 @@ class ActivityPubTest(TestCase):
         self.user.obj_key.delete()
         self.user.key.delete()
 
-        mock_get.return_value = requests_response('<html></html>')
+        mock_get.side_effect = [
+            WEBMENTION_DISCOVERY,
+            requests_response(status=404),
+            WEBMENTION_DISCOVERY,
+        ]
 
         got = self.client.get('/user.com', headers={'Accept': as2.CONTENT_TYPE})
-        self.assertEqual(200, got.status_code)
-        self.assert_equals({
-            **ACTOR_BASE,
-            'type': 'Person',
-            'summary': '',
-        }, got.json, ignore=['publicKeyPem'])
+        self.assertEqual(404, got.status_code)
 
     def test_actor_new_user_fetch_fails(self, _, mock_get, ___):
         mock_get.side_effect = ReadTimeoutError(None, None, None)
@@ -1311,7 +1303,7 @@ class ActivityPubTest(TestCase):
 
         self.assert_user(ActivityPub, 'https://mas.to/users/swentel',
                          obj_as2=ACTOR, direct=False)
-        self.assert_user(Web, 'user.com', direct=False,
+        self.assert_user(Web, 'user.com', direct=False, last_webmention_in=NOW,
                          has_hcard=True, has_redirects=True)
 
     def test_inbox_follow_use_instead_strip_www(self, mock_head, mock_get, mock_post):
@@ -2801,7 +2793,7 @@ class ActivityPubUtilsTest(TestCase):
 
     @patch('requests.get')
     def test_convert_actor_as1_from_user(self, mock_get):
-        mock_get.return_value = requests_response(test_web.ACTOR_HTML)
+        mock_get.return_value = test_web.ACTOR_HTML_RESP
 
         obj = Object(our_as1={
             'objectType': 'person',
@@ -2810,6 +2802,7 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals(
             {
                 **ACTOR_BASE,
+                'type': 'Person',
                 'discoverable': True,
                 'indexable': True,
             }, ActivityPub.convert(obj, from_user=self.user),

@@ -11,7 +11,7 @@ from dns.resolver import NXDOMAIN
 from granary import as2, bluesky
 from granary.tests.test_bluesky import ACTOR_PROFILE_BSKY, POST_BSKY
 from oauth_dropins.webutil.flask_util import NoContent
-from oauth_dropins.webutil.testutil import requests_response
+from oauth_dropins.webutil.testutil import NOW, requests_response
 from oauth_dropins.webutil import util
 from oauth_dropins.webutil.util import json_dumps, json_loads
 
@@ -249,7 +249,7 @@ class IntegrationTests(TestCase):
         Follow is HTML with mf2 u-follow-of of https://bsky.app/profile/alice.com
         """
         bob = self.make_user(id='bob.com', cls=Web, enabled_protocols=['atproto'],
-                             obj_mf2={
+                             last_webmention_in=NOW, obj_mf2={
                                  'type': ['h-card'],
                                  'properties': {
                                      'url': ['https://bob.com/'],

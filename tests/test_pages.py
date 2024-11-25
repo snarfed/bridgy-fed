@@ -3,6 +3,7 @@ from unittest import skip
 from unittest.mock import patch
 
 import arroba.server
+import copy
 from flask import get_flashed_messages
 from google.cloud import ndb
 from google.cloud.tasks_v2.types import Task
@@ -260,7 +261,12 @@ class PagesTest(TestCase):
 
         user = self.user.key.get()
         self.assertIsNone(user.status)
-        self.assertEqual(ACTOR_MF2_REL_URLS, user.obj.mf2)
+        expected_mf2 = copy.deepcopy(ACTOR_MF2_REL_URLS)
+        expected_mf2['rel-urls']['https://user.com/webmention'] = {
+            'rels': ['webmention'],
+            'text': '',
+        }
+        self.assertEqual(expected_mf2, user.obj.mf2)
 
         actor_as1 = {
             **ACTOR_AS1_UNWRAPPED_URLS,

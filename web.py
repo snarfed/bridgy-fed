@@ -28,6 +28,7 @@ import common
 from common import (
     CACHE_CONTROL,
     DOMAIN_RE,
+    DOMAINS,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
     SUPERDOMAIN,
@@ -165,12 +166,17 @@ class Web(User, Protocol):
         if util.domain_or_parent_in(domain, [SUPERDOMAIN.strip('.')]):
             return super().get_by_id(domain)
 
-        user = super().get_or_create(domain, allow_opt_out=allow_opt_out, **kwargs)
-        if not user:
+        user = super().get_or_create(domain, allow_opt_out=True, **kwargs)
+        if not user or (not allow_opt_out
+                        and user.status
+                        and user.status != 'no-feed-or-webmention'):
             return None
 
         if verify or (verify is None and not user.existing):
             user = user.verify()
+
+        if not allow_opt_out and user.status:
+            return None
 
         if not user.existing:
             common.create_task(queue='poll-feed', domain=user.key.id())
@@ -256,9 +262,17 @@ class Web(User, Protocol):
 
     @ndb.ComputedProperty
     def status(self):
+        if self.key.id() in common.DOMAINS:
+            return None
+
         if self.redirects_error == OWNS_WEBFINGER:
             # looks like this site is already its own fediverse server
-            return 'blocked'
+            return 'owns-webfinger'
+
+        url, _ = self.feed_url()
+        if (not url and not self.webmention_endpoint() and not self.last_webmention_in
+                and not self.has_redirects):
+            return 'no-feed-or-webmention'
 
         return super().status
 
@@ -413,6 +427,31 @@ class Web(User, Protocol):
             return None
 
         return obj.key.id()
+
+    def feed_url(self):
+        """Returns this web site's RSS or Atom feed URL and type, if any.
+
+        Returns:
+          (str, type) or (None, None):
+        """
+        if self.obj and self.obj.mf2:
+            for url, info in self.obj.mf2.get('rel-urls', {}).items():
+                type = FEED_TYPES.get(info.get('type', '').split(';')[0])
+                if 'alternate' in info.get('rels', []) and type:
+                    return url, type
+
+        return None, None
+
+    def webmention_endpoint(self):
+        """Returns this web site's webmention endpoint, if any.
+
+        Returns:
+          str: webmention endpoint URL
+        """
+        if self.obj and self.obj.mf2:
+            for url, info in self.obj.mf2.get('rel-urls', {}).items():
+                if 'webmention' in info.get('rels', []):
+                    return url
 
     @classmethod
     def send(to_cls, obj, url, from_user=None, orig_obj_id=None, **kwargs):
@@ -649,8 +688,9 @@ def check_web_site():
         logger.info(f'bad web id? {url}', exc_info=True)
         domain = None
 
+    invalid_msg = util.linkify(f'{url} is not a <a href="/docs#web-get-started">valid or supported web site</a>', pretty=True)
     if not domain or not is_valid_domain(domain, allow_internal=False):
-        flash(f'{url} is not a valid or supported web site')
+        flash(invalid_msg)
         return render_template('enter_web_site.html'), 400
 
     if util.is_web(url) and urlparse(url).path.strip('/'):
@@ -663,12 +703,12 @@ def check_web_site():
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if code:
-            flash(f"Couldn't connect to {url}: {e}")
+            flash(util.linkify(f"Couldn't connect to {url}: {e}", pretty=True))
             return render_template('enter_web_site.html')
         raise
 
     if not user:  # opted out
-        flash(f'{url} is not a valid or supported web site')
+        flash(invalid_msg)
         return render_template('enter_web_site.html'), 400
 
     user.put()
@@ -837,11 +877,8 @@ def poll_feed_task():
         return '', 204
 
     # discover feed URL
-    for url, info in user.obj.mf2.get('rel-urls', {}).items():
-        rel_type = FEED_TYPES.get(info.get('type', '').split(';')[0])
-        if 'alternate' in info.get('rels', []) and rel_type:
-            break
-    else:
+    url, rel_type = user.feed_url()
+    if not url:
         msg = f"User {user.key.id()} has no feed URL, can't fetch feed"
         logger.info(msg)
         return msg

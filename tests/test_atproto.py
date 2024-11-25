@@ -928,7 +928,8 @@ class ATProtoTest(TestCase):
         }), from_user=user))
 
     def test_convert_web_actor_source_links_link_to_user_page(self):
-        user = self.make_user(id='user.com', cls=Web, obj_id='user.com')
+        user = self.make_user(id='user.com', cls=Web, obj_id='user.com',
+                              last_webmention_in=None)
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
             'displayName': 'Alice',

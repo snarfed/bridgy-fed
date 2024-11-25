@@ -437,7 +437,9 @@ class UserTest(TestCase):
         self.assertEqual((1, 2), user.count_followers())
 
     def test_is_enabled_default_enabled_protocols(self):
-        self.assertTrue(Web(id='').is_enabled(ActivityPub))
+        web = self.make_user('a.com', cls=Web)
+
+        self.assertTrue(web.is_enabled(ActivityPub))
         self.assertTrue(ActivityPub(id='').is_enabled(Web))
         self.assertTrue(ActivityPub(id='').is_enabled(ActivityPub))
         self.assertTrue(Fake(id='').is_enabled(OtherFake))
@@ -445,7 +447,7 @@ class UserTest(TestCase):
 
         self.assertFalse(ActivityPub(id='').is_enabled(ATProto))
         self.assertFalse(ATProto(id='').is_enabled(ActivityPub))
-        self.assertFalse(Web(id='').is_enabled(ATProto))
+        self.assertFalse(web.is_enabled(ATProto))
         self.assertFalse(ExplicitFake(id='').is_enabled(Fake))
         self.assertFalse(ExplicitFake(id='').is_enabled(OtherFake))
         self.assertFalse(ExplicitFake(id='').is_enabled(Web))
