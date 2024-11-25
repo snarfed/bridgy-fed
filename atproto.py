@@ -601,10 +601,6 @@ class ATProto(User, Protocol):
         # load repo
         repo = arroba.server.storage.load_repo(did)
         assert repo
-        if repo.status:
-            logger.info(f'{repo.did} is {repo.status}, giving up')
-            return False
-
         repo.callback = lambda _: common.create_task(queue='atproto-commit')
 
         # non-commit operations:
@@ -624,6 +620,12 @@ class ATProto(User, Protocol):
 
         if not record:
             # _convert already logged
+            return False
+
+        # check repo status after handling delete actor so that we can re-send
+        # #account status=deactivate events if necessary
+        if repo.status:
+            logger.info(f'{repo.did} is {repo.status}, giving up')
             return False
 
         if verb == 'flag':
