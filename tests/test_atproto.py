@@ -1905,9 +1905,28 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual(0, AtpRepo.query().count())
         mock_create_task.assert_not_called()
 
+    @patch('atproto.DEBUG', new=False)
+    @patch.object(google.cloud.dns.client.ManagedZone, 'changes')
+    @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    def test_send_delete_actor(self, mock_create_task):
+    def test_send_delete_actor(self, mock_create_task, mock_rrsets, mock_changes):
         user = self.make_user_and_repo()
+
+        mock_changes.return_value = changes = MagicMock()
+        mock_rrsets.return_value = rrsets = MagicMock()
+        rrsets.list.return_value = list_ = MagicMock()
+
+        dns_name = '_atproto.ha.nl.'
+        list_.execute.return_value = {
+            'rrsets': [{
+                'name': dns_name,
+                'type': 'TXT',
+                'ttl': 300,
+                'rrdatas': ['"did=did:abc:xyz"'],
+                'kind': 'dns#resourceRecordSet',
+            }],
+            'kind': 'dns#resourceRecordSetsListResponse',
+        }
 
         delete = self.store_object(id='fake:delete', source_protocol='fake', our_as1={
             'objectType': 'activity',
@@ -1933,6 +1952,16 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         }, next(self.storage.read_events_by_seq(seq)))
 
         mock_create_task.assert_called()  # atproto-commit
+
+        rrsets.list.assert_called_with(
+            project=DNS_GCP_PROJECT, managedZone=DNS_ZONE, type='TXT', name=dns_name)
+        changes.delete_record_set.assert_called_once()
+        rrset = changes.delete_record_set.call_args[0][0]
+        self.assertEqual(DNS_ZONE, rrset.zone.name)
+        self.assertEqual(dns_name, rrset.name)
+        self.assertEqual('TXT', rrset.record_type)
+        self.assertEqual(300, rrset.ttl)
+        self.assertEqual(['"did=did:abc:xyz"'], rrset.rrdatas)
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_from_deleted_actor(self, mock_create_task):

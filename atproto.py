@@ -453,8 +453,8 @@ class ATProto(User, Protocol):
 
         user.put()
 
-    @staticmethod
-    def set_dns(handle, did):
+    @classmethod
+    def set_dns(cls, handle, did):
         """Create _atproto DNS record for handle resolution.
 
         https://atproto.com/specs/handle#handle-resolution
@@ -478,6 +478,34 @@ class ATProto(User, Protocol):
         zone = dns_client.zone(DNS_ZONE)
         changes = zone.changes()
 
+        logger.info('Checking for existing record')
+        ATProto.remove_dns(handle)
+
+        changes.add_record_set(zone.resource_record_set(name=name, record_type='TXT',
+                                                        ttl=DNS_TTL, rrdatas=[val]))
+        changes.create()
+        logger.info('done!')
+
+    @classmethod
+    def remove_dns(cls, handle):
+        """Removes an _atproto DNS record.
+
+        https://atproto.com/specs/handle#handle-resolution
+
+        Args:
+          handle (str): Bluesky handle, eg ``snarfed.org.web.brid.gy``
+        """
+        name = f'_atproto.{handle}.'
+        logger.info(f'removing GCP DNS TXT record for {name}')
+        if DEBUG:
+            logger.info('  skipped since DEBUG is true')
+            return
+
+        # https://cloud.google.com/python/docs/reference/dns/latest
+        # https://cloud.google.com/dns/docs/reference/rest/v1/
+        zone = dns_client.zone(DNS_ZONE)
+        changes = zone.changes()
+
         # sadly can't check if the record exists with the google.cloud.dns API
         # because it doesn't support list_resource_record_sets's name param.
         # heed to use the generic discovery-based API instead.
@@ -485,18 +513,13 @@ class ATProto(User, Protocol):
         # https://github.com/googleapis/python-dns/issues/31#issuecomment-1595105412
         # https://cloud.google.com/apis/docs/client-libraries-explained
         # https://googleapis.github.io/google-api-python-client/docs/dyn/dns_v1.resourceRecordSets.html
-        logger.info('Checking for existing record')
         resp = dns_discovery_api.resourceRecordSets().list(
             project=DNS_GCP_PROJECT, managedZone=DNS_ZONE, type='TXT', name=name,
         ).execute()
         for existing in resp.get('rrsets', []):
             logger.info(f'  deleting {existing}')
             changes.delete_record_set(ResourceRecordSet.from_api_repr(existing, zone=zone))
-
-        changes.add_record_set(zone.resource_record_set(name=name, record_type='TXT',
-                                                        ttl=DNS_TTL, rrdatas=[val]))
         changes.create()
-        logger.info('done!')
 
     @classmethod
     def set_username(to_cls, user, username):
@@ -616,6 +639,7 @@ class ATProto(User, Protocol):
             if atp_base_id == did:
                 logger.info(f'Deactivating bridged ATProto account {did} !')
                 arroba.server.storage.deactivate_repo(repo)
+                to_cls.remove_dns(user.handle_as('atproto'))
                 return True
 
         if not record:
