@@ -516,10 +516,11 @@ class ATProto(User, Protocol):
         resp = dns_discovery_api.resourceRecordSets().list(
             project=DNS_GCP_PROJECT, managedZone=DNS_ZONE, type='TXT', name=name,
         ).execute()
-        for existing in resp.get('rrsets', []):
-            logger.info(f'  deleting {existing}')
-            changes.delete_record_set(ResourceRecordSet.from_api_repr(existing, zone=zone))
-        changes.create()
+        if rrsets := resp.get('rrsets', []):
+            for existing in rrsets:
+                logger.info(f'  deleting {existing}')
+                changes.delete_record_set(ResourceRecordSet.from_api_repr(existing, zone=zone))
+            changes.create()
 
     @classmethod
     def set_username(to_cls, user, username):
