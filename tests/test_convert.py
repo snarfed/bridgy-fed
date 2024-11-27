@@ -398,8 +398,8 @@ A ☕ reply
             hcard,
             hcard,
             hcard,
+            hcard,
             requests_response(status=404),       # webfinger for protocol inference
-            hcard,  # user for is_enabled protocol check
         ]
 
         resp = self.client.get(f'/convert/ap/https://nope.com/post',

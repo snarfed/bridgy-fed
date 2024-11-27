@@ -313,10 +313,11 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
                 user = cls(id=id, **kwargs)
                 user.existing = False
+                user.reload_profile(gateway=True, raise_=False)
                 if user.status and not allow_opt_out:
                     return None
 
-            if propagate:
+            if propagate and not user.status:
                 for label in user.enabled_protocols + list(user.DEFAULT_ENABLED_PROTOCOLS):
                     proto = PROTOCOLS[label]
                     if proto == cls:
@@ -336,13 +337,12 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             #
             # these can use urandom() and do nontrivial math, so they can take time
             # depending on the amount of randomness available and compute needed.
-            if not user.existing:
-                if cls.LABEL != 'activitypub':
-                    key = RSA.generate(KEY_BITS,
-                                       randfunc=random.randbytes if DEBUG else None)
-                    user.mod = long_to_base64(key.n)
-                    user.public_exponent = long_to_base64(key.e)
-                    user.private_exponent = long_to_base64(key.d)
+            if not user.existing and cls.LABEL != 'activitypub':
+                key = RSA.generate(KEY_BITS,
+                                   randfunc=random.randbytes if DEBUG else None)
+                user.mod = long_to_base64(key.n)
+                user.public_exponent = long_to_base64(key.e)
+                user.private_exponent = long_to_base64(key.d)
 
             try:
                 user.put()
@@ -356,9 +356,6 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         # load and propagate user and profile object
         if user:
             logger.debug(('Updated ' if user.existing else 'Created new ') + str(user))
-            if not user.obj_key:
-                user.obj = cls.load(user.profile_id())
-                user.put()
 
         return user
 

@@ -110,8 +110,8 @@ class RedirectTest(testutil.TestCase):
         self._test_as2(as2.CONTENT_TYPE_LD_PROFILE)
 
     @patch('requests.get', side_effect=[
-        requests_response(status=404),  # webfinger
         ACTOR_HTML_RESP,  # h-card fetch
+        requests_response(status=404),  # webfinger
     ])
     def test_as2_creates_user(self, _):
         Object(id='https://user.com/repost', source_protocol='web',
@@ -141,8 +141,8 @@ class RedirectTest(testutil.TestCase):
     @patch('requests.get', side_effect=[
         requests_response(ACTOR_HTML, url='https://user.com/'),  # AS2 fetch
         requests_response(ACTOR_HTML, url='https://user.com/'),  # web fetch
-        requests_response(status=404),  # webfinger
         requests_response(ACTOR_HTML, url='https://user.com/'),  # h-card fetch
+        requests_response(status=404),  # webfinger
     ])
     def test_as2_no_user_fetch_homepage(self, mock_get):
         self.user.key.delete()

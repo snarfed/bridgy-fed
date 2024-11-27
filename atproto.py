@@ -282,10 +282,10 @@ class ATProto(User, Protocol):
 
         return did.resolve_handle(handle, get_fn=util.requests_get)
 
-    def reload_profile(self):
+    def reload_profile(self, **kwargs):
         """Reloads this user's DID doc along with their profile object."""
-        super().reload_profile()
-        self.load(self.key.id(), did_doc=True, remote=True)
+        super().reload_profile(**kwargs)
+        self.load(self.key.id(), did_doc=True, remote=True, **kwargs)
 
     @classmethod
     def bridged_web_url_for(cls, user, fallback=False):

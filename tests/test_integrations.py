@@ -376,6 +376,7 @@ class IntegrationTests(TestCase):
         mock_get.side_effect = [
             actor,
             actor,
+            actor,
             requests_response('blob', headers={'Content-Type': 'image/jpeg'}),
         ]
 
@@ -503,8 +504,8 @@ class IntegrationTests(TestCase):
     }))
     @patch('requests.get', side_effect=[
         requests_response(PROFILE_GETRECORD),  # alice profile
-        requests_response(PROFILE_GETRECORD),  # ...
         requests_response(DID_DOC),  # alice DID
+        requests_response(PROFILE_GETRECORD),  # alice profile
         requests_response({  # getConvoForMembers
             'convo': {
                 'id': 'convo123',

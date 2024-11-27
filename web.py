@@ -342,10 +342,10 @@ class Web(User, Protocol):
             pass
 
         # check home page
-        self.obj = None
         self.has_hcard = False
-        self.reload_profile(gateway=True, raise_=False)
-        if self.obj:
+        if not getattr(self, 'existing', None) == False:  # ie this is a new user
+            self.reload_profile(gateway=True, raise_=False)
+        if self.obj and self.obj.as1:
             self.has_hcard = True
 
         self.put()

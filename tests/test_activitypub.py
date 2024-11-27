@@ -433,7 +433,7 @@ class ActivityPubTest(TestCase):
     def test_actor_new_user_fetch(self, _, mock_get, __):
         self.user.obj_key.delete()
         self.user.key.delete()
-        mock_get.side_effect = test_web.WEB_USER_GETS
+        mock_get.side_effect = test_web.web_user_gets('user.com')
 
         got = self.client.get('/user.com', headers={'Accept': as2.CONTENT_TYPE})
         self.assertEqual(200, got.status_code)
@@ -599,7 +599,10 @@ class ActivityPubTest(TestCase):
     def test_individual_inbox_no_user(self, mock_head, mock_get, mock_post):
         self.user.key.delete()
 
-        mock_get.side_effect = [self.as2_resp(LIKE_ACTOR)]
+        mock_get.side_effect = [
+            self.as2_resp(LIKE_ACTOR),
+            self.as2_resp(LIKE_ACTOR),
+        ]
 
         reply = {
             **REPLY,
@@ -750,7 +753,7 @@ class ActivityPubTest(TestCase):
         mock_head.return_value = requests_response(url='https://user.com/post')
         mock_get.side_effect = (
             (list(mock_get.side_effect) if mock_get.side_effect
-             else [self.as2_resp(ACTOR)])
+             else [self.as2_resp(ACTOR), self.as2_resp(ACTOR)])
             + [
                 requests_response(test_web.NOTE_HTML),
                 requests_response(test_web.NOTE_HTML),
@@ -973,6 +976,7 @@ class ActivityPubTest(TestCase):
         mock_get.side_effect = [
             # source actor
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
             # protocol inference
             requests_response(test_web.NOTE_HTML),
             requests_response(test_web.NOTE_HTML),
@@ -1089,6 +1093,7 @@ class ActivityPubTest(TestCase):
         mock_head.return_value = requests_response(url='https://user.com/post')
         mock_get.side_effect = [
             # source actor
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
             requests_response(test_web.NOTE_HTML),
             requests_response(test_web.NOTE_HTML),
@@ -1265,6 +1270,7 @@ class ActivityPubTest(TestCase):
 
         mock_head.return_value = requests_response(url='https://user.com/')
         mock_get.side_effect = [
+            self.as2_resp(ACTOR),  # source actor
             self.as2_resp(ACTOR),  # source actor
             WEBMENTION_DISCOVERY,
         ]
@@ -1709,6 +1715,7 @@ class ActivityPubTest(TestCase):
 
         mock_get.side_effect = [
             self.as2_resp(ACTOR),
+            self.as2_resp(ACTOR),
         ]
 
         delete = {
@@ -1734,6 +1741,7 @@ class ActivityPubTest(TestCase):
 
     def _test_update(self, _, mock_get, ___):
         mock_get.side_effect = [
+            self.as2_resp(ACTOR),
             self.as2_resp(ACTOR),
         ]
 
@@ -1766,6 +1774,7 @@ class ActivityPubTest(TestCase):
         mock_get.side_effect = [
             # source actor
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
             # protocol inference
             requests_response(test_web.NOTE_HTML),
             requests_response(test_web.NOTE_HTML),
@@ -1779,6 +1788,7 @@ class ActivityPubTest(TestCase):
     def test_inbox_no_webmention_endpoint(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [
             # source actor
+            self.as2_resp(LIKE_WITH_ACTOR['actor']),
             self.as2_resp(LIKE_WITH_ACTOR['actor']),
             # protocol inference
             requests_response(test_web.NOTE_HTML),
@@ -1821,11 +1831,14 @@ class ActivityPubTest(TestCase):
     @patch('activitypub.PROTOCOLS', new={'fake': Fake, 'other': OtherFake})
     def test_inbox_server_actor_create_with_propagate(
             self, mock_head, mock_get, mock_post):
+        actor = self.as2_resp(add_key({
+            'id': 'https://mas.to/actor',
+            'type': 'Person',
+        }))
+
         mock_get.side_effect = [
-            self.as2_resp(add_key({
-                'id': 'https://mas.to/actor',
-                'type': 'Person',
-            })),
+            actor,
+            actor,
             self.as2_resp(NOTE),
         ]
 

@@ -202,7 +202,8 @@ class FollowTest(TestCase):
                           source_protocol='activitypub')
 
         mock_get.side_effect = (
-            requests_response(''),  # indieauth https://alice.com fetch for user json
+            requests_response(''),  # alice.com h-card
+            requests_response(''),  # indieauth alice.com fetch for user json
         )
         mock_post.side_effect = (
             requests_response('me=https://alice.com'),

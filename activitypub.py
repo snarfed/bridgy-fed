@@ -1019,11 +1019,6 @@ def actor(handle_or_id):
     if request.host != urlparse(id).netloc:
         raise MovedPermanently(location=id)
 
-    if not user.obj or not user.obj.as1:
-        user.obj = proto.load(user.profile_id(), gateway=True)
-        if user.obj:
-            user.obj.put()
-
     actor = ActivityPub.convert(user.obj, from_user=user) or {
         '@context': [as2.CONTEXT],
         'type': 'Person',
