@@ -260,7 +260,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         return user
 
     @classmethod
-    def get_or_create(cls, id, propagate=False, allow_opt_out=False, **kwargs):
+    def get_or_create(cls, id, propagate=False, allow_opt_out=False,
+                      reload=False, **kwargs):
         """Loads and returns a :class:`User`. Creates it if necessary.
 
         Args:
@@ -268,6 +269,7 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
             protocols, eg ATProto and Nostr.
           allow_opt_out (bool): whether to allow and create the user if they're
             currently opted out
+          reload (bool): whether to reload profile always, vs only if necessary
           kwargs: passed through to ``cls`` constructor
 
         Returns:
@@ -279,6 +281,9 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         def _run():
             user = cls.get_by_id(id, allow_opt_out=True)
             if user:
+                if reload:
+                    user.reload_profile(gateway=True, raise_=False)
+
                 if user.status and not allow_opt_out:
                     return None
                 user.existing = True

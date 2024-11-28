@@ -415,7 +415,7 @@ def web_user_gets(domain='user.com'):
     return [
         requests_response(ACTOR_HTML, url=f'https://{domain}/'),
         requests_response(ACTOR_HTML, url=f'https://{domain}/'),
-        requests_response('', status=404),  # webfinger
+        requests_response(status=404),  # webfinger
     ]
 
 
@@ -2826,7 +2826,8 @@ Current vs expected:<pre>- http://this/404s
 
         redir = 'http://localhost/.well-known/webfinger?resource=acct:user.com@user.com'
         mock_get.side_effect = (
-            requests_response('', status=302, redirected_url=redir),
+            ACTOR_HTML_RESP,
+            requests_response(status=302, redirected_url=redir),
             ACTOR_HTML_RESP,
         )
 
@@ -2907,6 +2908,23 @@ Current vs expected:<pre>- http://this/404s
             ['<a href="http://user.com">user.com</a> is not a <a href="/docs#web-get-started">valid or supported web site</a>'],
             get_flashed_messages())
         self.assertEqual(1, Web.query().count())
+
+    def test_check_web_site_opted_out_reloads_ok(self, mock_get, __):
+        self.user.has_redirects = False
+        self.user.put()
+        self.assertIsNotNone(self.user.status)
+
+        mock_get.side_effect = [
+            ACTOR_HTML_RESP,
+            requests_response(status=404),  # webfinger
+        ACTOR_HTML_RESP,
+    ]
+
+        got = self.post('/web-site', data={'url': 'user.com'})
+        self.assert_equals(302, got.status_code)
+        self.assert_equals('/web/user.com', got.headers['Location'])
+
+        self.assertIsNone(self.user.key.get().status)
 
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_check_webfinger_redirects_then_fails(self, mock_task, mock_get, __):

@@ -158,11 +158,8 @@ class Web(User, Protocol):
           verify (bool): whether to call :meth:`verify` to load h-card, check
             redirects, etc. Defaults to calling it only if the user is new.
         """
-        key = cls.key_for(id, allow_opt_out=allow_opt_out)
-        if not key:
-            return None  # opted out
-
-        domain = key.id()
+        # normalize id (domain)
+        domain = cls.key_for(id, allow_opt_out=True).id()
         if util.domain_or_parent_in(domain, [SUPERDOMAIN.strip('.')]):
             return super().get_by_id(domain)
 
@@ -699,7 +696,7 @@ def check_web_site():
 
     try:
         user = Web.get_or_create(domain, enabled_protocols=['atproto'],
-                                 propagate=True, direct=True, verify=True)
+                                 propagate=True, direct=True, reload=True, verify=True)
     except BaseException as e:
         code, body = util.interpret_http_exception(e)
         if code:
