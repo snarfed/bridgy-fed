@@ -29,6 +29,9 @@ BSKY_TEAM_CIDRS = (
     ip_network('209.249.133.120/29'),
     ip_network('108.179.139.0/24'),
 )
+BSKY_TEAM_HOSTS = (
+    'zip.zayo.com',  # maybe? https://github.com/bluesky-social/atproto/discussions/3036#discussioncomment-11399854
+)
 
 # WARNING: when this is higher than 1, we start seeing ndb context exceptions,
 # "ContextError: No current context," in _handle, even though it has an ndb context
