@@ -702,6 +702,7 @@ class Protocol:
         * ``object.author``
         * ``object.id``
         * ``object.inReplyTo``
+        * ``object.object``
         * ``attachments[].id``
         * ``tags[objectType=mention].url``
         * ``to``
@@ -756,6 +757,9 @@ class Protocol:
                         or as1.get_owner(outer_obj) == o.get('id')
                         or type in ('follow', 'stop-following'))
             translate(o, 'id', translate_user_id if is_actor else translate_object_id)
+            obj_is_actor = o.get('verb') in as1.VERBS_WITH_ACTOR_OBJECT
+            translate(o, 'object', translate_user_id if obj_is_actor
+                      else translate_object_id)
 
         for o in [outer_obj] + inner_objs:
             translate(o, 'inReplyTo', translate_object_id)
@@ -774,7 +778,7 @@ class Protocol:
 
         outer_obj = util.trim_nulls(outer_obj)
 
-        if objs := outer_obj.get('object', []):
+        if objs := util.get_list(outer_obj ,'object'):
             outer_obj['object'] = [o['id'] if o.keys() == {'id'} else o for o in objs]
             if len(outer_obj['object']) == 1:
                 outer_obj['object'] = outer_obj['object'][0]

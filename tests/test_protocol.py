@@ -718,6 +718,34 @@ class ProtocolTest(TestCase):
             ]
         }))
 
+    def test_translate_ids_inner_object_object_id(self):
+        # https://github.com/snarfed/bridgy-fed/issues/1492
+        self.assert_equals({
+            'object': {
+                'verb': 'flag',
+                'object': 'other:o:fa:fake:post',
+            },
+        }, OtherFake.translate_ids({
+            'object': {
+                'verb': 'flag',
+                'object': 'fake:post',
+            },
+        }))
+
+    def test_translate_ids_inner_object_actor_id(self):
+        # https://github.com/snarfed/bridgy-fed/issues/1492
+        self.assert_equals({
+            'object': {
+                'verb': 'follow',
+                'object': 'other:u:fake:bob',
+            },
+        }, OtherFake.translate_ids({
+            'object': {
+                'verb': 'follow',
+                'object': 'fake:bob',
+            },
+        }))
+
     def test_translate_ids_to_cc(self):
         self.assert_equals({
             'id': 'xyz',
@@ -728,6 +756,17 @@ class ProtocolTest(TestCase):
             'to': ['fake:alice', 'other:bob'],
             'cc': ['efake:eve', as2.PUBLIC_AUDIENCE],
         }))
+
+    def test_translate_ids_empty(self):
+        self.assertEqual({}, Fake.translate_ids({}))
+
+    def test_translate_ids_single_inReplyTo(self):
+        obj = {'inReplyTo': 'foo'}
+        self.assertEqual(obj, Fake.translate_ids(obj))
+
+    def test_translate_ids_multiple_inReplyTo(self):
+        obj = {'inReplyTo': ['foo', 'bar']}
+        self.assertEqual(obj, Fake.translate_ids(obj))
 
     def test_convert_object_is_from_user_adds_source_links(self):
         alice = Fake(id='fake:alice')
@@ -885,18 +924,6 @@ class ProtocolTest(TestCase):
         assert not user.obj
         Fake.bot_follow(user)
         self.assertEqual([], Fake.sent)
-
-    # TODO: translate_ids tests that actually test translation
-    def test_translate_ids_empty(self):
-        self.assertEqual({}, Fake.translate_ids({}))
-
-    def test_translate_ids_single_inReplyTo(self):
-        obj = {'inReplyTo': 'foo'}
-        self.assertEqual(obj, Fake.translate_ids(obj))
-
-    def test_translate_ids_multiple_inReplyTo(self):
-        obj = {'inReplyTo': ['foo', 'bar']}
-        self.assertEqual(obj, Fake.translate_ids(obj))
 
 
 class ProtocolReceiveTest(TestCase):
