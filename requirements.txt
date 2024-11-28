@@ -84,7 +84,7 @@ pyasn1==0.6.1
 pyasn1-modules==0.4.1
 pycparser==2.22
 pycryptodome==3.21.0
-pyjwt==2.10.0
+pyjwt==2.10.1
 pymemcache==4.0.0
 pyparsing==3.2.0
 pyrsistent==0.20.0
