@@ -78,12 +78,13 @@ jobs:
               echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
 
               service='<< pipeline.parameters.service >>'
+              gcloud='gcloud -q app deploy --project bridgy-federated'
               if [[ $service == 'default' ]]; then
-                services='app.yaml router.yaml'
+                $gcloud index.yaml queue.yaml router.yaml
+                $gcloud --no-cache app.yaml
               else
-                services='atproto_hub.yaml'
+                $gcloud atproto_hub.yaml
               fi
-              gcloud -q app deploy --project bridgy-federated index.yaml queue.yaml ${services}
             fi
 
       - save_cache:
