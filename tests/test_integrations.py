@@ -506,6 +506,7 @@ class IntegrationTests(TestCase):
         requests_response(PROFILE_GETRECORD),  # alice profile
         requests_response(DID_DOC),  # alice DID
         requests_response(PROFILE_GETRECORD),  # alice profile
+        requests_response(''),  # fed.brid.gy/docs for preview embed
         requests_response({  # getConvoForMembers
             'convo': {
                 'id': 'convo123',
