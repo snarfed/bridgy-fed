@@ -37,6 +37,7 @@ from common import (
     USER_AGENT,
 )
 from models import Object, reset_protocol_properties
+from protocol import DELETE_TASK_DELAY
 from web import Web
 
 logger = logging.getLogger(__name__)
@@ -330,9 +331,11 @@ def handle(limit=None):
             logger.error(f'Unknown action {action} for {op.repo} {op.path}')
             return
 
+        delay = DELETE_TASK_DELAY if op.action == 'delete' else None
         try:
             create_task(queue='receive', id=obj_id, source_protocol=ATProto.LABEL,
-                        authed_as=op.repo, received_at=op.time, **record_kwarg)
+                        authed_as=op.repo, received_at=op.time, delay=delay,
+                        **record_kwarg)
             # when running locally, comment out above and uncomment this
             # logger.info(f'enqueuing receive task for {at_uri}')
         except ContextError:

@@ -36,6 +36,7 @@ import common
 from flask_app import app
 from models import Follower, Object, Target
 import protocol
+from protocol import DELETE_TASK_DELAY
 from web import Web
 
 # have to import module, not attrs, to avoid circular import
@@ -662,12 +663,25 @@ class ActivityPubTest(TestCase):
     def test_inbox_create_receive_task(self, mock_create_task, *mocks):
         common.RUN_TASKS_INLINE = False
 
-        author = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
         resp = self.post('/ap/sharedInbox', json=NOTE)
         self.assert_task(mock_create_task, 'receive', id='http://mas.to/note/as2',
                          source_protocol='activitypub', as2=NOTE,
-                         authed_as=NOTE['actor'],
+                         authed_as=ACTOR['id'],
                          received_at='2022-01-02T03:04:05+00:00')
+
+    @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
+    def test_inbox_delete_receive_task(self, mock_create_task, *mocks):
+        common.RUN_TASKS_INLINE = False
+
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
+        resp = self.post('/ap/sharedInbox', json=DELETE)
+        delayed_eta = util.to_utc_timestamp(NOW) + DELETE_TASK_DELAY.total_seconds()
+        self.assert_task(mock_create_task, 'receive', id=DELETE['id'],
+                         source_protocol='activitypub', as2=DELETE,
+                         authed_as=ACTOR['id'],
+                         received_at='2022-01-02T03:04:05+00:00',
+                         eta_seconds=delayed_eta)
 
     def test_inbox_reply_object(self, mock_head, mock_get, mock_post):
         self._test_inbox_reply(REPLY_OBJECT, mock_head, mock_get, mock_post)

@@ -52,6 +52,7 @@ from models import (
 )
 
 OBJECT_REFRESH_AGE = timedelta(days=30)
+DELETE_TASK_DELAY = timedelta(minutes=2)
 
 # require a follow for users on these domains before we deliver anything from
 # them other than their profile

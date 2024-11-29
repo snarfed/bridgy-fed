@@ -42,7 +42,7 @@ from common import (
 )
 from ids import BOT_ACTOR_AP_IDS
 from models import fetch_objects, Follower, Object, PROTOCOLS, User
-from protocol import activity_id_memcache_key, Protocol
+from protocol import activity_id_memcache_key, DELETE_TASK_DELAY, Protocol
 import webfinger
 
 logger = logging.getLogger(__name__)
@@ -1138,9 +1138,10 @@ def inbox(protocol=None, id=None):
         if user and not user.existing:
             logger.info(f'Automatically enabled AP server actor {actor_id} for {user.enabled_protocols}')
 
+    delay = DELETE_TASK_DELAY if type in ('Delete', 'Undo') else None
     return create_task(queue='receive', id=id, as2=activity,
                        source_protocol=ActivityPub.LABEL, authed_as=authed_as,
-                       received_at=util.now().isoformat())
+                       received_at=util.now().isoformat(), delay=delay)
 
 
 # protocol in subdomain

@@ -30,6 +30,7 @@ from atproto_firehose import commits, handle, Op, STORE_CURSOR_FREQ
 import common
 from models import Object, Target
 import protocol
+from protocol import DELETE_TASK_DELAY
 from .testutil import TestCase
 from .test_atproto import DID_DOC
 from web import Web
@@ -490,9 +491,11 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
             'actor': 'did:plc:user',
             'object': obj_id,
         }
+        delayed_eta = util.to_utc_timestamp(NOW) + DELETE_TASK_DELAY.total_seconds()
         self.assert_task(mock_create_task, 'receive', id=delete_id,
                          our_as1=expected_as1, source_protocol='atproto',
-                         authed_as='did:plc:user', received_at='1900-02-04')
+                         authed_as='did:plc:user', received_at='1900-02-04',
+                         eta_seconds=delayed_eta)
 
     def test_delete_block_is_undo(self, mock_create_task):
         commits.put(Op(repo='did:plc:user', action='delete', seq=789,
@@ -510,9 +513,11 @@ class ATProtoFirehoseHandleTest(ATProtoTestCase):
             'actor': 'did:plc:user',
             'object': obj_id,
         }
+        delayed_eta = util.to_utc_timestamp(NOW) + DELETE_TASK_DELAY.total_seconds()
         self.assert_task(mock_create_task, 'receive', id=undo_id,
                          our_as1=expected_as1, source_protocol='atproto',
-                         authed_as='did:plc:user', received_at='1900-02-04')
+                         authed_as='did:plc:user', received_at='1900-02-04',
+                         eta_seconds=delayed_eta)
 
     def test_unsupported_type(self, mock_create_task):
         orig_objs = Object.query().count()
