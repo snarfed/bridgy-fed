@@ -341,13 +341,6 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.request_context = app.test_request_context('/')
         self.request_context.push()
 
-        # suppress a few warnings
-        # local/lib/python3.9/site-packages/bs4/__init__.py:435: MarkupResemblesLocatorWarning: The input looks more like a filename than markup. You may want to open this file and pass the filehandle into Beautiful Soup.
-        warnings.filterwarnings('ignore', category=MarkupResemblesLocatorWarning)
-        # local/lib/python3.11/site-packages/bs4/builder/_lxml.py:124: DeprecationWarning: The 'strip_cdata' option of HTMLParser() has never done anything and will eventually be removed.
-        warnings.filterwarnings('ignore', category=DeprecationWarning,
-                                message="The 'strip_cdata' option of HTMLParser")
-
         # arroba config
         os.environ.update({
             'APPVIEW_HOST': 'appview.local',

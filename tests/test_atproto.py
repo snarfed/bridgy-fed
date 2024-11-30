@@ -1143,7 +1143,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         Fake.fetchable = {'fake:profile:user': ACTOR_AS}
 
-        user = self.make_user_and_repo()#obj_as1={'id': 'fake:profile:user'})
+        user = self.make_user_and_repo()
         orig_did = user.get_copy(ATProto)
         assert orig_did
 
@@ -1355,8 +1355,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     @patch('requests.post', return_value=requests_response('OK'))  # create DID on PLC
     def test_send_new_repo(self, mock_post, mock_create_task, _):
         user = self.make_user(id='fake:user', cls=Fake, enabled_protocols=['atproto'])
-        obj = self.store_object(id='fake:post', source_protocol='fake',
-                                our_as1=NOTE_AS)
+        obj = Object(id='fake:post', source_protocol='fake', our_as1=NOTE_AS)
 
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))
 
@@ -1422,8 +1421,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                               obj_as1={})
         Fake.fetchable = {'fake:profile:user': ACTOR_AS}
 
-        obj = self.store_object(id='fake:post', source_protocol='fake',
-                                our_as1=NOTE_AS)
+        obj = Object(id='fake:post', source_protocol='fake', our_as1=NOTE_AS)
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))
 
         # check profile, record
@@ -1461,8 +1459,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_note_existing_repo(self, mock_create_task):
         user = self.make_user_and_repo()
-        obj = self.store_object(id='fake:post', source_protocol='fake',
-                                our_as1=NOTE_AS)
+        obj = Object(id='fake:post', source_protocol='fake', our_as1=NOTE_AS)
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
 
         # check repo, record
@@ -1487,7 +1484,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         note.our_as1['content'] = 'something new'
         note.put()
 
-        update = self.store_object(id='fake:update', source_protocol='fake', our_as1={
+        update = Object(id='fake:update', source_protocol='fake', our_as1={
             'objectType': 'activity',
             'verb': 'update',
             'object': note.our_as1,
@@ -1562,7 +1559,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         orig.copies[0].uri = orig.copies[0].uri.replace('did:plc:user', 'did:plc:eve')
         orig.put()
 
-        update = self.store_object(id='fake:update', source_protocol='fake', our_as1={
+        update = Object(id='fake:update', source_protocol='fake', our_as1={
             'objectType': 'activity',
             'verb': 'update',
             'object': {
@@ -1583,7 +1580,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.test_send_note_existing_repo()
         mock_create_task.reset_mock()
 
-        delete = self.store_object(id='fake:delete', source_protocol='fake', our_as1={
+        delete = Object(id='fake:delete', source_protocol='fake', our_as1={
             'objectType': 'activity',
             'verb': 'delete',
             'actor': 'fake:user',
@@ -1652,7 +1649,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'cid': 'bafy+CID',
         })
 
-        like_obj = self.store_object(id='fake:like', source_protocol='fake', our_as1={
+        like_obj = Object(id='fake:like', source_protocol='fake', our_as1={
             'objectType': 'activity',
             'verb': 'like',
             'id': 'fake:like',
@@ -1686,7 +1683,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.test_send_like()
         mock_create_task.reset_mock()
 
-        undo = self.store_object(id='fake:undo', source_protocol='fake', our_as1={
+        undo = Object(id='fake:undo', source_protocol='fake', our_as1={
             'objectType': 'activity',
             'verb': 'undo',
             'actor': 'fake:user',
@@ -1714,7 +1711,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     }))
     def test_send_repost(self, mock_get, mock_create_task):
         user = self.make_user_and_repo()
-        obj = self.store_object(id='fake:repost', source_protocol='fake', our_as1={
+        obj = Object(id='fake:repost', source_protocol='fake', our_as1={
             'objectType': 'activity',
             'verb': 'share',
             'id': 'fake:repost',
@@ -1751,7 +1748,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.test_send_repost()
         mock_create_task.reset_mock()
 
-        undo = self.store_object(id='fake:undo', source_protocol='fake', our_as1={
+        undo = Object(id='fake:undo', source_protocol='fake', our_as1={
             'objectType': 'activity',
             'verb': 'undo',
             'actor': 'fake:user',
@@ -1770,7 +1767,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_follow(self, mock_create_task):
         user = self.make_user_and_repo()
-        obj = self.store_object(id='fake:follow', source_protocol='fake', our_as1={
+        obj = Object(id='fake:follow', source_protocol='fake', our_as1={
             'objectType': 'activity',
             'verb': 'follow',
             'id': 'fake:follow',
@@ -1858,8 +1855,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.store_object(id='did:plc:user', raw=DID_DOC)  # uses https://some.pds
         user = self.make_user(id='fake:user', cls=Fake,
                               copies=[Target(uri='did:plc:user', protocol='atproto')])
-        obj = self.store_object(id='fake:post', source_protocol='fake',
-                                our_as1=NOTE_AS)
+        obj = Object(id='fake:post', source_protocol='fake', our_as1=NOTE_AS)
         self.assertFalse(ATProto.send(obj, 'https://bsky.brid.gy/'))
         self.assertEqual(0, AtpBlock.query().count())
         self.assertEqual(0, AtpRepo.query().count())
@@ -1928,7 +1924,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'kind': 'dns#resourceRecordSetsListResponse',
         }
 
-        delete = self.store_object(id='fake:delete', source_protocol='fake', our_as1={
+        delete = Object(id='fake:delete', source_protocol='fake', our_as1={
             'objectType': 'activity',
             'verb': 'delete',
             'actor': 'fake:user',
@@ -2065,19 +2061,19 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         user = self.make_user_and_repo()
 
         uri = 'at://did:plc:eve/app.bsky.feed.post/123'
-        obj = self.store_object(id='fake:flag', source_protocol='fake', our_as1={
+        self.store_object(id=uri, source_protocol='bsky', bsky={
+            '$type': 'app.bsky.feed.post',
+            'cid': 'bafyreigd',
+        })
+        flag = Object(id='fake:flag', source_protocol='fake', our_as1={
             'objectType': 'activity',
             'verb': 'flag',
             'actor': 'fake:user',
             'object': uri,
             'content': 'foo bar',
         })
-        self.store_object(id=uri, source_protocol='bsky', bsky={
-            '$type': 'app.bsky.feed.post',
-            'cid': 'bafyreigd',
-        })
 
-        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy/'))
+        self.assertTrue(ATProto.send(flag, 'https://bsky.brid.gy/'))
 
         repo = self.storage.load_repo(user.get_copy(ATProto))
         self.assertEqual({}, repo.get_contents())
