@@ -520,6 +520,8 @@ class Web(User, Protocol):
         if not util.is_web(url):
             logger.info(f'{url} is not a URL')
             return False
+        elif cls.is_blocklisted(url, allow_internal=True):
+            return False
 
         is_homepage = urlparse(url).path.strip('/') == ''
         if is_homepage:

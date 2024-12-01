@@ -3070,6 +3070,10 @@ class WebUtilTest(TestCase):
         with self.assertRaises(BadGateway):
             Web.fetch(Object(id='https://foo'), gateway=True)
 
+    def test_fetch_blocklisted(self, mock_get, __):
+        self.assertFalse(Web.fetch(Object(id='https://x.com/foo')))
+        mock_get.assert_not_called()
+
     def test_fetch_run_authorship(self, mock_get, __):
         mock_get.side_effect = [
             # post
