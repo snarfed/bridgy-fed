@@ -825,10 +825,10 @@ class ATProto(User, Protocol):
         obj_as1 = obj.as1
 
         # generate link preview attachment for first link in content, if any
-        Source.postprocess_object(
-            (as1.get_object(obj_as1) if obj_as1.get('objectType') == 'activity'
-             else obj_as1),
-            first_link_to_attachment=True)
+        # Source.postprocess_object(
+        #     (as1.get_object(obj_as1) if obj_as1.get('objectType') == 'activity'
+        #      else obj_as1),
+        #     first_link_to_attachment=True)
 
         blobs = {}  # maps str URL to dict blob object
         if fetch_blobs:

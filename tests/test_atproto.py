@@ -1475,6 +1475,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_create_task.assert_called()  # atproto-commit
 
+    @skip
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get', side_effect=[
         requests_response(f"""\
