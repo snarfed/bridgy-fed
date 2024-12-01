@@ -29,7 +29,7 @@ from google.cloud.dns.resource_record_set import ResourceRecordSet
 from google.cloud import ndb
 import googleapiclient.discovery
 from granary import as1, bluesky
-from granary.bluesky import Bluesky, FROM_AS1_TYPES
+from granary.bluesky import Bluesky, FROM_AS1_TYPES, _to_external_embed
 from granary.source import html_to_text, INCLUDE_LINK, Source
 from lexrpc import Client, ValidationError
 from requests import RequestException
@@ -53,6 +53,7 @@ import flask_app
 import ids
 from models import Follower, Object, PROTOCOLS, Target, User
 from protocol import Protocol
+import web
 
 logger = logging.getLogger(__name__)
 
@@ -824,27 +825,21 @@ class ATProto(User, Protocol):
 
         obj_as1 = obj.as1
 
-        # generate link preview attachment for first link in content, if any
-        # Source.postprocess_object(
-        #     (as1.get_object(obj_as1) if obj_as1.get('objectType') == 'activity'
-        #      else obj_as1),
-        #     first_link_to_attachment=True)
+        def fetch_blob(url, blob_field, name, check_size=True, check_type=True):
+            if url and url not in blobs:
+                max_size = blob_field[name].get('maxSize') if check_size else None
+                accept = blob_field[name].get('accept') if check_type else None
+                try:
+                    blob = AtpRemoteBlob.get_or_create(
+                        url=url, get_fn=util.requests_get, max_size=max_size,
+                        accept_types=accept)
+                    blobs[url] = blob.as_object()
+                except (RequestException, ValidationError) as e:
+                    logger.info(f'failed, skipping {url} : {e}')
 
         blobs = {}  # maps str URL to dict blob object
         if fetch_blobs:
-            def fetch_blob(url, blob_field, name, check_size=True, check_type=True):
-                if url and url not in blobs:
-                    max_size = blob_field[name].get('maxSize') if check_size else None
-                    accept = blob_field[name].get('accept') if check_type else None
-                    try:
-                        blob = AtpRemoteBlob.get_or_create(
-                            url=url, get_fn=util.requests_get, max_size=max_size,
-                            accept_types=accept)
-                        blobs[url] = blob.as_object()
-                    except (RequestException, ValidationError) as e:
-                        logger.info(f'failed, skipping {url} : {e}')
-
-            for o in obj_as1, as1.get_object(obj_as1):
+            for o in obj.as1, as1.get_object(obj.as1):
                 for url in util.get_urls(o, 'image'):
                     # TODO: maybe eventually check size and type? the current
                     # 1MB limit feels too small though, and the AppView doesn't
@@ -865,7 +860,7 @@ class ATProto(User, Protocol):
                             fetch_blob(url, props, name='thumb',
                                        check_size=False, check_type=False)
 
-        inner_obj = as1.get_object(obj_as1) or obj_as1
+        inner_obj = as1.get_object(obj.as1) or obj.as1
         orig_url = as1.get_url(inner_obj) or inner_obj.get('id')
 
         # convert! using our records in the datastore and fetching code instead
@@ -873,17 +868,33 @@ class ATProto(User, Protocol):
         client = DatastoreClient(f'https://{os.environ["APPVIEW_HOST"]}')
         as_embed = obj.atom or obj.rss
         try:
-            ret = bluesky.from_as1(cls.translate_ids(obj_as1), blobs=blobs,
+            ret = bluesky.from_as1(cls.translate_ids(obj.as1), blobs=blobs,
                                    client=client, original_fields_prefix='bridgy',
                                    as_embed=as_embed)
         except (ValueError, RequestException):
             logger.info(f"Couldn't convert to ATProto", exc_info=True)
             return {}
 
+        # if there are any links, generate an external embed as a preview
+        # for the first link
+        if ret.get('$type') == 'app.bsky.feed.post' and not ret.get('embed'):
+            for facet in ret.get('facets', []):
+                if feats := facet.get('features'):
+                    if feats[0]['$type'] == 'app.bsky.richtext.facet#link':
+                        if link := web.Web.load(feats[0]['uri'], metaformats=True,
+                                                authorship_fetch_mf2=False,
+                                                raise_=False):
+                            if img := util.get_url(link.as1, 'image'):
+                                props = appview.defs['app.bsky.embed.external#external']['properties']
+                                fetch_blob(img, props, name='thumb',
+                                           check_size=False, check_type=False)
+                            ret['embed'] = _to_external_embed(link.as1, blobs=blobs)
+                            break
+
         if from_proto != ATProto:
             if ret['$type'] == 'app.bsky.actor.profile':
                 # populated by Protocol.convert
-                if orig_summary := obj_as1.get('bridgyOriginalSummary'):
+                if orig_summary := obj.as1.get('bridgyOriginalSummary'):
                     ret['bridgyOriginalDescription'] = orig_summary
                 else:
                     # don't use granary's since it will include source links

@@ -1475,7 +1475,6 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         mock_create_task.assert_called()  # atproto-commit
 
-    @skip
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     @patch('requests.get', side_effect=[
         requests_response(f"""\
@@ -1486,15 +1485,15 @@ Sed tortor neque, aliquet quis posuere aliquam […]
   <meta property="og:title" content="Titull" />
   <meta property="og:description" content="Descrypshun" />
 </head>
-</html>""", url='http://orig/inal'),
+</html>""", url='http://orig.co/inal'),
         requests_response('blob contents', content_type='image/png'),
     ])
-    def test_send_note_first_link_to_attachment(self, _, __):
+    def test_send_note_first_link_preview_embed(self, _, __):
         user = self.make_user_and_repo()
 
         obj = Object(id='fake:post', source_protocol='fake', our_as1={
             **NOTE_AS,
-            'content': 'My <a href="http://orig/inal">original</a> post',
+            'content': 'My <a href="http://orig.co/inal">original</a> post',
         })
         self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
 
@@ -1504,14 +1503,14 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
         self.assertEqual({
             **NOTE_BSKY,
-            'bridgyOriginalText': 'My <a href="http://orig/inal">original</a> post',
+            'bridgyOriginalText': 'My <a href="http://orig.co/inal">original</a> post',
             'embed': {
                 '$type': 'app.bsky.embed.external',
                 'external': {
                     '$type': 'app.bsky.embed.external#external',
                     'description': 'Descrypshun',
                     'title': 'Titull',
-                    'uri': 'http://orig/inal',
+                    'uri': 'http://orig.co/inal',
                     'thumb': {
                         '$type': 'blob',
                         'mimeType': 'image/png',
@@ -1525,7 +1524,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                 'index': {'byteStart': 3, 'byteEnd': 11},
                 'features': [{
                     '$type': 'app.bsky.richtext.facet#link',
-                    'uri': 'http://orig/inal',
+                    'uri': 'http://orig.co/inal',
                 }],
             }],
         }, repo.get_record('app.bsky.feed.post', last_tid))
