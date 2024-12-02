@@ -1501,7 +1501,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         did = user.key.get().get_copy(ATProto)
         repo = self.storage.load_repo(did)
         last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
-        self.assertEqual({
+        self.assert_equals({
             **NOTE_BSKY,
             'bridgyOriginalText': 'My <a href="http://orig.co/inal">original</a> post',
             'embed': {
@@ -1519,15 +1519,52 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                     },
                 },
             },
-            'facets': [{
-                '$type': 'app.bsky.richtext.facet',
-                'index': {'byteStart': 3, 'byteEnd': 11},
-                'features': [{
-                    '$type': 'app.bsky.richtext.facet#link',
-                    'uri': 'http://orig.co/inal',
-                }],
-            }],
-        }, repo.get_record('app.bsky.feed.post', last_tid))
+        }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
+
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    @patch('requests.get', side_effect=[
+        requests_response(f"""\
+<html>
+<head>
+  <title>A poast</title>
+  <meta property="og:image" content="http://pi/c" />
+  <meta property="og:title" content="Titull" />
+  <meta property="og:description" content="Descrypshun" />
+</head>
+</html>""", url='http://orig.co/inal'),
+        requests_response('blob contents', content_type='image/png'),
+    ])
+    @patch.dict(
+        bluesky.LEXRPC_TRUNCATE.defs['app.bsky.feed.post']['record']['properties']['text'],
+        maxGraphemes=16)
+    def test_send_note_truncated_original_post_embed_overrides_first_link_preview(
+            self, _, __):
+        user = self.make_user_and_repo()
+
+        obj = Object(id='fake:post', source_protocol='fake', our_as1={
+            **NOTE_AS,
+            'content': 'My <a href="http://orig.co/inal">original</a> poaaast',
+        })
+        self.assertTrue(ATProto.send(obj, 'https://bsky.brid.gy'))
+
+        # check repo, record
+        did = user.key.get().get_copy(ATProto)
+        repo = self.storage.load_repo(did)
+        last_tid = arroba.util.int_to_tid(arroba.util._tid_ts_last)
+        self.assert_equals({
+            **NOTE_BSKY,
+            'text': 'My original […]',
+            'bridgyOriginalText': 'My <a href="http://orig.co/inal">original</a> poaaast',
+            'embed': {
+                '$type': 'app.bsky.embed.external',
+                'external': {
+                    '$type': 'app.bsky.embed.external#external',
+                    'description': '',
+                    'title': 'Original post on fake',
+                    'uri': 'fake:post',
+                },
+            },
+        }, repo.get_record('app.bsky.feed.post', last_tid), ignore=['facets'])
 
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
     def test_send_update_note(self, mock_create_task):
