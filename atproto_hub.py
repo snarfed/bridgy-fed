@@ -24,10 +24,12 @@ import common
 import models
 
 # as of 2024-07-10
-# https://discord.com/channels/1097580399187738645/1115973909624397855/1260356452162469969
 BSKY_TEAM_CIDRS = (
+    # https://discord.com/channels/1097580399187738645/1115973909624397855/1260356452162469969
     ip_network('209.249.133.120/29'),
     ip_network('108.179.139.0/24'),
+    # https://github.com/bluesky-social/atproto/discussions/3036#discussioncomment-11431550
+    ip_network('67.213.161.32/29')
 )
 BSKY_TEAM_HOSTS = (
     'zip.zayo.com',  # maybe? https://github.com/bluesky-social/atproto/discussions/3036#discussioncomment-11399854
