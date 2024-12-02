@@ -35,7 +35,7 @@ logger = logging.getLogger(__name__)
 # https://stackoverflow.com/questions/10306690/what-is-a-regular-expression-which-will-match-a-valid-domain-name-without-a-subd
 #
 # TODO: preprocess with domain2idna, then narrow this to just [a-z0-9-]
-DOMAIN_RE = r'^([^/:;@?!\']+\.)+[^/:@_?!\']+$'
+DOMAIN_RE = r'^([^/:;@?!\'.]+\.)+[^/:@_?!\'.]+$'
 
 CONTENT_TYPE_HTML = 'text/html; charset=utf-8'
 
