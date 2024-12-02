@@ -853,7 +853,7 @@ class ATProto(User, Protocol):
                 for att in util.get_list(o, 'attachments'):
                     if isinstance(att, dict):
                         props = appview.defs['app.bsky.embed.video']['properties']
-                        fetch_blob(att.get('stream', {}).get('url'), props,
+                        fetch_blob(as1.get_object(att, 'stream').get('url'), props,
                                    name='video', check_size=True, check_type=True)
                         for url in util.get_urls(att, 'image'):
                             props = appview.defs['app.bsky.embed.external#external']['properties']
