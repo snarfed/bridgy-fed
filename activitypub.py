@@ -869,12 +869,12 @@ def postprocess_as2(activity, orig_obj=None, wrap=True):
         # https://github.com/snarfed/bridgy-fed/issues/990
         if not content.startswith('<p>'):
             content = obj_or_activity['content'] = f'<p>{content}</p>'
-            obj_or_activity['content_is_html'] = True
 
         # language, in contentMap
         # https://github.com/snarfed/bridgy-fed/issues/681
         obj_or_activity.setdefault('contentMap', {'en': content})
 
+    activity.pop('content_is_html', None)
     return util.trim_nulls(activity)
 
 

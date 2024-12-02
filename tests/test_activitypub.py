@@ -2392,12 +2392,12 @@ class ActivityPubUtilsTest(TestCase):
             'type': 'Note',
             'content': '<p>foo</p>',
             'contentMap': {'en': '<p>foo</p>'},
-            'content_is_html': True,
             'to': [as2.PUBLIC_AUDIENCE],
         }, postprocess_as2({
             'id': 'xyz',
             'type': 'Note',
             'content': 'foo',
+            'content_is_html': True,  # should be removed
         }))
 
     def test_postprocess_as2_hashtag(self):
@@ -2424,7 +2424,6 @@ class ActivityPubUtilsTest(TestCase):
         self.assert_equals({
             'content': expected,
             'contentMap': {'en': expected},
-            'content_is_html': True,
             'tag': [{
                 'type': 'Mention',
                 'href': 'http://inst/bar',
@@ -2457,7 +2456,6 @@ class ActivityPubUtilsTest(TestCase):
             'contentMap': {
                 'en': '<p><a href="http://a/link">check it out</a><br><br><a href="http://another/link">another/link</a></p>',
             },
-            'content_is_html': True,
         }, postprocess_as2({
             'type': 'Note',
             'attachment': [{
@@ -2478,7 +2476,6 @@ class ActivityPubUtilsTest(TestCase):
             'contentMap': {
                 'en': '<p>original<br><br><a href="http://a/link">a/link</a></p>',
             },
-            'content_is_html': True,
         }, postprocess_as2({
             'type': 'Note',
             'content': 'original',
@@ -2924,7 +2921,7 @@ class ActivityPubUtilsTest(TestCase):
                 'href': 'https://bsky.brid.gy/convert/ap/at://did:bob/app.bsky.feed.post/456',
                 'name': 'RE: https://bsky.app/profile/did:bob/post/456',
             }],
-        }, ActivityPub.convert(obj), ignore=['contentMap', 'content_is_html', 'to'])
+        }, ActivityPub.convert(obj), ignore=['contentMap', 'to'])
 
     def test_send_convert_mention_non_bridged_id_uses_profile_url(self):
         self.store_object(id='did:plc:5zspv27pk4iqtrl2ql2nykjh', raw={'foo': 'bar'})
@@ -2952,7 +2949,6 @@ class ActivityPubUtilsTest(TestCase):
             }],
             'to': ['https://www.w3.org/ns/activitystreams#Public'],
             'cc': ['https://bsky.app/profile/did:plc:5zspv27pk4iqtrl2ql2nykjh'],
-            'content_is_html': True,
         }, ActivityPub.convert(obj))
 
     def test_postprocess_as2_idempotent(self):
@@ -3157,6 +3153,5 @@ class ActivityPubUtilsTest(TestCase):
             'attributedTo': 'https://web.brid.gy/web.brid.gy',
             'content': '<p>hello world</p>',
             'contentMap': {'en': '<p>hello world</p>'},
-            'content_is_html': True,
             'to': [ACTOR['id']],
         }, json_loads(kwargs['data']))

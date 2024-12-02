@@ -254,7 +254,6 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
             'objectType': 'note',
             'id': obj.key.id(),
             'content': f'{obj.actor_link(image=False, user=user)} {obj.phrase} {obj.content}',
-            'content_is_html': True,
             'updated': obj.updated.isoformat(),
             'url': as1.get_url(obj.as1) or as1.get_url(as1.get_object(obj.as1)),
         } for obj in objects]

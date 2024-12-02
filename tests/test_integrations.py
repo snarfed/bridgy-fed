@@ -165,7 +165,6 @@ class IntegrationTests(TestCase):
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'content': '<p>I hereby reply</p>',
                 'contentMap': {'en': '<p>I hereby reply</p>'},
-                'content_is_html': True,
                 'inReplyTo': 'http://inst/post',
                 'tag': [{'type': 'Mention', 'href': 'http://inst/bob'}],
                 'to': ['https://www.w3.org/ns/activitystreams#Public'],
@@ -425,8 +424,7 @@ class IntegrationTests(TestCase):
                 'attributedTo': 'https://bsky.brid.gy/bsky.brid.gy',
                 'content': message,
                 'contentMap': {'en': message},
-                'content_is_html': True,
-                'tag': [{
+                    'tag': [{
                     'type': 'Mention',
                     'href': 'https://inst/alice',
                 }],
@@ -761,7 +759,6 @@ class IntegrationTests(TestCase):
                 'url': 'http://localhost/r/https://bsky.app/profile/did:plc:alice/post/123',
                 'attributedTo': 'https://bsky.brid.gy/ap/did:plc:alice',
                 'content': '<p>maybe if <a class="mention" href="https://inst/bob">@bob.inst.ap.brid.gy</a> and Alf meet up</p>',
-                'content_is_html': True,
                 'tag': [{
                     'type': 'Mention',
                     'name': '@bob.inst.ap.brid.gy',
