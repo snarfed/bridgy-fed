@@ -1321,7 +1321,7 @@ class Protocol:
           dict: maps :class:`models.Target` to original (in response to)
           :class:`models.Object`, if any, otherwise None
         """
-        logger.info('Finding recipients and their targets')
+        logger.debug('Finding recipients and their targets')
 
         target_uris = sorted(set(as1.targets(obj.as1)))
         logger.info(f'Raw targets: {target_uris}')
@@ -1437,7 +1437,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
                 targets.update(from_cls.targets(inner_obj, from_user=from_user,
                                                 internal=True))
 
-        logger.info(f'Direct (and copy) targets: {targets.keys()}')
+        logger.info(f'Direct targets: {[t.uri for t in targets.keys()]}')
 
         # deliver to followers, if appropriate
         user_key = from_cls.actor_key(obj, allow_opt_out=allow_opt_out)

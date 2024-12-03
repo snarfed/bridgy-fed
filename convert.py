@@ -58,7 +58,7 @@ def convert(to, _, from_=None):
     # parsing bugs? if that happened to this URL, expand it back to ://
     id = re.sub(r'^(https?:/)([^/])', r'\1/\2', id)
 
-    logger.info(f'Converting from {from_proto.LABEL} to {to}: {id}')
+    logger.debug(f'Converting from {from_proto.LABEL} to {to}: {id}')
 
     # load, and maybe fetch. if it's a post/update, redirect to inner object.
     obj = from_proto.load(id)

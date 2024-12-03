@@ -483,14 +483,14 @@ class ActivityPub(User, Protocol):
                 return
             error('No HTTP Signature', status=401)
 
-        logger.info('Verifying HTTP Signature')
+        logger.debug('Verifying HTTP Signature')
         logger.debug(f'Headers: {json_dumps(headers, indent=2)}')
 
         # parse_signature_header lower-cases all keys
         sig_fields = parse_signature_header(sig)
         key_id = fragmentless(sig_fields.get('keyid'))
         if not key_id:
-            error('HTTP Signature missing keyId', status=401)
+            error('sig missing keyId', status=401)
 
         # TODO: right now, assume hs2019 is rsa-sha256. the real answer is...
         # ...complicated and unclear. 🤷
@@ -505,11 +505,11 @@ class ActivityPub(User, Protocol):
 
         digest = headers.get('Digest') or ''
         if not digest:
-            error('Missing Digest header, required for HTTP Signature', status=401)
+            error('Missing Digest', status=401)
 
         expected = b64encode(sha256(request.data).digest()).decode()
         if digest.removeprefix('SHA-256=').removeprefix('sha-256=') != expected:
-            error('Invalid Digest header, required for HTTP Signature', status=401)
+            error('Invalid Digest', status=401)
 
         try:
             key_actor = cls._load_key(key_id)
@@ -517,7 +517,7 @@ class ActivityPub(User, Protocol):
             obj_id = as1.get_object(activity).get('id')
             if (activity.get('type') == 'Delete' and obj_id
                     and key_id == fragmentless(obj_id)):
-                logger.info('Object/actor being deleted is also keyId')
+                logger.debug('Object/actor being deleted is also keyId')
                 key_actor = Object.get_or_create(
                     id=key_id, authed_as=key_id, source_protocol='activitypub',
                     deleted=True)
@@ -538,7 +538,7 @@ class ActivityPub(User, Protocol):
         # can't use request.full_path because it includes a trailing ? even if
         # it wasn't in the request. https://github.com/pallets/flask/issues/2867
         path_query = request.url.removeprefix(request.host_url.rstrip('/'))
-        logger.info(f'Verifying signature for {path_query} with key {sig_fields["keyid"]}')
+        logger.debug(f'Verifying signature for {path_query} with key {sig_fields["keyid"]}')
         try:
             verified = HeaderVerifier(headers, key,
                                       required_headers=['Digest'],
@@ -547,12 +547,12 @@ class ActivityPub(User, Protocol):
                                       sign_header='signature',
                                       ).verify()
         except BaseException as e:
-            error(f'HTTP Signature verification failed: {e}', status=401)
+            error(f'sig verification failed: {e}', status=401)
 
         if verified:
-            logger.info('HTTP Signature verified!')
+            logger.debug('sig ok')
         else:
-            error('HTTP Signature verification failed', status=401)
+            error('sig failed', status=401)
 
         return key_actor.key.id()
 
@@ -586,7 +586,7 @@ class ActivityPub(User, Protocol):
             if owner:
                 owner = fragmentless(owner)
                 if owner != key_id:
-                    logger.info(f'keyId {key_id} has controller/owner {owner}, fetching that')
+                    logger.debug(f'keyId {key_id} has controller/owner {owner}, fetching that')
                     return cls._load_key(owner, follow_owner=False)
 
         return actor
@@ -644,7 +644,8 @@ def signed_request(fn, url, data=None, headers=None, from_user=None,
         'Digest': f'SHA-256={b64encode(sha256(data or b"").digest()).decode()}',
     }
 
-    logger.info(f"Signing with {from_user.key.id()} 's key")
+    logger.debug(f"Signing with {from_user.key.id()} 's key")
+
     # (request-target) is a special HTTP Signatures header that some fediverse
     # implementations require, eg Peertube.
     # https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures-12#section-2.3
@@ -1081,12 +1082,13 @@ def inbox(protocol=None, id=None):
     # are we already processing or done with this activity?
     id = activity.get('id')
     if id:
-        if util.domain_or_parent_in(util.domain_from_link(id), web_opt_out_domains()):
-            logger.info(f'Discarding, {id} is on an opted out domain')
+        domain = util.domain_from_link(id)
+        if util.domain_or_parent_in(domain, web_opt_out_domains()):
+            logger.info(f'{domain} is opted out')
             return '', 204
 
         if memcache.get(activity_id_memcache_key(id)):
-            logger.info(f'Already seen this activity {id}')
+            logger.info(f'Already seen {id}')
             return '', 204
 
     # check actor, signature, auth
@@ -1096,9 +1098,10 @@ def inbox(protocol=None, id=None):
 
     if ActivityPub.is_blocklisted(actor_id):
         error(f'Actor {actor_id} is blocklisted')
-    elif util.domain_or_parent_in(util.domain_from_link(actor_id),
-                                  web_opt_out_domains()):
-        logger.info(f'Discarding, actor {actor_id} is on an opted out domain')
+
+    actor_domain = util.domain_from_link(actor_id)
+    if util.domain_or_parent_in(actor_domain, web_opt_out_domains()):
+        logger.info(f'{actor_domain} is opted out')
         return '', 204
 
     authed_as = ActivityPub.verify_signature(activity)
@@ -1136,7 +1139,7 @@ def inbox(protocol=None, id=None):
         user = ActivityPub.get_or_create(actor_id, propagate=True,
                                          enabled_protocols=all_protocols)
         if user and not user.existing:
-            logger.info(f'Automatically enabled AP server actor {actor_id} for {user.enabled_protocols}')
+            logger.info(f'Automatically enabled AP server actor {actor_id} for ')
 
     delay = DELETE_TASK_DELAY if type in ('Delete', 'Undo') else None
     return create_task(queue='receive', id=id, as2=activity,
