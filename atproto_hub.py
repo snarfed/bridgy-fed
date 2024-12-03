@@ -78,7 +78,7 @@ lexrpc.flask_server.init_flask(arroba.server.server, app)
 
 
 @app.post('/queue/atproto-commit')
-@flask_util.cloud_tasks_only
+@flask_util.cloud_tasks_only(log=False)
 def atproto_commit():
     """Handler for atproto-commit tasks.
 

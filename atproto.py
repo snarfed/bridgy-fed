@@ -1035,7 +1035,7 @@ def send_chat(*, msg, from_repo, to_did):
     return True
 
 
-@cloud_tasks_only
+@cloud_tasks_only(log=False)
 def poll_chat_task():
     """Polls for incoming chat messages for our protocol bot users.
 

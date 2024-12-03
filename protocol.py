@@ -1665,7 +1665,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
                 error(f"Bridgy Fed doesn't support DMs", status=204)
 
 
-@cloud_tasks_only
+@cloud_tasks_only()
 def receive_task():
     """Task handler for a newly received :class:`models.Object`.
 
@@ -1717,7 +1717,7 @@ def receive_task():
         error(e, status=304)
 
 
-@cloud_tasks_only
+@cloud_tasks_only()
 def send_task():
     """Task handler for sending an activity to a single specific destination.
 
