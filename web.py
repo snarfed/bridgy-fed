@@ -60,6 +60,11 @@ MAX_FEED_ITEMS_PER_POLL = 10
 # populated into Web.redirects_error
 OWNS_WEBFINGER = 'This site serves its own Webfinger, and likely ActivityPub too.'
 
+# in addition to common.DOMAIN_BLOCKLIST
+FETCH_BLOCKLIST = (
+    'bsky.app',
+)
+
 
 def is_valid_domain(domain, allow_internal=True):
     """Returns True if this is a valid domain we can use, False otherwise.
@@ -520,7 +525,8 @@ class Web(User, Protocol):
         if not util.is_web(url):
             logger.info(f'{url} is not a URL')
             return False
-        elif cls.is_blocklisted(url, allow_internal=True):
+        elif (cls.is_blocklisted(url, allow_internal=True)
+              or util.domain_or_parent_in(domain_from_link(url), FETCH_BLOCKLIST)):
             return False
 
         is_homepage = urlparse(url).path.strip('/') == ''

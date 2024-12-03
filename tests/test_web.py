@@ -3071,6 +3071,9 @@ class WebUtilTest(TestCase):
         self.assertFalse(Web.fetch(Object(id='https://x.com/foo')))
         mock_get.assert_not_called()
 
+        self.assertFalse(Web.fetch(Object(id='https://bsky.app/foo')))
+        mock_get.assert_not_called()
+
     def test_fetch_run_authorship(self, mock_get, __):
         mock_get.side_effect = [
             # post
