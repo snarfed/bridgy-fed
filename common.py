@@ -349,6 +349,7 @@ def create_task(queue, delay=None, **params):
         # return app.view_functions[endpoint](**args)
 
     body = urllib.parse.urlencode(sorted(params.items())).encode()
+    traceparent = request.headers.get('traceparent', '')
     task = {
         'app_engine_http_request': {
             'http_method': 'POST',
@@ -359,7 +360,7 @@ def create_task(queue, delay=None, **params):
                 # propagate trace id
                 # https://cloud.google.com/trace/docs/trace-context#http-requests
                 # https://stackoverflow.com/a/71343735/186123
-                'traceparent': request.headers.get('traceparent', ''),
+                'traceparent': traceparent,
             },
         },
     }
@@ -369,7 +370,8 @@ def create_task(queue, delay=None, **params):
 
     parent = tasks_client.queue_path(appengine_info.APP_ID, TASKS_LOCATION, queue)
     task = tasks_client.create_task(parent=parent, task=task)
-    msg = f'Added {queue} {task.name.split("/")[-1]}'
+    if not traceparent:
+        msg = f'Added {queue} {task.name.split("/")[-1]}'
     logger.info(msg)
     return msg, 202
 

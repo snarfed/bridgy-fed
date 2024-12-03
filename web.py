@@ -854,7 +854,7 @@ def poll_feed(user, feed_url, rel_type):
 
 
 @app.post(f'/queue/poll-feed')
-@cloud_tasks_only(log=False)
+@cloud_tasks_only(log=None)
 def poll_feed_task():
     """Task handler for polling a :class:`Web` user's feed.
 
@@ -935,7 +935,7 @@ def poll_feed_task():
 
 
 @app.post('/queue/webmention')
-@cloud_tasks_only()
+@cloud_tasks_only(log=None)
 def webmention_task():
     """Handles inbound webmention task.
 
