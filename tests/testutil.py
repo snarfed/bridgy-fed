@@ -616,7 +616,10 @@ class TestCase(unittest.TestCase, testutil.Asserts):
                 'http_method': 'POST',
                 'relative_uri': f'/queue/{queue}',
                 'body': urlencode(sorted(params)).encode(),
-                'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
+                'headers': {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'traceparent': '',
+                },
             },
         }
         if eta_seconds:

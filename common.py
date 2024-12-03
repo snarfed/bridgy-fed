@@ -354,7 +354,13 @@ def create_task(queue, delay=None, **params):
             'http_method': 'POST',
             'relative_uri': path,
             'body': body,
-            'headers': {'Content-Type': 'application/x-www-form-urlencoded'},
+            'headers': {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                # propagate trace id
+                # https://cloud.google.com/trace/docs/trace-context#http-requests
+                # https://stackoverflow.com/a/71343735/186123
+                'traceparent': request.headers.get('traceparent', ''),
+            },
         },
     }
     if delay:
