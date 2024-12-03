@@ -1524,9 +1524,7 @@ class ActivityPubTest(TestCase):
                            )
         self.assertIsNone(Object.get_by_id(bad_url))
 
-    @patch('activitypub.logger.info', side_effect=logging.info)
-    @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
-    def test_inbox_verify_sig_fetch_key(self, mock_activitypub_log, _, mock_get, __):
+    def test_inbox_verify_sig_fetch_key(self, _, mock_get, __):
         # actor with a public key
         mock_get.return_value = self.as2_resp(self.key_id_obj.as2)
 
@@ -1539,7 +1537,6 @@ class ActivityPubTest(TestCase):
         mock_get.assert_has_calls((
             self.as2_req('http://my/key/id'),
         ))
-        mock_activitypub_log.assert_any_call('sig ok')
 
     @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
     def test_inbox_verify_sig_stored_key(self, *_):
@@ -1552,9 +1549,8 @@ class ActivityPubTest(TestCase):
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(401, resp.status_code, resp.get_data(as_text=True))
 
-    @patch('activitypub.logger.info', side_effect=logging.info)
     @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
-    def test_inbox_verify_sig_stored_key_our_as1(self, mock_activitypub_log, *_):
+    def test_inbox_verify_sig_stored_key_our_as1(self, *_):
         # valid signature, key id's Object has our_as1 instead of as2
         self.make_user(id=ACTOR['id'], cls=ActivityPub, obj_as1=as2.to_as1(ACTOR))
 
@@ -1562,7 +1558,6 @@ class ActivityPubTest(TestCase):
         headers = sign('/ap/sharedInbox', body, key_id=ACTOR['id'])
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(204, resp.status_code, resp.get_data(as_text=True))
-        mock_activitypub_log.assert_any_call('sig ok')
 
     @patch('common.logger.info', side_effect=logging.info)
     @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)

@@ -1403,11 +1403,11 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
                 if proto in to_protocols:
                     # copies generally won't have their own Objects
                     if target := proto.target_for(Object(id=copy.uri)):
-                        logger.info(f'Adding target {target} for copy {copy.uri} of original {id}')
+                        logger.debug(f'Adding target {target} for copy {copy.uri} of original {id}')
                         targets[Target(protocol=copy.protocol, uri=target)] = orig_obj
 
             if target_proto == from_cls:
-                logger.info(f'Skipping same-protocol target {id}')
+                logger.debug(f'Skipping same-protocol target {id}')
                 continue
 
             target = target_proto.target_for(orig_obj)
@@ -1416,7 +1416,7 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
                 logger.error(f"Can't find delivery target for {id}")
                 continue
 
-            logger.info(f'Target for {id} is {target}')
+            logger.debug(f'Target for {id} is {target}')
             # only use orig_obj for inReplyTos and repost objects
             # https://github.com/snarfed/bridgy-fed/issues/1237
             targets[Target(protocol=target_proto.LABEL, uri=target)] = (
@@ -1424,11 +1424,11 @@ Hi! You <a href="{inner_obj_as1.get('url') or inner_obj_id}">recently replied</a
                 else None)
 
             if target_author_key:
-                logger.info(f'Recipient is {target_author_key}')
+                logger.debug(f'Recipient is {target_author_key}')
                 obj.add('notify', target_author_key)
 
         if obj.type == 'undo':
-            logger.info('Object is an undo; adding targets for inner object')
+            logger.debug('Object is an undo; adding targets for inner object')
             if set(inner_obj_as1.keys()) == {'id'}:
                 inner_obj = from_cls.load(inner_obj_id, raise_=False)
             else:
@@ -1768,7 +1768,7 @@ def send_task():
     if request.headers.get('X-AppEngine-TaskRetryCount') == '0' and obj.created:
         delay_s = int((util.now().replace(tzinfo=None) - obj.created).total_seconds())
         delay = f'({delay_s} s behind)'
-    logger.info(f'Sending {obj.source_protocol} {obj.type} {obj.key.id()} to {protocol} {url} {delay}')
+    logger.info(f'Sending {obj.source_protocol} {obj.type} {obj.key.id()} to {protocol} {url}')
     logger.debug(f'  AS1: {json_dumps(obj.as1, indent=2)}')
     sent = None
     try:

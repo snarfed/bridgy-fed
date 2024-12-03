@@ -592,7 +592,7 @@ class Web(User, Protocol):
             entry.setdefault('type', ['h-card'])
         if parsed['url']:
             entry['url'] = parsed['url']
-        logger.info(f'Extracted microformats2 entry: {json_dumps(entry, indent=2)}')
+        logger.info(f'Extracted microformats2 entry: {json_dumps(entry)[:500]}')
 
         if not is_homepage:
             # default actor/author to home page URL
@@ -618,7 +618,7 @@ class Web(User, Protocol):
                 except (ValueError, TypeError) as e:
                     logger.warning(e)
                     author = None
-                logger.info(f'Got: {author}')
+                logger.debug(f'Got: {author}')
                 if author:
                     props['author'] = util.trim_nulls([{
                         "type": ["h-card"],
