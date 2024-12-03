@@ -370,9 +370,9 @@ def create_task(queue, delay=None, **params):
 
     parent = tasks_client.queue_path(appengine_info.APP_ID, TASKS_LOCATION, queue)
     task = tasks_client.create_task(parent=parent, task=task)
+    msg = f'Added {queue} {task.name.split("/")[-1]}'
     if not traceparent:
-        msg = f'Added {queue} {task.name.split("/")[-1]}'
-    logger.info(msg)
+        logger.info(msg)
     return msg, 202
 
 
