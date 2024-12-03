@@ -78,7 +78,7 @@ def redir(to):
             if domain in DOMAIN_ALLOWLIST:
                 break
             if web_user := Web.get_by_id(domain):
-                logger.info(f'Found web user for domain {domain}')
+                logger.debug(f'Found web user for domain {domain}')
                 break
     else:
         if not as2_request:
@@ -87,7 +87,7 @@ def redir(to):
     if not as2_request:
         # redirect. include rel-alternate link to make posts discoverable by entering
         # https://fed.brid.gy/r/[URL] in a fediverse instance's search.
-        logger.info(f'redirecting to {to}')
+        logger.debug(f'redirecting to {to}')
         return f"""\
     <!doctype html>
     <html>
