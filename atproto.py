@@ -29,7 +29,7 @@ from google.cloud.dns.resource_record_set import ResourceRecordSet
 from google.cloud import ndb
 import googleapiclient.discovery
 from granary import as1, bluesky
-from granary.bluesky import Bluesky, FROM_AS1_TYPES, _to_external_embed
+from granary.bluesky import Bluesky, FROM_AS1_TYPES, to_external_embed
 from granary.source import html_to_text, INCLUDE_LINK, Source
 from lexrpc import Client, ValidationError
 from requests import RequestException
@@ -884,7 +884,7 @@ class ATProto(User, Protocol):
                                 props = appview.defs['app.bsky.embed.external#external']['properties']
                                 fetch_blob(img, props, name='thumb',
                                            check_size=False, check_type=False)
-                            ret['embed'] = _to_external_embed(link.as1, blobs=blobs)
+                            ret['embed'] = to_external_embed(link.as1, blobs=blobs)
                             break
 
         if from_proto != ATProto:
