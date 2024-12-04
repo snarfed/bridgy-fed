@@ -81,7 +81,7 @@ def is_valid_domain(domain, allow_internal=True):
         return False
 
     if Web.is_blocklisted(domain, allow_internal=allow_internal):
-        # logger.info(f'{domain} is blocklisted')
+        # logger.debug(f'{domain} is blocklisted')
         return False
 
     tld = domain.split('.')[-1]

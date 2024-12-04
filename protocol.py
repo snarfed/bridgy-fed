@@ -1018,7 +1018,7 @@ class Protocol:
         if obj.type == 'follow':
             if proto := Protocol.for_bridgy_subdomain(inner_obj_id):
                 # follow of one of our protocol bot users; enable that protocol.
-                # foll through so that we send an accept.
+                # fall through so that we send an accept.
                 from_user.enable_protocol(proto)
                 proto.bot_follow(from_user)
 
@@ -1370,7 +1370,7 @@ class Protocol:
                 logger.info(f"Can't determine protocol for {id}")
                 continue
             elif target_proto.is_blocklisted(id):
-                logger.info(f'{id} is blocklisted')
+                logger.debug(f'{id} is blocklisted')
                 continue
 
             orig_obj = target_proto.load(id, raise_=False)

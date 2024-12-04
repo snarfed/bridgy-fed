@@ -530,4 +530,4 @@ def as2_request_type():
                 return as2.CONTENT_TYPE
             elif accept_type in (as2.CONTENT_TYPE_LD, as2.CONTENT_TYPE_LD_PROFILE):
                 return as2.CONTENT_TYPE_LD_PROFILE
-            logger.info(f'Conneg resolved {accept_type} for Accept: {accept}')
+            logger.debug(f'Conneg resolved {accept_type} for Accept: {accept}')

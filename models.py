@@ -828,6 +828,7 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         if self.obj and self.obj.as1:
             return util.get_url(self.obj.as1, 'image')
 
+    # TODO: cache in memcache
     @cachetools.cached(cachetools.TTLCache(50000, 60 * 60 * 2),  # 2h expiration
                        key=lambda user: user.key.id(), lock=Lock())
     def count_followers(self):
