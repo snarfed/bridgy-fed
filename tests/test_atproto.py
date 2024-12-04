@@ -1044,7 +1044,6 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     def test_create_for(self, mock_post, mock_create_task, mock_zone, mock_rrsets):
         mock_zone.return_value = zone = MagicMock()
         zone.resource_record_set = MagicMock()
-
         mock_rrsets.return_value = rrsets = MagicMock()
         rrsets.list.return_value = list_ = MagicMock()
         list_.execute.return_value = {'rrsets': []}
@@ -1102,9 +1101,19 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             with self.assertRaises(ValueError):
                 ATProto.create_for(Fake(id=bad))
 
+    @patch('atproto.DEBUG', new=False)
+    @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')
+    @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
-    def test_create_for_already_exists(self, mock_create_task):
-        """Should mostly be a noop, but should emit an active: True #account event."""
+    def test_create_for_already_exists(self, mock_create_task, mock_zone,
+                                       mock_rrsets):
+        """Should emit an active: True #account event and (re)create DNS."""
+        mock_zone.return_value = zone = MagicMock()
+        zone.resource_record_set = MagicMock()
+        mock_rrsets.return_value = rrsets = MagicMock()
+        rrsets.list.return_value = list_ = MagicMock()
+        list_.execute.return_value = {'rrsets': []}
+
         self.make_user_and_repo()
         repo = arroba.server.storage.load_repo('did:plc:user')
         arroba.server.storage.deactivate_repo(repo)
@@ -1124,6 +1133,11 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'time': NOW.isoformat(),
             'active': True,
         }, next(self.storage.read_events_by_seq(seq)))
+
+        # check DNS
+        zone.resource_record_set.assert_called_with(
+            name='_atproto.ha.nl.', record_type='TXT',
+            ttl=atproto.DNS_TTL, rrdatas=[f'"did=did:plc:user"'])
 
         mock_create_task.assert_called()  # atproto-commit
 

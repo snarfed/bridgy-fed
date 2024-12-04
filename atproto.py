@@ -387,6 +387,8 @@ class ATProto(User, Protocol):
         """
         assert not isinstance(user, ATProto)
 
+        handle = user.handle_as('atproto')
+
         if copy_did := user.get_copy(ATProto):
             # already bridged and inactive
             repo = arroba.server.storage.load_repo(copy_did)
@@ -401,13 +403,13 @@ class ATProto(User, Protocol):
                 # deactivated or deleted, or maybe still active?
                 arroba.server.storage.activate_repo(repo)
                 common.create_task(queue='atproto-commit')
+                cls.set_dns(handle=handle, did=copy_did)
                 return
 
         # create new DID, repo
         # PDS URL shouldn't include trailing slash!
         # https://atproto.com/specs/did#did-documents
         pds_url = common.host_url().rstrip('/') if DEBUG else cls.PDS_URL
-        handle = user.handle_as('atproto')
         logger.info(f'Creating new did:plc for {user.key.id()} {handle} {pds_url}')
         did_plc = did.create_plc(handle, pds_url=pds_url, post_fn=util.requests_post,
                                  also_known_as=user.profile_id())
