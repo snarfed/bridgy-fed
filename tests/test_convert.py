@@ -398,17 +398,11 @@ A ☕ reply
             hcard,
             hcard,
             hcard,
-            requests_response(status=404),  # webfinger for protocol inference
         ]
 
         resp = self.client.get(f'/convert/ap/https://nope.com/post',
                                base_url='https://web.brid.gy/')
-        self.assertEqual(200, resp.status_code)
-        self.assert_equals({
-            'type': 'Note',
-            'id': 'https://web.brid.gy/r/https://nope.com/post',
-            'attributedTo': 'https://web.brid.gy/nope.com',
-        }, resp.json, ignore=['to'])
+        self.assertEqual(404, resp.status_code)
 
     @patch('requests.get', return_value=requests_response(HTML_NO_ID))
     def test_web_to_activitypub_url_decode(self, mock_get):

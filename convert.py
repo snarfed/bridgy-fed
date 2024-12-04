@@ -108,8 +108,10 @@ def check_bridged_to(obj, to_proto):
     # check that owner has this protocol enabled
     if owner := as1.get_owner(obj.as1):
         if from_proto := Protocol.for_id(owner):
-            user = from_proto.get_or_create(owner)
-            if not user or not user.is_enabled(to_proto):
+            user = from_proto.get_by_id(owner)
+            if not user:
+                error(f"{from_proto.LABEL} user {owner} not found", status=404)
+            elif not user.is_enabled(to_proto):
                 error(f"{from_proto.LABEL} user {owner} isn't bridged to {to_proto.LABEL}", status=404)
 
 
