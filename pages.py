@@ -307,20 +307,6 @@ def serve_feed(*, objects, format, user, title, as_snippets=False, quiet=False):
         return body, {'Content-Type': rss.CONTENT_TYPE}
 
 
-@app.get('/stats')
-@canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
-def stats():
-    def count(kind):
-        return humanize.intcomma(
-            KindStat.query(KindStat.kind_name == kind).get().count)
-
-    return render_template(
-        'stats.html',
-        users=count('MagicKey'),
-        objects=count('Object'),
-        followers=count('Follower'),
-    )
-
 
 @app.get('/.well-known/nodeinfo')
 @canonicalize_request_domain(common.PROTOCOL_DOMAINS, common.PRIMARY_DOMAIN)
