@@ -1768,7 +1768,7 @@ def send_task():
     if request.headers.get('X-AppEngine-TaskRetryCount') == '0' and obj.created:
         delay_s = int((util.now().replace(tzinfo=None) - obj.created).total_seconds())
         delay = f'({delay_s} s behind)'
-    logger.info(f'Sending {obj.source_protocol} {obj.type} {obj.key.id()} to {protocol} {url}')
+    logger.info(f'Sending {obj.source_protocol} {obj.type} {obj.key.id()} to {protocol} {url} {delay}')
     logger.debug(f'  AS1: {json_dumps(obj.as1, indent=2)}')
     sent = None
     try:
