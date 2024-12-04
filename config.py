@@ -15,6 +15,9 @@ SESSION_COOKIE_HTTPONLY = True
 # which strict blocks.
 SESSION_COOKIE_SAMESITE = 'Lax'
 CACHE_THRESHOLD = 3000
+# 10MiB. default is 500KiB, and we hit that on receive tasks for some web posts
+# https://github.com/snarfed/bridgy-fed/issues/1593
+MAX_FORM_MEMORY_SIZE: 10000000
 
 if appengine_info.DEBUG:
     ENV = 'development'
