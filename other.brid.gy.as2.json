@@ -1,5 +1,5 @@
 {
-  "type": "Application",
+  "type": "Service",
   "id": "https://other.brid.gy/other.brid.gy",
   "url": "https://other.brid.gy/",
   "preferredUsername": "other.brid.gy",

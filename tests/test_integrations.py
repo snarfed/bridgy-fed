@@ -820,7 +820,7 @@ class IntegrationTests(TestCase):
         """
         self.make_user(id='https://inst/actor', cls=ActivityPub,
                        obj_as2=add_key({
-                           'type': 'Application',
+                           'type': 'Person',
                            'id': 'https://inst/actor',
                            'preferredUsername': 'inst',
                        }))

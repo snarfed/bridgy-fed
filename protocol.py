@@ -565,7 +565,7 @@ class Protocol:
 
             obj.our_as1 = copy.deepcopy(obj.as1)
             actor = as1.get_object(obj.as1) if is_activity else obj.as1
-            actor['objectType'] = 'application'
+            actor['objectType'] = 'person'
             cls.add_source_links(actor=actor, obj=obj, from_user=from_user)
 
         converted = cls._convert(obj, from_user=from_user, **kwargs)

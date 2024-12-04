@@ -4,7 +4,7 @@
     "https://w3id.org/security/v1",
     {"alsoKnownAs": {"@id": "as:alsoKnownAs", "@type": "@id"}}
   ],
-  "type": "Application",
+  "type": "Service",
   "id": "https://ap.brid.gy/ap.brid.gy",
   "url": [
     "https://fed.brid.gy/",

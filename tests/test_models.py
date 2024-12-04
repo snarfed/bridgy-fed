@@ -802,7 +802,7 @@ class ObjectTest(TestCase):
 
     def test_as1_from_as2_protocol_bot_user(self):
         self.assert_equals({
-            'objectType': 'application',
+            'objectType': 'service',
             'id': 'fed.brid.gy',
             'url': 'https://fed.brid.gy/',
             'displayName': 'Bridgy Fed',

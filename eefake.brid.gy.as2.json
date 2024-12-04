@@ -1,5 +1,5 @@
 {
-  "type": "Application",
+  "type": "Service",
   "id": "https://eefake.brid.gy/eefake.brid.gy",
   "url": "https://eefake.brid.gy/",
   "preferredUsername": "eefake.brid.gy",
