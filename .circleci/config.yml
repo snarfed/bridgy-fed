@@ -75,7 +75,7 @@ jobs:
             echo $CIRCLE_BRANCH $CIRCLE_USERNAME
             # don't deploy on dependabot merges. $CIRCLE_USERNAME is unset for
             # GitHub users who don't have Circle accounts, like dependabot.
-            if [[ $CIRCLE_BRANCH == "main" && $CIRCLE_USERNAME == ""]]; then
+            if [[ $CIRCLE_BRANCH == "main" && $CIRCLE_USERNAME != "" ]]; then
               echo $FLASK_SECRET_KEY > flask_secret_key
               echo $GCLOUD_SERVICE_KEY | gcloud auth activate-service-account --key-file=-
 
