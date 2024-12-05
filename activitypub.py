@@ -612,7 +612,7 @@ def signed_request(fn, url, data=None, headers=None, from_user=None,
       url (str):
       data (dict): optional AS2 object
       from_user (models.User): user to sign request as; optional. If not
-        provided, uses the default user ``@snarfed.org@snarfed.org``.
+        provided, uses the default user ``@fed.brid.gy@fed.brid.gy``.
       _redirect_count: internal, used to count redirects followed so far
       kwargs: passed through to requests
 

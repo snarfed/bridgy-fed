@@ -169,9 +169,7 @@ class Web(User, Protocol):
             return super().get_by_id(domain)
 
         user = super().get_or_create(domain, allow_opt_out=True, **kwargs)
-        if not user or (not allow_opt_out
-                        and user.status
-                        and user.status != 'no-feed-or-webmention'):
+        if not user:
             return None
 
         if verify or (verify is None and not user.existing):

@@ -28,7 +28,7 @@ from flask_app import app
 import ids
 from models import Follower, Object, Target
 import web
-from web import Web
+from web import OWNS_WEBFINGER, Web
 from . import test_activitypub
 from .testutil import ExplicitFake, Fake, OtherFake, TestCase
 
@@ -539,16 +539,52 @@ class WebTest(TestCase):
         user = Web.get_or_create('new.com')
         self.assert_task(mock_create_task, 'poll-feed', domain='new.com')
 
-    def test_get_or_create_existing_opted_out(self, *_):
+    def test_get_or_create_nobridge_opted_out(self, *_):
         self.user.obj.mf2['properties']['summary'] = '#nobridge'
         self.user.obj.put()
         self.user.put()
         self.assertIsNone(Web.get_or_create('user.com'))
 
-    def test_get_or_create_existing_opted_out_normalize_case(self, *_):
+    def test_get_or_create_manual_opted_out(self, _, __):
+        self.user.manual_opt_out = True
+        self.user.put()
+        self.assertIsNone(Web.get_or_create('user.com'))
+
+    def test_get_or_create_manual_opted_out_normalize_case(self, *_):
         self.user.manual_opt_out = True
         self.user.put()
         self.assertIsNone(Web.get_or_create('uSeR.cOm'))
+
+    @patch.object(Web, 'DEFAULT_ENABLED_PROTOCOLS', ['other'])
+    def test_get_or_create_propagate_fetch_opted_out(self, mock_get, _):
+        no_feed = requests_response(ACTOR_HTML_METAFORMATS, url='https://new.com/')
+        mock_get.side_effect = [
+            no_feed,
+            requests_response(status=404),  # webfinger
+            no_feed,
+        ]
+
+        user = Web.get_or_create('new.com', propagate=True, allow_opt_out=True,
+                                 enabled_protocols=['efake'])
+        self.assertEqual('new.com', user.key.id())
+        self.assertEqual('no-feed-or-webmention', user.status)
+        self.assertEqual([], OtherFake.created_for)
+        self.assertEqual([], ExplicitFake.created_for)
+
+    def test_get_or_create_re_verify(self, mock_get, _):
+        mock_get.side_effect = [
+            requests_response(status=404),  # webfinger
+            ACTOR_HTML_RESP,
+        ]
+
+        self.user.redirects_error = OWNS_WEBFINGER
+        self.user.put()
+
+        user = Web.get_or_create('user.com', verify=True)
+        self.assertEqual('user.com', user.key.id())
+        self.assertIsNone(user.status)
+        self.assertEqual([], OtherFake.created_for)
+        self.assertEqual([], ExplicitFake.created_for)
 
     def test_get_or_create_bridgy_subdomain(self, *_):
         for subdomain in '', 'fa.', 'fed.', 'web.':
@@ -581,6 +617,36 @@ class WebTest(TestCase):
                       Object.get_by_id(id='https://new.com/').copies)
 
         self.assert_task(mock_create_task, 'poll-feed', domain='new.com')
+
+    def test_verify_www_redirect(self, mock_get, _):
+        www_user = self.make_user('www.user.com', cls=Web)
+
+        mock_get.side_effect = [
+            requests_response(status=302, redirected_url='https://www.user.com/'),
+            requests_response(status=404),  # webfinger
+            requests_response(ACTOR_HTML, url='https://www.user.com/')
+        ]
+
+        got = www_user.verify()
+        self.assertEqual('user.com', got.key.id())
+
+        root_user = Web.get_by_id('user.com')
+        self.assertEqual(root_user.key, www_user.key.get().use_instead)
+        self.assertEqual(root_user.key, Web.get_or_create('www.user.com').key)
+
+    def test_get_or_create_www_new_use_instead(self, mock_get, _):
+        mock_get.side_effect = [
+            requests_response(status=302, redirected_url='https://www.user.com/'),
+            ACTOR_HTML_RESP,
+            requests_response(status=404),  # webfinger for @user.com@user.com
+            ACTOR_HTML_RESP,
+        ]
+
+        got = Web.get_or_create('www.user.com')
+        self.assertEqual('user.com', got.key.id())
+
+        www_user = ndb.Key(Web, 'www.user.com').get()
+        self.assertEqual(got.key, www_user.use_instead)
 
     def test_bad_source_url(self, *mocks):
         self.user = self.make_user('fed.brid.gy', cls=Web)
@@ -2656,57 +2722,6 @@ Current vs expected:<pre>- http://this/404s
             'objectType': 'person',
             'url': 'https://user.com',
         })
-
-    def test_verify_www_redirect(self, mock_get, _):
-        www_user = self.make_user('www.user.com', cls=Web)
-
-        mock_get.side_effect = [
-            requests_response(status=302, redirected_url='https://www.user.com/'),
-            requests_response(status=404),  # webfinger
-            requests_response(ACTOR_HTML, url='https://www.user.com/')
-        ]
-
-        got = www_user.verify()
-        self.assertEqual('user.com', got.key.id())
-
-        root_user = Web.get_by_id('user.com')
-        self.assertEqual(root_user.key, www_user.key.get().use_instead)
-        self.assertEqual(root_user.key, Web.get_or_create('www.user.com').key)
-
-    def test_get_or_create_www_new_use_instead(self, mock_get, _):
-        mock_get.side_effect = [
-            requests_response(status=302, redirected_url='https://www.user.com/'),
-            ACTOR_HTML_RESP,
-            requests_response(status=404),  # webfinger for @user.com@user.com
-            ACTOR_HTML_RESP,
-        ]
-
-        got = Web.get_or_create('www.user.com')
-        self.assertEqual('user.com', got.key.id())
-
-        www_user = ndb.Key(Web, 'www.user.com').get()
-        self.assertEqual(got.key, www_user.use_instead)
-
-    def test_get_or_create_opted_out(self, _, __):
-        self.user.manual_opt_out = True
-        self.user.put()
-        self.assertIsNone(Web.get_or_create('user.com'))
-
-    @patch.object(Web, 'DEFAULT_ENABLED_PROTOCOLS', ['other'])
-    def test_get_or_create_propagate_opted_out(self, mock_get, _):
-        no_feed = requests_response(ACTOR_HTML_METAFORMATS, url='https://new.com/')
-        mock_get.side_effect = [
-            no_feed,
-            requests_response(status=404),  # webfinger
-            no_feed,
-        ]
-
-        user = Web.get_or_create('new.com', propagate=True, allow_opt_out=True,
-                                 enabled_protocols=['efake'])
-        self.assertEqual('new.com', user.key.id())
-        self.assertEqual('no-feed-or-webmention', user.status)
-        self.assertEqual([], OtherFake.created_for)
-        self.assertEqual([], ExplicitFake.created_for)
 
     def test_verify_actor_rel_me_links(self, mock_get, _):
         mock_get.side_effect = [
