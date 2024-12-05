@@ -98,7 +98,7 @@ requests-oauthlib==1.4.0
 rsa==4.9
 sgmllib3k==1.0.0
 simple-websocket==1.1.0
-six==1.16.0
+six==1.17.0
 soupsieve==2.6
 testtools==2.7.2
 tlslite-ng==0.7.6
