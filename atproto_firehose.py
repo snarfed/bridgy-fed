@@ -220,7 +220,7 @@ def subscribe():
                 continue
 
             if op.repo in atproto_dids and op.action == 'delete':
-                logger.info(f'Got delete from our ATProto user: {op}')
+                logger.debug(f'Got delete from our ATProto user: {op}')
                 # TODO: also detect deletes of records that *reference* our bridged
                 # users, eg a delete of a follow or like or repost of them.
                 # not easy because we need to getRecord the record to check
@@ -274,7 +274,7 @@ def subscribe():
                     if not is_ours(reply['parent'], also_atproto_users=True):
                         continue
 
-            logger.info(f'Got one: {op.action} {op.repo} {op.path}')
+            logger.debug(f'Got one: {op.action} {op.repo} {op.path}')
             commits.put(op)
 
 
