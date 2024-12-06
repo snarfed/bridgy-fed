@@ -1101,7 +1101,7 @@ def inbox(protocol=None, id=None):
     elif (type in as2.CRUD_VERBS and obj_id
           and actor_domain != util.domain_from_link(obj_id)):
         report_error('Auth: actor and object on different domains',
-                     user=f'actor {actor_id} object {id}')
+                     user=f'actor {actor_id} object {obj_id}')
 
     # are we already processing or done with this activity?
     if id:
