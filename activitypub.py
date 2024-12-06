@@ -37,6 +37,7 @@ from common import (
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
     redirect_wrap,
+    report_error,
     subdomain_wrap,
     unwrap,
 )
@@ -1070,17 +1071,39 @@ def inbox(protocol=None, id=None):
 
     # do we support this object type?
     # (this logic is duplicated in Protocol.check_supported)
-    object = as1.get_object(activity)
+    obj = as1.get_object(activity)
     if type := activity.get('type'):
-        inner_type = as1.object_type(object) or ''
+        inner_type = as1.object_type(obj) or ''
         if (type not in ActivityPub.SUPPORTED_AS2_TYPES or
             (type in as2.CRUD_VERBS
              and inner_type
              and inner_type not in ActivityPub.SUPPORTED_AS2_TYPES)):
             error(f"Bridgy Fed for ActivityPub doesn't support {type} {inner_type} yet: {json_dumps(activity, indent=2)}", status=204)
 
-    # are we already processing or done with this activity?
+    # check actor, authz actor's domain against activity and object ids
+    # https://github.com/snarfed/bridgy-fed/security/advisories/GHSA-37r7-jqmr-3472
+    actor = as1.get_object(activity, 'actor')
+    actor_id = actor.get('id')
+
+    if ActivityPub.is_blocklisted(actor_id):
+        error(f'Actor {actor_id} is blocklisted')
+
+    actor_domain = util.domain_from_link(actor_id)
+    if util.domain_or_parent_in(actor_domain, web_opt_out_domains()):
+        logger.info(f'{actor_domain} is opted out')
+        return '', 204
+
     id = activity.get('id')
+    obj_id = obj.get('id')
+    if id and actor_domain != util.domain_from_link(id):
+        report_error('Auth: actor and activity on different domains',
+                     user=f'actor {actor_id} activity {id}')
+    elif (type in as2.CRUD_VERBS and obj_id
+          and actor_domain != util.domain_from_link(obj_id)):
+        report_error('Auth: actor and object on different domains',
+                     user=f'actor {actor_id} object {id}')
+
+    # are we already processing or done with this activity?
     if id:
         domain = util.domain_from_link(id)
         if util.domain_or_parent_in(domain, web_opt_out_domains()):
@@ -1091,19 +1114,7 @@ def inbox(protocol=None, id=None):
             logger.info(f'Already seen {id}')
             return '', 204
 
-    # check actor, signature, auth
-    actor = as1.get_object(activity, 'actor')
-    actor_id = actor.get('id')
-    logger.info(f'Got {type} {id} from {actor_id}')
-
-    if ActivityPub.is_blocklisted(actor_id):
-        error(f'Actor {actor_id} is blocklisted')
-
-    actor_domain = util.domain_from_link(actor_id)
-    if util.domain_or_parent_in(actor_domain, web_opt_out_domains()):
-        logger.info(f'{actor_domain} is opted out')
-        return '', 204
-
+    # check signature, auth
     authed_as = ActivityPub.verify_signature(activity)
 
     authed_domain = util.domain_from_link(authed_as)
@@ -1114,6 +1125,8 @@ def inbox(protocol=None, id=None):
     # those yet
     if authed_as != actor_id and activity.get('signature'):
         error(f"Ignoring LD Signature, sorry, we can't verify those yet. https://github.com/snarfed/bridgy-fed/issues/566", status=202)
+
+    logger.info(f'Got {type} {id} from {actor_id}')
 
     if type == 'Follow':
         # rendered mf2 HTML proxy pages (in render.py) fall back to redirecting
@@ -1128,7 +1141,7 @@ def inbox(protocol=None, id=None):
         activity.setdefault('url', f'{follower_url}#followed-{followee_url}')
 
     if not id:
-        id = f'{actor_id}#{type}-{object.get("id", "")}-{util.now().isoformat()}'
+        id = f'{actor_id}#{type}-{obj_id or ""}-{util.now().isoformat()}'
 
     # automatically bridge server aka instance actors
     # https://codeberg.org/fediverse/fep/src/branch/main/fep/d556/fep-d556.md

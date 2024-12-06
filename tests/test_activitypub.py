@@ -1696,13 +1696,9 @@ class ActivityPubTest(TestCase):
     def test_delete_actor_not_fetchable(self, _, mock_get, ___):
         mock_get.return_value = requests_response(status=410)
 
-        with self.assertLogs() as logs:
-            got = self.post('/ap/sharedInbox', json=DELETE)
-
+        got = self.post('/ap/sharedInbox', json=DELETE)
         self.assertEqual(202, got.status_code)
         self.assertTrue(Object.get_by_id(DELETE['object']).deleted)
-        # self.assertIn('Object/actor being deleted is also keyId',
-        #               ' '.join(logs.output))
 
     def test_delete_actor_empty_deleted_object(self, _, mock_get, ___):
         actor = self.make_user(DELETE['actor'], cls=ActivityPub)
@@ -1879,6 +1875,50 @@ class ActivityPubTest(TestCase):
 
         actor = ActivityPub.get_by_id('https://mas.to/actor')
         self.assertCountEqual(['ui', 'fake', 'other'], actor.enabled_protocols)
+
+    # https://github.com/snarfed/bridgy-fed/security/advisories/GHSA-37r7-jqmr-3472
+    def test_inbox_actor_auth_check_activity_id_different_domain(
+            self, mock_head, mock_get, mock_post):
+        mock_get.side_effect = [
+            self.as2_resp(ACTOR),
+            self.as2_resp(ACTOR),
+            self.as2_resp(NOTE),
+        ]
+
+        with self.assertLogs() as logs:
+            got = self.post('/user.com/inbox', json={
+                'id': 'http://no.pe/like',
+                'type': 'Like',
+                'actor': 'https://mas.to/users/swentel',
+                'object': 'https://mas.to/note/as2',
+            })
+
+        self.assertEqual(204, got.status_code)
+        self.assertIn('Auth: actor and activity on different domains',
+                      ' '.join(logs.output))
+
+    # https://github.com/snarfed/bridgy-fed/security/advisories/GHSA-37r7-jqmr-3472
+    def test_inbox_actor_auth_check_object_id_different_domain(
+            self, mock_head, mock_get, mock_post):
+        mock_get.side_effect = [
+            self.as2_resp(ACTOR),
+            self.as2_resp(ACTOR),
+        ]
+
+        with self.assertLogs() as logs:
+            got = self.post('/user.com/inbox', json={
+                'id': 'http://mas.to/create',
+                'type': 'Create',
+                'actor': 'https://mas.to/users/swentel',
+                'object': {
+                    **NOTE_OBJECT,
+                    'id': 'https://no.pe/note',
+                },
+            })
+
+        self.assertEqual(204, got.status_code)
+        self.assertIn('Auth: actor and object on different domains',
+                      ' '.join(logs.output))
 
     def test_followers_collection_unknown_user(self, *_):
         resp = self.client.get('/nope.com/followers')
