@@ -879,9 +879,17 @@ class ATProto(User, Protocol):
             for facet in ret.get('facets', []):
                 if feats := facet.get('features'):
                     if feats[0]['$type'] == 'app.bsky.richtext.facet#link':
-                        if link := web.Web.load(feats[0]['uri'], metaformats=True,
+                        try:
+                            link = web.Web.load(feats[0]['uri'], metaformats=True,
                                                 authorship_fetch_mf2=False,
-                                                raise_=False):
+                                                raise_=False)
+                        except AssertionError as e:
+                            # we probably have an Object already stored for this URL
+                            # with source_protocol that's not web
+                            logger.warning(e)
+                            continue
+
+                        if link:
                             if img := util.get_url(link.as1, 'image'):
                                 props = appview.defs['app.bsky.embed.external#external']['properties']
                                 fetch_blob(img, props, name='thumb',
