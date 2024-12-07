@@ -982,6 +982,26 @@ class ProtocolReceiveTest(TestCase):
             ('other:bob:target', obj.as1),
         ], OtherFake.sent)
 
+    def test_create_post_object_missing_id(self):
+        self.make_followers()
+
+        # got an activity like this from Pandacap
+        # https://github.com/IsaacSchemm/Pandacap
+        create_as1 = {
+            'id': 'fake:create',
+            'objectType': 'activity',
+            'verb': 'post',
+            'actor': 'fake:user',
+            'object': [{
+                'Item1': 'id',
+                'Item2': 'https://pandacap.azurewebsites.net/#transient-abc-123',
+            }],
+        }
+        with self.assertRaises(ErrorButDoNotRetryTask):
+            Fake.receive_as1(create_as1)
+
+        self.assertEqual([], OtherFake.sent)
+
     def test_create_post_bare_object(self):
         self.make_followers()
 

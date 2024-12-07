@@ -2320,6 +2320,21 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'https://chat.local/xrpc/chat.bsky.convo.getConvoForMembers?members=did%3Aplc%3Aalice',
             json=None, data=None, headers=ANY)
 
+    def test_send_object_without_id(self):
+        user = self.make_user_and_repo()
+
+        # got an activity like this from Pandacap
+        # https://github.com/IsaacSchemm/Pandacap
+        dm = Object(id='fake:post', source_protocol='fake', our_as1={
+            'objectType': 'activity',
+            'verb': 'post',
+            'object': [{
+                'Item1': 'id',
+                'Item2': 'https://pandacap.azurewebsites.net/#transient-abc-123',
+            }],
+        })
+        self.assertFalse(ATProto.send(dm, 'https://bsky.brid.gy/'))
+
     def test_datastore_client_get_record_datastore_object(self):
         self.make_user_and_repo()
         post = {

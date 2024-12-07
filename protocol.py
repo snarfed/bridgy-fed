@@ -917,6 +917,11 @@ class Protocol:
         obj.add('users', from_user.key)
 
         inner_obj_as1 = as1.get_object(obj.as1)
+        inner_obj_id = inner_obj_as1.get('id')
+        if obj.type in as1.CRUD_VERBS | set(('like', 'share')):
+            if not inner_obj_id:
+                error(f'{obj.type} object has no id!')
+
         if obj.type in as1.CRUD_VERBS:
             if inner_owner := as1.get_owner(inner_obj_as1):
                 if inner_owner_key := from_cls.key_for(inner_owner):
@@ -926,7 +931,6 @@ class Protocol:
         obj.put()
 
         # store inner object
-        inner_obj_id = inner_obj_as1.get('id')
         if obj.type in ('post', 'update') and inner_obj_as1.keys() > set(['id']):
             Object.get_or_create(inner_obj_id, our_as1=inner_obj_as1,
                                  source_protocol=from_cls.LABEL, authed_as=actor)
@@ -959,16 +963,10 @@ class Protocol:
             # TODO: do we convert stop-following to webmention 410 of original
             # follow?
 
-        elif obj.type in ('update', 'like', 'share'):  # require object
-            if not inner_obj_id:
-                error("Couldn't find id of object to update")
-
             # fall through to deliver to followers
 
         elif obj.type in ('delete', 'undo'):
-            if not inner_obj_id:
-                error("Couldn't find id of object to delete")
-
+            assert inner_obj_id
             logger.info(f'Marking Object {inner_obj_id} deleted')
             Object.get_or_create(inner_obj_id, deleted=True, authed_as=authed_as)
 

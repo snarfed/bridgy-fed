@@ -158,8 +158,11 @@ class Fake(User, protocol.Protocol):
         from_ = PROTOCOLS.get(obj.source_protocol)
         if (from_ and from_ != to and to.HAS_COPIES
                 and obj.type not in ('update', 'delete')):
+            obj_id = as1.get_object(obj.as1).get('id')
+            if not obj_id:
+                return False
             if obj.type == 'post':
-                obj = Object.get_by_id(as1.get_object(obj.as1)['id'])
+                obj = Object.get_by_id(obj_id)
             copy_id = ids.translate_object_id(
                 id=obj.key.id(), from_=from_, to=to)
             util.add(obj.copies, Target(uri=copy_id, protocol=to.LABEL))

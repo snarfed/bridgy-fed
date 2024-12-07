@@ -1120,9 +1120,10 @@ class WebTest(TestCase):
         mock_get.return_value = requests_response(
             NOTE_HTML.replace('<a href="http://localhost/"></a>', """
   <a class="u-like-of" href="https://alice.com/post"></a>
-  <a class="u-bookmark-of" href="http://bob.com/post"></a>
+  <a class="u-repost-of" href="http://bob.com/post"></a>
+  <a class="u-url" href=""></a>
   <a href="http://localhost/"></a>
-"""), url='https://user.com/post')
+"""))
 
         got = self.post('/queue/webmention', data={
             'source': 'https://user.com/multiple',
@@ -1131,21 +1132,19 @@ class WebTest(TestCase):
         self.assertEqual(202, got.status_code)
 
         inboxes = ['https://inbox', 'https://public/inbox', 'https://shared/inbox']
-        expected = {
-            **NOTE_AS2,
-            'attributedTo': None,
-            'type': 'Create',
+        self.assert_deliveries(mock_post, inboxes, {
+            '@context': ['https://www.w3.org/ns/activitystreams'],
+            'type': 'Announce',
+            'id': 'http://localhost/r/https://user.com/multiple',
             'actor': 'http://localhost/user.com',
-            'content': 'hello i am a post',
-            # TODO: this is an awkward wart left over from the multi-type mf2.
-            # remove it eventually.
-            'object': {
-                'targetUrl': 'http://bob.com/post',
-                'to': ['https://www.w3.org/ns/activitystreams#Public'],
-            },
-        }
-        del expected['contentMap']
-        self.assert_deliveries(mock_post, inboxes, expected)
+            'content': '<p>hello i am a post</p>',
+            'contentMap': {'en': '<p>hello i am a post</p>'},
+            'name': 'hello i am a post',
+            'object': 'http://localhost/r/http://bob.com/post',
+            'to': ['https://www.w3.org/ns/activitystreams#Public'],
+            'cc': ['http://localhost/user.com',
+                   'https://www.w3.org/ns/activitystreams#Public'],
+        })
 
     def test_create_default_url_to_wm_source(self, mock_get, mock_post):
         """Source post has no u-url. AS2 id should default to webmention source."""

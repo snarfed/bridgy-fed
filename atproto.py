@@ -578,9 +578,12 @@ class ATProto(User, Protocol):
         base_obj = obj
         base_obj_as1 = obj.as1
         allow_opt_out = (type == 'delete')
-        if type in ('post', 'update', 'delete', 'undo'):
+        if type in as1.CRUD_VERBS:
             base_obj_as1 = as1.get_object(obj.as1)
-            base_id = base_obj_as1['id']
+            base_id = base_obj_as1.get('id')
+            if not base_id:
+                logger.info(f'{type} object has no id!')
+                return False
             base_obj = PROTOCOLS[obj.source_protocol].load(base_id, remote=False)
             if type not in ('delete', 'undo'):
                 if not base_obj:  # probably a new repo
