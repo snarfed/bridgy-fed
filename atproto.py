@@ -960,9 +960,9 @@ class ATProto(User, Protocol):
 
         if from_user.LABEL == 'web':
             # link web users to their user pages
-            source_links = f'[bridged from {url}{proto_phrase}: https://{PRIMARY_DOMAIN}{from_user.user_page_path()} ]'
+            source_links = f'[bridged from {url}{proto_phrase}: https://{PRIMARY_DOMAIN}{from_user.user_page_path()}]'
         else:
-            source_links = f'[bridged from {url}{proto_phrase} by https://{PRIMARY_DOMAIN}/ ]'
+            source_links = f'[bridged from {url}{proto_phrase} by https://{PRIMARY_DOMAIN}/]'
 
         if summary:
             source_links = '\n\n' + source_links
