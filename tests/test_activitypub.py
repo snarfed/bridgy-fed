@@ -279,22 +279,22 @@ DELETE = {
 
 UPDATE_PERSON = {
     '@context': ['https://www.w3.org/ns/activitystreams'],
-    'id': 'https://a/person#update',
+    'id': 'https://mas.to/person#update',
     'type': 'Update',
     'actor': 'https://mas.to/users/swentel',
     'object': {
         'type': 'Person',
-        'id': 'https://a/person',
+        'id': 'https://mas.to/person',
     },
 }
 UPDATE_NOTE = {
     '@context': ['https://www.w3.org/ns/activitystreams'],
-    'id': 'https://a/note#update',
+    'id': 'https://mas.to/note#update',
     'type': 'Update',
     'actor': 'https://mas.to/users/swentel',
     'object': {
         'type': 'Note',
-        'id': 'https://a/note',
+        'id': 'https://mas.to/note',
     },
 }
 WEBMENTION_DISCOVERY = requests_response(
@@ -355,9 +355,9 @@ class ActivityPubTest(TestCase):
         self.swentel_key = ndb.Key(ActivityPub, 'https://mas.to/users/swentel')
         self.masto_actor_key = ndb.Key(ActivityPub, 'https://mas.to/me')
 
-        self.key_id_obj = Object(id='http://my/key/id', as2={
+        self.key_id_obj = Object(id='http://mas.to/key/id', as2={
             **ACTOR,
-            'id': 'http://my/key/id',
+            'id': 'http://mas.to/key/id',
         })
 
         for obj in ACTOR, ACTOR_BASE, ACTOR_FAKE, LIKE_ACTOR, self.key_id_obj.as2:
@@ -632,24 +632,25 @@ class ActivityPubTest(TestCase):
 
     def test_inbox_bad_id(self, *_):
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
-        resp = self.post('/ap/sharedInbox', json={**NOTE, 'id': 'abc123'})
+        resp = self.post('/ap/sharedInbox', json={
+            **NOTE,
+            'id': 'mas.to',
+        })
         self.assertEqual(299, resp.status_code)
-        self.assertIsNone(Object.get_by_id('abc123'))
+        self.assertIsNone(Object.get_by_id('mas.to'))
 
+    @patch('activitypub._WEB_OPT_OUT_DOMAINS', new=set(['mas.to']))
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_inbox_activity_id_on_opted_out_web_domain(self, mock_create_task, *_):
-        activitypub._WEB_OPT_OUT_DOMAINS = set(['bad.com'])
-
-        resp = self.post('/ap/sharedInbox', json={**NOTE, 'id': 'https://bad.com/123'})
+        resp = self.post('/ap/sharedInbox', json=NOTE)
         self.assertEqual(204, resp.status_code)
         mock_create_task.assert_not_called()
         self.assertEqual(0, ActivityPub.query().count())
         self.assertEqual(1, Object.query().count())  # self.user
 
+    @patch('activitypub._WEB_OPT_OUT_DOMAINS', new=set(['bad.com']))
     @patch('oauth_dropins.webutil.appengine_config.tasks_client.create_task')
     def test_inbox_actor_id_on_opted_out_web_domain(self, mock_create_task, *_):
-        activitypub._WEB_OPT_OUT_DOMAINS = set(['bad.com'])
-
         resp = self.post('/ap/sharedInbox', json={
             **NOTE,
             'actor': 'https://bad.com/eve',
@@ -803,7 +804,7 @@ class ActivityPubTest(TestCase):
         })
         reply = {
             **REPLY_OBJECT,
-            'id': 'http://my/reply',
+            'id': 'http://mas.to/reply',
             'inReplyTo': 'fake:post',
         }
 
@@ -814,7 +815,7 @@ class ActivityPubTest(TestCase):
             [('fake:post:target', {
                 'objectType': 'activity',
                 'verb': 'post',
-                'id': 'http://my/reply#bridgy-fed-create',
+                'id': 'http://mas.to/reply#bridgy-fed-create',
                 'published': '2022-01-02T03:04:05+00:00',
                 'object': as2.to_as1(reply),
                 'actor': as2.to_as1(ACTOR),
@@ -1151,7 +1152,7 @@ class ActivityPubTest(TestCase):
         user = self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
 
         got = self.post('/inbox', json={
-            'id': 'https://inst/like',
+            'id': 'https://mas.to/like',
             'type': 'Like',
             'actor': ACTOR['id'],
             'object': None,
@@ -1487,7 +1488,7 @@ class ActivityPubTest(TestCase):
             'id': 'https://xoxo.zone/users/aaronpk#follows/40',
             'type': 'Arrive',
             'actor': ACTOR['id'],
-            'object': 'http://a/place',
+            'object': 'http://mas.to/place',
         })
         self.assertEqual(204, got.status_code)
         mock_create_task.assert_not_called()
@@ -1529,19 +1530,20 @@ class ActivityPubTest(TestCase):
         mock_get.return_value = self.as2_resp(self.key_id_obj.as2)
 
         # valid signature
-        note = {**NOTE, 'actor': 'http://my/key/id'}
+        note = {**NOTE, 'actor': 'http://mas.to/key/id'}
         body = json_dumps(note)
-        headers = sign('/ap/sharedInbox', json_dumps(note), key_id='http://my/key/id')
+        headers = sign('/ap/sharedInbox', json_dumps(note),
+                       key_id='http://mas.to/key/id')
         resp = self.client.post('/ap/sharedInbox', data=body, headers=headers)
         self.assertEqual(204, resp.status_code, resp.get_data(as_text=True))
         mock_get.assert_has_calls((
-            self.as2_req('http://my/key/id'),
+            self.as2_req('http://mas.to/key/id'),
         ))
 
     @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
     def test_inbox_verify_sig_stored_key(self, *_):
-        body = json_dumps({**NOTE, 'actor': 'http://my/key/id'})
-        headers = sign('/ap/sharedInbox', body, key_id='http://my/key/id')
+        body = json_dumps({**NOTE, 'actor': 'http://mas.to/key/id'})
+        headers = sign('/ap/sharedInbox', body, key_id='http://mas.to/key/id')
 
         # valid signature, stored Object has no key
         self.key_id_obj.as2 = {**ACTOR, 'publicKey': {}}
@@ -1578,7 +1580,8 @@ class ActivityPubTest(TestCase):
     @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
     def test_inbox_verify_sig_content_changed(self, mock_common_log, *_):
         self.key_id_obj.put()
-        headers = sign('/ap/sharedInbox', json_dumps(NOTE), key_id='http://my/key/id')
+        headers = sign('/ap/sharedInbox', json_dumps(NOTE),
+                       key_id='http://mas.to/key/id')
 
         resp = self.client.post('/ap/sharedInbox', json={**NOTE, 'content': 'z'},
                                 headers=headers)
@@ -1590,8 +1593,8 @@ class ActivityPubTest(TestCase):
     @patch('oauth_dropins.webutil.appengine_info.DEBUG', False)
     def test_inbox_verify_sig_header_changed(self, mock_common_log, *_):
         self.key_id_obj.put()
-        body = json_dumps({**NOTE, 'actor': 'http://my/key/id'})
-        headers = sign('/ap/sharedInbox', body, key_id='http://my/key/id')
+        body = json_dumps({**NOTE, 'actor': 'http://mas.to/key/id'})
+        headers = sign('/ap/sharedInbox', body, key_id='http://mas.to/key/id')
 
         resp = self.client.post('/ap/sharedInbox', data=body,
                                 headers={**headers, 'Date': 'X'})
@@ -1619,40 +1622,43 @@ class ActivityPubTest(TestCase):
         self.key_id_obj.put()
 
         body = json_dumps(NOTE)
-        headers = sign('/ap/sharedInbox', body, key_id='http://my/key/id')
+        headers = sign('/ap/sharedInbox', body, key_id='http://mas.to/key/id')
 
         with app.test_request_context('/ap/sharedInbox', method='POST',
                                       data=body, headers=headers):
             self.assertEqual(actor, ActivityPub.verify_signature(None))
 
     def test_inbox_ignore_forward_with_ld_sig(self, _, __, ___):
-        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR),
+        self.make_user(ACTOR['id'], cls=ActivityPub, obj_as2=ACTOR)
 
-        got = self.post('/user.com/inbox', json={
-            'id': 'http://inst/post',
-            'type': 'Note',
-            'attributedTo': ACTOR['id'],
+        got = self.client.post('/user.com/inbox', json={
+            'type': 'Create',
+            'id': 'http://mas.to/like',
+            'actor': 'http://mas.to/other',
+            'object': {'id': 'http://mas.to/post'},
             'signature': {
                 'type': 'RsaSignature2017',
-                'creator': 'fake:other#main-key',
+                'creator': 'http://mas.to/other#main-key',
                 'created': '2024-05-20T01:52:09Z',
                 'signatureValue': '...',
             },
         })
-        self.assertEqual(202, got.status_code)
+
+        self.assertEqual(202, got.status_code, got.text)
         self.assertIn('Ignoring LD Signature', got.text)
         self.assertIsNone(Object.get_by_id('http://inst/post'))
         self.assertIsNone(common.memcache.get('receive-http://inst/post'))
 
+
     def test_inbox_http_sig_is_not_actor_author(self, mock_head, mock_get, mock_post):
         mock_get.side_effect = [
-            self.as2_resp({**ACTOR, 'id': 'https://al/ice'}),
+            self.as2_resp({**ACTOR, 'id': 'https://mas.to/alice'}),
             self.as2_resp(ACTOR),  # swentel
         ]
 
         body = json_dumps({
-            **NOTE_OBJECT,
-            'attributedTo': 'https://al/ice',
+            **NOTE,
+            'actor': 'https://mas.to/alice',
         })
         headers = sign('/ap/sharedInbox', body, key_id=ACTOR['id'])
         got = self.client.post('/ap/sharedInbox', data=body, headers=headers)
@@ -1710,7 +1716,7 @@ class ActivityPubTest(TestCase):
         mock_get.assert_not_called()
 
     def test_delete_note(self, _, mock_get, ___):
-        obj = Object(id='http://an/obj')
+        obj = Object(id='http://mas.to/obj', as2=NOTE, source_protocol='activitypub')
         obj.put()
 
         mock_get.side_effect = [
@@ -1720,7 +1726,7 @@ class ActivityPubTest(TestCase):
 
         delete = {
             **DELETE,
-            'object': 'http://an/obj',
+            'object': 'http://mas.to/obj',
         }
         resp = self.post('/ap/sharedInbox', json=delete)
         self.assertEqual(204, resp.status_code)
@@ -1733,7 +1739,7 @@ class ActivityPubTest(TestCase):
                            users=[ActivityPub(id='https://mas.to/users/swentel').key])
 
     def test_update_note(self, *mocks):
-        Object(id='https://a/note', as2={}).put()
+        Object(id='https://mas.to/note', as2={}).put()
         self._test_update(*mocks)
 
     def test_update_unknown(self, *mocks):
@@ -1752,7 +1758,7 @@ class ActivityPubTest(TestCase):
             **UPDATE_NOTE['object'],
             'author': {'id': 'https://mas.to/users/swentel'},
         })
-        self.assert_object('https://a/note',
+        self.assert_object('https://mas.to/note',
                            type='note',
                            our_as1=note_as1,
                            source_protocol='activitypub')
@@ -1893,7 +1899,7 @@ class ActivityPubTest(TestCase):
                 'object': 'https://mas.to/note/as2',
             })
 
-        self.assertEqual(204, got.status_code)
+        self.assertEqual(403, got.status_code)
         self.assertIn('Auth: actor and activity on different domains',
                       ' '.join(logs.output))
 
@@ -1916,7 +1922,7 @@ class ActivityPubTest(TestCase):
                 },
             })
 
-        self.assertEqual(204, got.status_code)
+        self.assertEqual(403, got.status_code)
         self.assertIn('Auth: actor and object on different domains',
                       ' '.join(logs.output))
 

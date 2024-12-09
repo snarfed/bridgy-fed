@@ -1082,7 +1082,8 @@ def inbox(protocol=None, id=None):
 
     # check actor, authz actor's domain against activity and object ids
     # https://github.com/snarfed/bridgy-fed/security/advisories/GHSA-37r7-jqmr-3472
-    actor = as1.get_object(activity, 'actor')
+    actor = (as1.get_object(activity, 'actor')
+             or as1.get_object(activity, 'attributedTo'))
     actor_id = actor.get('id')
 
     if ActivityPub.is_blocklisted(actor_id):
@@ -1096,12 +1097,14 @@ def inbox(protocol=None, id=None):
     id = activity.get('id')
     obj_id = obj.get('id')
     if id and actor_domain != util.domain_from_link(id):
-        report_error('Auth: actor and activity on different domains',
+        report_error(f'Auth: actor and activity on different domains: {json_dumps(activity, indent=2)}',
                      user=f'actor {actor_id} activity {id}')
+        return f'actor {actor_id} and activity {id} on different domains', 403
     elif (type in as2.CRUD_VERBS and obj_id
           and actor_domain != util.domain_from_link(obj_id)):
-        report_error('Auth: actor and object on different domains',
+        report_error(f'Auth: actor and object on different domains {json_dumps(activity, indent=2)}',
                      user=f'actor {actor_id} object {obj_id}')
+        return f'actor {actor_id} and object {obj_id} on different domains', 403
 
     # are we already processing or done with this activity?
     if id:
