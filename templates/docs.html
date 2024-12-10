@@ -473,9 +473,8 @@
 <p>Here are some details on our federation, ActivityPub, and Webfinger support.</p>
 
 <ul>
-<li>Bridgy Fed uses a few different subdomains of <code>brid.gy</code>, including <code>fed.brid.gy</code>, <code>bsky.brid.gy</code>, and <code>web.brid.gy</code>. You'll need to allow federation with all of these domains for it to work.
+<li>Each bridged network has its users on a different <code>brid.gy</code> subdomain, eg <code>bsky.brid.gy</code> for Bluesky and <code>web.brid.gy</code> for web sites. You can block specific networks by blocking their subdomain, but you'll still need to allow <code>fed.brid.gy</code> and <code>brid.gy</code> for the bridge to work at all.
 <li>Bridgy Fed's instance actor for signing GETs (ie authorize fetch) is <code>https://fed.brid.gy/fed.brid.gy</code> aka <code>@fed.brid.gy@fed.brid.gy</code>.
-<li>Bridged Bluesky users are on the <code>bsky.brid.gy</code> domain. If you want to block them all and defederate from Bluesky entirely, block that domain.
 <li>Some web sites bridged into the fediverse will have Webfinger addresses on their own domains, eg <code>@snarfed.org@snarfed.org</code>. Webfinger requests to those domains redirect to <code>fed.brid.gy</code> and are served there.
 <li>Bridged ActivityPub actors are <code>type: Person</code>. Bot actors like <code>@bsky.brid.gy@bsky.brid.gy</code> and <code>@fed.brid.gy@fed.brid.gy</code> are <code>type: Service</code>.
 <li>When a fediverse user opts into the bridge, their profile and posts will be indexed and searchable in Bluesky's search even if they have the <code>discoverable</code> or <code>indexable</code> flags set to <code>false</code>. Bluesky doesn't currently have a way to opt individual users out of search.
