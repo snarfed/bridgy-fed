@@ -36,7 +36,6 @@ from common import (
     report_exception,
     USER_AGENT,
 )
-from models import Object, reset_protocol_properties
 from protocol import DELETE_TASK_DELAY
 from web import Web
 

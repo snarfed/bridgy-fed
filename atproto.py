@@ -47,6 +47,7 @@ from common import (
     DOMAINS,
     error,
     PRIMARY_DOMAIN,
+    SUPERDOMAIN,
     USER_AGENT,
 )
 import flask_app
@@ -403,7 +404,8 @@ class ATProto(User, Protocol):
                 # deactivated or deleted, or maybe still active?
                 arroba.server.storage.activate_repo(repo)
                 common.create_task(queue='atproto-commit')
-                cls.set_dns(handle=handle, did=copy_did)
+                if handle.endswith(SUPERDOMAIN):
+                    cls.set_dns(handle=handle, did=copy_did)
                 return
 
         # create new DID, repo
@@ -549,10 +551,13 @@ class ATProto(User, Protocol):
         did.update_plc(did=copy_did, handle=username,
                        signing_key=repo.signing_key, rotation_key=repo.rotation_key,
                        get_fn=util.requests_get, post_fn=util.requests_post)
+        repo.handle = username
+        arroba.server.storage.store_repo(repo)
         arroba.server.storage.write_event(repo=repo, type='identity', handle=username)
 
-        # refresh our stored DID doc
+        # refresh our stored DID doc and repo handle
         to_cls.load(copy_did, did_doc=True, remote=True)
+        repo.handle = username
 
     @classmethod
     def send(to_cls, obj, url, from_user=None, orig_obj_id=None):

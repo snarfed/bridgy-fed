@@ -1142,6 +1142,24 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         mock_create_task.assert_called()  # atproto-commit
 
     @patch('atproto.DEBUG', new=False)
+    @patch('google.cloud.dns.client.ManagedZone', autospec=True)
+    @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
+    def test_create_for_already_exists_custom_handle(self, mock_create_task,
+                                                     mock_zone):
+        """Shouldn't try to create DNS for custom handle's domain."""
+        self.make_user_and_repo()
+        repo = arroba.server.storage.load_repo('did:plc:user')
+
+        ATProto.create_for(self.user)
+
+        # shouldn't set DNS
+        mock_zone.assert_not_called()
+
+        # check repo
+        repo = arroba.server.storage.load_repo('did:plc:user')
+        self.assertEqual('han.dull', repo.handle)
+
+    @patch('atproto.DEBUG', new=False)
     @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
@@ -1312,6 +1330,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         }, timeout=15, stream=True, headers=ANY)
 
         self.assertEqual('ne.w', user.handle_as(ATProto))
+        repo = arroba.server.storage.load_repo('did:plc:user')
+        self.assertEqual('ne.w', repo.handle)
 
         # check #identity event
         seq = self.storage.last_seq(SUBSCRIBE_REPOS_NSID)
@@ -1336,6 +1356,10 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         self.assertIn("You'll need to connect that domain", str(e.exception))
 
+        self.assertEqual('ha.nl', user.handle_as(ATProto))
+        repo = arroba.server.storage.load_repo('did:plc:user')
+        self.assertEqual('han.dull', repo.handle)
+
     # resolve handle, DNS method, not found
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     # resolve handle, HTTPS method, wrong did
@@ -1347,6 +1371,10 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             ATProto.set_username(user, 'ne.w')
 
         self.assertIn("You'll need to connect that domain", str(e.exception))
+
+        self.assertEqual('ha.nl', user.handle_as(ATProto))
+        repo = arroba.server.storage.load_repo('did:plc:user')
+        self.assertEqual('han.dull', repo.handle)
 
     def test_set_username_atproto_not_enabled(self):
         user = self.make_user_and_repo()
@@ -1363,6 +1391,10 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             ATProto.set_username(user, 'bad nope')
 
         self.assertEqual("bad nope doesn't look like a domain", str(e.exception))
+
+        self.assertEqual('ha.nl', user.handle_as(ATProto))
+        repo = arroba.server.storage.load_repo('did:plc:user')
+        self.assertEqual('han.dull', repo.handle)
 
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
