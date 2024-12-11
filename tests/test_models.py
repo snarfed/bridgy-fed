@@ -288,7 +288,10 @@ class UserTest(TestCase):
         self.user.copies = [Target(uri='did:plc:user', protocol='atproto')]
         self.assertEqual('y.za.web.brid.gy', self.user.handle_as(ATProto))
 
-        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.store_object(id='did:plc:user', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://ha.nl'],
+        })
         self.assertEqual('ha.nl', self.user.handle_as(ATProto))
 
     def test_handle_as_None(self):
@@ -1138,7 +1141,10 @@ class ObjectTest(TestCase):
 
     def test_normalize_ids_follow_atproto(self):
         # for ATProto handle resolution
-        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.store_object(id='did:plc:user', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://ha.nl'],
+        })
         alice = self.make_user(id='did:plc:user', cls=ATProto)
 
         obj = Object(our_as1={
@@ -1157,7 +1163,10 @@ class ObjectTest(TestCase):
 
     def test_normalize_ids_reply(self):
         # for ATProto handle resolution
-        self.store_object(id='did:plc:user', raw=DID_DOC)
+        self.store_object(id='did:plc:user', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://ha.nl'],
+        })
         self.make_user(id='did:plc:user', cls=ATProto)
 
         obj = Object(our_as1={

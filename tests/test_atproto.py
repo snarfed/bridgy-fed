@@ -43,7 +43,7 @@ from web import Web
 
 DID_DOC = {
     'id': 'did:plc:user',
-    'alsoKnownAs': ['at://ha.nl'],
+    'alsoKnownAs': ['at://han.dull.brid.gy'],
     'verificationMethod': [{
         'id': 'did:plc:user#atproto',
         'type': 'Multikey',
@@ -90,7 +90,7 @@ class ATProtoTest(TestCase):
         did_doc = copy.deepcopy(DID_DOC)
         did_doc['service'][0]['serviceEndpoint'] = ATProto.PDS_URL
         self.store_object(id='did:plc:user', raw=did_doc)
-        self.repo = Repo.create(self.storage, 'did:plc:user', handle='han.dull',
+        self.repo = Repo.create(self.storage, 'did:plc:user', handle='han.dull.brid.gy',
                                 signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
 
         return self.user
@@ -115,13 +115,16 @@ class ATProtoTest(TestCase):
         ATProto(id='did:plc:user').put()
 
     def test_handle(self):
-        self.store_object(id='did:plc:user', raw=DID_DOC)
-        self.assertEqual('ha.nl', ATProto(id='did:plc:user').handle)
+        self.store_object(id='did:plc:user', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://han.dull'],
+        })
+        self.assertEqual('han.dull', ATProto(id='did:plc:user').handle)
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_get_or_create(self, _):
         user = self.make_user('did:plc:user', cls=ATProto)
-        self.assertEqual('ha.nl', user.key.get().handle)
+        self.assertEqual('han.dull.brid.gy', user.key.get().handle)
 
     def test_id_uri(self):
         self.assertEqual('at://did:plc:user', ATProto(id='did:plc:user').id_uri())
@@ -159,7 +162,7 @@ class ATProtoTest(TestCase):
     def test_handle_to_id(self):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         self.make_user('did:plc:user', cls=ATProto)
-        self.assertEqual('did:plc:user', ATProto.handle_to_id('ha.nl'))
+        self.assertEqual('did:plc:user', ATProto.handle_to_id('han.dull.brid.gy'))
 
     def test_handle_to_id_bad(self):
         for bad in None, '', '.bsky.social':
@@ -167,17 +170,17 @@ class ATProtoTest(TestCase):
                 self.assertIsNone(ATProto.handle_to_id(bad))
 
     def test_handle_to_id_first_opted_out(self):
-        AtpRepo(id='did:plc:other', handles=['ha.nl'], head='', signing_key_pem=b'',
+        AtpRepo(id='did:plc:other', handles=['han.dull.brid.gy'], head='', signing_key_pem=b'',
                 status=arroba.util.TOMBSTONED).put()
-        AtpRepo(id='did:plc:user', handles=['ha.nl'], head='', signing_key_pem=b'',
+        AtpRepo(id='did:plc:user', handles=['han.dull.brid.gy'], head='', signing_key_pem=b'',
                 ).put()
-        self.assertEqual('did:plc:user', ATProto.handle_to_id('ha.nl'))
+        self.assertEqual('did:plc:user', ATProto.handle_to_id('han.dull.brid.gy'))
 
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
     # resolving handle, HTTPS method, not found
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_handle_to_id_not_found(self, *_):
-        self.assertIsNone(ATProto.handle_to_id('ha.nl'))
+        self.assertIsNone(ATProto.handle_to_id('han.dull.brid.gy'))
 
     @patch('requests.get', side_effect=[
         requests_response({
@@ -201,7 +204,7 @@ class ATProtoTest(TestCase):
 
         fake.copies = [Target(uri='did:plc:user', protocol='atproto')]
         self.store_object(id='did:plc:user', raw=DID_DOC)
-        self.assertEqual('https://bsky.app/profile/ha.nl',
+        self.assertEqual('https://bsky.app/profile/han.dull.brid.gy',
                          ATProto.bridged_web_url_for(fake))
 
     def test_pds_for_did_no_doc(self):
@@ -366,8 +369,8 @@ class ATProtoTest(TestCase):
                 mock_get.assert_not_called()
 
     def test_fetch_bsky_app_url_fails(self):
-        for uri in ('https://bsky.app/profile/ha.nl',
-                    'https://bsky.app/profile/ha.nl/post/789'):
+        for uri in ('https://bsky.app/profile/han.dull.brid.gy',
+                    'https://bsky.app/profile/han.dull.brid.gy/post/789'):
             with self.assertRaises(AssertionError):
                 ATProto.fetch(Object(id=uri))
 
@@ -401,7 +404,7 @@ class ATProtoTest(TestCase):
         requests_response(DID_DOC),
     ])
     def test_load_bsky_app_post_url(self, mock_get, _):
-        obj = ATProto.load('https://bsky.app/profile/ha.nl/post/789')
+        obj = ATProto.load('https://bsky.app/profile/han.dull.brid.gy/post/789')
         self.assertEqual('at://did:plc:user/app.bsky.feed.post/789', obj.key.id())
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
@@ -426,7 +429,7 @@ class ATProtoTest(TestCase):
         self.store_object(id='did:plc:user', raw=DID_DOC)
         self.make_user('did:plc:user', cls=ATProto)
 
-        obj = ATProto.load('https://bsky.app/profile/ha.nl')
+        obj = ATProto.load('https://bsky.app/profile/han.dull.brid.gy')
         self.assertEqual('at://did:plc:user/app.bsky.actor.profile/self', obj.key.id())
         self.assertEqual({
             '$type': 'app.bsky.actor.profile',
@@ -575,7 +578,7 @@ class ATProtoTest(TestCase):
             'objectType': 'activity',
             'verb': 'like',
             # handle here should be replaced with DID in returned record's URI
-            'object': 'at://ha.nl/app.bsky.feed.post/tid',
+            'object': 'at://han.dull.brid.gy/app.bsky.feed.post/tid',
         })))
         mock_get.assert_called_with(
             'https://appview.local/xrpc/com.atproto.repo.getRecord?repo=did%3Aplc%3Auser&collection=app.bsky.feed.post&rkey=tid',
@@ -792,11 +795,11 @@ class ATProtoTest(TestCase):
     def test_convert_resolve_mention_handle(self, mock_get):
         self.store_object(id='did:plc:user', raw=DID_DOC)
 
-        content = 'hi <a href="https://bsky.app/profile/ha.nl">@ha.nl</a> hows it going'
+        content = 'hi <a href="https://bsky.app/profile/han.dull.brid.gy">@han.dull.brid.gy</a> hows it going'
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
             'createdAt': '2022-01-02T03:04:05.000Z',
-            'text': 'hi @ha.nl hows it going',
+            'text': 'hi @han.dull.brid.gy hows it going',
             'bridgyOriginalText': content,
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
@@ -805,7 +808,7 @@ class ATProtoTest(TestCase):
                     'did': 'did:plc:user',
                 }],
                 'index': {
-                    'byteEnd': 9,
+                    'byteEnd': 20,
                     'byteStart': 3,
                 },
             }],
@@ -818,7 +821,7 @@ class ATProtoTest(TestCase):
             'tags': [{
                 'objectType': 'mention',
                 'url': 'did:plc:user',
-                'displayName': '@ha.nl'
+                'displayName': '@han.dull.brid.gy'
             }],
         })))
 
@@ -827,11 +830,11 @@ class ATProtoTest(TestCase):
     def test_convert_resolve_mention_handle_drop_server(self, mock_get):
         self.store_object(id='did:plc:user', raw=DID_DOC)
 
-        content = 'hi <a href="https://bsky.brid.gy/ap/did:plc:user">@<span>ha.nl</span></a> hows it going'
+        content = 'hi <a href="https://bsky.brid.gy/ap/did:plc:user">@<span>han.dull.brid.gy</span></a> hows it going'
         self.assertEqual({
             '$type': 'app.bsky.feed.post',
             'createdAt': '2022-01-02T03:04:05.000Z',
-            'text': 'hi @ha.nl hows it going',
+            'text': 'hi @han.dull.brid.gy hows it going',
             'bridgyOriginalText': content,
             'facets': [{
                 '$type': 'app.bsky.richtext.facet',
@@ -840,7 +843,7 @@ class ATProtoTest(TestCase):
                     'did': 'did:plc:user',
                 }],
                 'index': {
-                    'byteEnd': 9,
+                    'byteEnd': 20,
                     'byteStart': 3,
                 },
             }],
@@ -853,7 +856,7 @@ class ATProtoTest(TestCase):
                 # we should find the mentioned handle in the content text even
                 # if it doesn't have @ser.ver
                 # https://github.com/snarfed/bridgy-fed/issues/957
-                'displayName': '@ha.nl@ser.ver'
+                'displayName': '@han.dull.brid.gy@ser.ver'
             }],
         })))
 
@@ -1008,7 +1011,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual('https://bsky.app/profile/did:plc:user', user.web_url())
 
         self.store_object(id='did:plc:user', raw=DID_DOC)
-        self.assertEqual('https://bsky.app/profile/ha.nl', user.web_url())
+        self.assertEqual('https://bsky.app/profile/han.dull.brid.gy', user.web_url())
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_handle_or_id(self, mock_get):
@@ -1017,8 +1020,8 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         self.assertEqual('did:plc:user', user.handle_or_id())
 
         self.store_object(id='did:plc:user', raw=DID_DOC)
-        self.assertEqual('ha.nl', user.handle)
-        self.assertEqual('ha.nl', user.handle_or_id())
+        self.assertEqual('han.dull.brid.gy', user.handle)
+        self.assertEqual('han.dull.brid.gy', user.handle_or_id())
 
     @patch('requests.get', return_value=requests_response('', status=404))
     def test_handle_as(self, mock_get):
@@ -1029,7 +1032,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         #                  user.handle_as('activitypub'))
 
         self.store_object(id='did:plc:user', raw=DID_DOC)
-        self.assertEqual('@ha.nl@bsky.brid.gy', user.handle_as('activitypub'))
+        self.assertEqual('@han.dull.brid.gy@bsky.brid.gy', user.handle_as('activitypub'))
 
     @patch('requests.get', return_value=requests_response(DID_DOC))
     def test_profile_id(self, mock_get):
@@ -1136,7 +1139,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         # check DNS
         zone.resource_record_set.assert_called_with(
-            name='_atproto.ha.nl.', record_type='TXT',
+            name='_atproto.han.dull.brid.gy.', record_type='TXT',
             ttl=atproto.DNS_TTL, rrdatas=[f'"did=did:plc:user"'])
 
         mock_create_task.assert_called()  # atproto-commit
@@ -1148,7 +1151,13 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                                                      mock_zone):
         """Shouldn't try to create DNS for custom handle's domain."""
         self.make_user_and_repo()
+        self.store_object(id='did:plc:user', raw={
+            **DID_DOC,
+            'alsoKnownAs': ['at://han.dull'],
+        })
         repo = arroba.server.storage.load_repo('did:plc:user')
+        repo.handle = 'han.dull'
+        arroba.server.storage.store_repo(repo)
 
         ATProto.create_for(self.user)
 
@@ -1223,10 +1232,10 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'kind': 'dns#resourceRecordSetsListResponse',
         }
 
-        ATProto.set_dns('han.dull.fa.brid.gy', 'did:foo')
+        ATProto.set_dns('han.dull.brid.gy.fa.brid.gy', 'did:foo')
 
         # the call to see if this record already exists
-        name = '_atproto.han.dull.fa.brid.gy.'
+        name = '_atproto.han.dull.brid.gy.fa.brid.gy.'
         rrsets.list.assert_called_with(
             project=DNS_GCP_PROJECT, managedZone=DNS_ZONE, type='TXT', name=name)
 
@@ -1244,7 +1253,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
     @patch.object(google.cloud.dns.client.ManagedZone, 'changes')
     @patch.object(atproto.dns_discovery_api, 'resourceRecordSets')
     def test_set_dns_existing(self, mock_rrsets, mock_changes):
-        name = '_atproto.han.dull.fa.brid.gy.'
+        name = '_atproto.han.dull.brid.gy.fa.brid.gy.'
 
         mock_changes.return_value = changes = MagicMock()
         mock_rrsets.return_value = rrsets = MagicMock()
@@ -1260,7 +1269,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
             'kind': 'dns#resourceRecordSetsListResponse',
         }
 
-        ATProto.set_dns('han.dull.fa.brid.gy', 'did:foo')
+        ATProto.set_dns('han.dull.brid.gy.fa.brid.gy', 'did:foo')
 
         # the call to see if this record already exists
         rrsets.list.assert_called_with(
@@ -1356,9 +1365,9 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         self.assertIn("You'll need to connect that domain", str(e.exception))
 
-        self.assertEqual('ha.nl', user.handle_as(ATProto))
+        self.assertEqual('han.dull.brid.gy', user.handle_as(ATProto))
         repo = arroba.server.storage.load_repo('did:plc:user')
-        self.assertEqual('han.dull', repo.handle)
+        self.assertEqual('han.dull.brid.gy', repo.handle)
 
     # resolve handle, DNS method, not found
     @patch('dns.resolver.resolve', side_effect=NXDOMAIN())
@@ -1372,9 +1381,9 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         self.assertIn("You'll need to connect that domain", str(e.exception))
 
-        self.assertEqual('ha.nl', user.handle_as(ATProto))
+        self.assertEqual('han.dull.brid.gy', user.handle_as(ATProto))
         repo = arroba.server.storage.load_repo('did:plc:user')
-        self.assertEqual('han.dull', repo.handle)
+        self.assertEqual('han.dull.brid.gy', repo.handle)
 
     def test_set_username_atproto_not_enabled(self):
         user = self.make_user_and_repo()
@@ -1392,9 +1401,9 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         self.assertEqual("bad nope doesn't look like a domain", str(e.exception))
 
-        self.assertEqual('ha.nl', user.handle_as(ATProto))
+        self.assertEqual('han.dull.brid.gy', user.handle_as(ATProto))
         repo = arroba.server.storage.load_repo('did:plc:user')
-        self.assertEqual('han.dull', repo.handle)
+        self.assertEqual('han.dull.brid.gy', repo.handle)
 
     @patch('google.cloud.dns.client.ManagedZone', autospec=True)
     @patch.object(tasks_client, 'create_task', return_value=Task(name='my task'))
@@ -2092,7 +2101,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
         mock_rrsets.return_value = rrsets = MagicMock()
         rrsets.list.return_value = list_ = MagicMock()
 
-        dns_name = '_atproto.ha.nl.'
+        dns_name = '_atproto.han.dull.brid.gy.'
         list_.execute.return_value = {
             'rrsets': [{
                 'name': dns_name,
@@ -2291,7 +2300,7 @@ Sed tortor neque, aliquet quis posuere aliquam […]
                     'handle': 'alice.bsky.social',
                 }, {
                     'did': 'did:plc:user',
-                    'handle': 'han.dull',
+                    'handle': 'han.dull.brid.gy',
                 }],
                 'muted': False,
                 'unreadCount': 0,
@@ -2447,31 +2456,31 @@ Sed tortor neque, aliquet quis posuere aliquam […]
 
         client = DatastoreClient('https://appview.local')
         self.assertEqual({'did': 'did:plc:user'},
-                         client.com.atproto.identity.resolveHandle(handle='ha.nl'))
+                         client.com.atproto.identity.resolveHandle(handle='han.dull.brid.gy'))
 
     def test_datastore_client_resolve_handle_datastore_repo(self):
         self.make_user_and_repo()
 
         client = DatastoreClient('https://appview.local')
         self.assertEqual({'did': 'did:plc:user'},
-                         client.com.atproto.identity.resolveHandle(handle='han.dull'))
+                         client.com.atproto.identity.resolveHandle(handle='han.dull.brid.gy'))
 
         # tombstone first repo, make a new one, we should get the new one
         arroba.server.storage.tombstone_repo(self.repo)
-        Repo.create(self.storage, 'did:plc:user-new', handle='han.dull',
+        Repo.create(self.storage, 'did:plc:user-new', handle='han.dull.brid.gy',
                     signing_key=ATPROTO_KEY, rotation_key=ATPROTO_KEY)
 
         self.assertEqual({'did': 'did:plc:user-new'},
-                         client.com.atproto.identity.resolveHandle(handle='han.dull'))
+                         client.com.atproto.identity.resolveHandle(handle='han.dull.brid.gy'))
 
     @patch('requests.get', return_value=requests_response({'did': 'did:dy:d'}))
     def test_datastore_client_resolve_handle_pass_through(self, mock_get):
         client = DatastoreClient('https://appview.local')
         self.assertEqual({'did': 'did:dy:d'},
-                         client.com.atproto.identity.resolveHandle(handle='han.dull'))
+                         client.com.atproto.identity.resolveHandle(handle='han.dull.brid.gy'))
 
         mock_get.assert_called_with(
-            'https://appview.local/xrpc/com.atproto.identity.resolveHandle?handle=han.dull',
+            'https://appview.local/xrpc/com.atproto.identity.resolveHandle?handle=han.dull.brid.gy',
             json=None, data=None, headers=ANY)
 
     @patch('requests.get')
