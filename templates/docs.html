@@ -628,9 +628,12 @@ RewriteRule ^.well-known/(host-meta|webfinger).* https://fed.brid.gy/$0  [redire
 
 <li id="bluesky-enhanced" class="question">Can I use my own domain as my Bluesky handle?</li>
 <li class="answer">
-<p>Yes! First, you'll need your bridged account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>. You can get it by DMing <em>did</em> to the Bluesky Bridgy Fed bot account (eg <code>@bsky.brid.gy@bsky.brid.gy</code>), or go to your <a href="#user-page">user page</a> and click the <button class="btn btn-default glyphicon glyphicon-tag"></button> next to to your bridged Bluesky account link.
-<p>Then you'll need to connect your domain to your bridged Bluesky account. You can do this with DNS by following <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial">step 5 in the <em>How do I set this custom domain as my handle?</em> section here</a>. Or, you can do it with HTTPS by following the <a href="https://atproto.com/specs/handle#handle-resolution"><em>HTTPS well-known Method</em> section here</a>. Once you're done, you can <a href="https://bsky-debug.app/handle?handle={username}">check your work here</a>.
-<p>Finally, if your account is on the fediverse, DM <em>username [domain]</em> to <code>@bsky.brid.gy@bsky.brid.gy</code>. For example, to set your handle to my.site.com, DM the exact text <em>username my.site.com</em>. If you're bridging a website, click the <button class="btn btn-default glyphicon glyphicon-refresh"></button> button on your <a href="#user-page">user page</a>.
+<p>Yes! Just follow these three steps:</p>
+<ol>
+<li>Get your bridged account's <a href="https://atproto.com/guides/identity#identifiers">DID</a>. You can either DM <em>did</em> to the Bluesky Bridgy Fed bot account (eg <code>@bsky.brid.gy@bsky.brid.gy</code>), or go to your <a href="#user-page">user page</a> and click the <button class="btn btn-default glyphicon glyphicon-tag"></button> next to to your bridged Bluesky account link.
+<li>Connect your domain to your bridged Bluesky account. You can do this <a href="https://bsky.social/about/blog/4-28-2023-domain-handle-tutorial#:~:text=navigate%20back%20to%20your%20domain%20registrar">with DNS</a> (just steps 5 and 6) or <a href="https://atproto.com/specs/handle#:~:text=HTTPS%20well-known%20method">with HTTPS</a>. Once you're done, <a href="https://bsky-debug.app/handle">check your work here</a>.
+<li>Add your domain to your DID. If your account is on the fediverse, send a DM to <code>@bsky.brid.gy@bsky.brid.gy</code> with the text <code>username [domain]</code> (eg <code>username my.site.com</code>). Or, if you're bridging a website, click the <button class="btn btn-default glyphicon glyphicon-refresh"></button> button on your <a href="#user-page">user page</a>.
+</ol>
 </li>
 
 <li id="bluesky-fields" class="question">How can I see the full text or original URL for a bridged post?</li>
