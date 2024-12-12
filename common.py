@@ -505,10 +505,10 @@ def memcache_memoize(expire=None):
             key = memcache_memoize_key(fn, *args, **kwargs)
             val = pickle_memcache.get(key)
             if val is not None:
-                logger.debug(f'cache hit {key}')
+                # logger.debug(f'cache hit {key}')
                 return None if val == NONE else val
 
-            logger.debug(f'cache miss {key}')
+            # logger.debug(f'cache miss {key}')
             val = fn(*args, **kwargs)
             pickle_memcache.set(key, NONE if val is None else val, expire=expire)
             return val

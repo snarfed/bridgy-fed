@@ -298,7 +298,7 @@ class Web(User, Protocol):
                     root_user = Web.get_or_create(
                         root,
                         enabled_protocols=self.enabled_protocols,
-                        direct=self.direct)
+                        allow_opt_out=True, direct=self.direct)
                     self.use_instead = root_user.key
                     self.put()
                     return root_user.verify()

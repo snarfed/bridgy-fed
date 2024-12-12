@@ -2775,6 +2775,19 @@ Current vs expected:<pre>- http://this/404s
         postprocessed = ActivityPub.convert(self.user.obj, from_user=self.user)
         self.assertEqual('user.com', postprocessed['preferredUsername'])
 
+    def test_verify_www_root_user_is_blocked(self, mock_get, _):
+        self.user.has_redirects = False
+        self.user.put()
+
+        mock_get.side_effect = [
+            requests_response(ACTOR_HTML_METAFORMATS, url='https://user.com/'),
+            requests_response(status=404),  # webfinger for @user.com@user.com
+            requests_response(ACTOR_HTML_METAFORMATS, url='https://user.com/'),
+        ]
+
+        www = Web(id='www.user.com')
+        www.verify()
+
     def test_web_url(self, _, __):
         self.assertEqual('https://user.com/', self.user.web_url())
 
