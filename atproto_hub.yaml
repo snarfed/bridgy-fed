@@ -31,6 +31,7 @@ env_variables:
   MOD_SERVICE_HOST: mod.bsky.app
   MOD_SERVICE_DID: did:plc:ar7c4by46qjdydhdevvrndac
   # ...or test against labeler.dholms.xyz / did:plc:vzxheqfwpbi3lxbgdh22js66
+  MEMCACHE_HOST: '10.126.144.3'
 
   ROLLBACK_WINDOW: 200000
   SUBSCRIBE_REPOS_BATCH_DELAY: 10

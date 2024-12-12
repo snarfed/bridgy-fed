@@ -262,6 +262,7 @@ from common import (
     global_cache,
     LOCAL_DOMAINS,
     memcache,
+    pickle_memcache,
     OTHER_DOMAINS,
     PRIMARY_DOMAIN,
     PROTOCOL_DOMAINS,
@@ -320,9 +321,11 @@ class TestCase(unittest.TestCase, testutil.Asserts):
         self.router_client = router.app.test_client()
 
         memcache.clear()
+        pickle_memcache.clear()
         global_cache.clear()
         models.get_original_object_key.cache_clear()
         models.get_original_user_key.cache_clear()
+        common.pickle_memcache.clear()
         activitypub.WEB_OPT_OUT_DOMAINS = set()
 
         # clear datastore

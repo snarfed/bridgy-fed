@@ -3,6 +3,7 @@ import base64
 from datetime import timedelta
 import functools
 import logging
+import os
 from pathlib import Path
 import re
 import threading
@@ -26,6 +27,7 @@ from oauth_dropins.webutil import flask_util
 from oauth_dropins.webutil.util import json_dumps
 from negotiator import ContentNegotiator, AcceptParameters, ContentType
 import pymemcache.client.base
+from pymemcache.serde import PickleSerde
 from pymemcache.test.utils import MockMemcacheClient
 
 logger = logging.getLogger(__name__)
@@ -102,13 +104,17 @@ MEMCACHE_KEY_MAX_LEN = 250
 
 if appengine_info.DEBUG or appengine_info.LOCAL_SERVER:
     logger.info('Using in memory mock memcache')
-    memcache = MockMemcacheClient()
+    memcache = MockMemcacheClient(allow_unicode_keys=True)
+    pickle_memcache = MockMemcacheClient(allow_unicode_keys=True, serde=PickleSerde())
     global_cache = _InProcessGlobalCache()
 else:
     logger.info('Using production Memorystore memcache')
     memcache = pymemcache.client.base.PooledClient(
-        '10.126.144.3', timeout=10, connect_timeout=10,  # seconds
+        os.environ['MEMCACHE_HOST'], timeout=10, connect_timeout=10,  # seconds
         allow_unicode_keys=True)
+    pickle_memcache = pymemcache.client.base.PooledClient(
+        os.environ['MEMCACHE_HOST'], timeout=10, connect_timeout=10,  # seconds
+        serde=PickleSerde(), allow_unicode_keys=True)
     global_cache = MemcacheCache(memcache)
 
 _negotiator = ContentNegotiator(acceptable=[
@@ -299,7 +305,7 @@ def webmention_endpoint_cache_key(url):
     if parsed.path in ('', '/'):
         key += ' /'
 
-    # logger.debug(f'wm cache key {key}')
+    logger.debug(f'wm cache key {key}')
     return key
 
 
@@ -478,27 +484,33 @@ def memcache_key(key):
     return key[:MEMCACHE_KEY_MAX_LEN].replace(' ', '%20').encode()
 
 
+def memcache_memoize_key(fn, *args, **kwargs):
+    return memcache_key(f'{fn.__name__}-2-{repr(args)}-{repr(kwargs)}')
+
+
+NONE = ()  # empty tuple
+
 def memcache_memoize(expire=None):
     """Memoize function decorator that stores the cached value in memcache.
 
-    NOT YET WORKING! CURRENTLY UNUSED!
-
-    Only caches non-null/empty values.
-
     Args:
-      expire (int): optional, expiration in seconds
+      expire (timedelta): optional, expiration
     """
+    if expire:
+        expire = int(expire.total_seconds())
+
     def decorator(fn):
         @functools.wraps(fn)
         def wrapped(*args, **kwargs):
-            key = memcache_key(f'{fn.__name__}-{repr(args)}-{repr(kwargs)}')
-            if val := memcache.get(key):
+            key = memcache_memoize_key(fn, *args, **kwargs)
+            val = pickle_memcache.get(key)
+            if val is not None:
                 logger.debug(f'cache hit {key}')
-                return val
+                return None if val == NONE else val
 
             logger.debug(f'cache miss {key}')
             val = fn(*args, **kwargs)
-            memcache.set(key, val)
+            pickle_memcache.set(key, NONE if val is None else val, expire=expire)
             return val
 
         return wrapped

@@ -30,6 +30,7 @@ from common import (
     base64_to_long,
     DOMAIN_RE,
     long_to_base64,
+    memcache_memoize,
     OLD_ACCOUNT_AGE,
     report_error,
     unwrap,
@@ -80,6 +81,8 @@ OBJECT_EXPIRE_TYPES = (
     None,
 )
 OBJECT_EXPIRE_AGE = timedelta(days=90)
+
+GET_ORIGINALS_CACHE_EXPIRATION = timedelta(days=1)
 
 logger = logging.getLogger(__name__)
 
@@ -233,6 +236,8 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
         if obj:
             self.obj = obj
 
+        self.lock = Lock()
+
     @classmethod
     def new(cls, **kwargs):
         """Try to prevent instantiation. Use subclasses instead."""
@@ -240,6 +245,20 @@ class User(StringIdModel, metaclass=ProtocolUserMeta):
 
     def _post_put_hook(self, future):
         logger.debug(f'Wrote {self.key}')
+
+    def add(self, prop, val):
+        """Adds a value to a multiply-valued property. Uses ``self.lock``.
+
+        Args:
+          prop (str)
+          val
+        """
+        with self.lock:
+            util.add(getattr(self, prop), val)
+
+        if prop == 'copies':
+            common.pickle_memcache.set(common.memcache_memoize_key(
+                get_original_user_key, val.uri), self.key)
 
     @classmethod
     def get_by_id(cls, id, allow_opt_out=False, **kwargs):
@@ -1098,6 +1117,10 @@ class Object(StringIdModel):
         with self.lock:
             util.add(getattr(self, prop), val)
 
+        if prop == 'copies':
+            common.pickle_memcache.set(common.memcache_memoize_key(
+                get_original_object_key, val.uri), self.key)
+
     def remove(self, prop, val):
         """Removes a value from a multiply-valued property. Uses ``self.lock``.
 
@@ -1659,8 +1682,12 @@ def fetch_page(query, model_class, by=None):
 
 
 @lru_cache(maxsize=100000)
+@memcache_memoize(expire=GET_ORIGINALS_CACHE_EXPIRATION)
 def get_original_object_key(copy_id):
     """Finds the :class:`Object` with a given copy id, if any.
+
+    Note that :meth:`Object.add` also updates this function's
+    :func:`memcache_memoize` cache.
 
     Args:
       copy_id (str)
@@ -1674,8 +1701,12 @@ def get_original_object_key(copy_id):
 
 
 @lru_cache(maxsize=100000)
+@memcache_memoize(expire=GET_ORIGINALS_CACHE_EXPIRATION)
 def get_original_user_key(copy_id):
     """Finds the user with a given copy id, if any.
+
+    Note that :meth:`User.add` also updates this function's
+    :func:`memcache_memoize` cache.
 
     Args:
       copy_id (str)

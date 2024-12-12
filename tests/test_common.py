@@ -2,6 +2,7 @@
 from unittest.mock import Mock, patch
 
 import flask
+from google.cloud.ndb import Key
 from granary import as2
 from oauth_dropins.webutil.appengine_config import error_reporting_client
 
@@ -13,7 +14,7 @@ from atproto import ATProto
 import common
 from arroba.datastore_storage import AtpBlock
 from flask_app import app
-from models import Follower, Object
+from models import Follower, Object, Target
 from ui import UIProtocol
 from web import Web
 
@@ -173,6 +174,87 @@ class CommonTest(TestCase):
                 ('☃.net', b'\xe2\x98\x83.net'),
         ):
             self.assertEqual(expected, common.memcache_key(input))
+
+    def test_memcache_memoize(self):
+        calls = []
+
+        @common.memcache_memoize()
+        def foo(x, y, z=None):
+            calls.append((x, y, z))
+            return len(calls)
+
+        self.assertEqual(1, foo(1, 'a', z=1))
+        self.assertEqual([(1, 'a', 1)], calls)
+        self.assertEqual(1, foo(1, 'a', z=1))
+        self.assertEqual([(1, 'a', 1)], calls)
+
+        self.assertEqual(2, foo(2, 'b', z=2))
+        self.assertEqual([(1, 'a', 1), (2, 'b', 2)], calls)
+        self.assertEqual(1, foo(1, 'a', z=1))
+        self.assertEqual(2, foo(2, 'b', z=2))
+        self.assertEqual([(1, 'a', 1), (2, 'b', 2)], calls)
+
+    # def test_memcache_memoize_Object(self):
+    #     calls = []
+
+    #     obj = Object(users=[Key(Object, 'abc')],
+    #                  copies=[Target(uri='abc', protocol='web')],
+    #                  as2={'foo': 'x ☕ y', 'bar': True, 'baz': 5})
+
+    #     @common.memcache_memoize()
+    #     def foo(x):
+    #         calls.append(x)
+    #         obj.key = Key(Object, x)
+    #         return obj
+
+    #     expected_a = Object(id='a', **obj.to_dict(include=['users', 'copies', 'as2']))
+    #     self.assert_entities_equal(expected_a, foo('a'))
+    #     self.assertEqual(['a'], calls)
+    #     self.assert_entities_equal(expected_a, foo('a'))
+    #     self.assertEqual(['a'], calls)
+
+    #     expected_b = Object(id='b', **obj.to_dict(include=['users', 'copies', 'as2']))
+    #     self.assert_entities_equal(expected_b, foo('b'))
+    #     self.assertEqual(['a', 'b'], calls)
+    #     self.assert_entities_equal(expected_a, foo('a'))
+    #     self.assertEqual(['a', 'b'], calls)
+    #     self.assert_entities_equal(expected_b, foo('b'))
+    #     self.assertEqual(['a', 'b'], calls)
+
+    def test_memcache_memoize_Key(self):
+        calls = []
+
+        @common.memcache_memoize()
+        def foo(x):
+            calls.append(x)
+            return Key(Object, x)
+
+        a = Key(Object, 'a')
+        self.assertEqual(a, foo('a'))
+        self.assertEqual(['a'], calls)
+        self.assertEqual(a, foo('a'))
+        self.assertEqual(['a'], calls)
+
+        b = Key(Object, 'b')
+        self.assertEqual(b, foo('b'))
+        self.assertEqual(['a', 'b'], calls)
+        self.assertEqual(a, foo('a'))
+        self.assertEqual(['a', 'b'], calls)
+        self.assertEqual(b, foo('b'))
+        self.assertEqual(['a', 'b'], calls)
+
+    def test_memcache_memoize_None(self):
+        calls = []
+
+        @common.memcache_memoize()
+        def foo(x):
+            calls.append(x)
+            return None
+
+        self.assertIsNone(foo('a'))
+        self.assertEqual(['a'], calls)
+        self.assertIsNone(foo('a'))
+        self.assertEqual(['a'], calls)
 
     def test_as2_request_type(self):
         for accept, expected in (

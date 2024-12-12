@@ -532,6 +532,17 @@ class UserTest(TestCase):
         self.assertFalse(Web(id='ap.brid.gy').is_enabled(ActivityPub))
         self.assertFalse(Web(id='bsky.brid.gy').is_enabled(ATProto))
 
+    def test_add_to_copies_updates_memcache(self):
+        cache_key = common.memcache_memoize_key(
+            models.get_original_user_key, 'other:x')
+        self.assertIsNone(common.pickle_memcache.get(cache_key))
+
+        user = Fake(id='fake:x')
+        copy = Target(protocol='other', uri='other:x')
+        user.add('copies', copy)
+
+        self.assertEqual(user.key, common.pickle_memcache.get(cache_key))
+
 
 class ObjectTest(TestCase):
     def setUp(self):
@@ -1010,6 +1021,7 @@ class ObjectTest(TestCase):
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
+        common.pickle_memcache.clear()
 
         # matching copy users
         self.make_user('other:alice', cls=OtherFake,
@@ -1048,6 +1060,7 @@ class ObjectTest(TestCase):
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
+        common.pickle_memcache.clear()
 
         # matching copies
         self.make_user('other:alice', cls=OtherFake,
@@ -1089,6 +1102,7 @@ class ObjectTest(TestCase):
 
         models.get_original_user_key.cache_clear()
         models.get_original_object_key.cache_clear()
+        common.pickle_memcache.clear()
 
         # matching copies
         self.store_object(id='other:a',
@@ -1202,6 +1216,7 @@ class ObjectTest(TestCase):
     def test_get_original_user_key(self):
         self.assertIsNone(models.get_original_user_key('other:user'))
         models.get_original_user_key.cache_clear()
+        common.pickle_memcache.clear()
         user = self.make_user('fake:user', cls=Fake,
                               copies=[Target(uri='other:user', protocol='other')])
         self.assertEqual(user.key, models.get_original_user_key('other:user'))
@@ -1209,6 +1224,7 @@ class ObjectTest(TestCase):
     def test_get_original_object_key(self):
         self.assertIsNone(models.get_original_object_key('other:post'))
         models.get_original_object_key.cache_clear()
+        common.pickle_memcache.clear()
         obj = self.store_object(id='fake:post',
                                 copies=[Target(uri='other:post', protocol='other')])
         self.assertEqual(obj.key, models.get_original_object_key('other:post'))
@@ -1225,6 +1241,17 @@ class ObjectTest(TestCase):
 
         obj.copies.append(Target(uri='fake:foo', protocol='fake'))
         self.assertEqual('fake:foo', obj.get_copy(Fake))
+
+    def test_add_to_copies_updates_memcache(self):
+        cache_key = common.memcache_memoize_key(
+            models.get_original_object_key, 'other:x')
+        self.assertIsNone(common.pickle_memcache.get(cache_key))
+
+        obj = Object(id='x')
+        copy = Target(protocol='other', uri='other:x')
+        obj.add('copies', copy)
+
+        self.assertEqual(obj.key, common.pickle_memcache.get(cache_key))
 
 
 class FollowerTest(TestCase):
