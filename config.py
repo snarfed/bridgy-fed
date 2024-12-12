@@ -32,7 +32,7 @@ else:
     if logging_client := getattr(appengine_config, 'logging_client'):
         logging_client.setup_logging(log_level=logging.INFO)
 
-    for logger in ('common', 'oauth_dropins.webutil.webmention', 'lexrpc'):
+    for logger in ('oauth_dropins.webutil.webmention', 'lexrpc'):
         logging.getLogger(logger).setLevel(logging.DEBUG)
 
 os.environ.setdefault('APPVIEW_HOST', 'api.bsky.local')
