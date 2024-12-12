@@ -3005,6 +3005,7 @@ class WebUtilTest(TestCase):
         self.assertEqual(False, Web.owns_id('e45fab982'))
         self.assertEqual(False, Web.owns_id('foo.bad'))
         self.assertEqual(False, Web.owns_id('foo.json'))
+        self.assertEqual(False, Web.owns_id('mariushosting.com@bsky.brid.gy'))
         self.assertTrue(Web.owns_id('user.com'))
 
         # extra /, urlparse thinks domain is None

@@ -391,6 +391,9 @@ class Web(User, Protocol):
         elif is_valid_domain(id, allow_internal=True):
             return True
 
+        if not util.is_web(id):
+            return False
+
         domain = domain_from_link(id)
         if domain == PRIMARY_DOMAIN or domain in PROTOCOL_DOMAINS:
             return True
@@ -398,7 +401,7 @@ class Web(User, Protocol):
         # we allowed internal domains for protocol bot actors above, but we
         # don't want to allow non-homepage URLs on those domains, eg
         # https://bsky.brid.gy/foo, so don't allow internal here
-        if util.is_web(id) and is_valid_domain(domain, allow_internal=False):
+        if is_valid_domain(domain, allow_internal=False):
             return None
 
         return False
