@@ -490,11 +490,13 @@ def memcache_memoize_key(fn, *args, **kwargs):
 
 NONE = ()  # empty tuple
 
-def memcache_memoize(expire=None):
+def memcache_memoize(expire=None, key=None):
     """Memoize function decorator that stores the cached value in memcache.
 
     Args:
       expire (timedelta): optional, expiration
+      key (callable): function that takes the function's (*args, **kwargs) and
+        returns the cache key to use
     """
     if expire:
         expire = int(expire.total_seconds())
@@ -502,15 +504,19 @@ def memcache_memoize(expire=None):
     def decorator(fn):
         @functools.wraps(fn)
         def wrapped(*args, **kwargs):
-            key = memcache_memoize_key(fn, *args, **kwargs)
-            val = pickle_memcache.get(key)
+            if key:
+                cache_key = memcache_memoize_key(fn, key(*args, **kwargs))
+            else:
+                cache_key = memcache_memoize_key(fn, *args, **kwargs)
+
+            val = pickle_memcache.get(cache_key)
             if val is not None:
-                # logger.debug(f'cache hit {key}')
+                # logger.debug(f'cache hit {cache_key}')
                 return None if val == NONE else val
 
-            # logger.debug(f'cache miss {key}')
+            # logger.debug(f'cache miss {cache_key}')
             val = fn(*args, **kwargs)
-            pickle_memcache.set(key, NONE if val is None else val, expire=expire)
+            pickle_memcache.set(cache_key, NONE if val is None else val, expire=expire)
             return val
 
         return wrapped

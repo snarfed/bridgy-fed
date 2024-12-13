@@ -175,7 +175,7 @@ class CommonTest(TestCase):
         ):
             self.assertEqual(expected, common.memcache_key(input))
 
-    def test_memcache_memoize(self):
+    def test_memcache_memoize_int(self):
         calls = []
 
         @common.memcache_memoize()
@@ -194,32 +194,18 @@ class CommonTest(TestCase):
         self.assertEqual(2, foo(2, 'b', z=2))
         self.assertEqual([(1, 'a', 1), (2, 'b', 2)], calls)
 
-    # def test_memcache_memoize_Object(self):
-    #     calls = []
+    def test_memcache_memoize_str(self):
+        calls = []
 
-    #     obj = Object(users=[Key(Object, 'abc')],
-    #                  copies=[Target(uri='abc', protocol='web')],
-    #                  as2={'foo': 'x ☕ y', 'bar': True, 'baz': 5})
+        @common.memcache_memoize()
+        def foo(x):
+            calls.append(x)
+            return str(x)
 
-    #     @common.memcache_memoize()
-    #     def foo(x):
-    #         calls.append(x)
-    #         obj.key = Key(Object, x)
-    #         return obj
-
-    #     expected_a = Object(id='a', **obj.to_dict(include=['users', 'copies', 'as2']))
-    #     self.assert_entities_equal(expected_a, foo('a'))
-    #     self.assertEqual(['a'], calls)
-    #     self.assert_entities_equal(expected_a, foo('a'))
-    #     self.assertEqual(['a'], calls)
-
-    #     expected_b = Object(id='b', **obj.to_dict(include=['users', 'copies', 'as2']))
-    #     self.assert_entities_equal(expected_b, foo('b'))
-    #     self.assertEqual(['a', 'b'], calls)
-    #     self.assert_entities_equal(expected_a, foo('a'))
-    #     self.assertEqual(['a', 'b'], calls)
-    #     self.assert_entities_equal(expected_b, foo('b'))
-    #     self.assertEqual(['a', 'b'], calls)
+        self.assertEqual('1', foo(1))
+        self.assertEqual([1], calls)
+        self.assertEqual('1', foo(1))
+        self.assertEqual([1], calls)
 
     def test_memcache_memoize_Key(self):
         calls = []
@@ -255,6 +241,23 @@ class CommonTest(TestCase):
         self.assertEqual(['a'], calls)
         self.assertIsNone(foo('a'))
         self.assertEqual(['a'], calls)
+
+    def test_memcache_memoize_key_fn(self):
+        calls = []
+
+        @common.memcache_memoize(key=lambda x: x + 1)
+        def foo(x):
+            calls.append(x)
+            return str(x)
+
+        self.assertEqual('5', foo(5))
+        self.assertEqual([5], calls)
+
+        self.assertIsNone(common.pickle_memcache.get(b'foo-2-(5,)-{}'))
+        self.assertEqual('5', common.pickle_memcache.get('foo-2-(6,)-{}'))
+
+        self.assertEqual('5', foo(5))
+        self.assertEqual([5], calls)
 
     def test_as2_request_type(self):
         for accept, expected in (

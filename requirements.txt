@@ -9,6 +9,9 @@ git+https://github.com/snarfed/lexrpc.git#egg=lexrpc
 git+https://github.com/snarfed/mox3.git#egg=mox3
 git+https://github.com/snarfed/negotiator.git@py3#egg=negotiator
 git+https://github.com/snarfed/oauth-dropins.git#egg=oauth_dropins
+# TODO: switch back to pypi as soon as a new release is cut after 4.0.0
+# that includes https://github.com/pinterest/pymemcache/pull/471
+git+https://github.com/pinterest/pymemcache.git#egg=pymemcache
 
 attrs==24.2.0
 bases==0.3.0
@@ -86,7 +89,6 @@ pyasn1-modules==0.4.1
 pycparser==2.22
 pycryptodome==3.21.0
 pyjwt==2.10.1
-pymemcache==4.0.0
 pyparsing==3.2.0
 pyrsistent==0.20.0
 python-dateutil==2.9.0.post0
