@@ -83,6 +83,7 @@ OBJECT_EXPIRE_TYPES = (
 OBJECT_EXPIRE_AGE = timedelta(days=90)
 
 GET_ORIGINALS_CACHE_EXPIRATION = timedelta(days=1)
+FOLLOWERS_CACHE_EXPIRATION = timedelta(hours=2)
 
 logger = logging.getLogger(__name__)
 
@@ -847,9 +848,13 @@ Welcome to Bridgy Fed! Your account will soon be bridged to {to_proto.PHRASE} at
         if self.obj and self.obj.as1:
             return util.get_url(self.obj.as1, 'image')
 
-    # TODO: cache in memcache
-    @cachetools.cached(cachetools.TTLCache(50000, 60 * 60 * 2),  # 2h expiration
-                       key=lambda user: user.key.id(), lock=Lock())
+    # can't use functools.lru_cache here because we want the cache key to be
+    # just the user id, not the whole entity
+    @cachetools.cached(
+        cachetools.TTLCache(50000, FOLLOWERS_CACHE_EXPIRATION.total_seconds()),
+        key=lambda user: user.key.id(), lock=Lock())
+    @memcache_memoize(key=lambda self: self.key.id(),
+                      expire=FOLLOWERS_CACHE_EXPIRATION)
     def count_followers(self):
         """Counts this user's followers and followings.
 
@@ -1721,3 +1726,4 @@ def get_original_user_key(copy_id):
         if proto and proto.LABEL != 'ui' and not proto.owns_id(copy_id):
             if orig := proto.query(proto.copies.uri == copy_id).get(keys_only=True):
                 return orig
+            

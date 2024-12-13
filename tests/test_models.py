@@ -431,12 +431,17 @@ class UserTest(TestCase):
         Follower(from_=self.user.key, to=Fake(id='b').key).put()
         Follower(from_=Fake(id='c').key, to=self.user.key).put()
 
-        # still cached
+        # cached in both memcache and memory
         user = Web.get_by_id('y.za')
         self.assertEqual((0, 0), user.count_followers())
 
-        User.count_followers.cache.clear()
-        del self.user
+        # clear memory cache, still cached in memcache
+        user.count_followers.cache.clear()
+        self.assertEqual((0, 0), user.count_followers())
+
+        # clear both
+        common.pickle_memcache.clear()
+        user.count_followers.cache.clear()
         self.assertEqual((1, 2), user.count_followers())
 
     def test_is_enabled_default_enabled_protocols(self):
