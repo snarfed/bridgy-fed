@@ -414,3 +414,24 @@ def instance_info():
 @flask_util.headers(CACHE_CONTROL)
 def log():
     return logs.log()
+
+
+@app.post('/memcache')
+def memcache_command():
+    """Minimal memcache text protocol command handler.
+
+    Requires the Flask app's secret key in the Authorization HTTP header.
+
+    Example usage:
+
+      curl https://fed.brid.gy/memcache -H 'Authorization: ...' -d 'stats items'
+
+    https://docs.memcached.org/protocols/
+    https://github.com/memcached/memcached/blob/master/doc/protocol.txt
+    """
+    if request.headers.get('Authorization') != app.config['SECRET_KEY']:
+        return '', 401
+
+    resp = common.memcache.raw_command(request.get_data(as_text=True),
+                                       end_tokens='END\r\n')
+    return resp.decode(), {'Content-Type': 'text/plain'}
