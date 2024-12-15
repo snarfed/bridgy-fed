@@ -1038,7 +1038,7 @@ def actor(handle_or_id):
         'following': id + '/following',
         'followers': id + '/followers',
         'endpoints': {
-            'sharedInbox': subdomain_wrap(proto, '/ap/sharedInbox'),
+            'sharedInbox': urljoin(id, '/ap/sharedInbox'),
         },
     })
 

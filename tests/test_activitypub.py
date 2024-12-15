@@ -71,7 +71,7 @@ ACTOR_BASE = {
     'following': 'http://localhost/user.com/following',
     'followers': 'http://localhost/user.com/followers',
     'endpoints': {
-        'sharedInbox': 'https://web.brid.gy/ap/sharedInbox',
+        'sharedInbox': 'http://localhost/ap/sharedInbox',
     },
     'alsoKnownAs': ['https://user.com/'],
 }
